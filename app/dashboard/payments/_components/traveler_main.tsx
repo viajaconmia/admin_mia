@@ -1,0 +1,32 @@
+"use client";
+
+import { useState } from "react";
+import { Card } from "@/components/ui/card";
+import { TravelerTable } from "./traveler_table";
+import { TravelerFilters } from "./traveler_filters";
+import { TravelerDialog } from "./traveler_dialog";
+import { Factura } from "@/app/_types";
+
+export function TravelersPage({
+  facturas,
+}: {
+  facturas: Factura[];
+}) {
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
+  return (
+    <div className="space-y-8">
+      <Card>
+        <div className="p-6 space-y-4">
+          <TravelerFilters onCreateClick={() => setIsDialogOpen(true)} />
+          <TravelerTable facturas={facturas} />
+        </div>
+      </Card>
+
+      {/* <TravelerDialog
+        open={isDialogOpen}
+        onOpenChange={setIsDialogOpen}
+      /> */}
+    </div>
+  );
+}
