@@ -49,7 +49,7 @@ export function TravelerDialog({
     e.preventDefault();
     try {
       const response = await fetch(
-        "https://mianoktos.vercel.app/v1/mia/viajeros",
+        "https://miaback.vercel.app/v1/mia/viajeros",
         {
           method: "POST",
           headers: {

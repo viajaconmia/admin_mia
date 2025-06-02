@@ -8,7 +8,7 @@ export const fetchViajeros = async (id, callback) => {
   }
   try {
     const response = await fetch(
-      `https://mianoktos.vercel.app/v1/mia/viajeros/id?id=${id}`,
+      `https://miaback.vercel.app/v1/mia/viajeros/id?id=${id}`,
       {
         headers: {
           "x-api-key": API_KEY || "",
@@ -31,7 +31,7 @@ export const fetchViajerosFromAgent = async (
 ) => {
   try {
     const response = await fetch(
-      `https://mianoktos.vercel.app/v1/mia/viajeros/id?id=${id}`,
+      `https://miaback.vercel.app/v1/mia/viajeros/id?id=${id}`,
       {
         headers: {
           "x-api-key": API_KEY || "",

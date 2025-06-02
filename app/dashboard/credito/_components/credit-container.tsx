@@ -30,7 +30,7 @@ export function CreditPage({
   const [searchTerm, setSearchTerm] = useState("");
 
   const handleUpdate = () => {
-    fetch("https://mianoktos.vercel.app/v1/mia/pagos/todos", {
+    fetch("https://miaback.vercel.app/v1/mia/pagos/todos", {
       method: "GET",
       headers: {
         "x-api-key": API_KEY || "",

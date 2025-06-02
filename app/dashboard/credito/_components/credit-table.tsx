@@ -90,7 +90,7 @@ export function CreditTable({
 
   const handleSaveCredit = (credit: number) => {
     if (selectedItem) {
-      fetch(`https://mianoktos.vercel.app/v1/mia/pagos/${selectedItem.type}`, {
+      fetch(`https://miaback.vercel.app/v1/mia/pagos/${selectedItem.type}`, {
         method: "POST",
         headers: {
           "x-api-key": API_KEY || "",

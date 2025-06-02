@@ -35,7 +35,7 @@ export function CompanyDialog({ open, onOpenChange }: CompanyDialogProps) {
     try {
       console.log(formData);
       const response = await fetch(
-        "https://mianoktos.vercel.app/v1/mia/empresas",
+        "https://miaback.vercel.app/v1/mia/empresas",
         {
           method: "POST",
           headers: {

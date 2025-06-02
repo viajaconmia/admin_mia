@@ -145,7 +145,7 @@ const buscarCodigoPostal = async (codigo: string) => {
   try {
     const response = await fetch(
      // `http://localhost:5173/v1/sepoMex/buscar-codigo-postal?d_codigo=${codigo}`,
-      `https://mianoktos.vercel.app/v1/sepoMex/buscar-codigo-postal?d_codigo=${codigo}`,
+      `https://miaback.vercel.app/v1/sepoMex/buscar-codigo-postal?d_codigo=${codigo}`,
       {
         method: "GET",
         headers: {

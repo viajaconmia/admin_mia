@@ -28,7 +28,7 @@ export function CompanyTable() {
     const fetchCompanies = async () => {
       try {
         const response = await fetch(
-          "https://mianoktos.vercel.app/v1/mia/empresas",
+          "https://miaback.vercel.app/v1/mia/empresas",
           {
             method: "GET",
             headers: {

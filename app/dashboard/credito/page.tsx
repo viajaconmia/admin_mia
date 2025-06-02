@@ -3,7 +3,7 @@ import { CreditPage } from "./_components/credit-container";
 
 const CreditDashboard = async () => {
   const response = await fetch(
-    "https://mianoktos.vercel.app/v1/mia/pagos/todos",
+    "https://miaback.vercel.app/v1/mia/pagos/todos",
     {
       method: "GET",
       headers: {

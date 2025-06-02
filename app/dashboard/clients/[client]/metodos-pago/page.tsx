@@ -57,7 +57,7 @@ const CheckOutForm = ({ setSuccess, setTrigger, cliente }: any) => {
       setMessage(error.message);
     } else {
       const response = await fetch(
-        `https://mianoktos.vercel.app/v1/stripe/save-payment-method`,
+        `https://miaback.vercel.app/v1/stripe/save-payment-method`,
         {
           method: "POST",
           headers: {
@@ -182,7 +182,7 @@ const Page = () => {
     console.log("Delete payment method:", id);
     const id_agente = client;
     const response = await fetch(
-      `https://mianoktos.vercel.app/v1/stripe/delete-payment-method`,
+      `https://miaback.vercel.app/v1/stripe/delete-payment-method`,
       {
         method: "POST",
         headers: {

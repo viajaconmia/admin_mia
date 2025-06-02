@@ -376,7 +376,7 @@ const extractNotesSection = (notes: string, section: string): string => {
 const buscarCodigoPostal = async (CodigoPostal: string) => {
   try {
     const response = await fetch(
-      `https://mianoktos.vercel.app/v1/sepoMex/buscar-codigo-postal?d_codigo=${CodigoPostal}`,
+      `https://miaback.vercel.app/v1/sepoMex/buscar-codigo-postal?d_codigo=${CodigoPostal}`,
       //`http://localhost:3001/v1/sepoMex/buscar-codigo-postal?d_codigo=${CodigoPostal}`,
       {
         method: "GET",

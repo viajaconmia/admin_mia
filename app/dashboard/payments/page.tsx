@@ -4,7 +4,7 @@ import { API_KEY } from "../../constants/constantes";
 
 
 export default async function TravelerDashboard() {
-  const endpoint = "https://mianoktos.vercel.app/v1/mia/pagos/getAllPagos"
+  const endpoint = "https://miaback.vercel.app/v1/mia/pagos/getAllPagos"
   try {
 
     const response = await fetch(endpoint, {

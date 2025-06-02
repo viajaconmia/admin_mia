@@ -5,7 +5,7 @@ import { TypeFilters } from "@/types";
 export const fetchHoteles = async (callback: (data) => void = (data) => {}) => {
   try {
     const response = await fetch(
-      "https://mianoktos.vercel.app/v1/mia/hoteles",
+      "https://miaback.vercel.app/v1/mia/hoteles",
       {
         headers: {
           "x-api-key": API_KEY || "",
@@ -53,7 +53,7 @@ export const fetchHotelesFiltro_Avanzado = async (
     console.log("Payload enviado:", payload);
 
     const response = await fetch(
-      "https://mianoktos.vercel.app/v1/mia/hoteles/Filtro-avanzado",
+      "https://miaback.vercel.app/v1/mia/hoteles/Filtro-avanzado",
       //"http://localhost:3001/v1/mia/hoteles/Filtro-avanzado"
       {
         method: "POST", // Usar POST para enviar el body

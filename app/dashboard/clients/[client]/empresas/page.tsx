@@ -169,7 +169,7 @@ const Page = () => {
   useEffect(() => {
     if (codigoPostal.length > 4) {
       fetch(
-        `https://mianoktos.vercel.app/v1/sepoMex/buscar-codigo-postal?d_codigo=${codigoPostal}`,
+        `https://miaback.vercel.app/v1/sepoMex/buscar-codigo-postal?d_codigo=${codigoPostal}`,
         {
           method: "GET",
           headers: {

@@ -4,7 +4,7 @@ import { API_KEY } from "@/app/constants/constantes";
 export const createHotel = async (payload: any) => {
   try {
     const response = await fetch(
-      "https://mianoktos.vercel.app/v1/mia/hoteles/Agregar-hotel/",
+      "https://miaback.vercel.app/v1/mia/hoteles/Agregar-hotel/",
       {
         method: "POST",
         headers: {
