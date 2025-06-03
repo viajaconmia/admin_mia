@@ -12,7 +12,13 @@ export interface TypeFilters {
   status?: "Confirmada" | "Pendiente" | "Cancelada" | "Todos" | null;
   reservationStage?: "Reservado" | "In house" | "Check-out" | null;
   paymentMethod?: "Credito" | "Contado" | null;
-  filterType?: "Check-in" | "Check-out" | "Transaccion" | "Creacion" | null;
+  filterType?:
+    | "Check-in"
+    | "Check-out"
+    | "Transaccion"
+    | "Creacion"
+    | "Actualizacion"
+    | null;
   active?: "Activo" | "Inactivo" | null;
   hay_convenio?: "SI" | "NO";
   tipo_negociacion?: string | null;
