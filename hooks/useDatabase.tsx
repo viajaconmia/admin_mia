@@ -704,3 +704,35 @@ export const getHoteles = async () => {
     throw error;
   }
 };
+
+export const deleteTraveler = async (id_viajero: string) => {
+  try {
+    const response = await fetch(`${URL}/v1/mia/viajeros?id_viajero=${id_viajero}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        ...AUTH,
+      },
+    });
+
+    const json = await response.json();
+    console.log(json);
+
+    if (json.message === "Viajero eliminado correctamente") {
+      return {
+        success: true,
+      };
+    } else {
+      return {
+        success: false,
+        error: json.message || "No se pudo eliminar el viajero",
+      };
+    }
+  } catch (error) {
+    console.error("Error al eliminar viajero:", error);
+    return {
+      success: false,
+      error: "Error de red o del servidor",
+    };
+  }
+};
