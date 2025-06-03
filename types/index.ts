@@ -1,4 +1,5 @@
 export interface TypeFilters {
+  id_booking?: "Active" | "Inactive";
   codigo_reservacion?: string | null;
   client?: string | null;
   traveler?: string | null;

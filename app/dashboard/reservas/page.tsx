@@ -132,7 +132,7 @@ function App() {
 
   const handleFetchSolicitudes = () => {
     setLoading(true);
-    fetchSolicitudes(filters, {}, (data) => {
+    fetchSolicitudes(filters, { id_booking: "Active" }, (data) => {
       setAllSolicitudes(data);
       setLoading(false);
     });
@@ -231,7 +231,9 @@ const defaultFiltersSolicitudes: TypeFilters = {
   hotel: null,
   status: "Confirmada",
   startDate: new Date().toISOString().split("T")[0],
-  endDate: new Date().toISOString().split("T")[0],
+  endDate: new Date(new Date().setDate(new Date().getDate() + 1))
+    .toISOString()
+    .split("T")[0],
   traveler: null,
   paymentMethod: null,
   id_client: null,

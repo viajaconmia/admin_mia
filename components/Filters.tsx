@@ -74,7 +74,7 @@ const FiltersModal: React.FC<{
   );
 
   const handleFilter = () => {
-    console.log(filters);
+    // console.log(filters);
     onFilter(filters);
     onClose();
   };
@@ -439,108 +439,108 @@ const FiltersModal: React.FC<{
               )}
 
               {"sencilla_costo_min" in filters && (
-                  <NumberInput
-                    label="Costo mínimo hab sencilla"
-                    value={filters.sencilla_costo_min}
-                    onChange={(value) =>
-                      setFilters((prev) => ({
-                        ...prev,
-                        sencilla_costo_min: value === "" ? null : Number(value),
-                      }))
-                    }
-                  />
-                )}
+                <NumberInput
+                  label="Costo mínimo hab sencilla"
+                  value={filters.sencilla_costo_min}
+                  onChange={(value) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      sencilla_costo_min: value === "" ? null : Number(value),
+                    }))
+                  }
+                />
+              )}
 
-                {"sencilla_costo_max" in filters && (
-                  <NumberInput
-                    label="Costo máximo hab sencilla"
-                    value={filters.sencilla_costo_max}
-                    onChange={(value) =>
-                      setFilters((prev) => ({
-                        ...prev,
-                        sencilla_costo_max: value === "" ? null : Number(value),
-                      }))
-                    }
-                  />
-                )}
+              {"sencilla_costo_max" in filters && (
+                <NumberInput
+                  label="Costo máximo hab sencilla"
+                  value={filters.sencilla_costo_max}
+                  onChange={(value) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      sencilla_costo_max: value === "" ? null : Number(value),
+                    }))
+                  }
+                />
+              )}
 
-                {"sencilla_precio_min" in filters && (
-                  <NumberInput
-                    label="Precio mínimo hab sencilla"
-                    value={filters.sencilla_precio_min}
-                    onChange={(value) =>
-                      setFilters((prev) => ({
-                        ...prev,
-                        sencilla_precio_min: value === "" ? null : Number(value),
-                      }))
-                    }
-                  />
-                )}
+              {"sencilla_precio_min" in filters && (
+                <NumberInput
+                  label="Precio mínimo hab sencilla"
+                  value={filters.sencilla_precio_min}
+                  onChange={(value) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      sencilla_precio_min: value === "" ? null : Number(value),
+                    }))
+                  }
+                />
+              )}
 
-                {"sencilla_precio_max" in filters && (
-                  <NumberInput
-                    label="Precio máximo hab sencilla"
-                    value={filters.sencilla_precio_max}
-                    onChange={(value) =>
-                      setFilters((prev) => ({
-                        ...prev,
-                        sencilla_precio_max: value === "" ? null : Number(value),
-                      }))
-                    }
-                  />
-                )}
+              {"sencilla_precio_max" in filters && (
+                <NumberInput
+                  label="Precio máximo hab sencilla"
+                  value={filters.sencilla_precio_max}
+                  onChange={(value) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      sencilla_precio_max: value === "" ? null : Number(value),
+                    }))
+                  }
+                />
+              )}
 
-                {"doble_costo_min" in filters && (
-                  <NumberInput
-                    label="Costo mínimo hab doble"
-                    value={filters.doble_costo_min}
-                    onChange={(value) =>
-                      setFilters((prev) => ({
-                        ...prev,
-                        doble_costo_min: value === "" ? null : Number(value),
-                      }))
-                    }
-                  />
-                )}
+              {"doble_costo_min" in filters && (
+                <NumberInput
+                  label="Costo mínimo hab doble"
+                  value={filters.doble_costo_min}
+                  onChange={(value) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      doble_costo_min: value === "" ? null : Number(value),
+                    }))
+                  }
+                />
+              )}
 
-                {"doble_costo_max" in filters && (
-                  <NumberInput
-                    label="Costo máximo hab doble"
-                    value={filters.doble_costo_max}
-                    onChange={(value) =>
-                      setFilters((prev) => ({
-                        ...prev,
-                        doble_costo_max: value === "" ? null : Number(value),
-                      }))
-                    }
-                  />
-                )}
+              {"doble_costo_max" in filters && (
+                <NumberInput
+                  label="Costo máximo hab doble"
+                  value={filters.doble_costo_max}
+                  onChange={(value) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      doble_costo_max: value === "" ? null : Number(value),
+                    }))
+                  }
+                />
+              )}
 
-                {"doble_precio_min" in filters && (
-                  <NumberInput
-                    label="Precio mínimo hab doble"
-                    value={filters.doble_precio_min}
-                    onChange={(value) =>
-                      setFilters((prev) => ({
-                        ...prev,
-                        doble_precio_min: value === "" ? null : Number(value),
-                      }))
-                    }
-                  />
-                )}
+              {"doble_precio_min" in filters && (
+                <NumberInput
+                  label="Precio mínimo hab doble"
+                  value={filters.doble_precio_min}
+                  onChange={(value) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      doble_precio_min: value === "" ? null : Number(value),
+                    }))
+                  }
+                />
+              )}
 
-                {"doble_precio_max" in filters && (
-                  <NumberInput
-                    label="Precio máximo hab doble"
-                    value={filters.doble_precio_max}
-                    onChange={(value) =>
-                      setFilters((prev) => ({
-                        ...prev,
-                        doble_precio_max: value === "" ? null : Number(value),
-                      }))
-                    }
-                  />
-                )}
+              {"doble_precio_max" in filters && (
+                <NumberInput
+                  label="Precio máximo hab doble"
+                  value={filters.doble_precio_max}
+                  onChange={(value) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      doble_precio_max: value === "" ? null : Number(value),
+                    }))
+                  }
+                />
+              )}
 
               {"incluye_desayuno" in filters && (
                 <Dropdown
