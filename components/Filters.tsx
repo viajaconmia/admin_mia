@@ -713,14 +713,13 @@ const FiltersModal: React.FC<{
                         | "Check-in"
                         | "Check-out"
                         | "Transaccion"
-                        | "Creacion",
+                        | "Actualizacion",
                     }))
                   }
                   options={[
                     "Check-in",
                     "Check-out",
                     "Transaccion",
-                    "Creacion",
                     "Actualizacion",
                   ]}
                 />

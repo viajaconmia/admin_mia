@@ -217,7 +217,7 @@ const defaultFiltersSolicitudes: TypeFilters = {
   paymentMethod: null,
   id_client: null,
   statusPagoProveedor: null,
-  filterType: "Creacion",
+  filterType: "Transaccion",
   markup_end: null,
   markup_start: null,
 };
