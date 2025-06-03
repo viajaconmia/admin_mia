@@ -10,7 +10,8 @@ interface ClientLayoutProps {
     title: string;
     tab: string;
     icon: React.ElementType;
-    component: React.ReactNode;
+    component?: React.ReactNode;
+    link?: string;
   }[];
 }
 

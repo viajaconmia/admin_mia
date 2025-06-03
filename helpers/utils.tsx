@@ -32,6 +32,17 @@ export const getEstatus = (estatus: string) => {
   return data;
 };
 
+export function copyToClipboard(text) {
+  navigator.clipboard
+    .writeText(text)
+    .then(() => {
+      console.log("Texto copiado al portapapeles");
+    })
+    .catch((err) => {
+      console.error("Error al copiar al portapapeles:", err);
+    });
+}
+
 export const formatDate = (dateString: string) => {
   const [year, month, day] = dateString.split("T")[0].split("-");
   const date = new Date(+year, +month - 1, +day);

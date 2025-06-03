@@ -7,6 +7,7 @@ import Filters from "@/components/Filters";
 import { fetchSolicitudes } from "@/services/solicitudes";
 import {
   calcularNoches,
+  copyToClipboard,
   formatDate,
   formatRoom,
   getPaymentBadge,
@@ -68,6 +69,7 @@ function App() {
       estado_pago_proveedor: "",
       estado_factura_proveedor: "",
       estado: item.status,
+      detalles_cliente: item.id_solicitud || "",
       editar: item,
     }));
 
@@ -78,6 +80,26 @@ function App() {
       getStageBadge(value),
     metodo_de_pago: ({ value }: { value: null | string }) =>
       getPaymentBadge(value),
+    detalles_cliente: ({ value }: { value: null | string }) => (
+      <span className="font-semibold text-sm flex items-center gap-2 w-full">
+        <a
+          href={`https://www.viajaconmia.com/reserva/${value}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 hover:underline"
+        >
+          Ver
+        </a>
+        <button
+          onClick={() => {
+            copyToClipboard(`https://www.viajaconmia.com/reserva/${value}`);
+          }}
+          className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition"
+        >
+          Copiar
+        </button>
+      </span>
+    ),
     id_cliente: ({ value }: { value: null | string }) => (
       <span className="font-semibold text-sm">
         {value ? value.split("-").join("").slice(0, 8) : ""}
