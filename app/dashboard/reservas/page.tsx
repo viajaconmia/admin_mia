@@ -48,7 +48,7 @@ function App() {
       hotel: item.hotel.toUpperCase(),
       codigo_hotel: item.codigo_reservacion_hotel,
       viajero: (
-        item.nombre_viajero || item.nombre_viajero_completo
+        item.nombre_viajero_completo || item.nombre_viajero
       ).toUpperCase(),
       check_in: item.check_in,
       check_out: item.check_out,
@@ -110,6 +110,9 @@ function App() {
       <span title={props.value}>{getStatusBadge(props.value)}</span>
     ),
     precio_de_venta: (props: any) => (
+      <span title={props.value}>${props.value.toFixed(2)}</span>
+    ),
+    costo_proveedor: (props: any) => (
       <span title={props.value}>${props.value.toFixed(2)}</span>
     ),
     hotel: (props: any) => (
