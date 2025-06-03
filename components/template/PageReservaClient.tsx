@@ -215,6 +215,7 @@ export function PageReservasClientes({ id_agente }) {
           <Modal
             onClose={() => {
               setSelectedItem(null);
+              setCreateReserva(false);
             }}
             title="Crea una nueva reserva"
             subtitle="Agrega los detalles de una nueva reserva"

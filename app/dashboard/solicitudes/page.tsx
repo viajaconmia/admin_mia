@@ -33,10 +33,14 @@ function App() {
 
   const handleFetchSolicitudes = () => {
     setLoading(true);
-    fetchSolicitudes(filters, { status: "Pendiente" }, (data) => {
-      setAllSolicitudes(data);
-      setLoading(false);
-    });
+    fetchSolicitudes(
+      filters,
+      { status: "Pendiente", id_booking: "Inactive" },
+      (data) => {
+        setAllSolicitudes(data);
+        setLoading(false);
+      }
+    );
   };
 
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { API_KEY } from "@/app/constants/constantes";
+import { URL, API_KEY } from "@/constant/index";
 import { Viajero } from "@/types";
 
 export const fetchViajeros = async (id, callback) => {
@@ -30,18 +30,15 @@ export const fetchViajerosFromAgent = async (
   callback: (data: Viajero[]) => void
 ) => {
   try {
-    const response = await fetch(
-      `https://miaback.vercel.app/v1/mia/viajeros/id?id=${id}`,
-      {
-        headers: {
-          "x-api-key": API_KEY || "",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          Pragma: "no-cache",
-          Expires: "0",
-        },
-        cache: "no-store",
-      }
-    ).then((res) => res.json());
+    const response = await fetch(`${URL}/mia/viajeros/id?id=${id}`, {
+      headers: {
+        "x-api-key": API_KEY || "",
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        Pragma: "no-cache",
+        Expires: "0",
+      },
+      cache: "no-store",
+    }).then((res) => res.json());
     if (response.error) {
       console.error(response);
       throw new Error("Error al buscar los viajeros");
