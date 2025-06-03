@@ -30,7 +30,7 @@ import {
 import { fetchViajerosFromAgent } from "@/services/viajeros";
 import { Hotel, Solicitud, ReservaForm, Viajero, EdicionForm } from "@/types";
 import { Table } from "../Table";
-import { formatNumberWithCommas } from "@/helpers/utils";
+import { formatNumberWithCommas, getEstatus } from "@/helpers/utils";
 
 interface ReservationFormProps {
   solicitud?: Solicitud;
@@ -85,7 +85,10 @@ export function ReservationForm({
       impuestos: Number(solicitud.total) * 0.16 || 0,
       markup: 0,
     },
-    estado_reserva: "Confirmada",
+    estado_reserva: getEstatus(solicitud.status) as
+      | "Confirmada"
+      | "En proceso"
+      | "Cancelada",
     comments: solicitud.comments || "",
     proveedor: {
       total:
