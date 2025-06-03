@@ -23,6 +23,7 @@ import { fetchAgentes } from "@/services/agentes";
 import Modal from "@/components/structure/Modal";
 import NavContainer from "@/components/structure/NavContainer";
 import { AgentDetailsCard } from "./_components/DetailsClient";
+import {UsersClient} from "./_components/UsersClient";
 import { Agent } from "node:http";
 import { PageReservasClientes } from "@/components/template/PageReservaClient";
 
@@ -139,7 +140,11 @@ function App() {
       title: "Usuarios",
       tab: "users",
       icon: Users,
-      component: <div>Usuarios</div>,
+      component: (
+        <UsersClient
+          agente={selectedItem}
+        ></UsersClient>
+      ),
     },
     {
       title: "Empresas",
