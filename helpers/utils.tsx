@@ -14,6 +14,24 @@ import {
   DollarSign,
 } from "lucide-react";
 
+export const getEstatus = (estatus: string) => {
+  let data = estatus;
+  switch (data) {
+    case "pending":
+      data = "En proceso";
+      break;
+    case "complete":
+      data = "Confirmada";
+      break;
+    case "canceled":
+      data = "Cancelada";
+      break;
+    default:
+      break;
+  }
+  return data;
+};
+
 export const formatDate = (dateString: string) => {
   const [year, month, day] = dateString.split("T")[0].split("-");
   const date = new Date(+year, +month - 1, +day);
