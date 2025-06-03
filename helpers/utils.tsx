@@ -36,7 +36,7 @@ export function copyToClipboard(text) {
   navigator.clipboard
     .writeText(text)
     .then(() => {
-      console.log("Texto copiado al portapapeles");
+      alert("Texto copiado al portapapeles");
     })
     .catch((err) => {
       console.error("Error al copiar al portapapeles:", err);
