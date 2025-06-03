@@ -138,7 +138,10 @@ export function ReservationForm({
   const [travelers, setTravelers] = useState<Viajero[]>([]);
   const [activeTab, setActiveTab] = useState("cliente");
 
-  /* ESTe es el nuevo, si afecta */
+  useEffect(() => {
+    console.log(form);
+  }, [form]);
+
   useEffect(() => {
     try {
       fetchViajerosFromAgent(solicitud.id_agente, (data) => {
@@ -263,8 +266,8 @@ export function ReservationForm({
               impuestos: Number((roomPrice * nights * 0.16).toFixed(2) || 0),
               markup: Number(
                 (
-                  ((roomPrice * nights - form.proveedor.total) / roomPrice) *
-                  nights *
+                  ((roomPrice * nights - form.proveedor.total) /
+                    (roomPrice * nights)) *
                   100
                 ).toFixed(2)
               ),
@@ -294,7 +297,7 @@ export function ReservationForm({
           markup: Number(
             (
               ((roomPrice * nights - form.proveedor.total) /
-                form.proveedor.total) *
+                (roomPrice * nights)) *
               100
             ).toFixed(2)
           ),
