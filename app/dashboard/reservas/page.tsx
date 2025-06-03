@@ -59,7 +59,7 @@ function App() {
       costo_proveedor: Number(item.costo_total) || 0,
       markup:
         ((Number(item.total || 0) - Number(item.costo_total || 0)) /
-          Number(item.costo_total || 0)) *
+          Number(item.total || 0)) *
         100,
       precio_de_venta: parseFloat(item.total),
       metodo_de_pago: `${item.id_credito ? "credito" : "contado"}`,
