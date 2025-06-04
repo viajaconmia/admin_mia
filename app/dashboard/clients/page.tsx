@@ -15,6 +15,7 @@ import {
   Building,
   User,
   CreditCard,
+  ExternalLink,
 } from "lucide-react";
 import { Table } from "@/components/Table";
 import { TypeFilters } from "@/types";
@@ -99,7 +100,7 @@ function App() {
         }}
         className="hover:underline font-medium"
       >
-        <span className="text-blue-600 hover:underline cursor-pointer">
+        <span className="text-red-600 hover:underline cursor-pointer">
           Soporte
         </span>
       </button>
@@ -214,7 +215,17 @@ function App() {
           title="Soporte al cliente"
           subtitle="Da click para ir al perfil del cliente"
         >
-          <a href={link}>Ir al perfil</a>
+          <div className="w-96 h-16 flex justify-center items-center">
+            <a
+              href={link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2"
+            >
+              <ExternalLink className="w-4 h-4 mr-2" />
+              Ir al perfil
+            </a>
+          </div>
         </Modal>
       )}
       {selectedItem && (
