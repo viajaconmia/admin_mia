@@ -80,13 +80,13 @@ const FiltersModal: React.FC<{
   };
 
   const handleResetFilters = () => {
-    const updateFilters: TypeFilters = filters;
+    const updateFilters: TypeFilters = { ...filters };
 
     Object.keys(filters).forEach((key) => {
       updateFilters[key] = null;
     });
-    setFilters(defaultFilter || updateFilters);
-    onFilter(defaultFilter);
+    setFilters(updateFilters || defaultFilter);
+    onFilter(updateFilters);
     if (typeof setSearchTerm === "function") {
       setSearchTerm(""); // 👈 limpia el término de búsqueda
     }
