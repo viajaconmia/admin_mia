@@ -250,6 +250,15 @@ const defaultSort = {
   sort: false,
 };
 
+const [dia, mes, año] = new Date()
+  .toLocaleDateString("es-MX", {
+    timeZone: "America/Mexico_City",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  })
+  .split("/");
+
 const defaultFiltersSolicitudes: TypeFilters = {
   codigo_reservacion: null,
   client: null,
@@ -257,8 +266,8 @@ const defaultFiltersSolicitudes: TypeFilters = {
   reservationStage: null,
   hotel: null,
   status: "Confirmada",
-  startDate: new Date().toISOString().split("T")[0],
-  endDate: new Date().toISOString().split("T")[0],
+  startDate: `${año}-${mes}-${dia}`,
+  endDate: `${año}-${mes}-${dia}`,
   traveler: null,
   paymentMethod: null,
   id_client: null,
