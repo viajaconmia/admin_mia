@@ -49,7 +49,7 @@ export function PageReservasClientes({ id_agente }) {
       hotel: item.hotel.toUpperCase(),
       codigo_hotel: item.codigo_reservacion_hotel,
       viajero: (
-        item.nombre_viajero || item.nombre_viajero_completo
+        item.nombre_viajero_completo || item.nombre_viajero
       ).toUpperCase(),
       check_in: item.check_in,
       check_out: item.check_out,
