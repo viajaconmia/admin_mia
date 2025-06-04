@@ -19,12 +19,11 @@ import {
 import { Table } from "@/components/Table";
 import { TypeFilters } from "@/types";
 import { Loader } from "@/components/atom/Loader";
-import { fetchAgentes } from "@/services/agentes";
+import { fetchAgentes, fetchInitSuperAgent } from "@/services/agentes";
 import Modal from "@/components/structure/Modal";
 import NavContainer from "@/components/structure/NavContainer";
 import { AgentDetailsCard } from "./_components/DetailsClient";
-import {UsersClient} from "./_components/UsersClient";
-import { Agent } from "node:http";
+import { UsersClient } from "./_components/UsersClient";
 import { PageReservasClientes } from "@/components/template/PageReservaClient";
 
 function App() {
@@ -32,6 +31,7 @@ function App() {
   const [selectedItem, setSelectedItem] = useState<Agente | null>(null);
   const [searchTerm, setSearchTerm] = useState<string | null>("");
   const [loading, setLoading] = useState(false);
+  const [link, setLink] = useState<null | string>(null);
   const [filters, setFilters] = useState<TypeFilters>(
     defaultFiltersSolicitudes
   );
@@ -53,6 +53,7 @@ function App() {
       categoria: "Administrador",
       notas_internas: item.notas || "",
       vendedor: item.vendedor || "",
+      soporte: item,
       detalles: item,
     }));
 
@@ -90,6 +91,19 @@ function App() {
         </div>
       </span>
     ),
+
+    soporte: ({ value }: { value: Agente }) => (
+      <button
+        onClick={() => {
+          handleSuperAgent(value.correo);
+        }}
+        className="hover:underline font-medium"
+      >
+        <span className="text-blue-600 hover:underline cursor-pointer">
+          Soporte
+        </span>
+      </button>
+    ),
     detalles: ({ value }: { value: Agente }) => (
       <button
         onClick={() => {
@@ -102,6 +116,12 @@ function App() {
         </span>
       </button>
     ),
+  };
+
+  const handleSuperAgent = (email: string) => {
+    fetchInitSuperAgent(email, (data) => {
+      setLink(data.link);
+    });
   };
 
   const handleFetchClients = () => {
@@ -140,11 +160,7 @@ function App() {
       title: "Usuarios",
       tab: "users",
       icon: Users,
-      component: (
-        <UsersClient
-          agente={selectedItem}
-        ></UsersClient>
-      ),
+      component: <UsersClient agente={selectedItem}></UsersClient>,
     },
     {
       title: "Empresas",
@@ -190,6 +206,17 @@ function App() {
           )}
         </div>
       </div>
+      {link && (
+        <Modal
+          onClose={() => {
+            setLink(null);
+          }}
+          title="Soporte al cliente"
+          subtitle="Da click para ir al perfil del cliente"
+        >
+          <a href={link}>Ir al perfil</a>
+        </Modal>
+      )}
       {selectedItem && (
         <Modal
           onClose={() => {

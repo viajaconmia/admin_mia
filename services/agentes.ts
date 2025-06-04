@@ -1,6 +1,30 @@
 import { TypeFilters, UpdateRequestBody } from "@/types";
 import { API_KEY, URL } from "../constant";
 
+export const fetchInitSuperAgent = async (
+  email: string,
+  callback: (data: { link: string }) => void
+) => {
+  const response = await fetch(`${URL}/mia/impersonate/impersonate-user`, {
+    method: "POST",
+    headers: {
+      "x-api-key": API_KEY,
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+      Pragma: "no-cache",
+      Expires: "0",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ email }),
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    throw new Error("Error al cargar los datos");
+  }
+  const data = await response.json();
+  callback(data);
+  return data;
+};
+
 export const fetchUpdateEmpresasAgentes = async (
   updateBody: UpdateRequestBody,
   callback: (data) => void
@@ -24,6 +48,7 @@ export const fetchUpdateEmpresasAgentes = async (
   callback(data);
   return data;
 };
+
 export const fetchEmpresasAgentes = async (
   id_agente: string,
   callback: (data: EmpresaFromAgent[]) => void
