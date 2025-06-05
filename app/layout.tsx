@@ -133,8 +133,7 @@ export default function DashboardLayout({
     .split("/")
     .filter((obj) => obj != "")
     .map((cadena) => cadena.charAt(0).toUpperCase() + cadena.slice(1))
-    .slice(0, 2)
-    .join(" - ");
+    .slice(1, 2);
   const [isOpen, setIsOpen] = useState(false);
 
   return (
