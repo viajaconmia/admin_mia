@@ -246,6 +246,7 @@ export interface ReservaForm {
 }
 
 export interface EdicionForm {
+  metadata: Solicitud;
   hotel?: {
     before: {
       name: string;

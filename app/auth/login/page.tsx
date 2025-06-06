@@ -114,14 +114,6 @@ export default function LoginPage() {
               : "¿Ya tienes cuenta? Inicia sesión"}
           </button>
         </div>
-
-        {isLogin && (
-          <div className="mt-4 p-4 bg-gray-100 rounded-lg">
-            <p className="text-sm text-gray-600">
-              <strong>Demo:</strong> demo@example.com / demo123
-            </p>
-          </div>
-        )}
       </Card>
     </div>
   );

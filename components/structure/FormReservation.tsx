@@ -134,6 +134,7 @@ export function ReservationForm({
       before: null,
       current: form.estado_reserva,
     },
+    metadata: solicitud,
   });
   const [travelers, setTravelers] = useState<Viajero[]>([]);
   const [activeTab, setActiveTab] = useState("cliente");
