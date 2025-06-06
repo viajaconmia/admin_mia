@@ -102,7 +102,7 @@ function App() {
     ),
     id_cliente: ({ value }: { value: null | string }) => (
       <span className="font-semibold text-sm">
-        {value ? value.split("-").join("").slice(0, 8) : ""}
+        {value ? value.split("-").join("").slice(0, 10) : ""}
       </span>
     ),
     markup: (props: any) => (
