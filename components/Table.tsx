@@ -38,6 +38,7 @@ export const Table = ({
 
   useEffect(() => {
     setDisplayData(registros);
+    handleSort(currentSort.key);
   }, [registros]);
 
   const columnKeys = useMemo(() => {
