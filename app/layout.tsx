@@ -23,6 +23,7 @@ import {
   User,
   UserRoundCog,
   Clock,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -94,12 +95,12 @@ const navItems: NavItem[] = [
     href: "/dashboard/invoices",
     icon: Receipt,
   },
-  // {
-  //   navShow: false,
-  //   title: "Empresas",
-  //   href: "/dashboard/empresas",
-  //   icon: Factory,
-  // },
+  {
+    navShow: false,
+    title: "Codigo confirmación",
+    href: "/dashboard/codigo",
+    icon: Shield,
+  },
   {
     navShow: false,
     title: "Viajeros",
