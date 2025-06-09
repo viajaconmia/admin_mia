@@ -128,19 +128,19 @@ function FacturaDetails({ setModal, id_factura }) {
                       <div>
                         <p className="text-xs text-gray-500 mb-1">Subtotal:</p>
                         <p className="text-sm">
-                          ${parseFloat(reserva.subtotal).toFixed(2)}
+                          ${parseFloat(reserva.subtotal_booking).toFixed(2)}
                         </p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-500 mb-1">Impuestos:</p>
                         <p className="text-sm">
-                          ${parseFloat(reserva.impuestos).toFixed(2)}
+                          ${parseFloat(reserva.impuestos_booking).toFixed(2)}
                         </p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-500 mb-1">Total:</p>
                         <p className="text-sm font-semibold text-blue-700">
-                          ${parseFloat(reserva.total).toFixed(2)}
+                          ${parseFloat(reserva.total_booking).toFixed(2)}
                         </p>
                       </div>
                     </div>
@@ -165,7 +165,7 @@ function FacturaDetails({ setModal, id_factura }) {
               <div className="flex justify-between">
                 <span className="text-sm">Subtotal:</span>
                 <span className="text-sm font-medium">
-                  ${facturaData.reduce((sum, item) => sum + parseFloat(item.costo_subtotal) * parseFloat(item.noches_facturadas), 0).toFixed(2)}
+                  ${facturaData.reduce((sum, item) => sum + parseFloat(item.subtotal) * parseFloat(item.noches_facturadas), 0).toFixed(2)}
                 </span>
               </div>
               <div className="flex justify-between">
