@@ -36,7 +36,7 @@ export function AgentDetailsCard({ agente }: { agente: Agente }) {
       : "",
     nacionalidad: agente.nacionalidad || "",
     tiene_credito_consolidado: Boolean(agente.tiene_credito_consolidado),
-    monto_credito: Number(agente.monto_credito) || null,
+    saldo: Number(agente.saldo) || null,
   });
 
   // const handleSave = async () => {
@@ -133,18 +133,18 @@ export function AgentDetailsCard({ agente }: { agente: Agente }) {
                       ...prev.agente,
                       [agente.id_agente]: {
                         ...prev.agente[agente.id_agente],
-                        monto_credito: value,
+                        saldo: value,
                       },
                     },
                   }));
                   setForm((prev) => ({
                     ...prev,
-                    monto_credito: Number(value),
+                    saldo: Number(value),
                   }));
                 }}
                 disabled={!form.tiene_credito_consolidado}
                 label="Credito aprobado"
-                value={form.monto_credito}
+                value={form.saldo}
                 placeholder="5535..."
               />
             </div>
@@ -358,19 +358,19 @@ export function AgentDetailsCard({ agente }: { agente: Agente }) {
                               ...prev.empresas,
                               [company.id_empresa]: {
                                 ...prev.empresas[company.id_empresa],
-                                monto_credito: Number(value),
+                                saldo: Number(value),
                               },
                             },
                           }));
                           setEmpresas((previus) =>
                             previus.map((current_company, current_id) =>
                               current_id == id
-                                ? { ...company, monto_credito: Number(value) }
+                                ? { ...company, saldo: Number(value) }
                                 : current_company
                             )
                           );
                         }}
-                        value={company.monto_credito}
+                        value={company.saldo}
                       />
                     </div>
                   </div>

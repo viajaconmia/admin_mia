@@ -55,7 +55,7 @@ export function CreditTable({
         id: item.id_agente,
         nombre: item.nombre || "Sin nombre",
         tiene_credito_consolidado: item.tiene_credito_consolidado,
-        monto_credito: item.monto_credito_agente,
+        saldo: item.monto_credito_agente,
         empresas: [],
       };
     }
@@ -65,7 +65,7 @@ export function CreditTable({
       razon_social: item.razon_social,
       tipo_persona: item.tipo_persona,
       tiene_credito: item.tiene_credito,
-      monto_credito: item.monto_credito_empresa,
+      saldo: item.monto_credito_empresa,
     });
     return acc;
   }, {} as Record<string, any>);
@@ -83,7 +83,7 @@ export function CreditTable({
       type,
       id: type === "agente" ? item.id : item.id_empresa,
       name: type === "agente" ? item.nombre : item.nombre_comercial,
-      credit: item.monto_credito || 0,
+      credit: item.saldo || 0,
     });
     setDialogOpen(true);
   };
@@ -199,9 +199,9 @@ export function CreditTable({
                   </Badge>
                 </TableCell>
                 <TableCell>
-                  {agent.monto_credito
+                  {agent.saldo
                     ? `$${new Intl.NumberFormat("en-US").format(
-                        agent.monto_credito
+                        agent.saldo
                       )}`
                     : "N/A"}
                 </TableCell>
@@ -256,9 +256,9 @@ export function CreditTable({
                                 </Badge>
                               </TableCell>
                               <TableCell>
-                                {empresa.monto_credito
+                                {empresa.saldo
                                   ? `$${new Intl.NumberFormat("en-US").format(
-                                      empresa.monto_credito
+                                      empresa.saldo
                                     )}`
                                   : "N/A"}
                               </TableCell>

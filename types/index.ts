@@ -342,7 +342,7 @@ export interface EdicionForm {
  */
 interface EmpresaUpdateData {
   tiene_credito?: number | null; // tinyint en la BD, usualmente 0 o 1
-  monto_credito?: number | null; // decimal en la BD
+  saldo?: number | null; // decimal en la BD
 }
 
 /**
@@ -363,7 +363,7 @@ interface ViajeroUpdateData {
  */
 interface AgenteUpdateData {
   tiene_credito_consolidado?: number | null; // tinyint en la BD, usualmente 0 o 1
-  monto_credito?: string | number | null; // decimal en la BD. Se permite string por tu ejemplo original ("54677").
+  saldo?: string | number | null; // decimal en la BD. Se permite string por tu ejemplo original ("54677").
   // Considera unificar a 'number | null' si siempre se espera un número.
   vendedor?: string | null;
   notas?: string | null;

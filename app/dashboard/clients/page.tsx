@@ -50,7 +50,7 @@ function App() {
       telefono: item.telefono,
       estado_verificacion: "",
       estado_credito: Boolean(item.tiene_credito_consolidado),
-      credito: item.monto_credito ? Number(item.monto_credito) : 0,
+      credito: item.saldo ? Number(item.saldo) : 0,
       categoria: "Administrador",
       notas_internas: item.notas || "",
       vendedor: item.vendedor || "",
