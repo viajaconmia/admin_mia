@@ -355,10 +355,9 @@ export function ReservationForm({
       className="space-y-6 mx-5 overflow-y-auto rounded-md bg-white p-4"
     >
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-[80vw]">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="cliente">Cliente</TabsTrigger>
           <TabsTrigger value="proveedor">Proveedor</TabsTrigger>
-          <TabsTrigger value="pago">Pago a Proveedor</TabsTrigger>
         </TabsList>
 
         <TabsContent value="cliente" className="space-y-4">
@@ -764,7 +763,7 @@ export function ReservationForm({
             )}
           </div>
         </TabsContent>
-
+        {/* 
         <TabsContent value="pago" className="space-y-4">
           <div className="grid gap-4">
             <div className="space-y-2">
@@ -840,7 +839,7 @@ export function ReservationForm({
               />
             </div>
           </div>
-        </TabsContent>
+        </TabsContent> */}
       </Tabs>
 
       <DialogFooter>

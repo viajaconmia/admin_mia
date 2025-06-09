@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Building2, Pencil, TriangleAlert } from "lucide-react";
+import { Building2, DollarSign, Pencil, TriangleAlert } from "lucide-react";
 import { ReservationForm } from "../../../components/structure/FormReservation";
 import Filters from "@/components/Filters";
 import { fetchSolicitudes } from "@/services/solicitudes";
@@ -20,6 +20,7 @@ import { fetchHoteles } from "@/services/hoteles";
 import Modal from "@/components/structure/Modal";
 import { TypeFilters, Solicitud } from "@/types";
 import { Loader } from "@/components/atom/Loader";
+import { PaymentModal } from "@/components/structure/PaymentProveedor";
 
 function App() {
   const [allSolicitudes, setAllSolicitudes] = useState<Solicitud[]>([]);
@@ -27,12 +28,19 @@ function App() {
   const [searchTerm, setSearchTerm] = useState<string | null>("");
   const [loading, setLoading] = useState(false);
   const [hoteles, setHoteles] = useState([]);
+  const [modificar, setModificar] = useState(false);
+  const [pagar, setPagar] = useState(false);
   const [filters, setFilters] = useState<TypeFilters>(
     defaultFiltersSolicitudes
   );
 
   const handleEdit = (item: Solicitud) => {
     setSelectedItem(item);
+    setModificar(true);
+  };
+  const handlePagar = (item: Solicitud) => {
+    setSelectedItem(item);
+    setPagar(true);
   };
 
   let formatedSolicitudes = allSolicitudes
@@ -71,6 +79,7 @@ function App() {
       estado: item.status,
       detalles_cliente: item.id_solicitud || "",
       editar: item,
+      pagar: item,
     }));
 
   let componentes = {
@@ -128,6 +137,15 @@ function App() {
       >
         <Pencil className="w-4 h-4" />
         Editar
+      </button>
+    ),
+    pagar: (props: any) => (
+      <button
+        onClick={() => handlePagar(props.value)}
+        className="text-blue-600 hover:text-blue-900 transition duration-150 ease-in-out flex gap-2 items-center"
+      >
+        <DollarSign className="w-4 h-4" />
+        Pagar
       </button>
     ),
     estado: (props: any) => (
@@ -202,9 +220,10 @@ function App() {
             ></Table>
           )}
         </div>
-        {selectedItem && (
+        {selectedItem && modificar && (
           <Modal
             onClose={() => {
+              setModificar(false);
               setSelectedItem(null);
             }}
             title={
@@ -235,12 +254,24 @@ function App() {
                 hotels={hoteles}
                 solicitud={selectedItem}
                 onClose={() => {
+                  setModificar(false);
                   setSelectedItem(null);
                   handleFetchSolicitudes();
                 }}
                 edicion={true}
               />
             )}
+          </Modal>
+        )}
+        {selectedItem && pagar && (
+          <Modal
+            onClose={() => {
+              setPagar(false);
+              setSelectedItem(null);
+            }}
+            title="Pagar reserva al proveedor"
+          >
+            <PaymentModal reservation={selectedItem}></PaymentModal>
           </Modal>
         )}
       </div>
