@@ -23,6 +23,7 @@ interface Agente {
   created_at: string;
   updated_at: string;
   tiene_credito_consolidado: number;
+  saldo: number | null;
   monto_credito: number | null;
   nombre: string;
   notas: string | null;
@@ -37,6 +38,7 @@ interface EmpresaFromAgent {
   created_at: string; // o Date si lo vas a convertir
   updated_at: string; // o Date si lo vas a convertir
   tiene_credito: 0 | 1;
+  saldo: number | null;
   monto_credito: number | null;
   calle: string | null;
   colonia: string | null;
