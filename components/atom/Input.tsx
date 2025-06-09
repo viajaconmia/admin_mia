@@ -72,6 +72,7 @@ export const NumberInput = ({
   value,
   onChange,
   disabled = false,
+  placeholder,
 }: {
   label?: string;
   value: number;
@@ -87,6 +88,7 @@ export const NumberInput = ({
       disabled={disabled}
       type="number"
       value={value || ""}
+      placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
       className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
     />
@@ -117,7 +119,8 @@ export const TextInput = ({
     />
   </div>
 );
-export const TextAreaInput = ({
+
+export const EmailInput = ({
   label,
   value,
   onChange,
@@ -132,11 +135,38 @@ export const TextAreaInput = ({
     {label && (
       <label className="text-sm text-gray-900 font-medium">{label}</label>
     )}
+    <input
+      type="email"
+      value={value || ""}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+    />
+  </div>
+);
+
+export const TextAreaInput = ({
+  label,
+  value,
+  onChange,
+  rows = 6,
+  placeholder = "",
+}: {
+  label?: string;
+  value: string;
+  rows?: number;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) => (
+  <div className="flex flex-col space-y-1">
+    {label && (
+      <label className="text-sm text-gray-900 font-medium">{label}</label>
+    )}
     <textarea
       value={value || ""}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      rows={6}
+      rows={rows}
       className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
     />
   </div>
