@@ -20,12 +20,10 @@ function App() {
   const [filters, setFilters] = useState<TypeFilters>({});
 
   let formatedSolicitudes = allOtp
-    .filter((item) =>
-      item.email.toUpperCase().includes(searchTerm.toUpperCase())
-    )
+    .filter((item) => item.email.toUpperCase().includes(searchTerm))
     .map((item) => ({
       id: item.id,
-      email: item.email,
+      email: item.email.toLowerCase(),
       codigo_confirmacion: item.otp,
     }));
 
@@ -49,6 +47,9 @@ function App() {
 
   return (
     <div className="h-fit">
+      <h1 className="text-3xl font-bold tracking-tight text-sky-950 my-4">
+        Codigo de confirmación
+      </h1>
       <div className="max-w-7xl mx-auto bg-white p-4 rounded-lg shadow">
         <div>
           <Filters
@@ -78,7 +79,7 @@ function App() {
 
 const defaultSort = {
   key: "id",
-  sort: false,
+  sort: true,
 };
 
 export default App;

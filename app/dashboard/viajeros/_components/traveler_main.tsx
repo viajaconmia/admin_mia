@@ -18,6 +18,9 @@ export function TravelersPage({
 
   return (
     <div className="space-y-8">
+      <h1 className="text-3xl font-bold tracking-tight text-sky-950 my-4">
+        Viajeros
+      </h1>
       <Card>
         <div className="p-6 space-y-4">
           <TravelerFilters onCreateClick={() => setIsDialogOpen(true)} />

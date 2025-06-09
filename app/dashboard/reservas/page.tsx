@@ -177,6 +177,9 @@ function App() {
 
   return (
     <div className="h-fit">
+      <h1 className="text-3xl font-bold tracking-tight text-sky-950 my-4">
+        Reservas
+      </h1>
       <div className="max-w-7xl mx-auto bg-white p-4 rounded-lg shadow">
         <div>
           <Filters
