@@ -183,6 +183,9 @@ function App() {
 
   return (
     <div className="h-fit">
+      <h1 className="text-3xl font-bold tracking-tight text-sky-950 my-4">
+        Clientes
+      </h1>
       <div className="w-full mx-auto bg-white p-4 rounded-lg shadow">
         <div>
           <Filters
@@ -237,7 +240,7 @@ function App() {
           title="Datos del cliente"
           subtitle="Puedes ver y editar los datos del cliente desde aqui"
         >
-          <NavContainer tabs={tabs}></NavContainer>
+          <NavContainer tabs={tabs} title="Cliente"></NavContainer>
         </Modal>
       )}
     </div>

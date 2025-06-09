@@ -8,8 +8,8 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="h-fit bg-transparent">
-      <main className="p-8 bg-transparent">{children}</main>
+    <div className="h-screen bg-transparent overflow-y-auto bg-gradient-to-br from-sky-200 to-sky-400">
+      <main className="p-8 pt-0 bg-transparent">{children}</main>
     </div>
   );
 }

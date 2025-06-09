@@ -18,8 +18,8 @@ const defaultFiltersHoteles = {
   sencilla_precio_max: null,
   sencilla_costo_min: null,
   sencilla_costo_max: null,
-  doble_precio_min:  null,
-  doble_precio_max:  null,
+  doble_precio_min: null,
+  doble_precio_max: null,
   doble_costo_min: null,
   doble_costo_max: null,
   incluye_desayuno: null,
@@ -35,8 +35,7 @@ const defaultFiltersHoteles = {
 };
 
 export function HotelContainer() {
-  
-  const [searchTerm, setSearchTerm] = useState<string>("")
+  const [searchTerm, setSearchTerm] = useState<string>("");
   const [hotels, setHotels] = useState([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -47,7 +46,7 @@ export function HotelContainer() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 20;
   const [sortField, setSortField] = useState(null);
-const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
 
   const handleFilter = (filters) => {
     setIsLoading(true);
@@ -62,7 +61,8 @@ const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
     delete apiFilters.infoCompleta;
 
     fetchHotelesFiltro_Avanzado(apiFilters, (data) => {
-      const fetchedHotels = Array.isArray(data) && Array.isArray(data[0]) ? data[0] : [];
+      const fetchedHotels =
+        Array.isArray(data) && Array.isArray(data[0]) ? data[0] : [];
 
       if (infoCompletaFilter !== null && infoCompletaFilter !== undefined) {
         const filtered = fetchedHotels.filter(
@@ -106,41 +106,48 @@ const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
 
-  const filteredData = sourceData.filter(item =>
-    item.nombre?.toUpperCase().includes(searchTerm.toUpperCase()) ||
-    item.Ciudad_Zona?.toUpperCase().includes(searchTerm.toUpperCase()) ||
-    item.tipo_negociacion?.toUpperCase().includes(searchTerm.toUpperCase()) ||
-    item.Estado?.toUpperCase().includes(searchTerm.toUpperCase()) ||
-    item.contacto_convenio?.toUpperCase().includes(searchTerm.toUpperCase()) ||
-    item.contacto_recepcion?.toUpperCase().includes(searchTerm.toUpperCase()) ||
-    item.precio_doble?.includes(searchTerm) ||
-    item.precio_sencilla?.includes(searchTerm) ||
-    item.costo_sencilla?.includes(searchTerm) ||
-    item.costo_doble?.includes(searchTerm) 
-
+  const filteredData = sourceData.filter(
+    (item) =>
+      item.nombre?.toUpperCase().includes(searchTerm.toUpperCase()) ||
+      item.Ciudad_Zona?.toUpperCase().includes(searchTerm.toUpperCase()) ||
+      item.tipo_negociacion?.toUpperCase().includes(searchTerm.toUpperCase()) ||
+      item.Estado?.toUpperCase().includes(searchTerm.toUpperCase()) ||
+      item.contacto_convenio
+        ?.toUpperCase()
+        .includes(searchTerm.toUpperCase()) ||
+      item.contacto_recepcion
+        ?.toUpperCase()
+        .includes(searchTerm.toUpperCase()) ||
+      item.precio_doble?.includes(searchTerm) ||
+      item.precio_sencilla?.includes(searchTerm) ||
+      item.costo_sencilla?.includes(searchTerm) ||
+      item.costo_doble?.includes(searchTerm)
   );
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
   const currentHotels = filteredData.slice(indexOfFirstItem, indexOfLastItem);
-
 
   const handleRowClick = (hotel) => {
     setSelectedHotel(hotel);
     setDialogOpen(true);
   };
 
-  const hayFiltrosAplicados = Object.values(activeFilters).some((v) => v !== null);
+  const hayFiltrosAplicados = Object.values(activeFilters).some(
+    (v) => v !== null
+  );
 
-  const exportToCSV = (data, filename = 'hoteles.csv') => {
+  const exportToCSV = (data, filename = "hoteles.csv") => {
     if (!data || data.length === 0) return;
     const headers = Object.keys(data[0]);
     const csvContent = [
       headers.join(","),
-      ...data.map(row =>
-        headers.map(field => {
-          const val = row[field];
-          return `"${(val ?? "").toString().replace(/"/g, '""')}"`;
-        }).join(",")
-      )
+      ...data.map((row) =>
+        headers
+          .map((field) => {
+            const val = row[field];
+            return `"${(val ?? "").toString().replace(/"/g, '""')}"`;
+          })
+          .join(",")
+      ),
     ].join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
@@ -156,9 +163,11 @@ const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
     handleFilter(defaultFiltersHoteles);
   }, []);
 
-
   return (
     <div className="space-y-8">
+      <h1 className="text-3xl font-bold tracking-tight text-sky-950 my-4">
+        Proveedores
+      </h1>
       <Card>
         <div className="p-6 space-y-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -170,7 +179,6 @@ const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
                 defaultOpen={false}
                 searchTerm={searchTerm}
                 setSearchTerm={setSearchTerm}
-
               />
               {/* {isFilterActive && hayFiltrosAplicados && (
                 <Button variant="destructive" onClick={handleClearFilters} size="sm">
@@ -201,13 +209,24 @@ const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
             <>
               {!isFilterActive ? (
                 <div className="text-center py-16">
-                  <h3 className="text-lg font-medium text-gray-700 mb-2">Utilice el filtro avanzado</h3>
-                  <p className="text-gray-500">Seleccione los filtros deseados para ver los hoteles que coincidan con sus criterios.</p>
+                  <h3 className="text-lg font-medium text-gray-700 mb-2">
+                    Utilice el filtro avanzado
+                  </h3>
+                  <p className="text-gray-500">
+                    Seleccione los filtros deseados para ver los hoteles que
+                    coincidan con sus criterios.
+                  </p>
                 </div>
               ) : hotels.length === 0 ? (
                 <div className="text-center py-10">
-                  <p className="text-lg font-medium text-gray-500">No se encontraron hoteles con los filtros seleccionados</p>
-                  <Button variant="outline" onClick={handleClearFilters} className="mt-4">
+                  <p className="text-lg font-medium text-gray-500">
+                    No se encontraron hoteles con los filtros seleccionados
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={handleClearFilters}
+                    className="mt-4"
+                  >
                     Limpiar filtros
                   </Button>
                 </div>
@@ -218,7 +237,9 @@ const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
                     onRowClick={handleRowClick}
                     onSort={(field) => {
                       if (sortField === field) {
-                        setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+                        setSortDirection((prev) =>
+                          prev === "asc" ? "desc" : "asc"
+                        );
                       } else {
                         setSortField(field);
                         setSortDirection("asc");
@@ -231,7 +252,9 @@ const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
                   <div className="flex justify-center items-center gap-4 mt-4">
                     <Button
                       variant="outline"
-                      onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                      onClick={() =>
+                        setCurrentPage((prev) => Math.max(prev - 1, 1))
+                      }
                       disabled={currentPage === 1}
                     >
                       Anterior
@@ -241,7 +264,9 @@ const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
                     </span>
                     <Button
                       variant="outline"
-                      onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                      onClick={() =>
+                        setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                      }
                       disabled={currentPage === totalPages}
                     >
                       Siguiente

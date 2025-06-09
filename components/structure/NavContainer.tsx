@@ -4,24 +4,36 @@ import { Suspense, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ArrowIcon, MiaIcon } from "@/helpers/icons";
+import Link from "next/link";
 
 interface ClientLayoutProps {
-  tabs: {
+  tabs?: {
     title: string;
     tab: string;
     icon: React.ElementType;
     component?: React.ReactNode;
-    link?: string;
   }[];
+  title: string;
+  links?: {
+    href: string;
+    title: string;
+    icon: React.ElementType;
+  }[];
+  children?: React.ReactNode;
 }
 
-export default function ClientLayout({ tabs = [] }: ClientLayoutProps) {
+export default function ClientLayout({
+  tabs = [],
+  title,
+  links = [],
+  children,
+}: ClientLayoutProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isHover, setIsHover] = useState(false);
   const [currentTab, setCurrentTab] = useState("");
 
   return (
-    <div className="flex h-full w-[85vw]">
+    <div className="flex h-full w-full min-w-[85vw]">
       {/* Sidebar */}
       <div
         className={`relative h-full bg-white transition-all duration-300 ${
@@ -58,12 +70,24 @@ export default function ClientLayout({ tabs = [] }: ClientLayoutProps) {
                   {(isOpen || isHover) && (
                     <span>
                       <h2 className="text-xl font-semibold transition-all">
-                        Cliente
+                        {title}
                       </h2>
                     </span>
                   )}
                 </div>
                 <nav className="space-y-2">
+                  {links.map((item) => (
+                    <Link
+                      href={item.href}
+                      key={item.href}
+                      className={`flex items-center justify-start w-full gap-3 rounded-lg px-3 py-2 text-sm transition-all hover:bg-blue-50 hover:text-blue-900`}
+                    >
+                      <item.icon className="h-4 w-4" />
+                      {(isOpen || isHover) && (
+                        <span className="whitespace-nowrap">{item.title}</span>
+                      )}
+                    </Link>
+                  ))}
                   {tabs.map((item) => (
                     <button
                       onClick={() => {
@@ -91,20 +115,23 @@ export default function ClientLayout({ tabs = [] }: ClientLayoutProps) {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto h-[600px] border-l">
-        <Suspense
-          fallback={
-            <>
-              <h1>Cargando tu contenido...</h1>
-            </>
-          }
-        >
-          {tabs
-            .filter((item) => item.tab === currentTab) // Usar === para comparación estricta
-            .map((item) => (
-              <div key={item.tab}>{item.component}</div>
-            ))}
-        </Suspense>
+      <div className="flex-1 overflow-y-auto min-h-[600px] border-l">
+        {children}
+        {tabs.length != 0 && (
+          <Suspense
+            fallback={
+              <>
+                <h1>Cargando tu contenido...</h1>
+              </>
+            }
+          >
+            {tabs
+              .filter((item) => item.tab === currentTab)
+              .map((item) => (
+                <div key={item.tab}>{item.component}</div>
+              ))}
+          </Suspense>
+        )}
       </div>
     </div>
   );
