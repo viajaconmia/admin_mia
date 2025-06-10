@@ -283,6 +283,21 @@ interface DeleteTarifaPreferencialProps {
 export function quitarAcentos(texto) {
   return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
+export function normalizarEstado  (estado: string) {
+  const limpio = quitarAcentos(estado.toUpperCase().trim());
+
+  const mapa: Record<string, string> = {
+    "COAHUILA DE ZARAGOZA": "COAHUILA",
+    "MICHOACAN DE OCAMPO": "MICHOACAN",
+    "VERACRUZ DE IGNACIO DE LA LLAVE": "VERACRUZ",
+    "SAN LUIS POTOSI": "SAN LUIS POTOSI", // ya coincide
+    "CIUDAD DE MÉXICO": "CIUDAD DE MEXICO",
+    "ESTADO DE MÉXICO": "ESTADO DE MEXICO",
+    "MEXICO": "ESTADO DE MEXICO" // distingue entre "Estado de México" y "CDMX"
+  };
+
+  return mapa[limpio] || limpio;
+};
 
 const estadosMX = [
   "AGUASCALIENTES",
@@ -319,7 +334,6 @@ const estadosMX = [
   "ZACATECAS",
   "OTROS",
 ];
-
 // Helper functions for date formatting
 const convertToDateInputFormat = (dateString?: string | null): string => {
   if (!dateString) return "";
@@ -464,6 +478,7 @@ export function HotelDialog({
   const [deleteTarifaDialogOpen, setDeleteTarifaDialogOpen] = useState(false);
   const [selectedTarifaToDelete, setSelectedTarifaToDelete] =
     useState<DeleteTarifaPreferencialProps | null>(null);
+    
 
   const defaultFormData: FormData = {
     id_cadena: "",
@@ -538,7 +553,8 @@ export function HotelDialog({
 
   const [formData, setFormData] = useState<FormData>(defaultFormData);
   const hasFetched = useRef<string | null>(null);
-
+  console.log("formData.estado:", formData.Estado);
+console.log("estadosMX:", estadosMX);
   // Sync breakfast data between single and double rooms
   useEffect(() => {
     if (mode === "edit" && formData.sencilla) {
@@ -636,7 +652,7 @@ export function HotelDialog({
         calle: direccionData.calle,
         numero: direccionData.numero,
         Colonia: hotel.Colonia || "",
-        Estado: hotel.Estado || "",
+        Estado: hotel.Estado ? quitarAcentos(hotel.Estado.toUpperCase().trim()) : "",
         Ciudad_Zona: hotel.Ciudad_Zona || "",
         municipio: "",
         tipo_negociacion: hotel.tipo_negociacion || "",
@@ -952,7 +968,7 @@ export function HotelDialog({
           const primerResultado = data[0];
           setFormData((prev) => ({
             ...prev,
-            Estado: quitarAcentos(primerResultado.d_estado.toUpperCase()),
+            Estado: normalizarEstado(primerResultado.d_estado.toUpperCase()),
             municipio: quitarAcentos(primerResultado.D_mnpio.toUpperCase()),
             idSepomex: primerResultado.id,
           }));
@@ -1904,7 +1920,7 @@ export function HotelDialog({
                     ESTADO <span className="text-red-500">*</span>
                   </Label>
                   <Select
-                    value={formData.Estado}
+                    value={formData.Estado.toUpperCase()}
                     onValueChange={(val) =>
                       handleChange("Estado", val.toUpperCase())
                     }
