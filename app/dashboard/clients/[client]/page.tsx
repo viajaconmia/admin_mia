@@ -1,12 +1,13 @@
 import { Suspense } from "react";
-import DetailsClient from "../_components/DetailsClient";
+// import {AgentDetailsCard} from "../_components/DetailsClient";
 
 const Client = async ({ params }: { params: Promise<{ client: string }> }) => {
   try {
     const { client } = await params;
     return (
       <Suspense fallback={<h1>Cargando...</h1>}>
-        <DetailsClient agente={client}></DetailsClient>
+        <h1>hola</h1>
+        {/* <AgentDetailsCard agente={client}></AgentDetailsCard> */}
       </Suspense>
     );
   } catch (error) {

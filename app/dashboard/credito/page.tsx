@@ -17,11 +17,7 @@ const CreditDashboard = async () => {
 
   console.log(response);
 
-  return (
-    <>
-      <CreditPage dataUsersCredit={response || []} />
-    </>
-  );
+  return <>{/* <CreditPage dataUsersCredit={response || []} /> */}</>;
 };
 
 export default CreditDashboard;
