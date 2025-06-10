@@ -35,7 +35,7 @@ import {
   Solicitud,
   Tax,
   Traveler,
-} from "@/app/_types/reservas";
+} from "@/types/_types/reservas";
 import { fetchViajeros } from "@/services/viajeros";
 import { ComboBox } from "@/components/SelectInput";
 import { ReservaCompleta } from "@/types/reserva";

@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { URL_VERCEL } from "@/app/constants/constantes";
+import { URL_VERCEL } from "@/constant/constants/constantes";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -36,7 +36,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { API_KEY } from "@/app/constants/constantes";
+import { API_KEY } from "@/constant/constants/constantes";
 import { Pencil, Trash2, ArrowLeft, Plus, Search } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 
@@ -280,11 +280,9 @@ interface DeleteTarifaPreferencialProps {
   id_tarifa_preferencial_doble?: number | null;
 }
 
-
 export function quitarAcentos(texto) {
   return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
-
 
 const estadosMX = [
   "AGUASCALIENTES",
@@ -612,20 +610,22 @@ export function HotelDialog({
         : "";
       const rawComentarios = hotel.Comentarios || "";
 
-// Validamos si hay al menos un encabezado presente
-const tieneEncabezados = /##\s+[A-ZÁÉÍÓÚÑ\s]+?\s+##/.test(rawComentarios);
+      // Validamos si hay al menos un encabezado presente
+      const tieneEncabezados = /##\s+[A-ZÁÉÍÓÚÑ\s]+?\s+##/.test(rawComentarios);
 
-// Verificamos si existe una sección explícita de 'NOTAS GENERALES'
-const tieneNotasGenerales = /##\s*NOTAS GENERALES\s*##/.test(rawComentarios);
+      // Verificamos si existe una sección explícita de 'NOTAS GENERALES'
+      const tieneNotasGenerales = /##\s*NOTAS GENERALES\s*##/.test(
+        rawComentarios
+      );
 
-// Si tiene encabezados y hay sección de notas generales, extraerla
-// Si no tiene encabezados, es un comentario antiguo → usar todo
-// Si tiene encabezados pero no tiene 'NOTAS GENERALES', no mostrar nada
-const notasGenerales = tieneEncabezados
-  ? (tieneNotasGenerales ? extractNotesSection(rawComentarios, "NOTAS GENERALES") : "")
-  : rawComentarios;
-
-
+      // Si tiene encabezados y hay sección de notas generales, extraerla
+      // Si no tiene encabezados, es un comentario antiguo → usar todo
+      // Si tiene encabezados pero no tiene 'NOTAS GENERALES', no mostrar nada
+      const notasGenerales = tieneEncabezados
+        ? tieneNotasGenerales
+          ? extractNotesSection(rawComentarios, "NOTAS GENERALES")
+          : ""
+        : rawComentarios;
 
       setFormData({
         Id_hotel_excel: hotel.Id_hotel_excel?.toString() || "",
@@ -695,8 +695,8 @@ const notasGenerales = tieneEncabezados
           precio_noche_extra: "",
           precio_persona_extra: hotel.paxExtraPersona || "",
         },
-        pais: hotel.pais==="MEXICO" ? "" : hotel.pais,
-        internacional:hotel.pais && hotel.pais !== "MEXICO",
+        pais: hotel.pais === "MEXICO" ? "" : hotel.pais,
+        internacional: hotel.pais && hotel.pais !== "MEXICO",
         score_operaciones: hotel.score_operaciones || 0,
         score_sistemas: hotel.score_sistemas || 0,
       });
@@ -929,15 +929,15 @@ const notasGenerales = tieneEncabezados
       setIsFetchingRates(false);
     }
   };
-//handler for international hotel
-const handleInternacionalChange = (checked: boolean) => {
-  setFormData((prev) => ({
-    ...prev,
-    internacional: checked,
-    pais: checked ? prev.pais || "" : "MEXICO",
-    Estado: checked ? "OTROS" : "",
-  }));
-};
+  //handler for international hotel
+  const handleInternacionalChange = (checked: boolean) => {
+    setFormData((prev) => ({
+      ...prev,
+      internacional: checked,
+      pais: checked ? prev.pais || "" : "MEXICO",
+      Estado: checked ? "OTROS" : "",
+    }));
+  };
   // Handler for código postal search
   const handleCodigoPostalChange = async (codigo: string) => {
     setFormData((prev) => ({ ...prev, CodigoPostal: codigo }));
@@ -999,15 +999,16 @@ const handleInternacionalChange = (checked: boolean) => {
     const processedValue =
       typeof value === "string" ? value.toUpperCase() : value;
 
-  if (field === "pais") {
-    setFormData((prev) => ({
-      ...prev,
-      pais: processedValue,
-      internacional: processedValue && processedValue !== "MEXICO",
-      Estado: processedValue && processedValue !== "MEXICO" ? "OTROS" : prev.Estado,
-    }));
-    return;
-  }    
+    if (field === "pais") {
+      setFormData((prev) => ({
+        ...prev,
+        pais: processedValue,
+        internacional: processedValue && processedValue !== "MEXICO",
+        Estado:
+          processedValue && processedValue !== "MEXICO" ? "OTROS" : prev.Estado,
+      }));
+      return;
+    }
 
     if (field.includes(".")) {
       const [parent, child] = field.split(".");
@@ -1369,9 +1370,8 @@ const handleInternacionalChange = (checked: boolean) => {
       console.log("Actualizando hotel:", hotelPayload);
 
       const hotelResponse = await fetch(
-        `${URL_VERCEL}hoteles/Editar-hotel/`
+        `${URL_VERCEL}hoteles/Editar-hotel/`,
         //`http://localhost:3001/v1/mia/hoteles/Editar-hotel/`
-        ,
         {
           method: "PATCH",
           headers: {
@@ -1495,9 +1495,8 @@ const handleInternacionalChange = (checked: boolean) => {
 
       const tarifasPromises = allTarifasPayloads.map((payload) =>
         fetch(
-          `${URL_VERCEL}hoteles/Actualiza-tarifa`
+          `${URL_VERCEL}hoteles/Actualiza-tarifa`,
           //`http://localhost:3001/v1/mia/hoteles/Actualiza-tarifa`
-          ,
           {
             method: "PATCH",
             headers: {
@@ -1543,9 +1542,8 @@ const handleInternacionalChange = (checked: boolean) => {
     try {
       // Call the endpoint for logical deletion with both IDs
       const response = await fetch(
-        `${URL_VERCEL}hoteles/Eliminar-tarifa-preferencial`
+        `${URL_VERCEL}hoteles/Eliminar-tarifa-preferencial`,
         //`http://localhost:3001/v1/mia/hoteles/Eliminar-tarifa-preferencial`
-        ,
         {
           method: "PATCH",
           headers: {
@@ -1867,34 +1865,39 @@ const handleInternacionalChange = (checked: boolean) => {
                 </div>
                 {/*Logica del check de internacionales */}
                 <div className="flex flex-col space-y-1">
-                <Label htmlFor="internacional" className="flex items-center gap-2">
-                  <div className="flex items-center">
-                    <Checkbox
-                      id="internacional"
-                      checked={formData.internacional}
-                      onCheckedChange={handleInternacionalChange}
-                      disabled={mode === "view"}
-                    />
-                    <span className="ml-2 font-medium">Hotel internacional</span>
-                  </div>
-                </Label>
-              </div>
-
-              {formData.internacional && (
-                <div className="flex flex-col space-y-1">
-                  <Label htmlFor="pais">
-                    PAÍS <span className="text-red-500">*</span>
+                  <Label
+                    htmlFor="internacional"
+                    className="flex items-center gap-2"
+                  >
+                    <div className="flex items-center">
+                      <Checkbox
+                        id="internacional"
+                        checked={formData.internacional}
+                        onCheckedChange={handleInternacionalChange}
+                        disabled={mode === "view"}
+                      />
+                      <span className="ml-2 font-medium">
+                        Hotel internacional
+                      </span>
+                    </div>
                   </Label>
-                  <Input
-                    id="pais"
-                    value={formData.pais}
-                    onChange={(e) => handleChange("pais", e.target.value)}
-                    disabled={mode === "view"}
-                    className="font-medium"
-                    required
-                  />
                 </div>
-              )}
+
+                {formData.internacional && (
+                  <div className="flex flex-col space-y-1">
+                    <Label htmlFor="pais">
+                      PAÍS <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="pais"
+                      value={formData.pais}
+                      onChange={(e) => handleChange("pais", e.target.value)}
+                      disabled={mode === "view"}
+                      className="font-medium"
+                      required
+                    />
+                  </div>
+                )}
                 {/*Fin logica check internacionales */}
                 <div className="flex flex-col space-y-1">
                   <Label htmlFor="estadoSelect">
@@ -3501,13 +3504,15 @@ const handleInternacionalChange = (checked: boolean) => {
                   />
                 </div>
 
-                     <div className="flex flex-col space-y-1">
+                <div className="flex flex-col space-y-1">
                   <Label htmlFor="score_operaciones">SCORE </Label>
                   <Input
                     type="number"
                     id="salones"
                     value={formData.score_operaciones || ""}
-                    onChange={(e) => handleChange("score_operaciones", e.target.value)}
+                    onChange={(e) =>
+                      handleChange("score_operaciones", e.target.value)
+                    }
                     disabled={mode === "view"}
                     style={
                       mode === "view"

@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { TravelerTable } from "../_components/traveler_table";
 import { TravelerFilters } from "../_components/traveler_filters";
 import { TravelerDialog } from "../_components/traveler_dialog";
-import { Company, Traveler } from "@/app/_types";
+import { Company, Traveler } from "@/types/_types";
 
 export function TravelersPage({
   empresas,

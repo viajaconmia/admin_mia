@@ -18,7 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Eye, Edit, Trash } from "lucide-react";
-import type { Factura } from "@/app/_types";
+import type { Factura } from "@/types/_types";
 
 export function TravelerTable({ facturas }: { facturas: Factura[] }) {
   const [invoices, setinvoices] = useState<Factura[]>(facturas);

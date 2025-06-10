@@ -1,4 +1,4 @@
-import { API_KEY } from "@/app/constants/constantes";
+import { API_KEY } from "@/constant/constants/constantes";
 
 // utils/backend.ts
 export const createHotel = async (payload: any) => {

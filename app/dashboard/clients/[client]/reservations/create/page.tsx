@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { API_KEY } from "@/app/constants/constantes";
+import { API_KEY } from "@/constant/constants/constantes";
 import { ReservationForm } from "../../../_components/ReservationForm";
 
 export default async function ReservationsClient({

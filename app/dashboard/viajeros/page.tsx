@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { TravelersPage } from "./_components/traveler_main";
-import { API_KEY } from "../../constants/constantes";
+import { API_KEY } from "../../../constant/constants/constantes";
 
 export default async function TravelerDashboard() {
   try {

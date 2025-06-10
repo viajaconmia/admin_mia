@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { TravelerTable } from "./traveler_table";
 import { TravelerFilters } from "./traveler_filters";
 import { TravelerDialog } from "./traveler_dialog";
-import { Factura } from "@/app/_types";
+import { Factura } from "@/types/_types";
 
 export function TravelersPage({ facturas }: { facturas: Factura[] }) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);

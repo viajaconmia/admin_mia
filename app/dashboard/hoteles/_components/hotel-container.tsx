@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { HotelDialog } from "./hotel-dialog";
 import { AddHotelDialog } from "./addHotelDialog";
-import { API_KEY } from "@/app/constants/constantes";
+import { API_KEY } from "@/constant/constants/constantes";
 import Filters from "@/components/Filters";
 import { fetchHotelesFiltro_Avanzado } from "@/services/hoteles";
 

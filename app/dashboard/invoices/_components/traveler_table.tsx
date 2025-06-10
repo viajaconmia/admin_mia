@@ -17,12 +17,17 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Eye, ChevronDown, ChevronUp, DownloadCloud } from "lucide-react";
-import type { Factura } from "@/app/_types";
+import {
+  MoreHorizontal,
+  Eye,
+  ChevronDown,
+  ChevronUp,
+  DownloadCloud,
+} from "lucide-react";
+import type { Factura } from "@/types/_types";
 import useApi from "@/hooks/useApi";
 import Modal from "@/components/structure/Modal";
 import { API_KEY, URL } from "@/constant";
-
 
 function FacturaDetails({ setModal, id_factura }) {
   const [facturaData, setFacturaData] = useState([]);
@@ -32,17 +37,20 @@ function FacturaDetails({ setModal, id_factura }) {
   const fetchFacturas = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${URL}/mia/factura/getDetailsFactura?id_factura=${encodeURIComponent(
-        id_factura
-      )}`, {
-        method: "GET",
-        headers: {
-          "x-api-key": API_KEY || "",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          "Content-Type": "application/json",
-        },
-        cache: "no-store",
-      });
+      const response = await fetch(
+        `${URL}/mia/factura/getDetailsFactura?id_factura=${encodeURIComponent(
+          id_factura
+        )}`,
+        {
+          method: "GET",
+          headers: {
+            "x-api-key": API_KEY || "",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Content-Type": "application/json",
+          },
+          cache: "no-store",
+        }
+      );
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -57,7 +65,7 @@ function FacturaDetails({ setModal, id_factura }) {
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
     if (id_factura) {
@@ -83,15 +91,20 @@ function FacturaDetails({ setModal, id_factura }) {
         <div className="p-4 text-gray-500">
           No se encontraron detalles para esta factura
         </div>
-      ) :
-        (<div className="max-h-[70vh] overflow-y-auto px-4">
+      ) : (
+        <div className="max-h-[70vh] overflow-y-auto px-4">
           {/* Listado de reservas */}
           <div className="flex flex-col gap-5 mb-8">
             {facturaData.map((reserva, index) => (
-              <div key={index} className="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+              <div
+                key={index}
+                className="border border-gray-200 rounded-lg overflow-hidden shadow-sm"
+              >
                 {/* Encabezado de reserva */}
                 <div className="bg-gray-50 px-4 py-3 flex justify-between items-center border-b border-gray-200">
-                  <h3 className="m-0 text-base font-medium text-gray-800">{reserva.nombre_hotel}</h3>
+                  <h3 className="m-0 text-base font-medium text-gray-800">
+                    {reserva.nombre_hotel}
+                  </h3>
                   <span className="bg-blue-600 text-white px-2 py-1 rounded text-xs">
                     {reserva.tipo_cuarto}
                   </span>
@@ -102,19 +115,29 @@ function FacturaDetails({ setModal, id_factura }) {
                   {/* Información básica */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                     <div>
-                      <p className="text-xs text-gray-500 mb-1">Noches facturadas:</p>
-                      <p className="text-sm font-medium">{reserva.noches_facturadas}</p>
+                      <p className="text-xs text-gray-500 mb-1">
+                        Noches facturadas:
+                      </p>
+                      <p className="text-sm font-medium">
+                        {reserva.noches_facturadas}
+                      </p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 mb-1">Código Reserva:</p>
-                      <p className="text-sm font-medium">{reserva.codigo_reservacion_hotel || 'N/A'}</p>
+                      <p className="text-xs text-gray-500 mb-1">
+                        Código Reserva:
+                      </p>
+                      <p className="text-sm font-medium">
+                        {reserva.codigo_reservacion_hotel || "N/A"}
+                      </p>
                     </div>
                     <div>
                       <p className="text-xs text-gray-500 mb-1">Noches:</p>
                       <p className="text-sm font-medium">{reserva.noches}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-gray-500 mb-1">Fecha de emisión:</p>
+                      <p className="text-xs text-gray-500 mb-1">
+                        Fecha de emisión:
+                      </p>
                       <p className="text-sm font-medium">
                         {new Date(reserva.fecha_uso).toLocaleDateString()}
                       </p>
@@ -165,30 +188,55 @@ function FacturaDetails({ setModal, id_factura }) {
               <div className="flex justify-between">
                 <span className="text-sm">Subtotal:</span>
                 <span className="text-sm font-medium">
-                  ${facturaData.reduce((sum, item) => sum + parseFloat(item.subtotal) * parseFloat(item.noches_facturadas), 0).toFixed(2)}
+                  $
+                  {facturaData
+                    .reduce(
+                      (sum, item) =>
+                        sum +
+                        parseFloat(item.subtotal) *
+                          parseFloat(item.noches_facturadas),
+                      0
+                    )
+                    .toFixed(2)}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm">Impuestos:</span>
                 <span className="text-sm font-medium">
-                  ${facturaData.reduce((sum, item) => sum + parseFloat(item.impuestos) * parseFloat(item.noches_facturadas), 0).toFixed(2)}
+                  $
+                  {facturaData
+                    .reduce(
+                      (sum, item) =>
+                        sum +
+                        parseFloat(item.impuestos) *
+                          parseFloat(item.noches_facturadas),
+                      0
+                    )
+                    .toFixed(2)}
                 </span>
               </div>
               <div className="flex justify-between pt-2 border-t border-gray-200">
                 <span className="font-semibold">Total Factura:</span>
                 <span className="font-semibold text-blue-700">
-                  ${facturaData.reduce((sum, item) => sum + parseFloat(item.total) * parseFloat(item.noches_facturadas), 0).toFixed(2)}
+                  $
+                  {facturaData
+                    .reduce(
+                      (sum, item) =>
+                        sum +
+                        parseFloat(item.total) *
+                          parseFloat(item.noches_facturadas),
+                      0
+                    )
+                    .toFixed(2)}
                 </span>
               </div>
             </div>
           </div>
         </div>
-        )
-      }
+      )}
     </Modal>
-  )
+  );
 }
-
 
 export function TravelerTable({ facturas }: { facturas: Factura[] }) {
   const { mandarCorreo, descargarFactura, descargarFacturaXML } = useApi();
@@ -196,26 +244,23 @@ export function TravelerTable({ facturas }: { facturas: Factura[] }) {
   const [isModalOpen, setIsModalOpen] = useState("");
 
   const toggleRow = (id: string) => {
-    setExpandedRows(prev => ({
+    setExpandedRows((prev) => ({
       ...prev,
-      [id]: !prev[id]
+      [id]: !prev[id],
     }));
   };
-
-
-
 
   const handleDownloadXML = (obj: any) => {
     if (!obj) return;
 
     // Obtener el contenido XML (que está en base64)
-    const base64Content = typeof obj === 'string' ? obj : obj.Content;
+    const base64Content = typeof obj === "string" ? obj : obj.Content;
 
     // Decodificar de base64 a string
     const decodedContent = atob(base64Content);
 
     // Crear el Blob con el tipo MIME correcto para XML
-    const blob = new Blob([decodedContent], { type: 'application/xml' });
+    const blob = new Blob([decodedContent], { type: "application/xml" });
 
     // Crear el enlace de descarga
     const downloadLink = document.createElement("a");
@@ -251,8 +296,7 @@ export function TravelerTable({ facturas }: { facturas: Factura[] }) {
       } catch (error) {
         alert("Ha ocurrido un error al descargar la factura");
       }
-    }
-    else {
+    } else {
       try {
         const obj = await descargarFacturaXML(id);
         handleDownloadXML(obj);
@@ -301,8 +345,8 @@ export function TravelerTable({ facturas }: { facturas: Factura[] }) {
                     factura.estado === "Confirmada"
                       ? "bg-green-100 text-green-800 border-green-200"
                       : factura.estado === "Cancelada"
-                        ? "bg-red-100 text-red-800 border-red-200"
-                        : "bg-blue-100 text-blue-800 border-blue-200"
+                      ? "bg-red-100 text-red-800 border-red-200"
+                      : "bg-blue-100 text-blue-800 border-blue-200"
                   }
                 >
                   {factura.estado}
@@ -318,21 +362,30 @@ export function TravelerTable({ facturas }: { facturas: Factura[] }) {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem
-                        onClick={() => setIsModalOpen(factura.id_factura)}>
+                        onClick={() => setIsModalOpen(factura.id_factura)}
+                      >
                         <Eye className="mr-2 h-4 w-4" />
                         Ver detalles
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => {
-                          handleDescargarFactura(factura.id_facturama || "", "pdf");
-                        }}>
+                          handleDescargarFactura(
+                            factura.id_facturama || "",
+                            "pdf"
+                          );
+                        }}
+                      >
                         <DownloadCloud className="mr-2 h-4 w-4" />
                         Descargar PDF
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => {
-                          handleDescargarFactura(factura.id_facturama || "", "xml");
-                        }}>
+                          handleDescargarFactura(
+                            factura.id_facturama || "",
+                            "xml"
+                          );
+                        }}
+                      >
                         <DownloadCloud className="mr-2 h-4 w-4" />
                         Descargar XML
                       </DropdownMenuItem>
@@ -341,12 +394,15 @@ export function TravelerTable({ facturas }: { facturas: Factura[] }) {
                 </div>
               </TableCell>
             </TableRow>
-            {isModalOpen === factura.id_factura &&
-              <FacturaDetails setModal={setIsModalOpen} id_factura={factura.id_factura} />
-            }
+            {isModalOpen === factura.id_factura && (
+              <FacturaDetails
+                setModal={setIsModalOpen}
+                id_factura={factura.id_factura}
+              />
+            )}
           </>
         ))}
-      </TableBody >
+      </TableBody>
     </Table>
   );
 }
