@@ -18,6 +18,7 @@ export const fetchInitSuperAgent = async (
     cache: "no-store",
   });
   if (!response.ok) {
+    console.log(response);
     throw new Error("Error al cargar los datos");
   }
   const data = await response.json();
@@ -45,6 +46,7 @@ export const fetchUpdateEmpresasAgentes = async (
     throw new Error("Error al cargar los datos");
   }
   const data = await response.json();
+  console.log(data);
   callback(data);
   return data;
 };

@@ -3,11 +3,13 @@ import { CreditCard, FileText, Send, Download, QrCode } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   CheckboxInput,
+  DateInput,
   DropdownValues,
   NumberInput,
   TextAreaInput,
 } from "../atom/Input";
 import { Solicitud } from "@/types";
+import { da } from "date-fns/locale";
 
 interface PaymentModalProps {
   reservation: Solicitud | null;
@@ -20,6 +22,7 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
   const [paymentMethod, setPaymentMethod] = useState<"transfer" | "card" | "">(
     ""
   );
+  const [date, setDate] = useState(reservation.check_in.split("T")[0]);
   const [selectedCard, setSelectedCard] = useState("");
   const [useQR, setUseQR] = useState<"qr" | "code" | "">("");
   const [comments, setComments] = useState("");
@@ -47,6 +50,7 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
       selectedCard,
       useQR,
       comments,
+      date,
     });
   };
 
@@ -55,7 +59,7 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
   };
 
   return (
-    <div className="max-w-[85vw] w-screen p-2 pt-4 max-h-[90vh] grid grid-cols-2">
+    <div className="max-w-[85vw] w-screen p-2 pt-0 max-h-[90vh] grid grid-cols-2">
       <div className="space-y-4 border-r p-4">
         <h2 className="text-lg font-semibold">Detalles de la reservación</h2>
         {/* Información de la Reserva */}
@@ -87,39 +91,44 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
             </div>
           </div>
         </div>
-        <div className="p-4 bg-green-50 border rounded-md border-green-200">
-          <div className="flex justify-between items-center">
-            <span className="text-slate-700 text-sm">
-              Monto a Pagar al Proveedor:
-            </span>
-            <span className="text-xl font-bold text-green-700">
-              ${amountToPay.toFixed(2)}
-            </span>
-          </div>
-        </div>
 
         {/* Saldo a Favor */}
         <div className="space-y-4">
-          <div className="flex items-center space-x-2">
-            <CheckboxInput
-              checked={hasFavorBalance}
-              onChange={(checked) => setHasFavorBalance(checked === true)}
-              label="✅ Tiene Saldo a Favor"
-            />
-          </div>
+          <CheckboxInput
+            checked={hasFavorBalance}
+            onChange={(checked) => setHasFavorBalance(checked === true)}
+            label="✅ Tiene Saldo a Favor"
+          />
 
           {hasFavorBalance && (
-            <NumberInput
-              onChange={(value) => setFavorBalance(value)}
-              value={Number(favorBalance) || null}
-              label="Monto Saldo a Favor a Aplicar"
-              placeholder="0.00"
-            />
+            <>
+              <NumberInput
+                onChange={(value) => setFavorBalance(value)}
+                value={Number(favorBalance) || null}
+                label="Monto Saldo a Favor a Aplicar"
+                placeholder="0.00"
+              />
+              <div className="p-4 bg-green-50 border rounded-md border-green-200">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-700 text-sm">
+                    Monto a Pagar al Proveedor:
+                  </span>
+                  <span className="text-xl font-bold text-green-700">
+                    ${amountToPay.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </>
           )}
+          <DateInput
+            label="Fecha de pago"
+            value={date}
+            onChange={(value) => setDate(value)}
+          />
         </div>
       </div>
 
-      <div className="space-y-6 p-4">
+      <div className="space-y-4 p-4">
         {/* Forma de Pago */}
         <h2 className="text-lg font-semibold">Forma de Pago</h2>
         <div className="space-y-4">
@@ -127,7 +136,7 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
             <Button
               variant={paymentType === "prepaid" ? "default" : "outline"}
               onClick={() => setPaymentType("prepaid")}
-              className="h-16"
+              className="h-12"
             >
               <CreditCard className="mr-2 h-5 w-5" />
               Prepago
@@ -135,7 +144,7 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
             <Button
               variant={paymentType === "credit" ? "default" : "outline"}
               onClick={() => setPaymentType("credit")}
-              className="h-16"
+              className="h-12"
             >
               <FileText className="mr-2 h-5 w-5" />
               Crédito
@@ -146,7 +155,7 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
         {/* Prepago */}
         {paymentType === "prepaid" && (
           <div className="space-y-4">
-            <h5 className="font-semibold">Método de Pago</h5>
+            <h5 className="text-sm font-semibold">Método de Pago</h5>
             <div className="grid grid-cols-2 gap-4">
               <Button
                 variant={paymentMethod === "transfer" ? "default" : "outline"}
@@ -179,7 +188,7 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
                 </div>
 
                 <div>
-                  <h5 className="font-semibold">Tipo de Pago</h5>
+                  <h5 className="text-sm font-semibold">Tipo de Pago</h5>
                   <div className="grid grid-cols-2 gap-4 mt-2">
                     <Button
                       variant={useQR === "qr" ? "default" : "outline"}
@@ -220,7 +229,7 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
 
         {/* Crédito */}
         {paymentType === "credit" && (
-          <div className="space-y-4">
+          <div className="space-y-2">
             <TextAreaInput
               onChange={(value) => setEmails(value)}
               placeholder="correo1@ejemplo.com, correo2@ejemplo.com"
@@ -249,7 +258,6 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
               onChange={(value) => setComments(value)}
               placeholder="Comentarios sobre el crédito..."
               value={comments || ""}
-              rows={2}
               label="Comentarios"
             />
           </div>
