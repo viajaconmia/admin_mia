@@ -18,7 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Eye, Edit, Trash } from "lucide-react";
-import type { Traveler } from "@/app/_types";
+import type { Traveler } from "@/types/_types";
 
 export function TravelerTable({ viajeros }: { viajeros: Traveler[] }) {
   const [travelers, setTravelers] = useState<Traveler[]>(viajeros);

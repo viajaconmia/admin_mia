@@ -1,6 +1,6 @@
 "use client";
 
-import { API_KEY } from "../../../constants/constantes";
+import { API_KEY } from "../../../../constant/constants/constantes";
 import { useState } from "react";
 import {
   Table,
@@ -200,9 +200,7 @@ export function CreditTable({
                 </TableCell>
                 <TableCell>
                   {agent.saldo
-                    ? `$${new Intl.NumberFormat("en-US").format(
-                        agent.saldo
-                      )}`
+                    ? `$${new Intl.NumberFormat("en-US").format(agent.saldo)}`
                     : "N/A"}
                 </TableCell>
                 <TableCell className="text-right">

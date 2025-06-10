@@ -12,8 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Trash2, Search, Plus } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { API_KEY } from "@/app/constants/constantes";
-import { URL_VERCEL } from "@/app/constants/constantes";
+import { API_KEY } from "@/constant/constants/constantes";
+import { URL_VERCEL } from "@/constant/constants/constantes";
 import {
   Select,
   SelectContent,
@@ -137,14 +137,14 @@ interface FormData {
   precio_persona_extra: string;
   sencilla: HabitacionData;
   doble: HabitacionData;
-  score_operaciones?: number; 
+  score_operaciones?: number;
 }
 
 // API Functions
 const buscarCodigoPostal = async (codigo: string) => {
   try {
     const response = await fetch(
-     // `http://localhost:5173/v1/sepoMex/buscar-codigo-postal?d_codigo=${codigo}`,
+      // `http://localhost:5173/v1/sepoMex/buscar-codigo-postal?d_codigo=${codigo}`,
       `https://miaback.vercel.app/v1/sepoMex/buscar-codigo-postal?d_codigo=${codigo}`,
       {
         method: "GET",
@@ -319,7 +319,7 @@ export function AddHotelDialog({
       precio_persona_extra: "",
       precio_noche_extra: "",
     },
-    score_operaciones: 0, 
+    score_operaciones: 0,
   });
 
   // State for CP search and form management
@@ -410,14 +410,14 @@ export function AddHotelDialog({
   };
 
   // Handle checkbox for international
-const handleInternacionalChange = (checked: boolean) => {
-  setFormData((prev) => ({
-    ...prev,
-    internacional: checked,
-    pais: checked ? prev.pais || "" : "MEXICO",
-    estado: checked ? "OTROS" : "",
-  }));
-};
+  const handleInternacionalChange = (checked: boolean) => {
+    setFormData((prev) => ({
+      ...prev,
+      internacional: checked,
+      pais: checked ? prev.pais || "" : "MEXICO",
+      estado: checked ? "OTROS" : "",
+    }));
+  };
   // Generic form field change handler
   const handleChange = (field: string, value: any) => {
     if (field.includes(".")) {
@@ -803,9 +803,7 @@ const handleInternacionalChange = (checked: boolean) => {
 
       const response = await fetch(
         //"http://localhost:3001/v1/mia/hoteles/Agregar-hotel/"
-        `${URL_VERCEL}hoteles/Agregar-hotel/`
-        ,
-
+        `${URL_VERCEL}hoteles/Agregar-hotel/`,
         {
           method: "POST",
           headers: {
@@ -1071,7 +1069,6 @@ const handleInternacionalChange = (checked: boolean) => {
 
               {/*Aqui vamos a poner el checkbox de pais*/}
 
-
               <div className="flex flex-col space-y-1">
                 <Label
                   htmlFor="internacional"
@@ -1096,7 +1093,9 @@ const handleInternacionalChange = (checked: boolean) => {
                   <Input
                     id="pais"
                     value={formData.pais}
-                    onChange={(e) => handleChange("pais", e.target.value.toUpperCase())}
+                    onChange={(e) =>
+                      handleChange("pais", e.target.value.toUpperCase())
+                    }
                     required
                   />
                 </div>
@@ -1113,7 +1112,7 @@ const handleInternacionalChange = (checked: boolean) => {
                     handleChange("estado", val.toUpperCase())
                   }
                   required
-                  disabled={formData.internacional} 
+                  disabled={formData.internacional}
                 >
                   <SelectTrigger
                     id="estadoSelect"
@@ -2134,21 +2133,23 @@ const handleInternacionalChange = (checked: boolean) => {
                 />
               </div>
               <div className="flex flex-col space-y-1">
-                  <Label htmlFor="score_operaciones">SCORE</Label>
-                  <Input
-                    type="number"
-                    id="score_operaciones"
-                    value={formData.score_operaciones ?? ""}
-                    onChange={(e) => handleChange("score_operaciones", e.target.value)}
-                    style={{
-                      color: "black",
-                      opacity: 1,
-                      backgroundColor: "white",
-                    }}
-                    className="font-medium"
-                    placeholder="SCORE DEL PROVEEDOR"
-                  />
-                </div>
+                <Label htmlFor="score_operaciones">SCORE</Label>
+                <Input
+                  type="number"
+                  id="score_operaciones"
+                  value={formData.score_operaciones ?? ""}
+                  onChange={(e) =>
+                    handleChange("score_operaciones", e.target.value)
+                  }
+                  style={{
+                    color: "black",
+                    opacity: 1,
+                    backgroundColor: "white",
+                  }}
+                  className="font-medium"
+                  placeholder="SCORE DEL PROVEEDOR"
+                />
+              </div>
 
               <div className="flex flex-col space-y-1">
                 <Label htmlFor="notas_informacion_adicional">

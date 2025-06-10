@@ -18,8 +18,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Eye, Edit, Trash } from "lucide-react";
-import type { Company } from "@/app/_types";
-import { API_KEY } from "../../../constants/constantes";
+import type { Company } from "@/types/_types";
+import { API_KEY } from "../../../../constant/constants/constantes";
 
 export function CompanyTable() {
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -45,7 +45,6 @@ export function CompanyTable() {
           throw new Error("Error fetching companies");
         }
         setCompanies(json || []);
-        
       } catch (error) {
         setCompanies([]);
         console.error("Error fetching companies:", error);

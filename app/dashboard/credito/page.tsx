@@ -1,4 +1,4 @@
-import { API_KEY } from "../../constants/constantes";
+import { API_KEY } from "../../../constant/constants/constantes";
 import { CreditPage } from "./_components/credit-container";
 
 const CreditDashboard = async () => {

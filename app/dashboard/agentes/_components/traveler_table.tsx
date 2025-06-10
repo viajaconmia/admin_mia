@@ -18,7 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Eye, Edit, Trash } from "lucide-react";
-import type { Agente } from "@/app/_types";
+import type { Agente } from "@/types/_types";
 
 export function TravelerTable({ agentes }: { agentes: Agente[] }) {
   const [travelers, setTravelers] = useState<Agente[]>(agentes);
@@ -55,7 +55,9 @@ export function TravelerTable({ agentes }: { agentes: Agente[] }) {
                     : "bg-red-100 text-red-800 border-red-200"
                 }
               >
-                {traveler.user_metadata.email_verified === true ? "Verificado" : "No verificado"}
+                {traveler.user_metadata.email_verified === true
+                  ? "Verificado"
+                  : "No verificado"}
               </Badge>
             </TableCell>
             <TableCell className="text-right">

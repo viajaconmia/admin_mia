@@ -18,7 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Eye, Edit, Trash } from "lucide-react";
-import type { Agente } from "@/app/_types";
+import type { Agente } from "@/types/_types";
 
 export function TravelerTable({ agentes }: { agentes: Agente[] }) {
   const [travelers, setTravelers] = useState<Agente[]>(agentes);
@@ -45,9 +45,7 @@ export function TravelerTable({ agentes }: { agentes: Agente[] }) {
             <TableCell>{traveler.concepto}</TableCell>
             <TableCell>{traveler.total_credito}</TableCell>
             <TableCell>{traveler.pendiente_por_cobrar}</TableCell>
-            <TableCell>
-                {traveler.estado_solicitud}
-            </TableCell>
+            <TableCell>{traveler.estado_solicitud}</TableCell>
             <TableCell>
               {new Date(traveler.fecha_credito).toLocaleDateString()}
             </TableCell>

@@ -1,6 +1,6 @@
 "use client";
 
-import { API_KEY } from "../../../constants/constantes";
+import { API_KEY } from "../../../../constant/constants/constantes";
 import { useState } from "react";
 import {
   Dialog,
@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Company } from "../../../_types/index";
+import { Company } from "../../../../types/_types/index";
 
 interface TravelerDialogProps {
   open: boolean;
