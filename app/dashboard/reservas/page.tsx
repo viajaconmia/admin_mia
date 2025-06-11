@@ -21,6 +21,7 @@ import Modal from "@/components/structure/Modal";
 import { TypeFilters, Solicitud } from "@/types";
 import { Loader } from "@/components/atom/Loader";
 import { PaymentModal } from "@/components/structure/PaymentProveedor";
+import { currentDate } from "@/lib/utils";
 
 function App() {
   const [allSolicitudes, setAllSolicitudes] = useState<Solicitud[]>([]);
@@ -300,8 +301,8 @@ const defaultFiltersSolicitudes: TypeFilters = {
   reservationStage: null,
   hotel: null,
   status: "Confirmada",
-  startDate: `${año}-${mes}-${dia}`,
-  endDate: `${año}-${mes}-${dia}`,
+  startDate: currentDate(),
+  endDate: currentDate(),
   traveler: null,
   paymentMethod: null,
   id_client: null,
