@@ -111,7 +111,7 @@ export async function generateSecureQRPaymentPDF(data: QRPaymentData) {
 
   // Token reference (for technical support)
   doc.setFontSize(7);
-  doc.text(`Token: ${data.secureToken.substring(0, 16)}...`, 20, 260);
+  doc.text(`Token: ${data.secureToken}...`, 20, 260);
 
   return doc;
 }
@@ -128,10 +128,12 @@ export function generateSecureToken(
 
   // In production, this should be properly encrypted on the backend
   // For demo purposes, we'll use base64 encoding with additional obfuscation
-  const token = btoa(dataStr + "-" + randomStr).replace(/[+/=]/g, (match) => {
-    return { "+": "-", "/": "_", "=": "" }[match] || match;
-  });
-
+  const token = btoa(dataStr + "-" + randomStr)
+    .replace(/[+/=]/g, (match) => {
+      return { "+": "-", "/": "_", "=": "" }[match] || match;
+    })
+    .replaceAll("=", "");
+  console.log(token);
   return token;
 }
 
@@ -139,13 +141,17 @@ export function validateSecureToken(token: string): {
   valid: boolean;
   data?: any;
 } {
+  console.log("vemos?");
   try {
+    console.log("vemos?2");
     // Reverse the token generation process
     const decoded = atob(
       token.replace(/[-_]/g, (match) => {
         return { "-": "+", _: "/" }[match] || match;
       })
     );
+    console.log("vemos?3");
+    console.log(decoded);
 
     const parts = decoded.split("-");
     if (parts.length >= 5) {
@@ -159,8 +165,10 @@ export function validateSecureToken(token: string): {
         },
       };
     }
+    console.log(parts);
     return { valid: false };
-  } catch {
+  } catch (error) {
+    console.log(error);
     return { valid: false };
   }
 }

@@ -67,52 +67,26 @@ const CARD_DATABASE: Record<string, CardData> = {
 };
 
 export default function SecurePayment({ params }) {
-  console.log(params);
   const { token } = params;
-  const [isValid, setIsValid] = useState(false);
+  const [isValid, setIsValid] = useState(true);
   const [paymentData, setPaymentData] = useState<any>(null);
   const [cardData, setCardData] = useState<CardData | null>(null);
   const [showCardData, setShowCardData] = useState(false);
-  const [timeRemaining, setTimeRemaining] = useState(300); // 5 minutes
 
   useEffect(() => {
+    console.log(token);
     if (token) {
       const validation = validateSecureToken(token);
-      if (validation.valid && validation.data) {
-        const timeSinceGeneration = Date.now() - validation.data.timestamp;
-        const maxValidTime = 30 * 60 * 1000; // 30 minutes
-
-        if (timeSinceGeneration < maxValidTime) {
-          setIsValid(true);
-          setPaymentData(validation.data);
-
-          // Get card data based on the card ID from token
-          const cardKey = validation.data.cardType || "1";
-          setCardData(CARD_DATABASE[cardKey] || CARD_DATABASE["1"]);
-
-          // Set remaining time
-          const remaining = Math.max(
-            0,
-            Math.floor((maxValidTime - timeSinceGeneration) / 1000)
-          );
-          setTimeRemaining(remaining);
-        }
+      if (validation.valid) {
+        setIsValid(true);
+        setPaymentData(validation.data);
+      } else {
+        setIsValid(false);
       }
+      const cardKey = validation.data.cardType || "1";
+      setCardData(CARD_DATABASE[cardKey] || CARD_DATABASE["1"]);
     }
-  }, [token]);
-
-  useEffect(() => {
-    if (timeRemaining > 0) {
-      const timer = setTimeout(() => setTimeRemaining(timeRemaining - 1), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [timeRemaining]);
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
-  };
+  }, []);
 
   if (!isValid || !paymentData || !cardData) {
     return (
@@ -125,30 +99,6 @@ export default function SecurePayment({ params }) {
           <p className="text-red-600 mb-4">
             El código QR no es válido o ha expirado. Por favor, solicite un
             nuevo código de pago.
-          </p>
-          <Button
-            variant="outline"
-            onClick={() => window.close()}
-            className="border-red-300 text-red-700 hover:bg-red-50"
-          >
-            Cerrar Ventana
-          </Button>
-        </Card>
-      </div>
-    );
-  }
-
-  if (timeRemaining === 0) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-red-50 to-red-100 flex items-center justify-center p-4">
-        <Card className="max-w-md w-full p-8 text-center border-red-200">
-          <AlertTriangle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-red-800 mb-2">
-            Código Expirado
-          </h1>
-          <p className="text-red-600 mb-4">
-            Este código QR ha expirado por seguridad. Solicite un nuevo código
-            para continuar.
           </p>
           <Button
             variant="outline"
@@ -176,7 +126,7 @@ export default function SecurePayment({ params }) {
               </p>
             </div>
           </div>
-
+          {/* 
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
             <div className="flex items-center space-x-2">
               <Lock className="h-5 w-5 text-amber-600" />
@@ -185,7 +135,7 @@ export default function SecurePayment({ params }) {
                 <span className="font-bold">{formatTime(timeRemaining)}</span>
               </p>
             </div>
-          </div>
+          </div> */}
         </Card>
 
         {/* Payment Details */}
@@ -317,13 +267,13 @@ export default function SecurePayment({ params }) {
                 </ul>
               </div>
 
-              <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              {/* <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                 <p className="text-sm text-amber-800">
                   <strong>Importante:</strong> Esta información expira en{" "}
                   {formatTime(timeRemaining)}. Si necesita más tiempo, solicite
                   un nuevo código QR.
                 </p>
-              </div>
+              </div> */}
 
               <Button
                 onClick={() => setShowCardData(false)}
