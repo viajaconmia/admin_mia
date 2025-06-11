@@ -65,7 +65,7 @@ export function CreditTable({
       razon_social: item.razon_social,
       tipo_persona: item.tipo_persona,
       tiene_credito: item.tiene_credito,
-      saldo: item.monto_credito_empresa,
+      monto_credito: item.monto_credito_empresa,
     });
     return acc;
   }, {} as Record<string, any>);
@@ -83,7 +83,7 @@ export function CreditTable({
       type,
       id: type === "agente" ? item.id : item.id_empresa,
       name: type === "agente" ? item.nombre : item.nombre_comercial,
-      credit: item.saldo || 0,
+      credit: item.saldo || 0 || item.monto_credito ,
     });
     setDialogOpen(true);
   };
