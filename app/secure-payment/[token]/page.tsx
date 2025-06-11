@@ -118,7 +118,11 @@ export default function SecurePayment({ params }) {
         {/* Header */}
         <Card className="mb-6 p-6 border-blue-200">
           <div className="flex items-center space-x-3 mb-4">
-            <Shield className="h-8 w-8 text-blue-600" />
+            <img
+              src="https://www.noktos.com/wp-content/uploads/2022/10/cropped-noktos_logo-300x202.png"
+              alt=""
+              className="w-12 mr-2"
+            />
             <div>
               <h1 className="text-2xl font-bold text-slate-800">Pago Seguro</h1>
               <p className="text-sm text-slate-600">

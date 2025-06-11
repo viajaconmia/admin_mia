@@ -21,6 +21,7 @@ import {
   TextAreaInput,
 } from "../atom/Input";
 import { Solicitud } from "@/types";
+import { currentDate } from "@/lib/utils";
 
 interface PaymentModalProps {
   reservation: Solicitud | null;
@@ -84,13 +85,34 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
     );
 
     const qrData: QRPaymentData = {
-      reservationId: reservation.codigo_reservacion_hotel,
-      amount: amountToPay,
-      currency: "MXN",
-      hotelName: reservation.hotel,
-      clientName: "Cliente Corporativo",
-      cardType: selectedCard,
       secureToken: secureToken,
+
+      logoUrl:
+        "https://www.noktos.com/wp-content/uploads/2022/10/cropped-noktos_logo-300x202.png",
+      empresa: {
+        codigoPostal: "11570",
+        direccion:
+          "Presidente Masaryk #29, Interior P-4, CDMX, colonia: Chapultepec Morales, Alcaldía: Miguel Hidalgo",
+        nombre: "noktos",
+        razonSocial: "Noktos Alianza S.A. de C.V.",
+        rfc: "NAL190807BU2",
+      },
+      bancoEmisor: "JEEVES / MST",
+      fechaExpiracion: "05/28", //Cambiar por los datos de la tarjeta en un futuro
+      nombreTarjeta: "Luz de Lourdes Sánchez Torrado",
+      numeroTarjeta: "5525680000186639",
+      reservations: [
+        {
+          checkIn: reservation.check_in,
+          checkOut: reservation.check_out,
+          reservacionId: reservation.codigo_reservacion_hotel,
+          monto: Number(reservation.costo_total),
+          nombre: reservation.hotel,
+          tipoHabitacion: reservation.room,
+        },
+      ],
+      codigoDocumento: "xxxx",
+      currency: "MXN",
     };
 
     try {
@@ -233,44 +255,46 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
               </Button>
             </div>
 
-            <div>
-              <h5 className="text-sm font-semibold">Datos de Pago</h5>
-              <div className="grid grid-cols-2 gap-4 mt-2">
-                <Button
-                  variant={useQR === "qr" ? "default" : "outline"}
-                  onClick={() => setUseQR("qr")}
-                  size="sm"
-                >
-                  <QrCode className="mr-2 h-4 w-4" />
-                  Con QR
-                </Button>
-                <Button
-                  variant={useQR === "code" ? "default" : "outline"}
-                  onClick={() => setUseQR("code")}
-                  size="sm"
-                >
-                  <File className="mr-2 h-4 w-4" />
-                  En archivo
-                </Button>
-              </div>
-            </div>
-
             {paymentMethod === "card" && (
-              <div className="space-y-4">
+              <>
                 <div>
-                  <DropdownValues
-                    onChange={(value) => {
-                      setSelectedCard(value.value);
-                    }}
-                    value={selectedCard}
-                    options={creditCards.map((item) => ({
-                      value: item.id,
-                      label: item.name,
-                    }))}
-                    label="Seleccionar tarjeta"
-                  />
+                  <h5 className="text-sm font-semibold">Datos de Pago</h5>
+                  <div className="grid grid-cols-2 gap-4 mt-2">
+                    <Button
+                      variant={useQR === "qr" ? "default" : "outline"}
+                      onClick={() => setUseQR("qr")}
+                      size="sm"
+                    >
+                      <QrCode className="mr-2 h-4 w-4" />
+                      Con QR
+                    </Button>
+                    <Button
+                      variant={useQR === "code" ? "default" : "outline"}
+                      onClick={() => setUseQR("code")}
+                      size="sm"
+                    >
+                      <File className="mr-2 h-4 w-4" />
+                      En archivo
+                    </Button>
+                  </div>
                 </div>
-              </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <DropdownValues
+                      onChange={(value) => {
+                        setSelectedCard(value.value);
+                      }}
+                      value={selectedCard}
+                      options={creditCards.map((item) => ({
+                        value: item.id,
+                        label: item.name,
+                      }))}
+                      label="Seleccionar tarjeta"
+                    />
+                  </div>
+                </div>
+              </>
             )}
 
             <TextAreaInput

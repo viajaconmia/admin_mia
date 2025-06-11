@@ -1,118 +1,268 @@
 import jsPDF from "jspdf";
 import QRCode from "qrcode";
+import autoTable from "jspdf-autotable";
+import { currentDate } from "./utils";
 
-export interface QRPaymentData {
-  reservationId: string;
-  amount: number;
-  currency: string;
-  hotelName: string;
-  clientName: string;
-  cardType: string;
-  secureToken: string;
+// Define una interfaz para una sola reservación en la tabla
+interface ReservationLine {
+  tipoHabitacion: string;
+  nombre: string;
+  checkIn: string;
+  checkOut: string;
+  reservacionId: string;
+  monto: number;
 }
 
-export async function generateSecureQRPaymentPDF(data: QRPaymentData) {
-  const doc = new jsPDF();
+// Actualiza tu interfaz principal
+export interface QRPaymentData {
+  // Datos para el QR
+  secureToken: string;
 
-  // Generate secure URL for QR
+  // Datos de la empresa/documento
+  codigoDocumento: string;
+  logoUrl: string; // URL a tu logo
+  empresa: {
+    nombre: string;
+    razonSocial: string;
+    rfc: string;
+    codigoPostal: string;
+    direccion: string;
+  };
+
+  // Datos de la tabla (ahora es un array)
+  reservations: ReservationLine[];
+
+  // Datos de la tarjeta de pago
+  bancoEmisor: string;
+  nombreTarjeta: string;
+  numeroTarjeta: string;
+  fechaExpiracion: string;
+
+  // Para el monto total
+  currency: string;
+}
+
+export async function generateSecureQRPaymentPDF(
+  data: QRPaymentData
+): Promise<jsPDF> {
+  const doc = new jsPDF("p", "mm", "a4"); // Usamos 'mm' para más precisión y tamaño A4
+
+  // --- Generación del QR ---
   const secureUrl = `${window.location.origin}/secure-payment/${data.secureToken}`;
-
-  // Generate QR code as data URL
   const qrDataUrl = await QRCode.toDataURL(secureUrl, {
-    width: 150,
+    width: 256,
     margin: 2,
-    color: {
-      dark: "#000000",
-      light: "#FFFFFF",
+  });
+
+  // =================================================================
+  // 1. CONSTANTES DE ESTILO Y CONFIGURACIÓN
+  // =================================================================
+  const STYLES = {
+    COLORS: {
+      PRIMARY: [0, 115, 185], // Un azul similar al de la imagen
+      TEXT_NORMAL: [0, 0, 0],
+      TEXT_MUTED: [100, 100, 100],
+      TEXT_HIGHLIGHT: [220, 38, 38], // Rojo para destacar
+      TABLE_HEADER: [0, 115, 185], // Azul para la cabecera de la tabla
     },
+    FONTS: {
+      TITLE: 14,
+      SUBTITLE: 11,
+      BODY: 10,
+      SMALL: 9,
+    },
+    MARGINS: { LEFT: 20, RIGHT: 20, TOP: 20 },
+    SPACING: { LINE: 7, SECTION: 10 },
+  };
+
+  const pageW = doc.internal.pageSize.getWidth();
+  let y = STYLES.MARGINS.TOP;
+
+  // =================================================================
+  // 2. CUERPO DEL DOCUMENTO
+  // =================================================================
+
+  // --- Logo y Datos Superiores ---
+  // Para el logo, necesitas tenerlo accesible como URL o DataURL
+  try {
+    // Intenta añadir el logo si la URL es válida. Si no, no hagas nada.
+    if (data.logoUrl) {
+      doc.addImage(data.logoUrl, "PNG", STYLES.MARGINS.LEFT, y - 10, 30, 15);
+    }
+  } catch (e) {
+    console.error("No se pudo cargar el logo:", e);
+  }
+
+  doc.setFontSize(STYLES.FONTS.BODY);
+  doc.setTextColor(...(STYLES.COLORS.TEXT_NORMAL as [number, number, number]));
+  const fechaActual = currentDate();
+  doc.text(`Fecha: ${fechaActual}`, pageW - STYLES.MARGINS.RIGHT, y, {
+    align: "right",
+  });
+  y += STYLES.SPACING.LINE;
+  doc.text(`Código: ${data.codigoDocumento}`, pageW - STYLES.MARGINS.RIGHT, y, {
+    align: "right",
   });
 
-  // Header
-  doc.setFontSize(20);
-  doc.setTextColor(37, 99, 235); // Blue color
-  doc.text("INSTRUCCIONES DE PAGO SEGURO", 20, 30);
+  // --- Título ---
+  y += STYLES.SPACING.SECTION * 2;
+  doc.setFontSize(STYLES.FONTS.TITLE);
+  doc.setFont("helvetica", "bold");
+  doc.text("CARTA INSTRUCCIÓN DE PAGO", pageW / 2, y, { align: "center" });
+  y += STYLES.SPACING.SECTION * 1.5;
 
-  // Divider line
-  doc.setDrawColor(37, 99, 235);
-  doc.setLineWidth(0.5);
-  doc.line(20, 35, 190, 35);
+  // --- Párrafos de Introducción y Datos de la Empresa ---
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(STYLES.FONTS.BODY);
+  doc.text("A QUIEN CORRESPONDA", STYLES.MARGINS.LEFT, y);
+  y += STYLES.SPACING.SECTION;
 
-  // Payment details
-  doc.setFontSize(14);
-  doc.setTextColor(0, 0, 0);
-  doc.text("DETALLES DE LA RESERVACIÓN:", 20, 50);
+  const introText = `Por medio de la presente solicito de la manera más atenta, se facturen las siguientes reservaciones, a nombre de la empresa:`;
+  const splitIntro = doc.splitTextToSize(
+    introText,
+    pageW - STYLES.MARGINS.LEFT - STYLES.MARGINS.RIGHT
+  );
+  doc.text(splitIntro, STYLES.MARGINS.LEFT, y);
+  y += splitIntro.length * STYLES.SPACING.LINE + STYLES.SPACING.LINE;
 
-  doc.setFontSize(12);
-  doc.text(`Hotel: ${data.hotelName}`, 25, 60);
-  doc.text(`Cliente: ${data.clientName}`, 25, 68);
-  doc.text(`Monto a pagar: ${data.currency} ${data.amount.toFixed(2)}`, 25, 76);
-  doc.text(`Reservación ID: ${data.reservationId}`, 25, 84);
+  doc.setFont("helvetica", "bold");
+  doc.text(`RAZÓN SOCIAL:`, STYLES.MARGINS.LEFT, y);
+  doc.setFont("helvetica", "normal");
+  doc.text(data.empresa.razonSocial, STYLES.MARGINS.LEFT + 35, y);
+  y += STYLES.SPACING.LINE;
 
-  // Instructions
-  doc.setFontSize(14);
-  doc.setTextColor(37, 99, 235);
-  doc.text("INSTRUCCIONES PARA EL PAGO:", 20, 100);
+  // Repetimos para los demás datos...
+  doc.setFont("helvetica", "bold");
+  doc.text(`RFC:`, STYLES.MARGINS.LEFT, y);
+  doc.setFont("helvetica", "normal");
+  doc.text(data.empresa.rfc, STYLES.MARGINS.LEFT + 35, y);
+  y += STYLES.SPACING.LINE;
 
-  doc.setFontSize(11);
-  doc.setTextColor(0, 0, 0);
-  const instructions = [
-    "1. Escanee el código QR con su dispositivo móvil",
-    "2. Se abrirá una página segura con los datos de la tarjeta",
-    "3. Los datos incluyen: número de tarjeta, fecha de vencimiento y CVV",
-    "4. Ingrese estos datos en el sistema de pago del hotel",
-    "5. Confirme el pago por el monto exacto indicado arriba",
+  doc.setFont("helvetica", "bold");
+  doc.text(`DIRECCIÓN:`, STYLES.MARGINS.LEFT, y);
+  doc.setFont("helvetica", "normal");
+  doc.text(data.empresa.direccion, STYLES.MARGINS.LEFT + 35, y);
+  y += STYLES.SPACING.SECTION;
+
+  // --- Tabla de Reservaciones ---
+  const tableHead = [
+    [
+      "Tipo Habitación",
+      "Nombre",
+      "Check in",
+      "Check out",
+      "Reservación",
+      "Monto a Pagar",
+    ],
   ];
+  const tableBody = data.reservations.map((r) => [
+    r.tipoHabitacion,
+    r.nombre,
+    r.checkIn,
+    r.checkOut,
+    r.reservacionId,
+    `${data.currency} ${r.monto.toFixed(2)}`,
+  ]);
 
-  instructions.forEach((instruction, index) => {
-    doc.text(instruction, 25, 110 + index * 8);
+  autoTable(doc, {
+    head: tableHead,
+    body: tableBody,
+    startY: y,
+    theme: "grid",
+    headStyles: {
+      fillColor: STYLES.COLORS.TABLE_HEADER as [number, number, number],
+      textColor: [255, 255, 255],
+      fontStyle: "bold",
+    },
+    styles: {
+      fontSize: STYLES.FONTS.SMALL,
+      cellPadding: 2,
+    },
+    margin: { left: STYLES.MARGINS.LEFT, right: STYLES.MARGINS.RIGHT },
   });
 
-  // Add actual QR Code
-  doc.addImage(qrDataUrl, "PNG", 140, 100, 40, 40);
+  y = (doc as any).lastAutoTable.finalY + STYLES.SPACING.SECTION;
 
-  // QR Code label
-  doc.setFontSize(10);
-  doc.setTextColor(0, 0, 0);
-  doc.text("Escanear con móvil", 145, 150);
-
-  // Security notice
-  doc.setFontSize(10);
-  doc.setTextColor(220, 38, 38); // Red color
-  doc.text("AVISO DE SEGURIDAD:", 20, 170);
-  doc.setTextColor(0, 0, 0);
-  doc.text(
-    "• Este código QR es único y tiene validez limitada (30 minutos)",
-    25,
-    178
+  // --- Párrafos Finales (con texto resaltado) ---
+  const finalText1 = `Así mismo le informo que ${data.empresa.nombre} proporcionará la siguiente Tarjeta para realizar el cargo de RENTA HABITACION.`;
+  const splitFinalText1 = doc.splitTextToSize(
+    finalText1,
+    pageW - STYLES.MARGINS.LEFT - STYLES.MARGINS.RIGHT
   );
-  doc.text("• No comparta este documento con terceros", 25, 185);
-  doc.text(
-    "• Los datos de la tarjeta solo son visibles al escanear el código",
-    25,
-    192
-  );
-  doc.text("• El acceso expira automáticamente por seguridad", 25, 199);
+  doc.text(splitFinalText1, STYLES.MARGINS.LEFT, y);
+  y += splitFinalText1.length * STYLES.SPACING.LINE + STYLES.SPACING.LINE;
 
-  // Footer
-  doc.setFontSize(9);
-  doc.setTextColor(100, 100, 100);
-  doc.text(
-    "Documento generado automáticamente - Sistema de Facturación",
-    20,
-    270
+  // Para la línea con texto de diferente color, lo hacemos por partes
+  const part1 =
+    "Solicitamos de su apoyo para que el cargo se haga al check in del cliente y se hagan únicamente por las noches efectivas, es decir, las noches dormidas. ";
+  const part2_highlight =
+    "NO COMENTAR NADA AL VIAJERO SOBRE PAGOS Y FACTURACION";
+  doc.setFontSize(STYLES.FONTS.BODY);
+  doc.setTextColor(...(STYLES.COLORS.TEXT_NORMAL as [number, number, number]));
+  doc.text(part1, STYLES.MARGINS.LEFT, y, {
+    maxWidth: pageW - STYLES.MARGINS.LEFT - STYLES.MARGINS.RIGHT,
+  });
+  // Medimos la altura del texto anterior para saber si hubo salto de línea
+  const part1Height = doc.getTextDimensions(part1, {
+    maxWidth: pageW - STYLES.MARGINS.LEFT - STYLES.MARGINS.RIGHT,
+  }).h;
+  y += part1Height;
+
+  doc.setTextColor(
+    ...(STYLES.COLORS.TEXT_HIGHLIGHT as [number, number, number])
   );
+  doc.setFont("helvetica", "bold");
+  doc.text(part2_highlight, STYLES.MARGINS.LEFT, y, {
+    maxWidth: pageW - STYLES.MARGINS.LEFT - STYLES.MARGINS.RIGHT,
+  });
+  const part2Height = doc.getTextDimensions(part2_highlight, {
+    maxWidth: pageW - STYLES.MARGINS.LEFT - STYLES.MARGINS.RIGHT,
+  }).h;
+  y += part2Height + STYLES.SPACING.SECTION;
+
+  // --- Datos de la Tarjeta ---
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...(STYLES.COLORS.TEXT_NORMAL as [number, number, number]));
+  doc.text(`BANCO EMISOR: ${data.bancoEmisor}`, STYLES.MARGINS.LEFT, y);
+  y += STYLES.SPACING.LINE;
+  doc.text(`Nombre: ${data.nombreTarjeta}`, STYLES.MARGINS.LEFT, y);
+  y += STYLES.SPACING.LINE;
+  doc.text(`Número de Tarjeta: ${data.numeroTarjeta}`, STYLES.MARGINS.LEFT, y);
+  y += STYLES.SPACING.LINE;
   doc.text(
-    `Fecha: ${new Date().toLocaleDateString(
-      "es-MX"
-    )} - Hora: ${new Date().toLocaleTimeString("es-MX")}`,
-    20,
-    278
+    `Fecha de expiración: ${data.fechaExpiracion}`,
+    STYLES.MARGINS.LEFT,
+    y
+  );
+  y += STYLES.SPACING.SECTION * 2; // Más espacio antes del QR
+
+  // --- CÓDIGO QR ---
+  const qrSize = 50;
+  const qrX = (pageW - qrSize) / 2; // Centrado
+  doc.addImage(qrDataUrl, "PNG", qrX, y, qrSize, qrSize);
+  y += qrSize + STYLES.SPACING.LINE;
+
+  doc.setFontSize(STYLES.FONTS.BODY);
+  doc.text("Escanear para pago seguro", pageW / 2, y, { align: "center" });
+
+  // --- Footer ---
+  // Este se mantiene al final de la página, sin importar la altura del contenido
+  const footerY = pageW - 15;
+  doc.setFontSize(STYLES.FONTS.SMALL);
+  doc.setTextColor(...(STYLES.COLORS.TEXT_MUTED as [number, number, number]));
+  doc.text(
+    `Documento generado automáticamente por el sistema. Token: ${data.secureToken.substring(
+      0,
+      8
+    )}...`,
+    pageW / 2,
+    footerY,
+    { align: "center" }
   );
 
-  // Token reference (for technical support)
-  doc.setFontSize(7);
-  doc.text(`Token: ${data.secureToken}...`, 20, 260);
-
+  // =================================================================
+  // 3. RETORNAR EL DOCUMENTO
+  // =================================================================
   return doc;
 }
 
