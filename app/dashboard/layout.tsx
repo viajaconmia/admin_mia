@@ -22,7 +22,7 @@ export default function DashboardLayout({
   return (
     <ProtectedRoute>
       <NavContainer title="Admin" links={links}>
-        <div className="h-screen bg-transparent overflow-y-auto bg-gradient-to-br from-sky-200 to-sky-400">
+        <div className="h-screen bg-transparent overflow-y-auto">
           <main className="p-8 pt-0 bg-transparent">{children}</main>
         </div>
       </NavContainer>

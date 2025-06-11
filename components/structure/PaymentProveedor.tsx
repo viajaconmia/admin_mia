@@ -1,5 +1,10 @@
 import { useState } from "react";
 import { CreditCard, FileText, Send, Download, QrCode } from "lucide-react";
+import {
+  generateSecureQRPaymentPDF,
+  generateSecureToken,
+  type QRPaymentData,
+} from "@/lib/qr-generator";
 import { Button } from "@/components/ui/button";
 import {
   CheckboxInput,
@@ -9,7 +14,6 @@ import {
   TextAreaInput,
 } from "../atom/Input";
 import { Solicitud } from "@/types";
-import { da } from "date-fns/locale";
 
 interface PaymentModalProps {
   reservation: Solicitud | null;
@@ -40,8 +44,15 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
     { id: "3", name: "Banorte Business ****9012", type: "Visa" },
   ];
 
-  const handlePayment = () => {
-    // Aquí manejarías el procesamiento del pago
+  const handlePayment = async () => {
+    if (paymentType === "credit") {
+      // Credit payment logic
+      console.log("Processing credit payment");
+    } else if (paymentType === "prepaid" && useQR === "qr") {
+      // Generate QR PDF for secure payment
+      await generateQRPaymentPDF();
+    }
+
     console.log("Procesando pago:", {
       reservation: reservation.codigo_reservacion_hotel,
       amountToPay,
@@ -52,6 +63,38 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
       comments,
       date,
     });
+  };
+
+  // Versión Nueva
+  const generateQRPaymentPDF = async () => {
+    if (!reservation || !selectedCard) return;
+
+    // 1. Genera un token de seguridad
+    const secureToken = generateSecureToken(
+      Math.round(Math.random() * 999999),
+      amountToPay,
+      selectedCard
+    );
+
+    const qrData: QRPaymentData = {
+      reservationId: Math.round(Math.random() * 999999),
+      amount: amountToPay,
+      currency: "MXN",
+      hotelName: reservation.hotel,
+      clientName: "Cliente Corporativo",
+      cardType: selectedCard,
+      secureToken: secureToken,
+    };
+
+    try {
+      // 3. Llama a una utilidad externa para crear el PDF y lo descarga
+      const pdf = await generateSecureQRPaymentPDF(qrData);
+      pdf.save(
+        `pago-qr-reservacion-${reservation.codigo_reservacion_hotel}.pdf`
+      );
+    } catch (error) {
+      console.error("Error generating QR PDF:", error);
+    }
   };
 
   const handleSendCoupon = () => {

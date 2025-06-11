@@ -13,7 +13,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es">
-      <body className="bg-[#f0f7ff] h-screen">
+      <body className="bg-gradient-to-br from-sky-200 to-sky-400 h-screen">
         <Providers>{children}</Providers>
       </body>
     </html>
