@@ -1,5 +1,12 @@
 import { useState } from "react";
-import { CreditCard, FileText, Send, Download, QrCode } from "lucide-react";
+import {
+  CreditCard,
+  FileText,
+  Send,
+  Download,
+  QrCode,
+  File,
+} from "lucide-react";
 import {
   generateSecureQRPaymentPDF,
   generateSecureToken,
@@ -132,6 +139,18 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
                 ${reservation.costo_total || ""}
               </p>
             </div>
+            <div>
+              <p className="text-xs text-slate-600">Markup</p>
+              <p className="text-sm font-bold text-sky-700">
+                %
+                {(
+                  ((Number(reservation.total || 0) -
+                    Number(reservation.costo_total || 0)) /
+                    Number(reservation.total || 0)) *
+                  100
+                ).toFixed(2) || ""}
+              </p>
+            </div>
           </div>
         </div>
 
@@ -214,6 +233,28 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
               </Button>
             </div>
 
+            <div>
+              <h5 className="text-sm font-semibold">Datos de Pago</h5>
+              <div className="grid grid-cols-2 gap-4 mt-2">
+                <Button
+                  variant={useQR === "qr" ? "default" : "outline"}
+                  onClick={() => setUseQR("qr")}
+                  size="sm"
+                >
+                  <QrCode className="mr-2 h-4 w-4" />
+                  Con QR
+                </Button>
+                <Button
+                  variant={useQR === "code" ? "default" : "outline"}
+                  onClick={() => setUseQR("code")}
+                  size="sm"
+                >
+                  <File className="mr-2 h-4 w-4" />
+                  En archivo
+                </Button>
+              </div>
+            </div>
+
             {paymentMethod === "card" && (
               <div className="space-y-4">
                 <div>
@@ -228,27 +269,6 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
                     }))}
                     label="Seleccionar tarjeta"
                   />
-                </div>
-
-                <div>
-                  <h5 className="text-sm font-semibold">Tipo de Pago</h5>
-                  <div className="grid grid-cols-2 gap-4 mt-2">
-                    <Button
-                      variant={useQR === "qr" ? "default" : "outline"}
-                      onClick={() => setUseQR("qr")}
-                      size="sm"
-                    >
-                      <QrCode className="mr-2 h-4 w-4" />
-                      Con QR
-                    </Button>
-                    <Button
-                      variant={useQR === "code" ? "default" : "outline"}
-                      onClick={() => setUseQR("code")}
-                      size="sm"
-                    >
-                      🔢 Código QR
-                    </Button>
-                  </div>
                 </div>
               </div>
             )}
