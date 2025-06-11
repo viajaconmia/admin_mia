@@ -71,13 +71,13 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
 
     // 1. Genera un token de seguridad
     const secureToken = generateSecureToken(
-      Math.round(Math.random() * 999999),
+      reservation.codigo_reservacion_hotel,
       amountToPay,
       selectedCard
     );
 
     const qrData: QRPaymentData = {
-      reservationId: Math.round(Math.random() * 999999),
+      reservationId: reservation.codigo_reservacion_hotel,
       amount: amountToPay,
       currency: "MXN",
       hotelName: reservation.hotel,
