@@ -358,19 +358,19 @@ export function AgentDetailsCard({ agente }: { agente: Agente }) {
                               ...prev.empresas,
                               [company.id_empresa]: {
                                 ...prev.empresas[company.id_empresa],
-                                saldo: Number(value),
+                                monto_credito: Number(value),
                               },
                             },
                           }));
                           setEmpresas((previus) =>
                             previus.map((current_company, current_id) =>
                               current_id == id
-                                ? { ...company, saldo: Number(value) }
+                                ? { ...company, monto_credito: Number(value) }
                                 : current_company
                             )
                           );
                         }}
-                        value={company.saldo}
+                        value={company.monto_credito}
                       />
                     </div>
                   </div>
