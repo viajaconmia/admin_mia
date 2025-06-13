@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { quitarAcentos } from "./hotel-dialog";
+import { normalizarEstado } from "./hotel-dialog";
 
 // Interfaces
 interface CodigoPostalData {
@@ -226,7 +227,7 @@ const estadosMX = [
   "PUEBLA",
   "QUERETARO",
   "QUINTANA ROO",
-  "SAN LUIS POTOSÍ",
+  "SAN LUIS POTOSI",
   "SINALOA",
   "SONORA",
   "TABASCO",
@@ -368,7 +369,7 @@ export function AddHotelDialog({
           const primerResultado = data[0];
           setFormData((prev) => ({
             ...prev,
-            estado: quitarAcentos(primerResultado.d_estado.toUpperCase()),
+            estado: normalizarEstado(primerResultado.d_estado.toUpperCase()),
             ciudad_zona: quitarAcentos(primerResultado.d_ciudad.toUpperCase()),
             municipio: quitarAcentos(primerResultado.D_mnpio.toUpperCase()),
             id_sepomex: primerResultado.id.toString(),
