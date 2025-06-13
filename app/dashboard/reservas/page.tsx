@@ -140,14 +140,18 @@ function App() {
         Editar
       </button>
     ),
-    pagar: (props: any) => (
-      <button
-        onClick={() => handlePagar(props.value)}
-        className="text-blue-600 hover:text-blue-900 transition duration-150 ease-in-out flex gap-2 items-center"
-      >
-        <DollarSign className="w-4 h-4" />
-        Pagar
-      </button>
+    pagar: (props: { value: Solicitud }) => (
+      <>
+        {props.value.status == "complete" && (
+          <button
+            onClick={() => handlePagar(props.value)}
+            className="text-blue-600 hover:text-blue-900 transition duration-150 ease-in-out flex gap-2 items-center"
+          >
+            <DollarSign className="w-4 h-4" />
+            Pagar
+          </button>
+        )}
+      </>
     ),
     estado: (props: any) => (
       <span title={props.value}>{getStatusBadge(props.value)}</span>
