@@ -16,6 +16,7 @@ interface ReservationLine {
 // Actualiza tu interfaz principal
 export interface QRPaymentData {
   // Datos para el QR
+  isSecureCode: boolean;
   secureToken: string;
 
   // Datos de la empresa/documento
@@ -71,11 +72,12 @@ export async function generateSecureQRPaymentPDF(
       BODY: 10,
       SMALL: 9,
     },
-    MARGINS: { LEFT: 20, RIGHT: 20, TOP: 20 },
+    MARGINS: { LEFT: 15, RIGHT: 15, TOP: 20 },
     SPACING: { LINE: 7, SECTION: 10 },
   };
 
   const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
   let y = STYLES.MARGINS.TOP;
 
   // =================================================================
@@ -87,7 +89,7 @@ export async function generateSecureQRPaymentPDF(
   try {
     // Intenta añadir el logo si la URL es válida. Si no, no hagas nada.
     if (data.logoUrl) {
-      doc.addImage(data.logoUrl, "PNG", STYLES.MARGINS.LEFT, y - 10, 30, 15);
+      doc.addImage(data.logoUrl, "SVG", STYLES.MARGINS.LEFT, y - 10, 25, 15);
     }
   } catch (e) {
     console.error("No se pudo cargar el logo:", e);
@@ -138,11 +140,22 @@ export async function generateSecureQRPaymentPDF(
   doc.text(data.empresa.rfc, STYLES.MARGINS.LEFT + 35, y);
   y += STYLES.SPACING.LINE;
 
+  //codigo postal
+  doc.setFont("helvetica", "bold");
+  doc.text(`CÓDIGO POSTAL:`, STYLES.MARGINS.LEFT, y);
+  doc.setFont("helvetica", "normal");
+  doc.text(data.empresa.codigoPostal, STYLES.MARGINS.LEFT + 35, y);
+  y += STYLES.SPACING.LINE;
+
   doc.setFont("helvetica", "bold");
   doc.text(`DIRECCIÓN:`, STYLES.MARGINS.LEFT, y);
   doc.setFont("helvetica", "normal");
-  doc.text(data.empresa.direccion, STYLES.MARGINS.LEFT + 35, y);
-  y += STYLES.SPACING.SECTION;
+  const splitDirec = doc.splitTextToSize(
+    data.empresa.direccion,
+    pageW - STYLES.MARGINS.LEFT - STYLES.MARGINS.RIGHT - 35
+  );
+  doc.text(splitDirec, STYLES.MARGINS.LEFT + 35, y);
+  y += splitDirec.length * STYLES.SPACING.LINE;
 
   // --- Tabla de Reservaciones ---
   const tableHead = [
@@ -206,7 +219,7 @@ export async function generateSecureQRPaymentPDF(
   const part1Height = doc.getTextDimensions(part1, {
     maxWidth: pageW - STYLES.MARGINS.LEFT - STYLES.MARGINS.RIGHT,
   }).h;
-  y += part1Height;
+  y += part1Height + 2;
 
   doc.setTextColor(
     ...(STYLES.COLORS.TEXT_HIGHLIGHT as [number, number, number])
@@ -221,6 +234,7 @@ export async function generateSecureQRPaymentPDF(
   y += part2Height + STYLES.SPACING.SECTION;
 
   // --- Datos de la Tarjeta ---
+  /*
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...(STYLES.COLORS.TEXT_NORMAL as [number, number, number]));
   doc.text(`BANCO EMISOR: ${data.bancoEmisor}`, STYLES.MARGINS.LEFT, y);
@@ -234,29 +248,29 @@ export async function generateSecureQRPaymentPDF(
     STYLES.MARGINS.LEFT,
     y
   );
-  y += STYLES.SPACING.SECTION * 2; // Más espacio antes del QR
+  y += STYLES.SPACING.SECTION; // Más espacio antes del QR
+  */
 
   // --- CÓDIGO QR ---
   const qrSize = 50;
-  const qrX = (pageW - qrSize) / 2; // Centrado
+  const qrX = STYLES.MARGINS.LEFT; // Del lado izquierdo
   doc.addImage(qrDataUrl, "PNG", qrX, y, qrSize, qrSize);
   y += qrSize + STYLES.SPACING.LINE;
 
   doc.setFontSize(STYLES.FONTS.BODY);
-  doc.text("Escanear para pago seguro", pageW / 2, y, { align: "center" });
+  doc.setTextColor(...(STYLES.COLORS.TEXT_NORMAL as [number, number, number]));
+  doc.text("Escanear para pago seguro", STYLES.MARGINS.LEFT + qrSize / 2, y, {
+    align: "center",
+  });
 
   // --- Footer ---
   // Este se mantiene al final de la página, sin importar la altura del contenido
-  const footerY = pageW - 15;
   doc.setFontSize(STYLES.FONTS.SMALL);
   doc.setTextColor(...(STYLES.COLORS.TEXT_MUTED as [number, number, number]));
   doc.text(
-    `Documento generado automáticamente por el sistema. Token: ${data.secureToken.substring(
-      0,
-      8
-    )}...`,
+    `Documento generado automáticamente por el sistema`,
     pageW / 2,
-    footerY,
+    pageH - 10,
     { align: "center" }
   );
 
@@ -269,12 +283,15 @@ export async function generateSecureQRPaymentPDF(
 export function generateSecureToken(
   reservationId: string,
   amount: number,
-  cardType: string
+  cardType: string,
+  isSecureCode: boolean
 ): string {
   // Generate a secure token combining reservation data with timestamp and random elements
   const timestamp = Date.now();
   const randomStr = Math.random().toString(36).substring(2, 15);
-  const dataStr = `${reservationId}-${amount}-${cardType}-${timestamp}`;
+  const dataStr = `${reservationId}-${amount}-${cardType}-${String(
+    isSecureCode
+  )}-${timestamp}`;
 
   // In production, this should be properly encrypted on the backend
   // For demo purposes, we'll use base64 encoding with additional obfuscation
@@ -311,7 +328,8 @@ export function validateSecureToken(token: string): {
           reservationId: parseInt(parts[0]),
           amount: parseFloat(parts[1]),
           cardType: parts[2],
-          timestamp: parseInt(parts[3]),
+          isSecureCode: parseInt(parts[3]),
+          timestamp: parseInt(parts[4]),
         },
       };
     }

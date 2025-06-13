@@ -83,72 +83,69 @@ export const Table = ({
           </div>
         </div>
       )}
-      <div className="overflow-auto border border-gray-200 rounded-sm w-full">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50 absoluteg top-0">
-            <tr>
-              {columnKeys.map((key) => (
-                <th
-                  key={key}
-                  scope="col"
-                  onClick={() => handleSort(key)}
-                  className="px-6 min-w-fit whitespace-nowrap py-3 text-left cursor-pointer text-xs font-medium text-gray-600 uppercase tracking-wider"
-                >
-                  <span className="flex gap-2">
-                    {key == (currentSort.key || "") && (
-                      <ArrowDown
-                        className={`w-4 h-4 ${
-                          !currentSort.sort ? "" : "rotate-180"
-                        }`}
-                      />
-                    )}
-                    {key.replace(/_/g, " ").toUpperCase()}{" "}
-                  </span>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {displayData.length > 0 ? (
-              displayData.map((item, index) => (
-                <tr
-                  key={item.id !== undefined ? item.id : index}
-                  className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}
-                >
-                  {columnKeys.map((colKey) => {
-                    const Renderer = renderers[colKey];
-                    const value = item[colKey];
-
-                    return (
-                      <td
-                        key={`${
-                          item.id !== undefined ? item.id : index
-                        }-${colKey}`}
-                        className="px-6 py-4 whitespace-nowrap text-xs text-gray-900"
-                      >
-                        {Renderer ? (
-                          <Renderer value={value} />
-                        ) : (
-                          String(value || "")
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))
-            ) : (
+      {displayData.length > 0 ? (
+        <div className="overflow-y-auto border border-gray-200 rounded-sm w-full h-fit max-h-[28rem]">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50 absoluteg top-0">
               <tr>
-                <td
-                  colSpan={columnKeys.length || 1}
-                  className="px-6 py-4 text-center text-sm text-gray-500"
-                >
-                  No se encontraron registros
-                </td>
+                {columnKeys.map((key) => (
+                  <th
+                    key={key}
+                    scope="col"
+                    onClick={() => handleSort(key)}
+                    className="px-6 min-w-fit whitespace-nowrap py-3 text-left cursor-pointer text-xs font-medium text-gray-600 uppercase tracking-wider"
+                  >
+                    <span className="flex gap-2">
+                      {key == (currentSort.key || "") && (
+                        <ArrowDown
+                          className={`w-4 h-4 ${
+                            !currentSort.sort ? "" : "rotate-180"
+                          }`}
+                        />
+                      )}
+                      {key.replace(/_/g, " ").toUpperCase()}{" "}
+                    </span>
+                  </th>
+                ))}
               </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              <>
+                {displayData.map((item, index) => (
+                  <tr
+                    key={item.id !== undefined ? item.id : index}
+                    className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}
+                  >
+                    {columnKeys.map((colKey) => {
+                      const Renderer = renderers[colKey];
+                      const value = item[colKey];
+
+                      return (
+                        <td
+                          key={`${
+                            item.id !== undefined ? item.id : index
+                          }-${colKey}`}
+                          className="px-6 py-4 whitespace-nowrap text-xs text-gray-900"
+                        >
+                          {Renderer ? (
+                            <Renderer value={value} />
+                          ) : (
+                            String(value || "")
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </>
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="px-6 py-4 w-full text-center text-sm text-gray-500 border rounded-sm">
+          No se encontraron registros
+        </div>
+      )}
     </div>
   );
 };

@@ -6,6 +6,8 @@ import {
   Download,
   QrCode,
   File,
+  Link,
+  ArrowLeftRight,
 } from "lucide-react";
 import {
   generateSecureQRPaymentPDF,
@@ -21,7 +23,6 @@ import {
   TextAreaInput,
 } from "../atom/Input";
 import { Solicitud } from "@/types";
-import { currentDate } from "@/lib/utils";
 
 interface PaymentModalProps {
   reservation: Solicitud | null;
@@ -29,11 +30,13 @@ interface PaymentModalProps {
 
 export const PaymentModal = ({ reservation }: PaymentModalProps) => {
   const [hasFavorBalance, setHasFavorBalance] = useState(false);
+  const [error, setError] = useState<string>("");
+  const [isSecureCode, setIsSecureCode] = useState(true);
   const [favorBalance, setFavorBalance] = useState("");
   const [paymentType, setPaymentType] = useState<"prepaid" | "credit" | "">("");
-  const [paymentMethod, setPaymentMethod] = useState<"transfer" | "card" | "">(
-    ""
-  );
+  const [paymentMethod, setPaymentMethod] = useState<
+    "transfer" | "card" | "link" | ""
+  >("");
   const [date, setDate] = useState(reservation.check_in.split("T")[0]);
   const [selectedCard, setSelectedCard] = useState("");
   const [useQR, setUseQR] = useState<"qr" | "code" | "">("");
@@ -53,6 +56,12 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
   ];
 
   const handlePayment = async () => {
+    if (
+      (paymentMethod === "link" || paymentMethod === "card") &&
+      selectedCard == ""
+    ) {
+      setError("Falta seleccionar una tarjeta para continuar");
+    }
     if (paymentType === "credit") {
       // Credit payment logic
       console.log("Processing credit payment");
@@ -60,6 +69,7 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
       // Generate QR PDF for secure payment
       await generateQRPaymentPDF();
     }
+    setError("");
 
     console.log("Procesando pago:", {
       reservation: reservation.codigo_reservacion_hotel,
@@ -81,14 +91,14 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
     const secureToken = generateSecureToken(
       reservation.codigo_reservacion_hotel,
       amountToPay,
-      selectedCard
+      selectedCard,
+      isSecureCode
     );
 
     const qrData: QRPaymentData = {
+      isSecureCode,
       secureToken: secureToken,
-
-      logoUrl:
-        "https://www.noktos.com/wp-content/uploads/2022/10/cropped-noktos_logo-300x202.png",
+      logoUrl: "https://luiscastaneda-tos.github.io/log/files/nokt.png",
       empresa: {
         codigoPostal: "11570",
         direccion:
@@ -103,11 +113,11 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
       numeroTarjeta: "5525680000186639",
       reservations: [
         {
-          checkIn: reservation.check_in,
-          checkOut: reservation.check_out,
+          checkIn: reservation.check_in.split("T")[0],
+          checkOut: reservation.check_out.split("T")[0],
           reservacionId: reservation.codigo_reservacion_hotel,
           monto: Number(reservation.costo_total),
-          nombre: reservation.hotel,
+          nombre: reservation.nombre_viajero_completo,
           tipoHabitacion: reservation.room,
         },
       ],
@@ -132,6 +142,9 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
 
   return (
     <div className="max-w-[85vw] w-screen p-2 pt-0 max-h-[90vh] grid grid-cols-2">
+      <div className="col-span-2 text-red-500 text-sm">
+        <p>{error}</p>
+      </div>
       <div className="space-y-4 border-r p-4">
         <h2 className="text-lg font-semibold">Detalles de la reservación</h2>
         {/* Información de la Reserva */}
@@ -181,7 +194,7 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
           <CheckboxInput
             checked={hasFavorBalance}
             onChange={(checked) => setHasFavorBalance(checked === true)}
-            label="✅ Tiene Saldo a Favor"
+            label="Tiene saldo a favor"
           />
 
           {hasFavorBalance && (
@@ -240,18 +253,27 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
         {paymentType === "prepaid" && (
           <div className="space-y-4">
             <h5 className="text-sm font-semibold">Método de Pago</h5>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <Button
                 variant={paymentMethod === "transfer" ? "default" : "outline"}
                 onClick={() => setPaymentMethod("transfer")}
               >
-                🏦 Transferencia
+                <ArrowLeftRight className="w-3 h-3 mr-2"></ArrowLeftRight>
+                Transferencia
               </Button>
               <Button
                 variant={paymentMethod === "card" ? "default" : "outline"}
                 onClick={() => setPaymentMethod("card")}
               >
-                💳 Tarjeta
+                <CreditCard className="w-3 h-3 mr-2"></CreditCard>
+                Tarjeta
+              </Button>
+              <Button
+                variant={paymentMethod === "link" ? "default" : "outline"}
+                onClick={() => setPaymentMethod("link")}
+              >
+                <Link className="w-3 h-3 mr-2"></Link>
+                Link
               </Button>
             </div>
 
@@ -278,23 +300,29 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
                     </Button>
                   </div>
                 </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <DropdownValues
-                      onChange={(value) => {
-                        setSelectedCard(value.value);
-                      }}
-                      value={selectedCard}
-                      options={creditCards.map((item) => ({
-                        value: item.id,
-                        label: item.name,
-                      }))}
-                      label="Seleccionar tarjeta"
-                    />
-                  </div>
-                </div>
+                <CheckboxInput
+                  label={"Mostrar cvv"}
+                  checked={isSecureCode}
+                  onChange={(value) => setIsSecureCode(value)}
+                ></CheckboxInput>
               </>
+            )}
+            {(paymentMethod === "card" || paymentMethod === "link") && (
+              <div className="space-y-4">
+                <div>
+                  <DropdownValues
+                    onChange={(value) => {
+                      setSelectedCard(value.value);
+                    }}
+                    value={selectedCard}
+                    options={creditCards.map((item) => ({
+                      value: item.id,
+                      label: item.name,
+                    }))}
+                    label="Seleccionar tarjeta"
+                  />
+                </div>
+              </div>
             )}
 
             <TextAreaInput
