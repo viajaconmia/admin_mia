@@ -203,7 +203,7 @@ export async function generateSecureQRPaymentPDF(
     pageW - STYLES.MARGINS.LEFT - STYLES.MARGINS.RIGHT
   );
   doc.text(splitFinalText1, STYLES.MARGINS.LEFT, y);
-  y += splitFinalText1.length * STYLES.SPACING.LINE + STYLES.SPACING.LINE;
+  y += splitFinalText1.length * STYLES.SPACING.LINE;
 
   // Para la línea con texto de diferente color, lo hacemos por partes
   const part1 =
