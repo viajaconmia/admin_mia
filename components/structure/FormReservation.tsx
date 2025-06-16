@@ -31,6 +31,7 @@ import { fetchViajerosFromAgent } from "@/services/viajeros";
 import { Hotel, Solicitud, ReservaForm, Viajero, EdicionForm } from "@/types";
 import { Table } from "../Table";
 import { formatNumberWithCommas, getEstatus } from "@/helpers/utils";
+import { updateRoom } from "@/lib/utils";
 
 interface ReservationFormProps {
   solicitud?: Solicitud;
@@ -847,20 +848,4 @@ export function ReservationForm({
       </DialogFooter>
     </form>
   );
-}
-
-function updateRoom(room: string) {
-  let updated;
-  if (room) {
-    updated = room;
-  } else {
-    updated = "";
-  }
-  if (updated.toUpperCase() == "SINGLE") {
-    updated = "SENCILLO";
-  }
-  if (updated.toUpperCase() == "DOUBLE") {
-    updated = "DOBLE";
-  }
-  return updated;
 }
