@@ -10,6 +10,7 @@ import {
   Receipt,
   Clock,
   Shield,
+  Banknote,
 } from "lucide-react";
 import NavContainer from "@/components/structure/NavContainer";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -82,6 +83,11 @@ const links = [
     icon: Receipt,
   },
   {
+    title: "Facturación",
+    href: "/dashboard/facturacion",
+    icon: Receipt,
+  },
+  {
     title: "Codigo confirmación",
     href: "/dashboard/codigo",
     icon: Shield,
@@ -91,4 +97,9 @@ const links = [
     href: "/dashboard/viajeros",
     icon: Users,
   },
+  // {
+  //   title: "Saldo a Favor",
+  //   href: "/dashboard/saldo-a-favor",
+  //   icon: Banknote,
+  // },
 ];

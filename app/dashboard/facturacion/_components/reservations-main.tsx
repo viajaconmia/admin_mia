@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { da, es } from "date-fns/locale";
-import { fetchReservationsAll } from "@/services/reservas";
+import { fetchReservationsFacturacion } from "@/services/reservas";
 import Link from "next/link";
 import {
   fetchEmpresasDatosFiscales,
@@ -115,6 +115,7 @@ interface FilterOptions {
     min: number | null;
     max: number | null;
   };
+  estado: string;
 }
 
 // Status Badge Component
@@ -659,8 +660,8 @@ const FacturacionModal: React.FC<{
           const selectedItemIds = selectedItems[reserva.id_servicio] || [];
           const items = Array.isArray(reserva.items)
             ? reserva.items.filter((item) =>
-                selectedItemIds.includes(item.id_item)
-              )
+              selectedItemIds.includes(item.id_item)
+            )
             : [];
 
           return {
@@ -683,6 +684,7 @@ const FacturacionModal: React.FC<{
             const data = await fetchEmpresasDatosFiscales(
               preparedReservations[0].id_usuario_generador
             );
+            console.log(data)
             setFiscalDataList(data);
             if (data.length > 0) {
               setSelectedFiscalData(data[0]);
@@ -971,6 +973,81 @@ const FacturacionModal: React.FC<{
             </button>
           </div>
 
+          {/* Sección de vista previa de factura */}
+          <div className="mb-6 border rounded-md p-4 bg-gray-50">
+            <h4 className="text-md font-medium text-gray-900 mb-3">
+              Vista previa de factura ({isConsolidated ? "Consolidada" : "Detallada"})
+            </h4>
+
+            <div className="overflow-x-auto">
+              <table className="min-w-full border border-gray-200">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-b">Producto</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-b">Cantidad</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-b">Unidad</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-b">Concepto(s)</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-b">Precio U</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-b">Importe</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {isConsolidated ? (
+                    // Vista previa consolidada
+                    <>
+                      <tr>
+                        <td className="px-3 py-2 text-sm border-b">90121500</td>
+                        <td className="px-3 py-2 text-sm border-b">1</td>
+                        <td className="px-3 py-2 text-sm border-b">E48</td>
+                        <td className="px-3 py-2 text-sm border-b">
+                          <div>
+                            <p>Noche de hospedaje</p>
+                            <p className="text-gray-600">Hospedaje - {totalNights} noche(s) en {reservationsWithSelectedItems.length} reserva(s)</p>
+                            <p className="text-gray-600">02 - Con objeto de impuesto</p>
+                            <p className="text-gray-600">No Identificación: HSP</p>
+                            <p className="text-gray-600">
+                              Traslados:<br />
+                              IVA: 002, Base: ${totalAmount.toFixed(2)}, Tasa: 0.160000, Importe: ${(totalAmount * 0.16).toFixed(2)}
+                            </p>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-sm border-b">${totalAmount.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-sm border-b">${totalAmount.toFixed(2)}</td>
+                      </tr>
+                    </>
+                  ) : (
+                    // Vista previa detallada
+                    reservationsWithSelectedItems.slice(0, 2).map((reserva, index) => (
+                      <tr key={`preview-${reserva.id_solicitud}`}>
+                        <td className="px-3 py-2 text-sm border-b">90121500</td>
+                        <td className="px-3 py-2 text-sm border-b">1</td>
+                        <td className="px-3 py-2 text-sm border-b">E48<p>Noche de hospedaje</p></td>
+                        <td className="px-3 py-2 text-sm border-b">
+                          <div>
+                            <p className="text-gray-600">Hospedaje en {reserva.hotel} - Del {formatDate(reserva.check_in)} al {formatDate(reserva.check_out)} ({reserva.nightsCount} noches)</p>
+                            <p className="text-gray-600">02 - Con objeto de impuesto</p>
+                            <p className="text-gray-600">No Identificación: HSP-ser-</p>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-sm border-b">
+                          ${parseFloat(reserva.items.reduce((sum, item) => sum + parseFloat(item.total), 0)).toFixed(2)}
+                        </td>
+                        <td className="px-3 py-2 text-sm border-b">
+                          ${parseFloat(reserva.items.reduce((sum, item) => sum + parseFloat(item.total), 0)).toFixed(2)}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+              {!isConsolidated && reservationsWithSelectedItems.length > 2 && (
+                <p className="text-xs text-gray-500 mt-2">
+                  + {reservationsWithSelectedItems.length - 2} items más...
+                </p>
+              )}
+            </div>
+          </div>
+
           <div className="mb-6">
             <div className="flex justify-between items-center mb-4">
               <h4 className="text-md font-medium text-gray-900">
@@ -1151,12 +1228,11 @@ const FacturacionModal: React.FC<{
                   {fiscalDataList.map((data) => (
                     <div
                       key={data.id_datos_fiscales}
-                      className={`border rounded-md p-4 cursor-pointer ${
-                        selectedFiscalData?.id_datos_fiscales ===
-                        data.id_datos_fiscales
+                      className={`border rounded-md p-4 cursor-pointer ${selectedFiscalData?.id_datos_fiscales ===
+                          data.id_datos_fiscales
                           ? "border-blue-500 bg-blue-50"
                           : "border-gray-200"
-                      }`}
+                        }`}
                       onClick={() => setSelectedFiscalData(data)}
                     >
                       <div className="flex justify-between">
@@ -1265,13 +1341,12 @@ const FacturacionModal: React.FC<{
                   loading ||
                   reservationsWithSelectedItems.length === 0
                 }
-                className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
-                  !selectedFiscalData ||
-                  loading ||
-                  reservationsWithSelectedItems.length === 0
+                className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${!selectedFiscalData ||
+                    loading ||
+                    reservationsWithSelectedItems.length === 0
                     ? "bg-blue-400 cursor-not-allowed"
                     : "bg-blue-600 hover:bg-blue-700"
-                } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
+                  } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
               >
                 {loading
                   ? "Generando factura..."
@@ -1300,6 +1375,7 @@ export function ReservationsMain() {
       min: null,
       max: null,
     },
+    estado: "Confirmada",
   });
   const [isAdvancedFiltersOpen, setIsAdvancedFiltersOpen] = useState(false);
   const [localDateRange, setLocalDateRange] = useState({
@@ -1332,7 +1408,7 @@ export function ReservationsMain() {
 
   const fetchReservations = async () => {
     setLoading(true);
-    await fetchReservationsAll((data) => {
+    await fetchReservationsFacturacion((data) => {
       console.log(data);
       setReservations(data);
       setLoading(false);
@@ -1526,11 +1602,11 @@ export function ReservationsMain() {
       const matchesSearch =
         !filterOptions.searchTerm ||
         reservation.hotel.toLowerCase().includes(searchLower) ||
-        reservation.confirmation_code.toLowerCase().includes(searchLower) ||
-        `${reservation.primer_nombre} ${reservation.apellido_paterno}`
+        reservation.codigo_reservacion_hotel.toLowerCase().includes(searchLower) ||
+        reservation.nombre_agente_completo
           .toLowerCase()
           .includes(searchLower) ||
-        reservation?.nombre?.toLowerCase().includes(searchLower) ||
+        reservation?.razon_social?.toLowerCase().includes(searchLower) ||
         reservation?.id_usuario_generador?.toLowerCase().includes(searchLower);
 
       // Status filter
@@ -1555,9 +1631,10 @@ export function ReservationsMain() {
           price >= filterOptions.priceRangeFilter.min) &&
         (filterOptions.priceRangeFilter.max === null ||
           price <= filterOptions.priceRangeFilter.max);
-
+      const isConfirmada =
+        (filterOptions.estado === "Confirmada");
       return (
-        matchesSearch && matchesStatus && matchesDateRange && matchesPriceRange
+        matchesSearch && matchesStatus && matchesDateRange && matchesPriceRange && isConfirmada
       );
     });
   };
@@ -1570,6 +1647,7 @@ export function ReservationsMain() {
       );
     }
   );
+  console.log(reservacionesFacturables);
   const totalSelectedItems = getAllSelectedItems().length;
 
   return (
@@ -1610,7 +1688,7 @@ export function ReservationsMain() {
                   <input
                     type="text"
                     className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Buscar nombre de cliente, hotel o ID viajero..."
+                    placeholder="Buscar nombre de cliente, empresa o ID cliente..."
                     value={filterOptions.searchTerm}
                     onChange={(e) =>
                       handleFilterChange({ searchTerm: e.target.value })
@@ -1662,9 +1740,8 @@ export function ReservationsMain() {
                     ? "Ocultar filtros avanzados"
                     : "Mostrar filtros avanzados"}
                   <span
-                    className={`ml-2 transition-transform duration-200 ${
-                      isAdvancedFiltersOpen ? "rotate-180" : ""
-                    }`}
+                    className={`ml-2 transition-transform duration-200 ${isAdvancedFiltersOpen ? "rotate-180" : ""
+                      }`}
                   >
                     ▼
                   </span>
@@ -1825,6 +1902,12 @@ export function ReservationsMain() {
                       scope="col"
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                     >
+                      Empresa
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
                       Cliente
                     </th>
                     <th
@@ -1856,12 +1939,6 @@ export function ReservationsMain() {
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                     >
                       Estado de pago
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Detalles
                     </th>
                   </tr>
                 </thead>
@@ -1921,7 +1998,10 @@ export function ReservationsMain() {
                             {reservation.codigo_reservacion_hotel}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {reservation.nombre}
+                            {reservation.razon_social}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {reservation.nombre_agente_completo}
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-500">
                             {reservation.id_usuario_generador}
@@ -1971,146 +2051,114 @@ export function ReservationsMain() {
                               status={getReservationStatus(reservation)}
                             />
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <div className="flex justify-between items-center">
-                              <div className="flex flex-col space-y-1 text-xs">
-                                <div>
-                                  <span className="font-medium">
-                                    ID servicio:
-                                  </span>{" "}
-                                  {reservation.id_servicio.substring(0, 8)}...
-                                </div>
-                                {reservation.id_booking && (
-                                  <div>
-                                    <span className="font-medium">
-                                      ID booking:
-                                    </span>{" "}
-                                    {reservation.id_booking}
-                                  </div>
-                                )}
-                                {reservation.codigo_reservacion_hotel && (
-                                  <div>
-                                    <span className="font-medium">
-                                      Código hotel:
-                                    </span>{" "}
-                                    {reservation.codigo_reservacion_hotel}
-                                  </div>
-                                )}
-                                {reservation.is_credito && (
-                                  <div className="text-blue-600">A crédito</div>
-                                )}
-                              </div>
-                            </div>
-                          </td>
                         </tr>
 
                         {/* Fila expandible con los items */}
                         {expandedReservations.includes(
                           reservation.id_servicio
                         ) && (
-                          <tr className="bg-gray-50">
-                            <td colSpan={10} className="px-6 py-4">
-                              <div className="ml-8">
-                                <h4 className="text-sm font-medium text-gray-700 mb-2">
-                                  Items (Noches) de la reservación
-                                </h4>
-                                <div className="flex items-center mb-2">
-                                  <span className="text-xs text-gray-500">
-                                    {
-                                      reservation.items.filter(
-                                        (item) => item.id_factura == null
-                                      ).length
-                                    }{" "}
-                                    noche(s) pendientes por facturar
-                                  </span>
-                                </div>
-                                <table className="min-w-full divide-y divide-gray-200">
-                                  <thead className="bg-gray-100">
-                                    <tr>
-                                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Selección
-                                      </th>
-                                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Fecha de uso
-                                      </th>
-                                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Subtotal
-                                      </th>
-                                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Impuestos
-                                      </th>
-                                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Total
-                                      </th>
-                                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Estado
-                                      </th>
-                                    </tr>
-                                  </thead>
-                                  <tbody className="bg-white divide-y divide-gray-200">
-                                    {reservation.items.map((item) => (
-                                      <tr
-                                        key={item.id_item}
-                                        className={`hover:bg-gray-50 ${
-                                          item.id_factura != null
-                                            ? "bg-gray-100"
-                                            : ""
-                                        }`}
-                                      >
-                                        <td className="px-4 py-2 whitespace-nowrap">
-                                          <input
-                                            type="checkbox"
-                                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                            checked={isItemSelected(
-                                              reservation.id_servicio,
-                                              item.id_item
-                                            )}
-                                            onChange={() =>
-                                              toggleItemSelection(
+                            <tr className="bg-gray-50">
+                              <td colSpan={10} className="px-6 py-4">
+                                <div className="ml-8">
+                                  <h4 className="text-sm font-medium text-gray-700 mb-2">
+                                    Items (Noches) de la reservación
+                                  </h4>
+                                  <div className="flex items-center mb-2">
+                                    <span className="text-xs text-gray-500">
+                                      {
+                                        reservation.items.filter(
+                                          (item) => item.id_factura == null
+                                        ).length
+                                      }{" "}
+                                      noche(s) pendientes por facturar
+                                    </span>
+                                  </div>
+                                  <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-gray-100">
+                                      <tr>
+                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                          Selección
+                                        </th>
+                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                          Fecha de uso
+                                        </th>
+                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                          Subtotal
+                                        </th>
+                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                          Impuestos
+                                        </th>
+                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                          Total
+                                        </th>
+                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                          Estado
+                                        </th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                      {reservation.items.map((item) => (
+                                        <tr
+                                          key={item.id_item}
+                                          className={`hover:bg-gray-50 ${item.id_factura != null
+                                              ? "bg-gray-100"
+                                              : ""
+                                            }`}
+                                        >
+                                          <td className="px-4 py-2 whitespace-nowrap">
+                                            <input
+                                              type="checkbox"
+                                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                              checked={isItemSelected(
                                                 reservation.id_servicio,
                                                 item.id_item
-                                              )
-                                            }
-                                            disabled={item.id_factura != null}
-                                          />
-                                        </td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                                          {item.fecha_uso}
-                                        </td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                                          {formatCurrency(
-                                            item.subtotal.toString()
-                                          )}
-                                        </td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                                          {formatCurrency(
-                                            item.impuestos.toString()
-                                          )}
-                                        </td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                                          {formatCurrency(
-                                            item.total.toString()
-                                          )}
-                                        </td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-sm">
-                                          {item.id_factura != null ? (
-                                            <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                                              Facturado
-                                            </span>
-                                          ) : (
-                                            <span className="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                                              Pendiente
-                                            </span>
-                                          )}
-                                        </td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
+                                              )}
+                                              onChange={() =>
+                                                toggleItemSelection(
+                                                  reservation.id_servicio,
+                                                  item.id_item
+                                                )
+                                              }
+                                              disabled={item.id_factura != null}
+                                            />
+                                          </td>
+                                          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                                            {item.fecha_uso}
+                                          </td>
+                                          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                                            {formatCurrency(
+                                              item.subtotal.toString()
+                                            )}
+                                          </td>
+                                          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                                            {formatCurrency(
+                                              item.impuestos.toString()
+                                            )}
+                                          </td>
+                                          <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                                            {formatCurrency(
+                                              item.total.toString()
+                                            )}
+                                          </td>
+                                          <td className="px-4 py-2 whitespace-nowrap text-sm">
+                                            {item.id_factura != null ? (
+                                              <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                                Facturado
+                                              </span>
+                                            ) : (
+                                              <span className="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                                Pendiente
+                                              </span>
+                                            )}
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
                       </React.Fragment>
                     ))
                   )}
