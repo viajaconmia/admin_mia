@@ -21,6 +21,7 @@ import {
   DropdownValues,
   NumberInput,
   TextAreaInput,
+  TextInput,
 } from "../atom/Input";
 import { Solicitud } from "@/types";
 
@@ -42,6 +43,7 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
   const [useQR, setUseQR] = useState<"qr" | "code" | "">("");
   const [comments, setComments] = useState("");
   const [emails, setEmails] = useState("");
+  const [cargo, setCargo] = useState("RENTA HABITACIÓN");
 
   if (!reservation) return null;
 
@@ -65,7 +67,10 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
     if (paymentType === "credit") {
       // Credit payment logic
       console.log("Processing credit payment");
-    } else if (paymentType === "prepaid" && useQR === "qr") {
+    } else if (
+      paymentType === "prepaid" &&
+      (useQR === "qr" || useQR === "code")
+    ) {
       // Generate QR PDF for secure payment
       await generateQRPaymentPDF();
     }
@@ -97,6 +102,8 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
 
     const qrData: QRPaymentData = {
       isSecureCode,
+      cargo,
+      type: useQR,
       secureToken: secureToken,
       logoUrl: "https://luiscastaneda-tos.github.io/log/files/nokt.png",
       empresa: {
@@ -305,6 +312,12 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
                   checked={isSecureCode}
                   onChange={(value) => setIsSecureCode(value)}
                 ></CheckboxInput>
+                <TextInput
+                  onChange={(value) => setCargo(value)}
+                  value={cargo || ""}
+                  label="Tipo de cargo"
+                  placeholder="RENTA HABITACIÓN..."
+                />
               </>
             )}
             {(paymentMethod === "card" || paymentMethod === "link") && (
