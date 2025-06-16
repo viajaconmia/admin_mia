@@ -8,8 +8,8 @@
 // const ENDPOINTS = {
 //   createAgente: "/create",
 // };
-//const URL = "https://miaback.vercel.app";
-const URL = "http://localhost:3001";
+const URL = "https://miaback.vercel.app";
+//const URL = "http://localhost:3001";
 
 const API_KEY =
   "nkt-U9TdZU63UENrblg1WI9I1Ln9NcGrOyaCANcpoS2PJT3BlbkFJ1KW2NIGUYF87cuvgUF3Q976fv4fPrnWQroZf0RzXTZTA942H3AMTKFKJHV6cTi8c6dd6tybUD65fybhPJT3BlbkFJ1KW2NIGPrnWQroZf0RzXTZTA942H3AMTKFy15whckAGSSRSTDvsvfHsrtbXhdrT";
@@ -431,7 +431,7 @@ export const createNewViajero = async (data: any, id_empresa: string[]) => {
         telefono: data.telefono ? data.telefono : null,
         genero: data.genero ? data.genero : null,
         fecha_nacimiento: fechaFormateada ? fechaFormateada : null,
-        nacionalidad: data.nacionalidad ? data.nacionalidad: null,
+        nacionalidad: data.nacionalidad ? data.nacionalidad : null,
         numero_pasaporte: data.numero_pasaporte ? data.numero_pasaporte : null,
         numero_empleado: data.numero_empleado ? data.numero_empleado : null,
       }),
@@ -440,6 +440,47 @@ export const createNewViajero = async (data: any, id_empresa: string[]) => {
     const json = await response.json();
     console.log(json);
     if (json.message === "Viajero creado correctamente") {
+      return {
+        success: true,
+      };
+    } else {
+      return {
+        success: false,
+      };
+    }
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const createSaldo = async (data: any) => {
+  try {
+    console.log(data);
+    const response = await fetch(`${URL}/v1/mia/saldos`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...AUTH,
+      },
+      body: JSON.stringify({
+        id_agente: data.id_agente,
+        id_proveedor: data.id_proveedor,
+        monto: data.monto,
+        moneda: data.moneda,
+        forma_pago: data.forma_pago,
+        fecha_procesamiento: data.fecha_procesamiento,
+        referencia: data.referencia,
+        id_hospedaje: data.id_hospedaje,
+        charge_id: data.charge_id,
+        transaction_id: data.transaction_id,
+        motivo: data.motivo,
+        comentarios: data.comentarios,
+      }),
+    });
+
+    const json = await response.json();
+    console.log(json);
+    if (json.message === "Saldo creado correctamente") {
       return {
         success: true,
       };
@@ -479,7 +520,7 @@ export const updateViajero = async (data: any, id_empresa: string[], id_viajero:
         telefono: data.telefono ? data.telefono : null,
         genero: data.genero ? data.genero : null,
         fecha_nacimiento: fechaFormateada ? fechaFormateada : null,
-        nacionalidad: data.nacionalidad ? data.nacionalidad: null,
+        nacionalidad: data.nacionalidad ? data.nacionalidad : null,
         numero_pasaporte: data.numero_pasaporte ? data.numero_pasaporte : null,
         numero_empleado: data.numero_empleado ? data.numero_empleado : null,
       }),
@@ -689,6 +730,27 @@ export const getHoteles = async () => {
     console.log("En proceso de obtener hoteles");
     const response = await fetch(
       `${URL}/v1/mia/hoteles/hotelesWithTarifa`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...AUTH,
+        },
+      }
+    );
+    const json = await response.json();
+    console.log(json);
+    return json;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const getSaldos = async () => {
+  try {
+    console.log("En proceso de obtener saldos a favor");
+    const response = await fetch(
+      `${URL}/v1/mia/saldos`,
       {
         method: "GET",
         headers: {

@@ -310,7 +310,7 @@ export function TravelerTable({ facturas }: { facturas: Factura[] }) {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Id Agente</TableHead>
+          <TableHead>Cliente</TableHead>
           <TableHead>Id Facturama</TableHead>
           <TableHead>Total Factura</TableHead>
           <TableHead>Subtotal Factura</TableHead>
@@ -326,7 +326,7 @@ export function TravelerTable({ facturas }: { facturas: Factura[] }) {
           <>
             <TableRow key={factura.id_factura}>
               <TableCell className="font-medium">
-                {`${factura.usuario_creador}`}
+                {`${factura.nombre}`}
               </TableCell>
               <TableCell className="font-medium">
                 {`${factura.id_facturama}`}
