@@ -16,3 +16,19 @@ export function currentDate() {
     .split("/");
   return `${año}-${mes}-${dia}`;
 }
+
+export function updateRoom(room: string) {
+  let updated;
+  if (room) {
+    updated = room;
+  } else {
+    updated = "";
+  }
+  if (updated.toUpperCase() == "SINGLE") {
+    updated = "SENCILLO";
+  }
+  if (updated.toUpperCase() == "DOUBLE") {
+    updated = "DOBLE";
+  }
+  return updated;
+}

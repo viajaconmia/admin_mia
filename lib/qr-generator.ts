@@ -305,6 +305,25 @@ export async function generateSecureQRPaymentPDF(
         }
       );
       y += STYLES.SPACING.LINE;
+      doc.addImage(
+        "https://cdn-icons-png.flaticon.com/512/561/561127.png", // Ícono de email
+        "PNG",
+        STYLES.MARGINS.LEFT,
+        y - 4,
+        6,
+        6
+      );
+
+      doc.textWithLink(
+        "Por correo: operaciones@noktos.com",
+        STYLES.MARGINS.LEFT + 7,
+        y,
+        {
+          url: "mailto:operaciones@noktos.com",
+        }
+      );
+
+      y += STYLES.SPACING.LINE;
     } else {
       doc.text(`CVV: XXX`, STYLES.MARGINS.LEFT, y);
       y += STYLES.SPACING.LINE;
@@ -353,6 +372,25 @@ export async function generateSecureQRPaymentPDF(
           url: "tel:8006665867",
         }
       );
+      y += STYLES.SPACING.LINE;
+      doc.addImage(
+        "https://cdn-icons-png.flaticon.com/512/561/561127.png", // Ícono de email
+        "PNG",
+        STYLES.MARGINS.LEFT,
+        y - 4,
+        6,
+        6
+      );
+
+      doc.textWithLink(
+        "Por correo: operaciones@noktos.com",
+        STYLES.MARGINS.LEFT + 7,
+        y,
+        {
+          url: "mailto:operaciones@noktos.com",
+        }
+      );
+
       y += STYLES.SPACING.LINE;
     }
     // --- CÓDIGO QR ---

@@ -24,6 +24,7 @@ import {
   TextInput,
 } from "../atom/Input";
 import { Solicitud } from "@/types";
+import { updateRoom } from "@/lib/utils";
 
 interface PaymentModalProps {
   reservation: Solicitud | null;
@@ -125,7 +126,7 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
           reservacionId: reservation.codigo_reservacion_hotel,
           monto: Number(reservation.costo_total),
           nombre: reservation.nombre_viajero_completo,
-          tipoHabitacion: reservation.room,
+          tipoHabitacion: updateRoom(reservation.room),
         },
       ],
       codigoDocumento: "xxxx",
