@@ -239,7 +239,21 @@ export async function generateSecureQRPaymentPDF(
   }).h;
   y += part2Height + STYLES.SPACING.SECTION;
 
-  // --- Datos de la Tarjeta ---
+  //--- aviso si el codigo esta oculto ---
+  if (!data.isSecureCode) {
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(
+      ...(STYLES.COLORS.TEXT_NORMAL as [number, number, number])
+    );
+    const splitAnuncioText1 = doc.splitTextToSize(
+      "Les pedimos que al momento de hacer el cargo favor de comunicarse por los siguientes medios, para brindarles el CVV",
+      pageW - STYLES.MARGINS.LEFT - STYLES.MARGINS.RIGHT
+    );
+    doc.text(splitAnuncioText1, STYLES.MARGINS.LEFT, y);
+    y += splitAnuncioText1.length * STYLES.SPACING.LINE;
+  }
+  let y_contact;
+  // --- Datos de la Tarjeta o Codigo QR---
   if (data.type == "code") {
     doc.setFont("helvetica", "normal");
     doc.setTextColor(
@@ -261,139 +275,13 @@ export async function generateSecureQRPaymentPDF(
       y
     );
     y += STYLES.SPACING.LINE;
-    if (!data.isSecureCode) {
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(
-        ...(STYLES.COLORS.TEXT_NORMAL as [number, number, number])
-      );
-      const splitAnuncioText1 = doc.splitTextToSize(
-        "Les pedimos que al momento de hacer el cargo favor de comunicarse por los siguientes medios, para brindarles el CVV",
-        pageW - STYLES.MARGINS.LEFT - STYLES.MARGINS.RIGHT
-      );
-      doc.text(splitAnuncioText1, STYLES.MARGINS.LEFT, y);
-      y += splitAnuncioText1.length * STYLES.SPACING.LINE;
-      //Imagenes y links
-      doc.setTextColor(...(STYLES.COLORS.PRIMARY as [number, number, number]));
-      doc.addImage(
-        "https://luiscastaneda-tos.github.io/log/files/wa.png",
-        "PNG",
-        STYLES.MARGINS.LEFT,
-        y - 4,
-        6,
-        6
-      );
-      const contactWa = "Por WhatsApp: 55 1044 5254";
-      doc.textWithLink(contactWa, STYLES.MARGINS.LEFT + 7, y, {
-        url: "https://wa.me/525510445254",
-      });
-
-      y += STYLES.SPACING.LINE;
-      doc.addImage(
-        "https://luiscastaneda-tos.github.io/log/files/fon.png",
-        "PNG",
-        STYLES.MARGINS.LEFT,
-        y - 4,
-        6,
-        6
-      );
-      doc.textWithLink(
-        "Por llamada: 800 666 5867",
-        STYLES.MARGINS.LEFT + 7,
-        y,
-        {
-          url: "tel:8006665867",
-        }
-      );
-      y += STYLES.SPACING.LINE;
-      doc.addImage(
-        "https://cdn-icons-png.flaticon.com/512/561/561127.png", // Ícono de email
-        "PNG",
-        STYLES.MARGINS.LEFT,
-        y - 4,
-        6,
-        6
-      );
-
-      doc.textWithLink(
-        "Por correo: operaciones@noktos.com",
-        STYLES.MARGINS.LEFT + 7,
-        y,
-        {
-          url: "mailto:operaciones@noktos.com",
-        }
-      );
-
-      y += STYLES.SPACING.LINE;
-    } else {
+    if (data.isSecureCode) {
       doc.text(`CVV: XXX`, STYLES.MARGINS.LEFT, y);
       y += STYLES.SPACING.LINE;
     }
+    y_contact = y;
   } else if (data.type == "qr") {
-    if (!data.isSecureCode) {
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(
-        ...(STYLES.COLORS.TEXT_NORMAL as [number, number, number])
-      );
-      const splitAnuncioText1 = doc.splitTextToSize(
-        "Les pedimos que al momento de hacer el cargo favor de comunicarse por los siguientes medios, para brindarles el CVV",
-        pageW - STYLES.MARGINS.LEFT - STYLES.MARGINS.RIGHT
-      );
-      doc.text(splitAnuncioText1, STYLES.MARGINS.LEFT, y);
-      y += splitAnuncioText1.length * STYLES.SPACING.LINE;
-      //Imagenes y links
-      doc.setTextColor(...(STYLES.COLORS.PRIMARY as [number, number, number]));
-      doc.addImage(
-        "https://luiscastaneda-tos.github.io/log/files/wa.png",
-        "PNG",
-        STYLES.MARGINS.LEFT,
-        y - 4,
-        6,
-        6
-      );
-      const contactWa = "Por WhatsApp: 55 1044 5254";
-      doc.textWithLink(contactWa, STYLES.MARGINS.LEFT + 7, y, {
-        url: "https://wa.me/525510445254",
-      });
-
-      y += STYLES.SPACING.LINE;
-      doc.addImage(
-        "https://luiscastaneda-tos.github.io/log/files/fon.png",
-        "PNG",
-        STYLES.MARGINS.LEFT,
-        y - 4,
-        6,
-        6
-      );
-      doc.textWithLink(
-        "Por llamada: 800 666 5867",
-        STYLES.MARGINS.LEFT + 7,
-        y,
-        {
-          url: "tel:8006665867",
-        }
-      );
-      y += STYLES.SPACING.LINE;
-      doc.addImage(
-        "https://cdn-icons-png.flaticon.com/512/561/561127.png", // Ícono de email
-        "PNG",
-        STYLES.MARGINS.LEFT,
-        y - 4,
-        6,
-        6
-      );
-
-      doc.textWithLink(
-        "Por correo: operaciones@noktos.com",
-        STYLES.MARGINS.LEFT + 7,
-        y,
-        {
-          url: "mailto:operaciones@noktos.com",
-        }
-      );
-
-      y += STYLES.SPACING.LINE;
-    }
-    // --- CÓDIGO QR ---
+    y_contact = y;
     const qrSize = 50;
     const qrX = STYLES.MARGINS.LEFT; // Del lado izquierdo
     doc.addImage(qrDataUrl, "PNG", qrX, y, qrSize, qrSize);
@@ -407,6 +295,62 @@ export async function generateSecureQRPaymentPDF(
       align: "center",
     });
   }
+
+  //Imagenes y links
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...(STYLES.COLORS.TEXT_NORMAL as [number, number, number]));
+  const textContacto =
+    "Cualquier duda o aclaración favor de \ncontactarse por los siguientes medios:";
+  const x_contact =
+    pageW - STYLES.MARGINS.RIGHT - doc.getTextWidth(textContacto) / 2 - 10;
+  doc.text(textContacto, x_contact, y_contact);
+  y_contact += STYLES.SPACING.LINE * 2;
+  doc.setTextColor(...(STYLES.COLORS.PRIMARY as [number, number, number]));
+  doc.addImage(
+    "https://luiscastaneda-tos.github.io/log/files/wa.png",
+    "PNG",
+    x_contact,
+    y_contact - 4,
+    6,
+    6
+  );
+  const contactWa = "Por WhatsApp: 55 1044 5254";
+  doc.textWithLink(contactWa, x_contact + 7, y_contact, {
+    url: "https://wa.me/525510445254",
+  });
+
+  y_contact += STYLES.SPACING.LINE;
+  doc.addImage(
+    "https://luiscastaneda-tos.github.io/log/files/fon.png",
+    "PNG",
+    x_contact,
+    y_contact - 4,
+    6,
+    6
+  );
+  doc.textWithLink("Por llamada: 800 666 5867", x_contact + 7, y_contact, {
+    url: "tel:8006665867",
+  });
+  y_contact += STYLES.SPACING.LINE;
+  doc.addImage(
+    "https://cdn-icons-png.flaticon.com/512/561/561127.png", // Ícono de email
+    "PNG",
+    x_contact,
+    y_contact - 4,
+    6,
+    6
+  );
+
+  doc.textWithLink(
+    "Por correo: operaciones@noktos.com",
+    x_contact + 7,
+    y_contact,
+    {
+      url: "mailto:operaciones@noktos.com",
+    }
+  );
+
+  y_contact += STYLES.SPACING.LINE;
 
   // --- Footer ---
   // Este se mantiene al final de la página, sin importar la altura del contenido
