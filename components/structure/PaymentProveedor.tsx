@@ -33,7 +33,7 @@ interface PaymentModalProps {
 export const PaymentModal = ({ reservation }: PaymentModalProps) => {
   const [hasFavorBalance, setHasFavorBalance] = useState(false);
   const [error, setError] = useState<string>("");
-  const [isSecureCode, setIsSecureCode] = useState(true);
+  const [isSecureCode, setIsSecureCode] = useState(false);
   const [favorBalance, setFavorBalance] = useState("");
   const [paymentType, setPaymentType] = useState<"prepaid" | "credit" | "">("");
   const [paymentMethod, setPaymentMethod] = useState<
