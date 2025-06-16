@@ -77,6 +77,7 @@ export default function SecurePayment({ params }) {
     console.log(token);
     if (token) {
       const validation = validateSecureToken(token);
+      console.log(validation);
       if (validation.valid) {
         setIsValid(true);
         setPaymentData(validation.data);
@@ -227,12 +228,16 @@ export default function SecurePayment({ params }) {
                         {cardData.expiryDate}
                       </p>
                     </div>
-                    <div>
-                      <p className="text-xs text-slate-500 mb-1">CÓDIGO CVV</p>
-                      <p className="text-lg font-mono font-bold text-slate-800">
-                        {cardData.cvv}
-                      </p>
-                    </div>
+                    {paymentData.isSecureCode && (
+                      <div>
+                        <p className="text-xs text-slate-500 mb-1">
+                          CÓDIGO CVV
+                        </p>
+                        <p className="text-lg font-mono font-bold text-slate-800">
+                          {cardData.cvv}
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   <div>
@@ -257,9 +262,11 @@ export default function SecurePayment({ params }) {
                     • <strong>Fecha de vencimiento:</strong>{" "}
                     {cardData.expiryDate} (MM/AA)
                   </li>
-                  <li>
-                    • <strong>Código CVV:</strong> {cardData.cvv}
-                  </li>
+                  {paymentData.isSecureCode && (
+                    <li>
+                      • <strong>Código CVV:</strong> {cardData.cvv}
+                    </li>
+                  )}
                   <li>
                     • <strong>Monto exacto:</strong> $
                     {paymentData.amount.toFixed(2)} MXN

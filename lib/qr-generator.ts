@@ -18,6 +18,8 @@ export interface QRPaymentData {
   // Datos para el QR
   isSecureCode: boolean;
   secureToken: string;
+  cargo: string;
+  type: string;
 
   // Datos de la empresa/documento
   codigoDocumento: string;
@@ -49,7 +51,7 @@ export async function generateSecureQRPaymentPDF(
   const doc = new jsPDF("p", "mm", "a4"); // Usamos 'mm' para más precisión y tamaño A4
 
   // --- Generación del QR ---
-  const secureUrl = `${window.location.origin}/secure-payment/${data.secureToken}`;
+  const secureUrl = `https://admin.viajaconmia.com/secure-payment/${data.secureToken}`;
   const qrDataUrl = await QRCode.toDataURL(secureUrl, {
     width: 256,
     margin: 2,
@@ -107,11 +109,11 @@ export async function generateSecureQRPaymentPDF(
   });
 
   // --- Título ---
-  y += STYLES.SPACING.SECTION * 2;
+  y += STYLES.SPACING.SECTION;
   doc.setFontSize(STYLES.FONTS.TITLE);
   doc.setFont("helvetica", "bold");
   doc.text("CARTA INSTRUCCIÓN DE PAGO", pageW / 2, y, { align: "center" });
-  y += STYLES.SPACING.SECTION * 1.5;
+  y += STYLES.SPACING.SECTION;
 
   // --- Párrafos de Introducción y Datos de la Empresa ---
   doc.setFont("helvetica", "normal");
@@ -125,7 +127,7 @@ export async function generateSecureQRPaymentPDF(
     pageW - STYLES.MARGINS.LEFT - STYLES.MARGINS.RIGHT
   );
   doc.text(splitIntro, STYLES.MARGINS.LEFT, y);
-  y += splitIntro.length * STYLES.SPACING.LINE + STYLES.SPACING.LINE;
+  y += splitIntro.length * STYLES.SPACING.LINE;
 
   doc.setFont("helvetica", "bold");
   doc.text(`RAZÓN SOCIAL:`, STYLES.MARGINS.LEFT, y);
@@ -197,7 +199,11 @@ export async function generateSecureQRPaymentPDF(
   y = (doc as any).lastAutoTable.finalY + STYLES.SPACING.SECTION;
 
   // --- Párrafos Finales (con texto resaltado) ---
-  const finalText1 = `Así mismo le informo que ${data.empresa.nombre} proporcionará la siguiente Tarjeta para realizar el cargo de RENTA HABITACION.`;
+  const finalText1 = `Así mismo le informo que ${
+    data.empresa.nombre
+  } proporcionará la siguiente Tarjeta para realizar el cargo de ${
+    data.cargo || ""
+  }.`;
   const splitFinalText1 = doc.splitTextToSize(
     finalText1,
     pageW - STYLES.MARGINS.LEFT - STYLES.MARGINS.RIGHT
@@ -234,34 +240,135 @@ export async function generateSecureQRPaymentPDF(
   y += part2Height + STYLES.SPACING.SECTION;
 
   // --- Datos de la Tarjeta ---
-  /*
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(...(STYLES.COLORS.TEXT_NORMAL as [number, number, number]));
-  doc.text(`BANCO EMISOR: ${data.bancoEmisor}`, STYLES.MARGINS.LEFT, y);
-  y += STYLES.SPACING.LINE;
-  doc.text(`Nombre: ${data.nombreTarjeta}`, STYLES.MARGINS.LEFT, y);
-  y += STYLES.SPACING.LINE;
-  doc.text(`Número de Tarjeta: ${data.numeroTarjeta}`, STYLES.MARGINS.LEFT, y);
-  y += STYLES.SPACING.LINE;
-  doc.text(
-    `Fecha de expiración: ${data.fechaExpiracion}`,
-    STYLES.MARGINS.LEFT,
-    y
-  );
-  y += STYLES.SPACING.SECTION; // Más espacio antes del QR
-  */
+  if (data.type == "code") {
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(
+      ...(STYLES.COLORS.TEXT_NORMAL as [number, number, number])
+    );
+    doc.text(`BANCO EMISOR: ${data.bancoEmisor}`, STYLES.MARGINS.LEFT, y);
+    y += STYLES.SPACING.LINE;
+    doc.text(`Nombre: ${data.nombreTarjeta}`, STYLES.MARGINS.LEFT, y);
+    y += STYLES.SPACING.LINE;
+    doc.text(
+      `Número de Tarjeta: ${data.numeroTarjeta}`,
+      STYLES.MARGINS.LEFT,
+      y
+    );
+    y += STYLES.SPACING.LINE;
+    doc.text(
+      `Fecha de expiración: ${data.fechaExpiracion}`,
+      STYLES.MARGINS.LEFT,
+      y
+    );
+    y += STYLES.SPACING.LINE;
+    if (!data.isSecureCode) {
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(
+        ...(STYLES.COLORS.TEXT_NORMAL as [number, number, number])
+      );
+      const splitAnuncioText1 = doc.splitTextToSize(
+        "Les pedimos que al momento de hacer el cargo favor de comunicarse por los siguientes medios, para brindarles el CVV",
+        pageW - STYLES.MARGINS.LEFT - STYLES.MARGINS.RIGHT
+      );
+      doc.text(splitAnuncioText1, STYLES.MARGINS.LEFT, y);
+      y += splitAnuncioText1.length * STYLES.SPACING.LINE;
+      //Imagenes y links
+      doc.setTextColor(...(STYLES.COLORS.PRIMARY as [number, number, number]));
+      doc.addImage(
+        "https://luiscastaneda-tos.github.io/log/files/wa.png",
+        "PNG",
+        STYLES.MARGINS.LEFT,
+        y - 4,
+        6,
+        6
+      );
+      const contactWa = "Por WhatsApp: 55 1044 5254";
+      doc.textWithLink(contactWa, STYLES.MARGINS.LEFT + 7, y, {
+        url: "https://wa.me/525510445254",
+      });
 
-  // --- CÓDIGO QR ---
-  const qrSize = 50;
-  const qrX = STYLES.MARGINS.LEFT; // Del lado izquierdo
-  doc.addImage(qrDataUrl, "PNG", qrX, y, qrSize, qrSize);
-  y += qrSize + STYLES.SPACING.LINE;
+      y += STYLES.SPACING.LINE;
+      doc.addImage(
+        "https://luiscastaneda-tos.github.io/log/files/fon.png",
+        "PNG",
+        STYLES.MARGINS.LEFT,
+        y - 4,
+        6,
+        6
+      );
+      doc.textWithLink(
+        "Por llamada: 800 666 5867",
+        STYLES.MARGINS.LEFT + 7,
+        y,
+        {
+          url: "tel:8006665867",
+        }
+      );
+      y += STYLES.SPACING.LINE;
+    } else {
+      doc.text(`CVV: XXX`, STYLES.MARGINS.LEFT, y);
+      y += STYLES.SPACING.LINE;
+    }
+  } else if (data.type == "qr") {
+    if (!data.isSecureCode) {
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(
+        ...(STYLES.COLORS.TEXT_NORMAL as [number, number, number])
+      );
+      const splitAnuncioText1 = doc.splitTextToSize(
+        "Les pedimos que al momento de hacer el cargo favor de comunicarse por los siguientes medios, para brindarles el CVV",
+        pageW - STYLES.MARGINS.LEFT - STYLES.MARGINS.RIGHT
+      );
+      doc.text(splitAnuncioText1, STYLES.MARGINS.LEFT, y);
+      y += splitAnuncioText1.length * STYLES.SPACING.LINE;
+      //Imagenes y links
+      doc.setTextColor(...(STYLES.COLORS.PRIMARY as [number, number, number]));
+      doc.addImage(
+        "https://luiscastaneda-tos.github.io/log/files/wa.png",
+        "PNG",
+        STYLES.MARGINS.LEFT,
+        y - 4,
+        6,
+        6
+      );
+      const contactWa = "Por WhatsApp: 55 1044 5254";
+      doc.textWithLink(contactWa, STYLES.MARGINS.LEFT + 7, y, {
+        url: "https://wa.me/525510445254",
+      });
 
-  doc.setFontSize(STYLES.FONTS.BODY);
-  doc.setTextColor(...(STYLES.COLORS.TEXT_NORMAL as [number, number, number]));
-  doc.text("Escanear para pago seguro", STYLES.MARGINS.LEFT + qrSize / 2, y, {
-    align: "center",
-  });
+      y += STYLES.SPACING.LINE;
+      doc.addImage(
+        "https://luiscastaneda-tos.github.io/log/files/fon.png",
+        "PNG",
+        STYLES.MARGINS.LEFT,
+        y - 4,
+        6,
+        6
+      );
+      doc.textWithLink(
+        "Por llamada: 800 666 5867",
+        STYLES.MARGINS.LEFT + 7,
+        y,
+        {
+          url: "tel:8006665867",
+        }
+      );
+      y += STYLES.SPACING.LINE;
+    }
+    // --- CÓDIGO QR ---
+    const qrSize = 50;
+    const qrX = STYLES.MARGINS.LEFT; // Del lado izquierdo
+    doc.addImage(qrDataUrl, "PNG", qrX, y, qrSize, qrSize);
+    y += qrSize + STYLES.SPACING.LINE;
+
+    doc.setFontSize(STYLES.FONTS.BODY);
+    doc.setTextColor(
+      ...(STYLES.COLORS.TEXT_NORMAL as [number, number, number])
+    );
+    doc.text("Escanear para pago seguro", STYLES.MARGINS.LEFT + qrSize / 2, y, {
+      align: "center",
+    });
+  }
 
   // --- Footer ---
   // Este se mantiene al final de la página, sin importar la altura del contenido
@@ -289,9 +396,9 @@ export function generateSecureToken(
   // Generate a secure token combining reservation data with timestamp and random elements
   const timestamp = Date.now();
   const randomStr = Math.random().toString(36).substring(2, 15);
-  const dataStr = `${reservationId}-${amount}-${cardType}-${String(
-    isSecureCode
-  )}-${timestamp}`;
+  const dataStr = `${reservationId}-${amount}-${cardType}-${
+    isSecureCode ? 1 : 0
+  }-${timestamp}`;
 
   // In production, this should be properly encrypted on the backend
   // For demo purposes, we'll use base64 encoding with additional obfuscation
@@ -308,16 +415,13 @@ export function validateSecureToken(token: string): {
   valid: boolean;
   data?: any;
 } {
-  console.log("vemos?");
   try {
-    console.log("vemos?2");
     // Reverse the token generation process
     const decoded = atob(
       token.replace(/[-_]/g, (match) => {
         return { "-": "+", _: "/" }[match] || match;
       })
     );
-    console.log("vemos?3");
     console.log(decoded);
 
     const parts = decoded.split("-");
@@ -328,7 +432,7 @@ export function validateSecureToken(token: string): {
           reservationId: parseInt(parts[0]),
           amount: parseFloat(parts[1]),
           cardType: parts[2],
-          isSecureCode: parseInt(parts[3]),
+          isSecureCode: parts[3] == "1" ? true : false,
           timestamp: parseInt(parts[4]),
         },
       };
