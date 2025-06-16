@@ -213,7 +213,7 @@ export async function generateSecureQRPaymentPDF(
 
   // Para la línea con texto de diferente color, lo hacemos por partes
   const part1 =
-    "Solicitamos de su apoyo para que el cargo se haga al check in del cliente y se hagan únicamente por las noches efectivas, es decir, las noches dormidas. ";
+    "Solicitamos de su apoyo para que el cargo se haga al check out del cliente y se hagan únicamente por las noches efectivas, es decir, las noches dormidas. ";
   const part2_highlight =
     "NO COMENTAR NADA AL VIAJERO SOBRE PAGOS Y FACTURACION";
   doc.setFontSize(STYLES.FONTS.BODY);
