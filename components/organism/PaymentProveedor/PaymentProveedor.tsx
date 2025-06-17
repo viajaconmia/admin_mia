@@ -318,8 +318,9 @@ export const PaymentModal = ({
               onClick={handlePayment}
               className="w-full bg-blue-600 hover:bg-blue-700"
             >
-              <Send className="mr-2 h-4 w-4" />
-              {paymentMethod === "transfer" ? "Solicitar Pago" : "Enviar Pago"}
+              {/* <Send className="mr-2 h-4 w-4" /> */}
+              Confirmar pago
+              {/* {paymentMethod === "transfer" ? "Solicitar Pago" : "Enviar Pago"} */}
             </Button>
           </div>
         )}
