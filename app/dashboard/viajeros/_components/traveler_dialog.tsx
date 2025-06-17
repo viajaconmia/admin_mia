@@ -1,6 +1,5 @@
 "use client";
-
-import { API_KEY } from "../../../../constant/constants/constantes";
+import { API_KEY } from "@/lib/constants";
 import { useState } from "react";
 import {
   Dialog,

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   CreditCard,
   FileText,
@@ -22,15 +22,18 @@ import {
   NumberInput,
   TextAreaInput,
   TextInput,
-} from "../atom/Input";
-import { Solicitud } from "@/types";
+} from "../../atom/Input";
+import { CreditCardInfo, Solicitud } from "@/types";
 import { updateRoom } from "@/lib/utils";
+import ReservationDetails from "./ReservationDetails";
+import { useFetchCards } from "@/hooks/useFetchCard";
 
-interface PaymentModalProps {
+export const PaymentModal = ({
+  reservation,
+}: {
   reservation: Solicitud | null;
-}
-
-export const PaymentModal = ({ reservation }: PaymentModalProps) => {
+}) => {
+  const { data, fetchData } = useFetchCards();
   const [hasFavorBalance, setHasFavorBalance] = useState(false);
   const [error, setError] = useState<string>("");
   const [isSecureCode, setIsSecureCode] = useState(false);
@@ -40,7 +43,7 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
     "transfer" | "card" | "link" | ""
   >("");
   const [date, setDate] = useState(reservation.check_in.split("T")[0]);
-  const [selectedCard, setSelectedCard] = useState("");
+  const [selectedCard, setSelectedCard] = useState<CreditCardInfo | null>(null);
   const [useQR, setUseQR] = useState<"qr" | "code" | "">("");
   const [comments, setComments] = useState("");
   const [emails, setEmails] = useState("");
@@ -52,19 +55,19 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
   const balanceToApply = parseFloat(favorBalance) || 0;
   const amountToPay = reservationTotal - balanceToApply || 0;
 
-  const creditCards = [
-    { id: "1", name: "BBVA Empresarial ****1234", type: "Visa" },
-    { id: "2", name: "Santander Corporativa ****5678", type: "Mastercard" },
-    { id: "3", name: "Banorte Business ****9012", type: "Visa" },
-  ];
+  const creditCards = Array.isArray(data)
+    ? data.map((card) => ({
+        ...card,
+        name: `${card.alias} -**** **** **** ${card.ultimos_4}`,
+        type: card.banco_emisor,
+      }))
+    : [];
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const handlePayment = async () => {
-    if (
-      (paymentMethod === "link" || paymentMethod === "card") &&
-      selectedCard == ""
-    ) {
-      setError("Falta seleccionar una tarjeta para continuar");
-    }
     if (paymentType === "credit") {
       // Credit payment logic
       console.log("Processing credit payment");
@@ -95,9 +98,9 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
 
     // 1. Genera un token de seguridad
     const secureToken = generateSecureToken(
-      reservation.codigo_reservacion_hotel,
+      reservation.codigo_reservacion_hotel.replaceAll("-", "."),
       amountToPay,
-      selectedCard,
+      selectedCard.id,
       isSecureCode
     );
 
@@ -115,10 +118,11 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
         razonSocial: "Noktos Alianza S.A. de C.V.",
         rfc: "NAL190807BU2",
       },
-      bancoEmisor: "JEEVES / MST",
-      fechaExpiracion: "05/28", //Cambiar por los datos de la tarjeta en un futuro
-      nombreTarjeta: "Luz de Lourdes Sánchez Torrado",
-      numeroTarjeta: "5525680000186639",
+      bancoEmisor: selectedCard.banco_emisor,
+      fechaExpiracion: selectedCard.fecha_vencimiento, //Cambiar por los datos de la tarjeta en un futuro
+      nombreTarjeta: selectedCard.nombre_titular,
+      numeroTarjeta: selectedCard.numero_completo,
+      cvv: selectedCard.cvv,
       reservations: [
         {
           checkIn: reservation.check_in.split("T")[0],
@@ -136,9 +140,7 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
     try {
       // 3. Llama a una utilidad externa para crear el PDF y lo descarga
       const pdf = await generateSecureQRPaymentPDF(qrData);
-      pdf.save(
-        `pago-qr-reservacion-${reservation.codigo_reservacion_hotel}.pdf`
-      );
+      pdf.save(`pago-proveedor-${reservation.codigo_reservacion_hotel}.pdf`);
     } catch (error) {
       console.error("Error generating QR PDF:", error);
     }
@@ -153,49 +155,8 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
       <div className="col-span-2 text-red-500 text-sm">
         <p>{error}</p>
       </div>
-      <div className="space-y-4 border-r p-4">
-        <h2 className="text-lg font-semibold">Detalles de la reservación</h2>
-        {/* Información de la Reserva */}
-        <div className="p-2 rounded-md border bg-blue-50 border-blue-200">
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <p className="text-xs text-slate-600">Reserva</p>
-              <p className="text-base font-semibold text-slate-800">
-                #{reservation.codigo_reservacion_hotel || ""}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-600">Hotel</p>
-              <p className="text-base font-semibold text-slate-800">
-                {reservation.hotel || ""}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-600">Viajero</p>
-              <p className="text-base font-semibold text-slate-800">
-                {reservation.nombre_viajero_completo || ""}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-600">Total Reserva</p>
-              <p className="text-lg font-bold text-blue-700">
-                ${reservation.costo_total || ""}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-600">Markup</p>
-              <p className="text-sm font-bold text-sky-700">
-                %
-                {(
-                  ((Number(reservation.total || 0) -
-                    Number(reservation.costo_total || 0)) /
-                    Number(reservation.total || 0)) *
-                  100
-                ).toFixed(2) || ""}
-              </p>
-            </div>
-          </div>
-        </div>
+      <div className="px-4 border-r">
+        <ReservationDetails reservation={reservation} />
 
         {/* Saldo a Favor */}
         <div className="space-y-4">
@@ -326,12 +287,13 @@ export const PaymentModal = ({ reservation }: PaymentModalProps) => {
                 <div>
                   <DropdownValues
                     onChange={(value) => {
-                      setSelectedCard(value.value);
+                      setSelectedCard(value.item);
                     }}
-                    value={selectedCard}
+                    value={selectedCard?.id || ""}
                     options={creditCards.map((item) => ({
                       value: item.id,
                       label: item.name,
+                      item: item,
                     }))}
                     label="Seleccionar tarjeta"
                   />

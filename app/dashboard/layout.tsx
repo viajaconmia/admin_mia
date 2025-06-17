@@ -11,7 +11,7 @@ import {
   Clock,
   Shield,
 } from "lucide-react";
-import NavContainer from "@/components/structure/NavContainer";
+import NavContainer from "@/components/organism/NavContainer";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
 export default function DashboardLayout({

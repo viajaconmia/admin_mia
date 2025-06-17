@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Pencil } from "lucide-react";
-import { ReservationForm } from "../../../components/structure/FormReservation";
+import { ReservationForm } from "../../../components/organism/FormReservation";
 import Filters from "@/components/Filters";
 import { fetchSolicitudes } from "@/services/solicitudes";
 import {
@@ -16,7 +16,7 @@ import {
 } from "@/helpers/utils";
 import { Table } from "@/components/Table";
 import { fetchHoteles } from "@/services/hoteles";
-import Modal from "@/components/structure/Modal";
+import Modal from "@/components/organism/Modal";
 import { TypeFilters, Solicitud } from "@/types";
 import { set } from "date-fns";
 import { Loader } from "@/components/atom/Loader";

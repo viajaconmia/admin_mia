@@ -380,3 +380,17 @@ export interface UpdateRequestBody {
   viajero?: Record<string, ViajeroUpdateData>;
   agente?: Record<string, AgenteUpdateData>;
 }
+
+export interface CreditCardInfo {
+  id: string;
+  alias: string;
+  nombre_titular: string;
+  ultimos_4: string;
+  numero_completo: string;
+  banco_emisor: string | null;
+  tipo_tarjeta: "credit" | "debit" | null;
+  fecha_vencimiento: string;
+  activa: boolean;
+  cvv: string;
+  url_identificacion: string | null;
+}

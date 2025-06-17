@@ -1,6 +1,6 @@
 "use client";
 
-import { API_KEY } from "@/constant/constants/constantes";
+import { API_KEY } from "@/lib/constants";
 import { useEffect, useState } from "react";
 import { CreditTable } from "./credit-table";
 import { CreditSearch } from "./credit-search";

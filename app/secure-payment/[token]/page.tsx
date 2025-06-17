@@ -1,93 +1,44 @@
 "use client";
 
 import { useEffect, useState } from "react";
-// import { useParams } from "wouter";
-import {
-  Shield,
-  CreditCard,
-  Calendar,
-  Lock,
-  AlertTriangle,
-} from "lucide-react";
+import { Shield, CreditCard, Lock, AlertTriangle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { validateSecureToken } from "@/lib/qr-generator";
-
-interface CardData {
-  number: string;
-  expiryDate: string;
-  cvv: string;
-  holderName: string;
-  type: string;
-}
-
-const CARD_DATABASE: Record<string, CardData> = {
-  "1": {
-    number: "4532 1598 7643 2108",
-    expiryDate: "12/27",
-    cvv: "435",
-    holderName: "BBVA EMPRESARIAL",
-    type: "Visa Empresarial",
-  },
-  "2": {
-    number: "5421 6789 4532 1098",
-    expiryDate: "08/28",
-    cvv: "821",
-    holderName: "SANTANDER CORPORATIVA",
-    type: "Mastercard Corporativa",
-  },
-  "3": {
-    number: "4716 3487 9521 6543",
-    expiryDate: "03/29",
-    cvv: "647",
-    holderName: "BANORTE BUSINESS",
-    type: "Visa Business",
-  },
-  visa_corporate: {
-    number: "4532 1598 7643 2108",
-    expiryDate: "12/27",
-    cvv: "435",
-    holderName: "BBVA EMPRESARIAL",
-    type: "Visa Empresarial",
-  },
-  mastercard_business: {
-    number: "5421 6789 4532 1098",
-    expiryDate: "08/28",
-    cvv: "821",
-    holderName: "SANTANDER CORPORATIVA",
-    type: "Mastercard Corporativa",
-  },
-  amex_corporate: {
-    number: "4716 3487 9521 6543",
-    expiryDate: "03/29",
-    cvv: "647",
-    holderName: "BANORTE BUSINESS",
-    type: "Visa Business",
-  },
-};
+import { useFetchCards } from "@/hooks/useFetchCard";
+import { CreditCardInfo } from "@/types";
 
 export default function SecurePayment({ params }) {
   const { token } = params;
   const [isValid, setIsValid] = useState(true);
-  const [paymentData, setPaymentData] = useState<any>(null);
-  const [cardData, setCardData] = useState<CardData | null>(null);
+  const [paymentData, setPaymentData] = useState<{
+    codigo_reservacion: string;
+    monto: number;
+    id_card: string;
+    isSecureCode: boolean;
+  }>(null);
+  const [cardData, setCardData] = useState<CreditCardInfo | null>(null);
   const [showCardData, setShowCardData] = useState(false);
+  const { data, fetchData } = useFetchCards();
 
   useEffect(() => {
-    console.log(token);
     if (token) {
       const validation = validateSecureToken(token);
       console.log(validation);
       if (validation.valid) {
         setIsValid(true);
         setPaymentData(validation.data);
+        fetchData(validation.data.id_card);
       } else {
         setIsValid(false);
       }
-      const cardKey = validation.data.cardType || "1";
-      setCardData(CARD_DATABASE[cardKey] || CARD_DATABASE["1"]);
     }
   }, []);
+  useEffect(() => {
+    if (!Array.isArray(data) && data) {
+      setCardData(data);
+    }
+  }, [data]);
 
   if (!isValid || !paymentData || !cardData) {
     return (
@@ -131,16 +82,6 @@ export default function SecurePayment({ params }) {
               </p>
             </div>
           </div>
-          {/* 
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-            <div className="flex items-center space-x-2">
-              <Lock className="h-5 w-5 text-amber-600" />
-              <p className="text-sm text-amber-800">
-                Este código expira en:{" "}
-                <span className="font-bold">{formatTime(timeRemaining)}</span>
-              </p>
-            </div>
-          </div> */}
         </Card>
 
         {/* Payment Details */}
@@ -151,12 +92,12 @@ export default function SecurePayment({ params }) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-sm text-slate-600">Reservación ID</p>
-              <p className="font-semibold">{paymentData.reservationId}</p>
+              <p className="font-semibold">{paymentData.codigo_reservacion}</p>
             </div>
             <div>
               <p className="text-sm text-slate-600">Monto a Cobrar</p>
               <p className="font-semibold text-2xl text-green-600">
-                ${paymentData.amount.toFixed(2)} MXN
+                ${paymentData.monto.toFixed(2)} MXN
               </p>
             </div>
           </div>
@@ -205,7 +146,7 @@ export default function SecurePayment({ params }) {
                     Tipo de Tarjeta
                   </p>
                   <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded">
-                    {cardData.type}
+                    {cardData.banco_emisor}
                   </span>
                 </div>
 
@@ -215,7 +156,7 @@ export default function SecurePayment({ params }) {
                       NÚMERO DE TARJETA
                     </p>
                     <p className="text-lg font-mono font-bold text-slate-800 tracking-wider">
-                      {cardData.number}
+                      {cardData.numero_completo}
                     </p>
                   </div>
 
@@ -225,7 +166,7 @@ export default function SecurePayment({ params }) {
                         FECHA DE VENCIMIENTO
                       </p>
                       <p className="text-lg font-mono font-bold text-slate-800">
-                        {cardData.expiryDate}
+                        {cardData.fecha_vencimiento}
                       </p>
                     </div>
                     {paymentData.isSecureCode && (
@@ -243,7 +184,7 @@ export default function SecurePayment({ params }) {
                   <div>
                     <p className="text-xs text-slate-500 mb-1">TITULAR</p>
                     <p className="text-base font-semibold text-slate-800">
-                      {cardData.holderName}
+                      {cardData.nombre_titular}
                     </p>
                   </div>
                 </div>
@@ -260,7 +201,7 @@ export default function SecurePayment({ params }) {
                   </li>
                   <li>
                     • <strong>Fecha de vencimiento:</strong>{" "}
-                    {cardData.expiryDate} (MM/AA)
+                    {cardData.fecha_vencimiento} (MM/AA)
                   </li>
                   {paymentData.isSecureCode && (
                     <li>
@@ -269,22 +210,14 @@ export default function SecurePayment({ params }) {
                   )}
                   <li>
                     • <strong>Monto exacto:</strong> $
-                    {paymentData.amount.toFixed(2)} MXN
+                    {paymentData.monto.toFixed(2)} MXN
                   </li>
                   <li>
-                    • <strong>Titular:</strong> {cardData.holderName}
+                    • <strong>Titular:</strong> {cardData.nombre_titular}
                   </li>
                   <li>• Procese como pago presencial o telefónico</li>
                 </ul>
               </div>
-
-              {/* <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                <p className="text-sm text-amber-800">
-                  <strong>Importante:</strong> Esta información expira en{" "}
-                  {formatTime(timeRemaining)}. Si necesita más tiempo, solicite
-                  un nuevo código QR.
-                </p>
-              </div> */}
 
               <Button
                 onClick={() => setShowCardData(false)}

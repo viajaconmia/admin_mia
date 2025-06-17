@@ -12,7 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { API_KEY } from "../../../../constant/constants/constantes";
+import { API_KEY } from "@/lib/constants";
 
 interface CompanyDialogProps {
   open: boolean;

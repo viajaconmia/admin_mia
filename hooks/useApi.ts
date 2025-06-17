@@ -1,6 +1,6 @@
 import { CfdiInvoice } from "../types/billing";
 // import { supabase } from "../services/supabaseClient";
-import { ENDPOINTS, ROUTES, URL, HEADERS_API } from "../constant/index";
+import { ENDPOINTS, ROUTES, URL, HEADERS_API } from "../lib/constants/index";
 
 // export const probando = async () => {
 //   const { data } = await supabase.auth.getUser();
@@ -59,11 +59,14 @@ export const useApi = () => {
     return json;
   };
 
-  const crearCfdi = async (cfdi: CfdiInvoice, info_user: {
-    id_user: string;
-    id_solicitud: string[];
-    id_items: string[];
-  }) => {
+  const crearCfdi = async (
+    cfdi: CfdiInvoice,
+    info_user: {
+      id_user: string;
+      id_solicitud: string[];
+      id_items: string[];
+    }
+  ) => {
     try {
       const response = await fetch(`${URL}/mia/factura/combinada`, {
         method: "POST",
@@ -83,11 +86,11 @@ export const useApi = () => {
 
       return json;
     } catch (error) {
-      console.error('Error en crearCfdi:', error);
+      console.error("Error en crearCfdi:", error);
       throw {
-        error: 'Error al crear CFDI',
+        error: "Error al crear CFDI",
         details: error.message,
-        originalError: error
+        originalError: error,
       };
     }
   };

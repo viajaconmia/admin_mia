@@ -1,5 +1,5 @@
 import { EdicionForm, ReservaForm } from "@/types";
-import { URL, API_KEY } from "../constant/index";
+import { URL, API_KEY } from "@/lib/constants";
 
 export async function updateReserva(
   reserva: EdicionForm,
