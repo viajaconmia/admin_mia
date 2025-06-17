@@ -159,6 +159,25 @@ export const fetchReservationsAll = async (callback) => {
   }
 };
 
+export const fetchReservationsFacturacion = async (callback) => {
+  try {
+    // Replace with your actual API endpoint
+    const data = await fetch(`${URL}/mia/reservas/allFacturacion`, {
+      method: "GET",
+      headers: {
+        "x-api-key": API_KEY || "",
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    }).then((res) => res.json());
+    console.log(data);
+    callback(data);
+  } catch (error) {
+    throw error;
+  }
+};
+
 export const fetchReserva = async (id: string, callback) => {
   try {
     const data = await fetch(`${URL}/mia/reservas/id?id=${id}`, {
