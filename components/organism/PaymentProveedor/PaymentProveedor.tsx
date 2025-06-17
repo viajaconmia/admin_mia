@@ -68,6 +68,11 @@ export const PaymentModal = ({
   }, []);
 
   const handlePayment = async () => {
+    if ((paymentMethod == "card" || paymentMethod == "link") && !selectedCard) {
+      setError("Falta escoger la tarjeta");
+    } else {
+      setError("");
+    }
     if (paymentType === "credit") {
       // Credit payment logic
       console.log("Processing credit payment");
@@ -78,7 +83,6 @@ export const PaymentModal = ({
       // Generate QR PDF for secure payment
       await generateQRPaymentPDF();
     }
-    setError("");
 
     console.log("Procesando pago:", {
       reservation: reservation.codigo_reservacion_hotel,
@@ -152,14 +156,16 @@ export const PaymentModal = ({
 
   return (
     <div className="max-w-[85vw] w-screen p-2 pt-0 max-h-[90vh] grid grid-cols-2">
-      <div className="col-span-2 text-red-500 text-sm">
-        <p>{error}</p>
-      </div>
+      {error && (
+        <div className="col-span-2 text-red-500 text-sm p-4 border rounded-md border-red-300 bg-red-100">
+          <p>{error}</p>
+        </div>
+      )}
       <div className="px-4 border-r">
         <ReservationDetails reservation={reservation} />
 
         {/* Saldo a Favor */}
-        <div className="space-y-4">
+        <div className="space-y-2">
           <CheckboxInput
             checked={hasFavorBalance}
             onChange={(checked) => setHasFavorBalance(checked === true)}
@@ -194,7 +200,7 @@ export const PaymentModal = ({
         </div>
       </div>
 
-      <div className="space-y-4 p-4">
+      <div className="space-y-2 p-4">
         {/* Forma de Pago */}
         <h2 className="text-lg font-semibold">Forma de Pago</h2>
         <div className="space-y-4">
@@ -202,7 +208,7 @@ export const PaymentModal = ({
             <Button
               variant={paymentType === "prepaid" ? "default" : "outline"}
               onClick={() => setPaymentType("prepaid")}
-              className="h-12"
+              className="h-10"
             >
               <CreditCard className="mr-2 h-5 w-5" />
               Prepago
@@ -210,7 +216,7 @@ export const PaymentModal = ({
             <Button
               variant={paymentType === "credit" ? "default" : "outline"}
               onClick={() => setPaymentType("credit")}
-              className="h-12"
+              className="h-10"
             >
               <FileText className="mr-2 h-5 w-5" />
               Crédito
