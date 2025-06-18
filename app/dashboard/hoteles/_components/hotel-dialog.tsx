@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { URL } from "@/lib/constants";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -37,6 +36,7 @@ import {
 import { API_KEY } from "@/lib/constants";
 import { Pencil, Trash2, ArrowLeft, Plus, Search } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
+import { URL } from "@/lib/constants";
 
 const sanitizeUrl = (url: string) => {
   return url.replace(/^httpss:\/\//, "https://");
@@ -411,7 +411,7 @@ const buscarCodigoPostal = async (CodigoPostal: string) => {
 const buscarAgentes = async (nombre: string, correo: string) => {
   try {
     const response = await fetch(
-      `${URL}agentes/get-agente-id?nombre=${encodeURIComponent(
+      `${URL}/mia/agentes/get-agente-id?nombre=${encodeURIComponent(
         nombre
       )}&correo=${encodeURIComponent(correo)}`,
       //`http://localhost:3001/v1/mia/agentes/get-agente-id?nombre=${encodeURIComponent(nombre)}&correo=${encodeURIComponent(correo)}`
@@ -1163,7 +1163,7 @@ const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     setImageUploadStatus("loading");
 
     const res = await fetch(
-      `${URL_VERCEL}hoteles/carga-imagen?filename=${encodeURIComponent(file.name)}&filetype=${file.type}`,
+      `${URL}/mia/hoteles/carga-imagen?filename=${encodeURIComponent(file.name)}&filetype=${file.type}`,
       {
         method: "GET",
         headers: {
@@ -1280,7 +1280,7 @@ const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     setIsLoading(true);
     try {
       const response = await fetch(
-        `${URL}hoteles/Eliminar-hotel/`,
+        `${URL}/mia/hoteles/Eliminar-hotel/`,
         //`http://localhost:3001/v1/mia/hoteles/Eliminar-hotel/`,
         {
           method: "PATCH",
@@ -1328,7 +1328,7 @@ const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     try {
       // First, get the current rates to obtain the IDs
       const response = await fetch(
-        `${URL}hoteles/Consultar-tarifas-por-hotel/${hotel.id_hotel}`,
+        `${URL}/mia/hoteles/Consultar-tarifas-por-hotel/${hotel.id_hotel}`,
         //`http://localhost:3001/v1/mia/hoteles/Consultar-tarifas-por-hotel/${hotel.id_hotel}`,
         {
           method: "GET",
@@ -1426,7 +1426,7 @@ const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
       console.log("Actualizando hotel:", hotelPayload);
 
       const hotelResponse = await fetch(
-        `${URL}hoteles/Editar-hotel/`,
+        `${URL}/mia/hoteles/Editar-hotel/`,
         //`http://localhost:3001/v1/mia/hoteles/Editar-hotel/`
         {
           method: "PATCH",
@@ -1551,7 +1551,7 @@ const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
 
       const tarifasPromises = allTarifasPayloads.map((payload) =>
         fetch(
-          `${URL}hoteles/Actualiza-tarifa`,
+          `${URL}/mia/hoteles/Actualiza-tarifa`,
           //`http://localhost:3001/v1/mia/hoteles/Actualiza-tarifa`
           {
             method: "PATCH",
@@ -1598,7 +1598,7 @@ const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     try {
       // Call the endpoint for logical deletion with both IDs
       const response = await fetch(
-        `${URL}hoteles/Eliminar-tarifa-preferencial`,
+        `${URL}/mia/hoteles/Eliminar-tarifa-preferencial`,
         //`http://localhost:3001/v1/mia/hoteles/Eliminar-tarifa-preferencial`
         {
           method: "PATCH",
