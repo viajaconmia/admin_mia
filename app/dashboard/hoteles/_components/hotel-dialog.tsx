@@ -553,8 +553,6 @@ export function HotelDialog({
 
   const [formData, setFormData] = useState<FormData>(defaultFormData);
   const hasFetched = useRef<string | null>(null);
-  console.log("formData.estado:", formData.Estado);
-console.log("estadosMX:", estadosMX);
   // Sync breakfast data between single and double rooms
   useEffect(() => {
     if (mode === "edit" && formData.sencilla) {
@@ -1155,6 +1153,48 @@ console.log("estadosMX:", estadosMX);
 
     setTarifasPreferenciales(newTarifas);
   };
+const [imageUploadStatus, setImageUploadStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+
+const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  try {
+    setImageUploadStatus("loading");
+
+    const res = await fetch(
+      `http://localhost:3001/v1/mia/hoteles/carga-imagen?filename=${encodeURIComponent(file.name)}&filetype=${file.type}`,
+      {
+        method: "GET",
+        headers: {
+          "x-api-key": API_KEY || "",
+        },
+      }
+    );
+
+    const { url, publicUrl } = await res.json();
+
+    const uploadRes = await fetch(url, {
+      method: "PUT",
+      body: file,
+      headers: {
+        "Content-Type": file.type,
+      },
+    });
+
+    if (!uploadRes.ok) throw new Error("Error al subir imagen");
+
+    setFormData((prev) => ({
+      ...prev,
+      URLImagenHotel: publicUrl,
+    }));
+
+    setImageUploadStatus("success");
+  } catch (error) {
+    console.error("Error al subir imagen", error);
+    setImageUploadStatus("error");
+  }
+};
 
   // Add a new preferential rate
   const addTarifaPreferencial = () => {
@@ -1631,6 +1671,8 @@ console.log("estadosMX:", estadosMX);
 
   if (!hotel) return null;
   const currentMode = mode as "view" | "edit";
+
+
 
   return (
     <>
@@ -2217,28 +2259,38 @@ console.log("estadosMX:", estadosMX);
                   />
                 </div>
 
-                <div className="flex flex-col space-y-1">
-                  <Label htmlFor="URLImagenHotel">IMAGEN HOTEL (URL)</Label>
-                  <Input
-                    id="URLImagenHotel"
-                    value={formData.URLImagenHotel}
-                    onChange={(e) =>
-                      handleChange("URLImagenHotel", e.target.value)
-                    }
-                    disabled={mode === "view"}
-                    style={
-                      mode === "view"
-                        ? {
-                            color: "black",
-                            opacity: 1,
-                            backgroundColor: "white",
-                          }
-                        : {}
-                    }
-                    className="font-medium"
-                    placeholder="HTTPS://EJEMPLO.COM/IMAGEN.JPG"
-                  />
-                </div>
+               <div className="flex flex-col space-y-1">
+  <Label htmlFor="uploadImage">Imagen del Hotel</Label>
+  {formData.URLImagenHotel && (
+    <span className="text-xs text-muted-foreground break-all">{formData.URLImagenHotel}</span>
+  )}
+
+      <Button
+        variant="outline"
+        type="button"
+        disabled={mode === "view" || imageUploadStatus === "loading"}
+        onClick={() => document.getElementById("uploadImageInput")?.click()}
+      >
+        {imageUploadStatus === "loading" ? "Subiendo..." : "Subir Imagen"}
+      </Button>
+
+      <input
+        id="uploadImageInput"
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={handleImageChange}
+      />
+
+      {imageUploadStatus === "success" && (
+        <p className="text-green-600 text-sm">Imagen subida correctamente</p>
+      )}
+      {imageUploadStatus === "error" && (
+        <p className="text-red-600 text-sm">Error al subir la imagen</p>
+      )}
+    </div>
+
+
 
                 <div className="flex flex-col space-y-1">
                   <Label htmlFor="URLImagenHotelQ">
