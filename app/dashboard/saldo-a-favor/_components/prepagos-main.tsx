@@ -11,6 +11,7 @@ import { createSaldo, getSaldos } from "@/hooks/useDatabase";
 import { fetchAgentes } from "@/services/agentes";
 import { TypeFilters } from "@/types";
 import { Fallback } from "@radix-ui/react-avatar";
+import { HEADERS_API, URL } from "@/constant";
 
 
 const defaultFiltersSolicitudes: TypeFilters = {
@@ -85,6 +86,7 @@ const FacturacionModal = ({ setModal, onConfirm }) => {
   const [stayId, setStayId] = useState("");
   const [reason, setReason] = useState("");
   const [comments, setComments] = useState("");
+  const [paymentLink, setPaymentLink] = useState<string | null>(null);
   const [clients, setClientes] = useState([])
   const [filters, setFilters] = useState<TypeFilters>(
     defaultFiltersSolicitudes
@@ -108,35 +110,99 @@ const FacturacionModal = ({ setModal, onConfirm }) => {
     fetchClients()
   }, [])
 
-  const handleSubmit = async () => {
+  const handleCreatePaymentLink = async () => {
     try {
-      // Format the data according to backend requirements
       const saldoData = {
         id_agente: selectedClient?.id_agente || null,
         id_proveedor: null,
         monto: amount,
         moneda: currency,
-        forma_pago: paymentMethod == "manual" ? "carga" : paymentMethod,
-        fecha_procesamiento: paymentMethod === "spei" ? paymentDate :
-          paymentMethod === "manual" ? processingDate : null,
-        referencia: paymentMethod === "spei" ? reference : null,
+        forma_pago: "link",
+        fecha_procesamiento: null,
+        referencia: null,
         id_hospedaje: stayId || null,
-        charge_id: paymentMethod === "manual" ? chargeId : null,
-        transaction_id: paymentMethod === "manual" ? transactionId : null,
+        charge_id: null,
+        transaction_id: null,
         motivo: reason || null,
         comentarios: comments || null,
+        estado: "pending",
+        estado_link: "pending"
       };
 
+      // Crear el registro en tu base de datos
       const result = await createSaldo(saldoData);
 
       if (result.success) {
-        // If successful, call onConfirm with the same data (optional)
-        onConfirm(saldoData);
-        setModal(false);
+        // Luego llamar a tu backend para crear el link de pago en Stripe
+        const paymentLinkResponse = await fetch(`${URL}/stripe/create-payment-link`, {
+          method: 'POST',
+          headers: HEADERS_API,
+          body: JSON.stringify({
+            amount: parseFloat(amount) * 100,
+            currency: currency.toLowerCase(),
+            customer_email: selectedClient.correo,
+            metadata: {
+              saldo_id: result.id_saldo,
+              agente_id: selectedClient.id_agente,
+              motivo: reason || "Saldo a favor"
+            },
+            description: `Saldo a favor para ${selectedClient.nombre}`,
+          }),
+        });
+
+        const paymentLinkData = await paymentLinkResponse.json();
+
+        if (paymentLinkData.url) {
+          // Aquí puedes enviar el link al cliente por correo o mostrarlo
+          // Por ahora, solo lo mostramos en consola
+          console.log("Link de pago generado:", paymentLinkData.url);
+          setPaymentLink(paymentLinkData.url);
+
+          // onConfirm(
+          //   saldoData
+          // );
+          // setModal(false);
+        } else {
+          throw new Error("No se pudo generar el link de pago");
+        }
       }
     } catch (error) {
-      console.error("Error creating saldo:", error);
-      // You might want to add error handling here (show toast, etc.)
+      console.error("Error al generar link de pago:", error);
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (paymentMethod === "link") {
+      await handleCreatePaymentLink();
+    }
+    else {
+      try {
+        // Format the data according to backend requirements
+        const saldoData = {
+          id_agente: selectedClient?.id_agente || null,
+          id_proveedor: null,
+          monto: amount,
+          moneda: currency,
+          forma_pago: paymentMethod == "manual" ? "carga" : paymentMethod,
+          fecha_procesamiento: paymentMethod === "spei" ? paymentDate :
+            paymentMethod === "manual" ? processingDate : null,
+          referencia: paymentMethod === "spei" ? reference : null,
+          id_hospedaje: stayId || null,
+          charge_id: paymentMethod === "manual" ? chargeId : null,
+          transaction_id: paymentMethod === "manual" ? transactionId : null,
+          motivo: reason || null,
+          comentarios: comments || null,
+        };
+
+        const result = await createSaldo(saldoData);
+
+        if (result.success) {
+          onConfirm(saldoData);
+          setModal(false);
+        }
+      } catch (error) {
+        console.error("Error creating saldo:", error);
+      }
     }
   };
 
@@ -391,7 +457,19 @@ const FacturacionModal = ({ setModal, onConfirm }) => {
               />
             </div>
           </div>
-
+          {paymentLink && (
+            <div className="mt-4 p-4 bg-green-100 text-green-800 rounded">
+              Link de pago generado:&nbsp;
+              <a
+                href={paymentLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 underline"
+              >
+                {paymentLink}
+              </a>
+            </div>
+          )}
           {/* Action Buttons */}
           <div className="flex justify-end space-x-3 pt-4 pb-2">
             <button
@@ -436,7 +514,7 @@ export function ReservationsMain() {
   const [expandedPayment, setExpandedPayment] = useState<string | null>(null);
   const [prepagos, setPrepagos] = useState([]);
 
-  const fetchSaldos = async() => {
+  const fetchSaldos = async () => {
     setLoading(true);
     const response = await getSaldos();
     setPrepagos(response);
@@ -446,8 +524,8 @@ export function ReservationsMain() {
   useEffect(() => {
     fetchSaldos();
   }, []);
-  
-  const confirmSaldo = async() => {
+
+  const confirmSaldo = async () => {
     setLoading(true);
     await fetchSaldos();
     setLoading(false);
@@ -715,9 +793,9 @@ export function ReservationsMain() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Estado
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Acciones
-                    </th>
+                    </th> */}
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -757,14 +835,14 @@ export function ReservationsMain() {
                               {reservation.estado === 'pending' ? 'Pendiente' : 'Aplicado'}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             <button
                               onClick={() => togglePaymentDetails(reservation.id_servicio)}
                               className="text-blue-600 hover:text-blue-900"
                             >
                               {expandedPayment === reservation.id_servicio ? 'Ocultar' : 'Ver'} detalles
                             </button>
-                          </td>
+                          </td> */}
                         </tr>
 
                         {/* Expanded payment details */}
