@@ -84,7 +84,7 @@ export const PaymentModal = ({
       await generateQRPaymentPDF();
     }
 
-    console.log("Procesando pago:", {
+    console.log("Procesando pago: y vemos", {
       reservation: reservation.codigo_reservacion_hotel,
       amountToPay,
       paymentType,
