@@ -5,8 +5,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
-  DialogClose,
 } from "@/components/ui/dialog";
 
 import { Input } from "@/components/ui/input";
@@ -14,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { URL_VERCEL } from "@/constant/constants/constantes";
+import { URL } from "@/lib/constants";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -36,7 +34,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { API_KEY } from "@/constant/constants/constantes";
+import { API_KEY } from "@/lib/constants";
 import { Pencil, Trash2, ArrowLeft, Plus, Search } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 
@@ -283,7 +281,7 @@ interface DeleteTarifaPreferencialProps {
 export function quitarAcentos(texto) {
   return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
-export function normalizarEstado  (estado: string) {
+export function normalizarEstado(estado: string) {
   const limpio = quitarAcentos(estado.toUpperCase().trim());
 
   const mapa: Record<string, string> = {
@@ -293,11 +291,11 @@ export function normalizarEstado  (estado: string) {
     "SAN LUIS POTOSI": "SAN LUIS POTOSI", // ya coincide
     "CIUDAD DE MÉXICO": "CIUDAD DE MEXICO",
     "ESTADO DE MÉXICO": "ESTADO DE MEXICO",
-    "MEXICO": "ESTADO DE MEXICO" // distingue entre "Estado de México" y "CDMX"
+    MEXICO: "ESTADO DE MEXICO", // distingue entre "Estado de México" y "CDMX"
   };
 
   return mapa[limpio] || limpio;
-};
+}
 
 const estadosMX = [
   "AGUASCALIENTES",
@@ -413,7 +411,7 @@ const buscarCodigoPostal = async (CodigoPostal: string) => {
 const buscarAgentes = async (nombre: string, correo: string) => {
   try {
     const response = await fetch(
-      `${URL_VERCEL}agentes/get-agente-id?nombre=${encodeURIComponent(
+      `${URL}agentes/get-agente-id?nombre=${encodeURIComponent(
         nombre
       )}&correo=${encodeURIComponent(correo)}`,
       //`http://localhost:3001/v1/mia/agentes/get-agente-id?nombre=${encodeURIComponent(nombre)}&correo=${encodeURIComponent(correo)}`
@@ -478,7 +476,6 @@ export function HotelDialog({
   const [deleteTarifaDialogOpen, setDeleteTarifaDialogOpen] = useState(false);
   const [selectedTarifaToDelete, setSelectedTarifaToDelete] =
     useState<DeleteTarifaPreferencialProps | null>(null);
-    
 
   const defaultFormData: FormData = {
     id_cadena: "",
@@ -553,6 +550,7 @@ export function HotelDialog({
 
   const [formData, setFormData] = useState<FormData>(defaultFormData);
   const hasFetched = useRef<string | null>(null);
+
   // Sync breakfast data between single and double rooms
   useEffect(() => {
     if (mode === "edit" && formData.sencilla) {
@@ -650,7 +648,9 @@ export function HotelDialog({
         calle: direccionData.calle,
         numero: direccionData.numero,
         Colonia: hotel.Colonia || "",
-        Estado: hotel.Estado ? quitarAcentos(hotel.Estado.toUpperCase().trim()) : "",
+        Estado: hotel.Estado
+          ? quitarAcentos(hotel.Estado.toUpperCase().trim())
+          : "",
         Ciudad_Zona: hotel.Ciudad_Zona || "",
         municipio: "",
         tipo_negociacion: hotel.tipo_negociacion || "",
@@ -777,7 +777,11 @@ export function HotelDialog({
     try {
       setIsFetchingRates(true);
       const response = await fetch(
+<<<<<<< HEAD
         `https://miaback.vercel.app/v1/hoteles/Consultar-tarifas-por-hotel/${idHotel}`,
+=======
+        `https://miaback.vercel.app/v1/mia/hoteles/Consultar-tarifas-por-hotel/${idHotel}`,
+>>>>>>> e3878d92e481b7cc14bdba4af3ff718f7d339e1d
         //`http://localhost:3001/v1/mia/hoteles/Consultar-tarifas-por-hotel/${idHotel}`,
         {
           method: "GET",
@@ -1280,7 +1284,7 @@ const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     setIsLoading(true);
     try {
       const response = await fetch(
-        `${URL_VERCEL}hoteles/Eliminar-hotel/`,
+        `${URL}hoteles/Eliminar-hotel/`,
         //`http://localhost:3001/v1/mia/hoteles/Eliminar-hotel/`,
         {
           method: "PATCH",
@@ -1328,7 +1332,11 @@ const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     try {
       // First, get the current rates to obtain the IDs
       const response = await fetch(
+<<<<<<< HEAD
         `https://miaback.vercel.app/v1/hoteles/Consultar-tarifas-por-hotel/${hotel.id_hotel}`,
+=======
+        `${URL}hoteles/Consultar-tarifas-por-hotel/${hotel.id_hotel}`,
+>>>>>>> e3878d92e481b7cc14bdba4af3ff718f7d339e1d
         //`http://localhost:3001/v1/mia/hoteles/Consultar-tarifas-por-hotel/${hotel.id_hotel}`,
         {
           method: "GET",
@@ -1426,7 +1434,7 @@ const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
       console.log("Actualizando hotel:", hotelPayload);
 
       const hotelResponse = await fetch(
-        `${URL_VERCEL}hoteles/Editar-hotel/`,
+        `${URL}hoteles/Editar-hotel/`,
         //`http://localhost:3001/v1/mia/hoteles/Editar-hotel/`
         {
           method: "PATCH",
@@ -1551,7 +1559,7 @@ const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
 
       const tarifasPromises = allTarifasPayloads.map((payload) =>
         fetch(
-          `${URL_VERCEL}hoteles/Actualiza-tarifa`,
+          `${URL}hoteles/Actualiza-tarifa`,
           //`http://localhost:3001/v1/mia/hoteles/Actualiza-tarifa`
           {
             method: "PATCH",
@@ -1598,7 +1606,7 @@ const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     try {
       // Call the endpoint for logical deletion with both IDs
       const response = await fetch(
-        `${URL_VERCEL}hoteles/Eliminar-tarifa-preferencial`,
+        `${URL}hoteles/Eliminar-tarifa-preferencial`,
         //`http://localhost:3001/v1/mia/hoteles/Eliminar-tarifa-preferencial`
         {
           method: "PATCH",

@@ -1,4 +1,4 @@
-import { URL, API_KEY } from "@/constant/index";
+import { URL, API_KEY } from "@/lib/constants";
 import { Viajero } from "@/types";
 
 export const fetchViajeros = async (id, callback) => {

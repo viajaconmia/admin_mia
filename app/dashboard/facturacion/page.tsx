@@ -1,5 +1,5 @@
 import { ReservationsMain } from "./_components/reservations-main";
-import { API_KEY } from "../../../constant/constants/constantes";
+import { API_KEY } from "@/lib/constants";
 import { Suspense } from "react";
 
 export default async function ReservationsPage() {

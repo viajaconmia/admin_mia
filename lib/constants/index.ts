@@ -53,6 +53,7 @@ export const pruebaapi =
 export const HEADERS_API = {
   "Content-Type": "application/json",
   "x-api-key": pruebaapi,
+  "Cache-Control": "no-cache",
 };
 
 export const URL: string = "https://miaback.vercel.app/v1";

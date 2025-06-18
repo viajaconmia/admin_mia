@@ -12,8 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Trash2, Search, Plus } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { API_KEY } from "@/constant/constants/constantes";
-import { URL_VERCEL } from "@/constant/constants/constantes";
+import { API_KEY } from "@/lib/constants";
+import { URL } from "@/lib/constants";
 import {
   Select,
   SelectContent,
@@ -172,7 +172,7 @@ const buscarAgentes = async (nombre: string, correo: string) => {
   try {
     const response = await fetch(
       //`http://localhost:5173/v1/mia/agentes/get-agente-id?nombre=${encodeURIComponent(nombre)}&correo=${encodeURIComponent(correo)}`,
-      `${URL_VERCEL}agentes/get-agente-id?nombre=${encodeURIComponent(
+      `${URL}agentes/get-agente-id?nombre=${encodeURIComponent(
         nombre
       )}&correo=${encodeURIComponent(correo)}`,
       {
@@ -804,7 +804,7 @@ export function AddHotelDialog({
 
       const response = await fetch(
         //"http://localhost:3001/v1/mia/hoteles/Agregar-hotel/"
-        `${URL_VERCEL}hoteles/Agregar-hotel/`,
+        `${URL}hoteles/Agregar-hotel/`,
         {
           method: "POST",
           headers: {

@@ -17,7 +17,7 @@ import {
 import { cn } from "@/lib/utils";
 import { fetchEmpresasByAgente } from "@/services/agentes";
 import { useParams } from "next/navigation";
-import { API_KEY } from "@/constant";
+import { API_KEY } from "@/lib/constants";
 import { createNewEmpresa, updateEmpresa } from "@/hooks/useDatabase";
 
 // Types

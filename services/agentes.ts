@@ -1,5 +1,5 @@
 import { TypeFilters, UpdateRequestBody } from "@/types";
-import { API_KEY, URL } from "../constant";
+import { API_KEY, URL } from "@/lib/constants";
 
 export const fetchInitSuperAgent = async (
   email: string,
