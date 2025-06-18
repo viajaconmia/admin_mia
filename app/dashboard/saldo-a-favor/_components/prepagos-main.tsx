@@ -6,13 +6,12 @@ import { da, es } from "date-fns/locale";
 import { formatDate } from "@/helpers/utils";
 import useApi from "@/hooks/useApi";
 import { ChevronDownIcon, ChevronUpIcon, Download, Plus } from "lucide-react";
-import Modal from "@/components/structure/Modal";
+import Modal from "@/components/organism/Modal";
 import { createSaldo, getSaldos } from "@/hooks/useDatabase";
 import { fetchAgentes } from "@/services/agentes";
 import { TypeFilters } from "@/types";
 import { Fallback } from "@radix-ui/react-avatar";
-import { HEADERS_API, URL } from "@/constant";
-
+import { HEADERS_API, URL } from "@/lib/constants";
 
 const defaultFiltersSolicitudes: TypeFilters = {
   filterType: null,
@@ -29,16 +28,16 @@ const defaultFiltersSolicitudes: TypeFilters = {
 };
 
 type PrepaymentStatus =
-  | "pending"    // Saldo pendiente
-  | "applied"    // Saldo aplicado
-  | "all";       // Todos los estados
+  | "pending" // Saldo pendiente
+  | "applied" // Saldo aplicado
+  | "all"; // Todos los estados
 
 interface FilterOptions {
-  searchTerm: string;          // Para buscar cliente/agente
+  searchTerm: string; // Para buscar cliente/agente
   statusFilter: PrepaymentStatus;
   dateRangeFilter: {
-    startDate: Date | null;    // Fecha inicial para filtrar
-    endDate: Date | null;      // Fecha final para filtrar
+    startDate: Date | null; // Fecha inicial para filtrar
+    endDate: Date | null; // Fecha final para filtrar
   };
   // Removemos priceRangeFilter ya que no es necesario según los requisitos
 }
@@ -87,7 +86,7 @@ const FacturacionModal = ({ setModal, onConfirm }) => {
   const [reason, setReason] = useState("");
   const [comments, setComments] = useState("");
   const [paymentLink, setPaymentLink] = useState<string | null>(null);
-  const [clients, setClientes] = useState([])
+  const [clients, setClientes] = useState([]);
   const [filters, setFilters] = useState<TypeFilters>(
     defaultFiltersSolicitudes
   );
@@ -104,11 +103,11 @@ const FacturacionModal = ({ setModal, onConfirm }) => {
       console.log("Agentes fetched:", data);
       setClientes(data);
     });
-  }
+  };
 
   useEffect(() => {
-    fetchClients()
-  }, [])
+    fetchClients();
+  }, []);
 
   const handleCreatePaymentLink = async () => {
     try {
@@ -126,7 +125,7 @@ const FacturacionModal = ({ setModal, onConfirm }) => {
         motivo: reason || null,
         comentarios: comments || null,
         estado: "pending",
-        estado_link: "pending"
+        estado_link: "pending",
       };
 
       // Crear el registro en tu base de datos
@@ -134,21 +133,24 @@ const FacturacionModal = ({ setModal, onConfirm }) => {
 
       if (result.success) {
         // Luego llamar a tu backend para crear el link de pago en Stripe
-        const paymentLinkResponse = await fetch(`${URL}/stripe/create-payment-link`, {
-          method: 'POST',
-          headers: HEADERS_API,
-          body: JSON.stringify({
-            amount: parseFloat(amount) * 100,
-            currency: currency.toLowerCase(),
-            customer_email: selectedClient.correo,
-            metadata: {
-              saldo_id: result.id_saldo,
-              agente_id: selectedClient.id_agente,
-              motivo: reason || "Saldo a favor"
-            },
-            description: `Saldo a favor para ${selectedClient.nombre}`,
-          }),
-        });
+        const paymentLinkResponse = await fetch(
+          `${URL}/stripe/create-payment-link`,
+          {
+            method: "POST",
+            headers: HEADERS_API,
+            body: JSON.stringify({
+              amount: parseFloat(amount) * 100,
+              currency: currency.toLowerCase(),
+              customer_email: selectedClient.correo,
+              metadata: {
+                saldo_id: result.id_saldo,
+                agente_id: selectedClient.id_agente,
+                motivo: reason || "Saldo a favor",
+              },
+              description: `Saldo a favor para ${selectedClient.nombre}`,
+            }),
+          }
+        );
 
         const paymentLinkData = await paymentLinkResponse.json();
 
@@ -174,8 +176,7 @@ const FacturacionModal = ({ setModal, onConfirm }) => {
   const handleSubmit = async () => {
     if (paymentMethod === "link") {
       await handleCreatePaymentLink();
-    }
-    else {
+    } else {
       try {
         // Format the data according to backend requirements
         const saldoData = {
@@ -184,8 +185,12 @@ const FacturacionModal = ({ setModal, onConfirm }) => {
           monto: amount,
           moneda: currency,
           forma_pago: paymentMethod == "manual" ? "carga" : paymentMethod,
-          fecha_procesamiento: paymentMethod === "spei" ? paymentDate :
-            paymentMethod === "manual" ? processingDate : null,
+          fecha_procesamiento:
+            paymentMethod === "spei"
+              ? paymentDate
+              : paymentMethod === "manual"
+              ? processingDate
+              : null,
           referencia: paymentMethod === "spei" ? reference : null,
           id_hospedaje: stayId || null,
           charge_id: paymentMethod === "manual" ? chargeId : null,
@@ -223,7 +228,9 @@ const FacturacionModal = ({ setModal, onConfirm }) => {
               className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               value={selectedClient?.id_agente || ""}
               onChange={(e) => {
-                const client = clients.find(c => c.id_agente === e.target.value);
+                const client = clients.find(
+                  (c) => c.id_agente === e.target.value
+                );
                 setSelectedClient(client);
               }}
             >
@@ -284,39 +291,81 @@ const FacturacionModal = ({ setModal, onConfirm }) => {
               <button
                 type="button"
                 onClick={() => setPaymentMethod("spei")}
-                className={`p-4 border rounded-lg transition-all duration-200 ${paymentMethod === "spei" ? "border-blue-500 bg-blue-50 ring-1 ring-blue-500" : "border-gray-300 hover:border-blue-300"}`}
+                className={`p-4 border rounded-lg transition-all duration-200 ${
+                  paymentMethod === "spei"
+                    ? "border-blue-500 bg-blue-50 ring-1 ring-blue-500"
+                    : "border-gray-300 hover:border-blue-300"
+                }`}
               >
                 <div className="flex items-center">
-                  <div className={`h-4 w-4 rounded-full border flex items-center justify-center mr-3 ${paymentMethod === "spei" ? "border-blue-500 bg-blue-500" : "border-gray-400"}`}>
-                    {paymentMethod === "spei" && <div className="h-2 w-2 rounded-full bg-white"></div>}
+                  <div
+                    className={`h-4 w-4 rounded-full border flex items-center justify-center mr-3 ${
+                      paymentMethod === "spei"
+                        ? "border-blue-500 bg-blue-500"
+                        : "border-gray-400"
+                    }`}
+                  >
+                    {paymentMethod === "spei" && (
+                      <div className="h-2 w-2 rounded-full bg-white"></div>
+                    )}
                   </div>
-                  <span className="text-sm font-medium">SPEI / Transferencia</span>
+                  <span className="text-sm font-medium">
+                    SPEI / Transferencia
+                  </span>
                 </div>
               </button>
 
               <button
                 type="button"
                 onClick={() => setPaymentMethod("link")}
-                className={`p-4 border rounded-lg transition-all duration-200 ${paymentMethod === "link" ? "border-blue-500 bg-blue-50 ring-1 ring-blue-500" : "border-gray-300 hover:border-blue-300"}`}
+                className={`p-4 border rounded-lg transition-all duration-200 ${
+                  paymentMethod === "link"
+                    ? "border-blue-500 bg-blue-50 ring-1 ring-blue-500"
+                    : "border-gray-300 hover:border-blue-300"
+                }`}
               >
                 <div className="flex items-center">
-                  <div className={`h-4 w-4 rounded-full border flex items-center justify-center mr-3 ${paymentMethod === "link" ? "border-blue-500 bg-blue-500" : "border-gray-400"}`}>
-                    {paymentMethod === "link" && <div className="h-2 w-2 rounded-full bg-white"></div>}
+                  <div
+                    className={`h-4 w-4 rounded-full border flex items-center justify-center mr-3 ${
+                      paymentMethod === "link"
+                        ? "border-blue-500 bg-blue-500"
+                        : "border-gray-400"
+                    }`}
+                  >
+                    {paymentMethod === "link" && (
+                      <div className="h-2 w-2 rounded-full bg-white"></div>
+                    )}
                   </div>
-                  <span className="text-sm font-medium">Link de Pago Stripe</span>
+                  <span className="text-sm font-medium">
+                    Link de Pago Stripe
+                  </span>
                 </div>
               </button>
 
               <button
                 type="button"
                 onClick={() => setPaymentMethod("manual")}
-                className={`p-4 border rounded-lg transition-all duration-200 ${paymentMethod === "manual" ? "border-blue-500 bg-blue-50 ring-1 ring-blue-500" : "border-gray-300 hover:border-blue-300"}`}
+                className={`p-4 border rounded-lg transition-all duration-200 ${
+                  paymentMethod === "manual"
+                    ? "border-blue-500 bg-blue-50 ring-1 ring-blue-500"
+                    : "border-gray-300 hover:border-blue-300"
+                }`}
               >
                 <div className="flex items-center">
-                  <div className={`h-4 w-4 rounded-full border flex items-center justify-center mr-3 ${paymentMethod === "manual" ? "border-blue-500 bg-blue-500" : "border-gray-400"}`}>
-                    {paymentMethod === "manual" && <div className="h-2 w-2 rounded-full bg-white"></div>}
+                  <div
+                    className={`h-4 w-4 rounded-full border flex items-center justify-center mr-3 ${
+                      paymentMethod === "manual"
+                        ? "border-blue-500 bg-blue-500"
+                        : "border-gray-400"
+                    }`}
+                  >
+                    {paymentMethod === "manual" && (
+                      <div className="h-2 w-2 rounded-full bg-white"></div>
+                    )}
                   </div>
-                  <span className="text-sm font-medium">Carga Manual Stripe</span>
+                  <span className="text-sm font-medium">
+                    Carga Manual Stripe
+                  </span>
                 </div>
               </button>
             </div>
@@ -357,9 +406,12 @@ const FacturacionModal = ({ setModal, onConfirm }) => {
             {paymentMethod === "manual" && (
               <div className="bg-blue-50 p-4 rounded-lg space-y-4 border border-blue-100">
                 <div>
-                  <h4 className="font-medium text-gray-900">Carga Manual de Stripe</h4>
+                  <h4 className="font-medium text-gray-900">
+                    Carga Manual de Stripe
+                  </h4>
                   <p className="text-sm text-gray-600 mt-1">
-                    Para registrar un pago que ya fue procesado directamente en Stripe Dashboard.
+                    Para registrar un pago que ya fue procesado directamente en
+                    Stripe Dashboard.
                   </p>
                 </div>
 
@@ -374,7 +426,9 @@ const FacturacionModal = ({ setModal, onConfirm }) => {
                     onChange={(e) => setChargeId(e.target.value)}
                     placeholder="ch_1A2B3C4D5E6F..."
                   />
-                  <p className="text-xs text-gray-500 mt-1">ID del cargo en Stripe Dashboard</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    ID del cargo en Stripe Dashboard
+                  </p>
                 </div>
 
                 <div>
@@ -407,10 +461,13 @@ const FacturacionModal = ({ setModal, onConfirm }) => {
             {/* Link de Pago Stripe Info */}
             {paymentMethod === "link" && (
               <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                <h4 className="font-medium text-gray-900">Link de Pago con Stripe</h4>
+                <h4 className="font-medium text-gray-900">
+                  Link de Pago con Stripe
+                </h4>
                 <p className="text-sm text-gray-600 mt-1">
-                  Se generará un link de pago seguro que se enviará al cliente. Una vez que complete el pago,
-                  el saldo se agregará automáticamente a su cuenta.
+                  Se generará un link de pago seguro que se enviará al cliente.
+                  Una vez que complete el pago, el saldo se agregará
+                  automáticamente a su cuenta.
                 </p>
               </div>
             )}
@@ -483,9 +540,15 @@ const FacturacionModal = ({ setModal, onConfirm }) => {
               type="button"
               onClick={handleSubmit}
               disabled={!selectedClient || !amount || !paymentMethod}
-              className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${!selectedClient || !amount || !paymentMethod ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
+              className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
+                !selectedClient || !amount || !paymentMethod
+                  ? "bg-blue-400 cursor-not-allowed"
+                  : "bg-blue-600 hover:bg-blue-700"
+              } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
             >
-              {paymentMethod === "link" ? "Generar link de pago" : "Registrar saldo a favor"}
+              {paymentMethod === "link"
+                ? "Generar link de pago"
+                : "Registrar saldo a favor"}
             </button>
           </div>
         </div>
@@ -519,7 +582,7 @@ export function ReservationsMain() {
     const response = await getSaldos();
     setPrepagos(response);
     setLoading(false);
-  }
+  };
 
   useEffect(() => {
     fetchSaldos();
@@ -529,7 +592,7 @@ export function ReservationsMain() {
     setLoading(true);
     await fetchSaldos();
     setLoading(false);
-  }
+  };
 
   const applyFilters = (reservations: any): any[] => {
     return reservations.filter((reservation) => {
@@ -558,28 +621,38 @@ export function ReservationsMain() {
   const filteredReservations = applyFilters(prepagos);
   // Calculate summary statistics
   const calculateSummary = () => {
-    const totalBalance = prepagos.reduce((sum, p) => sum + parseFloat(p.monto), 0);
-    const filteredBalance = filteredReservations.reduce((sum, p) => sum + parseFloat(p.monto), 0);
-    const pendingCount = prepagos.filter(p => p.estado === 'pending').length;
+    const totalBalance = prepagos.reduce(
+      (sum, p) => sum + parseFloat(p.monto),
+      0
+    );
+    const filteredBalance = filteredReservations.reduce(
+      (sum, p) => sum + parseFloat(p.monto),
+      0
+    );
+    const pendingCount = prepagos.filter((p) => p.estado === "pending").length;
 
     // Current month applied payments
-    const currentMonthApplied = prepagos.filter(p => {
+    const currentMonthApplied = prepagos.filter((p) => {
       const paymentDate = new Date(p.fecha);
       const now = new Date();
-      return p.estado === 'applied' &&
+      return (
+        p.estado === "applied" &&
         paymentDate.getMonth() === now.getMonth() &&
-        paymentDate.getFullYear() === now.getFullYear();
+        paymentDate.getFullYear() === now.getFullYear()
+      );
     }).length;
 
     // Filter period applied payments
-    const filteredApplied = filteredReservations.filter(p => p.estado === 'applied').length;
+    const filteredApplied = filteredReservations.filter(
+      (p) => p.estado === "applied"
+    ).length;
 
     return {
       totalBalance,
       filteredBalance,
       pendingCount,
       currentMonthApplied,
-      filteredApplied
+      filteredApplied,
     };
   };
 
@@ -589,7 +662,7 @@ export function ReservationsMain() {
     return new Intl.NumberFormat("es-MX", {
       style: "currency",
       currency: "MXN",
-    }).format(typeof value === 'string' ? parseFloat(value) : value);
+    }).format(typeof value === "string" ? parseFloat(value) : value);
   };
 
   const handleFilterChange = (newFilters: Partial<FilterOptions>) => {
@@ -598,10 +671,6 @@ export function ReservationsMain() {
       ...newFilters,
     }));
   };
-
-
-
-
 
   const togglePaymentDetails = (paymentId: string) => {
     setExpandedPayment(expandedPayment === paymentId ? null : paymentId);
@@ -615,24 +684,44 @@ export function ReservationsMain() {
           <div className="p-6 border-b">
             <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div className="bg-blue-50 p-4 rounded-lg">
-                <h3 className="text-sm font-medium text-blue-800">Total saldo por aplicar</h3>
-                <p className="text-2xl font-bold text-blue-900">{formatCurrency(summary.totalBalance)}</p>
+                <h3 className="text-sm font-medium text-blue-800">
+                  Total saldo por aplicar
+                </h3>
+                <p className="text-2xl font-bold text-blue-900">
+                  {formatCurrency(summary.totalBalance)}
+                </p>
               </div>
               <div className="bg-green-50 p-4 rounded-lg">
-                <h3 className="text-sm font-medium text-green-800">Saldo por aplicar (filtros)</h3>
-                <p className="text-2xl font-bold text-green-900">{formatCurrency(summary.filteredBalance)}</p>
+                <h3 className="text-sm font-medium text-green-800">
+                  Saldo por aplicar (filtros)
+                </h3>
+                <p className="text-2xl font-bold text-green-900">
+                  {formatCurrency(summary.filteredBalance)}
+                </p>
               </div>
               <div className="bg-yellow-50 p-4 rounded-lg">
-                <h3 className="text-sm font-medium text-yellow-800">Pagos por aplicar</h3>
-                <p className="text-2xl font-bold text-yellow-900">{summary.pendingCount}</p>
+                <h3 className="text-sm font-medium text-yellow-800">
+                  Pagos por aplicar
+                </h3>
+                <p className="text-2xl font-bold text-yellow-900">
+                  {summary.pendingCount}
+                </p>
               </div>
               <div className="bg-purple-50 p-4 rounded-lg">
-                <h3 className="text-sm font-medium text-purple-800">Aplicados este mes</h3>
-                <p className="text-2xl font-bold text-purple-900">{summary.currentMonthApplied}</p>
+                <h3 className="text-sm font-medium text-purple-800">
+                  Aplicados este mes
+                </h3>
+                <p className="text-2xl font-bold text-purple-900">
+                  {summary.currentMonthApplied}
+                </p>
               </div>
               <div className="bg-indigo-50 p-4 rounded-lg">
-                <h3 className="text-sm font-medium text-indigo-800">Aplicados en periodo</h3>
-                <p className="text-2xl font-bold text-indigo-900">{summary.filteredApplied}</p>
+                <h3 className="text-sm font-medium text-indigo-800">
+                  Aplicados en periodo
+                </h3>
+                <p className="text-2xl font-bold text-indigo-900">
+                  {summary.filteredApplied}
+                </p>
               </div>
             </div>
           </div>
@@ -673,7 +762,10 @@ export function ReservationsMain() {
                   value={filterOptions.statusFilter}
                   onChange={(e) =>
                     handleFilterChange({
-                      statusFilter: e.target.value as "pending" | "applied" | "all",
+                      statusFilter: e.target.value as
+                        | "pending"
+                        | "applied"
+                        | "all",
                     })
                   }
                 >
@@ -683,11 +775,19 @@ export function ReservationsMain() {
                 </select>
 
                 <button
-                  onClick={() => setIsAdvancedFiltersOpen(!isAdvancedFiltersOpen)}
+                  onClick={() =>
+                    setIsAdvancedFiltersOpen(!isAdvancedFiltersOpen)
+                  }
                   className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
-                  {isAdvancedFiltersOpen ? "Ocultar filtros" : "Mostrar filtros"}
-                  <span className={`ml-2 transition-transform duration-200 ${isAdvancedFiltersOpen ? "rotate-180" : ""}`}>
+                  {isAdvancedFiltersOpen
+                    ? "Ocultar filtros"
+                    : "Mostrar filtros"}
+                  <span
+                    className={`ml-2 transition-transform duration-200 ${
+                      isAdvancedFiltersOpen ? "rotate-180" : ""
+                    }`}
+                  >
                     ▼
                   </span>
                 </button>
@@ -699,7 +799,6 @@ export function ReservationsMain() {
                     <Plus></Plus>
                   </span>
                   Crear Nuevo Saldo a Favor
-
                 </button>
               </div>
 
@@ -801,7 +900,10 @@ export function ReservationsMain() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredReservations.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="px-6 py-4 text-center text-sm text-gray-500">
+                      <td
+                        colSpan={8}
+                        className="px-6 py-4 text-center text-sm text-gray-500"
+                      >
                         No se encontraron prepagos con los filtros actuales.
                       </td>
                     </tr>
@@ -813,7 +915,11 @@ export function ReservationsMain() {
                             {reservation.nombre}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {format(new Date(reservation.fecha_generado), "dd MMM yyyy", { locale: es })}
+                            {format(
+                              new Date(reservation.fecha_generado),
+                              "dd MMM yyyy",
+                              { locale: es }
+                            )}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {reservation.forma_pago}
@@ -828,11 +934,16 @@ export function ReservationsMain() {
                             {formatCurrency(reservation.restante)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${reservation.estado === 'pending'
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-green-100 text-green-800'
-                              }`}>
-                              {reservation.estado === 'pending' ? 'Pendiente' : 'Aplicado'}
+                            <span
+                              className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                reservation.estado === "pending"
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : "bg-green-100 text-green-800"
+                              }`}
+                            >
+                              {reservation.estado === "pending"
+                                ? "Pendiente"
+                                : "Aplicado"}
                             </span>
                           </td>
                           {/* <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -851,39 +962,73 @@ export function ReservationsMain() {
                             <td colSpan={8} className="px-6 py-4 bg-gray-50">
                               <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                  <h4 className="font-medium text-gray-900">Detalles del pago:</h4>
+                                  <h4 className="font-medium text-gray-900">
+                                    Detalles del pago:
+                                  </h4>
                                   <p className="text-sm text-gray-500">
-                                    {reservation.metodo === 'Tarjeta' && (
+                                    {reservation.metodo === "Tarjeta" && (
                                       <>
-                                        <span className="block">Últimos 4 dígitos: {reservation.cardLast4}</span>
-                                        <span className="block">Referencia: {reservation.referencia}</span>
-                                        <span className="block">Autorización: {reservation.authCode}</span>
-                                        <span className="block">Banco: {reservation.banco}</span>
-                                        <span className="block">Charge ID: {reservation.chargeId}</span>
-                                        <span className="block">Transaction ID: {reservation.transactionId}</span>
+                                        <span className="block">
+                                          Últimos 4 dígitos:{" "}
+                                          {reservation.cardLast4}
+                                        </span>
+                                        <span className="block">
+                                          Referencia: {reservation.referencia}
+                                        </span>
+                                        <span className="block">
+                                          Autorización: {reservation.authCode}
+                                        </span>
+                                        <span className="block">
+                                          Banco: {reservation.banco}
+                                        </span>
+                                        <span className="block">
+                                          Charge ID: {reservation.chargeId}
+                                        </span>
+                                        <span className="block">
+                                          Transaction ID:{" "}
+                                          {reservation.transactionId}
+                                        </span>
                                       </>
                                     )}
-                                    {reservation.metodo === 'Transferencia' && (
+                                    {reservation.metodo === "Transferencia" && (
                                       <>
-                                        <span className="block">Referencia: {reservation.referencia}</span>
-                                        <span className="block">Banco: {reservation.banco}</span>
-                                        <span className="block">Cuenta: {reservation.cuenta}</span>
+                                        <span className="block">
+                                          Referencia: {reservation.referencia}
+                                        </span>
+                                        <span className="block">
+                                          Banco: {reservation.banco}
+                                        </span>
+                                        <span className="block">
+                                          Cuenta: {reservation.cuenta}
+                                        </span>
                                       </>
                                     )}
                                   </p>
                                 </div>
                                 <div>
-                                  <h4 className="font-medium text-gray-900">Aplicaciones:</h4>
+                                  <h4 className="font-medium text-gray-900">
+                                    Aplicaciones:
+                                  </h4>
                                   {reservation.aplicaciones?.length > 0 ? (
                                     <ul className="text-sm text-gray-500">
-                                      {reservation.aplicaciones.map((app, index) => (
-                                        <li key={index} className="mb-1">
-                                          {formatCurrency(app.monto)} a reservación {app.reservacion} el {format(new Date(app.fecha), "dd MMM yyyy", { locale: es })}
-                                        </li>
-                                      ))}
+                                      {reservation.aplicaciones.map(
+                                        (app, index) => (
+                                          <li key={index} className="mb-1">
+                                            {formatCurrency(app.monto)} a
+                                            reservación {app.reservacion} el{" "}
+                                            {format(
+                                              new Date(app.fecha),
+                                              "dd MMM yyyy",
+                                              { locale: es }
+                                            )}
+                                          </li>
+                                        )
+                                      )}
                                     </ul>
                                   ) : (
-                                    <p className="text-sm text-gray-500">No hay aplicaciones registradas</p>
+                                    <p className="text-sm text-gray-500">
+                                      No hay aplicaciones registradas
+                                    </p>
                                   )}
                                 </div>
                               </div>
@@ -906,8 +1051,6 @@ export function ReservationsMain() {
           />
         )}
       </main>
-
     </div>
-
   );
 }
