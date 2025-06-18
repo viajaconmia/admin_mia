@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Eye, Edit, Trash } from "lucide-react";
 import type { Company } from "@/types/_types";
-import { API_KEY } from "../../../../constant/constants/constantes";
+import { API_KEY } from "@/lib/constants";
 
 export function CompanyTable() {
   const [companies, setCompanies] = useState<Company[]>([]);

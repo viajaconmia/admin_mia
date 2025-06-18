@@ -275,6 +275,7 @@ export const ComboBox = ({
 type Option = {
   value: string;
   label: string;
+  item: any;
 };
 
 export const DropdownValues = ({
