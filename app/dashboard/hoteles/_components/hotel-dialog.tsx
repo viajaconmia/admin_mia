@@ -777,7 +777,7 @@ export function HotelDialog({
     try {
       setIsFetchingRates(true);
       const response = await fetch(
-        `https://miaback.vercel.app/v1/hoteles/Consultar-tarifas-por-hotel/${idHotel}`,
+        `https://miaback.vercel.app/v1/mia/hoteles/Consultar-tarifas-por-hotel/${idHotel}`,
         //`http://localhost:3001/v1/mia/hoteles/Consultar-tarifas-por-hotel/${idHotel}`,
         {
           method: "GET",
