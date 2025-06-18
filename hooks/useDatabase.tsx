@@ -475,6 +475,7 @@ export const createSaldo = async (data: any) => {
         transaction_id: data.transaction_id,
         motivo: data.motivo,
         comentarios: data.comentarios,
+        estado_link: data?.estado_link || null,
       }),
     });
 
@@ -483,6 +484,7 @@ export const createSaldo = async (data: any) => {
     if (json.message === "Saldo creado correctamente") {
       return {
         success: true,
+        id_saldo: json.data.id_saldo,
       };
     } else {
       return {
