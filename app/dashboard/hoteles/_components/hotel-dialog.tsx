@@ -777,7 +777,7 @@ export function HotelDialog({
     try {
       setIsFetchingRates(true);
       const response = await fetch(
-        `${URL_VERCEL}hoteles/Consultar-tarifas-por-hotel/${idHotel}`,
+        `https://miaback.vercel.app/v1/hoteles/Consultar-tarifas-por-hotel/${idHotel}`,
         //`http://localhost:3001/v1/mia/hoteles/Consultar-tarifas-por-hotel/${idHotel}`,
         {
           method: "GET",
@@ -1328,7 +1328,7 @@ const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     try {
       // First, get the current rates to obtain the IDs
       const response = await fetch(
-        `${URL_VERCEL}hoteles/Consultar-tarifas-por-hotel/${hotel.id_hotel}`,
+        `https://miaback.vercel.app/v1/hoteles/Consultar-tarifas-por-hotel/${hotel.id_hotel}`,
         //`http://localhost:3001/v1/mia/hoteles/Consultar-tarifas-por-hotel/${hotel.id_hotel}`,
         {
           method: "GET",
