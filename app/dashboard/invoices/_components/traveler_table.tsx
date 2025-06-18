@@ -26,8 +26,8 @@ import {
 } from "lucide-react";
 import type { Factura } from "@/types/_types";
 import useApi from "@/hooks/useApi";
-import Modal from "@/components/structure/Modal";
-import { API_KEY, URL } from "@/constant";
+import Modal from "@/components/organism/Modal";
+import { API_KEY, URL } from "@/lib/constants";
 
 function FacturaDetails({ setModal, id_factura }) {
   const [facturaData, setFacturaData] = useState([]);

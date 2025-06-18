@@ -1,6 +1,6 @@
 "use client";
 
-import { API_KEY } from "../../../../constant/constants/constantes";
+import { API_KEY } from "@/lib/constants";
 import { useState } from "react";
 import {
   Table,
@@ -83,7 +83,7 @@ export function CreditTable({
       type,
       id: type === "agente" ? item.id : item.id_empresa,
       name: type === "agente" ? item.nombre : item.nombre_comercial,
-      credit: item.saldo || 0 || item.monto_credito ,
+      credit: item.saldo || 0 || item.monto_credito,
     });
     setDialogOpen(true);
   };

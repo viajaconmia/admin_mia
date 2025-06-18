@@ -40,6 +40,7 @@ export interface QRPaymentData {
   nombreTarjeta: string;
   numeroTarjeta: string;
   fechaExpiracion: string;
+  cvv: string;
 
   // Para el monto total
   currency: string;
@@ -276,7 +277,7 @@ export async function generateSecureQRPaymentPDF(
     );
     y += STYLES.SPACING.LINE;
     if (data.isSecureCode) {
-      doc.text(`CVV: XXX`, STYLES.MARGINS.LEFT, y);
+      doc.text(`CVV: ${data.cvv}`, STYLES.MARGINS.LEFT, y);
       y += STYLES.SPACING.LINE;
     }
     y_contact = y;
@@ -411,11 +412,10 @@ export function validateSecureToken(token: string): {
       return {
         valid: true,
         data: {
-          reservationId: parseInt(parts[0]),
-          amount: parseFloat(parts[1]),
-          cardType: parts[2],
-          isSecureCode: parts[3] == "1" ? true : false,
-          timestamp: parseInt(parts[4]),
+          codigo_reservacion: parts[0],
+          monto: parseFloat(parts[1]),
+          id_card: `${parts[2]}-${parts[3]}-${parts[4]}-${parts[5]}-${parts[6]}`,
+          isSecureCode: parts[7] == "1" ? true : false,
         },
       };
     }

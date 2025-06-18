@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { TravelersPage } from "./_components/traveler_main";
-import { API_KEY } from "../../../constant/constants/constantes";
+import { API_KEY } from "@/lib/constants";
 
 export default async function TravelerDashboard() {
   const endpoint = "https://miaback.vercel.app/v1/mia/pagos/allPendientes";
