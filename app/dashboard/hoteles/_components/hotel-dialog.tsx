@@ -1163,7 +1163,7 @@ const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     setImageUploadStatus("loading");
 
     const res = await fetch(
-      `http://localhost:3001/v1/mia/hoteles/carga-imagen?filename=${encodeURIComponent(file.name)}&filetype=${file.type}`,
+      `${URL_VERCEL}hoteles/carga-imagen?filename=${encodeURIComponent(file.name)}&filetype=${file.type}`,
       {
         method: "GET",
         headers: {
