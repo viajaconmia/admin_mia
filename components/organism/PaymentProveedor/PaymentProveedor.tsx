@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useReducer } from "react"; // Importamos useReducer
 import {
   CreditCard,
   FileText,
@@ -23,10 +23,11 @@ import {
   TextAreaInput,
   TextInput,
 } from "../../atom/Input";
-import { CreditCardInfo, Solicitud } from "@/types";
+import { Solicitud } from "@/types";
 import { updateRoom } from "@/lib/utils";
 import ReservationDetails from "./ReservationDetails";
 import { useFetchCards } from "@/hooks/useFetchCard";
+import { paymentReducer, getInitialState } from "./reducer"; // Asegúrate de que la ruta sea correcta
 
 export const PaymentModal = ({
   reservation,
@@ -34,20 +35,29 @@ export const PaymentModal = ({
   reservation: Solicitud | null;
 }) => {
   const { data, fetchData } = useFetchCards();
-  const [hasFavorBalance, setHasFavorBalance] = useState(false);
-  const [error, setError] = useState<string>("");
-  const [isSecureCode, setIsSecureCode] = useState(false);
-  const [favorBalance, setFavorBalance] = useState("");
-  const [paymentType, setPaymentType] = useState<"prepaid" | "credit" | "">("");
-  const [paymentMethod, setPaymentMethod] = useState<
-    "transfer" | "card" | "link" | ""
-  >("");
-  const [date, setDate] = useState(reservation.check_in.split("T")[0]);
-  const [selectedCard, setSelectedCard] = useState<CreditCardInfo | null>(null);
-  const [useQR, setUseQR] = useState<"qr" | "code" | "">("");
-  const [comments, setComments] = useState("");
-  const [emails, setEmails] = useState("");
-  const [cargo, setCargo] = useState("RENTA HABITACIÓN");
+
+  // 1. Inicializamos el estado con useReducer y la función getInitialState
+  const [state, dispatch] = useReducer(
+    paymentReducer,
+    reservation,
+    getInitialState
+  );
+
+  // Desestructuramos el estado para un acceso más fácil
+  const {
+    hasFavorBalance,
+    error,
+    isSecureCode,
+    favorBalance,
+    paymentType,
+    paymentMethod,
+    date,
+    selectedCard,
+    useQR,
+    comments,
+    emails,
+    cargo,
+  } = state;
 
   if (!reservation) return null;
 
@@ -63,15 +73,25 @@ export const PaymentModal = ({
       }))
     : [];
 
+  // Encuentra la tarjeta seleccionada de la lista de tarjetas cargadas
+  const currentSelectedCard = creditCards.find(
+    (card) => card.id === selectedCard
+  );
+
   useEffect(() => {
     fetchData();
   }, []);
 
   const handlePayment = async () => {
     if ((paymentMethod == "card" || paymentMethod == "link") && !selectedCard) {
-      setError("Falta escoger la tarjeta");
+      // Usamos dispatch para actualizar el error
+      dispatch({
+        type: "SET_FIELD",
+        field: "error",
+        payload: "Falta escoger la tarjeta",
+      });
     } else {
-      setError("");
+      dispatch({ type: "SET_FIELD", field: "error", payload: "" });
     }
     if (paymentType === "credit") {
       // Credit payment logic
@@ -89,22 +109,21 @@ export const PaymentModal = ({
       amountToPay,
       paymentType,
       paymentMethod,
-      selectedCard,
+      selectedCard: currentSelectedCard, // Pasamos el objeto de la tarjeta
       useQR,
       comments,
       date,
     });
   };
 
-  // Versión Nueva
   const generateQRPaymentPDF = async () => {
-    if (!reservation || !selectedCard) return;
+    if (!reservation || !currentSelectedCard) return; // Usamos currentSelectedCard
 
     // 1. Genera un token de seguridad
     const secureToken = generateSecureToken(
       reservation.codigo_reservacion_hotel.replaceAll("-", "."),
       amountToPay,
-      selectedCard.id,
+      currentSelectedCard.id, // Usamos el ID del objeto de la tarjeta
       isSecureCode
     );
 
@@ -122,11 +141,11 @@ export const PaymentModal = ({
         razonSocial: "Noktos Alianza S.A. de C.V.",
         rfc: "NAL190807BU2",
       },
-      bancoEmisor: selectedCard.banco_emisor,
-      fechaExpiracion: selectedCard.fecha_vencimiento, //Cambiar por los datos de la tarjeta en un futuro
-      nombreTarjeta: selectedCard.nombre_titular,
-      numeroTarjeta: selectedCard.numero_completo,
-      cvv: selectedCard.cvv,
+      bancoEmisor: currentSelectedCard.banco_emisor,
+      fechaExpiracion: currentSelectedCard.fecha_vencimiento,
+      nombreTarjeta: currentSelectedCard.nombre_titular,
+      numeroTarjeta: currentSelectedCard.numero_completo,
+      cvv: currentSelectedCard.cvv,
       reservations: [
         {
           checkIn: reservation.check_in.split("T")[0],
@@ -168,14 +187,26 @@ export const PaymentModal = ({
         <div className="space-y-2">
           <CheckboxInput
             checked={hasFavorBalance}
-            onChange={(checked) => setHasFavorBalance(checked === true)}
+            onChange={(checked) =>
+              dispatch({
+                type: "SET_FIELD",
+                field: "hasFavorBalance",
+                payload: checked === true,
+              })
+            }
             label="Tiene saldo a favor"
           />
 
           {hasFavorBalance && (
             <>
               <NumberInput
-                onChange={(value) => setFavorBalance(value)}
+                onChange={(value) =>
+                  dispatch({
+                    type: "SET_FIELD",
+                    field: "favorBalance",
+                    payload: value,
+                  })
+                }
                 value={Number(favorBalance) || null}
                 label="Monto Saldo a Favor a Aplicar"
                 placeholder="0.00"
@@ -195,7 +226,9 @@ export const PaymentModal = ({
           <DateInput
             label="Fecha de pago"
             value={date}
-            onChange={(value) => setDate(value)}
+            onChange={(value) =>
+              dispatch({ type: "SET_FIELD", field: "date", payload: value })
+            }
           />
         </div>
       </div>
@@ -207,7 +240,13 @@ export const PaymentModal = ({
           <div className="grid grid-cols-2 gap-4">
             <Button
               variant={paymentType === "prepaid" ? "default" : "outline"}
-              onClick={() => setPaymentType("prepaid")}
+              onClick={() =>
+                dispatch({
+                  type: "SET_FIELD",
+                  field: "paymentType",
+                  payload: "prepaid",
+                })
+              }
               className="h-10"
             >
               <CreditCard className="mr-2 h-5 w-5" />
@@ -215,7 +254,13 @@ export const PaymentModal = ({
             </Button>
             <Button
               variant={paymentType === "credit" ? "default" : "outline"}
-              onClick={() => setPaymentType("credit")}
+              onClick={() =>
+                dispatch({
+                  type: "SET_FIELD",
+                  field: "paymentType",
+                  payload: "credit",
+                })
+              }
               className="h-10"
             >
               <FileText className="mr-2 h-5 w-5" />
@@ -231,21 +276,39 @@ export const PaymentModal = ({
             <div className="grid grid-cols-3 gap-4">
               <Button
                 variant={paymentMethod === "transfer" ? "default" : "outline"}
-                onClick={() => setPaymentMethod("transfer")}
+                onClick={() =>
+                  dispatch({
+                    type: "SET_FIELD",
+                    field: "paymentMethod",
+                    payload: "transfer",
+                  })
+                }
               >
                 <ArrowLeftRight className="w-3 h-3 mr-2"></ArrowLeftRight>
                 Transferencia
               </Button>
               <Button
                 variant={paymentMethod === "card" ? "default" : "outline"}
-                onClick={() => setPaymentMethod("card")}
+                onClick={() =>
+                  dispatch({
+                    type: "SET_FIELD",
+                    field: "paymentMethod",
+                    payload: "card",
+                  })
+                }
               >
                 <CreditCard className="w-3 h-3 mr-2"></CreditCard>
                 Tarjeta
               </Button>
               <Button
                 variant={paymentMethod === "link" ? "default" : "outline"}
-                onClick={() => setPaymentMethod("link")}
+                onClick={() =>
+                  dispatch({
+                    type: "SET_FIELD",
+                    field: "paymentMethod",
+                    payload: "link",
+                  })
+                }
               >
                 <Link className="w-3 h-3 mr-2"></Link>
                 Link
@@ -259,7 +322,13 @@ export const PaymentModal = ({
                   <div className="grid grid-cols-2 gap-4 mt-2">
                     <Button
                       variant={useQR === "qr" ? "default" : "outline"}
-                      onClick={() => setUseQR("qr")}
+                      onClick={() =>
+                        dispatch({
+                          type: "SET_FIELD",
+                          field: "useQR",
+                          payload: "qr",
+                        })
+                      }
                       size="sm"
                     >
                       <QrCode className="mr-2 h-4 w-4" />
@@ -267,7 +336,13 @@ export const PaymentModal = ({
                     </Button>
                     <Button
                       variant={useQR === "code" ? "default" : "outline"}
-                      onClick={() => setUseQR("code")}
+                      onClick={() =>
+                        dispatch({
+                          type: "SET_FIELD",
+                          field: "useQR",
+                          payload: "code",
+                        })
+                      }
                       size="sm"
                     >
                       <File className="mr-2 h-4 w-4" />
@@ -278,10 +353,22 @@ export const PaymentModal = ({
                 <CheckboxInput
                   label={"Mostrar cvv"}
                   checked={isSecureCode}
-                  onChange={(value) => setIsSecureCode(value)}
+                  onChange={(value) =>
+                    dispatch({
+                      type: "SET_FIELD",
+                      field: "isSecureCode",
+                      payload: value,
+                    })
+                  }
                 ></CheckboxInput>
                 <TextInput
-                  onChange={(value) => setCargo(value)}
+                  onChange={(value) =>
+                    dispatch({
+                      type: "SET_FIELD",
+                      field: "cargo",
+                      payload: value,
+                    })
+                  }
                   value={cargo || ""}
                   label="Tipo de cargo"
                   placeholder="RENTA HABITACIÓN..."
@@ -293,9 +380,14 @@ export const PaymentModal = ({
                 <div>
                   <DropdownValues
                     onChange={(value) => {
-                      setSelectedCard(value.item);
+                      // Al seleccionar una tarjeta, guardamos solo el ID
+                      dispatch({
+                        type: "SET_FIELD",
+                        field: "selectedCard",
+                        payload: value.item.id,
+                      });
                     }}
-                    value={selectedCard?.id || ""}
+                    value={selectedCard || ""} // Usamos el ID para el valor
                     options={creditCards.map((item) => ({
                       value: item.id,
                       label: item.name,
@@ -308,7 +400,13 @@ export const PaymentModal = ({
             )}
 
             <TextAreaInput
-              onChange={(value) => setComments(value)}
+              onChange={(value) =>
+                dispatch({
+                  type: "SET_FIELD",
+                  field: "comments",
+                  payload: value,
+                })
+              }
               placeholder="Agregar comentarios sobre el pago..."
               value={comments || ""}
               label="Comentarios"
@@ -318,9 +416,7 @@ export const PaymentModal = ({
               onClick={handlePayment}
               className="w-full bg-blue-600 hover:bg-blue-700"
             >
-              {/* <Send className="mr-2 h-4 w-4" /> */}
               Confirmar pago
-              {/* {paymentMethod === "transfer" ? "Solicitar Pago" : "Enviar Pago"} */}
             </Button>
           </div>
         )}
@@ -329,7 +425,9 @@ export const PaymentModal = ({
         {paymentType === "credit" && (
           <div className="space-y-2">
             <TextAreaInput
-              onChange={(value) => setEmails(value)}
+              onChange={(value) =>
+                dispatch({ type: "SET_FIELD", field: "emails", payload: value })
+              }
               placeholder="correo1@ejemplo.com, correo2@ejemplo.com"
               value={emails || ""}
               label="Correos Electronicos (separados por comas)"
@@ -353,7 +451,13 @@ export const PaymentModal = ({
             </div>
 
             <TextAreaInput
-              onChange={(value) => setComments(value)}
+              onChange={(value) =>
+                dispatch({
+                  type: "SET_FIELD",
+                  field: "comments",
+                  payload: value,
+                })
+              }
               placeholder="Comentarios sobre el crédito..."
               value={comments || ""}
               label="Comentarios"
