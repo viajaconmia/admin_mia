@@ -1,4 +1,4 @@
-import { useEffect, useReducer } from "react"; // Importamos useReducer
+import { useEffect, useReducer } from "react";
 import {
   CreditCard,
   FileText,
@@ -27,7 +27,7 @@ import { Solicitud } from "@/types";
 import { updateRoom } from "@/lib/utils";
 import ReservationDetails from "./ReservationDetails";
 import { useFetchCards } from "@/hooks/useFetchCard";
-import { paymentReducer, getInitialState } from "./reducer"; // Asegúrate de que la ruta sea correcta
+import { paymentReducer, getInitialState } from "./reducer";
 
 export const PaymentModal = ({
   reservation,
@@ -36,14 +36,12 @@ export const PaymentModal = ({
 }) => {
   const { data, fetchData } = useFetchCards();
 
-  // 1. Inicializamos el estado con useReducer y la función getInitialState
   const [state, dispatch] = useReducer(
     paymentReducer,
     reservation,
     getInitialState
   );
 
-  // Desestructuramos el estado para un acceso más fácil
   const {
     hasFavorBalance,
     error,
@@ -57,6 +55,7 @@ export const PaymentModal = ({
     comments,
     emails,
     cargo,
+    document,
   } = state;
 
   if (!reservation) return null;
@@ -73,57 +72,80 @@ export const PaymentModal = ({
       }))
     : [];
 
-  // Encuentra la tarjeta seleccionada de la lista de tarjetas cargadas
   const currentSelectedCard = creditCards.find(
     (card) => card.id === selectedCard
   );
+  const selectFiles = creditCards.map((card) => ({
+    label: card.nombre_titular,
+    value: card.url_identificacion,
+    item: card,
+  }));
 
   useEffect(() => {
     fetchData();
   }, []);
 
+  console.log(data);
+
   const handlePayment = async () => {
-    if ((paymentMethod == "card" || paymentMethod == "link") && !selectedCard) {
-      // Usamos dispatch para actualizar el error
+    try {
+      if (paymentType === "credit") {
+        // await generarSolicitud
+        console.log({
+          date,
+          paymentType,
+          amountToPay,
+          comments,
+        });
+      } else if (paymentType === "prepaid") {
+        if (paymentMethod == "card") {
+          if (!reservation || !currentSelectedCard || !useQR) {
+            throw new Error(
+              "Hay un error en la reservación, en la tarjeta o en la forma de mandar los datos, verifica que los datos esten completos"
+            );
+          }
+          // await generarSolicitud
+          console.log({
+            selectedCard,
+            date,
+            comments,
+            paymentMethod,
+            paymentType,
+            amountToPay,
+            isSecureCode,
+          });
+          await generateQRPaymentPDF();
+        } else if (paymentMethod == "link" || paymentMethod == "transfer") {
+          // await generarSolicitud
+          console.log({
+            selectedCard, //Este solo es para el link, en transferencia no va
+            date,
+            comments,
+            paymentMethod,
+            paymentType,
+            amountToPay,
+          });
+        }
+      }
+
+      dispatch({ type: "SET_FIELD", field: "error", payload: "" });
+    } catch (error) {
       dispatch({
         type: "SET_FIELD",
         field: "error",
-        payload: "Falta escoger la tarjeta",
+        payload: error.message,
       });
-    } else {
-      dispatch({ type: "SET_FIELD", field: "error", payload: "" });
     }
-    if (paymentType === "credit") {
-      // Credit payment logic
-      console.log("Processing credit payment");
-    } else if (
-      paymentType === "prepaid" &&
-      (useQR === "qr" || useQR === "code")
-    ) {
-      // Generate QR PDF for secure payment
-      await generateQRPaymentPDF();
-    }
-
-    console.log("Procesando pago: y vemos", {
-      reservation: reservation.codigo_reservacion_hotel,
-      amountToPay,
-      paymentType,
-      paymentMethod,
-      selectedCard: currentSelectedCard, // Pasamos el objeto de la tarjeta
-      useQR,
-      comments,
-      date,
-    });
   };
 
   const generateQRPaymentPDF = async () => {
-    if (!reservation || !currentSelectedCard) return; // Usamos currentSelectedCard
-
-    // 1. Genera un token de seguridad
+    if (!document) {
+      throw new Error("Falta seleccionar el documento que aparecera");
+    }
     const secureToken = generateSecureToken(
       reservation.codigo_reservacion_hotel.replaceAll("-", "."),
       amountToPay,
-      currentSelectedCard.id, // Usamos el ID del objeto de la tarjeta
+      currentSelectedCard.id,
       isSecureCode
     );
 
@@ -145,6 +167,7 @@ export const PaymentModal = ({
       fechaExpiracion: currentSelectedCard.fecha_vencimiento,
       nombreTarjeta: currentSelectedCard.nombre_titular,
       numeroTarjeta: currentSelectedCard.numero_completo,
+      documento: document,
       cvv: currentSelectedCard.cvv,
       reservations: [
         {
@@ -161,7 +184,6 @@ export const PaymentModal = ({
     };
 
     try {
-      // 3. Llama a una utilidad externa para crear el PDF y lo descarga
       const pdf = await generateSecureQRPaymentPDF(qrData);
       pdf.save(`pago-proveedor-${reservation.codigo_reservacion_hotel}.pdf`);
     } catch (error) {
@@ -175,11 +197,30 @@ export const PaymentModal = ({
 
   return (
     <div className="max-w-[85vw] w-screen p-2 pt-0 max-h-[90vh] grid grid-cols-2">
-      {error && (
-        <div className="col-span-2 text-red-500 text-sm p-4 border rounded-md border-red-300 bg-red-100">
-          <p>{error}</p>
-        </div>
-      )}
+      <div
+        className={`sticky top-0 col-span-2 z-10 p-4 rounded-md border border-red-300 bg-red-50 text-red-700 shadow-md flex items-start gap-3 transform transition-all duration-300 ease-out ${
+          error
+            ? "opacity-100 scale-100"
+            : "opacity-0 scale-10 pointer-events-none"
+        }`}
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-5 w-5 mt-0.5 text-red-500"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+            d="M12 9v2m0 4h.01M4.93 4.93a10 10 0 0114.14 0M4.93 19.07a10 10 0 010-14.14M19.07 19.07a10 10 0 000-14.14"
+          />
+        </svg>
+        <p className="text-sm font-medium">{error}</p>
+      </div>
+
       <div className="px-4 border-r">
         <ReservationDetails reservation={reservation} />
 
@@ -360,7 +401,21 @@ export const PaymentModal = ({
                       payload: value,
                     })
                   }
-                ></CheckboxInput>
+                />
+                <DropdownValues
+                  label="Documento"
+                  value={document}
+                  onChange={(
+                    value: { value: string; label: string; item: any } | null
+                  ) => {
+                    dispatch({
+                      type: "SET_FIELD",
+                      field: "document",
+                      payload: value.value,
+                    });
+                  }}
+                  options={selectFiles}
+                />
                 <TextInput
                   onChange={(value) =>
                     dispatch({

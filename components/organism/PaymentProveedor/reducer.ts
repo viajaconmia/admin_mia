@@ -15,6 +15,7 @@ export type PaymentState = {
   comments: string;
   emails: string;
   cargo: string;
+  document: string;
 };
 
 // Exportamos la acción para mantener consistencia
@@ -38,6 +39,7 @@ export const getInitialState = (reservation: Solicitud): PaymentState => ({
   comments: "",
   emails: "",
   cargo: "RENTA HABITACIÓN",
+  document: "",
 });
 
 // Exportamos la función reductora

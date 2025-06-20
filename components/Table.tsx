@@ -31,6 +31,7 @@ export const Table = ({
   children,
 }: TableProps) => {
   const [displayData, setDisplayData] = useState<Registro[]>(registros);
+  const [selectedRow, setSelectedRow] = useState<number | null>(null);
   const [currentSort, setCurrentSort] = useState<{
     key: string;
     sort: boolean;
@@ -84,9 +85,9 @@ export const Table = ({
         </div>
       )}
       {displayData.length > 0 ? (
-        <div className="overflow-y-auto border border-gray-200 rounded-sm w-full h-fit max-h-[28rem]">
+        <div className="overflow-y-auto relative border border-gray-200 rounded-sm w-full h-fit max-h-[28rem]">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50 absoluteg top-0">
+            <thead className=" sticky z-10 bg-gray-50 top-0">
               <tr>
                 {columnKeys.map((key) => (
                   <th
@@ -114,7 +115,18 @@ export const Table = ({
                 {displayData.map((item, index) => (
                   <tr
                     key={item.id !== undefined ? item.id : index}
-                    className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}
+                    onClick={() => {
+                      if (selectedRow == index) {
+                        setSelectedRow(null);
+                      } else {
+                        setSelectedRow(index);
+                      }
+                    }}
+                    className={`${
+                      index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                    } ${
+                      selectedRow === index ? "bg-blue-200" : ""
+                    } cursor-pointer`}
                   >
                     {columnKeys.map((colKey) => {
                       const Renderer = renderers[colKey];
@@ -125,7 +137,7 @@ export const Table = ({
                           key={`${
                             item.id !== undefined ? item.id : index
                           }-${colKey}`}
-                          className="px-6 py-4 whitespace-nowrap text-xs text-gray-900"
+                          className="px-6 py-3 whitespace-nowrap text-xs text-gray-900"
                         >
                           {Renderer ? (
                             <Renderer value={value} />
