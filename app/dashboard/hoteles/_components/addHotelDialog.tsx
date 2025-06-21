@@ -172,7 +172,7 @@ const buscarAgentes = async (nombre: string, correo: string) => {
   try {
     const response = await fetch(
       //`http://localhost:5173/v1/mia/agentes/get-agente-id?nombre=${encodeURIComponent(nombre)}&correo=${encodeURIComponent(correo)}`,
-      `${URL}/agentes/get-agente-id?nombre=${encodeURIComponent(
+      `${URL}/mia/agentes/get-agente-id?nombre=${encodeURIComponent(
         nombre
       )}&correo=${encodeURIComponent(correo)}`,
       {
@@ -804,7 +804,7 @@ export function AddHotelDialog({
 
       const response = await fetch(
         //"http://localhost:3001/v1/mia/hoteles/Agregar-hotel/"
-        `${URL}/hoteles/Agregar-hotel/`,
+        `${URL}/mia/hoteles/Agregar-hotel/`,
         {
           method: "POST",
           headers: {
