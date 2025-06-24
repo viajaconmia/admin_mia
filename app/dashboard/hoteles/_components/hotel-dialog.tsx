@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { uploadHotelImage } from "../_utils/uploadHotelImage";
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import {
@@ -476,7 +476,6 @@ export function HotelDialog({
   const [deleteTarifaDialogOpen, setDeleteTarifaDialogOpen] = useState(false);
   const [selectedTarifaToDelete, setSelectedTarifaToDelete] =
     useState<DeleteTarifaPreferencialProps | null>(null);
-  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
 
   const defaultFormData: FormData = {
     id_cadena: "",
@@ -1157,28 +1156,48 @@ export function HotelDialog({
     "idle" | "loading" | "success" | "error"
   >("idle");
 
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
-  setSelectedImageFile(file);
-  setFormData((prev) => ({
-    ...prev,
-    URLImagenHotel: "", // Limpiar la URL previa si hay una nueva selección
-  }));
-  setImageUploadStatus("idle");
-};
+    try {
+      setImageUploadStatus("loading");
 
-const handleRemoveImage = () => {
-  setSelectedImageFile(null);
-  setFormData((prev) => ({
-    ...prev,
-    URLImagenHotel: "",
-  }));
-  setImageUploadStatus("idle");
-  const input = document.getElementById("uploadImageInput") as HTMLInputElement | null;
-  if (input) input.value = "";
-};
+      const res = await fetch(
+        `${URL}/mia/hoteles/carga-imagen?filename=${encodeURIComponent(
+          file.name
+        )}&filetype=${file.type}`,
+        {
+          method: "GET",
+          headers: {
+            "x-api-key": API_KEY || "",
+          },
+        }
+      );
+
+      const { url, publicUrl } = await res.json();
+
+      const uploadRes = await fetch(url, {
+        method: "PUT",
+        body: file,
+        headers: {
+          "Content-Type": file.type,
+        },
+      });
+
+      if (!uploadRes.ok) throw new Error("Error al subir imagen");
+
+      setFormData((prev) => ({
+        ...prev,
+        URLImagenHotel: publicUrl,
+      }));
+
+      setImageUploadStatus("success");
+    } catch (error) {
+      console.error("Error al subir imagen", error);
+      setImageUploadStatus("error");
+    }
+  };
 
   // Add a new preferential rate
   const addTarifaPreferencial = () => {
@@ -1310,22 +1329,6 @@ const handleRemoveImage = () => {
     setSuccessMessage("");
 
     try {
-    let imageUrl = formData.URLImagenHotel;
-    if (selectedImageFile) {
-      setImageUploadStatus("loading");
-      const { publicUrl } = await uploadHotelImage({
-        file: selectedImageFile,
-        url: URL,
-        apiKey: API_KEY || "",
-      });
-      imageUrl = publicUrl;
-      setFormData((prev) => ({
-        ...prev,
-        URLImagenHotel: publicUrl,
-      }));
-      setImageUploadStatus("success");
-    }
-
       // First, get the current rates to obtain the IDs
       const response = await fetch(
         `${URL}/mia/hoteles/Consultar-tarifas-por-hotel/${hotel.id_hotel}`,
@@ -1408,7 +1411,7 @@ const handleRemoveImage = () => {
         TransportacionComentarios: formData.TransportacionComentarios || null,
         mascotas: formData.mascotas || null,
         salones: formData.salones || null,
-        URLImagenHotel: imageUrl|| null,
+        URLImagenHotel: formData.URLImagenHotel || null,
         URLImagenHotelQ: formData.URLImagenHotelQ || null,
         URLImagenHotelQQ: formData.URLImagenHotelQQ || null,
         calificacion: formData.calificacion
@@ -1427,7 +1430,7 @@ const handleRemoveImage = () => {
 
       const hotelResponse = await fetch(
         `${URL}/mia/hoteles/Editar-hotel/`,
-        //`http://localhost:3001/v1/mia/hoteles/Editar-hotel/`,
+        //`http://localhost:3001/v1/mia/hoteles/Editar-hotel/`
         {
           method: "PATCH",
           headers: {
@@ -1437,7 +1440,7 @@ const handleRemoveImage = () => {
           body: JSON.stringify(holtelPayloadUpper),
         }
       );
-      setSelectedImageFile(null);
+
       if (!hotelResponse.ok) {
         const errorData = await hotelResponse.json();
         throw new Error(
@@ -1959,13 +1962,10 @@ const handleRemoveImage = () => {
                       <SelectValue placeholder="SELECCIONA ESTATUS" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="true" className=" uppercase uppercase">
+                      <SelectItem value="true" className=" uppercase">
                         ACTIVO
                       </SelectItem>
-                      <SelectItem
-                        value="false"
-                        className=" uppercase uppercase"
-                      >
+                      <SelectItem value="false" className=" uppercase">
                         INACTIVO
                       </SelectItem>
                     </SelectContent>
@@ -2030,7 +2030,7 @@ const handleRemoveImage = () => {
                         <SelectItem
                           key={estado}
                           value={estado}
-                          className=" uppercase uppercase"
+                          className=" uppercase "
                         >
                           {estado}
                         </SelectItem>
@@ -2183,7 +2183,7 @@ const handleRemoveImage = () => {
                           <SelectItem
                             key={colonia.id}
                             value={colonia.id.toString()}
-                            className=" uppercase uppercase"
+                            className="  uppercase"
                           >
                             {colonia.d_asenta.toUpperCase()}
                           </SelectItem>
@@ -2312,55 +2312,13 @@ const handleRemoveImage = () => {
                   />
                 </div>
 
-              <div className=" uppercase flex flex-col space-y-1">
-  <Label htmlFor="uploadImage">Imagen del Hotel</Label>
-  {selectedImageFile && (
-    <span className="text-xs text-muted-foreground break-all">
-      {selectedImageFile.name}
-    </span>
-  )}
-  {formData.URLImagenHotel && !selectedImageFile && (
-    <span className="text-xs text-muted-foreground break-all">
-      {formData.URLImagenHotel}
-    </span>
-  )}
-
-  <div className="flex gap-2">
-    <Button
-      variant="outline"
-      type="button"
-      disabled={mode === "view" || imageUploadStatus === "loading"}
-      onClick={() => document.getElementById("uploadImageInput")?.click()}
-    >
-      Seleccionar Imagen
-    </Button>
-    {(selectedImageFile || formData.URLImagenHotel) && (
-      <Button
-        variant="destructive"
-        type="button"
-        onClick={handleRemoveImage}
-        disabled={mode === "view"}
-      >
-        Eliminar selección
-      </Button>
-    )}
-  </div>
-
-  <input
-    id="uploadImageInput"
-    type="file"
-    accept="image/*"
-    hidden
-    onChange={handleImageChange}
-  />
-
-  {imageUploadStatus === "success" && (
-    <p className="text-green-600 text-sm">Imagen subida correctamente</p>
-  )}
-  {imageUploadStatus === "error" && (
-    <p className="text-red-600 text-sm">Error al subir la imagen</p>
-  )}
-</div>
+                <div className=" uppercase flex flex-col space-y-1">
+                  <Label htmlFor="uploadImage">Imagen del Hotel</Label>
+                  {formData.URLImagenHotel && (
+                    <span className=" uppercase text-xs text-muted-foreground break-all">
+                      {formData.URLImagenHotel}
+                    </span>
+                  )}
 
                   <Button
                     variant="outline"
@@ -3521,16 +3479,10 @@ const handleRemoveImage = () => {
                       <SelectValue placeholder="SELECCIONA EL TIPO DE PAGO" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem
-                        value="CREDITO"
-                        className=" uppercase uppercase"
-                      >
+                      <SelectItem value="CREDITO" className="  uppercase">
                         CREDITO
                       </SelectItem>
-                      <SelectItem
-                        value="PREPAGO"
-                        className=" uppercase uppercase"
-                      >
+                      <SelectItem value="PREPAGO" className="  uppercase">
                         PREPAGO
                       </SelectItem>
                     </SelectContent>
