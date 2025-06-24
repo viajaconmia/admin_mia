@@ -1962,13 +1962,10 @@ export function HotelDialog({
                       <SelectValue placeholder="SELECCIONA ESTATUS" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="true" className=" uppercase uppercase">
+                      <SelectItem value="true" className=" uppercase">
                         ACTIVO
                       </SelectItem>
-                      <SelectItem
-                        value="false"
-                        className=" uppercase uppercase"
-                      >
+                      <SelectItem value="false" className=" uppercase">
                         INACTIVO
                       </SelectItem>
                     </SelectContent>
@@ -2033,7 +2030,7 @@ export function HotelDialog({
                         <SelectItem
                           key={estado}
                           value={estado}
-                          className=" uppercase uppercase"
+                          className=" uppercase "
                         >
                           {estado}
                         </SelectItem>
@@ -2186,7 +2183,7 @@ export function HotelDialog({
                           <SelectItem
                             key={colonia.id}
                             value={colonia.id.toString()}
-                            className=" uppercase uppercase"
+                            className="  uppercase"
                           >
                             {colonia.d_asenta.toUpperCase()}
                           </SelectItem>
@@ -3482,16 +3479,10 @@ export function HotelDialog({
                       <SelectValue placeholder="SELECCIONA EL TIPO DE PAGO" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem
-                        value="CREDITO"
-                        className=" uppercase uppercase"
-                      >
+                      <SelectItem value="CREDITO" className="  uppercase">
                         CREDITO
                       </SelectItem>
-                      <SelectItem
-                        value="PREPAGO"
-                        className=" uppercase uppercase"
-                      >
+                      <SelectItem value="PREPAGO" className="  uppercase">
                         PREPAGO
                       </SelectItem>
                     </SelectContent>
