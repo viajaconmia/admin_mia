@@ -92,14 +92,19 @@ export function ReservationForm({
       | "Cancelada",
     comments: solicitud.comments || "",
     proveedor: {
-      total:
-        Number(
-          Number(
-            currentHotel?.tipos_cuartos.find(
-              (item) => item.nombre_tipo_cuarto == updateRoom(solicitud.room)
-            )?.costo ?? 0
-          ) * currentNoches
-        ) || 0,
+          total:
+      // ① Si la solicitud viene con costo_total, úsalo
+      solicitud.costo_total != null
+        ? Number(solicitud.costo_total)
+        // ② Si no, cae al cálculo automático de antes
+        : Number(
+            Number(
+              currentHotel?.tipos_cuartos.find(
+                (item) =>
+                  item.nombre_tipo_cuarto == updateRoom(solicitud.room)
+              )?.costo ?? 0
+            ) * currentNoches
+          ) || 0,
       subtotal: 0,
       impuestos: 0,
     },
@@ -139,6 +144,14 @@ export function ReservationForm({
   });
   const [travelers, setTravelers] = useState<Viajero[]>([]);
   const [activeTab, setActiveTab] = useState("cliente");
+ const [isCostoManual, setIsCostoManual] = useState(() =>
+   Number(solicitud.costo_total) !==
+   getAutoCostoTotal(
+     currentHotel as Hotel,
+    updateRoom(solicitud.room),
+     currentNoches
+   )
+ );
 
   useEffect(() => {
     console.log(form);
@@ -162,29 +175,23 @@ export function ReservationForm({
   }, []);
 
   useEffect(() => {
-    if (
-      form.hotel.content &&
-      form.check_in &&
-      form.check_out &&
-      form.habitacion
-    ) {
-      const nights = differenceInDays(
-        //Obtenemos las noches para poder dividir el costo total entre las noches y obtener los items
-        parseISO(form.check_out),
-        parseISO(form.check_in)
-      );
+  if (form.hotel.content && form.check_in && form.check_out && form.habitacion) {
+    const nights = differenceInDays(
+      parseISO(form.check_out),
+      parseISO(form.check_in)
+    );
 
-      const roomPrice = Number(
-        form.hotel.content.tipos_cuartos.find(
-          (item) => item.nombre_tipo_cuarto == form.habitacion
-        ).precio
-      );
+    const roomPrice = Number(
+      form.hotel.content.tipos_cuartos.find(
+        (item) => item.nombre_tipo_cuarto == form.habitacion
+      )?.precio
+    );
 
-      const costoBase =
-        form.proveedor.total - form.impuestos.otros_impuestos * nights;
+    // Función para calcular items basados en el costo total
+    const calculateItems = (total: number) => {
+      const costoBase = total - form.impuestos.otros_impuestos * nights;
       const { subtotal, impuestos } = Object.keys(form.impuestos).reduce(
         (acc, key) => {
-          //Sacamos el valor de los impuestos y el subtotal del costo total
           const value = form.impuestos[key as keyof ReservaForm["impuestos"]];
           if (key == "otros_impuestos") {
             return acc;
@@ -198,10 +205,10 @@ export function ReservationForm({
         { subtotal: costoBase || 0, impuestos: 0 }
       );
 
-      const items = Array.from({ length: nights }, (_, index) => ({
+      return Array.from({ length: nights }, (_, index) => ({
         noche: index + 1,
         costo: {
-          total: Number((form.proveedor.total / nights || 0).toFixed(2)),
+          total: Number((total / nights || 0).toFixed(2)),
           subtotal: Number((subtotal / nights || 0).toFixed(2)),
           impuestos: Number((impuestos / nights || 0).toFixed(2)),
         },
@@ -218,11 +225,11 @@ export function ReservationForm({
             if (value <= 0) return null;
             const base = Number(
               (
-                form.proveedor.total / nights -
+                total / nights -
                 form.impuestos.otros_impuestos
               ).toFixed(2)
             );
-            const total =
+            const totalTax =
               key !== "otros_impuestos"
                 ? Number(((base * value) / 100).toFixed(2))
                 : value;
@@ -232,91 +239,115 @@ export function ReservationForm({
               tipo_impuesto: "c",
               monto: key === "otros_impuestos" ? value : 0,
               base: key === "otros_impuestos" ? base + value : base,
-              total,
+              total: totalTax,
             };
           })
           .filter(Boolean),
       }));
+    };
 
-      if (edicion) {
-        setEdicionForm((prev) => ({
-          ...prev,
-          proveedor: {
-            before: {
-              ...form.proveedor,
-              subtotal: form.proveedor.subtotal,
-              impuestos: form.proveedor.impuestos,
-            },
-            current: {
-              ...form.proveedor,
-              subtotal: subtotal,
-              impuestos: impuestos,
-            },
-          },
-          venta: {
-            before: {
-              ...form.venta,
-              total: form.venta.total,
-              subtotal: form.venta.subtotal,
-              impuestos: form.venta.impuestos,
-              markup: form.venta.markup,
-            },
-            current: {
-              ...form.venta,
-              total: Number((roomPrice * nights).toFixed(2) || 0),
-              subtotal: Number((roomPrice * nights * 0.84).toFixed(2) || 0),
-              impuestos: Number((roomPrice * nights * 0.16).toFixed(2) || 0),
-              markup: Number(
-                (
-                  ((roomPrice * nights - form.proveedor.total) /
-                    (roomPrice * nights)) *
-                  100
-                ).toFixed(2)
-              ),
-            },
-          },
-          items: {
-            before: form.items,
-            current: form.proveedor.total > 0 ? items : [],
-          },
-          noches: {
-            before: form.noches,
-            current: Number(nights),
-          },
-        }));
-      }
-      setForm((prev) => ({
+    // Calcular el total automático si no es modo manual
+    const autoTotal = isCostoManual
+      ? form.proveedor.total
+      : Number(
+          form.hotel.content.tipos_cuartos.find(
+            (item) => item.nombre_tipo_cuarto == form.habitacion
+          )?.costo ?? 0
+        ) * nights;
+
+    const items = calculateItems(autoTotal);
+
+    // Actualizar estado
+    setForm((prev) => ({
+      ...prev,
+      proveedor: {
+        ...prev.proveedor,
+        total: autoTotal,
+        subtotal: Number(
+          (autoTotal - form.impuestos.otros_impuestos * nights).toFixed(2)
+        ),
+        impuestos: Number(
+          (form.impuestos.otros_impuestos * nights).toFixed(2)
+        ),
+      },
+      venta: {
+        total: Number((roomPrice * nights).toFixed(2) || 0),
+        subtotal: Number((roomPrice * nights * 0.84).toFixed(2) || 0),
+        impuestos: Number((roomPrice * nights * 0.16).toFixed(2) || 0),
+        markup: Number(
+          (
+            ((roomPrice * nights - autoTotal) / (roomPrice * nights)) *
+            100
+          ).toFixed(2)
+        ),
+      },
+      items: autoTotal > 0 ? items : [],
+      noches: Number(nights),
+    }));
+
+    // Lógica para edición
+    if (edicion) {
+      setEdicionForm((prev) => ({
         ...prev,
         proveedor: {
-          ...prev.proveedor,
-          subtotal: Number(subtotal.toFixed(2) || 0),
-          impuestos: Number(impuestos.toFixed(2) || 0),
+          before: {
+            ...form.proveedor,
+            subtotal: form.proveedor.subtotal,
+            impuestos: form.proveedor.impuestos,
+          },
+          current: {
+            ...form.proveedor,
+            total: autoTotal,
+            subtotal: Number(
+              (autoTotal - form.impuestos.otros_impuestos * nights).toFixed(2)
+            ),
+            impuestos: Number(
+              (form.impuestos.otros_impuestos * nights).toFixed(2)
+            ),
+          },
         },
         venta: {
-          total: Number((roomPrice * nights).toFixed(2) || 0),
-          subtotal: Number((roomPrice * nights * 0.84).toFixed(2) || 0),
-          impuestos: Number((roomPrice * nights * 0.16).toFixed(2) || 0),
-          markup: Number(
-            (
-              ((roomPrice * nights - form.proveedor.total) /
-                (roomPrice * nights)) *
-              100
-            ).toFixed(2)
-          ),
+          before: {
+            ...form.venta,
+            total: form.venta.total,
+            subtotal: form.venta.subtotal,
+            impuestos: form.venta.impuestos,
+            markup: form.venta.markup,
+          },
+          current: {
+            ...form.venta,
+            total: Number((roomPrice * nights).toFixed(2) || 0),
+            subtotal: Number((roomPrice * nights * 0.84).toFixed(2) || 0),
+            impuestos: Number((roomPrice * nights * 0.16).toFixed(2) || 0),
+            markup: Number(
+              (
+                ((roomPrice * nights - autoTotal) / (roomPrice * nights)) *
+                100
+              ).toFixed(2)
+            ),
+          },
         },
-        items: form.proveedor.total > 0 ? items : [],
-        noches: Number(nights),
+        items: {
+          before: form.items,
+          current: autoTotal > 0 ? items : [],
+        },
+        noches: {
+          before: form.noches,
+          current: Number(nights),
+        },
       }));
     }
-  }, [
-    form.check_in,
-    form.check_out,
-    form.impuestos,
-    form.proveedor.total,
-    form.habitacion,
-    form.hotel,
-  ]); //Se ejecuta cuando cambian las fechas de check-in y check-out, los impuestos o el costo total
-
+  }
+}, [
+  form.check_in,
+  form.check_out,
+  form.impuestos,
+  form.habitacion,
+  form.hotel,
+  form.proveedor.total,
+  isCostoManual,
+  edicion,
+]);
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (edicion) {
@@ -350,6 +381,15 @@ export function ReservationForm({
     }
   };
 
+  function getAutoCostoTotal(hotel: Hotel | null, habitacion: string, noches: number) {
+    if (!hotel) return 0;
+    return (
+      Number(
+        hotel.tipos_cuartos.find((item) => item.nombre_tipo_cuarto === habitacion)?.costo ?? 0
+      ) * noches
+    );
+  }
+
   return (
     <form
       onSubmit={handleSubmit}
@@ -368,6 +408,7 @@ export function ReservationForm({
                 label={`Hotel`}
                 sublabel={`(${solicitud.hotel})`}
                 onChange={(value) => {
+                  setIsCostoManual(false); // Agrega esto aquí
                   if ("tipos_cuartos" in value.content) {
                     setHabitaciones((value.content as Hotel).tipos_cuartos);
                   }
@@ -449,6 +490,7 @@ export function ReservationForm({
               <DropdownValues
                 label="Tipo de Habitación"
                 onChange={(value) => {
+                  setIsCostoManual(false); // El usuario editó manualmente
                   if (edicion) {
                     setEdicionForm((prev) => ({
                       ...prev,
@@ -522,6 +564,7 @@ export function ReservationForm({
                 label="Check-in"
                 value={form.check_in}
                 onChange={(value) => {
+                  setIsCostoManual(false); // Volver a cálculo automático
                   if (edicion) {
                     setEdicionForm((prev) => ({
                       ...prev,
@@ -538,6 +581,7 @@ export function ReservationForm({
                 label="Check-out"
                 value={form.check_out}
                 onChange={(value) => {
+                  setIsCostoManual(false);
                   if (edicion) {
                     setEdicionForm((prev) => ({
                       ...prev,
@@ -611,6 +655,7 @@ export function ReservationForm({
                 <NumberInput
                   value={form.proveedor.total}
                   onChange={(value) => {
+                    setIsCostoManual(true); // El usuario editó manualmente
                     if (edicion) {
                       setEdicionForm((prev) => ({
                         ...prev,
