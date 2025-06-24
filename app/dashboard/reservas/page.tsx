@@ -203,7 +203,7 @@ function App() {
       <h1 className="text-3xl font-bold tracking-tight text-sky-950 my-4">
         Reservas
       </h1>
-      <div className="max-w-7xl mx-auto bg-white p-4 rounded-lg shadow">
+      <div className="w-full mx-auto bg-white p-4 rounded-lg shadow">
         <div>
           <Filters
             defaultFilters={filters}
@@ -222,6 +222,7 @@ function App() {
               registros={formatedSolicitudes}
               renderers={componentes}
               defaultSort={defaultSort}
+              leyenda={`Haz filtrado ${allSolicitudes.length} Reservas`}
             ></Table>
           )}
         </div>

@@ -1011,16 +1011,15 @@ export function HotelDialog({
     if (mode === "view") return;
 
     // Convert text values to uppercase if they're strings
-    const processedValue =
-      typeof value === "string" ? value.toUpperCase() : value;
+    // const processedValue =
+    //   typeof value === "string" ? value.toUpperCase() : value;
 
     if (field === "pais") {
       setFormData((prev) => ({
         ...prev,
-        pais: processedValue,
-        internacional: processedValue && processedValue !== "MEXICO",
-        Estado:
-          processedValue && processedValue !== "MEXICO" ? "OTROS" : prev.Estado,
+        pais: value,
+        internacional: value && value !== "MEXICO",
+        Estado: value && value !== "MEXICO" ? "OTROS" : prev.Estado,
       }));
       return;
     }
@@ -1031,13 +1030,13 @@ export function HotelDialog({
         ...prev,
         [parent]: {
           ...(prev[parent as keyof FormData] as object),
-          [child]: processedValue,
+          [child]: value,
         },
       }));
     } else {
       setFormData((prev) => ({
         ...prev,
-        [field]: processedValue,
+        [field]: value,
       }));
     }
   };
@@ -1154,7 +1153,10 @@ export function HotelDialog({
 
     setTarifasPreferenciales(newTarifas);
   };
-const [imageUploadStatus, setImageUploadStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [imageUploadStatus, setImageUploadStatus] = useState<
+    "idle" | "loading" | "success" | "error"
+  >("idle");
+
 
 const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
   const file = e.target.files?.[0];
@@ -1177,7 +1179,6 @@ const handleRemoveImage = () => {
   const input = document.getElementById("uploadImageInput") as HTMLInputElement | null;
   if (input) input.value = "";
 };
-
 
   // Add a new preferential rate
   const addTarifaPreferencial = () => {
@@ -1421,8 +1422,8 @@ const handleRemoveImage = () => {
         score_operaciones: formData.score_operaciones || 0,
         score_sistemas: formData.score_sistemas || 0,
       };
-
-      console.log("Actualizando hotel:", hotelPayload);
+      const holtelPayloadUpper = toUpperCasePayload(hotelPayload);
+      console.log("Actualizando hotel:", holtelPayloadUpper);
 
       const hotelResponse = await fetch(
         `${URL}/mia/hoteles/Editar-hotel/`,
@@ -1433,7 +1434,7 @@ const handleRemoveImage = () => {
             "x-api-key": API_KEY || "",
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(hotelPayload),
+          body: JSON.stringify(holtelPayloadUpper),
         }
       );
       setSelectedImageFile(null);
@@ -1546,7 +1547,7 @@ const handleRemoveImage = () => {
         sencillaPayload,
         doblePayload,
         ...tarifasPreferencialesPayloads,
-      ];
+      ].map(toUpperCasePayload);
 
       const tarifasPromises = allTarifasPayloads.map((payload) =>
         fetch(
@@ -1668,47 +1669,78 @@ const handleRemoveImage = () => {
     setDeleteTarifaDialogOpen(true);
   };
 
+  function toUpperCasePayload(obj: any): any {
+    if (Array.isArray(obj)) {
+      return obj.map(toUpperCasePayload);
+    }
+    if (obj && typeof obj === "object") {
+      const result: any = {};
+      for (const key in obj) {
+        if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
+        const value = obj[key];
+        // Excepciones para no transformar
+        const lowerKey = key.toLowerCase();
+        if (
+          lowerKey.includes("correo") ||
+          lowerKey.includes("email") ||
+          lowerKey.includes("url") ||
+          lowerKey.includes("imagen") ||
+          (typeof value === "string" &&
+            (value.startsWith("http") || value.startsWith("https")))
+        ) {
+          result[key] = value;
+        } else if (typeof value === "string" && isNaN(Number(value))) {
+          result[key] = value.toUpperCase();
+        } else if (typeof value === "object" && value !== null) {
+          result[key] = toUpperCasePayload(value);
+        } else {
+          result[key] = value;
+        }
+      }
+      return result;
+    }
+    return obj;
+  }
+
   if (!hotel) return null;
   const currentMode = mode as "view" | "edit";
-
-
 
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader className="flex flex-row items-center justify-between">
-            <DialogTitle className="text-xl font-semibold">
+        <DialogContent className=" uppercase max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader className=" uppercase flex flex-row items-center justify-between">
+            <DialogTitle className=" uppercase text-xl font-semibold">
               {mode === "view" ? "DETALLE DEL HOTEL" : "EDITAR HOTEL"}
             </DialogTitle>
 
             {mode === "view" && (
-              <div className="flex gap-2  mr-10">
+              <div className=" uppercase flex gap-2  mr-10">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setMode("edit")}
                 >
-                  <Pencil size={16} className="mr-1" /> EDITAR
+                  <Pencil size={16} className=" uppercase mr-1" /> EDITAR
                 </Button>
                 <Button
                   variant="destructive"
                   size="sm"
                   onClick={() => setDeleteDialogOpen(true)}
                 >
-                  <Trash2 size={16} className="mr-1" /> ELIMINAR
+                  <Trash2 size={16} className=" uppercase mr-1" /> ELIMINAR
                 </Button>
               </div>
             )}
 
             {mode === "edit" && (
-              <div className="flex gap-2">
+              <div className=" uppercase flex gap-2">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setMode("view")}
                 >
-                  <ArrowLeft size={16} className="mr-1" /> CANCELAR
+                  <ArrowLeft size={16} className=" uppercase mr-1" /> CANCELAR
                 </Button>
                 <Button
                   variant="default"
@@ -1724,22 +1756,22 @@ const handleRemoveImage = () => {
 
           {/* Loading, Success and Error Messages */}
           {(isLoading || isFetchingRates) && (
-            <div className="flex items-center justify-center p-4">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-              <span className="ml-3">
+            <div className=" uppercase flex items-center justify-center p-4">
+              <div className=" uppercase animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+              <span className=" uppercase ml-3">
                 {isLoading ? "PROCESANDO..." : "CARGANDO TARIFAS..."}
               </span>
             </div>
           )}
 
           {successMessage && (
-            <div className="p-4 mb-4 text-sm text-green-700 bg-green-100 rounded-lg">
+            <div className=" uppercase p-4 mb-4 text-sm text-green-700 bg-green-100 rounded-lg">
               {successMessage}
             </div>
           )}
 
           {errorMessage && (
-            <div className="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg">
+            <div className=" uppercase p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg">
               {errorMessage}
             </div>
           )}
@@ -1749,19 +1781,28 @@ const handleRemoveImage = () => {
             defaultValue="datosBasicos"
             value={activeTab}
             onValueChange={setActiveTab}
-            className="w-full"
+            className=" uppercase w-full"
           >
-            <TabsList className="grid grid-cols-4 mb-6">
-              <TabsTrigger value="datosBasicos" className="text-sm">
+            <TabsList className=" uppercase grid grid-cols-4 mb-6">
+              <TabsTrigger value="datosBasicos" className=" uppercase text-sm">
                 DATOS BASICOS
               </TabsTrigger>
-              <TabsTrigger value="tarifasServicios" className="text-sm">
+              <TabsTrigger
+                value="tarifasServicios"
+                className=" uppercase text-sm"
+              >
                 TARIFAS Y SERVICIOS
               </TabsTrigger>
-              <TabsTrigger value="informacionPagos" className="text-sm">
+              <TabsTrigger
+                value="informacionPagos"
+                className=" uppercase text-sm"
+              >
                 INFORMACION DE PAGOS
               </TabsTrigger>
-              <TabsTrigger value="informacionAdicional" className="text-sm">
+              <TabsTrigger
+                value="informacionAdicional"
+                className=" uppercase text-sm"
+              >
                 INFORMACION ADICIONAL
               </TabsTrigger>
             </TabsList>
@@ -1769,13 +1810,14 @@ const handleRemoveImage = () => {
             {/* Tab: Datos Básicos */}
             <TabsContent
               value="datosBasicos"
-              className="space-y-6 min-h-[400px]"
+              className=" uppercase space-y-6 min-h-[400px]"
             >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className=" uppercase grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Required fields first */}
-                <div className="flex flex-col space-y-1">
+                <div className=" uppercase flex flex-col space-y-1">
                   <Label htmlFor="nombre">
-                    NOMBRE DEL PROVEEDOR <span className="text-red-500">*</span>
+                    NOMBRE DEL PROVEEDOR{" "}
+                    <span className=" uppercase text-red-500">*</span>
                   </Label>
                   <Input
                     id="nombre"
@@ -1791,14 +1833,15 @@ const handleRemoveImage = () => {
                           }
                         : {}
                     }
-                    className="font-medium"
+                    className=" uppercase font-medium"
                     required
                   />
                 </div>
 
-                <div className="flex flex-col space-y-1">
+                <div className=" uppercase flex flex-col space-y-1">
                   <Label htmlFor="tipo_negociacion">
-                    TIPO DE NEGOCIACION <span className="text-red-500">*</span>
+                    TIPO DE NEGOCIACION{" "}
+                    <span className=" uppercase text-red-500">*</span>
                   </Label>
                   <Input
                     id="tipo_negociacion"
@@ -1816,17 +1859,17 @@ const handleRemoveImage = () => {
                           }
                         : {}
                     }
-                    className="font-medium"
+                    className=" uppercase font-medium"
                     required
                   />
                 </div>
 
-                <div className="flex flex-col space-y-1">
+                <div className=" uppercase flex flex-col space-y-1">
                   <Label
                     htmlFor="hay_convenio"
-                    className="flex items-center gap-2"
+                    className=" uppercase flex items-center gap-2"
                   >
-                    <div className="flex items-center">
+                    <div className=" uppercase flex items-center">
                       <Checkbox
                         id="hay_convenio"
                         checked={formData.hay_convenio}
@@ -1842,16 +1885,18 @@ const handleRemoveImage = () => {
                             : {}
                         }
                       />
-                      <span className="ml-2 font-medium">¿HAY CONVENIO?</span>
+                      <span className=" uppercase ml-2 font-medium">
+                        ¿HAY CONVENIO?
+                      </span>
                     </div>
                   </Label>
                 </div>
 
                 {formData.hay_convenio ? (
-                  <div className="flex flex-col space-y-1">
+                  <div className=" uppercase flex flex-col space-y-1">
                     <Label htmlFor="vigencia_convenio">
                       VIGENCIA DEL CONVENIO{" "}
-                      <span className="text-red-500">*</span>
+                      <span className=" uppercase text-red-500">*</span>
                     </Label>
                     <Input
                       id="vigencia_convenio"
@@ -1877,12 +1922,12 @@ const handleRemoveImage = () => {
                             }
                           : {}
                       }
-                      className="font-medium"
+                      className=" uppercase font-medium"
                       required
                     />
                   </div>
                 ) : (
-                  <div className="flex flex-col space-y-1">
+                  <div className=" uppercase flex flex-col space-y-1">
                     <Label htmlFor="comentario_vigencia">
                       COMENTARIO VIGENCIA
                     </Label>
@@ -1893,12 +1938,12 @@ const handleRemoveImage = () => {
                         handleChange("comentario_vigencia", e.target.value)
                       }
                       disabled={mode === "view" || mode == "edit"}
-                      className="font-medium"
+                      className=" uppercase font-medium"
                     />
                   </div>
                 )}
 
-                <div className="flex flex-col space-y-1">
+                <div className=" uppercase flex flex-col space-y-1">
                   <Label htmlFor="Activo">ESTATUS</Label>
                   <Select
                     value={String(formData.Activo)} // convierte true/false a "true"/"false"
@@ -1907,33 +1952,39 @@ const handleRemoveImage = () => {
                     }
                     disabled={mode === "view"}
                   >
-                    <SelectTrigger id="Activo" className="font-medium">
+                    <SelectTrigger
+                      id="Activo"
+                      className=" uppercase font-medium"
+                    >
                       <SelectValue placeholder="SELECCIONA ESTATUS" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="true" className="uppercase">
+                      <SelectItem value="true" className=" uppercase uppercase">
                         ACTIVO
                       </SelectItem>
-                      <SelectItem value="false" className="uppercase">
+                      <SelectItem
+                        value="false"
+                        className=" uppercase uppercase"
+                      >
                         INACTIVO
                       </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 {/*Logica del check de internacionales */}
-                <div className="flex flex-col space-y-1">
+                <div className=" uppercase flex flex-col space-y-1">
                   <Label
                     htmlFor="internacional"
-                    className="flex items-center gap-2"
+                    className=" uppercase flex items-center gap-2"
                   >
-                    <div className="flex items-center">
+                    <div className=" uppercase flex items-center">
                       <Checkbox
                         id="internacional"
                         checked={formData.internacional}
                         onCheckedChange={handleInternacionalChange}
                         disabled={mode === "view"}
                       />
-                      <span className="ml-2 font-medium">
+                      <span className=" uppercase ml-2 font-medium">
                         Hotel internacional
                       </span>
                     </div>
@@ -1941,24 +1992,24 @@ const handleRemoveImage = () => {
                 </div>
 
                 {formData.internacional && (
-                  <div className="flex flex-col space-y-1">
+                  <div className=" uppercase flex flex-col space-y-1">
                     <Label htmlFor="pais">
-                      PAÍS <span className="text-red-500">*</span>
+                      PAÍS <span className=" uppercase text-red-500">*</span>
                     </Label>
                     <Input
                       id="pais"
                       value={formData.pais}
                       onChange={(e) => handleChange("pais", e.target.value)}
                       disabled={mode === "view"}
-                      className="font-medium"
+                      className=" uppercase font-medium"
                       required
                     />
                   </div>
                 )}
                 {/*Fin logica check internacionales */}
-                <div className="flex flex-col space-y-1">
+                <div className=" uppercase flex flex-col space-y-1">
                   <Label htmlFor="estadoSelect">
-                    ESTADO <span className="text-red-500">*</span>
+                    ESTADO <span className=" uppercase text-red-500">*</span>
                   </Label>
                   <Select
                     value={formData.Estado.toUpperCase()}
@@ -1968,15 +2019,18 @@ const handleRemoveImage = () => {
                     disabled={mode === "view" || formData.internacional}
                     required
                   >
-                    <SelectTrigger id="estadoSelect" className="font-medium">
+                    <SelectTrigger
+                      id="estadoSelect"
+                      className=" uppercase font-medium"
+                    >
                       <SelectValue placeholder="Selecciona un estado" />
                     </SelectTrigger>
-                    <SelectContent className="bg-white dark:bg-gray-700">
+                    <SelectContent className=" uppercase bg-white dark:bg-gray-700">
                       {estadosMX.map((estado) => (
                         <SelectItem
                           key={estado}
                           value={estado}
-                          className="uppercase"
+                          className=" uppercase uppercase"
                         >
                           {estado}
                         </SelectItem>
@@ -1985,9 +2039,9 @@ const handleRemoveImage = () => {
                   </Select>
                 </div>
 
-                <div className="flex flex-col space-y-1">
+                <div className=" uppercase flex flex-col space-y-1">
                   <Label htmlFor="Ciudad_Zona">
-                    CIUDAD <span className="text-red-500">*</span>
+                    CIUDAD <span className=" uppercase text-red-500">*</span>
                   </Label>
                   <Input
                     id="Ciudad_Zona"
@@ -2005,13 +2059,13 @@ const handleRemoveImage = () => {
                           }
                         : {}
                     }
-                    className="font-medium"
+                    className=" uppercase font-medium"
                     required
                   />
                 </div>
 
                 {/* Optional fields */}
-                <div className="flex flex-col space-y-1">
+                <div className=" uppercase flex flex-col space-y-1">
                   <Label htmlFor="Id_hotel_excel">ID EXCEL (SEGUIMIENTO)</Label>
                   <Input
                     id="Id_hotel_excel"
@@ -2029,11 +2083,11 @@ const handleRemoveImage = () => {
                           }
                         : {}
                     }
-                    className="font-medium"
+                    className=" uppercase font-medium"
                   />
                 </div>
 
-                <div className="flex flex-col space-y-1">
+                <div className=" uppercase flex flex-col space-y-1">
                   <Label htmlFor="CodigoPostal">CODIGO POSTAL</Label>
                   <Input
                     id="CodigoPostal"
@@ -2053,16 +2107,16 @@ const handleRemoveImage = () => {
                           }
                         : {}
                     }
-                    className="font-medium"
+                    className=" uppercase font-medium"
                   />
                   {buscandoCP && (
-                    <span className="text-xs text-blue-600">
+                    <span className=" uppercase text-xs text-blue-600">
                       BUSCANDO CODIGO POSTAL...
                     </span>
                   )}
                 </div>
 
-                <div className="flex flex-col space-y-1">
+                <div className=" uppercase flex flex-col space-y-1">
                   <Label htmlFor="calle">CALLE</Label>
                   <Input
                     id="calle"
@@ -2078,11 +2132,11 @@ const handleRemoveImage = () => {
                           }
                         : {}
                     }
-                    className="font-medium"
+                    className=" uppercase font-medium"
                   />
                 </div>
 
-                <div className="flex flex-col space-y-1">
+                <div className=" uppercase flex flex-col space-y-1">
                   <Label htmlFor="numero">NUMERO</Label>
                   <Input
                     id="numero"
@@ -2098,12 +2152,12 @@ const handleRemoveImage = () => {
                           }
                         : {}
                     }
-                    className="font-medium"
+                    className=" uppercase font-medium"
                   />
                 </div>
 
                 {mode === "edit" && colonias.length > 0 ? (
-                  <div className="flex flex-col space-y-1">
+                  <div className=" uppercase flex flex-col space-y-1">
                     <Label htmlFor="Colonia">COLONIA</Label>
                     <Select
                       onValueChange={(value) => {
@@ -2116,7 +2170,7 @@ const handleRemoveImage = () => {
                     >
                       <SelectTrigger
                         id="Colonia"
-                        className="w-full font-medium"
+                        className=" uppercase w-full font-medium"
                       >
                         <SelectValue
                           placeholder={
@@ -2129,7 +2183,7 @@ const handleRemoveImage = () => {
                           <SelectItem
                             key={colonia.id}
                             value={colonia.id.toString()}
-                            className="uppercase"
+                            className=" uppercase uppercase"
                           >
                             {colonia.d_asenta.toUpperCase()}
                           </SelectItem>
@@ -2138,7 +2192,7 @@ const handleRemoveImage = () => {
                     </Select>
                   </div>
                 ) : (
-                  <div className="flex flex-col space-y-1">
+                  <div className=" uppercase flex flex-col space-y-1">
                     <Label htmlFor="Colonia">COLONIA</Label>
                     <Input
                       id="Colonia"
@@ -2158,12 +2212,12 @@ const handleRemoveImage = () => {
                             }
                           : {}
                       }
-                      className="font-medium"
+                      className=" uppercase font-medium"
                     />
                   </div>
                 )}
 
-                <div className="flex flex-col space-y-1">
+                <div className=" uppercase flex flex-col space-y-1">
                   <Label htmlFor="municipio">MUNICIPIO</Label>
                   <Input
                     id="municipio"
@@ -2179,11 +2233,11 @@ const handleRemoveImage = () => {
                           }
                         : {}
                     }
-                    className="font-medium"
+                    className=" uppercase font-medium"
                   />
                 </div>
 
-                <div className="flex flex-col space-y-1">
+                <div className=" uppercase flex flex-col space-y-1">
                   <Label htmlFor="disponibilidad_precio">
                     ¿COMO SE SOLICITA LA DISPONIBILIDAD?
                   </Label>
@@ -2203,12 +2257,12 @@ const handleRemoveImage = () => {
                           }
                         : {}
                     }
-                    className="min-h-[80px] font-medium"
+                    className=" uppercase min-h-[80px] font-medium"
                     placeholder="EMAIL, TELEFONO, ETC."
                   />
                 </div>
 
-                <div className="flex flex-col space-y-1">
+                <div className=" uppercase flex flex-col space-y-1">
                   <Label htmlFor="contacto_convenio">
                     CONTACTOS DE CONVENIO
                   </Label>
@@ -2228,12 +2282,12 @@ const handleRemoveImage = () => {
                           }
                         : {}
                     }
-                    className="min-h-[80px] font-medium"
+                    className=" uppercase min-h-[80px] font-medium"
                     placeholder="NOMBRE Y DATOS DE CONTACTO"
                   />
                 </div>
 
-                <div className="flex flex-col space-y-1">
+                <div className=" uppercase flex flex-col space-y-1">
                   <Label htmlFor="contacto_recepcion">
                     CONTACTOS DE RECEPCION
                   </Label>
@@ -2253,12 +2307,12 @@ const handleRemoveImage = () => {
                           }
                         : {}
                     }
-                    className="min-h-[80px] font-medium"
+                    className=" uppercase min-h-[80px] font-medium"
                     placeholder="NOMBRE Y DATOS DE CONTACTO"
                   />
                 </div>
 
-              <div className="flex flex-col space-y-1">
+              <div className=" uppercase flex flex-col space-y-1">
   <Label htmlFor="uploadImage">Imagen del Hotel</Label>
   {selectedImageFile && (
     <span className="text-xs text-muted-foreground break-all">
@@ -2308,9 +2362,42 @@ const handleRemoveImage = () => {
   )}
 </div>
 
+                  <Button
+                    variant="outline"
+                    type="button"
+                    disabled={
+                      mode === "view" || imageUploadStatus === "loading"
+                    }
+                    onClick={() =>
+                      document.getElementById("uploadImageInput")?.click()
+                    }
+                  >
+                    {imageUploadStatus === "loading"
+                      ? "Subiendo..."
+                      : "Subir Imagen"}
+                  </Button>
 
+                  <input
+                    id="uploadImageInput"
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    onChange={handleImageChange}
+                  />
 
-                <div className="flex flex-col space-y-1">
+                  {imageUploadStatus === "success" && (
+                    <p className=" uppercase text-green-600 text-sm">
+                      Imagen subida correctamente
+                    </p>
+                  )}
+                  {imageUploadStatus === "error" && (
+                    <p className=" uppercase text-red-600 text-sm">
+                      Error al subir la imagen
+                    </p>
+                  )}
+                </div>
+
+                <div className=" uppercase flex flex-col space-y-1">
                   <Label htmlFor="URLImagenHotelQ">
                     IMAGEN HABITACION SENCILLA (URL)
                   </Label>
@@ -2330,12 +2417,12 @@ const handleRemoveImage = () => {
                           }
                         : {}
                     }
-                    className="font-medium"
+                    className=" uppercase font-medium"
                     placeholder="HTTPS://EJEMPLO.COM/IMAGEN.JPG"
                   />
                 </div>
 
-                <div className="flex flex-col space-y-1">
+                <div className=" uppercase flex flex-col space-y-1">
                   <Label htmlFor="URLImagenHotelQQ">
                     IMAGEN HABITACION DOBLE (URL)
                   </Label>
@@ -2355,13 +2442,13 @@ const handleRemoveImage = () => {
                           }
                         : {}
                     }
-                    className="font-medium"
+                    className=" uppercase font-medium"
                     placeholder="HTTPS://EJEMPLO.COM/IMAGEN.JPG"
                   />
                 </div>
 
                 {/* Notes field for this tab */}
-                <div className="col-span-1 md:col-span-2 flex flex-col space-y-1 mt-4 border-t pt-4">
+                <div className=" uppercase col-span-1 md:col-span-2 flex flex-col space-y-1 mt-4 border-t pt-4">
                   <Label htmlFor="notas_datosBasicos">
                     NOTAS DATOS BÁSICOS
                   </Label>
@@ -2381,7 +2468,7 @@ const handleRemoveImage = () => {
                           }
                         : {}
                     }
-                    className="min-h-[100px] font-medium"
+                    className=" uppercase min-h-[100px] font-medium"
                     placeholder="NOTAS ESPECÍFICAS SOBRE LOS DATOS BÁSICOS"
                   />
                 </div>
@@ -2391,16 +2478,18 @@ const handleRemoveImage = () => {
             {/* Tab: Tarifas y Servicios */}
             <TabsContent
               value="tarifasServicios"
-              className="space-y-6 min-h-[400px]"
+              className=" uppercase space-y-6 min-h-[400px]"
             >
               <div>
-                <h3 className="text-lg font-semibold mb-4">TARIFA GENERAL</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <h3 className=" uppercase text-lg font-semibold mb-4">
+                  TARIFA GENERAL
+                </h3>
+                <div className=" uppercase grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Required fields first */}
-                  <div className="flex flex-col space-y-1">
+                  <div className=" uppercase flex flex-col space-y-1">
                     <Label htmlFor="costo_q">
                       COSTO PROVEEDOR HABITACION SENCILLA CON IMPUESTOS{" "}
-                      <span className="text-red-500">*</span>
+                      <span className=" uppercase text-red-500">*</span>
                     </Label>
                     <Input
                       id="costo_q"
@@ -2417,14 +2506,14 @@ const handleRemoveImage = () => {
                             }
                           : {}
                       }
-                      className="font-medium"
+                      className=" uppercase font-medium"
                       required
                     />
                   </div>
-                  <div className="flex flex-col space-y-1">
+                  <div className=" uppercase flex flex-col space-y-1">
                     <Label htmlFor="precio_q">
                       PRECIO DE VENTA HABITACION SENCILLA CON IMPUESTOS{" "}
-                      <span className="text-red-500">*</span>
+                      <span className=" uppercase text-red-500">*</span>
                     </Label>
                     <Input
                       id="precio_q"
@@ -2441,14 +2530,14 @@ const handleRemoveImage = () => {
                             }
                           : {}
                       }
-                      className="font-medium"
+                      className=" uppercase font-medium"
                       required
                     />
                   </div>
-                  <div className="flex flex-col space-y-1">
+                  <div className=" uppercase flex flex-col space-y-1">
                     <Label htmlFor="costo_qq">
                       COSTO PROVEEDOR HABITACION DOBLE CON IMPUESTOS{" "}
-                      <span className="text-red-500">*</span>
+                      <span className=" uppercase text-red-500">*</span>
                     </Label>
                     <Input
                       id="costo_qq"
@@ -2465,14 +2554,14 @@ const handleRemoveImage = () => {
                             }
                           : {}
                       }
-                      className="font-medium"
+                      className=" uppercase font-medium"
                       required
                     />
                   </div>
-                  <div className="flex flex-col space-y-1">
+                  <div className=" uppercase flex flex-col space-y-1">
                     <Label htmlFor="precio_qq">
                       PRECIO DE VENTA HABITACION DOBLE CON IMPUESTOS{" "}
-                      <span className="text-red-500">*</span>
+                      <span className=" uppercase text-red-500">*</span>
                     </Label>
                     <Input
                       id="precio_qq"
@@ -2491,14 +2580,14 @@ const handleRemoveImage = () => {
                             }
                           : {}
                       }
-                      className="font-medium"
+                      className=" uppercase font-medium"
                       required
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-                  <div className="flex flex-col space-y-1">
+                <div className=" uppercase grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                  <div className=" uppercase flex flex-col space-y-1">
                     <Label htmlFor="precio_persona_extra">
                       COSTO POR PERSONA EXTRA CON IMPUESTOS
                     </Label>
@@ -2522,10 +2611,10 @@ const handleRemoveImage = () => {
                             }
                           : {}
                       }
-                      className="font-medium"
+                      className=" uppercase font-medium"
                     />
                   </div>
-                  <div className="flex flex-col space-y-1">
+                  <div className=" uppercase flex flex-col space-y-1">
                     <Label htmlFor="MenoresEdad">MENORES DE EDAD</Label>
                     <Textarea
                       id="MenoresEdad"
@@ -2543,13 +2632,13 @@ const handleRemoveImage = () => {
                             }
                           : {}
                       }
-                      className="min-h-[80px] font-medium"
+                      className=" uppercase min-h-[80px] font-medium"
                       placeholder="INFORMACION SOBRE ESTADIA DE MENORES"
                     />
                   </div>
                 </div>
 
-                <div className="flex flex-col space-y-1">
+                <div className=" uppercase flex flex-col space-y-1">
                   <Label htmlFor="iva">IMPUESTOS (IVA) EN %</Label>
                   <Input
                     id="iva"
@@ -2565,12 +2654,12 @@ const handleRemoveImage = () => {
                           }
                         : {}
                     }
-                    className="font-medium"
+                    className=" uppercase font-medium"
                     placeholder="EJ: 16.00"
                   />
                 </div>
 
-                <div className="flex flex-col space-y-1">
+                <div className=" uppercase flex flex-col space-y-1">
                   <Label htmlFor="ish">IMPUESTOS (ISH) EN %</Label>
                   <Input
                     id="ish"
@@ -2586,12 +2675,12 @@ const handleRemoveImage = () => {
                           }
                         : {}
                     }
-                    className="font-medium"
+                    className=" uppercase font-medium"
                     placeholder="EJ: 3.00"
                   />
                 </div>
 
-                <div className="flex flex-col space-y-1">
+                <div className=" uppercase flex flex-col space-y-1">
                   <Label htmlFor="otros_impuestos_porcentaje">
                     IMPUESTOS (OTROS) EN %
                   </Label>
@@ -2611,12 +2700,12 @@ const handleRemoveImage = () => {
                           }
                         : {}
                     }
-                    className="font-medium"
+                    className=" uppercase font-medium"
                     placeholder="EJ: 5.00"
                   />
                 </div>
 
-                <div className="flex flex-col space-y-1">
+                <div className=" uppercase flex flex-col space-y-1">
                   <Label htmlFor="otros_impuestos">
                     IMPUESTOS (OTROS) MONTO
                   </Label>
@@ -2636,14 +2725,14 @@ const handleRemoveImage = () => {
                           }
                         : {}
                     }
-                    className="font-medium"
+                    className=" uppercase font-medium"
                     placeholder="EJ: 100.00"
                   />
                 </div>
 
                 {/* Opciones de desayuno para habitación sencilla */}
-                <div className="mt-6 border-t pt-4">
-                  <div className="flex items-center gap-2 mb-3">
+                <div className=" uppercase mt-6 border-t pt-4">
+                  <div className=" uppercase flex items-center gap-2 mb-3">
                     <input
                       type="checkbox"
                       id="incluye-sencilla-general"
@@ -2661,18 +2750,18 @@ const handleRemoveImage = () => {
                             }
                           : {}
                       }
-                      className="h-4 w-4"
+                      className=" uppercase h-4 w-4"
                     />
                     <Label
                       htmlFor="incluye-sencilla-general"
-                      className="font-medium"
+                      className=" uppercase font-medium"
                     >
                       ¿INCLUYE DESAYUNO EN HABITACION SENCILLA?
                     </Label>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pl-6">
-                    <div className="flex flex-col space-y-1">
+                  <div className=" uppercase grid grid-cols-1 md:grid-cols-3 gap-4 pl-6">
+                    <div className=" uppercase flex flex-col space-y-1">
                       <Label htmlFor="sencilla_tipo_desayuno">
                         TIPO DE DESAYUNO
                       </Label>
@@ -2692,13 +2781,13 @@ const handleRemoveImage = () => {
                               }
                             : {}
                         }
-                        className="font-medium"
+                        className=" uppercase font-medium"
                         placeholder="CONTINENTAL, AMERICANO, ETC."
                       />
                     </div>
 
                     {!formData.sencilla.incluye && (
-                      <div className="flex flex-col space-y-1">
+                      <div className=" uppercase flex flex-col space-y-1">
                         <Label htmlFor="sencilla_precio">
                           COSTO DEL DESAYUNO CON IMPUESTOS
                         </Label>
@@ -2720,12 +2809,12 @@ const handleRemoveImage = () => {
                                 }
                               : {}
                           }
-                          className="font-medium"
+                          className=" uppercase font-medium"
                         />
                       </div>
                     )}
 
-                    <div className="flex flex-col space-y-1">
+                    <div className=" uppercase flex flex-col space-y-1">
                       <Label htmlFor="sencilla_comentarios">COMENTARIO</Label>
                       <Textarea
                         id="sencilla_comentarios"
@@ -2743,7 +2832,7 @@ const handleRemoveImage = () => {
                               }
                             : {}
                         }
-                        className="min-h-[80px] font-medium"
+                        className=" uppercase min-h-[80px] font-medium"
                         placeholder="DETALLES ADICIONALES"
                       />
                     </div>
@@ -2751,8 +2840,8 @@ const handleRemoveImage = () => {
                 </div>
 
                 {/* Opciones de desayuno para habitación doble */}
-                <div className="mt-6 border-t pt-4">
-                  <div className="flex items-center gap-2 mb-3">
+                <div className=" uppercase mt-6 border-t pt-4">
+                  <div className=" uppercase flex items-center gap-2 mb-3">
                     <input
                       type="checkbox"
                       id="incluye-doble-general"
@@ -2770,18 +2859,18 @@ const handleRemoveImage = () => {
                             }
                           : {}
                       }
-                      className="h-4 w-4"
+                      className=" uppercase h-4 w-4"
                     />
                     <Label
                       htmlFor="incluye-doble-general"
-                      className="font-medium"
+                      className=" uppercase font-medium"
                     >
                       ¿INCLUYE DESAYUNO EN HABITACION DOBLE?
                     </Label>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pl-6">
-                    <div className="flex flex-col space-y-1">
+                  <div className=" uppercase grid grid-cols-1 md:grid-cols-3 gap-4 pl-6">
+                    <div className=" uppercase flex flex-col space-y-1">
                       <Label htmlFor="doble_tipo_desayuno">
                         TIPO DE DESAYUNO
                       </Label>
@@ -2801,13 +2890,13 @@ const handleRemoveImage = () => {
                               }
                             : {}
                         }
-                        className="font-medium"
+                        className=" uppercase font-medium"
                         placeholder="CONTINENTAL, AMERICANO, ETC."
                       />
                     </div>
 
                     {!formData.doble.incluye && (
-                      <div className="flex flex-col space-y-1">
+                      <div className=" uppercase flex flex-col space-y-1">
                         <Label htmlFor="doble_precio">
                           COSTO DEL DESAYUNO CON IMPUESTOS
                         </Label>
@@ -2829,12 +2918,12 @@ const handleRemoveImage = () => {
                                 }
                               : {}
                           }
-                          className="font-medium"
+                          className=" uppercase font-medium"
                         />
                       </div>
                     )}
 
-                    <div className="flex flex-col space-y-1">
+                    <div className=" uppercase flex flex-col space-y-1">
                       <Label htmlFor="doble_comentarios">COMENTARIO</Label>
                       <Textarea
                         id="doble_comentarios"
@@ -2852,7 +2941,7 @@ const handleRemoveImage = () => {
                               }
                             : {}
                         }
-                        className="min-h-[80px] font-medium"
+                        className=" uppercase min-h-[80px] font-medium"
                         placeholder="DETALLES ADICIONALES"
                       />
                     </div>
@@ -2861,9 +2950,9 @@ const handleRemoveImage = () => {
               </div>
 
               {/* Tarifas preferenciales */}
-              <div className="mt-6 border-t pt-4">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold">
+              <div className=" uppercase mt-6 border-t pt-4">
+                <div className=" uppercase flex items-center justify-between mb-4">
+                  <h3 className=" uppercase text-lg font-semibold">
                     TARIFAS PREFERENCIALES
                   </h3>
                   {mode === "edit" && (
@@ -2871,16 +2960,16 @@ const handleRemoveImage = () => {
                       variant="outline"
                       size="sm"
                       onClick={addTarifaPreferencial}
-                      className="flex items-center gap-1"
+                      className=" uppercase flex items-center gap-1"
                     >
                       <Plus size={16} /> AGREGAR
                     </Button>
                   )}
                 </div>
 
-                <div className="max-h-[400px] overflow-y-auto pr-2">
+                <div className=" uppercase max-h-[400px] overflow-y-auto pr-2">
                   {tarifasPreferenciales.length === 0 ? (
-                    <div className="text-center py-6 text-gray-500 bg-gray-50 dark:bg-gray-800 rounded-md">
+                    <div className=" uppercase text-center py-6 text-gray-500 bg-gray-50 dark:bg-gray-800 rounded-md">
                       NO HAY TARIFAS PREFERENCIALES.
                       {mode === "edit" && " AGREGA UNA PARA COMENZAR."}
                     </div>
@@ -2888,19 +2977,22 @@ const handleRemoveImage = () => {
                     tarifasPreferenciales.map((tarifa, index) => (
                       <div
                         key={index}
-                        className="border rounded-md p-4 mb-4 space-y-4"
+                        className=" uppercase border rounded-md p-4 mb-4 space-y-4"
                       >
                         {/* Header de tarifa con botones de edición/eliminación */}
-                        <div className="flex justify-between items-center">
-                          <h4 className="font-medium">TARIFA {index + 1}</h4>
+                        <div className=" uppercase flex justify-between items-center">
+                          <h4 className=" uppercase font-medium">
+                            TARIFA {index + 1}
+                          </h4>
                           {mode === "view" && editingTarifaId !== index && (
-                            <div className="flex gap-2">
+                            <div className=" uppercase flex gap-2">
                               <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => startEditingTarifa(index)}
                               >
-                                <Pencil size={16} className="mr-1" /> EDITAR
+                                <Pencil size={16} className=" uppercase mr-1" />{" "}
+                                EDITAR
                               </Button>
                               {/* Botón para eliminar ambas tarifas en un solo click */}
                               {(tarifa.id_tarifa_sencilla ||
@@ -2908,23 +3000,29 @@ const handleRemoveImage = () => {
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  className="text-red-500 hover:bg-red-50 hover:text-red-600"
+                                  className=" uppercase text-red-500 hover:bg-red-50 hover:text-red-600"
                                   onClick={() => openDeleteTarifaDialog(index)}
                                 >
-                                  <Trash2 size={16} className="mr-1" /> ELIMINAR
-                                  TARIFA
+                                  <Trash2
+                                    size={16}
+                                    className=" uppercase mr-1"
+                                  />{" "}
+                                  ELIMINAR TARIFA
                                 </Button>
                               )}
                             </div>
                           )}
                           {editingTarifaId === index && (
-                            <div className="flex gap-2">
+                            <div className=" uppercase flex gap-2">
                               <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={cancelEditingTarifa}
                               >
-                                <ArrowLeft size={16} className="mr-1" />{" "}
+                                <ArrowLeft
+                                  size={16}
+                                  className=" uppercase mr-1"
+                                />{" "}
                                 CANCELAR
                               </Button>
                               <Button
@@ -2941,11 +3039,14 @@ const handleRemoveImage = () => {
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  className="text-red-500 hover:bg-red-50 hover:text-red-600"
+                                  className=" uppercase text-red-500 hover:bg-red-50 hover:text-red-600"
                                   onClick={() => openDeleteTarifaDialog(index)}
                                 >
-                                  <Trash2 size={16} className="mr-1" /> ELIMINAR
-                                  TARIFA
+                                  <Trash2
+                                    size={16}
+                                    className=" uppercase mr-1"
+                                  />{" "}
+                                  ELIMINAR TARIFA
                                 </Button>
                               )}
                             </div>
@@ -2954,16 +3055,16 @@ const handleRemoveImage = () => {
 
                         {/* Búsqueda de agente */}
                         {mode === "edit" || editingTarifaId === index ? (
-                          <div className="grid grid-cols-1 gap-4">
-                            <div className="relative">
-                              <Label className="mb-2 block">
+                          <div className=" uppercase grid grid-cols-1 gap-4">
+                            <div className=" uppercase relative">
+                              <Label className=" uppercase mb-2 block">
                                 BUSCAR AGENTE
                               </Label>
-                              <div className="flex gap-2 items-start">
-                                <div className="flex-1">
+                              <div className=" uppercase flex gap-2 items-start">
+                                <div className=" uppercase flex-1">
                                   <Label
                                     htmlFor={`nombre-agente-${index}`}
-                                    className="sr-only"
+                                    className=" uppercase sr-only"
                                   >
                                     NOMBRE DEL AGENTE
                                   </Label>
@@ -2978,13 +3079,13 @@ const handleRemoveImage = () => {
                                         e.target.value
                                       )
                                     }
-                                    className="font-medium"
+                                    className=" uppercase font-medium"
                                   />
                                 </div>
-                                <div className="flex-1">
+                                <div className=" uppercase flex-1">
                                   <Label
                                     htmlFor={`correo-agente-${index}`}
-                                    className="sr-only"
+                                    className=" uppercase sr-only"
                                   >
                                     CORREO DEL AGENTE
                                   </Label>
@@ -2999,7 +3100,7 @@ const handleRemoveImage = () => {
                                         e.target.value
                                       )
                                     }
-                                    className="font-medium"
+                                    className=" uppercase font-medium"
                                   />
                                 </div>
                                 <Button
@@ -3007,26 +3108,26 @@ const handleRemoveImage = () => {
                                   variant="outline"
                                   size="icon"
                                   onClick={() => handleSearch(index)}
-                                  className="flex-shrink-0"
+                                  className=" uppercase flex-shrink-0"
                                 >
                                   <Search size={18} />
                                 </Button>
                               </div>
 
                               {tarifa.busqueda.resultados.length > 0 && (
-                                <div className="absolute z-10 w-full mt-1 border bg-white dark:bg-gray-800 rounded-md shadow-lg max-h-[150px] overflow-y-auto">
+                                <div className=" uppercase absolute z-10 w-full mt-1 border bg-white dark:bg-gray-800 rounded-md shadow-lg max-h-[150px] overflow-y-auto">
                                   {tarifa.busqueda.resultados.map((agente) => (
                                     <div
                                       key={agente.id_agente}
-                                      className="cursor-pointer p-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                      className=" uppercase cursor-pointer p-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                                       onClick={() =>
                                         handleSelectAgente(index, agente)
                                       }
                                     >
-                                      <div className="font-medium">
+                                      <div className=" uppercase font-medium">
                                         {agente.primer_nombre.toUpperCase()}
                                       </div>
-                                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                                      <div className=" uppercase text-sm text-gray-500 dark:text-gray-400">
                                         {agente.correo}
                                       </div>
                                     </div>
@@ -3035,15 +3136,17 @@ const handleRemoveImage = () => {
                               )}
 
                               {tarifa.busqueda.buscando && (
-                                <div className="text-sm text-blue-500 mt-1">
+                                <div className=" uppercase text-sm text-blue-500 mt-1">
                                   BUSCANDO AGENTES...
                                 </div>
                               )}
                             </div>
                           </div>
                         ) : (
-                          <div className="text-sm p-2 rounded border border-gray-200 bg-gray-50 font-medium">
-                            <span className="font-semibold">AGENTE:</span>{" "}
+                          <div className=" uppercase text-sm p-2 rounded border border-gray-200 bg-gray-50 font-medium">
+                            <span className=" uppercase font-semibold">
+                              AGENTE:
+                            </span>{" "}
                             {tarifa.nombre_agente || "NO ESPECIFICADO"}{" "}
                             {tarifa.correo_agente
                               ? `(${tarifa.correo_agente})`
@@ -3053,8 +3156,8 @@ const handleRemoveImage = () => {
 
                         {tarifa.id_agente &&
                           (mode === "edit" || editingTarifaId === index) && (
-                            <div className="text-sm bg-blue-50 dark:bg-blue-900 p-2 rounded border border-blue-200 dark:border-blue-800 font-medium">
-                              <span className="font-semibold">
+                            <div className=" uppercase text-sm bg-blue-50 dark:bg-blue-900 p-2 rounded border border-blue-200 dark:border-blue-800 font-medium">
+                              <span className=" uppercase font-semibold">
                                 AGENTE SELECCIONADO:
                               </span>{" "}
                               {tarifa.nombre_agente} ({tarifa.correo_agente})
@@ -3062,8 +3165,8 @@ const handleRemoveImage = () => {
                           )}
 
                         {/* Tarifas */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                          <div className="flex flex-col space-y-1">
+                        <div className=" uppercase grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                          <div className=" uppercase flex flex-col space-y-1">
                             <Label htmlFor={`costo_q_${index}`}>
                               COSTO PROVEEDOR HABITACION SENCILLA
                             </Label>
@@ -3081,10 +3184,10 @@ const handleRemoveImage = () => {
                               disabled={
                                 mode === "view" && editingTarifaId !== index
                               }
-                              className="font-medium"
+                              className=" uppercase font-medium"
                             />
                           </div>
-                          <div className="flex flex-col space-y-1">
+                          <div className=" uppercase flex flex-col space-y-1">
                             <Label htmlFor={`precio_q_${index}`}>
                               PRECIO DE VENTA HABITACION SENCILLA
                             </Label>
@@ -3102,10 +3205,10 @@ const handleRemoveImage = () => {
                               disabled={
                                 mode === "view" && editingTarifaId !== index
                               }
-                              className="font-medium"
+                              className=" uppercase font-medium"
                             />
                           </div>
-                          <div className="flex flex-col space-y-1">
+                          <div className=" uppercase flex flex-col space-y-1">
                             <Label htmlFor={`costo_qq_${index}`}>
                               COSTO PROVEEDOR HABITACION DOBLE
                             </Label>
@@ -3123,10 +3226,10 @@ const handleRemoveImage = () => {
                               disabled={
                                 mode === "view" && editingTarifaId !== index
                               }
-                              className="font-medium"
+                              className=" uppercase font-medium"
                             />
                           </div>
-                          <div className="flex flex-col space-y-1">
+                          <div className=" uppercase flex flex-col space-y-1">
                             <Label htmlFor={`precio_qq_${index}`}>
                               PRECIO DE VENTA HABITACION DOBLE
                             </Label>
@@ -3144,14 +3247,14 @@ const handleRemoveImage = () => {
                               disabled={
                                 mode === "view" && editingTarifaId !== index
                               }
-                              className="font-medium"
+                              className=" uppercase font-medium"
                             />
                           </div>
                         </div>
 
                         {/* Opciones de desayuno para habitación sencilla (tarifa preferencial) */}
-                        <div className="mt-4 space-y-2">
-                          <div className="flex items-center gap-2 mb-3">
+                        <div className=" uppercase mt-4 space-y-2">
+                          <div className=" uppercase flex items-center gap-2 mb-3">
                             <input
                               type="checkbox"
                               id={`pref-sencilla-${index}`}
@@ -3166,18 +3269,18 @@ const handleRemoveImage = () => {
                               disabled={
                                 mode === "view" && editingTarifaId !== index
                               }
-                              className="h-4 w-4"
+                              className=" uppercase h-4 w-4"
                             />
                             <Label
                               htmlFor={`pref-sencilla-${index}`}
-                              className="font-medium"
+                              className=" uppercase font-medium"
                             >
                               ¿INCLUYE DESAYUNO EN HABITACION SENCILLA?
                             </Label>
                           </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pl-6">
-                            <div className="flex flex-col space-y-1">
+                          <div className=" uppercase grid grid-cols-1 md:grid-cols-3 gap-4 pl-6">
+                            <div className=" uppercase flex flex-col space-y-1">
                               <Label
                                 htmlFor={`sencilla_tipo_desayuno_${index}`}
                               >
@@ -3196,13 +3299,13 @@ const handleRemoveImage = () => {
                                 disabled={
                                   mode === "view" && editingTarifaId !== index
                                 }
-                                className="font-medium"
+                                className=" uppercase font-medium"
                                 placeholder="CONTINENTAL, AMERICANO, ETC."
                               />
                             </div>
 
                             {!tarifa.sencilla.incluye && (
-                              <div className="flex flex-col space-y-1">
+                              <div className=" uppercase flex flex-col space-y-1">
                                 <Label htmlFor={`sencilla_precio_${index}`}>
                                   COSTO DEL DESAYUNO CON IMPUESTOS
                                 </Label>
@@ -3221,12 +3324,12 @@ const handleRemoveImage = () => {
                                   disabled={
                                     mode === "view" && editingTarifaId !== index
                                   }
-                                  className="font-medium"
+                                  className=" uppercase font-medium"
                                 />
                               </div>
                             )}
 
-                            <div className="flex flex-col space-y-1">
+                            <div className=" uppercase flex flex-col space-y-1">
                               <Label htmlFor={`sencilla_comentarios_${index}`}>
                                 COMENTARIO
                               </Label>
@@ -3243,7 +3346,7 @@ const handleRemoveImage = () => {
                                 disabled={
                                   mode === "view" && editingTarifaId !== index
                                 }
-                                className="min-h-[80px] font-medium"
+                                className=" uppercase min-h-[80px] font-medium"
                                 placeholder="DETALLES ADICIONALES"
                               />
                             </div>
@@ -3251,8 +3354,8 @@ const handleRemoveImage = () => {
                         </div>
 
                         {/* Opciones de desayuno para habitación doble (tarifa preferencial) */}
-                        <div className="mt-4 space-y-2">
-                          <div className="flex items-center gap-2 mb-3">
+                        <div className=" uppercase mt-4 space-y-2">
+                          <div className=" uppercase flex items-center gap-2 mb-3">
                             <input
                               type="checkbox"
                               id={`pref-doble-${index}`}
@@ -3267,18 +3370,18 @@ const handleRemoveImage = () => {
                               disabled={
                                 mode === "view" && editingTarifaId !== index
                               }
-                              className="h-4 w-4"
+                              className=" uppercase h-4 w-4"
                             />
                             <Label
                               htmlFor={`pref-doble-${index}`}
-                              className="font-medium"
+                              className=" uppercase font-medium"
                             >
                               ¿INCLUYE DESAYUNO EN HABITACION DOBLE?
                             </Label>
                           </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pl-6">
-                            <div className="flex flex-col space-y-1">
+                          <div className=" uppercase grid grid-cols-1 md:grid-cols-3 gap-4 pl-6">
+                            <div className=" uppercase flex flex-col space-y-1">
                               <Label htmlFor={`doble_tipo_desayuno_${index}`}>
                                 TIPO DE DESAYUNO
                               </Label>
@@ -3295,13 +3398,13 @@ const handleRemoveImage = () => {
                                 disabled={
                                   mode === "view" && editingTarifaId !== index
                                 }
-                                className="font-medium"
+                                className=" uppercase font-medium"
                                 placeholder="CONTINENTAL, AMERICANO, ETC."
                               />
                             </div>
 
                             {!tarifa.doble.incluye && (
-                              <div className="flex flex-col space-y-1">
+                              <div className=" uppercase flex flex-col space-y-1">
                                 <Label htmlFor={`doble_precio_${index}`}>
                                   COSTO DEL DESAYUNO CON IMPUESTOS
                                 </Label>
@@ -3320,12 +3423,12 @@ const handleRemoveImage = () => {
                                   disabled={
                                     mode === "view" && editingTarifaId !== index
                                   }
-                                  className="font-medium"
+                                  className=" uppercase font-medium"
                                 />
                               </div>
                             )}
 
-                            <div className="flex flex-col space-y-1">
+                            <div className=" uppercase flex flex-col space-y-1">
                               <Label htmlFor={`doble_comentarios_${index}`}>
                                 COMENTARIO
                               </Label>
@@ -3342,7 +3445,7 @@ const handleRemoveImage = () => {
                                 disabled={
                                   mode === "view" && editingTarifaId !== index
                                 }
-                                className="min-h-[80px] font-medium"
+                                className=" uppercase min-h-[80px] font-medium"
                                 placeholder="DETALLES ADICIONALES"
                               />
                             </div>
@@ -3350,15 +3453,16 @@ const handleRemoveImage = () => {
                         </div>
 
                         {/* Botones de acción específicos para tarifas */}
-                        <div className="flex justify-end mt-4 gap-2">
+                        <div className=" uppercase flex justify-end mt-4 gap-2">
                           {mode === "edit" && (
                             <Button
                               variant="outline"
-                              className="text-red-500 hover:bg-red-50 hover:text-red-600"
+                              className=" uppercase text-red-500 hover:bg-red-50 hover:text-red-600"
                               onClick={() => removeTarifaPreferencial(index)}
                               size="sm"
                             >
-                              <Trash2 size={16} className="mr-1" /> ELIMINAR
+                              <Trash2 size={16} className=" uppercase mr-1" />{" "}
+                              ELIMINAR
                             </Button>
                           )}
                         </div>
@@ -3368,7 +3472,7 @@ const handleRemoveImage = () => {
                 </div>
 
                 {/* Notes field for this tab */}
-                <div className="col-span-1 md:col-span-2 flex flex-col space-y-1 mt-4 border-t pt-4">
+                <div className=" uppercase col-span-1 md:col-span-2 flex flex-col space-y-1 mt-4 border-t pt-4">
                   <Label htmlFor="notas_tarifasServicios">
                     NOTAS TARIFAS Y SERVICIOS
                   </Label>
@@ -3388,7 +3492,7 @@ const handleRemoveImage = () => {
                           }
                         : {}
                     }
-                    className="min-h-[100px] font-medium"
+                    className=" uppercase min-h-[100px] font-medium"
                     placeholder="NOTAS ESPECÍFICAS SOBRE TARIFAS Y SERVICIOS"
                   />
                 </div>
@@ -3398,10 +3502,10 @@ const handleRemoveImage = () => {
             {/* Tab: Información de Pagos */}
             <TabsContent
               value="informacionPagos"
-              className="space-y-6 min-h-[400px]"
+              className=" uppercase space-y-6 min-h-[400px]"
             >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex flex-col space-y-1">
+              <div className=" uppercase grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className=" uppercase flex flex-col space-y-1">
                   <Label htmlFor="tipo_pago">
                     PROVEEDOR: A CREDITO O PREPAGO
                   </Label>
@@ -3410,21 +3514,30 @@ const handleRemoveImage = () => {
                     onValueChange={(value) => handleChange("tipo_pago", value)}
                     disabled={mode === "view"}
                   >
-                    <SelectTrigger id="tipo_pago" className="font-medium">
+                    <SelectTrigger
+                      id="tipo_pago"
+                      className=" uppercase font-medium"
+                    >
                       <SelectValue placeholder="SELECCIONA EL TIPO DE PAGO" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="CREDITO" className="uppercase">
+                      <SelectItem
+                        value="CREDITO"
+                        className=" uppercase uppercase"
+                      >
                         CREDITO
                       </SelectItem>
-                      <SelectItem value="PREPAGO" className="uppercase">
+                      <SelectItem
+                        value="PREPAGO"
+                        className=" uppercase uppercase"
+                      >
                         PREPAGO
                       </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
-                <div className="flex flex-col space-y-1">
+                <div className=" uppercase flex flex-col space-y-1">
                   <Label htmlFor="comentario_pago">DETALLES TIPO DE PAGO</Label>
                   <Textarea
                     id="comentario_pago"
@@ -3442,12 +3555,12 @@ const handleRemoveImage = () => {
                           }
                         : {}
                     }
-                    className="min-h-[80px] font-medium"
+                    className=" uppercase min-h-[80px] font-medium"
                     placeholder="INFORMACION ADICIONAL SOBRE EL PAGO"
                   />
                 </div>
 
-                <div className="flex flex-col space-y-1">
+                <div className=" uppercase flex flex-col space-y-1">
                   <Label htmlFor="razon_social">RAZON SOCIAL</Label>
                   <Input
                     id="razon_social"
@@ -3465,12 +3578,12 @@ const handleRemoveImage = () => {
                           }
                         : {}
                     }
-                    className="font-medium"
+                    className=" uppercase font-medium"
                     placeholder="NOMBRE LEGAL DE LA EMPRESA"
                   />
                 </div>
 
-                <div className="flex flex-col space-y-1">
+                <div className=" uppercase flex flex-col space-y-1">
                   <Label htmlFor="rfc">RFC</Label>
                   <Input
                     id="rfc"
@@ -3486,13 +3599,13 @@ const handleRemoveImage = () => {
                           }
                         : {}
                     }
-                    className="font-medium"
+                    className=" uppercase font-medium"
                     placeholder="REGISTRO FEDERAL DE CONTRIBUYENTES"
                   />
                 </div>
 
                 {/* Notes field for this tab */}
-                <div className="col-span-1 md:col-span-2 flex flex-col space-y-1 mt-4 border-t pt-4">
+                <div className=" uppercase col-span-1 md:col-span-2 flex flex-col space-y-1 mt-4 border-t pt-4">
                   <Label htmlFor="notas_informacionPagos">
                     NOTAS INFORMACIÓN DE PAGOS
                   </Label>
@@ -3512,7 +3625,7 @@ const handleRemoveImage = () => {
                           }
                         : {}
                     }
-                    className="min-h-[100px] font-medium"
+                    className=" uppercase min-h-[100px] font-medium"
                     placeholder="NOTAS ESPECÍFICAS SOBRE INFORMACIÓN DE PAGOS"
                   />
                 </div>
@@ -3522,10 +3635,10 @@ const handleRemoveImage = () => {
             {/* Tab: Información Adicional */}
             <TabsContent
               value="informacionAdicional"
-              className="space-y-6 min-h-[400px]"
+              className=" uppercase space-y-6 min-h-[400px]"
             >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="flex flex-col space-y-1">
+              <div className=" uppercase grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className=" uppercase flex flex-col space-y-1">
                   <Label htmlFor="mascotas">MASCOTAS</Label>
                   <Textarea
                     id="mascotas"
@@ -3541,12 +3654,12 @@ const handleRemoveImage = () => {
                           }
                         : {}
                     }
-                    className="min-h-[100px] font-medium"
+                    className=" uppercase min-h-[100px] font-medium"
                     placeholder="POLITICAS PARA MASCOTAS"
                   />
                 </div>
 
-                <div className="flex flex-col space-y-1">
+                <div className=" uppercase flex flex-col space-y-1">
                   <Label htmlFor="salones">SALONES</Label>
                   <Textarea
                     id="salones"
@@ -3562,12 +3675,12 @@ const handleRemoveImage = () => {
                           }
                         : {}
                     }
-                    className="min-h-[100px] font-medium"
+                    className=" uppercase min-h-[100px] font-medium"
                     placeholder="INFORMACION SOBRE SALONES DISPONIBLES"
                   />
                 </div>
 
-                <div className="flex flex-col space-y-1">
+                <div className=" uppercase flex flex-col space-y-1">
                   <Label htmlFor="Transportacion">TRANSPORTACION</Label>
                   <Textarea
                     id="Transportacion"
@@ -3585,12 +3698,12 @@ const handleRemoveImage = () => {
                           }
                         : {}
                     }
-                    className="min-h-[100px] font-medium"
+                    className=" uppercase min-h-[100px] font-medium"
                     placeholder="DETALLES DE TRANSPORTACION"
                   />
                 </div>
 
-                <div className="flex flex-col space-y-1">
+                <div className=" uppercase flex flex-col space-y-1">
                   <Label htmlFor="score_operaciones">SCORE </Label>
                   <Input
                     type="number"
@@ -3609,12 +3722,12 @@ const handleRemoveImage = () => {
                           }
                         : {}
                     }
-                    className=" font-medium"
+                    className=" uppercase  font-medium"
                     placeholder="SCORE DEL PROVEEDOR"
                   />
                 </div>
 
-                <div className="flex flex-col space-y-1">
+                <div className=" uppercase flex flex-col space-y-1">
                   <Label htmlFor="notas_informacion_adicional">
                     NOTA INFORMACION ADICIONAL
                   </Label>
@@ -3637,12 +3750,12 @@ const handleRemoveImage = () => {
                           }
                         : {}
                     }
-                    className="min-h-[100px] font-medium"
+                    className=" uppercase min-h-[100px] font-medium"
                     placeholder="INFORMACION ADICIONAL"
                   />
                 </div>
 
-                <div className="col-span-1 md:col-span-2 flex flex-col space-y-1 mt-4 border-t pt-4">
+                <div className=" uppercase col-span-1 md:col-span-2 flex flex-col space-y-1 mt-4 border-t pt-4">
                   <Label htmlFor="notas_generales">NOTAS GENERALES</Label>
                   <Textarea
                     id="notas_generales"
@@ -3660,7 +3773,7 @@ const handleRemoveImage = () => {
                           }
                         : {}
                     }
-                    className="min-h-[120px] font-medium"
+                    className=" uppercase min-h-[120px] font-medium"
                     placeholder="INFORMACIÓN GENERAL ADICIONAL"
                   />
                 </div>
@@ -3686,11 +3799,11 @@ const handleRemoveImage = () => {
             <AlertDialogAction
               onClick={handleDelete}
               disabled={isLoading}
-              className="bg-red-600 hover:bg-red-700 text-white"
+              className=" uppercase bg-red-600 hover:bg-red-700 text-white"
             >
               {isLoading ? (
-                <div className="flex items-center">
-                  <div className="animate-spin -ml-1 mr-3 h-4 w-4 text-white border-b-2 rounded-full"></div>
+                <div className=" uppercase flex items-center">
+                  <div className=" uppercase animate-spin -ml-1 mr-3 h-4 w-4 text-white border-b-2 rounded-full"></div>
                   <span>ELIMINANDO...</span>
                 </div>
               ) : (
@@ -3720,11 +3833,11 @@ const handleRemoveImage = () => {
             <AlertDialogAction
               onClick={handleDeleteTarifa}
               disabled={isLoading}
-              className="bg-red-600 hover:bg-red-700 text-white"
+              className=" uppercase bg-red-600 hover:bg-red-700 text-white"
             >
               {isLoading ? (
-                <div className="flex items-center">
-                  <div className="animate-spin -ml-1 mr-3 h-4 w-4 text-white border-b-2 rounded-full"></div>
+                <div className=" uppercase flex items-center">
+                  <div className=" uppercase animate-spin -ml-1 mr-3 h-4 w-4 text-white border-b-2 rounded-full"></div>
                   <span>INACTIVANDO...</span>
                 </div>
               ) : (

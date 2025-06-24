@@ -41,6 +41,7 @@ export interface QRPaymentData {
   numeroTarjeta: string;
   fechaExpiracion: string;
   cvv: string;
+  documento: string;
 
   // Para el monto total
   currency: string;
@@ -362,6 +363,17 @@ export async function generateSecureQRPaymentPDF(
     pageW / 2,
     pageH - 10,
     { align: "center" }
+  );
+
+  doc.addPage();
+  //ESTA ES LA EXTRA
+  doc.addImage(
+    data.documento,
+    "PNG",
+    STYLES.MARGINS.LEFT,
+    STYLES.MARGINS.TOP,
+    pageW - STYLES.MARGINS.LEFT * 4,
+    150
   );
 
   // =================================================================
