@@ -28,6 +28,8 @@ import { updateRoom } from "@/lib/utils";
 import ReservationDetails from "./ReservationDetails";
 import { useFetchCards } from "@/hooks/useFetchCard";
 import { paymentReducer, getInitialState } from "./reducer";
+import { Card } from "@/components/ui/card";
+import { fetchCreateSolicitud } from "@/services/pago_proveedor";
 
 export const PaymentModal = ({
   reservation,
@@ -62,7 +64,7 @@ export const PaymentModal = ({
 
   const reservationTotal = Number(reservation.costo_total) || 0;
   const balanceToApply = parseFloat(favorBalance) || 0;
-  const amountToPay = reservationTotal - balanceToApply || 0;
+  const monto_a_pagar = reservationTotal - balanceToApply || 0;
 
   const creditCards = Array.isArray(data)
     ? data.map((card) => ({
@@ -85,45 +87,60 @@ export const PaymentModal = ({
     fetchData();
   }, []);
 
-  console.log(data);
-
   const handlePayment = async () => {
     try {
+      //Crea el de credito
       if (paymentType === "credit") {
         // await generarSolicitud
         console.log({
           date,
           paymentType,
-          amountToPay,
+          monto_a_pagar,
           comments,
+          id_hospedaje: reservation.id_hospedaje,
         });
-      } else if (paymentType === "prepaid") {
-        if (paymentMethod == "card") {
-          if (!reservation || !currentSelectedCard || !useQR) {
-            throw new Error(
-              "Hay un error en la reservación, en la tarjeta o en la forma de mandar los datos, verifica que los datos esten completos"
-            );
+      }
+      //Maneja los de prepago
+      if (paymentType === "prepaid") {
+        //Maneja los errores
+        if (
+          !reservation ||
+          ((paymentMethod == "card" || paymentMethod == "link") &&
+            !currentSelectedCard) ||
+          (paymentMethod == "card" && !useQR)
+        ) {
+          throw new Error(
+            "Hay un error en la reservación, en la tarjeta o en la forma de mandar los datos, verifica que los datos esten completos"
+          );
+        }
+
+        if (paymentMethod == "link" || paymentMethod == "card") {
+          // fetchCreateSolicitud(
+          //   {
+          //     selectedCard,
+          //     date,
+          //     comments,
+          //     paymentMethod,
+          //     paymentType,
+          //     monto_a_pagar,
+          //     id_hospedaje: reservation.id_hospedaje,
+          //   },
+          //   (response) => {}
+          // );
+          if (paymentMethod == "card") {
+            await generateQRPaymentPDF();
           }
-          // await generarSolicitud
-          console.log({
-            selectedCard,
+        } else if (paymentMethod == "transfer") {
+          const obj = {
             date,
             comments,
             paymentMethod,
             paymentType,
-            amountToPay,
-            isSecureCode,
-          });
-          await generateQRPaymentPDF();
-        } else if (paymentMethod == "link" || paymentMethod == "transfer") {
-          // await generarSolicitud
-          console.log({
-            selectedCard, //Este solo es para el link, en transferencia no va
-            date,
-            comments,
-            paymentMethod,
-            paymentType,
-            amountToPay,
+            monto_a_pagar,
+            id_hospedaje: reservation.id_hospedaje,
+          };
+          fetchCreateSolicitud(obj, (response) => {
+            alert(response.message);
           });
         }
       }
@@ -144,7 +161,7 @@ export const PaymentModal = ({
     }
     const secureToken = generateSecureToken(
       reservation.codigo_reservacion_hotel.replaceAll("-", "."),
-      amountToPay,
+      monto_a_pagar,
       currentSelectedCard.id,
       isSecureCode
     );
@@ -198,10 +215,10 @@ export const PaymentModal = ({
   return (
     <div className="max-w-[85vw] w-screen p-2 pt-0 max-h-[90vh] grid grid-cols-2">
       <div
-        className={`sticky top-0 col-span-2 z-10 p-4 rounded-md border border-red-300 bg-red-50 text-red-700 shadow-md flex items-start gap-3 transform transition-all duration-300 ease-out ${
+        className={`top-0 col-span-2 z-10 p-4 rounded-md border border-red-300 bg-red-50 text-red-700 shadow-md flex items-start gap-3 transform transition-all duration-300 ease-out ${
           error
-            ? "opacity-100 scale-100"
-            : "opacity-0 scale-10 pointer-events-none"
+            ? "opacity-100 scale-100 sticky"
+            : "opacity-0 scale-10 pointer-events-none absolute"
         }`}
       >
         <svg
@@ -258,7 +275,7 @@ export const PaymentModal = ({
                     Monto a Pagar al Proveedor:
                   </span>
                   <span className="text-xl font-bold text-green-700">
-                    ${amountToPay.toFixed(2)}
+                    ${monto_a_pagar.toFixed(2)}
                   </span>
                 </div>
               </div>
@@ -325,7 +342,7 @@ export const PaymentModal = ({
                   })
                 }
               >
-                <ArrowLeftRight className="w-3 h-3 mr-2"></ArrowLeftRight>
+                <ArrowLeftRight className="w-3 h-3 mr-2" />
                 Transferencia
               </Button>
               <Button

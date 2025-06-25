@@ -214,7 +214,7 @@ function App() {
         </div>
 
         {/* Reservations Table */}
-        <div className="overflow-hidden0">
+        <div className="overflow-hidden">
           {loading ? (
             <Loader></Loader>
           ) : (

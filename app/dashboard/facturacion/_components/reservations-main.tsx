@@ -15,7 +15,6 @@ import { DescargaFactura, Root } from "@/types/billing";
 import { ChevronDownIcon, ChevronUpIcon, Download } from "lucide-react";
 
 const cfdiUseOptions = [
-  { value: "P01", label: "Por definir" },
   { value: "G01", label: "Adquisición de mercancías" },
   { value: "G02", label: "Devoluciones, descuentos o bonificaciones" },
   { value: "G03", label: "Gastos en general" },
@@ -164,10 +163,37 @@ const Loader: React.FC = () => (
 
 const FacturacionModal: React.FC<{
   selectedItems: { [reservationId: string]: string[] };
-  reservations: Reservation[];
+  reservationsInit: Reservation[];
   onClose: () => void;
   onConfirm: (fiscalData: FiscalData, isConsolidated: boolean) => void;
-}> = ({ selectedItems, reservations, onClose, onConfirm }) => {
+}> = ({ selectedItems, reservationsInit, onClose, onConfirm }) => {
+  // console.log("reservationInit", reservationsInit);
+  // console.log("selectedItems", selectedItems);
+  // console.log(reservationsInit.map((reserva) => reserva.items));
+
+  // const reservations = reservationsInit;
+  // const reservations = reservationsInit
+  //   .filter((reserva) => reserva.items != null)
+  //   .map((reserva) => ({
+  //     ...reserva,
+  //     items: reserva.items.map((item) => ({
+  //       ...item,
+  //       subtotal: (Number(item.total) / 1.16).toFixed(2),
+  //       impuestos: (item.total - Number(item.total) / 1.16).toFixed(2),
+  //     })),
+  //   }));
+  const [reservations, setReservations] = useState(
+    reservationsInit
+      .filter((reserva) => reserva.items != null)
+      .map((reserva) => ({
+        ...reserva,
+        items: reserva.items.map((item) => ({
+          ...item,
+          subtotal: (Number(item.total) / 1.16).toFixed(2),
+          impuestos: (item.total - Number(item.total) / 1.16).toFixed(2),
+        })),
+      }))
+  );
   const [fiscalDataList, setFiscalDataList] = useState<FiscalData[]>([]);
   const [selectedFiscalData, setSelectedFiscalData] =
     useState<FiscalData | null>(null);
@@ -214,16 +240,21 @@ const FacturacionModal: React.FC<{
           const selectedItemIds = selectedItems[reserva.id_servicio] || [];
           const items = Array.isArray(reserva.items)
             ? reserva.items.filter((item) =>
-              selectedItemIds.includes(item.id_item)
-            )
+                selectedItemIds.includes(item.id_item)
+              )
             : [];
 
           return {
             ...reserva,
-            items,
+            items: items.map((item) => ({
+              ...item,
+              subtotal: item.total / 1.16,
+            })),
             nightsCount: items.length,
           };
         });
+
+      console.log("preparedReservations: ", preparedReservations);
 
       setReservationsWithSelectedItems(preparedReservations);
 
@@ -238,7 +269,7 @@ const FacturacionModal: React.FC<{
             const data = await fetchEmpresasDatosFiscales(
               preparedReservations[0].id_usuario_generador
             );
-            console.log(data)
+            console.log(data);
             setFiscalDataList(data);
             if (data.length > 0) {
               setSelectedFiscalData(data[0]);
@@ -319,16 +350,23 @@ const FacturacionModal: React.FC<{
               Total: totalAmount.toFixed(2),
             },
           ],
-          Observations: `DETALLE DE RESERVACIONES: ${reservationsWithSelectedItems.map(reserva => {
-            const selectedItemsForReserva = reserva.items.filter(item =>
-              selectedItems[reserva.id_servicio]?.includes(item.id_item)
-            );
+          Observations: `DETALLE DE RESERVACIONES: ${reservationsWithSelectedItems
+            .map((reserva) => {
+              const selectedItemsForReserva = reserva.items.filter((item) =>
+                selectedItems[reserva.id_servicio]?.includes(item.id_item)
+              );
 
-            const nochesReales = selectedItemsForReserva.length;
+              const nochesReales = selectedItemsForReserva.length;
 
-            return `${reserva.hotel} - ${formatDate(reserva.check_in)} AL ${formatDate(reserva.check_out)} - ${nochesReales} NOCHES(S) - ${reserva.nombre_viajero_completo}`;
-          }).join(' | ')
-            }`
+              return `${reserva.hotel} - ${formatDate(
+                reserva.check_in
+              )} AL ${formatDate(
+                reserva.check_out
+              )} - ${nochesReales} NOCHES(S) - ${
+                reserva.nombre_viajero_completo
+              }`;
+            })
+            .join(" | ")}`,
         }));
       } else {
         // Factura detallada - un concepto por reservación con suma EXACTA de items seleccionados
@@ -345,9 +383,14 @@ const FacturacionModal: React.FC<{
           Items: reservationsWithSelectedItems
             .map((reserva) => {
               // Filtrar solo los items seleccionados para esta reserva
-              const selectedItemsForReserva = reserva.items.filter((item) =>
-                selectedItems[reserva.id_servicio]?.includes(item.id_item)
-              );
+              const selectedItemsForReserva = reserva.items
+                .filter((item) =>
+                  selectedItems[reserva.id_servicio]?.includes(item.id_item)
+                )
+                .map((item) => ({
+                  ...item,
+                  subtotal: (Number(item.total) / 1.16).toFixed(2),
+                }));
 
               // Validar que hay items seleccionados
               if (selectedItemsForReserva.length === 0) {
@@ -386,7 +429,9 @@ const FacturacionModal: React.FC<{
                   reserva.check_in
                 )} AL ${formatDate(
                   reserva.check_out
-                )} (${selectedNightsCount} NOCHES) - ${reserva.nombre_viajero_completo}`,
+                )} (${selectedNightsCount} NOCHES) - ${
+                  reserva.nombre_viajero_completo
+                }`,
                 //IdentificationNumber: `HSP-${reserva.id_servicio}`,
                 UnitPrice: subtotalSelected.toFixed(2),
                 Subtotal: subtotalSelected.toFixed(2),
@@ -536,19 +581,32 @@ const FacturacionModal: React.FC<{
           {/* Sección de vista previa de factura */}
           <div className="mb-6 border rounded-md p-4 bg-gray-50">
             <h4 className="text-md font-medium text-gray-900 mb-3">
-              Vista previa de factura ({isConsolidated ? "Consolidada" : "Detallada"})
+              Vista previa de factura (
+              {isConsolidated ? "Consolidada" : "Detallada"})
             </h4>
 
             <div className="overflow-x-auto">
               <table className="min-w-full border border-gray-200">
                 <thead className="bg-gray-100">
                   <tr>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-b">Producto</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-b">Cantidad</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-b">Unidad</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-b">Concepto(s)</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-b">Precio U</th>
-                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-b">Importe</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-b">
+                      Producto
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-b">
+                      Cantidad
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-b">
+                      Unidad
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-b">
+                      Concepto(s)
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-b">
+                      Precio U
+                    </th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase border-b">
+                      Importe
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -558,45 +616,83 @@ const FacturacionModal: React.FC<{
                       <tr>
                         <td className="px-3 py-2 text-sm border-b">90121500</td>
                         <td className="px-3 py-2 text-sm border-b">1</td>
-                        <td className="px-3 py-2 text-sm border-b">E48
+                        <td className="px-3 py-2 text-sm border-b">
+                          E48
                           <p>Unidad de servicio</p>
                         </td>
                         <td className="px-3 py-2 text-sm border-b">
                           <div>
-
-                            <p className="text-gray-600">HOSPEDAJE - {totalNights} NOCHES(S) EN {reservationsWithSelectedItems.length} RESERVAS(S)</p>
-                            <p className="text-gray-600">02 - Con objeto de impuesto</p>
                             <p className="text-gray-600">
-                              Traslados:<br />
-                              IVA: 002, Base: ${totalAmount.toFixed(2)}, Tasa: 0.160000, Importe: ${(totalAmount * 0.16).toFixed(2)}
+                              HOSPEDAJE - {totalNights} NOCHES(S) EN{" "}
+                              {reservationsWithSelectedItems.length} RESERVAS(S)
+                            </p>
+                            <p className="text-gray-600">
+                              02 - Con objeto de impuesto
+                            </p>
+                            <p className="text-gray-600">
+                              Traslados:
+                              <br />
+                              IVA: 002, Base: ${totalAmount.toFixed(2)}, Tasa:
+                              0.160000, Importe: $
+                              {(totalAmount * 0.16).toFixed(2)}
                             </p>
                           </div>
                         </td>
-                        <td className="px-3 py-2 text-sm border-b">${totalAmount.toFixed(2)}</td>
-                        <td className="px-3 py-2 text-sm border-b">${totalAmount.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-sm border-b">
+                          ${totalAmount.toFixed(2)}
+                        </td>
+                        <td className="px-3 py-2 text-sm border-b">
+                          ${totalAmount.toFixed(2)}
+                        </td>
                       </tr>
                     </>
                   ) : (
                     // Vista previa detallada
-                    reservationsWithSelectedItems.slice(0, 2).map((reserva, index) => (
-                      <tr key={`preview-${reserva.id_solicitud}`}>
-                        <td className="px-3 py-2 text-sm border-b">90121500</td>
-                        <td className="px-3 py-2 text-sm border-b">1</td>
-                        <td className="px-3 py-2 text-sm border-b">E48<p>Unidad de servicio</p></td>
-                        <td className="px-3 py-2 text-sm border-b">
-                          <div>
-                            <p className="text-gray-600">HOSPEDAJE EN {reserva.hotel} - DEL {formatDate(reserva.check_in)} AL {formatDate(reserva.check_out)} ({reserva.nightsCount} NOCHES) - {reserva.nombre_viajero_completo}</p>
-                            <p className="text-gray-600">02 - Con objeto de impuesto</p>
-                          </div>
-                        </td>
-                        <td className="px-3 py-2 text-sm border-b">
-                          ${parseFloat(reserva.items.reduce((sum, item) => sum + parseFloat(item.total), 0)).toFixed(2)}
-                        </td>
-                        <td className="px-3 py-2 text-sm border-b">
-                          ${parseFloat(reserva.items.reduce((sum, item) => sum + parseFloat(item.total), 0)).toFixed(2)}
-                        </td>
-                      </tr>
-                    ))
+                    reservationsWithSelectedItems
+                      .slice(0, 2)
+                      .map((reserva, index) => (
+                        <tr key={`preview-${reserva.id_solicitud}`}>
+                          <td className="px-3 py-2 text-sm border-b">
+                            90121500
+                          </td>
+                          <td className="px-3 py-2 text-sm border-b">1</td>
+                          <td className="px-3 py-2 text-sm border-b">
+                            E48<p>Unidad de servicio</p>
+                          </td>
+                          <td className="px-3 py-2 text-sm border-b">
+                            <div>
+                              <p className="text-gray-600">
+                                HOSPEDAJE EN {reserva.hotel} - DEL{" "}
+                                {formatDate(reserva.check_in)} AL{" "}
+                                {formatDate(reserva.check_out)} (
+                                {reserva.nightsCount} NOCHES) -{" "}
+                                {reserva.nombre_viajero_completo}
+                              </p>
+                              <p className="text-gray-600">
+                                02 - Con objeto de impuesto
+                              </p>
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 text-sm border-b">
+                            $
+                            {parseFloat(
+                              reserva.items.reduce(
+                                (sum, item) => sum + parseFloat(item.total),
+                                0
+                              )
+                            ).toFixed(2)}
+                          </td>
+                          <td className="px-3 py-2 text-sm border-b">
+                            $
+                            {parseFloat(
+                              reserva.items.reduce(
+                                (sum, item) => sum + parseFloat(item.total),
+                                0
+                              )
+                            ).toFixed(2)}
+                          </td>
+                        </tr>
+                      ))
                   )}
                 </tbody>
               </table>
@@ -788,11 +884,12 @@ const FacturacionModal: React.FC<{
                   {fiscalDataList.map((data) => (
                     <div
                       key={data.id_datos_fiscales}
-                      className={`border rounded-md p-4 cursor-pointer ${selectedFiscalData?.id_datos_fiscales ===
+                      className={`border rounded-md p-4 cursor-pointer ${
+                        selectedFiscalData?.id_datos_fiscales ===
                         data.id_datos_fiscales
-                        ? "border-blue-500 bg-blue-50"
-                        : "border-gray-200"
-                        }`}
+                          ? "border-blue-500 bg-blue-50"
+                          : "border-gray-200"
+                      }`}
                       onClick={() => setSelectedFiscalData(data)}
                     >
                       <div className="flex justify-between">
@@ -901,12 +998,13 @@ const FacturacionModal: React.FC<{
                   loading ||
                   reservationsWithSelectedItems.length === 0
                 }
-                className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${!selectedFiscalData ||
+                className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
+                  !selectedFiscalData ||
                   loading ||
                   reservationsWithSelectedItems.length === 0
-                  ? "bg-blue-400 cursor-not-allowed"
-                  : "bg-blue-600 hover:bg-blue-700"
-                  } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
+                    ? "bg-blue-400 cursor-not-allowed"
+                    : "bg-blue-600 hover:bg-blue-700"
+                } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
               >
                 {loading
                   ? "Generando factura..."
@@ -1162,7 +1260,9 @@ export function ReservationsMain() {
       const matchesSearch =
         !filterOptions.searchTerm ||
         reservation.hotel.toLowerCase().includes(searchLower) ||
-        reservation.codigo_reservacion_hotel.toLowerCase().includes(searchLower) ||
+        reservation.codigo_reservacion_hotel
+          .toLowerCase()
+          .includes(searchLower) ||
         reservation.nombre_agente_completo
           .toLowerCase()
           .includes(searchLower) ||
@@ -1191,10 +1291,13 @@ export function ReservationsMain() {
           price >= filterOptions.priceRangeFilter.min) &&
         (filterOptions.priceRangeFilter.max === null ||
           price <= filterOptions.priceRangeFilter.max);
-      const isConfirmada =
-        (filterOptions.estado === "Confirmada");
+      const isConfirmada = filterOptions.estado === "Confirmada";
       return (
-        matchesSearch && matchesStatus && matchesDateRange && matchesPriceRange && isConfirmada
+        matchesSearch &&
+        matchesStatus &&
+        matchesDateRange &&
+        matchesPriceRange &&
+        isConfirmada
       );
     });
   };
@@ -1300,8 +1403,9 @@ export function ReservationsMain() {
                     ? "Ocultar filtros avanzados"
                     : "Mostrar filtros avanzados"}
                   <span
-                    className={`ml-2 transition-transform duration-200 ${isAdvancedFiltersOpen ? "rotate-180" : ""
-                      }`}
+                    className={`ml-2 transition-transform duration-200 ${
+                      isAdvancedFiltersOpen ? "rotate-180" : ""
+                    }`}
                   >
                     ▼
                   </span>
@@ -1495,7 +1599,6 @@ export function ReservationsMain() {
                       check out
                     </th>
 
-
                     <th
                       scope="col"
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
@@ -1617,8 +1720,6 @@ export function ReservationsMain() {
                             )}
                           </td>
 
-
-
                           <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-700 capitalize">
                             {reservation.room}
                           </td>
@@ -1650,108 +1751,109 @@ export function ReservationsMain() {
                         {expandedReservations.includes(
                           reservation.id_servicio
                         ) && (
-                            <tr className="bg-gray-50">
-                              <td colSpan={13} className="px-6 py-4">
-                                <div className="ml-8">
-                                  <h4 className="text-xs font-medium text-gray-700 mb-2">
-                                    Items (Noches) de la reservación
-                                  </h4>
-                                  <div className="flex items-center mb-2">
-                                    <span className="text-xs text-gray-500">
-                                      {
-                                        reservation.items.filter(
-                                          (item) => item.id_factura == null
-                                        ).length
-                                      }{" "}
-                                      noche(s) pendientes por facturar
-                                    </span>
-                                  </div>
-                                  <table className="min-w-full divide-y divide-gray-200">
-                                    <thead className="bg-gray-100">
-                                      <tr>
-                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                          Selección
-                                        </th>
-                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                          Fecha de uso
-                                        </th>
-                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                          Subtotal
-                                        </th>
-                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                          Impuestos
-                                        </th>
-                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                          Total
-                                        </th>
-                                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                          Estado facturación
-                                        </th>
-                                      </tr>
-                                    </thead>
-                                    <tbody className="bg-white divide-y divide-gray-200">
-                                      {reservation.items.map((item) => (
-                                        <tr
-                                          key={item.id_item}
-                                          className={`hover:bg-gray-50 ${item.id_factura != null
+                          <tr className="bg-gray-50">
+                            <td colSpan={13} className="px-6 py-4">
+                              <div className="ml-8">
+                                <h4 className="text-xs font-medium text-gray-700 mb-2">
+                                  Items (Noches) de la reservación
+                                </h4>
+                                <div className="flex items-center mb-2">
+                                  <span className="text-xs text-gray-500">
+                                    {
+                                      reservation.items.filter(
+                                        (item) => item.id_factura == null
+                                      ).length
+                                    }{" "}
+                                    noche(s) pendientes por facturar
+                                  </span>
+                                </div>
+                                <table className="min-w-full divide-y divide-gray-200">
+                                  <thead className="bg-gray-100">
+                                    <tr>
+                                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Selección
+                                      </th>
+                                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Fecha de uso
+                                      </th>
+                                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Subtotal
+                                      </th>
+                                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Impuestos
+                                      </th>
+                                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Total
+                                      </th>
+                                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Estado facturación
+                                      </th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="bg-white divide-y divide-gray-200">
+                                    {reservation.items.map((item) => (
+                                      <tr
+                                        key={item.id_item}
+                                        className={`hover:bg-gray-50 ${
+                                          item.id_factura != null
                                             ? "bg-gray-100"
                                             : ""
-                                            }`}
-                                        >
-                                          <td className="px-4 py-2 whitespace-nowrap">
-                                            <input
-                                              type="checkbox"
-                                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                              checked={isItemSelected(
+                                        }`}
+                                      >
+                                        <td className="px-4 py-2 whitespace-nowrap">
+                                          <input
+                                            type="checkbox"
+                                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                            checked={isItemSelected(
+                                              reservation.id_servicio,
+                                              item.id_item
+                                            )}
+                                            onChange={() =>
+                                              toggleItemSelection(
                                                 reservation.id_servicio,
                                                 item.id_item
-                                              )}
-                                              onChange={() =>
-                                                toggleItemSelection(
-                                                  reservation.id_servicio,
-                                                  item.id_item
-                                                )
-                                              }
-                                              disabled={item.id_factura != null}
-                                            />
-                                          </td>
-                                          <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-500">
-                                            {item.fecha_uso}
-                                          </td>
-                                          <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-500">
-                                            {formatCurrency(
-                                              item.subtotal.toString()
-                                            )}
-                                          </td>
-                                          <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-500">
-                                            {formatCurrency(
-                                              item.impuestos.toString()
-                                            )}
-                                          </td>
-                                          <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-500">
-                                            {formatCurrency(
-                                              item.total.toString()
-                                            )}
-                                          </td>
-                                          <td className="px-4 py-2 whitespace-nowrap text-xs">
-                                            {item.id_factura != null ? (
-                                              <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                                                Facturado
-                                              </span>
-                                            ) : (
-                                              <span className="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                                                Pendiente
-                                              </span>
-                                            )}
-                                          </td>
-                                        </tr>
-                                      ))}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              </td>
-                            </tr>
-                          )}
+                                              )
+                                            }
+                                            disabled={item.id_factura != null}
+                                          />
+                                        </td>
+                                        <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-500">
+                                          {item.fecha_uso}
+                                        </td>
+                                        <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-500">
+                                          {formatCurrency(
+                                            item.subtotal.toString()
+                                          )}
+                                        </td>
+                                        <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-500">
+                                          {formatCurrency(
+                                            item.impuestos.toString()
+                                          )}
+                                        </td>
+                                        <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-500">
+                                          {formatCurrency(
+                                            item.total.toString()
+                                          )}
+                                        </td>
+                                        <td className="px-4 py-2 whitespace-nowrap text-xs">
+                                          {item.id_factura != null ? (
+                                            <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                              Facturado
+                                            </span>
+                                          ) : (
+                                            <span className="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                              Pendiente
+                                            </span>
+                                          )}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
                       </React.Fragment>
                     ))
                   )}
@@ -1766,7 +1868,7 @@ export function ReservationsMain() {
       {showFacturacionModal && (
         <FacturacionModal
           selectedItems={selectedItems}
-          reservations={reservations}
+          reservationsInit={reservations}
           onClose={() => setShowFacturacionModal(false)}
           onConfirm={confirmFacturacion}
         />
