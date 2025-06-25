@@ -28,6 +28,8 @@ import { updateRoom } from "@/lib/utils";
 import ReservationDetails from "./ReservationDetails";
 import { useFetchCards } from "@/hooks/useFetchCard";
 import { paymentReducer, getInitialState } from "./reducer";
+import { Card } from "@/components/ui/card";
+import { fetchCreateSolicitud } from "@/services/pago_proveedor";
 
 export const PaymentModal = ({
   reservation,
@@ -85,10 +87,9 @@ export const PaymentModal = ({
     fetchData();
   }, []);
 
-  console.log(data);
-
   const handlePayment = async () => {
     try {
+      //Crea el de credito
       if (paymentType === "credit") {
         // await generarSolicitud
         console.log({
@@ -98,35 +99,48 @@ export const PaymentModal = ({
           comments,
           id_hospedaje: reservation.id_hospedaje,
         });
-      } else if (paymentType === "prepaid") {
-        if (paymentMethod == "card") {
-          if (!reservation || !currentSelectedCard || !useQR) {
-            throw new Error(
-              "Hay un error en la reservación, en la tarjeta o en la forma de mandar los datos, verifica que los datos esten completos"
-            );
+      }
+      //Maneja los de prepago
+      if (paymentType === "prepaid") {
+        //Maneja los errores
+        if (
+          !reservation ||
+          ((paymentMethod == "card" || paymentMethod == "link") &&
+            !currentSelectedCard) ||
+          (paymentMethod == "card" && !useQR)
+        ) {
+          throw new Error(
+            "Hay un error en la reservación, en la tarjeta o en la forma de mandar los datos, verifica que los datos esten completos"
+          );
+        }
+
+        if (paymentMethod == "link" || paymentMethod == "card") {
+          // fetchCreateSolicitud(
+          //   {
+          //     selectedCard,
+          //     date,
+          //     comments,
+          //     paymentMethod,
+          //     paymentType,
+          //     monto_a_pagar,
+          //     id_hospedaje: reservation.id_hospedaje,
+          //   },
+          //   (response) => {}
+          // );
+          if (paymentMethod == "card") {
+            await generateQRPaymentPDF();
           }
-          // await generarSolicitud
-          console.log({
-            selectedCard,
-            date,
-            comments,
-            paymentMethod,
-            paymentType,
-            monto_a_pagar,
-            isSecureCode,
-            id_hospedaje: reservation.id_hospedaje,
-          });
-          await generateQRPaymentPDF();
-        } else if (paymentMethod == "link" || paymentMethod == "transfer") {
-          // await generarSolicitud
-          console.log({
-            selectedCard, //Este solo es para el link, en transferencia no va
+        } else if (paymentMethod == "transfer") {
+          const obj = {
             date,
             comments,
             paymentMethod,
             paymentType,
             monto_a_pagar,
             id_hospedaje: reservation.id_hospedaje,
+          };
+          fetchCreateSolicitud(obj, (response) => {
+            alert(response.message);
           });
         }
       }

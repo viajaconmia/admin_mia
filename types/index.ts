@@ -394,3 +394,22 @@ export interface CreditCardInfo {
   cvv: string;
   url_identificacion: string | null;
 }
+
+export type SuccessResponse<T = any> = {
+  ok: true;
+  message: string;
+  data: T;
+};
+
+type ErrorDetails = {
+  message: string;
+  [key: string]: unknown;
+};
+
+export type ErrorResponse = {
+  ok: false;
+  error: string;
+  details: ErrorDetails;
+};
+
+export type GeneralResponse<T = any> = SuccessResponse<T> | ErrorResponse;
