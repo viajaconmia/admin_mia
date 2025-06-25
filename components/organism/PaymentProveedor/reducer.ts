@@ -49,8 +49,22 @@ export function paymentReducer(
 ): PaymentState {
   switch (action.type) {
     case "SET_FIELD":
-      return { ...state, [action.field]: action.payload };
+      return showWarning(state, action);
     default:
       return state;
   }
+}
+
+function showWarning(state: PaymentState, action: Action) {
+  let response = { ...state, [action.field]: action.payload };
+  if (action.field == "paymentType" && action.payload == "credit") {
+    response = {
+      ...response,
+      error:
+        "Esta parte aun no esta procesada, todo lo que hagas aqui esta en prueba",
+    };
+  } else if (action.field == "paymentType" && action.payload != "credit") {
+    response = { ...response, error: "" };
+  }
+  return response;
 }

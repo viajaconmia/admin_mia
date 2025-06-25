@@ -1418,9 +1418,10 @@ export function AddHotelDialog({
                   <Textarea
                     id="menoresEdad"
                     value={formData.menoresEdad}
-                    onChange={(e) =>
-                      handleChange("menoresEdad", e.target.value.toUpperCase())
-                    }
+                    onChange={(e) => {
+                      console.log("hiola");
+                      handleChange("menoresEdad", e.target.value.toUpperCase());
+                    }}
                     placeholder="INFORMACION SOBRE ESTADIA DE MENORES"
                   />
                 </div>

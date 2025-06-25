@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  LayoutDashboard,
   FileText,
   BookOpen,
   Users,
@@ -10,7 +9,6 @@ import {
   Receipt,
   Clock,
   Shield,
-  Banknote,
 } from "lucide-react";
 import NavContainer from "@/components/organism/NavContainer";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -47,6 +45,11 @@ const links = [
   //   href: "/dashboard/credito",
   //   icon: CreditCard,
   // },
+  {
+    title: "Pagos proveedor",
+    href: "/dashboard/pagos_proveedor",
+    icon: CreditCard,
+  },
   {
     title: "Solicitudes",
     href: "/dashboard/solicitudes",
