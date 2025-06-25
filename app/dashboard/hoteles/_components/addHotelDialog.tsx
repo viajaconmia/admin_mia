@@ -26,6 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { quitarAcentos } from "./hotel-dialog";
 import { normalizarEstado } from "./hotel-dialog";
+import { uploadHotelImage } from "../_utils/uploadHotelImage";
 
 // Interfaces
 interface CodigoPostalData {
@@ -172,7 +173,7 @@ const buscarAgentes = async (nombre: string, correo: string) => {
   try {
     const response = await fetch(
       //`http://localhost:5173/v1/mia/agentes/get-agente-id?nombre=${encodeURIComponent(nombre)}&correo=${encodeURIComponent(correo)}`,
-      `${URL}agentes/get-agente-id?nombre=${encodeURIComponent(
+      `${URL}/mia/agentes/get-agente-id?nombre=${encodeURIComponent(
         nombre
       )}&correo=${encodeURIComponent(correo)}`,
       {
@@ -333,6 +334,10 @@ export function AddHotelDialog({
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [activeTab, setActiveTab] = useState("datosBasicos");
+  const [imageUploadStatus, setImageUploadStatus] = useState<
+    "idle" | "loading" | "success" | "error"
+  >("idle");
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
 
   // Sync breakfast data between single and double rooms
   useEffect(() => {
@@ -683,6 +688,19 @@ export function AddHotelDialog({
       // Combine all notes fields
       const combinedNotes = combineNotes();
 
+      // Subir imagen si hay archivo seleccionado
+      let imageUrl = formData.urlImagenHotel;
+      if (selectedImageFile) {
+        setImageUploadStatus("loading");
+        const { publicUrl } = await uploadHotelImage({
+          file: selectedImageFile,
+          url: URL,
+          apiKey: API_KEY || "",
+        });
+        imageUrl = publicUrl;
+        setImageUploadStatus("success");
+      }
+
       const payload = {
         id_excel: formData.id_excel ? Number(formData.id_excel) : null,
         tipo_negociacion: formData.tipo_negociacion || null,
@@ -724,7 +742,7 @@ export function AddHotelDialog({
         transportacionComentarios: formData.transportacionComentarios || null,
         mascotas: formData.mascotas || null,
         salones: formData.salones || null,
-        urlImagenHotel: formData.urlImagenHotel || null,
+        urlImagenHotel: imageUrl || null,
         urlImagenHotelQ: formData.urlImagenHotelQ || null,
         urlImagenHotelQQ: formData.urlImagenHotelQQ || null,
         comentario_pago: formData.comentario_pago || null,
@@ -804,7 +822,7 @@ export function AddHotelDialog({
 
       const response = await fetch(
         //"http://localhost:3001/v1/mia/hoteles/Agregar-hotel/"
-        `${URL}hoteles/Agregar-hotel/`,
+        `${URL}/mia/hoteles/Agregar-hotel/`,
         {
           method: "POST",
           headers: {
@@ -913,6 +931,29 @@ export function AddHotelDialog({
     setTarifasPreferenciales([]);
     setSuccessMessage("");
     setErrorMessage("");
+  };
+
+  // Handler for image upload
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSelectedImageFile(file);
+    setFormData((prev) => ({
+      ...prev,
+      urlImagenHotel: "", // Limpiar la URL previa si hay una nueva selección
+    }));
+    setImageUploadStatus("idle");
+  };
+
+  const handleRemoveImage = () => {
+    setSelectedImageFile(null);
+    setFormData((prev) => ({
+      ...prev,
+      urlImagenHotel: "",
+    }));
+    setImageUploadStatus("idle");
+    const input = document.getElementById("uploadImageInput") as HTMLInputElement | null;
+    if (input) input.value = "";
   };
 
   return (
@@ -1275,17 +1316,53 @@ export function AddHotelDialog({
                   placeholder="NOMBRE Y DATOS DE CONTACTO"
                 />
               </div>
-
               <div className="flex flex-col space-y-1">
-                <Label htmlFor="urlImagenHotel">IMAGEN HOTEL (URL)</Label>
-                <Input
-                  id="urlImagenHotel"
-                  value={formData.urlImagenHotel}
-                  onChange={(e) =>
-                    handleChange("urlImagenHotel", e.target.value)
-                  }
-                  placeholder="HTTPS://EJEMPLO.COM/IMAGEN.JPG"
+                <Label htmlFor="uploadImage">Imagen del Hotel</Label>
+                {selectedImageFile && (
+                  <span className="text-xs text-muted-foreground break-all">
+                    {selectedImageFile.name}
+                  </span>
+                )}
+                {formData.urlImagenHotel && !selectedImageFile && (
+                  <span className="text-xs text-muted-foreground break-all">
+                    {formData.urlImagenHotel}
+                  </span>
+                )}
+
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    type="button"
+                    disabled={imageUploadStatus === "loading"}
+                    onClick={() => document.getElementById("uploadImageInput")?.click()}
+                  >
+                    Seleccionar Imagen
+                  </Button>
+                  {(selectedImageFile || formData.urlImagenHotel) && (
+                    <Button
+                      variant="destructive"
+                      type="button"
+                      onClick={handleRemoveImage}
+                    >
+                      Eliminar selección
+                    </Button>
+                  )}
+                </div>
+
+                <input
+                  id="uploadImageInput"
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  onChange={handleImageChange}
                 />
+
+                {imageUploadStatus === "success" && (
+                  <p className="text-green-600 text-sm">Imagen subida correctamente</p>
+                )}
+                {imageUploadStatus === "error" && (
+                  <p className="text-red-600 text-sm">Error al subir la imagen</p>
+                )}
               </div>
 
               <div className="flex flex-col space-y-1">
@@ -2131,7 +2208,7 @@ export function AddHotelDialog({
                     handleChange("transportacion", e.target.value.toUpperCase())
                   }
                   placeholder="DETALLES DE TRANSPORTACION"
-                  className="min-h-[100px]"
+                                   className="min-h-[100px]"
                 />
               </div>
               <div className="flex flex-col space-y-1">
