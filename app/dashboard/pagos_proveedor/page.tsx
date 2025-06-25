@@ -157,7 +157,7 @@ function App() {
     ),
   };
 
-  const handleFetchSolicitudes = () => {
+  const handleFetchSolicitudesPago = () => {
     setLoading(true);
     fetchGetSolicitudesProveedores((data) => {
       setSolicitudesPago(data);
@@ -166,7 +166,7 @@ function App() {
   };
 
   useEffect(() => {
-    handleFetchSolicitudes();
+    handleFetchSolicitudesPago();
   }, [filters]);
 
   return (
