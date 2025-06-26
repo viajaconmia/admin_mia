@@ -3,6 +3,7 @@ import {
   ErrorResponse,
   GeneralResponse,
   Solicitud,
+  SolicitudProveedor,
   SuccessResponse,
 } from "@/types";
 import { PaymentData } from "@/types/pago_proveedor";
@@ -50,10 +51,10 @@ export const fetchCreateSolicitud = async (
   }
 };
 export const fetchGetSolicitudesProveedores = async (
-  callback: (response: SuccessResponse<Solicitud>) => void
+  callback: (response: SuccessResponse<SolicitudProveedor[]>) => void
 ) => {
   try {
-    const response: GeneralResponse<PaymentData> = await fetch(
+    const response: GeneralResponse<SolicitudProveedor[]> = await fetch(
       `${URL}/mia/pago_proveedor/solicitud`,
       {
         headers: {

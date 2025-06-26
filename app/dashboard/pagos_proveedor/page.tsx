@@ -13,32 +13,24 @@ import {
   getWhoCreateBadge,
 } from "@/helpers/utils";
 import { Table } from "@/components/Table";
-import Modal from "@/components/organism/Modal";
-import { TypeFilters, Solicitud } from "@/types";
+// import Modal from "@/components/organism/Modal";
+// import { FileUpload } from "@/components/atom/FileUpload";
+// import { PaymentForm } from "@/components/organism/paymentFormProveedor/PaymentForm";
+import { TypeFilters, Solicitud, SolicitudProveedor } from "@/types";
 import { Loader } from "@/components/atom/Loader";
 import { currentDate } from "@/lib/utils";
 import { fetchGetSolicitudesProveedores } from "@/services/pago_proveedor";
-import { FileUpload } from "@/components/atom/FileUpload";
-import { PaymentForm } from "@/components/organism/paymentFormProveedor/PaymentForm";
 
 function App() {
-  const [solicitudesPago, setSolicitudesPago] = useState<Solicitud[]>([]);
-  const [modalTab, setModalTab] = useState<null | "factura" | "edit">(null);
-  const [selectedItem, setSelectedItem] = useState<Solicitud | null>(null);
+  const [solicitudesPago, setSolicitudesPago] = useState<SolicitudProveedor[]>(
+    []
+  );
+  // const [selectedItem, setSelectedItem] = useState<Solicitud | null>(null);
   const [searchTerm, setSearchTerm] = useState<string | null>("");
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState<TypeFilters>(
     defaultFiltersSolicitudes
   );
-
-  const handleEdit = (item: Solicitud) => {
-    setSelectedItem(item);
-    setModalTab("edit");
-  };
-  const handleUploadFactura = (item: Solicitud) => {
-    setSelectedItem(item);
-    setModalTab("factura");
-  };
 
   let formatedSolicitudes = solicitudesPago
     .filter(
@@ -71,24 +63,26 @@ function App() {
       metodo_de_pago: item.id_credito ? "credito" : "contado",
       reservante: item.id_usuario_generador ? "Cliente" : "Operaciones",
       etapa_reservacion: item.estado_reserva,
-      estado_pago_proveedor: "",
-      estado_factura_proveedor: "",
+      estado_pago_proveedor: item.solicitud_proveedor.estado_solicitud,
+      estado_factura_proveedor: item.solicitud_proveedor.estado_facturacion,
       estado: item.status,
-      fecha_solicitud: "",
-      razon_social: "",
-      rfc: "",
-      forma_de_pago: "",
-      tipo_de_pago: "",
-      digitos_tajeta: "",
-      banco: "",
-      tipo_tarjeta: "",
-      costo_real_cobrado: "",
+      fecha_solicitud: item.solicitud_proveedor.fecha_solicitud,
+      razon_social: item.proveedor.razon_social,
+      rfc: item.proveedor.rfc,
+      forma_de_pago_solicitada: item.solicitud_proveedor.forma_pago_solicitada,
+      digitos_tajeta: item.tarjeta.ultimos_4,
+      banco: item.tarjeta.banco_emisor,
+      tipo_tarjeta: item.tarjeta.tipo_tarjeta,
+      // costo_real_cobrado: item.pagos.reduce(
+      //   (acc, pago) => acc + Number(pago.costo_real_cobrado || 0),
+      //   0
+      // ),
       fecha_real_cobro: "",
       costo_facturado: "",
       fecha_facturacion: "",
       UUID: "",
-      subir_factura: item,
-      editar: item,
+      // subir_factura: item,
+      // editar: item,
     }));
 
   let componentes = {
@@ -137,30 +131,12 @@ function App() {
     reservante: (props) => getWhoCreateBadge(props.value),
     etapa_reservacion: (props) => getStageBadge(props.value),
     estado: (props: any) => getStatusBadge(props.value),
-    subir_factura: (props: any) => (
-      <button
-        onClick={() => handleUploadFactura(props.value)}
-        className="text-blue-600 hover:text-blue-900 transition duration-150 ease-in-out flex gap-2 items-center"
-      >
-        <Upload className="w-4 h-4" />
-        Subir factura
-      </button>
-    ),
-    editar: (props: any) => (
-      <button
-        onClick={() => handleEdit(props.value)}
-        className="text-blue-600 hover:text-blue-900 transition duration-150 ease-in-out flex gap-2 items-center"
-      >
-        <Pencil className="w-4 h-4" />
-        Editar
-      </button>
-    ),
   };
 
   const handleFetchSolicitudesPago = () => {
     setLoading(true);
     fetchGetSolicitudesProveedores((data) => {
-      setSolicitudesPago(data);
+      setSolicitudesPago(data.data);
       setLoading(false);
     });
   };
@@ -196,11 +172,10 @@ function App() {
             ></Table>
           )}
         </div>
-        {selectedItem && (
+        {/* {selectedItem && (
           <Modal
             onClose={() => {
               setSelectedItem(null);
-              setModalTab(null);
             }}
             title={
               modalTab == "edit"
@@ -224,7 +199,7 @@ function App() {
               ></FileUpload>
             )}
           </Modal>
-        )}
+        )} */}
       </div>
     </div>
   );
