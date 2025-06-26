@@ -502,7 +502,7 @@ const FacturacionModal: React.FC<{
           {
             ...cfdi,
             Currency: "MXN",
-            OrderNumber: "12345",
+            OrderNumber: Math.round(Math.random() * 999999999).toString(),
             Date: formattedDate,
           },
           {
