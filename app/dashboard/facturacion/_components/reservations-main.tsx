@@ -406,7 +406,9 @@ const FacturacionModal: React.FC<{
                 0
               );
               const ivaSelected = selectedItemsForReserva.reduce(
-                (sum, item) => sum + parseFloat(item.total),
+                (sum, item) =>
+                  sum +
+                  parseFloat(((Number(item.total) / 1.16) * 0.16).toFixed(2)),
                 0
               );
               const totalSelected = subtotalSelected + ivaSelected;
