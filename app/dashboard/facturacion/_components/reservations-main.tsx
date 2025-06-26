@@ -406,7 +406,7 @@ const FacturacionModal: React.FC<{
                 0
               );
               const ivaSelected = selectedItemsForReserva.reduce(
-                (sum, item) => sum + parseFloat(item.impuestos),
+                (sum, item) => sum + parseFloat(item.total),
                 0
               );
               const totalSelected = subtotalSelected + ivaSelected;
@@ -441,7 +441,7 @@ const FacturacionModal: React.FC<{
                     Name: "IVA",
                     Rate: "0.16",
                     Total: ivaSelected.toFixed(2),
-                    Base: totalSelected.toFixed(2),
+                    Base: subtotalSelected.toFixed(2),
                     IsRetention: "false",
                     IsFederalTax: "true",
                   },

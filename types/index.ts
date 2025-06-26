@@ -92,6 +92,7 @@ export type Solicitud = {
   rfc?: string | null;
   tipo_persona?: string;
 };
+
 export interface Tax {
   id_impuesto: number;
   name: string;
@@ -413,3 +414,86 @@ export type ErrorResponse = {
 };
 
 export type GeneralResponse<T = any> = SuccessResponse<T> | ErrorResponse;
+
+// --- Tipos para Pagos ---
+
+// Basado en la tabla 'pagos_proveedor'
+export type PagoProveedor = {
+  id_pago_proveedor: number;
+  monto_pagado: string; // DECIMAL(12,2) -> string en JSON
+  forma_pago_ejecutada: string | null; // VARCHAR(50)
+  id_tarjeta_pagada: string | null; // CHAR(36)
+  id_cuenta_bancaria: string | null; // CHAR(36)
+  url_comprobante_pago: string | null; // TEXT
+  fecha_pago: string; // TIMESTAMP -> string (ISO 8601)
+  fecha_transaccion_tesoreria: string; // TIMESTAMP -> string (ISO 8601)
+  usuario_tesoreria_pago: string | null; // CHAR(36)
+  comentarios_tesoreria: string | null; // TEXT
+  numero_autorizacion: string | null; // VARCHAR(100)
+  creado_en: string; // TIMESTAMP
+  actualizado_en: string; // TIMESTAMP
+  // Ten en cuenta que tu JSON de ejemplo también incluye id_solicitud_proveedor
+  // y monto_aplicado directamente en los objetos 'pagos'.
+  id_solicitud_proveedor: number; // de pagos_solicitudes
+  monto_aplicado: string; // de pagos_solicitudes
+};
+
+// --- Tipos para Facturas ---
+
+// Basado en la tabla 'facturas_pago_proveedor'
+export type FacturaProveedor = {
+  id_factura_proveedor: number;
+  uuid_cfdi: string; // VARCHAR(36) NOT NULL
+  rfc_emisor: string; // VARCHAR(13) NOT NULL
+  razon_social_emisor: string | null; // TEXT
+  monto_facturado: string | null; // DECIMAL(12,2) -> string en JSON
+  url_xml: string | null; // TEXT
+  url_pdf: string | null; // TEXT
+  fecha_factura: string | null; // DATE -> string (YYYY-MM-DD) o (ISO 8601)
+  es_credito: boolean | 0 | 1; // BOOLEAN -> 0 o 1 en MySQL, boolean en TS
+  estado_factura: string | null; // VARCHAR(50)
+
+  // También incluye las propiedades de la tabla intermedia si se anidan directamente
+  id_solicitud_proveedor: number; // de facturas_solicitudes
+  monto_aplicado: string | null; // de facturas_solicitudes
+};
+
+// --- Tipo para la información principal de SolicitudProveedor (los campos que se fusionan) ---
+// Estos son los campos de la tabla `solicitudes_pago_proveedor` que vienen en el nivel principal
+// junto con los campos de tu tipo 'Solicitud' original.
+export type SolicitudProveedorCore = {
+  id_solicitud_proveedor: number;
+  fecha_solicitud: string; // TIMESTAMP -> string (ISO 8601)
+  monto_solicitado: string; // DECIMAL(12,2) -> string
+  saldo: string; // DECIMAL(12,2) -> string
+  forma_pago_solicitada: "credit" | "transfer" | "card" | "link" | string; // ENUM
+  id_tarjeta_solicitada: string | null; // CHAR(36)
+  usuario_solicitante: string | null; // CHAR(36)
+  usuario_generador: string | null; // CHAR(36)
+  comentarios: string | null; // TEXT
+  estado_solicitud: string; // ENUM "pendiente","pagada", etc.
+  estado_consolidado: "pendiente" | "parcial" | "completado" | string; // ENUM
+  estado_facturacion: string; // Asumo string para este campo añadido
+};
+
+export type TarjetaInfo = {
+  ultimos_4: string | null;
+  banco_emisor: string | null;
+  tipo_tarjeta: string | null;
+};
+
+export type ProveedorInfo = {
+  rfc: string | null;
+  razon_social: string | null;
+};
+
+// --- El nuevo tipo que representa la Solicitud con todos los detalles anidados ---
+// Combina tu tipo 'Solicitud' existente con SolicitudProveedorCore y los arrays de sub-recursos.
+export type SolicitudProveedor = Solicitud & {
+  solicitud_proveedor: SolicitudProveedorCore;
+  // Nuevos objetos anidados
+  tarjeta: TarjetaInfo;
+  proveedor: ProveedorInfo;
+  pagos: PagoProveedor[];
+  facturas: FacturaProveedor[];
+};
