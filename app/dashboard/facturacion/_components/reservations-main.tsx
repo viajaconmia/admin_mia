@@ -521,11 +521,11 @@ const FacturacionModal: React.FC<{
         }
 
         alert("Se ha generado con éxito la factura");
-        descargarFactura(response.data.Id)
+        descargarFactura(response.Id)
           .then((factura) => setDescarga(factura))
           .catch((err) => console.error(err));
         onConfirm(selectedFiscalData, isConsolidated);
-        setIsInvoiceGenerated(response.data);
+        setIsInvoiceGenerated(response);
       } catch (error) {
         alert(
           "Ocurrió un error al generar la factura: " + (error as Error).message
