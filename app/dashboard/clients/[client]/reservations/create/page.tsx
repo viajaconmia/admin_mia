@@ -11,7 +11,7 @@ export default async function ReservationsClient({
     const { client } = await params;
     const apiEndpoints = [
       "https://miaback.vercel.app/v1/mia/hoteles",
-      `https://miaback.vercel.app/v1/mia/viajeros/id?id=${client}`,
+      `${URL}/mia/viajeros/id?id=${client}`,
     ];
     const responses = await Promise.all(
       apiEndpoints.map((endpoint) =>

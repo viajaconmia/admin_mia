@@ -168,18 +168,15 @@ const Page = () => {
 
   useEffect(() => {
     if (codigoPostal.length > 4) {
-      fetch(
-        `https://miaback.vercel.app/v1/sepoMex/buscar-codigo-postal?d_codigo=${codigoPostal}`,
-        {
-          method: "GET",
-          headers: {
-            "x-api-key": API_KEY || "",
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            "Content-Type": "application/json",
-          },
-          cache: "no-store",
-        }
-      )
+      fetch(`${URL}/sepoMex/buscar-codigo-postal?d_codigo=${codigoPostal}`, {
+        method: "GET",
+        headers: {
+          "x-api-key": API_KEY || "",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "Content-Type": "application/json",
+        },
+        cache: "no-store",
+      })
         .then((res) => res.json())
         .then((data) => {
           if (data.success && data.data.length > 0) {

@@ -386,7 +386,7 @@ const extractNotesSection = (notes: string, section: string): string => {
 const buscarCodigoPostal = async (CodigoPostal: string) => {
   try {
     const response = await fetch(
-      `https://miaback.vercel.app/v1/sepoMex/buscar-codigo-postal?d_codigo=${CodigoPostal}`,
+      `${URL}/sepoMex/buscar-codigo-postal?d_codigo=${CodigoPostal}`,
       //`http://localhost:3001/v1/sepoMex/buscar-codigo-postal?d_codigo=${CodigoPostal}`,
       {
         method: "GET",
@@ -777,7 +777,7 @@ export function HotelDialog({
     try {
       setIsFetchingRates(true);
       const response = await fetch(
-        `https://miaback.vercel.app/v1/mia/hoteles/Consultar-tarifas-por-hotel/${idHotel}`,
+        `${URL}/mia/hoteles/Consultar-tarifas-por-hotel/${idHotel}`,
         //`http://localhost:3001/v1/mia/hoteles/Consultar-tarifas-por-hotel/${idHotel}`,
         {
           method: "GET",
