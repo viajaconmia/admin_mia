@@ -128,7 +128,9 @@ export default function ClientLayout({
             {tabs
               .filter((item) => item.tab === currentTab)
               .map((item) => (
-                <div key={item.tab}>{item.component}</div>
+                <div className="h-[600px] overflow-y-auto" key={item.tab}>
+                  {item.component}
+                </div>
               ))}
           </Suspense>
         )}
