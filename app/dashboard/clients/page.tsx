@@ -16,6 +16,7 @@ import {
   User,
   CreditCard,
   ExternalLink,
+  Banknote,
 } from "lucide-react";
 import { Table } from "@/components/Table";
 import { TypeFilters } from "@/types";
@@ -26,6 +27,7 @@ import NavContainer from "@/components/organism/NavContainer";
 import { AgentDetailsCard } from "./_components/DetailsClient";
 import { UsersClient } from "./_components/UsersClient";
 import { PageReservasClientes } from "@/components/template/PageReservaClient";
+import PageCuentasPorCobrar from "@/components/template/PageCuentasPorCobrar";
 
 function App() {
   const [clients, setClient] = useState<Agente[]>([]);
@@ -162,6 +164,12 @@ function App() {
       tab: "users",
       icon: Users,
       component: <UsersClient agente={selectedItem}></UsersClient>,
+    },
+    {
+      title: "Cuentas por cobrar",
+      tab: "cobrar",
+      icon: Banknote,
+      component: <PageCuentasPorCobrar></PageCuentasPorCobrar>,
     },
     {
       title: "Empresas",
