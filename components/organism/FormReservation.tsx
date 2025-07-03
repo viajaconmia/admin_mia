@@ -53,12 +53,6 @@ export function ReservationForm({
     );
   }
 
-  const [paymentMethod, setPaymentMethod] = useState({
-    type: "",
-    paymentDate: "",
-    cardLastDigits: "",
-    comments: "",
-  });
   const [form, setForm] = useState<ReservaForm>({
     hotel: {
       name: solicitud.hotel || "",
@@ -595,6 +589,29 @@ export function ReservationForm({
                   setForm((prev) => ({ ...prev, check_out: value }));
                 }}
               />
+              {solicitud.viajeros_adicionales.map((viajero, index) => (
+                <div key={index}>
+                  <Label>{`Acompañante ${index + 1}`}</Label>
+                  <TextInput
+                    value={
+                      travelers.find((item) => item.id_viajero === viajero)
+                        ?.nombre_completo || ""
+                    }
+                    disabled
+                    onChange={(value) => {
+                      console.log("Viajero adicional:", value);
+                    }}
+                    // onChange={(value) => {
+                    //   setForm((prev) => ({
+                    //     ...prev,
+                    //     viajeros_adicionales: prev.viajeros_adicionales.map((v, i) =>
+                    //       i === index ? { ...v, nombre: value } : v
+                    //     ),
+                    //   }));
+                    // }}
+                  />
+                </div>
+              ))}
             </div>
 
             <div className="space-y-2">
