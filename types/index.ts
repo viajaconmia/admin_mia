@@ -91,6 +91,8 @@ export type Solicitud = {
   razon_social?: string;
   rfc?: string | null;
   tipo_persona?: string;
+  //viajeros_adicionales ?: string[];
+  viajeros_adicionales?: string[];
 };
 
 export interface Tax {

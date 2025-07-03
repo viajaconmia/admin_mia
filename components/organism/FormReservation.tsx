@@ -50,6 +50,7 @@ export function ReservationForm({
 }: ReservationFormProps) {
   let currentNoches = 0;
   let currentHotel;
+  console.log("Solicitud:", solicitud);
 
   if (solicitud.check_in && solicitud.check_out) {
     currentHotel = hotels.filter(
@@ -130,7 +131,7 @@ export function ReservationForm({
         ) || 0,
     },
     items: [],
-    solicitud,
+    solicitud: solicitud,
   });
   const [habitaciones, setHabitaciones] = useState(
     currentHotel?.tipos_cuartos || []
