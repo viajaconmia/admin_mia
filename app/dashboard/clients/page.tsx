@@ -35,6 +35,7 @@ function App() {
   const [searchTerm, setSearchTerm] = useState<string | null>("");
   const [loading, setLoading] = useState(false);
   const [link, setLink] = useState<null | string>(null);
+  const [defaultTab, setDefaultTab] = useState<string>("");
   const [filters, setFilters] = useState<TypeFilters>(
     defaultFiltersSolicitudes
   );
@@ -56,6 +57,7 @@ function App() {
       categoria: "Administrador",
       notas_internas: item.notas || "",
       vendedor: item.vendedor || "",
+      // saldo_a_favor: item,
       soporte: item,
       detalles: item,
     }));
@@ -95,6 +97,19 @@ function App() {
       </span>
     ),
 
+    // saldo_a_favor: ({ value }: { value: Agente }) => (
+    //   <button
+    //     onClick={() => {
+    //       setDefaultTab("cobrar");
+    //       setSelectedItem(value);
+    //     }}
+    //     className="hover:underline font-medium"
+    //   >
+    //     <span className="text-blue-600 hover:underline cursor-pointer">
+    //       {value.saldo}
+    //     </span>
+    //   </button>
+    // ),
     soporte: ({ value }: { value: Agente }) => (
       <button
         onClick={() => {
@@ -244,11 +259,16 @@ function App() {
           onClose={() => {
             handleFetchClients();
             setSelectedItem(null);
+            setDefaultTab("");
           }}
           title="Datos del cliente"
           subtitle="Puedes ver y editar los datos del cliente desde aqui"
         >
-          <NavContainer tabs={tabs} title="Cliente"></NavContainer>
+          <NavContainer
+            defaultTab={defaultTab}
+            tabs={tabs}
+            title="Cliente"
+          ></NavContainer>
         </Modal>
       )}
     </div>

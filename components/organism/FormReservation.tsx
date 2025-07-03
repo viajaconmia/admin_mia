@@ -116,7 +116,10 @@ export function ReservationForm({
         ) || 0,
     },
     items: [],
-    solicitud: solicitud,
+    solicitud: {
+      ...solicitud,
+      viajeros_adicionales: solicitud.viajeros_adicionales || [],
+    },
   });
   const [habitaciones, setHabitaciones] = useState(
     currentHotel?.tipos_cuartos || []
@@ -589,7 +592,7 @@ export function ReservationForm({
                   setForm((prev) => ({ ...prev, check_out: value }));
                 }}
               />
-              {solicitud.viajeros_adicionales.map((viajero, index) => (
+              {form.solicitud.viajeros_adicionales.map((viajero, index) => (
                 <div key={index}>
                   <Label>{`Acompañante ${index + 1}`}</Label>
                   <TextInput

@@ -14,6 +14,7 @@ interface ClientLayoutProps {
     component?: React.ReactNode;
   }[];
   title: string;
+  defaultTab?: string;
   links?: {
     href: string;
     title: string;
@@ -22,15 +23,18 @@ interface ClientLayoutProps {
   children?: React.ReactNode;
 }
 
-export default function ClientLayout({
+export default function NavContainer({
   tabs = [],
   title,
+  defaultTab = "",
   links = [],
   children,
 }: ClientLayoutProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isHover, setIsHover] = useState(false);
-  const [currentTab, setCurrentTab] = useState("");
+  const [currentTab, setCurrentTab] = useState(
+    defaultTab || (tabs.length > 0 ? tabs[0].tab : "")
+  );
 
   return (
     <div className="flex h-full w-full min-w-[85vw]">
