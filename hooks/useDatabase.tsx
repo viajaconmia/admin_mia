@@ -100,7 +100,7 @@ export const createEmpresa = async (data: any, id: string) => {
 };
 
 export const createNewEmpresa = async (data: any, id: string) => {
-  console.log(data)
+  console.log(data);
   try {
     const response = await fetch(`${URL}/v1/mia/empresas`, {
       method: "POST",
@@ -137,7 +137,11 @@ export const createNewEmpresa = async (data: any, id: string) => {
   }
 };
 
-export const updateEmpresa = async (data: any, empresaId: string, id: string) => {
+export const updateEmpresa = async (
+  data: any,
+  empresaId: string,
+  id: string
+) => {
   console.log(data);
   try {
     const response = await fetch(`${URL}/v1/mia/empresas/`, {
@@ -161,7 +165,8 @@ export const updateEmpresa = async (data: any, empresaId: string, id: string) =>
     });
 
     const json = await response.json();
-    if (json.message === "Empresa actualizada correctamente") { // Ajusta este mensaje según tu API
+    if (json.message === "Empresa actualizada correctamente") {
+      // Ajusta este mensaje según tu API
       return {
         success: true,
         empresa_id: empresaId, // Devolvemos el mismo ID ya que es una actualización
@@ -175,7 +180,6 @@ export const updateEmpresa = async (data: any, empresaId: string, id: string) =>
     throw error;
   }
 };
-
 
 export const createNewDatosFiscales = async (data: any) => {
   try {
@@ -330,7 +334,7 @@ export const createNewPago = async (
       fecha_creacion: new Date().toISOString().split("T")[0], // Fecha actual
       pago_por_credito: null, // Ajusta según tu lógica
       pendiente_por_cobrar: false, // Ajusta según tu lógica
-      total: (amount / 100), // Monto total del pago
+      total: amount / 100, // Monto total del pago
       subtotal: (amount / 100) * 0.84, // Subtotal (ajusta según tu lógica)
       impuestos: (amount / 100) * 0.16, // Impuestos (ajusta según tu lógica)
       banco: banco,
@@ -340,7 +344,7 @@ export const createNewPago = async (
       autorizacion_stripe: autorizacion,
       metodo_de_pago: metodo_de_pago,
       concepto: concepto,
-      currency: currency
+      currency: currency,
     };
 
     // Hacer la solicitud HTTP al backend para crear el pago
@@ -369,7 +373,7 @@ export const createNewPago = async (
 
 // export const createViajero = async (data: any, id_empresa: string) => {
 //   try {
-//     const response = await fetch(`https://miaback.vercel.app/v1/mia/viajeros`, {
+//     const response = await fetch(`${URL}/mia/viajeros`, {
 //       method: "POST",
 //       headers: {
 //         "Content-Type": "application/json",
@@ -424,9 +428,13 @@ export const createNewViajero = async (data: any, id_empresa: string[]) => {
       body: JSON.stringify({
         id_empresas: id_empresa,
         primer_nombre: data.primer_nombre.toUpperCase(),
-        segundo_nombre: data.segundo_nombre ? data.segundo_nombre.toUpperCase() : null,
+        segundo_nombre: data.segundo_nombre
+          ? data.segundo_nombre.toUpperCase()
+          : null,
         apellido_paterno: data.apellido_paterno.toUpperCase(),
-        apellido_materno: data.apellido_materno ? data.apellido_materno.toUpperCase() : null,
+        apellido_materno: data.apellido_materno
+          ? data.apellido_materno.toUpperCase()
+          : null,
         correo: data.correo ? data.correo : null,
         telefono: data.telefono ? data.telefono : null,
         genero: data.genero ? data.genero : null,
@@ -496,7 +504,11 @@ export const createSaldo = async (data: any) => {
   }
 };
 
-export const updateViajero = async (data: any, id_empresa: string[], id_viajero: string) => {
+export const updateViajero = async (
+  data: any,
+  id_empresa: string[],
+  id_viajero: string
+) => {
   let fechaFormateada = "";
   if (data.fecha_nacimiento) {
     const fechaNacimiento = new Date(data.fecha_nacimiento);
@@ -515,9 +527,13 @@ export const updateViajero = async (data: any, id_empresa: string[], id_viajero:
         id_viajero: id_viajero,
         id_empresas: id_empresa,
         primer_nombre: data.primer_nombre.toUpperCase(),
-        segundo_nombre: data.segundo_nombre ? data.segundo_nombre.toUpperCase() : null,
+        segundo_nombre: data.segundo_nombre
+          ? data.segundo_nombre.toUpperCase()
+          : null,
         apellido_paterno: data.apellido_paterno.toUpperCase(),
-        apellido_materno: data.apellido_materno ? data.apellido_materno.toUpperCase() : null,
+        apellido_materno: data.apellido_materno
+          ? data.apellido_materno.toUpperCase()
+          : null,
         correo: data.correo ? data.correo : null,
         telefono: data.telefono ? data.telefono : null,
         genero: data.genero ? data.genero : null,
@@ -617,16 +633,13 @@ export const getEmpresasDatosFiscales = async (agent_id: string) => {
 export const getFacturas = async (agent_id: string) => {
   try {
     console.log("En proceso de obtener facturas");
-    const response = await fetch(
-      `${URL}/v1/mia/factura/getFacturas`,
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          ...AUTH,
-        },
-      }
-    );
+    const response = await fetch(`${URL}/v1/mia/factura/getFacturas`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        ...AUTH,
+      },
+    });
     const json = await response.json();
     console.log(json);
     return json;
@@ -662,9 +675,7 @@ export const getCreditAgent = async (agent_id: string) => {
   try {
     console.log("En proceso de obtener metodos de pago");
     const response = await fetch(
-      `${URL}/v1/mia/pagos/agente?id_agente=${encodeURIComponent(
-        agent_id
-      )}`,
+      `${URL}/v1/mia/pagos/agente?id_agente=${encodeURIComponent(agent_id)}`,
       {
         method: "GET",
         headers: {
@@ -730,16 +741,13 @@ export const getPendientesAgente = async (agent_id: string) => {
 export const getHoteles = async () => {
   try {
     console.log("En proceso de obtener hoteles");
-    const response = await fetch(
-      `${URL}/v1/mia/hoteles/hotelesWithTarifa`,
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          ...AUTH,
-        },
-      }
-    );
+    const response = await fetch(`${URL}/v1/mia/hoteles/hotelesWithTarifa`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        ...AUTH,
+      },
+    });
     const json = await response.json();
     console.log(json);
     return json;
@@ -751,16 +759,13 @@ export const getHoteles = async () => {
 export const getSaldos = async () => {
   try {
     console.log("En proceso de obtener saldos a favor");
-    const response = await fetch(
-      `${URL}/v1/mia/saldos`,
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          ...AUTH,
-        },
-      }
-    );
+    const response = await fetch(`${URL}/v1/mia/saldos`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        ...AUTH,
+      },
+    });
     const json = await response.json();
     console.log(json);
     return json;
@@ -771,13 +776,16 @@ export const getSaldos = async () => {
 
 export const deleteTraveler = async (id_viajero: string) => {
   try {
-    const response = await fetch(`${URL}/v1/mia/viajeros?id_viajero=${id_viajero}`, {
-      method: "DELETE",
-      headers: {
-        "Content-Type": "application/json",
-        ...AUTH,
-      },
-    });
+    const response = await fetch(
+      `${URL}/v1/mia/viajeros?id_viajero=${id_viajero}`,
+      {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          ...AUTH,
+        },
+      }
+    );
 
     const json = await response.json();
     console.log(json);

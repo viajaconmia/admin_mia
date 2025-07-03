@@ -1,5 +1,5 @@
 import { FullHotelData } from "@/app/dashboard/hoteles/_components/hotel-table";
-import { API_KEY } from "@/lib/constants";
+import { API_KEY, URL } from "@/lib/constants";
 import { TypeFilters } from "@/types";
 
 export const fetchHoteles = async (callback: (data) => void = (data) => {}) => {
@@ -50,7 +50,7 @@ export const fetchHotelesFiltro_Avanzado = async (
     console.log("Payload enviado:", payload);
 
     const response = await fetch(
-      "https://miaback.vercel.app/v1/mia/hoteles/Filtro-avanzado",
+      `${URL}/mia/hoteles/Filtro-avanzado`,
       //"http://localhost:3001/v1/mia/hoteles/Filtro-avanzado"
       {
         method: "POST", // Usar POST para enviar el body

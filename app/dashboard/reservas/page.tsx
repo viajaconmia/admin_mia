@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { Children, useEffect, useState } from "react";
 import { Building2, DollarSign, Pencil, TriangleAlert } from "lucide-react";
 import { ReservationForm } from "../../../components/organism/FormReservation";
 import Filters from "@/components/Filters";
@@ -22,6 +22,7 @@ import { TypeFilters, Solicitud } from "@/types";
 import { Loader } from "@/components/atom/Loader";
 import { PaymentModal } from "@/components/organism/PaymentProveedor/PaymentProveedor";
 import { currentDate } from "@/lib/utils";
+import { fetchIsFacturada } from "@/services/facturas";
 
 function App() {
   const [allSolicitudes, setAllSolicitudes] = useState<Solicitud[]>([]);
@@ -232,30 +233,10 @@ function App() {
               setModificar(false);
               setSelectedItem(null);
             }}
-            title={
-              selectedItem.id_booking == null
-                ? "Se encontro una anomalia"
-                : "Editar reserva"
-            }
-            subtitle={
-              selectedItem.id_booking == null
-                ? "Revisa el mensaje de error"
-                : "Modifica los detalles de una reservación anteriormente procesada."
-            }
+            title="Editar reserva"
+            subtitle="Modifica los detalles de una reservación anteriormente procesada."
           >
-            {selectedItem.id_booking == null ? (
-              <div className="text-red-500 w-full flex justify-center p-4 max-w-sm">
-                <p className="flex items-center gap-4 border border-red-300 bg-red-100 text-red-700 p-4 rounded-lg text-sm">
-                  <TriangleAlert className="w-12 h-12" />
-                  <span>
-                    {" "}
-                    Esta reservación aun no ha sido procesada. Por favor, crea
-                    la reservación en la parte de solicitudes para poder
-                    editarla.
-                  </span>
-                </p>
-              </div>
-            ) : (
+            <ModalVerificacion selectedItem={selectedItem}>
               <ReservationForm
                 hotels={hoteles}
                 solicitud={selectedItem}
@@ -266,7 +247,7 @@ function App() {
                 }}
                 edicion={true}
               />
-            )}
+            </ModalVerificacion>
           </Modal>
         )}
         {selectedItem && pagar && (
@@ -285,19 +266,64 @@ function App() {
   );
 }
 
+const ModalVerificacion = ({
+  selectedItem,
+  children,
+}: {
+  selectedItem: Solicitud;
+  children: React.ReactNode;
+}) => {
+  const [loading, setLoading] = useState(false);
+  const [isFacturada, setIsFacturada] = useState(false);
+
+  useEffect(() => {
+    if (selectedItem) {
+      const fetchItems = async () => {
+        setLoading(true);
+        try {
+          const isFacturada = await fetchIsFacturada(selectedItem.id_hospedaje);
+          setIsFacturada(isFacturada);
+          setLoading(false);
+        } catch (error) {
+          console.error("Error:", error);
+        }
+      };
+      fetchItems();
+    }
+  }, [selectedItem]);
+
+  return (
+    <>
+      {loading ? (
+        <div className="flex items-center justify-center p-6 w-full h-20">
+          <Loader></Loader>
+        </div>
+      ) : (
+        <>
+          {isFacturada ? (
+            <div className="w-full h-20 flex items-center justify-center border-t-2 border-gray-500 bg-gray-50 p-6">
+              <div className="text-center">
+                <p className="text-xl font-semibold">
+                  La reserva ha sido facturada.
+                </p>
+                <p className="text-sm text-gray-500">
+                  Por lo tanto no puede editarse.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <>{children}</>
+          )}
+        </>
+      )}
+    </>
+  );
+};
+
 const defaultSort = {
   key: "creado",
   sort: false,
 };
-
-const [dia, mes, año] = new Date()
-  .toLocaleDateString("es-MX", {
-    timeZone: "America/Mexico_City",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  })
-  .split("/");
 
 const defaultFiltersSolicitudes: TypeFilters = {
   codigo_reservacion: null,

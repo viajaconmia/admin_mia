@@ -147,7 +147,7 @@ const buscarCodigoPostal = async (codigo: string) => {
   try {
     const response = await fetch(
       // `http://localhost:5173/v1/sepoMex/buscar-codigo-postal?d_codigo=${codigo}`,
-      `https://miaback.vercel.app/v1/sepoMex/buscar-codigo-postal?d_codigo=${codigo}`,
+      `${URL}/sepoMex/buscar-codigo-postal?d_codigo=${codigo}`,
       {
         method: "GET",
         headers: {
@@ -952,7 +952,9 @@ export function AddHotelDialog({
       urlImagenHotel: "",
     }));
     setImageUploadStatus("idle");
-    const input = document.getElementById("uploadImageInput") as HTMLInputElement | null;
+    const input = document.getElementById(
+      "uploadImageInput"
+    ) as HTMLInputElement | null;
     if (input) input.value = "";
   };
 
@@ -1334,7 +1336,9 @@ export function AddHotelDialog({
                     variant="outline"
                     type="button"
                     disabled={imageUploadStatus === "loading"}
-                    onClick={() => document.getElementById("uploadImageInput")?.click()}
+                    onClick={() =>
+                      document.getElementById("uploadImageInput")?.click()
+                    }
                   >
                     Seleccionar Imagen
                   </Button>
@@ -1358,10 +1362,14 @@ export function AddHotelDialog({
                 />
 
                 {imageUploadStatus === "success" && (
-                  <p className="text-green-600 text-sm">Imagen subida correctamente</p>
+                  <p className="text-green-600 text-sm">
+                    Imagen subida correctamente
+                  </p>
                 )}
                 {imageUploadStatus === "error" && (
-                  <p className="text-red-600 text-sm">Error al subir la imagen</p>
+                  <p className="text-red-600 text-sm">
+                    Error al subir la imagen
+                  </p>
                 )}
               </div>
 
@@ -2208,7 +2216,7 @@ export function AddHotelDialog({
                     handleChange("transportacion", e.target.value.toUpperCase())
                   }
                   placeholder="DETALLES DE TRANSPORTACION"
-                                   className="min-h-[100px]"
+                  className="min-h-[100px]"
                 />
               </div>
               <div className="flex flex-col space-y-1">

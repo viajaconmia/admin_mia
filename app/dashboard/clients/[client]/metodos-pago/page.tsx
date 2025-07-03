@@ -56,20 +56,17 @@ const CheckOutForm = ({ setSuccess, setTrigger, cliente }: any) => {
     if (error) {
       setMessage(error.message);
     } else {
-      const response = await fetch(
-        `https://miaback.vercel.app/v1/stripe/save-payment-method`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...AUTH,
-          },
-          body: JSON.stringify({
-            paymentMethodId: paymentMethod.id,
-            id_agente: id_agente,
-          }),
-        }
-      );
+      const response = await fetch(`${URL}/stripe/save-payment-method`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...AUTH,
+        },
+        body: JSON.stringify({
+          paymentMethodId: paymentMethod.id,
+          id_agente: id_agente,
+        }),
+      });
 
       const data = await response.json();
       if (data.success) {
@@ -140,7 +137,7 @@ const cardStyle = {
   hidePostalCode: true, // Oculta el campo de código postal
   hideIcon: false, // Oculta el ícono de Stripe (opcional)
   disabled: false, // Si quieres deshabilitar la edición
-  disableLink: true, 
+  disableLink: true,
 };
 
 const stripePromise = loadStripe(
@@ -181,20 +178,17 @@ const Page = () => {
   const handleDeleteMethod = async (id: string) => {
     console.log("Delete payment method:", id);
     const id_agente = client;
-    const response = await fetch(
-      `https://miaback.vercel.app/v1/stripe/delete-payment-method`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...AUTH,
-        },
-        body: JSON.stringify({
-          paymentMethodId: id,
-          id_agente: id_agente,
-        }),
-      }
-    );
+    const response = await fetch(`${URL}/stripe/delete-payment-method`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...AUTH,
+      },
+      body: JSON.stringify({
+        paymentMethodId: id,
+        id_agente: id_agente,
+      }),
+    });
 
     const datos = await response.json();
     if (datos.success) {
