@@ -181,10 +181,12 @@ function App() {
       component: <UsersClient agente={selectedItem}></UsersClient>,
     },
     {
-      title: "Cuentas por cobrar",
-      tab: "cobrar",
+      title: "Pagos",
+      tab: "pagos",
       icon: Banknote,
-      component: <PageCuentasPorCobrar></PageCuentasPorCobrar>,
+      component: (
+        <PageCuentasPorCobrar agente={selectedItem}></PageCuentasPorCobrar>
+      ),
     },
     {
       title: "Empresas",
