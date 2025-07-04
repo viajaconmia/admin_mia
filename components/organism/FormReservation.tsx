@@ -41,7 +41,6 @@ export function ReservationForm({
 }: ReservationFormProps) {
   let currentNoches = 0;
   let currentHotel;
-  console.log("Solicitud:", solicitud);
 
   if (solicitud.check_in && solicitud.check_out) {
     currentHotel = hotels.filter(
@@ -485,29 +484,46 @@ export function ReservationForm({
                 }))}
                 placeholderOption={solicitud.hotel}
               />
-              <DropdownValues
-                label="Tipo de Habitación"
-                onChange={(value) => {
-                  setIsCostoManual(false); // El usuario editó manualmente
-                  if (edicion) {
-                    setEdicionForm((prev) => ({
-                      ...prev,
-                      habitacion: {
-                        before: form.habitacion,
-                        current: value.value,
-                      },
-                    }));
+              <div>
+                <DropdownValues
+                  label="Tipo de Habitación"
+                  onChange={(value) => {
+                    setIsCostoManual(false); // El usuario editó manualmente
+                    if (edicion) {
+                      setEdicionForm((prev) => ({
+                        ...prev,
+                        habitacion: {
+                          before: form.habitacion,
+                          current: value.value,
+                        },
+                      }));
+                    }
+                    setForm((prev) => ({ ...prev, habitacion: value.value }));
+                  }}
+                  options={
+                    habitaciones.map((item) => ({
+                      value: item.nombre_tipo_cuarto,
+                      label: `${item.nombre_tipo_cuarto} $${item.precio}`,
+                    })) || []
                   }
-                  setForm((prev) => ({ ...prev, habitacion: value.value }));
-                }}
-                options={
-                  habitaciones.map((item) => ({
-                    value: item.nombre_tipo_cuarto,
-                    label: `${item.nombre_tipo_cuarto} $${item.precio}`,
-                  })) || []
-                }
-                value={form.habitacion}
-              />
+                  value={form.habitacion}
+                />
+                <div className="text-xs mt-2">
+                  {Boolean(
+                    form.hotel.content?.tipos_cuartos.find(
+                      (item) => item.nombre_tipo_cuarto === form.habitacion
+                    )?.incluye_desayuno
+                  ) ? (
+                    <p className="text-green-800 p-1  px-3 rounded-full bg-green-200 w-fit border border-green-300">
+                      Incluye desayuno
+                    </p>
+                  ) : (
+                    <p className="text-red-800 p-1 px-3 rounded-full bg-red-200 w-fit border border-red-300">
+                      No incluye desayuno
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
             <div className="space-y-2">
               <Dropdown

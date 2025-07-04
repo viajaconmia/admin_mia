@@ -159,6 +159,7 @@ export interface HotelTax {
 export interface Room {
   id_tipo_cuarto: number;
   nombre_tipo_cuarto: string;
+  incluye_desayuno?: number;
   id_tarifa: number;
   precio: string; // El JSON muestra string, ej "1513.80"
   costo: string | null; // AJUSTADO: El JSON muestra string "1249.50" o podría ser null

@@ -4,7 +4,7 @@ import { TypeFilters } from "@/types";
 
 export const fetchHoteles = async (callback: (data) => void = (data) => {}) => {
   try {
-    const response = await fetch("https://miaback.vercel.app/v1/mia/hoteles", {
+    const response = await fetch(`${URL}/mia/hoteles`, {
       headers: {
         "x-api-key": API_KEY || "",
         "Cache-Control": "no-cache, no-store, must-revalidate",
