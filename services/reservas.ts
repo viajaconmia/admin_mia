@@ -100,6 +100,7 @@ export async function fetchCreateReservaFromSolicitud(
     console.log(response);
 
     if (response.error) {
+      alert(response.details || "Error al cargar los datos en reservas");
       callback({
         error: true,
         message: "Error al cargar los datos en reservas",

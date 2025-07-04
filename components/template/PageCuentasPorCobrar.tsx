@@ -476,13 +476,20 @@ const ReservationTable: React.FC<ReservationTableProps> = ({
 // ========================================
 // COMPONENTE PRINCIPAL
 // ========================================
-const App: React.FC = () => {
+interface PageCuentasPorCobrarProps {
+  agente: Agente;
+}
+
+const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
+  agente,
+}) => {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [assignments, setAssignments] = useState<PaymentAssignment[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "assign">("overview");
+  console.log(agente);
 
   // Cargar datos iniciales
   useEffect(() => {
@@ -670,89 +677,22 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* Tabs */}
-        <div className="mb-6">
-          <div className="border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8">
-              <button
-                onClick={() => setActiveTab("overview")}
-                className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
-                  activeTab === "overview"
-                    ? "border-emerald-500 text-emerald-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                }`}
-              >
-                Historial de Pagos
-              </button>
-              <button
-                onClick={() => setActiveTab("assign")}
-                className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
-                  activeTab === "assign"
-                    ? "border-emerald-500 text-emerald-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                }`}
-              >
-                Asignar a Reservaciones
-              </button>
-            </nav>
-          </div>
-        </div>
-
-        {/* Tab Content */}
-        {activeTab === "overview" ? (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-100">
-              <h3 className="text-lg font-semibold text-gray-800">
-                Historial de Pagos
-              </h3>
-            </div>
-            <div className="divide-y divide-gray-200">
-              {payments.length === 0 ? (
-                <div className="px-6 py-12 text-center">
-                  <DollarSign className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500">No hay pagos registrados</p>
-                </div>
-              ) : (
-                payments.map((payment) => (
-                  <div
-                    key={payment.id}
-                    className="px-6 py-4 hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-1">
-                          <h4 className="font-medium text-gray-900">
-                            {payment.description}
-                          </h4>
-                          {getMethodBadge(payment.method)}
-                        </div>
-                        <p className="text-sm text-gray-500">
-                          {new Date(payment.date).toLocaleDateString("es-MX")}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-lg font-semibold text-emerald-600">
-                          +$
-                          {payment.amount.toLocaleString("es-MX", {
-                            minimumFractionDigits: 2,
-                          })}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        ) : (
-          <ReservationTable
-            reservations={reservations}
-            assignments={assignments}
-            availableBalance={availableBalance}
-            onAssignmentChange={handleAssignmentChange}
-            onToggleReservation={handleToggleReservation}
+        <div className="mt-6">
+          <MultitabContainer
+            tabs={[
+              {
+                title: "Resumen de pagos",
+                tab: "overview",
+                icon: DollarSign,
+              },
+              {
+                title: "Asignar Pagos a reservas",
+                tab: "assign",
+                icon: CreditCard,
+              },
+            ]}
           />
-        )}
+        </div>
       </div>
 
       {/* Payment Modal */}
@@ -766,4 +706,37 @@ const App: React.FC = () => {
   );
 };
 
-export default App;
+export default PageCuentasPorCobrar;
+
+const MultitabContainer: React.FC<{
+  tabs: { title: string; tab: string; icon: React.ComponentType<any> }[];
+}> = ({ tabs }) => {
+  const [activeTab, setActiveTab] = useState(tabs[0].tab);
+  return (
+    <div className="mb-6">
+      <div className="border-b border-gray-200">
+        <nav className="-mb-px flex space-x-8">
+          {tabs.map((tab) => (
+            <button
+              key={tab.tab}
+              onClick={() => setActiveTab(tab.tab)}
+              className={`py-3 px-1 border-b-2 font-medium text-xs transition-colors ${
+                activeTab === tab.tab
+                  ? "border-emerald-500 text-emerald-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
+            >
+              {tab.title}
+            </button>
+          ))}
+        </nav>
+      </div>
+      <div className="p-4">
+        {activeTab === "overview" && <div>Contenido del resumen de pagos</div>}
+        {activeTab === "assign" && (
+          <div>Contenido de asignar pagos a reservas</div>
+        )}
+      </div>
+    </div>
+  );
+};

@@ -195,6 +195,7 @@ function App() {
 
   useEffect(() => {
     fetchHoteles((data) => {
+      console.log("Hoteles fetched:", data);
       setHoteles(data);
     });
   }, []);
