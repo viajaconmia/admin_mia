@@ -13,13 +13,14 @@ type RendererMap = {
 interface TableProps {
   registros: Registro[];
   renderers?: RendererMap;
-  defaultSort: {
+  defaultSort?: {
     key: string;
     sort: boolean;
   };
   exportButton?: boolean;
   leyenda?: string;
   children?: React.ReactNode;
+  maxHeight?: string;
 }
 
 export const Table = ({
@@ -29,13 +30,18 @@ export const Table = ({
   exportButton = true,
   leyenda = "",
   children,
+  maxHeight = "28rem",
 }: TableProps) => {
   const [displayData, setDisplayData] = useState<Registro[]>(registros);
   const [selectedRow, setSelectedRow] = useState<number | null>(null);
   const [currentSort, setCurrentSort] = useState<{
     key: string;
     sort: boolean;
-  }>(defaultSort);
+  }>(
+    defaultSort
+      ? defaultSort
+      : { key: Object.keys(registros[0])[0], sort: true }
+  );
 
   useEffect(() => {
     setDisplayData(registros);
@@ -85,7 +91,10 @@ export const Table = ({
         </div>
       )}
       {displayData.length > 0 ? (
-        <div className="overflow-y-auto relative border border-gray-200 rounded-sm w-full h-fit max-h-[28rem]">
+        <div
+          className="overflow-y-auto relative border border-gray-200 rounded-sm w-full h-fit"
+          style={{ maxHeight: maxHeight }}
+        >
           <table className="min-w-full divide-y divide-gray-200">
             <thead className=" sticky z-10 bg-gray-50 top-0">
               <tr>

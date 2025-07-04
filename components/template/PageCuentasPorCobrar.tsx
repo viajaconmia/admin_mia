@@ -9,6 +9,8 @@ import {
   CheckSquare,
   Square,
 } from "lucide-react";
+import { Table } from "../Table";
+import { currentDate } from "@/lib/utils";
 
 // ========================================
 // TIPOS DE DATOS
@@ -484,12 +486,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   agente,
 }) => {
   const [payments, setPayments] = useState<Payment[]>([]);
-  const [reservations, setReservations] = useState<Reservation[]>([]);
   const [assignments, setAssignments] = useState<PaymentAssignment[]>([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<"overview" | "assign">("overview");
-  console.log(agente);
 
   // Cargar datos iniciales
   useEffect(() => {
@@ -500,7 +497,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
           apiService.getReservations(),
         ]);
         setPayments(paymentsData);
-        setReservations(reservationsData);
       } catch (error) {
         console.error("Error loading data:", error);
       }
@@ -509,124 +505,25 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     loadData();
   }, []);
 
-  // Calcular balances
-  const totalBalance = payments.reduce(
-    (sum, payment) => sum + payment.amount,
-    0
-  );
-  const assignedBalance = assignments.reduce(
-    (sum, assignment) => sum + assignment.assignedAmount,
-    0
-  );
-  const availableBalance = totalBalance - assignedBalance;
-
-  const handleAddPayment = async (paymentData: Omit<Payment, "id">) => {
-    setIsLoading(true);
-    try {
-      const newPayment = await apiService.addPayment(paymentData);
-      setPayments((prev) => [...prev, newPayment]);
-      setIsModalOpen(false);
-    } catch (error) {
-      console.error("Error adding payment:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleAssignmentChange = (reservationId: string, amount: number) => {
-    setAssignments((prev) => {
-      const existingIndex = prev.findIndex(
-        (a) => a.reservationId === reservationId
-      );
-      const newAssignments = [...prev];
-
-      if (existingIndex >= 0) {
-        if (amount > 0) {
-          newAssignments[existingIndex] = {
-            ...newAssignments[existingIndex],
-            assignedAmount: amount,
-          };
-        } else {
-          newAssignments.splice(existingIndex, 1);
-        }
-      } else if (amount > 0) {
-        newAssignments.push({ reservationId, assignedAmount: amount });
-      }
-
-      return newAssignments;
-    });
-  };
-
-  const handleToggleReservation = (reservationId: string) => {
-    const isSelected = assignments.some(
-      (a) => a.reservationId === reservationId
-    );
-
-    if (isSelected) {
-      setAssignments((prev) =>
-        prev.filter((a) => a.reservationId !== reservationId)
-      );
-    } else {
-      const reservation = reservations.find((r) => r.id === reservationId);
-      if (reservation) {
-        const suggestedAmount = Math.min(
-          reservation.pendingAmount,
-          availableBalance
-        );
-        setAssignments((prev) => [
-          ...prev,
-          { reservationId, assignedAmount: suggestedAmount },
-        ]);
-      }
-    }
-  };
-
-  const getMethodBadge = (method: string) => {
-    const badges = {
-      credit_card: "bg-blue-100 text-blue-800",
-      bank_transfer: "bg-green-100 text-green-800",
-      cash: "bg-yellow-100 text-yellow-800",
-    };
-
-    const labels = {
-      credit_card: "Tarjeta",
-      bank_transfer: "Transferencia",
-      cash: "Efectivo",
-    };
-
-    return (
-      <span
-        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-          badges[method as keyof typeof badges]
-        }`}
-      >
-        {labels[method as keyof typeof labels]}
-      </span>
-    );
-  };
-
   return (
     <div className="h-full">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
         {/* Payment Summary */}
         <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6 place-content-center">
-          <PaymentSummary
-            totalBalance={totalBalance}
-            assignedBalance={assignedBalance}
-          />
+          <PaymentSummary totalBalance={5000} assignedBalance={3000} />
           <div className="mb-6 flex items-center justify-end">
-            <button
+            {/* <button
               onClick={() => setIsModalOpen(true)}
               className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors font-medium shadow-sm"
             >
               <Plus className="w-5 h-5" />
               Agregar Pago
-            </button>
+            </button> */}
           </div>
         </div>
 
         {/* Action Buttons */}
-        {assignments.length > 0 && (
+        {/* {assignments.length > 0 && (
           <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">
               Resumen de Asignaciones
@@ -675,43 +572,52 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
               </div>
             </div>
           </div>
-        )}
+        )} */}
 
         <div className="mt-6">
-          <MultitabContainer
-            tabs={[
+          <Table
+            registros={[
+              { id: 1, name: "Juan Pérez", age: 30, city: "CDMX" },
+              { id: 2, name: "María García", age: 25, city: "Guadalajara" },
               {
-                title: "Resumen de pagos",
-                tab: "overview",
-                icon: DollarSign,
-              },
-              {
-                title: "Asignar Pagos a reservas",
-                tab: "assign",
-                icon: CreditCard,
+                id: 3,
+                name: "Carlos Rodríguez",
+                age: 28,
+                city: "Monterrey",
               },
             ]}
+            renderers={{
+              name: (props) => (
+                <span className="font-medium text-gray-800">{props.value}</span>
+              ),
+              age: (props) => (
+                <span className="text-sm text-gray-900">{props.value}</span>
+              ),
+              city: (props) => (
+                <span className="text-lg text-gray-600">{props.value}</span>
+              ),
+            }}
           />
         </div>
       </div>
 
       {/* Payment Modal */}
-      <PaymentModal
+      {/* <PaymentModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onAddPayment={handleAddPayment}
         isLoading={isLoading}
-      />
+      /> */}
     </div>
   );
 };
 
 export default PageCuentasPorCobrar;
-
+/*
 const MultitabContainer: React.FC<{
-  tabs: { title: string; tab: string; icon: React.ComponentType<any> }[];
+  tabs: TabMultitab[];
 }> = ({ tabs }) => {
-  const [activeTab, setActiveTab] = useState(tabs[0].tab);
+  const [activeTab, setActiveTab] = useState<TabMultitab>(tabs[0]);
   return (
     <div className="mb-6">
       <div className="border-b border-gray-200">
@@ -719,24 +625,37 @@ const MultitabContainer: React.FC<{
           {tabs.map((tab) => (
             <button
               key={tab.tab}
-              onClick={() => setActiveTab(tab.tab)}
+              onClick={() => setActiveTab(tab)}
               className={`py-3 px-1 border-b-2 font-medium text-xs transition-colors ${
-                activeTab === tab.tab
+                activeTab.tab === tab.tab
                   ? "border-emerald-500 text-emerald-600"
                   : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               }`}
             >
+              <tab.icon className="inline-block mr-2 w-4 h-4" />
               {tab.title}
             </button>
           ))}
         </nav>
       </div>
       <div className="p-4">
-        {activeTab === "overview" && <div>Contenido del resumen de pagos</div>}
-        {activeTab === "assign" && (
-          <div>Contenido de asignar pagos a reservas</div>
-        )}
+        <Table
+          maxHeight="10rem"
+          registros={activeTab.registros || []}
+          renderers={activeTab.columnRender || {}}
+          leyenda={activeTab.leyenda || ""}
+        />
       </div>
     </div>
   );
 };
+
+interface TabMultitab {
+  title: string;
+  tab: string;
+  icon: React.ComponentType<any>;
+  registros?: { [key: string]: any }[];
+  columnRender?: Record<string, (props: any) => React.ReactNode>;
+  leyenda?: string;
+}
+*/
