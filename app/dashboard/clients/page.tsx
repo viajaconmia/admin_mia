@@ -17,6 +17,7 @@ import {
   CreditCard,
   ExternalLink,
   Banknote,
+  Wallet,
 } from "lucide-react";
 import { Table } from "@/components/Table";
 import { TypeFilters } from "@/types";
@@ -28,6 +29,7 @@ import { AgentDetailsCard } from "./_components/DetailsClient";
 import { UsersClient } from "./_components/UsersClient";
 import { PageReservasClientes } from "@/components/template/PageReservaClient";
 import PageCuentasPorCobrar from "@/components/template/PageCuentasPorCobrar";
+import { ToolTip } from "@/components/atom/ToolTip";
 
 function App() {
   const [clients, setClient] = useState<Agente[]>([]);
@@ -48,7 +50,7 @@ function App() {
     .map((item) => ({
       creado: item.created_at,
       id: item.id_agente,
-      cliente: item.nombre_agente_completo,
+      cliente: item,
       correo: item.correo,
       telefono: item.telefono,
       estado_verificacion: "",
@@ -71,30 +73,24 @@ function App() {
         {props.value.split("-").join("").slice(0, 10)}
       </span>
     ),
-    cliente: ({ value }: { value: string }) => (
-      <span className="relative group cursor-pointer font-semibold text-xs max-w-[200px] inline-block">
-        <div className="overflow-hidden text-ellipsis whitespace-nowrap">
-          {value.toUpperCase()}
-        </div>
-
-        <div className="absolute z-10 right-0 top-full mt-1 w-64 px-3 py-2 bg-gray-800 text-white text-xs rounded shadow-lg hidden group-hover:block pointer-events-none whitespace-pre-wrap break-words">
-          {value.toUpperCase()}
-        </div>
-      </span>
+    cliente: ({ value }: { value: Agente }) => (
+      <ToolTip
+        content={value.nombre_agente_completo.toUpperCase()}
+        onClick={() => {
+          setSelectedItem(value);
+        }}
+        className="cursor-pointer hover:underline"
+      >
+        <span>{value.nombre_agente_completo}</span>
+      </ToolTip>
     ),
     estado_credito: (props) => getStatusCreditBadge(props.value),
     credito: (props: { value: number }) => getCreditoBadge(props.value),
     categoria: (props: { value: string }) => getRoleBadge(props.value),
     notas_internas: ({ value }: { value: string }) => (
-      <span className="relative group cursor-pointer text-xs max-w-[150px] inline-block">
-        <div className="overflow-hidden text-ellipsis whitespace-nowrap">
-          {value.toUpperCase()}
-        </div>
-
-        <div className="absolute z-10 right-0 top-full mt-1 w-64 px-3 py-2 bg-gray-800 text-white text-xs rounded shadow-lg hidden group-hover:block pointer-events-none whitespace-pre-wrap break-words">
-          {value.toUpperCase()}
-        </div>
-      </span>
+      <ToolTip content={value.toUpperCase()}>
+        <span>{value}</span>
+      </ToolTip>
     ),
 
     // saldo_a_favor: ({ value }: { value: Agente }) => (
@@ -181,9 +177,9 @@ function App() {
       component: <UsersClient agente={selectedItem}></UsersClient>,
     },
     {
-      title: "Pagos",
-      tab: "pagos",
-      icon: Banknote,
+      title: "Wallet",
+      tab: "wallet",
+      icon: Wallet,
       component: (
         <PageCuentasPorCobrar agente={selectedItem}></PageCuentasPorCobrar>
       ),
