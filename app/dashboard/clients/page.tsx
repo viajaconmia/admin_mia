@@ -210,7 +210,7 @@ function App() {
       <div className="w-full mx-auto bg-white p-4 rounded-lg shadow">
         <div>
           <Filters
-            defaultFilters={filters}
+            defaultFilters={filters}  
             onFilter={setFilters}
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
