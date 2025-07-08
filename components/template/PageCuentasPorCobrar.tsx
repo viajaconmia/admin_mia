@@ -1,16 +1,29 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useReducer } from "react";
 import {
-  Plus,
-  X,
   DollarSign,
   CreditCard,
   Calendar,
   CheckSquare,
   Square,
+  FileText,
+  Tag,
+  MessageCircle,
+  CheckCircle,
+  AlertCircle,
+  Send,
 } from "lucide-react";
 import { Table } from "../Table";
 import { currentDate } from "@/lib/utils";
+import Modal from "../organism/Modal";
+import {
+  CheckboxInput,
+  DateInput,
+  Dropdown,
+  NumberInput,
+  TextAreaInput,
+  TextInput,
+} from "../atom/Input";
 
 // ========================================
 // TIPOS DE DATOS
@@ -118,150 +131,150 @@ interface PaymentModalProps {
   isLoading: boolean;
 }
 
-const PaymentModal: React.FC<PaymentModalProps> = ({
-  isOpen,
-  onClose,
-  onAddPayment,
-  isLoading,
-}) => {
-  const [formData, setFormData] = useState({
-    amount: "",
-    description: "",
-    method: "credit_card" as const,
-    date: new Date().toISOString().split("T")[0],
-  });
+// const PaymentModal: React.FC<PaymentModalProps> = ({
+//   isOpen,
+//   onClose,
+//   onAddPayment,
+//   isLoading,
+// }) => {
+//   const [formData, setFormData] = useState({
+//     amount: "",
+//     description: "",
+//     method: "credit_card" as const,
+//     date: new Date().toISOString().split("T")[0],
+//   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (formData.amount && formData.description) {
-      onAddPayment({
-        amount: parseFloat(formData.amount),
-        description: formData.description,
-        method: formData.method,
-        date: formData.date,
-      });
-      setFormData({
-        amount: "",
-        description: "",
-        method: "credit_card",
-        date: new Date().toISOString().split("T")[0],
-      });
-    }
-  };
+//   const handleSubmit = (e: React.FormEvent) => {
+//     e.preventDefault();
+//     if (formData.amount && formData.description) {
+//       onAddPayment({
+//         amount: parseFloat(formData.amount),
+//         description: formData.description,
+//         method: formData.method,
+//         date: formData.date,
+//       });
+//       setFormData({
+//         amount: "",
+//         description: "",
+//         method: "credit_card",
+//         date: new Date().toISOString().split("T")[0],
+//       });
+//     }
+//   };
 
-  if (!isOpen) return null;
+//   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md transform transition-all">
-        <div className="flex items-center justify-between p-6 border-b border-gray-100">
-          <h3 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
-            <Plus className="w-5 h-5 text-emerald-600" />
-            Agregar Nuevo Pago
-          </h3>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <X className="w-5 h-5 text-gray-500" />
-          </button>
-        </div>
+//   return (
+//     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+//       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md transform transition-all">
+//         <div className="flex items-center justify-between p-6 border-b border-gray-100">
+//           <h3 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+//             <Plus className="w-5 h-5 text-emerald-600" />
+//             Agregar Nuevo Pago
+//           </h3>
+//           <button
+//             onClick={onClose}
+//             className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+//           >
+//             <X className="w-5 h-5 text-gray-500" />
+//           </button>
+//         </div>
 
-        <form onSubmit={handleSubmit} className="p-6">
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Monto
-              </label>
-              <div className="relative">
-                <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.amount}
-                  onChange={(e) =>
-                    setFormData({ ...formData, amount: e.target.value })
-                  }
-                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
-                  placeholder="0.00"
-                  required
-                />
-              </div>
-            </div>
+//         <form onSubmit={handleSubmit} className="p-6">
+//           <div className="space-y-4">
+//             <div>
+//               <label className="block text-sm font-medium text-gray-700 mb-2">
+//                 Monto
+//               </label>
+//               <div className="relative">
+//                 <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+//                 <input
+//                   type="number"
+//                   step="0.01"
+//                   value={formData.amount}
+//                   onChange={(e) =>
+//                     setFormData({ ...formData, amount: e.target.value })
+//                   }
+//                   className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+//                   placeholder="0.00"
+//                   required
+//                 />
+//               </div>
+//             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Descripción
-              </label>
-              <input
-                type="text"
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
-                placeholder="Descripción del pago"
-                required
-              />
-            </div>
+//             <div>
+//               <label className="block text-sm font-medium text-gray-700 mb-2">
+//                 Descripción
+//               </label>
+//               <input
+//                 type="text"
+//                 value={formData.description}
+//                 onChange={(e) =>
+//                   setFormData({ ...formData, description: e.target.value })
+//                 }
+//                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+//                 placeholder="Descripción del pago"
+//                 required
+//               />
+//             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Método de Pago
-              </label>
-              <select
-                value={formData.method}
-                onChange={(e) =>
-                  setFormData({ ...formData, method: e.target.value as any })
-                }
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors bg-white"
-              >
-                <option value="credit_card">Tarjeta de Crédito</option>
-                <option value="bank_transfer">Transferencia Bancaria</option>
-                <option value="cash">Efectivo</option>
-              </select>
-            </div>
+//             <div>
+//               <label className="block text-sm font-medium text-gray-700 mb-2">
+//                 Método de Pago
+//               </label>
+//               <select
+//                 value={formData.method}
+//                 onChange={(e) =>
+//                   setFormData({ ...formData, method: e.target.value as any })
+//                 }
+//                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors bg-white"
+//               >
+//                 <option value="credit_card">Tarjeta de Crédito</option>
+//                 <option value="bank_transfer">Transferencia Bancaria</option>
+//                 <option value="cash">Efectivo</option>
+//               </select>
+//             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Fecha
-              </label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  type="date"
-                  value={formData.date}
-                  onChange={(e) =>
-                    setFormData({ ...formData, date: e.target.value })
-                  }
-                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
-                  required
-                />
-              </div>
-            </div>
-          </div>
+//             <div>
+//               <label className="block text-sm font-medium text-gray-700 mb-2">
+//                 Fecha
+//               </label>
+//               <div className="relative">
+//                 <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+//                 <input
+//                   type="date"
+//                   value={formData.date}
+//                   onChange={(e) =>
+//                     setFormData({ ...formData, date: e.target.value })
+//                   }
+//                   className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+//                   required
+//                 />
+//               </div>
+//             </div>
+//           </div>
 
-          <div className="flex gap-3 mt-6">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-3 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="flex-1 px-4 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? "Agregando..." : "Agregar Pago"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
+//           <div className="flex gap-3 mt-6">
+//             <button
+//               type="button"
+//               onClick={onClose}
+//               className="flex-1 px-4 py-3 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+//             >
+//               Cancelar
+//             </button>
+//             <button
+//               type="submit"
+//               disabled={isLoading}
+//               className="flex-1 px-4 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+//             >
+//               {isLoading ? "Agregando..." : "Agregar Pago"}
+//             </button>
+//           </div>
+//         </form>
+//       </div>
+//     </div>
+//   );
+// };
 
 // ========================================
 // COMPONENTE: RESUMEN DE PAGOS
@@ -486,6 +499,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   agente,
 }) => {
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [addPaymentModal, setAddPaymentModal] = useState(false);
   const [assignments, setAssignments] = useState<PaymentAssignment[]>([]);
 
   // Cargar datos iniciales
@@ -512,6 +526,12 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6 place-content-center">
           <PaymentSummary totalBalance={5000} assignedBalance={3000} />
           <div className="mb-6 flex items-center justify-end">
+            <button
+              onClick={() => setAddPaymentModal(true)}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors font-medium shadow-sm"
+            >
+              agregar pago
+            </button>
             {/* <button
               onClick={() => setIsModalOpen(true)}
               className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors font-medium shadow-sm"
@@ -600,14 +620,251 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
           />
         </div>
       </div>
+      {addPaymentModal && (
+        <Modal
+          title="Agregar Nuevo Pago"
+          onClose={() => setAddPaymentModal(false)}
+        >
+          <PaymentModal />
+        </Modal>
+      )}
+    </div>
+  );
+};
 
-      {/* Payment Modal */}
-      {/* <PaymentModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onAddPayment={handleAddPayment}
-        isLoading={isLoading}
-      /> */}
+// Tipos para el formulario
+interface FormState {
+  amount: string;
+  reference: string;
+  paymentMethod: string;
+  paymentDate: string;
+  discountApplied: boolean;
+  comments: string;
+}
+
+interface FormErrors {
+  amount?: string;
+  reference?: string;
+  paymentMethod?: string;
+  paymentDate?: string;
+}
+
+// Estado inicial
+const initialState: FormState = {
+  amount: "",
+  reference: "",
+  paymentMethod: "",
+  paymentDate: "",
+  discountApplied: false,
+  comments: "",
+};
+
+// Tipos de acciones
+type ActionType =
+  | { type: "SET_FIELD"; field: keyof FormState; value: string | boolean }
+  | { type: "RESET_FORM" }
+  | { type: "SET_FORM"; payload: FormState };
+
+// Reducer
+const formReducer = (state: FormState, action: ActionType): FormState => {
+  switch (action.type) {
+    case "SET_FIELD":
+      return {
+        ...state,
+        [action.field]: action.value,
+      };
+    case "RESET_FORM":
+      return initialState;
+    case "SET_FORM":
+      return action.payload;
+    default:
+      return state;
+  }
+};
+
+// Validaciones
+const validateForm = (state: FormState): FormErrors => {
+  const errors: FormErrors = {};
+
+  if (!state.amount || parseFloat(state.amount) <= 0) {
+    errors.amount = "El monto debe ser mayor a 0";
+  }
+
+  if (!state.reference.trim()) {
+    errors.reference = "La referencia es requerida";
+  }
+
+  if (!state.paymentMethod) {
+    errors.paymentMethod = "Selecciona una forma de pago";
+  }
+
+  if (!state.paymentDate) {
+    errors.paymentDate = "La fecha de pago es requerida";
+  }
+
+  return errors;
+};
+
+const PaymentModal = () => {
+  const [state, dispatch] = useReducer(formReducer, initialState);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+
+  const paymentMethods = [
+    "transferencia",
+    "tarjeta de credito",
+    "tarjeta de debito",
+  ];
+
+  const handleInputChange = (
+    field: keyof FormState,
+    value: string | boolean
+  ) => {
+    dispatch({ type: "SET_FIELD", field, value });
+
+    // Limpiar errores cuando el usuario empiece a escribir
+    if (errors[field as keyof FormErrors]) {
+      setErrors((prev) => ({ ...prev, [field]: undefined }));
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const formErrors = validateForm(state);
+
+    if (Object.keys(formErrors).length > 0) {
+      setErrors(formErrors);
+      return;
+    }
+
+    setIsSubmitting(true);
+    setErrors({});
+
+    // Simular envío del formulario
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+
+    setIsSubmitting(false);
+    setIsSubmitted(true);
+
+    // Resetear después de mostrar success
+    setTimeout(() => {
+      setIsSubmitted(false);
+      dispatch({ type: "RESET_FORM" });
+    }, 3000);
+  };
+
+  const resetForm = () => {
+    dispatch({ type: "RESET_FORM" });
+    setErrors({});
+    setIsSubmitted(false);
+  };
+
+  return (
+    <div className="h-fit w-[95vw] max-w-sm relative">
+      <div className="max-w-2xl mx-auto">
+        {/* Formulario */}
+        <div className="">
+          {/* Success State */}
+          {isSubmitted && (
+            <div className="bg-green-50 border-b border-green-200 p-6 sticky top-0 z-10">
+              <div className="flex items-center">
+                <CheckCircle className="w-6 h-6 text-green-600 mr-3" />
+                <div>
+                  <h3 className="text-lg font-semibold text-green-800">
+                    ¡Pago registrado exitosamente!
+                  </h3>
+                  <p className="text-green-600">
+                    La información ha sido guardada correctamente.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="p-4">
+            <div className="space-y-4">
+              {/* Monto */}
+              <NumberInput
+                label="Monto"
+                value={Number(state.amount)}
+                onChange={(value) => handleInputChange("amount", value)}
+              />
+
+              <TextInput
+                label="Referencia"
+                value={state.reference}
+                onChange={(value) => handleInputChange("reference", value)}
+                placeholder="Ingresa la referencia del pago"
+              />
+
+              {/* Forma de Pago */}
+              <Dropdown
+                label="Forma de Pago"
+                value={state.paymentMethod}
+                onChange={(value) => handleInputChange("paymentMethod", value)}
+                options={paymentMethods}
+              />
+
+              {/* Fecha de Pago */}
+              <DateInput
+                label="Fecha de Pago"
+                value={state.paymentDate}
+                onChange={(value) => handleInputChange("paymentDate", value)}
+              />
+
+              {/* Descuento Aplicado */}
+              <CheckboxInput
+                checked={state.discountApplied}
+                onChange={(e) => handleInputChange("discountApplied", e)}
+                label={"Descuento aplicado"}
+              />
+
+              {/* Comentarios */}
+              <TextAreaInput
+                label="Comentarios"
+                value={state.comments}
+                onChange={(value) => handleInputChange("comments", value)}
+                placeholder="Agrega comentarios adicionales sobre el pago..."
+              />
+            </div>
+
+            {/* Botones */}
+            <div className="flex flex-col gap-4 mt-8">
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className={`w-full md:flex-1 flex items-center justify-center px-6 py-3 rounded-xl font-semibold text-white transition-all duration-200 ${
+                  isSubmitting
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-blue-600 hover:bg-blue-700"
+                }`}
+              >
+                {isSubmitting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                    Procesando...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-5 h-5 mr-2" />
+                    Registrar Pago
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={resetForm}
+                className="w-full md:flex-1 px-6 py-3 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all duration-200"
+              >
+                Limpiar
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
   );
 };
