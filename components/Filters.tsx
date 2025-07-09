@@ -22,46 +22,46 @@ const Filters: React.FC<{
   searchTerm,
   setSearchTerm,
 }) => {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
+    const [isOpen, setIsOpen] = useState(defaultOpen);
 
-  const toggleModal = () => {
-    setIsOpen(!isOpen);
-  };
+    const toggleModal = () => {
+      setIsOpen(!isOpen);
+    };
 
-  return (
-    <div className="overflow-hidden max-w-full mx-auto relative flex flex-col md:flex-row md:items-center md:flex-wrap justify-between gap-4">
-      <div className="relative flex-1 pt-2">
-        <div className="absolute inset-y-0 left-0 pl-3 pt-2 flex items-center pointer-events-none">
-          <Search className="h-5 w-5 text-gray-400" />
+    return (
+      <div className="overflow-hidden max-w-full mx-auto relative flex flex-col md:flex-row md:items-center md:flex-wrap justify-between gap-4">
+        <div className="relative flex-1 pt-2">
+          <div className="absolute inset-y-0 left-0 pl-3 pt-2 flex items-center pointer-events-none">
+            <Search className="h-5 w-5 text-gray-400" />
+          </div>
+          <input
+            type="text"
+            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            placeholder="Buscar por código, ID, hotel..."
+            value={searchTerm || ""}
+            onChange={(e) => setSearchTerm(e.target.value.toUpperCase())}
+          />
         </div>
-        <input
-          type="text"
-          className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-          placeholder="Buscar por código, ID, hotel..."
-          value={searchTerm || ""}
-          onChange={(e) => setSearchTerm(e.target.value.toUpperCase())}
+        <div className="flex justify-between items-center gap-4">
+          <button
+            onClick={toggleModal}
+            type="button"
+            className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            <Filter className="h-4 w-4 mr-2" />
+            Filtros
+          </button>
+        </div>
+        <FiltersModal
+          onClose={toggleModal}
+          isOpen={isOpen}
+          onFilter={onFilter}
+          defaultFilter={defaultFilters}
+          setSearchTerm={setSearchTerm}
         />
       </div>
-      <div className="flex justify-between items-center gap-4">
-        <button
-          onClick={toggleModal}
-          type="button"
-          className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-        >
-          <Filter className="h-4 w-4 mr-2" />
-          Filtros
-        </button>
-      </div>
-      <FiltersModal
-        onClose={toggleModal}
-        isOpen={isOpen}
-        onFilter={onFilter}
-        defaultFilter={defaultFilters}
-        setSearchTerm={setSearchTerm}
-      />
-    </div>
-  );
-};
+    );
+  };
 
 
 const FiltersModal: React.FC<{
@@ -157,84 +157,85 @@ const FiltersModal: React.FC<{
                   }
                 />
               )}
-              
+
+              {"paydate" in filters && (
+                <DateInput
+                  label="Fecha de pago"
+                  value={filters.paydate?.toString() || ""}
+                  onChange={(value: string) =>
+                    setFilters((prev) => ({ ...prev, paydate: value }))
+                  }
+                />
+              )}
               {/* Nuevo filtro de descuento */}
 
               {"hasDiscount" in filters && (
                 <Dropdown
                   label="Tiene descuento"
                   value={filters.hasDiscount || ""}
+                  onChange={(value: string) => {
+                    const newValue = value === "SI" ? "SI" : value === "NO" ? "NO" : "";
+                    setFilters((prev) => ({
+                      ...prev,
+                      hasDiscount: newValue,
+                    }));
+                  }}
+                  options={["SI", "NO"]}
+                />
+              )}
+
+              {/* Estos son los filtros nuevos adicionales */}
+
+              {"id_stripe" in filters && (
+                <TextInput
+                  label="ID Stripe"
+                  value={filters.id_stripe?.toString() || ""}
+                  onChange={(value: string) =>
+                    setFilters((prev) => ({ ...prev, id_stripe: value }))
+                  }
+                />
+              )}
+
+              {"facturable" in filters && (
+                <Dropdown
+                  label="Facturable"
+                  value={
+                    filters.facturable === true
+                      ? "SI"
+                      : filters.facturable === false
+                        ? "NO"
+                        : ""
+                  }
                   onChange={(value) =>
                     setFilters((prev) => ({
                       ...prev,
-                      hasDiscount: value as "SI" | "NO" | "",
+                      facturable: value === "SI" ? true : value === "NO" ? false : null,
                     }))
                   }
                   options={["SI", "NO"]}
                 />
               )}
 
-              {/* Estos son los filtros nuevos adicionales */}
-                {"id_stripe" in filters && (
-                  <TextInput
-                    label="ID Stripe"
-                    value={filters.id_stripe || ""}
-                    onChange={(value) =>
-                      setFilters((prev) => ({ ...prev, id_stripe: value }))
-                    }
-                  />
-                )}
-
-                {"paydate" in filters && (
-                  <DateInput
-                    label="Fecha de pago"
-                    value={filters.paydate || ""}
-                    onChange={(value) =>
-                      setFilters((prev) => ({ ...prev, paydate: value }))
-                    }
-                  />
+              {"comprobante" in filters && (
+                <Dropdown
+                  label="Comprobante"
+                  value={
+                    filters.comprobante === true
+                      ? "SI"
+                      : filters.comprobante === false
+                        ? "NO"
+                        : ""
+                  }
+                  onChange={(value) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      comprobante: value === "SI" ? true : value === "NO" ? false : null,
+                    }))
+                  }
+                  options={["SI", "NO"]}
+                />
               )}
 
-                {"facturable" in filters && (
-                  <Dropdown
-                    label="Facturable"
-                    value={
-                      filters.facturable === true 
-                        ? "SI" 
-                        : filters.facturable === false 
-                          ? "NO" 
-                          : ""
-                    }
-                    onChange={(value) =>
-                      setFilters((prev) => ({
-                        ...prev,
-                        facturable: value === "SI" ? true : value === "NO" ? false : null,
-                      }))
-                    }
-                    options={["SI", "NO"]}
-                  />
-                )}
-
-                {"comprobante" in filters && (
-                  <Dropdown
-                    label="Comprobante"
-                    value={
-                      filters.comprobante === true 
-                        ? "SI" 
-                        : filters.comprobante === false 
-                          ? "NO" 
-                          : ""
-                    }
-                    onChange={(value) =>
-                      setFilters((prev) => ({
-                        ...prev,
-                        comprobante: value === "SI" ? true : value === "NO" ? false : null,
-                      }))
-                    }
-                    options={["SI", "NO"]}
-                  />
-                )}
-              
               {"hotel" in filters && (
                 <TextInput
                   label="Hotel"
@@ -441,13 +442,13 @@ const FiltersModal: React.FC<{
                   onChange={(value) =>
                     setFilters((prev) => ({
                       ...prev,
-                      paymentMethod: value as "Contado" | "Credito",
+                      paymentMethod: value as "Tarjeta Debito" | "Tarjeta Credito" | "" | "Credito" | "Contado" | "Wallet" | "Tranferencia",
                     }))
                   }
-                  options={["Tarjeta Debito", "Tarjeta Credito" , "Transferencia" , "Wallet"]}
+                  options={["Tarjeta Debito", "Tarjeta Credito", "Transferencia", "Wallet"]}
                 />
               )}
-              
+
               {"hay_convenio" in filters && (
                 <Dropdown
                   label="¿Hay convenio?"
@@ -627,8 +628,8 @@ const FiltersModal: React.FC<{
                     filters.incluye_desayuno === true
                       ? "SI"
                       : filters.incluye_desayuno === false
-                      ? "NO"
-                      : ""
+                        ? "NO"
+                        : ""
                   }
                   onChange={(value) =>
                     setFilters((prev) => ({
@@ -752,8 +753,8 @@ const FiltersModal: React.FC<{
                     filters.activo === true
                       ? "ACTIVO"
                       : filters.activo === false
-                      ? "INACTIVO"
-                      : ""
+                        ? "INACTIVO"
+                        : ""
                   }
                   onChange={(value) =>
                     setFilters((prev) => ({
@@ -762,8 +763,8 @@ const FiltersModal: React.FC<{
                         value === "ACTIVO"
                           ? true
                           : value === "INACTIVO"
-                          ? false
-                          : null,
+                            ? false
+                            : null,
                     }))
                   }
                   options={["ACTIVO", "INACTIVO"]}
@@ -829,26 +830,26 @@ const FiltersModal: React.FC<{
               key={key}
             >
               {key === "hasDiscount" && "Descuento: "}
-               {key === "paymentMethod" && "Método pago: "}
+              {key === "paymentMethod" && "Método pago: "}
               {key === "startDate" && "Desde: "}
               {key === "endDate" && "Hasta: "}
               {key === "facturable" && "Facturable: "}
               {key === "comprobante" && "Comprobante: "}
-              {key !== "tiene_descuento" && 
+              {key !== "tiene_descuento" &&
                 key !== "hasDiscount" &&
-               key !== "paymentMethod" && 
-               key !== "startDate" && 
-                key !== "endDate" && 
+                key !== "paymentMethod" &&
+                key !== "startDate" &&
+                key !== "endDate" &&
                 key !== "facturable" &&
-                key !== "comprobante"&&
-               `${key}: `}
-              
-              {typeof value === "string" 
-                ? value.toLowerCase() 
+                key !== "comprobante" &&
+                `${key}: `}
+
+              {typeof value === "string"
+                ? value.toLowerCase()
                 : typeof value === "boolean"
-                ? value ? "SI" : "NO"
-                : value.toString()}
-              
+                  ? value ? "SI" : "NO"
+                  : value.toString()}
+
               <X
                 onClick={() => handleDeleteFilter(key)}
                 className="w-3 h-3 ml-1 cursor-pointer text-gray-500 hover:text-gray-700"

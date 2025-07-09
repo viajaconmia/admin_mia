@@ -25,9 +25,9 @@ export interface FormSaldoFavor {
   is_facturable: boolean;
   referencia?: string;
   fecha_pago: string;
-  tipo_tarjeta: "credit" | "debit"; // Este extraelo a la hora de colocar lo de la forma de pago, puedes seleccionar hasta si quieres un value de debit y credit en lugar de tarjeta de credito y asi en el select y replicas el valor aqui y si es wallet lo eliminas, que inicial este null
+  tipo_tarjeta: "credito" | "debito"; // Este extraelo a la hora de colocar lo de la forma de pago, puedes seleccionar hasta si quieres un value de debit y credit en lugar de tarjeta de credito y asi en el select y replicas el valor aqui y si es wallet lo eliminas, que inicial este null
   link_stripe?: string;
-  descuento_aplicado?: boolean;
+  descuento_aplicable?: boolean;
   comentario?: string;
 }
 
@@ -38,9 +38,9 @@ export interface NuevoSaldoAFavor {
   is_facturable: boolean;
   referencia?: string;
   fecha_pago: string;
-  tipo_tarjeta?: "credit" | "debit"; // Hacer opcional ya que no aplica para wallet
+  tipo_tarjeta?: "credito" | "debito"; // Hacer opcional ya que no aplica para wallet
   link_stripe?: string;
-  descuento_aplicado?: boolean;
+  descuento_aplicable?: boolean;
   comentario?: string;
 }
 

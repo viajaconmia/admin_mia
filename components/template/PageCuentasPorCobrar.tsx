@@ -30,11 +30,11 @@ import {
   TextInput,
 } from "../atom/Input";
 
-import { SaldoFavor, NuevoSaldoAFavor, FormsaldoFavor } from "@/services/SaldoAFavor";
+import { SaldoFavor, NuevoSaldoAFavor } from "@/services/SaldoAFavor";
 // ========================================
 // TIPOS DE DATOS
 // ========================================
-interface TypeFilters {
+export interface TypeFilters {
   startDate: string | null;
   endDate: string | null;
   paymentMethod: "Tarjeta Debito" | "Tarjeta Credito" | "Transferencia" | "Wallet" | "";
@@ -518,7 +518,7 @@ interface PageCuentasPorCobrarProps {
 const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   agente,
 }) => {
-  const [payments, setPayments] = useState<Payment[]>([]);
+  //const [payments, setPayments] = useState<Payment[]>([]);
   const [addPaymentModal, setAddPaymentModal] = useState(false);
   const [assignments, setAssignments] = useState<PaymentAssignment[]>([]);
   const [filters, setFilters] = useState<TypeFilters>({
@@ -548,47 +548,47 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   // Datos de ejemplo para la tabla
   const paymentRecords = [
     {
-      idCliente: "CL001",
+      id_Cliente: "CL001",
       cliente: "Juan Pérez",
       creado: "2024-01-10",
-      montoPagado: 1500.00,
-      formaDePago: "Transferencia Bancaria",
+      monto_Pagado: 1500.00,
+      forma_De_Pago: "Transferencia Bancaria",
       referencia: "TRF-123456",
-      fechaDePago: "2024-01-15",
-      descuentoAplicado: 0.00,
+      fecha_De_Pago: "2024-01-15",
+      descuento_Aplicado: 1.00,
       motivo: "Anticipo evento",
       comentario: "Pago parcial del evento corporativo",
-      hasDissccount: "Si",
+      aplicable: "Si",
       endDay: "2025-05-02",
       startDay: "2025-05-02",
     },
     {
-      idCliente: "CL002",
+      id_Cliente: "CL002",
       cliente: "María García",
       creado: "2024-01-12",
-      montoPagado: 800.00,
-      formaDePago: "Tarjeta de Crédito",
+      monto_Pagado: 800.00,
+      forma_De_Pago: "Tarjeta de Crédito",
       referencia: "TC-789012",
-      fechaDePago: "2024-01-18",
-      descuentoAplicado: 100.00,
+      fecha_De_Pago: "2024-01-18",
+      descuento_Aplicado: 100.00,
       motivo: "Descuento promocional",
       comentario: "Pago con descuento por temporada",
-      hasDissccount: "Si",
+      aplicable: "Si",
       startDay: "2024-02-05",
       endDay: "2024-08-09"
     },
     {
-      idCliente: "CL003",
+      id_Cliente: "CL003",
       cliente: "Carlos López",
       creado: "2024-01-14",
-      montoPagado: 1200.00,
-      formaDePago: "Efectivo",
+      monto_Pagado: 1200.00,
+      forma_De_Pago: "Efectivo",
       referencia: "EF-456789",
-      fechaDePago: "2024-01-16",
-      descuentoAplicado: 50.00,
+      fecha_De_Pago: "2024-01-16",
+      descuento_Aplicado: 50.00,
       motivo: "Pago en efectivo",
       comentario: "Pago completo en efectivo",
-      hasDissccount: "No",
+      aplicable: "No",
       startDay: "2024-02-05",
       endDay: "2024-08-09"
     },
@@ -728,7 +728,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
             defaultFilters={filters}
-
           />
 
           <Table
@@ -867,7 +866,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
 
   const paymentMethods = [
     "Transferencia",
-    "Walllet",
+    "Wallet",
     "Tarjeta de credito",
     "Tarjeta de debito",
   ];
@@ -913,21 +912,21 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
         // Solo incluir tipo_tarjeta si es pago con tarjeta
         ...(state.paymentMethod.includes("Tarjeta") && {
           tipo_tarjeta: state.paymentMethod.includes("credito")
-            ? "credito"
-            : "debito"
+            ? "credito"  // Cambiado de "credito" a "credit"
+            : "debito"   // Cambiado de "debito" a "debit"
         }),
 
         link_stripe: state.link_Stripe || "",
-        descuento_aplicado: state.discountApplied,
+        descuento_aplicable: state.discountApplied,
         ...(state.comments && { comentario: state.comments }),
       };
 
       // Llamar al servicio para crear el pago
-      //const response = await SaldoFavor.crearPago(pagoData);
+      const response = await SaldoFavor.crearPago(pagoData);
 
       // Manejar respuesta exitosa
-      //setIsSubmitting(false);
-      //setIsSubmitted(true);
+      setIsSubmitting(false);
+      setIsSubmitted(true);
 
       // 1. Mostrar en consola los datos que se enviarán
       console.log("Datos del formulario a enviar:", {
