@@ -60,8 +60,8 @@ export function HotelContainer() {
     delete apiFilters.infoCompleta;
 
     fetchHotelesFiltro_Avanzado(apiFilters, (data) => {
-      const fetchedHotels = data || [];
-        //Array.isArray(data) && Array.isArray(data[0]) ? data[0] : [];
+      const fetchedHotels = data || []
+        // Array.isArray(data) && Array.isArray(data[0]) ? data[0] : [];
 
       if (infoCompletaFilter !== null && infoCompletaFilter !== undefined) {
         const filtered = fetchedHotels.filter(

@@ -24,7 +24,7 @@ interface TableProps {
 }
 
 export const Table = ({
-  registros,
+  registros = [],
   renderers = {},
   defaultSort,
   exportButton = true,
@@ -40,7 +40,11 @@ export const Table = ({
   }>(
     defaultSort
       ? defaultSort
-      : { key: Object.keys(registros[0])[0], sort: true }
+      : {
+        key: registros.length > 0 ? Object.keys(registros[0])[0] : "",
+        sort: true
+      }
+    
   );
 
   useEffect(() => {
