@@ -828,14 +828,19 @@ const FiltersModal: React.FC<{
               className="text-xs font-medium text-sky-900 rounded-full bg-sky-200 px-2 pl-3 py-1 mr-2 mb-2 inline-flex items-center"
               key={key}
             >
-              {key === "tiene_descuento" && "Descuento: "}
-              {key === "paymentMethod" && "Método pago: "}
+              {key === "hasDiscount" && "Descuento: "}
+               {key === "paymentMethod" && "Método pago: "}
               {key === "startDate" && "Desde: "}
               {key === "endDate" && "Hasta: "}
+              {key === "facturable" && "Facturable: "}
+              {key === "comprobante" && "Comprobante: "}
               {key !== "tiene_descuento" && 
+                key !== "hasDiscount" &&
                key !== "paymentMethod" && 
                key !== "startDate" && 
-               key !== "endDate" && 
+                key !== "endDate" && 
+                key !== "facturable" &&
+                key !== "comprobante"&&
                `${key}: `}
               
               {typeof value === "string" 

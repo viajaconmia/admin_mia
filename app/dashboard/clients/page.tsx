@@ -56,6 +56,7 @@ function App() {
       estado_verificacion: "",
       estado_credito: Boolean(item.tiene_credito_consolidado),
       credito: item.saldo ? Number(item.saldo) : 0,
+      wallet: 0,
       categoria: "Administrador",
       notas_internas: item.notas || "",
       vendedor: item.vendedor || "",
@@ -86,6 +87,7 @@ function App() {
     ),
     estado_credito: (props) => getStatusCreditBadge(props.value),
     credito: (props: { value: number }) => getCreditoBadge(props.value),
+    wallet: (props: { value: number }) => <>{props.value}</>,
     categoria: (props: { value: string }) => getRoleBadge(props.value),
     notas_internas: ({ value }: { value: string }) => (
       <ToolTip content={value.toUpperCase()}>
