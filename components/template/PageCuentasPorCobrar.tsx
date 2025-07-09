@@ -1,21 +1,26 @@
 "use client";
 import React, { useState, useEffect, useReducer } from "react";
 import {
-  DollarSign,
-  CreditCard,
-  Calendar,
-  CheckSquare,
-  Square,
   FileText,
   Tag,
   MessageCircle,
   CheckCircle,
   AlertCircle,
   Send,
+  Plus,
+  DollarSign,
+  CreditCard,
+  Calendar,
+  CheckSquare,
+  Square,
+  X
 } from "lucide-react";
 import { Table } from "../Table";
 import { currentDate } from "@/lib/utils";
+import Filters from "@/components/Filters";
+import { endOfDay } from "date-fns";
 import Modal from "../organism/Modal";
+import { URL, API_KEY } from "@/lib/constants/index";
 import {
   CheckboxInput,
   DateInput,
@@ -25,15 +30,20 @@ import {
   TextInput,
 } from "../atom/Input";
 
+import { SaldoFavor, NuevoSaldoAFavor } from "@/services/SaldoAFavor";
 // ========================================
 // TIPOS DE DATOS
 // ========================================
-interface Payment {
-  id: string;
-  amount: number;
-  date: string;
-  description: string;
-  method: "credit_card" | "bank_transfer" | "cash";
+export interface TypeFilters {
+  startDate: string | null;
+  endDate: string | null;
+  paymentMethod: "Tarjeta Debito" | "Tarjeta Credito" | "Transferencia" | "Wallet" | "";
+  hasDiscount: "SI" | "NO" | "";
+  id_stripe: string | null;
+  facturable: boolean | null;
+  comprobante: boolean | null;
+  paydate: string | null;
+  // ... otros campos si son necesarios
 }
 
 interface Reservation {
@@ -50,6 +60,8 @@ interface PaymentAssignment {
   assignedAmount: number;
 }
 
+
+
 // ========================================
 // SIMULACIÓN DE BACKEND
 // ========================================
@@ -59,13 +71,14 @@ const simulateApiCall = <T,>(data: T, delay: number = 1000): Promise<T> => {
   });
 };
 
-const mockPayments: Payment[] = [
+/*const mockPayments: Payment[] = [
   {
     id: "1",
     amount: 1500,
     date: "2024-01-15",
     description: "Pago Juan Pérez - Evento Corporativo",
     method: "bank_transfer",
+
   },
   {
     id: "2",
@@ -75,6 +88,7 @@ const mockPayments: Payment[] = [
     method: "credit_card",
   },
 ];
+*/
 
 const mockReservations: Reservation[] = [
   {
@@ -111,7 +125,7 @@ const mockReservations: Reservation[] = [
   },
 ];
 
-// Funciones simuladas de API
+/* Funciones simuladas de API
 const apiService = {
   getPayments: () => simulateApiCall(mockPayments, 800),
   getReservations: () => simulateApiCall(mockReservations, 600),
@@ -120,15 +134,18 @@ const apiService = {
   assignPaymentToReservation: (assignments: PaymentAssignment[]) =>
     simulateApiCall({ success: true, assignments }, 800),
 };
+*/
 
 // ========================================
 // COMPONENTE: MODAL DE PAGOS
 // ========================================
 interface PaymentModalProps {
   isOpen: boolean;
+  saldoAFavor?: number;
   onClose: () => void;
   onAddPayment: (payment: Omit<Payment, "id">) => void;
   isLoading: boolean;
+  agente: Agente;
 }
 
 // const PaymentModal: React.FC<PaymentModalProps> = ({
@@ -279,6 +296,7 @@ interface PaymentModalProps {
 // ========================================
 // COMPONENTE: RESUMEN DE PAGOS
 // ========================================
+
 interface PaymentSummaryProps {
   totalBalance: number;
   assignedBalance: number;
@@ -405,9 +423,8 @@ const ReservationTable: React.FC<ReservationTableProps> = ({
               return (
                 <tr
                   key={reservation.id}
-                  className={`hover:bg-gray-50 transition-colors ${
-                    isSelected ? "bg-emerald-50" : ""
-                  }`}
+                  className={`hover:bg-gray-50 transition-colors ${isSelected ? "bg-emerald-50" : ""
+                    }`}
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <button
@@ -488,6 +505,9 @@ const ReservationTable: React.FC<ReservationTableProps> = ({
   );
 };
 
+//====================================
+
+
 // ========================================
 // COMPONENTE PRINCIPAL
 // ========================================
@@ -498,25 +518,187 @@ interface PageCuentasPorCobrarProps {
 const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   agente,
 }) => {
-  const [payments, setPayments] = useState<Payment[]>([]);
+  //const [payments, setPayments] = useState<Payment[]>([]);
   const [addPaymentModal, setAddPaymentModal] = useState(false);
   const [assignments, setAssignments] = useState<PaymentAssignment[]>([]);
+  const [filters, setFilters] = useState<TypeFilters>({
+    startDate: null,
+    endDate: null,
+    hasDiscount: "",
+    paymentMethod: "",
+    id_stripe: "",
+    facturable: null,
+    comprobante: null,
+    paydate: null,
+  });
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activeFilter, setActiveFilter] = useState<string>("all");
+  const [saldoAFavor, setSaldoAFavor] = useState<number>(0);
 
-  // Cargar datos iniciales
+  // Función para manejar los filtros
+  const handleFilter = (newFilters: TypeFilters) => {
+    setFilters(newFilters);
+    if (newFilters.paymentMethod) {
+      setActiveFilter(newFilters.paymentMethod);
+    } else {
+      setActiveFilter("all");
+    }
+  };
+
+  // Datos de ejemplo para la tabla
+  const paymentRecords = [
+    {
+      id_Cliente: "CL001",
+      cliente: "Juan Pérez",
+      creado: "2024-01-10",
+      monto_Pagado: 1500.00,
+      forma_De_Pago: "Transferencia Bancaria",
+      referencia: "TRF-123456",
+      fecha_De_Pago: "2024-01-15",
+      descuento_Aplicado: 1.00,
+      motivo: "Anticipo evento",
+      comentario: "Pago parcial del evento corporativo",
+      aplicable: "Si",
+      endDay: "2025-05-02",
+      startDay: "2025-05-02",
+    },
+    {
+      id_Cliente: "CL002",
+      cliente: "María García",
+      creado: "2024-01-12",
+      monto_Pagado: 800.00,
+      forma_De_Pago: "Tarjeta de Crédito",
+      referencia: "TC-789012",
+      fecha_De_Pago: "2024-01-18",
+      descuento_Aplicado: 100.00,
+      motivo: "Descuento promocional",
+      comentario: "Pago con descuento por temporada",
+      aplicable: "Si",
+      startDay: "2024-02-05",
+      endDay: "2024-08-09"
+    },
+    {
+      id_Cliente: "CL003",
+      cliente: "Carlos López",
+      creado: "2024-01-14",
+      monto_Pagado: 1200.00,
+      forma_De_Pago: "Efectivo",
+      referencia: "EF-456789",
+      fecha_De_Pago: "2024-01-16",
+      descuento_Aplicado: 50.00,
+      motivo: "Pago en efectivo",
+      comentario: "Pago completo en efectivo",
+      aplicable: "No",
+      startDay: "2024-02-05",
+      endDay: "2024-08-09"
+    },
+  ].filter(item => item.cliente.includes(searchTerm));
+
+  // Filtrar los registros según los filtros aplicados
+  // Filtrar los registros según los filtros aplicados
+  const filteredRecords = paymentRecords
+  //     .filter(record => {
+  //   // Filtro por fechas de viaje (startDay y endDay)
+  //   if (filters.startDate && record.startDay && new Date(record.startDay) < new Date(filters.startDate)) {
+  //     return false;
+  //   }
+  //   if (filters.endDate && record.endDay && new Date(record.endDay) > new Date(filters.endDate)) {
+  //     return false;
+  //   }
+
+  //   // Filtro por fechas de pago (fechaDePago)
+  //   if (filters.startDate && record.fechaDePago && new Date(record.fechaDePago) < new Date(filters.startDate)) {
+  //     return false;
+  //   }
+  //   if (filters.endDate && record.fechaDePago && new Date(record.fechaDePago) > new Date(filters.endDate)) {
+  //     return false;
+  //   }
+
+  //   // Resto de los filtros...
+  //   if (filters.paymentMethod) {
+  //     const methodMap: Record<string, string> = {
+  //       "Contado": "Efectivo",
+  //       "Credito": "Tarjeta de Crédito",
+  //       "Transferencia": "Transferencia Bancaria"
+  //     };
+
+  //     if (record.formaDePago !== methodMap[filters.paymentMethod]) return false;
+  //   }
+
+  //   if (filters.hasDiscount) {
+  //     const hasDiscount = record.hasDissccount === "Si" || record.hasDisccount === "Si";
+  //     if (filters.hasDiscount === "SI" && !hasDiscount) return false;
+  //     if (filters.hasDiscount === "NO" && hasDiscount) return false;
+  //   }
+
+  //   if (searchTerm) {
+  //     const searchLower = searchTerm.toLowerCase();
+  //     if (
+  //       !record.cliente.toLowerCase().includes(searchLower) &&
+  //       !record.referencia.toLowerCase().includes(searchLower) &&
+  //       !record.idCliente.toLowerCase().includes(searchLower)
+  //     ) {
+  //       return false;
+  //     }
+  //   }
+
+  //   return true;
+  // });
+
+  // Renderers para las columnas especiales
+  const tableRenderers = {
+    montoPagado: (props: { value: number }) => (
+      <span className="font-medium text-emerald-600">
+        ${props.value.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+      </span>
+    ),
+    descuentoAplicado: (props: { value: number }) => (
+      <span className="text-red-500">
+        ${props.value.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+      </span>
+    ),
+    formaDePago: (props: { value: string }) => (
+      <div className="flex items-center gap-2">
+        {props.value === "Tarjeta de Crédito" ? (
+          <CreditCard className="w-4 h-4 text-gray-500" />
+        ) : props.value === "Transferencia Bancaria" ? (
+          <DollarSign className="w-4 h-4 text-blue-500" />
+        ) : (
+          <DollarSign className="w-4 h-4 text-green-500" />
+        )}
+        <span>{props.value}</span>
+      </div>
+    ),
+    acciones: () => (
+      <div className="flex gap-2">
+        <button className="p-1 text-blue-500 hover:text-blue-700">
+          <span className="text-xs">Subir/Ver</span>
+        </button>
+        <button className="p-1 text-gray-500 hover:text-gray-700">
+          <span className="text-xs">Editar</span>
+        </button>
+        <button className="p-1 text-red-500 hover:text-red-700">
+          <span className="text-xs">Eliminar</span>
+        </button>
+      </div>
+    ),
+  };
+
+  // Ejemplo de cómo podrías obtener el saldo
   useEffect(() => {
-    const loadData = async () => {
+    const fetchSaldoAFavor = async () => {
       try {
-        const [paymentsData, reservationsData] = await Promise.all([
-          apiService.getPayments(),
-          apiService.getReservations(),
-        ]);
-        setPayments(paymentsData);
+        // Aquí deberías llamar a tu API para obtener el saldo real
+        // const saldo = await obtenerSaldoAFavor(idCliente);
+        // setSaldoAFavor(saldo);
+        // Ejemplo con valor mock
+        setSaldoAFavor(23);
       } catch (error) {
-        console.error("Error loading data:", error);
+        console.error("Error al obtener saldo a favor:", error);
       }
     };
 
-    loadData();
+    fetchSaldoAFavor();
   }, []);
 
   return (
@@ -524,99 +706,55 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
         {/* Payment Summary */}
         <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6 place-content-center">
-          <PaymentSummary totalBalance={5000} assignedBalance={3000} />
-          <div className="mb-6 flex items-center justify-end">
-            <button
-              onClick={() => setAddPaymentModal(true)}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors font-medium shadow-sm"
-            >
-              agregar pago
-            </button>
-            {/* <button
-              onClick={() => setIsModalOpen(true)}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors font-medium shadow-sm"
-            >
+          <PaymentSummary totalBalance={2300} assignedBalance={0} />
+          <div className="mb-6 flex items-center justify-end gap-4">
+            <button className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors font-medium shadow-sm"
+              onClick={() => { setAddPaymentModal(true) }}>
               <Plus className="w-5 h-5" />
               Agregar Pago
-            </button> */}
+            </button>
           </div>
         </div>
 
         {/* Action Buttons */}
-        {/* {assignments.length > 0 && (
-          <div className="mt-6 bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">
-              Resumen de Asignaciones
-            </h3>
-            <div className="space-y-2">
-              {assignments.map((assignment) => {
-                const reservation = reservations.find(
-                  (r) => r.id === assignment.reservationId
-                );
-                return (
-                  <div
-                    key={assignment.reservationId}
-                    className="flex justify-between items-center py-2"
-                  >
-                    <span className="text-gray-700">
-                      {reservation?.clientName}
-                    </span>
-                    <span className="font-medium text-emerald-600">
-                      $
-                      {assignment.assignedAmount.toLocaleString("es-MX", {
-                        minimumFractionDigits: 2,
-                      })}
-                    </span>
-                  </div>
-                );
-              })}
-              <div className="border-t pt-2 mt-4">
-                <div className="flex justify-between items-center font-semibold">
-                  <span>Total Asignado:</span>
-                  <span className="text-emerald-600">
-                    $
-                    {assignedBalance.toLocaleString("es-MX", {
-                      minimumFractionDigits: 2,
-                    })}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center text-sm text-gray-600 mt-1">
-                  <span>Saldo Restante:</span>
-                  <span>
-                    $
-                    {availableBalance.toLocaleString("es-MX", {
-                      minimumFractionDigits: 2,
-                    })}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )} */}
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold">Resumen de pagos</h3>
+        </div>
 
-        <div className="mt-6">
+        {/* Tabla de pagos */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+          <Filters
+            onFilter={handleFilter}
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            defaultFilters={filters}
+          />
+
           <Table
-            registros={[
-              { id: 1, name: "Juan Pérez", age: 30, city: "CDMX" },
-              { id: 2, name: "María García", age: 25, city: "Guadalajara" },
-              {
-                id: 3,
-                name: "Carlos Rodríguez",
-                age: 28,
-                city: "Monterrey",
-              },
-            ]}
-            renderers={{
-              name: (props) => (
-                <span className="font-medium text-gray-800">{props.value}</span>
-              ),
-              age: (props) => (
-                <span className="text-sm text-gray-900">{props.value}</span>
-              ),
-              city: (props) => (
-                <span className="text-lg text-gray-600">{props.value}</span>
-              ),
-            }}
+            registros={filteredRecords}
+            renderers={tableRenderers}
+          // columnas={[
+          //   { key: "idCliente", titulo: "ID CLIENTE" },
+          //   { key: "cliente", titulo: "CLIENTE" },
+          //   { key: "creado", titulo: "CREADO" },
+          //   { key: "montoPagado", titulo: "MONTO PAGADO" },
+          //   { key: "formaDePago", titulo: "FORMA DE PAGO" },
+          //   { key: "referencia", titulo: "REFERENCIA" },
+          //   { key: "fechaDePago", titulo: "FECHA DE PAGO" },
+          //   { key: "descuentoAplicado", titulo: "DESCUENTO APLICADO" },
+          //   { key: "motivo", titulo: "MOTIVO" },
+          //   { key: "comentario", titulo: "COMENTARIO" },
+          //   { 
+          //     key: "acciones", 
+          //     titulo: "COMPROBANTE",
+          //     render: tableRenderers.acciones 
+          //   },
+          //   { 
+          //     key: "acciones", 
+          //     titulo: "ACCIONES",
+          //     render: tableRenderers.acciones 
+          //   },
+          // ]}
           />
         </div>
       </div>
@@ -625,7 +763,11 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
           title="Agregar Nuevo Pago"
           onClose={() => setAddPaymentModal(false)}
         >
-          <PaymentModal />
+          <PaymentModal
+            saldoAFavor={saldoAFavor}
+            onClose={() => setAddPaymentModal(false)}
+            agente={agente}
+          />
         </Modal>
       )}
     </div>
@@ -633,13 +775,16 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
 };
 
 // Tipos para el formulario
+//===========================
 interface FormState {
   amount: string;
   reference: string;
   paymentMethod: string;
   paymentDate: string;
   discountApplied: boolean;
+  facturable: boolean;
   comments: string;
+  link_Stripe: string;
 }
 
 interface FormErrors {
@@ -656,7 +801,9 @@ const initialState: FormState = {
   paymentMethod: "",
   paymentDate: "",
   discountApplied: false,
+  facturable: false,
   comments: "",
+  link_Stripe: ""
 };
 
 // Tipos de acciones
@@ -705,16 +852,23 @@ const validateForm = (state: FormState): FormErrors => {
   return errors;
 };
 
-const PaymentModal = () => {
+//Modal de pagos 
+//para agregar pagos 
+const PaymentModal: React.FC<PaymentModalProps> = ({
+  saldoAFavor = 0,
+  onClose,
+  agente
+}) => {
   const [state, dispatch] = useReducer(formReducer, initialState);
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   const paymentMethods = [
-    "transferencia",
-    "tarjeta de credito",
-    "tarjeta de debito",
+    "Transferencia",
+    "Wallet",
+    "Tarjeta de credito",
+    "Tarjeta de debito",
   ];
 
   const handleInputChange = (
@@ -733,8 +887,8 @@ const PaymentModal = () => {
     e.preventDefault();
 
     const formErrors = validateForm(state);
-
     if (Object.keys(formErrors).length > 0) {
+      console.log(formErrors)
       setErrors(formErrors);
       return;
     }
@@ -742,18 +896,79 @@ const PaymentModal = () => {
     setIsSubmitting(true);
     setErrors({});
 
-    // Simular envío del formulario
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    try {
+      // Mapear los datos del formulario al formato esperado por el backend
+      const pagoData: NuevoSaldoAFavor = {
+        id_cliente: agente.id_agente, // Debes obtener este valor del contexto o props
+        monto_pagado: Number(state.amount),
+        forma_pago: state.paymentMethod.toLowerCase() as
+          | "transferencia"
+          | "tarjeta de credito"
+          | "tarjeta de debito"
+          | "wallet",
+        is_facturable: state.facturable,
+        referencia: state.reference,
+        fecha_pago: state.paymentDate,
+        // Solo incluir tipo_tarjeta si es pago con tarjeta
+        ...(state.paymentMethod.includes("Tarjeta") && {
+          tipo_tarjeta: state.paymentMethod.includes("credito")
+            ? "credito"  // Cambiado de "credito" a "credit"
+            : "debito"   // Cambiado de "debito" a "debit"
+        }),
 
-    setIsSubmitting(false);
-    setIsSubmitted(true);
+        link_stripe: state.link_Stripe || "",
+        descuento_aplicable: state.discountApplied,
+        ...(state.comments && { comentario: state.comments }),
+      };
 
-    // Resetear después de mostrar success
-    setTimeout(() => {
-      setIsSubmitted(false);
-      dispatch({ type: "RESET_FORM" });
-    }, 3000);
+      // Llamar al servicio para crear el pago
+      const response = await SaldoFavor.crearPago(pagoData);
+
+      // Manejar respuesta exitosa
+      setIsSubmitting(false);
+      setIsSubmitted(true);
+
+      // 1. Mostrar en consola los datos que se enviarán
+      console.log("Datos del formulario a enviar:", {
+        ...pagoData,
+        // Mostrar el saldo actual para referencia
+        saldo_actual: saldoAFavor,
+        saldo_restante: saldoAFavor - Number(state.amount)
+      });
+
+      // 2. Mostrar el payload que se enviará a la API
+      console.log("Payload para la API:", pagoData);
+
+      // 3. Mostrar la respuesta de la API
+      //console.log("Respuesta de la API:", response);
+
+      // Resetear después de mostrar success
+      setTimeout(() => {
+        setIsSubmitted(false);
+        dispatch({ type: "RESET_FORM" });
+      }, 3000);
+
+    } catch (error) {
+      setIsSubmitting(false);
+
+      // Mostrar error al usuario
+      if (error instanceof Error) {
+        setErrors({
+          ...errors,
+          // Mapeo de errores del back
+          amount: error.message.includes("monto") ? error.message : undefined,
+          paymentMethod: error.message.includes("forma de pago") ? error.message : undefined,
+        });
+      } else {
+        setErrors({
+          ...errors,
+          // Error generico
+          paymentMethod: "Ocurrió un error al procesar el pago. Intente nuevamente.",
+        });
+      }
+    }
   };
+
 
   const resetForm = () => {
     dispatch({ type: "RESET_FORM" });
@@ -764,6 +979,17 @@ const PaymentModal = () => {
   return (
     <div className="h-fit w-[95vw] max-w-sm relative">
       <div className="max-w-2xl mx-auto">
+
+        {/* Mostrar saldo a favor en la parte superior */}
+        {/* <div className="bg-blue-50 border-b border-blue-200 p-4 mb-4 rounded-t-lg">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-blue-800">Saldo a favor:</span>
+            <span className="text-lg font-bold text-blue-600">
+              ${saldoAFavor.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+            </span>
+          </div>
+        </div> */}
+
         {/* Formulario */}
         <div className="">
           {/* Success State */}
@@ -782,12 +1008,28 @@ const PaymentModal = () => {
               </div>
             </div>
           )}
+          {Object.entries(errors).length > 0 && (
+            <div className="bg-red-50 border-b border-red-200 p-6 sticky top-0 z-10">
+              <div className="flex items-center">
+                <X className="w-6 h-6 text-red-600 mr-3" />
+                <div>
+                  <h3 className="text-lg font-semibold text-red-800">
+                    ¡Ocurrio un error!
+                  </h3>
+                  {Object.values(errors).filter(item => !!item).map(item => <p key={item} className="text-red-600">
+                    ◾{item}
+                  </p>)}
+
+                </div>
+              </div>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="p-4">
             <div className="space-y-4">
               {/* Monto */}
               <NumberInput
-                label="Monto"
+                label="Monto Pagado"
                 value={Number(state.amount)}
                 onChange={(value) => handleInputChange("amount", value)}
               />
@@ -821,6 +1063,21 @@ const PaymentModal = () => {
                 label={"Descuento aplicado"}
               />
 
+              {/* Facturable */}
+              <CheckboxInput
+                checked={state.facturable}
+                onChange={(e) => handleInputChange("facturable", e)}
+                label={"Facturable"}
+              />
+
+              {/* Link Stripe */}
+              <TextInput
+                label="Link Stripe"
+                value={state.link_Stripe}
+                onChange={(value) => handleInputChange("link_Stripe", value)}
+                placeholder="Agrega el Link Sprite"
+              />
+
               {/* Comentarios */}
               <TextAreaInput
                 label="Comentarios"
@@ -835,11 +1092,10 @@ const PaymentModal = () => {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className={`w-full md:flex-1 flex items-center justify-center px-6 py-3 rounded-xl font-semibold text-white transition-all duration-200 ${
-                  isSubmitting
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-blue-600 hover:bg-blue-700"
-                }`}
+                className={`w-full md:flex-1 flex items-center justify-center px-6 py-3 rounded-xl font-semibold text-white transition-all duration-200 ${isSubmitting
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-blue-600 hover:bg-blue-700"
+                  }`}
               >
                 {isSubmitting ? (
                   <>
@@ -916,3 +1172,4 @@ interface TabMultitab {
   leyenda?: string;
 }
 */
+

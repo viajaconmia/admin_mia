@@ -1,19 +1,19 @@
 import { URL, API_KEY } from "@/lib/constants/index";
 
 interface NuevoSaldoAFavor {
-  id_cliente: string; // Se obtiene al entrar a la wallet del cliente
+  id_cliente: string;
   monto_pagado: number;
   forma_pago:
     | "transferencia"
     | "tarjeta de credito"
     | "tarjeta de debito"
-    | "wallet"; //De aqui obtienes el tipo de tarjeta
+    | "wallet";
   is_facturable: boolean;
   referencia?: string;
   fecha_pago: string;
-  tipo_tarjeta: "credit" | "debit"; // Este extraelo a la hora de colocar lo de la forma de pago, puedes seleccionar hasta si quieres un value de debit y credit en lugar de tarjeta de credito y asi en el select y replicas el valor aqui y si es wallet lo eliminas, que inicial este null
+  tipo_tarjeta: "credito" | "debito";
   link_stripe?: string;
-  descuento_aplicado?: boolean;
+  descuento_aplicable?: boolean;
   comentario?: string;
 }
 
