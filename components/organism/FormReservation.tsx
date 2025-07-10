@@ -130,6 +130,7 @@ export function ReservationForm({
     },
     metadata: solicitud,
   });
+  const [loading, setLoading] = useState(false);
   const [travelers, setTravelers] = useState<Viajero[]>([]);
   const [activeTab, setActiveTab] = useState("cliente");
   const [isCostoManual, setIsCostoManual] = useState(
@@ -340,15 +341,18 @@ export function ReservationForm({
     edicion,
   ]);
   const handleSubmit = (e: FormEvent) => {
+    setLoading(true);
     e.preventDefault();
     if (edicion) {
       updateReserva(edicionForm, solicitud.id_booking, (data) => {
         if (data.error) {
           alert("Error al actualizar la reserva");
+          setLoading(false);
           return;
         }
         alert("Reserva actualizada correctamente");
         onClose();
+        setLoading(false);
         console.log(data);
       });
     } else if (create) {
@@ -356,17 +360,22 @@ export function ReservationForm({
         console.log(data);
         if (data.error) {
           alert("ERROR");
+          setLoading(false);
+          return;
         }
         alert("Se creo correctamente la reservación");
+        setLoading(false);
         onClose();
       });
     } else {
       fetchCreateReservaFromSolicitud(form, (data) => {
         if (data.error) {
           alert("Error al crear la reserva");
+          setLoading(false);
           return;
         }
         alert("Reserva creada correctamente");
+        setLoading(false);
         onClose();
       });
     }
@@ -926,7 +935,9 @@ export function ReservationForm({
       </Tabs>
 
       <DialogFooter>
-        <Button type="submit">Actualizar Reserva</Button>
+        <Button disabled={!!loading} type="submit">
+          Actualizar Reserva
+        </Button>
       </DialogFooter>
     </form>
   );
