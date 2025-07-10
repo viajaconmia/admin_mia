@@ -41,10 +41,9 @@ export const Table = ({
     defaultSort
       ? defaultSort
       : {
-        key: registros.length > 0 ? Object.keys(registros[0])[0] : "",
-        sort: true
-      }
-    
+          key: registros.length > 0 ? Object.keys(registros[0])[0] : "",
+          sort: true,
+        }
   );
 
   useEffect(() => {
@@ -150,7 +149,7 @@ export const Table = ({
                           key={`${
                             item.id !== undefined ? item.id : index
                           }-${colKey}`}
-                          className="px-6 py-3 whitespace-nowrap text-xs text-gray-900"
+                          className="px-6 py-1 whitespace-nowrap text-xs text-gray-900"
                         >
                           {Renderer ? (
                             <Renderer value={value} />
