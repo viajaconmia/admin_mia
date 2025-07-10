@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useReducer } from "react";
+import React, { useState, useEffect, useReducer, ChangeEvent } from "react";
 import {
   FileText,
   Tag,
@@ -15,12 +15,17 @@ import {
   Square,
   X
 } from "lucide-react";
+
 import { Table } from "../Table";
-import { currentDate } from "@/lib/utils";
 import Filters from "@/components/Filters";
-import { endOfDay } from "date-fns";
 import Modal from "../organism/Modal";
-import { URL, API_KEY } from "@/lib/constants/index";
+import { SaldoFavor, NuevoSaldoAFavor, Saldo } from "@/services/SaldoAFavor";
+import { fetchAgenteById, fetchPagosByAgente } from "@/services/agentes";
+import { Loader } from "@/components/atom/Loader";
+
+
+//import { UsersClient } from "./_components/UsersClient";
+
 import {
   CheckboxInput,
   DateInput,
@@ -30,7 +35,8 @@ import {
   TextInput,
 } from "../atom/Input";
 
-import { SaldoFavor, NuevoSaldoAFavor } from "@/services/SaldoAFavor";
+//const [clients, setClient] = useState<Agente[]>([]);
+import { set } from "react-hook-form";
 // ========================================
 // TIPOS DE DATOS
 // ========================================
@@ -89,7 +95,7 @@ const simulateApiCall = <T,>(data: T, delay: number = 1000): Promise<T> => {
   },
 ];
 */
-
+/*
 const mockReservations: Reservation[] = [
   {
     id: "1",
@@ -123,7 +129,7 @@ const mockReservations: Reservation[] = [
     pendingAmount: 2000,
     description: "Evento Empresarial - Toda la instalación",
   },
-];
+];*/
 
 /* Funciones simuladas de API
 const apiService = {
@@ -135,6 +141,23 @@ const apiService = {
     simulateApiCall({ success: true, assignments }, 800),
 };
 */
+//pagos wallet
+interface Pago {
+  id: string;
+  id_Cliente: string;
+  cliente: string;
+  creado: string;
+  monto_pagado: number;
+  forma_De_Pago: string;
+  referencia: string;
+  fecha_De_Pago: string;
+  descuentoAplicado: number;
+  motivo: string;
+  comentario: string;
+  aplicable: string;
+  comprobante: File | null;
+}
+
 
 // ========================================
 // COMPONENTE: MODAL DE PAGOS
@@ -349,6 +372,7 @@ interface ReservationTableProps {
   onToggleReservation: (reservationId: string) => void;
 }
 
+
 const ReservationTable: React.FC<ReservationTableProps> = ({
   reservations,
   assignments,
@@ -506,8 +530,209 @@ const ReservationTable: React.FC<ReservationTableProps> = ({
 };
 
 //====================================
+//modal comprobante recordar de borrar
+/*interface Comprobantepago {
+  comprobante: File | null;
+}
+*/
+/*const ComprobantePagoModal: React.FC<Comprobantepago> = ({
+  comprobante: initialComprobante = null
+}) => {
+  const [addComprobante, setAddComprobante] = useState(false);
+  const [comprobante, setComprobante] = useState<File | null>(initialComprobante);
+  const [error, setError] = useState<string | null>(null);
 
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
 
+    if (file) {
+      // Validaciones
+      const validTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+      const maxSize = 5 * 1024 * 1024; // 5MB
+
+      if (!validTypes.includes(file.type)) {
+        setError('Formato no válido. Sube un PDF, JPEG o PNG');
+        return;
+      }
+
+      if (file.size > maxSize) {
+        setError('El archivo es demasiado grande (máx. 5MB)');
+        return;
+      }
+
+      setError(null);
+      setComprobante(file);
+      setAddComprobante(false); // Cierra el modal después de seleccionar
+    }
+  };
+
+  return (
+    <div className="comprobante-container">
+      {!comprobante ? (
+        <button
+          onClick={() => setAddComprobante(true)}
+          className="btn-subir-comprobante"
+        >
+          Subir Comprobante
+        </button>
+      ) : (
+        <div className="comprobante-info">
+          <p>Comprobante cargado: {comprobante.name}</p>
+          <button
+            onClick={() => setComprobante(null)}
+            className="btn-eliminar"
+          >
+            Eliminar
+          </button>
+        </div>
+      )}
+
+      {addComprobante && (
+        <div className="modal">
+          <div className="modal-content">
+            <h3>Selecciona tu comprobante de pago</h3>
+            <input
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png"
+              onChange={handleFileChange}
+            />
+            {error && <p className="error-message">{error}</p>}
+            <button
+              onClick={() => setAddComprobante(false)}
+              className="btn-cerrar"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};*/
+interface Comprobantepago {
+  id_Cliente: string;
+  archivo?: File | null;
+  nombreArchivo?: string;
+  tipoArchivo?: string;
+  tamañoArchivo?: number;
+  fechaSubida?: Date;
+  estado?: 'pendiente' | 'aprobado' | 'rechazado';
+}
+
+interface ComprobanteModalProps {
+  idCliente: string;
+  cliente: string;
+  onClose: () => void;
+  onSave: (comprobante: Comprobantepago) => void;
+}
+
+const ComprobanteModal: React.FC<ComprobanteModalProps> = ({
+  idCliente,
+  cliente,
+  onClose,
+  onSave
+}) => {
+  const [archivo, setArchivo] = useState<File | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+
+    if (file) {
+      // Validaciones
+      const validTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+      const maxSize = 5 * 1024 * 1024; // 5MB
+
+      if (!validTypes.includes(file.type)) {
+        setError('Formato no válido. Sube un PDF, JPEG o PNG');
+        return;
+      }
+
+      if (file.size > maxSize) {
+        setError('El archivo es demasiado grande (máx. 5MB)');
+        return;
+      }
+
+      setError(null);
+      setArchivo(file);
+    }
+  };
+
+  const handleSubmit = () => {
+    if (archivo) {
+      onSave({
+        id_Cliente: idCliente,
+        archivo: archivo,
+        nombreArchivo: archivo.name,
+        tipoArchivo: archivo.type,
+        tamañoArchivo: archivo.size,
+        fechaSubida: new Date(),
+        estado: 'pendiente'
+      });
+      onClose();
+    } else {
+      setError('Debes de seleccionar un archivo')
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+          <h3 className="text-xl font-semibold text-gray-800">
+            Subir Comprobante para {cliente}
+          </h3>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full">
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+
+        <div className="p-6">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Seleccionar archivo
+              </label>
+              <input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png"
+                onChange={handleFileChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md"
+              />
+              {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
+            </div>
+
+            {archivo && (
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <p className="font-medium">Archivo seleccionado:</p>
+                <p>{archivo.name}</p>
+                <p className="text-sm text-gray-500">
+                  {(archivo.size / 1024).toFixed(2)} KB
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-3 mt-6">
+            <button
+              onClick={onClose}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={!archivo}
+              className={`flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg ${!archivo ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'}`}
+            >
+              Guardar Comprobante
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 // ========================================
 // COMPONENTE PRINCIPAL
 // ========================================
@@ -515,11 +740,26 @@ interface PageCuentasPorCobrarProps {
   agente: Agente;
 }
 
+// interface Agente {
+//   id_agente: string;
+//   nombre_agente_completo: string;
+//   correo: string;
+//   telefono: string;
+//   // otras propiedades del agente...
+// }
+
 const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   agente,
 }) => {
   //const [payments, setPayments] = useState<Payment[]>([]);
+  const [pagos, setPagos] = useState<Pago[]>([]);
   const [addPaymentModal, setAddPaymentModal] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // const [agente, setAgente] = useState<Agente | null>(null);
+  const [loading, setLoading] = useState({
+    agente: true,
+    pagos: true
+  });
   const [assignments, setAssignments] = useState<PaymentAssignment[]>([]);
   const [filters, setFilters] = useState<TypeFilters>({
     startDate: null,
@@ -534,6 +774,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [saldoAFavor, setSaldoAFavor] = useState<number>(0);
+  const [lloading, setloading] = useState(false)
 
   // Función para manejar los filtros
   const handleFilter = (newFilters: TypeFilters) => {
@@ -548,132 +789,171 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   // Datos de ejemplo para la tabla
   const paymentRecords = [
     {
+      id: "1",
       id_Cliente: "CL001",
       cliente: "Juan Pérez",
       creado: "2024-01-10",
-      monto_Pagado: 1500.00,
+      monto_pagado: 1500.00,
       forma_De_Pago: "Transferencia Bancaria",
       referencia: "TRF-123456",
       fecha_De_Pago: "2024-01-15",
-      descuento_Aplicado: 1.00,
+      descuentoAplicado: 1.00,
       motivo: "Anticipo evento",
       comentario: "Pago parcial del evento corporativo",
       aplicable: "Si",
       endDay: "2025-05-02",
       startDay: "2025-05-02",
+      comprobante: null
     },
     {
       id_Cliente: "CL002",
       cliente: "María García",
       creado: "2024-01-12",
-      monto_Pagado: 800.00,
+      monto_pagado: 800.00,
       forma_De_Pago: "Tarjeta de Crédito",
       referencia: "TC-789012",
       fecha_De_Pago: "2024-01-18",
-      descuento_Aplicado: 100.00,
+      descuentoAplicado: 100.00,
       motivo: "Descuento promocional",
       comentario: "Pago con descuento por temporada",
       aplicable: "Si",
       startDay: "2024-02-05",
-      endDay: "2024-08-09"
+      endDay: "2024-08-09",
+      comprobante: File
     },
     {
       id_Cliente: "CL003",
       cliente: "Carlos López",
       creado: "2024-01-14",
-      monto_Pagado: 1200.00,
+      monto_pagado: 1200.00,
       forma_De_Pago: "Efectivo",
       referencia: "EF-456789",
       fecha_De_Pago: "2024-01-16",
-      descuento_Aplicado: 50.00,
+      descuentoAplicado: 50.00,
       motivo: "Pago en efectivo",
       comentario: "Pago completo en efectivo",
       aplicable: "No",
       startDay: "2024-02-05",
-      endDay: "2024-08-09"
+      endDay: "2024-08-09",
+      comprobante: null
     },
   ].filter(item => item.cliente.includes(searchTerm));
+
+  const paymentRecords1 = []
 
   // Filtrar los registros según los filtros aplicados
   // Filtrar los registros según los filtros aplicados
   const filteredRecords = paymentRecords
-  //     .filter(record => {
-  //   // Filtro por fechas de viaje (startDay y endDay)
-  //   if (filters.startDate && record.startDay && new Date(record.startDay) < new Date(filters.startDate)) {
-  //     return false;
-  //   }
-  //   if (filters.endDate && record.endDay && new Date(record.endDay) > new Date(filters.endDate)) {
-  //     return false;
-  //   }
 
-  //   // Filtro por fechas de pago (fechaDePago)
-  //   if (filters.startDate && record.fechaDePago && new Date(record.fechaDePago) < new Date(filters.startDate)) {
-  //     return false;
-  //   }
-  //   if (filters.endDate && record.fechaDePago && new Date(record.fechaDePago) > new Date(filters.endDate)) {
-  //     return false;
-  //   }
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        // 1. Obtener información del agente
+        // const agenteData = await fetchAgenteById(agente.id_agente);
+        // setAgente(agenteData);
 
-  //   // Resto de los filtros...
-  //   if (filters.paymentMethod) {
-  //     const methodMap: Record<string, string> = {
-  //       "Contado": "Efectivo",
-  //       "Credito": "Tarjeta de Crédito",
-  //       "Transferencia": "Transferencia Bancaria"
-  //     };
+        // 2. Obtener pagos del agente
+        // const pagosData = await fetchPagosByAgente(agente.id_agente);
+        // setPagos(pagosData);
 
-  //     if (record.formaDePago !== methodMap[filters.paymentMethod]) return false;
-  //   }
+      } catch (err) {
+        setError("Error al cargar los datos");
+        console.error("Error fetching data:", err);
+      } finally {
+        setLoading({ agente: false, pagos: false });
+      }
+    };
 
-  //   if (filters.hasDiscount) {
-  //     const hasDiscount = record.hasDissccount === "Si" || record.hasDisccount === "Si";
-  //     if (filters.hasDiscount === "SI" && !hasDiscount) return false;
-  //     if (filters.hasDiscount === "NO" && hasDiscount) return false;
-  //   }
+    fetchData();
+  }, [agente.id_agente]);
 
-  //   if (searchTerm) {
-  //     const searchLower = searchTerm.toLowerCase();
-  //     if (
-  //       !record.cliente.toLowerCase().includes(searchLower) &&
-  //       !record.referencia.toLowerCase().includes(searchLower) &&
-  //       !record.idCliente.toLowerCase().includes(searchLower)
-  //     ) {
-  //       return false;
-  //     }
-  //   }
+  useEffect(() => {
+    const fetchSaldoFavor = async () => {
+      const response: { message: string, data: Saldo[] } = await SaldoFavor.getPagos(agente.id_agente)
+      console.log(response.data)
+    }
+    fetchSaldoFavor()
+  }, [])
 
-  //   return true;
-  // });
 
   // Renderers para las columnas especiales
   const tableRenderers = {
-    montoPagado: (props: { value: number }) => (
+    monto_pagado: ({ value }: { value: number }) => (
       <span className="font-medium text-emerald-600">
-        ${props.value.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+        ${value.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
       </span>
     ),
-    descuentoAplicado: (props: { value: number }) => (
+    descuentoAplicado: ({ value }: { value: number }) => (
       <span className="text-red-500">
-        ${props.value.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+        ${value.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
       </span>
     ),
-    formaDePago: (props: { value: string }) => (
+    forma_De_Pago: ({ value }: { value: string }) => (
       <div className="flex items-center gap-2">
-        {props.value === "Tarjeta de Crédito" ? (
+        {value === "Tarjeta de Crédito" ? (
           <CreditCard className="w-4 h-4 text-gray-500" />
-        ) : props.value === "Transferencia Bancaria" ? (
+        ) : value === "Transferencia Bancaria" ? (
           <DollarSign className="w-4 h-4 text-blue-500" />
         ) : (
           <DollarSign className="w-4 h-4 text-green-500" />
         )}
-        <span>{props.value}</span>
+        <span>{value}</span>
       </div>
     ),
-    acciones: () => (
+    comprobante: ({ value }: { value: Comprobantepago | null }) => {
+      const [showModal, setShowModal] = useState(false);
+      const handleDownload = () => {
+        console.log("Descarga comprobante ...");
+        //logica de descarga
+      }
+      const handleView = () => {
+        console.log("Mostrando comprobante")
+      }
+      if (!value) {
+        return (
+          <>
+            <button onClick={() => setShowModal(true)}
+              className="text-blue-600 hover:underline cursorpointer">
+              Añadir_Comprobante
+            </button>
+
+            {showModal && (
+              <ComprobanteModal
+                idCliente={value?.id_Cliente || ""}
+                cliente=""
+                onClose={() => setShowModal(false)}
+                onSave={(comprobante) => {
+                  console.log("Comprobante guardado:", comprobante);
+                  setShowModal(false);
+                  // Aquí deberías actualizar el estado para reflejar el nuevo comprobante
+                }}
+              />
+            )}
+          </>)
+      }
+      return (
+        <>
+          <button
+            onClick={handleView}
+            className="hover:underline font-medium"
+          >
+            <span className="text-green-600 hover:underline cursor-pointer">
+              ver_comprobante
+            </span>
+          </button >
+          <span>|</span>
+          < button
+            onClick={handleDownload}
+            className="hover:underline font-medium"
+          >            <span className="text-green-600 hover:underline cursor-pointer">
+              descargar_comprobante
+            </span>
+          </button >
+        </>
+      );
+    },
+    acciones: ({ value }: { value: any }) => (
       <div className="flex gap-2">
-        <button className="p-1 text-blue-500 hover:text-blue-700">
-          <span className="text-xs">Subir/Ver</span>
-        </button>
         <button className="p-1 text-gray-500 hover:text-gray-700">
           <span className="text-xs">Editar</span>
         </button>
@@ -684,88 +964,188 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     ),
   };
 
-  // Ejemplo de cómo podrías obtener el saldo
-  useEffect(() => {
-    const fetchSaldoAFavor = async () => {
-      try {
-        // Aquí deberías llamar a tu API para obtener el saldo real
-        // const saldo = await obtenerSaldoAFavor(idCliente);
-        // setSaldoAFavor(saldo);
-        // Ejemplo con valor mock
-        setSaldoAFavor(23);
-      } catch (error) {
-        console.error("Error al obtener saldo a favor:", error);
-      }
-    };
 
-    fetchSaldoAFavor();
-  }, []);
+  // Renderers para las columnas de la tabla
+  const tableRenderers1 = {
+    monto: ({ value }: { value: number }) => (
+      <span className="font-medium text-emerald-600">
+        ${value.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+      </span>
+    ),
+    forma_pago: ({ value }: { value: string }) => (
+      <div className="flex items-center gap-2">
+        {value.toLowerCase().includes("tarjeta") ? (
+          <CreditCard className="w-4 h-4 text-gray-500" />
+        ) : (
+          <DollarSign className="w-4 h-4 text-blue-500" />
+        )}
+        <span className="capitalize">{value.toLowerCase()}</span>
+      </div>
+    ),
+    fecha_pago: ({ value }: { value: string }) => (
+      <span>{new Date(value).toLocaleDateString('es-MX')}</span>
+    ),
+    aplicable: ({ value }: { value: boolean }) => (
+      <span className={`px-2 py-1 rounded-full text-xs ${value ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+        }`}>
+        {value ? 'Sí' : 'No'}
+      </span>
+    )
+  };
+
+  // Mapear pagos al formato esperado por la tabla
+  const pagosParaTabla = pagos.map(pago => ({
+    ...pago,
+    cliente: agente?.nombre_agente_completo || pago.cliente,
+    monto_pagado: pago.monto,
+    forma_De_Pago: pago.forma_pago,
+    fecha_De_Pago: pago.fecha_pago,
+    descuentoAplicado: pago.descuento,
+    comentario: pago.comentarios,
+    aplicable: pago.aplicable ? 'Sí' : 'No',
+    comprobante: pago.comprobante_url
+  }));
+
+  // Manejar nuevo pago
+  const handleAddPayment = async (paymentData: NuevoSaldoAFavor) => {
+    try {
+      setLoading(prev => ({ ...prev, pagos: true }));
+
+      // Crear pago a través de la API
+      const response = await SaldoFavor.crearPago({
+        ...paymentData,
+        id_cliente: agente.id_agente
+      });
+
+      // Actualizar lista de pagos
+      // const nuevosPagos = await fetchPagosByAgente(agente.id_agente);
+      // setPagos(nuevosPagos);
+
+      // // Actualizar saldo del agente
+      // if (agente) {
+      //   const agenteActualizado = await fetchAgenteById(agente.id_agente);
+      //   setAgente(agenteActualizado);
+      // }
+
+      setAddPaymentModal(false);
+
+    } catch (err) {
+      setError("Error al registrar el pago");
+      console.error("Error:", err);
+    } finally {
+      setLoading(prev => ({ ...prev, pagos: false }));
+    }
+  };
+
+  if (loading.agente) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader />
+        <span className="ml-2">Cargando información del agente...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border-l-4 border-red-500 p-4">
+        <div className="flex">
+          <div className="flex-shrink-0">
+            <X className="h-5 w-5 text-red-500" />
+          </div>
+          <div className="ml-3">
+            <p className="text-sm text-red-700">{error}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!agente) {
+    return <div className="text-center py-8">No se encontró información del agente</div>;
+  }
 
   return (
     <div className="h-full">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
-        {/* Payment Summary */}
-        <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6 place-content-center">
-          <PaymentSummary totalBalance={2300} assignedBalance={0} />
-          <div className="mb-6 flex items-center justify-end gap-4">
-            <button className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors font-medium shadow-sm"
-              onClick={() => { setAddPaymentModal(true) }}>
+        {/* Resumen de saldo */}
+        <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <PaymentSummary
+            totalBalance={agente.saldo_a_favor}
+            assignedBalance={0}
+          />
+
+          <div className="flex justify-end items-center">
+            <button
+              onClick={() => setAddPaymentModal(true)}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors font-medium shadow-sm"
+              disabled={loading.pagos}
+            >
               <Plus className="w-5 h-5" />
-              Agregar Pago
+              {loading.pagos ? 'Cargando...' : 'Agregar Pago'}
             </button>
           </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold">Resumen de pagos</h3>
+        {/* Información del agente */}
+        <div className="mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+          <h2 className="text-xl font-semibold mb-2">{agente.nombre_agente_completo}</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <p className="text-sm text-gray-500">Correo</p>
+              <p>{agente.correo}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Teléfono</p>
+              <p>{agente.telefono || 'No disponible'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">ID Agente</p>
+              <p className="font-mono">{agente.id_agente}</p>
+            </div>
+          </div>
         </div>
 
         {/* Tabla de pagos */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           <Filters
-            onFilter={handleFilter}
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
-            defaultFilters={filters}
+            onFilter={(filters) => {
+              // Implementar lógica de filtrado real aquí
+              console.log('Aplicar filtros:', filters);
+            }}
+            searchTerm=""
+            setSearchTerm={(term) => {
+              // Implementar búsqueda
+              console.log('Buscar:', term);
+            }}
           />
 
-          <Table
-            registros={filteredRecords}
-            renderers={tableRenderers}
-          // columnas={[
-          //   { key: "idCliente", titulo: "ID CLIENTE" },
-          //   { key: "cliente", titulo: "CLIENTE" },
-          //   { key: "creado", titulo: "CREADO" },
-          //   { key: "montoPagado", titulo: "MONTO PAGADO" },
-          //   { key: "formaDePago", titulo: "FORMA DE PAGO" },
-          //   { key: "referencia", titulo: "REFERENCIA" },
-          //   { key: "fechaDePago", titulo: "FECHA DE PAGO" },
-          //   { key: "descuentoAplicado", titulo: "DESCUENTO APLICADO" },
-          //   { key: "motivo", titulo: "MOTIVO" },
-          //   { key: "comentario", titulo: "COMENTARIO" },
-          //   { 
-          //     key: "acciones", 
-          //     titulo: "COMPROBANTE",
-          //     render: tableRenderers.acciones 
-          //   },
-          //   { 
-          //     key: "acciones", 
-          //     titulo: "ACCIONES",
-          //     render: tableRenderers.acciones 
-          //   },
-          // ]}
-          />
+          {loading.pagos ? (
+            <div className="p-8 flex justify-center">
+              <Loader />
+              <span className="ml-2">Cargando pagos...</span>
+            </div>
+          ) : (
+            <Table
+              registros={pagosParaTabla}
+              renderers={tableRenderers}
+              leyenda={`Mostrando ${pagos.length} pagos de ${agente.nombre_agente_completo}`}
+            />
+          )}
         </div>
       </div>
-      {addPaymentModal && (
+
+      {/* Modal para agregar pago */}
+      {addPaymentModal && agente && (
         <Modal
           title="Agregar Nuevo Pago"
           onClose={() => setAddPaymentModal(false)}
+          size="lg"
         >
           <PaymentModal
-            saldoAFavor={saldoAFavor}
+            saldoAFavor={agente.saldo_a_favor}
             onClose={() => setAddPaymentModal(false)}
+            onAddPayment={handleAddPayment}
             agente={agente}
           />
         </Modal>
@@ -773,6 +1153,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     </div>
   );
 };
+
 
 // Tipos para el formulario
 //===========================

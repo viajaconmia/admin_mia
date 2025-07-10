@@ -81,7 +81,7 @@ export class SaldoFavor {
 
     // Si es wallet, eliminar tipo_tarjeta
     const payload = data.forma_pago === "wallet"
-      ? { ...data, tipo_tarjeta: undefined }
+      ? { ...data, tipo_tarjeta: null }
       : data;
 
     return this.request<{ success: boolean, data: NuevoSaldoAFavor }>(
@@ -92,5 +92,40 @@ export class SaldoFavor {
       }
     );
   }
+
+  static async getPagos(id: string) {
+    return this.request<{ message: string, data: Saldo[] }>(
+      `/${id}`,
+      {
+        method: "GET"
+      }
+    );
+  }
 }
 //====================================
+export interface Saldo {
+  id_saldos: number | null;
+  id_agente: string;
+  fecha_creacion: string | null;
+  saldo: string | null;
+  monto: string;
+  metodo_pago: string;
+  fecha_pago: string;
+  concepto: string | null;
+  referencia: string | null;
+  currency: string | null;
+  tipo_tarjeta: string | null;
+  comentario: string | null;
+  link_stripe: string | null;
+  is_facturable: number | null;
+  is_descuento: number | null;
+  comprobante: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  tiene_credito_consolidado: number | null;
+  monto_credito: string | null;
+  nombre: string | null;
+  notas: string | null;
+  vendedor: string | null;
+  por_confirmar: string | null;
+}
