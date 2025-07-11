@@ -269,7 +269,7 @@ const FacturacionModal: React.FC<{
             const data = await fetchEmpresasDatosFiscales(
               preparedReservations[0].id_usuario_generador
             );
-            console.log(data);
+            console.log("😊😊😊", data);
             setFiscalDataList(data);
             if (data.length > 0) {
               setSelectedFiscalData(data[0]);
@@ -504,6 +504,7 @@ const FacturacionModal: React.FC<{
             Currency: "MXN",
             OrderNumber: Math.round(Math.random() * 999999999).toString(),
             Date: formattedDate,
+            // ExpeditionPlace: "42501", //Este es de pruebas, no descomendtar
           },
           {
             id_user: reservationsWithSelectedItems[0].id_usuario_generador,
@@ -513,6 +514,10 @@ const FacturacionModal: React.FC<{
             id_items: reservationsWithSelectedItems.flatMap((reserva) =>
               reserva.items.map((item) => item.id_item)
             ),
+            datos_empresa: {
+              rfc: cfdi.Receiver.Rfc,
+              id_empresa: selectedFiscalData.id_empresa,
+            },
           }
         );
 
