@@ -1,8 +1,8 @@
 // src/components/PaymentModal/ReservationDetails.tsx
-import type { Solicitud } from "@/types";
+import type { Solicitud, Solicitud2 } from "@/types";
 
 interface Props {
-  reservation: Solicitud;
+  reservation: Solicitud2;
   // Puedes pasarle otros datos calculados si es necesario
 }
 
@@ -28,7 +28,7 @@ export default function ReservationDetails({ reservation }: Props) {
           <div>
             <p className="text-xs text-slate-500">Hotel</p>
             <p className="font-medium text-slate-800">
-              {reservation.hotel || ""}
+              {reservation.hotel_reserva || ""}
             </p>
           </div>
 
@@ -36,7 +36,7 @@ export default function ReservationDetails({ reservation }: Props) {
           <div>
             <p className="text-xs text-slate-500">Viajero</p>
             <p className="font-medium text-slate-800">
-              {reservation.nombre_viajero_completo || ""}
+              {reservation.nombre_viajero_reservacion || ""}
             </p>
           </div>
 
