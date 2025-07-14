@@ -1,4 +1,4 @@
-import { TypeFilters, Solicitud } from "@/types";
+import { TypeFilters, Solicitud,Solicitud2 } from "@/types";
 import { API_KEY, URL } from "@/lib/constants";
 
 export const fetchSolicitudes = async (
@@ -30,6 +30,37 @@ export const fetchSolicitudes = async (
     const data = await res.json();
     console.log(data);
     callback(data);
+    return data;
+  } catch (err) {
+    console.error("Error al actualizar solicitudes:", err);
+  }
+};
+
+export const fetchSolicitudes2 = async (
+  filters: TypeFilters,
+  defaultFilters: TypeFilters,
+  callback: (data: Solicitud2[]) => void
+) => {
+  try {
+    // Construir el body con todos los filtros
+    const body = { ...filters, ...defaultFilters };
+
+    // URL con query param fijo
+    const url = `${URL}/mia/reservasClient/filtro_solicitudes_y_reservas?p_criterio=1`;
+
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "x-api-key": API_KEY || "",
+        "Content-Type": "application/json",
+        "Cache-Control": "no-cache",
+      },
+      body: JSON.stringify(body),
+    });
+
+    const data = await res.json();
+    console.log("Esta es mi data 👌👌",data);
+    callback(data.data || []);
     return data;
   } catch (err) {
     console.error("Error al actualizar solicitudes:", err);
