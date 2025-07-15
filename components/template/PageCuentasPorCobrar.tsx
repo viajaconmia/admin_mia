@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useReducer, ChangeEvent } from "react";
+import React, { useState, useEffect, useReducer, ChangeEvent, useMemo } from "react";
 import {
   FileText,
   Tag,
@@ -15,7 +15,8 @@ import {
   Square,
   X,
   Pencil,
-  Trash2
+  Trash2,
+  Wallet
 } from "lucide-react";
 
 import { Table } from "../Table";
@@ -692,12 +693,12 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   const [filters, setFilters] = useState<TypeFilters>({
     startDate: null,
     endDate: null,
-    hasDiscount: "",
     paymentMethod: "",
-    id_stripe: "",
+    hasDiscount: "",
+    id_stripe: null,
     facturable: null,
     comprobante: null,
-    paydate: null,
+    paydate: null
   });
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<string>("all");
@@ -706,9 +707,22 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
 
   // Función para manejar los filtros
   const handleFilter = (newFilters: TypeFilters) => {
-    setFilters(newFilters);
-    if (newFilters.paymentMethod) {
-      setActiveFilter(newFilters.paymentMethod);
+    // Asegúrate de que newFilters tenga todas las propiedades necesarias
+    const completeFilters: TypeFilters = {
+      startDate: newFilters.startDate || null,
+      endDate: newFilters.endDate || null,
+      paymentMethod: newFilters.paymentMethod || "",
+      hasDiscount: newFilters.hasDiscount || "",
+      id_stripe: newFilters.id_stripe || null,
+      facturable: newFilters.facturable || null,
+      comprobante: newFilters.comprobante || null,
+      paydate: newFilters.paydate || null
+    };
+
+
+    setFilters(completeFilters);
+    if (completeFilters.paymentMethod) {
+      setActiveFilter(completeFilters.paymentMethod);
     } else {
       setActiveFilter("all");
     }
@@ -785,9 +799,64 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       comentario: saldo.notas || saldo.comentario || null,
       facturable: saldo.is_facturable ? 'Si' : 'No',
       comprobante: saldo.comprobante || null,
+      //Wallet: saldofa,
       acciones: { row: saldo }
     };
   });
+
+  const filteredData = useMemo(() => {
+    return saldos
+      .filter(saldo => {
+        // Filtro por método de pago
+        if (filters.paymentMethod && saldo.metodo_pago) {
+          const metodoNormalizado = saldo.metodo_pago.toLowerCase();
+          const filterNormalizado = filters.paymentMethod.toLowerCase();
+
+          if (filterNormalizado === "transferencia" && !metodoNormalizado.includes("transferencia")) {
+            return false;
+          }
+          if (filterNormalizado === "tarjeta debito" && !metodoNormalizado.includes("debito")) {
+            return false;
+          }
+          if (filterNormalizado === "tarjeta credito" && !metodoNormalizado.includes("credito")) {
+            return false;
+          }
+          if (filterNormalizado === "wallet" && !metodoNormalizado.includes("wallet")) {
+            return false;
+          }
+        }
+
+        // Filtro por fecha
+        if (filters.startDate && saldo.fecha_pago) {
+          const fechaPago = new Date(saldo.fecha_pago);
+          const fechaInicio = new Date(filters.startDate);
+          if (fechaPago < fechaInicio) return false;
+        }
+
+        if (filters.endDate && saldo.fecha_pago) {
+          const fechaPago = new Date(saldo.fecha_pago);
+          const fechaFin = new Date(filters.endDate);
+          if (fechaPago > fechaFin) return false;
+        }
+
+        // Filtro por búsqueda
+        if (searchTerm) {
+          const term = searchTerm.toLowerCase();
+          return (
+            (saldo.referencia && saldo.referencia.toLowerCase().includes(term)) ||
+            (saldo.id_saldos && saldo.id_saldos.toString().includes(term)) ||
+            (saldo.metodo_pago && saldo.metodo_pago.toLowerCase().includes(term))
+          );
+        }
+
+        return true;
+      })
+      .map((saldo) => ({
+        // Tu mapeo actual de datos
+        id_Pago: saldo.id_saldos?.toString() || '',
+        // ... resto de las propiedades
+      }));
+  }, [saldos, filters, searchTerm]);
 
   const tableRenderers = {
     monto_pagado: ({ value }: { value: string }) => {
@@ -830,6 +899,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       const handleDownload = () => {
         if (value) {
           console.log("Descargando comprobante...", value);
+
           // Lógica de descarga aquí
         }
       };
@@ -1213,15 +1283,17 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         {/* Tabla de pagos */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           <Filters
-            onFilter={(filters) => {
-              // Implementar lógica de filtrado real aquí
-              console.log('Aplicar filtros:', filters);
+            onFilter={(newFilters) => {
+              // Asegúrate de manejar todos los campos del filtro
+              const updatedFilters = {
+                ...filters, // Mantiene los valores actuales
+                ...newFilters // Aplica los nuevos valores
+              };
+              setFilters(updatedFilters);
             }}
-            searchTerm=""
-            setSearchTerm={(term) => {
-              // Implementar búsqueda
-              console.log('Buscar:', term);
-            }}
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            defaultFilters={filters}
           />
 
           {loading.pagos ? (
