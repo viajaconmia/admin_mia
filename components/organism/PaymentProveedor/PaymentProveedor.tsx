@@ -193,7 +193,7 @@ export const PaymentModal = ({
           reservacionId: reservation.codigo_reservacion_hotel,
           monto: Number(reservation.costo_total),
           nombre: reservation.nombre_viajero_reservacion,
-          tipoHabitacion: updateRoom(reservation.room),
+          tipoHabitacion: updateRoom(reservation.tipo_cuarto),
         },
       ],
       codigoDocumento: "xxxx",
