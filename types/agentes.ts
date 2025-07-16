@@ -28,6 +28,7 @@ interface Agente {
   nombre: string;
   notas: string | null;
   vendedor: string | null;
+  wallet?: string|null;
 }
 
 interface EmpresaFromAgent {
