@@ -21,6 +21,7 @@ interface TableProps {
   leyenda?: string;
   children?: React.ReactNode;
   maxHeight?: string;
+  customColumns?: string[]; // Nuevo prop para columnas adicionales
 }
 
 export const Table = ({
@@ -31,6 +32,7 @@ export const Table = ({
   leyenda = "",
   children,
   maxHeight = "28rem",
+  customColumns = [], // Nuevo prop
 }: TableProps) => {
   const [displayData, setDisplayData] = useState<Registro[]>(registros);
   const [selectedRow, setSelectedRow] = useState<number | null>(null);
@@ -41,9 +43,10 @@ export const Table = ({
     defaultSort
       ? defaultSort
       : {
-          key: registros.length > 0 ? Object.keys(registros[0])[0] : "",
-          sort: true,
-        }
+        key: registros.length > 0 ? Object.keys(registros[0])[0] : "",
+        sort: true
+      }
+
   );
 
   useEffect(() => {
@@ -59,8 +62,13 @@ export const Table = ({
     ) {
       return Object.keys(registros[0]);
     }
-    return [];
-  }, [registros]);
+    const baseColumns =
+      registros && registros.length > 0 && typeof registros[0] === "object" && registros[0] !== null
+        ? Object.keys(registros[0])
+        : [];
+
+    return [...baseColumns, ...customColumns];
+  }, [registros, customColumns]);
 
   const handleSort = (key: string) => {
     let updateSort = { key, sort: !currentSort.sort };
@@ -111,9 +119,8 @@ export const Table = ({
                     <span className="flex gap-2">
                       {key == (currentSort.key || "") && (
                         <ArrowDown
-                          className={`w-4 h-4 ${
-                            !currentSort.sort ? "" : "rotate-180"
-                          }`}
+                          className={`w-4 h-4 ${!currentSort.sort ? "" : "rotate-180"
+                            }`}
                         />
                       )}
                       {key.replace(/_/g, " ").toUpperCase()}{" "}
@@ -134,22 +141,19 @@ export const Table = ({
                         setSelectedRow(index);
                       }
                     }}
-                    className={`${
-                      index % 2 === 0 ? "bg-white" : "bg-gray-50"
-                    } ${
-                      selectedRow === index ? "bg-blue-200" : ""
-                    } cursor-pointer`}
+                    className={`${index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                      } ${selectedRow === index ? "bg-blue-200" : ""
+                      } cursor-pointer`}
                   >
                     {columnKeys.map((colKey) => {
                       const Renderer = renderers[colKey];
-                      const value = item[colKey];
+                      const value = colKey in item ? item[colKey] : { row: item };
 
                       return (
                         <td
-                          key={`${
-                            item.id !== undefined ? item.id : index
-                          }-${colKey}`}
-                          className="px-6 py-1 whitespace-nowrap text-xs text-gray-900"
+                          key={`${item.id !== undefined ? item.id : index
+                            }-${colKey}`}
+                          className="px-6 py-3 whitespace-nowrap text-xs text-gray-900"
                         >
                           {Renderer ? (
                             <Renderer value={value} />

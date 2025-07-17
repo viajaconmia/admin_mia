@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useReducer } from "react";
+import React, { useState, useEffect, useReducer, ChangeEvent, useMemo } from "react";
 import {
   FileText,
   Tag,
@@ -13,14 +13,20 @@ import {
   Calendar,
   CheckSquare,
   Square,
-  X
+  X,
+  Pencil,
+  Trash2,
+  Wallet
 } from "lucide-react";
+
 import { Table } from "../Table";
-import { currentDate } from "@/lib/utils";
 import Filters from "@/components/Filters";
-import { endOfDay } from "date-fns";
+import { TypeFilters } from "@/types/index";
 import Modal from "../organism/Modal";
-import { URL, API_KEY } from "@/lib/constants/index";
+import { SaldoFavor, NuevoSaldoAFavor, Saldo } from "@/services/SaldoAFavor";
+import { fetchAgenteById, fetchPagosByAgente } from "@/services/agentes";
+import { Loader } from "@/components/atom/Loader";
+
 import {
   CheckboxInput,
   DateInput,
@@ -30,21 +36,14 @@ import {
   TextInput,
 } from "../atom/Input";
 
-import { SaldoFavor, NuevoSaldoAFavor } from "@/services/SaldoAFavor";
+//const [clients, setClient] = useState<Agente[]>([]);
+import { set } from "react-hook-form";
+import { render } from "react-dom";
+import { formatNumberWithCommas } from "@/helpers/utils";
 // ========================================
 // TIPOS DE DATOS
 // ========================================
-export interface TypeFilters {
-  startDate: string | null;
-  endDate: string | null;
-  paymentMethod: "Tarjeta Debito" | "Tarjeta Credito" | "Transferencia" | "Wallet" | "";
-  hasDiscount: "SI" | "NO" | "";
-  id_stripe: string | null;
-  facturable: boolean | null;
-  comprobante: boolean | null;
-  paydate: string | null;
-  // ... otros campos si son necesarios
-}
+
 
 interface Reservation {
   id: string;
@@ -60,8 +59,6 @@ interface PaymentAssignment {
   assignedAmount: number;
 }
 
-
-
 // ========================================
 // SIMULACIÓN DE BACKEND
 // ========================================
@@ -71,240 +68,41 @@ const simulateApiCall = <T,>(data: T, delay: number = 1000): Promise<T> => {
   });
 };
 
-/*const mockPayments: Payment[] = [
-  {
-    id: "1",
-    amount: 1500,
-    date: "2024-01-15",
-    description: "Pago Juan Pérez - Evento Corporativo",
-    method: "bank_transfer",
-
-  },
-  {
-    id: "2",
-    amount: 800,
-    date: "2024-01-18",
-    description: "Pago María García - Boda",
-    method: "credit_card",
-  },
-];
-*/
-
-const mockReservations: Reservation[] = [
-  {
-    id: "1",
-    clientName: "Juan Pérez",
-    reservationDate: "2024-02-15",
-    totalAmount: 2500,
-    pendingAmount: 1000,
-    description: "Evento Corporativo - Salón Principal",
-  },
-  {
-    id: "2",
-    clientName: "María García",
-    reservationDate: "2024-02-20",
-    totalAmount: 3200,
-    pendingAmount: 2400,
-    description: "Boda - Jardín y Salón",
-  },
-  {
-    id: "3",
-    clientName: "Carlos Rodríguez",
-    reservationDate: "2024-03-01",
-    totalAmount: 1800,
-    pendingAmount: 1800,
-    description: "Quinceañera - Salón VIP",
-  },
-  {
-    id: "4",
-    clientName: "Ana Martínez",
-    reservationDate: "2024-03-10",
-    totalAmount: 4500,
-    pendingAmount: 2000,
-    description: "Evento Empresarial - Toda la instalación",
-  },
-];
-
-/* Funciones simuladas de API
-const apiService = {
-  getPayments: () => simulateApiCall(mockPayments, 800),
-  getReservations: () => simulateApiCall(mockReservations, 600),
-  addPayment: (payment: Omit<Payment, "id">) =>
-    simulateApiCall({ ...payment, id: Date.now().toString() }, 1000),
-  assignPaymentToReservation: (assignments: PaymentAssignment[]) =>
-    simulateApiCall({ success: true, assignments }, 800),
-};
-*/
-
 // ========================================
 // COMPONENTE: MODAL DE PAGOS
 // ========================================
 interface PaymentModalProps {
-  isOpen: boolean;
   saldoAFavor?: number;
   onClose: () => void;
-  onAddPayment: (payment: Omit<Payment, "id">) => void;
-  isLoading: boolean;
   agente: Agente;
+  initialData?: {
+    monto_pagado: number;
+    referencia: string;
+    paymentMethod: string;
+    fecha_De_Pago: string;
+    comentario: string;
+    facturable: boolean;
+    aplicable: boolean;
+    link_Stripe: string;
+  };
+  onSubmit: (paymentData: NuevoSaldoAFavor) => Promise<any>;
+  isEditing?: boolean;
 }
-
-// const PaymentModal: React.FC<PaymentModalProps> = ({
-//   isOpen,
-//   onClose,
-//   onAddPayment,
-//   isLoading,
-// }) => {
-//   const [formData, setFormData] = useState({
-//     amount: "",
-//     description: "",
-//     method: "credit_card" as const,
-//     date: new Date().toISOString().split("T")[0],
-//   });
-
-//   const handleSubmit = (e: React.FormEvent) => {
-//     e.preventDefault();
-//     if (formData.amount && formData.description) {
-//       onAddPayment({
-//         amount: parseFloat(formData.amount),
-//         description: formData.description,
-//         method: formData.method,
-//         date: formData.date,
-//       });
-//       setFormData({
-//         amount: "",
-//         description: "",
-//         method: "credit_card",
-//         date: new Date().toISOString().split("T")[0],
-//       });
-//     }
-//   };
-
-//   if (!isOpen) return null;
-
-//   return (
-//     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-//       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md transform transition-all">
-//         <div className="flex items-center justify-between p-6 border-b border-gray-100">
-//           <h3 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
-//             <Plus className="w-5 h-5 text-emerald-600" />
-//             Agregar Nuevo Pago
-//           </h3>
-//           <button
-//             onClick={onClose}
-//             className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-//           >
-//             <X className="w-5 h-5 text-gray-500" />
-//           </button>
-//         </div>
-
-//         <form onSubmit={handleSubmit} className="p-6">
-//           <div className="space-y-4">
-//             <div>
-//               <label className="block text-sm font-medium text-gray-700 mb-2">
-//                 Monto
-//               </label>
-//               <div className="relative">
-//                 <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-//                 <input
-//                   type="number"
-//                   step="0.01"
-//                   value={formData.amount}
-//                   onChange={(e) =>
-//                     setFormData({ ...formData, amount: e.target.value })
-//                   }
-//                   className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
-//                   placeholder="0.00"
-//                   required
-//                 />
-//               </div>
-//             </div>
-
-//             <div>
-//               <label className="block text-sm font-medium text-gray-700 mb-2">
-//                 Descripción
-//               </label>
-//               <input
-//                 type="text"
-//                 value={formData.description}
-//                 onChange={(e) =>
-//                   setFormData({ ...formData, description: e.target.value })
-//                 }
-//                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
-//                 placeholder="Descripción del pago"
-//                 required
-//               />
-//             </div>
-
-//             <div>
-//               <label className="block text-sm font-medium text-gray-700 mb-2">
-//                 Método de Pago
-//               </label>
-//               <select
-//                 value={formData.method}
-//                 onChange={(e) =>
-//                   setFormData({ ...formData, method: e.target.value as any })
-//                 }
-//                 className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors bg-white"
-//               >
-//                 <option value="credit_card">Tarjeta de Crédito</option>
-//                 <option value="bank_transfer">Transferencia Bancaria</option>
-//                 <option value="cash">Efectivo</option>
-//               </select>
-//             </div>
-
-//             <div>
-//               <label className="block text-sm font-medium text-gray-700 mb-2">
-//                 Fecha
-//               </label>
-//               <div className="relative">
-//                 <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-//                 <input
-//                   type="date"
-//                   value={formData.date}
-//                   onChange={(e) =>
-//                     setFormData({ ...formData, date: e.target.value })
-//                   }
-//                   className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
-//                   required
-//                 />
-//               </div>
-//             </div>
-//           </div>
-
-//           <div className="flex gap-3 mt-6">
-//             <button
-//               type="button"
-//               onClick={onClose}
-//               className="flex-1 px-4 py-3 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
-//             >
-//               Cancelar
-//             </button>
-//             <button
-//               type="submit"
-//               disabled={isLoading}
-//               className="flex-1 px-4 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-//             >
-//               {isLoading ? "Agregando..." : "Agregar Pago"}
-//             </button>
-//           </div>
-//         </form>
-//       </div>
-//     </div>
-//   );
-// };
-
-// ========================================
-// COMPONENTE: RESUMEN DE PAGOS
-// ========================================
 
 interface PaymentSummaryProps {
   totalBalance: number;
   assignedBalance: number;
+  statusInfo?: {
+    puedeCancelar: boolean;
+    mensaje: string;
+    diferencia: number;
+  };
 }
 
 const PaymentSummary: React.FC<PaymentSummaryProps> = ({
   totalBalance,
   assignedBalance,
+  statusInfo
 }) => {
   const availableBalance = totalBalance - assignedBalance;
 
@@ -334,6 +132,16 @@ const PaymentSummary: React.FC<PaymentSummaryProps> = ({
           <DollarSign className="w-8 h-8" />
         </div>
       </div>
+      {statusInfo && (
+        <div className="mt-4 pt-4 border-t border-emerald-400">
+          <p className={`text-sm font-medium ${statusInfo.puedeCancelar ? 'text-emerald-100' : 'text-yellow-200'}`}>
+            {statusInfo.mensaje}
+          </p>
+          <p className="text-xs text-emerald-100 mt-1">
+            Diferencia: ${statusInfo.diferencia.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+          </p>
+        </div>
+      )}
     </div>
   );
 };
@@ -348,6 +156,7 @@ interface ReservationTableProps {
   onAssignmentChange: (reservationId: string, amount: number) => void;
   onToggleReservation: (reservationId: string) => void;
 }
+
 
 const ReservationTable: React.FC<ReservationTableProps> = ({
   reservations,
@@ -505,274 +314,842 @@ const ReservationTable: React.FC<ReservationTableProps> = ({
   );
 };
 
-//====================================
+//========================================
+//comprobantes pagos
+interface Comprobantepago {
+  id_Cliente: string;
+  archivo?: File | null;
+  nombreArchivo?: string;
+  tipoArchivo?: string;
+  tamañoArchivo?: number;
+  fechaSubida?: Date;
+  estado?: 'pendiente' | 'aprobado' | 'rechazado';
+}
 
+interface ComprobanteModalProps {
+  idCliente: string;
+  cliente: string;
+  onClose: () => void;
+  onSave: (comprobante: Comprobantepago) => void;
+}
+
+const ComprobanteModal: React.FC<ComprobanteModalProps> = ({
+  idCliente,
+  cliente,
+  onClose,
+  onSave
+}) => {
+  const [archivo, setArchivo] = useState<File | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+
+    if (file) {
+      // Validaciones
+      const validTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+      const maxSize = 5 * 1024 * 1024; // 5MB
+
+      if (!validTypes.includes(file.type)) {
+        setError('Formato no válido. Sube un PDF, JPEG o PNG');
+        return;
+      }
+
+      if (file.size > maxSize) {
+        setError('El archivo es demasiado grande (máx. 5MB)');
+        return;
+      }
+
+      setError(null);
+      setArchivo(file);
+    }
+  };
+
+  const handleSubmit = () => {
+    if (archivo) {
+      onSave({
+        id_Cliente: idCliente,
+        archivo: archivo,
+        nombreArchivo: archivo.name,
+        tipoArchivo: archivo.type,
+        tamañoArchivo: archivo.size,
+        fechaSubida: new Date(),
+        estado: 'pendiente'
+      });
+      onClose();
+    } else {
+      setError('Debes de seleccionar un archivo')
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+          <h3 className="text-xl font-semibold text-gray-800">
+            Subir Comprobante para {cliente}
+          </h3>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full">
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+
+        <div className="p-6">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Seleccionar archivo
+              </label>
+              <input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png"
+                onChange={handleFileChange}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md"
+              />
+              {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
+            </div>
+
+            {archivo && (
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <p className="font-medium">Archivo seleccionado:</p>
+                <p>{archivo.name}</p>
+                <p className="text-sm text-gray-500">
+                  {(archivo.size / 1024).toFixed(2)}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-3 mt-6">
+            <button
+              onClick={onClose}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={!archivo}
+              className={`flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg ${!archivo ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'}`}
+            >
+              Guardar Comprobante
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // ========================================
 // COMPONENTE PRINCIPAL
 // ========================================
 interface PageCuentasPorCobrarProps {
   agente: Agente;
+  walletAmount?: number;
 }
 
 const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   agente,
+  walletAmount = 0
 }) => {
-  //const [payments, setPayments] = useState<Payment[]>([]);
   const [addPaymentModal, setAddPaymentModal] = useState(false);
-  const [assignments, setAssignments] = useState<PaymentAssignment[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  // const [agente, setAgente] = useState<Agente | null>(null);
+  const [loading, setLoading] = useState({
+    agente: true,
+    pagos: true
+  });
+
+  const [localWalletAmount, setLocalWalletAmount] = useState(walletAmount || 0);
+
+  // Actualizar cuando cambie el prop
+  useEffect(() => {
+    setLocalWalletAmount(walletAmount || 0);
+  }, [walletAmount]);
+
   const [filters, setFilters] = useState<TypeFilters>({
     startDate: null,
     endDate: null,
-    hasDiscount: "",
     paymentMethod: "",
-    id_stripe: "",
+    hasDiscount: "",
+    id_stripe: null,
     facturable: null,
     comprobante: null,
-    paydate: null,
+    paydate: null
   });
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [saldoAFavor, setSaldoAFavor] = useState<number>(0);
+  const [lloading, setloading] = useState(false)
 
   // Función para manejar los filtros
   const handleFilter = (newFilters: TypeFilters) => {
-    setFilters(newFilters);
-    if (newFilters.paymentMethod) {
-      setActiveFilter(newFilters.paymentMethod);
+    // Convertir los valores "SI"/"NO" a booleanos si es necesario
+    const completeFilters: TypeFilters = {
+      startDate: newFilters.startDate || null,
+      endDate: newFilters.endDate || null,
+      paymentMethod: newFilters.paymentMethod || "",
+      hasDiscount: newFilters.hasDiscount || "",
+      id_stripe: newFilters.id_stripe || null,
+      facturable: typeof newFilters.facturable === 'string' ?
+        newFilters.facturable === 'SI' :
+        newFilters.facturable,
+      comprobante: typeof newFilters.comprobante === 'string' ?
+        newFilters.comprobante === 'SI' :
+        newFilters.comprobante,
+      paydate: newFilters.paydate || null
+    };
+
+    setFilters(completeFilters);
+    if (completeFilters.paymentMethod) {
+      setActiveFilter(completeFilters.paymentMethod);
     } else {
       setActiveFilter("all");
     }
   };
 
-  // Datos de ejemplo para la tabla
-  const paymentRecords = [
-    {
-      id_Cliente: "CL001",
-      cliente: "Juan Pérez",
-      creado: "2024-01-10",
-      monto_Pagado: 1500.00,
-      forma_De_Pago: "Transferencia Bancaria",
-      referencia: "TRF-123456",
-      fecha_De_Pago: "2024-01-15",
-      descuento_Aplicado: 1.00,
-      motivo: "Anticipo evento",
-      comentario: "Pago parcial del evento corporativo",
-      aplicable: "Si",
-      endDay: "2025-05-02",
-      startDay: "2025-05-02",
-    },
-    {
-      id_Cliente: "CL002",
-      cliente: "María García",
-      creado: "2024-01-12",
-      monto_Pagado: 800.00,
-      forma_De_Pago: "Tarjeta de Crédito",
-      referencia: "TC-789012",
-      fecha_De_Pago: "2024-01-18",
-      descuento_Aplicado: 100.00,
-      motivo: "Descuento promocional",
-      comentario: "Pago con descuento por temporada",
-      aplicable: "Si",
-      startDay: "2024-02-05",
-      endDay: "2024-08-09"
-    },
-    {
-      id_Cliente: "CL003",
-      cliente: "Carlos López",
-      creado: "2024-01-14",
-      monto_Pagado: 1200.00,
-      forma_De_Pago: "Efectivo",
-      referencia: "EF-456789",
-      fecha_De_Pago: "2024-01-16",
-      descuento_Aplicado: 50.00,
-      motivo: "Pago en efectivo",
-      comentario: "Pago completo en efectivo",
-      aplicable: "No",
-      startDay: "2024-02-05",
-      endDay: "2024-08-09"
-    },
-  ].filter(item => item.cliente.includes(searchTerm));
-
-  // Filtrar los registros según los filtros aplicados
-  // Filtrar los registros según los filtros aplicados
-  const filteredRecords = paymentRecords
-  //     .filter(record => {
-  //   // Filtro por fechas de viaje (startDay y endDay)
-  //   if (filters.startDate && record.startDay && new Date(record.startDay) < new Date(filters.startDate)) {
-  //     return false;
-  //   }
-  //   if (filters.endDate && record.endDay && new Date(record.endDay) > new Date(filters.endDate)) {
-  //     return false;
-  //   }
-
-  //   // Filtro por fechas de pago (fechaDePago)
-  //   if (filters.startDate && record.fechaDePago && new Date(record.fechaDePago) < new Date(filters.startDate)) {
-  //     return false;
-  //   }
-  //   if (filters.endDate && record.fechaDePago && new Date(record.fechaDePago) > new Date(filters.endDate)) {
-  //     return false;
-  //   }
-
-  //   // Resto de los filtros...
-  //   if (filters.paymentMethod) {
-  //     const methodMap: Record<string, string> = {
-  //       "Contado": "Efectivo",
-  //       "Credito": "Tarjeta de Crédito",
-  //       "Transferencia": "Transferencia Bancaria"
-  //     };
-
-  //     if (record.formaDePago !== methodMap[filters.paymentMethod]) return false;
-  //   }
-
-  //   if (filters.hasDiscount) {
-  //     const hasDiscount = record.hasDissccount === "Si" || record.hasDisccount === "Si";
-  //     if (filters.hasDiscount === "SI" && !hasDiscount) return false;
-  //     if (filters.hasDiscount === "NO" && hasDiscount) return false;
-  //   }
-
-  //   if (searchTerm) {
-  //     const searchLower = searchTerm.toLowerCase();
-  //     if (
-  //       !record.cliente.toLowerCase().includes(searchLower) &&
-  //       !record.referencia.toLowerCase().includes(searchLower) &&
-  //       !record.idCliente.toLowerCase().includes(searchLower)
-  //     ) {
-  //       return false;
-  //     }
-  //   }
-
-  //   return true;
-  // });
-
-  // Renderers para las columnas especiales
-  const tableRenderers = {
-    montoPagado: (props: { value: number }) => (
-      <span className="font-medium text-emerald-600">
-        ${props.value.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-      </span>
-    ),
-    descuentoAplicado: (props: { value: number }) => (
-      <span className="text-red-500">
-        ${props.value.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-      </span>
-    ),
-    formaDePago: (props: { value: string }) => (
-      <div className="flex items-center gap-2">
-        {props.value === "Tarjeta de Crédito" ? (
-          <CreditCard className="w-4 h-4 text-gray-500" />
-        ) : props.value === "Transferencia Bancaria" ? (
-          <DollarSign className="w-4 h-4 text-blue-500" />
-        ) : (
-          <DollarSign className="w-4 h-4 text-green-500" />
-        )}
-        <span>{props.value}</span>
-      </div>
-    ),
-    acciones: () => (
-      <div className="flex gap-2">
-        <button className="p-1 text-blue-500 hover:text-blue-700">
-          <span className="text-xs">Subir/Ver</span>
-        </button>
-        <button className="p-1 text-gray-500 hover:text-gray-700">
-          <span className="text-xs">Editar</span>
-        </button>
-        <button className="p-1 text-red-500 hover:text-red-700">
-          <span className="text-xs">Eliminar</span>
-        </button>
-      </div>
-    ),
+  const updateAgentWallet = async () => {
+    try {
+      const agenteActualizado = await fetchAgenteById(agente.id_agente);
+      setLocalWalletAmount(agenteActualizado.monto_credito || 0);
+    } catch (error) {
+      console.error('Error al actualizar el saldo del agente:', error);
+      setError('Error al actualizar el saldo disponible');
+    }
   };
 
-  // Ejemplo de cómo podrías obtener el saldo
   useEffect(() => {
-    const fetchSaldoAFavor = async () => {
+    const fetchInitialData = async () => {
       try {
-        // Aquí deberías llamar a tu API para obtener el saldo real
-        // const saldo = await obtenerSaldoAFavor(idCliente);
-        // setSaldoAFavor(saldo);
-        // Ejemplo con valor mock
-        setSaldoAFavor(23);
-      } catch (error) {
-        console.error("Error al obtener saldo a favor:", error);
+        setLoading({ agente: true, pagos: true });
+        await reloadSaldos();
+      } catch (err) {
+        setError("Error al cargar los datos");
+        console.error("Error fetching data:", err);
+      } finally {
+        setLoading({ agente: false, pagos: false });
       }
     };
 
-    fetchSaldoAFavor();
-  }, []);
+    fetchInitialData();
+  }, [agente.id_agente]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+
+      } catch (err) {
+        setError("Error al cargar los datos");
+        console.error("Error fetching data:", err);
+      } finally {
+        setLoading({ agente: false, pagos: false });
+      }
+    };
+
+    fetchData();
+  }, [agente.id_agente]);
+
+  const [saldos, setSaldos] = useState<Saldo[]>([])
+
+  useEffect(() => {
+    setLocalWalletAmount(walletAmount || 0);
+  }, [walletAmount]);
+
+  useEffect(() => {
+    const fetchSaldoFavor = async () => {
+      const response: { message: string, data: Saldo[] } = await SaldoFavor.getPagos(agente.id_agente)
+      console.log("esto trae", response.data)
+      setSaldos(response.data)
+    }
+    fetchSaldoFavor()
+  }, [])
+
+  const verificarSaldoParaCancelar = (walletAmount: number, pago: Saldo) => {
+    // Verificar si el pago está activo
+    const isActive = pago.activo === true;
+
+    // Convertir el monto a número
+    const montoPago = parseFloat(pago.monto.toString());
+
+    // Comparar con el saldo solo si el pago está activo
+    const puedeCancelar = !isActive || walletAmount >= montoPago;
+
+    return {
+      puedeCancelar,
+      saldo: walletAmount,
+      totalAPagar: isActive ? montoPago : 0,
+      mensaje: puedeCancelar
+        ? isActive
+          ? "El saldo es suficiente para cancelar este pago"
+          : "El pago ya está inactivo, no requiere cancelación"
+        : "Saldo insuficiente para cancelar este pago",
+      diferencia: walletAmount - (isActive ? montoPago : 0)
+
+    };
+  };
+
+  useEffect(() => {
+    const fetchSaldoFavor = async () => {
+      try {
+        const response: { message: string, data: Saldo[] } = await SaldoFavor.getPagos(agente.id_agente);
+
+        setSaldos(response.data);
+
+
+      } catch (error) {
+        console.error('Error al obtener saldos:', error);
+        setError('Error al cargar los saldos');
+      }
+    };
+
+    fetchSaldoFavor();
+  }, [agente.id_agente]);
+
+
+  const filteredData = useMemo(() => {
+    return saldos.filter(saldo => {
+
+      return true;
+    })
+      .map((saldo) => ({
+        // Tu mapeo actual de datosid_Pago: saldo.id_saldos?.toString() || '',
+        id_Cliente: saldo || '',
+        cliente: saldo.nombre || '',
+        creado: saldo.created_at ? new Date(saldo.created_at).toISOString().split('T')[0] : '',
+        monto_pagado: saldo,
+        forma_De_Pago: saldo.metodo_pago === 'transferencia'
+          ? 'Transferencia Bancaria'
+          : saldo.metodo_pago === 'tarjeta credito'
+            ? 'Tarjeta de Crédito'
+            : saldo.metodo_pago === 'tarjeta debito'
+              ? 'Tarjeta de Débito'
+              : saldo.metodo_pago || '',
+        referencia: saldo.referencia || 'Sin referencia',
+        link_stripe: saldo.link_stripe || null,
+        fecha_De_Pago: saldo.fecha_pago ? new Date(saldo.fecha_pago).toISOString().split('T')[0] : '',
+        aplicable: saldo.is_descuento ? 'Si' : 'No',
+        comentario: saldo.notas || saldo.comentario || null,
+        facturable: saldo.is_facturable ? 'Si' : 'No',
+        comprobante: saldo.comprobante || null,
+        acciones: { row: saldo },
+      }));
+  }, [saldos, filters, searchTerm]);
+
+
+
+  const tableRenderers = {
+    // Renderizador base que aplica a todas las celdas
+    baseRenderer: (props: { value: Saldo }) => {
+      const isActive = Boolean(props.value?.activo);
+      console.log("Valor de baseRenderer:", props.value);
+      return (
+        <span className={`${!isActive ? "text-red-500 line-through" : ""}`}>
+        </span>
+      );
+    },
+
+    monto_pagado: ({ value }: { value: Saldo }) => {
+      // console.log("Valor de monto_pagado:", value, "Fila:", row);
+      const isActive = Boolean(value?.activo);
+      return (
+        <span className={`font-medium px-2 py-1 rounded ${isActive ? "bg-green-100 text-emerald-600" : "bg-red-100 text-red-600 line-through"
+          }`}>
+          {formatNumberWithCommas(value.monto)}
+        </span>
+      );
+    },
+    id_Cliente: (props: { value: Saldo }) => {
+      const isActive = Boolean(props.value?.activo);
+      return (
+        <span
+          className={`font-semibold text-sm px-2 py-1 rounded ${isActive ? "bg-blue-50 text-blue-600" : "bg-red-100 text-red-600 line-through"
+            }`}
+          title={props.value.id_agente}
+        >
+          {props.value.id_agente?.split("-").join("").slice(0, 10)}
+        </span>
+      );
+    },
+
+    descuentoAplicado: ({ value }: { value: number }) => (
+      <span className="text-red-500">
+        ${value.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+      </span>
+    ),
+
+    forma_De_Pago: ({ value, row }: { value: string, row: any }) => {
+      const isActive = row?.activo !== false;
+      const normalizedValue = value.toLowerCase();
+      return (
+        <div className={`flex items-center gap-2 ${!isActive ? "text-red-500 line-through" : ""}`}>
+          {normalizedValue.includes("crédito") || normalizedValue.includes("credito") ? (
+            <CreditCard className="w-4 h-4 text-gray-500" />
+          ) : normalizedValue.includes("transferencia") ? (
+            <DollarSign className="w-4 h-4 text-blue-500" />
+          ) : (
+            <DollarSign className="w-4 h-4 text-green-500" />
+          )}
+          <span>{value}</span>
+        </div>
+      );
+    },
+
+    comprobante: ({ value }: { value: Comprobantepago | null }) => {
+      const [showModal, setShowModal] = useState(false);
+
+      const handleDownload = () => {
+        if (value) {
+          console.log("Descargando comprobante...", value);
+
+          // Lógica de descarga aquí
+        }
+      };
+
+      const handleView = () => {
+        if (value) {
+          console.log("Mostrando comprobante...", value);
+          // Lógica para visualizar aquí
+        }
+      };
+
+      if (!value) {
+        return (
+          <>
+            <button
+              onClick={() => setShowModal(true)}
+              className="text-blue-600 hover:underline cursor-pointer"
+            >
+              Añadir Comprobante
+            </button>
+            {showModal && (
+              <ComprobanteModal
+                idCliente={agente?.id_agente || ""}
+                cliente={agente?.nombre_agente_completo || ""}
+                onClose={() => setShowModal(false)}
+                onSave={(comprobante) => {
+                  console.log("Comprobante guardado:", comprobante);
+                  setShowModal(false);
+                  // Actualizar el estado con el nuevo comprobante
+                }}
+              />
+            )}
+          </>
+        );
+      }
+
+      return (
+        <div className="flex gap-2">
+          <button
+            onClick={handleView}
+            className="text-green-600 hover:underline cursor-pointer"
+          >
+            Ver
+          </button>
+          <span>|</span>
+          <button
+            onClick={handleDownload}
+            className="text-green-600 hover:underline cursor-pointer"
+          >
+            Descargar
+          </button>
+        </div>
+      );
+    },
+    aplicable: ({ value }: { value: 'Si' | 'No' }) => {
+      return (
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${value === 'Si'
+          ? 'bg-green-200 text-green-1000'
+          : 'bg-red-200 text-red-800'
+          }`}>
+          {value}
+        </span>
+      );
+    },
+
+    facturable: ({ value }: { value: 'Si' | 'No' }) => {
+      return (
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${value === 'Si'
+          ? 'bg-green-200 text-green-1000'
+          : 'bg-red-200 text-red-800'
+          }`}>
+          {value}
+        </span>
+      );
+    },
+    //botones para eliminar y editar informacion
+    acciones: ({ value }: { value: { row: any } }) => {
+      const { row } = value;
+      const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+      const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+
+      // En la función handleEdit
+      const handleEdit = async (updatedData: any) => {
+        try {
+          console.log("Datos recibidos del modal:", updatedData);
+
+          // Validar que los datos requeridos estén presentes
+          if (!updatedData) {
+            throw new Error("No se recibieron datos del formulario");
+          }
+          // Validar y normalizar el método de pago
+          const metodoPago = updatedData.paymentMethod
+            ? normalizePaymentMethod(updatedData.paymentMethod)
+            : row.metodo_pago || 'transferencia'; // Valor por defecto
+          await reloadSaldos(); // Recargar los datos después de editar
+
+          await updateAgentWallet(); // Actualizar el saldo
+
+          // Transformar los datos al formato que espera la API
+          const apiData = {
+            id_saldos: row.id_saldos,//si
+            monto: updatedData.monto_pagado?.toString() || row.monto.toString(),//si
+            referencia: updatedData.referencia || row.referencia,//si
+            fecha_pago: updatedData.fecha_De_Pago || row.fecha_pago,//si
+            notas: updatedData.comentario || row.notas || null,
+            is_facturable: updatedData.is_facturable, // Convertir a 1/0 para la API  //si
+            is_descuento: updatedData.descuento_aplicable,  //si
+            link_stripe: updatedData.link_stripe,//si
+            metodo_pago: metodoPago,//si
+            tipo_tarjeta: updatedData.tipo_tarjeta,
+
+            // Mantener los demás campos sin cambios
+            activo: row.activo,//si
+            comentario: updatedData.comentario || row.comentario || null,//si
+            comprobante: row.comprobante,//si
+            concepto: row.concepto,//si
+            currency: row.currency,//si
+            id_agente: row.id_agente,//si
+            saldo: row.saldo,//si
+          };
+
+
+          console.log("Datos para enviar a la API:", apiData);
+
+          // // Llamar a la API para actualizar
+          await SaldoFavor.actualizarPago(apiData);
+
+          // Actualizar la lista de pagos
+          const updatedSaldos = await SaldoFavor.getPagos(row.id_agente);
+          setSaldos(updatedSaldos.data);
+          setLocalWalletAmount(prev => prev - parseFloat(row.monto.toString()));
+
+
+          // Cerrar el modal
+          setIsEditModalOpen(false);
+
+        } catch (error) {
+          console.error("Error al actualizar el pago:", error);
+          setError(`Error al actualizar el pago: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      };
+
+      // Función auxiliar para normalizar métodos de pago
+      const normalizePaymentMethod = (method: string): string => {
+        if (!method) return 'transferencia'; // Valor por defecto
+
+        const methodMap: Record<string, string> = {
+          'transferencia': 'transferencia',
+          'tarjeta credito': 'tarjeta_credito',
+          'tarjeta de credito': 'tarjeta_credito',
+          'tarjeta crédito': 'tarjeta_credito',
+          'credito': 'tarjeta_credito',
+          'tarjeta debito': 'tarjeta_debito',
+          'tarjeta débito': 'tarjeta_debito',
+          'debito': 'tarjeta_debito',
+          'débito': 'tarjeta_debito',
+          'wallet': 'wallet'
+        };
+
+        const normalizedMethod = method.toLowerCase().trim();
+        return methodMap[normalizedMethod] || normalizedMethod.replace(/ /g, '_');
+      };
+
+      const handleDelete = async () => {
+        try {
+          // Verificar si podemos cancelar este pago
+          const verificacion = verificarSaldoParaCancelar(walletAmount, row);
+
+          if (!verificacion.puedeCancelar) {
+            setError(verificacion.mensaje);
+            setIsDeleteModalOpen(false);
+            return;
+          }
+
+          // Proceder con la eliminación lógica
+          const deleteData = {
+            id_saldos: row.id_saldos,
+            id_agente: row.id_agente,
+            saldo: row.saldo,
+            monto: row.monto,
+            metodo_pago: row.metodo_pago,
+            fecha_pago: row.fecha_pago,
+            notas: row.notas || null,
+            is_facturable: row.is_facturable,
+            is_descuento: row.is_descuento,
+            link_stripe: row.link_stripe || null,
+            tipo_tarjeta: row.tipo_tarjeta,
+            activo: false, // Cambiamos a 0 para desactivar
+            comentario: row.comentario || null,
+            comprobante: row.comprobante,
+            concepto: row.concepto,
+            currency: row.currency || 'MXN',
+            referencia: row.referencia || null,
+            Wallet: row.wallet || null
+          };
+
+          await SaldoFavor.actualizarPago(deleteData);
+          // Actualizar el saldo local ANTES de recargar los datos
+          if (row.activo) {
+            setLocalWalletAmount(prev => prev - parseFloat(row.monto.toString()));
+          }
+
+          const updatedSaldos = await SaldoFavor.getPagos(row.id_agente);
+          setSaldos(updatedSaldos.data);
+          setIsDeleteModalOpen(false);
+
+        } catch (error) {
+          console.error("Error al eliminar el pago:", error);
+          setError(`Error al eliminar el pago: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      };
+
+      return (
+        <div className="flex gap-2">
+          {/* Botón Editar */}
+          <button
+            className="p-1.5 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+            onClick={() => setIsEditModalOpen(true)}
+            title="Editar"
+          >
+            <Pencil className="w-4 h-4" />
+          </button>
+
+          {/* Botón Eliminar - Solo se muestra si el pago está activo */}
+          {(row.activo === 1 || row.activo === true) && (
+            <button
+              className="p-1.5 rounded-md bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+              onClick={() => setIsDeleteModalOpen(true)}
+              title="Eliminar"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+
+          {/* Modal de Edición */}
+          {isEditModalOpen && (
+            <Modal
+              title="Editar Pago"
+              onClose={() => setIsEditModalOpen(false)}
+            >
+              <PaymentModal
+                saldoAFavor={agente.monto_credito}
+                onClose={() => setIsEditModalOpen(false)}
+                agente={agente}
+                initialData={{
+                  monto_pagado: row.monto,
+                  referencia: row.referencia,
+                  paymentMethod: row.metodo_pago === 'transferencia'
+                    ? 'Transferencia'
+                    : row.metodo_pago === 'tarjeta credito'
+                      ? 'Tarjeta de credito'
+                      : row.metodo_pago === 'tarjeta debito'
+                        ? 'Tarjeta de debito'
+                        : 'Wallet',
+                  fecha_De_Pago: row.fecha_pago ? new Date(row.fecha_pago).toISOString().split('T')[0] : '',
+                  comentario: row.comentario || row.notas || '',
+                  facturable: row.is_facturable,
+                  aplicable: row.is_descuento,
+                  link_Stripe: row.link_stripe || ''
+                }}
+                onSubmit={handleEdit}
+                isEditing={true}
+              />
+            </Modal>
+          )}
+
+          {/* Modal de Eliminación */}
+          {isDeleteModalOpen && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+                <div className="flex items-center justify-between p-6 border-b border-gray-100">
+                  <h3 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+                    <AlertCircle className="w-5 h-5 text-red-600" />
+                    Confirmar Eliminación
+                  </h3>
+                  <button
+                    onClick={() => setIsDeleteModalOpen(false)}
+                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  >
+                    <X className="w-5 h-5 text-gray-500" />
+                  </button>
+                </div>
+
+                <div className="p-6">
+                  <p className="text-gray-700 mb-4">
+                    ¿Estás seguro que deseas eliminar este pago?
+                  </p>
+
+                  <div className="flex gap-3 mt-6">
+                    <button
+                      onClick={() => setIsDeleteModalOpen(false)}
+                      className="flex-1 px-4 py-3 border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleDelete();
+                        setIsDeleteModalOpen(false);
+                      }}
+                      className="flex-1 px-4 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors font-medium"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    },
+  };
+
+  const reloadSaldos = async () => {
+    try {
+      setLoading(prev => ({ ...prev, pagos: true }));
+      const response = await SaldoFavor.getPagos(agente.id_agente);
+      setSaldos(response.data);
+    } catch (error) {
+      console.error('Error al recargar saldos:', error);
+      setError('Error al cargar los saldos');
+    } finally {
+      setLoading(prev => ({ ...prev, pagos: false }));
+    }
+  };
+
+  //Manejar nuevo pago
+
+  const handleAddPayment = async (paymentData: NuevoSaldoAFavor) => {
+    try {
+      setLoading(prev => ({ ...prev, pagos: true }));
+
+      // Crear el pago
+      await SaldoFavor.crearPago({
+        ...paymentData,
+        id_cliente: agente.id_agente
+      });
+
+      // Actualizar el saldo local sumando el monto del nuevo pago
+      setLocalWalletAmount(prev => prev + parseFloat(paymentData.monto_pagado.toString()));
+
+      setAddPaymentModal(false);
+
+    } catch (err) {
+      setError("Error al registrar el pago");
+      console.error("Error:", err);
+    } finally {
+      setLoading(prev => ({ ...prev, pagos: false }));
+    }
+  };
+
+  if (loading.agente) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <Loader />
+        <span className="ml-2">Cargando información del agente...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border-l-4 border-red-500 p-4">
+        <div className="flex">
+          <div className="flex-shrink-0">
+            <X className="h-5 w-5 text-red-500" />
+          </div>
+          <div className="ml-3">
+            <p className="text-sm text-red-700">{error}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!agente) {
+    return <div className="text-center py-8">No se encontró información del agente</div>;
+  }
 
   return (
     <div className="h-full">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
-        {/* Payment Summary */}
-        <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6 place-content-center">
-          <PaymentSummary totalBalance={2300} assignedBalance={0} />
-          <div className="mb-6 flex items-center justify-end gap-4">
-            <button className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors font-medium shadow-sm"
-              onClick={() => { setAddPaymentModal(true) }}>
+        {/* Resumen de saldo */}
+        <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <PaymentSummary
+            totalBalance={localWalletAmount}
+            assignedBalance={0}
+          />
+
+          <div className="flex justify-end items-center">
+            <button
+              onClick={() => setAddPaymentModal(true)}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors font-medium shadow-sm"
+              disabled={loading.pagos}
+            >
               <Plus className="w-5 h-5" />
-              Agregar Pago
+              {loading.pagos ? 'Cargando...' : 'Agregar Pago'}
             </button>
           </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold">Resumen de pagos</h3>
         </div>
 
         {/* Tabla de pagos */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           <Filters
-            onFilter={handleFilter}
+
+            onFilter={handleFilter}  // Pasamos handleFilter como prop
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
             defaultFilters={filters}
           />
 
-          <Table
-            registros={filteredRecords}
-            renderers={tableRenderers}
-          // columnas={[
-          //   { key: "idCliente", titulo: "ID CLIENTE" },
-          //   { key: "cliente", titulo: "CLIENTE" },
-          //   { key: "creado", titulo: "CREADO" },
-          //   { key: "montoPagado", titulo: "MONTO PAGADO" },
-          //   { key: "formaDePago", titulo: "FORMA DE PAGO" },
-          //   { key: "referencia", titulo: "REFERENCIA" },
-          //   { key: "fechaDePago", titulo: "FECHA DE PAGO" },
-          //   { key: "descuentoAplicado", titulo: "DESCUENTO APLICADO" },
-          //   { key: "motivo", titulo: "MOTIVO" },
-          //   { key: "comentario", titulo: "COMENTARIO" },
-          //   { 
-          //     key: "acciones", 
-          //     titulo: "COMPROBANTE",
-          //     render: tableRenderers.acciones 
-          //   },
-          //   { 
-          //     key: "acciones", 
-          //     titulo: "ACCIONES",
-          //     render: tableRenderers.acciones 
-          //   },
-          // ]}
-          />
+          {loading.pagos ? (
+            <div className="p-8 flex justify-center">
+              <Loader />
+              <span className="ml-2">Cargando pagos...</span>
+            </div>
+          ) : (
+            <Table
+              //registros={mappedData}
+              registros={filteredData}
+              renderers={tableRenderers}
+              customColumns={["acciones"]} // Añade la columna de acciones
+
+            />
+          )}
         </div>
       </div>
-      {addPaymentModal && (
+
+      {/* Modal para agregar pago */}
+
+      {addPaymentModal && agente && (
         <Modal
           title="Agregar Nuevo Pago"
           onClose={() => setAddPaymentModal(false)}
         >
           <PaymentModal
-            saldoAFavor={saldoAFavor}
+            saldoAFavor={agente.monto_credito}
             onClose={() => setAddPaymentModal(false)}
             agente={agente}
+            onSubmit={handleAddPayment}
           />
         </Modal>
       )}
     </div>
   );
 };
+
 
 // Tipos para el formulario
 //===========================
@@ -857,12 +1234,34 @@ const validateForm = (state: FormState): FormErrors => {
 const PaymentModal: React.FC<PaymentModalProps> = ({
   saldoAFavor = 0,
   onClose,
-  agente
+  agente,
+  initialData,
+  onSubmit,
+  isEditing = false
 }) => {
   const [state, dispatch] = useReducer(formReducer, initialState);
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+
+  // Inicializar con datos si estamos editando
+  useEffect(() => {
+    if (isEditing && initialData) {
+      dispatch({
+        type: "SET_FORM",
+        payload: {
+          amount: initialData.monto_pagado.toString(),
+          reference: initialData.referencia,
+          paymentMethod: initialData.paymentMethod,
+          paymentDate: initialData.fecha_De_Pago,
+          discountApplied: initialData.aplicable,
+          facturable: initialData.facturable,
+          comments: initialData.comentario,
+          link_Stripe: initialData.link_Stripe
+        }
+      });
+    }
+  }, [isEditing, initialData]);
 
   const paymentMethods = [
     "Transferencia",
@@ -876,8 +1275,6 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     value: string | boolean
   ) => {
     dispatch({ type: "SET_FIELD", field, value });
-
-    // Limpiar errores cuando el usuario empiece a escribir
     if (errors[field as keyof FormErrors]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
@@ -888,7 +1285,6 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
 
     const formErrors = validateForm(state);
     if (Object.keys(formErrors).length > 0) {
-      console.log(formErrors)
       setErrors(formErrors);
       return;
     }
@@ -897,9 +1293,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     setErrors({});
 
     try {
-      // Mapear los datos del formulario al formato esperado por el backend
+      if (!state.paymentMethod) {
+        throw new Error("El método de pago es requerido");
+      }
       const pagoData: NuevoSaldoAFavor = {
-        id_cliente: agente.id_agente, // Debes obtener este valor del contexto o props
+        id_cliente: agente.id_agente,
         monto_pagado: Number(state.amount),
         forma_pago: state.paymentMethod.toLowerCase() as
           | "transferencia"
@@ -909,66 +1307,42 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
         is_facturable: state.facturable,
         referencia: state.reference,
         fecha_pago: state.paymentDate,
-        // Solo incluir tipo_tarjeta si es pago con tarjeta
         ...(state.paymentMethod.includes("Tarjeta") && {
           tipo_tarjeta: state.paymentMethod.includes("credito")
-            ? "credito"  // Cambiado de "credito" a "credit"
-            : "debito"   // Cambiado de "debito" a "debit"
+            ? "credito"
+            : "debito"
         }),
-
         link_stripe: state.link_Stripe || "",
         descuento_aplicable: state.discountApplied,
         ...(state.comments && { comentario: state.comments }),
       };
 
-      // Llamar al servicio para crear el pago
-      const response = await SaldoFavor.crearPago(pagoData);
+      await onSubmit(pagoData);
 
-      // Manejar respuesta exitosa
       setIsSubmitting(false);
       setIsSubmitted(true);
 
-      // 1. Mostrar en consola los datos que se enviarán
-      console.log("Datos del formulario a enviar:", {
-        ...pagoData,
-        // Mostrar el saldo actual para referencia
-        saldo_actual: saldoAFavor,
-        saldo_restante: saldoAFavor - Number(state.amount)
-      });
-
-      // 2. Mostrar el payload que se enviará a la API
-      console.log("Payload para la API:", pagoData);
-
-      // 3. Mostrar la respuesta de la API
-      //console.log("Respuesta de la API:", response);
-
-      // Resetear después de mostrar success
-      setTimeout(() => {
-        setIsSubmitted(false);
-        dispatch({ type: "RESET_FORM" });
-      }, 3000);
-
+      if (!isEditing) {
+        setTimeout(() => {
+          onClose();
+        }, 2000);
+      }
     } catch (error) {
       setIsSubmitting(false);
-
-      // Mostrar error al usuario
       if (error instanceof Error) {
         setErrors({
           ...errors,
-          // Mapeo de errores del back
           amount: error.message.includes("monto") ? error.message : undefined,
           paymentMethod: error.message.includes("forma de pago") ? error.message : undefined,
         });
       } else {
         setErrors({
           ...errors,
-          // Error generico
           paymentMethod: "Ocurrió un error al procesar el pago. Intente nuevamente.",
         });
       }
     }
   };
-
 
   const resetForm = () => {
     dispatch({ type: "RESET_FORM" });
@@ -979,197 +1353,126 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
   return (
     <div className="h-fit w-[95vw] max-w-sm relative">
       <div className="max-w-2xl mx-auto">
-
-        {/* Mostrar saldo a favor en la parte superior */}
-        {/* <div className="bg-blue-50 border-b border-blue-200 p-4 mb-4 rounded-t-lg">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-blue-800">Saldo a favor:</span>
-            <span className="text-lg font-bold text-blue-600">
-              ${saldoAFavor.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-            </span>
+        {isSubmitted && (
+          <div className="bg-green-50 border-b border-green-200 p-6 sticky top-0 z-10">
+            <div className="flex items-center">
+              <CheckCircle className="w-6 h-6 text-green-600 mr-3" />
+              <div>
+                <h3 className="text-lg font-semibold text-green-800">
+                  {isEditing ? "¡Pago actualizado exitosamente!" : "¡Pago registrado exitosamente!"}
+                </h3>
+                <p className="text-green-600">
+                  La información ha sido guardada correctamente.
+                </p>
+              </div>
+            </div>
           </div>
-        </div> */}
-
-        {/* Formulario */}
-        <div className="">
-          {/* Success State */}
-          {isSubmitted && (
-            <div className="bg-green-50 border-b border-green-200 p-6 sticky top-0 z-10">
-              <div className="flex items-center">
-                <CheckCircle className="w-6 h-6 text-green-600 mr-3" />
-                <div>
-                  <h3 className="text-lg font-semibold text-green-800">
-                    ¡Pago registrado exitosamente!
-                  </h3>
-                  <p className="text-green-600">
-                    La información ha sido guardada correctamente.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-          {Object.entries(errors).length > 0 && (
-            <div className="bg-red-50 border-b border-red-200 p-6 sticky top-0 z-10">
-              <div className="flex items-center">
-                <X className="w-6 h-6 text-red-600 mr-3" />
-                <div>
-                  <h3 className="text-lg font-semibold text-red-800">
-                    ¡Ocurrio un error!
-                  </h3>
-                  {Object.values(errors).filter(item => !!item).map(item => <p key={item} className="text-red-600">
-                    ◾{item}
-                  </p>)}
-
-                </div>
-              </div>
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="p-4">
-            <div className="space-y-4">
-              {/* Monto */}
-              <NumberInput
-                label="Monto Pagado"
-                value={Number(state.amount)}
-                onChange={(value) => handleInputChange("amount", value)}
-              />
-
-              <TextInput
-                label="Referencia"
-                value={state.reference}
-                onChange={(value) => handleInputChange("reference", value)}
-                placeholder="Ingresa la referencia del pago"
-              />
-
-              {/* Forma de Pago */}
-              <Dropdown
-                label="Forma de Pago"
-                value={state.paymentMethod}
-                onChange={(value) => handleInputChange("paymentMethod", value)}
-                options={paymentMethods}
-              />
-
-              {/* Fecha de Pago */}
-              <DateInput
-                label="Fecha de Pago"
-                value={state.paymentDate}
-                onChange={(value) => handleInputChange("paymentDate", value)}
-              />
-
-              {/* Descuento Aplicado */}
-              <CheckboxInput
-                checked={state.discountApplied}
-                onChange={(e) => handleInputChange("discountApplied", e)}
-                label={"Descuento aplicado"}
-              />
-
-              {/* Facturable */}
-              <CheckboxInput
-                checked={state.facturable}
-                onChange={(e) => handleInputChange("facturable", e)}
-                label={"Facturable"}
-              />
-
-              {/* Link Stripe */}
-              <TextInput
-                label="Link Stripe"
-                value={state.link_Stripe}
-                onChange={(value) => handleInputChange("link_Stripe", value)}
-                placeholder="Agrega el Link Sprite"
-              />
-
-              {/* Comentarios */}
-              <TextAreaInput
-                label="Comentarios"
-                value={state.comments}
-                onChange={(value) => handleInputChange("comments", value)}
-                placeholder="Agrega comentarios adicionales sobre el pago..."
-              />
-            </div>
-
-            {/* Botones */}
-            <div className="flex flex-col gap-4 mt-8">
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className={`w-full md:flex-1 flex items-center justify-center px-6 py-3 rounded-xl font-semibold text-white transition-all duration-200 ${isSubmitting
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-blue-600 hover:bg-blue-700"
-                  }`}
-              >
-                {isSubmitting ? (
-                  <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                    Procesando...
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-5 h-5 mr-2" />
-                    Registrar Pago
-                  </>
+        )}
+        {Object.entries(errors).length > 0 && (
+          <div className="bg-red-50 border-b border-red-200 p-6 sticky top-0 z-10">
+            <div className="flex items-center">
+              <X className="w-6 h-6 text-red-600 mr-3" />
+              <div>
+                <h3 className="text-lg font-semibold text-red-800">
+                  ¡Ocurrio un error!
+                </h3>
+                {Object.values(errors).filter(item => !!item).map(item =>
+                  <p key={item} className="text-red-600">◾{item}</p>
                 )}
-              </button>
-
-              <button
-                type="button"
-                onClick={resetForm}
-                className="w-full md:flex-1 px-6 py-3 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all duration-200"
-              >
-                Limpiar
-              </button>
+              </div>
             </div>
-          </form>
-        </div>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="p-4">
+          <div className="space-y-4">
+            <NumberInput
+              label="Monto Pagado"
+              value={Number(state.amount)}
+              onChange={(value) => handleInputChange("amount", value)}
+            />
+
+            <TextInput
+              label="Referencia"
+              value={state.reference}
+              onChange={(value) => handleInputChange("reference", value)}
+              placeholder="Ingresa la referencia del pago"
+            />
+
+            <Dropdown
+              label="Forma de Pago"
+              value={state.paymentMethod}
+              onChange={(value) => handleInputChange("paymentMethod", value)}
+              options={paymentMethods}
+            />
+
+            <DateInput
+              label="Fecha de Pago"
+              value={state.paymentDate}
+              onChange={(value) => handleInputChange("paymentDate", value)}
+            />
+
+            <CheckboxInput
+              checked={state.discountApplied}
+              onChange={(e) => handleInputChange("discountApplied", e)}
+              label={"Descuento aplicado"}
+            />
+
+            <CheckboxInput
+              checked={state.facturable}
+              onChange={(e) => handleInputChange("facturable", e)}
+              label={"Facturable"}
+            />
+
+            <TextInput
+              label="Link Stripe"
+              value={state.link_Stripe}
+              onChange={(value) => handleInputChange("link_Stripe", value)}
+              placeholder="Agrega el Link Sprite"
+            />
+
+            <TextAreaInput
+              label="Comentarios"
+              value={state.comments}
+              onChange={(value) => handleInputChange("comments", value)}
+              placeholder="Agrega comentarios adicionales sobre el pago..."
+            />
+          </div>
+
+          <div className="flex flex-col gap-4 mt-8">
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className={`w-full md:flex-1 flex items-center justify-center px-6 py-3 rounded-xl font-semibold text-white transition-all duration-200 ${isSubmitting
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-blue-600 hover:bg-blue-700"
+                }`}
+            >
+              {isSubmitting ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                  Procesando...
+                </>
+              ) : (
+                <>
+                  <Send className="w-5 h-5 mr-2" />
+                  {isEditing ? "Actualizar Pago" : "Registrar Pago"}
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={resetForm}
+              className="w-full md:flex-1 px-6 py-3 border border-gray-300 rounded-xl font-semibold text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all duration-200"
+            >
+              Limpiar
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
 };
 
 export default PageCuentasPorCobrar;
-/*
-const MultitabContainer: React.FC<{
-  tabs: TabMultitab[];
-}> = ({ tabs }) => {
-  const [activeTab, setActiveTab] = useState<TabMultitab>(tabs[0]);
-  return (
-    <div className="mb-6">
-      <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8">
-          {tabs.map((tab) => (
-            <button
-              key={tab.tab}
-              onClick={() => setActiveTab(tab)}
-              className={`py-3 px-1 border-b-2 font-medium text-xs transition-colors ${
-                activeTab.tab === tab.tab
-                  ? "border-emerald-500 text-emerald-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-              }`}
-            >
-              <tab.icon className="inline-block mr-2 w-4 h-4" />
-              {tab.title}
-            </button>
-          ))}
-        </nav>
-      </div>
-      <div className="p-4">
-        <Table
-          maxHeight="10rem"
-          registros={activeTab.registros || []}
-          renderers={activeTab.columnRender || {}}
-          leyenda={activeTab.leyenda || ""}
-        />
-      </div>
-    </div>
-  );
-};
-
-interface TabMultitab {
-  title: string;
-  tab: string;
-  icon: React.ComponentType<any>;
-  registros?: { [key: string]: any }[];
-  columnRender?: Record<string, (props: any) => React.ReactNode>;
-  leyenda?: string;
-}
-*/
-

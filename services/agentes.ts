@@ -1,6 +1,45 @@
 import { TypeFilters, UpdateRequestBody } from "@/types";
 import { API_KEY, URL } from "@/lib/constants";
 
+
+// ... otros imports y funciones existentes ...
+
+export const fetchPagosByAgente = async (agenteId: string): Promise<Pago[]> => {
+  const response = await fetch(`${URL}/mia/pagos/agente?id=${agenteId}`, {
+    headers: {
+      "x-api-key": API_KEY,
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+      Pragma: "no-cache",
+      Expires: "0",
+    },
+    cache: "no-store",
+  });
+  
+  if (!response.ok) {
+    throw new Error("Error al cargar los pagos del agente");
+  }
+  
+  const data = await response.json();
+  return data;
+};
+
+// Tipo para los pagos
+interface Pago {
+  id: string;
+  id_cliente: string;
+  cliente: string;
+  fecha_creacion: string;
+  monto: number;
+  forma_pago: string;
+  referencia: string;
+  fecha_pago: string;
+  descuento: number;
+  motivo: string;
+  comentarios: string;
+  aplicable: boolean;
+  comprobante_url: string | null;
+}
+
 export const fetchInitSuperAgent = async (
   email: string,
   callback: (data: { link: string }) => void
