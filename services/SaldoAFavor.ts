@@ -63,6 +63,7 @@ export class SaldoFavor {
       headers: {
         "x-api-key": API_KEY || "", //Esta igual la extraes de lib/constant/index
         "Cache-Control": "no-cache",
+        "Content-Type": "application/json",
       },
       ...options,
     });

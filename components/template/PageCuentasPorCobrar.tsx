@@ -803,19 +803,18 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
           // Transformar los datos al formato que espera la API
           const apiData = {
             id_saldos: row.id_saldos,//si
-            monto: updatedData.monto_pagado?.toString() || row.monto.toString(),//si
+            monto: updatedData.monto_pagado?.toString() || row.monto,//si
             referencia: updatedData.referencia || row.referencia,//si
             fecha_pago: updatedData.fecha_De_Pago || row.fecha_pago,//si
-            notas: updatedData.comentario || row.notas || null,
+            comentario: updatedData.comentario || row.notas || null,
             is_facturable: updatedData.is_facturable, // Convertir a 1/0 para la API  //si
             is_descuento: updatedData.descuento_aplicable,  //si
-            link_stripe: updatedData.link_stripe,//si
+            link_stripe: updatedData.link_stripe || null,//si
             metodo_pago: metodoPago,//si
-            tipo_tarjeta: updatedData.tipo_tarjeta,
+            tipo_tarjeta: updatedData.tipo_tarjeta || null,//si
 
             // Mantener los demás campos sin cambios
             activo: row.activo,//si
-            comentario: updatedData.comentario || row.comentario || null,//si
             comprobante: row.comprobante,//si
             concepto: row.concepto,//si
             currency: row.currency,//si
