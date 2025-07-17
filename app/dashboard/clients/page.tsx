@@ -44,7 +44,9 @@ function App() {
 
   let formatedSolicitudes = clients
     .filter(
-      (item) => item.nombre_agente_completo.toUpperCase().includes(searchTerm)
+      (item) =>
+        item.nombre_agente_completo.toUpperCase().includes(searchTerm) ||
+        item.id_agente.toUpperCase().replaceAll("-", "").includes(searchTerm)
       // item.correo.to
 
     )
@@ -76,15 +78,17 @@ function App() {
       </span>
     ),
     cliente: ({ value }: { value: Agente }) => (
-      <ToolTip
-        content={value.nombre_agente_completo.toUpperCase()}
-        onClick={() => {
-          setSelectedItem(value);
-        }}
-        className="cursor-pointer hover:underline"
-      >
-        <span>{value.nombre_agente_completo}</span>
-      </ToolTip>
+      <div className="border h-full">
+        <ToolTip
+          content={value.nombre_agente_completo.toUpperCase()}
+          onClick={() => {
+            setSelectedItem(value);
+          }}
+          className="cursor-pointer hover:underline p-2"
+        >
+          <span>{value.nombre_agente_completo}</span>
+        </ToolTip>
+      </div>
     ),
     estado_credito: (props) => getStatusCreditBadge(props.value),
     credito: (props: { value: number }) => getCreditoBadge(props.value),
@@ -266,7 +270,7 @@ function App() {
             setSelectedItem(null);
             setDefaultTab("");
           }}
-          title="Datos del cliente"
+          title={`${selectedItem.nombre_agente_completo}`}
           subtitle="Puedes ver y editar los datos del cliente desde aqui"
         >
           <NavContainer

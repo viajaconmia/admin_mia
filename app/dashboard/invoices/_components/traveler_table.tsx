@@ -254,19 +254,16 @@ export function TravelerTable({ facturas }: { facturas: Factura[] }) {
     if (!obj) return;
 
     // Obtener el contenido XML (que está en base64)
-    const base64Content = typeof obj === "string" ? obj : obj.Content;
+    // const base64Content = typeof obj === "string" ? obj : obj.Content;
 
     // Decodificar de base64 a string
-    const decodedContent = atob(base64Content);
+    // const decodedContent = atob(base64Content);
 
     // Crear el Blob con el tipo MIME correcto para XML
-    const blob = new Blob([decodedContent], { type: "application/xml" });
-
     // Crear el enlace de descarga
     const downloadLink = document.createElement("a");
-    const url = URL.createObjectURL(blob);
 
-    downloadLink.href = url;
+    downloadLink.href = `data:application/xml;base64,${obj.Content}`;
     downloadLink.download = `factura_${new Date().getTime()}.xml`; // Nombre con timestamp para evitar caché
     document.body.appendChild(downloadLink); // Necesario para Firefox
     downloadLink.click();
@@ -274,7 +271,7 @@ export function TravelerTable({ facturas }: { facturas: Factura[] }) {
     // Limpieza
     setTimeout(() => {
       document.body.removeChild(downloadLink);
-      URL.revokeObjectURL(url);
+      // URL.revomeObjectURL(url);
     }, 100);
   };
 
@@ -289,6 +286,7 @@ export function TravelerTable({ facturas }: { facturas: Factura[] }) {
   };
 
   const handleDescargarFactura = async (id: string, tipo: string) => {
+    console.log(id);
     if (tipo == "pdf") {
       try {
         const obj = await descargarFactura(id);
@@ -301,6 +299,7 @@ export function TravelerTable({ facturas }: { facturas: Factura[] }) {
         const obj = await descargarFacturaXML(id);
         handleDownloadXML(obj);
       } catch (error) {
+        console.log(error);
         alert("Ha ocurrido un error al descargar la factura");
       }
     }

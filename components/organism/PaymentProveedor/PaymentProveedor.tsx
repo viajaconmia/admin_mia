@@ -23,7 +23,7 @@ import {
   TextAreaInput,
   TextInput,
 } from "../../atom/Input";
-import { Solicitud } from "@/types";
+import { Solicitud, Solicitud2 } from "@/types";
 import { updateRoom } from "@/lib/utils";
 import ReservationDetails from "./ReservationDetails";
 import { useFetchCards } from "@/hooks/useFetchCard";
@@ -34,7 +34,7 @@ import { fetchCreateSolicitud } from "@/services/pago_proveedor";
 export const PaymentModal = ({
   reservation,
 }: {
-  reservation: Solicitud | null;
+  reservation: Solicitud2 | null;
 }) => {
   const { data, fetchData } = useFetchCards();
 
@@ -192,8 +192,8 @@ export const PaymentModal = ({
           checkOut: reservation.check_out.split("T")[0],
           reservacionId: reservation.codigo_reservacion_hotel,
           monto: Number(reservation.costo_total),
-          nombre: reservation.nombre_viajero_completo,
-          tipoHabitacion: updateRoom(reservation.room),
+          nombre: reservation.nombre_viajero_reservacion,
+          tipoHabitacion: updateRoom(reservation.tipo_cuarto),
         },
       ],
       codigoDocumento: "xxxx",

@@ -19,20 +19,20 @@ import {
   TextInput,
 } from "@/components/atom/Input";
 import { fetchViajerosFromAgent } from "@/services/viajeros";
-import { Hotel, Solicitud, ReservaForm, Viajero, EdicionForm } from "@/types";
+import { Hotel, Solicitud, ReservaForm, Viajero, EdicionForm, Solicitud2 } from "@/types";
 import { Table } from "../Table";
 import { formatNumberWithCommas, getEstatus } from "@/helpers/utils";
 import { updateRoom } from "@/lib/utils";
 
 interface ReservationFormProps {
-  solicitud?: Solicitud;
+  solicitud?: Solicitud2;
   hotels: Hotel[];
   onClose: () => void;
   edicion?: boolean;
   create?: boolean;
 }
 
-export function ReservationForm({
+export function ReservationForm2({
   solicitud,
   hotels,
   onClose,
@@ -44,7 +44,7 @@ export function ReservationForm({
 
   if (solicitud.check_in && solicitud.check_out) {
     currentHotel = hotels.filter(
-      (item) => item.nombre_hotel == solicitud?.hotel
+      (item) => item.nombre_hotel == solicitud?.hotel_reserva
     )[0];
     currentNoches = differenceInDays(
       parseISO(solicitud.check_out),
@@ -54,7 +54,7 @@ export function ReservationForm({
 
   const [form, setForm] = useState<ReservaForm>({
     hotel: {
-      name: solicitud.hotel || "",
+      name: solicitud.hotel_reserva || "",
       content: currentHotel || null,
     },
     habitacion: updateRoom(solicitud.room) || "",
@@ -71,7 +71,7 @@ export function ReservationForm({
       impuestos: Number(solicitud.total) * 0.16 || 0,
       markup: 0,
     },
-    estado_reserva: getEstatus(solicitud.status) as
+    estado_reserva: getEstatus(solicitud.status_reservacion) as
       | "Confirmada"
       | "En proceso"
       | "Cancelada",
@@ -117,7 +117,7 @@ export function ReservationForm({
     items: [],
     solicitud: {
       ...solicitud,
-      viajeros_adicionales: solicitud.viajeros_adicionales || [],
+      viajeros_adicionales: solicitud.viajeros_acompañantes || [],
     },
   });
   const [habitaciones, setHabitaciones] = useState(
@@ -151,7 +151,7 @@ export function ReservationForm({
     try {
       fetchViajerosFromAgent(solicitud.id_agente, (data) => {
         const viajeroFiltrado = data.filter(
-          (viajero) => viajero.id_viajero == solicitud.id_viajero
+          (viajero) => viajero.id_viajero == solicitud.id_viajero_reserva
         );
         if (viajeroFiltrado.length > 0) {
           setForm((prev) => ({ ...prev, viajero: viajeroFiltrado[0] }));
@@ -412,7 +412,7 @@ export function ReservationForm({
             <div className="space-y-2">
               <ComboBox
                 label={`Hotel`}
-                sublabel={`(${solicitud.hotel})`}
+                sublabel={`(${solicitud.hotel_reserva})`}
                 onChange={(value) => {
                   setIsCostoManual(false); // Agrega esto aquí
                   if ("tipos_cuartos" in value.content) {
@@ -491,7 +491,7 @@ export function ReservationForm({
                   name: item.nombre_hotel,
                   content: item,
                 }))}
-                placeholderOption={solicitud.hotel}
+                placeholderOption={solicitud.hotel_reserva}
               />
               <div>
                 <DropdownValues
@@ -646,8 +646,8 @@ export function ReservationForm({
               <ComboBox
                 label={`Viajeros`}
                 sublabel={`(${
-                  solicitud.nombre_viajero || solicitud.nombre_viajero_completo
-                } - ${solicitud.id_viajero})`}
+                  solicitud.nombre_viajero_reservacion 
+                } - ${solicitud.id_viajero_reserva})`}
                 onChange={(value) => {
                   if (edicion) {
                     setEdicionForm((prev) => ({
