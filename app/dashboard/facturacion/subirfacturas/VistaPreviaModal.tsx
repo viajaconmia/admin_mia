@@ -25,7 +25,7 @@ export default function VistaPreviaModal({ facturaData, onClose, onConfirm }: Vi
             {/*  */}
 
           </div>
-          <p>Fecha: {facturaData.comprobante.fecha}</p>
+          <p>Fecha: {facturaData?.comprobante?.fecha ? new Date(facturaData.comprobante.fecha).toISOString().split('T')[0] : ''}</p>
           {/* {facturaData.fecha} */}
 
           <p>Subtotal: <strong>${facturaData.comprobante.subtotal}</strong></p>
@@ -63,28 +63,32 @@ export default function VistaPreviaModal({ facturaData, onClose, onConfirm }: Vi
           </div>
           {/* {facturaData.impuestos.monto} */}
         </div>
-        <div className="flex justify-between items-start bg-gray-50 px-6 py-3 rounded mb-4">
-          <div>
-            <h3 className="text-base font-semibold mb-2"><strong>Conceptos</strong> ({facturaData?.conceptos?.length || 1})</h3>
-            <ul className="list-disc pl-6">
-              {/* Versión fija de ejemplo */}
-              <li>Servicios de Administración y Gestión de Reservas Dong Xinlei Hospedaje y Vuelo</li>
-              {/* Versión dinámica: descomenta cuando uses datos reales */}
-              {/* 
-            {facturaData?.conceptos?.map((c: string, i: number) => (
-              <li key={i}>{c}</li>
-            ))} 
-            */}
-            </ul>
-          </div>
-          <div>
-            <p><strong>$9,032.96</strong></p>
-            {/* factraData.subtotal*/}
+        <div className="items-start bg-gray-50 px-6 py-3 rounded mb-4">
+          <h3 className="text-base font-semibold mb-2"><strong>Conceptos</strong> ({facturaData?.conceptos?.length || 1})</h3>
+
+          <div className='flex justify-between'>
+            <div>
+              <ol >
+                {/* Versión fija de ejemplo */}
+                {facturaData?.conceptos?.map((concepto: any, i: number) => (
+                  <li key={i}>{concepto.descripcion}</li>
+                ))}
+              </ol>
+            </div>
+            <div>
+              <ol >
+                {/* Versión fija de ejemplo */}
+                {facturaData?.conceptos?.map((concepto: any, i: number) => (
+                  <li key={i}><strong>${concepto.valorUnitario}</strong></li>
+                ))}
+              </ol>
+              {/* factraData.subtotal*/}
+            </div>
           </div>
         </div>
         <div className="flex items-center justify-center gap-1 text-sm text-gray-700 mb-4">
           <p>UUID: </p>
-          <p className='text-blue-500'>CEBDE31F-8926-42FA-AEB7-076DD11EB4C0</p>
+          <p className='text-blue-500'>{facturaData.timbreFiscal.uuid}</p>
           {/* {facturaData.uuid} */}
         </div>
 

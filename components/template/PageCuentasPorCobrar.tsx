@@ -609,12 +609,71 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
 
   const filteredData = useMemo(() => {
     return saldos.filter(saldo => {
+      // Filtro por método de pago
+      if (filters.paymentMethod && saldo.metodo_pago) {
+        const normalizedFilter = filters.paymentMethod.toLowerCase();
+        const normalizedMethod = saldo.metodo_pago.toLowerCase();
+
+        if (!normalizedMethod.includes(normalizedFilter)) {
+          return false;
+        }
+      }
+
+      // Filtro por fecha de pago
+      if (filters.paydate && saldo.fecha_pago) {
+        const paymentDate = new Date(saldo.fecha_pago).toISOString().split('T')[0];
+        if (paymentDate !== filters.paydate) {
+          return false;
+        }
+      }
+
+      // Filtro por facturable
+      if (filters.facturable !== null) {
+        const hasfacturable = Boolean(saldo.is_facturable);
+        if (hasfacturable !== filters.facturable) {
+          return false;
+        }
+      }
+
+      // Filtro por comprobante
+      if (filters.comprobante !== null) {
+        const hasComprobante = Boolean(saldo.comprobante);
+        if (hasComprobante !== filters.comprobante) {
+          return false;
+        }
+      }
+
+      // Filtro por rango de fechas
+      if (filters.startDate && saldo.created_at) {
+        const createdDate = new Date(saldo.created_at);
+        if (createdDate < new Date(filters.startDate)) {
+          return false;
+        }
+      }
+
+      if (filters.endDate && saldo.created_at) {
+        const createdDate = new Date(saldo.created_at);
+        if (createdDate > new Date(filters.endDate)) {
+          return false;
+        }
+      }
+
+      // Filtro por búsqueda de texto
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        const matchesReference = saldo.referencia?.toLowerCase().includes(searchLower);
+        const matchesComment = saldo.comentario?.toLowerCase().includes(searchLower);
+        const matchesId = saldo.id_saldos?.toString().includes(searchLower);
+
+        if (!matchesReference && !matchesComment && !matchesId) {
+          return false;
+        }
+      }
 
       return true;
     })
       .map((saldo) => ({
-        // Tu mapeo actual de datosid_Pago: saldo.id_saldos?.toString() || '',
-        id_Cliente: saldo || '',
+        id_Cliente: saldo,
         cliente: saldo.nombre || '',
         creado: saldo.created_at ? new Date(saldo.created_at).toISOString().split('T')[0] : '',
         monto_pagado: saldo,
@@ -635,7 +694,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         acciones: { row: saldo },
       }));
   }, [saldos, filters, searchTerm]);
-
 
 
   const tableRenderers = {
