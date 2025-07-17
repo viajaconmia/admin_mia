@@ -485,18 +485,21 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
 
   // Función para manejar los filtros
   const handleFilter = (newFilters: TypeFilters) => {
-    // Asegúrate de que newFilters tenga todas las propiedades necesarias
+    // Convertir los valores "SI"/"NO" a booleanos si es necesario
     const completeFilters: TypeFilters = {
       startDate: newFilters.startDate || null,
       endDate: newFilters.endDate || null,
       paymentMethod: newFilters.paymentMethod || "",
       hasDiscount: newFilters.hasDiscount || "",
       id_stripe: newFilters.id_stripe || null,
-      facturable: newFilters.facturable || null,
-      comprobante: newFilters.comprobante || null,
+      facturable: typeof newFilters.facturable === 'string' ?
+        newFilters.facturable === 'SI' :
+        newFilters.facturable,
+      comprobante: typeof newFilters.comprobante === 'string' ?
+        newFilters.comprobante === 'SI' :
+        newFilters.comprobante,
       paydate: newFilters.paydate || null
     };
-
 
     setFilters(completeFilters);
     if (completeFilters.paymentMethod) {
@@ -1104,14 +1107,8 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         {/* Tabla de pagos */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           <Filters
-            onFilter={(newFilters) => {
-              // Asegúrate de que newFilters cumpla con TypeFilters
-              const updatedFilters: TypeFilters = {
-                ...filters,
-                ...newFilters,
-              };
-              setFilters(updatedFilters);
-            }}
+
+            onFilter={handleFilter}  // Pasamos handleFilter como prop
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
             defaultFilters={filters}

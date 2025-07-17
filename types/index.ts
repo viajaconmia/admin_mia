@@ -56,10 +56,10 @@ export interface TypeFilters {
   notas?: string | null;
   startCantidad?: number | null;
   endCantidad?: number | null;
-  id_stripe: string | null;
-  facturable: boolean;
-  comprobante: string;
-  paydate;
+  id_stripe?: string | null;
+  facturable?: boolean | null;
+  comprobante?: boolean | null;
+  paydate?: string | null;
 }
 
 export type Solicitud = {
