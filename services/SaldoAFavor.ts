@@ -1,6 +1,6 @@
 import { URL, API_KEY } from "@/lib/constants/index";
 
-interface NuevoSaldoAFavor {
+export interface NuevoSaldoAFavor {
   id_cliente: string;
   monto_pagado: number;
   forma_pago:
