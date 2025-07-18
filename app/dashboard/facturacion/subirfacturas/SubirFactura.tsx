@@ -1,21 +1,70 @@
 'use client';
-
+import { URL, API_KEY } from "@/lib/constants/index";
 import { useState, useEffect } from 'react';
 import { parsearXML } from './parseXmlCliente';
 import VistaPreviaModal from './VistaPreviaModal';
+import ConfirmacionModal from './confirmacion';
+
+const AUTH = {
+  "x-api-key": API_KEY,
+};
+
+export const getEmpresasDatosFiscales = async (agent_id: string) => {
+  try {
+    const response = await fetch(
+      `${URL}/v1/mia/agentes/empresas-con-datos-fiscales?id_agente=${encodeURIComponent(agent_id)}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...AUTH,
+        },
+      }
+    );
+    const json = await response.json();
+    return json;
+  } catch (error) {
+    console.error("Error al obtener empresas con datos fiscales:", error);
+    throw error;
+  }
+};
+// ==interfaces para clientes
+interface Cliente {
+  id: string;
+  nombre: string;
+  email: string;
+  rfc: string;
+  razonSocial: string;
+  id_usuario_generador: string;
+  id_agente?: string; // Añade esta propiedad
+}
 
 export default function FacturasPage() {
   const [facturaData, setFacturaData] = useState<any>(null);
   const [mostrarModal, setMostrarModal] = useState(false);
   const [mostrarVistaPrevia, setMostrarVistaPrevia] = useState(false);
   const [cliente, setCliente] = useState('');
+  const [clienteSeleccionado, setClienteSeleccionado] = useState<Cliente | null>(null);
   const [archivoPDF, setArchivoPDF] = useState<File | null>(null);
   const [archivoXML, setArchivoXML] = useState<File | null>(null);
   const [clientesFiltrados, setClientesFiltrados] = useState<any[]>([]);
   const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
+  const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false);
+
 
   // Esta sería tu lista de clientes (deberías obtenerla de tu API o contexto)
-  const [clientes, setClientes] = useState<any[]>([]);
+  const [clientes, setClientes] = useState<Cliente[]>([
+    {
+      id: "1",
+      nombre: "Cliente Ejemplo 1",
+      email: "cliente1@example.com",
+      rfc: "RFC123456789",
+      razonSocial: "Razón Social Cliente 1",
+      id_usuario_generador: "user123"
+    },
+    // Agrega más clientes según sea necesario
+  ]);
+
 
   // Obtener clientes al montar el componente (ejemplo)
   useEffect(() => {
@@ -33,6 +82,13 @@ export default function FacturasPage() {
     setMostrarModal(false);
     setCliente('');
     setClientesFiltrados([]);
+  };
+
+  const handleConfirmarFactura = () => {
+    // Lógica para aplicar la factura
+    alert('Factura aplicada correctamente');
+    // Aquí podrías hacer la llamada a tu API para guardar la factura
+    cerrarVistaPrevia();
   };
 
   const handleBuscarCliente = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -54,11 +110,6 @@ export default function FacturasPage() {
     }
   };
 
-  const seleccionarCliente = (clienteSeleccionado: any) => {
-    setCliente(clienteSeleccionado.nombre); // O el campo que quieras mostrar
-    setClientesFiltrados([]);
-    setMostrarSugerencias(false);
-  };
 
   const handleEnviar = async () => {
     if (!archivoXML) return;
@@ -104,26 +155,26 @@ export default function FacturasPage() {
                 placeholder="Buscar cliente por nombre, email, RFC o razón social..."
                 className="w-full p-2 border border-gray-300 rounded"
                 value={cliente}
-                onChange={handleBuscarCliente}
+                onChange={(e) => {
+                  const valor = e.target.value;
+                  setCliente(valor);
+                  if (valor.length > 2) {
+                    const filtrados = clientes.filter(c =>
+                      c.nombre.toLowerCase().includes(valor.toLowerCase()) ||
+                      c.email.toLowerCase().includes(valor.toLowerCase()) ||
+                      c.rfc.toLowerCase().includes(valor.toLowerCase()) ||
+                      c.razonSocial.toLowerCase().includes(valor.toLowerCase())
+                    );
+                    setClientesFiltrados(filtrados);
+                    setMostrarSugerencias(true);
+                  } else {
+                    setClientesFiltrados([]);
+                    setMostrarSugerencias(false);
+                  }
+                }}
                 onFocus={() => cliente.length > 2 && setMostrarSugerencias(true)}
                 onBlur={() => setTimeout(() => setMostrarSugerencias(false), 200)}
               />
-              {mostrarSugerencias && clientesFiltrados.length > 0 && (
-                <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-                  {clientesFiltrados.map((cliente, index) => (
-                    <div
-                      key={index}
-                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                      onClick={() => seleccionarCliente(cliente)}
-                    >
-                      <div className="font-medium">{cliente.nombre}</div>
-                      <div className="text-sm text-gray-600">
-                        {cliente.rfc} | {cliente.email}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -174,13 +225,19 @@ export default function FacturasPage() {
       {mostrarVistaPrevia && (
         <VistaPreviaModal
           facturaData={facturaData}
-          onClose={cerrarVistaPrevia}
           onConfirm={() => {
-            alert('Factura confirmada');
+            setMostrarConfirmacion(true);
             cerrarVistaPrevia();
           }}
+          onClose={cerrarVistaPrevia}
         />
       )}
+      <ConfirmacionModal
+        isOpen={mostrarConfirmacion}
+        onClose={() => setMostrarConfirmacion(false)}
+        onConfirm={handleConfirmarFactura}
+      />
     </>
   );
 }
+
