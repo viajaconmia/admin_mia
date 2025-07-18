@@ -1,15 +1,29 @@
 'use client';
 import React from 'react';
+// import { Agente, EmpresaFromAgent } from "@/app/dashboard/facturacion/subirfacturas/SubirFactura";
+
 
 interface VistaPreviaProps {
   facturaData: any;
   onClose: () => void;
   onConfirm: () => void;
+  // agente: Agente | null; // Hacerla opcional si no siempre está presente
+  // empresa: EmpresaFromAgent | null; // Hacerla opcional si no siempre está presente
 }
 
-export default function VistaPreviaModal({ facturaData, onClose, onConfirm }: VistaPreviaProps) {
+export default function VistaPreviaModal({
+  facturaData,
+  onClose,
+  onConfirm,
+  // agente,
+  // empresa
+}: VistaPreviaProps) {
+
   console.log(facturaData.comprobante.fecha)
   console.log(facturaData)
+  // console.log(agente)
+  // console.log(empresa)
+
   return (
     <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
       <div className="bg-white p-6 rounded shadow-lg w-full max-w-2xl">
