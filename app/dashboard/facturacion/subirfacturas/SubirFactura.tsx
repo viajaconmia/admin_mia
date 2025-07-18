@@ -42,13 +42,26 @@ export interface Agente {
 
 
 export default function FacturasPage() {
+
+  // Estados iniciales
+  const initialStates = {
+    facturaData: null,
+    cliente: '',
+    clienteSeleccionado: null,
+    archivoPDF: null,
+    archivoXML: null,
+    empresasAgente: [],
+    empresaSeleccionada: null,
+    facturaPagada: false
+  };
+
   const [facturaData, setFacturaData] = useState<any>(null);
   const [mostrarModal, setMostrarModal] = useState(false);
   const [mostrarVistaPrevia, setMostrarVistaPrevia] = useState(false);
   const [cliente, setCliente] = useState('');
-  const [clienteSeleccionado, setClienteSeleccionado] = useState<Agente | null>(null);
-  const [archivoPDF, setArchivoPDF] = useState<File | null>(null);
-  const [archivoXML, setArchivoXML] = useState<File | null>(null);
+  const [clienteSeleccionado, setClienteSeleccionado] = useState<Agente | null>(initialStates.clienteSeleccionado);
+  const [archivoPDF, setArchivoPDF] = useState<File | null>(initialStates.archivoPDF);
+  const [archivoXML, setArchivoXML] = useState<File | null>(initialStates.archivoXML);
   const [clientesFiltrados, setClientesFiltrados] = useState<any[]>([]);
   const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
   const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false);
@@ -57,6 +70,8 @@ export default function FacturasPage() {
   const [empresasAgente, setEmpresasAgente] = useState<EmpresaFromAgent[]>([]);
   const [empresaSeleccionada, setEmpresaSeleccionada] = useState<EmpresaFromAgent | null>(null);
   const [loadingEmpresas, setLoadingEmpresas] = useState(false);
+  const [facturaPagada, setFacturaPagada] = useState(false);
+
 
   // Función para buscar clientes por nombre, email, RFC o razón social
   const handleBuscarCliente = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -97,24 +112,57 @@ export default function FacturasPage() {
         setLoading(false);
       });
   };
+  // Estados iniciales para resetear campos
+  const resetearCampos = () => {
+    setFacturaData(initialStates.facturaData);
+    setCliente(initialStates.cliente);
+    setClienteSeleccionado(initialStates.clienteSeleccionado);
+    setArchivoPDF(initialStates.archivoPDF);
+    setArchivoXML(initialStates.archivoXML);
+    setEmpresasAgente(initialStates.empresasAgente);
+    setEmpresaSeleccionada(initialStates.empresaSeleccionada);
+    setFacturaPagada(initialStates.facturaPagada);
+    setClientesFiltrados([]);
+    setMostrarSugerencias(false);
+  };
 
   const abrirModal = () => {
+    resetearCampos(); // Resetear campos antes de abrir
     setMostrarModal(true);
     handleFetchClients(); // Refrescar clientes al abrir el modal
   };
 
   const cerrarModal = () => {
     setMostrarModal(false);
-    setCliente('');
-    setClientesFiltrados([]);
+    resetearCampos(); // También resetear al cerrar
   };
   // Función para confirmar la factura
+
   const handleConfirmarFactura = () => {
-    // Lógica para aplicar la factura
-    alert('Factura aplicada correctamente');
-    // Aquí podrías hacer la llamada a tu API para guardar la factura
-    cerrarVistaPrevia();
+    // Crear el payload con todos los datos
+    const payload = {
+      agente: clienteSeleccionado,
+      empresa: empresaSeleccionada,
+      factura: facturaData,
+      pagada: facturaPagada,
+      fecha: new Date().toISOString(),
+      documentos: {
+        pdf: archivoPDF ? archivoPDF.name : null,
+        xml: archivoXML ? archivoXML.name : null
+      }
+    };
+
+    console.log("Payload para API:", payload);
+
+    if (facturaPagada) {
+      setMostrarConfirmacion(true);
+    } else {
+      alert('Documento guardado exitosamente');
+      cerrarVistaPrevia();
+    }
   };
+
+
   // Función para enviar la factura
   const handleEnviar = async () => {
     if (!archivoXML) return;
@@ -302,29 +350,63 @@ export default function FacturasPage() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div className="border border-dashed p-4 rounded">
-                <label className="block font-medium mb-2">Archivo PDF (Opcional)</label>
+              {/* PDF */}
+              <div className="border-2 border-dashed border-gray-300 p-6 rounded-lg bg-gray-50 hover:bg-gray-100 transition">
+                <label className="block text-gray-700 font-semibold mb-2">
+                  Archivo PDF (Opcional)
+                </label>
+
                 <input
                   type="file"
                   accept=".pdf"
+                  className="file:mr-4 file:py-2 file:px-4
+                 file:rounded-full file:border-0
+                 file:text-sm file:font-semibold
+                 file:bg-blue-500 file:text-white
+                 hover:file:bg-blue-600 transition"
                   onChange={(e) => setArchivoPDF(e.target.files?.[0] || null)}
                 />
+
                 <p className="text-sm text-gray-500 mt-2">
                   {archivoPDF ? archivoPDF.name : 'Sin archivos seleccionados'}
                 </p>
               </div>
 
-              <div className="border border-dashed p-4 rounded">
-                <label className="block font-medium mb-2">Archivo XML (Requerido) *</label>
+              {/* XML */}
+              <div className="border-2 border-dashed border-gray-300 p-6 rounded-lg bg-gray-50 hover:bg-gray-100 transition">
+                <label className="block text-gray-700 font-semibold mb-2">
+                  Archivo XML (Requerido) <span className="text-red-500">*</span>
+                </label>
+
                 <input
                   type="file"
                   accept=".xml"
+                  className="file:mr-4 file:py-2 file:px-4
+                 file:rounded-full file:border-0
+                 file:text-sm file:font-semibold
+                 file:bg-green-500 file:text-white
+                 hover:file:bg-green-600 transition"
                   onChange={(e) => setArchivoXML(e.target.files?.[0] || null)}
                 />
+
                 <p className="text-sm text-gray-500 mt-2">
                   {archivoXML ? archivoXML.name : 'Sin archivos seleccionados'}
                 </p>
               </div>
+            </div>
+
+
+            <div className="flex items-center mb-4">
+              <input
+                type="checkbox"
+                id="facturaPagada"
+                checked={facturaPagada}
+                onChange={(e) => setFacturaPagada(e.target.checked)}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <label htmlFor="facturaPagada" className="ml-2 block text-sm text-gray-900">
+                La factura está pagada
+              </label>
             </div>
 
             <div className="flex justify-end gap-2 mt-4">
@@ -349,16 +431,11 @@ export default function FacturasPage() {
       {mostrarVistaPrevia && (
         <VistaPreviaModal
           facturaData={facturaData}
-          // agente={clienteSeleccionado}
-          // empresa={empresaSeleccionada}
-
-          onConfirm={() => {
-            setMostrarConfirmacion(true);
-            cerrarVistaPrevia();
-          }}
+          onConfirm={() => handleConfirmarFactura()}
           onClose={cerrarVistaPrevia}
         />
       )}
+
       <ConfirmacionModal
         isOpen={mostrarConfirmacion}
         onClose={() => setMostrarConfirmacion(false)}
