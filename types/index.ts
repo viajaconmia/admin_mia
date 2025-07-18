@@ -62,6 +62,13 @@ export interface TypeFilters {
   paydate?: string | null;
 }
 
+export interface EmpresaFromAgent {
+  id?: string|null;
+  razon_social?: string | null;
+  rfc?: string | null;
+    [key: string]: any; // Para propiedades adicionales
+}
+
 export type Solicitud = {
   id_servicio?: string;
   estado_reserva?: string;
