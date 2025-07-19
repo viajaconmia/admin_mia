@@ -4,10 +4,13 @@ import { useState, useEffect } from 'react';
 import { parsearXML } from './parseXmlCliente';
 import VistaPreviaModal from './VistaPreviaModal';
 import ConfirmacionModal from './confirmacion';
+import { obtenerPresignedUrl, subirArchivoAS3 } from "@/helpers/utils";
+
 
 const AUTH = {
   "x-api-key": API_KEY,
 };
+
 
 export const getEmpresasDatosFiscales = async (agent_id: string) => {
   try {
@@ -50,6 +53,50 @@ export default function FacturasPage() {
   const [clientesFiltrados, setClientesFiltrados] = useState<any[]>([]);
   const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
   const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false);
+  //useStates provisionales para considerar los url de carga a s3
+const [archivoPDFUrl, setArchivoPDFUrl] = useState<string | null>(null);
+const [archivoXMLUrl, setArchivoXMLUrl] = useState<string | null>(null);
+const [subiendoArchivos, setSubiendoArchivos] = useState(false);
+
+const subirArchivosAS3 = async () => {
+  if (!archivoXML) {
+    alert("El archivo XML es requerido");
+    return;
+  }
+
+  try {
+    setSubiendoArchivos(true);
+const folder = "comprobantes";
+
+    // XML
+const { url: urlXML, publicUrl: publicUrlXML } = await obtenerPresignedUrl(
+  archivoXML.name,
+  archivoXML.type,
+  folder
+);
+await subirArchivoAS3(archivoXML, urlXML);
+setArchivoXMLUrl(publicUrlXML);
+console.log("XML subido:", publicUrlXML);
+// PDF (opcional)
+if (archivoPDF) {
+  const { url: urlPDF, publicUrl: publicUrlPDF } = await obtenerPresignedUrl(
+    archivoPDF.name,
+    archivoPDF.type,
+    folder
+  );
+  await subirArchivoAS3(archivoPDF, urlPDF);
+  setArchivoPDFUrl(publicUrlPDF);
+  console.log("PDF subido:", publicUrlPDF);
+}
+    alert("Archivos subidos correctamente.");
+  } catch (err) {
+    console.error("Error al subir archivos:", err);
+    alert("Hubo un error al subir los archivos.");
+  } finally {
+    setSubiendoArchivos(false);
+  }
+};
+
 
 
   // Esta sería tu lista de clientes (deberías obtenerla de tu API o contexto)
@@ -183,8 +230,12 @@ export default function FacturasPage() {
                 <input
                   type="file"
                   accept=".pdf"
-                  onChange={(e) => setArchivoPDF(e.target.files?.[0] || null)}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    setArchivoPDF(file); // SOLO guardar el archivo
+                  }}
                 />
+
                 <p className="text-sm text-gray-500 mt-2">
                   {archivoPDF ? archivoPDF.name : 'Sin archivos seleccionados'}
                 </p>
@@ -195,8 +246,13 @@ export default function FacturasPage() {
                 <input
                   type="file"
                   accept=".xml"
-                  onChange={(e) => setArchivoXML(e.target.files?.[0] || null)}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    setArchivoXML(file); // SOLO guardar el archivo
+                    //RECUERDA QUE DEBES GURDAR LA URL PARA EL PAYLOAD
+                  }}
                 />
+
                 <p className="text-sm text-gray-500 mt-2">
                   {archivoXML ? archivoXML.name : 'Sin archivos seleccionados'}
                 </p>
@@ -217,6 +273,14 @@ export default function FacturasPage() {
               >
                 Mostrar Vista Previa
               </button>
+              <button
+                onClick={subirArchivosAS3}
+                className="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700"
+                disabled={!archivoXML || subiendoArchivos}
+              >
+                {subiendoArchivos ? "Subiendo..." : "Confirmar Subida a S3"}
+            </button>
+
             </div>
           </div>
         </div>

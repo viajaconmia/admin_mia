@@ -330,3 +330,53 @@ export const getCreditoBadge = (monto: number | null) => {
     </span>
   );
 };
+
+// utils/fileUpload.ts
+import { API_KEY, URL } from "@/lib/constants";
+
+export interface UploadResponse {
+  publicUrl: string;
+  url: string;
+}
+
+/**
+ * Solicita una URL firmada para subir archivos al bucket S3.
+ * @param filename Nombre del archivo, puede incluir una carpeta, ej: `comprobantes/mi-archivo.xml`
+ * @param filetype Tipo MIME, ej: application/pdf o image/jpeg
+ * @param endpoint Endpoint a utilizar (por defecto es el general)
+ */
+export async function obtenerPresignedUrl(
+  filename: string,
+  filetype: string,
+  folder: string,
+  endpointBase = "/mia/utils/cargar-archivos"
+): Promise<UploadResponse> {
+  const url = `${URL}${endpointBase}/${folder}?filename=${filename}&filetype=${filetype}`;
+
+  const res = await fetch(url, {
+    method: "GET",
+    headers: {
+      "x-api-key": API_KEY || "",
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Error al obtener presigned URL: ${res.statusText}`);
+  }
+
+  return res.json();
+}
+
+export async function subirArchivoAS3(file: File, presignedUrl: string): Promise<void> {
+  const uploadRes = await fetch(presignedUrl, {
+    method: "PUT",
+    body: file,
+    headers: {
+      "Content-Type": file.type,
+    },
+  });
+
+  if (!uploadRes.ok) {
+    throw new Error("Error al subir archivo a S3");
+  }
+}
