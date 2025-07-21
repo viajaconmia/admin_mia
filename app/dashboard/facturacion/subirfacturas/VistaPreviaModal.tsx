@@ -7,6 +7,8 @@ interface VistaPreviaProps {
   facturaData: any;
   onClose: () => void;
   onConfirm: () => void;
+  isLoading?: boolean;
+
   // agente: Agente | null; // Hacerla opcional si no siempre está presente
   // empresa: EmpresaFromAgent | null; // Hacerla opcional si no siempre está presente
 }
@@ -15,6 +17,7 @@ export default function VistaPreviaModal({
   facturaData,
   onClose,
   onConfirm,
+  isLoading = false
   // agente,
   // empresa
 }: VistaPreviaProps) {
@@ -107,10 +110,20 @@ export default function VistaPreviaModal({
         </div>
 
         <div className="flex justify-end gap-2 mt-4">
-          <button className="px-4 py-2 rounded bg-red-500 hover:bg-red-800"
-            onClick={onClose}>Cancelar</button>
-          <button className="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-800"
-            onClick={onConfirm}>Aceptar y Continuar</button>
+          <button
+            className="px-4 py-2 rounded bg-red-500 hover:bg-red-800"
+            onClick={onClose}
+            disabled={isLoading}
+          >
+            Cancelar
+          </button>
+          <button
+            className="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-800"
+            onClick={onConfirm}
+            disabled={isLoading}
+          >
+            {isLoading ? "Procesando..." : "Aceptar y Continuar"}
+          </button>
         </div>
       </div>
     </div>

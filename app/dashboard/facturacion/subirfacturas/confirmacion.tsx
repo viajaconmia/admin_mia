@@ -1,29 +1,22 @@
 'use client';
 
-import { useState } from 'react';
-
 interface ConfirmacionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
-  title?: string;
-  message?: string;
+  onSaveOnly: () => void;
 }
 
 export default function ConfirmacionModal({
   isOpen,
   onClose,
   onConfirm,
-  title = '¿Deseas aplicar tu factura?',
-  message = 'Esta acción asignará la factura al cliente seleccionado.'
 }: ConfirmacionModalProps) {
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
       <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
-        <h2 className="text-xl font-semibold mb-2">{title}</h2>
-        <p className="text-gray-600 mb-6">{message}</p>
 
         <div className="flex justify-end gap-3">
           <button

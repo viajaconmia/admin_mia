@@ -49,9 +49,15 @@ function App() {
     ? allSolicitudes
         .filter(
           (item) =>
-            (item.hotel_reserva?.toUpperCase() || "").includes(searchTerm || "") ||
-            (item.nombre_cliente?.toUpperCase() || "").includes(searchTerm || "") ||
-            (item.nombre_viajero_reservacion?.toUpperCase() || "").includes(searchTerm || "")
+            (item.hotel_reserva?.toUpperCase() || "").includes(
+              searchTerm || ""
+            ) ||
+            (item.nombre_cliente?.toUpperCase() || "").includes(
+              searchTerm || ""
+            ) ||
+            (item.nombre_viajero_reservacion?.toUpperCase() || "").includes(
+              searchTerm || ""
+            )
         )
         .map((item) => ({
           id_cliente: item.id_agente,
@@ -67,18 +73,22 @@ function App() {
           tipo_cuarto: formatRoom(item.tipo_cuarto),
           costo_proveedor: Number(item.costo_total) || 0,
           markup:
-            ((Number(item.total || 0) - Number(item.costo_total || 0)) / Number(item.total || 0)) * 100,
+            ((Number(item.total || 0) - Number(item.costo_total || 0)) /
+              Number(item.total || 0)) *
+            100,
           precio_de_venta: parseFloat(item.total),
           metodo_de_pago: item.metodo_pago_dinamico,
-          reservante: item.quien_reservó==='CREADA POR OPERACIONES' ? "Operaciones"  : "Cliente",
+          reservante:
+            item.quien_reservó === "CREADA POR OPERACIONES"
+              ? "Operaciones"
+              : "Cliente",
           etapa_reservacion: item.etapa_reservacion,
           estado_pago_proveedor: "",
           estado_factura_proveedor: "",
-          estado: item.status_reservacion,
+          estado: item.status_reserva,
           detalles_cliente: item.id_solicitud || "",
           editar: item,
           pagar: item,
-
         }))
     : [];
 
@@ -141,7 +151,7 @@ function App() {
     ),
     pagar: (props: { value: Solicitud2 }) => (
       <>
-        {props.value.status_reservacion == "complete" && (
+        {props.value.status_reserva == "Confirmada" && (
           <button
             onClick={() => handlePagar(props.value)}
             className="text-blue-600 hover:text-blue-900 transition duration-150 ease-in-out flex gap-2 items-center"
@@ -184,7 +194,9 @@ function App() {
 
     // Solo envía los filtros que tengan valor
     const payload = Object.entries(filters)
-      .filter(([_, value]) => value !== undefined && value !== null && value !== "")
+      .filter(
+        ([_, value]) => value !== undefined && value !== null && value !== ""
+      )
       .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {});
 
     fetchSolicitudes2(payload, {}, (data) => {

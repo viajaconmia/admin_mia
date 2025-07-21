@@ -6,6 +6,9 @@ import VistaPreviaModal from './VistaPreviaModal';
 import ConfirmacionModal from './confirmacion';
 import { fetchAgentes, fetchEmpresasAgentesDataFiscal } from "@/services/agentes";
 import { TypeFilters, EmpresaFromAgent } from "@/types";
+import AsignarFacturaModal from './AsignarFactura';
+import { obtenerPresignedUrl, subirArchivoAS3 } from "@/helpers/utils";
+
 
 const AUTH = {
   "x-api-key": API_KEY,
@@ -41,6 +44,7 @@ export interface Agente {
 }
 
 
+
 export default function FacturasPage() {
 
   // Estados iniciales
@@ -65,6 +69,51 @@ export default function FacturasPage() {
   const [clientesFiltrados, setClientesFiltrados] = useState<any[]>([]);
   const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
   const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false);
+  //useStates provisionales para considerar los url de carga a s3
+  const [archivoPDFUrl, setArchivoPDFUrl] = useState<string | null>(null);
+  const [archivoXMLUrl, setArchivoXMLUrl] = useState<string | null>(null);
+  const [subiendoArchivos, setSubiendoArchivos] = useState(false);
+
+  const subirArchivosAS3 = async (): Promise<{ pdfUrl: string | null, xmlUrl: string }> => {
+    if (!archivoXML) {
+      throw new Error("El archivo XML es requerido");
+    }
+
+    try {
+      setSubiendoArchivos(true);
+      const folder = "comprobantes";
+
+      // XML
+      const { url: urlXML, publicUrl: publicUrlXML } = await obtenerPresignedUrl(
+        archivoXML.name,
+        archivoXML.type,
+        folder
+      );
+      await subirArchivoAS3(archivoXML, urlXML);
+      setArchivoXMLUrl(publicUrlXML);
+
+      let pdfUrl = null;
+      // PDF (opcional)
+      if (archivoPDF) {
+        const { url: urlPDF, publicUrl: publicUrlPDF } = await obtenerPresignedUrl(
+          archivoPDF.name,
+          archivoPDF.type,
+          folder
+        );
+        await subirArchivoAS3(archivoPDF, urlPDF);
+        setArchivoPDFUrl(publicUrlPDF);
+        pdfUrl = publicUrlPDF;
+      }
+
+      return { pdfUrl, xmlUrl: publicUrlXML };
+    } catch (err) {
+      console.error("Error al subir archivos:", err);
+      throw err;
+    } finally {
+      setSubiendoArchivos(false);
+    }
+  };
+
   const [clientes, setClientes] = useState<(Agente)[]>([]);
   const [loading, setLoading] = useState(false);
   const [empresasAgente, setEmpresasAgente] = useState<EmpresaFromAgent[]>([]);
@@ -72,6 +121,8 @@ export default function FacturasPage() {
   const [loadingEmpresas, setLoadingEmpresas] = useState(false);
   const [facturaPagada, setFacturaPagada] = useState(false);
 
+  //asignar factura a items de reservación
+  const [mostrarAsignarFactura, setMostrarAsignarFactura] = useState(false);
 
   // Función para buscar clientes por nombre, email, RFC o razón social
   const handleBuscarCliente = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -138,27 +189,43 @@ export default function FacturasPage() {
   };
   // Función para confirmar la factura
 
-  const handleConfirmarFactura = () => {
-    // Crear el payload con todos los datos
-    const payload = {
-      agente: clienteSeleccionado,
-      empresa: empresaSeleccionada,
-      factura: facturaData,
-      pagada: facturaPagada,
-      fecha: new Date().toISOString(),
-      documentos: {
-        pdf: archivoPDF ? archivoPDF.name : null,
-        xml: archivoXML ? archivoXML.name : null
+  const handleConfirmarFactura = async (payloadAdicional?: any) => {
+    try {
+      setSubiendoArchivos(true);
+
+      // Upload files only when confirming
+      const { pdfUrl, xmlUrl } = await subirArchivosAS3();
+
+      const basePayload = {
+        agente: clienteSeleccionado,
+        empresa: empresaSeleccionada,
+        factura: facturaData,
+        pagada: facturaPagada,
+        fecha: new Date().toISOString(),
+        documentos: {
+          pdf: pdfUrl,
+          xml: xmlUrl
+        },
+        ...(payloadAdicional || {}) // Aquí se mezclará con el payload de asignación si existe
+      };
+
+      console.log("Payload completo para API:", basePayload);
+
+      if (payloadAdicional) {
+        // Lógica para factura asignada
+        alert('Factura asignada exitosamente');
+        cerrarVistaPrevia();
+      } else if (facturaPagada) {
+        setMostrarConfirmacion(true);
+      } else {
+        alert('Documento guardado exitosamente');
+        cerrarVistaPrevia();
       }
-    };
-
-    console.log("Payload para API:", payload);
-
-    if (facturaPagada) {
-      setMostrarConfirmacion(true);
-    } else {
-      alert('Documento guardado exitosamente');
-      cerrarVistaPrevia();
+    } catch (error) {
+      alert('Error al subir archivos');
+      console.error(error);
+    } finally {
+      setSubiendoArchivos(false);
     }
   };
 
@@ -168,14 +235,23 @@ export default function FacturasPage() {
     if (!archivoXML) return;
 
     try {
+      setSubiendoArchivos(true);
+      // 1. Only parse XML, don't upload yet
       const data = await parsearXML(archivoXML);
       setFacturaData(data);
+
+      // 2. Show preview without uploading
       setMostrarModal(false);
       setMostrarVistaPrevia(true);
+
       console.log(data);
+
+
     } catch (error) {
       alert('Error al procesar el XML');
       console.error(error);
+    } finally {
+      setSubiendoArchivos(false);
     }
   };
 
@@ -364,8 +440,12 @@ export default function FacturasPage() {
                  file:text-sm file:font-semibold
                  file:bg-blue-500 file:text-white
                  hover:file:bg-blue-600 transition"
-                  onChange={(e) => setArchivoPDF(e.target.files?.[0] || null)}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    setArchivoPDF(file); // SOLO guardar el archivo
+                  }}
                 />
+
 
                 <p className="text-sm text-gray-500 mt-2">
                   {archivoPDF ? archivoPDF.name : 'Sin archivos seleccionados'}
@@ -386,8 +466,13 @@ export default function FacturasPage() {
                  file:text-sm file:font-semibold
                  file:bg-green-500 file:text-white
                  hover:file:bg-green-600 transition"
-                  onChange={(e) => setArchivoXML(e.target.files?.[0] || null)}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    setArchivoXML(file); // SOLO guardar el archivo
+                    //RECUERDA QUE DEBES GURDAR LA URL PARA EL PAYLOAD
+                  }}
                 />
+
 
                 <p className="text-sm text-gray-500 mt-2">
                   {archivoXML ? archivoXML.name : 'Sin archivos seleccionados'}
@@ -419,9 +504,9 @@ export default function FacturasPage() {
               <button
                 onClick={handleEnviar}
                 className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
-                disabled={!cliente || !archivoXML}
+                disabled={!cliente || !archivoXML || subiendoArchivos}
               >
-                Mostrar Vista Previa
+                {subiendoArchivos ? "Procesando..." : "Mostrar Vista Previa"}
               </button>
             </div>
           </div>
@@ -433,14 +518,29 @@ export default function FacturasPage() {
           facturaData={facturaData}
           onConfirm={() => handleConfirmarFactura()}
           onClose={cerrarVistaPrevia}
+          isLoading={subiendoArchivos}
         />
       )}
 
       <ConfirmacionModal
         isOpen={mostrarConfirmacion}
         onClose={() => setMostrarConfirmacion(false)}
-        onConfirm={handleConfirmarFactura}
+        onConfirm={() => setMostrarAsignarFactura(true)}
+        onSaveOnly={() => handleConfirmarFactura()}
       />
+
+      {mostrarAsignarFactura && (
+        <AsignarFacturaModal
+          isOpen={mostrarAsignarFactura}
+          onClose={() => setMostrarAsignarFactura(false)}
+          onAssign={(payload) => handleConfirmarFactura(payload)}
+          facturaData={facturaData}
+          empresaSeleccionada={empresaSeleccionada}
+          clienteSeleccionado={clienteSeleccionado}
+          archivoPDFUrl={archivoPDFUrl}
+          archivoXMLUrl={archivoXMLUrl}
+        />
+      )}
     </>
   );
 }

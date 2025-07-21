@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 
 type Registro = {
   [key: string]: any;
+
 };
 
 type RendererMap = {
@@ -11,6 +12,7 @@ type RendererMap = {
 };
 
 interface TableProps {
+  // Props específicas de tu componente
   registros: Registro[];
   renderers?: RendererMap;
   defaultSort?: {
@@ -19,9 +21,15 @@ interface TableProps {
   };
   exportButton?: boolean;
   leyenda?: string;
-  children?: React.ReactNode;
   maxHeight?: string;
-  customColumns?: string[]; // Nuevo prop para columnas adicionales
+  customColumns?: string[];
+  description?: string[];
+  seleccionado?: string;
+
+  // Props para el contenedor div
+  containerProps?: React.HTMLAttributes<HTMLDivElement>;
+  // Props para la tabla HTML
+  tableProps?: React.TableHTMLAttributes<HTMLTableElement>;
 }
 
 export const Table = ({
@@ -30,10 +38,13 @@ export const Table = ({
   defaultSort,
   exportButton = true,
   leyenda = "",
-  children,
   maxHeight = "28rem",
-  customColumns = [], // Nuevo prop
-}: TableProps) => {
+  customColumns = [],
+  containerProps = {},
+  tableProps = {},
+  children,
+}: TableProps & { children?: React.ReactNode }) => {
+
   const [displayData, setDisplayData] = useState<Registro[]>(registros);
   const [selectedRow, setSelectedRow] = useState<number | null>(null);
   const [currentSort, setCurrentSort] = useState<{
@@ -81,7 +92,7 @@ export const Table = ({
   };
 
   return (
-    <div className="relative w-full">
+    <div className="relative w-full" {...containerProps}>
       {exportButton && (
         <div className="flex w-full justify-between mb-2 ">
           <div className="flex flex-col justify-end">
@@ -106,7 +117,10 @@ export const Table = ({
           className="overflow-y-auto relative border border-gray-200 rounded-sm w-full h-fit"
           style={{ maxHeight: maxHeight }}
         >
-          <table className="min-w-full divide-y divide-gray-200">
+          <table
+            {...tableProps} // Pasa las props HTML aquí
+            className={`min-w-full divide-y divide-gray-200 ${tableProps.className || ''}`}
+          >
             <thead className=" sticky z-10 bg-gray-50 top-0">
               <tr>
                 {columnKeys.map((key) => (

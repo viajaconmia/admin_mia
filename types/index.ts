@@ -9,10 +9,18 @@ export interface TypeFilters {
   endDate?: string | null;
   recordCount?: string | null;
   empresa?: string | null;
-  hasDiscount?:string | null,
+  hasDiscount?: string | null;
   status?: "Confirmada" | "Pendiente" | "Cancelada" | "Todos" | null;
   reservationStage?: "Reservado" | "In house" | "Check-out" | null;
-  paymentMethod?: "Tarjeta Debito" | "Tarjeta Credito" | "" |"Credito" | "Contado" |"Wallet"|"Tranferencia"| null;
+  paymentMethod?:
+    | "Tarjeta Debito"
+    | "Tarjeta Credito"
+    | ""
+    | "Credito"
+    | "Contado"
+    | "Wallet"
+    | "Tranferencia"
+    | null;
   filterType?:
     | "Check-in"
     | "Check-out"
@@ -58,7 +66,7 @@ export interface TypeFilters {
   endCantidad?: number | null;
   id_stripe?: string | null;
   facturable?: boolean | null;
-  comprobante?: boolean | null;
+  comprobante?: boolean | null; 
   paydate?: string | null;
 }
 
@@ -122,7 +130,8 @@ export interface Solicitud2 {
   id_credito: string | null;
   id_factura: string | null;
   id_facturama: string | null;
-  status_reservacion: string;
+  status_solicitud: string;
+  status_reserva: string;
   etapa_reservacion: string;
   created_at_solicitud: string;
   created_at_reserva: string;
