@@ -6,6 +6,7 @@ import VistaPreviaModal from './VistaPreviaModal';
 import ConfirmacionModal from './confirmacion';
 import { fetchAgentes, fetchEmpresasAgentesDataFiscal } from "@/services/agentes";
 import { TypeFilters, EmpresaFromAgent } from "@/types";
+import AsignarFacturaModal from './AsignarFactura';
 
 const AUTH = {
   "x-api-key": API_KEY,
@@ -41,6 +42,7 @@ export interface Agente {
 }
 
 
+
 export default function FacturasPage() {
 
   // Estados iniciales
@@ -72,6 +74,8 @@ export default function FacturasPage() {
   const [loadingEmpresas, setLoadingEmpresas] = useState(false);
   const [facturaPagada, setFacturaPagada] = useState(false);
 
+  //asignar factura a items de reservación
+  const [mostrarAsignarFactura, setMostrarAsignarFactura] = useState(false);
 
   // Función para buscar clientes por nombre, email, RFC o razón social
   const handleBuscarCliente = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -138,9 +142,8 @@ export default function FacturasPage() {
   };
   // Función para confirmar la factura
 
-  const handleConfirmarFactura = () => {
-    // Crear el payload con todos los datos
-    const payload = {
+  const handleConfirmarFactura = (payloadAdicional?: any) => {
+    const basePayload = {
       agente: clienteSeleccionado,
       empresa: empresaSeleccionada,
       factura: facturaData,
@@ -149,12 +152,17 @@ export default function FacturasPage() {
       documentos: {
         pdf: archivoPDF ? archivoPDF.name : null,
         xml: archivoXML ? archivoXML.name : null
-      }
+      },
+      ...(payloadAdicional || {})
     };
 
-    console.log("Payload para API:", payload);
+    console.log("Payload completo para API:", basePayload);
 
-    if (facturaPagada) {
+    if (payloadAdicional) {
+      // Lógica para factura asignada
+      alert('Factura asignada exitosamente');
+      cerrarVistaPrevia();
+    } else if (facturaPagada) {
       setMostrarConfirmacion(true);
     } else {
       alert('Documento guardado exitosamente');
@@ -439,8 +447,20 @@ export default function FacturasPage() {
       <ConfirmacionModal
         isOpen={mostrarConfirmacion}
         onClose={() => setMostrarConfirmacion(false)}
-        onConfirm={handleConfirmarFactura}
+        onConfirm={() => setMostrarAsignarFactura(true)}
+        onSaveOnly={() => handleConfirmarFactura()}
       />
+
+      {mostrarAsignarFactura && (
+        <AsignarFacturaModal
+          isOpen={mostrarAsignarFactura}
+          onClose={() => setMostrarAsignarFactura(false)}
+          onAssign={(payload) => handleConfirmarFactura(payload)}
+          facturaData={facturaData}
+          empresaSeleccionada={empresaSeleccionada}
+          clienteSeleccionado={clienteSeleccionado}
+        />
+      )}
     </>
   );
 }
