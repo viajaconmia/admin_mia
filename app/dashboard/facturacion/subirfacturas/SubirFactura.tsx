@@ -245,6 +245,8 @@ export default function FacturasPage() {
       setMostrarVistaPrevia(true);
 
       console.log(data);
+
+
     } catch (error) {
       alert('Error al procesar el XML');
       console.error(error);
