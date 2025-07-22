@@ -74,6 +74,9 @@ export default function FacturasPage() {
   const [archivoXMLUrl, setArchivoXMLUrl] = useState<string | null>(null);
   const [subiendoArchivos, setSubiendoArchivos] = useState(false);
 
+  // Estado para los errores
+  const [errors, setErrors] = useState<FacturaErrors>({});
+
   const subirArchivosAS3 = async (): Promise<{ pdfUrl: string | null, xmlUrl: string }> => {
     if (!archivoXML) {
       throw new Error("El archivo XML es requerido");
@@ -197,30 +200,53 @@ export default function FacturasPage() {
       const { pdfUrl, xmlUrl } = await subirArchivosAS3();
 
       const basePayload = {
-        agente: clienteSeleccionado,
-        empresa: empresaSeleccionada,
-        factura: facturaData,
-        pagada: facturaPagada,
-        fecha: new Date().toISOString(),
-        documentos: {
-          pdf: pdfUrl,
-          xml: xmlUrl
-        },
-        ...(payloadAdicional || {}) // Aquí se mezclará con el payload de asignación si existe
+        fecha_emision: facturaData.comprobante.fecha.split("T")[0], // solo la fecha
+        estado: "En proceso",
+        usuario_creador: clienteSeleccionado.id_agente,
+        id_agente: clienteSeleccionado.id_agente,
+        total: parseFloat(facturaData.comprobante.total),
+        subtotal: parseFloat(facturaData.comprobante.subtotal),
+        impuestos: parseFloat(facturaData.impuestos?.traslado?.importe || "0.00"),
+        saldo: parseFloat(facturaData.comprobante.total),
+        rfc: facturaData.receptor.rfc,
+        id_empresa: empresaSeleccionada.id_empresa || null,
+        uuid_factura: facturaData.timbreFiscal.uuid,
+        rfc_emisor: facturaData.emisor.rfc,
+        url_pdf: pdfUrl || null,
+        url_xml: xmlUrl || null,
+        items_json: JSON.stringify([]),
       };
 
       console.log("Payload completo para API:", basePayload);
 
+      const response = await fetch(`${URL}/mia/factura/CrearFacturaDesdeCarga`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": API_KEY,
+        },
+        body: JSON.stringify(basePayload),
+      });
+
+      console.log("payload enviado:", payloadAdicional);
+
+      if (!response.ok) {
+        throw new Error('Error al asignar la factura');
+      }
+
       if (payloadAdicional) {
         // Lógica para factura asignada
         alert('Factura asignada exitosamente');
+
         cerrarVistaPrevia();
       } else if (facturaPagada) {
         setMostrarConfirmacion(true);
+        // cerrarVistaPrevia();
       } else {
         alert('Documento guardado exitosamente');
         cerrarVistaPrevia();
       }
+      // cerrarVistaPrevia();
     } catch (error) {
       alert('Error al subir archivos');
       console.error(error);
@@ -229,14 +255,27 @@ export default function FacturasPage() {
     }
   };
 
-
   // Función para enviar la factura
   const handleEnviar = async () => {
+
+    // Validar antes de proceder
+    const validationErrors = validateFacturaForm({
+      clienteSeleccionado,
+      empresaSeleccionada,
+      archivoXML
+    });
+
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+
     if (!archivoXML) return;
 
     try {
       setSubiendoArchivos(true);
-      // 1. Only parse XML, don't upload yet
+      setErrors({});
+
       const data = await parsearXML(archivoXML);
       setFacturaData(data);
 
@@ -245,6 +284,8 @@ export default function FacturasPage() {
       setMostrarVistaPrevia(true);
 
       console.log(data);
+
+
     } catch (error) {
       alert('Error al procesar el XML');
       console.error(error);
@@ -327,52 +368,11 @@ export default function FacturasPage() {
                   ))}
                 </ul>
               )}
-              {/* Mostrar selector de empresas después de seleccionar agente */}
-              {/* {clienteSeleccionado && (
-                <div className="mb-4">
-                  <label className="block mb-2 font-medium">Empresa</label>
-                  {loadingEmpresas ? (
-                    <div className="flex items-center gap-2 text-gray-500">
-                      <span className="animate-spin">↻</span>
-                      Cargando empresas...
-                    </div>
-                  ) : (
-                    <>
-                      {empresasAgente.length > 0 ? (
-                        <select
-                          className="w-full p-2 border border-gray-300 rounded"
-                          value={empresaSeleccionada?.id || ''}
-                          onChange={(e) => {
-                            const selectedId = e.target.value;
-                            const selected = empresasAgente.find(emp => emp.id === selectedId);
-                            if (selected) {
-                              setEmpresaSeleccionada(selected);
-                              console.log("Empresa seleccionada:", {
-                                id: selected.id,
-                                razon_social: selected.razon_social,
-                                rfc: selected.rfc
-                              });
-                            }
-                          }}
-                        >
-                          {!empresaSeleccionada ? (
-                            <option value="" disabled>Seleccione una empresa</option>
-                          ) : null}
-                          {empresasAgente.map((empresa) => (
-                            <option key={empresa.id} value={empresa.id}>
-                              {empresa.razon_social} - {empresa.rfc}
-                            </option>
-                          ))}
-                        </select>
-                      ) : (
-                        <div className="text-yellow-600">
-                          No se encontraron empresas con datos fiscales para este agente
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              )} */}
+
+              {errors.clienteSeleccionado && (
+                <p className="text-red-500 text-sm mt-1">{errors.clienteSeleccionado}</p>
+              )}
+
               {clienteSeleccionado && (
                 <div className="mb-4">
                   <label className="block mb-2 font-medium">Empresa</label>
@@ -423,6 +423,10 @@ export default function FacturasPage() {
               )}
             </div>
 
+            {errors.empresaSeleccionada && (
+              <p className="text-red-500 text-sm mt-1">{errors.empresaSeleccionada}</p>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               {/* PDF */}
               <div className="border-2 border-dashed border-gray-300 p-6 rounded-lg bg-gray-50 hover:bg-gray-100 transition">
@@ -434,16 +438,15 @@ export default function FacturasPage() {
                   type="file"
                   accept=".pdf"
                   className="file:mr-4 file:py-2 file:px-4
-                 file:rounded-full file:border-0
-                 file:text-sm file:font-semibold
-                 file:bg-blue-500 file:text-white
-                 hover:file:bg-blue-600 transition"
+                  file:rounded-full file:border-0
+                  file:text-sm file:font-semibold
+                  file:bg-blue-500 file:text-white
+                  hover:file:bg-blue-600 transition"
                   onChange={(e) => {
                     const file = e.target.files?.[0] || null;
                     setArchivoPDF(file); // SOLO guardar el archivo
                   }}
                 />
-
 
                 <p className="text-sm text-gray-500 mt-2">
                   {archivoPDF ? archivoPDF.name : 'Sin archivos seleccionados'}
@@ -460,10 +463,10 @@ export default function FacturasPage() {
                   type="file"
                   accept=".xml"
                   className="file:mr-4 file:py-2 file:px-4
-                 file:rounded-full file:border-0
-                 file:text-sm file:font-semibold
-                 file:bg-green-500 file:text-white
-                 hover:file:bg-green-600 transition"
+                  file:rounded-full file:border-0
+                  file:text-sm file:font-semibold
+                  file:bg-green-500 file:text-white
+                  hover:file:bg-green-600 transition"
                   onChange={(e) => {
                     const file = e.target.files?.[0] || null;
                     setArchivoXML(file); // SOLO guardar el archivo
@@ -471,13 +474,15 @@ export default function FacturasPage() {
                   }}
                 />
 
+                {errors.archivoXML && (
+                  <p className="text-red-500 text-sm mt-1">{errors.archivoXML}</p>
+                )}
 
                 <p className="text-sm text-gray-500 mt-2">
                   {archivoXML ? archivoXML.name : 'Sin archivos seleccionados'}
                 </p>
               </div>
             </div>
-
 
             <div className="flex items-center mb-4">
               <input
@@ -502,7 +507,7 @@ export default function FacturasPage() {
               <button
                 onClick={handleEnviar}
                 className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
-                disabled={!cliente || !archivoXML || subiendoArchivos}
+                disabled={!cliente || !archivoXML || subiendoArchivos || !empresaSeleccionada}
               >
                 {subiendoArchivos ? "Procesando..." : "Mostrar Vista Previa"}
               </button>
@@ -522,6 +527,7 @@ export default function FacturasPage() {
 
       <ConfirmacionModal
         isOpen={mostrarConfirmacion}
+        onCloseVistaPrevia={() => cerrarVistaPrevia()}
         onClose={() => setMostrarConfirmacion(false)}
         onConfirm={() => setMostrarAsignarFactura(true)}
         onSaveOnly={() => handleConfirmarFactura()}
@@ -543,3 +549,33 @@ export default function FacturasPage() {
   );
 }
 
+
+// manejo de errores
+interface FacturaErrors {
+  clienteSeleccionado?: string;
+  empresaSeleccionada?: string;
+  archivoXML?: string;
+}
+
+// Función de validación
+const validateFacturaForm = (formData: {
+  clienteSeleccionado: Agente | null;
+  empresaSeleccionada: EmpresaFromAgent | null;
+  archivoXML: File | null;
+}): FacturaErrors => {
+  const errors: FacturaErrors = {};
+
+  if (!formData.clienteSeleccionado) {
+    errors.clienteSeleccionado = "Debes seleccionar un cliente";
+  }
+
+  if (!formData.empresaSeleccionada) {
+    errors.empresaSeleccionada = "Debes seleccionar una empresa";
+  }
+
+  if (!formData.archivoXML) {
+    errors.archivoXML = "El archivo XML es requerido";
+  }
+
+  return errors;
+};
