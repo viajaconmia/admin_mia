@@ -1,8 +1,11 @@
 'use client';
 
+import { use, useEffect } from "react";
+
 interface ConfirmacionModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onCloseVistaPrevia: () => void;
   onConfirm: () => void;
   onSaveOnly: () => void;
 }
@@ -10,9 +13,21 @@ interface ConfirmacionModalProps {
 export default function ConfirmacionModal({
   isOpen,
   onClose,
+  onCloseVistaPrevia,
   onConfirm,
+  onSaveOnly,
+
 }: ConfirmacionModalProps) {
   if (!isOpen) return null;
+  const handleSaveOnly = () => {
+    alert('Factura guardada exitosamente');
+    onClose(); // Cierra el modal
+    onCloseVistaPrevia(); // Cierra la vista previa
+  }
+
+  // useEffect(() => {
+  //   if()
+  // },[isOpen]);
 
   return (
     <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
@@ -20,7 +35,9 @@ export default function ConfirmacionModal({
 
         <div className="flex justify-end gap-3">
           <button
-            onClick={onClose}
+            onClick={() => {
+              handleSaveOnly();
+            }}
             className="px-4 py-2 rounded bg-green-500 text-white hover:bg-red-600 transition-colors"
           >Solo guardar
           </button>
