@@ -463,10 +463,11 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
 
   const [localWalletAmount, setLocalWalletAmount] = useState(walletAmount || 0);
 
+
   // Actualizar cuando cambie el prop
   useEffect(() => {
-    setLocalWalletAmount(walletAmount || 0);
-  }, [walletAmount]);
+    setLocalWalletAmount(localWalletAmount || 0);
+  }, [localWalletAmount]);
 
   const [filters, setFilters] = useState<TypeFilters>({
     startDate: null,
@@ -552,9 +553,37 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
 
   const [saldos, setSaldos] = useState<Saldo[]>([])
 
+  // En tu componente PageCuentasPorCobrar, añade este efecto:
+
   useEffect(() => {
-    setLocalWalletAmount(walletAmount || 0);
-  }, [walletAmount]);
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible') {
+        try {
+          // Mostrar un indicador de carga si lo deseas
+          setLoading(prev => ({ ...prev, agente: true }));
+
+          // Actualizar el saldo del agente
+          await updateAgentWallet();
+
+          // También puedes recargar los saldos si es necesario
+          await reloadSaldos();
+        } catch (error) {
+          console.error('Error al actualizar datos al volver a la pestaña:', error);
+          setError('Error al actualizar los datos');
+        } finally {
+          setLoading(prev => ({ ...prev, agente: false }));
+        }
+      }
+    };
+
+    // Agregar el event listener
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Limpiar el event listener al desmontar el componente
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [agente.id_agente]); // Dependencia para asegurar que siempre usamos el ID correcto
 
   useEffect(() => {
     const fetchSaldoFavor = async () => {
@@ -627,6 +656,16 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         }
       }
 
+      // Filtro por descuento
+      if (filters.hasDiscount !== undefined && filters.hasDiscount !== "") {
+        const hasDiscount = Boolean(saldo.is_descuento);
+        const filterValue = filters.hasDiscount === "SI"; // Convertir "SI"/"NO" a booleano
+        if (hasDiscount !== filterValue) {
+          return false;
+        }
+      }
+
+
       // Filtro por facturable
       if (filters.facturable !== null) {
         const hasfacturable = Boolean(saldo.is_facturable);
@@ -675,7 +714,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       .map((saldo) => ({
         id_Cliente: saldo,
         cliente: saldo.nombre || '',
-        creado: saldo.created_at ? new Date(saldo.created_at).toISOString().split('T')[0] : '',
+        creado: saldo.fecha_creacion ? new Date(saldo.fecha_creacion).toISOString().split('T')[0] : '',
         monto_pagado: saldo,
         forma_De_Pago: saldo.metodo_pago === 'transferencia'
           ? 'Transferencia Bancaria'
@@ -846,17 +885,23 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         try {
           console.log("Datos recibidos del modal:", updatedData);
 
+          // Obtener el pago original para calcular la diferencia
+          const pagoOriginal = saldos.find(s => s.id_saldos === row.id_saldos);
+
           // Validar que los datos requeridos estén presentes
           if (!updatedData) {
             throw new Error("No se recibieron datos del formulario");
           }
+          const montoOriginal = parseFloat(pagoOriginal.monto.toString());
+          const montoNuevo = parseFloat(updatedData.monto_pagado.toString());
+          const diferencia = montoNuevo - montoOriginal;
+
           // Validar y normalizar el método de pago
           const metodoPago = updatedData.paymentMethod
             ? normalizePaymentMethod(updatedData.paymentMethod)
             : row.metodo_pago || 'transferencia'; // Valor por defecto
-          await reloadSaldos(); // Recargar los datos después de editar
 
-          await updateAgentWallet(); // Actualizar el saldo
+          await reloadSaldos(); // Recargar los datos después de editar 
 
           // Transformar los datos al formato que espera la API
           const apiData = {
@@ -877,7 +922,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             concepto: row.concepto,//si
             currency: row.currency,//si
             id_agente: row.id_agente,//si
-            saldo: row.saldo,//si
+            saldo: updatedData.monto_pagado?.toString() || row.monto,//si
           };
 
 
@@ -886,14 +931,15 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
           // // Llamar a la API para actualizar
           await SaldoFavor.actualizarPago(apiData);
 
-          // Actualizar la lista de pagos
-          const updatedSaldos = await SaldoFavor.getPagos(row.id_agente);
-          setSaldos(updatedSaldos.data);
-          setLocalWalletAmount(prev => prev - parseFloat(row.monto.toString()));
+          // Actualizar el saldo local con la diferencia
+          setLocalWalletAmount(prev => prev - diferencia);
 
+          // Actualizar la lista de pagos
+          await reloadSaldos();
 
           // Cerrar el modal
           setIsEditModalOpen(false);
+
 
         } catch (error) {
           console.error("Error al actualizar el pago:", error);
@@ -1093,13 +1139,20 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       setLoading(prev => ({ ...prev, pagos: true }));
 
       // Crear el pago
-      await SaldoFavor.crearPago({
+      const response = await SaldoFavor.crearPago({
         ...paymentData,
         id_cliente: agente.id_agente
       });
 
+      // Actualizar el estado local con el nuevo pago
+      if (response.data) {
+        setSaldos(prevSaldos => [...prevSaldos, response.data]);
+      }
+
       // Actualizar el saldo local sumando el monto del nuevo pago
       setLocalWalletAmount(prev => prev + parseFloat(paymentData.monto_pagado.toString()));
+
+      await reloadSaldos();
 
       setAddPaymentModal(false);
 
@@ -1443,18 +1496,6 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
 
         <form onSubmit={handleSubmit} className="p-4">
           <div className="space-y-4">
-            <NumberInput
-              label="Monto Pagado"
-              value={Number(state.amount)}
-              onChange={(value) => handleInputChange("amount", value)}
-            />
-
-            <TextInput
-              label="Referencia"
-              value={state.reference}
-              onChange={(value) => handleInputChange("reference", value)}
-              placeholder="Ingresa la referencia del pago"
-            />
 
             <Dropdown
               label="Forma de Pago"
@@ -1469,6 +1510,27 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
               onChange={(value) => handleInputChange("paymentDate", value)}
             />
 
+            <NumberInput
+              label="Monto Pagado"
+              value={Number(state.amount)}
+              onChange={(value) => handleInputChange("amount", value)}
+            />
+
+            <TextInput
+              label="Link Stripe"
+              value={state.link_Stripe}
+              onChange={(value) => handleInputChange("link_Stripe", value)}
+              placeholder="Agrega el Link Stripe"
+            />
+
+            <TextInput
+              label="Referencia"
+              value={state.reference}
+              onChange={(value) => handleInputChange("reference", value)}
+              placeholder="Ingresa la referencia del pago"
+            />
+
+
             <CheckboxInput
               checked={state.discountApplied}
               onChange={(e) => handleInputChange("discountApplied", e)}
@@ -1481,12 +1543,6 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
               label={"Facturable"}
             />
 
-            <TextInput
-              label="Link Stripe"
-              value={state.link_Stripe}
-              onChange={(value) => handleInputChange("link_Stripe", value)}
-              placeholder="Agrega el Link Sprite"
-            />
 
             <TextAreaInput
               label="Comentarios"
