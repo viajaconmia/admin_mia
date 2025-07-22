@@ -132,7 +132,7 @@ export default function FacturasPage() {
     const valor = e.target.value.toLowerCase();
     setCliente(e.target.value);
 
-    if (valor.length > 3) {
+    if (valor.length > 2) {
       const filtrados = clientes.filter(cliente => {
         // Verificar que las propiedades existan antes de llamar toLowerCase()
         const nombre = cliente.nombre_agente_completo?.toLowerCase() || '';
@@ -342,23 +342,30 @@ export default function FacturasPage() {
               <input
                 type="text"
                 placeholder="Buscar cliente por nombre, email, RFC o razón social..."
-                className="w-full p-2 border border-gray-300 rounded"
+                className={`w-full p-2 border rounded ${errors.clienteSeleccionado ? "border-red-500" : "border-gray-300"
+                  }`}
                 value={cliente}
                 onChange={handleBuscarCliente}
                 onFocus={() => cliente.length > 2 && setMostrarSugerencias(true)}
-                onBlur={() => setTimeout(() => setMostrarSugerencias(false), 200)}
+                onBlur={() => {
+                  // Usamos setTimeout para permitir que el click en la lista se procese primero
+                  setTimeout(() => {
+                    setMostrarSugerencias(false);
+                  }, 200);
+                }}
               />
+
               {mostrarSugerencias && clientesFiltrados.length > 0 && (
                 <ul className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
                   {clientesFiltrados.map(cliente => (
                     <li
                       key={cliente.id_agente}
                       className="p-2 mb-2 hover:bg-gray-100 cursor-pointer"
+                      onMouseDown={(e) => e.preventDefault()} // Esto previene que el onBlur se dispare primero
                       onClick={() => {
                         setCliente(cliente.nombre_agente_completo);
                         setClienteSeleccionado(cliente);
                         setMostrarSugerencias(false);
-                        // Llamar a cargarEmpresasAgente cuando se selecciona un cliente
                         cargarEmpresasAgente(cliente.id_agente);
                       }}
                     >
@@ -367,6 +374,10 @@ export default function FacturasPage() {
                     </li>
                   ))}
                 </ul>
+              )}
+
+              {errors.clienteSeleccionado && (
+                <p className="text-red-500 text-sm mt-1">{errors.clienteSeleccionado}</p>
               )}
 
               {errors.clienteSeleccionado && (
