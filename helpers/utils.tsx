@@ -14,7 +14,6 @@ import {
   DollarSign,
   Skull,
 } from "lucide-react";
-import { API_KEY } from "@/lib/constants";
 
 export const getEstatus = (estatus: string) => {
   let data = estatus;
@@ -217,8 +216,7 @@ export const exportToCSV = (data, filename = "archivo.csv") => {
   ].join("\n");
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
   const link = document.createElement("a");
-  const url = URL.createObjectURL(blob);
-  link.setAttribute("href", url);
+  const url = window.URL.createObjectURL(blob); link.setAttribute("href", url);
   link.setAttribute("download", filename);
   document.body.appendChild(link);
   link.click();
@@ -226,8 +224,6 @@ export const exportToCSV = (data, filename = "archivo.csv") => {
 };
 
 export function formatNumberWithCommas(numberStr: string): string {
-  if (!numberStr) return "";
-
   // 1. Separar la parte entera de la parte decimal
   const parts = numberStr.split(".");
   const integerPart = parts[0];
@@ -335,8 +331,7 @@ export const getCreditoBadge = (monto: number | null) => {
 };
 
 // utils/fileUpload.ts
-
-export const URL1: string = process.env.NEXT_PUBLIC_URL;
+import { API_KEY, URL } from "@/lib/constants";
 
 export interface UploadResponse {
   publicUrl: string;
@@ -355,7 +350,7 @@ export async function obtenerPresignedUrl(
   folder: string,
   endpointBase = "/mia/utils/cargar-archivos"
 ): Promise<UploadResponse> {
-  const url = `${URL1}${endpointBase}/${folder}?filename=${filename}&filetype=${filetype}`;
+  const url = `${URL}${endpointBase}/${folder}?filename=${filename}&filetype=${filetype}`;
 
   const res = await fetch(url, {
     method: "GET",
