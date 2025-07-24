@@ -23,6 +23,7 @@ import {
   ChevronDown,
   ChevronUp,
   DownloadCloud,
+  Link,
 } from "lucide-react";
 import type { Factura } from "@/types/_types";
 import useApi from "@/hooks/useApi";
@@ -366,28 +367,52 @@ export function TravelerTable({ facturas }: { facturas: Factura[] }) {
                         <Eye className="mr-2 h-4 w-4" />
                         Ver detalles
                       </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          handleDescargarFactura(
-                            factura.id_facturama || "",
-                            "pdf"
-                          );
-                        }}
-                      >
-                        <DownloadCloud className="mr-2 h-4 w-4" />
-                        Descargar PDF
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => {
-                          handleDescargarFactura(
-                            factura.id_facturama || "",
-                            "xml"
-                          );
-                        }}
-                      >
-                        <DownloadCloud className="mr-2 h-4 w-4" />
-                        Descargar XML
-                      </DropdownMenuItem>
+                      {!!factura.id_facturama && (
+                        <>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              handleDescargarFactura(
+                                factura.id_facturama || "",
+                                "pdf"
+                              );
+                            }}
+                          >
+                            <DownloadCloud className="mr-2 h-4 w-4" />
+                            Descargar PDF
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => {
+                              handleDescargarFactura(
+                                factura.id_facturama || "",
+                                "xml"
+                              );
+                            }}
+                          >
+                            <DownloadCloud className="mr-2 h-4 w-4" />
+                            Descargar XML
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                      {!!factura.url_pdf && (
+                        <>
+                          <DropdownMenuItem>
+                            <Link className="mr-2 h-4 w-4" />
+                            <a target="_blank" href={factura.url_pdf}>
+                              Ver PDF
+                            </a>
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                      {!!factura.url_xml && (
+                        <>
+                          <DropdownMenuItem>
+                            <Link className="mr-2 h-4 w-4" />
+                            <a target="_blank" href={factura.url_xml}>
+                              Ver XML
+                            </a>
+                          </DropdownMenuItem>
+                        </>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
