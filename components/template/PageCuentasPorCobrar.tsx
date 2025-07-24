@@ -26,6 +26,7 @@ import Modal from "../organism/Modal";
 import { SaldoFavor, NuevoSaldoAFavor, Saldo } from "@/services/SaldoAFavor";
 import { fetchAgenteById, fetchPagosByAgente } from "@/services/agentes";
 import { Loader } from "@/components/atom/Loader";
+import { API_KEY, URL } from "@/lib/constants/index";
 
 import {
   CheckboxInput,
@@ -40,6 +41,7 @@ import {
 import { set } from "react-hook-form";
 import { render } from "react-dom";
 import { formatNumberWithCommas } from "@/helpers/utils";
+import { url } from "node:inspector";
 // ========================================
 // TIPOS DE DATOS
 // ========================================
@@ -519,7 +521,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     try {
       const agenteActualizado = await fetchAgenteById(agente.id_agente);
       setLocalWalletAmount(agenteActualizado.monto_credito || valor);
-      console.log("Saldo del agente actualizado:", agenteActualizado);
     } catch (error) {
       console.error('Error al actualizar el saldo del agente:', error);
       setError('Error al actualizar el saldo disponible');
@@ -530,6 +531,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       if (walletAmount === 0) {
         try {
           setLoading(prev => ({ ...prev, agente: true }));
+          console.log("Saldo del agente actualizado:", walletAmount);
           await updateAgentWallet();
         } catch (error) {
           console.error('Error al cargar el saldo inicial:', error);
@@ -543,24 +545,26 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     fetchInitialWallet();
   }, [walletAmount, agente.id_agente]);
 
+  localWalletAmount = walletAmount;
   console.log("Agente:", walletAmount);
 
-  if (walletAmount > 0) {
-    valor = walletAmount;
-
-  } else if (walletAmount = 0) {
+  if (walletAmount = 0) {
     walletAmount = valor;
   }
   else if (localWalletAmount > 0) {
     valor = localWalletAmount;
     walletAmount = localWalletAmount;
   }
-  walletAmount = localWalletAmount;
+
+  if (walletAmount !== localWalletAmount) {
+    walletAmount = localWalletAmount;
+  }
+  valor = localWalletAmount
+
 
   console.log("Valor:", valor);
   console.log("Wallet Amount:", walletAmount);
   console.log("Local Wallet Amount:", localWalletAmount);
-  valor = localWalletAmount
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -957,7 +961,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       const isActive = row?.activo !== false;
 
       // En la función handleEdit
-      const handleEdit = async (updatedData: any) => {
+      const handleEdit2 = async (updatedData: any) => {
         if (!isActive) return; // No permitir edición si está inactivo
 
         if (valor === 0) {
@@ -993,6 +997,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             is_descuento: updatedData.descuento_aplicable,
             metodo_pago: metodoPagoNormalizado,
 
+
             // Mantener los demás campos sin cambios
             activo: row.activo,
             comprobante: row.comprobante,
@@ -1002,8 +1007,10 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             saldo: updatedData.monto_pagado?.toString() || row.monto,
           };
 
+          console.log("Datos aerf", metodoPagoNormalizado);
           // Manejar campos según el método de pago
           switch (metodoPagoNormalizado) {
+
             case 'transferencia':
               apiData.referencia = updatedData.referencia || row.referencia;
               apiData.link_stripe = null;
@@ -1037,8 +1044,102 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
           // Actualizar el saldo local con la diferencia
           setLocalWalletAmount(prev => prev + diferencia)
 
+
+
+          // Llamar a la API para actualizar
+          await SaldoFavor.actualizarPago(apiData);
+
           // Mostrar los datos que se enviarán a la API
           console.log("Datos para enviar a la API:", apiData);
+          // Actualizar la lista de pagos
+          await reloadSaldos();
+
+          // Cerrar el modal
+          setIsEditModalOpen(false);
+
+        } catch (error) {
+          console.error("Error al actualizar el pago:", error);
+          setError(`Error al actualizar el pago: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      };
+      const handleEdit = async (updatedData: any) => {
+        if (!isActive) return; // No permitir edición si está inactivo
+        if (valor === 0) return null;
+
+        try {
+          console.log("Datos recibidos del modal:", updatedData);
+
+          // Obtener el pago original para calcular la diferencia
+          const pagoOriginal = saldos.find(s => s.id_saldos === row.id_saldos);
+          if (!pagoOriginal) throw new Error("No se encontró el pago original");
+
+          // Validar que los datos requeridos estén presentes
+          if (!updatedData) throw new Error("No se recibieron datos del formulario");
+
+          const montoOriginal = parseFloat(pagoOriginal.monto.toString());
+          const montoNuevo = parseFloat(updatedData.monto_pagado.toString());
+          const diferencia = montoNuevo - montoOriginal;
+
+          // Normalizar el método de pago correctamente
+          const metodoPagoNormalizado = updatedData.forma_pago.toLowerCase().includes('transferencia')
+            ? 'transferencia'
+            : updatedData.forma_pago.toLowerCase().includes('credito')
+              ? 'tarjeta_credito'
+              : updatedData.forma_pago.toLowerCase().includes('debito')
+                ? 'tarjeta_debito'
+                : 'wallet';
+
+          // Preparar datos base
+          const apiData: any = {
+            id_saldos: row.id_saldos,
+            id_agente: row.id_agente,
+            monto: updatedData.monto_pagado?.toString() || row.monto,
+            fecha_pago: updatedData.fecha_pago || row.fecha_pago,
+            comentario: updatedData.comentario || row.comentario || null,
+            is_facturable: updatedData.is_facturable,
+            is_descuento: updatedData.descuento_aplicable,
+            metodo_pago: metodoPagoNormalizado,
+            activo: true, // Siempre activo al editar
+            concepto: row.concepto || 'pago',
+            currency: row.currency || 'MXN',
+          };
+
+          // Manejar campos específicos según el método de pago
+          switch (metodoPagoNormalizado) {
+            case 'transferencia':
+              apiData.referencia = updatedData.referencia || row.referencia;
+              apiData.link_stripe = null;
+              apiData.tipo_tarjeta = null;
+              apiData.ult_digits = null;
+              apiData.banco_tarjeta = null;
+              apiData.numero_autorizacion = null;
+              break;
+
+            case 'tarjeta_credito':
+            case 'tarjeta_debito':
+              apiData.referencia = null;
+              apiData.link_stripe = updatedData.link_Stripe || row.link_stripe || null;
+              apiData.tipo_tarjeta = metodoPagoNormalizado === 'tarjeta_credito' ? 'credito' : 'debito';
+              apiData.ult_digits = updatedData.ult_digits || row.ult_digits || null;
+              apiData.banco_tarjeta = updatedData.banco_tarjeta || row.banco_tarjeta || null;
+              apiData.numero_autorizacion = updatedData.numero_autorizacion || row.numero_autorizacion || null;
+              break;
+
+            case 'wallet':
+              apiData.referencia = null;
+              apiData.link_stripe = null;
+              apiData.tipo_tarjeta = null;
+              apiData.ult_digits = null;
+              apiData.banco_tarjeta = null;
+              apiData.numero_autorizacion = null;
+              break;
+          }
+
+          // Mostrar los datos que se enviarán a la API
+          console.log("Datos para enviar a la API:", apiData);
+
+          // Actualizar el saldo local con la diferencia
+          setLocalWalletAmount(prev => prev + diferencia);
 
           // Llamar a la API para actualizar
           await SaldoFavor.actualizarPago(apiData);
@@ -1054,7 +1155,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
           setError(`Error al actualizar el pago: ${error instanceof Error ? error.message : String(error)}`);
         }
       };
-
       // Función auxiliar para normalizar métodos de pago (se mantiene igual)
       const normalizePaymentMethod = (method: string): string => {
         if (!method) return 'transferencia'; // Valor por defecto
@@ -1274,8 +1374,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
 
       setAddPaymentModal(false);
 
-      console.log("Nuevo saldo local:#$%$#$%  ", paymentData);
-
     } catch (err) {
       setError("Error al registrar el pago");
       console.error("Error:", err);
@@ -1411,7 +1509,7 @@ const initialState: FormState = {
   discountApplied: false,
   facturable: false,
   comments: "",
-  link_Stripe: ""
+  link_Stripe: "",
 };
 
 // Tipos de acciones
@@ -1523,10 +1621,59 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     "Tarjeta de debito",
   ];
 
+  const fetchStripeInfo = async (chargeId: string) => {
+    try {
+      // Verificar que sea un ID de Stripe válido
+      if (!chargeId.startsWith('ch_') && !chargeId.startsWith('pi_')) {
+        console.warn('El ID de Stripe no tiene el formato esperado');
+        return;
+      }
+
+      console.log('Iniciando fetch a:', `${URL}/mia/saldo/stripe-info?chargeId=${chargeId}`);
+
+      const response = await fetch(`${URL}/mia/saldo/stripe-info?chargeId=${chargeId}`, {
+        headers: {
+          "x-api-key": API_KEY || "",
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+
+      console.log('Respuesta de Stripe:', data);
+
+      // Actualizar campos
+      setCardDetails({
+        ult_digits: data.data.ultimos_4_digitos || 'No encontrado',
+        banco_tarjeta: data.data.tipo_tarjeta || 'No encontrado',
+        numero_autorizacion: data.data.authorization_code || 'No encontrado'
+      });
+      const amount = data.data.monto || '0';
+      const paymentDate = data.data.fecha_pago ? new Date(data.data.fecha_pago).toISOString().split('T')[0] : '';
+
+
+      handleInputChange("amount", amount);
+      handleInputChange("paymentDate", paymentDate);
+
+    } catch (error) {
+      console.error('Error en fetchStripeInfo:', error);
+      // Opcional: Mostrar mensaje de error al usuario
+      setErrors(prev => ({
+        ...prev,
+        link_Stripe: 'Error al obtener información de Stripe'
+      }));
+    }
+  };
+
   const handleInputChange = (
     field: keyof FormState,
     value: string | boolean
   ) => {
+    console.log(`Campo cambiado: ${field}`, value); // <-- Agregar esto
     dispatch({ type: "SET_FIELD", field, value });
     if (errors[field as keyof FormErrors]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
@@ -1651,24 +1798,22 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
               options={paymentMethods}
             />
 
-            <DateInput
-              label="Fecha de Pago"
-              value={state.paymentDate}
-              onChange={(value) => handleInputChange("paymentDate", value)}
-            />
-
-            <NumberInput
-              label="Monto Pagado"
-              value={Number(state.amount)}
-              onChange={(value) => handleInputChange("amount", value)}
-            />
-
             {/* Mostrar Link Stripe solo para tarjetas */}
             {showLinkStripeField() && (
               <TextInput
                 label="Link Stripe"
                 value={state.link_Stripe}
-                onChange={(value) => handleInputChange("link_Stripe", value)}
+                onChange={(value) => {
+                  handleInputChange("link_Stripe", value);
+                  // Solo hacer fetch si el método de pago es tarjeta y hay texto
+
+                  if ((state.paymentMethod === "Tarjeta de credito" ||
+                    state.paymentMethod === "Tarjeta de debito") &&
+                    value.trim() !== "") {
+                    fetchStripeInfo(value);
+                  }
+                }}
+
                 placeholder="Agrega el Link Stripe"
               />
             )}
@@ -1705,6 +1850,18 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                 />
               </>
             )}
+
+            <DateInput
+              label="Fecha de Pago"
+              value={state.paymentDate}
+              onChange={(value) => handleInputChange("paymentDate", value)}
+            />
+
+            <NumberInput
+              label="Monto Pagado"
+              value={Number(state.amount)}
+              onChange={(value) => handleInputChange("amount", value)}
+            />
 
             <CheckboxInput
               checked={state.discountApplied}
