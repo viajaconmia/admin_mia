@@ -5,7 +5,7 @@
     monto_pagado: number;
     forma_pago:
       | "transferencia"
-      | "tarjeta de credito"
+      | "tarjeta_de_credito"
       | "tarjeta de debito"
       | "wallet";
     is_facturable: boolean;
