@@ -24,11 +24,13 @@ import {
   ChevronUp,
   DownloadCloud,
   Link,
+  FileDown,
 } from "lucide-react";
 import type { Factura } from "@/types/_types";
 import useApi from "@/hooks/useApi";
 import Modal from "@/components/organism/Modal";
 import { API_KEY, URL } from "@/lib/constants";
+import { downloadFile } from "@/lib/utils";
 
 function FacturaDetails({ setModal, id_factura }) {
   const [facturaData, setFacturaData] = useState([]);
@@ -401,6 +403,14 @@ export function TravelerTable({ facturas }: { facturas: Factura[] }) {
                               Ver PDF
                             </a>
                           </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() =>
+                              downloadFile(factura.url_pdf, "factura.pdf")
+                            }
+                          >
+                            <FileDown className="mr-2 h-4 w-4" />
+                            Descargar PDF
+                          </DropdownMenuItem>
                         </>
                       )}
                       {!!factura.url_xml && (
@@ -410,6 +420,14 @@ export function TravelerTable({ facturas }: { facturas: Factura[] }) {
                             <a target="_blank" href={factura.url_xml}>
                               Ver XML
                             </a>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() =>
+                              downloadFile(factura.url_xml, "factura.xml")
+                            }
+                          >
+                            <FileDown className="mr-2 h-4 w-4" />
+                            Descargar XML
                           </DropdownMenuItem>
                         </>
                       )}
