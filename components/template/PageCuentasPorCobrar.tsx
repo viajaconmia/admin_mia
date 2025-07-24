@@ -471,17 +471,9 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     pagos: true
   });
 
-  let valor = walletAmount
+  let [localWalletAmount, setLocalWalletAmount] = useState(walletAmount);
 
-  let [localWalletAmount, setLocalWalletAmount] = useState(valor);
-
-  console.log("Valor de walletAmount:", valor);
-  // Actualizar cuando cambie el prop
-  // Actualizar cuando cambie el prop
-  useEffect(() => {
-    console.log("Actualizando localWalletAmount desde props:", walletAmount);
-    setLocalWalletAmount(valor);
-  }, [valor]); // Cambiar de [localWalletAmount] a [walletAmount]
+  let valor = localWalletAmount;
 
   const [filters, setFilters] = useState<TypeFilters>({
     paymentMethod: "",
@@ -526,13 +518,13 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   const updateAgentWallet = async () => {
     try {
       const agenteActualizado = await fetchAgenteById(agente.id_agente);
-      setLocalWalletAmount(agenteActualizado.monto_credito || 0);
+      setLocalWalletAmount(agenteActualizado.monto_credito || valor);
+      console.log("Saldo del agente actualizado:", agenteActualizado);
     } catch (error) {
       console.error('Error al actualizar el saldo del agente:', error);
       setError('Error al actualizar el saldo disponible');
     }
   };
-
   useEffect(() => {
     const fetchInitialWallet = async () => {
       if (walletAmount === 0) {
@@ -550,6 +542,25 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
 
     fetchInitialWallet();
   }, [walletAmount, agente.id_agente]);
+
+  console.log("Agente:", walletAmount);
+
+  if (walletAmount > 0) {
+    valor = walletAmount;
+
+  } else if (walletAmount = 0) {
+    walletAmount = valor;
+  }
+  else if (localWalletAmount > 0) {
+    valor = localWalletAmount;
+    walletAmount = localWalletAmount;
+  }
+  walletAmount = localWalletAmount;
+
+  console.log("Valor:", valor);
+  console.log("Wallet Amount:", walletAmount);
+  console.log("Local Wallet Amount:", localWalletAmount);
+  valor = localWalletAmount
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -668,6 +679,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
 
 
   const filteredData = useMemo(() => {
+
     return saldos.filter(saldo => {
       // Filtro por método de pago
       if (filters.paymentMethod && saldo.metodo_pago) {
@@ -695,7 +707,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
           return false;
         }
       }
-
 
       // Filtro por facturable
       if (filters.facturable !== null) {
@@ -754,7 +765,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             : saldo.metodo_pago === 'tarjeta debito'
               ? 'Tarjeta de Débito'
               : saldo.metodo_pago || '',
-        referencia: saldo.referencia || 'Sin referencia',
+        referencia: saldo.referencia || '',
         link_stripe: saldo.link_stripe || null,
         fecha_De_Pago: saldo.fecha_pago ? new Date(saldo.fecha_pago).toISOString().split('T')[0] : '',
         aplicable: saldo.is_descuento ? 'Si' : 'No',
@@ -901,11 +912,19 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       );
     },
 
+    referencia: ({ value, row }: { value: string | null, row: any }) => {
+      const isActive = row?.activo !== false;
+      return (
+        <div className={`max-w-xs truncate ${!isActive ? "text-red-500 line-through" : ""}`}>
+          {value ? normalizeText(value) : ''}
+        </div>
+      );
+    },
     comentario: ({ value, row }: { value: string | null, row: any }) => {
       const isActive = row?.activo !== false;
       return (
         <div className={`max-w-xs truncate ${!isActive ? "text-red-500 line-through" : ""}`}>
-          {value ? normalizeText(value) : 'SIN COMENTARIO'}
+          {value ? normalizeText(value) : ''}
         </div>
       );
     },
@@ -964,18 +983,15 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
 
           await reloadSaldos(); // Recargar los datos después de editar 
 
-          // Transformar los datos al formato que espera la API
-          const apiData = {
+          // Preparar datos base
+          const apiData: any = {
             id_saldos: row.id_saldos,
             monto: updatedData.monto_pagado?.toString() || row.monto,
-            referencia: updatedData.referencia || row.referencia,
             fecha_pago: updatedData.fecha_pago || row.fecha_pago,
             comentario: updatedData.comentario || row.comentario || null,
             is_facturable: updatedData.is_facturable,
             is_descuento: updatedData.descuento_aplicable,
-            link_stripe: updatedData.link_stripe || null,
-            metodo_pago: metodoPagoNormalizado, // Usar el método normalizado
-            tipo_tarjeta: updatedData.tipo_tarjeta || null,
+            metodo_pago: metodoPagoNormalizado,
 
             // Mantener los demás campos sin cambios
             activo: row.activo,
@@ -984,17 +1000,44 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             currency: row.currency,
             id_agente: row.id_agente,
             saldo: updatedData.monto_pagado?.toString() || row.monto,
-            ult_digits: updatedData.ult_digits || row.ult_digits || null,
-            banco_tarjeta: updatedData.banco_tarjeta || row.banco_tarjeta || null,
-            numero_autorizacion: updatedData.numero_autorizacion || row.numero_autorizacion || null,
           };
+
+          // Manejar campos según el método de pago
+          switch (metodoPagoNormalizado) {
+            case 'transferencia':
+              apiData.referencia = updatedData.referencia || row.referencia;
+              apiData.link_stripe = null;
+              apiData.tipo_tarjeta = null;
+              apiData.ult_digits = null;
+              apiData.banco_tarjeta = null;
+              apiData.numero_autorizacion = null;
+              apiData.tipo_tarjeta = null;
+              break;
+
+            case 'tarjeta_de_credito':
+            case 'tarjeta_debito':
+              apiData.referencia = null;
+              apiData.link_stripe = updatedData.link_stripe || row.link_stripe || null;
+              apiData.tipo_tarjeta = updatedData.tipo_tarjeta || null;
+              apiData.ult_digits = updatedData.ult_digits || row.ult_digits || null;
+              apiData.banco_tarjeta = updatedData.banco_tarjeta || row.banco_tarjeta || null;
+              apiData.numero_autorizacion = updatedData.numero_autorizacion || row.numero_autorizacion || null;
+              break;
+
+            case 'wallet':
+              apiData.referencia = null;
+              apiData.link_stripe = null;
+              apiData.tipo_tarjeta = null;
+              apiData.ult_digits = null;
+              apiData.banco_tarjeta = null;
+              apiData.numero_autorizacion = null;
+              break;
+          }
 
           // Actualizar el saldo local con la diferencia
           setLocalWalletAmount(prev => prev + diferencia)
 
           // Mostrar los datos que se enviarán a la API
-          console.log("Datos p", diferencia);
-          console.log("localWalletAmount después de editar:", localWalletAmount);
           console.log("Datos para enviar a la API:", apiData);
 
           // Llamar a la API para actualizar
@@ -1012,14 +1055,14 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         }
       };
 
-      // Función auxiliar para normalizar métodos de pago
+      // Función auxiliar para normalizar métodos de pago (se mantiene igual)
       const normalizePaymentMethod = (method: string): string => {
         if (!method) return 'transferencia'; // Valor por defecto
 
         const methodMap: Record<string, string> = {
           'transferencia': 'transferencia',
           'tarjeta credito': 'tarjeta_credito',
-          'tarjeta de credito': 'tarjeta_credito',
+          'tarjeta_de_credito': 'tarjeta_credito',
           'tarjeta crédito': 'tarjeta_credito',
           'credito': 'tarjeta_credito',
           'tarjeta debito': 'tarjeta_debito',
@@ -1032,27 +1075,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         const normalizedMethod = method.toLowerCase().trim();
         return methodMap[normalizedMethod] || normalizedMethod.replace(/ /g, '_');
       };
-
-      console.log("Valor :", localWalletAmount);
-
-      if (localWalletAmount !== valor) {
-        if (localWalletAmount === 0) {
-          localWalletAmount = valor; // Asegurarse de que localWalletAmount tenga un valor numérico
-        }
-        else if (valor > localWalletAmount) {
-          if (localWalletAmount > 0) {
-            localWalletAmount = valor + localWalletAmount; // Asegurarse de que localWalletAmount tenga un valor numérico
-          }
-          else if (localWalletAmount < 0) {
-            localWalletAmount = valor - localWalletAmount; // Asegurarse de que localWalletAmount tenga un valor numérico
-          }
-        }
-      }
-
-      localWalletAmount = valor; // Asegurarse de que localWalletAmount tenga un valor numérico
-      valor = localWalletAmount;
-      walletAmount = localWalletAmount; // Asegurarse de que walletAmount tenga un valor numérico
-      console.log("EditValor de localWalletAmount:", localWalletAmount, "Valor de valor:", valor, "Valor de walletAmount:", walletAmount);
 
       const handleDelete = async () => {
         if (!isActive) return; // No permitir eliminación si ya está inactivo
@@ -1108,20 +1130,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         }
       };
 
-      if (localWalletAmount != valor) {
-        if (localWalletAmount === 0) {
-          localWalletAmount = valor; // Asegurarse de que localWalletAmount tenga un valor numérico
-        } else if (localWalletAmount > 0 && valor > localWalletAmount) {
-          valor = valor - localWalletAmount; // Asegurarse de que localWalletAmount tenga un valor numérico 
-        }
-      }
-
-      localWalletAmount = valor; // Asegurarse de que localWalletAmount tenga un valor numérico
-      valor = localWalletAmount;
-      walletAmount = localWalletAmount; // Asegurarse de que walletAmount tenga un valor numérico
-      // Asegurarse de que localWalletAmount tenga un valor numérico
-      console.log("delete Valor de localWalletAmount:", localWalletAmount, "Valor de valor:", valor, "Valor de walletAmount:", walletAmount);
-
       return (
         <div className="flex gap-2">
           {/* Botón Editar */}
@@ -1175,7 +1183,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
                 }}
                 onSubmit={handleEdit}
                 isEditing={true}
-                localWalletAmount={localWalletAmount} // Pasa el valor actual
+                localWalletAmount={valor || localWalletAmount} // Pasa el valor actual
               />
             </Modal>
           )}
@@ -1260,10 +1268,13 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
 
       // Actualizar el saldo local sumando el monto del nuevo pago
       setLocalWalletAmount(prev => prev + parseFloat(paymentData.monto_pagado.toString()));
+      valor = localWalletAmount
 
       await reloadSaldos();
 
       setAddPaymentModal(false);
+
+      console.log("Nuevo saldo local:#$%$#$%  ", paymentData);
 
     } catch (err) {
       setError("Error al registrar el pago");
@@ -1300,35 +1311,13 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   if (!agente) {
     return <div className="text-center py-8">No se encontró información del agente</div>;
   }
-
-  if (localWalletAmount != valor) {
-
-    if (localWalletAmount === 0) {
-      localWalletAmount = valor; // Asegurarse de que localWalletAmount tenga un valor numérico
-    } else if (valor > localWalletAmount) {
-      localWalletAmount = valor - localWalletAmount; // Asegurarse de que localWalletAmount tenga un valor numérico 
-      valor = localWalletAmount + valor; // Asegurarse de que valor tenga un valor numérico
-    }
-    else if (localWalletAmount > valor) {
-      localWalletAmount = localWalletAmount - valor; // Asegurarse de que localWalletAmount tenga un valor numérico
-      valor = localWalletAmount - valor; // Asegurarse de que valor tenga un valor numérico
-    }
-  }
-
-  localWalletAmount = valor; // Asegurarse de que localWalletAmount tenga un valor numérico
-  valor = localWalletAmount; // Asegurarse de que valor tenga un valor numérico
-  walletAmount = localWalletAmount; // Asegurarse de que walletAmount tenga un valor numérico
-
-  console.log("Agregar pagoValor de localWalletAmount:", localWalletAmount, "Valor de valor:", valor, "Valor de walletAmount:", walletAmount);
-
-
   return (
     <div className="h-full">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
         {/* Resumen de saldo */}
         <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
           <PaymentSummary
-            totalBalance={localWalletAmount} // Usa localWalletAmount si está disponible
+            totalBalance={localWalletAmount || valor} // Usa localWalletAmount si está disponible
             assignedBalance={0}
           />
 
@@ -1383,7 +1372,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             onClose={() => setAddPaymentModal(false)}
             agente={agente}
             onSubmit={handleAddPayment}
-            localWalletAmount={localWalletAmount}// Pasa el valor actual
+            localWalletAmount={localWalletAmount || valor}// Pasa el valor actual
           />
         </Modal>
       )}
@@ -1565,7 +1554,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
         monto_pagado: Number(state.amount),
         forma_pago: state.paymentMethod.toLowerCase() as
           | "transferencia"
-          | "tarjeta de credito"
+          | "tarjeta_de_credito"
           | "tarjeta de debito"
           | "wallet",
         is_facturable: state.facturable,

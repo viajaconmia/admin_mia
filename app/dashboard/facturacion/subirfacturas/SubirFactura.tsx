@@ -547,6 +547,7 @@ export default function FacturasPage() {
       {mostrarAsignarFactura && (
         <AsignarFacturaModal
           isOpen={mostrarAsignarFactura}
+          onCloseVistaPrevia={() => cerrarVistaPrevia()}
           onClose={() => setMostrarAsignarFactura(false)}
           onAssign={(payload) => handleConfirmarFactura(payload)}
           facturaData={facturaData}

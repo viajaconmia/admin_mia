@@ -1,5 +1,6 @@
 'use client';
 
+import { on } from "node:events";
 import { use, useEffect } from "react";
 
 interface ConfirmacionModalProps {
@@ -37,6 +38,7 @@ export default function ConfirmacionModal({
           <button
             onClick={() => {
               handleSaveOnly();
+              onCloseVistaPrevia();
             }}
             className="px-4 py-2 rounded bg-green-500 text-white hover:bg-red-600 transition-colors"
           >Solo guardar
