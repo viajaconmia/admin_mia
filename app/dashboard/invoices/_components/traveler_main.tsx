@@ -9,7 +9,7 @@ import { Factura } from "@/types/_types";
 
 export function TravelersPage({ facturas }: { facturas: Factura[] }) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-
+  console.log(facturas);
   return (
     <div className="space-y-8">
       <h1 className="text-3xl font-bold tracking-tight text-sky-950 my-4">
