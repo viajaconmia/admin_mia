@@ -23,6 +23,7 @@ import { Loader } from "@/components/atom/Loader";
 import { PaymentModal } from "@/components/organism/PaymentProveedor/PaymentProveedor";
 import { currentDate } from "@/lib/utils";
 import { fetchIsFacturada } from "@/services/facturas";
+import { Table2 } from "@/components/organism/Table2";
 
 function App() {
   const [allSolicitudes, setAllSolicitudes] = useState<Solicitud2[]>([]);
@@ -61,11 +62,11 @@ function App() {
         )
         .map((item) => ({
           id_cliente: item.id_agente,
-          cliente: (item.nombre_cliente || "").toUpperCase(),
+          cliente: item.nombre_cliente || "",
           creado: item.created_at_reserva,
-          hotel: (item.hotel_reserva || "").toUpperCase(),
+          hotel: item.hotel_reserva || "",
           codigo_hotel: item.codigo_reservacion_hotel,
-          viajero: (item.nombre_viajero_reservacion || "").toUpperCase(),
+          viajero: item.nombre_viajero_reservacion || "",
           check_in: item.check_in,
           check_out: item.check_out,
           noches: calcularNoches(item.check_in, item.check_out),
@@ -86,9 +87,10 @@ function App() {
           estado_pago_proveedor: "",
           estado_factura_proveedor: "",
           estado: item.status_reserva,
-          detalles_cliente: item.id_solicitud || "",
-          editar: item,
-          pagar: item,
+          detalles_cliente: "",
+          editar: "",
+          pagar: "",
+          item,
         }))
     : [];
 
@@ -99,10 +101,10 @@ function App() {
       getStageBadge(value),
     metodo_de_pago: ({ value }: { value: null | string }) =>
       getPaymentBadge(value),
-    detalles_cliente: ({ value }: { value: null | string }) => (
+    detalles_cliente: ({ item }: { item: Solicitud2 }) => (
       <span className="font-semibold text-sm flex items-center gap-2 w-full">
         <a
-          href={`https://www.viajaconmia.com/reserva/${value}`}
+          href={`https://www.viajaconmia.com/reserva/${item.id_solicitud}`}
           target="_blank"
           rel="noopener noreferrer"
           className="text-blue-600 hover:underline"
@@ -111,7 +113,9 @@ function App() {
         </a>
         <button
           onClick={() => {
-            copyToClipboard(`https://www.viajaconmia.com/reserva/${value}`);
+            copyToClipboard(
+              `https://www.viajaconmia.com/reserva/${item.id_solicitud}`
+            );
           }}
           className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition"
         >
@@ -140,20 +144,20 @@ function App() {
     codigo_hotel: (props: any) => (
       <span className="font-semibold">{props.value}</span>
     ),
-    editar: (props: any) => (
+    editar: ({ item }: { item: Solicitud2 }) => (
       <button
-        onClick={() => handleEdit(props.value)}
+        onClick={() => handleEdit(item)}
         className="text-blue-600 hover:text-blue-900 transition duration-150 ease-in-out flex gap-2 items-center"
       >
         <Pencil className="w-4 h-4" />
         Editar
       </button>
     ),
-    pagar: (props: { value: Solicitud2 }) => (
+    pagar: ({ item }: { item: Solicitud2 }) => (
       <>
-        {props.value.status_reserva == "Confirmada" && (
+        {item.status_reserva == "Confirmada" && (
           <button
-            onClick={() => handlePagar(props.value)}
+            onClick={() => handlePagar(item)}
             className="text-blue-600 hover:text-blue-900 transition duration-150 ease-in-out flex gap-2 items-center"
           >
             <DollarSign className="w-4 h-4" />
@@ -236,12 +240,12 @@ function App() {
           {loading ? (
             <Loader></Loader>
           ) : (
-            <Table
+            <Table2<Solicitud2>
               registros={formatedSolicitudes}
               renderers={componentes}
               defaultSort={defaultSort}
               leyenda={`Haz filtrado ${allSolicitudes.length} Reservas`}
-            ></Table>
+            ></Table2>
           )}
         </div>
         {selectedItem && modificar && (
