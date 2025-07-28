@@ -30,6 +30,7 @@ import { UsersClient } from "./_components/UsersClient";
 import { PageReservasClientes } from "@/components/template/PageReservaClient";
 import PageCuentasPorCobrar from "@/components/template/PageCuentasPorCobrar";
 import { ToolTip } from "@/components/atom/ToolTip";
+import { set } from "date-fns";
 
 function App() {
   const [clients, setClient] = useState<(Agente)[]>([]);
@@ -191,6 +192,7 @@ function App() {
       component: (
         <PageCuentasPorCobrar
           agente={selectedItem}
+          setAgente={setSelectedItem}
           walletAmount={selectedItem?.wallet ? parseFloat(selectedItem.wallet) : 0}
         />
       ),
