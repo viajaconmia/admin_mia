@@ -344,7 +344,7 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
                 renderers={renderers}
                 maxHeight="400px"
                 customColumns={['seleccionado']}
-                leyenda="Some legend text"
+                leyenda=""
               />
             )}
           </div>

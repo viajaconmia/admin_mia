@@ -22,6 +22,8 @@ interface TableProps<T> {
   leyenda?: string;
   children?: React.ReactNode;
   maxHeight?: string;
+  customColumns?: string[];
+
 }
 
 export const Table2 = <T,>({
@@ -42,9 +44,9 @@ export const Table2 = <T,>({
     defaultSort
       ? defaultSort
       : {
-          key: registros.length > 0 ? Object.keys(registros[0])[0] : "",
-          sort: true,
-        }
+        key: registros.length > 0 ? Object.keys(registros[0])[0] : "",
+        sort: true,
+      }
   );
 
   useEffect(() => {
@@ -127,9 +129,8 @@ export const Table2 = <T,>({
                     <span className="flex gap-2">
                       {key == (currentSort.key || "") && (
                         <ArrowDown
-                          className={`w-4 h-4 ${
-                            !currentSort.sort ? "" : "rotate-180"
-                          }`}
+                          className={`w-4 h-4 ${!currentSort.sort ? "" : "rotate-180"
+                            }`}
                         />
                       )}
                       {key.replace(/_/g, " ").toUpperCase()}{" "}
@@ -143,9 +144,8 @@ export const Table2 = <T,>({
                 {displayData.map((item, index) => (
                   <tr
                     key={item.id !== undefined ? item.id : index}
-                    className={`${
-                      index % 2 === 0 ? "bg-white" : "bg-gray-50"
-                    } cursor-pointer`}
+                    className={`${index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                      } cursor-pointer`}
                   >
                     {columnKeys.map((colKey) => {
                       const Renderer = renderers[colKey];
@@ -153,9 +153,8 @@ export const Table2 = <T,>({
 
                       return (
                         <td
-                          key={`${
-                            item.id !== undefined ? item.id : index
-                          }-${colKey}`}
+                          key={`${item.id !== undefined ? item.id : index
+                            }-${colKey}`}
                           className="px-6 py-1 whitespace-nowrap text-xs text-gray-900"
                         >
                           {Renderer ? (

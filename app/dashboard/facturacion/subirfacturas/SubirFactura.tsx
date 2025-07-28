@@ -341,7 +341,7 @@ export default function FacturasPage() {
               <label className="block mb-2 font-medium">Cliente</label>
               <input
                 type="text"
-                placeholder="Buscar cliente por nombre, email, RFC o razón social..."
+                placeholder="Buscar cliente por nombre, email o RFC..."
                 className={`w-full p-2 border rounded ${errors.clienteSeleccionado ? "border-red-500" : "border-gray-300"
                   }`}
                 value={cliente}
@@ -442,7 +442,7 @@ export default function FacturasPage() {
               {/* PDF */}
               <div className="border-2 border-dashed border-gray-300 p-6 rounded-lg bg-gray-50 hover:bg-gray-100 transition">
                 <label className="block text-gray-700 font-semibold mb-2">
-                  Archivo PDF (Opcional)
+                  Archivo PDF (Requerido)<span className="text-red-500">*</span>
                 </label>
 
                 <input
@@ -455,7 +455,7 @@ export default function FacturasPage() {
                   hover:file:bg-blue-600 transition"
                   onChange={(e) => {
                     const file = e.target.files?.[0] || null;
-                    setArchivoPDF(file); // SOLO guardar el archivo
+                    setArchivoPDF(file);
                   }}
                 />
 
@@ -520,7 +520,7 @@ export default function FacturasPage() {
                 className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
                 disabled={!cliente || !archivoXML || subiendoArchivos || !empresaSeleccionada}
               >
-                {subiendoArchivos ? "Procesando..." : "Mostrar Vista Previa"}
+                {subiendoArchivos ? "Procesando..." : "Datos de factura"}
               </button>
             </div>
           </div>

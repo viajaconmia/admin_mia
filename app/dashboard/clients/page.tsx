@@ -192,7 +192,6 @@ function App() {
       component: (
         <PageCuentasPorCobrar
           agente={selectedItem}
-          setAgente={setSelectedItem}
           walletAmount={selectedItem?.wallet ? parseFloat(selectedItem.wallet) : 0}
         />
       ),

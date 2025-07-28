@@ -16,10 +16,11 @@ import {
   X,
   Pencil,
   Trash2,
-  Wallet
+  Wallet,
+  ChartNoAxesColumnIcon
 } from "lucide-react";
 
-import { Table } from "../Table";
+import { Table2 } from "@/components/organism/Table2";
 import Filters from "@/components/Filters";
 import { TypeFilters } from "@/types/index";
 import Modal from "../organism/Modal";
@@ -452,14 +453,12 @@ const ComprobanteModal: React.FC<ComprobanteModalProps> = ({
 // ========================================
 interface PageCuentasPorCobrarProps {
   agente: Agente;
-  setAgente: (value: any) => void
   walletAmount?: number;
 }
 
 const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   agente,
-  walletAmount,
-  setAgente
+  walletAmount = 0,
   //aqui traigo el saldo
 }) => {
   const [addPaymentModal, setAddPaymentModal] = useState(false);
@@ -469,13 +468,12 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     agente: true,
     pagos: true
   });
+
   console.log("wallet", walletAmount);
-  const [localWalletAmount, setLocalWalletAmount] = useState(Number(agente.wallet));
+  const [localWalletAmount, setLocalWalletAmount] = useState(walletAmount || 0);
   console.log("agente", agente.wallet)
   console.log("local ", localWalletAmount)
-  if (localWalletAmount != walletAmount) {
-    walletAmount = localWalletAmount
-  }
+
   console.log("wallet2", walletAmount);
 
 
@@ -523,16 +521,17 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     try {
       setLoading(prev => ({ ...prev, agente: true }));
       const agenteActualizado = await fetchAgenteById(agente.id_agente);
-      console.log("info agente", agenteActualizado)
-      setError(null);
+      const nuevoSaldo = parseFloat(agenteActualizado.wallet);
+      setLocalWalletAmount(nuevoSaldo);
+      return nuevoSaldo; // Devolver el valor actualizado
     } catch (error) {
       console.error('Error al actualizar el saldo del agente:', error);
       setError('Error al actualizar el saldo disponible');
+      return; // Devolver el valor actual en caso de error
     } finally {
       setLoading(prev => ({ ...prev, agente: false }));
     }
   };
-
   // 2. Efecto para cargar datos iniciales y actualizar cuando cambia el ID del agente
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -582,30 +581,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     }
     fetchSaldoFavor()
   }, [])
-
-  const verificarSaldoParaCancelar = (valor: number, pago: Saldo) => {
-    // Verificar si el pago está activo
-    const isActive = pago.activo === true;
-
-    // Convertir el monto a número
-    const montoPago = parseFloat(pago.monto.toString());
-
-    // Comparar con el saldo solo si el pago está activo
-    const puedeCancelar = !isActive || valor >= montoPago;
-
-    return {
-      puedeCancelar,
-      saldo: valor,
-      totalAPagar: isActive ? montoPago : 0,
-      mensaje: puedeCancelar
-        ? isActive
-          ? "El saldo es suficiente para cancelar este pago"
-          : "El pago ya está inactivo, no requiere cancelación"
-        : "Saldo insuficiente para cancelar este pago",
-      diferencia: valor - (isActive ? montoPago : 0)
-
-    };
-  };
 
   useEffect(() => {
     const fetchSaldoFavor = async () => {
@@ -701,11 +676,11 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       return true;
     })
       .map((saldo) => ({
-        id_Cliente: saldo,
+        id_Cliente: saldo.id_agente,
         cliente: (saldo.nombre || '').toUpperCase(),
         creado: saldo.fecha_creacion ? new Date(saldo.fecha_creacion).toISOString().split('T')[0] : '',
-        monto_pagado: saldo,
-        saldo: saldo,
+        monto_pagado: saldo.monto,
+        saldo: saldo.saldo,
         forma_De_Pago: saldo.metodo_pago === 'transferencia'
           ? 'Transferencia Bancaria'
           : saldo.metodo_pago === 'tarjeta credito'
@@ -721,47 +696,49 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         facturable: saldo.is_facturable ? 'Si' : 'No',
         comprobante: saldo.comprobante || null,
         acciones: { row: saldo },
+        item: saldo
       }));
   }, [saldos, filters, searchTerm]);
 
 
   const tableRenderers = {
     // Renderizador base que aplica a todas las celdas
-    baseRenderer: (props: { value: Saldo }) => {
-      const isActive = Boolean(props.value?.activo);
-      console.log("Valor de baseRenderer:", props.value);
-      return (
-        <span className={`${!isActive ? "text-red-500 line-through" : ""}`}>
-          {normalizeText(props.value?.toString() || '')}
-        </span>
-      );
-    },
+    // baseRenderer: (props: { value: Saldo }) => {
+    //   const isActive = Boolean(props.value?.activo);
+    //   console.log("Valor de baseRenderer:", props.value);
+    //   return (
+    //     <span className={`${!isActive ? "text-red-500 line-through" : ""}`}>
+    //       {normalizeText(props.value?.toString() || '')}
+    //     </span>
+    //   );
+    // },
 
-    monto_pagado: ({ value }: { value: Saldo }) => {
 
-      const isActive = Boolean(value?.activo);
-      return (
-        <span className={`font-medium px-2 py-1 rounded ${isActive ? "bg-green-100 text-emerald-600" : "bg-red-100 text-red-600 line-through"
-          }`}>
-          {formatNumberWithCommas(value.monto)}
-        </span>
-      );
-    },
-    id_Cliente: (props: { value: Saldo }) => {
-      const isActive = Boolean(props.value?.activo);
+    monto_pagado: ({ value, item }: { value: string, item: Saldo }) =>
+    (
+      <span
+        className={`font-semibold text-sm px-2 py-1 rounded ${Boolean(item.activo) ? "bg-blue-50 text-blue-600" : "bg-red-100 text-red-600 line-through flex items-center justify-center"
+          }`}
+      >
+        {formatNumberWithCommas(value)};
+      </span>
+    ),
+
+    id_Cliente: ({ item }: { item: Saldo }) => {
+      const isActive = Boolean(item.activo);
       return (
         <span
           className={`font-semibold text-sm px-2 py-1 rounded ${isActive ? "bg-blue-50 text-blue-600" : "bg-red-100 text-red-600 line-through"
             }`}
-          title={props.value.id_agente}
+          title={item.id_agente}
         >
-          {props.value.id_agente?.split("-").join("").slice(0, 10)}
+          {item.id_agente?.split("-").join("").slice(0, 10)}
         </span>
       );
     },
 
     descuentoAplicado: ({ value }: { value: number }) => (
-      <span className="text-red-500">
+      <span className="text-red-500 flex items-center justify-center">
         ${value.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
       </span>
     ),
@@ -787,16 +764,16 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       );
     },
 
-    saldo: ({ value }: { value: Saldo }) => {
-      const isActive = Boolean(value?.activo);
+    saldo: ({ item }: { item: Saldo }) => {
+      const isActive = Boolean(item?.activo);
       // Comparar saldo con monto_pagado de la fila completa (row)
-      const isDifferent = value?.saldo !== value?.monto;
+      const isDifferent = item?.saldo !== item?.monto;
       return (
         <span className={`font-medium px-2 py-1 rounded ${isDifferent
           ? "bg-red-100 text-red-600"
           : "bg-blue-100 text-blue-600"
           } ${!isActive ? "line-through" : ""}`}>
-          {value?.saldo ? formatNumberWithCommas(value.saldo.toString()) : '3'}
+          {item?.saldo ? formatNumberWithCommas(item.saldo.toString()) : ''}
         </span>
       );
     },
@@ -866,7 +843,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     },
     aplicable: ({ value }: { value: 'Si' | 'No' }) => {
       return (
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${value === 'Si'
+        <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium flex items-center justify-center ${value === 'Si'
           ? 'bg-green-200 text-green-1000'
           : 'bg-red-200 text-red-800'
           }`}>
@@ -1006,8 +983,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
 
           // Actualizar el saldo local con la diferencia
           setLocalWalletAmount(prev => prev + diferencia);
-          setAgente(prev => ({ ...prev, wallet: prev.wallet + diferencia }))
-
           console.log("agwnte", agente)
           await updateAgentWallet();
 
@@ -1030,14 +1005,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         if (!isActive) return; // No permitir eliminación si ya está inactivo
 
         try {
-          // Verificar si podemos cancelar este pago
-          const verificacion = verificarSaldoParaCancelar(localWalletAmount, row);
-
-          if (!verificacion.puedeCancelar) {
-            setError(verificacion.mensaje);
-            setIsDeleteModalOpen(false);
-            return;
-          }
 
           // Proceder con la eliminación lógica
           const deleteData = {
@@ -1063,10 +1030,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             numero_autorizacion: row.numero_autorizacion || null,
           };
 
-          if (!verificacion.puedeCancelar) {
-            setError(verificacion.mensaje);
-            return;
-          }
 
           await updateAgentWallet();
 
@@ -1195,6 +1158,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       setLoading(prev => ({ ...prev, pagos: true }));
       const response = await SaldoFavor.getPagos(agente.id_agente);
       setSaldos(response.data);
+      console.log("data", response)
     } catch (error) {
       console.error('Error al recargar saldos:', error);
       setError('Error al cargar los saldos');
@@ -1224,7 +1188,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       console.log("pago antes de agregar", localWalletAmount)
       console.log("pago de la dat", paymentData.monto_pagado)
       setLocalWalletAmount(walletAmount + parseFloat(paymentData.monto_pagado.toString()));
-      setAgente(prev => ({ ...prev, wallet: prev.wallet + parseFloat(paymentData.monto_pagado.toString()) }))
       console.log("pago nuevo", localWalletAmount)
       console.log("pago de wallet ", walletAmount)
 
@@ -1307,7 +1270,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
               <span className="ml-2">Cargando pagos...</span>
             </div>
           ) : (
-            <Table
+            <Table2
               //registros={mappedData}
               registros={filteredData}
               renderers={tableRenderers}

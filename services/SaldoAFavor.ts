@@ -47,7 +47,8 @@
     activo?: boolean | null;
       ult_digits: string| null,
     banco_tarjeta: string| null,
-    numero_autorizacion: string| null
+    numero_autorizacion: string | null
+    
   } 
 
   export class SaldoFavor {
