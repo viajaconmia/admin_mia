@@ -116,6 +116,7 @@ const PaymentSummary: React.FC<PaymentSummaryProps> = ({
   assignedBalance,
   statusInfo
 }) => {
+  console.log("totalBalance", totalBalance, "/rvr", assignedBalance)
   const availableBalance = totalBalance - assignedBalance;
 
   return (
@@ -473,9 +474,8 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     pagos: true
   });
 
-  let [localWalletAmount, setLocalWalletAmount] = useState(walletAmount);
+  const [localWalletAmount, setLocalWalletAmount] = useState(walletAmount);
 
-  let valor = localWalletAmount;
 
   const [filters, setFilters] = useState<TypeFilters>({
     paymentMethod: "",
@@ -489,6 +489,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [saldoAFavor, setSaldoAFavor] = useState<number>(0);
   const [lloading, setloading] = useState(false)
+  const [saldos, setSaldos] = useState<Saldo[]>([])
 
 
   // Función para manejar los filtros
@@ -517,63 +518,31 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     }
   };
 
+  // 1. Función centralizada para actualizar el saldo
   const updateAgentWallet = async () => {
     try {
+      setLoading(prev => ({ ...prev, agente: true }));
       const agenteActualizado = await fetchAgenteById(agente.id_agente);
-      setLocalWalletAmount(agenteActualizado.monto_credito || valor);
+      setLocalWalletAmount(agenteActualizado.monto_credito);
+      setError(null);
     } catch (error) {
       console.error('Error al actualizar el saldo del agente:', error);
       setError('Error al actualizar el saldo disponible');
+    } finally {
+      setLoading(prev => ({ ...prev, agente: false }));
     }
   };
-  useEffect(() => {
-    const fetchInitialWallet = async () => {
-      if (walletAmount === 0) {
-        try {
-          setLoading(prev => ({ ...prev, agente: true }));
-          console.log("Saldo del agente actualizado:", walletAmount);
-          await updateAgentWallet();
-        } catch (error) {
-          console.error('Error al cargar el saldo inicial:', error);
-          setError('Error al cargar el saldo inicial');
-        } finally {
-          setLoading(prev => ({ ...prev, agente: false }));
-        }
-      }
-    };
 
-    fetchInitialWallet();
-  }, [walletAmount, agente.id_agente]);
-
-  localWalletAmount = walletAmount;
-  console.log("Agente:", walletAmount);
-
-  if (walletAmount = 0) {
-    walletAmount = valor;
-  }
-  else if (localWalletAmount > 0) {
-    valor = localWalletAmount;
-    walletAmount = localWalletAmount;
-  }
-
-  if (walletAmount !== localWalletAmount) {
-    walletAmount = localWalletAmount;
-  }
-  valor = localWalletAmount
-
-
-  console.log("Valor:", valor);
-  console.log("Wallet Amount:", walletAmount);
-  console.log("Local Wallet Amount:", localWalletAmount);
-
+  // 2. Efecto para cargar datos iniciales y actualizar cuando cambia el ID del agente
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
         setLoading({ agente: true, pagos: true });
-        await reloadSaldos();
+        await updateAgentWallet(); // Actualizar saldo del agente
+        await reloadSaldos(); // Recargar saldos a favor
       } catch (err) {
-        setError("Error al cargar los datos");
-        console.error("Error fetching data:", err);
+        setError("Error al cargar los datos iniciales");
+        console.error("Error fetching initial data:", err);
       } finally {
         setLoading({ agente: false, pagos: false });
       }
@@ -582,39 +551,16 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     fetchInitialData();
   }, [agente.id_agente]);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-
-      } catch (err) {
-        setError("Error al cargar los datos");
-        console.error("Error fetching data:", err);
-      } finally {
-        setLoading({ agente: false, pagos: false });
-      }
-    };
-
-    fetchData();
-  }, [agente.id_agente]);
-
-  const [saldos, setSaldos] = useState<Saldo[]>([])
-
-  // En tu componente PageCuentasPorCobrar, añade este efecto:
-
+  // 3. Efecto para actualizar cuando la pestaña vuelve a estar visible
   useEffect(() => {
     const handleVisibilityChange = async () => {
       if (document.visibilityState === 'visible') {
         try {
-          // Mostrar un indicador de carga si lo deseas
           setLoading(prev => ({ ...prev, agente: true }));
-
-          // Actualizar el saldo del agente
           await updateAgentWallet();
-
-          // También puedes recargar los saldos si es necesario
           await reloadSaldos();
         } catch (error) {
-          console.error('Error al actualizar datos al volver a la pestaña:', error);
+          console.error('Error al actualizar datos:', error);
           setError('Error al actualizar los datos');
         } finally {
           setLoading(prev => ({ ...prev, agente: false }));
@@ -622,14 +568,11 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       }
     };
 
-    // Agregar el event listener
     document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    // Limpiar el event listener al desmontar el componente
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [agente.id_agente]); // Dependencia para asegurar que siempre usamos el ID correcto
+  }, [agente.id_agente]);
 
   useEffect(() => {
     const fetchSaldoFavor = async () => {
@@ -762,6 +705,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         cliente: saldo.nombre || '',
         creado: saldo.fecha_creacion ? new Date(saldo.fecha_creacion).toISOString().split('T')[0] : '',
         monto_pagado: saldo,
+        saldos: saldo.saldo,
         forma_De_Pago: saldo.metodo_pago === 'transferencia'
           ? 'Transferencia Bancaria'
           : saldo.metodo_pago === 'tarjeta credito'
@@ -886,6 +830,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         );
       }
 
+
       return (
         <div className="flex gap-2">
           <button
@@ -959,112 +904,19 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       const [isEditModalOpen, setIsEditModalOpen] = useState(false);
       const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
       const isActive = row?.activo !== false;
+      let editar = true;
+
+      if (row.saldo !== row.monto_pagado) {
+        editar = false;
+      }
 
       // En la función handleEdit
-      const handleEdit2 = async (updatedData: any) => {
-        if (!isActive) return; // No permitir edición si está inactivo
 
-        if (valor === 0) {
-          return null;
-        }
-
-        try {
-          console.log("Datos recibidos del modal:", updatedData);
-
-          // Obtener el pago original para calcular la diferencia
-          const pagoOriginal = saldos.find(s => s.id_saldos === row.id_saldos);
-
-          // Validar que los datos requeridos estén presentes
-          if (!updatedData) {
-            throw new Error("No se recibieron datos del formulario");
-          }
-          const montoOriginal = parseFloat(pagoOriginal.monto.toString());
-          const montoNuevo = parseFloat(updatedData.monto_pagado.toString());
-          const diferencia = montoNuevo - montoOriginal;
-
-          // Normalizar el método de pago
-          const metodoPagoNormalizado = normalizePaymentMethod(updatedData.forma_pago);
-
-          await reloadSaldos(); // Recargar los datos después de editar 
-
-          // Preparar datos base
-          const apiData: any = {
-            id_saldos: row.id_saldos,
-            monto: updatedData.monto_pagado?.toString() || row.monto,
-            fecha_pago: updatedData.fecha_pago || row.fecha_pago,
-            comentario: updatedData.comentario || row.comentario || null,
-            is_facturable: updatedData.is_facturable,
-            is_descuento: updatedData.descuento_aplicable,
-            metodo_pago: metodoPagoNormalizado,
-
-
-            // Mantener los demás campos sin cambios
-            activo: row.activo,
-            comprobante: row.comprobante,
-            concepto: row.concepto,
-            currency: row.currency,
-            id_agente: row.id_agente,
-            saldo: updatedData.monto_pagado?.toString() || row.monto,
-          };
-
-          console.log("Datos aerf", metodoPagoNormalizado);
-          // Manejar campos según el método de pago
-          switch (metodoPagoNormalizado) {
-
-            case 'transferencia':
-              apiData.referencia = updatedData.referencia || row.referencia;
-              apiData.link_stripe = null;
-              apiData.tipo_tarjeta = null;
-              apiData.ult_digits = null;
-              apiData.banco_tarjeta = null;
-              apiData.numero_autorizacion = null;
-              apiData.tipo_tarjeta = null;
-              break;
-
-            case 'tarjeta_de_credito':
-            case 'tarjeta_debito':
-              apiData.referencia = null;
-              apiData.link_stripe = updatedData.link_stripe || row.link_stripe || null;
-              apiData.tipo_tarjeta = updatedData.tipo_tarjeta || null;
-              apiData.ult_digits = updatedData.ult_digits || row.ult_digits || null;
-              apiData.banco_tarjeta = updatedData.banco_tarjeta || row.banco_tarjeta || null;
-              apiData.numero_autorizacion = updatedData.numero_autorizacion || row.numero_autorizacion || null;
-              break;
-
-            case 'wallet':
-              apiData.referencia = null;
-              apiData.link_stripe = null;
-              apiData.tipo_tarjeta = null;
-              apiData.ult_digits = null;
-              apiData.banco_tarjeta = null;
-              apiData.numero_autorizacion = null;
-              break;
-          }
-
-          // Actualizar el saldo local con la diferencia
-          setLocalWalletAmount(prev => prev + diferencia)
-
-
-
-          // Llamar a la API para actualizar
-          await SaldoFavor.actualizarPago(apiData);
-
-          // Mostrar los datos que se enviarán a la API
-          console.log("Datos para enviar a la API:", apiData);
-          // Actualizar la lista de pagos
-          await reloadSaldos();
-
-          // Cerrar el modal
-          setIsEditModalOpen(false);
-
-        } catch (error) {
-          console.error("Error al actualizar el pago:", error);
-          setError(`Error al actualizar el pago: ${error instanceof Error ? error.message : String(error)}`);
-        }
-      };
       const handleEdit = async (updatedData: any) => {
-        if (!isActive) return; // No permitir edición si está inactivo
-        if (valor === 0) return null;
+        if (!isActive) return;// No permitir edición si está inactivo
+        if (!editar) return;
+
+        if (localWalletAmount === 0) return null;
 
         try {
           console.log("Datos recibidos del modal:", updatedData);
@@ -1140,6 +992,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
 
           // Actualizar el saldo local con la diferencia
           setLocalWalletAmount(prev => prev + diferencia);
+          await updateAgentWallet();
 
           // Llamar a la API para actualizar
           await SaldoFavor.actualizarPago(apiData);
@@ -1181,7 +1034,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
 
         try {
           // Verificar si podemos cancelar este pago
-          const verificacion = verificarSaldoParaCancelar(valor, row);
+          const verificacion = verificarSaldoParaCancelar(localWalletAmount, row);
 
           if (!verificacion.puedeCancelar) {
             setError(verificacion.mensaje);
@@ -1214,12 +1067,19 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             numero_autorizacion: row.numero_autorizacion || null,
           };
 
+          if (!verificacion.puedeCancelar) {
+            setError(verificacion.mensaje);
+            return;
+          }
+
+          await updateAgentWallet();
+
           await SaldoFavor.actualizarPago(deleteData);
           // Actualizar el saldo local ANTES de recargar los datos
           if (row.activo) {
             setLocalWalletAmount(prev => prev - parseFloat(row.monto.toString()));
           }
-
+          console.log("local", localWalletAmount)
           const updatedSaldos = await SaldoFavor.getPagos(row.id_agente);
           setSaldos(updatedSaldos.data);
           setIsDeleteModalOpen(false);
@@ -1283,7 +1143,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
                 }}
                 onSubmit={handleEdit}
                 isEditing={true}
-                localWalletAmount={valor || localWalletAmount} // Pasa el valor actual
+                localWalletAmount={localWalletAmount} // Pasa el valor actual
               />
             </Modal>
           )}
@@ -1361,16 +1221,18 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         id_cliente: agente.id_agente
       });
 
-      // Actualizar el estado local con el nuevo pago
+      // Actualizar el estado local
       if (response.data) {
         setSaldos(prevSaldos => [...prevSaldos, response.data]);
       }
 
       // Actualizar el saldo local sumando el monto del nuevo pago
       setLocalWalletAmount(prev => prev + parseFloat(paymentData.monto_pagado.toString()));
-      valor = localWalletAmount
-
+      if (response.data) {
+        setSaldos(prevSaldos => [...prevSaldos, response.data]);
+      }
       await reloadSaldos();
+      await updateAgentWallet();
 
       setAddPaymentModal(false);
 
@@ -1415,7 +1277,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         {/* Resumen de saldo */}
         <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
           <PaymentSummary
-            totalBalance={localWalletAmount || valor} // Usa localWalletAmount si está disponible
+            totalBalance={localWalletAmount || walletAmount} // Usa localWalletAmount si está disponible
             assignedBalance={0}
           />
 
@@ -1470,7 +1332,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             onClose={() => setAddPaymentModal(false)}
             agente={agente}
             onSubmit={handleAddPayment}
-            localWalletAmount={localWalletAmount || valor}// Pasa el valor actual
+            localWalletAmount={localWalletAmount || walletAmount}// Pasa el valor actual
           />
         </Modal>
       )}
