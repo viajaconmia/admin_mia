@@ -68,6 +68,7 @@ export interface TypeFilters {
   facturable?: boolean | null;
   comprobante?: boolean | null; 
   paydate?: string | null;
+  estatusFactura ?: "Confirmada" |"Cancelada" |"En proceso"| "Sin Asignar" | null;
 }
 
 export interface EmpresaFromAgent {

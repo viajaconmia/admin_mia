@@ -818,6 +818,20 @@ const FiltersModal: React.FC<{
                   ]}
                 />
               )}
+
+              {"estatusFactura" in filters && (
+                <Dropdown
+                  label="Estatus de Factura"
+                  value={filters.estatusFactura || ""}
+                  onChange={(value) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      estatusFactura: value as "Confirmada" |"Cancelada" |"En proceso"| "Sin Asignar" | null ,
+                    }))
+                  }
+                  options={["Confirmada" ,"Cancelada" ,"En proceso", "Sin Asignar"]}
+                />
+              )}
             </div>
             <div className="flex justify-center gap-10">
               <button
