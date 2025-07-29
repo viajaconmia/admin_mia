@@ -22,7 +22,7 @@ import {
 
 import { Table2 } from "@/components/organism/Table2";
 import Filters from "@/components/Filters";
-import { TypeFilters } from "@/types/index";
+import { TypeFilters } from "@/types";
 import Modal from "../organism/Modal";
 import { SaldoFavor, NuevoSaldoAFavor, Saldo } from "@/services/SaldoAFavor";
 import { fetchAgenteById, fetchPagosByAgente } from "@/services/agentes";
@@ -470,9 +470,9 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   });
 
   console.log("wallet", walletAmount);
-  const [localWalletAmount, setLocalWalletAmount] = useState(walletAmount || 0);
+  const [localWalletAmount, setLocalWalletAmount] = useState(0);
   console.log("agente", agente.wallet)
-  console.log("local ", localWalletAmount)
+  console.log("local", localWalletAmount)
 
   console.log("wallet2", walletAmount);
 
@@ -490,6 +490,24 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   const [saldoAFavor, setSaldoAFavor] = useState<number>(0);
   const [lloading, setloading] = useState(false)
   const [saldos, setSaldos] = useState<Saldo[]>([])
+
+  interface SortConfig {
+    key: string;
+    sort: boolean; // true = ascendente, false = descendente
+  }
+
+  const [sortConfig, setSortConfig] = useState<SortConfig>({
+    key: "creado",
+    sort: false, // false para descendente por defecto
+  });
+
+  const handleSort = (key: string) => {
+    setSortConfig(prev => ({
+      key,
+      sort: prev.key === key ? !prev.sort : false, // Si es la misma columna, alternar, sino descendente
+    }));
+  };
+
 
 
   // Función para manejar los filtros
@@ -521,9 +539,14 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     try {
       setLoading(prev => ({ ...prev, agente: true }));
       const agenteActualizado = await fetchAgenteById(agente.id_agente);
+      console.log("agende.id", agente.id_agente)
+      console.log("info", agenteActualizado)
       const nuevoSaldo = parseFloat(agenteActualizado.wallet);
-      setLocalWalletAmount(nuevoSaldo);
+      console.log("sald23weos", nuevoSaldo)
+
+      // setLocalWalletAmount(nuevoSaldo);
       return nuevoSaldo; // Devolver el valor actualizado
+
     } catch (error) {
       console.error('Error al actualizar el saldo del agente:', error);
       setError('Error al actualizar el saldo disponible');
@@ -582,32 +605,13 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     fetchSaldoFavor()
   }, [])
 
-  useEffect(() => {
-    const fetchSaldoFavor = async () => {
-      try {
-        const response: { message: string, data: Saldo[] } = await SaldoFavor.getPagos(agente.id_agente);
-
-        setSaldos(response.data);
-
-
-      } catch (error) {
-        console.error('Error al obtener saldos:', error);
-        setError('Error al cargar los saldos');
-      }
-    };
-
-    fetchSaldoFavor();
-  }, [agente.id_agente]);
-
-
   const filteredData = useMemo(() => {
-
-    return saldos.filter(saldo => {
+    // Filter the data
+    const filteredItems = saldos.filter(saldo => {
       // Filtro por método de pago
       if (filters.paymentMethod && saldo.metodo_pago) {
         const normalizedFilter = filters.paymentMethod.toLowerCase();
         const normalizedMethod = saldo.metodo_pago.toLowerCase();
-
         if (!normalizedMethod.includes(normalizedFilter)) {
           return false;
         }
@@ -615,7 +619,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
 
       // Filtro por fecha de pago
       if (filters.paydate && saldo.fecha_pago) {
-        const paymentDate = new Date(saldo.fecha_pago).toISOString().split('T')[0];
+        const paymentDate = new Date(saldo.fecha_pago).toISOString();
         if (paymentDate !== filters.paydate) {
           return false;
         }
@@ -624,7 +628,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       // Filtro por descuento
       if (filters.hasDiscount !== undefined && filters.hasDiscount !== "") {
         const hasDiscount = Boolean(saldo.is_descuento);
-        const filterValue = filters.hasDiscount === "SI"; // Convertir "SI"/"NO" a booleano
+        const filterValue = filters.hasDiscount === "SI";
         if (hasDiscount !== filterValue) {
           return false;
         }
@@ -674,53 +678,93 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       }
 
       return true;
-    })
-      .map((saldo) => ({
-        id_Cliente: saldo.id_agente,
-        cliente: (saldo.nombre || '').toUpperCase(),
-        creado: saldo.fecha_creacion ? new Date(saldo.fecha_creacion).toISOString().split('T')[0] : '',
-        monto_pagado: saldo.monto,
-        saldo: saldo.saldo,
-        forma_De_Pago: saldo.metodo_pago === 'transferencia'
-          ? 'Transferencia Bancaria'
-          : saldo.metodo_pago === 'tarjeta credito'
-            ? 'Tarjeta de Crédito'
-            : saldo.metodo_pago === 'tarjeta debito'
-              ? 'Tarjeta de Débito'
-              : saldo.metodo_pago || '',
-        referencia: saldo.referencia || '',
-        link_stripe: saldo.link_stripe || null,
-        fecha_De_Pago: saldo.fecha_pago ? new Date(saldo.fecha_pago).toISOString().split('T')[0] : '',
-        aplicable: saldo.is_descuento ? 'Si' : 'No',
-        comentario: saldo.notas || saldo.comentario || null,
-        facturable: saldo.is_facturable ? 'Si' : 'No',
-        comprobante: saldo.comprobante || null,
-        acciones: { row: saldo },
-        item: saldo
-      }));
-  }, [saldos, filters, searchTerm]);
+    });
 
+    // Transform the filtered data
+    const transformedData = filteredItems.map((saldo) => ({
+      id_Cliente: saldo.id_agente,
+      cliente: (saldo.nombre || '').toUpperCase(),
+      creado: saldo.fecha_creacion ? new Date(saldo.fecha_creacion) : null,
+      monto_pagado: Number(saldo.monto),
+      saldo: saldo.saldo,
+      forma_De_Pago: saldo.metodo_pago === 'transferencia'
+        ? 'Transferencia Bancaria'
+        : saldo.metodo_pago === 'tarjeta credito'
+          ? 'Tarjeta de Crédito'
+          : saldo.metodo_pago === 'tarjeta debito'
+            ? 'Tarjeta de Débito'
+            : saldo.metodo_pago || '',
+      tipo_tarjeta: saldo.tipo_tarjeta || '',
+      referencia: saldo.referencia || '',
+      link_stripe: saldo.link_stripe || null,
+      fecha_De_Pago: saldo.fecha_pago ? new Date(saldo.fecha_pago) : null,
+      aplicable: saldo.is_descuento ? 'Si' : 'No',
+      comentario: saldo.notas || saldo.comentario || null,
+      facturable: saldo.is_facturable ? 'Si' : 'No',
+      comprobante: saldo.comprobante || null,
+      acciones: { row: saldo },
+      item: saldo
+    }));
+
+    // Sort the data
+    return transformedData.sort((a, b) => {
+      const aValue = a[sortConfig.key];
+      const bValue = b[sortConfig.key];
+
+      // Handle dates
+      if (sortConfig.key.includes('fecha') || sortConfig.key.includes('creado')) {
+        const dateA = new Date(aValue).getTime();
+        const dateB = new Date(bValue).getTime();
+        return sortConfig.sort ? dateA - dateB : dateB - dateA;
+      }
+
+      // Handle numbers
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return sortConfig.sort ? aValue - bValue : bValue - aValue;
+      }
+
+      // Handle strings
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return sortConfig.sort
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
+      }
+
+      return 0;
+    });
+
+  }, [saldos, filters, searchTerm, sortConfig.key, sortConfig.sort]);
 
   const tableRenderers = {
-    // Renderizador base que aplica a todas las celdas
-    // baseRenderer: (props: { value: Saldo }) => {
-    //   const isActive = Boolean(props.value?.activo);
-    //   console.log("Valor de baseRenderer:", props.value);
-    //   return (
-    //     <span className={`${!isActive ? "text-red-500 line-through" : ""}`}>
-    //       {normalizeText(props.value?.toString() || '')}
-    //     </span>
-    //   );
-    // },
 
+    fecha_De_Pago: ({ value }: { value: Date | null }) => {
+      if (!value) return <div className="text-gray-400">N/A</div>;
+
+      return (
+        <div className="whitespace-nowrap">
+          {value.toISOString().split('T')[0]}
+        </div>
+      );
+    },
+
+    // Renderizador para creado
+    creado: ({ value }: { value: Date | null }) => {
+      if (!value) return <div className="text-gray-400">N/A</div>;
+
+      return (
+        <div className="whitespace-nowrap">
+          {value.toISOString().split('T')[0]}
+        </div>
+      );
+    },
 
     monto_pagado: ({ value, item }: { value: string, item: Saldo }) =>
     (
       <span
-        className={`font-semibold text-sm px-2 py-1 rounded ${Boolean(item.activo) ? "bg-blue-50 text-blue-600" : "bg-red-100 text-red-600 line-through flex items-center justify-center"
+        className={`font-semibold text-sm px-2 py-1 rounded flex items-center justify-center ${Boolean(item.activo) ? "bg-blue-50 text-blue-600" : "bg-red-100 text-red-600 line-through flex items-center justify-center"
           }`}
       >
-        {formatNumberWithCommas(value)};
+        ${formatNumberWithCommas(value)}
       </span>
     ),
 
@@ -742,7 +786,14 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         ${value.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
       </span>
     ),
-
+    tipo_tarjeta: ({ value, row }: { value: string | null, row: any }) => {
+      const isActive = row?.activo !== false;
+      return (
+        <div className={`max-w-xs truncate ${!isActive ? "text-red-500 line-through" : ""}`}>
+          {value ? normalizeText(value) : ''}
+        </div>
+      );
+    },
     forma_De_Pago: ({ value, row }: { value: string, row: any }) => {
       const isActive = row?.activo !== false;
       const normalizedValue = value.toLowerCase();
@@ -769,11 +820,11 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       // Comparar saldo con monto_pagado de la fila completa (row)
       const isDifferent = item?.saldo !== item?.monto;
       return (
-        <span className={`font-medium px-2 py-1 rounded ${isDifferent
+        <span className={`font-medium px-2 py-1 rounded flex items-center justify-center ${isDifferent
           ? "bg-red-100 text-red-600"
           : "bg-blue-100 text-blue-600"
           } ${!isActive ? "line-through" : ""}`}>
-          {item?.saldo ? formatNumberWithCommas(item.saldo.toString()) : ''}
+          ${item?.saldo ? formatNumberWithCommas(item.saldo.toString()) : ''}
         </span>
       );
     },
@@ -1038,7 +1089,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
           if (row.activo) {
             setLocalWalletAmount(prev => prev - parseFloat(row.monto.toString()));
           }
-          console.log("local", localWalletAmount)
+          console.log("local eliminado", localWalletAmount)
           const updatedSaldos = await SaldoFavor.getPagos(row.id_agente);
           setSaldos(updatedSaldos.data);
           setIsDeleteModalOpen(false);
@@ -1232,6 +1283,10 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   if (!agente) {
     return <div className="text-center py-8">No se encontró información del agente</div>;
   }
+
+  if (localWalletAmount !== 0) {
+    walletAmount = localWalletAmount
+  }
   return (
     <div className="h-full">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
@@ -1271,12 +1326,20 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             </div>
           ) : (
             <Table2
-              //registros={mappedData}
+
               registros={filteredData}
               renderers={tableRenderers}
-              customColumns={["acciones"]} // Añade la columna de acciones
-
+              customColumns={["acciones"]}
+              sortConfig={sortConfig}
+              onSort={handleSort}
+              defaultSort={{
+                key: 'creado', // Default sort column
+                sort: false // Default sort direction
+              }}
+              exportButton={true}
+              maxHeight="70vh"
             />
+
           )}
         </div>
       </div>
@@ -1401,6 +1464,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
   const [state, dispatch] = useReducer(formReducer, initialState);
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isStripeLinked, setIsStripeLinked] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [cardDetails, setCardDetails] = useState({
     ult_digits: '',
@@ -1448,10 +1512,9 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
       // Verificar que sea un ID de Stripe válido
       if (!chargeId.startsWith('ch_') && !chargeId.startsWith('pi_')) {
         console.warn('El ID de Stripe no tiene el formato esperado');
+        setIsStripeLinked(false);
         return;
       }
-
-      console.log('Iniciando fetch a:', `${URL}/mia/saldo/stripe-info?chargeId=${chargeId}`);
 
       const response = await fetch(`${URL}/mia/saldo/stripe-info?chargeId=${chargeId}`, {
         headers: {
@@ -1482,6 +1545,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
       handleInputChange("amount", amount);
       handleInputChange("paymentDate", paymentDate);
 
+      setIsStripeLinked(true);
+
     } catch (error) {
       console.error('Error en fetchStripeInfo:', error);
       // Opcional: Mostrar mensaje de error al usuario
@@ -1497,11 +1562,17 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     value: string | boolean
   ) => {
     console.log(`Campo cambiado: ${field}`, value); // <-- Agregar esto
+    if (field === 'paymentMethod') {
+      setIsStripeLinked(false);
+    }
+
     dispatch({ type: "SET_FIELD", field, value });
     if (errors[field as keyof FormErrors]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
   };
+
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1629,6 +1700,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                   handleInputChange("link_Stripe", value);
                   // Solo hacer fetch si el método de pago es tarjeta y hay texto
 
+                  if (value.trim() === "") {
+                    setIsStripeLinked(false);
+                    return;
+                  }
+
                   if ((state.paymentMethod === "Tarjeta") &&
                     value.trim() !== "") {
                     fetchStripeInfo(value);
@@ -1656,24 +1732,31 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                   value={cardDetails.ult_digits}
                   onChange={(value) => setCardDetails(prev => ({ ...prev, ult_digits: value }))}
                   placeholder="Últimos 4 dígitos de la tarjeta"
+                  disabled={isStripeLinked}
                 />
                 <TextInput
                   label="Banco de la tarjeta"
                   value={cardDetails.banco_tarjeta}
                   onChange={(value) => setCardDetails(prev => ({ ...prev, banco_tarjeta: value }))}
                   placeholder="Nombre del banco"
+                  disabled={isStripeLinked}
+
                 />
                 <TextInput
                   label="Número de autorización"
                   value={cardDetails.numero_autorizacion}
                   onChange={(value) => setCardDetails(prev => ({ ...prev, numero_autorizacion: value }))}
                   placeholder="Número de autorización"
+                  disabled={isStripeLinked}
+
                 />
                 <TextInput
                   label="Tipo de tarjeta"
                   value={cardDetails.tipo_tarjeta}
                   onChange={(value) => setCardDetails(prev => ({ ...prev, tipo_tarjeta: value }))}
                   placeholder="Tipo de tarjeta"
+                  disabled={isStripeLinked}
+
                 />
               </>
             )}
@@ -1682,12 +1765,14 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
               label="Fecha de Pago"
               value={state.paymentDate}
               onChange={(value) => handleInputChange("paymentDate", value)}
+
             />
 
             <NumberInput
               label="Monto Pagado"
               value={Number(state.amount)}
               onChange={(value) => handleInputChange("amount", value)}
+              disabled={isStripeLinked}
             />
 
             <CheckboxInput

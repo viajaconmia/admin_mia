@@ -34,6 +34,7 @@ export const Table2 = <T,>({
   leyenda = "",
   children,
   maxHeight = "28rem",
+
 }: TableProps<T>) => {
   const [displayData, setDisplayData] = useState<Registro[]>(registros);
   const [loading, setLoading] = useState<boolean>(false);

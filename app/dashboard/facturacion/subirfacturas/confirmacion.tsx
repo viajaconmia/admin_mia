@@ -33,8 +33,8 @@ export default function ConfirmacionModal({
     <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
       <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl flex justify-between">
         <div>
-          <p>Se guardo exitosamente tu factura </p>
-          <p>desejas asignar tu factura?</p>
+          <p>Se guardó exitosamente tu factura.</p>
+          <p>¿Deseas asignar tu factura?</p>
         </div>
         <div className="flex justify-end gap-3">
           <button
