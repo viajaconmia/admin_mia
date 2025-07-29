@@ -28,6 +28,7 @@ import { SaldoFavor, NuevoSaldoAFavor, Saldo } from "@/services/SaldoAFavor";
 import { fetchAgenteById, fetchPagosByAgente } from "@/services/agentes";
 import { Loader } from "@/components/atom/Loader";
 import { API_KEY, URL } from "@/lib/constants/index";
+import { PagarModalComponent } from './pagar_saldo';
 
 import {
   CheckboxInput,
@@ -946,6 +947,8 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       const { row } = value;
       const [isEditModalOpen, setIsEditModalOpen] = useState(false);
       const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+      const [isPagarModalOpen, setIsPagarModalOpen] = useState(false);
+
       const isActive = row?.activo !== false;
       let editar = true;
       const isDifferent = row?.saldo !== row?.monto;
@@ -1100,6 +1103,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         }
       };
 
+
       return (
         <div className="flex gap-2">
           {/* Botón Editar */}
@@ -1156,6 +1160,17 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             </Modal>
           )}
 
+          {/* Nuevo Botón para el Modal Personalizado */}
+          {(row.activo === 1 || row.activo === true) && (
+            <button
+              className="p-1.5 rounded-md bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
+              onClick={() => setIsPagarModalOpen(true)}
+              title="Pagar Saldo"
+            >
+              <DollarSign className="w-4 h-4" /> {/* Cambié el icono a DollarSign para mejor representación */}
+            </button>
+          )}
+
           {/* Modal de Eliminación */}
           {isDeleteModalOpen && (
             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -1199,6 +1214,33 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
               </div>
             </div>
           )}
+          {/* Nuevo Modal Personalizado */}
+          {isPagarModalOpen && (
+            <Modal
+              title={`Pagar Saldo - ${row.nombre}`}
+              onClose={() => setIsPagarModalOpen(false)}
+            >
+              <PagarModalComponent
+                saldoData={{
+                  id_saldos: row.id_saldos,
+                  id_agente: row.id_agente,
+                  nombre: row.nombre,
+                  monto: row.monto,
+                  saldo: row.saldo,
+                  fecha_pago: row.fecha_pago,
+                  metodo_pago: row.metodo_pago,
+                  referencia: row.referencia,
+                  comentario: row.comentario
+                }}
+                onClose={() => setIsPagarModalOpen(false)}
+                onSubmit={(data) => {
+                  // Lógica para manejar el pago
+                  console.log('Datos del pago:', data);
+                  setIsPagarModalOpen(false);
+                }}
+              />
+            </Modal>
+          )}
         </div>
       );
     },
@@ -1229,6 +1271,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         ...paymentData,
         id_cliente: agente.id_agente
       });
+
 
       // Actualizar el estado local
       if (response.data) {
@@ -1600,10 +1643,14 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
         is_facturable: state.facturable,
         referencia: state.reference,
         fecha_pago: state.paymentDate,
+        // Valores por defecto (requeridos por la interfaz)
+        tipo_tarjeta: "",
+        ult_digits: "",
+        banco_tarjeta: "",
+        numero_autorizacion: "",
+        // Sobreescribir si es pago con tarjeta
         ...(state.paymentMethod.includes("Tarjeta") && {
-          tipo_tarjeta: state.paymentMethod.includes("credito")
-            ? "credito"
-            : "debito",
+          tipo_tarjeta: cardDetails.tipo_tarjeta, // Asegúrate que aquí sea "credito" o "debito"
           ult_digits: cardDetails.ult_digits,
           banco_tarjeta: cardDetails.banco_tarjeta,
           numero_autorizacion: cardDetails.numero_autorizacion
@@ -1611,7 +1658,6 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
         link_stripe: state.link_Stripe || "",
         descuento_aplicable: state.discountApplied,
         ...(state.comments && { comentario: state.comments }),
-
       };
 
       await onSubmit(pagoData);

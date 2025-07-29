@@ -10,7 +10,7 @@
     is_facturable: boolean;
     referencia?: string;
     fecha_pago: string;
-    tipo_tarjeta: "credito" | "debito";
+    tipo_tarjeta: string;
     link_stripe?: string;
     descuento_aplicable?: boolean;
     comentario?: string;
