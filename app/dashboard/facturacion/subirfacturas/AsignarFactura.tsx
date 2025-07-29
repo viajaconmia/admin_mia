@@ -1,7 +1,7 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import { URL, API_KEY } from "@/lib/constants/index";
-import { Table } from "@/components/Table"; // Import your Table component
+import { Table2 } from "@/components/organism/Table2";
 import { ChartNoAxesColumnIcon } from 'lucide-react';
 import { it } from 'node:test';
 import { on } from 'node:events';
@@ -269,6 +269,7 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
       codigo: reserva.codigo_reservacion_hotel,
       descripcion: `${reserva.nombre_hotel} (${new Date(reserva.check_in).toLocaleDateString()} - ${new Date(reserva.check_out).toLocaleDateString()})`,
       seleccionado: item, // Usa la función helper
+      item: item
     }))
   );
 
@@ -286,8 +287,8 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
       );
     },
     precio: ({ value }: { value: number }) => (
-      <span className="font-medium">${value.toFixed(2)}</span>
-    )
+      <span className="font-medium font-semibold text-sm px-2 py-1 rounded flex items-center justify-center bg-blue-50 text-blue-600">${value.toFixed(2)}</span>
+    ),
   };
 
   console.log("Reservas con items:", reservas);
@@ -339,12 +340,12 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
                 No hay reservas con items pendientes de facturación
               </div>
             ) : (
-              <Table
+              <Table2
                 registros={tableData}
                 renderers={renderers}
                 maxHeight="400px"
                 customColumns={['seleccionado']}
-                leyenda="Some legend text"
+                leyenda=""
               />
             )}
           </div>

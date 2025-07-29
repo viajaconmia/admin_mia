@@ -5,8 +5,7 @@
     monto_pagado: number;
     forma_pago:
       | "transferencia"
-      | "tarjeta_de_credito"
-      | "tarjeta de debito"
+      | "tarjeta"
       | "wallet";
     is_facturable: boolean;
     referencia?: string;
@@ -48,7 +47,8 @@
     activo?: boolean | null;
       ult_digits: string| null,
     banco_tarjeta: string| null,
-    numero_autorizacion: string| null
+    numero_autorizacion: string | null
+    
   } 
 
   export class SaldoFavor {

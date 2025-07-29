@@ -341,7 +341,7 @@ export default function FacturasPage() {
               <label className="block mb-2 font-medium">Cliente</label>
               <input
                 type="text"
-                placeholder="Buscar cliente por nombre, email, RFC o razón social..."
+                placeholder="Buscar cliente por nombre, email o RFC..."
                 className={`w-full p-2 border rounded ${errors.clienteSeleccionado ? "border-red-500" : "border-gray-300"
                   }`}
                 value={cliente}
@@ -442,22 +442,37 @@ export default function FacturasPage() {
               {/* PDF */}
               <div className="border-2 border-dashed border-gray-300 p-6 rounded-lg bg-gray-50 hover:bg-gray-100 transition">
                 <label className="block text-gray-700 font-semibold mb-2">
-                  Archivo PDF (Opcional)
+                  Archivo PDF (Requerido)<span className="text-red-500">*</span>
                 </label>
 
                 <input
                   type="file"
-                  accept=".pdf"
-                  className="file:mr-4 file:py-2 file:px-4
-                  file:rounded-full file:border-0
-                  file:text-sm file:font-semibold
-                  file:bg-blue-500 file:text-white
-                  hover:file:bg-blue-600 transition"
+                  id="pdf-upload"
+                  accept="application/pdf,.pdf" // Añadido MIME type además de la extensión
+                  className="hidden"
                   onChange={(e) => {
                     const file = e.target.files?.[0] || null;
-                    setArchivoPDF(file); // SOLO guardar el archivo
+                    // Validación adicional del tipo de archivo
+                    if (file && file.type !== 'application/pdf') {
+                      alert('Por favor, sube solo archivos PDF');
+                      e.target.value = ''; // Limpiar el input
+                      setArchivoPDF(null);
+                      return;
+                    }
+                    setArchivoPDF(file);
                   }}
                 />
+
+                {/* Botón personalizado que activará el input */}
+                <label
+                  htmlFor="pdf-upload"
+                  className="inline-flex items-center px-4 py-2 bg-green-500 text-white rounded cursor-pointer hover:bg-green-600 transition"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                  </svg>
+                  Seleccionar archivo
+                </label>
 
                 <p className="text-sm text-gray-500 mt-2">
                   {archivoPDF ? archivoPDF.name : 'Sin archivos seleccionados'}
@@ -472,22 +487,30 @@ export default function FacturasPage() {
 
                 <input
                   type="file"
-                  accept=".xml"
-                  className="file:mr-4 file:py-2 file:px-4
-                  file:rounded-full file:border-0
-                  file:text-sm file:font-semibold
-                  file:bg-green-500 file:text-white
-                  hover:file:bg-green-600 transition"
+                  id="xml-upload"
+                  accept="text/xml,.xml,application/xml"
+                  className="hidden"  // Ocultamos el input
                   onChange={(e) => {
                     const file = e.target.files?.[0] || null;
-                    setArchivoXML(file); // SOLO guardar el archivo
-                    //RECUERDA QUE DEBES GURDAR LA URL PARA EL PAYLOAD
+                    if (file && !['text/xml', 'application/xml'].includes(file.type)) {
+                      alert('Por favor, sube solo archivos XML');
+                      e.target.value = '';
+                      setArchivoXML(null);
+                      return;
+                    }
+                    setArchivoXML(file);
                   }}
                 />
-
-                {errors.archivoXML && (
-                  <p className="text-red-500 text-sm mt-1">{errors.archivoXML}</p>
-                )}
+                {/* Botón personalizado que activará el input */}
+                <label
+                  htmlFor="xml-upload"
+                  className="inline-flex items-center px-4 py-2 bg-green-500 text-white rounded cursor-pointer hover:bg-green-600 transition"
+                >
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                  </svg>
+                  Seleccionar archivo
+                </label>
 
                 <p className="text-sm text-gray-500 mt-2">
                   {archivoXML ? archivoXML.name : 'Sin archivos seleccionados'}
@@ -518,9 +541,9 @@ export default function FacturasPage() {
               <button
                 onClick={handleEnviar}
                 className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
-                disabled={!cliente || !archivoXML || subiendoArchivos || !empresaSeleccionada}
+                disabled={!cliente || !archivoPDF || !archivoXML || subiendoArchivos || !empresaSeleccionada}
               >
-                {subiendoArchivos ? "Procesando..." : "Mostrar Vista Previa"}
+                {subiendoArchivos ? "Procesando..." : "Datos de factura"}
               </button>
             </div>
           </div>
