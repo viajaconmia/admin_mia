@@ -268,7 +268,9 @@ export const fetchAgentes = async (
   return data;
 };
 export const fetchAgenteById = async (id) => {
+
   const cleanId = id.split("?")[0];
+    console.log("ESTE DEBE SER ANGEL ", cleanId)
   console.log("id del fetch",id)
   const response = await fetch(`${URL}/mia/agentes/id?id=${cleanId}`, {
     headers: {

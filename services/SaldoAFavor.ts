@@ -78,8 +78,8 @@
         const errorText = await response.text();
         throw new Error(`Error ${response.status}: ${errorText}`);
       }
-
       return response.json();
+      
     }
 
     // Crear nuevo saldo a favor
@@ -118,11 +118,16 @@
 
     // Obtener pagos por agente
     static async getPagos(idAgente: string) {
+      console.log("🐨🐨🐨🐨🐨",this.request)
+
       return this.request<{ message: string, data: Saldo[] }>(
         `/${idAgente}`,
         {
           method: "GET"
+          
         }
+        
       );
     }
+
   }

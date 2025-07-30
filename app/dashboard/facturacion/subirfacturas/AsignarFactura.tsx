@@ -128,6 +128,7 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
 
       const data = await response.json();
       setReservas(data.data || []);
+      console.log("data", data)
     } catch (err) {
       console.error("Error fetching reservations:", err);
       setError(err.message || 'Error al cargar las reservas');

@@ -11,13 +11,10 @@ import {
   DollarSign,
   CreditCard,
   Calendar,
-  CheckSquare,
-  Square,
   X,
   Pencil,
   Trash2,
   Wallet,
-  ChartNoAxesColumnIcon
 } from "lucide-react";
 
 import { Table2 } from "@/components/organism/Table2";
@@ -29,6 +26,8 @@ import { fetchAgenteById, fetchPagosByAgente } from "@/services/agentes";
 import { Loader } from "@/components/atom/Loader";
 import { API_KEY, URL } from "@/lib/constants/index";
 import { PagarModalComponent } from './pagar_saldo';
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 
 import {
   CheckboxInput,
@@ -39,9 +38,6 @@ import {
   TextInput,
 } from "../atom/Input";
 
-//const [clients, setClient] = useState<Agente[]>([]);
-import { set } from "react-hook-form";
-import { render } from "react-dom";
 import { formatNumberWithCommas } from "@/helpers/utils";
 import { url } from "node:inspector";
 // ========================================
@@ -58,28 +54,6 @@ export const normalizeText = (text: string): string => {
     .toUpperCase(); // Convierte a mayúsculas
 };
 
-interface Reservation {
-  id: string;
-  clientName: string;
-  reservationDate: string;
-  totalAmount: number;
-  pendingAmount: number;
-  description: string;
-}
-
-interface PaymentAssignment {
-  reservationId: string;
-  assignedAmount: number;
-}
-
-// ========================================
-// SIMULACIÓN DE BACKEND
-// ========================================
-const simulateApiCall = <T,>(data: T, delay: number = 1000): Promise<T> => {
-  return new Promise((resolve) => {
-    setTimeout(() => resolve(data), delay);
-  });
-};
 
 // ========================================
 // COMPONENTE: MODAL DE PAGOS
@@ -154,173 +128,7 @@ const PaymentSummary: React.FC<PaymentSummaryProps> = ({
   );
 };
 
-// ========================================
-// COMPONENTE: TABLA DE RESERVACIONES
-// ========================================
-interface ReservationTableProps {
-  reservations: Reservation[];
-  assignments: PaymentAssignment[];
-  availableBalance: number;
-  onAssignmentChange: (reservationId: string, amount: number) => void;
-  onToggleReservation: (reservationId: string) => void;
-}
 
-
-const ReservationTable: React.FC<ReservationTableProps> = ({
-  reservations,
-  assignments,
-  availableBalance,
-  onAssignmentChange,
-  onToggleReservation,
-}) => {
-  const getMethodIcon = (method: string) => {
-    switch (method) {
-      case "credit_card":
-        return <CreditCard className="w-4 h-4" />;
-      case "bank_transfer":
-        return <DollarSign className="w-4 h-4" />;
-      default:
-        return <DollarSign className="w-4 h-4" />;
-    }
-  };
-
-  const isReservationSelected = (reservationId: string) => {
-    return assignments.some((a) => a.reservationId === reservationId);
-  };
-
-  const getAssignedAmount = (reservationId: string) => {
-    const assignment = assignments.find(
-      (a) => a.reservationId === reservationId
-    );
-    return assignment?.assignedAmount || 0;
-  };
-
-  return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-100">
-        <h3 className="text-lg font-semibold text-gray-800">
-          Asignar a Reservaciones
-        </h3>
-        <p className="text-sm text-gray-600 mt-1">
-          Selecciona las reservaciones y asigna montos del saldo a favor
-        </p>
-      </div>
-
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Cliente
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Fecha
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Total
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Pendiente
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Asignar
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {reservations.map((reservation) => {
-              const isSelected = isReservationSelected(reservation.id);
-              const assignedAmount = getAssignedAmount(reservation.id);
-              const maxAssignable = Math.min(
-                reservation.pendingAmount,
-                availableBalance + assignedAmount
-              );
-
-              return (
-                <tr
-                  key={reservation.id}
-                  className={`hover:bg-gray-50 transition-colors ${isSelected ? "bg-emerald-50" : ""
-                    }`}
-                >
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <button
-                      onClick={() => onToggleReservation(reservation.id)}
-                      className="text-emerald-600 hover:text-emerald-700 transition-colors"
-                    >
-                      {isSelected ? (
-                        <CheckSquare className="w-5 h-5" />
-                      ) : (
-                        <Square className="w-5 h-5" />
-                      )}
-                    </button>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">
-                        {reservation.clientName}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {reservation.description}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(reservation.reservationDate).toLocaleDateString(
-                      "es-MX"
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    $
-                    {reservation.totalAmount.toLocaleString("es-MX", {
-                      minimumFractionDigits: 2,
-                    })}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                      $
-                      {reservation.pendingAmount.toLocaleString("es-MX", {
-                        minimumFractionDigits: 2,
-                      })}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {isSelected && (
-                      <div className="flex items-center gap-2">
-                        <DollarSign className="w-4 h-4 text-gray-400" />
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          max={maxAssignable}
-                          value={assignedAmount || ""}
-                          onChange={(e) =>
-                            onAssignmentChange(
-                              reservation.id,
-                              parseFloat(e.target.value) || 0
-                            )
-                          }
-                          className="w-24 px-2 py-1 text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                          placeholder="0.00"
-                        />
-                        <span className="text-xs text-gray-500">
-                          Máx: $
-                          {maxAssignable.toLocaleString("es-MX", {
-                            minimumFractionDigits: 2,
-                          })}
-                        </span>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-};
 
 //========================================
 //comprobantes pagos
@@ -739,11 +547,11 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   const tableRenderers = {
 
     fecha_De_Pago: ({ value }: { value: Date | null }) => {
-      if (!value) return <div className="text-gray-400">N/A</div>;
+      if (!value) return <div className="text-gray-400 italic">Sin fecha</div>;
 
       return (
-        <div className="whitespace-nowrap">
-          {value.toISOString().split('T')[0]}
+        <div className="whitespace-nowrap text-sm text-blue-900">
+          {format(new Date(value), "dd 'de' MMMM yyyy", { locale: es })}
         </div>
       );
     },
@@ -753,21 +561,39 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       if (!value) return <div className="text-gray-400">N/A</div>;
 
       return (
-        <div className="whitespace-nowrap">
-          {value.toISOString().split('T')[0]}
+        <div className="whitespace-nowrap text-sm text-blue-900">
+          {format(new Date(value), "dd 'de' MMMM yyyy", { locale: es })}
         </div>
       );
     },
 
-    monto_pagado: ({ value, item }: { value: string, item: Saldo }) =>
-    (
-      <span
-        className={`font-semibold text-sm px-2 py-1 rounded flex items-center justify-center ${Boolean(item.activo) ? "bg-blue-50 text-blue-600" : "bg-red-100 text-red-600 line-through flex items-center justify-center"
-          }`}
-      >
-        ${formatNumberWithCommas(value)}
-      </span>
-    ),
+    monto_pagado: ({ value, item }: { value: string, item: Saldo }) => {
+      const isActive = Boolean(item?.activo);
+      return (
+        <span
+          className={`font-semibold text-sm px-2 py-1 rounded flex items-center justify-center
+        ${isActive ? "bg-blue-100 text-blue-600" : "bg-red-100 text-red-600 line-through"}`}
+        >
+          ${formatNumberWithCommas(value)}
+        </span>
+      );
+    },
+
+    saldo: ({ item }: { item: Saldo }) => {
+      const isActive = Boolean(item?.activo);
+      const isDifferent = item?.saldo !== item?.monto;
+      const value = item?.saldo?.toString() || "";
+
+      return (
+        <span
+          className={`font-semibold text-sm px-2 py-1 rounded flex items-center justify-center
+        ${isDifferent ? "bg-red-100 text-red-600" : "bg-blue-100 text-blue-600"}
+        ${!isActive ? "line-through" : ""}`}
+        >
+          ${formatNumberWithCommas(value)}
+        </span>
+      );
+    },
 
     id_Cliente: ({ item }: { item: Saldo }) => {
       const isActive = Boolean(item.activo);
@@ -782,19 +608,25 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       );
     },
 
-    descuentoAplicado: ({ value }: { value: number }) => (
-      <span className="text-red-500 flex items-center justify-center">
-        ${value.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-      </span>
-    ),
     tipo_tarjeta: ({ value, row }: { value: string | null, row: any }) => {
       const isActive = row?.activo !== false;
+      const lowerValue = value?.toLowerCase() || "";
+
+      let iconColor = "text-gray-500";
+      if (lowerValue.includes("crédito") || lowerValue.includes("credito")) iconColor = "text-green-600";
+      else if (lowerValue.includes("débito") || lowerValue.includes("debito")) iconColor = "text-blue-600";
+
+      const shouldShowIcon = !!value;
+
       return (
-        <div className={`max-w-xs truncate ${!isActive ? "text-red-500 line-through" : ""}`}>
-          {value ? normalizeText(value) : ''}
+        <div className={`flex items-center gap-2 max-w-xs truncate ${!isActive ? "text-red-500 line-through" : ""}`}>
+          {shouldShowIcon && <CreditCard className={`w-4 h-4 ${iconColor}`} />}
+          <span>{value ? normalizeText(value) : ""}</span>
         </div>
       );
     },
+
+
     forma_De_Pago: ({ value, row }: { value: string, row: any }) => {
       const isActive = row?.activo !== false;
       const normalizedValue = value.toLowerCase();
@@ -813,20 +645,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
           )}
           <span>{normalizeText(value)}</span>
         </div>
-      );
-    },
-
-    saldo: ({ item }: { item: Saldo }) => {
-      const isActive = Boolean(item?.activo);
-      // Comparar saldo con monto_pagado de la fila completa (row)
-      const isDifferent = item?.saldo !== item?.monto;
-      return (
-        <span className={`font-medium px-2 py-1 rounded flex items-center justify-center ${isDifferent
-          ? "bg-red-100 text-red-600"
-          : "bg-blue-100 text-blue-600"
-          } ${!isActive ? "line-through" : ""}`}>
-          ${item?.saldo ? formatNumberWithCommas(item.saldo.toString()) : ''}
-        </span>
       );
     },
 
@@ -895,12 +713,11 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     },
     aplicable: ({ value }: { value: 'Si' | 'No' }) => {
       return (
-        <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium flex items-center justify-center ${value === 'Si'
-          ? 'bg-green-200 text-green-1000'
+        <span className={`flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium w-full ${value === 'Si'
+          ? 'bg-green-200 text-green-800'
           : 'bg-red-200 text-red-800'
           }`}>
-          <span>{normalizeText(value)}</span>
-
+          <span className="text-center w-full">{normalizeText(value)}</span>
         </span>
       );
     },
@@ -934,11 +751,11 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
 
     facturable: ({ value }: { value: 'Si' | 'No' }) => {
       return (
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${value === 'Si'
-          ? 'bg-green-200 text-green-1000'
+        <span className={`flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium w-full ${value === 'Si'
+          ? 'bg-green-200 text-green-800'
           : 'bg-red-200 text-red-800'
           }`}>
-          <span>{normalizeText(value)}</span>
+          <span className="text-center w-full">{normalizeText(value)}</span>
         </span>
       );
     },
@@ -1160,7 +977,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             </Modal>
           )}
 
-          {/* Nuevo Botón para el Modal Personalizado */}
+          {/* Nuevo Botón para el Modal de asignar pagos */}
           {(row.activo === 1 || row.activo === true) && (
             <button
               className="p-1.5 rounded-md bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
@@ -1214,7 +1031,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
               </div>
             </div>
           )}
-          {/* Nuevo Modal Personalizado */}
+          {/* Nuevo Modal Pagar con saldo */}
           {isPagarModalOpen && (
             <Modal
               title={`Pagar Saldo - ${row.nombre}`}
@@ -1232,10 +1049,10 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
                   referencia: row.referencia,
                   comentario: row.comentario
                 }}
+                rowData={row} // Pasa el row completo como nueva prop
                 onClose={() => setIsPagarModalOpen(false)}
                 onSubmit={(data) => {
                   // Lógica para manejar el pago
-                  console.log('Datos del pago:', data);
                   setIsPagarModalOpen(false);
                 }}
               />
