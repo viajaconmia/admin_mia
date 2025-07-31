@@ -213,8 +213,8 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
         };
       } else {
         asignacionPayload = {
-          fecha_emision: facturaData.comprobante.fecha.split("T")[0],
-          estado: "En proceso",
+          fecha_emision: facturaData.comprobante.fecha.split("T")[0], // solo la fecha
+          estado: "Completada",
           usuario_creador: clienteSeleccionado.id_agente,
           id_agente: clienteSeleccionado.id_agente,
           total: parseFloat(facturaData.comprobante.total),

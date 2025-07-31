@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { DollarSign, CreditCard, Wallet, Banknote, X } from 'lucide-react';
 import { URL, API_KEY } from "@/lib/constants/index";
-import { Table2 } from "@/components/organism/Table2";
+import { Table3 } from "@/components/organism/Table3";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { formatNumberWithCommas } from "@/helpers/utils";
@@ -36,7 +36,8 @@ interface ReservaConItems {
     items: Array<{
       id_item: string;
       total: number;
-      saldo: number
+      saldo: number;
+      servicio: string;
     }>;
   };
 }
@@ -84,6 +85,8 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
   const [itemsSaldo, setItemsSaldo] = useState<Record<string, number>>({ "": 0 });
+  const [originalSaldoItems, setOriginalSaldoItems] = useState<Record<string, number>>({});
+
 
   useEffect(() => {
     if (saldoData.id_agente) {
@@ -112,6 +115,14 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
       }
       const data = await response.json();
       setReservas(data.data || []);
+
+      const initialOriginalSaldo: Record<string, number> = {};
+      data.data?.forEach((reserva: ReservaConItems) => {
+        reserva.items_info?.items?.forEach(item => {
+          initialOriginalSaldo[item.id_item] = item.saldo;
+        });
+      });
+      setOriginalSaldoItems(initialOriginalSaldo);
 
       // Inicializar itemsSaldo con los saldos originales
       const initialSaldo: Record<string, number> = {};
@@ -188,27 +199,12 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
     return selectedItems.some(item => item.id_item === id_item);
   };
 
-  const formatDate = (dateString: string): string => {
-    if (!dateString) return '';
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('es-MX', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-      });
-    } catch (e) {
-      console.error("Error formatting date:", e);
-      return dateString;
-    }
-  };
-
   const formatIdItem = (id: string): string => {
     if (!id) return '';
     return id.length > 4 ? `...${id.slice(-4)}` : id;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Función para formatear a 2 decimales
@@ -227,15 +223,19 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
         const itemData = tableData.find(td => td.id_item === item.id_item);
         const saldoItem = itemsSaldo[item.id_item] || 0;
         const totalItem = itemData?.total || 0;
+        const servicioItem = itemData?.id_servicio || '';
+        const saldoOriginal = originalSaldoItems[item.id_item] || 0; // Aquí usamos el saldo original
 
         // Calcular fracción (si saldo es 0, fraccionado es 0)
         const fraccionado = saldoItem === 0 ? 0 : formatToTwoDecimals(totalItem - saldoItem);
 
         return {
           total: formatToTwoDecimals(totalItem), // Total del item formateado
-          saldo: formatToTwoDecimals(saldoItem), // Saldo restante del item formateado
+          saldo: formatToTwoDecimals(saldoOriginal), // Usamos el saldo original aquí
+          saldonuevo: formatToTwoDecimals(saldoItem), // Saldo restante del item formateado
           id_item: item.id_item,
-          fraccion: fraccionado
+          fraccion: fraccionado,
+          id_servicio: servicioItem, // Servicio del item
         };
       })
     };
@@ -243,6 +243,27 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
     console.log('Payload:', payload);
     console.log('Payload:', JSON.stringify(payload));
 
+    await fetch(`${URL}/mia/pagos/aplicarpagoPorSaldoAFavor`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": API_KEY,
+      },
+      body: JSON.stringify(payload),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Error al aplicar el pago por saldo a favor");
+        }
+        return response.json();
+      })
+      .then((data) => {
+        console.log("Respuesta del servidor:", data);
+        // Aquí puedes realizar acciones adicionales si fue exitoso
+      })
+      .catch((error) => {
+        console.error("Error en la petición:", error);
+      });
 
     onSubmit({
       ...formData,
@@ -255,6 +276,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
   const tableData = reservas.flatMap(reserva =>
     (reserva.items_info?.items || []).map(item => ({
       id_item: item.id_item,
+      id_servicio: item.servicio,
       codigo_reservacion: reserva.codigo_reservacion_hotel,
       hotel: reserva.nombre_hotel,
       viajero: reserva.viajero,
@@ -272,11 +294,15 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
         {formatIdItem(value)}
       </span>
     ),
+    id_servicio: ({ value }: { value: string }) => (
+      <span className="font-mono bg-gray-100 px-2 py-1 rounded text-sm">
+        {formatIdItem(value)}
+      </span>
+    ),
     seleccionado: ({ value }: { value: TableRow }) => (
       <input
         type="checkbox"
         checked={isItemSelected(value.id_item)}
-        disabled={saldoData.saldo < value.total}
         onChange={() => handleItemSelection(value.id_item, value.saldo)}
         className={`h-4 w-4 focus:ring-blue-500 border-gray-300 rounded`}
       />
@@ -286,16 +312,27 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
         ${value}
       </span>
     ),
-    fecha_uso: ({ value }: { value: string }) => (
-      <span className="text-sm text-gray-600">
-        {formatDate(value)}
-      </span>
-    ),
-    checkout: ({ value }: { value: string }) => (
-      <span className="text-sm text-gray-600">
-        {formatDate(value)}
-      </span>
-    ),
+    // Formateador unificado
+    fecha_uso: ({ value }: { value: string | null }) => {
+      if (!value) return <div className="text-gray-400 italic">Sin fecha</div>;
+
+      return (
+        <div className="whitespace-nowrap text-sm text-blue-900">
+          {format(new Date(value), "dd 'de' MMMM yyyy", { locale: es })}
+        </div>
+      );
+    },
+
+    checkout: ({ value }: { value: string | null }) => {
+      if (!value) return <div className="text-gray-400 italic">Sin fecha</div>;
+
+      return (
+        <div className="whitespace-nowrap text-sm text-blue-900">
+          {format(new Date(value), "dd 'de' MMMM yyyy", { locale: es })}
+        </div>
+      );
+    },
+
     hotel: ({ value }: { value: string }) => (
       <span className="font-medium text-gray-800">
         {value}
@@ -313,14 +350,20 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
     ),
   };
   console.log("reservas", reservas)
+
   return (
     <div className="p-6">
-      <div className=" gap-6 mb-6">
-        <div className="bg-blue-50 p-4">
-          <h3 className=" text-blue-800 mb-2">Información del Saldo</h3>
-          <p className="text-sm"><span className="font-medium">Nombre Agente:</span> {saldoData.nombre}</p>
-          <p className="text-sm"><span className="font-medium">Monto Total:</span> ${saldoData.monto}</p>
-
+      <div className="max-w-md bg-white rounded-2xl shadow-md border border-blue-100">
+        <div className="bg-blue-50 rounded-t-2xl px-6 py-4 border-b border-blue-100">
+          <h3 className="text-blue-800 text-lg font-semibold">💰 Información del Saldo</h3>
+        </div>
+        <div className="px-6 py-4 space-y-2">
+          <p className="text-sm text-gray-700">
+            <span className="font-semibold text-gray-900">Nombre del Agente:</span> {saldoData.nombre}
+          </p>
+          <p className="text-sm text-gray-700">
+            <span className="font-semibold text-gray-900">Monto Total:</span> <span className="text-green-600 font-bold">${Number(saldoData.monto).toFixed(2)}</span>
+          </p>
 
           <div className="mt-4 pt-4 border-t border-blue-100">
             <div className="flex justify-between">
@@ -354,11 +397,11 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
             No hay reservas con items pendientes
           </div>
         ) : (
-          <Table2
+          <Table3
             registros={tableData}
             renderers={renderers}
             maxHeight="400px"
-            customColumns={['seleccionado', 'id_item', 'codigo', 'descripcion', 'fecha_uso', 'checkout', 'saldo']}
+            customColumns={['seleccionado', 'codigo', 'hotel', 'fecha_uso', 'total', 'saldo']}
           />
         )}
       </div>

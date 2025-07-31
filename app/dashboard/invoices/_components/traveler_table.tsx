@@ -344,7 +344,7 @@ export function TravelerTable({ facturas }: { facturas: Factura[] }) {
                 {`${factura.nombre}`}
               </TableCell>
               <TableCell className="font-medium">
-                {`${factura.id_facturama}`}
+                {`${factura.id_facturama || "Carga Manual"}`}
               </TableCell>
               <TableCell>{factura.total}</TableCell>
               <TableCell>{factura.subtotal}</TableCell>
@@ -476,11 +476,19 @@ export function TravelerTable({ facturas }: { facturas: Factura[] }) {
             setFacturaEmpresa(null);
           }}
           id_factura={facturaAsignando}
-          clienteSeleccionado={facturaAgente} // Pasamos el id_agente como clienteSeleccionado
-          facturaData={facturaData} // Pasamos el objeto completo de la factura
+          clienteSeleccionado={facturaAgente}
+          facturaData={facturaData}
           onAssign={() => { }}
           onCloseVistaPrevia={() => { }}
           empresaSeleccionada={FacturaEmpresa}
+        />
+      )}
+
+      {/* Modal de detalles de factura */}
+      {isModalOpen && (
+        <FacturaDetails
+          setModal={setIsModalOpen}
+          id_factura={isModalOpen}
         />
       )}
     </Table>
