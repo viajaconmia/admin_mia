@@ -36,7 +36,8 @@ interface ReservaConItems {
     items: Array<{
       id_item: string;
       total: number;
-      saldo: number
+      saldo: number;
+      servicio:string;
     }>;
   };
 }
@@ -227,6 +228,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
         const itemData = tableData.find(td => td.id_item === item.id_item);
         const saldoItem = itemsSaldo[item.id_item] || 0;
         const totalItem = itemData?.total || 0;
+        const servicioItem = itemData?.servicio || '';
 
         // Calcular fracción (si saldo es 0, fraccionado es 0)
         const fraccionado = saldoItem === 0 ? 0 : formatToTwoDecimals(totalItem - saldoItem);
@@ -235,7 +237,8 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
           total: formatToTwoDecimals(totalItem), // Total del item formateado
           saldo: formatToTwoDecimals(saldoItem), // Saldo restante del item formateado
           id_item: item.id_item,
-          fraccion: fraccionado
+          fraccion: fraccionado,
+          id_servicio: servicioItem, // Servicio del item
         };
       })
     };
@@ -261,6 +264,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
       fecha_uso: reserva.check_in,
       total: item.total,
       //cambiar por el de ian al tenerlo
+      servicio:item.servicio,
       saldo: itemsSaldo[item.id_item] !== undefined ? itemsSaldo[item.id_item] : item.saldo,
       seleccionado: item,
       item: item
