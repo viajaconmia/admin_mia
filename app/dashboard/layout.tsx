@@ -9,6 +9,7 @@ import {
   Receipt,
   Clock,
   Shield,
+  BadgeDollarSign,
 } from "lucide-react";
 import NavContainer from "@/components/organism/NavContainer";
 import ProtectedRoute from "@/components/ProtectedRoute";
@@ -76,17 +77,12 @@ const links = [
     icon: CreditCard,
   },
   {
-    title: "Cuentas por cobrar",
-    href: "/dashboard/cuentas-cobrar",
-    icon: Clock,
-  },
-  {
     title: "Facturas",
     href: "/dashboard/invoices",
     icon: Receipt,
   },
   {
-    title: "Facturas pendientes",
+    title: "Items sin facturar",
     href: "/dashboard/facturacion",
     icon: Receipt,
   },
@@ -100,9 +96,14 @@ const links = [
     href: "/dashboard/viajeros",
     icon: Users,
   },
-  // {
-  //   title: "Saldo a Favor",
-  //   href: "/dashboard/saldo-a-favor",
-  //   icon: Banknote,
-  // },
+  {
+    title: "Aplicación de saldo",
+    href: "/dashboard/aplicacion-saldo",
+    icon: BadgeDollarSign,
+  },
+  {
+    title: "Cuentas por cobrar",
+    href: "/dashboard/cuentas-cobrar",
+    icon: FileText,
+  },
 ];

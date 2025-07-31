@@ -56,12 +56,14 @@ const Modal: React.FC<ModalProps> = ({
           ×
         </button>
         <div className="p-4 space-y-2">
-          {title && (
-            <h3 className="text-lg leading-6 font-medium text-gray-900">
-              {title}
-            </h3>
-          )}
-          {subtitle && <p className="text-sm text-gray-500">{subtitle}</p>}
+          <div className="border-b border-gray-200 pb-4">
+            {title && (
+              <h3 className="text-lg leading-6 font-medium text-gray-900">
+                {title}
+              </h3>
+            )}
+            {subtitle && <p className="text-sm text-gray-500">{subtitle}</p>}
+          </div>
           <div className="w-full max-h-[630px] overflow-y-auto relative">
             {children}
           </div>

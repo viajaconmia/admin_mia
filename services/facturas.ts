@@ -1,5 +1,5 @@
 import { API_KEY, URL } from "@/lib/constants";
-import { SuccessResponse, ErrorResponse } from "@/types";
+import { SuccessResponse, ErrorResponse, TypeFilters } from "@/types";
 
 export const fetchIsFacturada = async (
   id_hospedaje: string
@@ -44,3 +44,45 @@ export const fetchIsFacturada = async (
     throw error;
   }
 };
+
+export const fetchFacturas = async (
+  filters : TypeFilters,
+  callback: (data: any[]) => void) =>{
+    try {
+      console.log("Preparando filtros:", filters);
+      const payload = Object.entries(filters).reduce((acc, [key, value]) => {
+        if (typeof value === "boolean") {
+          return { ...acc, [key]: value ? 1 : 0 };
+        }
+        if (value !== null && value !== undefined && value !== "") {
+          return { ...acc, [key]: value };
+        }
+        return acc;
+      }, {});
+
+      console.log("Payload enviado:", payload);
+
+      const response = await fetch(`${URL}/mia/factura/filtrarFacturas`, {
+        method: "POST",
+        headers: {
+          "x-api-key": API_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const errorData: ErrorResponse = await response.json();
+        console.error("Error al cargar las facturas:", errorData.error);
+        throw new Error(
+          `Error al cargar las facturas: ${errorData.error}`
+        );
+      }
+      const {data} = await response.json()
+      callback(data);
+
+    } catch (error) {
+      console.error("Error en fetchFacturas:", error);
+      callback([]);
+      throw error;
+    }
+  }

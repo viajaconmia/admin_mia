@@ -1,6 +1,15 @@
-import { getCompaniesAgent, getCompaniesAgentViajeros, getEmpresasDatosFiscales, getPaymentMethods, getCreditAgent, getPagosAgente, getHoteles, getPendientesAgente } from "./useDatabase";
+import {
+  getCompaniesAgent,
+  getCompaniesAgentViajeros,
+  getEmpresasDatosFiscales,
+  getPaymentMethods,
+  getCreditAgent,
+  getPagosAgente,
+  getHoteles,
+  getPendientesAgente,
+} from "./useDatabase";
 
-export const fetchCompaniesAgent = async (user_id:string) => {
+export const fetchCompaniesAgent = async (user_id: string) => {
   try {
     const companiesData = await getCompaniesAgent(user_id);
     return companiesData.data || [];
@@ -10,7 +19,7 @@ export const fetchCompaniesAgent = async (user_id:string) => {
   }
 };
 
-export const fetchViajerosCompanies = async (user_id:string) => {
+export const fetchViajerosCompanies = async (user_id: string) => {
   try {
     const employeesData = await getCompaniesAgentViajeros(user_id);
     return employeesData.data || [];
@@ -20,7 +29,7 @@ export const fetchViajerosCompanies = async (user_id:string) => {
   }
 };
 
-export const fetchEmpresasDatosFiscales = async (user_id:string) => {
+export const fetchEmpresasDatosFiscales = async (user_id: string) => {
   try {
     const employeesData = await getEmpresasDatosFiscales(user_id);
     return employeesData.data || [];
@@ -30,7 +39,7 @@ export const fetchEmpresasDatosFiscales = async (user_id:string) => {
   }
 };
 
-export const fetchPaymentMethods = async (user_id:string) => {
+export const fetchPaymentMethods = async (user_id: string) => {
   try {
     const paymentMehtods = await getPaymentMethods(user_id);
     return paymentMehtods || [];
@@ -40,7 +49,7 @@ export const fetchPaymentMethods = async (user_id:string) => {
   }
 };
 
-export const fetchCreditAgent = async (user_id:string) => {
+export const fetchCreditAgent = async (user_id: string) => {
   try {
     const creditData = await getCreditAgent(user_id);
     return creditData || [];
@@ -50,7 +59,7 @@ export const fetchCreditAgent = async (user_id:string) => {
   }
 };
 
-export const fetchPagosAgent = async (user_id:string) => {
+export const fetchPagosAgent = async (user_id: string) => {
   try {
     const paymentData = await getPagosAgente(user_id);
 
@@ -62,7 +71,7 @@ export const fetchPagosAgent = async (user_id:string) => {
   }
 };
 
-export const fetchPendientesAgent = async (user_id:string) => {
+export const fetchPendientesAgent = async (user_id: string) => {
   try {
     const paymentData = await getPendientesAgente(user_id);
 
@@ -74,7 +83,7 @@ export const fetchPendientesAgent = async (user_id:string) => {
   }
 };
 
-export const fetchHoteles = async (user_id:string) => {
+export const fetchHoteles = async (user_id: string) => {
   try {
     const hotelsData = await getHoteles();
 
@@ -84,4 +93,4 @@ export const fetchHoteles = async (user_id:string) => {
     console.error("Error fetching hoteles:", error);
     return [];
   }
-}
+};

@@ -1,9 +1,9 @@
 import { Suspense } from "react";
 import { TravelersPage } from "./_components/traveler_main";
-import { API_KEY } from "@/lib/constants";
+import { API_KEY, URL } from "@/lib/constants";
 
 export default async function TravelerDashboard() {
-  const endpoint = "https://miaback.vercel.app/v1/mia/factura/consultasAll";
+  const endpoint = `${URL}/mia/factura/consultasAll`;
   try {
     const response = await fetch(endpoint, {
       method: "GET",

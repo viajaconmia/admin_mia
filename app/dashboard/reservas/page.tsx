@@ -2,9 +2,9 @@
 
 import React, { Children, useEffect, useState } from "react";
 import { Building2, DollarSign, Pencil, TriangleAlert } from "lucide-react";
-import { ReservationForm } from "../../../components/organism/FormReservation";
+import { ReservationForm2 } from "../../../components/organism/FormReservation2";
 import Filters from "@/components/Filters";
-import { fetchSolicitudes } from "@/services/solicitudes";
+import { fetchSolicitudes2 } from "@/services/solicitudes";
 import {
   calcularNoches,
   copyToClipboard,
@@ -18,15 +18,16 @@ import {
 import { Table } from "@/components/Table";
 import { fetchHoteles } from "@/services/hoteles";
 import Modal from "@/components/organism/Modal";
-import { TypeFilters, Solicitud } from "@/types";
+import { TypeFilters, Solicitud, Solicitud2 } from "@/types";
 import { Loader } from "@/components/atom/Loader";
 import { PaymentModal } from "@/components/organism/PaymentProveedor/PaymentProveedor";
 import { currentDate } from "@/lib/utils";
 import { fetchIsFacturada } from "@/services/facturas";
+import { Table2 } from "@/components/organism/Table2";
 
 function App() {
-  const [allSolicitudes, setAllSolicitudes] = useState<Solicitud[]>([]);
-  const [selectedItem, setSelectedItem] = useState<Solicitud | null>(null);
+  const [allSolicitudes, setAllSolicitudes] = useState<Solicitud2[]>([]);
+  const [selectedItem, setSelectedItem] = useState<Solicitud2 | null>(null);
   const [searchTerm, setSearchTerm] = useState<string | null>("");
   const [loading, setLoading] = useState(false);
   const [hoteles, setHoteles] = useState([]);
@@ -36,53 +37,62 @@ function App() {
     defaultFiltersSolicitudes
   );
 
-  const handleEdit = (item: Solicitud) => {
+  const handleEdit = (item: Solicitud2) => {
     setSelectedItem(item);
     setModificar(true);
   };
-  const handlePagar = (item: Solicitud) => {
+  const handlePagar = (item: Solicitud2) => {
     setSelectedItem(item);
     setPagar(true);
   };
 
-  let formatedSolicitudes = allSolicitudes
-    .filter(
-      (item) =>
-        item.hotel.toUpperCase().includes(searchTerm) ||
-        item.nombre_agente_completo.toUpperCase().includes(searchTerm) ||
-        item.nombre_viajero_completo.toUpperCase().includes(searchTerm)
-    )
-    .map((item) => ({
-      id_cliente: item.id_agente,
-      cliente: (item?.razon_social || "").toUpperCase(),
-      creado: item.created_at,
-      hotel: item.hotel.toUpperCase(),
-      codigo_hotel: item.codigo_reservacion_hotel,
-      viajero: (
-        item.nombre_viajero_completo ||
-        item.nombre_viajero ||
-        ""
-      ).toUpperCase(),
-      check_in: item.check_in,
-      check_out: item.check_out,
-      noches: calcularNoches(item.check_in, item.check_out),
-      habitacion: formatRoom(item.room),
-      costo_proveedor: Number(item.costo_total) || 0,
-      markup:
-        ((Number(item.total || 0) - Number(item.costo_total || 0)) /
-          Number(item.total || 0)) *
-        100,
-      precio_de_venta: parseFloat(item.total),
-      metodo_de_pago: `${item.id_credito ? "credito" : "contado"}`,
-      reservante: item.id_usuario_generador ? "Cliente" : "Operaciones",
-      etapa_reservacion: item.estado_reserva,
-      estado_pago_proveedor: "",
-      estado_factura_proveedor: "",
-      estado: item.status,
-      detalles_cliente: item.id_solicitud || "",
-      editar: item,
-      pagar: item,
-    }));
+  let formatedSolicitudes = Array.isArray(allSolicitudes)
+    ? allSolicitudes
+        .filter(
+          (item) =>
+            (item.hotel_reserva?.toUpperCase() || "").includes(
+              searchTerm || ""
+            ) ||
+            (item.nombre_cliente?.toUpperCase() || "").includes(
+              searchTerm || ""
+            ) ||
+            (item.nombre_viajero_reservacion?.toUpperCase() || "").includes(
+              searchTerm || ""
+            )
+        )
+        .map((item) => ({
+          id_cliente: item.id_agente,
+          cliente: item.nombre_cliente || "",
+          creado: item.created_at_reserva,
+          hotel: item.hotel_reserva || "",
+          codigo_hotel: item.codigo_reservacion_hotel,
+          viajero: item.nombre_viajero_reservacion || "",
+          check_in: item.check_in,
+          check_out: item.check_out,
+          noches: calcularNoches(item.check_in, item.check_out),
+          // habitacion: formatRoom(item.room),
+          tipo_cuarto: formatRoom(item.tipo_cuarto),
+          costo_proveedor: Number(item.costo_total) || 0,
+          markup:
+            ((Number(item.total || 0) - Number(item.costo_total || 0)) /
+              Number(item.total || 0)) *
+            100,
+          precio_de_venta: parseFloat(item.total),
+          metodo_de_pago: item.metodo_pago_dinamico,
+          reservante:
+            item.quien_reservó === "CREADA POR OPERACIONES"
+              ? "Operaciones"
+              : "Cliente",
+          etapa_reservacion: item.etapa_reservacion,
+          estado_pago_proveedor: "",
+          estado_factura_proveedor: "",
+          estado: item.status_reserva,
+          detalles_cliente: "",
+          editar: "",
+          pagar: "",
+          item,
+        }))
+    : [];
 
   let componentes = {
     reservante: ({ value }: { value: string | null }) =>
@@ -91,10 +101,10 @@ function App() {
       getStageBadge(value),
     metodo_de_pago: ({ value }: { value: null | string }) =>
       getPaymentBadge(value),
-    detalles_cliente: ({ value }: { value: null | string }) => (
+    detalles_cliente: ({ item }: { item: Solicitud2 }) => (
       <span className="font-semibold text-sm flex items-center gap-2 w-full">
         <a
-          href={`https://www.viajaconmia.com/reserva/${value}`}
+          href={`https://www.viajaconmia.com/reserva/${item.id_solicitud}`}
           target="_blank"
           rel="noopener noreferrer"
           className="text-blue-600 hover:underline"
@@ -103,7 +113,9 @@ function App() {
         </a>
         <button
           onClick={() => {
-            copyToClipboard(`https://www.viajaconmia.com/reserva/${value}`);
+            copyToClipboard(
+              `https://www.viajaconmia.com/reserva/${item.id_solicitud}`
+            );
           }}
           className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition"
         >
@@ -132,20 +144,20 @@ function App() {
     codigo_hotel: (props: any) => (
       <span className="font-semibold">{props.value}</span>
     ),
-    editar: (props: any) => (
+    editar: ({ item }: { item: Solicitud2 }) => (
       <button
-        onClick={() => handleEdit(props.value)}
+        onClick={() => handleEdit(item)}
         className="text-blue-600 hover:text-blue-900 transition duration-150 ease-in-out flex gap-2 items-center"
       >
         <Pencil className="w-4 h-4" />
         Editar
       </button>
     ),
-    pagar: (props: { value: Solicitud }) => (
+    pagar: ({ item }: { item: Solicitud2 }) => (
       <>
-        {props.value.status == "complete" && (
+        {item.status_reserva == "Confirmada" && (
           <button
-            onClick={() => handlePagar(props.value)}
+            onClick={() => handlePagar(item)}
             className="text-blue-600 hover:text-blue-900 transition duration-150 ease-in-out flex gap-2 items-center"
           >
             <DollarSign className="w-4 h-4" />
@@ -183,8 +195,16 @@ function App() {
 
   const handleFetchSolicitudes = () => {
     setLoading(true);
-    fetchSolicitudes(filters, { id_booking: "Active" }, (data) => {
-      setAllSolicitudes(data);
+
+    // Solo envía los filtros que tengan valor
+    const payload = Object.entries(filters)
+      .filter(
+        ([_, value]) => value !== undefined && value !== null && value !== ""
+      )
+      .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {});
+
+    fetchSolicitudes2(payload, {}, (data) => {
+      setAllSolicitudes(data || []);
       setLoading(false);
     });
   };
@@ -220,12 +240,12 @@ function App() {
           {loading ? (
             <Loader></Loader>
           ) : (
-            <Table
+            <Table2<Solicitud2>
               registros={formatedSolicitudes}
               renderers={componentes}
               defaultSort={defaultSort}
               leyenda={`Haz filtrado ${allSolicitudes.length} Reservas`}
-            ></Table>
+            ></Table2>
           )}
         </div>
         {selectedItem && modificar && (
@@ -238,7 +258,7 @@ function App() {
             subtitle="Modifica los detalles de una reservación anteriormente procesada."
           >
             <ModalVerificacion selectedItem={selectedItem}>
-              <ReservationForm
+              <ReservationForm2
                 hotels={hoteles}
                 solicitud={selectedItem}
                 onClose={() => {
@@ -271,7 +291,7 @@ const ModalVerificacion = ({
   selectedItem,
   children,
 }: {
-  selectedItem: Solicitud;
+  selectedItem: Solicitud2;
   children: React.ReactNode;
 }) => {
   const [loading, setLoading] = useState(false);

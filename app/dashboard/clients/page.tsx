@@ -30,9 +30,10 @@ import { UsersClient } from "./_components/UsersClient";
 import { PageReservasClientes } from "@/components/template/PageReservaClient";
 import PageCuentasPorCobrar from "@/components/template/PageCuentasPorCobrar";
 import { ToolTip } from "@/components/atom/ToolTip";
+import { set } from "date-fns";
 
 function App() {
-  const [clients, setClient] = useState<Agente[]>([]);
+  const [clients, setClient] = useState<(Agente)[]>([]);
   const [selectedItem, setSelectedItem] = useState<Agente | null>(null);
   const [searchTerm, setSearchTerm] = useState<string | null>("");
   const [loading, setLoading] = useState(false);
@@ -44,8 +45,11 @@ function App() {
 
   let formatedSolicitudes = clients
     .filter(
-      (item) => item.nombre_agente_completo.toUpperCase().includes(searchTerm)
+      (item) =>
+        item.nombre_agente_completo.toUpperCase().includes(searchTerm) ||
+        item.id_agente.toUpperCase().replaceAll("-", "").includes(searchTerm)
       // item.correo.to
+
     )
     .map((item) => ({
       creado: item.created_at,
@@ -56,6 +60,7 @@ function App() {
       estado_verificacion: "",
       estado_credito: Boolean(item.tiene_credito_consolidado),
       credito: item.saldo ? Number(item.saldo) : 0,
+      wallet: item.wallet ? parseFloat(item.wallet) : 0,
       categoria: "Administrador",
       notas_internas: item.notas || "",
       vendedor: item.vendedor || "",
@@ -74,18 +79,21 @@ function App() {
       </span>
     ),
     cliente: ({ value }: { value: Agente }) => (
-      <ToolTip
-        content={value.nombre_agente_completo.toUpperCase()}
-        onClick={() => {
-          setSelectedItem(value);
-        }}
-        className="cursor-pointer hover:underline"
-      >
-        <span>{value.nombre_agente_completo}</span>
-      </ToolTip>
+      <div className="border h-full">
+        <ToolTip
+          content={value.nombre_agente_completo.toUpperCase()}
+          onClick={() => {
+            setSelectedItem(value);
+          }}
+          className="cursor-pointer hover:underline p-2"
+        >
+          <span>{value.nombre_agente_completo}</span>
+        </ToolTip>
+      </div>
     ),
     estado_credito: (props) => getStatusCreditBadge(props.value),
     credito: (props: { value: number }) => getCreditoBadge(props.value),
+    wallet: (props: { value: number }) => <>{props.value}</>,
     categoria: (props: { value: string }) => getRoleBadge(props.value),
     notas_internas: ({ value }: { value: string }) => (
       <ToolTip content={value.toUpperCase()}>
@@ -118,6 +126,7 @@ function App() {
         </span>
       </button>
     ),
+
     detalles: ({ value }: { value: Agente }) => (
       <button
         onClick={() => {
@@ -181,7 +190,10 @@ function App() {
       tab: "wallet",
       icon: Wallet,
       component: (
-        <PageCuentasPorCobrar agente={selectedItem}></PageCuentasPorCobrar>
+        <PageCuentasPorCobrar
+          agente={selectedItem}
+          walletAmount={selectedItem?.wallet ? parseFloat(selectedItem.wallet) : 0}
+        />
       ),
     },
     {
@@ -259,7 +271,7 @@ function App() {
             setSelectedItem(null);
             setDefaultTab("");
           }}
-          title="Datos del cliente"
+          title={`${selectedItem.nombre_agente_completo}`}
           subtitle="Puedes ver y editar los datos del cliente desde aqui"
         >
           <NavContainer

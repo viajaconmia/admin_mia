@@ -2,7 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, User, PencilIcon, Save, CreditCard } from "lucide-react";
+import {
+  Building2,
+  User,
+  PencilIcon,
+  Save,
+  CreditCard,
+  ExternalLink,
+} from "lucide-react";
 import { createNewEmpresa, updateViajero } from "@/hooks/useDatabase";
 import { formatDate } from "@/helpers/utils";
 import {
@@ -15,8 +22,10 @@ import {
 } from "@/components/atom/Input";
 import {
   fetchEmpresasAgentes,
+  fetchInitSuperAgent,
   fetchUpdateEmpresasAgentes,
 } from "@/services/agentes";
+import Modal from "@/components/organism/Modal";
 
 export function AgentDetailsCard({ agente }: { agente: Agente }) {
   const [edicion, setEdicion] = useState({
@@ -25,6 +34,7 @@ export function AgentDetailsCard({ agente }: { agente: Agente }) {
     agente: {},
   });
   const [empresas, setEmpresas] = useState<EmpresaFromAgent[]>([]);
+  const [link, setLink] = useState<null | string>(null);
   const [form, setForm] = useState({
     numero_empleado: agente.numero_empleado || "",
     vendedor: agente.vendedor || "",
@@ -71,6 +81,12 @@ export function AgentDetailsCard({ agente }: { agente: Agente }) {
     });
   };
 
+  const handleSuperAgent = (email: string) => {
+    fetchInitSuperAgent(email, (data) => {
+      setLink(data.link);
+    });
+  };
+
   useEffect(() => {
     if (agente.id_agente) {
       fetchEmpresasAgentes(agente.id_agente, (data) => {
@@ -81,8 +97,18 @@ export function AgentDetailsCard({ agente }: { agente: Agente }) {
 
   return (
     <Card className="w-full mx-auto border-none shadow-none hover:shadow-none">
-      <CardHeader className="flex flex-row items-center gap-2 space-y-0">
+      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
         <CardTitle className="text-xl font-bold">Detalles del Agente</CardTitle>
+        <button
+          onClick={() => {
+            handleSuperAgent(agente.correo);
+          }}
+          className="hover:underline font-medium"
+        >
+          <span className="text-red-600 hover:underline cursor-pointer">
+            Soporte
+          </span>
+        </button>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Información Personal */}
@@ -391,6 +417,27 @@ export function AgentDetailsCard({ agente }: { agente: Agente }) {
           </button>
         </div>
       </CardContent>
+      {link && (
+        <Modal
+          onClose={() => {
+            setLink(null);
+          }}
+          title="Soporte al cliente"
+          subtitle="Da click para ir al perfil del cliente"
+        >
+          <div className="w-96 h-16 flex justify-center items-center">
+            <a
+              href={link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2"
+            >
+              <ExternalLink className="w-4 h-4 mr-2" />
+              Ir al perfil
+            </a>
+          </div>
+        </Modal>
+      )}
     </Card>
   );
 }

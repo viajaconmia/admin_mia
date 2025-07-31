@@ -9,9 +9,18 @@ export interface TypeFilters {
   endDate?: string | null;
   recordCount?: string | null;
   empresa?: string | null;
+  hasDiscount?: string | null;
   status?: "Confirmada" | "Pendiente" | "Cancelada" | "Todos" | null;
   reservationStage?: "Reservado" | "In house" | "Check-out" | null;
-  paymentMethod?: "Credito" | "Contado" | null;
+  paymentMethod?:
+    | "Tarjeta Debito"
+    | "Tarjeta Credito"
+    | ""
+    | "Credito"
+    | "Contado"
+    | "Wallet"
+    | "Tranferencia"
+    | null;
   filterType?:
     | "Check-in"
     | "Check-out"
@@ -55,6 +64,18 @@ export interface TypeFilters {
   notas?: string | null;
   startCantidad?: number | null;
   endCantidad?: number | null;
+  id_stripe?: string | null;
+  facturable?: boolean | null;
+  comprobante?: boolean | null; 
+  paydate?: string | null;
+  estatusFactura ?: "Confirmada" |"Cancelada" |"En proceso"| "Sin Asignar" | null;
+}
+
+export interface EmpresaFromAgent {
+  id?: string|null;
+  razon_social?: string | null;
+  rfc?: string | null;
+    [key: string]: any; // Para propiedades adicionales
 }
 
 export type Solicitud = {
@@ -94,6 +115,50 @@ export type Solicitud = {
   //viajeros_adicionales ?: string[];
   viajeros_adicionales?: string[];
 };
+//TEMPORAL
+
+export interface Solicitud2 {
+  id_agente: string;
+  id_servicio: string;
+  id_solicitud: string;
+  id_hospedaje: string;
+  id_hotel_solicitud: string;
+  id_hotel_reserva: string;
+  id_viajero_solicitud: string;
+  id_viajero_reserva: string;
+  id_booking: string;
+  id_pago: string | null;
+  id_credito: string | null;
+  id_factura: string | null;
+  id_facturama: string | null;
+  status_solicitud: string;
+  status_reserva: string;
+  etapa_reservacion: string;
+  created_at_solicitud: string;
+  created_at_reserva: string;
+  hotel_solicitud: string;
+  hotel_reserva: string;
+  check_in: string;
+  check_out: string;
+  room: string;
+  tipo_cuarto: string;
+  total: string;
+  quien_reservó: string;
+  nombre_viajero_solicitud: string;
+  nombre_viajero_reservacion: string;
+  updated_at: string;
+  costo_total: string;
+  comments: string;
+  confirmation_code: string;
+  codigo_reservacion_hotel: string;
+  metodo_pago_dinamico: string;
+  nombre_cliente: string;
+  correo: string;
+  telefono: string;
+  rfc: string | null;
+  tipo_persona: string;
+  viajeros_acompañantes: string[] | null;
+}
 
 export interface Tax {
   id_impuesto: number;
