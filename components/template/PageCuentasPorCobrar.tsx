@@ -17,7 +17,7 @@ import {
   Wallet,
 } from "lucide-react";
 
-import { Table2 } from "@/components/organism/Table2";
+import { Table3 } from "@/components/organism/Table3";
 import Filters from "@/components/Filters";
 import { TypeFilters } from "@/types";
 import Modal from "../organism/Modal";
@@ -279,7 +279,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   });
 
   console.log("wallet", walletAmount);
-  const [localWalletAmount, setLocalWalletAmount] = useState(0);
+  const [localWalletAmount, setLocalWalletAmount] = useState(walletAmount);
   console.log("agente", agente.wallet)
   console.log("local", localWalletAmount)
 
@@ -348,18 +348,21 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     try {
       setLoading(prev => ({ ...prev, agente: true }));
       const agenteActualizado = await fetchAgenteById(agente.id_agente);
-      console.log("agende.id", agente.id_agente)
-      console.log("info", agenteActualizado)
-      const nuevoSaldo = parseFloat(agenteActualizado.wallet);
-      console.log("sald23weos", nuevoSaldo)
 
-      // setLocalWalletAmount(nuevoSaldo);
-      return nuevoSaldo; // Devolver el valor actualizado
+      console.log("Respuesta completa:", agenteActualizado); // Verifica la estructura completa
+
+      // Si la respuesta es un array (como en tu ejemplo), necesitas acceder al primer elemento
+      const walletAmount = Array.isArray(agenteActualizado)
+        ? parseFloat(agenteActualizado[0].wallet)
+        : parseFloat(agenteActualizado.wallet);
+      console.log("Nuevo saldo:", walletAmount);
+      setLocalWalletAmount(walletAmount)
+      return walletAmount;
 
     } catch (error) {
       console.error('Error al actualizar el saldo del agente:', error);
       setError('Error al actualizar el saldo disponible');
-      return; // Devolver el valor actual en caso de error
+      throw error; // Es mejor lanzar el error para manejarlo donde se llame a esta función
     } finally {
       setLoading(prev => ({ ...prev, agente: false }));
     }
@@ -492,6 +495,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     // Transform the filtered data
     const transformedData = filteredItems.map((saldo) => ({
       id_Cliente: saldo.id_agente,
+      id_saldo: saldo.id_saldos,
       cliente: (saldo.nombre || '').toUpperCase(),
       creado: saldo.fecha_creacion ? new Date(saldo.fecha_creacion) : null,
       monto_pagado: Number(saldo.monto),
@@ -569,12 +573,14 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
 
     monto_pagado: ({ value, item }: { value: string, item: Saldo }) => {
       const isActive = Boolean(item?.activo);
+      const formatted = formatNumberWithCommas(parseFloat(value).toFixed(2));
+
       return (
         <span
           className={`font-semibold text-sm px-2 py-1 rounded flex items-center justify-center
-        ${isActive ? "bg-blue-100 text-blue-600" : "bg-red-100 text-red-600 line-through"}`}
+      ${isActive ? "bg-blue-100 text-blue-600" : "bg-red-100 text-red-600 line-through"}`}
         >
-          ${formatNumberWithCommas(value)}
+          ${formatted}
         </span>
       );
     },
@@ -582,15 +588,15 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     saldo: ({ item }: { item: Saldo }) => {
       const isActive = Boolean(item?.activo);
       const isDifferent = item?.saldo !== item?.monto;
-      const value = item?.saldo?.toString() || "";
+      const value = item?.saldo ?? 0;
+      const formatted = formatNumberWithCommas(Number(value).toFixed(2));
 
       return (
         <span
           className={`font-semibold text-sm px-2 py-1 rounded flex items-center justify-center
-        ${isDifferent ? "bg-red-100 text-red-600" : "bg-blue-100 text-blue-600"}
-        ${!isActive ? "line-through" : ""}`}
+      ${isActive ? "bg-blue-100 text-blue-600" : "bg-red-100 text-red-600 line-through"}`}
         >
-          ${formatNumberWithCommas(value)}
+          ${formatted}
         </span>
       );
     },
@@ -604,6 +610,18 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
           title={item.id_agente}
         >
           {item.id_agente?.split("-").join("").slice(0, 10)}
+        </span>
+      );
+    },
+
+    id_saldo: ({ item }: { item: Saldo }) => {
+      const isActive = Boolean(item.activo);
+      return (
+        <span
+          className={`font-semibold text-sm px-2 py-1 rounded ${isActive ? "bg-blue-50 text-blue-600" : "bg-red-100 text-red-600 line-through"
+            }`}
+        >
+          {item.id_saldos}
         </span>
       );
     },
@@ -769,12 +787,14 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       const isActive = row?.activo !== false;
       let editar = true;
       const isDifferent = row?.saldo !== row?.monto;
+      const hasBalance = row?.saldo > 0; // Verifica si el saldo es mayor a 0
+      const hasLink = Boolean(row?.link_stripe && row.link_stripe.trim() !== "");
+      const showDeleteButtons = isActive && !isDifferent;
+      const showEditbuttosn = isActive && !isDifferent && !hasLink;
+      const showPagarButton = isActive && hasBalance;
 
       if (row.saldo !== row.monto_pagado) {
         editar = false;
-      }
-      if (isDifferent) {
-        return <span className="text-gray-400"></span>;
       }
       // En la función handleEdit
 
@@ -814,6 +834,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             is_facturable: updatedData.is_facturable,
             is_descuento: updatedData.descuento_aplicable,
             metodo_pago: metodoPagoNormalizado,
+            saldo: updatedData.monto_pagado?.toString() || row.monto,
             activo: true, // Siempre activo al editar
             concepto: row.concepto || 'pago',
             currency: row.currency || 'MXN',
@@ -925,7 +946,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         <div className="flex gap-2">
           {/* Botón Editar */}
 
-          {(row.activo === 1 || row.activo === true) && (
+          {(showEditbuttosn) && (
             <button
               className="p-1.5 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
               onClick={() => setIsEditModalOpen(true)}
@@ -936,13 +957,24 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
           )}
 
           {/* Botón Eliminar - Solo se muestra si el pago está activo */}
-          {(row.activo === 1 || row.activo === true) && (
+          {(showDeleteButtons) && (
             <button
               className="p-1.5 rounded-md bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
               onClick={() => setIsDeleteModalOpen(true)}
               title="Eliminar"
             >
               <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+
+          {/* Nuevo Botón para el Modal de asignar pagos */}
+          {(showPagarButton) && (
+            <button
+              className="p-1.5 rounded-md bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
+              onClick={() => setIsPagarModalOpen(true)}
+              title="Pagar Saldo"
+            >
+              <DollarSign className="w-4 h-4" /> {/* Cambié el icono a DollarSign para mejor representación */}
             </button>
           )}
 
@@ -975,17 +1007,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
                 localWalletAmount={localWalletAmount} // Pasa el valor actual
               />
             </Modal>
-          )}
-
-          {/* Nuevo Botón para el Modal de asignar pagos */}
-          {(row.activo === 1 || row.activo === true) && (
-            <button
-              className="p-1.5 rounded-md bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
-              onClick={() => setIsPagarModalOpen(true)}
-              title="Pagar Saldo"
-            >
-              <DollarSign className="w-4 h-4" /> {/* Cambié el icono a DollarSign para mejor representación */}
-            </button>
           )}
 
           {/* Modal de Eliminación */}
@@ -1050,10 +1071,25 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
                   comentario: row.comentario
                 }}
                 rowData={row} // Pasa el row completo como nueva prop
-                onClose={() => setIsPagarModalOpen(false)}
-                onSubmit={(data) => {
-                  // Lógica para manejar el pago
-                  setIsPagarModalOpen(false);
+                onClose={() => {
+                  console.log("Entrando al modal para mostrar datos")
+                  updateAgentWallet().then(number => setLocalWalletAmount(number || 0)).catch(error => console.error("Error en el saldo del modal al cerrar", error))
+                  setIsPagarModalOpen(false)
+                }}
+                onSubmit={async () => {
+                  console.log("Entrando al modal para mostrar datos")
+                  updateAgentWallet().then(number => {
+                    console.log(number)
+                    setLocalWalletAmount(number || 0)
+                  }).catch(error => console.error("Error en el saldo del modal al cerrar", error))
+                  const fetchSaldoFavor = async () => {
+                    const response: { message: string, data: Saldo[] } = await SaldoFavor.getPagos(agente.id_agente)
+                    console.log("esto trae", response.data)
+                    setSaldos(response.data)
+                  }
+                  fetchSaldoFavor()
+                  walletAmount == localWalletAmount
+                  setIsPagarModalOpen(false)
                 }}
               />
             </Modal>
@@ -1096,11 +1132,8 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       }
 
       // Actualizar el saldo local sumando el monto del nuevo pago
-      console.log("pago antes de agregar", localWalletAmount)
-      console.log("pago de la dat", paymentData.monto_pagado)
+
       setLocalWalletAmount(walletAmount + parseFloat(paymentData.monto_pagado.toString()));
-      console.log("pago nuevo", localWalletAmount)
-      console.log("pago de wallet ", walletAmount)
 
       await reloadSaldos();
       await updateAgentWallet();
@@ -1147,13 +1180,17 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   if (localWalletAmount !== 0) {
     walletAmount = localWalletAmount
   }
+
+  console.log("local ", localWalletAmount)
+  console.log("wallet", walletAmount)
+
   return (
     <div className="h-full">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
         {/* Resumen de saldo */}
         <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
           <PaymentSummary
-            totalBalance={localWalletAmount || walletAmount} // Usa localWalletAmount si está disponible
+            totalBalance={localWalletAmount || 0} // Usa localWalletAmount si está disponible
             assignedBalance={0}
           />
 
@@ -1185,11 +1222,11 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
               <span className="ml-2">Cargando pagos...</span>
             </div>
           ) : (
-            <Table2
+            <Table3
 
               registros={filteredData}
               renderers={tableRenderers}
-              customColumns={["acciones"]}
+              customColumns={["total", "saldo", "creado", "acciones"]}
               sortConfig={sortConfig}
               onSort={handleSort}
               defaultSort={{
@@ -1303,7 +1340,7 @@ const validateForm = (state: FormState): FormErrors => {
   }
 
   // Validar link Stripe solo si es tarjeta
-  if ((state.paymentMethod === "Tarjeta") &&
+  if ((state.paymentMethod === "Linkstripe") &&
     !state.link_Stripe.trim()) {
     errors.link_Stripe = "El link de Stripe es requerido para pagos con tarjeta";
   }
@@ -1330,7 +1367,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     ult_digits: '',
     banco_tarjeta: '',
     numero_autorizacion: '',
-    tipo_tarjeta: '',
+    tipo_tarjeta: 'credito', // Establecer un valor por defecto
   });
   // Determinar qué campos mostrar según el método de pago
   const showReferenceField = () => {
@@ -1338,7 +1375,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
   };
 
   const showLinkStripeField = () => {
-    return state.paymentMethod === "Tarjeta";
+    return state.paymentMethod === "LinkStripe";
+  };
+
+  const showCardDetailsFields = () => {
+    return state.paymentMethod === "Tarjeta" || state.paymentMethod === "LinkStripe";
   };
 
   // Inicializar con datos si estamos editando
@@ -1365,6 +1406,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     "Transferencia",
     "Wallet",
     "Tarjeta",
+    "LinkStripe",
   ];
 
   const fetchStripeInfo = async (chargeId: string) => {
@@ -1421,9 +1463,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     field: keyof FormState,
     value: string | boolean
   ) => {
-    console.log(`Campo cambiado: ${field}`, value); // <-- Agregar esto
     if (field === 'paymentMethod') {
       setIsStripeLinked(false);
+      if (value !== "LinkStripe") {
+        dispatch({ type: "SET_FIELD", field: "link_Stripe", value: "" });
+      }
     }
 
     dispatch({ type: "SET_FIELD", field, value });
@@ -1450,29 +1494,37 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
       if (!state.paymentMethod) {
         throw new Error("El método de pago es requerido");
       }
+
+      // Determinar el método de pago real
+      let metodoPagoReal = "";
+      let tipoTarjetaValue = "";
+
+      if (state.paymentMethod === "LinkStripe") {
+        metodoPagoReal = "tarjeta";
+        tipoTarjetaValue = cardDetails.tipo_tarjeta || ""; // Default a crédito si no está definido
+      } else if (state.paymentMethod === "Tarjeta") {
+        metodoPagoReal = "tarjeta";
+        // Determinar si es crédito o débito basado en la selección
+        tipoTarjetaValue = cardDetails.tipo_tarjeta === "credito" ? "credito" : "debito";
+      } else {
+        metodoPagoReal = state.paymentMethod.toLowerCase();
+      }
+
       const pagoData: NuevoSaldoAFavor = {
         id_cliente: agente.id_agente,
         monto_pagado: Number(state.amount),
-        forma_pago: state.paymentMethod.toLowerCase() as
-          | "transferencia"
-          | "tarjeta"
-          | "wallet",
+        forma_pago: metodoPagoReal as "transferencia" | "tarjeta" | "wallet",
         is_facturable: state.facturable,
         referencia: state.reference,
         fecha_pago: state.paymentDate,
-        // Valores por defecto (requeridos por la interfaz)
-        tipo_tarjeta: "",
-        ult_digits: "",
-        banco_tarjeta: "",
-        numero_autorizacion: "",
-        // Sobreescribir si es pago con tarjeta
-        ...(state.paymentMethod.includes("Tarjeta") && {
-          tipo_tarjeta: cardDetails.tipo_tarjeta, // Asegúrate que aquí sea "credito" o "debito"
+        // Campos específicos para tarjeta
+        ...((metodoPagoReal === "tarjeta") && {
+          tipo_tarjeta: tipoTarjetaValue,
           ult_digits: cardDetails.ult_digits,
           banco_tarjeta: cardDetails.banco_tarjeta,
-          numero_autorizacion: cardDetails.numero_autorizacion
+          numero_autorizacion: cardDetails.numero_autorizacion,
+          link_stripe: state.link_Stripe || ""
         }),
-        link_stripe: state.link_Stripe || "",
         descuento_aplicable: state.discountApplied,
         ...(state.comments && { comentario: state.comments }),
       };
@@ -1555,28 +1607,22 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
             />
 
             {/* Mostrar Link Stripe solo para tarjetas */}
-            {showLinkStripeField() && (
-              <TextInput
-                label="Link Stripe"
-                value={state.link_Stripe}
-                onChange={(value) => {
-                  handleInputChange("link_Stripe", value);
-                  // Solo hacer fetch si el método de pago es tarjeta y hay texto
-
-                  if (value.trim() === "") {
-                    setIsStripeLinked(false);
-                    return;
-                  }
-
-                  if ((state.paymentMethod === "Tarjeta") &&
-                    value.trim() !== "") {
-                    fetchStripeInfo(value);
-                  }
-                }}
-
-                placeholder="Agrega el Link Stripe"
-              />
-            )}
+            {
+              showLinkStripeField() && (
+                <TextInput
+                  label="Link Stripe"
+                  value={state.link_Stripe}
+                  onChange={(value) => {
+                    handleInputChange("link_Stripe", value);
+                    // Solo hacer fetch si el método de pago es LinkStripe y hay texto
+                    if (state.paymentMethod === "LinkStripe" && value.trim() !== "") {
+                      fetchStripeInfo(value);
+                    }
+                  }}
+                  placeholder="Agrega el Link Stripe"
+                />
+              )
+            }
 
             {/* Mostrar Referencia solo para transferencias */}
             {showReferenceField() && (
@@ -1588,38 +1634,41 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
               />
             )}
 
-            {showLinkStripeField() && (
+            {showCardDetailsFields() && (
               <>
                 <TextInput
                   label="Últimos 4 dígitos"
                   value={cardDetails.ult_digits}
                   onChange={(value) => setCardDetails(prev => ({ ...prev, ult_digits: value }))}
                   placeholder="Últimos 4 dígitos de la tarjeta"
-                  disabled={isStripeLinked}
+                  disabled={isStripeLinked && state.paymentMethod === "LinkStripe"}
                 />
                 <TextInput
                   label="Banco de la tarjeta"
                   value={cardDetails.banco_tarjeta}
                   onChange={(value) => setCardDetails(prev => ({ ...prev, banco_tarjeta: value }))}
                   placeholder="Nombre del banco"
-                  disabled={isStripeLinked}
-
+                  disabled={isStripeLinked && state.paymentMethod === "LinkStripe"}
                 />
                 <TextInput
                   label="Número de autorización"
                   value={cardDetails.numero_autorizacion}
                   onChange={(value) => setCardDetails(prev => ({ ...prev, numero_autorizacion: value }))}
                   placeholder="Número de autorización"
-                  disabled={isStripeLinked}
-
+                  disabled={isStripeLinked && state.paymentMethod === "LinkStripe"}
                 />
-                <TextInput
-                  label="Tipo de tarjeta"
-                  value={cardDetails.tipo_tarjeta}
-                  onChange={(value) => setCardDetails(prev => ({ ...prev, tipo_tarjeta: value }))}
-                  placeholder="Tipo de tarjeta"
-                  disabled={isStripeLinked}
-
+                <Dropdown
+                  label="Tipo de Tarjeta"
+                  value={cardDetails.tipo_tarjeta === 'credito' ? 'credit' : cardDetails.tipo_tarjeta === "debito" ? 'debit' : cardDetails.tipo_tarjeta}
+                  onChange={(value) => {
+                    const tipo_tarjeta = value === 'credit' ? 'credito' : 'debito';
+                    setCardDetails(prev => ({ ...prev, tipo_tarjeta }));
+                  }}
+                  options={[
+                    { value: "credit", label: "Crédito" },
+                    { value: "debit", label: "Débito" }
+                  ]}
+                  disabled={isStripeLinked && state.paymentMethod === "LinkStripe"}
                 />
               </>
             )}
@@ -1635,7 +1684,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
               label="Monto Pagado"
               value={Number(state.amount)}
               onChange={(value) => handleInputChange("amount", value)}
-              disabled={isStripeLinked}
+              disabled={isStripeLinked || (isEditing && state.paymentMethod === "Tarjeta")} // Agregamos esta condición
             />
 
             <CheckboxInput
