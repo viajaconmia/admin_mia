@@ -268,7 +268,10 @@ export const fetchAgentes = async (
   return data;
 };
 export const fetchAgenteById = async (id) => {
+
   const cleanId = id.split("?")[0];
+    console.log("ESTE DEBE SER ANGEL ", cleanId)
+  console.log("id del fetch",id)
   const response = await fetch(`${URL}/mia/agentes/id?id=${cleanId}`, {
     headers: {
       "x-api-key": API_KEY,
@@ -282,7 +285,6 @@ export const fetchAgenteById = async (id) => {
     throw new Error("Error al cargar los datos");
   }
   const data = await response.json();
-  console.log(data);
   return data[0];
 };
 export const fetchEmpresasByAgente = async (id) => {

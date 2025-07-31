@@ -5,13 +5,12 @@
     monto_pagado: number;
     forma_pago:
       | "transferencia"
-      | "tarjeta_de_credito"
-      | "tarjeta de debito"
+      | "tarjeta"
       | "wallet";
     is_facturable: boolean;
     referencia?: string;
     fecha_pago: string;
-    tipo_tarjeta: "credito" | "debito";
+    tipo_tarjeta: string;
     link_stripe?: string;
     descuento_aplicable?: boolean;
     comentario?: string;
@@ -48,7 +47,8 @@
     activo?: boolean | null;
       ult_digits: string| null,
     banco_tarjeta: string| null,
-    numero_autorizacion: string| null
+    numero_autorizacion: string | null
+    
   } 
 
   export class SaldoFavor {
@@ -78,8 +78,8 @@
         const errorText = await response.text();
         throw new Error(`Error ${response.status}: ${errorText}`);
       }
-
       return response.json();
+      
     }
 
     // Crear nuevo saldo a favor
@@ -118,11 +118,16 @@
 
     // Obtener pagos por agente
     static async getPagos(idAgente: string) {
+      console.log("🐨🐨🐨🐨🐨",this.request)
+
       return this.request<{ message: string, data: Saldo[] }>(
         `/${idAgente}`,
         {
           method: "GET"
+          
         }
+        
       );
     }
+
   }

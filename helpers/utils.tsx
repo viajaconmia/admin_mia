@@ -223,9 +223,17 @@ export const exportToCSV = (data, filename = "archivo.csv") => {
   document.body.removeChild(link);
 };
 
-export function formatNumberWithCommas(numberStr: string): string {
+export function formatNumberWithCommas(numberStr: string | number | undefined | null): string {
+  // Si el valor es undefined o null, retornar cadena vacía
+  if (numberStr == null) return '';
+
+  // Convertir a string si es un número
+  const str = typeof numberStr === 'number' ? numberStr.toString() : numberStr;
+
+  // Si la cadena está vacía, retornar cadena vacía
+  if (str.trim() === '') return '';
   // 1. Separar la parte entera de la parte decimal
-  const parts = numberStr.split(".");
+  const parts = str.split(".");
   const integerPart = parts[0];
   const decimalPart = parts.length > 1 ? parts[1] : undefined;
 
