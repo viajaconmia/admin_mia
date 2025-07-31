@@ -355,7 +355,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       const walletAmount = Array.isArray(agenteActualizado)
         ? parseFloat(agenteActualizado[0].wallet)
         : parseFloat(agenteActualizado.wallet);
-      console.log("Nuevo saldo:", walletAmount);
       setLocalWalletAmount(walletAmount)
       return walletAmount;
 
