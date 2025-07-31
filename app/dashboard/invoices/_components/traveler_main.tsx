@@ -33,7 +33,7 @@ export function TravelersPage() {
   const handleFetchFacturas = (filters) => {
     fetchFacturas(filters, (data) => {
       console.log(data)
-      setFilteredFacturas(data); // Actualiza el estado con las facturas filtradas
+      setFilteredFacturas(data || []); // Actualiza el estado con las facturas filtradas
       setIsLoading(false);
     });
   };
@@ -62,10 +62,10 @@ export function TravelersPage() {
         </div>
       </Card>
 
-      {/* <TravelerDialog
+     <TravelerDialog
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}
-      /> */}
+      /> 
     </div>
   );
 }
