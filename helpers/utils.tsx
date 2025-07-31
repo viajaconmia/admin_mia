@@ -216,17 +216,24 @@ export const exportToCSV = (data, filename = "archivo.csv") => {
   ].join("\n");
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
   const link = document.createElement("a");
-  const url = URL.createObjectURL(blob);
-  link.setAttribute("href", url);
+  const url = window.URL.createObjectURL(blob); link.setAttribute("href", url);
   link.setAttribute("download", filename);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
 };
 
-export function formatNumberWithCommas(numberStr: string): string {
+export function formatNumberWithCommas(numberStr: string | number | undefined | null): string {
+  // Si el valor es undefined o null, retornar cadena vacía
+  if (numberStr == null) return '';
+
+  // Convertir a string si es un número
+  const str = typeof numberStr === 'number' ? numberStr.toString() : numberStr;
+
+  // Si la cadena está vacía, retornar cadena vacía
+  if (str.trim() === '') return '';
   // 1. Separar la parte entera de la parte decimal
-  const parts = numberStr.split(".");
+  const parts = str.split(".");
   const integerPart = parts[0];
   const decimalPart = parts.length > 1 ? parts[1] : undefined;
 
@@ -330,3 +337,53 @@ export const getCreditoBadge = (monto: number | null) => {
     </span>
   );
 };
+
+// utils/fileUpload.ts
+import { API_KEY, URL } from "@/lib/constants";
+
+export interface UploadResponse {
+  publicUrl: string;
+  url: string;
+}
+
+/**
+ * Solicita una URL firmada para subir archivos al bucket S3.
+ * @param filename Nombre del archivo, puede incluir una carpeta, ej: `comprobantes/mi-archivo.xml`
+ * @param filetype Tipo MIME, ej: application/pdf o image/jpeg
+ * @param endpoint Endpoint a utilizar (por defecto es el general)
+ */
+export async function obtenerPresignedUrl(
+  filename: string,
+  filetype: string,
+  folder: string,
+  endpointBase = "/mia/utils/cargar-archivos"
+): Promise<UploadResponse> {
+  const url = `${URL}${endpointBase}/${folder}?filename=${filename}&filetype=${filetype}`;
+
+  const res = await fetch(url, {
+    method: "GET",
+    headers: {
+      "x-api-key": API_KEY || "",
+    },
+  });
+
+  if (!res.ok) {
+    throw new Error(`Error al obtener presigned URL: ${res.statusText}`);
+  }
+
+  return res.json();
+}
+
+export async function subirArchivoAS3(file: File, presignedUrl: string): Promise<void> {
+  const uploadRes = await fetch(presignedUrl, {
+    method: "PUT",
+    body: file,
+    headers: {
+      "Content-Type": file.type,
+    },
+  });
+
+  if (!uploadRes.ok) {
+    throw new Error("Error al subir archivo a S3");
+  }
+}

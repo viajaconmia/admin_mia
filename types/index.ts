@@ -64,6 +64,18 @@ export interface TypeFilters {
   notas?: string | null;
   startCantidad?: number | null;
   endCantidad?: number | null;
+  id_stripe?: string | null;
+  facturable?: boolean | null;
+  comprobante?: boolean | null; 
+  paydate?: string | null;
+  estatusFactura ?: "Confirmada" |"Cancelada" |"En proceso"| "Sin Asignar" | null;
+}
+
+export interface EmpresaFromAgent {
+  id?: string|null;
+  razon_social?: string | null;
+  rfc?: string | null;
+    [key: string]: any; // Para propiedades adicionales
 }
 
 export type Solicitud = {
