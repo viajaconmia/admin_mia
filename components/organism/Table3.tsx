@@ -1,5 +1,5 @@
 import { exportToCSV } from "@/helpers/utils";
-import { ArrowDown, FileDown } from "lucide-react";
+import { ArrowDown, FileDown, Columns } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { Loader } from "../atom/Loader";
 
@@ -23,7 +23,6 @@ interface TableProps<T> {
   children?: React.ReactNode;
   maxHeight?: string;
   customColumns?: string[];
-
 }
 
 export const Table3 = <T,>({
@@ -34,7 +33,7 @@ export const Table3 = <T,>({
   leyenda = "",
   children,
   maxHeight = "28rem",
-  customColumns, // Añadimos esta prop para controlar qué columnas mostrar inicialmente
+  customColumns,
 }: TableProps<T>) => {
   const [displayData, setDisplayData] = useState<Registro[]>(registros);
   const [loading, setLoading] = useState<boolean>(false);
@@ -50,15 +49,22 @@ export const Table3 = <T,>({
       }
   );
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(new Set());
+  const [showColumnSelector, setShowColumnSelector] = useState(false);
+
+  const showAllColumns = () => {
+    setVisibleColumns(new Set(columnKeys));
+  };
+
+  const hideAllColumns = () => {
+    setVisibleColumns(new Set());
+  };
 
   useEffect(() => {
     setDisplayData(registros);
-    // Inicializar columnas visibles
     if (customColumns && customColumns.length > 0) {
       setVisibleColumns(new Set(customColumns));
     } else if (registros && registros.length > 0) {
-      // Mostrar todas las columnas por defecto si no hay customColumns
-      const allColumns = Object.keys(registros[0]).filter(key => key !== "item");
+      const allColumns = Object.keys(registros[0]).filter((key) => key !== "item");
       setVisibleColumns(new Set(allColumns));
     }
   }, [registros, customColumns]);
@@ -76,7 +82,7 @@ export const Table3 = <T,>({
   }, [registros]);
 
   const toggleColumn = (key: string) => {
-    setVisibleColumns(prev => {
+    setVisibleColumns((prev) => {
       const newVisible = new Set(prev);
       if (newVisible.has(key)) {
         newVisible.delete(key);
@@ -92,7 +98,7 @@ export const Table3 = <T,>({
     setTimeout(() => {
       const updateSort = { key, sort: !currentSort.sort };
       const sortedData = displayData.toSorted((a, b) =>
-        (currentSort.sort ? a[key] < b[key] : a[key] > b[key]) ? 1 : -1
+        currentSort.sort ? (a[key] < b[key] ? 1 : -1) : a[key] > b[key] ? 1 : -1
       );
       setDisplayData(sortedData);
       setCurrentSort(updateSort);
@@ -111,7 +117,6 @@ export const Table3 = <T,>({
           </div>
           <div className="flex gap-4">
             {children}
-            {/* Botón para exportar */}
             <button
               onClick={() =>
                 exportToCSV(
@@ -124,32 +129,51 @@ export const Table3 = <T,>({
               <FileDown className="w-4 h-4 mr-2" />
               Exportar CSV
             </button>
-            {/* Menú de columnas */}
             <div className="relative">
               <button
                 className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2"
-                onClick={(e) => e.stopPropagation()}
+                onClick={() => setShowColumnSelector(!showColumnSelector)}
               >
+                <Columns className="w-4 h-4 mr-2" />
                 Columnas
               </button>
-              <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg z-20 border border-gray-200">
-                <div className="p-2">
-                  {columnKeys.map((key) => (
-                    <div key={key} className="flex items-center p-1 hover:bg-gray-50">
-                      <input
-                        type="checkbox"
-                        id={`col-${key}`}
-                        checked={visibleColumns.has(key)}
-                        onChange={() => toggleColumn(key)}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      />
-                      <label htmlFor={`col-${key}`} className="ml-2 text-sm text-gray-700">
-                        {key.replace(/_/g, " ").toUpperCase()}
-                      </label>
+              {showColumnSelector && (
+                <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg z-20 border border-gray-200">
+                  <div className="p-2 max-h-60 overflow-y-auto">
+                    <div className="flex gap-2 mb-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          showAllColumns();
+                        }}
+                        className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200"
+                      >
+                        Mostrar todas
+                      </button>
                     </div>
-                  ))}
+                    {columnKeys.map((key) => (
+                      <div
+                        key={key}
+                        className="flex items-center p-1 hover:bg-gray-50"
+                      >
+                        <input
+                          type="checkbox"
+                          id={`col-${key}`}
+                          checked={visibleColumns.has(key)}
+                          onChange={() => toggleColumn(key)}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <label
+                          htmlFor={`col-${key}`}
+                          className="ml-2 text-sm text-gray-700"
+                        >
+                          {key.replace(/_/g, " ").toUpperCase()}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
@@ -164,7 +188,7 @@ export const Table3 = <T,>({
             <thead className="sticky z-10 bg-gray-50 top-0">
               <tr>
                 {columnKeys
-                  .filter(key => visibleColumns.has(key))
+                  .filter((key) => visibleColumns.has(key))
                   .map((key) => (
                     <th
                       key={key}
@@ -178,7 +202,8 @@ export const Table3 = <T,>({
                       <span className="flex gap-2">
                         {key === (currentSort.key || "") && (
                           <ArrowDown
-                            className={`w-4 h-4 ${!currentSort.sort ? "" : "rotate-180"}`}
+                            className={`w-4 h-4 ${!currentSort.sort ? "" : "rotate-180"
+                              }`}
                           />
                         )}
                         {key.replace(/_/g, " ").toUpperCase()}
@@ -191,17 +216,19 @@ export const Table3 = <T,>({
               {displayData.map((item, index) => (
                 <tr
                   key={item.id !== undefined ? item.id : index}
-                  className={`${index % 2 === 0 ? "bg-white" : "bg-gray-50"} cursor-pointer`}
+                  className={`${index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                    } cursor-pointer`}
                 >
                   {columnKeys
-                    .filter(key => visibleColumns.has(key))
+                    .filter((key) => visibleColumns.has(key))
                     .map((colKey) => {
                       const Renderer = renderers[colKey];
                       const value = item[colKey];
 
                       return (
                         <td
-                          key={`${item.id !== undefined ? item.id : index}-${colKey}`}
+                          key={`${item.id !== undefined ? item.id : index
+                            }-${colKey}`}
                           className="px-6 py-1 whitespace-nowrap text-xs text-gray-900"
                         >
                           {Renderer ? (

@@ -267,26 +267,49 @@ export const fetchAgentes = async (
   callback(data);
   return data;
 };
-export const fetchAgenteById = async (id) => {
 
+export const fetchAgenteById = async (id: string) => {
+  // Limpiar el ID de posibles parámetros de consulta
   const cleanId = id.split("?")[0];
-    console.log("ESTE DEBE SER ANGEL ", cleanId)
-  console.log("id del fetch",id)
-  const response = await fetch(`${URL}/mia/agentes/id?id=${cleanId}`, {
-    headers: {
-      "x-api-key": API_KEY,
-      "Cache-Control": "no-cache, no-store, must-revalidate",
-      Pragma: "no-cache",
-      Expires: "0",
-    },
-    cache: "no-store",
-  });
-  if (!response.ok) {
-    throw new Error("Error al cargar los datos");
+  console.log("ID limpio:", cleanId);
+
+  try {
+    const response = await fetch(`${URL}/mia/agentes/id?id=${cleanId}`, {
+      headers: {
+        "x-api-key": API_KEY,
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        Pragma: "no-cache",
+        Expires: "0",
+      },
+      cache: "no-store",
+    });
+
+    console.log("Respuesta HTTP:", {
+      status: response.status,
+      ok: response.ok,
+      url: response.url
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error ${response.status}: ${errorText}`);
+    }
+
+    const data = await response.json();
+    console.log("Datos recibidos:", data);
+
+    // Verificación básica de consistencia
+    if (data.id && data.id !== cleanId) {
+      console.warn(`ADVERTENCIA: El ID solicitado (${cleanId}) no coincide con el ID recibido (${data.id})`);
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Error en fetchAgenteById:", error);
+    throw error;
   }
-  const data = await response.json();
-  return data[0];
 };
+
 export const fetchEmpresasByAgente = async (id) => {
   try {
     const response = await fetch(`${URL}/mia/empresas/agente?id=${id}`, {

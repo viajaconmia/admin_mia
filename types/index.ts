@@ -28,7 +28,7 @@ export interface TypeFilters {
     | "Creacion"
     | "Actualizacion"
     | null;
-  active?: "Activo" | "Inactivo" | null;
+  active?: "Activo" | "Inactivo" | 1 | 2 | null;
   hay_convenio?: "SI" | "NO";
   tipo_negociacion?: string | null;
   estado?: string | null;
@@ -50,7 +50,7 @@ export interface TypeFilters {
   tipo_hospedaje?: string | null;
   correo?: string | null;
   infoCompleta?: string | null;
-  activo?: boolean | "ACTIVO" | "INACTIVO" | null;
+  activo?: boolean | "ACTIVO" | "INACTIVO" |1|0| null;
   pais?: string | null;
   reservante?: "Operaciones" | "Cliente";
   markUp?: number;
