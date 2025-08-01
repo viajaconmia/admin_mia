@@ -192,6 +192,7 @@ const FiltersModal: React.FC<{
                   onChange={(value: string) =>
                     setFilters((prev) => ({ ...prev, id_stripe: value }))
                   }
+                  placeholder="Ingrese parte del link de Stripe"
                 />
               )}
 
@@ -765,26 +766,22 @@ const FiltersModal: React.FC<{
                 <Dropdown
                   label="Estatus (Activo/Inactivo)"
                   value={
-                    filters.activo === true
+                    filters.activo === true || filters.activo === 1
                       ? "ACTIVO"
-                      : filters.activo === false
+                      : filters.activo === false || filters.activo === 0
                         ? "INACTIVO"
                         : ""
                   }
                   onChange={(value) =>
                     setFilters((prev) => ({
                       ...prev,
-                      activo:
-                        value === "ACTIVO"
-                          ? true
-                          : value === "INACTIVO"
-                            ? false
-                            : null,
+                      activo: value === "ACTIVO" ? true : value === "INACTIVO" ? false : null,
                     }))
                   }
                   options={["ACTIVO", "INACTIVO"]}
                 />
               )}
+
               {"pais" in filters && (
                 <TextInput
                   label="País"
@@ -826,10 +823,10 @@ const FiltersModal: React.FC<{
                   onChange={(value) =>
                     setFilters((prev) => ({
                       ...prev,
-                      estatusFactura: value as "Confirmada" |"Cancelada" |"En proceso"| "Sin Asignar" | null ,
+                      estatusFactura: value as "Confirmada" | "Cancelada" | "En proceso" | "Sin Asignar" | null,
                     }))
                   }
-                  options={["Confirmada" ,"Cancelada" ,"En proceso", "Sin Asignar"]}
+                  options={["Confirmada", "Cancelada", "En proceso", "Sin Asignar"]}
                 />
               )}
             </div>
