@@ -71,7 +71,12 @@ interface PaymentModalProps {
     facturable: boolean;
     aplicable: boolean;
     link_Stripe: string;
+    ult_digits: number;
+    banco_tarjeta: string;
+    numero_autorizacion: string;
+    tipo_tarjeta: string;
   };
+
   onSubmit: (paymentData: NuevoSaldoAFavor) => Promise<any>;
   isEditing?: boolean;
   localWalletAmount?: number;
@@ -466,21 +471,25 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
           return false;
         }
       }
-      // Filtro por link_stripe
-      if (filters.id_stripe && saldo.link_stripe) {
-        if (!saldo.link_stripe.includes(filters.id_stripe)) {
+
+      // Filtro por link_stripe (case-insensitive)
+      if (filters.id_stripe) {
+        const stripeId = filters.id_stripe.toLowerCase();
+        const saldoLink = saldo.link_stripe?.toLowerCase() || '';
+        if (!saldoLink.includes(stripeId)) {
           return false;
         }
       }
 
       // Filtro por activo/inactivo
       if (filters.activo !== null && filters.activo !== undefined) {
-        const isActive = saldo.activo === true;
-        const filterActive = filters.activo === 1;
-        if (isActive !== filterActive) {
+        const saldoActive = Boolean(saldo.activo); // Converts both true/1 to true, false/0 to false
+        const filterActive = Boolean(filters.activo);
+        if (saldoActive !== filterActive) {
           return false;
         }
       }
+
       // Filtro por rango de fechas
       if (filters.startDate && saldo.created_at) {
         const createdDate = new Date(saldo.created_at);
@@ -510,6 +519,9 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
 
       return true;
     });
+
+    console.log('Filters:', filters);
+    console.log('Sample saldo:', saldos[0]);
 
     // Transform the filtered data
     const transformedData = filteredItems.map((saldo) => ({
@@ -1019,7 +1031,11 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
                   comentario: row.comentario || row.notas || '',
                   facturable: row.is_facturable,
                   aplicable: row.is_descuento,
-                  link_Stripe: row.link_stripe || ''
+                  link_Stripe: row.link_stripe || '',
+                  ult_digits: row.ult_digits || '',
+                  banco_tarjeta: row.banco_tarjeta || '',
+                  numero_autorizacion: (row.numero_autorizacion),
+                  tipo_tarjeta: row.tipo_tarjeta || '',
                 }}
                 onSubmit={handleEdit}
                 isEditing={true}
@@ -1245,7 +1261,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
 
               registros={filteredData}
               renderers={tableRenderers}
-              customColumns={["total", "monto_pagado", "saldo", "creado", "acciones", "comprobante"]}
+              customColumns={["saldo", "fecha_de_pago", "tipo_tarjeta", "forma_de_pago", "creado", "acciones", "referencia", "link_stripe", "facturable"]}
               //resto de columnas  
               //     id_Cliente:saldo.id_agente,
               //   id_saldo: saldo.id_saldos,
@@ -1424,6 +1440,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
   };
 
   // Inicializar con datos si estamos editando
+  // Inicializar con datos si estamos editando
   useEffect(() => {
     console.log("editando", initialData)
     if (isEditing && initialData) {
@@ -1440,21 +1457,28 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
           link_Stripe: initialData.link_Stripe
         }
       });
+      console.log("data de editar", initialData);
+      setCardDetails({
+        ult_digits: initialData.ult_digits || '',
+        banco_tarjeta: initialData.banco_tarjeta || 'wer',
+        numero_autorizacion: (initialData.numero_autorizacion) || 'erfgb',
+        tipo_tarjeta: initialData.tipo_tarjeta || '',
+      });
     }
   }, [isEditing, initialData]);
 
-  const paymentMethods = [
-    "Transferencia",
-    "Wallet",
-    "Tarjeta",
-    "LinkStripe",
-  ];
+
+  const paymentMethods = isEditing
+    ? ["Transferencia", "Wallet", "Tarjeta"]
+    : ["Transferencia", "Wallet", "Tarjeta", "LinkStripe"];
 
   const fetchStripeInfo = async (chargeId: string) => {
     try {
-      // Verificar que sea un ID de Stripe válido
-      if (!chargeId.startsWith('ch_') && !chargeId.startsWith('pi_')) {
-        alert('El ID de Stripe no tiene el formato esperado');
+      // Verificar que sea un ID de Stripe válido (empieza con ch_ o pi_ y tiene al menos 24 caracteres)
+      const isValidStripeId = /^(ch|pi)_[a-zA-Z0-9]{24,}$/.test(chargeId);
+
+      if (!isValidStripeId) {
+        // No hacer fetch si no es un ID válido
         setIsStripeLinked(false);
         return;
       }
@@ -1475,7 +1499,6 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
       console.log('Respuesta de Stripe:', data);
 
       if (data.data.estado !== "failed") {
-        // Actualizar campos
         setCardDetails({
           ult_digits: data.data.ultimos_4_digitos || 'No encontrado',
           banco_tarjeta: data.data.tipo_tarjeta || 'No encontrado',
@@ -1483,27 +1506,26 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
           tipo_tarjeta: data.data.funding || 'No encontrado',
         });
 
+        const amount = data.data.monto || '0';
+        const paymentDate = data.data.fecha_pago ? new Date(data.data.fecha_pago).toISOString().split('T')[0] : '';
+
+        handleInputChange("amount", amount);
+        handleInputChange("paymentDate", paymentDate);
+
+        setIsStripeLinked(true);
       } else {
         alert("Link de Stripe fallido");
-        setIsStripeLinked(true);
+        setIsStripeLinked(false);
         return;
       }
-      const amount = data.data.monto || '0';
-      const paymentDate = data.data.fecha_pago ? new Date(data.data.fecha_pago).toISOString().split('T')[0] : '';
-
-
-      handleInputChange("amount", amount);
-      handleInputChange("paymentDate", paymentDate);
-
-      setIsStripeLinked(true);
 
     } catch (error) {
       console.error('Error en fetchStripeInfo:', error);
-      // Opcional: Mostrar mensaje de error al usuario
       setErrors(prev => ({
         ...prev,
         link_Stripe: 'Error al obtener información de Stripe'
       }));
+      setIsStripeLinked(false);
     }
   };
 
