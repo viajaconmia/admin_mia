@@ -292,7 +292,8 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     id_stripe: null,
     facturable: null,
     comprobante: null,
-    paydate: null
+    paydate: null,
+    activo: null,
   });
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<string>("all");
@@ -332,7 +333,12 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       comprobante: typeof newFilters.comprobante === 'string' ?
         newFilters.comprobante === 'SI' :
         newFilters.comprobante,
-      paydate: newFilters.paydate || null
+      paydate: newFilters.paydate || null,
+
+      activo: typeof newFilters.activo === 'string' ?
+        newFilters.activo === 'ACTIVO' ? 1 : 0 :
+        newFilters.activo === true ? 1 :
+          newFilters.activo === false ? 0 : null,
     };
 
     setFilters(completeFilters);
@@ -460,7 +466,21 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
           return false;
         }
       }
+      // Filtro por link_stripe
+      if (filters.id_stripe && saldo.link_stripe) {
+        if (!saldo.link_stripe.includes(filters.id_stripe)) {
+          return false;
+        }
+      }
 
+      // Filtro por activo/inactivo
+      if (filters.activo !== null && filters.activo !== undefined) {
+        const isActive = saldo.activo === true;
+        const filterActive = filters.activo === 1;
+        if (isActive !== filterActive) {
+          return false;
+        }
+      }
       // Filtro por rango de fechas
       if (filters.startDate && saldo.created_at) {
         const createdDate = new Date(saldo.created_at);
@@ -783,7 +803,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
       const [isPagarModalOpen, setIsPagarModalOpen] = useState(false);
 
-      const isActive = row?.activo !== false;
+      const isActive = row?.activo !== 0;
       let editar = true;
       const isDifferent = row?.saldo !== row?.monto;
       const hasBalance = row?.saldo > 0; // Verifica si el saldo es mayor a 0
@@ -1225,7 +1245,29 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
 
               registros={filteredData}
               renderers={tableRenderers}
-              customColumns={["total", "saldo", "creado", "acciones"]}
+              customColumns={["total", "monto_pagado", "saldo", "creado", "acciones", "comprobante"]}
+              //resto de columnas  
+              //     id_Cliente:saldo.id_agente,
+              //   id_saldo: saldo.id_saldos,
+              // cliente: (saldo.nombre || '').toUpperCase(),
+              // creado: saldo.fecha_creacion ? new Date(saldo.fecha_creacion) : null,
+              // monto_pagado: Number(saldo.monto),
+              // saldo: saldo.saldo,
+              // forma_De_Pago: saldo.metodo_pago === 'transferencia'
+              // ? 'Transferencia Bancaria'
+              // : saldo.metodo_pago === 'tarjeta credito'
+              // ? 'Tarjeta de Crédito'
+              // : saldo.metodo_pago === 'tarjeta debito'
+              // ? 'Tarjeta de Débito'
+              // : saldo.metodo_pago || '',
+              // tipo_tarjeta: saldo.tipo_tarjeta || '',
+              // referencia: saldo.referencia || '',
+              // link_stripe: saldo.link_stripe || null,
+              // fecha_De_Pago: saldo.fecha_pago ? new Date(saldo.fecha_pago) : null,
+              // aplicable: saldo.is_descuento ? 'Si' : 'No',
+              // comentario: saldo.notas || saldo.comentario || null,
+              // facturable: saldo.is_facturable ? 'Si' : 'No',
+              // comprobante: saldo.comprobante || null,
               sortConfig={sortConfig}
               onSort={handleSort}
               defaultSort={{
@@ -1366,7 +1408,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     ult_digits: '',
     banco_tarjeta: '',
     numero_autorizacion: '',
-    tipo_tarjeta: 'credito', // Establecer un valor por defecto
+    tipo_tarjeta: '', // Establecer un valor por defecto
   });
   // Determinar qué campos mostrar según el método de pago
   const showReferenceField = () => {
@@ -1412,7 +1454,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     try {
       // Verificar que sea un ID de Stripe válido
       if (!chargeId.startsWith('ch_') && !chargeId.startsWith('pi_')) {
-        console.warn('El ID de Stripe no tiene el formato esperado');
+        alert('El ID de Stripe no tiene el formato esperado');
         setIsStripeLinked(false);
         return;
       }
@@ -1432,13 +1474,20 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
 
       console.log('Respuesta de Stripe:', data);
 
-      // Actualizar campos
-      setCardDetails({
-        ult_digits: data.data.ultimos_4_digitos || 'No encontrado',
-        banco_tarjeta: data.data.tipo_tarjeta || 'No encontrado',
-        numero_autorizacion: data.data.authorization_code || 'No encontrado',
-        tipo_tarjeta: data.data.funding || 'No encontrado',
-      });
+      if (data.data.estado !== "failed") {
+        // Actualizar campos
+        setCardDetails({
+          ult_digits: data.data.ultimos_4_digitos || 'No encontrado',
+          banco_tarjeta: data.data.tipo_tarjeta || 'No encontrado',
+          numero_autorizacion: data.data.authorization_code || 'No encontrado',
+          tipo_tarjeta: data.data.funding || 'No encontrado',
+        });
+
+      } else {
+        alert("Link de Stripe fallido");
+        setIsStripeLinked(true);
+        return;
+      }
       const amount = data.data.monto || '0';
       const paymentDate = data.data.fecha_pago ? new Date(data.data.fecha_pago).toISOString().split('T')[0] : '';
 
@@ -1463,7 +1512,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     value: string | boolean
   ) => {
     if (field === 'paymentMethod') {
-      setIsStripeLinked(false);
+      // Resetear el estado de Stripe cuando cambia el método de pago
+      setIsStripeLinked(value === "LinkStripe");
       if (value !== "LinkStripe") {
         dispatch({ type: "SET_FIELD", field: "link_Stripe", value: "" });
       }
@@ -1499,6 +1549,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
       let tipoTarjetaValue = "";
 
       if (state.paymentMethod === "LinkStripe") {
+
         metodoPagoReal = "tarjeta";
         tipoTarjetaValue = cardDetails.tipo_tarjeta || ""; // Default a crédito si no está definido
       } else if (state.paymentMethod === "Tarjeta") {
@@ -1638,7 +1689,12 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                 <TextInput
                   label="Últimos 4 dígitos"
                   value={cardDetails.ult_digits}
-                  onChange={(value) => setCardDetails(prev => ({ ...prev, ult_digits: value }))}
+                  onChange={(value) => {
+                    // Validar que solo sean números y máximo 4 dígitos
+                    if (/^\d{0,4}$/.test(value)) {
+                      setCardDetails(prev => ({ ...prev, ult_digits: value }));
+                    }
+                  }}
                   placeholder="Últimos 4 dígitos de la tarjeta"
                   disabled={isStripeLinked && state.paymentMethod === "LinkStripe"}
                 />
@@ -1676,6 +1732,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
               label="Fecha de Pago"
               value={state.paymentDate}
               onChange={(value) => handleInputChange("paymentDate", value)}
+              disabled={state.paymentMethod === "LinkStripe"} // Deshabilitar cuando es LinkStripe
 
             />
 
