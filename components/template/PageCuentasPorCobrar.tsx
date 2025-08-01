@@ -71,7 +71,7 @@ interface PaymentModalProps {
     facturable: boolean;
     aplicable: boolean;
     link_Stripe: string;
-    ult_digits: number;
+    ult_digits: string;
     banco_tarjeta: string;
     numero_autorizacion: string;
     tipo_tarjeta: string;
