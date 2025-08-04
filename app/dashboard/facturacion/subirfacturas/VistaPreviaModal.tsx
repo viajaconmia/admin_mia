@@ -76,6 +76,7 @@ export default function VistaPreviaModal({
     if (pdfUrl) {
       onConfirm(pdfUrl);
     }
+    onConfirm(pdfUrl);
   };
 
   const formatCurrency = (value: string) => {

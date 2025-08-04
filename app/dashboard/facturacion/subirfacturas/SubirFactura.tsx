@@ -570,6 +570,7 @@ export default function FacturasPage() {
         <VistaPreviaModal
           facturaData={facturaData}
           onConfirm={(pdfUrl) => {
+            setArchivoPDFUrl(pdfUrl);
             handleConfirmarFactura(); // Ya no necesitas pasar pdfUrl aquí
           }}
           onClose={cerrarVistaPrevia}
