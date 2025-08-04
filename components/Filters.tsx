@@ -766,21 +766,16 @@ const FiltersModal: React.FC<{
                 <Dropdown
                   label="Estatus (Activo/Inactivo)"
                   value={
-                    filters.activo === true
+                    filters.activo === true || filters.activo === 1
                       ? "ACTIVO"
-                      : filters.activo === false
+                      : filters.activo === false || filters.activo === 0
                         ? "INACTIVO"
                         : ""
                   }
                   onChange={(value) =>
                     setFilters((prev) => ({
                       ...prev,
-                      activo:
-                        value === "ACTIVO"
-                          ? true
-                          : value === "INACTIVO"
-                            ? false
-                            : null,
+                      activo: value === "ACTIVO" ? true : value === "INACTIVO" ? false : null,
                     }))
                   }
                   options={["ACTIVO", "INACTIVO"]}

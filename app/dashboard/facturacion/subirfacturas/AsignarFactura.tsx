@@ -89,6 +89,7 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
     maxMontoPermitido = total
   }
 
+
   useEffect(() => {
     if (isOpen && clienteSeleccionado) {
       fetchReservasConItems();

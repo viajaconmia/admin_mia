@@ -28,7 +28,7 @@ export interface TypeFilters {
     | "Creacion"
     | "Actualizacion"
     | null;
-  active?: "Activo" | "Inactivo" | 1 | 2 | null;
+  active?: "Activo" | "Inactivo"  | null;
   hay_convenio?: "SI" | "NO";
   tipo_negociacion?: string | null;
   estado?: string | null;
