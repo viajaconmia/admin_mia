@@ -223,6 +223,7 @@ export const generarFacturaPDF = async (facturaData: any): Promise<Blob> => {
   // Generar QR
   const qrText = `https://verificacfdi.facturaelectronica.sat.gob.mx/default.aspx?re=${emisor.rfc}&rr=${receptor.rfc}&tt=${comprobante.total}&id=${timbreFiscal.uuid}`;
   const qrDataUrl = await QRCode.toDataURL(qrText);
+  console.log(qrText)
 
   // Configuración
   const marginLeft = 15;
@@ -373,23 +374,23 @@ export const generarFacturaPDF = async (facturaData: any): Promise<Blob> => {
   doc.text(`RFC Proveedor: ${timbreFiscal.rfcProvCertif}`, marginLeft, currentY + 20);
 
   // Posicionar QR en esquina inferior derecha sin tapar contenido
-  const qrSize = 35;
-  const qrX = pageWidth - qrSize - 10;
-  const qrY = pageHeight - qrSize - 10;
-  doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
-  doc.setFontSize(6);
-  doc.text('Código de Verificación SAT', qrX + qrSize/2, qrY + qrSize + 3, { align: 'center' });
+  // const qrSize = 35;
+  // const qrX = pageWidth - qrSize - 10;
+  // const qrY = pageHeight - qrSize - 10;
+  // doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
+  // doc.setFontSize(6);
+  // doc.text('Código de Verificación SAT', qrX + qrSize/2, qrY + qrSize + 3, { align: 'center' });
 
-  // Sellos (más compactos)
-  doc.setFontSize(6);
-  doc.text(`Sello CFD: ${timbreFiscal.selloCFD.substring(0, 50)}...`, marginLeft, pageHeight - 15, { maxWidth: pageWidth - 2*marginLeft });
-  doc.text(`Sello SAT: ${timbreFiscal.selloSAT.substring(0, 50)}...`, marginLeft, pageHeight - 10, { maxWidth: pageWidth - 2*marginLeft });
+  // // Sellos (más compactos)
+  // doc.setFontSize(6);
+  // doc.text(`Sello CFD: ${timbreFiscal.selloCFD.substring(0, 50)}...`, marginLeft, pageHeight - 15, { maxWidth: pageWidth - 2*marginLeft });
+  // doc.text(`Sello SAT: ${timbreFiscal.selloSAT.substring(0, 50)}...`, marginLeft, pageHeight - 10, { maxWidth: pageWidth - 2*marginLeft });
 
-  //--- Pie de página ---
-  doc.setFontSize(8);
-  doc.setTextColor(100, 100, 100);
-  doc.text('Este documento es una representación impresa de un CFDI', 105, pageHeight - 10, { align: 'center' });
-  doc.text('Página 1 de 1', pageWidth - marginLeft, pageHeight - 10, { align: 'right' });
+  // //--- Pie de página ---
+  // doc.setFontSize(8);
+  // doc.setTextColor(100, 100, 100);
+  // doc.text('Este documento es una representación impresa de un CFDI', 105, pageHeight - 10, { align: 'center' });
+  // doc.text('Página 1 de 1', pageWidth - marginLeft, pageHeight - 10, { align: 'right' });
 
   // Devolver como URL
   return doc.output('blob');  
