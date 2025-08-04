@@ -58,7 +58,10 @@ function App() {
             ) ||
             (item.nombre_viajero_reservacion?.toUpperCase() || "").includes(
               searchTerm || ""
-            )
+            )||
+            (item.id_agente?.toUpperCase() || "").includes(
+            searchTerm || ""
+          )
         )
         .map((item) => ({
           id_cliente: item.id_agente,
@@ -123,10 +126,10 @@ function App() {
         </button>
       </span>
     ),
-    id_cliente: ({ value }: { value: null | string }) => (
-      <span className="font-semibold text-sm">
-        {value ? value.split("-").join("").slice(0, 10) : ""}
-      </span>
+      id_cliente: ({ value }: { value: null | string }) => (
+            <span className="font-semibold text-sm" title={value}>
+              {value.split("").join("").slice(0, 10)}
+            </span>
     ),
     markup: (props: any) => (
       <span
