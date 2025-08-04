@@ -86,17 +86,16 @@ export default function FacturasPage() {
       setSubiendoArchivos(true);
       const folder = "comprobantes";
 
-      // XML
+      // Subir XML (requerido)
       const { url: urlXML, publicUrl: publicUrlXML } = await obtenerPresignedUrl(
         archivoXML.name,
         archivoXML.type,
         folder
       );
       await subirArchivoAS3(archivoXML, urlXML);
-      setArchivoXMLUrl(publicUrlXML);
 
+      // Subir PDF (opcional)
       let pdfUrl = null;
-      // PDF (opcional)
       if (archivoPDF) {
         const { url: urlPDF, publicUrl: publicUrlPDF } = await obtenerPresignedUrl(
           archivoPDF.name,
@@ -104,14 +103,13 @@ export default function FacturasPage() {
           folder
         );
         await subirArchivoAS3(archivoPDF, urlPDF);
-        setArchivoPDFUrl(publicUrlPDF);
         pdfUrl = publicUrlPDF;
       }
 
       return { pdfUrl, xmlUrl: publicUrlXML };
-    } catch (err) {
-      console.error("Error al subir archivos:", err);
-      throw err;
+    } catch (error) {
+      console.error("Error al subir archivos:", error);
+      throw error;
     } finally {
       setSubiendoArchivos(false);
     }
@@ -198,7 +196,7 @@ export default function FacturasPage() {
       setSubiendoArchivos(true);
 
       // Upload files only when confirming
-      const { pdfUrl, xmlUrl } = await subirArchivosAS3();
+      const { xmlUrl } = await subirArchivosAS3();
 
       const basePayload = {
         fecha_emision: facturaData.comprobante.fecha.split("T")[0], // solo la fecha
@@ -213,7 +211,7 @@ export default function FacturasPage() {
         id_empresa: empresaSeleccionada.id_empresa || null,
         uuid_factura: facturaData.timbreFiscal.uuid,
         rfc_emisor: facturaData.emisor.rfc,
-        url_pdf: pdfUrl || null,
+        url_pdf: archivoPDFUrl,
         url_xml: xmlUrl || null,
         items_json: JSON.stringify([]),
       };
@@ -229,7 +227,7 @@ export default function FacturasPage() {
         body: JSON.stringify(basePayload),
       });
 
-      console.log("payload enviado:", payloadAdicional);
+      console.log("payload enviado:", basePayload);
 
       if (!response.ok) {
         throw new Error('Error al asignar la factura');
@@ -255,45 +253,6 @@ export default function FacturasPage() {
       setSubiendoArchivos(false);
     }
   };
-
-  // Función para enviar la factura
-  // const handleEnviar2 = async () => {
-
-  //   // Validar antes de proceder
-  //   const validationErrors = validateFacturaForm({
-  //     clienteSeleccionado,
-  //     empresaSeleccionada,
-  //     archivoXML
-  //   });
-
-  //   if (Object.keys(validationErrors).length > 0) {
-  //     setErrors(validationErrors);
-  //     return;
-  //   }
-
-  //   if (!archivoXML) return;
-
-  //   try {
-  //     setSubiendoArchivos(true);
-  //     setErrors({});
-
-  //     const data = await parsearXML(archivoXML);
-  //     setFacturaData(data);
-
-  //     // 2. Show preview without uploading
-  //     setMostrarModal(false);
-  //     setMostrarVistaPrevia(true);
-
-  //     console.log(data);
-
-
-  //   } catch (error) {
-  //     alert('Error al procesar el XML');
-  //     console.error(error);
-  //   } finally {
-  //     setSubiendoArchivos(false);
-  //   }
-  // };
 
   const handleEnviar = async () => {
     // Validar antes de proceder
@@ -610,7 +569,9 @@ export default function FacturasPage() {
       {mostrarVistaPrevia && (
         <VistaPreviaModal
           facturaData={facturaData}
-          onConfirm={() => handleConfirmarFactura()}
+          onConfirm={(pdfUrl) => {
+            handleConfirmarFactura(); // Ya no necesitas pasar pdfUrl aquí
+          }}
           onClose={cerrarVistaPrevia}
           isLoading={subiendoArchivos}
         />
