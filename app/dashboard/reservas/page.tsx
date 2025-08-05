@@ -109,6 +109,7 @@ function App() {
         detalles_cliente: "",
         editar: "",
         pagar: "",
+        editar_venta: "",
         item,
       }))
     : [];
