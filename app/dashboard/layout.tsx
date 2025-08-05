@@ -82,7 +82,7 @@ const links = [
     icon: Receipt,
   },
   {
-    title: "Facturas pendientes",
+    title: "Items sin facturar",
     href: "/dashboard/facturacion",
     icon: Receipt,
   },
