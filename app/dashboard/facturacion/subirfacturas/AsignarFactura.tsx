@@ -54,8 +54,6 @@ interface ReservaConItems {
 interface SelectedItem {
   id_item: string;
   saldo: number;
-  dividir?: boolean;
-  montoDividido?: number;
 }
 
 const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
@@ -76,9 +74,6 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
-  const [dividirItems, setDividirItems] = useState<{ [key: string]: boolean }>({});
-  const [montosDivididos, setMontosDivididos] = useState<{ [key: string]: number }>({});
-
   let [maxMontoPermitido] = useState(() => {
     const total = facturaData?.comprobante?.total;
     return typeof total === 'number' ? total : Number(total) || 0;
@@ -149,7 +144,7 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
       if (isCurrentlySelected) {
         // Deseleccionar item
         const newSelection = prev.filter(item => item.id_item !== id_item);
-        const newTotal = newSelection.reduce((sum, item) => sum + (item.montoDividido || item.saldo), 0);
+        const newTotal = newSelection.reduce((sum, item) => sum + item.saldo, 0);
         const restante = maxMontoPermitido - newTotal;
         if (restante > 0) {
           setMontoRestante(restante);
@@ -158,7 +153,7 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
         return newSelection;
       } else {
         // Seleccionar item - verificar que no exceda el límite
-        const currentTotal = prev.reduce((sum, item) => sum + (item.montoDividido || item.saldo), 0);
+        const currentTotal = prev.reduce((sum, item) => sum + item.saldo, 0);
         const newTotal = currentTotal + saldo;
         const restante = maxMontoPermitido - newTotal;
         setMontoRestante(restante);
@@ -177,49 +172,6 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
 
   const isItemSelected = (id_item: string): boolean => {
     return selectedItems.some(item => item.id_item === id_item);
-  };
-
-  const handleDividirItem = (id_item: string, saldo: number) => {
-    setDividirItems(prev => ({
-      ...prev,
-      [id_item]: !prev[id_item]
-    }));
-
-    if (!dividirItems[id_item]) {
-      setMontosDivididos(prev => ({
-        ...prev,
-        [id_item]: saldo
-      }));
-    }
-  };
-
-  const handleMontoDivididoChange = (id_item: string, value: number, saldoTotal: number) => {
-    if (value > saldoTotal) {
-      alert(`El monto no puede ser mayor al saldo total ($${saldoTotal.toFixed(2)})`);
-      return;
-    }
-
-    setMontosDivididos(prev => ({
-      ...prev,
-      [id_item]: value
-    }));
-
-    // Actualizar el monto seleccionado
-    setSelectedItems(prev => {
-      const updatedItems = prev.map(item => {
-        if (item.id_item === id_item) {
-          return { ...item, montoDividido: value, dividir: true };
-        }
-        return item;
-      });
-
-      const newTotal = updatedItems.reduce((sum, item) => sum + (item.montoDividido || item.saldo), 0);
-      const restante = maxMontoPermitido - newTotal;
-      setMontoRestante(restante);
-      setMontoSeleccionado(newTotal);
-
-      return updatedItems;
-    });
   };
 
   // Format date to remove time
@@ -250,16 +202,7 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
         ? reservas
           .flatMap(reserva => reserva.items_info?.items || [])
           .filter(item => selectedItems.some(selected => selected.id_item === item.id_item))
-          .map(item => {
-            const selectedItem = selectedItems.find(sel => sel.id_item === item.id_item);
-            return {
-              ...item,
-              total: selectedItem?.montoDividido || item.total
-            };
-          })
         : [];
-
-      console.log("Items a asignar:", itemsAsignados); // Log para ver los items divididos
 
       let asignacionPayload: any;
 
@@ -341,26 +284,13 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
       </span>
     ),
     seleccionado: ({ value }: { value: TableRow }) => (
-      <div className="flex items-center space-x-2">
-        <input
-          type="checkbox"
-          checked={isItemSelected(value.id_item)}
-          disabled={maxMontoPermitido < value.total}
-          onChange={() => handleItemSelection(value.id_item, value.total)}
-          className={`h-4 w-4 focus:ring-blue-500 border-gray-300 rounded`}
-        />
-        {isItemSelected(value.id_item) && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDividirItem(value.id_item, value.total);
-            }}
-            className="text-xs bg-blue-100 text-blue-600 px-2 py-1 rounded hover:bg-blue-200"
-          >
-            {dividirItems[value.id_item] ? 'Pagar completo' : 'Dividir item'}
-          </button>
-        )}
-      </div>
+      <input
+        type="checkbox"
+        checked={isItemSelected(value.id_item)}
+        disabled={maxMontoPermitido < value.total}
+        onChange={() => handleItemSelection(value.id_item, value.total)}
+        className={`h-4 w-4 focus:ring-blue-500 border-gray-300 rounded`}
+      />
     ),
     precio: ({ value }: { value: number }) => (
       <span className="font-medium font-semibold text-sm px-2 py-1 rounded flex items-center justify-center bg-blue-50 text-blue-600">
@@ -386,22 +316,6 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
       <span className="font-mono bg-yellow-50 px-2 py-1 rounded text-sm border border-yellow-100">
         {value}
       </span>
-    ),
-    acciones: ({ value }: { value: TableRow }) => (
-      isItemSelected(value.id_item) && dividirItems[value.id_item] ? (
-        <div className="flex items-center space-x-2">
-          <input
-            type="number"
-            min="0"
-            max={value.total}
-            step="0.01"
-            value={montosDivididos[value.id_item] || value.total}
-            onChange={(e) => handleMontoDivididoChange(value.id_item, parseFloat(e.target.value), value.total)}
-            className="w-24 px-2 py-1 border rounded text-sm"
-          />
-          <span className="text-sm text-gray-500">de ${value.total.toFixed(2)}</span>
-        </div>
-      ) : null
     )
   };
 
@@ -453,7 +367,7 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
                 registros={tableData}
                 renderers={renderers}
                 maxHeight="400px"
-                customColumns={['seleccionado', 'id_item', 'codigo', 'descripcion', 'fecha_uso', 'fecha_salida', 'precio', 'acciones']}
+                customColumns={['seleccionado', 'id_item', 'codigo', 'descripcion', 'fecha_uso', 'fecha_salida', 'precio']}
                 leyenda=""
               />
             )}
@@ -476,7 +390,7 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
               onCloseVistaPrevia?.();
             }}
             className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50"
-            disabled={montoSeleccionado > maxMontoPermitido}
+            disabled={montoSeleccionado !== maxMontoPermitido}
           >
             Confirmar Asignación
           </button>

@@ -90,7 +90,7 @@ export async function parsearXML(xmlFile: File): Promise<any> {
             rfcProvCertif: getAttr(timbre, 'RfcProvCertif')
           }
         };
-
+        console.log(data);
         resolve(data);
       } catch (error) {
         reject(error);

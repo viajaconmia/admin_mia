@@ -73,9 +73,7 @@ export default function VistaPreviaModal({
   const toggleView = () => setShowPdf(!showPdf);
 
   const handleConfirm = () => {
-    if (pdfUrl) {
-      onConfirm(pdfUrl);
-    }
+    console.log(pdfUrl)
     onConfirm(pdfUrl);
   };
 
@@ -144,7 +142,7 @@ export default function VistaPreviaModal({
           <button
             className="px-4 py-2 rounded bg-red-500 text-white hover:bg-red-600 disabled:opacity-50"
             onClick={onClose}
-            disabled={isLoading || uploadingPdf}
+            disabled={isLoading && uploadingPdf}
           >
             Cancelar
           </button>

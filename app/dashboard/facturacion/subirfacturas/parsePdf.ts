@@ -2,215 +2,6 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import QRCode from 'qrcode';
 
-// export async function generarFacturaPDF(facturaData: any): Promise<string> {
-//   const doc = new jsPDF({
-//     orientation: 'portrait',
-//     unit: 'mm',
-//     format: 'letter'
-//   });
-
-//   const {
-//     comprobante,
-//     emisor,
-//     receptor,
-//     conceptos,
-//     impuestos,
-//     timbreFiscal
-//   } = facturaData;
-
-//   // Generar QR con enlace de verificación SAT
-//   const qrText = `https://verificacfdi.facturaelectronica.sat.gob.mx/default.aspx?re=${emisor.rfc}&rr=${receptor.rfc}&tt=${comprobante.total}&id=${timbreFiscal.uuid}`;
-//   const qrDataUrl = await QRCode.toDataURL(qrText);
-
-//   // Configuración de página
-//   const marginLeft = 15;
-//   const pageWidth = doc.internal.pageSize.getWidth();
-//   const pageHeight = doc.internal.pageSize.getHeight();
-
-//   // --- Encabezado ---
-//   // Logo y título
-//   doc.setFillColor(0, 51, 102);
-//   doc.rect(0, 0, pageWidth, 20, 'F');
-//   doc.setTextColor(255, 255, 255);
-//   doc.setFontSize(16);
-//   doc.setFont('helvetica', 'bold');
-//   doc.text('FACTURA', marginLeft, 15);
-  
-//   // Datos del emisor
-//   doc.text(emisor.nombre, pageWidth - marginLeft, 15, { align: 'right' });
-//   doc.setFontSize(10);
-//   doc.text(`RFC: ${emisor.rfc}`, pageWidth - marginLeft, 20, { align: 'right' });
-//   doc.text(`Regimen Fiscal: ${emisor.regimenFiscal} - ${getRegimenDesc(emisor.regimenFiscal)}`,
-//            pageWidth - marginLeft, 25, { align: 'right' });
-
-//   // Folio fiscal
-//   doc.setTextColor(0, 0, 0);
-//   doc.setFontSize(12);
-//   doc.setFont('helvetica', 'bold');
-//   doc.text(`Folio Fiscal: ${timbreFiscal.uuid}`, 105, 35, { align: 'center' });
-
-//   // --- Sección de datos principales ---
-//   doc.setFontSize(10);
-//   doc.setFont('helvetica', 'normal');
-  
-//   // Datos del comprobante (2 columnas)
-//   doc.text(`Serie: ${comprobante.serie || ''}`, marginLeft, 45);
-//   doc.text(`Folio: ${comprobante.folio}`, marginLeft, 50);
-//   doc.text(`Fecha y Hora: ${formatDateTime(comprobante.fecha)}`, marginLeft, 55);
-//   doc.text(`Lugar de Expedición: ${comprobante.lugarExpedicion}`, marginLeft, 60);
-  
-//   doc.text(`Tipo de Comprobante: ${comprobante.tipoDeComprobante} - ${getTipoComprobanteDesc(comprobante.tipoDeComprobante)}`,
-//            pageWidth/2 + 10, 45);
-//   doc.text(`Exportación: ${comprobante.exportacion} - ${getExportacionDesc(comprobante.exportacion)}`,
-//            pageWidth/2 + 10, 50);
-//   doc.text(`Método de Pago: ${comprobante.metodoPago} - ${getMetodoPagoDesc(comprobante.metodoPago)}`,
-//            pageWidth/2 + 10, 55);
-//   doc.text(`Forma de Pago: ${comprobante.formaPago} - ${getFormaPagoDesc(comprobante.formaPago)}`,
-//            pageWidth/2 + 10, 60);
-
-//   // --- Datos del Emisor ---
-//   doc.setFont('helvetica', 'bold');
-//   doc.text('Emisor:', marginLeft, 70);
-//   doc.setFont('helvetica', 'normal');
-//   doc.text(`Nombre: ${emisor.nombre}`, marginLeft, 75);
-//   doc.text(`RFC: ${emisor.rfc}`, marginLeft, 80);
-//   doc.text(`Regimen Fiscal: ${emisor.regimenFiscal} - ${getRegimenDesc(emisor.regimenFiscal)}`, marginLeft, 85);
-//   // Agregar dirección y teléfono si están disponibles
-
-//   // --- Datos del Receptor ---
-//   doc.setFont('helvetica', 'bold');
-//   doc.text('Receptor:', pageWidth/2 + 10, 70);
-//   doc.setFont('helvetica', 'normal');
-//   doc.text(`Nombre: ${receptor.nombre}`, pageWidth/2 + 10, 75);
-//   doc.text(`RFC: ${receptor.rfc}`, pageWidth/2 + 10, 80);
-//   doc.text(`Uso CFDI: ${receptor.usoCFDI} - ${getUsoCFDIDesc(receptor.usoCFDI)}`, pageWidth/2 + 10, 85);
-//   doc.text(`Regimen Fiscal: ${receptor.regimenFiscal} - ${getRegimenDesc(receptor.regimenFiscal)}`, pageWidth/2 + 10, 90);
-//   doc.text(`Domicilio Fiscal: ${receptor.domicilioFiscal}`, pageWidth/2 + 10, 95);
-
-//   // --- Tabla de Conceptos ---
-//   doc.setFont('helvetica', 'bold');
-//   doc.text('Conceptos', marginLeft, 105);
-  
-//   autoTable(doc, {
-//     startY: 110,
-//     head: [
-//       [
-//         { content: 'Cant.', styles: { halign: 'center', fillColor: [0, 51, 102], textColor: [255, 255, 255] } },
-//         { content: 'Clave Unidad', styles: { halign: 'center', fillColor: [0, 51, 102], textColor: [255, 255, 255] } },
-//         { content: 'Unidad', styles: { halign: 'center', fillColor: [0, 51, 102], textColor: [255, 255, 255] } },
-//         { content: 'Clave Prod.', styles: { halign: 'center', fillColor: [0, 51, 102], textColor: [255, 255, 255] } },
-//         { content: 'Descripción', styles: { halign: 'center', fillColor: [0, 51, 102], textColor: [255, 255, 255] } },
-//         { content: 'P. Unitario', styles: { halign: 'center', fillColor: [0, 51, 102], textColor: [255, 255, 255] } },
-//         { content: 'Importe', styles: { halign: 'center', fillColor: [0, 51, 102], textColor: [255, 255, 255] } }
-//       ]
-//     ],
-//     body: conceptos.map((c: any) => [
-//       { content: c.cantidad, styles: { halign: 'center' } },
-//       { content: c.claveUnidad, styles: { halign: 'center' } },
-//       c.unidad,
-//       { content: c.claveProdServ, styles: { halign: 'center' } },
-//       c.descripcion,
-//       { content: `$${parseFloat(c.valorUnitario).toFixed(2)}`, styles: { halign: 'right' } },
-//       { content: `$${parseFloat(c.importe).toFixed(2)}`, styles: { halign: 'right' } }
-//     ]),
-//     styles: {
-//       fontSize: 8,
-//       cellPadding: 2,
-//       lineWidth: 0.1
-//     },
-//     headStyles: {
-//       fillColor: [0, 51, 102],
-//       textColor: [255, 255, 255],
-//       fontStyle: 'bold'
-//     },
-//     alternateRowStyles: {
-//       fillColor: [240, 240, 240]
-//     },
-//     margin: { left: marginLeft }
-//   });
-
-//   const afterConceptsY = (doc as any).lastAutoTable.finalY + 10;
-
-//   // --- Impuestos ---
-//   doc.setFontSize(10);
-//   doc.setFont('helvetica', 'bold');
-//   doc.text('Desglose de impuestos trasladados:', marginLeft, afterConceptsY);
-  
-//   autoTable(doc, {
-//     startY: afterConceptsY + 5,
-//     head: [
-//       [
-//         { content: 'Impuesto', styles: { halign: 'center', fillColor: [0, 51, 102], textColor: [255, 255, 255] } },
-//         { content: 'Tasa o Cuota', styles: { halign: 'center', fillColor: [0, 51, 102], textColor: [255, 255, 255] } },
-//         { content: 'Importe', styles: { halign: 'center', fillColor: [0, 51, 102], textColor: [255, 255, 255] } }
-//       ]
-//     ],
-//     body: [
-//       [
-//         `${impuestos.traslado.impuesto} - ${getImpuestoDesc(impuestos.traslado.impuesto)}`,
-//         impuestos.traslado.tasa,
-//         `$${parseFloat(impuestos.traslado.importe).toFixed(2)}`
-//       ]
-//     ],
-//     styles: {
-//       fontSize: 9,
-//       cellPadding: 3
-//     },
-//     headStyles: {
-//       fillColor: [0, 51, 102],
-//       textColor: [255, 255, 255],
-//       fontStyle: 'bold'
-//     },
-//     margin: { left: marginLeft }
-//   });
-
-//   const afterTaxesY = (doc as any).lastAutoTable.finalY + 10;
-
-//   // --- Totales ---
-//   doc.setFontSize(10);
-//   doc.setFont('helvetica', 'bold');
-//   doc.text(`Subtotal: $${parseFloat(comprobante.subtotal).toFixed(2)}`, pageWidth - 50, afterTaxesY);
-//   doc.text(`IVA (16%): $${parseFloat(impuestos.traslado.importe).toFixed(2)}`, pageWidth - 50, afterTaxesY + 5);
-//   doc.text(`Total: $${parseFloat(comprobante.total).toFixed(2)}`, pageWidth - 50, afterTaxesY + 10);
-  
-//   // Cantidad con letra
-//   doc.text(`(${numeroALetras(parseFloat(comprobante.total))} MXN)`, marginLeft, afterTaxesY + 15);
-
-//   // --- Timbre Fiscal ---
-//   doc.setFontSize(8);
-//   doc.setFont('helvetica', 'bold');
-//   doc.text('Timbre Fiscal Digital:', marginLeft, afterTaxesY + 25);
-//   doc.setFont('helvetica', 'normal');
-//   doc.text(`UUID: ${timbreFiscal.uuid}`, marginLeft, afterTaxesY + 30);
-//   doc.text(`Fecha Timbrado: ${formatDateTime(timbreFiscal.fechaTimbrado)}`, marginLeft, afterTaxesY + 35);
-//   doc.text(`No. Certificado SAT: ${timbreFiscal.noCertificadoSAT}`, marginLeft, afterTaxesY + 40);
-//   doc.text(`RFC Proveedor Certificación: ${timbreFiscal.rfcProvCertif}`, marginLeft, afterTaxesY + 45);
-
-//   // --- Sellos Digitales ---
-//   doc.setFontSize(7);
-//   doc.text(`Sello Digital del CFDI: ${timbreFiscal.selloCFD}`, marginLeft, afterTaxesY + 55, { maxWidth: pageWidth - 2*marginLeft });
-//   doc.text(`Sello Digital del SAT: ${timbreFiscal.selloSAT}`, marginLeft, afterTaxesY + 70, { maxWidth: pageWidth - 2*marginLeft });
-
-//   // --- QR Code ---
-// // Posicionar el QR abajo del timbre fiscal (ajusta Y si lo necesitas)
-//   doc.addImage(qrDataUrl, 'PNG', 150, doc.internal.pageSize.getHeight() - 60, 40, 40);
-//   doc.setFontSize(6);
-//   doc.text('Código de Verificación SAT', pageWidth - 32.5, afterTaxesY + 56, { align: 'center' });
-
-//   // --- Pie de página ---
-//   doc.setFontSize(8);
-//   doc.setTextColor(100, 100, 100);
-//   doc.text('Este documento es una representación impresa de un CFDI', 105, pageHeight - 10, { align: 'center' });
-//   doc.text('Página 1 de 1', pageWidth - marginLeft, pageHeight - 10, { align: 'right' });
-
-//   // Devolver como URL
-//   return new Promise((resolve) => {
-//     const blob = doc.output('blob');
-//     const url = URL.createObjectURL(blob);
-//     resolve(url);
-//   });
-// }
-
 export const generarFacturaPDF = async (facturaData: any): Promise<Blob> => {
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -221,7 +12,19 @@ export const generarFacturaPDF = async (facturaData: any): Promise<Blob> => {
   const { comprobante, emisor, receptor, conceptos, impuestos, timbreFiscal } = facturaData;
 
   // Generar QR
-  const qrText = `https://verificacfdi.facturaelectronica.sat.gob.mx/default.aspx?re=${emisor.rfc}&rr=${receptor.rfc}&tt=${comprobante.total}&id=${timbreFiscal.uuid}`;
+  // const qrText =
+  // `https://verificacfdi.facturaelectronica.sat.gob.mx/default.aspx?id=${timbreFiscal.uuid}&re=${emisor.rfc}&rr=${receptor.rfc}&tt=${comprobante.total}`;
+  //https://verificacfdi.facturaelectronica.sat.gob.mx/default.aspx?id=DE919DBB-A210-4B93-BBED-F370E3210AAD&re=NAL190807BU2&rr=HMO180112FQ7&tt=0000000918.370000&fe=T7OzDA==
+  //https://verificacfdi.facturaelectronica.sat.gob.mx/default.aspx?id=DE919DBB-A210-4B93-BBED-F370E3210AAD&re=NAL190807BU2&rr=HMO180112FQ7&tt=918.37
+
+  const formatTotal = (total: number | string) => {
+  const num = typeof total === 'number' ? total : parseFloat(total);
+  return num.toFixed(6).padStart(17, '0');
+};
+
+const qrText = `https://verificacfdi.facturaelectronica.sat.gob.mx/default.aspx?id=${timbreFiscal.uuid}&re=${emisor.rfc}&rr=${receptor.rfc}&tt=${formatTotal(comprobante.total)}&fe=${timbreFiscal.selloCFD.slice(-8)}`;
+
+
   const qrDataUrl = await QRCode.toDataURL(qrText);
   console.log(qrText)
 
@@ -345,6 +148,7 @@ export const generarFacturaPDF = async (facturaData: any): Promise<Blob> => {
       cellPadding: 3
     },
     margin: { left: marginLeft }
+    
   });
 
   currentY = (doc as any).lastAutoTable.finalY + 15;
@@ -374,24 +178,25 @@ export const generarFacturaPDF = async (facturaData: any): Promise<Blob> => {
   doc.text(`RFC Proveedor: ${timbreFiscal.rfcProvCertif}`, marginLeft, currentY + 20);
 
   // Posicionar QR en esquina inferior derecha sin tapar contenido
-  // const qrSize = 35;
-  // const qrX = pageWidth - qrSize - 10;
-  // const qrY = pageHeight - qrSize - 10;
-  // doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
-  // doc.setFontSize(6);
-  // doc.text('Código de Verificación SAT', qrX + qrSize/2, qrY + qrSize + 3, { align: 'center' });
+  const qrSize = 35;
+  const qrX = pageWidth - qrSize - 10;
+  const qrY = pageHeight - qrSize - 10;
+  doc.addImage(qrDataUrl, 'PNG', qrX, qrY, qrSize, qrSize);
+  doc.setFontSize(6);
+  doc.text('Código de Verificación SAT', qrX + qrSize/2, qrY + qrSize + 3, { align: 'center' });
 
   // // Sellos (más compactos)
   // doc.setFontSize(6);
   // doc.text(`Sello CFD: ${timbreFiscal.selloCFD.substring(0, 50)}...`, marginLeft, pageHeight - 15, { maxWidth: pageWidth - 2*marginLeft });
   // doc.text(`Sello SAT: ${timbreFiscal.selloSAT.substring(0, 50)}...`, marginLeft, pageHeight - 10, { maxWidth: pageWidth - 2*marginLeft });
 
-  // //--- Pie de página ---
-  // doc.setFontSize(8);
-  // doc.setTextColor(100, 100, 100);
-  // doc.text('Este documento es una representación impresa de un CFDI', 105, pageHeight - 10, { align: 'center' });
-  // doc.text('Página 1 de 1', pageWidth - marginLeft, pageHeight - 10, { align: 'right' });
+  //--- Pie de página ---
+  doc.setFontSize(8);
+  doc.setTextColor(100, 100, 100);
+  doc.text('Este documento es una representación impresa de un CFDI', 105, pageHeight - 10, { align: 'center' });
+  doc.text('Página 1 de 1', pageWidth - marginLeft, pageHeight - 10, { align: 'right' });
 
+  
   // Devolver como URL
   return doc.output('blob');  
 }
