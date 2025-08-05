@@ -8,7 +8,7 @@ type Registro = {
 };
 
 type RendererMap<T> = {
-  [key: string]: React.FC<{ value: any; item: T }>;
+  [key: string]: React.FC<{ value: any; item: T; index: number }>;
 };
 
 interface TableProps<T> {
@@ -91,12 +91,12 @@ export const Table2 = <T,>({
           <div className="flex gap-4">
             {children}
             <button
-              onClick={() =>
+              onClick={() => {
                 exportToCSV(
                   displayData.map(({ item, ...rest }) => rest),
                   "Solicitudes.csv"
-                )
-              }
+                );
+              }}
               className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2"
             >
               <FileDown className="w-4 h-4 mr-2" />
@@ -159,7 +159,11 @@ export const Table2 = <T,>({
                           className="px-6 py-1 whitespace-nowrap text-xs text-gray-900"
                         >
                           {Renderer ? (
-                            <Renderer value={value} item={item.item} />
+                            <Renderer
+                              value={value}
+                              item={item.item}
+                              index={index}
+                            />
                           ) : (
                             String(value || "")
                           )}

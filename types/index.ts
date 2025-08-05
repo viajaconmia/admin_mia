@@ -139,7 +139,7 @@ export interface Solicitud2 {
   comments: string;
   confirmation_code: string;
   codigo_reservacion_hotel: string;
-  metodo_pago_dinamico: string;
+  metodo_pago_dinamico: "Credito" | "Contado";
   nombre_cliente: string;
   correo: string;
   telefono: string;
