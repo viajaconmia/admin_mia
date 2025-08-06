@@ -64,6 +64,7 @@ function App() {
 
   let formatedSolicitudes = Array.isArray(allSolicitudes)
     ? allSolicitudes
+
       .filter(
         (item) =>
           (item.hotel_reserva?.toUpperCase() || "").includes(
@@ -143,6 +144,7 @@ function App() {
         </button>
       </span>
     ),
+
     id_cliente: ({ value }: { value: null | string }) => (
       <span className="font-semibold text-sm" title={value}>
         {value.split("").join("").slice(0, 10)}

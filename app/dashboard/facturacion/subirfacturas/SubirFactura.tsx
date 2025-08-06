@@ -127,7 +127,7 @@ export default function FacturasPage() {
   //asignar factura a items de reservación
   const [mostrarAsignarFactura, setMostrarAsignarFactura] = useState(false);
 
-  // Función para buscar clientes por nombre, email, RFC o razón social
+  // Función para buscar clientes por nombre, email, RFC o id_cliente
   const handleBuscarCliente = (e: React.ChangeEvent<HTMLInputElement>) => {
     const valor = e.target.value.toLowerCase();
     setCliente(e.target.value);
@@ -135,16 +135,17 @@ export default function FacturasPage() {
     if (valor.length > 2) {
       const filtrados = clientes.filter(cliente => {
         // Verificar que las propiedades existan antes de llamar toLowerCase()
+        console.log("cliente", cliente)
         const nombre = cliente.nombre_agente_completo?.toLowerCase() || '';
         const correo = cliente.correo?.toLowerCase() || '';
         const rfc = cliente.rfc?.toLowerCase() || '';
-        const razonSocial = cliente.razon_social?.toLowerCase() || '';
+        const id_cliente = cliente.id_agente?.toLowerCase() || '';
 
         return (
           nombre.includes(valor) ||
           correo.includes(valor) ||
           rfc.includes(valor) ||
-          razonSocial.includes(valor)
+          id_cliente.includes(valor)
         );
       });
       setClientesFiltrados(filtrados);
@@ -256,12 +257,48 @@ export default function FacturasPage() {
   };
 
   // Función para enviar la factura
-  const handleEnviar = async () => {
+  // const handleEnviar2 = async () => {
 
+  //   // Validar antes de proceder
+  //   const validationErrors = validateFacturaForm({
+  //     clienteSeleccionado,
+  //     empresaSeleccionada,
+  //     archivoXML
+  //   });
+
+  //   if (Object.keys(validationErrors).length > 0) {
+  //     setErrors(validationErrors);
+  //     return;
+  //   }
+
+  //   if (!archivoXML) return;
+
+  //   try {
+  //     setSubiendoArchivos(true);
+  //     setErrors({});
+
+  //     const data = await parsearXML(archivoXML);
+  //     setFacturaData(data);
+
+  //     // 2. Show preview without uploading
+  //     setMostrarModal(false);
+  //     setMostrarVistaPrevia(true);
+
+  //     console.log(data);
+
+
+  //   } catch (error) {
+  //     alert('Error al procesar el XML');
+  //     console.error(error);
+  //   } finally {
+  //     setSubiendoArchivos(false);
+  //   }
+  // };
+
+  const handleEnviar = async () => {
     // Validar antes de proceder
     const validationErrors = validateFacturaForm({
       clienteSeleccionado,
-      empresaSeleccionada,
       archivoXML
     });
 
@@ -270,21 +307,40 @@ export default function FacturasPage() {
       return;
     }
 
-    if (!archivoXML) return;
+    if (!archivoXML || !clienteSeleccionado) return;
 
     try {
       setSubiendoArchivos(true);
       setErrors({});
 
+      // 1. Parsear XML
       const data = await parsearXML(archivoXML);
-      setFacturaData(data);
 
-      // 2. Show preview without uploading
+      // 2. Cargar empresas del cliente (si no están ya cargadas)
+      if (empresasAgente.length === 0) {
+        await cargarEmpresasAgente(clienteSeleccionado.id_agente);
+      }
+
+      // 3. Buscar empresa por RFC del receptor
+      const rfcReceptor = data.receptor.rfc;
+      const empresaCoincidente = empresasAgente.find(emp => emp.rfc === rfcReceptor);
+
+      if (!empresaCoincidente) {
+        // Mostrar alerta y opción para crear empresa
+        const confirmarCrearEmpresa = confirm(
+          `No se encontró una empresa con RFC ${rfcReceptor} para este cliente. Deberas crear empresa`
+        );
+        // return;
+
+      } else {
+        // Asignar empresa encontrada automáticamente
+        setEmpresaSeleccionada(empresaCoincidente);
+      }
+
+      // 4. Mostrar vista previa
+      setFacturaData(data);
       setMostrarModal(false);
       setMostrarVistaPrevia(true);
-
-      console.log(data);
-
 
     } catch (error) {
       alert('Error al procesar el XML');
@@ -384,7 +440,7 @@ export default function FacturasPage() {
                 <p className="text-red-500 text-sm mt-1">{errors.clienteSeleccionado}</p>
               )}
 
-              {clienteSeleccionado && (
+              {/* {clienteSeleccionado && (
                 <div className="mb-4">
                   <label className="block mb-2 font-medium">Empresa</label>
                   {loadingEmpresas ? (
@@ -431,12 +487,12 @@ export default function FacturasPage() {
                     </>
                   )}
                 </div>
-              )}
+              )} */}
             </div>
 
-            {errors.empresaSeleccionada && (
+            {/* {errors.empresaSeleccionada && (
               <p className="text-red-500 text-sm mt-1">{errors.empresaSeleccionada}</p>
-            )}
+            )} */}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               {/* PDF */}
@@ -541,7 +597,8 @@ export default function FacturasPage() {
               <button
                 onClick={handleEnviar}
                 className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
-                disabled={!cliente || !archivoPDF || !archivoXML || subiendoArchivos || !empresaSeleccionada}
+                // disabled={!cliente || !archivoPDF || !archivoXML || subiendoArchivos || !empresaSeleccionada}
+                disabled={!cliente || !archivoXML || subiendoArchivos}
               >
                 {subiendoArchivos ? "Procesando..." : "Datos de factura"}
               </button>
@@ -595,17 +652,12 @@ interface FacturaErrors {
 // Función de validación
 const validateFacturaForm = (formData: {
   clienteSeleccionado: Agente | null;
-  empresaSeleccionada: EmpresaFromAgent | null;
   archivoXML: File | null;
 }): FacturaErrors => {
   const errors: FacturaErrors = {};
 
   if (!formData.clienteSeleccionado) {
     errors.clienteSeleccionado = "Debes seleccionar un cliente";
-  }
-
-  if (!formData.empresaSeleccionada) {
-    errors.empresaSeleccionada = "Debes seleccionar una empresa";
   }
 
   if (!formData.archivoXML) {
