@@ -834,7 +834,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             is_descuento: item.is_descuento,
             link_stripe: item.link_stripe || null,
             tipo_tarjeta: item.tipo_tarjeta,
-            activo: true,
+            activo: item.activo,
             comentario: item.comentario || null,
             comprobante: updatedData.comprobante,
             concepto: item.concepto,
@@ -876,7 +876,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
                   console.log("Item asociado:", item);
                 }}
                 handleEdit={handleEditComprobante}
-                isEditing={false}
+                isEditing={true}
                 item={item}
               />
             )}
