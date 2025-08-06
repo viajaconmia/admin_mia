@@ -15,7 +15,7 @@ import { calcularNoches, formatNumberWithCommas } from "@/helpers/utils";
 import { usePagos } from "@/hooks/usePagos";
 import Modal from "./Modal";
 import { NumberInput } from "../atom/Input";
-import { TypesSaldoWallet } from "@/types/database_tables";
+import { Saldo, TypesSaldoWallet } from "@/types/database_tables";
 
 type SaldoWallet = {
   [key in TypesSaldoWallet]: number;
@@ -34,7 +34,7 @@ const SalesManagementPage: React.FC<{
   const {
     getTypesSaldo,
     loading,
-    probarFetch,
+    ajustePrecioCobrarSaldo,
     cobrarYActualizarPagoCredito,
     getSaldosByType,
     actualizarYRegresarCredito,
@@ -82,7 +82,7 @@ const SalesManagementPage: React.FC<{
       const {
         data: { saldos, item },
       } = await getSaldosByType(tipo, reserva.id_agente, reserva.id_hospedaje);
-      const updatedSaldos = [];
+      const updatedSaldos: (Saldo & { monto_cargado_al_item: string })[] = [];
       let total_to_splitear = diferencia;
       saldos.forEach((element) => {
         if (total_to_splitear <= 0) return;
@@ -108,32 +108,33 @@ const SalesManagementPage: React.FC<{
       });
       const updatedItem = {
         ...item,
-        total: diferencia,
+        total: diferencia.toFixed(2),
         subtotal: (diferencia / 1.16).toFixed(2),
         impuestos: (diferencia - diferencia / 1.16).toFixed(2),
         saldo: "0",
         id_item: null,
         id_factura: null,
-        is_facturado: false,
+        is_facturado: 0 as 0,
         costo_total: "0",
         costo_subtotal: "0",
         costo_iva: "0",
         costo_impuestos: "0",
-        is_ajuste: true,
+        is_ajuste: 1 as 1,
         fecha_uso: item.fecha_uso.split("T")[0],
       };
 
-      console.log({
+      const { message } = await ajustePrecioCobrarSaldo({
         updatedItem,
-        updatedSaldos,
+        updatedSaldos: updatedSaldos, // Pass the first object if only one is expected
         diferencia,
         precioActualizado,
         id_booking: reserva.id_booking,
         id_servicio: reserva.id_servicio,
       });
 
-      showNotification("success", `Pago procesado exitosamente con ${tipo}`);
-      // setShowWalletModal(false);
+      showNotification("success", message);
+      setShowWalletModal(false);
+      onClose();
     } catch (error) {
       showNotification(
         "error",

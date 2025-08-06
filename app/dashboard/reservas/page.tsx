@@ -65,54 +65,52 @@ function App() {
   let formatedSolicitudes = Array.isArray(allSolicitudes)
     ? allSolicitudes
 
-      .filter(
-        (item) =>
-          (item.hotel_reserva?.toUpperCase() || "").includes(
-            searchTerm || ""
-          ) ||
-          (item.nombre_cliente?.toUpperCase() || "").includes(
-            searchTerm || ""
-          ) ||
-          (item.nombre_viajero_reservacion?.toUpperCase() || "").includes(
-            searchTerm || ""
-          ) ||
-          (item.id_agente?.toUpperCase() || "").includes(
-            searchTerm || ""
-          )
-      )
-      .map((item) => ({
-        id_cliente: item.id_agente,
-        cliente: item.nombre_cliente || "",
-        creado: item.created_at_reserva,
-        hotel: item.hotel_reserva || "",
-        codigo_hotel: item.codigo_reservacion_hotel,
-        viajero: item.nombre_viajero_reservacion || "",
-        check_in: item.check_in,
-        check_out: item.check_out,
-        noches: calcularNoches(item.check_in, item.check_out),
-        // habitacion: formatRoom(item.room),
-        tipo_cuarto: formatRoom(item.tipo_cuarto),
-        costo_proveedor: Number(item.costo_total) || 0,
-        markup:
-          ((Number(item.total || 0) - Number(item.costo_total || 0)) /
-            Number(item.total || 0)) *
-          100,
-        precio_de_venta: parseFloat(item.total),
-        metodo_de_pago: item.metodo_pago_dinamico,
-        reservante:
-          item.quien_reservó === "CREADA POR OPERACIONES"
-            ? "Operaciones"
-            : "Cliente",
-        etapa_reservacion: item.etapa_reservacion,
-        estado_pago_proveedor: "",
-        estado_factura_proveedor: "",
-        estado: item.status_reserva,
-        detalles_cliente: "",
-        editar: "",
-        pagar: "",
-        editar_venta: "",
-        item,
-      }))
+        .filter(
+          (item) =>
+            (item.hotel_reserva?.toUpperCase() || "").includes(
+              searchTerm || ""
+            ) ||
+            (item.nombre_cliente?.toUpperCase() || "").includes(
+              searchTerm || ""
+            ) ||
+            (item.nombre_viajero_reservacion?.toUpperCase() || "").includes(
+              searchTerm || ""
+            ) ||
+            (item.id_agente?.toUpperCase() || "").includes(searchTerm || "")
+        )
+        .map((item) => ({
+          id_cliente: item.id_agente,
+          cliente: item.nombre_cliente || "",
+          creado: item.created_at_reserva,
+          hotel: item.hotel_reserva || "",
+          codigo_hotel: item.codigo_reservacion_hotel,
+          viajero: item.nombre_viajero_reservacion || "",
+          check_in: item.check_in,
+          check_out: item.check_out,
+          noches: calcularNoches(item.check_in, item.check_out),
+          // habitacion: formatRoom(item.room),
+          tipo_cuarto: formatRoom(item.tipo_cuarto),
+          costo_proveedor: Number(item.costo_total) || 0,
+          markup:
+            ((Number(item.total || 0) - Number(item.costo_total || 0)) /
+              Number(item.total || 0)) *
+            100,
+          precio_de_venta: parseFloat(item.total),
+          metodo_de_pago: item.metodo_pago_dinamico,
+          reservante:
+            item.quien_reservó === "CREADA POR OPERACIONES"
+              ? "Operaciones"
+              : "Cliente",
+          etapa_reservacion: item.etapa_reservacion,
+          estado_pago_proveedor: "",
+          estado_factura_proveedor: "",
+          estado: item.status_reserva,
+          detalles_cliente: "",
+          editar: "",
+          pagar: "",
+          editar_venta: "",
+          item,
+        }))
     : [];
 
   let componentes = {
@@ -161,12 +159,13 @@ function App() {
     ),
     markup: (props: any) => (
       <span
-        className={`font-semibold border p-2 rounded-full ${props.value == "Infinity"
-          ? "text-gray-700 bg-gray-100 border-gray-300 "
-          : props.value > 0
+        className={`font-semibold border p-2 rounded-full ${
+          props.value == "Infinity"
+            ? "text-gray-700 bg-gray-100 border-gray-300 "
+            : props.value > 0
             ? "text-green-600 bg-green-100 border-green-300"
             : "text-red-600 bg-red-100 border-red-300"
-          }`}
+        }`}
       >
         {props.value == "Infinity" ? <>0%</> : <>{props.value.toFixed(2)}%</>}
       </span>
@@ -326,6 +325,7 @@ function App() {
               onClose={() => {
                 setSelectedItem(null);
                 setEditarVenta(false);
+                handleFetchSolicitudes();
               }}
             ></EditPrecioVenta>
           </Modal>
@@ -386,109 +386,6 @@ const ModalVerificacion = ({
         </>
       )}
     </>
-  );
-};
-
-const bookService = new BookingsService();
-export const ItemsEdit = ({ id_hospedaje }) => {
-  const [items, setItems] = useState<{
-    [key: string]: Item & { edit: boolean };
-  }>({});
-  const [loading, setLoading] = useState<boolean>(true);
-
-  useEffect(() => {
-    setLoading(true);
-    bookService
-      .obtenerItemsDeHospedaje(id_hospedaje)
-      .then((response) => {
-        const itemsObj = response.data.reduce((acc, item: Item) => {
-          acc[item.id_item] = { ...item, edit: false };
-          return acc;
-        }, {});
-        setItems(itemsObj);
-      })
-      .catch((error) => {
-        console.error(error.response || error.message);
-        setItems({});
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, [id_hospedaje]);
-
-  const handleSubmit = async () => {
-    const dataFiltrada = Object.values(items).filter((item) => item.edit);
-    bookService
-      .actualizarItems(dataFiltrada)
-      .then((response) => {
-        console.log(response);
-      })
-      .catch((error) => {
-        console.error(error.response || error.message);
-      });
-  };
-
-  const itemsArray = Object.values(items);
-
-  let precio_total =
-    Object.values(items).reduce(
-      (acc: number, current: Item & { edit: boolean }) =>
-        acc + Number(current.total),
-      0
-    ) || 0;
-
-  return (
-    <div className="flex flex-col items-center justify-center w-full space-y-2">
-      <div className="bg-gradient-to-br from-sky-400 to-sky-300 rounded-2xl p-6 text-white shadow-lg w-full mb-2">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-medium text-emerald-100 mb-1">
-              Precio de venta total
-            </h2>
-            <p className="text-3xl font-bold">
-              ${formatNumberWithCommas(precio_total.toFixed(2))}
-            </p>
-          </div>
-          <div className="bg-white bg-opacity-20 rounded-full p-3">
-            <DollarSign className="w-8 h-8" />
-          </div>
-        </div>
-      </div>
-      {loading ? (
-        <Loader></Loader>
-      ) : (
-        <>
-          {itemsArray.map((item) => (
-            <div
-              key={item.id_item}
-              className="flex items-center justify-between border-t p-2 bg-white w-full"
-            >
-              <div className="text-sm font-medium text-gray-700">
-                ID:{" "}
-                <span className="text-gray-900">
-                  {item.id_item.slice(4, 10)}
-                </span>
-              </div>
-              <NumberInput
-                value={Number(item.total)}
-                onChange={(value) =>
-                  setItems((prev) => ({
-                    ...prev,
-                    [item.id_item]: { ...item, total: value, edit: true },
-                  }))
-                }
-              />
-            </div>
-          ))}
-        </>
-      )}
-      <button
-        className="inline-flex items-center px-4 py-2 border border-sky-300 bg-sky-100 shadow-sm text-sm font-medium rounded-md text-sky-900 hover:bg-gray-50 focus:outline-none focus:ring-2"
-        onClick={handleSubmit}
-      >
-        Editar pago
-      </button>
-    </div>
   );
 };
 
