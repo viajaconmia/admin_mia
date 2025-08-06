@@ -86,17 +86,16 @@ export default function FacturasPage() {
       setSubiendoArchivos(true);
       const folder = "comprobantes";
 
-      // XML
+      // Subir XML (requerido)
       const { url: urlXML, publicUrl: publicUrlXML } = await obtenerPresignedUrl(
         archivoXML.name,
         archivoXML.type,
         folder
       );
       await subirArchivoAS3(archivoXML, urlXML);
-      setArchivoXMLUrl(publicUrlXML);
 
+      // Subir PDF (opcional)
       let pdfUrl = null;
-      // PDF (opcional)
       if (archivoPDF) {
         const { url: urlPDF, publicUrl: publicUrlPDF } = await obtenerPresignedUrl(
           archivoPDF.name,
@@ -104,14 +103,13 @@ export default function FacturasPage() {
           folder
         );
         await subirArchivoAS3(archivoPDF, urlPDF);
-        setArchivoPDFUrl(publicUrlPDF);
         pdfUrl = publicUrlPDF;
       }
 
       return { pdfUrl, xmlUrl: publicUrlXML };
-    } catch (err) {
-      console.error("Error al subir archivos:", err);
-      throw err;
+    } catch (error) {
+      console.error("Error al subir archivos:", error);
+      throw error;
     } finally {
       setSubiendoArchivos(false);
     }
@@ -198,11 +196,16 @@ export default function FacturasPage() {
       setSubiendoArchivos(true);
 
       // Upload files only when confirming
-      const { pdfUrl, xmlUrl } = await subirArchivosAS3();
+      const { xmlUrl } = await subirArchivosAS3();
+
+      if (!archivoPDFUrl) {
+        console.warn("URL del PDF no disponible");
+        // Puedes decidir si quieres continuar sin el PDF o lanzar un error
+      }
 
       const basePayload = {
         fecha_emision: facturaData.comprobante.fecha.split("T")[0], // solo la fecha
-        estado: "En proceso",
+        estado: "Confirmada",
         usuario_creador: clienteSeleccionado.id_agente,
         id_agente: clienteSeleccionado.id_agente,
         total: parseFloat(facturaData.comprobante.total),
@@ -213,7 +216,7 @@ export default function FacturasPage() {
         id_empresa: empresaSeleccionada.id_empresa || null,
         uuid_factura: facturaData.timbreFiscal.uuid,
         rfc_emisor: facturaData.emisor.rfc,
-        url_pdf: pdfUrl || null,
+        url_pdf: archivoPDFUrl,
         url_xml: xmlUrl || null,
         items_json: JSON.stringify([]),
       };
@@ -229,7 +232,7 @@ export default function FacturasPage() {
         body: JSON.stringify(basePayload),
       });
 
-      console.log("payload enviado:", payloadAdicional);
+      console.log("payload enviado:", basePayload);
 
       if (!response.ok) {
         throw new Error('Error al asignar la factura');
@@ -255,45 +258,6 @@ export default function FacturasPage() {
       setSubiendoArchivos(false);
     }
   };
-
-  // Función para enviar la factura
-  // const handleEnviar2 = async () => {
-
-  //   // Validar antes de proceder
-  //   const validationErrors = validateFacturaForm({
-  //     clienteSeleccionado,
-  //     empresaSeleccionada,
-  //     archivoXML
-  //   });
-
-  //   if (Object.keys(validationErrors).length > 0) {
-  //     setErrors(validationErrors);
-  //     return;
-  //   }
-
-  //   if (!archivoXML) return;
-
-  //   try {
-  //     setSubiendoArchivos(true);
-  //     setErrors({});
-
-  //     const data = await parsearXML(archivoXML);
-  //     setFacturaData(data);
-
-  //     // 2. Show preview without uploading
-  //     setMostrarModal(false);
-  //     setMostrarVistaPrevia(true);
-
-  //     console.log(data);
-
-
-  //   } catch (error) {
-  //     alert('Error al procesar el XML');
-  //     console.error(error);
-  //   } finally {
-  //     setSubiendoArchivos(false);
-  //   }
-  // };
 
   const handleEnviar = async () => {
     // Validar antes de proceder
@@ -493,47 +457,7 @@ export default function FacturasPage() {
             {/* {errors.empresaSeleccionada && (
               <p className="text-red-500 text-sm mt-1">{errors.empresaSeleccionada}</p>
             )} */}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              {/* PDF */}
-              <div className="border-2 border-dashed border-gray-300 p-6 rounded-lg bg-gray-50 hover:bg-gray-100 transition">
-                <label className="block text-gray-700 font-semibold mb-2">
-                  Archivo PDF (Requerido)<span className="text-red-500">*</span>
-                </label>
-
-                <input
-                  type="file"
-                  id="pdf-upload"
-                  accept="application/pdf,.pdf" // Añadido MIME type además de la extensión
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0] || null;
-                    // Validación adicional del tipo de archivo
-                    if (file && file.type !== 'application/pdf') {
-                      alert('Por favor, sube solo archivos PDF');
-                      e.target.value = ''; // Limpiar el input
-                      setArchivoPDF(null);
-                      return;
-                    }
-                    setArchivoPDF(file);
-                  }}
-                />
-
-                {/* Botón personalizado que activará el input */}
-                <label
-                  htmlFor="pdf-upload"
-                  className="inline-flex items-center px-4 py-2 bg-green-500 text-white rounded cursor-pointer hover:bg-green-600 transition"
-                >
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-                  </svg>
-                  Seleccionar archivo
-                </label>
-
-                <p className="text-sm text-gray-500 mt-2">
-                  {archivoPDF ? archivoPDF.name : 'Sin archivos seleccionados'}
-                </p>
-              </div>
+            <div>
 
               {/* XML */}
               <div className="border-2 border-dashed border-gray-300 p-6 rounded-lg bg-gray-50 hover:bg-gray-100 transition">
@@ -610,7 +534,10 @@ export default function FacturasPage() {
       {mostrarVistaPrevia && (
         <VistaPreviaModal
           facturaData={facturaData}
-          onConfirm={() => handleConfirmarFactura()}
+          onConfirm={(pdfUrl) => {
+            setArchivoPDFUrl(pdfUrl);
+            handleConfirmarFactura(); // Ya no necesitas pasar pdfUrl aquí
+          }}
           onClose={cerrarVistaPrevia}
           isLoading={subiendoArchivos}
         />

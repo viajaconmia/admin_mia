@@ -1,4 +1,4 @@
-import { TypeFilters, UpdateRequestBody } from "@/types";
+import { TypeFilters, UpdateRequestBody,AgenteConSaldos } from "@/types";
 import { API_KEY, URL } from "@/lib/constants";
 
 
@@ -88,6 +88,81 @@ export const fetchUpdateEmpresasAgentes = async (
   console.log(data);
   callback(data);
   return data;
+};
+
+// @/services/agentes.ts
+// export const fetchAgentesWithFacturableSaldos1 = async (
+//   filters: TypeFilters,
+//   defaultFilters: TypeFilters
+// ): Promise<AgenteConSaldos[]> => {  // Cambiado a AgenteConSaldos[]
+//   const queryParams = new URLSearchParams();
+
+//   Object.entries({ ...filters, ...defaultFilters }).forEach(([key, value]) => {
+//     if (value !== undefined && value !== null && value !== "") {
+//       queryParams.append(key, value.toString());
+//     }
+//   });
+
+//   const response = await fetch(
+//     `${URL}/mia/agentes/all-with-active-facturable-saldos?${queryParams.toString()}`,
+//     {
+//       headers: {
+//         "x-api-key": API_KEY,
+//         "Cache-Control": "no-cache, no-store, must-revalidate",
+//         Pragma: "no-cache",
+//         Expires: "0",
+//       },
+//       cache: "no-store",
+//     }
+//   );
+  
+//   if (!response.ok) {
+//     throw new Error("Error al cargar los datos");
+//   }
+  
+//   const data: AgenteConSaldos[] = await response.json();
+//   return data;
+// };
+export const fetchAgentesWithFacturableSaldos = async (
+  filters: TypeFilters,
+  defaultFilters: TypeFilters
+): Promise<AgenteConSaldos[]> => {
+  const queryParams = new URLSearchParams();
+
+  Object.entries({ ...filters, ...defaultFilters }).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      queryParams.append(key, value.toString());
+    }
+  });
+
+  const response = await fetch(
+    `${URL}/mia/agentes/all-with-active-facturable-saldos?${queryParams.toString()}`,
+    {
+      headers: {
+        "x-api-key": API_KEY,
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        Pragma: "no-cache",
+        Expires: "0",
+      },
+      cache: "no-store",
+    }
+  );
+  
+  if (!response.ok) {
+    throw new Error("Error al cargar los datos");
+  }
+  
+  const data = await response.json();
+  
+  // Verificación de tipo segura
+  if (!Array.isArray(data)) {
+    throw new Error("La respuesta no es un array");
+  }
+
+  return data.map(item => ({
+    ...item,
+    saldos_facturables: item.saldos_facturables || [] // Asegura que siempre haya un array
+  }));
 };
 
 export const fetchEmpresasAgentes = async (
