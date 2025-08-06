@@ -216,22 +216,25 @@ export const exportToCSV = (data, filename = "archivo.csv") => {
   ].join("\n");
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
   const link = document.createElement("a");
-  const url = window.URL.createObjectURL(blob); link.setAttribute("href", url);
+  const url = window.URL.createObjectURL(blob);
+  link.setAttribute("href", url);
   link.setAttribute("download", filename);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
 };
 
-export function formatNumberWithCommas(numberStr: string | number | undefined | null): string {
+export function formatNumberWithCommas(
+  numberStr: string | number | undefined | null
+): string {
   // Si el valor es undefined o null, retornar cadena vacía
-  if (numberStr == null) return '';
+  if (numberStr == null) return "";
 
   // Convertir a string si es un número
-  const str = typeof numberStr === 'number' ? numberStr.toString() : numberStr;
+  const str = typeof numberStr === "number" ? numberStr.toString() : numberStr;
 
   // Si la cadena está vacía, retornar cadena vacía
-  if (str.trim() === '') return '';
+  if (str.trim() === "") return "";
   // 1. Separar la parte entera de la parte decimal
   const parts = str.split(".");
   const integerPart = parts[0];
@@ -343,7 +346,9 @@ import { API_KEY, URL } from "@/lib/constants";
 
 export interface UploadResponse {
   publicUrl: string;
-  url: string;
+  urlComprobante: string;
+  url?: string;
+  publicUrlComprobante?: string;
 }
 
 /**
@@ -374,16 +379,44 @@ export async function obtenerPresignedUrl(
   return res.json();
 }
 
-export async function subirArchivoAS3(file: File, presignedUrl: string): Promise<void> {
-  const uploadRes = await fetch(presignedUrl, {
-    method: "PUT",
-    body: file,
-    headers: {
-      "Content-Type": file.type,
-    },
-  });
+export async function subirArchivoAS3(
+  file: File,
+  presignedUrl: string
+): Promise<void> {
+  try {
+    const uploadRes = await fetch(presignedUrl, {
+      method: "PUT",
+      body: file,
+      headers: {
+        "Content-Type": file.type,
+      },
+    });
 
-  if (!uploadRes.ok) {
-    throw new Error("Error al subir archivo a S3");
+    if (!uploadRes.ok) {
+      throw new Error("Error al subir archivo a S3");
+    }
+  } catch (error) {
+    console.error("Error al subir archivo a S3:", error);
   }
 }
+export const subirArchivosAS3Luis = async (
+  archivo: File,
+  folder: string
+): Promise<string> => {
+  if (!archivo) {
+    throw new Error("El archivo es requerido");
+  }
+
+  try {
+    const { url, publicUrl } = await obtenerPresignedUrl(
+      archivo.name,
+      archivo.type,
+      folder
+    );
+    await subirArchivoAS3(archivo, url);
+    return publicUrl;
+  } catch (err) {
+    console.error("Error al subir archivos:", err);
+    throw err;
+  }
+};

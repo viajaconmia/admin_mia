@@ -8,8 +8,10 @@ import Filters from "@/components/Filters";
 import { TravelerDialog } from "../_components/traveler_dialog";
 import { Factura } from "@/types/_types";
 import { fetchFacturas } from "@/services/facturas";
-const defaultFiltersFacturas = {
-  estatusFactura: null
+import { TypeFilters } from "@/types";
+const defaultFiltersFacturas : TypeFilters = {
+  estatusFactura: "Confirmada",
+  
 }
 export function TravelersPage() {
   const [searchTerm, setSearchTerm] = useState<string>("");
@@ -37,8 +39,11 @@ export function TravelersPage() {
       setIsLoading(false);
     });
   };
-
+useEffect(() => {
+  handleFetchFacturas(defaultFiltersFacturas);
+}, []);
   useEffect(() => {
+
     if (isFilterActive) {
       handleFetchFacturas(defaultFiltersFacturas);
     }

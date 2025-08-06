@@ -59,7 +59,7 @@ export const HEADERS_API = {
 };
 
 export const URL: string = process.env.NEXT_PUBLIC_URL;
-console.log(URL);
+// console.log(URL);
 
 export const environment = process.env.NEXT_PUBLIC_ENVIRONMENT;
-console.log(environment);
+// console.log(environment);

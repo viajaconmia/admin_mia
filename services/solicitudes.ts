@@ -1,4 +1,4 @@
-import { TypeFilters, Solicitud,Solicitud2 } from "@/types";
+import { TypeFilters, Solicitud, Solicitud2 } from "@/types";
 import { API_KEY, URL } from "@/lib/constants";
 
 export const fetchSolicitudes = async (
@@ -59,10 +59,10 @@ export const fetchSolicitudes2 = async (
     });
 
     const data = await res.json();
-    console.log("Esta es mi data 👌👌",data);
     callback(data.data || []);
     return data;
   } catch (err) {
+    console.log(err.response || err.message || "ERROR DESCONOCIDO");
     console.error("Error al actualizar solicitudes:", err);
   }
 };

@@ -68,7 +68,7 @@ function App() {
       soporte: item,
       detalles: item,
     }));
-
+  console.log(formatedSolicitudes, "wferferv")
   let componentes = {
     creado: (props: any) => (
       <span title={props.value}>{formatDate(props.value)}</span>

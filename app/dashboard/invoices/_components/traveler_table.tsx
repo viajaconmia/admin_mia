@@ -81,6 +81,8 @@ function FacturaDetails({ setModal, id_factura }) {
     }
   }, [id_factura]);
 
+  console.log()
+
   return (
     <Modal
       onClose={() => setModal("")}
