@@ -1956,8 +1956,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
               value={Number(state.amount)}
               onChange={(value) => handleInputChange("amount", value)}
               disabled={
-                isStripeLinked ||
-                (isEditing && state.paymentMethod === "Tarjeta")
+                isStripeLinked
               } // Agregamos esta condición
             />
 
