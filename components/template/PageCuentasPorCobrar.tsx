@@ -156,10 +156,9 @@ const PaymentSummary: React.FC<PaymentSummaryProps> = ({
       {statusInfo && (
         <div className="mt-4 pt-4 border-t border-emerald-400">
           <p
-
-            className={`text-sm font-medium ${statusInfo.puedeCancelar ? "text-emerald-100" : "text-yellow-200"
-              }`}
-
+            className={`text-sm font-medium ${
+              statusInfo.puedeCancelar ? "text-emerald-100" : "text-yellow-200"
+            }`}
           >
             {statusInfo.mensaje}
           </p>
@@ -329,10 +328,9 @@ const ComprobanteModal: React.FC<ComprobanteModalProps> = ({
             <button
               onClick={handleSubmit}
               disabled={!archivo}
-
-              className={`flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg ${!archivo ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-700"
-                }`}
-
+              className={`flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg ${
+                !archivo ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-700"
+              }`}
             >
               Guardar Comprobante
             </button>
@@ -426,12 +424,10 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             ? 1
             : 0
           : newFilters.activo === true
-
-            ? 1
-            : newFilters.activo === false
-              ? 0
-              : null,
-
+          ? 1
+          : newFilters.activo === false
+          ? 0
+          : null,
     };
 
     setFilters(completeFilters);
@@ -563,7 +559,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       // Filtro por link_stripe (case-insensitive)
       if (filters.id_stripe) {
         const stripeId = filters.id_stripe.toLowerCase();
-        const saldoLink = saldo.link_stripe?.toLowerCase() || '';
+        const saldoLink = saldo.link_stripe?.toLowerCase() || "";
         if (!saldoLink.includes(stripeId)) {
           return false;
         }
@@ -612,8 +608,8 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       return true;
     });
 
-    console.log('Filters:', filters);
-    console.log('Sample saldo:', saldos[0]);
+    console.log("Filters:", filters);
+    console.log("Sample saldo:", saldos[0]);
 
     // Transform the filtered data
     const transformedData = filteredItems.map((saldo) => ({
@@ -627,11 +623,10 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         saldo.metodo_pago === "transferencia"
           ? "Transferencia Bancaria"
           : saldo.metodo_pago === "tarjeta credito"
-
-            ? "Tarjeta de Crédito"
-            : saldo.metodo_pago === "tarjeta debito"
-              ? "Tarjeta de Débito"
-              : saldo.metodo_pago || "",
+          ? "Tarjeta de Crédito"
+          : saldo.metodo_pago === "tarjeta debito"
+          ? "Tarjeta de Débito"
+          : saldo.metodo_pago || "",
 
       tipo_tarjeta: saldo.tipo_tarjeta || "",
       referencia: saldo.referencia || "",
@@ -706,11 +701,11 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         <span
           className={`font-semibold text-sm px-2 py-1 rounded flex items-center justify-center
 
-      ${isActive
-              ? "bg-blue-100 text-blue-600"
-              : "bg-red-100 text-red-600 line-through"
-            }`}
-
+      ${
+        isActive
+          ? "bg-blue-100 text-blue-600"
+          : "bg-red-100 text-red-600 line-through"
+      }`}
         >
           ${formatted}
         </span>
@@ -727,11 +722,11 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         <span
           className={`font-semibold text-sm px-2 py-1 rounded flex items-center justify-center
 
-      ${isActive
-              ? "bg-blue-100 text-blue-600"
-              : "bg-red-100 text-red-600 line-through"
-            }`}
-
+      ${
+        isActive
+          ? "bg-blue-100 text-blue-600"
+          : "bg-red-100 text-red-600 line-through"
+      }`}
         >
           ${formatted}
         </span>
@@ -742,15 +737,14 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       const isActive = Boolean(item.activo);
       return (
         <span
-
-          className={`font-semibold text-sm px-2 py-1 rounded ${isActive
-            ? "bg-blue-50 text-blue-600"
-            : "bg-red-100 text-red-600 line-through"
-            }`}
-
+          className={`font-semibold text-sm px-2 py-1 rounded ${
+            isActive
+              ? "bg-blue-50 text-blue-600"
+              : "bg-red-100 text-red-600 line-through"
+          }`}
           title={item.id_agente}
         >
-          {item.id_agente?.split("-").join("").slice(0, 10)}
+          {item.id_agente?.slice(0, 11)}
         </span>
       );
     },
@@ -759,11 +753,11 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       const isActive = Boolean(item.activo);
       return (
         <span
-
-          className={`font-semibold text-sm px-2 py-1 rounded ${isActive
-            ? "bg-blue-50 text-blue-600"
-            : "bg-red-100 text-red-600 line-through"
-            }`}
+          className={`font-semibold text-sm px-2 py-1 rounded ${
+            isActive
+              ? "bg-blue-50 text-blue-600"
+              : "bg-red-100 text-red-600 line-through"
+          }`}
         >
           {item.id_saldos}
         </span>
@@ -785,9 +779,9 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
 
       return (
         <div
-          className={`flex items-center gap-2 max-w-xs truncate ${!isActive ? "text-red-500 line-through" : ""
-            }`}
-
+          className={`flex items-center gap-2 max-w-xs truncate ${
+            !isActive ? "text-red-500 line-through" : ""
+          }`}
         >
           {shouldShowIcon && <CreditCard className={`w-4 h-4 ${iconColor}`} />}
           <span>{value ? normalizeText(value) : ""}</span>
@@ -795,18 +789,17 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       );
     },
 
-
     forma_De_Pago: ({ value, item }: { value: string; item: any }) => {
       const isActive = item?.activo !== false;
       const normalizedValue = value.toLowerCase();
       return (
         <div
-          className={`flex items-center gap-2 ${!isActive ? "text-red-500 line-through" : ""
-            }`}
+          className={`flex items-center gap-2 ${
+            !isActive ? "text-red-500 line-through" : ""
+          }`}
         >
           {normalizedValue.includes("crédito") ||
-            normalizedValue.includes("credito") ? (
-
+          normalizedValue.includes("credito") ? (
             <CreditCard className="w-4 h-4 text-green-500" />
           ) : normalizedValue.includes("débito") ||
             normalizedValue.includes("debito") ? (
@@ -887,12 +880,11 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     aplicable: ({ value }: { value: "Si" | "No" }) => {
       return (
         <span
-
-          className={`flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium w-full ${value === "Si"
-            ? "bg-green-200 text-green-800"
-            : "bg-red-200 text-red-800"
-            }`}
-
+          className={`flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium w-full ${
+            value === "Si"
+              ? "bg-green-200 text-green-800"
+              : "bg-red-200 text-red-800"
+          }`}
         >
           <span className="text-center w-full">{normalizeText(value)}</span>
         </span>
@@ -903,9 +895,9 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       const isActive = item?.activo !== false;
       return (
         <div
-          className={`max-w-xs truncate ${!isActive ? "text-red-500 line-through" : ""
-            }`}
-
+          className={`max-w-xs truncate ${
+            !isActive ? "text-red-500 line-through" : ""
+          }`}
         >
           {value ? normalizeText(value) : ""}
         </div>
@@ -916,9 +908,9 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       const isActive = item?.activo !== false;
       return (
         <div
-          className={`max-w-xs truncate ${!isActive ? "text-red-500 line-through" : ""
-            }`}
-
+          className={`max-w-xs truncate ${
+            !isActive ? "text-red-500 line-through" : ""
+          }`}
         >
           {value ? normalizeText(value) : ""}
         </div>
@@ -929,9 +921,9 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       const isActive = item?.activo !== false;
       return (
         <div
-          className={`max-w-xs truncate ${!isActive ? "text-red-500 line-through" : ""
-            }`}
-
+          className={`max-w-xs truncate ${
+            !isActive ? "text-red-500 line-through" : ""
+          }`}
         >
           {normalizeText(value)}
         </div>
@@ -941,12 +933,11 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     facturable: ({ value }: { value: "Si" | "No" }) => {
       return (
         <span
-
-          className={`flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium w-full ${value === "Si"
-            ? "bg-green-200 text-green-800"
-            : "bg-red-200 text-red-800"
-            }`}
-
+          className={`flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium w-full ${
+            value === "Si"
+              ? "bg-green-200 text-green-800"
+              : "bg-red-200 text-red-800"
+          }`}
         >
           <span className="text-center w-full">{normalizeText(value)}</span>
         </span>
@@ -964,7 +955,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       const hasBalance = item?.saldo > 0; // Verifica si el saldo es mayor a 0
       const hasLink = Boolean(
         item?.link_stripe && item.link_stripe.trim() !== ""
-
       );
       const showDeleteButtons = isActive && !isDifferent;
       const showEditbuttosn = isActive && !isDifferent && !hasLink;
@@ -984,7 +974,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
           // Obtener el pago original para calcular la diferencia
           const pagoOriginal = saldos.find(
             (s) => s.id_saldos === item.id_saldos
-
           );
           if (!pagoOriginal) throw new Error("No se encontró el pago original");
 
@@ -1002,10 +991,8 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
           const metodoPagoNormalizado = formaPago.includes("transferencia")
             ? "transferencia"
             : formaPago.includes("tarjeta")
-
-              ? "tarjeta"
-              : "wallet";
-
+            ? "tarjeta"
+            : "wallet";
 
           // Preparar datos base
           const apiData: any = {
@@ -1021,13 +1008,11 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             activo: true, // Siempre activo al editar
             concepto: item.concepto || "pago",
             currency: item.currency || "MXN",
-
           };
 
           // Manejar campos específicos según el método de pago
           switch (metodoPagoNormalizado) {
             case "transferencia":
-
               apiData.referencia = updatedData.referencia || item.referencia;
 
               apiData.link_stripe = null;
@@ -1040,7 +1025,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             case "tarjeta":
               apiData.referencia = null;
               apiData.link_stripe =
-
                 updatedData.link_Stripe || item.link_stripe || null;
               apiData.tipo_tarjeta =
                 metodoPagoNormalizado === "tarjeta" ? "credito" : "debito";
@@ -1051,7 +1035,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
               apiData.numero_autorizacion =
                 updatedData.numero_autorizacion ||
                 item.numero_autorizacion ||
-
                 null;
               break;
 
@@ -1084,8 +1067,8 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         } catch (error) {
           console.error("Error al actualizar el pago:", error);
           setError(
-            `Error al actualizar el pago: ${error instanceof Error ? error.message : String(error)
-
+            `Error al actualizar el pago: ${
+              error instanceof Error ? error.message : String(error)
             }`
           );
         }
@@ -1117,7 +1100,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             ult_digits: item.ult_digits || null,
             banco_tarjeta: item.banco_tarjeta || null,
             numero_autorizacion: item.numero_autorizacion || null,
-
           };
 
           await updateAgentWallet();
@@ -1138,9 +1120,8 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         } catch (error) {
           console.error("Error al eliminar el pago:", error);
           setError(
-
-            `Error al eliminar el pago: ${error instanceof Error ? error.message : String(error)
-
+            `Error al eliminar el pago: ${
+              error instanceof Error ? error.message : String(error)
             }`
           );
         }
@@ -1194,15 +1175,14 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
                 onClose={() => setIsEditModalOpen(false)}
                 agente={agente}
                 initialData={{
-
                   monto_pagado: item.monto,
                   referencia: item.referencia,
                   paymentMethod:
                     item.metodo_pago === "transferencia"
                       ? "Transferencia"
                       : item.metodo_pago === "tarjeta"
-                        ? "Tarjeta"
-                        : "Wallet",
+                      ? "Tarjeta"
+                      : "Wallet",
                   fecha_De_Pago: item.fecha_pago
                     ? new Date(item.fecha_pago).toISOString().split("T")[0]
                     : "",
@@ -1210,12 +1190,11 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
                   facturable: item.is_facturable,
                   aplicable: item.is_descuento,
 
-                  link_Stripe: item.link_stripe || '',
-                  ult_digits: item.ult_digits || '',
-                  banco_tarjeta: item.banco_tarjeta || '',
-                  numero_autorizacion: (item.numero_autorizacion),
-                  tipo_tarjeta: item.tipo_tarjeta || '',
-
+                  link_Stripe: item.link_stripe || "",
+                  ult_digits: item.ult_digits || "",
+                  banco_tarjeta: item.banco_tarjeta || "",
+                  numero_autorizacion: item.numero_autorizacion,
+                  tipo_tarjeta: item.tipo_tarjeta || "",
                 }}
                 onSubmit={handleEdit}
                 isEditing={true}
@@ -1275,7 +1254,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             >
               <PagarModalComponent
                 saldoData={{
-
                   id_saldos: item.id_saldos,
                   id_agente: item.id_agente,
                   nombre: item.nombre,
@@ -1285,7 +1263,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
                   metodo_pago: item.metodo_pago,
                   referencia: item.referencia,
                   comentario: item.comentario,
-
                 }}
                 rowData={item} // Pasa el row completo como nueva prop
                 onClose={() => {
@@ -1460,9 +1437,18 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             <Table3
               registros={filteredData}
               renderers={tableRenderers}
-
-              customColumns={["saldo", "fecha_de_pago", "tipo_tarjeta", "forma_de_pago", "creado", "acciones", "referencia", "link_stripe", "facturable"]}
-              //resto de columnas  
+              customColumns={[
+                "saldo",
+                "fecha_de_pago",
+                "tipo_tarjeta",
+                "forma_de_pago",
+                "creado",
+                "acciones",
+                "referencia",
+                "link_stripe",
+                "facturable",
+              ]}
+              //resto de columnas
               //     id_Cliente:saldo.id_agente,
               //   id_saldo: saldo.id_saldos,
               // cliente: (saldo.nombre || '').toUpperCase(),
@@ -1659,15 +1645,13 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
       });
       console.log("data de editar", initialData);
       setCardDetails({
-        ult_digits: initialData.ult_digits || '',
-        banco_tarjeta: initialData.banco_tarjeta || 'wer',
-        numero_autorizacion: (initialData.numero_autorizacion) || 'erfgb',
-        tipo_tarjeta: initialData.tipo_tarjeta || '',
+        ult_digits: initialData.ult_digits || "",
+        banco_tarjeta: initialData.banco_tarjeta || "wer",
+        numero_autorizacion: initialData.numero_autorizacion || "erfgb",
+        tipo_tarjeta: initialData.tipo_tarjeta || "",
       });
     }
   }, [isEditing, initialData]);
-
-
 
   const paymentMethods = isEditing
     ? ["Transferencia", "Wallet", "Tarjeta"]
@@ -1710,23 +1694,23 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
           tipo_tarjeta: data.data.funding || "No encontrado",
         });
 
-
-        const amount = data.data.monto || '0';
-        const paymentDate = data.data.fecha_pago ? new Date(data.data.fecha_pago).toISOString().split('T')[0] : '';
+        const amount = data.data.monto || "0";
+        const paymentDate = data.data.fecha_pago
+          ? new Date(data.data.fecha_pago).toISOString().split("T")[0]
+          : "";
 
         handleInputChange("amount", amount);
         handleInputChange("paymentDate", paymentDate);
 
         setIsStripeLinked(true);
-
       } else {
         alert("Link de Stripe fallido");
         setIsStripeLinked(false);
         return;
       }
     } catch (error) {
-      console.error('Error en fetchStripeInfo:', error);
-      setErrors(prev => ({
+      console.error("Error en fetchStripeInfo:", error);
+      setErrors((prev) => ({
         ...prev,
         link_Stripe: "Error al obtener información de Stripe",
       }));
@@ -1971,9 +1955,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                     cardDetails.tipo_tarjeta === "credito"
                       ? "credit"
                       : cardDetails.tipo_tarjeta === "debito"
-                        ? "debit"
-                        : cardDetails.tipo_tarjeta
-
+                      ? "debit"
+                      : cardDetails.tipo_tarjeta
                   }
                   onChange={(value) => {
                     const tipo_tarjeta =
@@ -2002,10 +1985,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
               label="Monto Pagado"
               value={Number(state.amount)}
               onChange={(value) => handleInputChange("amount", value)}
-              disabled={
-                isStripeLinked
-
-              } // Agregamos esta condición
+              disabled={isStripeLinked} // Agregamos esta condición
             />
 
             <CheckboxInput
