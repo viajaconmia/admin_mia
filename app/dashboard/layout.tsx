@@ -82,9 +82,14 @@ const links = [
     icon: Receipt,
   },
   {
+    title: "Facturas Pendientes",
+    href: "/dashboard/facturas-pendientes",
+    icon: Receipt,
+  },
+  {
     title: "Items sin facturar",
     href: "/dashboard/facturacion",
-    icon: Receipt,
+    icon: BookOpen,
   },
   {
     title: "Codigo confirmación",

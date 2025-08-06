@@ -28,7 +28,7 @@ export interface TypeFilters {
     | "Creacion"
     | "Actualizacion"
     | null;
-  active?: "Activo" | "Inactivo" | null;
+  active?: "Activo" | "Inactivo"  | null;
   hay_convenio?: "SI" | "NO";
   tipo_negociacion?: string | null;
   estado?: string | null;
@@ -50,7 +50,7 @@ export interface TypeFilters {
   tipo_hospedaje?: string | null;
   correo?: string | null;
   infoCompleta?: string | null;
-  activo?: boolean | "ACTIVO" | "INACTIVO" | null;
+  activo?: boolean | "ACTIVO" | "INACTIVO" |1|0| null;
   pais?: string | null;
   reservante?: "Operaciones" | "Cliente";
   markUp?: number;
@@ -76,6 +76,43 @@ export interface EmpresaFromAgent {
   razon_social?: string | null;
   rfc?: string | null;
     [key: string]: any; // Para propiedades adicionales
+}
+
+export interface Agente {
+  id_agente: string;
+  nombre_agente_completo: string;
+  correo: string;
+  telefono: string;
+  created_at: string;
+  tiene_credito_consolidado: boolean | number; // Acepta ambos tipos
+  saldo?: number;
+  wallet?: string;
+  notas?: string;
+  vendedor?: string;
+}
+
+export interface AgenteConSaldos extends Agente {
+  saldos_facturables: Array<{
+    id_saldos: number;
+    fecha_creacion: string;
+    saldo: number;
+    monto: number;
+    metodo_pago: string;
+    fecha_pago: string;
+    concepto: string;
+    referencia: string;
+    currency: string;
+    tipo_tarjeta: string;
+    ult_digits: string;
+    comentario: string;
+    link_stripe: string;
+    is_facturable: boolean;
+    is_descuento: boolean;
+    comprobante: string;
+    activo: boolean;
+    numero_autorizacion: string;
+    banco_tarjeta: string;
+  }>;
 }
 
 export type Solicitud = {

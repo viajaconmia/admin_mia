@@ -64,51 +64,55 @@ function App() {
 
   let formatedSolicitudes = Array.isArray(allSolicitudes)
     ? allSolicitudes
-        .filter(
-          (item) =>
-            (item.hotel_reserva?.toUpperCase() || "").includes(
-              searchTerm || ""
-            ) ||
-            (item.nombre_cliente?.toUpperCase() || "").includes(
-              searchTerm || ""
-            ) ||
-            (item.nombre_viajero_reservacion?.toUpperCase() || "").includes(
-              searchTerm || ""
-            )
-        )
-        .map((item) => ({
-          id_cliente: item.id_agente,
-          cliente: item.nombre_cliente || "",
-          creado: item.created_at_reserva,
-          hotel: item.hotel_reserva || "",
-          codigo_hotel: item.codigo_reservacion_hotel,
-          viajero: item.nombre_viajero_reservacion || "",
-          check_in: item.check_in,
-          check_out: item.check_out,
-          noches: calcularNoches(item.check_in, item.check_out),
-          // habitacion: formatRoom(item.room),
-          tipo_cuarto: formatRoom(item.tipo_cuarto),
-          costo_proveedor: Number(item.costo_total) || 0,
-          markup:
-            ((Number(item.total || 0) - Number(item.costo_total || 0)) /
-              Number(item.total || 0)) *
-            100,
-          precio_de_venta: parseFloat(item.total),
-          metodo_de_pago: item.metodo_pago_dinamico,
-          reservante:
-            item.quien_reservó === "CREADA POR OPERACIONES"
-              ? "Operaciones"
-              : "Cliente",
-          etapa_reservacion: item.etapa_reservacion,
-          estado_pago_proveedor: "",
-          estado_factura_proveedor: "",
-          estado: item.status_reserva,
-          detalles_cliente: "",
-          editar: "",
-          pagar: "",
-          editar_venta: "",
-          item,
-        }))
+
+      .filter(
+        (item) =>
+          (item.hotel_reserva?.toUpperCase() || "").includes(
+            searchTerm || ""
+          ) ||
+          (item.nombre_cliente?.toUpperCase() || "").includes(
+            searchTerm || ""
+          ) ||
+          (item.nombre_viajero_reservacion?.toUpperCase() || "").includes(
+            searchTerm || ""
+          ) ||
+          (item.id_agente?.toUpperCase() || "").includes(
+            searchTerm || ""
+          )
+      )
+      .map((item) => ({
+        id_cliente: item.id_agente,
+        cliente: item.nombre_cliente || "",
+        creado: item.created_at_reserva,
+        hotel: item.hotel_reserva || "",
+        codigo_hotel: item.codigo_reservacion_hotel,
+        viajero: item.nombre_viajero_reservacion || "",
+        check_in: item.check_in,
+        check_out: item.check_out,
+        noches: calcularNoches(item.check_in, item.check_out),
+        // habitacion: formatRoom(item.room),
+        tipo_cuarto: formatRoom(item.tipo_cuarto),
+        costo_proveedor: Number(item.costo_total) || 0,
+        markup:
+          ((Number(item.total || 0) - Number(item.costo_total || 0)) /
+            Number(item.total || 0)) *
+          100,
+        precio_de_venta: parseFloat(item.total),
+        metodo_de_pago: item.metodo_pago_dinamico,
+        reservante:
+          item.quien_reservó === "CREADA POR OPERACIONES"
+            ? "Operaciones"
+            : "Cliente",
+        etapa_reservacion: item.etapa_reservacion,
+        estado_pago_proveedor: "",
+        estado_factura_proveedor: "",
+        estado: item.status_reserva,
+        detalles_cliente: "",
+        editar: "",
+        pagar: "",
+        editar_venta: "",
+        item,
+      }))
     : [];
 
   let componentes = {
@@ -140,9 +144,10 @@ function App() {
         </button>
       </span>
     ),
+
     id_cliente: ({ value }: { value: null | string }) => (
-      <span className="font-semibold text-sm">
-        {value ? value.split("-").join("").slice(0, 10) : ""}
+      <span className="font-semibold text-sm" title={value}>
+        {value.split("").join("").slice(0, 10)}
       </span>
     ),
     editar_venta: ({ item }: { item: Solicitud2 }) => (
@@ -156,13 +161,12 @@ function App() {
     ),
     markup: (props: any) => (
       <span
-        className={`font-semibold border p-2 rounded-full ${
-          props.value == "Infinity"
-            ? "text-gray-700 bg-gray-100 border-gray-300 "
-            : props.value > 0
+        className={`font-semibold border p-2 rounded-full ${props.value == "Infinity"
+          ? "text-gray-700 bg-gray-100 border-gray-300 "
+          : props.value > 0
             ? "text-green-600 bg-green-100 border-green-300"
             : "text-red-600 bg-red-100 border-red-300"
-        }`}
+          }`}
       >
         {props.value == "Infinity" ? <>0%</> : <>{props.value.toFixed(2)}%</>}
       </span>
