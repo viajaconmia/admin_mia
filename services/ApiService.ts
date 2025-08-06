@@ -92,7 +92,7 @@ export class ApiService {
       // Manejar respuestas 204 No Content
       if (response.status === 204) {
         return {
-          message: "Operación exitosa sin contenido de respuesta.",
+          message: "Operación exitosa.",
           data: null as T,
         };
       }

@@ -2,7 +2,7 @@
 import { CreditoService } from "@/services/CreditosService";
 import { PagosService } from "@/services/PagosService";
 import { SaldosService } from "@/services/SaldosService";
-import { TypesSaldoWallet } from "@/types/database_tables";
+import { Item, Saldo, TypesSaldoWallet } from "@/types/database_tables";
 import { useCallback, useState } from "react";
 
 export const usePagos = () => {
@@ -95,6 +95,29 @@ export const usePagos = () => {
     },
     []
   );
+  const ajustePrecioCobrarSaldo = useCallback(
+    async (body: {
+      updatedItem: Item;
+      updatedSaldos: (Saldo & { monto_cargado_al_item: string })[];
+      diferencia: number;
+      precioActualizado: number;
+      id_booking: string;
+      id_servicio: string;
+    }) => {
+      setLoading(true);
+      try {
+        return await PagosService.getInstance().ajustePrecioConSaldo(body);
+      } catch (error) {
+        console.error(
+          error.response || error.message || "Error desconocido en la función"
+        );
+        throw error;
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
   const actualizarYRegresarCredito = useCallback(
     async (body: {
       id_agente: string;
@@ -141,5 +164,6 @@ export const usePagos = () => {
     getSaldosByType,
     actualizarYRegresarCredito,
     actualizarContadoRegresarSaldo,
+    ajustePrecioCobrarSaldo,
   };
 };
