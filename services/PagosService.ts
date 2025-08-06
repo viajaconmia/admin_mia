@@ -1,3 +1,4 @@
+import { Item, Saldo } from "@/types/database_tables";
 import { ApiResponse, ApiService } from "./ApiService";
 
 export class PagosService extends ApiService {
@@ -5,6 +6,9 @@ export class PagosService extends ApiService {
   private ENDPOINTS = {
     PUT: {
       actualizarYRegresarSaldo: "/precio-contado-regresar-saldo",
+    },
+    POST: {
+      pagoConSaldoAjusteCuenta: "/crearItemdeAjuste",
     },
   };
 
@@ -32,4 +36,18 @@ export class PagosService extends ApiService {
       path: this.formatPath(this.ENDPOINTS.PUT.actualizarYRegresarSaldo),
       body,
     });
+
+  public ajustePrecioConSaldo = async (body: {
+    updatedItem: Item;
+    updatedSaldos: (Saldo & { monto_cargado_al_item: string })[];
+    diferencia: number;
+    precioActualizado: number;
+    id_booking: string;
+    id_servicio: string;
+  }): Promise<ApiResponse<{ message: string }>> => {
+    return this.post<{ message: string }>({
+      path: this.formatPath(this.ENDPOINTS.POST.pagoConSaldoAjusteCuenta),
+      body,
+    });
+  };
 }
