@@ -28,7 +28,7 @@ export interface TypeFilters {
     | "Creacion"
     | "Actualizacion"
     | null;
-  active?: "Activo" | "Inactivo" | 1 | 2 | null;
+  active?: "Activo" | "Inactivo"  | null;
   hay_convenio?: "SI" | "NO";
   tipo_negociacion?: string | null;
   estado?: string | null;
@@ -151,7 +151,7 @@ export interface Solicitud2 {
   comments: string;
   confirmation_code: string;
   codigo_reservacion_hotel: string;
-  metodo_pago_dinamico: string;
+  metodo_pago_dinamico: "Credito" | "Contado";
   nombre_cliente: string;
   correo: string;
   telefono: string;
