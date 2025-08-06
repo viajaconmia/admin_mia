@@ -68,6 +68,14 @@ function PageSaldosFacturables() {
   const [agentes, setAgentes] = useState<AgenteConSaldos[]>([]);
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState<TypeFilters>(defaultFiltersSolicitudes);
+  const [filasExpandibles, setFilasExpandibles] = useState<{ [id: string]: boolean }>({});
+
+  const toggleExpandir = (id: string) => {
+    setFilasExpandibles(prev => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+  };
 
   const handleFetchAgentes = async () => {
     try {
@@ -125,15 +133,13 @@ function PageSaldosFacturables() {
     ),
     detalles: ({ value }: { value: AgenteConSaldos }) => (
       <button
-        onClick={() => {
-          console.log("Detalles del agente:", value);
-          console.log("Saldos facturables:", value.saldos_facturables);
-        }}
+        onClick={() => toggleExpandir(value.id_agente)}
         className="text-blue-600 hover:underline"
       >
-        Ver detalles
+        {filasExpandibles[value.id_agente] ? "Ocultar saldos" : "Ver saldos"}
       </button>
-    )
+    ),
+
   };
 
   return (
@@ -161,6 +167,7 @@ function PageSaldosFacturables() {
               renderers={componentes}
               defaultSort={{ key: "nombre", sort: false }}
               leyenda={`Mostrando ${agentes.length} agentes con saldos facturables`}
+              filasExpandibles={filasExpandibles}
             />
           )}
         </div>

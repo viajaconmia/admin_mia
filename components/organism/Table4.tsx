@@ -1,6 +1,8 @@
 import { ArrowDown, Columns } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { Loader } from "../atom/Loader";
+import React from "react";
+
 
 type Registro = {
   [key: string]: any;
@@ -21,6 +23,7 @@ interface TableProps<T> {
   children?: React.ReactNode;
   maxHeight?: string;
   customColumns?: string[];
+  filasExpandibles?: { [id: string]: boolean }; // NUEVO
 }
 
 export const Table4 = <T,>({
@@ -30,7 +33,8 @@ export const Table4 = <T,>({
   leyenda = "",
   children,
   maxHeight = "28rem",
-  customColumns,
+  customColumns, filasExpandibles
+
 }: TableProps<T>) => {
   const [displayData, setDisplayData] = useState<Registro[]>(registros);
   const [loading, setLoading] = useState<boolean>(false);
@@ -177,27 +181,54 @@ export const Table4 = <T,>({
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
-              {displayData.map((item, index) => (
-                <tr
-                  key={item.id !== undefined ? item.id : index}
-                  className="odd:bg-gray-50 even:bg-white hover:bg-blue-50 transition-colors duration-150"
-                >
-                  {columnKeys
-                    .filter((key) => visibleColumns.has(key))
-                    .map((colKey) => {
-                      const Renderer = renderers[colKey];
-                      const value = item[colKey];
-                      return (
-                        <td
-                          key={`${index}-${colKey}`}
-                          className="px-4 py-2 whitespace-nowrap text-xs text-gray-800"
-                        >
-                          {Renderer ? <Renderer value={value} item={item.item} /> : String(value ?? "")}
+              {displayData.map((item, index) => {
+                const isExpanded = filasExpandibles?.[item.id];
+
+                return (
+                  <React.Fragment key={item.id !== undefined ? item.id : index}>
+                    <tr className="odd:bg-gray-50 even:bg-white hover:bg-blue-50 transition-colors duration-150">
+                      {columnKeys
+                        .filter((key) => visibleColumns.has(key))
+                        .map((colKey) => {
+                          const Renderer = renderers[colKey];
+                          const value = item[colKey];
+                          return (
+                            <td
+                              key={`${index}-${colKey}`}
+                              className="px-4 py-2 whitespace-nowrap text-xs text-gray-800"
+                            >
+                              {Renderer ? <Renderer value={value} item={item.detalles} /> : String(value ?? "")}
+                            </td>
+                          );
+                        })}
+                    </tr>
+
+                    {/* Fila expandida */}
+                    {isExpanded && item.detalles?.saldos_facturables && (
+                      <tr className="bg-gray-100">
+                        <td colSpan={columnKeys.length}>
+                          <div className="p-4">
+                            <h4 className="text-sm font-semibold mb-2 text-gray-800">Saldos Facturables:</h4>
+                            {item.detalles.saldos_facturables.length > 0 ? (
+                              <ul className="space-y-1 text-xs text-gray-700">
+                                {item.detalles.saldos_facturables.map((saldo: any, i: number) => (
+                                  <li key={i} className="border-b py-1">
+                                    <strong>Fecha pago:</strong> {saldo.fecha_pago} |{" "}
+                                    <strong>Monto:</strong> ${saldo.monto} |{" "}
+                                    <strong>Concepto:</strong> {saldo.concepto}
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-gray-500 text-xs italic">Sin saldos facturables.</p>
+                            )}
+                          </div>
                         </td>
-                      );
-                    })}
-                </tr>
-              ))}
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>

@@ -115,25 +115,25 @@ const PaymentSummary: React.FC<PaymentSummaryProps> = ({
   const [subiendoArchivos, setSubiendoArchivos] = useState(false);
   const [comprobanteUrl, setComprobanteUrl] = useState<string | null>(null);
 
-  // const subirArchivosAS3 = async (): Promise<{ comprobante: string }> => {
-  //   //
-  //   try {
-  //     setSubiendoArchivos(true);
-  //     const folder = "comprobantes_pagos";
+  const subirArchivosAS3 = async (): Promise<{ comprobante: string }> => {
+    //
+    try {
+      setSubiendoArchivos(true);
+      const folder = "comprobantes_pagos";
 
-  //     const { urlComprobante, publicUrlComprobante } =
-  //       await obtenerPresignedUrl(comprobante.name, comprobante.type, folder);
-  //     await subirArchivoAS3(comprobante, urlComprobante);
-  //     setComprobanteUrl(publicUrlComprobante);
+      const { urlComprobante, publicUrlComprobante } =
+        await obtenerPresignedUrl(comprobante.name, comprobante.type, folder);
+      await subirArchivoAS3(comprobante, urlComprobante);
+      setComprobanteUrl(publicUrlComprobante);
 
-  //     return { comprobante: publicUrlComprobante };
-  //   } catch (err) {
-  //     console.error("Error al subir archivos:", err);
-  //     throw err;
-  //   } finally {
-  //     setSubiendoArchivos(false);
-  //   }
-  // };
+      return { comprobante: publicUrlComprobante };
+    } catch (err) {
+      console.error("Error al subir archivos:", err);
+      throw err;
+    } finally {
+      setSubiendoArchivos(false);
+    }
+  };
 
   return (
     <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl p-6 text-white shadow-lg">
@@ -185,14 +185,18 @@ interface Comprobantepago {
   tamañoArchivo?: number;
   fechaSubida?: Date;
   estado?: "pendiente" | "aprobado" | "rechazado";
-  urlArchivo?: string;
+  urlArchivo: string; // Hacerlo obligatorio ya que es lo que realmente usamos
 }
 
 interface ComprobanteModalProps {
   idCliente: string;
   cliente: string;
   onClose: () => void;
-  onSave: (comprobante: Comprobantepago) => void;
+  onSave?: (comprobante: Comprobantepago) => void;
+  handleEdit?: (updatedData: { comprobante: string }) => Promise<void>;
+  isEditing?: boolean;
+  currentComprobante?: string | null;
+  item?: any; // O define un tipo más específico si es posible
 }
 
 const ComprobanteModal: React.FC<ComprobanteModalProps> = ({
@@ -200,34 +204,34 @@ const ComprobanteModal: React.FC<ComprobanteModalProps> = ({
   cliente,
   onClose,
   onSave,
+  handleEdit,
+  isEditing = false,
+  currentComprobante = null
 }) => {
   const [archivo, setArchivo] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    if (!file) return;
 
-    if (file) {
-      // Validaciones
-      const validTypes = ["application/pdf", "image/jpeg", "image/png"];
-      const maxSize = 5 * 1024 * 1024; // 5MB
+    const validTypes = ["application/pdf", "image/jpeg", "image/png"];
+    const maxSize = 5 * 1024 * 1024; // 5MB
 
-      if (!validTypes.includes(file.type)) {
-        setError("Formato no válido. Sube un PDF, JPEG o PNG");
-        return;
-      }
-
-      if (file.size > maxSize) {
-        setError("El archivo es demasiado grande (máx. 5MB)");
-        return;
-      }
-
-      setError(null);
-      setArchivo(file);
+    if (!validTypes.includes(file.type)) {
+      setError("Formato no válido. Sube un PDF, JPEG o PNG");
+      return;
     }
-  };
 
-  const [loading, setLoading] = useState(false);
+    if (file.size > maxSize) {
+      setError("El archivo es demasiado grande (máx. 5MB)");
+      return;
+    }
+
+    setError(null);
+    setArchivo(file);
+  };
 
   const handleSubmit = async () => {
     if (!archivo) {
@@ -238,43 +242,38 @@ const ComprobanteModal: React.FC<ComprobanteModalProps> = ({
     setLoading(true);
 
     try {
-      // 2) Obtenemos URL presignada
       const folder = "comprobantes_pagos";
-      const key = `${folder}/${archivo.name}`;
       const { url: uploadUrl, publicUrl } = await obtenerPresignedUrl(
-        key,
+        `${folder}/${archivo.name}`,
         archivo.type,
         folder
       );
 
-      // 3) Subimos a S3
-      await subirArchivosAS3Luis(archivo, folder)
-        .then((url) => {
-          console.log("url", url);
-        })
-        .catch((err) => {
-          console.error("Error al subir archivo:", err);
-        })
-        .finally(() => {
-          setLoading(false);
-        });
+      await subirArchivoAS3(archivo, uploadUrl);
 
-      // 4) Emitimos todo incluyendo publicUrl
-      onSave({
-        id_Cliente: idCliente,
-        archivo,
-        nombreArchivo: archivo.name,
-        tipoArchivo: archivo.type,
-        tamañoArchivo: archivo.size,
-        fechaSubida: new Date(),
-        estado: "pendiente",
-        urlArchivo: publicUrl, // <-- pasamos la URL final
-      });
+
+      if (isEditing && handleEdit) {
+        await handleEdit({ comprobante: publicUrl });
+      } else if (onSave) {
+        const comprobanteData: Comprobantepago = {
+          id_Cliente: idCliente,
+          archivo,
+          nombreArchivo: archivo.name,
+          tipoArchivo: archivo.type,
+          tamañoArchivo: archivo.size,
+          fechaSubida: new Date(),
+          estado: "pendiente",
+          urlArchivo: publicUrl,
+        };
+        onSave(comprobanteData);
+      }
 
       onClose();
     } catch (err) {
       console.error("Error subiendo comprobante:", err);
       setError("No se pudo subir el archivo. Intenta de nuevo.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -283,41 +282,50 @@ const ComprobanteModal: React.FC<ComprobanteModalProps> = ({
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
         <div className="flex items-center justify-between p-6 border-b border-gray-100">
           <h3 className="text-xl font-semibold text-gray-800">
-            Subir Comprobante para {cliente}
+            {isEditing ? "Actualizar" : "Subir"} Comprobante para {cliente}
           </h3>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full"
-          >
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full">
             <X className="w-5 h-5 text-gray-500" />
           </button>
         </div>
 
-        <div className="p-6">
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Seleccionar archivo
-              </label>
-              <input
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png"
-                onChange={handleFileChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md"
-              />
-              {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
+        <div className="p-6 space-y-4">
+          {isEditing && currentComprobante && (
+            <div className="mb-4">
+              <p className="font-medium">Comprobante actual:</p>
+              <a
+                href={currentComprobante}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-500 underline"
+              >
+                Ver comprobante actual
+              </a>
             </div>
+          )}
 
-            {archivo && (
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="font-medium">Archivo seleccionado:</p>
-                <p>{archivo.name}</p>
-                <p className="text-sm text-gray-500">
-                  {(archivo.size / 1024).toFixed(2)}
-                </p>
-              </div>
-            )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Seleccionar archivo
+            </label>
+            <input
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png"
+              onChange={handleFileChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md"
+            />
+            {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
           </div>
+
+          {archivo && (
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <p className="font-medium">Archivo seleccionado:</p>
+              <p>{archivo.name}</p>
+              <p className="text-sm text-gray-500">
+                {(archivo.size / 1024).toFixed(2)} KB
+              </p>
+            </div>
+          )}
 
           <div className="flex gap-3 mt-6">
             <button
@@ -328,13 +336,11 @@ const ComprobanteModal: React.FC<ComprobanteModalProps> = ({
             </button>
             <button
               onClick={handleSubmit}
-              disabled={!archivo}
-
-              className={`flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg ${!archivo ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-700"
+              disabled={!archivo || loading}
+              className={`flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg ${!archivo || loading ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-700"
                 }`}
-
             >
-              Guardar Comprobante
+              {loading ? "Procesando..." : isEditing ? "Actualizar" : "Guardar"}
             </button>
           </div>
         </div>
@@ -823,21 +829,43 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       );
     },
 
-    comprobante: ({ value }: { value: Comprobantepago | null }) => {
+    comprobante: ({ value, item }: { value: string | null; item: any }) => {
       const [showModal, setShowModal] = useState(false);
 
-      const handleDownload = () => {
-        if (value) {
-          console.log("Descargando comprobante...", value);
+      const handleEditComprobante = async (updatedData: { comprobante: string }) => {
+        try {
+          // Crear objeto con todos los datos necesarios para la actualización
+          const apiData = {
+            id_saldos: item.id_saldos,
+            id_agente: item.id_agente,
+            saldo: item.saldo,
+            monto: item.monto,
+            metodo_pago: item.metodo_pago,
+            fecha_pago: item.fecha_pago,
+            notas: item.notas || null,
+            is_facturable: item.is_facturable,
+            is_descuento: item.is_descuento,
+            link_stripe: item.link_stripe || null,
+            tipo_tarjeta: item.tipo_tarjeta,
+            activo: true,
+            comentario: item.comentario || null,
+            comprobante: updatedData.comprobante,
+            concepto: item.concepto,
+            currency: item.currency || "MXN",
+            referencia: item.referencia || null,
+            ult_digits: item.ult_digits || null,
+            banco_tarjeta: item.banco_tarjeta || null,
+            numero_autorizacion: item.numero_autorizacion || null,
+          };
 
-          // Lógica de descarga aquí
-        }
-      };
+          console.log("Datos actualizados:", updatedData);
+          console.log("Datos enviados a la API:", apiData);
 
-      const handleView = () => {
-        if (value) {
-          console.log("Mostrando comprobante...", value);
-          // Lógica para visualizar aquí
+          await SaldoFavor.actualizarPago(apiData);
+          await reloadSaldos();
+        } catch (error) {
+          console.error("Error al actualizar comprobante:", error);
+          setError(`Error al actualizar comprobante: ${error instanceof Error ? error.message : String(error)}`);
         }
       };
 
@@ -852,14 +880,17 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             </button>
             {showModal && (
               <ComprobanteModal
-                idCliente={agente?.id_agente || ""}
-                cliente={agente?.nombre_agente_completo || ""}
+                idCliente={item.id_agente}
+                cliente={item.nombre}
                 onClose={() => setShowModal(false)}
                 onSave={(comprobante) => {
                   console.log("Comprobante guardado:", comprobante);
                   setShowModal(false);
-                  // TODO: actualizar estado
+                  console.log("Item asociado:", item);
                 }}
+                handleEdit={handleEditComprobante}
+                isEditing={false}
+                item={item}
               />
             )}
           </>
@@ -867,23 +898,51 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       }
 
       return (
-        <div className="flex gap-2">
-          <button
-            onClick={handleView}
-            className="text-green-600 hover:underline cursor-pointer"
+        <div className="flex gap-2 items-center">
+          <span className="text-gray-300">|</span>
+
+          {/* Botón para ver */}
+          <a
+            href={value}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-green-600 hover:text-green-800 cursor-pointer flex items-center"
+            title="Ver comprobante"
           >
-            Ver
-          </button>
-          <span>|</span>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+          </a>
+
+          <span className="text-gray-300">|</span>
+
+          {/* Botón para cambiar */}
           <button
-            onClick={handleDownload}
-            className="text-green-600 hover:underline cursor-pointer"
+            onClick={() => setShowModal(true)}
+            className="text-blue-600 hover:text-blue-800 cursor-pointer flex items-center"
+            title="Cambiar comprobante"
           >
-            Descargar
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
           </button>
+
+          {showModal && (
+            <ComprobanteModal
+              idCliente={item.id_agente}
+              cliente={item.nombre}
+              onClose={() => setShowModal(false)}
+              currentComprobante={value}
+              handleEdit={handleEditComprobante}
+              isEditing={true}
+              item={item}
+            />
+          )}
         </div>
       );
     },
+
     aplicable: ({ value }: { value: "Si" | "No" }) => {
       return (
         <span
@@ -1021,7 +1080,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             activo: true, // Siempre activo al editar
             concepto: item.concepto || "pago",
             currency: item.currency || "MXN",
-
+            comprobante: item.comprobante || updatedData.comprobante
           };
 
           // Manejar campos específicos según el método de pago
@@ -1484,8 +1543,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
               // comentario: saldo.notas || saldo.comentario || null,
               // facturable: saldo.is_facturable ? 'Si' : 'No',
               // comprobante: saldo.comprobante || null,
-              sortConfig={sortConfig}
-              onSort={handleSort}
               defaultSort={{
                 key: "creado", // Default sort column
                 sort: false, // Default sort direction
@@ -2032,11 +2089,10 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
             <button
               type="submit"
               disabled={isSubmitting}
-              className={`w-full md:flex-1 flex items-center justify-center px-6 py-3 rounded-xl font-semibold text-white transition-all duration-200 ${
-                isSubmitting
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-blue-600 hover:bg-blue-700"
-              }`}
+              className={`w-full md:flex-1 flex items-center justify-center px-6 py-3 rounded-xl font-semibold text-white transition-all duration-200 ${isSubmitting
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-blue-600 hover:bg-blue-700"
+                }`}
             >
               {isSubmitting ? (
                 <>
