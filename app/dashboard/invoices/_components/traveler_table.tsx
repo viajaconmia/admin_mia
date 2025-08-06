@@ -25,14 +25,19 @@ import {
   DownloadCloud,
   Link,
   FileDown,
+  FilePlus,
 } from "lucide-react";
 import type { Factura } from "@/types/_types";
 import useApi from "@/hooks/useApi";
 import Modal from "@/components/organism/Modal";
 import { API_KEY, URL } from "@/lib/constants";
 import { downloadFile } from "@/lib/utils";
+import AsignarFacturaModal from '@/app/dashboard/facturacion/subirfacturas/AsignarFactura';
+import { set } from "date-fns";
 
 function FacturaDetails({ setModal, id_factura }) {
+  //asignar factura a items de reservación
+
   const [facturaData, setFacturaData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -197,7 +202,7 @@ function FacturaDetails({ setModal, id_factura }) {
                       (sum, item) =>
                         sum +
                         parseFloat(item.subtotal) *
-                          parseFloat(item.noches_facturadas),
+                        parseFloat(item.noches_facturadas),
                       0
                     )
                     .toFixed(2)}
@@ -212,7 +217,7 @@ function FacturaDetails({ setModal, id_factura }) {
                       (sum, item) =>
                         sum +
                         parseFloat(item.impuestos) *
-                          parseFloat(item.noches_facturadas),
+                        parseFloat(item.noches_facturadas),
                       0
                     )
                     .toFixed(2)}
@@ -227,7 +232,7 @@ function FacturaDetails({ setModal, id_factura }) {
                       (sum, item) =>
                         sum +
                         parseFloat(item.total) *
-                          parseFloat(item.noches_facturadas),
+                        parseFloat(item.noches_facturadas),
                       0
                     )
                     .toFixed(2)}
@@ -245,6 +250,12 @@ export function TravelerTable({ facturas }: { facturas: Factura[] }) {
   const { mandarCorreo, descargarFactura, descargarFacturaXML } = useApi();
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const [isModalOpen, setIsModalOpen] = useState("");
+  const [mostrarAsignarFactura, setMostrarAsignarFactura] = useState(false);
+  const [facturaAsignando, setFacturaAsignando] = useState<string | null>(null);
+  const [facturaAgente, setFacturaAgente] = useState<string | null>(null);
+  const [facturaData, setFacturaData] = useState<Factura | null>(null);
+  const [FacturaEmpresa, setFacturaEmpresa] = useState<string | null>(null);
+
 
   const toggleRow = (id: string) => {
     setExpandedRows((prev) => ({
@@ -307,6 +318,8 @@ export function TravelerTable({ facturas }: { facturas: Factura[] }) {
       }
     }
   };
+  console.log("factura", facturas)
+
 
   return (
     <Table>
@@ -331,7 +344,7 @@ export function TravelerTable({ facturas }: { facturas: Factura[] }) {
                 {`${factura.nombre}`}
               </TableCell>
               <TableCell className="font-medium">
-                {`${factura.id_facturama}`}
+                {`${factura.id_facturama || "Carga Manual"}`}
               </TableCell>
               <TableCell>{factura.total}</TableCell>
               <TableCell>{factura.subtotal}</TableCell>
@@ -347,8 +360,8 @@ export function TravelerTable({ facturas }: { facturas: Factura[] }) {
                     factura.estado === "Confirmada"
                       ? "bg-green-100 text-green-800 border-green-200"
                       : factura.estado === "Cancelada"
-                      ? "bg-red-100 text-red-800 border-red-200"
-                      : "bg-blue-100 text-blue-800 border-blue-200"
+                        ? "bg-red-100 text-red-800 border-red-200"
+                        : "bg-blue-100 text-blue-800 border-blue-200"
                   }
                 >
                   {factura.estado}
@@ -431,20 +444,53 @@ export function TravelerTable({ facturas }: { facturas: Factura[] }) {
                           </DropdownMenuItem>
                         </>
                       )}
+                      {/* Opción para asignar factura - siempre visible */}
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setFacturaAsignando(factura.id_factura)
+                          setFacturaAgente(factura.id_agente)
+                          setFacturaEmpresa(factura.id_empresa)
+                          setFacturaData(factura)
+                        }}
+                      >
+                        <FilePlus className="mr-2 h-4 w-4" />
+                        Asignar factura
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
               </TableCell>
             </TableRow>
-            {isModalOpen === factura.id_factura && (
-              <FacturaDetails
-                setModal={setIsModalOpen}
-                id_factura={factura.id_factura}
-              />
-            )}
           </>
         ))}
       </TableBody>
+
+      {/* Modal de asignación (fuera del mapeo) */}
+      {facturaAsignando && (
+        <AsignarFacturaModal
+          isOpen={!!facturaAsignando}
+          onClose={() => {
+            setFacturaAsignando(null);
+            setFacturaAgente(null);
+            setFacturaData(null);
+            setFacturaEmpresa(null);
+          }}
+          id_factura={facturaAsignando}
+          clienteSeleccionado={facturaAgente}
+          facturaData={facturaData}
+          onAssign={() => { }}
+          onCloseVistaPrevia={() => { }}
+          empresaSeleccionada={FacturaEmpresa}
+        />
+      )}
+
+      {/* Modal de detalles de factura */}
+      {isModalOpen && (
+        <FacturaDetails
+          setModal={setIsModalOpen}
+          id_factura={isModalOpen}
+        />
+      )}
     </Table>
   );
 }

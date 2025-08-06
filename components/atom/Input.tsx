@@ -13,7 +13,7 @@ export const Dropdown = ({
   label: string;
   value: string;
   onChange: (value: string) => void;
-  options?: string[];
+  options?: string[] | { value: string; label: string }[]; // Update this line
   disabled?: boolean;
 }) => (
   <div className="flex flex-col space-y-1">
@@ -27,11 +27,16 @@ export const Dropdown = ({
       >
         <option value="">Selecciona una opción</option>
         {options.length > 0 ? (
-          options.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))
+          options.map((option) => {
+            // Handle both string and object options
+            const optionValue = typeof option === 'string' ? option : option.value;
+            const optionLabel = typeof option === 'string' ? option : option.label;
+            return (
+              <option key={optionValue} value={optionValue}>
+                {optionLabel}
+              </option>
+            );
+          })
         ) : (
           <option value={value}>{value}</option>
         )}
@@ -373,10 +378,9 @@ export const CheckboxInput = ({
             ${checked ? "bg-green-500" : "bg-gray-300"} 
             /* Estilo de foco para el riel cuando el input interno está enfocado */
             focus-within:ring-2 focus-within:ring-offset-2 
-            ${
-              disabled
-                ? "focus-within:ring-transparent"
-                : "focus-within:ring-green-400 dark:focus-within:ring-green-600"
+            ${disabled
+              ? "focus-within:ring-transparent"
+              : "focus-within:ring-green-400 dark:focus-within:ring-green-600"
             }
           `}
         >
@@ -417,10 +421,9 @@ export const CheckboxInput = ({
             }}
             className={`
               ml-3 text-sm font-medium select-none
-              ${
-                disabled
-                  ? "text-gray-400 cursor-not-allowed"
-                  : "text-gray-900 dark:text-gray-100 cursor-pointer"
+              ${disabled
+                ? "text-gray-400 cursor-not-allowed"
+                : "text-gray-900 dark:text-gray-100 cursor-pointer"
               }
             `}
           >

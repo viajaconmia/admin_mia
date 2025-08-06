@@ -30,9 +30,10 @@ import { UsersClient } from "./_components/UsersClient";
 import { PageReservasClientes } from "@/components/template/PageReservaClient";
 import PageCuentasPorCobrar from "@/components/template/PageCuentasPorCobrar";
 import { ToolTip } from "@/components/atom/ToolTip";
+import { set } from "date-fns";
 
 function App() {
-  const [clients, setClient] = useState<Agente[]>([]);
+  const [clients, setClient] = useState<(Agente)[]>([]);
   const [selectedItem, setSelectedItem] = useState<Agente | null>(null);
   const [searchTerm, setSearchTerm] = useState<string | null>("");
   const [loading, setLoading] = useState(false);
@@ -48,6 +49,7 @@ function App() {
         item.nombre_agente_completo.toUpperCase().includes(searchTerm) ||
         item.id_agente.toUpperCase().replaceAll("-", "").includes(searchTerm)
       // item.correo.to
+
     )
     .map((item) => ({
       creado: item.created_at,
@@ -58,7 +60,7 @@ function App() {
       estado_verificacion: "",
       estado_credito: Boolean(item.tiene_credito_consolidado),
       credito: item.saldo ? Number(item.saldo) : 0,
-      wallet: 0,
+      wallet: item.wallet ? parseFloat(item.wallet) : 0,
       categoria: "Administrador",
       notas_internas: item.notas || "",
       vendedor: item.vendedor || "",
@@ -124,6 +126,7 @@ function App() {
         </span>
       </button>
     ),
+
     detalles: ({ value }: { value: Agente }) => (
       <button
         onClick={() => {
@@ -187,7 +190,10 @@ function App() {
       tab: "wallet",
       icon: Wallet,
       component: (
-        <PageCuentasPorCobrar agente={selectedItem}></PageCuentasPorCobrar>
+        <PageCuentasPorCobrar
+          agente={selectedItem}
+          walletAmount={selectedItem?.wallet ? parseFloat(selectedItem.wallet) : 0}
+        />
       ),
     },
     {

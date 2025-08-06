@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 
 type Registro = {
   [key: string]: any;
+
 };
 
 type RendererMap = {
@@ -11,6 +12,7 @@ type RendererMap = {
 };
 
 interface TableProps {
+  // Props específicas de tu componente
   registros: Registro[];
   renderers?: RendererMap;
   defaultSort?: {
@@ -19,8 +21,15 @@ interface TableProps {
   };
   exportButton?: boolean;
   leyenda?: string;
-  children?: React.ReactNode;
   maxHeight?: string;
+  customColumns?: string[];
+  description?: string[];
+  seleccionado?: string;
+
+  // Props para el contenedor div
+  containerProps?: React.HTMLAttributes<HTMLDivElement>;
+  // Props para la tabla HTML
+  tableProps?: React.TableHTMLAttributes<HTMLTableElement>;
 }
 
 export const Table = ({
@@ -29,9 +38,13 @@ export const Table = ({
   defaultSort,
   exportButton = true,
   leyenda = "",
-  children,
   maxHeight = "28rem",
-}: TableProps) => {
+  customColumns = [],
+  containerProps = {},
+  tableProps = {},
+  children,
+}: TableProps & { children?: React.ReactNode }) => {
+
   const [displayData, setDisplayData] = useState<Registro[]>(registros);
   const [selectedRow, setSelectedRow] = useState<number | null>(null);
   const [currentSort, setCurrentSort] = useState<{
@@ -41,9 +54,10 @@ export const Table = ({
     defaultSort
       ? defaultSort
       : {
-          key: registros.length > 0 ? Object.keys(registros[0])[0] : "",
-          sort: true,
-        }
+        key: registros.length > 0 ? Object.keys(registros[0])[0] : "",
+        sort: true
+      }
+
   );
 
   useEffect(() => {
@@ -59,8 +73,13 @@ export const Table = ({
     ) {
       return Object.keys(registros[0]);
     }
-    return [];
-  }, [registros]);
+    const baseColumns =
+      registros && registros.length > 0 && typeof registros[0] === "object" && registros[0] !== null
+        ? Object.keys(registros[0])
+        : [];
+
+    return [...baseColumns, ...customColumns];
+  }, [registros, customColumns]);
 
   const handleSort = (key: string) => {
     let updateSort = { key, sort: !currentSort.sort };
@@ -73,7 +92,7 @@ export const Table = ({
   };
 
   return (
-    <div className="relative w-full">
+    <div className="relative w-full" {...containerProps}>
       {exportButton && (
         <div className="flex w-full justify-between mb-2 ">
           <div className="flex flex-col justify-end">
@@ -98,7 +117,10 @@ export const Table = ({
           className="overflow-y-auto relative border border-gray-200 rounded-sm w-full h-fit"
           style={{ maxHeight: maxHeight }}
         >
-          <table className="min-w-full divide-y divide-gray-200">
+          <table
+            {...tableProps} // Pasa las props HTML aquí
+            className={`min-w-full divide-y divide-gray-200 ${tableProps.className || ''}`}
+          >
             <thead className=" sticky z-10 bg-gray-50 top-0">
               <tr>
                 {columnKeys.map((key) => (
@@ -111,9 +133,8 @@ export const Table = ({
                     <span className="flex gap-2">
                       {key == (currentSort.key || "") && (
                         <ArrowDown
-                          className={`w-4 h-4 ${
-                            !currentSort.sort ? "" : "rotate-180"
-                          }`}
+                          className={`w-4 h-4 ${!currentSort.sort ? "" : "rotate-180"
+                            }`}
                         />
                       )}
                       {key.replace(/_/g, " ").toUpperCase()}{" "}
@@ -134,22 +155,19 @@ export const Table = ({
                         setSelectedRow(index);
                       }
                     }}
-                    className={`${
-                      index % 2 === 0 ? "bg-white" : "bg-gray-50"
-                    } ${
-                      selectedRow === index ? "bg-blue-200" : ""
-                    } cursor-pointer`}
+                    className={`${index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                      } ${selectedRow === index ? "bg-blue-200" : ""
+                      } cursor-pointer`}
                   >
                     {columnKeys.map((colKey) => {
                       const Renderer = renderers[colKey];
-                      const value = item[colKey];
+                      const value = colKey in item ? item[colKey] : { row: item };
 
                       return (
                         <td
-                          key={`${
-                            item.id !== undefined ? item.id : index
-                          }-${colKey}`}
-                          className="px-6 py-1 whitespace-nowrap text-xs text-gray-900"
+                          key={`${item.id !== undefined ? item.id : index
+                            }-${colKey}`}
+                          className="px-6 py-3 whitespace-nowrap text-xs text-gray-900"
                         >
                           {Renderer ? (
                             <Renderer value={value} />
