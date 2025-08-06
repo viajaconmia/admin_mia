@@ -257,7 +257,6 @@ function App() {
             title="Editar reserva"
             subtitle="Modifica los detalles de una reservación anteriormente procesada."
           >
-            <ModalVerificacion selectedItem={selectedItem}>
               <ReservationForm2
                 hotels={hoteles}
                 solicitud={selectedItem}
@@ -268,7 +267,6 @@ function App() {
                 }}
                 edicion={true}
               />
-            </ModalVerificacion>
           </Modal>
         )}
         {selectedItem && pagar && (
