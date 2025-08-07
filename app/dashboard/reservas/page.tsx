@@ -71,7 +71,7 @@ function App() {
         check_out: item.check_out,
         noches: calcularNoches(item.check_in, item.check_out),
         // habitacion: formatRoom(item.room),
-        tipo_cuarto: formatRoom(item.tipo_cuarto),
+        tipo_cuarto: formatRoom(item.room),
         costo_proveedor: Number(item.costo_total) || 0,
         markup:
           ((Number(item.total || 0) - Number(item.costo_total || 0)) /
