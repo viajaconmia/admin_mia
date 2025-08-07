@@ -10,10 +10,39 @@ import AsignarFacturaModal from './AsignarFactura';
 import { obtenerPresignedUrl, subirArchivoAS3 } from "@/helpers/utils";
 
 
+interface SubirFacturaProps {
+  pagoId?: string;  // Hacerlo opcional
+  pagoData?: Pago | null;  // Hacerlo opcional
+  onSuccess: () => void;
+}
+
+interface Pago {
+  id_agente: string;
+  id_pago: string;
+  pago_referencia: string;
+  pago_concepto: string;
+  pago_fecha_pago: string;
+  metodo_de_pago: string;
+  tipo_tarjeta?: string;
+  tipo_de_tarjeta?: string;
+  banco?: string;
+  banco_tarjeta?: string;
+  total: number;
+  subtotal: number | null;
+  impuestos: number | null;
+  pendiente_por_cobrar: number;
+  last_digits?: string;
+  ult_digits?: number;
+  autorizacion_stripe?: string;
+  numero_autorizacion?: string;
+  is_facturable: number;
+}
+
 const AUTH = {
   "x-api-key": API_KEY,
 };
 
+// const [pagoData, setPagoData] = useState<Pago | null>(null);
 
 export const getEmpresasDatosFiscales = async (agent_id: string) => {
   try {
@@ -45,12 +74,12 @@ export interface Agente {
 
 
 
-export default function FacturasPage() {
+export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFacturaProps) {
 
   // Estados iniciales
   const initialStates = {
     facturaData: null,
-    cliente: '',
+    cliente: pagoData?.id_agente || '',  // Prellenar con datos del pago si existen
     clienteSeleccionado: null,
     archivoPDF: null,
     archivoXML: null,
@@ -191,14 +220,14 @@ export default function FacturasPage() {
   };
   // Función para confirmar la factura
 
-  const handleConfirmarFactura = async (payloadAdicional?: any) => {
+  const handleConfirmarFactura = async ({ payload, url }: { payload?: any, url?: string }) => {
     try {
       setSubiendoArchivos(true);
 
       // Upload files only when confirming
       const { xmlUrl } = await subirArchivosAS3();
 
-      if (!archivoPDFUrl) {
+      if (!url) {
         console.warn("URL del PDF no disponible");
         // Puedes decidir si quieres continuar sin el PDF o lanzar un error
       }
@@ -216,7 +245,7 @@ export default function FacturasPage() {
         id_empresa: empresaSeleccionada.id_empresa || null,
         uuid_factura: facturaData.timbreFiscal.uuid,
         rfc_emisor: facturaData.emisor.rfc,
-        url_pdf: archivoPDFUrl,
+        url_pdf: url ? url : archivoPDFUrl,
         url_xml: xmlUrl || null,
         items_json: JSON.stringify([]),
       };
@@ -238,7 +267,7 @@ export default function FacturasPage() {
         throw new Error('Error al asignar la factura');
       }
 
-      if (payloadAdicional) {
+      if (payload) {
         // Lógica para factura asignada
         alert('Factura asignada exitosamente');
 
@@ -536,7 +565,7 @@ export default function FacturasPage() {
           facturaData={facturaData}
           onConfirm={(pdfUrl) => {
             setArchivoPDFUrl(pdfUrl);
-            handleConfirmarFactura(); // Ya no necesitas pasar pdfUrl aquí
+            handleConfirmarFactura({ url: pdfUrl }); // Ya no necesitas pasar pdfUrl aquí
           }}
           onClose={cerrarVistaPrevia}
           isLoading={subiendoArchivos}
@@ -548,7 +577,7 @@ export default function FacturasPage() {
         onCloseVistaPrevia={() => cerrarVistaPrevia()}
         onClose={() => setMostrarConfirmacion(false)}
         onConfirm={() => setMostrarAsignarFactura(true)}
-        onSaveOnly={() => handleConfirmarFactura()}
+        onSaveOnly={() => handleConfirmarFactura({})}
       />
 
       {mostrarAsignarFactura && (
@@ -556,7 +585,7 @@ export default function FacturasPage() {
           isOpen={mostrarAsignarFactura}
           onCloseVistaPrevia={() => cerrarVistaPrevia()}
           onClose={() => setMostrarAsignarFactura(false)}
-          onAssign={(payload) => handleConfirmarFactura(payload)}
+          onAssign={(payload) => handleConfirmarFactura({ payload })}
           facturaData={facturaData}
           empresaSeleccionada={empresaSeleccionada}
           clienteSeleccionado={clienteSeleccionado}

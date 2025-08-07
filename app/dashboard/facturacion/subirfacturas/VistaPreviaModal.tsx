@@ -21,9 +21,12 @@ export default function VistaPreviaModal({
   const [showPdf, setShowPdf] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
 
+  console.log(facturaData)
+
   useEffect(() => {
     async function generarYSubirPDF() {
       try {
+        console.log(`construyendo componente con form data: ${facturaData}`)
         // 1. Generar el PDF
 
         const pdfBlob = await generarFacturaPDF(facturaData);
@@ -64,6 +67,7 @@ export default function VistaPreviaModal({
 
     // Limpieza
     return () => {
+      console.log(`Destruyendo componente con form data: ${facturaData}`)
       if (pdfObjectUrl) {
         URL.revokeObjectURL(pdfObjectUrl);
       }

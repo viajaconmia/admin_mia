@@ -3,12 +3,13 @@ import React, { useEffect, useState } from 'react';
 import { URL, API_KEY } from "@/lib/constants/index";
 import { Table4 } from "@/components/organism/Table4";
 // Versión de Feather Icons (similares a Lucide)
-import { Eye, FileText, FilePlus } from 'lucide-react';
+import { Eye, FileText, FilePlus, X } from 'lucide-react';
 import { format } from "date-fns";
 import { Banknote, FileCheck } from "lucide-react";
 import { es, se } from "date-fns/locale";
 import ModalDetallePago from './_components/detalles_pago';
-
+import SubirFactura from "@/app/dashboard/facturacion/subirfacturas/SubirFactura";
+import { BillingPage } from "@/app/dashboard/facturacion/generar_factura/generar_factura"; // Adjust the path as needed
 interface Pago {
   id_pago: string;
   pago_referencia: string;
@@ -33,10 +34,13 @@ interface Pago {
 
 const TablaPagosVisualizacion = () => {
   const [pagoSeleccionado, setPagoSeleccionado] = useState<Pago | null>(null);
+  const [showSubirFactura, setShowSubirFactura] = useState(false);
+  const [pagoAFacturar, setPagoAFacturar] = useState<Pago | null>(null);
   // Datos de ejemplo estáticos
   const pagos: Pago[] = [
     {
       id_pago: "pag-0213bc77-1328-45d0-b06a-de4d06fdf3dc",
+      id_agente: "3106603d-eb6e-4a45-87f6-5bd9c3273e66",
       id_servicio: "ser-9b6f0abe-3bf8-4a53-93a4-57011d37798a",
       monto_a_credito: 0.00,
       id_empresa: "",
@@ -89,6 +93,7 @@ const TablaPagosVisualizacion = () => {
     },
     {
       id_pago: "pag-0001",
+      id_agente: "78360a2a-4935-47bd-b2ca-3d1e4d808ccf",
       id_servicio: "ser-0001",
       monto_a_credito: 0.00,
       id_empresa: "emp-001",
@@ -141,6 +146,7 @@ const TablaPagosVisualizacion = () => {
     },
     {
       id_pago: "pag-0002",
+      id_agente: "97b78d71-4367-4ce5-a86f-f0e0a8022443",
       id_servicio: "ser-0002",
       monto_a_credito: 150.00,
       id_empresa: "emp-002",
@@ -193,6 +199,7 @@ const TablaPagosVisualizacion = () => {
     },
     {
       id_pago: "pag-0003",
+      id_agente: "597ef932-455c-4bbc-aeba-65c7c85d8f59",
       id_servicio: "ser-0003",
       monto_a_credito: 0.00,
       id_empresa: "emp-003",
@@ -245,6 +252,7 @@ const TablaPagosVisualizacion = () => {
     },
     {
       id_pago: "pag-0004",
+      id_agente: "ceac2d13-f893-4931-8411-1e571a12076c",
       id_servicio: "ser-0004",
       monto_a_credito: 300.00,
       id_empresa: "emp-004",
@@ -639,31 +647,105 @@ const TablaPagosVisualizacion = () => {
     ),
 
     // Acciones
-    acciones: ({ value, item }: { value: { row: any }; item: any }) => (
-      <div className="flex gap-2">
-        <button
-          className="px-3 py-1.5 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors border border-blue-200 flex items-center gap-1"
-          onClick={() => { setPagoSeleccionado(item), console.log("facturas", item) }}
-        >
-          <Eye className="w-4 h-4" />
-          <span>Detalles</span>
-        </button>
-        <button
-          className="px-3 py-1.5 rounded-md bg-green-50 text-green-600 hover:bg-green-100 transition-colors border border-green-200 flex items-center gap-1"
-          onClick={() => console.log("facturas", item)}
-        >
-          <FileText className="w-4 h-4" />
-          <span>Facturas</span>
-        </button>
-        <button
-          className="px-3 py-1.5 rounded-md bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors border border-purple-200 flex items-center gap-1"
-          onClick={() => console.log("facturar", item)}
-        >
-          <FilePlus className="w-4 h-4" />
-          <span>Facturar</span>
-        </button>
-      </div>
-    )
+    acciones: ({ value }: { value: { row: any }; item: any }) => {
+      const [showFacturaOptions, setShowFacturaOptions] = useState(false);
+      const [showBillingPage, setShowBillingPage] = useState(false);
+      return (
+        <div className="flex gap-2 relative">
+          {/* Botón Detalles */}
+          <button
+            className="px-3 py-1.5 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors border border-blue-200 flex items-center gap-1"
+            onClick={() => { setPagoSeleccionado(value.row), console.log("facturas", value.row) }}
+          >
+            <Eye className="w-4 h-4" />
+            <span>Detalles</span>
+          </button>
+
+          {/* Botón Facturas */}
+          <button
+            className="px-3 py-1.5 rounded-md bg-green-50 text-green-600 hover:bg-green-100 transition-colors border border-green-200 flex items-center gap-1"
+            onClick={() => console.log("facturas", value)}
+          >
+            <FileText className="w-4 h-4" />
+            <span>Facturas</span>
+          </button>
+
+          {/* Botón Facturar con menú desplegable */}
+          <div className="relative">
+            <button
+              className="px-3 py-1.5 rounded-md bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors border border-purple-200 flex items-center gap-1"
+              onClick={() => setShowFacturaOptions(!showFacturaOptions)}
+            >
+              <FilePlus className="w-4 h-4" />
+              <span>Facturar</span>
+            </button>
+
+            {showFacturaOptions && (
+              <div className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200">
+                <div className="py-1">
+                  <button
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-900"
+                    onClick={() => {
+                      console.log("Generar factura para:", value.row);
+                      setShowBillingPage(true);
+                      setShowFacturaOptions(false);
+
+                    }}
+                  >
+                    Generar factura
+                  </button>
+                  <button
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-900"
+                    onClick={() => {
+                      console.log("Generar factura para:", value.row);
+                      setPagoAFacturar(value.row);
+                      setShowSubirFactura(true);
+                      setShowFacturaOptions(false);
+                    }}
+                  >
+                    Asignar factura
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Cerrar menú al hacer clic fuera */}
+          {showFacturaOptions && (
+            <div
+              className="fixed inset-0 z-0"
+              onClick={() => setShowFacturaOptions(false)}
+            />
+          )}
+
+          {/* Modal para BillingPage */}
+          {showBillingPage && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
+                <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
+                  <h2 className="text-xl font-bold text-gray-800">
+                    Generar factura para pago {value.row.id_agente ? formatIdItem(value.row.id_agente) : ''}
+                  </h2>
+                  <button
+                    onClick={() => setShowBillingPage(false)}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+                <div className="p-6">
+                  <BillingPage
+                    onBack={() => setShowBillingPage(false)}
+                    userId={value.row.id_agente} // Pasar el id_agente como userId
+                    saldoMonto={value.row.saldo_monto} // Pasar el saldo_monto
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
   };
 
   return (
@@ -713,6 +795,33 @@ const TablaPagosVisualizacion = () => {
         pago={pagoSeleccionado}
         onClose={() => setPagoSeleccionado(null)}
       />
+      {/* Modal para SubirFactura */}
+      {showSubirFactura && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-800">
+                Asignar factura al pago {pagoAFacturar?.id_pago ? formatIdItem(pagoAFacturar.id_pago) : ''}
+              </h2>
+              <button
+                onClick={() => setShowSubirFactura(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-6">
+              <SubirFactura
+                pagoData={pagoAFacturar}  // Pasamos el objeto completo del pago
+                onSuccess={() => {
+                  setShowSubirFactura(false);
+                  // Aquí puedes añadir lógica adicional después de subir la factura
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
