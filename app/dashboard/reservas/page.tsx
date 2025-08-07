@@ -62,7 +62,7 @@ function App() {
       )
       .map((item) => ({
         id_cliente: item.id_agente,
-        cliente: item.nombre_cliente || "",
+        cliente: (item.nombre_cliente || "").toUpperCase(),
         creado: item.created_at_reserva,
         hotel: item.hotel_reserva || "",
         codigo_hotel: item.codigo_reservacion_hotel,
