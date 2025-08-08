@@ -103,8 +103,9 @@ export const Table4 = <T,>({
   };
 
   return (
-    <div className="relative w-full">
-      <div className="flex w-full justify-between mb-2">
+    <div className="relative w-full h-full flex flex-col">
+      {/* Encabezado y controles */}
+      <div className="flex w-full justify-between mb-2 shrink-0">
         <div className="flex flex-col justify-end">
           <span className="text-gray-600 text-sm font-normal ml-1">{leyenda}</span>
         </div>
@@ -155,8 +156,8 @@ export const Table4 = <T,>({
 
       {loading && <Loader />}
       {displayData.length > 0 && !loading ? (
-        <div className="overflow-x-auto border border-gray-200 rounded-xl shadow-sm" style={{ maxHeight }}>
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
+        <div className="overflow-x-auto border border-gray-200 rounded-xl shadow-sm flex-1 min-h-0">
+          <table className="min-w-full divide-y divide-gray-200 text-sm h-full">
             <thead className="sticky top-0 z-10 bg-white shadow-sm">
               <tr>
                 {columnKeys
@@ -234,7 +235,7 @@ export const Table4 = <T,>({
         </div>
       ) : (
         !loading && (
-          <div className="px-6 py-4 w-full text-center text-sm text-gray-500 border rounded-md">
+          <div className="px-6 py-4 w-full text-center text-sm text-gray-500 border rounded-md flex-1 flex items-center justify-center">
             No se encontraron registros
           </div>
         )
