@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   ShoppingCart,
   AlertCircle,
+  X
 } from "lucide-react";
 import { DataInvoice, DescargaFactura, ProductInvoice } from "@/types/billing";
 import { Root } from "@/types/billing";
@@ -128,23 +129,49 @@ export const BillingPage: React.FC<BillingPageProps> = ({
         Unit: "Servicio",
         Description: "Pago de servicio",
         // IdentificationNumber: "",
-        UnitPrice: customAmount.toString(),
-        Subtotal: customAmount.toString(),
+        UnitPrice: (saldoMonto / 1.16).toFixed(2),
+        Subtotal: (saldoMonto / 1.16).toFixed(2), // Subtotal inicial
         TaxObject: "02",
         Taxes: [
           {
             Name: "IVA",
             Rate: "0.16",
-            Total: (customAmount * 0.16).toString(),
-            Base: customAmount.toString(),
+            Total: ((saldoMonto / 1.16) * 0.16).toString(), // IVA inicial
+            Base: (saldoMonto / 1.16).toString(),
             IsRetention: "false",
             IsFederalTax: "true",
           },
         ],
-        Total: (customAmount * 1.16).toString(),
+        Total: saldoMonto.toString(), // Total inicial
       },
     ],
   });
+
+  const updateInvoiceAmounts = (totalAmount: number) => {
+    // Convertir el totalAmount a número por si acaso
+    const total = Number(totalAmount);
+    const subtotal = parseFloat((total / 1.16).toFixed(2)); // Calcula el subtotal y redondea a 2 decimales
+    const iva = parseFloat((subtotal * 0.16).toFixed(2)); // Calcula el IVA y redondea a 2 decimales
+
+    setCfdi(prev => ({
+      ...prev,
+      Items: [
+        {
+          ...prev.Items[0],
+          UnitPrice: subtotal.toString(),
+          Subtotal: subtotal.toString(),
+          Taxes: [
+            {
+              ...prev.Items[0].Taxes[0],
+              Total: iva.toString(),
+              Base: subtotal.toString(),
+            },
+          ],
+          Total: total.toString(),
+        },
+      ],
+    }));
+  };
 
   const handleUpdateCompany = (company: any) => {
     console.log("Company object:", company);
@@ -246,8 +273,9 @@ export const BillingPage: React.FC<BillingPageProps> = ({
             Date: formattedDate, // Ensure the date is within the 72-hour limit
           },
           info_user: {
-            id_user: authState?.user?.id,
-            id_solicitud: params?.id,
+            id_user: userId,
+            //verificar
+            id_solicitud: null,
           },
           datos_empresa: {
             rfc: cfdi.Receiver.Rfc,
@@ -263,8 +291,9 @@ export const BillingPage: React.FC<BillingPageProps> = ({
             Date: formattedDate, // Ensure the date is within the 72-hour limit
           },
           info_user: {
-            id_user: authState?.user?.id,
-            id_solicitud: params?.id,
+            id_user: userId,
+            id_solicitud: params?.id || "", // Asegúrate de tener un valor por defecto
+            id_items: [""], // Añade este campo si es requerido
           },
           datos_empresa: {
             rfc: cfdi.Receiver.Rfc,
@@ -278,7 +307,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
         descargarFactura(response.data.Id)
           .then((factura) => setDescarga(factura))
           .catch((err) => console.error(err));
-        descargarFactura(response.data.Id, "xml")
+        descargarFactura(response.data.Id)
           .then((factura) => setDescargaxml(factura))
           .catch((err) => console.error(err));
         setIsInvoiceGenerated(response.data);
@@ -365,26 +394,23 @@ export const BillingPage: React.FC<BillingPageProps> = ({
 
                   <div className="space-y-2">
                     <AmountDetailsSplit
-                      amount={formatCurrency(cfdi?.Items?.[0]?.Subtotal || 0)}
+                      amount={formatCurrency(Number(cfdi?.Items?.[0]?.Subtotal) || 0)}
                       label="Subtotal"
                       icon={<DollarSign className="w-4 h-4 text-gray-400" />}
                     />
                     <AmountDetailsSplit
-                      amount={formatCurrency(
-                        cfdi?.Items?.[0]?.Taxes?.[0]?.Total || 0
-                      )}
-                      label={`IVA (${(cfdi?.Items?.[0]?.Taxes?.[0]?.Rate ?? 0) * 100
-                        }%)`}
+                      amount={formatCurrency(Number(cfdi?.Items?.[0]?.Taxes?.[0]?.Total) ?? 0)}
+                      label={`IVA (${((Number(cfdi?.Items?.[0]?.Taxes?.[0]?.Rate) ?? 0) * 100).toFixed(2)}%)`}
                       icon={<Percent className="w-4 h-4 text-gray-400" />}
                     />
+
                     <div className="pt-2 border-t border-gray-200">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm font-semibold text-gray-900">
-                          Total
-                        </span>
-                        <span className="text-lg font-bold text-gray-900">
-                          {formatCurrency(cfdi?.Items?.[0]?.Total || 0)}
-                        </span>
+                        <AmountDetailsSplit
+                          amount={formatCurrency(Number(cfdi?.Items?.[0]?.Total) || 0)}
+                          label="Total"
+                          icon={<DollarSign className="w-4 h-4 text-gray-400" />}
+                        />
                       </div>
                     </div>
                   </div>
@@ -445,9 +471,11 @@ export const BillingPage: React.FC<BillingPageProps> = ({
                       max={saldoMonto}
                       value={customAmount}
                       onChange={(e) => {
-                        const value = parseFloat(e.target.value);
+                        // Convertir el valor a número explícitamente
+                        const value = Number(e.target.value);
                         if (!isNaN(value) && value >= 0 && value <= saldoMonto) {
                           setCustomAmount(value);
+                          updateInvoiceAmounts(value);
                         }
                       }}
                       className="block w-full pl-8 text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
@@ -603,6 +631,7 @@ const DataFiscalModalWithCompanies: React.FC<DataFiscalModalProps> = ({
   const [empresas, setEmpresas] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showNoRfcAlert, setShowNoRfcAlert] = useState(false);
 
   useEffect(() => {
     if (isOpen && agentId) {
@@ -612,15 +641,23 @@ const DataFiscalModalWithCompanies: React.FC<DataFiscalModalProps> = ({
         try {
           const data = await getEmpresasDatosFiscales(agentId);
 
-          // Ensure data is an array, if not convert it or handle appropriately
-          if (Array.isArray(data)) {
-            setEmpresas(data);
-          } else if (data && typeof data === 'object') {
-            // If the response is an object, try to extract an array from it
-            setEmpresas(data.data || data.empresas || []);
-          } else {
-            setEmpresas([]);
-            setError("Formato de datos inesperado");
+          // Validar si hay empresas y si tienen RFC
+          const empresasValidas = Array.isArray(data)
+            ? data.filter(empresa => empresa.rfc) // Solo empresas con RFC
+            : (data?.data || data?.empresas || []).filter(empresa => empresa.rfc);
+
+          setEmpresas(empresasValidas);
+
+          // Si solo hay una empresa válida, seleccionarla automáticamente
+          if (empresasValidas.length === 1) {
+            actualizarCompany(empresasValidas[0]);
+            onClose();
+            return;
+          }
+
+          if (empresasValidas.length === 0) {
+            setError("No tienes empresas con RFC registrado");
+            setShowNoRfcAlert(true);
           }
         } catch (err) {
           console.error("Error fetching companies:", err);
@@ -635,6 +672,11 @@ const DataFiscalModalWithCompanies: React.FC<DataFiscalModalProps> = ({
     }
   }, [isOpen, agentId]);
 
+  const handleClose = () => {
+    onClose(); // Cierra el modal de selección de empresa
+    window.location.href = '/dashboard/payments'; // Redirige a la página principal
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -647,10 +689,36 @@ const DataFiscalModalWithCompanies: React.FC<DataFiscalModalProps> = ({
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
           </div>
         ) : error ? (
-          <div className="text-red-500 text-center py-4">{error}</div>
+          <>
+            <div className="text-red-500 text-center py-4">{error}</div>
+            {showNoRfcAlert && (
+              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <AlertCircle className="h-5 w-5 text-yellow-400" />
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm text-yellow-700">
+                      {empresas.length === 0
+                        ? "Debes registrar al menos una empresa con RFC antes de facturar."
+                        : "Algunas empresas no tienen RFC. Debes agregar el RFC a tus empresas para poder facturar."}
+                    </p>
+                    <div className="mt-2">
+                      <button
+                        onClick={handleClose}
+                        className="inline-flex items-center px-3 py-1 border border-transparent text-sm leading-5 font-medium rounded-md text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
+                      >
+                        Cerrar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
         ) : empresas.length === 0 ? (
           <div className="text-yellow-600 text-center py-4">
-            No se encontraron empresas con datos fiscales
+            No se encontraron empresas con datos fiscales completos
           </div>
         ) : (
           <>
@@ -660,17 +728,14 @@ const DataFiscalModalWithCompanies: React.FC<DataFiscalModalProps> = ({
                   key={empresa.id_empresa}
                   className="border p-4 rounded-lg hover:bg-gray-50 cursor-pointer"
                   onClick={() => {
-                    try {
-                      actualizarCompany(empresa);
-                      onClose();
-                    } catch (error) {
-                      console.error("Error updating company:", error);
-                      // You might want to show an error message to the user here
-                    }
+                    actualizarCompany(empresa);
+                    onClose();
                   }}
                 >
                   <h3 className="font-medium">{empresa.razon_social}</h3>
-                  <p className="text-sm text-gray-600">RFC: {empresa.rfc}</p>
+                  <p className="text-sm text-gray-600">
+                    RFC: {empresa.rfc}
+                  </p>
                   <p className="text-sm text-gray-600">Regimen: {empresa.regimen_fiscal}</p>
                 </div>
               ))}
@@ -678,10 +743,11 @@ const DataFiscalModalWithCompanies: React.FC<DataFiscalModalProps> = ({
 
             <div className="mt-4 flex justify-end">
               <button
-                onClick={onClose}
-                className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+                onClick={handleClose}
+                className="inline-flex items-center px-3 py-1 border border-transparent text-sm leading-5 font-medium rounded-md text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
               >
-                Cancelar
+                <X className="w-4 h-4 mr-1" />
+                Cerrar
               </button>
             </div>
           </>

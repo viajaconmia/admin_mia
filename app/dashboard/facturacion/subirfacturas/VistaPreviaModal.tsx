@@ -5,13 +5,15 @@ import { obtenerPresignedUrl, subirArchivoAS3 } from "@/helpers/utils";
 
 interface VistaPreviaProps {
   facturaData: any;
+  pagoData: any;
   onClose: () => void;
-  onConfirm: (pdfUrl: string) => void; // Modificado para recibir la URL del PDF
+  onConfirm: (url: any) => void; // Ahora recibe el payload completo
   isLoading?: boolean;
 }
 
 export default function VistaPreviaModal({
   facturaData,
+  pagoData,
   onClose,
   onConfirm,
   isLoading = false
@@ -20,8 +22,28 @@ export default function VistaPreviaModal({
   const [pdfObjectUrl, setPdfObjectUrl] = useState<string | null>(null); // Para la vista previa
   const [showPdf, setShowPdf] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [validationMessage, setValidationMessage] = useState<string | null>(null);
 
-  console.log(facturaData)
+  console.log("factura", facturaData)
+  console.log("pagos", pagoData)
+
+  console.log("eve", facturaData.comprobante.total)
+
+  useEffect(() => {
+    // Validación del monto cuando tenemos ambos datos
+    if (pagoData && facturaData) {
+      console.log("pagodara", pagoData.monto)
+      const montoPorFacturar = Number(pagoData.monto) || 0;
+      const totalFactura = parseFloat(facturaData.comprobante.total);
+      console.log("montoPorFacturar", pagoData.montoporfacturar, "totalFactura", totalFactura)
+      if (montoPorFacturar >= totalFactura) {
+
+        console.log("Payload para pago completo:", montoPorFacturar - totalFactura);
+      }
+    } else {
+      setValidationMessage(null);
+    }
+  }, [pagoData, facturaData]);
 
   useEffect(() => {
     async function generarYSubirPDF() {
@@ -78,6 +100,42 @@ export default function VistaPreviaModal({
 
   const handleConfirm = () => {
     console.log(pdfUrl)
+    const payload = {
+      fecha_emision: facturaData.comprobante.fecha.split("T")[0],
+      estado: "Confirmada",
+      usuario_creador: "", // Este dato no está disponible en VistaPrevia
+      id_agente: "", // Este dato no está disponible en VistaPrevia
+      total: parseFloat(facturaData.comprobante.total),
+      subtotal: parseFloat(facturaData.comprobante.subtotal),
+      impuestos: parseFloat(facturaData.impuestos?.traslado?.importe || "0.00"),
+      saldo: parseFloat(facturaData.comprobante.total),
+      rfc: facturaData.receptor.rfc,
+      id_empresa: null, // No disponible en VistaPrevia
+      uuid_factura: facturaData.timbreFiscal.uuid,
+      rfc_emisor: facturaData.emisor.rfc,
+      url_pdf: pdfUrl,
+      url_xml: null, // No disponible en VistaPrevia
+      items_json: JSON.stringify([]),
+      // Campos adicionales de pago si existe pagoData
+      ...(pagoData && {
+        saldo_pago: pagoData.saldo,
+        pago: pagoData.pago,
+        raw_id: pagoData.raw_id
+      })
+    };
+
+    if (pagoData && facturaData) {
+      const montoPorFacturar = pagoData.montoporfacturar || 0;
+      const totalFactura = parseFloat(facturaData.comprobante.total);
+
+      if (montoPorFacturar >= totalFactura) {
+        console.log("Payload completo para pago:", payload);
+        onClose(); // Cierra el modal directamente
+        return;
+      }
+    }
+
+    // Flujo normal - pasar el payload a onConfirm
     onConfirm(pdfUrl);
   };
 
