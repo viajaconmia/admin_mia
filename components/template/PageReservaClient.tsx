@@ -125,7 +125,7 @@ function App({ id_agente }: { id_agente?: string }) {
     ),
     id_cliente: ({ value }: { value: null | string }) => (
       <span className="font-semibold text-sm">
-        {value ? value.split("-").join("").slice(0, 10) : ""}
+        {value ? value.slice(0, 11) : ""}
       </span>
     ),
     markup: (props: any) => (
