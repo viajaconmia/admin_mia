@@ -29,7 +29,11 @@ import {
   Solicitud2,
 } from "@/types";
 import { Table } from "../Table";
-import { formatNumberWithCommas, getEstatus } from "@/helpers/utils";
+import {
+  formatNumberWithCommas,
+  getEstatus,
+  separarCostos,
+} from "@/helpers/utils";
 import { updateRoom } from "@/lib/utils";
 
 interface ReservationFormProps {
@@ -79,7 +83,7 @@ export function ReservationForm2({
       impuestos: Number(solicitud.total) * 0.16 || 0,
       markup: 0,
     },
-    estado_reserva: getEstatus(solicitud.status_reservacion) as
+    estado_reserva: getEstatus(solicitud.status_reserva) as
       | "Confirmada"
       | "En proceso"
       | "Cancelada",
@@ -317,9 +321,21 @@ export function ReservationForm2({
             },
             current: {
               ...form.venta,
-              total: Number((roomPrice * nights).toFixed(2) || 0),
-              subtotal: Number((roomPrice * nights * 0.84).toFixed(2) || 0),
-              impuestos: Number((roomPrice * nights * 0.16).toFixed(2) || 0),
+              total: Number(
+                solicitud.metodo_pago_dinamico == "Contado"
+                  ? separarCostos(Number(solicitud.total)).total
+                  : separarCostos(roomPrice * nights).total
+              ),
+              subtotal: Number(
+                solicitud.metodo_pago_dinamico == "Contado"
+                  ? separarCostos(Number(solicitud.total)).subtotal
+                  : separarCostos(roomPrice * nights).subtotal
+              ),
+              impuestos: Number(
+                solicitud.metodo_pago_dinamico == "Contado"
+                  ? separarCostos(Number(solicitud.total)).impuestos
+                  : separarCostos(roomPrice * nights).impuestos
+              ),
               markup: Number(
                 (
                   ((roomPrice * nights - autoTotal) / (roomPrice * nights)) *
@@ -354,21 +370,17 @@ export function ReservationForm2({
     e.preventDefault();
     if (edicion) {
       console.log({ ...edicionForm, flag: cambiarHotel });
-      updateReserva(
-        { ...edicionForm, flag: cambiarHotel },
-        solicitud.id_booking,
-        (data) => {
-          if (data.error) {
-            alert("Error al actualizar la reserva");
-            setLoading(false);
-            return;
-          }
-          alert("Reserva actualizada correctamente");
-          onClose();
+      updateReserva(edicionForm, solicitud.id_booking, (data) => {
+        if (data.error) {
+          alert("Error al actualizar la reserva");
           setLoading(false);
-          console.log(data);
+          return;
         }
-      );
+        alert("Reserva actualizada correctamente");
+        onClose();
+        setLoading(false);
+        console.log(data);
+      });
     } else if (create) {
       fetchCreateReservaOperaciones(form, (data) => {
         console.log(data);

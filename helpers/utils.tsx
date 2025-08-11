@@ -33,6 +33,12 @@ export const getEstatus = (estatus: string) => {
   return data;
 };
 
+export function separarCostos(total: number) {
+  const subtotal = (total / 1.16).toFixed(2);
+  const impuestos = (total - total / 1.16).toFixed(2);
+  return { subtotal, total, impuestos };
+}
+
 export function copyToClipboard(text) {
   navigator.clipboard
     .writeText(text)
