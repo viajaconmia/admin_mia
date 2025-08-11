@@ -11,6 +11,7 @@ import {
   updateReserva,
 } from "@/services/reservas";
 import {
+  CheckboxInput,
   ComboBox,
   DateInput,
   Dropdown,
@@ -19,7 +20,14 @@ import {
   TextInput,
 } from "@/components/atom/Input";
 import { fetchViajerosFromAgent } from "@/services/viajeros";
-import { Hotel, Solicitud, ReservaForm, Viajero, EdicionForm, Solicitud2 } from "@/types";
+import {
+  Hotel,
+  Solicitud,
+  ReservaForm,
+  Viajero,
+  EdicionForm,
+  Solicitud2,
+} from "@/types";
 import { Table } from "../Table";
 import { formatNumberWithCommas, getEstatus } from "@/helpers/utils";
 import { updateRoom } from "@/lib/utils";
@@ -51,7 +59,7 @@ export function ReservationForm2({
       parseISO(solicitud.check_in)
     );
   }
-
+  const [cambiarHotel, setCambiarHotel] = useState(false);
   const [form, setForm] = useState<ReservaForm>({
     hotel: {
       name: solicitud.hotel_reserva || "",
@@ -237,6 +245,7 @@ export function ReservationForm2({
             .filter(Boolean),
         }));
       };
+      console.log(solicitud.metodo_pago_dinamico);
 
       // Calcular el total automático si no es modo manual
       const autoTotal = isCostoManual
@@ -344,17 +353,22 @@ export function ReservationForm2({
     setLoading(true);
     e.preventDefault();
     if (edicion) {
-      updateReserva(edicionForm, solicitud.id_booking, (data) => {
-        if (data.error) {
-          alert("Error al actualizar la reserva");
+      console.log({ ...edicionForm, flag: cambiarHotel });
+      updateReserva(
+        { ...edicionForm, flag: cambiarHotel },
+        solicitud.id_booking,
+        (data) => {
+          if (data.error) {
+            alert("Error al actualizar la reserva");
+            setLoading(false);
+            return;
+          }
+          alert("Reserva actualizada correctamente");
+          onClose();
           setLoading(false);
-          return;
+          console.log(data);
         }
-        alert("Reserva actualizada correctamente");
-        onClose();
-        setLoading(false);
-        console.log(data);
-      });
+      );
     } else if (create) {
       fetchCreateReservaOperaciones(form, (data) => {
         console.log(data);
@@ -409,6 +423,15 @@ export function ReservationForm2({
 
         <TabsContent value="cliente" className="space-y-4">
           <div className="grid md:grid-cols-2 gap-4">
+            {solicitud.metodo_pago_dinamico == "Contado" && (
+              <div className="col-span-2">
+                <CheckboxInput
+                  checked={cambiarHotel}
+                  label="Editar solo el hotel?"
+                  onChange={(value) => setCambiarHotel(value)}
+                />
+              </div>
+            )}
             <div className="space-y-2">
               <ComboBox
                 label={`Hotel`}
@@ -645,9 +668,7 @@ export function ReservationForm2({
             <div className="space-y-2">
               <ComboBox
                 label={`Viajeros`}
-                sublabel={`(${
-                  solicitud.nombre_viajero_reservacion 
-                } - ${solicitud.id_viajero_reserva})`}
+                sublabel={`(${solicitud.nombre_viajero_reservacion} - ${solicitud.id_viajero_reserva})`}
                 onChange={(value) => {
                   if (edicion) {
                     setEdicionForm((prev) => ({

@@ -115,25 +115,25 @@ const PaymentSummary: React.FC<PaymentSummaryProps> = ({
   const [subiendoArchivos, setSubiendoArchivos] = useState(false);
   const [comprobanteUrl, setComprobanteUrl] = useState<string | null>(null);
 
-  // const subirArchivosAS3 = async (): Promise<{ comprobante: string }> => {
-  //   //
-  //   try {
-  //     setSubiendoArchivos(true);
-  //     const folder = "comprobantes_pagos";
+  const subirArchivosAS3 = async (): Promise<{ comprobante: string }> => {
+    //
+    try {
+      setSubiendoArchivos(true);
+      const folder = "comprobantes_pagos";
 
-  //     const { urlComprobante, publicUrlComprobante } =
-  //       await obtenerPresignedUrl(comprobante.name, comprobante.type, folder);
-  //     await subirArchivoAS3(comprobante, urlComprobante);
-  //     setComprobanteUrl(publicUrlComprobante);
+      const { urlComprobante, publicUrlComprobante } =
+        await obtenerPresignedUrl(comprobante.name, comprobante.type, folder);
+      await subirArchivoAS3(comprobante, urlComprobante);
+      setComprobanteUrl(publicUrlComprobante);
 
-  //     return { comprobante: publicUrlComprobante };
-  //   } catch (err) {
-  //     console.error("Error al subir archivos:", err);
-  //     throw err;
-  //   } finally {
-  //     setSubiendoArchivos(false);
-  //   }
-  // };
+      return { comprobante: publicUrlComprobante };
+    } catch (err) {
+      console.error("Error al subir archivos:", err);
+      throw err;
+    } finally {
+      setSubiendoArchivos(false);
+    }
+  };
 
   return (
     <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl p-6 text-white shadow-lg">
@@ -156,9 +156,8 @@ const PaymentSummary: React.FC<PaymentSummaryProps> = ({
       {statusInfo && (
         <div className="mt-4 pt-4 border-t border-emerald-400">
           <p
-            className={`text-sm font-medium ${
-              statusInfo.puedeCancelar ? "text-emerald-100" : "text-yellow-200"
-            }`}
+            className={`text-sm font-medium ${statusInfo.puedeCancelar ? "text-emerald-100" : "text-yellow-200"
+              }`}
           >
             {statusInfo.mensaje}
           </p>
@@ -184,14 +183,18 @@ interface Comprobantepago {
   tamañoArchivo?: number;
   fechaSubida?: Date;
   estado?: "pendiente" | "aprobado" | "rechazado";
-  urlArchivo?: string;
+  urlArchivo: string; // Hacerlo obligatorio ya que es lo que realmente usamos
 }
 
 interface ComprobanteModalProps {
   idCliente: string;
   cliente: string;
   onClose: () => void;
-  onSave: (comprobante: Comprobantepago) => void;
+  onSave?: (comprobante: Comprobantepago) => void;
+  handleEdit?: (updatedData: { comprobante: string }) => Promise<void>;
+  isEditing?: boolean;
+  currentComprobante?: string | null;
+  item?: any; // O define un tipo más específico si es posible
 }
 
 const ComprobanteModal: React.FC<ComprobanteModalProps> = ({
@@ -199,34 +202,34 @@ const ComprobanteModal: React.FC<ComprobanteModalProps> = ({
   cliente,
   onClose,
   onSave,
+  handleEdit,
+  isEditing = false,
+  currentComprobante = null
 }) => {
   const [archivo, setArchivo] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    if (!file) return;
 
-    if (file) {
-      // Validaciones
-      const validTypes = ["application/pdf", "image/jpeg", "image/png"];
-      const maxSize = 5 * 1024 * 1024; // 5MB
+    const validTypes = ["application/pdf", "image/jpeg", "image/png"];
+    const maxSize = 5 * 1024 * 1024; // 5MB
 
-      if (!validTypes.includes(file.type)) {
-        setError("Formato no válido. Sube un PDF, JPEG o PNG");
-        return;
-      }
-
-      if (file.size > maxSize) {
-        setError("El archivo es demasiado grande (máx. 5MB)");
-        return;
-      }
-
-      setError(null);
-      setArchivo(file);
+    if (!validTypes.includes(file.type)) {
+      setError("Formato no válido. Sube un PDF, JPEG o PNG");
+      return;
     }
-  };
 
-  const [loading, setLoading] = useState(false);
+    if (file.size > maxSize) {
+      setError("El archivo es demasiado grande (máx. 5MB)");
+      return;
+    }
+
+    setError(null);
+    setArchivo(file);
+  };
 
   const handleSubmit = async () => {
     if (!archivo) {
@@ -237,43 +240,38 @@ const ComprobanteModal: React.FC<ComprobanteModalProps> = ({
     setLoading(true);
 
     try {
-      // 2) Obtenemos URL presignada
       const folder = "comprobantes_pagos";
-      const key = `${folder}/${archivo.name}`;
       const { url: uploadUrl, publicUrl } = await obtenerPresignedUrl(
-        key,
+        `${folder}/${archivo.name}`,
         archivo.type,
         folder
       );
 
-      // 3) Subimos a S3
-      await subirArchivosAS3Luis(archivo, folder)
-        .then((url) => {
-          console.log("url", url);
-        })
-        .catch((err) => {
-          console.error("Error al subir archivo:", err);
-        })
-        .finally(() => {
-          setLoading(false);
-        });
+      await subirArchivoAS3(archivo, uploadUrl);
 
-      // 4) Emitimos todo incluyendo publicUrl
-      onSave({
-        id_Cliente: idCliente,
-        archivo,
-        nombreArchivo: archivo.name,
-        tipoArchivo: archivo.type,
-        tamañoArchivo: archivo.size,
-        fechaSubida: new Date(),
-        estado: "pendiente",
-        urlArchivo: publicUrl, // <-- pasamos la URL final
-      });
+
+      if (isEditing && handleEdit) {
+        await handleEdit({ comprobante: publicUrl });
+      } else if (onSave) {
+        const comprobanteData: Comprobantepago = {
+          id_Cliente: idCliente,
+          archivo,
+          nombreArchivo: archivo.name,
+          tipoArchivo: archivo.type,
+          tamañoArchivo: archivo.size,
+          fechaSubida: new Date(),
+          estado: "pendiente",
+          urlArchivo: publicUrl,
+        };
+        onSave(comprobanteData);
+      }
 
       onClose();
     } catch (err) {
       console.error("Error subiendo comprobante:", err);
       setError("No se pudo subir el archivo. Intenta de nuevo.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -282,41 +280,50 @@ const ComprobanteModal: React.FC<ComprobanteModalProps> = ({
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
         <div className="flex items-center justify-between p-6 border-b border-gray-100">
           <h3 className="text-xl font-semibold text-gray-800">
-            Subir Comprobante para {cliente}
+            {isEditing ? "Actualizar" : "Subir"} Comprobante para {cliente}
           </h3>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-full"
-          >
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full">
             <X className="w-5 h-5 text-gray-500" />
           </button>
         </div>
 
-        <div className="p-6">
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Seleccionar archivo
-              </label>
-              <input
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png"
-                onChange={handleFileChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md"
-              />
-              {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
+        <div className="p-6 space-y-4">
+          {isEditing && currentComprobante && (
+            <div className="mb-4">
+              <p className="font-medium">Comprobante actual:</p>
+              <a
+                href={currentComprobante}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-500 underline"
+              >
+                Ver comprobante actual
+              </a>
             </div>
+          )}
 
-            {archivo && (
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="font-medium">Archivo seleccionado:</p>
-                <p>{archivo.name}</p>
-                <p className="text-sm text-gray-500">
-                  {(archivo.size / 1024).toFixed(2)}
-                </p>
-              </div>
-            )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Seleccionar archivo
+            </label>
+            <input
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png"
+              onChange={handleFileChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md"
+            />
+            {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
           </div>
+
+          {archivo && (
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <p className="font-medium">Archivo seleccionado:</p>
+              <p>{archivo.name}</p>
+              <p className="text-sm text-gray-500">
+                {(archivo.size / 1024).toFixed(2)} KB
+              </p>
+            </div>
+          )}
 
           <div className="flex gap-3 mt-6">
             <button
@@ -328,11 +335,10 @@ const ComprobanteModal: React.FC<ComprobanteModalProps> = ({
             <button
               onClick={handleSubmit}
               disabled={!archivo}
-              className={`flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg ${
-                !archivo ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-700"
-              }`}
+              className={`flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg ${!archivo ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-700"
+                }`}
             >
-              Guardar Comprobante
+              {loading ? "Procesando..." : isEditing ? "Actualizar" : "Guardar"}
             </button>
           </div>
         </div>
@@ -424,10 +430,10 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             ? 1
             : 0
           : newFilters.activo === true
-          ? 1
-          : newFilters.activo === false
-          ? 0
-          : null,
+            ? 1
+            : newFilters.activo === false
+              ? 0
+              : null,
     };
 
     setFilters(completeFilters);
@@ -559,7 +565,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       // Filtro por link_stripe (case-insensitive)
       if (filters.id_stripe) {
         const stripeId = filters.id_stripe.toLowerCase();
-        const saldoLink = saldo.link_stripe?.toLowerCase() || '';
+        const saldoLink = saldo.link_stripe?.toLowerCase() || "";
         if (!saldoLink.includes(stripeId)) {
           return false;
         }
@@ -608,8 +614,8 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       return true;
     });
 
-    console.log('Filters:', filters);
-    console.log('Sample saldo:', saldos[0]);
+    console.log("Filters:", filters);
+    console.log("Sample saldo:", saldos[0]);
 
     // Transform the filtered data
     const transformedData = filteredItems.map((saldo) => ({
@@ -623,10 +629,11 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         saldo.metodo_pago === "transferencia"
           ? "Transferencia Bancaria"
           : saldo.metodo_pago === "tarjeta credito"
-          ? "Tarjeta de Crédito"
-          : saldo.metodo_pago === "tarjeta debito"
-          ? "Tarjeta de Débito"
-          : saldo.metodo_pago || "",
+            ? "Tarjeta de Crédito"
+            : saldo.metodo_pago === "tarjeta debito"
+              ? "Tarjeta de Débito"
+              : saldo.metodo_pago || "",
+
       tipo_tarjeta: saldo.tipo_tarjeta || "",
       referencia: saldo.referencia || "",
       link_stripe: saldo.link_stripe || null,
@@ -699,11 +706,11 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       return (
         <span
           className={`font-semibold text-sm px-2 py-1 rounded flex items-center justify-center
-      ${
-        isActive
-          ? "bg-blue-100 text-blue-600"
-          : "bg-red-100 text-red-600 line-through"
-      }`}
+
+      ${isActive
+              ? "bg-blue-100 text-blue-600"
+              : "bg-red-100 text-red-600 line-through"
+            }`}
         >
           ${formatted}
         </span>
@@ -719,11 +726,11 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       return (
         <span
           className={`font-semibold text-sm px-2 py-1 rounded flex items-center justify-center
-      ${
-        isActive
-          ? "bg-blue-100 text-blue-600"
-          : "bg-red-100 text-red-600 line-through"
-      }`}
+
+      ${isActive
+              ? "bg-blue-100 text-blue-600"
+              : "bg-red-100 text-red-600 line-through"
+            }`}
         >
           ${formatted}
         </span>
@@ -734,14 +741,13 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       const isActive = Boolean(item.activo);
       return (
         <span
-          className={`font-semibold text-sm px-2 py-1 rounded ${
-            isActive
-              ? "bg-blue-50 text-blue-600"
-              : "bg-red-100 text-red-600 line-through"
-          }`}
+          className={`font-semibold text-sm px-2 py-1 rounded ${isActive
+            ? "bg-blue-50 text-blue-600"
+            : "bg-red-100 text-red-600 line-through"
+            }`}
           title={item.id_agente}
         >
-          {item.id_agente?.split("-").join("").slice(0, 10)}
+          {item.id_agente?.slice(0, 11)}
         </span>
       );
     },
@@ -750,19 +756,19 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       const isActive = Boolean(item.activo);
       return (
         <span
-          className={`font-semibold text-sm px-2 py-1 rounded ${
-            isActive
-              ? "bg-blue-50 text-blue-600"
-              : "bg-red-100 text-red-600 line-through"
-          }`}
+          className={`font-semibold text-sm px-2 py-1 rounded ${isActive
+            ? "bg-blue-50 text-blue-600"
+            : "bg-red-100 text-red-600 line-through"
+            }`}
         >
           {item.id_saldos}
         </span>
       );
     },
 
-    tipo_tarjeta: ({ value, row }: { value: string | null; row: any }) => {
-      const isActive = row?.activo !== false;
+    tipo_tarjeta: ({ value, item }: { value: string | null; item: any }) => {
+      const isActive = item?.activo !== false;
+
       const lowerValue = value?.toLowerCase() || "";
 
       let iconColor = "text-gray-500";
@@ -775,9 +781,8 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
 
       return (
         <div
-          className={`flex items-center gap-2 max-w-xs truncate ${
-            !isActive ? "text-red-500 line-through" : ""
-          }`}
+          className={`flex items-center gap-2 max-w-xs truncate ${!isActive ? "text-red-500 line-through" : ""
+            }`}
         >
           {shouldShowIcon && <CreditCard className={`w-4 h-4 ${iconColor}`} />}
           <span>{value ? normalizeText(value) : ""}</span>
@@ -785,17 +790,16 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       );
     },
 
-    forma_De_Pago: ({ value, row }: { value: string; row: any }) => {
-      const isActive = row?.activo !== false;
+    forma_De_Pago: ({ value, item }: { value: string; item: any }) => {
+      const isActive = item?.activo !== false;
       const normalizedValue = value.toLowerCase();
       return (
         <div
-          className={`flex items-center gap-2 ${
-            !isActive ? "text-red-500 line-through" : ""
-          }`}
+          className={`flex items-center gap-2 ${!isActive ? "text-red-500 line-through" : ""
+            }`}
         >
           {normalizedValue.includes("crédito") ||
-          normalizedValue.includes("credito") ? (
+            normalizedValue.includes("credito") ? (
             <CreditCard className="w-4 h-4 text-green-500" />
           ) : normalizedValue.includes("débito") ||
             normalizedValue.includes("debito") ? (
@@ -812,21 +816,43 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       );
     },
 
-    comprobante: ({ value }: { value: Comprobantepago | null }) => {
+    comprobante: ({ value, item }: { value: string | null; item: any }) => {
       const [showModal, setShowModal] = useState(false);
 
-      const handleDownload = () => {
-        if (value) {
-          console.log("Descargando comprobante...", value);
+      const handleEditComprobante = async (updatedData: { comprobante: string }) => {
+        try {
+          // Crear objeto con todos los datos necesarios para la actualización
+          const apiData = {
+            id_saldos: item.id_saldos,
+            id_agente: item.id_agente,
+            saldo: item.saldo,
+            monto: item.monto,
+            metodo_pago: item.metodo_pago,
+            fecha_pago: item.fecha_pago,
+            notas: item.notas || null,
+            is_facturable: item.is_facturable,
+            is_descuento: item.is_descuento,
+            link_stripe: item.link_stripe || null,
+            tipo_tarjeta: item.tipo_tarjeta,
+            activo: item.activo,
+            comentario: item.comentario || null,
+            comprobante: updatedData.comprobante,
+            concepto: item.concepto,
+            currency: item.currency || "MXN",
+            referencia: item.referencia || null,
+            ult_digits: item.ult_digits || null,
+            banco_tarjeta: item.banco_tarjeta || null,
+            numero_autorizacion: item.numero_autorizacion || null,
+          };
 
-          // Lógica de descarga aquí
-        }
-      };
+          console.log("Datos actualizados:", updatedData);
+          console.log("Datos enviados a la API:", apiData);
 
-      const handleView = () => {
-        if (value) {
-          console.log("Mostrando comprobante...", value);
-          // Lógica para visualizar aquí
+          await SaldoFavor.actualizarPago(apiData);
+          await reloadSaldos();
+        } catch (error) {
+          console.error("Error al actualizar comprobante:", error);
+          setError(`Error al actualizar comprobante: ${error instanceof Error ? error.message : String(error)}`);
         }
       };
 
@@ -841,14 +867,17 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             </button>
             {showModal && (
               <ComprobanteModal
-                idCliente={agente?.id_agente || ""}
-                cliente={agente?.nombre_agente_completo || ""}
+                idCliente={item.id_agente}
+                cliente={item.nombre}
                 onClose={() => setShowModal(false)}
                 onSave={(comprobante) => {
                   console.log("Comprobante guardado:", comprobante);
                   setShowModal(false);
-                  // TODO: actualizar estado
+                  console.log("Item asociado:", item);
                 }}
+                handleEdit={handleEditComprobante}
+                isEditing={true}
+                item={item}
               />
             )}
           </>
@@ -856,69 +885,94 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       }
 
       return (
-        <div className="flex gap-2">
-          <button
-            onClick={handleView}
-            className="text-green-600 hover:underline cursor-pointer"
+        <div className="flex gap-2 items-center">
+          <span className="text-gray-300">|</span>
+
+          {/* Botón para ver */}
+          <a
+            href={value}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-green-600 hover:text-green-800 cursor-pointer flex items-center"
+            title="Ver comprobante"
           >
-            Ver
-          </button>
-          <span>|</span>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+          </a>
+
+          <span className="text-gray-300">|</span>
+
+          {/* Botón para cambiar */}
           <button
-            onClick={handleDownload}
-            className="text-green-600 hover:underline cursor-pointer"
+            onClick={() => setShowModal(true)}
+            className="text-blue-600 hover:text-blue-800 cursor-pointer flex items-center"
+            title="Cambiar comprobante"
           >
-            Descargar
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
           </button>
+
+          {showModal && (
+            <ComprobanteModal
+              idCliente={item.id_agente}
+              cliente={item.nombre}
+              onClose={() => setShowModal(false)}
+              currentComprobante={value}
+              handleEdit={handleEditComprobante}
+              isEditing={true}
+              item={item}
+            />
+          )}
         </div>
       );
     },
+
     aplicable: ({ value }: { value: "Si" | "No" }) => {
       return (
         <span
-          className={`flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium w-full ${
-            value === "Si"
-              ? "bg-green-200 text-green-800"
-              : "bg-red-200 text-red-800"
-          }`}
+          className={`flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium w-full ${value === "Si"
+            ? "bg-green-200 text-green-800"
+            : "bg-red-200 text-red-800"
+            }`}
         >
           <span className="text-center w-full">{normalizeText(value)}</span>
         </span>
       );
     },
 
-    referencia: ({ value, row }: { value: string | null; row: any }) => {
-      const isActive = row?.activo !== false;
+    referencia: ({ value, item }: { value: string | null; item: any }) => {
+      const isActive = item?.activo !== false;
       return (
         <div
-          className={`max-w-xs truncate ${
-            !isActive ? "text-red-500 line-through" : ""
-          }`}
-        >
-          {value ? normalizeText(value) : ""}
-        </div>
-      );
-    },
-    comentario: ({ value, row }: { value: string | null; row: any }) => {
-      const isActive = row?.activo !== false;
-      return (
-        <div
-          className={`max-w-xs truncate ${
-            !isActive ? "text-red-500 line-through" : ""
-          }`}
+          className={`max-w-xs truncate ${!isActive ? "text-red-500 line-through" : ""
+            }`}
         >
           {value ? normalizeText(value) : ""}
         </div>
       );
     },
 
-    cliente: ({ value, row }: { value: string | null; row: any }) => {
-      const isActive = row?.activo !== false;
+    comentario: ({ value, item }: { value: string | null; item: any }) => {
+      const isActive = item?.activo !== false;
       return (
         <div
-          className={`max-w-xs truncate ${
-            !isActive ? "text-red-500 line-through" : ""
-          }`}
+          className={`max-w-xs truncate ${!isActive ? "text-red-500 line-through" : ""
+            }`}
+        >
+          {value ? normalizeText(value) : ""}
+        </div>
+      );
+    },
+
+    cliente: ({ value, item }: { value: string | null; item: any }) => {
+      const isActive = item?.activo !== false;
+      return (
+        <div
+          className={`max-w-xs truncate ${!isActive ? "text-red-500 line-through" : ""
+            }`}
         >
           {normalizeText(value)}
         </div>
@@ -928,35 +982,33 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     facturable: ({ value }: { value: "Si" | "No" }) => {
       return (
         <span
-          className={`flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium w-full ${
-            value === "Si"
-              ? "bg-green-200 text-green-800"
-              : "bg-red-200 text-red-800"
-          }`}
+          className={`flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium w-full ${value === "Si"
+            ? "bg-green-200 text-green-800"
+            : "bg-red-200 text-red-800"
+            }`}
         >
           <span className="text-center w-full">{normalizeText(value)}</span>
         </span>
       );
     },
     //botones para eliminar y editar informacion
-    acciones: ({ value }: { value: { row: any } }) => {
-      const { row } = value;
+    acciones: ({ item }) => {
       const [isEditModalOpen, setIsEditModalOpen] = useState(false);
       const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
       const [isPagarModalOpen, setIsPagarModalOpen] = useState(false);
 
-      const isActive = row?.activo !== 0;
+      const isActive = item?.activo !== 0;
       let editar = true;
-      const isDifferent = row?.saldo !== row?.monto;
-      const hasBalance = row?.saldo > 0; // Verifica si el saldo es mayor a 0
+      const isDifferent = item?.saldo !== item?.monto;
+      const hasBalance = item?.saldo > 0; // Verifica si el saldo es mayor a 0
       const hasLink = Boolean(
-        row?.link_stripe && row.link_stripe.trim() !== ""
+        item?.link_stripe && item.link_stripe.trim() !== ""
       );
       const showDeleteButtons = isActive && !isDifferent;
       const showEditbuttosn = isActive && !isDifferent && !hasLink;
       const showPagarButton = isActive && hasBalance;
 
-      if (row.saldo !== row.monto_pagado) {
+      if (item.saldo !== item.monto_pagado) {
         editar = false;
       }
       // En la función handleEdit
@@ -969,7 +1021,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
 
           // Obtener el pago original para calcular la diferencia
           const pagoOriginal = saldos.find(
-            (s) => s.id_saldos === row.id_saldos
+            (s) => s.id_saldos === item.id_saldos
           );
           if (!pagoOriginal) throw new Error("No se encontró el pago original");
 
@@ -987,29 +1039,31 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
           const metodoPagoNormalizado = formaPago.includes("transferencia")
             ? "transferencia"
             : formaPago.includes("tarjeta")
-            ? "tarjeta"
-            : "wallet";
+              ? "tarjeta"
+              : "wallet";
 
           // Preparar datos base
           const apiData: any = {
-            id_saldos: row.id_saldos,
-            id_agente: row.id_agente,
-            monto: updatedData.monto_pagado?.toString() || row.monto,
-            fecha_pago: updatedData.fecha_pago || row.fecha_pago,
-            comentario: updatedData.comentario || row.comentario || null,
+            id_saldos: item.id_saldos,
+            id_agente: item.id_agente,
+            monto: updatedData.monto_pagado?.toString() || item.monto,
+            fecha_pago: updatedData.fecha_pago || item.fecha_pago,
+            comentario: updatedData.comentario || item.comentario || null,
             is_facturable: updatedData.is_facturable,
             is_descuento: updatedData.descuento_aplicable,
             metodo_pago: metodoPagoNormalizado,
-            saldo: updatedData.monto_pagado?.toString() || row.monto,
+            saldo: updatedData.monto_pagado?.toString() || item.monto,
             activo: true, // Siempre activo al editar
-            concepto: row.concepto || "pago",
-            currency: row.currency || "MXN",
+            concepto: item.concepto || "pago",
+            currency: item.currency || "MXN",
+            comprobante: item.comprobante
           };
 
           // Manejar campos específicos según el método de pago
           switch (metodoPagoNormalizado) {
             case "transferencia":
-              apiData.referencia = updatedData.referencia || row.referencia;
+              apiData.referencia = updatedData.referencia || item.referencia;
+
               apiData.link_stripe = null;
               apiData.tipo_tarjeta = null;
               apiData.ult_digits = null;
@@ -1020,16 +1074,16 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             case "tarjeta":
               apiData.referencia = null;
               apiData.link_stripe =
-                updatedData.link_Stripe || row.link_stripe || null;
+                updatedData.link_Stripe || item.link_stripe || null;
               apiData.tipo_tarjeta =
                 metodoPagoNormalizado === "tarjeta" ? "credito" : "debito";
               apiData.ult_digits =
-                updatedData.ult_digits || row.ult_digits || null;
+                updatedData.ult_digits || item.ult_digits || null;
               apiData.banco_tarjeta =
-                updatedData.banco_tarjeta || row.banco_tarjeta || null;
+                updatedData.banco_tarjeta || item.banco_tarjeta || null;
               apiData.numero_autorizacion =
                 updatedData.numero_autorizacion ||
-                row.numero_autorizacion ||
+                item.numero_autorizacion ||
                 null;
               break;
 
@@ -1062,8 +1116,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         } catch (error) {
           console.error("Error al actualizar el pago:", error);
           setError(
-            `Error al actualizar el pago: ${
-              error instanceof Error ? error.message : String(error)
+            `Error al actualizar el pago: ${error instanceof Error ? error.message : String(error)
             }`
           );
         }
@@ -1075,46 +1128,47 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         try {
           // Proceder con la eliminación lógica
           const deleteData = {
-            id_saldos: row.id_saldos,
-            id_agente: row.id_agente,
-            saldo: row.saldo,
-            monto: row.monto,
-            metodo_pago: row.metodo_pago,
-            fecha_pago: row.fecha_pago,
-            notas: row.notas || null,
-            is_facturable: row.is_facturable,
-            is_descuento: row.is_descuento,
-            link_stripe: row.link_stripe || null,
-            tipo_tarjeta: row.tipo_tarjeta,
+            id_saldos: item.id_saldos,
+            id_agente: item.id_agente,
+            saldo: item.saldo,
+            monto: item.monto,
+            metodo_pago: item.metodo_pago,
+            fecha_pago: item.fecha_pago,
+            notas: item.notas || null,
+            is_facturable: item.is_facturable,
+            is_descuento: item.is_descuento,
+            link_stripe: item.link_stripe || null,
+            tipo_tarjeta: item.tipo_tarjeta,
             activo: false, // Cambiamos a 0 para desactivar
-            comentario: row.comentario || null,
-            comprobante: row.comprobante,
-            concepto: row.concepto,
-            currency: row.currency || "MXN",
-            referencia: row.referencia || null,
-            ult_digits: row.ult_digits || null,
-            banco_tarjeta: row.banco_tarjeta || null,
-            numero_autorizacion: row.numero_autorizacion || null,
+            comentario: item.comentario || null,
+            comprobante: item.comprobante,
+            concepto: item.concepto,
+            currency: item.currency || "MXN",
+            referencia: item.referencia || null,
+            ult_digits: item.ult_digits || null,
+            banco_tarjeta: item.banco_tarjeta || null,
+            numero_autorizacion: item.numero_autorizacion || null,
           };
 
           await updateAgentWallet();
 
           await SaldoFavor.actualizarPago(deleteData);
           // Actualizar el saldo local ANTES de recargar los datos
-          if (row.activo) {
+
+          if (item.activo) {
             setLocalWalletAmount(
-              (prev) => prev - parseFloat(row.monto.toString())
+              (prev) => prev - parseFloat(item.monto.toString())
             );
           }
           console.log("local eliminado", localWalletAmount);
-          const updatedSaldos = await SaldoFavor.getPagos(row.id_agente);
+          const updatedSaldos = await SaldoFavor.getPagos(item.id_agente);
+
           setSaldos(updatedSaldos.data);
           setIsDeleteModalOpen(false);
         } catch (error) {
           console.error("Error al eliminar el pago:", error);
           setError(
-            `Error al eliminar el pago: ${
-              error instanceof Error ? error.message : String(error)
+            `Error al eliminar el pago: ${error instanceof Error ? error.message : String(error)
             }`
           );
         }
@@ -1168,26 +1222,26 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
                 onClose={() => setIsEditModalOpen(false)}
                 agente={agente}
                 initialData={{
-                  monto_pagado: row.monto,
-                  referencia: row.referencia,
+                  monto_pagado: item.monto,
+                  referencia: item.referencia,
                   paymentMethod:
-                    row.metodo_pago === "transferencia"
+                    item.metodo_pago === "transferencia"
                       ? "Transferencia"
-                      : row.metodo_pago === "tarjeta"
-                      ? "Tarjeta"
-                      : "Wallet",
-                  fecha_De_Pago: row.fecha_pago
-                    ? new Date(row.fecha_pago).toISOString().split("T")[0]
+                      : item.metodo_pago === "tarjeta"
+                        ? "Tarjeta"
+                        : "Wallet",
+                  fecha_De_Pago: item.fecha_pago
+                    ? new Date(item.fecha_pago).toISOString().split("T")[0]
                     : "",
-                  comentario: row.comentario || row.notas || "",
-                  facturable: row.is_facturable,
-                  aplicable: row.is_descuento,
+                  comentario: item.comentario || item.notas || "",
+                  facturable: item.is_facturable,
+                  aplicable: item.is_descuento,
 
-                  link_Stripe: row.link_stripe || '',
-                  ult_digits: row.ult_digits || '',
-                  banco_tarjeta: row.banco_tarjeta || '',
-                  numero_autorizacion: (row.numero_autorizacion),
-                  tipo_tarjeta: row.tipo_tarjeta || '',
+                  link_Stripe: item.link_stripe || "",
+                  ult_digits: item.ult_digits || "",
+                  banco_tarjeta: item.banco_tarjeta || "",
+                  numero_autorizacion: item.numero_autorizacion,
+                  tipo_tarjeta: item.tipo_tarjeta || "",
                 }}
                 onSubmit={handleEdit}
                 isEditing={true}
@@ -1242,22 +1296,22 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
           {/* Nuevo Modal Pagar con saldo */}
           {isPagarModalOpen && (
             <Modal
-              title={`Pagar Saldo - ${row.nombre}`}
+              title={`Pagar Saldo - ${item.nombre}`}
               onClose={() => setIsPagarModalOpen(false)}
             >
               <PagarModalComponent
                 saldoData={{
-                  id_saldos: row.id_saldos,
-                  id_agente: row.id_agente,
-                  nombre: row.nombre,
-                  monto: row.monto,
-                  saldo: row.saldo,
-                  fecha_pago: row.fecha_pago,
-                  metodo_pago: row.metodo_pago,
-                  referencia: row.referencia,
-                  comentario: row.comentario,
+                  id_saldos: item.id_saldos,
+                  id_agente: item.id_agente,
+                  nombre: item.nombre,
+                  monto: item.monto,
+                  saldo: item.saldo,
+                  fecha_pago: item.fecha_pago,
+                  metodo_pago: item.metodo_pago,
+                  referencia: item.referencia,
+                  comentario: item.comentario,
                 }}
-                rowData={row} // Pasa el row completo como nueva prop
+                rowData={item} // Pasa el row completo como nueva prop
                 onClose={() => {
                   console.log("Entrando al modal para mostrar datos");
                   updateAgentWallet()
@@ -1430,9 +1484,18 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             <Table3
               registros={filteredData}
               renderers={tableRenderers}
-
-              customColumns={["saldo", "fecha_de_pago", "tipo_tarjeta", "forma_de_pago", "creado", "acciones", "referencia", "link_stripe", "facturable"]}
-              //resto de columnas  
+              customColumns={[
+                "saldo",
+                "fecha_de_pago",
+                "tipo_tarjeta",
+                "forma_de_pago",
+                "creado",
+                "acciones",
+                "referencia",
+                "link_stripe",
+                "facturable",
+              ]}
+              //resto de columnas
               //     id_Cliente:saldo.id_agente,
               //   id_saldo: saldo.id_saldos,
               // cliente: (saldo.nombre || '').toUpperCase(),
@@ -1454,8 +1517,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
               // comentario: saldo.notas || saldo.comentario || null,
               // facturable: saldo.is_facturable ? 'Si' : 'No',
               // comprobante: saldo.comprobante || null,
-              sortConfig={sortConfig}
-              onSort={handleSort}
               defaultSort={{
                 key: "creado", // Default sort column
                 sort: false, // Default sort direction
@@ -1629,15 +1690,13 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
       });
       console.log("data de editar", initialData);
       setCardDetails({
-        ult_digits: initialData.ult_digits || '',
-        banco_tarjeta: initialData.banco_tarjeta || 'wer',
-        numero_autorizacion: (initialData.numero_autorizacion) || 'erfgb',
-        tipo_tarjeta: initialData.tipo_tarjeta || '',
+        ult_digits: initialData.ult_digits || "",
+        banco_tarjeta: initialData.banco_tarjeta || "wer",
+        numero_autorizacion: initialData.numero_autorizacion || "erfgb",
+        tipo_tarjeta: initialData.tipo_tarjeta || "",
       });
     }
   }, [isEditing, initialData]);
-
-
 
   const paymentMethods = isEditing
     ? ["Transferencia", "Wallet", "Tarjeta"]
@@ -1680,23 +1739,23 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
           tipo_tarjeta: data.data.funding || "No encontrado",
         });
 
-
-        const amount = data.data.monto || '0';
-        const paymentDate = data.data.fecha_pago ? new Date(data.data.fecha_pago).toISOString().split('T')[0] : '';
+        const amount = data.data.monto || "0";
+        const paymentDate = data.data.fecha_pago
+          ? new Date(data.data.fecha_pago).toISOString().split("T")[0]
+          : "";
 
         handleInputChange("amount", amount);
         handleInputChange("paymentDate", paymentDate);
 
         setIsStripeLinked(true);
-
       } else {
         alert("Link de Stripe fallido");
         setIsStripeLinked(false);
         return;
       }
     } catch (error) {
-      console.error('Error en fetchStripeInfo:', error);
-      setErrors(prev => ({
+      console.error("Error en fetchStripeInfo:", error);
+      setErrors((prev) => ({
         ...prev,
         link_Stripe: "Error al obtener información de Stripe",
       }));
@@ -1941,8 +2000,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                     cardDetails.tipo_tarjeta === "credito"
                       ? "credit"
                       : cardDetails.tipo_tarjeta === "debito"
-                      ? "debit"
-                      : cardDetails.tipo_tarjeta
+                        ? "debit"
+                        : cardDetails.tipo_tarjeta
                   }
                   onChange={(value) => {
                     const tipo_tarjeta =
@@ -1971,10 +2030,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
               label="Monto Pagado"
               value={Number(state.amount)}
               onChange={(value) => handleInputChange("amount", value)}
-              disabled={
-                isStripeLinked ||
-                (isEditing && state.paymentMethod === "Tarjeta")
-              } // Agregamos esta condición
+              disabled={isStripeLinked} // Agregamos esta condición
             />
 
             <CheckboxInput
@@ -2001,11 +2057,10 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
             <button
               type="submit"
               disabled={isSubmitting}
-              className={`w-full md:flex-1 flex items-center justify-center px-6 py-3 rounded-xl font-semibold text-white transition-all duration-200 ${
-                isSubmitting
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-blue-600 hover:bg-blue-700"
-              }`}
+              className={`w-full md:flex-1 flex items-center justify-center px-6 py-3 rounded-xl font-semibold text-white transition-all duration-200 ${isSubmitting
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-blue-600 hover:bg-blue-700"
+                }`}
             >
               {isSubmitting ? (
                 <>

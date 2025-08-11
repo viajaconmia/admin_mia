@@ -33,7 +33,7 @@ import { ToolTip } from "@/components/atom/ToolTip";
 import { set } from "date-fns";
 
 function App() {
-  const [clients, setClient] = useState<(Agente)[]>([]);
+  const [clients, setClient] = useState<Agente[]>([]);
   const [selectedItem, setSelectedItem] = useState<Agente | null>(null);
   const [searchTerm, setSearchTerm] = useState<string | null>("");
   const [loading, setLoading] = useState(false);
@@ -49,7 +49,6 @@ function App() {
         item.nombre_agente_completo.toUpperCase().includes(searchTerm) ||
         item.id_agente.toUpperCase().replaceAll("-", "").includes(searchTerm)
       // item.correo.to
-
     )
     .map((item) => ({
       creado: item.created_at,
@@ -68,14 +67,14 @@ function App() {
       soporte: item,
       detalles: item,
     }));
-  console.log(formatedSolicitudes, "wferferv")
+  console.log(formatedSolicitudes, "wferferv");
   let componentes = {
     creado: (props: any) => (
       <span title={props.value}>{formatDate(props.value)}</span>
     ),
     id: (props: { value: string }) => (
       <span className="font-semibold text-sm" title={props.value}>
-        {props.value.split("-").join("").slice(0, 10)}
+        {props.value.slice(0, 11)}
       </span>
     ),
     cliente: ({ value }: { value: Agente }) => (
@@ -192,7 +191,9 @@ function App() {
       component: (
         <PageCuentasPorCobrar
           agente={selectedItem}
-          walletAmount={selectedItem?.wallet ? parseFloat(selectedItem.wallet) : 0}
+          walletAmount={
+            selectedItem?.wallet ? parseFloat(selectedItem.wallet) : 0
+          }
         />
       ),
     },

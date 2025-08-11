@@ -157,7 +157,11 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
         const currentTotal = prev.reduce((sum, item) => sum + item.saldo, 0);
         const newTotal = currentTotal + saldo;
         const restante = maxMontoPermitido - newTotal;
-        setMontoRestante(restante);
+        if (restante < 0) {
+          restante + saldo
+        } else {
+          setMontoRestante(restante);
+        }
 
         if (newTotal > maxMontoPermitido) {
           alert(`No puedes exceder el monto total de la factura ($${maxMontoPermitido.toFixed(2)})`);
