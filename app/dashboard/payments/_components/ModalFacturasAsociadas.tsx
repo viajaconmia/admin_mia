@@ -1,7 +1,7 @@
 // components/ModalFacturasAsociadas.tsx
 'use client';
 import React from 'react';
-import { X } from 'lucide-react';
+import { X, Copy, Check } from 'lucide-react';
 
 interface ModalFacturasAsociadasProps {
   facturas: string[];
@@ -9,6 +9,18 @@ interface ModalFacturasAsociadasProps {
 }
 
 const ModalFacturasAsociadas: React.FC<ModalFacturasAsociadasProps> = ({ facturas, onClose }) => {
+  const [copiedIndex, setCopiedIndex] = React.useState<number | null>(null);
+
+  const handleCopy = async (id: string, idx: number) => {
+    try {
+      await navigator.clipboard.writeText(id);
+      setCopiedIndex(idx);
+      setTimeout(() => setCopiedIndex(null), 1500);
+    } catch (e) {
+      console.error('No se pudo copiar:', e);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -32,26 +44,41 @@ const ModalFacturasAsociadas: React.FC<ModalFacturasAsociadasProps> = ({ factura
                 <div className="col-span-1">#</div>
                 <div className="col-span-11">ID Factura</div>
               </div>
-              {facturas.map((factura, index) => (
-                <div key={index} className="grid grid-cols-12 gap-4 items-center border-b pb-2">
-                  <div className="col-span-1 text-gray-500">{index + 1}</div>
-                  <div className="col-span-11">
-                    <div className="flex items-center justify-between">
-                      <span className="font-mono bg-gray-100 px-3 py-1 rounded text-sm">
-                        {factura.trim()}
-                      </span>
-                      <a
-                        href={`/dashboard/facturacion/ver-factura/${factura.trim()}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                      >
-                        Ver detalles
-                      </a>
+              {facturas.map((factura, index) => {
+                const id = factura.trim();
+                const isCopied = copiedIndex === index;
+                return (
+                  <div key={index} className="grid grid-cols-12 gap-4 items-center border-b pb-2">
+                    <div className="col-span-1 text-gray-500">{index + 1}</div>
+                    <div className="col-span-11">
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono bg-gray-100 px-3 py-1 rounded text-sm">
+                          {id}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleCopy(id, index)}
+                          className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 active:scale-[.99]"
+                          title="Copiar ID de factura"
+                        >
+                          {isCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                          {isCopied ? 'Copiado' : 'Copiar'}
+                        </button>
+                        {/* 
+                        <a
+                          href={`/dashboard/facturacion/ver-factura/${id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                        >
+                          Ver detalles
+                        </a> 
+                        */}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

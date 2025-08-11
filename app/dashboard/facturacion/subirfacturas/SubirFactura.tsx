@@ -13,6 +13,7 @@ import { formatNumberWithCommas } from "@/helpers/utils";
 interface SubirFacturaProps {
   pagoId?: string;  // Hacerlo opcional
   pagoData?: Pago | null;  // Hacerlo opcional
+  isBatch?: boolean;
   onSuccess: () => void;
 }
 
@@ -293,7 +294,8 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
       const montoPorFacturar = Number(pagoData.monto) || 0;
       const totalFactura = parseFloat(facturaData.comprobante.total);
       console.log("pagos y diferencias", pagoData.monto, "b", facturaData.comprobante.total)
-      if (montoPorFacturar < totalFactura) {
+      console.log("")
+      if (montoPorFacturar <= totalFactura) {
         // Si el monto por facturar es menor que el total de la factura,
         // llamamos directamente a AsignarFacturaModal
         setArchivoPDFUrl(archivoPDFUrl);

@@ -87,7 +87,10 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   onBack,
   invoiceData,
   userId,
-  saldoMonto = 0 // Valor por defecto 0
+  saldoMonto = 0, // Valor por defecto 0
+  rawIds = [],// Valor por defecto array vacío
+  saldos = [],
+  isBatch = false // Valor por defecto false
 }) => {
   const [match, params] = useRoute("/factura/:id");
   const [showFiscalModal, setShowFiscalModal] = useState(false);
@@ -102,7 +105,8 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   const [isInvoiceGenerated, setIsInvoiceGenerated] = useState<Root | null>(
     null
   );
-  const { crearCfdi, descargarFactura, mandarCorreo } = useApi();
+  const { crearCfdiEmi, descargarFactura, mandarCorreo } = useApi();
+  const [minAmount, setMinAmount] = useState(0);
   const [customAmount, setCustomAmount] = useState(saldoMonto);
   const [cfdi, setCfdi] = useState({
     Receiver: {
@@ -115,7 +119,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
     CfdiType: "",
     NameId: "",
     Observations: "",
-    ExpeditionPlace: "",
+    ExpeditionPlace: "42501",
     Serie: null,
     Folio: 0,
     PaymentForm: "",
@@ -146,6 +150,9 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       },
     ],
   });
+
+  console.log('IDs de pagos:', rawIds);
+  console.log('Es facturación por lotes?', isBatch);
 
   const updateInvoiceAmounts = (totalAmount: number) => {
     // Convertir el totalAmount a número por si acaso
@@ -185,10 +192,11 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       ...prev,
       Receiver: {
         ...prev.Receiver,
-        Name: company.razon_social || "",
+        Name: company.razon_social.trim() || "",
         Rfc: company.rfc || "",
         FiscalRegime: company.regimen_fiscal || "",
-        TaxZipCode: company.codigo_postal || "",
+        CfdiUse: selectedCfdiUse,
+        TaxZipCode: company.codigo_postal_fiscal || "",
       }
     }));
   };
@@ -198,6 +206,47 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       setShowFiscalModal(true);
     }
   }, []);
+  console.log("info ", saldos)
+
+  useEffect(() => {
+    if (isBatch && rawIds.length > 0 && saldos.length > 0) {
+      // 1. Crear array con los saldos
+      const saldosArray = [...saldos].filter(s => s > 0);
+
+      if (saldosArray.length > 1) {
+        // 2. Ordenar de menor a mayor
+        saldosArray.sort((a, b) => a - b);
+
+        // 3. Tomar todos menos el más grande (n-1 elementos)
+        const saldosMinimos = saldosArray.slice(0, -1);
+
+        // 4. Sumarlos para obtener el mínimo
+        const sumaMinima = saldosMinimos.reduce((sum, saldo) => sum + saldo, 0);
+
+        setMinAmount(sumaMinima);
+        setCustomAmount(sumaMinima);
+        updateInvoiceAmounts(sumaMinima);
+      } else {
+        // Si solo hay un saldo, el mínimo es ese saldo
+        setMinAmount(saldosArray[0] || 0);
+        setCustomAmount(saldosArray[0] || 0);
+        updateInvoiceAmounts(saldosArray[0] || 0);
+      }
+    } else {
+      // Si no es batch, el mínimo es 0
+      setMinAmount(0);
+    }
+  }, [isBatch, rawIds, saldos]);
+
+  // Modificar el input para respetar el mínimo y máximo
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = Number(e.target.value);
+
+    if (!isNaN(value)) {
+      setCustomAmount(value);
+      updateInvoiceAmounts(value);
+    }
+  };
 
   const handleSendEmail = async () => {
     if (isInvoiceGenerated?.Id) {
@@ -212,8 +261,8 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   };
 
   const validateInvoiceData = () => {
-    console.log(cfdi.Receiver);
-    console.log(selectedCfdiUse);
+    console.log("cfdi", cfdi.Receiver);
+    console.log("seleccioonado", selectedCfdiUse);
     console.log(selectedPaymentForm);
     if (
       !cfdi.Receiver.Rfc ||
@@ -228,7 +277,13 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   };
 
   const handleGenerateInvoice = async () => {
+
+    if (customAmount < minAmount || customAmount > saldoMonto) {
+      alert(`El monto debe estar entre ${formatCurrency(minAmount)} y ${formatCurrency(saldoMonto)}`);
+      return;
+    }
     if (validateInvoiceData()) {
+
       const subtotal = customAmount;
       const iva = subtotal * 0.16;
       const total = subtotal + iva;
@@ -283,7 +338,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
           },
         });
 
-        const response = await crearCfdi({
+        const response = await crearCfdiEmi({
           cfdi: {
             ...cfdi,
             Currency: "MXN", // Add the required currency
@@ -292,8 +347,6 @@ export const BillingPage: React.FC<BillingPageProps> = ({
           },
           info_user: {
             id_user: userId,
-            id_solicitud: params?.id || "", // Asegúrate de tener un valor por defecto
-            id_items: [""], // Añade este campo si es requerido
           },
           datos_empresa: {
             rfc: cfdi.Receiver.Rfc,
@@ -301,6 +354,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
           },
         });
         if (response.error) {
+          console.log(response)
           throw new Error(response);
         }
         alert("Se ha generado con exito la factura");
@@ -318,19 +372,9 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-blue-800 py-4">
+    <div className="min-h-screen py-4">
       <div className="max-w-5xl mx-auto px-4">
-        <div className="flex items-center justify-between mb-4">
-          <a
-            href="/"
-            className="flex items-center text-white hover:text-white/80 transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5 mr-2" />
-            <span>Volver</span>
-          </a>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-xl overflow-hidden">
+        <div className="bg-white rounded-xl shadow-xl border border-gray-300 overflow-hidden">
           <div className="grid grid-cols-12 gap-0">
             {/* Left Column - Header and Details */}
             <div className="col-span-8 border-r border-gray-200">
@@ -467,22 +511,20 @@ export const BillingPage: React.FC<BillingPageProps> = ({
                     </span>
                     <input
                       type="number"
-                      min="0"
-                      max={saldoMonto}
                       value={customAmount}
-                      onChange={(e) => {
-                        // Convertir el valor a número explícitamente
-                        const value = Number(e.target.value);
-                        if (!isNaN(value) && value >= 0 && value <= saldoMonto) {
-                          setCustomAmount(value);
-                          updateInvoiceAmounts(value);
-                        }
-                      }}
+                      onChange={handleAmountChange}
                       className="block w-full pl-8 text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                     />
                   </div>
                   <div className="text-xs text-gray-500 mt-1">
-                    Máximo: {formatCurrency(saldoMonto)}
+                    {isBatch ? (
+                      <>
+                        Mínimo: {formatCurrency(minAmount)} |
+                        Máximo: {formatCurrency(saldoMonto)}
+                      </>
+                    ) : (
+                      `Máximo: ${formatCurrency(saldoMonto)}`
+                    )}
                   </div>
                 </div>
               </div>
@@ -593,6 +635,9 @@ interface BillingPageProps {
   invoiceData?: DataInvoice;
   userId: string; // Nuevo prop
   saldoMonto?: number;
+  rawIds?: string[]; // Array opcional de IDs
+  saldos?: number[];
+  isBatch?: boolean; // Flag para indicar si es facturación por lotes
 }
 
 interface DataFiscalModalProps {
