@@ -78,6 +78,8 @@ export interface Root {
   OriginalString: string;
 }
 
+
+
 export interface Issuer {
   FiscalRegime: string;
   Rfc: string;
@@ -153,3 +155,4 @@ export interface DescargaFactura {
   ContentLength: number;
   Content: string;
 }
+

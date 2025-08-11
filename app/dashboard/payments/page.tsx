@@ -1,301 +1,113 @@
 'use client';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { URL, API_KEY } from "@/lib/constants/index";
 import { Table4 } from "@/components/organism/Table4";
 // Versión de Feather Icons (similares a Lucide)
-import { Eye, FileText, FilePlus } from 'lucide-react';
+import { Eye, FileText, FilePlus, X } from 'lucide-react';
 import { format } from "date-fns";
+import { fetchPagosPrepago } from "@/services/pagos";
 import { Banknote, FileCheck } from "lucide-react";
 import { es, se } from "date-fns/locale";
 import ModalDetallePago from './_components/detalles_pago';
+import ModalFacturasAsociadas from './_components/ModalFacturasAsociadas';
+import SubirFactura from "@/app/dashboard/facturacion/subirfacturas/SubirFactura";
+import { BillingPage } from "@/app/dashboard/facturacion/generar_factura/generar_factura";
+import { formatNumberWithCommas } from "@/helpers/utils";
 
 interface Pago {
-  id_pago: string;
-  pago_referencia: string;
-  pago_concepto: string;
-  pago_fecha_pago: string;
-  metodo_de_pago: string;
-  tipo_tarjeta?: string;
-  tipo_de_tarjeta?: string;
+  id_movimiento: number;
+  tipo_pago: string;
+  raw_id: string;
+  fecha_pago: string;
+  ig_agente: string;
+  nombre_agente: string;
+  metodo: string;
+  fecha_creacion: string;
+  monto: string;
+  saldo: number;
   banco?: string;
-  banco_tarjeta?: string;
-  total: number;
-  subtotal: number | null;
-  impuestos: number | null;
-  pendiente_por_cobrar: number;
   last_digits?: string;
-  ult_digits?: number;
-  autorizacion_stripe?: string;
-  numero_autorizacion?: string;
-  is_facturable: number;
+  is_facturado: number;
+  tipo?: string;
+  referencia?: string;
+  concepto?: string;
+  link_pago?: string;
+  monto_por_facturar: string;
+  autorizacion: string;
+  origen_pago: string;
+  facturas_asociadas: any;
   [key: string]: any;
 }
 
 const TablaPagosVisualizacion = () => {
   const [pagoSeleccionado, setPagoSeleccionado] = useState<Pago | null>(null);
-  // Datos de ejemplo estáticos
-  const pagos: Pago[] = [
-    {
-      id_pago: "pag-0213bc77-1328-45d0-b06a-de4d06fdf3dc",
-      id_servicio: "ser-9b6f0abe-3bf8-4a53-93a4-57011d37798a",
-      monto_a_credito: 0.00,
-      id_empresa: "",
-      responsable_pago_agente: "",
-      pago_fecha_creacion: "0000-00-00",
-      pago_por_credito: 0.00,
-      pendiente_por_cobrar: 0,
-      total: 1513.80,
-      subtotal: null,
-      impuestos: null,
-      created_at: "2025-07-31 11:30:28",
-      updated_at: "2025-07-31 11:30:28",
-      padre: "",
-      pago_concepto: "prueba tarjeta",
-      pago_referencia: "",
-      pago_fecha_pago: "2025-07-21",
-      spei: "",
-      pago_monto: 4009,
-      banco: "",
-      autorizacion_stripe: "ch_3RnRZrA3jkUyZycM1LFNNzZ3",
-      last_digits: "97",
-      fecha_transaccion: "2025-07-29 11:10:30",
-      pago_currency: "MXN",
-      metodo_de_pago: "tarjeta",
-      tipo_de_tarjeta: "",
-      tipo_de_pago: "",
-      link_pago: "",
-      id_saldo_a_favor: 0,
-      agente_pago: "78360a2a-4935-47bd-b2ca-3d1e4d808ccf",
-      id_saldos: 97,
-      agente_saldo: "78360a2a-4935-47bd-b2ca-3d1e4d808ccf",
-      saldo_fecha_creacion: "2025-07-29 11:10:30",
-      saldo: 0.00,
-      saldo_monto: 1513.80,
-      metodo_pago: "tarjeta",
-      saldo_fecha_pago: "2025-07-21 00:00:00",
-      saldo_concepto: "prueba tarjeta",
-      saldo_referencia: "",
-      saldo_currency: "MXN",
-      tipo_tarjeta: "amex",
-      comentario: "",
-      link_stripe: "prueba tarjeta",
-      is_facturable: 1,
-      is_descuento: 0,
-      comprobante: "",
-      activo: 0,
-      ult_digits: 4009,
-      numero_autorizacion: "",
-      banco_tarjeta: "amex"
-    },
-    {
-      id_pago: "pag-0001",
-      id_servicio: "ser-0001",
-      monto_a_credito: 0.00,
-      id_empresa: "emp-001",
-      responsable_pago_agente: "Juan Pérez",
-      pago_fecha_creacion: "2025-08-01",
-      pago_por_credito: 0.00,
-      pendiente_por_cobrar: 0,
-      total: 999.99,
-      subtotal: 862.06,
-      impuestos: 137.93,
-      created_at: "2025-08-01 10:00:00",
-      updated_at: "2025-08-01 10:00:00",
-      padre: "",
-      pago_concepto: "Pago mensual",
-      pago_referencia: "REF-0001",
-      pago_fecha_pago: "2025-07-31",
-      spei: "",
-      pago_monto: 999.99,
-      banco: "BBVA",
-      autorizacion_stripe: "ch_0001",
-      last_digits: "1234",
-      fecha_transaccion: "2025-07-31 09:45:00",
-      pago_currency: "MXN",
-      metodo_de_pago: "tarjeta",
-      tipo_de_tarjeta: "visa",
-      tipo_de_pago: "único",
-      link_pago: "",
-      id_saldo_a_favor: 0,
-      agente_pago: "agente-001",
-      id_saldos: 101,
-      agente_saldo: "agente-001",
-      saldo_fecha_creacion: "2025-07-31 09:45:00",
-      saldo: 0.00,
-      saldo_monto: 999.99,
-      metodo_pago: "tarjeta",
-      saldo_fecha_pago: "2025-07-31 09:45:00",
-      saldo_concepto: "Pago mensual",
-      saldo_referencia: "REF-0001",
-      saldo_currency: "MXN",
-      tipo_tarjeta: "visa",
-      comentario: "Pagado en tiempo",
-      link_stripe: "",
-      is_facturable: 1,
-      is_descuento: 0,
-      comprobante: "",
-      activo: 1,
-      ult_digits: 1234,
-      numero_autorizacion: "AUTH-0001",
-      banco_tarjeta: "BBVA"
-    },
-    {
-      id_pago: "pag-0002",
-      id_servicio: "ser-0002",
-      monto_a_credito: 150.00,
-      id_empresa: "emp-002",
-      responsable_pago_agente: "Ana Ruiz",
-      pago_fecha_creacion: "2025-08-01",
-      pago_por_credito: 150.00,
-      pendiente_por_cobrar: 0,
-      total: 1150.00,
-      subtotal: 1000.00,
-      impuestos: 150.00,
-      created_at: "2025-08-01 10:30:00",
-      updated_at: "2025-08-01 10:30:00",
-      padre: "",
-      pago_concepto: "Plan anual",
-      pago_referencia: "REF-0002",
-      pago_fecha_pago: "2025-07-30",
-      spei: "SP123456",
-      pago_monto: 1150.00,
-      banco: "Santander",
-      autorizacion_stripe: "ch_0002",
-      last_digits: "5678",
-      fecha_transaccion: "2025-07-30 11:00:00",
-      pago_currency: "MXN",
-      metodo_de_pago: "spei",
-      tipo_de_tarjeta: "",
-      tipo_de_pago: "anual",
-      link_pago: "",
-      id_saldo_a_favor: 0,
-      agente_pago: "agente-002",
-      id_saldos: 102,
-      agente_saldo: "agente-002",
-      saldo_fecha_creacion: "2025-07-30 11:00:00",
-      saldo: 0.00,
-      saldo_monto: 1150.00,
-      metodo_pago: "spei",
-      saldo_fecha_pago: "2025-07-30 11:00:00",
-      saldo_concepto: "Plan anual",
-      saldo_referencia: "REF-0002",
-      saldo_currency: "MXN",
-      tipo_tarjeta: "",
-      comentario: "",
-      link_stripe: "",
-      is_facturable: 1,
-      is_descuento: 0,
-      comprobante: "",
-      activo: 1,
-      ult_digits: null,
-      numero_autorizacion: "",
-      banco_tarjeta: "Santander"
-    },
-    {
-      id_pago: "pag-0003",
-      id_servicio: "ser-0003",
-      monto_a_credito: 0.00,
-      id_empresa: "emp-003",
-      responsable_pago_agente: "Luis Martínez",
-      pago_fecha_creacion: "2025-08-01",
-      pago_por_credito: 0.00,
-      pendiente_por_cobrar: 1,
-      total: 2000.00,
-      subtotal: 1724.14,
-      impuestos: 275.86,
-      created_at: "2025-08-01 11:00:00",
-      updated_at: "2025-08-01 11:00:00",
-      padre: "",
-      pago_concepto: "Pago pendiente",
-      pago_referencia: "REF-0003",
-      pago_fecha_pago: null,
-      spei: "",
-      pago_monto: 0.00,
-      banco: "",
-      autorizacion_stripe: "",
-      last_digits: "",
-      fecha_transaccion: null,
-      pago_currency: "MXN",
-      metodo_de_pago: "",
-      tipo_de_tarjeta: "",
-      tipo_de_pago: "pendiente",
-      link_pago: "",
-      id_saldo_a_favor: 0,
-      agente_pago: "agente-003",
-      id_saldos: 103,
-      agente_saldo: "agente-003",
-      saldo_fecha_creacion: null,
-      saldo: 0.00,
-      saldo_monto: 2000.00,
-      metodo_pago: "",
-      saldo_fecha_pago: null,
-      saldo_concepto: "Pago pendiente",
-      saldo_referencia: "REF-0003",
-      saldo_currency: "MXN",
-      tipo_tarjeta: "",
-      comentario: "Aún no pagado",
-      link_stripe: "",
-      is_facturable: 0,
-      is_descuento: 0,
-      comprobante: "",
-      activo: 1,
-      ult_digits: null,
-      numero_autorizacion: "",
-      banco_tarjeta: ""
-    },
-    {
-      id_pago: "pag-0004",
-      id_servicio: "ser-0004",
-      monto_a_credito: 300.00,
-      id_empresa: "emp-004",
-      responsable_pago_agente: "María López",
-      pago_fecha_creacion: "2025-08-01",
-      pago_por_credito: 300.00,
-      pendiente_por_cobrar: 0,
-      total: 1300.00,
-      subtotal: 1120.69,
-      impuestos: 179.31,
-      created_at: "2025-08-01 11:30:00",
-      updated_at: "2025-08-01 11:30:00",
-      padre: "",
-      pago_concepto: "Servicio premium",
-      pago_referencia: "REF-0004",
-      pago_fecha_pago: "2025-07-30",
-      spei: "",
-      pago_monto: 1300.00,
-      banco: "HSBC",
-      autorizacion_stripe: "ch_0004",
-      last_digits: "9988",
-      fecha_transaccion: "2025-07-30 12:00:00",
-      pago_currency: "MXN",
-      metodo_de_pago: "tarjeta",
-      tipo_de_tarjeta: "mastercard",
-      tipo_de_pago: "único",
-      link_pago: "",
-      id_saldo_a_favor: 0,
-      agente_pago: "agente-004",
-      id_saldos: 104,
-      agente_saldo: "agente-004",
-      saldo_fecha_creacion: "2025-07-30 12:00:00",
-      saldo: 0.00,
-      saldo_monto: 1300.00,
-      metodo_pago: "tarjeta",
-      saldo_fecha_pago: "2025-07-30 12:00:00",
-      saldo_concepto: "Servicio premium",
-      saldo_referencia: "REF-0004",
-      saldo_currency: "MXN",
-      tipo_tarjeta: "mastercard",
-      comentario: "",
-      link_stripe: "",
-      is_facturable: 1,
-      is_descuento: 0,
-      comprobante: "",
-      activo: 1,
-      ult_digits: 9988,
-      numero_autorizacion: "AUTH-0004",
-      banco_tarjeta: "HSBC"
+  const [showSubirFactura, setShowSubirFactura] = useState(false);
+  const [pagoAFacturar, setPagoAFacturar] = useState<Pago | null>(null);
+  const [pagos, setPagos] = useState<Pago[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showFacturasModal, setShowFacturasModal] = useState(false);
+  const [facturasAsociadas, setFacturasAsociadas] = useState<string[]>([]);
+
+  const handleVerFacturas = (facturasStr: string) => {
+    if (facturasStr) {
+      const facturasArray = facturasStr.split(',').map(f => f.trim());
+      setFacturasAsociadas(facturasArray);
+    } else {
+      setFacturasAsociadas([]);
     }
-  ];
+    setShowFacturasModal(true);
+  };
+
+  useEffect(() => {
+    const obtenerPagos = async () => {
+      try {
+        setLoading(true);
+        const data = await fetchPagosPrepago();
+
+        // Normalizar todos los datos para que cumplan con interface Pago
+        const pagosMapeados: Pago[] = data.map((pago: any) => ({
+          id_movimiento: Number(pago.id_movimiento ?? pago.id ?? pago.id_pago ?? 0),
+          tipo_pago: pago.tipo_pago ?? pago.tipo_de_pago ?? pago.metodo_pago ?? pago.metodo_de_pago ?? "",
+          raw_id: pago.raw_id ?? pago.id_pago ?? pago.id ?? "",
+          fecha_pago: pago.fecha_pago ?? pago.pago_fecha_pago ?? pago.fecha_transaccion ?? "",
+          ig_agente: pago.ig_agente ?? pago.agente_pago ?? pago.id_agente ?? "",
+          nombre_agente: pago.nombre_agente ?? pago.agente_saldo ?? pago.nombre ?? "",
+          metodo: pago.metodo ?? pago.metodo_pago ?? pago.metodo_de_pago ?? "",
+          fecha_creacion: pago.fecha_creacion ?? pago.pago_fecha_creacion ?? pago.created_at ?? "",
+          monto: formatNumberWithCommas(pago.monto),
+          saldo: formatNumberWithCommas(pago.saldo ?? pago.saldo_monto ?? 0),
+          banco: pago.banco ?? pago.banco_tarjeta ?? undefined,
+          last_digits: pago.last_digits ?? pago.ult_digits ?? undefined,
+          is_facturado: Number(pago.is_facturado ?? pago.facturado ?? 0),
+          tipo: pago.tipo ?? pago.tipo_de_tarjeta ?? pago.tipo_tarjeta ?? undefined,
+          referencia: pago.referencia ?? pago.pago_referencia ?? "",
+          concepto: pago.concepto ?? pago.pago_concepto ?? "",
+          link_pago: pago.link_pago ?? pago.link_stripe ?? "",
+          autorizacion: pago.autorizacion ?? pago.numero_autorizacion ?? pago.autorizacion_stripe ?? "",
+          origen_pago: pago.origen_pago ?? "",
+          facturas_asociadas: pago.facturas_asociadas ?? pago.comprobante ?? null,
+
+          // mantener cualquier otro campo adicional que traiga el back
+          ...pago
+        }));
+
+        setPagos(pagosMapeados);
+        console.log("data cruda", data);
+        console.log("pagos normalizados", pagosMapeados);
+        setError(null);
+      } catch (err) {
+        console.error("Error al obtener los pagos:", err);
+        setError("No se pudieron cargar los pagos. Intente nuevamente más tarde.");
+        setPagos([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    obtenerPagos();
+  }, []);
+
 
   const formatDate = (dateString: string | null): string => {
     if (!dateString || dateString === "0000-00-00") return 'N/A';
@@ -311,12 +123,6 @@ const TablaPagosVisualizacion = () => {
       return dateString;
     }
   };
-
-  const montoPagado = pagos.reduce((acc, pago) => acc + (pago.total || 0), 0);
-  const montoFacturado = 2000;
-
-  console.log("Monto pagado:", montoPagado);
-  console.log("Monto facturada:", montoFacturado);
 
 
   const isValidDate = (date: any): boolean => {
@@ -337,180 +143,81 @@ const TablaPagosVisualizacion = () => {
     }).format(value);
   };
 
-  const tableData = pagos.map(pago => ({
-    // Campos principales
-    id_pago: pago.id_pago,
-    id_servicio: pago.id_servicio || pago.id_pago,
-    monto_a_credito: pago.monto_a_credito || 0,
-    id_empresa: pago.id_empresa,
-    responsable_pago_agente: pago.responsable_pago_agente,
-    pago_fecha_creacion: pago.pago_fecha_creacion,
-    pago_por_credito: pago.pago_por_credito || 0,
-    pendiente_por_cobrar: pago.pendiente_por_cobrar,
-    total: pago.total,
-    subtotal: pago.subtotal,
-    impuestos: pago.impuestos,
-    created_at: pago.created_at,
-    updated_at: pago.updated_at,
-    padre: pago.padre,
-    pago_concepto: pago.pago_concepto,
-    pago_referencia: pago.pago_referencia || 'N/A',
-    pago_fecha_pago: pago.pago_fecha_pago,
-    spei: pago.spei,
-    pago_monto: pago.pago_monto,
-    banco: pago.banco || pago.banco_tarjeta || 'N/A',
-    last_digits: pago.last_digits || pago.ult_digits || 'N/A',
-    fecha_transaccion: pago.fecha_transaccion,
-    pago_currency: pago.pago_currency,
-    tipo_de_tarjeta: pago.tipo_de_tarjeta || pago.tipo_tarjeta || 'N/A',
-    tipo_de_pago: pago.tipo_de_pago,
-    id_saldo_a_favor: pago.id_saldo_a_favor,
-    agente_pago: pago.agente_pago,
-    id_saldos: pago.id_saldos,
-    agente_saldo: pago.agente_saldo,
-    saldo_fecha_creacion: pago.saldo_fecha_creacion,
-    saldo: pago.saldo,
-    saldo_monto: pago.saldo_monto,
-    metodo_pago: pago.metodo_pago || pago.metodo_de_pago,
-    saldo_fecha_pago: pago.saldo_fecha_pago,
-    saldo_concepto: pago.saldo_concepto,
-    saldo_referencia: pago.saldo_referencia,
-    saldo_currency: pago.saldo_currency,
-    comentario: pago.comentario,
-    link_stripe: pago.autorizacion_stripe,
-    is_facturable: pago.is_facturable,
-    is_descuento: pago.is_descuento,
-    comprobante: pago.comprobante,
-    activo: pago.activo,
-    ult_digits: pago.ult_digits || pago.last_digits || 'N/A',
-    numero_autorizacion: pago.numero_autorizacion || pago.autorizacion_stripe || 'N/A',
-    banco_tarjeta: pago.banco_tarjeta || pago.banco || 'N/A',
+  const tableData = pagos.map((pago) => ({
+    // Fields from your object
+    id_movimiento: pago.id_movimiento,
+    tipo_pago: pago.tipo_pago ?? "",
+    raw_id: pago.raw_id,
+    id_agente: pago.id_agente,
+    nombre_agente: pago.nombre_agente ?? "",
+    fecha_creacion: pago.fecha_creacion,
+    fecha_pago: pago.fecha_pago,
+    monto: Number(pago.monto) || "0",
+    saldo: Number(pago.saldo) || "0",
+    currency: pago.currency ?? "MXN",
+    metodo: pago.metodo ?? "",
+    tipo: pago.tipo ?? "",
+    referencia: pago.referencia ?? "N/A",
+    concepto: pago.concepto ?? "",
+    link_pago: pago.link_pago ?? "",
+    autorizacion: pago.autorizacion ?? "N/A",
+    last_digits: pago.last_digits ?? "N/A",
+    banco: pago.banco ?? "N/A",
+    origen_pago: pago.origen_pago ?? "",
+    is_facturado: pago.is_facturado ?? 0,
+
+    // Extras for the table
     acciones: { row: pago },
-    item: pago
+    item: pago,
   }));
 
   const renderers = {
-    // IDs y referencias
-    id_pago: ({ value }: { value: string; item: any }) => (
+    // IDs and references
+    id_movimiento: ({ value }: { value: number }) => (
+      <span className="font-mono bg-gray-100 px-2 py-1 rounded text-sm">
+        {value}
+      </span>
+    ),
+    raw_id: ({ value }: { value: string }) => (
       <span className="font-mono bg-gray-100 px-2 py-1 rounded text-sm">
         {formatIdItem(value) || ''}
       </span>
     ),
-    id_servicio: ({ value }: { value: string; item: any }) => (
-      <span className="font-mono bg-gray-100 px-2 py-1 rounded text-sm">
-        {formatIdItem(value) || ''}
-      </span>
-    ),
-    id_empresa: ({ value }: { value: string; item: any }) => (
+    id_agente: ({ value }: { value: string }) => (
       <span className="font-mono text-gray-700">
         {formatIdItem(value) || ''}
       </span>
     ),
-    pago_referencia: ({ value }: { value: string; item: any }) => (
+    referencia: ({ value }: { value: string }) => (
       <span className="font-medium">
         {value || ''}
       </span>
     ),
 
-    // Montos y valores numéricos
-    monto_a_credito: ({ value }: { value: number; item: any }) => (
-      <span className="font-medium text-green-600">
-        {formatCurrency(value)}
-      </span>
-    ),
-    pago_por_credito: ({ value }: { value: number; item: any }) => (
-      <span className="font-medium text-green-600">
-        {formatCurrency(value)}
-      </span>
-    ),
-    total: ({ value }: { value: number; item: any }) => (
+    // Amounts and numeric values
+    monto: ({ value }: { value: number }) => (
       <span className="font-bold text-blue-600">
-        {formatCurrency(value)}
+        ${formatNumberWithCommas(value)}
       </span>
     ),
-    subtotal: ({ value }: { value: number | null; item: any }) => (
-      <span className="text-gray-700">
-        {value ? formatCurrency(value) : ''}
-      </span>
-    ),
-    impuestos: ({ value }: { value: number | null; item: any }) => (
-      <span className="text-gray-700">
-        {value ? formatCurrency(value) : ''}
-      </span>
-    ),
-    pago_monto: ({ value }: { value: number; item: any }) => (
-      <span className="font-medium text-purple-600">
-        {formatCurrency(value)}
-      </span>
-    ),
-    saldo: ({ value }: { value: number; item: any }) => (
+    saldo: ({ value }: { value: number }) => (
       <span className={`font-medium ${value > 0 ? 'text-red-600' : 'text-green-600'}`}>
-        {formatCurrency(value)}
-      </span>
-    ),
-    saldo_monto: ({ value }: { value: number; item: any }) => (
-      <span className="font-medium">
-        {formatCurrency(value)}
+        ${formatNumberWithCommas(value)}
       </span>
     ),
 
-    // Fechas
-    pago_fecha_creacion: ({ value }: { value: Date | string | null }) => {
+    // Dates
+    fecha_creacion: ({ value }: { value: Date | string | null }) => {
       if (!value) return <div className="text-gray-400 italic"></div>;
-
       const date = new Date(value);
-      if (!isValidDate(date)) {
-        console.error('', value);
-        return <div className="text-gray-400 italic"></div>;
-      }
-
+      if (!isValidDate(date)) return <div className="text-gray-400 italic"></div>;
       return (
         <div className="whitespace-nowrap text-sm text-gray-600">
           {format(date, "dd 'de' MMMM yyyy", { locale: es })}
         </div>
       );
     },
-    pago_fecha_pago: ({ value }: { value: Date | string | null }) => {
-      if (!value) return <div className="text-gray-400 italic"></div>;
-      return (
-        <div className="whitespace-nowrap text-sm text-gray-600">
-          {format(new Date(value), "dd 'de' MMMM yyyy", { locale: es })}
-        </div>
-      );
-    },
-    created_at: ({ value }: { value: Date | string | null }) => {
-      if (!value) return <div className="text-gray-400 italic"></div>;
-      return (
-        <div className="whitespace-nowrap text-xs text-gray-500">
-          {format(new Date(value), "dd 'de' MMMM yyyy", { locale: es })}
-        </div>
-      );
-    },
-    updated_at: ({ value }: { value: Date | string | null }) => {
-      if (!value) return <div className="text-gray-400 italic"></div>;
-      return (
-        <div className="whitespace-nowrap text-xs text-gray-500">
-          {format(new Date(value), "dd 'de' MMMM yyyy", { locale: es })}
-        </div>
-      );
-    },
-    fecha_transaccion: ({ value }: { value: Date | string | null }) => {
-      if (!value) return <div className="text-gray-400 italic"></div>;
-      return (
-        <div className="whitespace-nowrap text-sm text-gray-600">
-          {format(new Date(value), "dd 'de' MMMM yyyy", { locale: es })}
-        </div>
-      );
-    },
-    saldo_fecha_creacion: ({ value }: { value: Date | string | null }) => {
-      if (!value) return <div className="text-gray-400 italic"></div>;
-      return (
-        <div className="whitespace-nowrap text-sm text-gray-600">
-          {format(new Date(value), "dd 'de' MMMM yyyy", { locale: es })}
-        </div>
-      );
-    },
-    saldo_fecha_pago: ({ value }: { value: Date | string | null }) => {
+    fecha_pago: ({ value }: { value: Date | string | null }) => {
       if (!value) return <div className="text-gray-400 italic"></div>;
       return (
         <div className="whitespace-nowrap text-sm text-gray-600">
@@ -519,116 +226,76 @@ const TablaPagosVisualizacion = () => {
       );
     },
 
-    // Textos y conceptos
-    pago_concepto: ({ value }: { value: string; item: any }) => (
+    // Texts and concepts
+    nombre_agente: ({ value }: { value: string }) => (
       <span className="font-medium text-gray-800">
         {value || ''}
       </span>
     ),
-    saldo_concepto: ({ value }: { value: string; item: any }) => (
+    concepto: ({ value }: { value: string }) => (
       <span className="font-medium text-gray-800">
         {value || ''}
       </span>
     ),
-    comentario: ({ value }: { value: string; item: any }) => (
-      <span className="text-gray-600 italic">
-        {value || ''}
-      </span>
-    ),
-    responsable_pago_agente: ({ value }: { value: string; item: any }) => (
+    origen_pago: ({ value }: { value: string }) => (
       <span className="font-medium">
         {value || ''}
       </span>
     ),
 
-    // Métodos de pago
-    metodo_pago: ({ value }: { value: string; item: any }) => (
+    // Payment methods
+    metodo: ({ value }: { value: string }) => (
       <span className="capitalize bg-blue-50 text-blue-700 px-2 py-1 rounded-full text-xs">
         {value || ''}
       </span>
     ),
-    tipo_de_tarjeta: ({ value }: { value: string; item: any }) => (
+    tipo: ({ value }: { value: string }) => (
       <span className="capitalize">
         {value || ''}
       </span>
     ),
-    tipo_de_pago: ({ value }: { value: string; item: any }) => (
+    tipo_pago: ({ value }: { value: string }) => (
       <span className="capitalize">
         {value || ''}
       </span>
     ),
 
-    // Información bancaria
-    banco: ({ value }: { value: string; item: any }) => (
+    // Bank information
+    banco: ({ value }: { value: string }) => (
       <span className="font-medium">
         {value || ''}
       </span>
     ),
-    banco_tarjeta: ({ value }: { value: string; item: any }) => (
-      <span className="font-medium">
-        {value || ''}
-      </span>
-    ),
-    last_digits: ({ value }: { value: string | number; item: any }) => (
+    last_digits: ({ value }: { value: string | number }) => (
       <span className="font-mono bg-gray-100 px-2 py-1 rounded text-sm">
         {value || ''}
       </span>
     ),
-    ult_digits: ({ value }: { value: string | number; item: any }) => (
-      <span className="font-mono bg-gray-100 px-2 py-1 rounded text-sm">
-        {value || ''}
-      </span>
-    ),
-    numero_autorizacion: ({ value }: { value: string; item: any }) => (
+    autorizacion: ({ value }: { value: string }) => (
       <span className="font-mono text-sm">
         {value || ''}
       </span>
     ),
-    // Estados y booleanos
-    pendiente_por_cobrar: ({ value }: { value: number; item: any }) => (
-      <span className={`px-2 py-1 rounded-full text-xs ${value === 0 ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-        }`}>
-        {value === 0 ? 'Pagado' : 'Pendiente'}
-      </span>
-    ),
-    is_facturable: ({ value }: { value: number; item: any }) => (
-      <span className={`px-2 py-1 rounded-full text-xs ${value === 1 ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
-        }`}>
-        {value === 1 ? 'Sí' : 'No'}
-      </span>
-    ),
-    is_descuento: ({ value }: { value: number; item: any }) => (
-      <span className={`px-2 py-1 rounded-full text-xs ${value === 1 ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'
-        }`}>
-        {value === 1 ? 'Sí' : 'No'}
-      </span>
-    ),
-    activo: ({ value }: { value: number; item: any }) => (
-      <span className={`px-2 py-1 rounded-full text-xs ${value === 1 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-        }`}>
-        {value === 1 ? 'Activo' : 'Inactivo'}
+
+    // Status and booleans
+    is_facturado: ({ value }: { value: number }) => (
+      <span className={`px-2 py-1 rounded-full text-xs ${value === 1 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+        {value === 1 ? 'Facturado' : 'No facturado'}
       </span>
     ),
 
-    // Enlaces y documentos
-    link_pago: ({ value }: { value: string; item: any }) => (
+    // Links and documents
+    link_pago: ({ value }: { value: string }) => (
       value ? (
-        <a href={value} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-        </a>
-      ) : (
-        <span className="text-gray-400"></span>
-      )
-    ),
-    link_stripe: ({ value }: { value: string; item: any }) => (
-      value ? (
-        <span className="font-mono text-xs">
-          {value ? `${value.substring(0, 8)}...` : 'N/A'}
+        <span className="font-mono text-xs text-blue-600">
+          {value}
         </span>
       ) : (
         <span className="text-gray-400"></span>
       )
     ),
-    comprobante: ({ value }: { value: string; item: any }) => (
+
+    facturas_asociadas: ({ value }: { value: string }) => (
       value ? (
         <a href={value} target="_blank" rel="noopener noreferrer" className="text-green-600 hover:underline">
           Descargar
@@ -638,34 +305,135 @@ const TablaPagosVisualizacion = () => {
       )
     ),
 
-    // Acciones
-    acciones: ({ value, item }: { value: { row: any }; item: any }) => (
-      <div className="flex gap-2">
-        <button
-          className="px-3 py-1.5 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors border border-blue-200 flex items-center gap-1"
-          onClick={() => { setPagoSeleccionado(item), console.log("facturas", item) }}
-        >
-          <Eye className="w-4 h-4" />
-          <span>Detalles</span>
-        </button>
-        <button
-          className="px-3 py-1.5 rounded-md bg-green-50 text-green-600 hover:bg-green-100 transition-colors border border-green-200 flex items-center gap-1"
-          onClick={() => console.log("facturas", item)}
-        >
-          <FileText className="w-4 h-4" />
-          <span>Facturas</span>
-        </button>
-        <button
-          className="px-3 py-1.5 rounded-md bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors border border-purple-200 flex items-center gap-1"
-          onClick={() => console.log("facturar", item)}
-        >
-          <FilePlus className="w-4 h-4" />
-          <span>Facturar</span>
-        </button>
-      </div>
-    )
+    // Actions (kept the same as it's UI functionality)
+    acciones: ({ value }: { value: { row: any }; item: any }) => {
+      const [showFacturaOptions, setShowFacturaOptions] = useState(false);
+      const [showBillingPage, setShowBillingPage] = useState(false);
+      const [menuPosition, setMenuPosition] = useState<'bottom' | 'top'>('bottom');
+      const buttonRef = useRef<HTMLDivElement>(null);
+
+      useEffect(() => {
+        if (buttonRef.current && showFacturaOptions) {
+          const buttonRect = buttonRef.current.getBoundingClientRect();
+          const spaceBelow = window.innerHeight - buttonRect.bottom;
+          setMenuPosition(spaceBelow < 200 ? 'top' : 'bottom');
+        }
+      }, [showFacturaOptions]);
+
+      return (
+        <div className="flex gap-2 relative" ref={buttonRef}>
+          {/* Detalles button */}
+          <button
+            className="px-3 py-1.5 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors border border-blue-200 flex items-center gap-1"
+            onClick={() => { setPagoSeleccionado(value.row), console.log("facturas", value.row) }}
+          >
+            <Eye className="w-4 h-4" />
+            <span>Detalles</span>
+          </button>
+
+          {/* Facturas button */}
+          <button
+            className="px-3 py-1.5 rounded-md bg-green-50 text-green-600 hover:bg-green-100 transition-colors border border-green-200 flex items-center gap-1"
+            onClick={() => handleVerFacturas(value.row.facturas_asociadas)}
+          >
+            <FileText className="w-4 h-4" />
+            <span>Facturas</span>
+          </button>
+
+          {/* Facturar button with dropdown */}
+          <div className="relative">
+            <button
+              className="px-3 py-1.5 rounded-md bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors border border-purple-200 flex items-center gap-1"
+              onClick={() => setShowFacturaOptions(!showFacturaOptions)}
+            >
+              <FilePlus className="w-4 h-4" />
+              <span>Facturar</span>
+            </button>
+
+            {showFacturaOptions && (
+              <div className={`absolute right-0 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200 ${menuPosition === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'
+                }`}>
+                <div className="py-1">
+                  <button
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-900"
+                    onClick={() => {
+                      console.log("Generar factura para:", value.row);
+                      setShowBillingPage(true);
+                      setShowFacturaOptions(false);
+                    }}
+                  >
+                    Generar factura
+                  </button>
+                  <button
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-900"
+                    onClick={() => {
+                      console.log("Generar factura para:", value.row);
+                      setPagoAFacturar(value.row);
+                      setShowSubirFactura(true);
+                      setShowFacturaOptions(false);
+                    }}
+                  >
+                    Asignar factura
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Close menu when clicking outside */}
+          {showFacturaOptions && (
+            <div
+              className="fixed inset-0 z-0"
+              onClick={() => setShowFacturaOptions(false)}
+            />
+          )}
+
+          {/* Modal for BillingPage */}
+          {showBillingPage && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
+                <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
+                  <h2 className="text-xl font-bold text-gray-800">
+                    Generar factura para pago {value.row.id_agente ? formatIdItem(value.row.id_agente) : ''}
+                  </h2>
+                  <button
+                    onClick={() => setShowBillingPage(false)}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+                <div className="p-6">
+                  <BillingPage
+                    onBack={() => setShowBillingPage(false)}
+                    userId={value.row.id_agente}
+                    saldoMonto={value.row.saldo}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
   };
 
+  // Muestra error si ocurrió
+  if (error) {
+    return (
+      <div className="bg-white rounded-lg p-6 w-full shadow-xl">
+        <div className="text-red-500 p-4 border border-red-200 bg-red-50 rounded-lg">
+          {error}
+        </div>
+      </div>
+    );
+  }
+
+  // Calcula montos solo si hay pagos
+  const montoPagado = pagos.reduce((acc, pago) => acc + (pago.total || 0), 0);
+  const montoFacturado = pagos.reduce((acc, pago) => acc + (pago.is_facturable ? (pago.total || 0) : 0), 0);
+  console.log("Monto pagado:", montoPagado);
+  console.log("Monto facturada:", montoFacturado);
   return (
 
     <div className="bg-white rounded-lg p-6 w-full shadow-xl">
@@ -713,6 +481,39 @@ const TablaPagosVisualizacion = () => {
         pago={pagoSeleccionado}
         onClose={() => setPagoSeleccionado(null)}
       />
+      {/* Modal para SubirFactura */}
+      {showSubirFactura && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-800">
+              </h2>
+              <button
+                onClick={() => setShowSubirFactura(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-6">
+              <SubirFactura
+                pagoData={pagoAFacturar}  // Pasamos el objeto completo del pago
+                onSuccess={() => {
+                  setShowSubirFactura(false);
+                  // Aquí puedes añadir lógica adicional después de subir la factura
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal de facturas asociadas */}
+      {showFacturasModal && (
+        <ModalFacturasAsociadas
+          facturas={facturasAsociadas}
+          onClose={() => setShowFacturasModal(false)}
+        />
+      )}
     </div>
   );
 };
