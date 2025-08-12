@@ -182,6 +182,43 @@ export default function VistaPreviaModal({
           </button>
         </div>
 
+        {/* Nuevo bloque para mostrar información de pago */}
+        {pagoData?.monto != null && (
+          <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <h3 className="font-bold text-yellow-800 mb-2">Información de Pago</h3>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <p className="text-sm">Saldo disponible:</p>
+                <p className="font-semibold">{formatCurrency(pagoData.monto)}</p>
+              </div>
+              <div>
+                <p className="text-sm">Monto de la factura:</p>
+                <p className="font-semibold">{formatCurrency(facturaData.comprobante.total)}</p>
+              </div>
+            </div>
+
+            {(() => {
+              const saldo = parseFloat(pagoData.monto);
+              const totalFactura = parseFloat(facturaData.comprobante.total);
+              const diferencia = saldo - totalFactura;
+
+              return (
+                <div className={`mt-2 p-2 rounded ${diferencia < 0 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                  {diferencia >= 0 ? (
+                    <p className="font-semibold">
+                      Saldo restante después de esta factura: {formatCurrency(diferencia.toString())}
+                    </p>
+                  ) : (
+                    <p className="font-semibold">
+                      Saldo insuficiente. Faltan {formatCurrency(Math.abs(diferencia).toString())}.
+                      Deberá elegir otros saldos para completar el pago.
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        )}
         {showPdf ? (
           pdfObjectUrl ? (
             <iframe

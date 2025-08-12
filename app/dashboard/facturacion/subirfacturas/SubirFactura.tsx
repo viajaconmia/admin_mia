@@ -19,6 +19,7 @@ interface SubirFacturaProps {
 
 interface Pago {
   id_agente: string;
+  raw_id: string;
   id_pago: string;
   pago_referencia: string;
   pago_concepto: string;
@@ -256,8 +257,13 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
       }
       console.log("pdfurl", archivoPDFUrl)
 
-      // Crear payload base similar a handleConfirmarFactura
-      const basePayload = {
+      // Aquí decidimos si la factura cubre completamente el pago o no
+      const montoPorFacturar = Number(pagoData.monto) || 0;
+      const totalFactura = parseFloat(facturaData.comprobante.total);
+      console.log("pagos y diferencias", pagoData.monto, "b", facturaData.comprobante.total)
+
+      // Agregar datos específicos del pago
+      const pagoPayload = {
         fecha_emision: facturaData.comprobante.fecha.split("T")[0],
         estado: "Confirmada",
         usuario_creador: clienteSeleccionado.id_agente,
@@ -272,13 +278,7 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
         rfc_emisor: facturaData.emisor.rfc,
         url_pdf: url ? url : archivoPDFUrl,
         url_xml: xmlUrl,
-        items_json: JSON.stringify([]),
-      };
-
-      // Agregar datos específicos del pago
-      const pagoPayload = {
-        ...basePayload,
-        id_pago: pagoData.id_pago,
+        raw_id: pagoData.raw_id.startsWith('pag-') ? pagoData.raw_id : Number(pagoData.raw_id),
         pago_referencia: pagoData.pago_referencia,
         pago_fecha_pago: pagoData.pago_fecha_pago,
         metodo_pago: pagoData.metodo_de_pago,
@@ -290,12 +290,7 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
 
       console.log("Payload completo para API con datos de pago:", pagoPayload);
 
-      // Aquí decidimos si la factura cubre completamente el pago o no
-      const montoPorFacturar = Number(pagoData.monto) || 0;
-      const totalFactura = parseFloat(facturaData.comprobante.total);
-      console.log("pagos y diferencias", pagoData.monto, "b", facturaData.comprobante.total)
-      console.log("")
-      if (montoPorFacturar <= totalFactura) {
+      if (montoPorFacturar < totalFactura) {
         // Si el monto por facturar es menor que el total de la factura,
         // llamamos directamente a AsignarFacturaModal
         setArchivoPDFUrl(archivoPDFUrl);
@@ -303,20 +298,16 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
         setMostrarVistaPrevia(false);
         setMostrarAsignarFactura(true);
       } else {
-        // Si el pago cubre completamente la factura, procesamos directamente
-        // const response = await fetch(`${URL}/mia/factura/CrearFacturaDesdeCarga`, {
-        //   method: "POST",
-        //   headers: {
-        //     "Content-Type": "application/json",
-        //     "x-api-key": API_KEY,
-        //   },
-        //   body: JSON.stringify(pagoPayload),
-        // });
+        const response = await fetch(`${URL}/mia/factura/CrearFacturaDesdeCargaPagos`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": API_KEY,
+          },
+          body: JSON.stringify(pagoPayload),
+        });
 
-        // if (!response.ok) {
-        //   throw new Error('Error al asignar la factura al pago');
-        // }
-
+        console.log("payload enviado:", pagoPayload);
         alert('Factura asignada al pago exitosamente');
         cerrarVistaPrevia();
       }

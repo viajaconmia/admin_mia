@@ -19,7 +19,7 @@ import { Root } from "@/types/billing";
 import { URL, API_KEY } from "@/lib/constants/index";
 import { useRoute, Link } from "wouter";
 import { useApi } from "@/hooks/useApi";
-
+import { Pago } from "@/app/dashboard/payments/page";
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat("es-MX", {
@@ -90,7 +90,8 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   saldoMonto = 0, // Valor por defecto 0
   rawIds = [],// Valor por defecto array vacío
   saldos = [],
-  isBatch = false // Valor por defecto false
+  isBatch = false, // Valor por defecto false
+  pagoData
 }) => {
   const [match, params] = useRoute("/factura/:id");
   const [showFiscalModal, setShowFiscalModal] = useState(false);
@@ -105,7 +106,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   const [isInvoiceGenerated, setIsInvoiceGenerated] = useState<Root | null>(
     null
   );
-  const { crearCfdiEmi, descargarFactura, mandarCorreo } = useApi();
+  const { crearCfdiEmi, descargarFactura, mandarCorreo, descargarFacturaXML } = useApi();
   const [minAmount, setMinAmount] = useState(0);
   const [customAmount, setCustomAmount] = useState(saldoMonto);
   const [cfdi, setCfdi] = useState({
@@ -276,13 +277,123 @@ export const BillingPage: React.FC<BillingPageProps> = ({
     return true;
   };
 
-  const handleGenerateInvoice = async () => {
+  const handleGenerateInvoice1 = async () => {
 
     if (customAmount < minAmount || customAmount > saldoMonto) {
       alert(`El monto debe estar entre ${formatCurrency(minAmount)} y ${formatCurrency(saldoMonto)}`);
       return;
     }
     if (validateInvoiceData()) {
+      try {
+        // 📦 Construir el payload para el API
+        const payload = {
+          cfdi: {
+            ...cfdi,
+            Receiver: {
+              ...cfdi.Receiver,
+              CfdiUse: selectedCfdiUse,
+            },
+            PaymentForm: selectedPaymentForm,
+            Currency: "MXN",
+            Date: new Date().toISOString().split(".")[0],
+            OrderNumber: Math.floor(Math.random() * 1_000_000),
+            Items: [
+              {
+                ...cfdi.Items[0],
+                UnitPrice: (customAmount / 1.16).toFixed(2),
+                Subtotal: (customAmount / 1.16).toFixed(2),
+                Taxes: [
+                  {
+                    ...cfdi.Items[0].Taxes[0],
+                    Total: ((customAmount / 1.16) * 0.16).toFixed(2),
+                    Base: (customAmount / 1.16).toFixed(2),
+                  },
+                ],
+                Total: customAmount.toString(),
+              },
+            ],
+          },
+
+          info_user: {
+            id_user: userId,
+            id_solicitud: null,
+          },
+
+          datos_empresa: {
+            rfc: cfdi.Receiver.Rfc,
+            id_empresa: isEmpresaSelected,
+          },
+
+          info_pago: Array.isArray(pagoData)
+            ? {
+              // 🔹 Caso batch: usar primer pago como referencia
+              id_movimiento: pagoData[0]?.id_movimiento,
+              raw_id: rawIds.join(","),
+              monto: saldoMonto.toString(),
+              monto_facturado: customAmount.toString(),
+              currency: pagoData[0]?.currency || "MXN",
+              metodo: pagoData[0]?.metodo || "wallet",
+              referencia: pagoData[0]?.referencia,
+            }
+            : {
+              // 🔹 Caso pago único
+              id_movimiento: pagoData?.id_movimiento,
+              raw_id: pagoData?.raw_id,
+              monto: pagoData?.monto,
+              monto_facturado: customAmount.toString(),
+              currency: pagoData?.currency || "MXN",
+              metodo: pagoData?.metodo || "wallet",
+              referencia: pagoData?.referencia,
+            },
+
+          ...(isBatch && {
+            lotes_info: {
+              ids_pagos: rawIds,
+              montos: saldos.map((s) => s.toString()),
+            },
+          }),
+        };
+
+        console.log("Payload completo:", payload);
+
+        // 🚀 Enviar la solicitud
+        const response = await fetch(
+          `${URL}/mia/factura/CrearFacturaDesdeCargaPagos`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-key": API_KEY,
+            },
+            body: JSON.stringify(payload),
+          }
+        );
+
+        const data = await response.json();
+
+        // ✅ Respuesta OK
+        if (response.ok) {
+          alert("Factura generada con éxito");
+          setIsInvoiceGenerated(data.data);
+
+          // 📥 Descargar factura
+          if (data.data.Id) {
+            try {
+              const factura = await descargarFactura(data.data.Id);
+              setDescarga(factura);
+            } catch (err) {
+              console.error("Error al descargar factura:", err);
+            }
+          }
+
+          onBack(); // Cierra el modal
+        } else {
+          throw new Error(data.message || "Error al generar factura");
+        }
+      } catch (error) {
+        console.error("Error:", error);
+        alert("Ocurrió un error al generar la factura");
+      };
 
       const subtotal = customAmount;
       const iva = subtotal * 0.16;
@@ -358,6 +469,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
           throw new Error(response);
         }
         alert("Se ha generado con exito la factura");
+
         descargarFactura(response.data.Id)
           .then((factura) => setDescarga(factura))
           .catch((err) => console.error(err));
@@ -368,6 +480,131 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       } catch (error) {
         alert("Ocurrio un error, intenta mas tarde");
       }
+    }
+  };
+  const handleGenerateInvoice = async () => {
+    if (customAmount < minAmount || customAmount > saldoMonto) {
+      alert(`El monto debe estar entre ${formatCurrency(minAmount)} y ${formatCurrency(saldoMonto)}`);
+      return;
+    }
+
+    if (!validateInvoiceData()) {
+      return;
+    }
+    // Obtener la fecha actual
+    const now = new Date();
+
+    // Restar una hora a la fecha actual
+    now.setHours(now.getHours() - 6);
+    const formattedDate = now.toISOString().split(".")[0];
+
+    try {
+      // Construir el payload completo
+      const payload = {
+        cfdi: {
+          ...cfdi,
+          Receiver: {
+            ...cfdi.Receiver,
+            CfdiUse: selectedCfdiUse,
+          },
+          PaymentForm: selectedPaymentForm,
+          Currency: "MXN",
+          Date: formattedDate, // Ensure the date is within the 72-hour limit
+          OrderNumber: Math.floor(Math.random() * 1_000_000),
+          Items: [
+            {
+              ...cfdi.Items[0],
+              UnitPrice: (customAmount / 1.16).toFixed(2),
+              Subtotal: (customAmount / 1.16).toFixed(2),
+              Taxes: [
+                {
+                  ...cfdi.Items[0].Taxes[0],
+                  Total: ((customAmount / 1.16) * 0.16).toFixed(2),
+                  Base: (customAmount / 1.16).toFixed(2),
+                },
+              ],
+              Total: customAmount.toString(),
+            },
+          ],
+        },
+        info_user: {
+          id_user: userId,
+          id_solicitud: null,
+        },
+        datos_empresa: {
+          rfc: cfdi.Receiver.Rfc,
+          id_empresa: isEmpresaSelected,
+        },
+        info_pago: Array.isArray(pagoData)
+          ? {
+            // Caso batch
+            id_movimiento: pagoData[0]?.id_movimiento,
+            raw_id: rawIds.join(','),
+            monto: saldoMonto.toString(),
+            monto_facturado: customAmount.toString(),
+            currency: pagoData[0]?.currency || "MXN",
+            metodo: pagoData[0]?.metodo || "wallet",
+            referencia: pagoData[0]?.referencia,
+          }
+          : {
+            // Caso individual
+            id_movimiento: pagoData?.id_movimiento,
+            raw_id: pagoData?.raw_id.startsWith("pag-") ? pagoData.raw_id : Number(pagoData.raw_id),
+            monto: pagoData?.monto,
+            monto_facturado: customAmount.toString(),
+            currency: pagoData?.currency || "MXN",
+            metodo: pagoData?.metodo || "wallet",
+            referencia: pagoData?.referencia,
+          },
+        ...(isBatch && {
+          lotes_info: {
+            ids_pagos: rawIds,
+            montos: saldos.map(s => s.toString()),
+          },
+        }),
+      };
+
+      console.log("Payload completo:", payload);
+
+      // Enviar la solicitud
+      const response = await fetch(`${URL}/mia/factura/CrearFacturaDesdeCargaPagos`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": API_KEY,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const { data } = await response.json();
+      console.log(data)
+
+      if (response.ok) {
+        alert("Factura generada con éxito");
+        setIsInvoiceGenerated(data.facturama);
+
+        // Descargar factura si es necesario
+        if (data.facturama.Id) {
+          try {
+            descargarFactura(data.facturama.Id).then(item => {
+              console.log(item)
+              setDescarga(item)
+            })
+            descargarFacturaXML(data.facturama.Id).then(item => {
+              console.log(item)
+              setDescargaxml(item)
+            })
+          } catch (err) {
+            console.error("Error al descargar factura:", err);
+          }
+        }
+
+      } else {
+        throw new Error(data.message || "Error al generar factura");
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      alert("Ocurrió un error al generar la factura");
     }
   };
 
@@ -549,7 +786,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
                     </a>
                     <a
                       href={`data:application/xml;base64,${descargaxml?.Content}`}
-                      download="factura.pdf"
+                      download="factura.xml"
                       className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors border border-blue-200"
                     >
                       <Download className="w-4 h-4" />
@@ -638,6 +875,7 @@ interface BillingPageProps {
   rawIds?: string[]; // Array opcional de IDs
   saldos?: number[];
   isBatch?: boolean; // Flag para indicar si es facturación por lotes
+  pagoData?: Pago | Pago[];
 }
 
 interface DataFiscalModalProps {

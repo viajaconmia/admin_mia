@@ -18,6 +18,7 @@ interface Pago {
   fecha_creacion?: string;
   monto?: number | string;
   saldo?: number | string;
+  saldo_numero?: number;
   banco?: string;
   last_digits?: string;
   is_facturado?: number;
@@ -265,7 +266,7 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
                 <h4 className="text-sm font-medium text-gray-500">Saldo</h4>
                 <p className={`text-xl font-semibold ${(typeof pago.saldo === 'number' ? pago.saldo : parseFloat('0')) > 0
                   ? 'text-red-600' : 'text-green-600'}`}>
-                  {formatNumberWithCommas(pago.saldo)}
+                  {pago.saldo_numero}
                 </p>
               </div>
 
