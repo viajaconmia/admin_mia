@@ -246,7 +246,8 @@ const CouponForm: React.FC<{
   currency: string;
   onDataChange: (data: CouponData) => void;
   onCurrencyChange: (currency: string) => void;
-}> = ({ data, currency, onDataChange, onCurrencyChange }) => {
+  onReset: () => void;
+}> = ({ data, currency, onDataChange, onCurrencyChange, onReset }) => {
   const [hoteles, setHoteles] = useState<FullHotelData[]>([]);
   const [hotelSelected, setHotelSelected] = useState<string>("");
   const handleInputChange = (
@@ -267,8 +268,14 @@ const CouponForm: React.FC<{
 
   const currencies = ["MXN", "USD", "EUR"];
   useEffect(() => {
-    handleInputChange("impuestos", (data.precio / 1.16).toFixed(2) || 0);
-  }, [data.precio]);
+    if (data.noktos && data.noches) {
+      onDataChange({
+        ...data,
+        precio: Number((data.noktos * 168.2 * data.noches).toFixed(2)),
+        impuestos: Number((data.noktos * 145 * data.noches).toFixed(2)),
+      });
+    }
+  }, [data.noktos, data.noches]);
 
   useEffect(() => {
     if (data.checkin && data.checkout) {
@@ -391,14 +398,14 @@ const CouponForm: React.FC<{
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Precio total
+              Noktos por noche
             </label>
             <input
               type="number"
               step="0.01"
-              value={data.precio}
+              value={data.noktos}
               onChange={(e) => {
-                handleInputChange("precio", parseFloat(e.target.value) || 0);
+                handleInputChange("noktos", parseFloat(e.target.value) || 0);
               }}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               min="0"
@@ -408,19 +415,6 @@ const CouponForm: React.FC<{
 
         {/* Desayuno */}
         <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Desayuno
-            </label>
-            <input
-              type="text"
-              value={data.desayuno}
-              onChange={(e) => handleInputChange("desayuno", e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Información sobre el desayuno"
-            />
-          </div>
-
           {/* Notas */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -438,9 +432,12 @@ const CouponForm: React.FC<{
       </div>
 
       <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-        <p className="text-sm text-blue-700">
-          💡 Los cambios se reflejan automáticamente en el cupón de la derecha
-        </p>
+        <button
+          className="border border-gray-900 p-2 rounded-md bg-gray-300 hover:bg-gray-400"
+          onClick={onReset}
+        >
+          Reiniciar formulario
+        </button>
       </div>
     </div>
   );
@@ -582,6 +579,21 @@ function App() {
     setCurrency(newCurrency);
   };
 
+  const handleReset = () => {
+    setCouponData({
+      hotel: "",
+      direccion: "",
+      checkin: "",
+      checkout: "",
+      noches: 0,
+      noktos: 0,
+      desayuno: "",
+      notas: "",
+      precio: 0,
+      impuestos: 0,
+    });
+  };
+
   // Si no está autenticado, mostrar pantalla de login
   if (!isAuthenticated) {
     return <LoginScreen onLogin={handleLogin} />;
@@ -620,6 +632,7 @@ function App() {
               currency={currency}
               onDataChange={handleDataChange}
               onCurrencyChange={handleCurrencyChange}
+              onReset={handleReset}
             />
           </div>
 
