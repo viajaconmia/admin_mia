@@ -74,7 +74,7 @@ function App() {
     ),
     id: (props: { value: string }) => (
       <span className="font-semibold text-sm" title={props.value}>
-        {props.value.split("-").join("").slice(0, 10)}
+        {props.value.slice(0, 12)}
       </span>
     ),
     cliente: ({ value }: { value: Agente }) => (
