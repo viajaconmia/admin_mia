@@ -268,14 +268,14 @@ const CouponForm: React.FC<{
 
   const currencies = ["MXN", "USD", "EUR"];
   useEffect(() => {
-    if (data.noktos && data.noches) {
+    if (data.noktos) {
       onDataChange({
         ...data,
-        precio: Number((data.noktos * 168.2 * data.noches).toFixed(2)),
-        impuestos: Number((data.noktos * 145 * data.noches).toFixed(2)),
+        precio: Number((data.noktos * 168.2).toFixed(2)),
+        impuestos: Number((data.noktos * 145).toFixed(2)),
       });
     }
-  }, [data.noktos, data.noches]);
+  }, [data.noktos]);
 
   useEffect(() => {
     if (data.checkin && data.checkout) {
