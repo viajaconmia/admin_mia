@@ -271,8 +271,8 @@ const CouponForm: React.FC<{
     if (data.noktos) {
       onDataChange({
         ...data,
-        precio: Number((data.noktos * 168.2).toFixed(2)),
-        impuestos: Number((data.noktos * 145).toFixed(2)),
+        precio: Number((data.noktos * 145).toFixed(2)),
+        impuestos: Number((data.noktos * 168.2).toFixed(2)),
       });
     }
   }, [data.noktos]);
