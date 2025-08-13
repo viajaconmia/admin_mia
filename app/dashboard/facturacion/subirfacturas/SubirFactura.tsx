@@ -20,6 +20,7 @@ interface SubirFacturaProps {
 interface Pago {
   id_agente: string;
   raw_id: string;
+  rawIds: [];
   id_pago: string;
   pago_referencia: string;
   pago_concepto: string;
@@ -40,6 +41,7 @@ interface Pago {
   monto_por_facturar: string;
   monto: string;
   is_facturable: number;
+  saldos: [];
 }
 
 const AUTH = {
@@ -240,7 +242,91 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
 
 
   // Función para confirmar la factura
-  const handlePagos = async ({ payload, url }: { payload?: any, url?: string }) => {
+  // const handlePagos = async ({ payload, url }: { payload?: any, url?: string }) => {
+  //   try {
+  //     setSubiendoArchivos(true);
+
+  //     // Subir archivos a S3
+  //     const { xmlUrl } = await subirArchivosAS3();
+
+  //     if (!facturaData || !clienteSeleccionado || !pagoData) {
+  //       throw new Error("Faltan datos necesarios para procesar el pago");
+  //     }
+
+  //     if (!url) {
+  //       console.warn("URL del PDF no disponible");
+  //       // Puedes decidir si quieres continuar sin el PDF o lanzar un error
+  //     }
+  //     console.log("pdfurl", archivoPDFUrl)
+
+  //     // Aquí decidimos si la factura cubre completamente el pago o no
+  //     const montoPorFacturar = Number(pagoData.monto) || 0;
+  //     const totalFactura = parseFloat(facturaData.comprobante.total);
+  //     console.log("pagos y diferencias", pagoData.monto, "b", facturaData.comprobante.total)
+  //     let restante = totalFactura
+  //     const payloadpagosasoc = {
+  //       raw_id:,
+  //       monto: saldos - resta,
+  //     }
+  //     // Agregar datos específicos del pago
+  //     const pagoPayload = {
+  //       fecha_emision: facturaData.comprobante.fecha.split("T")[0],
+  //       estado: "Confirmada",
+  //       usuario_creador: clienteSeleccionado.id_agente,
+  //       id_agente: clienteSeleccionado.id_agente,
+  //       total: parseFloat(facturaData.comprobante.total),
+  //       subtotal: parseFloat(facturaData.comprobante.subtotal),
+  //       impuestos: parseFloat(facturaData.impuestos?.traslado?.importe || "0.00"),
+  //       saldo: parseFloat(facturaData.comprobante.total),
+  //       rfc: facturaData.receptor.rfc,
+  //       id_empresa: empresaSeleccionada?.id_empresa || null,
+  //       uuid_factura: facturaData.timbreFiscal.uuid,
+  //       rfc_emisor: facturaData.emisor.rfc,
+  //       url_pdf: url ? url : archivoPDFUrl,
+  //       url_xml: xmlUrl,
+  //       raw_id: pagoData.raw_id.startsWith('pag-') ? pagoData.raw_id : Number(pagoData.raw_id),
+  //       pago_referencia: pagoData.pago_referencia,
+  //       pago_fecha_pago: pagoData.pago_fecha_pago,
+  //       metodo_pago: pagoData.metodo_de_pago,
+  //       banco: pagoData.banco || pagoData.banco_tarjeta,
+  //       ultimos_digitos: pagoData.last_digits || pagoData.ult_digits,
+  //       autorizacion: pagoData.autorizacion_stripe || pagoData.numero_autorizacion,
+  //       tipo_tarjeta: pagoData.tipo_tarjeta || pagoData.tipo_de_tarjeta,
+  //       ...payloadpagosasoc
+  //     };
+
+  //     console.log("Payload completo para API con datos de pago:", pagoPayload);
+
+  //     if (montoPorFacturar < totalFactura) {
+  //       // Si el monto por facturar es menor que el total de la factura,
+  //       // llamamos directamente a AsignarFacturaModal
+  //       setArchivoPDFUrl(archivoPDFUrl);
+  //       setArchivoXMLUrl(xmlUrl);
+  //       setMostrarVistaPrevia(false);
+  //       setMostrarAsignarFactura(true);
+  //     } else {
+  //       const response = await fetch(`${URL}/mia/factura/CrearFacturaDesdeCargaPagos`, {
+  //         method: "POST",
+  //         headers: {
+  //           "Content-Type": "application/json",
+  //           "x-api-key": API_KEY,
+  //         },
+  //         body: JSON.stringify(pagoPayload),
+  //       });
+
+  //       console.log("payload enviado:", pagoPayload);
+  //       alert('Factura asignada al pago exitosamente');
+  //       cerrarVistaPrevia();
+  //     }
+  //   } catch (error) {
+  //     console.error("Error en handlePagos:", error);
+  //     alert('Error al procesar el pago');
+  //   } finally {
+  //     setSubiendoArchivos(false);
+  //   }
+  // };
+
+  const handlePagos = async ({ url }: { url?: string }) => {
     try {
       setSubiendoArchivos(true);
 
@@ -253,51 +339,64 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
 
       if (!url) {
         console.warn("URL del PDF no disponible");
-        // Puedes decidir si quieres continuar sin el PDF o lanzar un error
       }
-      console.log("pdfurl", archivoPDFUrl)
 
-      // Aquí decidimos si la factura cubre completamente el pago o no
-      const montoPorFacturar = Number(pagoData.monto) || 0;
       const totalFactura = parseFloat(facturaData.comprobante.total);
-      console.log("pagos y diferencias", pagoData.monto, "b", facturaData.comprobante.total)
+      let restante = totalFactura;
 
-      // Agregar datos específicos del pago
-      const pagoPayload = {
-        fecha_emision: facturaData.comprobante.fecha.split("T")[0],
-        estado: "Confirmada",
-        usuario_creador: clienteSeleccionado.id_agente,
-        id_agente: clienteSeleccionado.id_agente,
-        total: parseFloat(facturaData.comprobante.total),
-        subtotal: parseFloat(facturaData.comprobante.subtotal),
-        impuestos: parseFloat(facturaData.impuestos?.traslado?.importe || "0.00"),
-        saldo: parseFloat(facturaData.comprobante.total),
-        rfc: facturaData.receptor.rfc,
-        id_empresa: empresaSeleccionada?.id_empresa || null,
-        uuid_factura: facturaData.timbreFiscal.uuid,
-        rfc_emisor: facturaData.emisor.rfc,
-        url_pdf: url ? url : archivoPDFUrl,
-        url_xml: xmlUrl,
-        raw_id: pagoData.raw_id.startsWith('pag-') ? pagoData.raw_id : Number(pagoData.raw_id),
-        pago_referencia: pagoData.pago_referencia,
-        pago_fecha_pago: pagoData.pago_fecha_pago,
-        metodo_pago: pagoData.metodo_de_pago,
-        banco: pagoData.banco || pagoData.banco_tarjeta,
-        ultimos_digitos: pagoData.last_digits || pagoData.ult_digits,
-        autorizacion: pagoData.autorizacion_stripe || pagoData.numero_autorizacion,
-        tipo_tarjeta: pagoData.tipo_tarjeta || pagoData.tipo_de_tarjeta,
-      };
+      // Preparar array de pagos asociados
+      const pagosAsociados = [];
 
-      console.log("Payload completo para API con datos de pago:", pagoPayload);
+      // Verificar si pagoData tiene rawIds (para múltiples pagos) o es un solo pago
+      const raw_Ids = pagoData.rawIds || [pagoData.raw_id];
+      const saldos2 = pagoData.saldos || [pagoData.monto_por_facturar];
+      console.log("saldos", saldos2)
+      console.log("montos", pagoData.monto_por_facturar)
+      for (let i = 0; i < raw_Ids.length; i++) {
+        if (restante <= 0) break;
 
-      if (montoPorFacturar < totalFactura) {
-        // Si el monto por facturar es menor que el total de la factura,
-        // llamamos directamente a AsignarFacturaModal
-        setArchivoPDFUrl(archivoPDFUrl);
-        setArchivoXMLUrl(xmlUrl);
-        setMostrarVistaPrevia(false);
-        setMostrarAsignarFactura(true);
-      } else {
+        const montoAsignar = Math.min(restante, saldos2[i]);
+        pagosAsociados.push({
+          raw_id: raw_Ids[i],
+          monto: montoAsignar
+        });
+
+        restante -= montoAsignar;
+      }
+
+      // Si después de asignar a todos los pagos todavía queda restante
+      if (restante > 0) {
+        alert(`La factura excede los pagos disponibles por $${formatNumberWithCommas(restante)}`);
+        setSubiendoArchivos(false);
+        return;
+      }
+
+      if (raw_Ids.length < 2) {
+        // Preparar payload de la factura
+        const basePayload = {
+          fecha_emision: facturaData.comprobante.fecha.split("T")[0],
+          estado: "Confirmada",
+          usuario_creador: clienteSeleccionado.id_agente,
+          id_agente: clienteSeleccionado.id_agente,
+          total: parseFloat(facturaData.comprobante.total),
+          subtotal: parseFloat(facturaData.comprobante.subtotal),
+          impuestos: parseFloat(facturaData.impuestos?.traslado?.importe || "0.00"),
+          saldo: parseFloat(facturaData.comprobante.total),
+          rfc: facturaData.receptor.rfc,
+          id_empresa: empresaSeleccionada?.id_empresa || null,
+          uuid_factura: facturaData.timbreFiscal.uuid,
+          rfc_emisor: facturaData.emisor.rfc,
+          url_pdf: url ? url : archivoPDFUrl,
+          url_xml: xmlUrl,
+        };
+
+        // Agregar datos específicos del pago
+        const pagoPayload = {
+          ...basePayload,
+          raw_id: pagoData.raw_id
+        };
+        console.log("Payload completo para API:", pagoPayload);
+
         const response = await fetch(`${URL}/mia/factura/CrearFacturaDesdeCargaPagos`, {
           method: "POST",
           headers: {
@@ -306,11 +405,57 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
           },
           body: JSON.stringify(pagoPayload),
         });
+        if (!response.ok) {
+          throw new Error('Error al procesar el pago');
+        }
 
-        console.log("payload enviado:", pagoPayload);
+        alert('Factura asignada al pago exitosamente');
+        cerrarVistaPrevia();
+
+      } else {
+        // Preparar payload de la factura
+        const facturaPayload = {
+          fecha_emision: facturaData.comprobante.fecha.split("T")[0],
+          estado: "Confirmada",
+          usuario_creador: clienteSeleccionado.id_agente,
+          id_agente: clienteSeleccionado.id_agente,
+          total: totalFactura,
+          subtotal: parseFloat(facturaData.comprobante.subtotal),
+          impuestos: parseFloat(facturaData.impuestos?.traslado?.importe || "0.00"),
+          saldo: 0, // Asumimos que está completamente pagada
+          rfc: facturaData.receptor.rfc,
+          id_empresa: empresaSeleccionada?.id_empresa || null,
+          uuid_factura: facturaData.timbreFiscal.uuid,
+          rfc_emisor: facturaData.emisor.rfc,
+          url_pdf: url ? url : archivoPDFUrl,
+          url_xml: xmlUrl
+        };
+
+        // Payload completo para la API
+        const payloadCompleto = {
+          factura: facturaPayload,
+          pagos_asociados: pagosAsociados
+        };
+
+        console.log("Payload completo para API:", payloadCompleto);
+
+        const response = await fetch(`${URL}/mia/factura/CrearFacturasMultiplesPagos`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": API_KEY,
+          },
+          body: JSON.stringify(payloadCompleto),
+        });
+        if (!response.ok) {
+          throw new Error('Error al procesar el pago');
+        }
+
         alert('Factura asignada al pago exitosamente');
         cerrarVistaPrevia();
       }
+
+
     } catch (error) {
       console.error("Error en handlePagos:", error);
       alert('Error al procesar el pago');

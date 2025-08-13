@@ -101,10 +101,7 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
     }
   };
 
-  const getEstadoPago = (): string => {
-    const saldo = typeof pago.saldo === 'string' ? parseFloat(pago.saldo) : pago.saldo || 0;
-    return saldo === 0 ? 'Pagado' : 'Pendiente';
-  };
+
 
   const getTipoTarjeta = (): string => {
     const tipo = pago.tipo;
@@ -219,15 +216,6 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
                 <p className="mt-1 text-sm capitalize text-gray-800">{getMetodoPago()}</p>
               </div>
 
-              <div>
-                <h3 className="text-sm font-medium text-gray-500">Estado</h3>
-                <p className={`mt-1 text-xs px-2 py-1 rounded-full font-semibold inline-block 
-                  ${getEstadoPago() === 'Pagado'
-                    ? 'bg-green-100 text-green-700 border border-green-300'
-                    : 'bg-yellow-100 text-yellow-800 border border-yellow-300'}`}>
-                  {getEstadoPago()}
-                </p>
-              </div>
 
               <div>
                 <h3 className="text-sm font-medium text-gray-500">Facturado</h3>

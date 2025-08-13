@@ -13,6 +13,8 @@ import ModalFacturasAsociadas from './_components/ModalFacturasAsociadas';
 import SubirFactura from "@/app/dashboard/facturacion/subirfacturas/SubirFactura";
 import { BillingPage } from "@/app/dashboard/facturacion/generar_factura/generar_factura";
 import { formatNumberWithCommas } from "@/helpers/utils";
+import Filters from "@/components/Filters";
+import { TypeFilters } from "@/types";
 
 export interface Pago {
   id_movimiento: number;
@@ -39,9 +41,10 @@ export interface Pago {
   currency?: string;
   [key: string]: any;
   monto_facturado: string;
+  monto_por_facturar: number;
 }
 
-type Seleccion = { id_agente: string; raw_id: string; saldo: number };
+type Seleccion = { id_agente: string; raw_id: string; monto_por_facturar: number };
 
 const TablaPagosVisualizacion = () => {
   const [pagoSeleccionado, setPagoSeleccionado] = useState<Pago | null>(null);
@@ -55,7 +58,7 @@ const TablaPagosVisualizacion = () => {
 
   const [seleccionados, setSeleccionados] = useState<Seleccion[]>([]);
   const idAgenteSeleccionado = seleccionados[0]?.id_agente ?? null;
-  const totalSaldoSeleccionado = seleccionados.reduce((a, s) => a + (Number(s.saldo) || 0), 0);
+  const totalSaldoSeleccionado = seleccionados.reduce((a, s) => a + (Number(s.monto_por_facturar) || 0), 0);
 
   const handleVerFacturas = (facturasStr: string) => {
     if (facturasStr) {
@@ -180,7 +183,7 @@ const TablaPagosVisualizacion = () => {
   };
   const toggleSeleccion = (row: Pago) => {
     const rowAgent = (row.id_agente || row.ig_agente || '').toString();
-    const saldo = Number(row.saldo) || 0;
+    const monto_por_facturar = Number(row.monto_por_facturar) || 0;
     const raw = row.raw_id;
 
     if (!raw) return;
@@ -193,7 +196,7 @@ const TablaPagosVisualizacion = () => {
     setSeleccionados(prev => {
       const exists = prev.some(s => s.raw_id === raw);
       if (exists) return prev.filter(s => s.raw_id !== raw);
-      return [...prev, { id_agente: rowAgent, raw_id: raw, saldo }];
+      return [...prev, { id_agente: rowAgent, raw_id: raw, monto_por_facturar }];
     });
   };
 
@@ -359,135 +362,7 @@ const TablaPagosVisualizacion = () => {
       )
     ),
 
-    // Actions (kept the same as it's UI functionality)
-    // acciones: ({ value }: { value: { row: any }; item: any }) => {
-    //   const [showFacturaOptions, setShowFacturaOptions] = useState(false);
-    //   const [showBillingPage, setShowBillingPage] = useState(false);
-    //   const [menuPosition, setMenuPosition] = useState<'bottom' | 'top'>('bottom');
-    //   const buttonRef = useRef<HTMLDivElement>(null);
-
-    //   useEffect(() => {
-    //     if (buttonRef.current && showFacturaOptions) {
-    //       const buttonRect = buttonRef.current.getBoundingClientRect();
-    //       const spaceBelow = window.innerHeight - buttonRect.bottom;
-    //       setMenuPosition(spaceBelow < 200 ? 'top' : 'bottom');
-    //     }
-    //   }, [showFacturaOptions]);
-
-    //   const row = value.row;
-    //   const selected = isRowSelected(row);
-    //   const disabled = !canSelectRow(row);
-
-    //   return (
-    //     <div className="flex gap-2 relative" ref={buttonRef}>
-
-    //       {/*Boton de seleccion*/}
-    //       <div className="flex items-center mr-1">
-    //         <input
-    //           type="checkbox"
-    //           className="accent-purple-600 w-4 h-4"
-    //           checked={selected}
-    //           disabled={disabled && !selected}
-    //           onChange={() => toggleSeleccion(row)}
-    //           title={disabled && !selected ? 'Debe coincidir el mismo agente' : 'Seleccionar pago'}
-    //         />
-    //       </div>
-    //       {/* Detalles button */}
-    //       <button
-    //         className="px-3 py-1.5 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors border border-blue-200 flex items-center gap-1"
-    //         onClick={() => { setPagoSeleccionado(value.row), console.log("facturas", value.row) }}
-    //       >
-    //         <Eye className="w-4 h-4" />
-    //         <span>Detalles</span>
-    //       </button>
-
-    //       {/* Facturas button */}
-    //       <button
-    //         className="px-3 py-1.5 rounded-md bg-green-50 text-green-600 hover:bg-green-100 transition-colors border border-green-200 flex items-center gap-1"
-    //         onClick={() => handleVerFacturas(value.row.facturas_asociadas)}
-    //       >
-    //         <FileText className="w-4 h-4" />
-    //         <span>Facturas</span>
-    //       </button>
-
-    //       {/* Facturar button with dropdown */}
-    //       <div className="relative">
-    //         <button
-    //           className="px-3 py-1.5 rounded-md bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors border border-purple-200 flex items-center gap-1"
-    //           onClick={() => setShowFacturaOptions(!showFacturaOptions)}
-    //         >
-    //           <FilePlus className="w-4 h-4" />
-    //           <span>Facturar</span>
-    //         </button>
-
-
-    //         {showFacturaOptions && (
-    //           <div className={`absolute right-0 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200 ${menuPosition === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'
-    //             }`}>
-    //             <div className="py-1">
-    //               <button
-    //                 className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-900"
-    //                 onClick={() => {
-    //                   console.log("Generar factura para:", value.row);
-    //                   setShowBillingPage(true);
-    //                   setShowFacturaOptions(false);
-    //                 }}
-    //               >
-    //                 Generar factura
-    //               </button>
-    //               <button
-    //                 className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-900"
-    //                 onClick={() => {
-    //                   console.log("Generar factura para:", value.row);
-    //                   setPagoAFacturar(value.row);
-    //                   setShowSubirFactura(true);
-    //                   setShowFacturaOptions(false);
-    //                 }}
-    //               >
-    //                 Asignar factura
-    //               </button>
-    //             </div>
-    //           </div>
-    //         )}
-    //       </div>
-
-    //       {/* Close menu when clicking outside */}
-    //       {showFacturaOptions && (
-    //         <div
-    //           className="fixed inset-0 z-0"
-    //           onClick={() => setShowFacturaOptions(false)}
-    //         />
-    //       )}
-
-    //       {/* Modal for BillingPage */}
-    //       {showBillingPage && (
-    //         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-    //           <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
-    //             <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
-    //               <h2 className="text-xl font-bold text-gray-800">
-    //                 Generar factura para pago {value.row.id_agente ? formatIdItem(value.row.id_agente) : ''}
-    //               </h2>
-    //               <button
-    //                 onClick={() => setShowBillingPage(false)}
-    //                 className="text-gray-500 hover:text-gray-700"
-    //               >
-    //                 <X className="w-6 h-6" />
-    //               </button>
-    //             </div>
-    //             <div className="p-6">
-    //               <BillingPage
-    //                 onBack={() => setShowBillingPage(false)}
-    //                 userId={value.row.id_agente}
-    //                 saldoMonto={value.row.moto_por_facturar}
-    //                 pagoData={value.row} // Pasamos el objeto completo del pago
-    //               />
-    //             </div>
-    //           </div>
-    //         </div>
-    //       )}
-    //     </div>
-    //   );
-    // }
+    // Actions funcionalidad de botones
     acciones: ({ value }: { value: { row: any }; item: any }) => {
       const [showFacturaOptions, setShowFacturaOptions] = useState(false);
       const [showBillingPage, setShowBillingPage] = useState(false);
@@ -508,10 +383,8 @@ const TablaPagosVisualizacion = () => {
 
       // Validación para monto por facturar
 
-      const montoPorFacturar = row.moto_por_facturar
       const mostrarOpcionesFacturacion = row.monto_por_facturar > 0;
 
-      console.log("row", row.monto_por_facturar, "po", montoPorFacturar, "rfg", mostrarOpcionesFacturacion)
       return (
         <div className="flex gap-2 relative" ref={buttonRef}>
           {/* Boton de seleccion - Solo se muestra si hay monto por facturar */}
@@ -574,7 +447,6 @@ const TablaPagosVisualizacion = () => {
                     <button
                       className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-900"
                       onClick={() => {
-                        console.log("Generar factura para:", value.row);
                         setPagoAFacturar(value.row);
                         setShowSubirFactura(true);
                         setShowFacturaOptions(false);
@@ -605,7 +477,8 @@ const TablaPagosVisualizacion = () => {
                     Generar factura para pago {value.row.id_agente ? formatIdItem(value.row.id_agente) : ''}
                   </h2>
                   <button
-                    onClick={() => setShowBillingPage(false)}
+                    onClick={() =>
+                      setShowBillingPage(false)}
                     className="text-gray-500 hover:text-gray-700"
                   >
                     <X className="w-6 h-6" />
@@ -615,7 +488,7 @@ const TablaPagosVisualizacion = () => {
                   <BillingPage
                     onBack={() => setShowBillingPage(false)}
                     userId={value.row.id_agente}
-                    saldoMonto={value.row.moto_por_facturar}
+                    saldoMonto={(value.row.moto_por_facturar)}
                     pagoData={value.row}
                   />
                 </div>
@@ -711,7 +584,7 @@ const TablaPagosVisualizacion = () => {
                       onClick={() => {
                         if (!idAgenteSeleccionado) return;
                         const rawIds = seleccionados.map(s => s.raw_id);
-                        const saldos = seleccionados.map(s => Number(s.saldo) || 0); // Obtener los saldos
+                        const saldos = seleccionados.map(s => Number(s.monto_por_facturar) || 0); // Obtener los saldos
                         console.log(saldos)
                         setBatchBilling({
                           userId: idAgenteSeleccionado,
@@ -732,7 +605,7 @@ const TablaPagosVisualizacion = () => {
                       onClick={() => {
                         if (!idAgenteSeleccionado) return;
                         const rawIds = seleccionados.map(s => s.raw_id);
-                        const saldos = seleccionados.map(s => Number(s.saldo) || 0); // Obtener los saldos
+                        const saldos = seleccionados.map(s => Number(s.monto_por_facturar) || 0); // Obtener los saldos
                         console.log(saldos)
                         setBatchPagoAFacturar({
                           id_agente: idAgenteSeleccionado,
@@ -842,7 +715,7 @@ const TablaPagosVisualizacion = () => {
                 userId={batchBilling.userId}
                 saldoMonto={batchBilling.saldoMonto}
                 rawIds={batchBilling.rawIds}
-                saldos={seleccionados.map(s => Number(s.saldo) || 0)}
+                saldos={seleccionados.map(s => Number(s.monto_por_facturar) || 0)}
                 isBatch={true}
                 pagoData={seleccionados.map(s => {
                   const pago = pagos.find(p => p.raw_id === s.raw_id);

@@ -156,7 +156,7 @@ export default function VistaPreviaModal({
       minute: '2-digit'
     });
   };
-
+  const facturar = pagoData.monto_por_facturar ?? pagoData.monto
   return (
     <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
       <div className="bg-white p-6 rounded shadow-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -189,7 +189,7 @@ export default function VistaPreviaModal({
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <p className="text-sm">Saldo disponible:</p>
-                <p className="font-semibold">{formatCurrency(pagoData.monto)}</p>
+                <p className="font-semibold">{(facturar)}</p>
               </div>
               <div>
                 <p className="text-sm">Monto de la factura:</p>
@@ -198,7 +198,7 @@ export default function VistaPreviaModal({
             </div>
 
             {(() => {
-              const saldo = parseFloat(pagoData.monto);
+              const saldo = (facturar);
               const totalFactura = parseFloat(facturaData.comprobante.total);
               const diferencia = saldo - totalFactura;
 
