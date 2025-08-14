@@ -13,8 +13,10 @@ import ModalFacturasAsociadas from './_components/ModalFacturasAsociadas';
 import SubirFactura from "@/app/dashboard/facturacion/subirfacturas/SubirFactura";
 import { BillingPage } from "@/app/dashboard/facturacion/generar_factura/generar_factura";
 import { formatNumberWithCommas } from "@/helpers/utils";
+import Filters from "@/components/Filters";
+import { TypeFilters } from "@/types";
 
-interface Pago {
+export interface Pago {
   id_movimiento: number;
   tipo_pago: string;
   raw_id: string;
@@ -25,6 +27,7 @@ interface Pago {
   fecha_creacion: string;
   monto: string;
   saldo: number;
+  saldo_numero: number;
   banco?: string;
   last_digits?: string;
   is_facturado: number;
@@ -32,12 +35,16 @@ interface Pago {
   referencia?: string;
   concepto?: string;
   link_pago?: string;
-  monto_por_facturar: string;
-  autorizacion: string;
+  autorizacion?: string;
   origen_pago: string;
-  facturas_asociadas: any;
+  facturas_asociadas: string | null;
+  currency?: string;
   [key: string]: any;
+  monto_facturado: string;
+  monto_por_facturar: number;
 }
+
+type Seleccion = { id_agente: string; raw_id: string; monto_por_facturar: number };
 
 const TablaPagosVisualizacion = () => {
   const [pagoSeleccionado, setPagoSeleccionado] = useState<Pago | null>(null);
@@ -49,6 +56,10 @@ const TablaPagosVisualizacion = () => {
   const [showFacturasModal, setShowFacturasModal] = useState(false);
   const [facturasAsociadas, setFacturasAsociadas] = useState<string[]>([]);
 
+  const [seleccionados, setSeleccionados] = useState<Seleccion[]>([]);
+  const idAgenteSeleccionado = seleccionados[0]?.id_agente ?? null;
+  const totalSaldoSeleccionado = seleccionados.reduce((a, s) => a + (Number(s.monto_por_facturar) || 0), 0);
+
   const handleVerFacturas = (facturasStr: string) => {
     if (facturasStr) {
       const facturasArray = facturasStr.split(',').map(f => f.trim());
@@ -59,51 +70,73 @@ const TablaPagosVisualizacion = () => {
     setShowFacturasModal(true);
   };
 
+  type BatchPayload = { userId: string; saldoMonto: number; rawIds: string[], saldos: number[]; } | null;
+
+  const [showBatchMenu, setShowBatchMenu] = useState(false);
+  const batchBtnRef = useRef<HTMLDivElement>(null);
+  const [batchMenuPos, setBatchMenuPos] = useState<'bottom' | 'top'>('bottom');
+
+  const [showBillingPage, setShowBillingPage] = useState(false);
+  const [batchBilling, setBatchBilling] = useState<BatchPayload>(null);
+  const [showBatchSubirFactura, setShowBatchSubirFactura] = useState(false);
+  const [batchPagoAFacturar, setBatchPagoAFacturar] = useState<any>(null);
+
   useEffect(() => {
-    const obtenerPagos = async () => {
-      try {
-        setLoading(true);
-        const data = await fetchPagosPrepago();
+    if (batchBtnRef.current && showBatchMenu) {
+      const r = batchBtnRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - r.bottom;
+      setBatchMenuPos(spaceBelow < 200 ? 'top' : 'bottom');
+    }
+  }, [showBatchMenu]);
 
-        // Normalizar todos los datos para que cumplan con interface Pago
-        const pagosMapeados: Pago[] = data.map((pago: any) => ({
-          id_movimiento: Number(pago.id_movimiento ?? pago.id ?? pago.id_pago ?? 0),
-          tipo_pago: pago.tipo_pago ?? pago.tipo_de_pago ?? pago.metodo_pago ?? pago.metodo_de_pago ?? "",
-          raw_id: pago.raw_id ?? pago.id_pago ?? pago.id ?? "",
-          fecha_pago: pago.fecha_pago ?? pago.pago_fecha_pago ?? pago.fecha_transaccion ?? "",
-          ig_agente: pago.ig_agente ?? pago.agente_pago ?? pago.id_agente ?? "",
-          nombre_agente: pago.nombre_agente ?? pago.agente_saldo ?? pago.nombre ?? "",
-          metodo: pago.metodo ?? pago.metodo_pago ?? pago.metodo_de_pago ?? "",
-          fecha_creacion: pago.fecha_creacion ?? pago.pago_fecha_creacion ?? pago.created_at ?? "",
-          monto: formatNumberWithCommas(pago.monto),
-          saldo: formatNumberWithCommas(pago.saldo ?? pago.saldo_monto ?? 0),
-          banco: pago.banco ?? pago.banco_tarjeta ?? undefined,
-          last_digits: pago.last_digits ?? pago.ult_digits ?? undefined,
-          is_facturado: Number(pago.is_facturado ?? pago.facturado ?? 0),
-          tipo: pago.tipo ?? pago.tipo_de_tarjeta ?? pago.tipo_tarjeta ?? undefined,
-          referencia: pago.referencia ?? pago.pago_referencia ?? "",
-          concepto: pago.concepto ?? pago.pago_concepto ?? "",
-          link_pago: pago.link_pago ?? pago.link_stripe ?? "",
-          autorizacion: pago.autorizacion ?? pago.numero_autorizacion ?? pago.autorizacion_stripe ?? "",
-          origen_pago: pago.origen_pago ?? "",
-          facturas_asociadas: pago.facturas_asociadas ?? pago.comprobante ?? null,
+  const obtenerPagos = async () => {
+    try {
+      setLoading(true);
+      const data = await fetchPagosPrepago();
+      // Normalizar todos los datos para que cumplan con interface Pago
+      const pagosMapeados: Pago[] = data.map((pago: any) => ({
+        id_movimiento: Number(pago.id_movimiento ?? pago.id ?? pago.id_pago ?? 0),
+        tipo_pago: pago.tipo_pago ?? pago.tipo_de_pago ?? pago.metodo_pago ?? pago.metodo_de_pago ?? "",
+        raw_id: pago.raw_id ?? pago.id_pago ?? pago.id ?? "",
+        fecha_pago: pago.fecha_pago ?? pago.pago_fecha_pago ?? pago.fecha_transaccion ?? "",
+        ig_agente: pago.ig_agente ?? pago.agente_pago ?? pago.id_agente ?? "",
+        nombre_agente: pago.nombre_agente ?? pago.agente_saldo ?? pago.nombre ?? "",
+        metodo: pago.metodo ?? pago.metodo_pago ?? pago.metodo_de_pago ?? "",
+        fecha_creacion: pago.fecha_creacion ?? pago.pago_fecha_creacion ?? pago.created_at ?? "",
+        monto: formatNumberWithCommas(pago.monto),
+        monto_facturado: formatNumberWithCommas(pago.monto_facturado),
+        saldo_numero: pago.saldo === "pago_directo"
+          ? Number(pago.monto) // Versión numérica para cálculos
+          : Number(pago.saldo ?? pago.saldo_monto ?? 0),
+        banco: pago.banco ?? pago.banco_tarjeta ?? undefined,
+        last_digits: pago.last_digits ?? pago.ult_digits ?? undefined,
+        is_facturado: Number(pago.is_facturado ?? pago.facturado ?? 0),
+        tipo: pago.tipo ?? pago.tipo_de_tarjeta ?? pago.tipo_tarjeta ?? undefined,
+        referencia: pago.referencia ?? pago.pago_referencia ?? "",
+        concepto: pago.concepto ?? pago.pago_concepto ?? "",
+        link_pago: pago.link_pago ?? pago.link_stripe ?? "",
+        autorizacion: pago.autorizacion ?? pago.numero_autorizacion ?? pago.autorizacion_stripe ?? "",
+        origen_pago: pago.origen_pago ?? "",
+        facturas_asociadas: pago.facturas_asociadas ?? pago.comprobante ?? null,
 
-          // mantener cualquier otro campo adicional que traiga el back
-          ...pago
-        }));
+        // mantener cualquier otro campo adicional que traiga el back
+        ...pago
+      }));
 
-        setPagos(pagosMapeados);
-        console.log("data cruda", data);
-        console.log("pagos normalizados", pagosMapeados);
-        setError(null);
-      } catch (err) {
-        console.error("Error al obtener los pagos:", err);
-        setError("No se pudieron cargar los pagos. Intente nuevamente más tarde.");
-        setPagos([]);
-      } finally {
-        setLoading(false);
-      }
-    };
+      setPagos(pagosMapeados);
+      console.log("data cruda", data)
+      console.log("pagos normalizados", pagosMapeados);
+      setError(null);
+    } catch (err) {
+      console.error("Error al obtener los pagos:", err);
+      setError("No se pudieron cargar los pagos. Intente nuevamente más tarde.");
+      setPagos([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
 
     obtenerPagos();
   }, []);
@@ -143,6 +176,30 @@ const TablaPagosVisualizacion = () => {
     }).format(value);
   };
 
+  const isRowSelected = (row: Pago) => seleccionados.some(s => s.raw_id === row.raw_id);
+  const canSelectRow = (row: Pago) => {
+    const rowAgent = row.id_agente || row.ig_agente || '';
+    return seleccionados.length === 0 || rowAgent === idAgenteSeleccionado;
+  };
+  const toggleSeleccion = (row: Pago) => {
+    const rowAgent = (row.id_agente || row.ig_agente || '').toString();
+    const monto_por_facturar = Number(row.monto_por_facturar) || 0;
+    const raw = row.raw_id;
+
+    if (!raw) return;
+
+    if (seleccionados.length > 0 && rowAgent !== idAgenteSeleccionado) {
+      alert('Solo puedes seleccionar pagos del mismo agente.');
+      return;
+    }
+
+    setSeleccionados(prev => {
+      const exists = prev.some(s => s.raw_id === raw);
+      if (exists) return prev.filter(s => s.raw_id !== raw);
+      return [...prev, { id_agente: rowAgent, raw_id: raw, monto_por_facturar }];
+    });
+  };
+
   const tableData = pagos.map((pago) => ({
     // Fields from your object
     id_movimiento: pago.id_movimiento,
@@ -153,7 +210,7 @@ const TablaPagosVisualizacion = () => {
     fecha_creacion: pago.fecha_creacion,
     fecha_pago: pago.fecha_pago,
     monto: Number(pago.monto) || "0",
-    saldo: Number(pago.saldo) || "0",
+    monto_por_facturar: Number(pago.monto_por_facturar) || "0",
     currency: pago.currency ?? "MXN",
     metodo: pago.metodo ?? "",
     tipo: pago.tipo ?? "",
@@ -200,7 +257,7 @@ const TablaPagosVisualizacion = () => {
         ${formatNumberWithCommas(value)}
       </span>
     ),
-    saldo: ({ value }: { value: number }) => (
+    monto_por_facturar: ({ value }: { value: number }) => (
       <span className={`font-medium ${value > 0 ? 'text-red-600' : 'text-green-600'}`}>
         ${formatNumberWithCommas(value)}
       </span>
@@ -305,7 +362,7 @@ const TablaPagosVisualizacion = () => {
       )
     ),
 
-    // Actions (kept the same as it's UI functionality)
+    // Actions funcionalidad de botones
     acciones: ({ value }: { value: { row: any }; item: any }) => {
       const [showFacturaOptions, setShowFacturaOptions] = useState(false);
       const [showBillingPage, setShowBillingPage] = useState(false);
@@ -320,8 +377,30 @@ const TablaPagosVisualizacion = () => {
         }
       }, [showFacturaOptions]);
 
+      const row = value.row;
+      const selected = isRowSelected(row);
+      const disabled = !canSelectRow(row);
+
+      // Validación para monto por facturar
+
+      const mostrarOpcionesFacturacion = row.monto_por_facturar > 0;
+
       return (
         <div className="flex gap-2 relative" ref={buttonRef}>
+          {/* Boton de seleccion - Solo se muestra si hay monto por facturar */}
+          {mostrarOpcionesFacturacion && (
+            <div className="flex items-center mr-1">
+              <input
+                type="checkbox"
+                className="accent-purple-600 w-4 h-4"
+                checked={selected}
+                disabled={disabled && !selected}
+                onChange={() => toggleSeleccion(row)}
+                title={disabled && !selected ? 'Debe coincidir el mismo agente' : 'Seleccionar pago'}
+              />
+            </div>
+          )}
+
           {/* Detalles button */}
           <button
             className="px-3 py-1.5 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors border border-blue-200 flex items-center gap-1"
@@ -340,45 +419,46 @@ const TablaPagosVisualizacion = () => {
             <span>Facturas</span>
           </button>
 
-          {/* Facturar button with dropdown */}
-          <div className="relative">
-            <button
-              className="px-3 py-1.5 rounded-md bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors border border-purple-200 flex items-center gap-1"
-              onClick={() => setShowFacturaOptions(!showFacturaOptions)}
-            >
-              <FilePlus className="w-4 h-4" />
-              <span>Facturar</span>
-            </button>
+          {/* Facturar button with dropdown - Solo se muestra si hay monto por facturar */}
+          {mostrarOpcionesFacturacion && (
+            <div className="relative">
+              <button
+                className="px-3 py-1.5 rounded-md bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors border border-purple-200 flex items-center gap-1"
+                onClick={() => setShowFacturaOptions(!showFacturaOptions)}
+              >
+                <FilePlus className="w-4 h-4" />
+                <span>Facturar</span>
+              </button>
 
-            {showFacturaOptions && (
-              <div className={`absolute right-0 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200 ${menuPosition === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'
-                }`}>
-                <div className="py-1">
-                  <button
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-900"
-                    onClick={() => {
-                      console.log("Generar factura para:", value.row);
-                      setShowBillingPage(true);
-                      setShowFacturaOptions(false);
-                    }}
-                  >
-                    Generar factura
-                  </button>
-                  <button
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-900"
-                    onClick={() => {
-                      console.log("Generar factura para:", value.row);
-                      setPagoAFacturar(value.row);
-                      setShowSubirFactura(true);
-                      setShowFacturaOptions(false);
-                    }}
-                  >
-                    Asignar factura
-                  </button>
+              {showFacturaOptions && (
+                <div className={`absolute right-0 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200 ${menuPosition === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'
+                  }`}>
+                  <div className="py-1">
+                    <button
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-900"
+                      onClick={() => {
+                        console.log("Generar factura para:", value.row);
+                        setShowBillingPage(true);
+                        setShowFacturaOptions(false);
+                      }}
+                    >
+                      Generar factura
+                    </button>
+                    <button
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-900"
+                      onClick={() => {
+                        setPagoAFacturar(value.row);
+                        setShowSubirFactura(true);
+                        setShowFacturaOptions(false);
+                      }}
+                    >
+                      Asignar factura
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
 
           {/* Close menu when clicking outside */}
           {showFacturaOptions && (
@@ -397,7 +477,8 @@ const TablaPagosVisualizacion = () => {
                     Generar factura para pago {value.row.id_agente ? formatIdItem(value.row.id_agente) : ''}
                   </h2>
                   <button
-                    onClick={() => setShowBillingPage(false)}
+                    onClick={() =>
+                      setShowBillingPage(false)}
                     className="text-gray-500 hover:text-gray-700"
                   >
                     <X className="w-6 h-6" />
@@ -407,7 +488,8 @@ const TablaPagosVisualizacion = () => {
                   <BillingPage
                     onBack={() => setShowBillingPage(false)}
                     userId={value.row.id_agente}
-                    saldoMonto={value.row.saldo}
+                    saldoMonto={(value.row.moto_por_facturar)}
+                    pagoData={value.row}
                   />
                 </div>
               </div>
@@ -470,6 +552,94 @@ const TablaPagosVisualizacion = () => {
         </div>
       </div>
 
+      {/* Resumen de selección */}
+      {seleccionados.length > 0 && (
+        <div className="mb-4 p-3 border border-purple-200 bg-purple-50 rounded-lg flex items-center justify-between">
+          <div className="text-sm text-purple-900">
+            <span className="font-semibold">Seleccionados:</span> {seleccionados.length} &nbsp;|&nbsp;
+            <span className="font-semibold">Agente:</span> {idAgenteSeleccionado} &nbsp;|&nbsp;
+            <span className="font-semibold">Suma saldo:</span> {formatCurrency(totalSaldoSeleccionado)}
+          </div>
+
+          <div className="flex gap-2 items-center">
+            {/* Dropdown Facturar (igual a acciones) */}
+            <div className="relative" ref={batchBtnRef}>
+              <button
+                className="text-xs px-3 py-1 rounded-md border border-purple-300 hover:bg-purple-100 flex items-center gap-1"
+                onClick={() => setShowBatchMenu(v => !v)}
+              >
+                <FilePlus className="w-3 h-3" />
+                <span>Facturar</span>
+              </button>
+
+              {showBatchMenu && (
+                <div
+                  className={`absolute right-0 w-52 bg-white rounded-md shadow-lg z-10 border border-gray-200
+              ${batchMenuPos === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'}`}
+                >
+                  <div className="py-1">
+                    {/* Generar factura (batch) */}
+                    <button
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-900"
+                      onClick={() => {
+                        if (!idAgenteSeleccionado) return;
+                        const rawIds = seleccionados.map(s => s.raw_id);
+                        const saldos = seleccionados.map(s => Number(s.monto_por_facturar) || 0); // Obtener los saldos
+                        console.log(saldos)
+                        setBatchBilling({
+                          userId: idAgenteSeleccionado,
+                          saldoMonto: totalSaldoSeleccionado,
+                          rawIds,
+                          saldos
+                        });
+                        setShowBatchMenu(false);
+                        setShowBillingPage(true);
+                      }}
+                    >
+                      Generar factura
+                    </button>
+
+                    {/* Asignar factura (solo imprime) */}
+                    <button
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-900"
+                      onClick={() => {
+                        if (!idAgenteSeleccionado) return;
+                        const rawIds = seleccionados.map(s => s.raw_id);
+                        const saldos = seleccionados.map(s => Number(s.monto_por_facturar) || 0); // Obtener los saldos
+                        console.log(saldos)
+                        setBatchPagoAFacturar({
+                          id_agente: idAgenteSeleccionado,
+                          rawIds,
+                          monto: totalSaldoSeleccionado,
+                          saldos
+                          // Agrega cualquier otro dato necesario que uses en el modal
+                        });
+                        setShowBatchMenu(false);
+                        setShowBatchSubirFactura(true);
+                      }}
+                    >
+                      Asignar factura
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Limpiar */}
+            <button
+              className="text-xs px-3 py-1 rounded-md border border-purple-300 hover:bg-purple-100"
+              onClick={() => setSeleccionados([])}
+            >
+              Limpiar selección
+            </button>
+          </div>
+
+          {/* Cerrar menú al hacer click fuera */}
+          {showBatchMenu && (
+            <div className="fixed inset-0 z-0" onClick={() => setShowBatchMenu(false)} />
+          )}
+        </div>
+      )}
 
       {/* Tabla de registros */}
       <Table4
@@ -500,6 +670,7 @@ const TablaPagosVisualizacion = () => {
                 pagoData={pagoAFacturar}  // Pasamos el objeto completo del pago
                 onSuccess={() => {
                   setShowSubirFactura(false);
+                  obtenerPagos();
                   // Aquí puedes añadir lógica adicional después de subir la factura
                 }}
               />
@@ -513,6 +684,77 @@ const TablaPagosVisualizacion = () => {
           facturas={facturasAsociadas}
           onClose={() => setShowFacturasModal(false)}
         />
+      )}
+
+      {/* Modal for Batch Billing */}
+      {batchBilling && showBillingPage && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-800">
+                Generar factura para pagos seleccionados ({seleccionados.length})
+              </h2>
+              <button
+                onClick={() => {
+                  setShowBillingPage(false);
+                  setBatchBilling(null);
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-6">
+              <BillingPage
+                onBack={() => {
+                  setShowBillingPage(false);
+                  setBatchBilling(null);
+                  obtenerPagos();
+                  setSeleccionados([]); // También limpia la selección
+                }}
+                userId={batchBilling.userId}
+                saldoMonto={batchBilling.saldoMonto}
+                rawIds={batchBilling.rawIds}
+                saldos={seleccionados.map(s => Number(s.monto_por_facturar) || 0)}
+                isBatch={true}
+                pagoData={seleccionados.map(s => {
+                  const pago = pagos.find(p => p.raw_id === s.raw_id);
+                  return pago || null;
+                }).filter(Boolean)} // Pasamos un array con todos los pagos seleccionados
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal para SubirFactura en batch */}
+      {showBatchSubirFactura && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-800">
+                Asignar factura a {seleccionados.length} pagos seleccionados
+              </h2>
+              <button
+                onClick={() => setShowBatchSubirFactura(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-6">
+              <SubirFactura
+                pagoData={batchPagoAFacturar}
+                onSuccess={() => {
+                  setShowBatchSubirFactura(false);
+                  obtenerPagos();
+                  setSeleccionados([]); // Limpiar selección después de asignar
+                }}
+                isBatch={true} // Puedes usar esto para modificar el comportamiento si es necesario
+              />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
