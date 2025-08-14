@@ -19,6 +19,8 @@ import { Root } from "@/types/billing";
 import { URL, API_KEY } from "@/lib/constants/index";
 import { useRoute, Link } from "wouter";
 import { useApi } from "@/hooks/useApi";
+import { Pago } from "@/app/dashboard/payments/page";
+import { formatNumberWithCommas } from "@/helpers/utils";
 
 
 const formatCurrency = (amount: number) => {
@@ -36,58 +38,114 @@ const formatDate = (dateStr: string) => {
   });
 };
 
-
+// Catálogos completos del SAT
 const cfdiUseOptions = [
-  { value: "P01", label: "Por definir" },
-  { value: "G01", label: "Adquisición de mercancías" },
-  { value: "G02", label: "Devoluciones, descuentos o bonificaciones" },
-  { value: "G03", label: "Gastos en general" },
+  { value: "G01", label: "G01 - Adquisición de mercancías" },
+  { value: "G02", label: "G02 - Devoluciones, descuentos o bonificaciones" },
+  { value: "G03", label: "G03 - Gastos en general" },
+  { value: "I01", label: "I01 - Construcciones" },
+  { value: "I02", label: "I02 - Mobilario y equipo de oficina por inversiones" },
+  { value: "I03", label: "I03 - Equipo de transporte" },
+  { value: "I04", label: "I04 - Equipo de cómputo y accesorios" },
+  { value: "I05", label: "I05 - Dados, troqueles, moldes, matrices y herramental" },
+  { value: "I06", label: "I06 - Comunicaciones telefónicas" },
+  { value: "I07", label: "I07 - Comunicaciones satelitales" },
+  { value: "I08", label: "I08 - Otra maquinaria y equipo" },
+  { value: "D01", label: "D01 - Honorarios médicos, dentales y gastos hospitalarios" },
+  { value: "D02", label: "D02 - Gastos médicos por incapacidad o discapacidad" },
+  { value: "D03", label: "D03 - Gastos funerales" },
+  { value: "D04", label: "D04 - Donativos" },
+  { value: "D05", label: "D05 - Intereses reales efectivamente pagados por créditos hipotecarios" },
+  { value: "D06", label: "D06 - Aportaciones voluntarias al SAR" },
+  { value: "D07", label: "D07 - Primas por seguros de gastos médicos" },
+  { value: "D08", label: "D08 - Gastos de transportación escolar obligatoria" },
+  { value: "D09", label: "D09 - Depósitos en cuentas para el ahorro" },
+  { value: "D10", label: "D10 - Pagos por servicios educativos" },
+  { value: "S01", label: "S01 - Sin efectos fiscales" },
+  { value: "CP01", label: "CP01 - Pagos" },
+  { value: "CN01", label: "CN01 - Nómina" }
 ];
 
 const paymentFormOptions = [
-  { value: "01", label: "Efectivo" },
-  { value: "02", label: "Cheque nominativo" },
-  { value: "03", label: "Transferencia electrónica de fondos" },
-  { value: "04", label: "Tarjeta de crédito" },
-  { value: "28", label: "Tarjeta de débito" },
+  { value: "01", label: "01 - Efectivo" },
+  { value: "02", label: "02 - Cheque nominativo" },
+  { value: "03", label: "03 - Transferencia electrónica de fondos" },
+  { value: "04", label: "04 - Tarjeta de crédito" },
+  { value: "05", label: "05 - Monedero electrónico" },
+  { value: "06", label: "06 - Dinero electrónico" },
+  { value: "08", label: "08 - Vales de despensa" },
+  { value: "12", label: "12 - Dación en pago" },
+  { value: "13", label: "13 - Pago por subrogación" },
+  { value: "14", label: "14 - Pago por consignación" },
+  { value: "15", label: "15 - Condonación" },
+  { value: "17", label: "17 - Compensación" },
+  { value: "23", label: "23 - Novación" },
+  { value: "24", label: "24 - Confusión" },
+  { value: "25", label: "25 - Remisión de deuda" },
+  { value: "26", label: "26 - Prescripción o caducidad" },
+  { value: "27", label: "27 - A satisfacción del acreedor" },
+  { value: "28", label: "28 - Tarjeta de débito" },
+  { value: "29", label: "29 - Tarjeta de servicios" },
+  { value: "30", label: "30 - Aplicación de anticipos" },
+  { value: "31", label: "31 - Intermediario pagos" },
+  { value: "99", label: "99 - Por definir" }
+];
+
+const paymentMethodOptions = [
+  { value: "PUE", label: "PUE - Pago en una sola exhibición" },
+  { value: "PPD", label: "PPD - Pago en parcialidades o diferido" }
+];
+
+const tipoComprobanteOptions = [
+  { value: "I", label: "I - Ingreso" },
+  { value: "E", label: "E - Egreso" },
+  { value: "T", label: "T - Traslado" },
+  { value: "N", label: "N - Nómina" },
+  { value: "P", label: "P - Pago" }
+];
+
+const regimenFiscalOptions = [
+  { value: "601", label: "601 - General de Ley Personas Morales" },
+  { value: "603", label: "603 - Personas Morales con Fines no Lucrativos" },
+  { value: "605", label: "605 - Sueldos y Salarios e Ingresos Asimilados a Salarios" },
+  { value: "606", label: "606 - Arrendamiento" },
+  { value: "607", label: "607 - Régimen de Enajenación o Adquisición de Bienes" },
+  { value: "608", label: "608 - Demás ingresos" },
+  { value: "610", label: "610 - Residentes en el Extranjero sin Establecimiento Permanente en México" },
+  { value: "611", label: "611 - Ingresos por Dividendos (socios y accionistas)" },
+  { value: "612", label: "612 - Personas Físicas con Actividades Empresariales y Profesionales" },
+  { value: "614", label: "614 - Ingresos por intereses" },
+  { value: "615", label: "615 - Régimen de los ingresos por obtención de premios" },
+  { value: "616", label: "616 - Sin obligaciones fiscales" },
+  { value: "620", label: "620 - Sociedades Cooperativas de Producción que optan por diferir sus ingresos" },
+  { value: "621", label: "621 - Incorporación Fiscal" },
+  { value: "622", label: "622 - Actividades Agrícolas, Ganaderas, Silvícolas y Pesqueras" },
+  { value: "623", label: "623 - Opcional para Grupos de Sociedades" },
+  { value: "624", label: "624 - Coordinados" },
+  { value: "625", label: "625 - Régimen de las Actividades Empresariales con ingresos a través de Plataformas Tecnológicas" },
+  { value: "626", label: "626 - Régimen Simplificado de Confianza" }
+];
+
+const exportacionOptions = [
+  { value: "01", label: "01 - No aplica" },
+  { value: "02", label: "02 - Definitiva" },
+  { value: "03", label: "03 - Temporal" }
 ];
 
 interface FiscalDataModalProps {
   isOpen: boolean;
 }
 
-const FiscalDataModal: React.FC<FiscalDataModalProps> = ({ isOpen }) => {
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-        <div className="flex items-center gap-3 mb-3">
-          <AlertCircle className="text-red-500 w-5 h-5" />
-          <h2 className="text-lg font-semibold text-gray-900">Atención</h2>
-        </div>
-        <p className="text-gray-700 mb-4">
-          Necesitas tener tus datos fiscales en orden, actualiza tus datos
-          fiscales en tu configuración.
-        </p>
-        <div className="flex justify-end">
-          <Link
-            to="/"
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
-          >
-            Ir a Configuración
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 export const BillingPage: React.FC<BillingPageProps> = ({
   onBack,
   invoiceData,
   userId,
-  saldoMonto = 0 // Valor por defecto 0
+  saldoMonto = 0, // Valor por defecto 0
+  rawIds = [],// Valor por defecto array vacío
+  saldos = [],
+  isBatch = false, // Valor por defecto false
+  pagoData
 }) => {
   const [match, params] = useRoute("/factura/:id");
   const [showFiscalModal, setShowFiscalModal] = useState(false);
@@ -95,6 +153,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   const [idCompany, setIdCompany] = useState<string | null>(null);
   const [selectedCfdiUse, setSelectedCfdiUse] = useState("G03");
   const [selectedPaymentForm, setSelectedPaymentForm] = useState("03");
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("PUE");
   const [showValidationModal, setShowValidationModal] = useState(false);
   const [descarga, setDescarga] = useState<DescargaFactura | null>(null);
   const [descargaxml, setDescargaxml] = useState<DescargaFactura | null>(null);
@@ -102,8 +161,21 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   const [isInvoiceGenerated, setIsInvoiceGenerated] = useState<Root | null>(
     null
   );
-  const { crearCfdi, descargarFactura, mandarCorreo } = useApi();
+  const { crearCfdiEmi, descargarFactura, mandarCorreo, descargarFacturaXML } = useApi();
+  const [minAmount, setMinAmount] = useState(0);
   const [customAmount, setCustomAmount] = useState(saldoMonto);
+  console.log("custom", customAmount)
+  console.log("custom", saldoMonto)
+
+  console.log("pagos", pagoData)
+
+  // Helper seguro para números
+  const toNumber = (v: any, fallback = 0) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : fallback;
+  };
+
+
   const [cfdi, setCfdi] = useState({
     Receiver: {
       Name: "",
@@ -115,11 +187,11 @@ export const BillingPage: React.FC<BillingPageProps> = ({
     CfdiType: "",
     NameId: "",
     Observations: "",
-    ExpeditionPlace: "",
+    ExpeditionPlace: "42501",
     Serie: null,
     Folio: 0,
     PaymentForm: "",
-    PaymentMethod: "",
+    PaymentMethod: selectedPaymentMethod,
     Exportation: "",
     Items: [
       {
@@ -136,38 +208,41 @@ export const BillingPage: React.FC<BillingPageProps> = ({
           {
             Name: "IVA",
             Rate: "0.16",
-            Total: ((saldoMonto / 1.16) * 0.16).toString(), // IVA inicial
-            Base: (saldoMonto / 1.16).toString(),
+            Total: (saldoMonto - Number((saldoMonto / 1.16).toFixed(2))).toFixed(2), // IVA inicial
+            Base: (saldoMonto / 1.16).toFixed(2),
             IsRetention: "false",
             IsFederalTax: "true",
           },
         ],
-        Total: saldoMonto.toString(), // Total inicial
+        Total: saldoMonto.toFixed(2), // Total inicial
       },
     ],
   });
+
+  console.log('IDs de pagos:', rawIds);
+  console.log('Es facturación por lotes?', isBatch);
 
   const updateInvoiceAmounts = (totalAmount: number) => {
     // Convertir el totalAmount a número por si acaso
     const total = Number(totalAmount);
     const subtotal = parseFloat((total / 1.16).toFixed(2)); // Calcula el subtotal y redondea a 2 decimales
-    const iva = parseFloat((subtotal * 0.16).toFixed(2)); // Calcula el IVA y redondea a 2 decimales
+    const iva = parseFloat((total - subtotal).toFixed(2)); // Calcula el IVA y redondea a 2 decimales
 
     setCfdi(prev => ({
       ...prev,
       Items: [
         {
           ...prev.Items[0],
-          UnitPrice: subtotal.toString(),
-          Subtotal: subtotal.toString(),
+          UnitPrice: subtotal.toFixed(2),
+          Subtotal: subtotal.toFixed(2),
           Taxes: [
             {
               ...prev.Items[0].Taxes[0],
-              Total: iva.toString(),
-              Base: subtotal.toString(),
+              Total: iva.toFixed(2),
+              Base: subtotal.toFixed(2),
             },
           ],
-          Total: total.toString(),
+          Total: total.toFixed(2),
         },
       ],
     }));
@@ -185,10 +260,11 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       ...prev,
       Receiver: {
         ...prev.Receiver,
-        Name: company.razon_social || "",
+        Name: company.razon_social.trim() || "",
         Rfc: company.rfc || "",
         FiscalRegime: company.regimen_fiscal || "",
-        TaxZipCode: company.codigo_postal || "",
+        CfdiUse: selectedCfdiUse,
+        TaxZipCode: company.codigo_postal_fiscal || "",
       }
     }));
   };
@@ -198,6 +274,47 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       setShowFiscalModal(true);
     }
   }, []);
+  console.log("info ", saldos)
+
+  useEffect(() => {
+    if (isBatch && rawIds.length > 0 && saldos.length > 0) {
+      // 1. Crear array con los saldos
+      const saldosArray = [...saldos].filter(s => s > 0);
+
+      if (saldosArray.length > 1) {
+        // 2. Ordenar de menor a mayor
+        saldosArray.sort((a, b) => a - b);
+
+        // 3. Tomar todos menos el más grande (n-1 elementos)
+        const saldosMinimos = saldosArray.slice(0, -1);
+
+        // 4. Sumarlos para obtener el mínimo
+        const sumaMinima = saldosMinimos.reduce((sum, saldo) => sum + saldo, 0);
+
+        setMinAmount(sumaMinima);
+        setCustomAmount(sumaMinima);
+        updateInvoiceAmounts(sumaMinima);
+      } else {
+        // Si solo hay un saldo, el mínimo es ese saldo
+        setMinAmount(saldosArray[0] || 0);
+        setCustomAmount(saldosArray[0] || 0);
+        updateInvoiceAmounts(saldosArray[0] || 0);
+      }
+    } else {
+      // Si no es batch, el mínimo es 0
+      setMinAmount(0);
+    }
+  }, [isBatch, rawIds, saldos]);
+
+  // Modificar el input para respetar el mínimo y máximo
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = Number(e.target.value);
+
+    if (!isNaN(value)) {
+      setCustomAmount(value);
+      updateInvoiceAmounts(value);
+    }
+  };
 
   const handleSendEmail = async () => {
     if (isInvoiceGenerated?.Id) {
@@ -212,8 +329,8 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   };
 
   const validateInvoiceData = () => {
-    console.log(cfdi.Receiver);
-    console.log(selectedCfdiUse);
+    console.log("cfdi", cfdi.Receiver);
+    console.log("seleccioonado", selectedCfdiUse);
     console.log(selectedPaymentForm);
     if (
       !cfdi.Receiver.Rfc ||
@@ -227,110 +344,518 @@ export const BillingPage: React.FC<BillingPageProps> = ({
     return true;
   };
 
-  const handleGenerateInvoice = async () => {
-    if (validateInvoiceData()) {
-      const subtotal = customAmount;
-      const iva = subtotal * 0.16;
-      const total = subtotal + iva;
-      const invoiceData = {
-        ...cfdi,
-        Receiver: {
-          ...cfdi.Receiver,
-          CfdiUse: selectedCfdiUse,
+  // const handleGenerateInvoice = async () => {
+  //   if (customAmount < minAmount || customAmount > saldoMonto) {
+  //     alert(`El monto debe estar entre ${formatCurrency(minAmount)} y ${formatCurrency(saldoMonto)}`);
+  //     return;
+  //   }
+
+  //   if (!validateInvoiceData()) {
+  //     return;
+  //   }
+  //   // Obtener la fecha actual
+  //   const now = new Date();
+
+  //   // Restar una hora a la fecha actual
+  //   now.setHours(now.getHours() - 6);
+  //   const formattedDate = now.toISOString().split(".")[0];
+
+  //   try {
+  //     // Construir el payload completo
+  //     const payload = {
+  //       cfdi: {
+  //         ...cfdi,
+  //         Receiver: {
+  //           ...cfdi.Receiver,
+  //           CfdiUse: selectedCfdiUse,
+  //         },
+  //         PaymentForm: selectedPaymentForm,
+  //         Currency: "MXN",
+  //         Date: formattedDate, // Ensure the date is within the 72-hour limit
+  //         OrderNumber: Math.floor(Math.random() * 1_000_000),
+  //         Items: [
+  //           {
+  //             ...cfdi.Items[0],
+  //             UnitPrice: (customAmount / 1.16).toFixed(2),
+  //             Subtotal: (customAmount / 1.16).toFixed(2),
+  //             Taxes: [
+  //               {
+  //                 ...cfdi.Items[0].Taxes[0],
+  //                 Total: ((customAmount / 1.16) * 0.16).toFixed(2),
+  //                 Base: (customAmount / 1.16).toFixed(2),
+  //               },
+  //             ],
+  //             Total: customAmount.toString(),
+  //           },
+  //         ],
+  //       },
+  //       info_user: {
+  //         id_user: userId,
+  //         id_solicitud: null,
+  //       },
+  //       datos_empresa: {
+  //         rfc: cfdi.Receiver.Rfc,
+  //         id_empresa: isEmpresaSelected,
+  //       },
+  //       info_pago: Array.isArray(pagoData)
+  //         ? {
+  //           // Caso batch
+  //           id_movimiento: pagoData[0]?.id_movimiento,
+  //           raw_id: rawIds.join(','),
+  //           monto: saldoMonto.toString(),
+  //           monto_facturado: customAmount.toString(),
+  //           currency: pagoData[0]?.currency || "MXN",
+  //           metodo: pagoData[0]?.metodo || "wallet",
+  //           referencia: pagoData[0]?.referencia,
+  //         }
+  //         : {
+  //           // Caso individual
+  //           id_movimiento: pagoData?.id_movimiento,
+  //           raw_id: pagoData?.raw_id.startsWith("pag-") ? pagoData.raw_id : Number(pagoData.raw_id),
+  //           monto: pagoData?.monto,
+  //           monto_facturado: customAmount.toString(),
+  //           currency: pagoData?.currency || "MXN",
+  //           metodo: pagoData?.metodo || "wallet",
+  //           referencia: pagoData?.referencia,
+  //         },
+  //       ...(isBatch && {
+  //         lotes_info: {
+  //           ids_pagos: rawIds,
+  //           montos: saldos.map(s => s.toString()),
+  //         },
+  //       }),
+  //     };
+
+  //     console.log("Payload completo:", payload);
+
+  //     // Enviar la solicitud
+  //     // const response = await fetch(`${URL}/mia/factura/CrearFacturaDesdeCargaPagos`, {
+  //     //   method: "POST",
+  //     //   headers: {
+  //     //     "Content-Type": "application/json",
+  //     //     "x-api-key": API_KEY,
+  //     //   },
+  //     //   body: JSON.stringify(payload),
+  //     // });
+
+  //     // const { data } = await response.json();
+  //     // console.log(data)
+
+  //     // if (response.ok) {
+  //     //   alert("Factura generada con éxito");
+  //     //   setIsInvoiceGenerated(data.facturama);
+
+  //     const response = await fetch(`${URL}/mia/factura/CrearFacturasMultiplesPagos`, {
+  //       method: "POST",
+  //       headers: {
+  //         "Content-Type": "application/json",
+  //         "x-api-key": API_KEY,
+  //       },
+  //       body: JSON.stringify(payload),
+  //     });
+  //     if (!response.ok) {
+  //       throw new Error('Error al procesar el pago');
+  //     }
+
+  //     const { data } = await response.json();
+
+
+  //     // Descargar factura si es necesario
+  //     if (data.facturama.Id) {
+  //       try {
+  //         descargarFactura(data.facturama.Id).then(item => {
+  //           console.log(item)
+  //           setDescarga(item)
+  //         })
+  //         descargarFacturaXML(data.facturama.Id).then(item => {
+  //           console.log(item)
+  //           setDescargaxml(item)
+  //         })
+  //       } catch (err) {
+  //         console.error("Error al descargar factura:", err);
+  //       }
+  //     } else {
+  //       throw new Error(data.message || "Error al generar factura");
+  //     }
+
+
+  //   } catch (error) {
+  //     console.error("Error:", error);
+  //     alert("Ocurrió un error al generar la factura");
+  //   }
+  // };
+
+
+  const handleGenerateInvoice1 = async () => {
+    if (customAmount < minAmount || customAmount > saldoMonto) {
+      alert(`El monto debe estar entre ${formatCurrency(minAmount)} y ${formatCurrency(saldoMonto)}`);
+      return;
+    }
+
+    if (!validateInvoiceData()) {
+      return;
+    }
+
+    // Obtener la fecha actual
+    const now = new Date();
+    // Restar una hora a la fecha actual
+    now.setHours(now.getHours() - 6);
+    const formattedDate = now.toISOString().split(".")[0];
+
+    try {
+      // Construir el payload completo
+      const payload = {
+        cfdi: {
+          ...cfdi,
+          Receiver: {
+            ...cfdi.Receiver,
+            CfdiUse: selectedCfdiUse,
+          },
+          PaymentForm: selectedPaymentForm,
+          PaymentMethod: selectedPaymentMethod,
+          Currency: "MXN",
+          Date: formattedDate,
+          OrderNumber: Math.floor(Math.random() * 1_000_000),
+          Items: [
+            {
+              ...cfdi.Items[0],
+              UnitPrice: (customAmount / 1.16).toFixed(2),
+              Subtotal: (customAmount / 1.16).toFixed(2),
+              Taxes: [
+                {
+                  ...cfdi.Items[0].Taxes[0],
+                  Total: ((customAmount / 1.16) * 0.16).toFixed(2),
+                  Base: (customAmount / 1.16).toFixed(2),
+                },
+              ],
+              Total: customAmount.toString(),
+            },
+          ],
         },
-        PaymentForm: selectedPaymentForm,
-        Items: [
-          {
-            ...cfdi.Items[0],
-            UnitPrice: subtotal.toString(),
-            Subtotal: subtotal.toString(),
-            Taxes: [
-              {
-                ...cfdi.Items[0].Taxes[0],
-                Total: iva.toString(),
-                Base: subtotal.toString(),
-              },
-            ],
-            Total: total.toString(),
+        info_user: {
+          id_user: userId,
+          id_solicitud: null,
+        },
+        datos_empresa: {
+          rfc: cfdi.Receiver.Rfc,
+          id_empresa: isEmpresaSelected,
+        },
+        info_pago: Array.isArray(pagoData)
+          ? {
+            // Caso batch - información resumida
+            id_movimiento: null, // No aplica para batch
+            raw_id: null, // No aplica para batch
+            monto: saldoMonto.toString(), // Monto total de todos los pagos
+            monto_facturado: customAmount.toString(), // Monto que se está facturando
+            currency: "MXN", // Moneda común
+            metodo: "multiple", // Indicador de múltiples pagos
+            referencia: `Facturación múltiple ${new Date().toISOString().split('T')[0]}`,
+          }
+          : {
+            // Caso individual
+            id_movimiento: pagoData?.id_movimiento,
+            raw_id: pagoData?.raw_id.startsWith("pag-") ? pagoData.raw_id : Number(pagoData.raw_id),
+            monto: pagoData?.monto,
+            monto_facturado: customAmount.toString(),
+            currency: pagoData?.currency || "MXN",
+            metodo: pagoData?.metodo || "wallet",
+            referencia: pagoData?.referencia,
           },
-        ],
+        ...(isBatch && {
+          lotes_info: {
+            ids_pagos: rawIds,
+            montos: saldos.map(s => s.toString()),
+          },
+        }),
       };
-      try {
-        // Obtener la fecha actual
-        const now = new Date();
 
-        // Restar una hora a la fecha actual
-        now.setHours(now.getHours() - 6);
+      console.log("Payload completo:", payload);
 
-        // Formatear la fecha en el formato requerido: "YYYY-MM-DDTHH:mm:ss"
-        const formattedDate = now.toISOString().split(".")[0];
+      const response = await fetch(`${URL}/mia/factura/CrearFacturasMultiplesPagos`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": API_KEY,
+        },
+        body: JSON.stringify(payload),
+      });
 
-        console.log({
-          cfdi: {
-            ...cfdi,
-            Currency: "MXN", // Add the required currency
-            OrderNumber: Math.round(Math.random() * 999999), // Add a placeholder or dynamic order number
-            Date: formattedDate, // Ensure the date is within the 72-hour limit
-          },
-          info_user: {
-            id_user: userId,
-            //verificar
-            id_solicitud: null,
-          },
-          datos_empresa: {
-            rfc: cfdi.Receiver.Rfc,
-            id_empresa: isEmpresaSelected,
-          },
-        });
-
-        const response = await crearCfdi({
-          cfdi: {
-            ...cfdi,
-            Currency: "MXN", // Add the required currency
-            OrderNumber: Math.round(Math.random() * 999999), // Add a placeholder or dynamic order number
-            Date: formattedDate, // Ensure the date is within the 72-hour limit
-          },
-          info_user: {
-            id_user: userId,
-            id_solicitud: params?.id || "", // Asegúrate de tener un valor por defecto
-            id_items: [""], // Añade este campo si es requerido
-          },
-          datos_empresa: {
-            rfc: cfdi.Receiver.Rfc,
-            id_empresa: isEmpresaSelected,
-          },
-        });
-        if (response.error) {
-          throw new Error(response);
-        }
-        alert("Se ha generado con exito la factura");
-        descargarFactura(response.data.Id)
-          .then((factura) => setDescarga(factura))
-          .catch((err) => console.error(err));
-        descargarFactura(response.data.Id)
-          .then((factura) => setDescargaxml(factura))
-          .catch((err) => console.error(err));
-        setIsInvoiceGenerated(response.data);
-      } catch (error) {
-        alert("Ocurrio un error, intenta mas tarde");
+      if (!response.ok) {
+        throw new Error('Error al procesar el pago');
       }
+
+      const { data } = await response.json();
+
+      // Descargar factura si es necesario
+      if (data.facturama.Id) {
+        try {
+          descargarFactura(data.facturama.Id).then(item => {
+            console.log(item)
+            setDescarga(item)
+          })
+          descargarFacturaXML(data.facturama.Id).then(item => {
+            console.log(item)
+            setDescargaxml(item)
+          })
+          setIsInvoiceGenerated(data.facturama);
+        } catch (err) {
+          console.error("Error al descargar factura:", err);
+        }
+      } else {
+        throw new Error(data.message || "Error al generar factura");
+      }
+
+      // Mostrar mensaje de éxito
+      alert("Factura generada con éxito");
+
+    } catch (error) {
+      console.error("Error:", error);
+      alert("Ocurrió un error al generar la factura");
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-blue-800 py-4">
-      <div className="max-w-5xl mx-auto px-4">
-        <div className="flex items-center justify-between mb-4">
-          <a
-            href="/"
-            className="flex items-center text-white hover:text-white/80 transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5 mr-2" />
-            <span>Volver</span>
-          </a>
-        </div>
+  const handleGenerateInvoice = async () => {
+    if (customAmount < minAmount || customAmount > saldoMonto) {
+      alert(`El monto debe estar entre ${formatCurrency(minAmount)} y ${formatCurrency(saldoMonto)}`);
+      return;
+    }
 
-        <div className="bg-white rounded-xl shadow-xl overflow-hidden">
+    if (!validateInvoiceData()) return;
+
+    // Fecha actual (zona MX). Ya restabas 6 horas: lo mantengo.
+    const now = new Date();
+    now.setHours(now.getHours() - 6);
+    const formattedDateTime = now.toISOString().split(".")[0]; // YYYY-MM-DDTHH:mm:ss
+    const formattedDate = formattedDateTime.slice(0, 10);       // YYYY-MM-DD
+
+    try {
+      // ---------------------------
+      // 1) Lógica de distribución de montos entre pagos (de handlePagos)
+      // ---------------------------
+      let restante = parseFloat(customAmount.toString());
+      const pagosAsociados = [];
+
+      // Verificar si pagoData tiene rawIds (para múltiples pagos) o es un solo pago
+      const raw_Ids = isBatch ? pagoData.map(p => p.raw_id) : [pagoData[0]?.raw_id];
+      const saldos2 = isBatch ? pagoData.map(p => parseFloat(p.saldo)) : [parseFloat(pagoData[0]?.monto_por_facturar || pagoData[0]?.saldo)];
+
+      for (let i = 0; i < raw_Ids.length; i++) {
+        if (restante <= 0) break;
+
+        const montoAsignar = Math.min(restante, saldos2[i]);
+        pagosAsociados.push({
+          raw_id: raw_Ids[i],
+          monto: montoAsignar
+        });
+
+        restante -= montoAsignar;
+      }
+
+      // Si después de asignar a todos los pagos todavía queda restante
+      if (restante > 0) {
+        alert(`La factura excede los pagos disponibles por $${formatNumberWithCommas(restante)}`);
+        return;
+      }
+
+      // ---------------------------
+      // 2) Construimos el payload base (timbrado)
+      // ---------------------------
+      const subtotal = (customAmount / 1.16).toFixed(2);
+      const iva = (parseFloat(subtotal) * 0.16).toFixed(2);
+
+      const payloadCFDI = {
+        cfdi: {
+          ...cfdi,
+          Receiver: {
+            ...cfdi.Receiver,
+            CfdiUse: selectedCfdiUse,
+          },
+          PaymentForm: selectedPaymentForm,
+          PaymentMethod: selectedPaymentMethod,
+          Currency: "MXN",
+          Date: formattedDateTime,
+          OrderNumber: Math.floor(Math.random() * 1_000_000),
+          Items: [
+            {
+              ...cfdi.Items[0],
+              UnitPrice: subtotal,
+              Subtotal: subtotal,
+              Taxes: [
+                {
+                  ...cfdi.Items[0].Taxes[0],
+                  Total: iva,
+                  Base: subtotal,
+                },
+              ],
+              Total: customAmount.toString(),
+            },
+          ],
+        },
+        info_user: {
+          id_user: userId,
+          id_agente: userId,
+          id_solicitud: null,
+        },
+        datos_empresa: {
+          rfc: cfdi.Receiver.Rfc,
+          id_empresa: isEmpresaSelected,
+        },
+        // Info pago para casos individuales
+        ...(!isBatch && {
+          info_pago: {
+            id_movimiento: pagoData[0]?.id_movimiento,
+            raw_id: pagoData[0]?.raw_id?.startsWith("pag-")
+              ? pagoData[0].raw_id
+              : Number(pagoData[0]?.raw_id),
+            monto: pagoData[0]?.monto,
+            monto_factura: customAmount.toString(),
+            currency: pagoData[0]?.currency || "MXN",
+            metodo: pagoData[0]?.metodo || "wallet",
+            referencia: pagoData[0]?.referencia,
+          }
+        }),
+        // Info para batch de pagos
+        ...(isBatch && {
+          pagos_asociados: pagosAsociados
+        }),
+      };
+
+      // Determinamos si es flujo de un solo pago
+      const esUnSoloPago = !isBatch && pagoData.length === 1;
+
+      // -------------------------------------------------------------
+      // 3) FLUJO A: UN SOLO PAGO → endpoint individual
+      // -------------------------------------------------------------
+      console.log("payload", payloadCFDI);
+      if (esUnSoloPago) {
+        const resp = await fetch(`${URL}/mia/factura/CrearFacturaDesdeCargaPagos`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": API_KEY,
+          },
+          body: JSON.stringify(payloadCFDI),
+        });
+
+        const { data } = await resp.json();
+        if (!resp.ok) throw new Error(data?.message || "Error al generar (individual)");
+
+        alert("Factura generada con éxito");
+        setIsInvoiceGenerated(data.facturama);
+
+        // Descargas
+        if (data?.facturama?.Id) {
+          try {
+            descargarFactura(data.facturama.Id).then(setDescarga);
+            descargarFacturaXML(data.facturama.Id).then(setDescargaxml);
+          } catch (err) {
+            console.error("Error al descargar factura:", err);
+          }
+        }
+        return; // fin flujo individual
+      }
+
+      // -------------------------------------------------------------
+      // 4) FLUJO B: MULTIPLES PAGOS → endpoint de múltiples
+      // -------------------------------------------------------------
+
+      // 4.1) Timbramos la factura
+      const respTimbrado = await fetch(`${URL}/mia/factura/CrearFacturasMultiplesPagos`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": API_KEY,
+        },
+        body: JSON.stringify(payloadCFDI),
+      });
+
+      const { data } = await respTimbrado.json();
+      if (!respTimbrado.ok) throw new Error(data?.message || "Error al generar (múltiples)");
+
+      // Descargamos PDF/XML
+      let pdfUrl = "";
+      let xmlUrl = "";
+      try {
+        if (data?.facturama?.Id) {
+          const [pdf, xml] = await Promise.all([
+            descargarFactura(data.facturama.Id),
+            descargarFacturaXML(data.facturama.Id),
+          ]);
+          setDescarga(pdf);
+          setDescargaxml(xml);
+          pdfUrl = pdf?.Url || "";
+          xmlUrl = xml?.Url || "";
+        }
+      } catch (err) {
+        console.warn("Descargas PDF/XML fallaron o no devuelven URL:", err);
+      }
+
+      // 4.2) Construimos el payload resumen
+      const subtotalN = parseFloat(subtotal);
+      const impuestosN = parseFloat(iva);
+      const totalN = parseFloat(customAmount.toString());
+
+      const uuid = data?.facturama?.Complement?.TaxStamp?.UUID ||
+        data?.facturama?.Uuid ||
+        data?.facturama?.FolioFiscal ||
+        data?.facturama?.Id || "";
+
+      const rfcEmisor = data?.facturama?.Issuer?.Rfc ||
+        data?.facturama?.Emisor?.Rfc ||
+        "AAA010101AAA";
+
+      const payloadResumen = {
+        factura: {
+          fecha_emision: formattedDate,
+          estado: "Timbrada",
+          usuario_creador: userId,
+          id_agente: userId,
+          total: totalN,
+          subtotal: subtotalN,
+          impuestos: impuestosN,
+          saldo: 0,
+          rfc: cfdi.Receiver.Rfc,
+          id_empresa: isEmpresaSelected,
+          uuid_factura: uuid,
+          rfc_emisor: rfcEmisor,
+          url_pdf: pdfUrl,
+          url_xml: xmlUrl,
+        },
+        pagos_asociados: pagosAsociados,
+      };
+
+      // 4.3) Registramos la relación factura-pagos
+      const respResumen = await fetch(`${URL}/mia/factura/RegistrarFacturaPagosMultiples`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": API_KEY,
+        },
+        body: JSON.stringify(payloadResumen),
+      });
+
+      if (!respResumen.ok) {
+        const errTxt = await respResumen.text();
+        console.error("Error al registrar factura/pagos:", errTxt);
+        alert("Factura timbrada, pero falló el registro de la relación pagos.");
+      } else {
+        alert("Factura generada y registrada con sus pagos asociados.");
+      }
+
+      // Guardamos el objeto para mostrar botones de descarga
+      setIsInvoiceGenerated(data.facturama);
+
+    } catch (error: any) {
+      console.error("Error:", error);
+      alert(error?.message || "Ocurrió un error al generar la(s) factura(s)");
+    }
+  };
+
+
+  return (
+    <div className="min-h-screen py-4">
+      <div className="max-w-5xl mx-auto px-4">
+        <div className="bg-white rounded-xl shadow-xl border border-gray-300 overflow-hidden">
           <div className="grid grid-cols-12 gap-0">
             {/* Left Column - Header and Details */}
             <div className="col-span-8 border-r border-gray-200">
@@ -456,6 +981,25 @@ export const BillingPage: React.FC<BillingPageProps> = ({
                     ))}
                   </select>
                 </div>
+
+                {/* Payment Method Select */}
+                <div className="space-y-1 mb-4">
+                  <label className="block text-xs font-medium text-gray-700">
+                    Método de Pago
+                  </label>
+                  <select
+                    value={selectedPaymentMethod}
+                    onChange={(e) => setSelectedPaymentMethod(e.target.value)}
+                    className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  >
+                    {paymentMethodOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 {/* Custom Amount Input */}
                 <div className="space-y-1 mb-4">
                   <label className="block text-xs font-medium text-gray-700">
@@ -467,22 +1011,20 @@ export const BillingPage: React.FC<BillingPageProps> = ({
                     </span>
                     <input
                       type="number"
-                      min="0"
-                      max={saldoMonto}
                       value={customAmount}
-                      onChange={(e) => {
-                        // Convertir el valor a número explícitamente
-                        const value = Number(e.target.value);
-                        if (!isNaN(value) && value >= 0 && value <= saldoMonto) {
-                          setCustomAmount(value);
-                          updateInvoiceAmounts(value);
-                        }
-                      }}
+                      onChange={handleAmountChange}
                       className="block w-full pl-8 text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                     />
                   </div>
                   <div className="text-xs text-gray-500 mt-1">
-                    Máximo: {formatCurrency(saldoMonto)}
+                    {isBatch ? (
+                      <>
+                        Mínimo: {formatCurrency(minAmount)} |
+                        Máximo: {formatCurrency(saldoMonto)}
+                      </>
+                    ) : (
+                      `Máximo: ${formatCurrency(saldoMonto)}`
+                    )}
                   </div>
                 </div>
               </div>
@@ -507,7 +1049,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
                     </a>
                     <a
                       href={`data:application/xml;base64,${descargaxml?.Content}`}
-                      download="factura.pdf"
+                      download="factura.xml"
                       className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors border border-blue-200"
                     >
                       <Download className="w-4 h-4" />
@@ -593,6 +1135,10 @@ interface BillingPageProps {
   invoiceData?: DataInvoice;
   userId: string; // Nuevo prop
   saldoMonto?: number;
+  rawIds?: string[]; // Array opcional de IDs
+  saldos?: number[];
+  isBatch?: boolean; // Flag para indicar si es facturación por lotes
+  pagoData?: Pago | Pago[];
 }
 
 interface DataFiscalModalProps {
