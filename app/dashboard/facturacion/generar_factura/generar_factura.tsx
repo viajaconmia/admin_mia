@@ -390,8 +390,8 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       // ---------------------------
       // 2) Construimos el payload base (timbrado)
       // ---------------------------
-      const subtotal = (customAmount / 1.16).toFixed(2);
-      const iva = (parseFloat(subtotal) * 0.16).toFixed(2);
+      const subtotal = (customAmount / 1.16);
+      const iva = (Number(subtotal) * 0.16);
 
       const payloadCFDI = {
         cfdi: {
@@ -501,7 +501,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
 
       const { data } = await respTimbrado.json();
       if (!respTimbrado.ok) throw new Error(data?.message || "Error al generar (múltiples)");
-    alert("Factura generada con éxito");
+      alert("Factura generada con éxito");
       // Descargamos PDF/XML
       let pdfUrl = "";
       let xmlUrl = "";
@@ -521,8 +521,8 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       }
 
       // 4.2) Construimos el payload resumen
-      const subtotalN = parseFloat(subtotal);
-      const impuestosN = parseFloat(iva);
+      const subtotalN = Number(subtotal);
+      const impuestosN = Number(iva);
       const totalN = parseFloat(customAmount.toString());
 
       const uuid = data?.facturama?.Complement?.TaxStamp?.UUID ||
@@ -930,6 +930,7 @@ const DataFiscalModalWithCompanies: React.FC<DataFiscalModalProps> = ({
   }, [isOpen, agentId]);
 
   const handleClose = () => {
+    window.location.href = '/dashboard/payments'; // Redirige a la página principal
     onClose(); // Cierra el modal de selección de empresa
     window.location.href = '/dashboard/payments'; // Redirige a la página principal
   };
