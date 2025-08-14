@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { generarFacturaPDF } from "./parsePdf";
 import { obtenerPresignedUrl, subirArchivoAS3 } from "@/helpers/utils";
+import { Console } from 'console';
 
 interface VistaPreviaProps {
   facturaData: any;
@@ -23,7 +24,7 @@ export default function VistaPreviaModal({
   const [showPdf, setShowPdf] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
-
+  const [facturar, setFacturar] = useState<number>(0);
   console.log("factura", facturaData)
   console.log("pagos", pagoData)
 
@@ -32,10 +33,11 @@ export default function VistaPreviaModal({
   useEffect(() => {
     // Validación del monto cuando tenemos ambos datos
     if (pagoData && facturaData) {
-      console.log("pagodara", pagoData.monto)
-      const montoPorFacturar = Number(pagoData.monto) || 0;
+      const montoPorFacturar = (pagoData.monto||pagoData.monto_por_facturar);
+      setFacturar(montoPorFacturar);
+      console.log("facturar",facturar);
       const totalFactura = parseFloat(facturaData.comprobante.total);
-      console.log("montoPorFacturar", pagoData.montoporfacturar, "totalFactura", totalFactura)
+      console.log("montoPorFacturar", montoPorFacturar, "totalFactura", totalFactura)
       if (montoPorFacturar >= totalFactura) {
 
         console.log("Payload para pago completo:", montoPorFacturar - totalFactura);
@@ -156,7 +158,6 @@ export default function VistaPreviaModal({
       minute: '2-digit'
     });
   };
-  const facturar = pagoData.monto_por_facturar ?? pagoData.monto
   return (
     <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
       <div className="bg-white p-6 rounded shadow-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">

@@ -349,7 +349,7 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
 
       // Verificar si pagoData tiene rawIds (para múltiples pagos) o es un solo pago
       const raw_Ids = pagoData.rawIds || [pagoData.raw_id];
-      const saldos2 = pagoData.saldos || [pagoData.monto_por_facturar];
+      const saldos2 = pagoData.saldos || Number[pagoData.monto_por_facturar];
       console.log("saldos", saldos2)
       console.log("montos", pagoData.monto_por_facturar)
       for (let i = 0; i < raw_Ids.length; i++) {
@@ -393,7 +393,7 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
         // Agregar datos específicos del pago
         const pagoPayload = {
           ...basePayload,
-          raw_id: pagoData.raw_id
+          raw_id: raw_Ids[0]
         };
         console.log("Payload completo para API:", pagoPayload);
 
