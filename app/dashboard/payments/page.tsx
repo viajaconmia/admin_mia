@@ -56,6 +56,37 @@ interface Balance {
 
 type Seleccion = { id_agente: string; raw_id: string; monto_por_facturar: number };
 
+function buildAssignPayload(opts: { seleccionados: Seleccion[]; row?: any }) {
+  const { seleccionados, row } = opts;
+  const haySeleccion = seleccionados && seleccionados.length > 0;
+
+  const rawIds = haySeleccion
+    ? seleccionados.map(s => s.raw_id)
+    : row
+      ? [String(row.raw_id)]
+      : [];
+
+  const saldos = haySeleccion
+    ? seleccionados.map(s => Number(s.monto_por_facturar) || 0)
+    : row
+      ? [Number(row.monto_por_facturar) || 0]
+      : [];
+
+  const id_agente = haySeleccion
+    ? String(seleccionados[0].id_agente)
+    : String(row?.id_agente || row?.ig_agente || "");
+
+  const monto = saldos.reduce((a, b) => a + (Number(b) || 0), 0);
+
+  return {
+    id_agente,
+    rawIds,          // siempre array
+    saldos,          // siempre array
+    monto,           // total
+    saldoMonto: monto
+  };
+}
+
 const TablaPagosVisualizacion = () => {
   const [pagoSeleccionado, setPagoSeleccionado] = useState<Pago | null>(null);
   const [showSubirFactura, setShowSubirFactura] = useState(false);
@@ -808,17 +839,17 @@ const TablaPagosVisualizacion = () => {
                     <button
                       className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-900"
                       onClick={() => {
-                        console.log("saldos", saldoNum, "bnvoi", row.monto_por_facturar)
+                        const payload = buildAssignPayload({ seleccionados, row });
+                        if (!payload.rawIds.length) {
+                          alert("No hay pagos seleccionados y la fila no tiene raw_id.");
+                          return;
+                        }
                         setPagoAFacturar({
-                          id_agente: idAgente,
-                          rawIds,
-                          monto: (monto),
-                          saldos,
-                          saldoMonto: monto,
+                          ...payload,
                           pagoOriginal: row,
                         });
                         setShowFacturaOptions(false);
-                        setShowSubirFactura(true); // usa el modal global ya existente
+                        setShowSubirFactura(true);
                       }}
                     >
                       Asignar factura
@@ -940,23 +971,19 @@ const TablaPagosVisualizacion = () => {
                     <button
                       className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-900"
                       onClick={() => {
-                        if (!idAgenteSeleccionado) return;
-                        const rawIds = seleccionados.map(s => s.raw_id);
-                        const saldos = seleccionados.map(s => Number(s.monto_por_facturar) || 0); // Obtener los saldos
-                        setBatchPagoAFacturar({
-                          id_agente: idAgenteSeleccionado,
-                          rawIds,
-                          monto: totalSaldoSeleccionado,
-                          saldo_Monto: totalSaldoSeleccionado,
-                          saldos
-                          // Agr  ega cualquier otro dato necesario que uses en el modal
-                        });
+                        const payload = buildAssignPayload({ seleccionados }); // sin row en el batch
+                        if (!payload.rawIds.length) {
+                          alert("Selecciona al menos un pago para asignar factura.");
+                          return;
+                        }
+                        setBatchPagoAFacturar(payload);
                         setShowBatchMenu(false);
                         setShowBatchSubirFactura(true);
                       }}
                     >
                       Asignar factura
                     </button>
+
                   </div>
                 </div>
               )}
