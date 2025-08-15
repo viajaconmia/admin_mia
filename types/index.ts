@@ -2,14 +2,20 @@ export interface TypeFilters {
   id_booking?: "Active" | "Inactive";
   codigo_reservacion?: string | null;
   client?: string | null;
+  id_movimiento?: number | null;
+  raw_id?: string | null;
   traveler?: string | null;
   hotel?: string | null;
   nombre?: string | null;
+  nombre_agente?: string | null;
   startDate?: string | null;
   endDate?: string | null;
   recordCount?: string | null;
   empresa?: string | null;
   hasDiscount?: string | null;
+  is_facturado?: number | null;
+  origen_pago?: string | null;
+    link_pago?:string|null ,
   status?: "Confirmada" | "Pendiente" | "Cancelada" | "Todos" | null;
   reservationStage?: "Reservado" | "In house" | "Check-out" | null;
   paymentMethod?:
@@ -28,11 +34,22 @@ export interface TypeFilters {
     | "Creacion"
     | "Actualizacion"
     | null;
-  active?: "Activo" | "Inactivo"  | null;
+  active?: "Activo" | "Inactivo" | null;
+  metodo?:
+    | "Tarjeta Debito"
+    | "Tarjeta Credito"
+    | ""
+    | "Credito"
+    | "Contado"
+    | "Wallet"
+    | "Tranferencia"
+    | null;
   hay_convenio?: "SI" | "NO";
   tipo_negociacion?: string | null;
   estado?: string | null;
   ciudad?: string | null;
+  banco?: string | null;
+  last_digits?: string | null;
   sencilla_precio_min?: number | null;
   sencilla_precio_max?: number | null;
   sencilla_costo_min?: number | null;
@@ -55,6 +72,7 @@ export interface TypeFilters {
   reservante?: "Operaciones" | "Cliente";
   markUp?: number;
   id_client?: string | null;
+  id_agente?: string | null;
   statusPagoProveedor?: null | string;
   markup_start?: null | number;
   markup_end?: null | number;
@@ -68,6 +86,9 @@ export interface TypeFilters {
   facturable?: boolean | null;
   comprobante?: boolean | null; 
   paydate?: string | null;
+    fecha_creacion?: string | null;
+
+  fecha_pago?: string | null;
   estatusFactura ?: "Confirmada" |"Cancelada" |"En proceso"| "Sin Asignar" | null;
 }
 
