@@ -146,6 +146,124 @@ const FiltersModal: React.FC<{
                 />
               )}
 
+              {"id_movimiento" in filters && (
+                <NumberInput
+                  label="ID Movimiento"
+                  value={filters.id_movimiento}
+                  onChange={(value) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      id_movimiento: value === "" ? null : Number(value),
+                    }))
+                  }
+                />
+              )}
+
+              {"raw_id" in filters && (
+                <TextInput
+                  label="Raw ID"
+                  value={filters.raw_id}
+                  onChange={(value) =>
+                    setFilters((prev) => ({ ...prev, raw_id: value }))
+                  }
+                />
+              )}
+
+              {"fecha_pago" in filters && (
+                <DateInput
+                  label="Fecha de Pago"
+                  value={filters.fecha_pago}
+                  onChange={(value) =>
+                    setFilters((prev) => ({ ...prev, fecha_pago: value }))
+                  }
+                />
+              )}
+
+              {"id_agente" in filters && (
+                <TextInput
+                  label="ID Agente"
+                  value={filters.id_agente}
+                  onChange={(value) =>
+                    setFilters((prev) => ({ ...prev, id_agente: value }))
+                  }
+                />
+              )}
+
+              {"nombre_agente" in filters && (
+                <TextInput
+                  label="Nombre Agente"
+                  value={filters.nombre_agente}
+                  onChange={(value) =>
+                    setFilters((prev) => ({ ...prev, nombre_agente: value }))
+                  }
+                />
+              )}
+
+              {"fecha_creacion" in filters && (
+                <DateInput
+                  label="Fecha de Creación"
+                  value={filters.fecha_creacion}
+                  onChange={(value) =>
+                    setFilters((prev) => ({ ...prev, fecha_creacion: value }))
+                  }
+                />
+              )}
+
+              {"banco" in filters && (
+                <TextInput
+                  label="Banco"
+                  value={filters.banco}
+                  onChange={(value) =>
+                    setFilters((prev) => ({ ...prev, banco: value }))
+                  }
+                />
+              )}
+
+              {"last_digits" in filters && (
+                <TextInput
+                  label="Últimos Dígitos"
+                  value={filters.last_digits}
+                  onChange={(value) =>
+                    setFilters((prev) => ({ ...prev, last_digits: value }))
+                  }
+                />
+              )}
+
+              {"is_facturado" in filters && (
+                <Dropdown
+                  label="¿Facturado?"
+                  value={filters.is_facturado === 1 ? "SI" : filters.is_facturado === 0 ? "NO" : ""}
+                  onChange={(value) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      is_facturado: value === "SI" ? 1 : value === "NO" ? 0 : null,
+                    }))
+                  }
+                  options={["SI", "NO"]}
+                />
+              )}
+
+              {"link_pago" in filters && (
+                <TextInput
+                  label="Link de Pago"
+                  value={filters.link_pago}
+                  onChange={(value) =>
+                    setFilters((prev) => ({ ...prev, link_pago: value }))
+                  }
+                />
+              )}
+
+              {"origen_pago" in filters && (
+                <TextInput
+                  label="Origen del Pago"
+                  value={filters.origen_pago}
+                  onChange={(value) =>
+                    setFilters((prev) => ({ ...prev, origen_pago: value }))
+                  }
+                />
+              )}
+
+
               {"endDate" in filters && (
                 <DateInput
                   label="Fecha de fin"

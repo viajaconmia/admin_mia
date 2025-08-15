@@ -716,6 +716,20 @@ const TablaPagosVisualizacion = () => {
       const idAgente = (row.id_agente || row.ig_agente || '').toString();
       const rawId = row.raw_id;
       const saldoNum = Number(row.monto_por_facturar) || 0;
+      const rawIds2 = seleccionados.map(s => s.raw_id);
+      const saldos = [row.monto_por_facturar];
+      const saldos3 = seleccionados.map(s => Number(s.monto_por_facturar)); // Obtener los saldos
+      let saldos2 = saldos.length > 1 ? saldos3 : saldos
+      console.log("seleccionado", saldos2)
+      let rawIds = rawIds2.length == 0
+        ? row.raw_id
+        : rawIds2;
+
+      let monto = totalSaldoSeleccionado === 0
+        ? Number(row.monto_por_facturar)
+        : totalSaldoSeleccionado;
+
+      console.log("saldos", rawIds, "rfef", monto)
 
       return (
         <div className="flex gap-2 relative" ref={buttonRef}>
@@ -775,14 +789,14 @@ const TablaPagosVisualizacion = () => {
                       className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-900"
                       onClick={() => {
                         if (!idAgente || !rawId) return;
-                        console.log("saldos", totalSaldoSeleccionado)
-
                         setBatchBilling({
                           userId: idAgente,
-                          saldoMonto: totalSaldoSeleccionado,
-                          rawIds: [rawId],
-                          saldos: [saldoNum],
+                          saldoMonto: monto,
+                          rawIds,
+                          saldos
                         });
+                        setShowBatchMenu(false);
+                        setShowBillingPage(true);
                         setShowFacturaOptions(false);
                         setShowBillingPage(true); // usa el modal global ya existente
                       }}
@@ -797,10 +811,10 @@ const TablaPagosVisualizacion = () => {
                         console.log("saldos", saldoNum, "bnvoi", row.monto_por_facturar)
                         setPagoAFacturar({
                           id_agente: idAgente,
-                          rawIds: [rawId],
-                          monto: (saldoNum),
-                          saldos: [saldoNum],
-                          saldoMonto: saldoNum,
+                          rawIds,
+                          monto: (monto),
+                          saldos,
+                          saldoMonto: monto,
                           pagoOriginal: row,
                         });
                         setShowFacturaOptions(false);

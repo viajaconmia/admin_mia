@@ -367,19 +367,38 @@ export const BillingPage: React.FC<BillingPageProps> = ({
 
       // Verificar si pagoData tiene rawIds (para múltiples pagos) o es un solo pago
       const raw_Ids = isBatch ? pagoData.map(p => p.raw_id) : [pagoData[0]?.raw_id];
-      const saldos2 = isBatch ? pagoData.map(p => parseFloat(p.saldo)) : [parseFloat(pagoData[0]?.monto_por_facturar || pagoData[0]?.saldo)];
 
-      for (let i = 0; i < raw_Ids.length; i++) {
-        if (restante <= 0) break;
+      let saldos2 = isBatch ? pagoData.map(p => parseFloat(p.saldo)) : [parseFloat(pagoData[0]?.monto_por_facturar || pagoData[0]?.saldo)];
+      console.log("arreglo", rawIds, "tamaño", saldos2)
 
-        const montoAsignar = Math.min(restante, saldos2[i]);
+      if (rawIds.length == 1) {
+        saldos2 = saldoMonto
+
+        const montoAsignar = Math.min(restante, saldos2);
         pagosAsociados.push({
-          raw_id: raw_Ids[i],
+          raw_id: rawIds,
           monto: montoAsignar
         });
 
         restante -= montoAsignar;
       }
+      else {
+        console.log("hola 🐨🐨🐨")
+        for (let i = 0; i < raw_Ids.length; i++) {
+          if (restante <= 0) break;
+
+          const montoAsignar = Math.min(restante, saldos2[i]);
+          pagosAsociados.push({
+            raw_id: raw_Ids[i],
+            monto: montoAsignar
+          });
+
+          restante -= montoAsignar;
+        }
+      }
+
+      console.log(pagosAsociados, "edgeuibobon")
+
 
       // Si después de asignar a todos los pagos todavía queda restante
       if (restante > 0) {
@@ -392,7 +411,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       // ---------------------------
       const subtotal = (customAmount / 1.16);
       const iva = (Number(subtotal) * 0.16);
-
+      console.log("rfrfe", pagosAsociados)
       const payloadCFDI = {
         cfdi: {
           ...cfdi,
@@ -434,9 +453,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
         ...(!isBatch && {
           info_pago: {
             id_movimiento: pagoData[0]?.id_movimiento,
-            raw_id: pagoData[0]?.raw_id?.startsWith("pag-")
-              ? pagoData[0].raw_id
-              : Number(pagoData[0]?.raw_id),
+            raw_id: rawIds,
             monto: pagoData[0]?.monto,
             monto_factura: customAmount.toString(),
             currency: pagoData[0]?.currency || "MXN",
