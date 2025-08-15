@@ -11,6 +11,7 @@ import { fetchFacturas } from "@/services/facturas";
 import { TypeFilters } from "@/types";
 const defaultFiltersFacturas : TypeFilters = {
   estatusFactura: "Confirmada",
+  id_factura: null,
   
 }
 export function TravelersPage() {
