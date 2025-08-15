@@ -305,6 +305,7 @@ const FacturacionModal: React.FC<{
     // ExpeditionPlace: "11570",
     ExpeditionPlace:"42501",
         Serie: null,
+
     Folio: Math.round(Math.random() * 999999999),
     PaymentForm: "",
     PaymentMethod: "PUE",

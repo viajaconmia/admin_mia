@@ -393,7 +393,7 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
         // Agregar datos específicos del pago
         const pagoPayload = {
           ...basePayload,
-          raw_id: pagoData.raw_id
+          raw_id: raw_Ids[0]
         };
         console.log("Payload completo para API:", pagoPayload);
 
