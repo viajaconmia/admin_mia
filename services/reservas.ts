@@ -2,7 +2,7 @@ import { EdicionForm, ReservaForm } from "@/types";
 import { URL, API_KEY } from "@/lib/constants";
 
 export async function updateReserva(
-  reserva: EdicionForm,
+  reserva: EdicionForm & { nuevo_incluye_desayuno: boolean | null },
   id_booking: string,
   callback: (data: any) => void
 ) {
@@ -82,7 +82,7 @@ export async function fetchCreateReserva(reserva) {
 }
 
 export async function fetchCreateReservaFromSolicitud(
-  reserva: ReservaForm,
+  reserva: ReservaForm & { nuevo_incluye_desayuno: boolean | null },
   callback: (data: any) => void
 ) {
   try {
