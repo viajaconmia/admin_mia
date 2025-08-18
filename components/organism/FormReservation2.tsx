@@ -63,6 +63,9 @@ export function ReservationForm2({
       parseISO(solicitud.check_in)
     );
   }
+  const [nuevo_incluye_desayuno, setNuevoIncluyeDesayuno] = useState<
+    boolean | null
+  >(null);
   const [cambiarHotel, setCambiarHotel] = useState(false);
   const [form, setForm] = useState<ReservaForm>({
     hotel: {
@@ -157,6 +160,7 @@ export function ReservationForm2({
 
   useEffect(() => {
     console.log(form);
+    console.log(edicionForm);
   }, [form]);
 
   useEffect(() => {
@@ -370,40 +374,50 @@ export function ReservationForm2({
     e.preventDefault();
     if (edicion) {
       console.log({ ...edicionForm, flag: cambiarHotel });
-      updateReserva(edicionForm, solicitud.id_booking, (data) => {
-        if (data.error) {
-          alert("Error al actualizar la reserva");
+      updateReserva(
+        { ...edicionForm, nuevo_incluye_desayuno },
+        solicitud.id_booking,
+        (data) => {
+          if (data.error) {
+            alert("Error al actualizar la reserva");
+            setLoading(false);
+            return;
+          }
+          alert("Reserva actualizada correctamente");
+          onClose();
           setLoading(false);
-          return;
+          console.log(data);
         }
-        alert("Reserva actualizada correctamente");
-        onClose();
-        setLoading(false);
-        console.log(data);
-      });
+      );
     } else if (create) {
-      fetchCreateReservaOperaciones(form, (data) => {
-        console.log(data);
-        if (data.error) {
-          alert("ERROR");
+      fetchCreateReservaOperaciones(
+        { ...form, nuevo_incluye_desayuno },
+        (data) => {
+          console.log(data);
+          if (data.error) {
+            alert("ERROR");
+            setLoading(false);
+            return;
+          }
+          alert("Se creo correctamente la reservación");
           setLoading(false);
-          return;
+          onClose();
         }
-        alert("Se creo correctamente la reservación");
-        setLoading(false);
-        onClose();
-      });
+      );
     } else {
-      fetchCreateReservaFromSolicitud(form, (data) => {
-        if (data.error) {
-          alert("Error al crear la reserva");
+      fetchCreateReservaFromSolicitud(
+        { ...form, nuevo_incluye_desayuno },
+        (data) => {
+          if (data.error) {
+            alert("Error al crear la reserva");
+            setLoading(false);
+            return;
+          }
+          alert("Reserva creada correctamente");
           setLoading(false);
-          return;
+          onClose();
         }
-        alert("Reserva creada correctamente");
-        setLoading(false);
-        onClose();
-      });
+      );
     }
   };
 
@@ -553,19 +567,67 @@ export function ReservationForm2({
                   value={form.habitacion}
                 />
                 <div className="text-xs mt-2">
-                  {Boolean(
-                    form.hotel.content?.tipos_cuartos.find(
-                      (item) => item.nombre_tipo_cuarto === form.habitacion
-                    )?.incluye_desayuno
-                  ) ? (
-                    <p className="text-green-800 p-1  px-3 rounded-full bg-green-200 w-fit border border-green-300">
-                      Incluye desayuno
-                    </p>
-                  ) : (
-                    <p className="text-red-800 p-1 px-3 rounded-full bg-red-200 w-fit border border-red-300">
-                      No incluye desayuno
-                    </p>
-                  )}
+                  <div className="space-y-2">
+                    {nuevo_incluye_desayuno == null && (
+                      <>
+                        {Boolean(
+                          form.hotel.content?.tipos_cuartos.find(
+                            (item) =>
+                              item.nombre_tipo_cuarto === form.habitacion
+                          )?.incluye_desayuno
+                        ) ? (
+                          <p className="text-green-800 p-1  px-3 rounded-full bg-green-200 w-fit border border-green-300">
+                            Incluye desayuno
+                          </p>
+                        ) : (
+                          <p className="text-red-800 p-1 px-3 rounded-full bg-red-200 w-fit border border-red-300">
+                            No incluye desayuno
+                          </p>
+                        )}
+                      </>
+                    )}
+
+                    {nuevo_incluye_desayuno == null ? (
+                      <>
+                        <CheckboxInput
+                          checked={nuevo_incluye_desayuno}
+                          label="Sobre escribir manualmente el desayuno"
+                          onChange={(value) => {
+                            setNuevoIncluyeDesayuno(
+                              !form.hotel.content?.tipos_cuartos.find(
+                                (item) =>
+                                  item.nombre_tipo_cuarto === form.habitacion
+                              )?.incluye_desayuno
+                            );
+                          }}
+                        />
+                        <p className="text-gray-800 p-1  px-3 rounded-full bg-gray-200 w-fit border border-gray-300">
+                          Al guardar la reserva el valor se quedara al del hotel
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <CheckboxInput
+                          checked={nuevo_incluye_desayuno}
+                          label="incluye desayuno"
+                          onChange={(value) => {
+                            setNuevoIncluyeDesayuno(value);
+                          }}
+                        />
+                        {nuevo_incluye_desayuno ? (
+                          <p className="text-green-800 p-1  px-3 rounded-full bg-green-200 w-fit border border-green-300">
+                            Incluira desayuno al guardar aun si el hotel dice
+                            que no incluye
+                          </p>
+                        ) : (
+                          <p className="text-red-800 p-1 px-3 rounded-full bg-red-200 w-fit border border-red-300">
+                            No incluira el desayuno en el hotel aun si en el
+                            hotel dice que lo incluye
+                          </p>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
