@@ -1,6 +1,7 @@
+import { FullHotelData } from "@/app/dashboard/hoteles/_components/hotel-dialog";
 import { Hotel } from "@/types";
 import { Viajero } from "@/types";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 export const Dropdown = ({
@@ -29,8 +30,10 @@ export const Dropdown = ({
         {options.length > 0 ? (
           options.map((option) => {
             // Handle both string and object options
-            const optionValue = typeof option === 'string' ? option : option.value;
-            const optionLabel = typeof option === 'string' ? option : option.label;
+            const optionValue =
+              typeof option === "string" ? option : option.value;
+            const optionLabel =
+              typeof option === "string" ? option : option.label;
             return (
               <option key={optionValue} value={optionValue}>
                 {optionLabel}
@@ -53,7 +56,7 @@ export const DateInput = ({
   label,
   value,
   onChange,
-  disabled
+  disabled,
 }: {
   label: string;
   value: string;
@@ -181,7 +184,10 @@ export const TextAreaInput = ({
   </div>
 );
 // Utilidad para soportar opciones como objetos { name, ... }
-export type ComboBoxOption = { name: string; content: Hotel | Viajero };
+export type ComboBoxOption = {
+  name: string;
+  content: Hotel | Viajero | FullHotelData;
+};
 
 // Si quieres que el ComboBox soporte objetos, cambia la definición así:
 export const ComboBox = ({
@@ -192,6 +198,7 @@ export const ComboBox = ({
   sublabel,
   placeholderOption = "Selecciona una opción",
   disabled = false,
+  onDelete,
 }: {
   label?: string;
   sublabel?: string;
@@ -200,6 +207,7 @@ export const ComboBox = ({
   options?: ComboBoxOption[];
   placeholderOption?: string;
   disabled?: boolean;
+  onDelete?: () => void;
 }) => {
   const [inputValue, setInputValue] = useState(value?.name || "");
   const [isOpen, setIsOpen] = useState(false);
@@ -249,7 +257,7 @@ export const ComboBox = ({
           </span>{" "}
         </label>
       )}
-      <div className="relative">
+      <div className="relative flex gap-2">
         <input
           type="text"
           disabled={disabled}
@@ -277,6 +285,11 @@ export const ComboBox = ({
               </li>
             ))}
           </ul>
+        )}
+        {onDelete && (
+          <button onClick={onDelete} type="button">
+            <X className="w-4 h-4"></X>
+          </button>
         )}
       </div>
     </div>
@@ -381,9 +394,10 @@ export const CheckboxInput = ({
             ${checked ? "bg-green-500" : "bg-gray-300"} 
             /* Estilo de foco para el riel cuando el input interno está enfocado */
             focus-within:ring-2 focus-within:ring-offset-2 
-            ${disabled
-              ? "focus-within:ring-transparent"
-              : "focus-within:ring-green-400 dark:focus-within:ring-green-600"
+            ${
+              disabled
+                ? "focus-within:ring-transparent"
+                : "focus-within:ring-green-400 dark:focus-within:ring-green-600"
             }
           `}
         >
@@ -424,9 +438,10 @@ export const CheckboxInput = ({
             }}
             className={`
               ml-3 text-sm font-medium select-none
-              ${disabled
-                ? "text-gray-400 cursor-not-allowed"
-                : "text-gray-900 dark:text-gray-100 cursor-pointer"
+              ${
+                disabled
+                  ? "text-gray-400 cursor-not-allowed"
+                  : "text-gray-900 dark:text-gray-100 cursor-pointer"
               }
             `}
           >

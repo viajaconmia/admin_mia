@@ -10,6 +10,7 @@ import { FileText, Lock, Eye, EyeOff } from "lucide-react";
 import { calcularNoches } from "@/helpers/utils";
 import { fetchHotelesFiltro_Avanzado } from "@/services/hoteles";
 import { FullHotelData } from "../dashboard/hoteles/_components/hotel-table";
+import { ComboBox } from "@/components/atom/Input";
 
 // Tipos
 interface CouponData {
@@ -296,31 +297,29 @@ const CouponForm: React.FC<{
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
             {/* <label htmlFor="">Selecciona el hotel</label> */}
-            <select
-              name="hotel"
-              onChange={(e) => {
-                setHotelSelected(e.target.value);
-                const hotel = hoteles.filter(
-                  (hotel) => hotel.id_hotel == e.target.value
-                )[0];
+            <ComboBox
+              value={
+                hoteles
+                  .filter((hotel) => hotel.id_hotel == hotelSelected)
+                  .map((hotel) => ({
+                    name: hotel.nombre,
+                    content: hotel as FullHotelData,
+                  }))[0]
+              }
+              onChange={(value) => {
+                setHotelSelected(value.content.id_hotel);
                 onDataChange({
                   ...data,
-                  direccion: hotel.direccion,
-                  hotel: hotel.nombre,
-                  desayuno: hotel.DesayunoIncluido,
+                  direccion: value.content.direccion,
+                  hotel: value.content.nombre,
+                  desayuno: value.content.DesayunoIncluido,
                 });
               }}
-              className="w-full border border-gray-300 p-2 rounded-md"
-            >
-              <option value="">Selecciona hotel</option>
-              {hoteles.map((hotel) => (
-                <>
-                  <option value={hotel.id_hotel}>{`${hotel.nombre || ""} - ${
-                    hotel.Ciudad_Zona || ""
-                  }`}</option>
-                </>
-              ))}
-            </select>
+              options={hoteles.map((hotel) => ({
+                name: hotel.nombre,
+                content: hotel,
+              }))}
+            ></ComboBox>
           </div>
           {/* Hotel */}
           <div>
