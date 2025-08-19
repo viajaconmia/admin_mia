@@ -766,7 +766,7 @@ const TablaPagosVisualizacion = () => {
       let saldos2 = saldos.length > 1 ? saldos3 : saldos
       console.log("seleccionado", saldos2)
       let rawIds = rawIds2.length == 0
-        ? row.raw_id
+        ? [row.raw_id]
         : rawIds2;
 
       let monto = totalSaldoSeleccionado === 0
@@ -989,10 +989,13 @@ const TablaPagosVisualizacion = () => {
         )}
       </div>
 
-      {/* Modal de detalles */}
       <ModalDetallePago
         pago={pagoSeleccionado}
-        onClose={() => setPagoSeleccionado(null)}
+        onClose={() => {
+          setPagoSeleccionado(null);
+          obtenerPagos();
+          obtenerBalance();
+        }}
       />
       {/* Modal para SubirFactura */}
       {showSubirFactura && (
@@ -1014,6 +1017,7 @@ const TablaPagosVisualizacion = () => {
                 onSuccess={() => {
                   setShowSubirFactura(false);
                   obtenerPagos();
+                  obtenerBalance();
                   // Aquí puedes añadir lógica adicional después de subir la factura
                 }}
               />
@@ -1025,7 +1029,11 @@ const TablaPagosVisualizacion = () => {
       {showFacturasModal && (
         <ModalFacturasAsociadas
           facturas={facturasAsociadas}
-          onClose={() => setShowFacturasModal(false)}
+          onClose={() => {
+            setShowFacturasModal(false)
+            obtenerPagos();
+            obtenerBalance();
+          }}
         />
       )}
 
@@ -1041,6 +1049,8 @@ const TablaPagosVisualizacion = () => {
                 onClick={() => {
                   setShowBillingPage(false);
                   setBatchBilling(null);
+                  obtenerPagos();
+                  obtenerBalance();
                 }}
                 className="text-gray-500 hover:text-gray-700"
               >
@@ -1079,7 +1089,11 @@ const TablaPagosVisualizacion = () => {
                 Asignar factura a {seleccionados.length} pagos seleccionados
               </h2>
               <button
-                onClick={() => setShowBatchSubirFactura(false)}
+                onClick={() => {
+                  setShowBatchSubirFactura(false)
+                  obtenerPagos();
+                  obtenerBalance();
+                }}
                 className="text-gray-500 hover:text-gray-700"
               >
                 <X className="w-6 h-6" />
@@ -1091,6 +1105,7 @@ const TablaPagosVisualizacion = () => {
                 onSuccess={() => {
                   setShowBatchSubirFactura(false);
                   obtenerPagos();
+                  obtenerBalance();
                   setSeleccionados([]); // Limpiar selección después de asignar
                 }}
                 isBatch={true} // Puedes usar esto para modificar el comportamiento si es necesario
