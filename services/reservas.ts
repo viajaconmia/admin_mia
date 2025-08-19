@@ -1,8 +1,11 @@
-import { EdicionForm, ReservaForm } from "@/types";
+import { EdicionForm, ReservaForm, Viajero } from "@/types";
 import { URL, API_KEY } from "@/lib/constants";
 
 export async function updateReserva(
-  reserva: EdicionForm & { nuevo_incluye_desayuno: boolean | null },
+  reserva: EdicionForm & {
+    nuevo_incluye_desayuno: boolean | null;
+    acompanantes: Viajero[];
+  },
   id_booking: string,
   callback: (data: any) => void
 ) {
@@ -82,7 +85,10 @@ export async function fetchCreateReserva(reserva) {
 }
 
 export async function fetchCreateReservaFromSolicitud(
-  reserva: ReservaForm & { nuevo_incluye_desayuno: boolean | null },
+  reserva: ReservaForm & {
+    nuevo_incluye_desayuno: boolean | null;
+    acompanantes: Viajero[];
+  },
   callback: (data: any) => void
 ) {
   try {

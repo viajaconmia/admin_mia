@@ -377,7 +377,7 @@ export function ReservationForm2({
     if (edicion) {
       console.log({ ...edicionForm, flag: cambiarHotel });
       updateReserva(
-        { ...edicionForm, nuevo_incluye_desayuno },
+        { ...edicionForm, nuevo_incluye_desayuno, acompanantes },
         solicitud.id_booking,
         (data) => {
           if (data.error) {
@@ -393,7 +393,7 @@ export function ReservationForm2({
       );
     } else if (create) {
       fetchCreateReservaOperaciones(
-        { ...form, nuevo_incluye_desayuno },
+        { ...form, nuevo_incluye_desayuno, acompanantes },
         (data) => {
           console.log(data);
           if (data.error) {
@@ -408,7 +408,7 @@ export function ReservationForm2({
       );
     } else {
       fetchCreateReservaFromSolicitud(
-        { ...form, nuevo_incluye_desayuno },
+        { ...form, nuevo_incluye_desayuno, acompanantes },
         (data) => {
           if (data.error) {
             alert("Error al crear la reserva");
@@ -455,15 +455,6 @@ export function ReservationForm2({
 
         <TabsContent value="cliente" className="space-y-4">
           <div className="grid md:grid-cols-2 gap-4">
-            {solicitud.metodo_pago_dinamico == "Contado" && (
-              <div className="col-span-2">
-                <CheckboxInput
-                  checked={cambiarHotel}
-                  label="Editar solo el hotel?"
-                  onChange={(value) => setCambiarHotel(value)}
-                />
-              </div>
-            )}
             <div className="space-y-2">
               <ComboBox
                 label={`Hotel`}
@@ -802,12 +793,16 @@ export function ReservationForm2({
                 {acompanantes.map((acompanante, index) => {
                   return (
                     <ComboBox
-                      label={`Acompañantes`}
-                      sublabel=""
-                      onDelete={()=>}
+                      label={`Acompañante - ${index + 1}`}
+                      onDelete={() => {
+                        const newAcompanantes = [...acompanantes].toSpliced(
+                          index,
+                          1
+                        );
+                        console.log(newAcompanantes);
+                        setAcompanantes(newAcompanantes);
+                      }}
                       onChange={(value) => {
-                        console.log(value);
-                        console.log("acompanante, fr", acompanante);
                         const newAcompanantesList = [...acompanantes];
                         newAcompanantesList[index] = value.content as Viajero;
                         setAcompanantes(newAcompanantesList);
@@ -845,8 +840,6 @@ export function ReservationForm2({
                             traveler.id_viajero != form.viajero.id_viajero
                         );
                         const nuevoArray = [...acompanantes, filtrados[0]];
-                        console.log("NUEVO ARRAY", acompanantes, form.viajero);
-                        console.log("NUEVO ARRAY", nuevoArray);
                         setAcompanantes(nuevoArray);
                       }}
                     >

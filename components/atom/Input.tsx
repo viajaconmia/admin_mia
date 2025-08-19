@@ -250,44 +250,51 @@ export const ComboBox = ({
     <div className="flex flex-col space-y-1" ref={containerRef}>
       {label && (
         <label className="text-sm text-gray-900 font-medium line-clamp-1">
-          {label}{" "}
-          <span className="text-gray-500 text-xs">
-            {" "}
-            - {sublabel.toLowerCase()}
-          </span>{" "}
+          {label}
+          {sublabel && (
+            <span className="text-gray-500 text-xs">
+              {` - ${sublabel.toLowerCase()}`}
+            </span>
+          )}
         </label>
       )}
       <div className="relative flex gap-2">
-        <input
-          type="text"
-          disabled={disabled}
-          value={inputValue}
-          placeholder={placeholderOption}
-          onFocus={() => setIsOpen(true)}
-          onChange={(e) => {
-            setInputValue(e.target.value);
-            setIsOpen(true);
-          }}
-          className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-        />
-        <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-          <ChevronDown size={18} className="text-gray-500" />
+        <div className="flex-1 relative">
+          <input
+            type="text"
+            disabled={disabled}
+            value={inputValue}
+            placeholder={placeholderOption}
+            onFocus={() => setIsOpen(true)}
+            onChange={(e) => {
+              setInputValue(e.target.value);
+              setIsOpen(true);
+            }}
+            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          />
+          <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+            <ChevronDown size={18} className="text-gray-500" />
+          </div>
+          {isOpen && filteredOptions.length > 0 && (
+            <ul className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow max-h-60 overflow-y-auto text-sm">
+              {filteredOptions.map((option, index) => (
+                <li
+                  key={option.name + index}
+                  onClick={() => handleSelect(option)}
+                  className="px-3 py-2 cursor-pointer hover:bg-blue-100"
+                >
+                  {option.name}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
-        {isOpen && filteredOptions.length > 0 && (
-          <ul className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow max-h-60 overflow-y-auto text-sm">
-            {filteredOptions.map((option, index) => (
-              <li
-                key={option.name + index}
-                onClick={() => handleSelect(option)}
-                className="px-3 py-2 cursor-pointer hover:bg-blue-100"
-              >
-                {option.name}
-              </li>
-            ))}
-          </ul>
-        )}
         {onDelete && (
-          <button onClick={onDelete} type="button">
+          <button
+            onClick={onDelete}
+            type="button"
+            className="bg-gray-100 rounded-sm border border-gray-300 shadow-sm w-9 flex justify-center items-center"
+          >
             <X className="w-4 h-4"></X>
           </button>
         )}
