@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { generarFacturaPDF } from "./parsePdf";
 import { obtenerPresignedUrl, subirArchivoAS3 } from "@/helpers/utils";
+import { Console } from 'console';
 
 interface VistaPreviaProps {
   facturaData: any;
@@ -23,7 +24,7 @@ export default function VistaPreviaModal({
   const [showPdf, setShowPdf] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
-
+  const [facturar, setFacturar] = useState<number>(0);
   console.log("factura", facturaData)
   console.log("pagos", pagoData)
 
@@ -32,10 +33,11 @@ export default function VistaPreviaModal({
   useEffect(() => {
     // Validación del monto cuando tenemos ambos datos
     if (pagoData && facturaData) {
-      console.log("pagodara", pagoData.monto)
-      const montoPorFacturar = Number(pagoData.monto) || 0;
+      const montoPorFacturar = (pagoData.monto||pagoData.monto_por_facturar);
+      setFacturar(montoPorFacturar);
+      console.log("facturar",facturar);
       const totalFactura = parseFloat(facturaData.comprobante.total);
-      console.log("montoPorFacturar", pagoData.montoporfacturar, "totalFactura", totalFactura)
+      console.log("montoPorFacturar", montoPorFacturar, "totalFactura", totalFactura)
       if (montoPorFacturar >= totalFactura) {
 
         console.log("Payload para pago completo:", montoPorFacturar - totalFactura);
@@ -156,7 +158,6 @@ export default function VistaPreviaModal({
       minute: '2-digit'
     });
   };
-
   return (
     <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
       <div className="bg-white p-6 rounded shadow-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -182,6 +183,43 @@ export default function VistaPreviaModal({
           </button>
         </div>
 
+        {/* Nuevo bloque para mostrar información de pago */}
+        {pagoData?.monto != null && (
+          <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <h3 className="font-bold text-yellow-800 mb-2">Información de Pago</h3>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <p className="text-sm">Saldo disponible:</p>
+                <p className="font-semibold">{(facturar)}</p>
+              </div>
+              <div>
+                <p className="text-sm">Monto de la factura:</p>
+                <p className="font-semibold">{formatCurrency(facturaData.comprobante.total)}</p>
+              </div>
+            </div>
+
+            {(() => {
+              const saldo = (facturar);
+              const totalFactura = parseFloat(facturaData.comprobante.total);
+              const diferencia = saldo - totalFactura;
+
+              return (
+                <div className={`mt-2 p-2 rounded ${diferencia < 0 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                  {diferencia >= 0 ? (
+                    <p className="font-semibold">
+                      Saldo restante después de esta factura: {formatCurrency(diferencia.toString())}
+                    </p>
+                  ) : (
+                    <p className="font-semibold">
+                      Saldo insuficiente. Faltan {formatCurrency(Math.abs(diferencia).toString())}.
+                      Deberá elegir otros saldos para completar el pago.
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        )}
         {showPdf ? (
           pdfObjectUrl ? (
             <iframe

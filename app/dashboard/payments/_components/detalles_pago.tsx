@@ -1,9 +1,11 @@
+// components/ModalDetallePago.tsx
 'use client';
 
 import React from 'react';
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { X } from 'lucide-react';
+import { X, Copy, Check } from 'lucide-react';
+import { formatNumberWithCommas } from "@/helpers/utils";
 
 interface Pago {
   id_movimiento?: number;
@@ -16,6 +18,7 @@ interface Pago {
   fecha_creacion?: string;
   monto?: number | string;
   saldo?: number | string;
+  saldo_numero?: number;
   banco?: string;
   last_digits?: string;
   is_facturado?: number;
@@ -39,6 +42,20 @@ interface ModalDetallePagoProps {
 
 const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) => {
   if (!pago) return null;
+
+  const [copiedFacturaIdx, setCopiedFacturaIdx] = React.useState<number | null>(null);
+
+  const handleCopy = async (text: string, idx?: number) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      if (typeof idx === 'number') {
+        setCopiedFacturaIdx(idx);
+        setTimeout(() => setCopiedFacturaIdx(null), 1500);
+      }
+    } catch (e) {
+      console.error('No se pudo copiar:', e);
+    }
+  };
 
   const formatCurrency = (value: number | string | undefined): string => {
     const numValue = typeof value === 'string' ? parseFloat(value) : value || 0;
@@ -84,15 +101,11 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
     }
   };
 
-  const getEstadoPago = (): string => {
-    const saldo = typeof pago.saldo === 'string' ? parseFloat(pago.saldo) : pago.saldo || 0;
-    return saldo === 0 ? 'Pagado' : 'Pendiente';
-  };
+
 
   const getTipoTarjeta = (): string => {
     const tipo = pago.tipo;
     if (!tipo) return 'N/A';
-
     switch (tipo.toLowerCase()) {
       case 'visa': return 'Visa';
       case 'mastercard': return 'Mastercard';
@@ -107,36 +120,70 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
     return pago.is_facturado === 1 ? 'Facturado' : 'No facturado';
   };
 
+  // Función para extraer solo los IDs de factura del string completo
+  const extractFacturaIds = (facturasData: any): string[] => {
+    if (!facturasData) return [];
+
+    // Si ya es un array de strings con solo IDs, devolverlo directamente
+    if (Array.isArray(facturasData) && facturasData.every(id => typeof id === 'string' && id.startsWith('fac-'))) {
+      return facturasData;
+    }
+
+    // Si es un string con el formato completo, procesarlo
+    if (typeof facturasData === 'string') {
+      // Unir todo en un string y separar por ||
+      const combined = facturasData.split('||').map(s => s.trim());
+      return combined.map(item => {
+        const match = item.match(/Id factura: (fac-[a-f0-9-]+)/i);
+        return match ? match[1] : null;
+      }).filter(Boolean) as string[];
+    }
+
+    // Si es un array de strings con el formato completo
+    if (Array.isArray(facturasData)) {
+      return facturasData.flatMap(item => {
+        if (typeof item === 'string') {
+          const match = item.match(/Id factura: (fac-[a-f0-9-]+)/i);
+          return match ? [match[1]] : [];
+        }
+        return [];
+      });
+    }
+
+    return [];
+  };
+
+  // Extraer solo los IDs de factura
+  const facturaIds = React.useMemo(() => extractFacturaIds(pago.facturas_asociadas), [pago.facturas_asociadas]);
+
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-        {/* Encabezado del modal */}
+        {/* Header */}
         <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
-          <h2 className="text-xl font-bold text-gray-800">Detalles del Pago de</h2>
-          <p >
-            {pago.nombre_agente || 'N/A'}
-          </p>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700"
-          >
+          <div className="flex items-baseline gap-2">
+            <h2 className="text-xl font-bold text-gray-800">Detalles del Pago de</h2>
+            <p className="text-gray-700 font-medium">{pago.nombre_agente || 'N/A'}</p>
+          </div>
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
             <X className="w-6 h-6" />
           </button>
         </div>
 
-        {/* Contenido del modal */}
+        {/* Body */}
         <div className="p-6">
-          {/* Sección de información básica */}
+          {/* Info básica */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <div className="space-y-4">
               <div>
                 <h3 className="text-sm font-medium text-gray-500">ID del agente</h3>
                 <div className="mt-1 flex items-center gap-2">
                   <p className="text-sm font-mono bg-gray-100 px-3 py-1 rounded">
-                    {pago.id_agente || 'N/A'}
+                    {formatIdItem(pago.id_agente)}
                   </p>
                   <button
-                    onClick={() => navigator.clipboard.writeText(pago.id_agente || '')}
+                    onClick={() => handleCopy(pago.id_agente || '')}
                     className="text-blue-600 text-xs border border-blue-100 bg-blue-50 hover:bg-blue-100 rounded px-2 py-1"
                   >
                     Copiar
@@ -145,13 +192,13 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
               </div>
 
               <div>
-                <h3 className="text-sm font-medium text-gray-500">ID de Pago</h3>
+                <h3 className="text-sm font-medium text-gray-500">ID de Movimiento</h3>
                 <div className="mt-1 flex items-center gap-2">
                   <p className="text-sm font-mono bg-gray-100 px-3 py-1 rounded">
                     {formatIdItem(pago.raw_id)}
                   </p>
                   <button
-                    onClick={() => navigator.clipboard.writeText(pago.raw_id || '')}
+                    onClick={() => handleCopy(pago.raw_id || '')}
                     className="text-blue-600 text-xs border border-blue-100 bg-blue-50 hover:bg-blue-100 rounded px-2 py-1"
                   >
                     Copiar
@@ -181,24 +228,34 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
                 <p className="mt-1 text-sm capitalize text-gray-800">{getMetodoPago()}</p>
               </div>
 
-              <div>
-                <h3 className="text-sm font-medium text-gray-500">Estado</h3>
-                <p className={`mt-1 text-xs px-2 py-1 rounded-full font-semibold inline-block 
-                  ${getEstadoPago() === 'Pagado'
-                    ? 'bg-green-100 text-green-700 border border-green-300'
-                    : 'bg-yellow-100 text-yellow-800 border border-yellow-300'}`}>
-                  {getEstadoPago()}
-                </p>
-              </div>
 
               <div>
-                <h3 className="text-sm font-medium text-gray-500">Facturado</h3>
-                <p className={`mt-1 text-xs px-2 py-1 rounded-full font-semibold inline-block 
-                  ${pago.is_facturado === 1
-                    ? 'bg-blue-100 text-blue-700 border border-blue-300'
-                    : 'bg-gray-100 text-gray-700 border border-gray-300'}`}>
-                  {getFacturadoStatus()}
-                </p>
+                <h3 className="text-sm font-medium text-gray-500">Estado de Facturación</h3>
+                {(() => {
+                  const isFacturado = pago.is_facturado === 1;
+                  const saldoPorFacturar = Number(pago.monto_por_facturar) || 0;
+                  const montoTotal = Number(pago.monto) || 0;
+
+                  let className = '';
+                  let texto = '';
+
+                  if (isFacturado || saldoPorFacturar <= 0) {
+                    className = 'bg-green-100 text-green-800 border-green-300';
+                    texto = 'Facturado';
+                  } else if (saldoPorFacturar === montoTotal) {
+                    className = 'bg-gray-100 text-gray-800 border-gray-300';
+                    texto = 'No facturado';
+                  } else {
+                    className = 'bg-yellow-100 text-yellow-800 border-yellow-300';
+                    texto = 'Parcial';
+                  }
+
+                  return (
+                    <p className={`mt-1 text-xs px-2 py-1 rounded-full font-semibold inline-block border ${className}`}>
+                      {texto}
+                    </p>
+                  );
+                })()}
               </div>
 
               <div>
@@ -213,22 +270,21 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
             </div>
           </div>
 
-          {/* Sección de montos */}
+          {/* Montos */}
           <div className="border-t border-b border-gray-200 py-6 mb-6">
             <h3 className="text-lg font-semibold mb-4 text-blue-800">Resumen de Montos</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-blue-50 p-4 rounded-lg shadow-sm border border-blue-100">
-                <h4 className="text-sm font-semibold text-blue-700">Total</h4>
+                <h4 className="text-sm font-semibold text-blue-700">Total de pago</h4>
                 <p className="text-2xl font-bold text-blue-800">
-                  {formatCurrency(pago.monto)}
+                  {formatNumberWithCommas(pago.monto)}
                 </p>
               </div>
 
-              <div className="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200">
-                <h4 className="text-sm font-medium text-gray-500">Saldo</h4>
-                <p className={`text-xl font-semibold ${(typeof pago.saldo === 'number' ? pago.saldo : parseFloat(pago.saldo || '0')) > 0
-                  ? 'text-red-600' : 'text-green-600'}`}>
-                  {formatCurrency(pago.saldo)}
+              <div className="bg-blue-50 p-4 rounded-lg shadow-sm border border-blue-100">
+                <h4 className="text-sm font-semibold text-blue-700">Monto por facturar</h4>
+                <p className="text-2xl font-bold text-blue-800">
+                  {formatNumberWithCommas(pago.monto_por_facturar)}
                 </p>
               </div>
 
@@ -241,7 +297,8 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
             </div>
           </div>
 
-          {/* Sección de información del agente */}
+
+          {/* Info agente */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-purple-800 mb-4">Información del Agente</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -261,7 +318,7 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
             </div>
           </div>
 
-          {/* Sección de detalles específicos del método de pago */}
+          {/* Info tarjeta */}
           {(pago.metodo?.includes('tarjeta') || pago.tipo_pago?.includes('tarjeta')) && (
             <div className="mb-6">
               <h3 className="text-lg font-semibold text-purple-800 mb-4">Información de Tarjeta</h3>
@@ -290,13 +347,21 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
                 <div className="bg-purple-50 border border-purple-100 p-4 rounded-lg shadow-sm">
                   <h4 className="text-sm font-medium text-purple-700">Autorización</h4>
                   <p className="mt-1 text-sm font-mono text-purple-900">
-                    {pago.autorizacion || 'N/A'}
+                    {formatIdItem(pago.autorizacion)}
                   </p>
+                  <button
+                    onClick={() => handleCopy(pago.autorizacion)}
+                    className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 active:scale-[.99]"
+                    title="Copiar ID de factura"
+                    type="button"
+                  >Copiar
+                  </button>
                 </div>
               </div>
             </div>
           )}
 
+          {/* Info SPEI */}
           {pago.metodo === 'spei' && (
             <div className="mb-6">
               <h3 className="text-lg font-semibold text-indigo-800 mb-4">Información de Transferencia SPEI</h3>
@@ -306,6 +371,7 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
                   <p className="mt-1 text-sm font-semibold text-indigo-900">
                     {pago.referencia || 'N/A'}
                   </p>
+
                 </div>
 
                 <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-lg shadow-sm">
@@ -318,48 +384,38 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
             </div>
           )}
 
-          {/* Sección de información adicional */}
+          {/* Facturas asociadas: mostrar solo IDs */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Información Adicional</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <h4 className="text-sm font-medium text-gray-500">Link de Pago</h4>
-                {pago.link_pago ? (
-                  <a
-                    href={pago.link_pago}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline text-sm break-all"
-                  >
-                    {pago.link_pago.length > 30
-                      ? `${pago.link_pago.substring(0, 30)}...`
-                      : pago.link_pago}
-                  </a>
-                ) : (
-                  <p className="mt-1 text-sm text-gray-500">N/A</p>
-                )}
+            <h3 className="text-lg font-semibold mb-4">Facturas Asociadas</h3>
+            {facturaIds.length > 0 ? (
+              <div className="space-y-2">
+                {facturaIds.map((facturaId, idx) => {
+                  const isCopied = copiedFacturaIdx === idx;
+                  return (
+                    <div key={`${facturaId}-${idx}`} className="flex items-center justify-between gap-3 border border-gray-200 rounded-md px-3 py-2">
+                      <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded break-all">
+                        {facturaId}
+                      </span>
+                      <button
+                        onClick={() => handleCopy(facturaId, idx)}
+                        className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 active:scale-[.99]"
+                        title="Copiar ID de factura"
+                        type="button"
+                      >
+                        {isCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                        {isCopied ? 'Copiado' : 'Copiar'}
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
-
-              <div>
-                <h4 className="text-sm font-medium text-gray-500">Facturas Asociadas</h4>
-                {pago.facturas_asociadas ? (
-                  <a
-                    href={pago.facturas_asociadas}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-green-600 hover:underline text-sm"
-                  >
-                    Ver factura
-                  </a>
-                ) : (
-                  <p className="mt-1 text-sm text-gray-500">N/A</p>
-                )}
-              </div>
-            </div>
+            ) : (
+              <p className="mt-1 text-sm text-gray-500">No hay facturas asociadas</p>
+            )}
           </div>
         </div>
 
-        {/* Pie del modal */}
+        {/* Footer */}
         <div className="sticky bottom-0 bg-white border-t p-4 flex justify-end">
           <button
             onClick={onClose}

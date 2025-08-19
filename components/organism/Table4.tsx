@@ -56,6 +56,11 @@ export const Table4 = <T,>({
     setVisibleColumns(new Set(columnKeys));
   };
 
+  const shouldWrap = (value: any) => {
+    if (typeof value !== 'string') return false;
+    return value.length > 14;
+  };
+
   const hideAllColumns = () => {
     setVisibleColumns(new Set());
   };
@@ -157,7 +162,10 @@ export const Table4 = <T,>({
       {loading && <Loader />}
       {displayData.length > 0 && !loading ? (
         <div className="overflow-x-auto border border-gray-200 rounded-xl shadow-sm flex-1 min-h-0">
-          <table className="min-w-full divide-y divide-gray-200 text-sm h-full">
+          <table
+            className="min-w-full divide-y divide-gray-200 text-sm h-full"
+            style={{ tableLayout: 'auto' }} // <--- alto dinámico
+          >
             <thead className="sticky top-0 z-10 bg-white shadow-sm">
               <tr>
                 {columnKeys
@@ -168,6 +176,7 @@ export const Table4 = <T,>({
                       scope="col"
                       onClick={() => handleSort(key)}
                       className="px-4 py-3 text-xs font-bold text-gray-700 uppercase tracking-wide whitespace-nowrap cursor-pointer"
+                      style={{ width: '200px' }} // Ajusta según necesites
                     >
                       <span className="flex items-center gap-2">
                         {key === currentSort.key && (
@@ -196,10 +205,25 @@ export const Table4 = <T,>({
                           return (
                             <td
                               key={`${index}-${colKey}`}
-                              className="px-4 py-2 whitespace-nowrap text-xs text-gray-800"
+                              className={`px-4 py-2 align-top text-xs text-gray-800 ${shouldWrap(value)
+                                ? 'whitespace-normal break-words'
+                                : 'whitespace-nowrap'
+                                }`}
+                              style={{
+                                maxWidth: shouldWrap(value) ? '300px' : 'auto', // limita el ancho si es largo
+                                lineHeight: '1.4em', // mejora lectura
+                              }}
+                              title={
+                                typeof value === 'string' && value.length > 50 ? value : undefined
+                              }
                             >
-                              {Renderer ? <Renderer value={value} item={item.detalles} /> : String(value ?? "")}
+                              {Renderer ? (
+                                <Renderer value={value} item={item.detalles} />
+                              ) : (
+                                String(value ?? '')
+                              )}
                             </td>
+
                           );
                         })}
                     </tr>
