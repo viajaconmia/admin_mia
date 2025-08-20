@@ -1079,12 +1079,21 @@ export function ReservationForm2({
         </TabsContent> */}
       </Tabs>
       <DialogFooter className="flex justify-between w-fullborder">
-        <p className="text-md font-semibold p-2 bg-gray-300 rounded-full border text-gray-800">
-          Precio inicial: ${solicitud.total}
-        </p>
-        <p className="text-md font-semibold p-2 bg-green-300 rounded-full border text-green-800">
-          Precio actual: ${form.venta.total.toFixed(2)}
-        </p>
+        {!edicionForm.venta?.current?.total ? (
+          <>
+            <p>El precio de la reserva no ha sido actualizada</p>
+          </>
+        ) : (
+          <>
+            <p className="text-md font-semibold p-2 bg-gray-300 rounded-full border text-gray-800">
+              Precio inicial: ${solicitud.total}
+            </p>
+            <p className="text-md font-semibold p-2 bg-green-300 rounded-full border text-green-800">
+              Precio actual:
+              {`$${edicionForm.venta.current.total.toFixed(2)}`}
+            </p>
+          </>
+        )}
         <Button disabled={!!loading} type="submit">
           Actualizar Reserva
         </Button>
