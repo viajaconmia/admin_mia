@@ -1712,7 +1712,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
         setIsStripeLinked(false);
         return;
       }
-
+      console.log("fetch", chargeId)
       const response = await fetch(
         `${URL}/mia/saldo/stripe-info?chargeId=${chargeId}`,
         {
@@ -1724,6 +1724,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
       );
 
       if (!response.ok) {
+        const data = await response.json();
+        console.log("error", data);
         throw new Error(`Error ${response.status}: ${response.statusText}`);
       }
 

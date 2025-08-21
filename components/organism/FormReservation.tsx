@@ -1,6 +1,6 @@
 import React, { useState, useEffect, FormEvent } from "react";
 import { differenceInDays, parseISO, set } from "date-fns";
-import { Button } from "@/components/ui/button";
+import Button from "@/components/atom/Button";
 import { Label } from "@/components/ui/label";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -17,12 +17,115 @@ import {
   DropdownValues,
   NumberInput,
   TextInput,
+
 } from "@/components/atom/Input";
 import { fetchViajerosFromAgent } from "@/services/viajeros";
 import { Hotel, Solicitud, ReservaForm, Viajero, EdicionForm } from "@/types";
 import { Table } from "../Table";
 import { formatNumberWithCommas, getEstatus } from "@/helpers/utils";
 import { updateRoom } from "@/lib/utils";
+import { CreditCard, CheckCircle2, BadgeDollarSign, Wallet } from "lucide-react";
+import { InputRadio } from "@/components/atom/Input";
+
+// Definir tipos para métodos de pago
+type MetodoPago = "wallet" | "credito";
+
+interface MetodoPagoInfo {
+  id: MetodoPago;
+  label: string;
+  icon: React.ElementType;
+  color: string;
+  description: string;
+}
+
+const metodos_pago: MetodoPagoInfo[] = [
+  {
+    id: "wallet",
+    label: "Wallet",
+    icon: Wallet,
+    color: "bg-green",
+    description: "Saldo a favor disponible",
+  },
+  {
+    id: "credito",
+    label: "Credito",
+    icon: BadgeDollarSign,
+    color: "bg-yellow",
+    description: "Credito disponible",
+  },
+];
+
+interface PaymentTerminalProps {
+  total: number;
+  onConfirmPayment: () => void;
+}
+
+const PaymentTerminal: React.FC<PaymentTerminalProps> = ({
+  total,
+  onConfirmPayment,
+}) => {
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<MetodoPago | null>(null);
+
+  const handleConfirmPayment = () => {
+    if (selectedPaymentMethod) {
+      onConfirmPayment();
+    }
+  };
+
+  const metodosPagoJSX = metodos_pago.map((metodo) => (
+    <InputRadio
+      key={metodo.id}
+      item={metodo}
+      name="metodo_pago"
+      onChange={() => setSelectedPaymentMethod(metodo.id)}
+      selectedItem={selectedPaymentMethod}
+      disabled={false}
+    />
+  ));
+
+  return (
+    <div className="bg-white rounded-t-lg p-4 shadow-xl border border-gray-300 sticky bottom-0 z-10 mt-6">
+      <div className="flex justify-between items-center text-2xl font-bold mb-4">
+        <span>Total:</span>
+        <span className="text-sky-700">${total.toFixed(2)}</span>
+      </div>
+
+      <div className="w-full">
+        <div className="grid grid-cols-2 gap-3">
+          {metodos_pago.map((metodo) => {
+            const isSelected = selectedPaymentMethod === metodo.id;
+            const selectedClass = isSelected ? 'ring-2 ring-offset-2 ring-blue-500' : '';
+
+            return (
+              <div
+                key={metodo.id}
+                className={`flex flex-col items-center justify-center p-3 border rounded-lg cursor-pointer transition-all ${metodo.color} ${selectedClass}`}
+                onClick={() => setSelectedPaymentMethod(metodo.id)}
+              >
+                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-white/80 mb-2">
+                  <metodo.icon size={20} />
+                </div>
+                <span className="text-sm font-medium text-center">{metodo.label}</span>
+                <span className="text-xs text-center mt-1 opacity-80">{metodo.description}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div className="mt-4">
+          <Button
+            className="w-full"
+            variant="primary"
+            icon={CheckCircle2}
+            onClick={handleConfirmPayment}
+            disabled={!selectedPaymentMethod}
+          >
+            Pagar con {selectedPaymentMethod === 'wallet' ? 'Wallet' : 'Tarjeta'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 interface ReservationFormProps {
   solicitud?: Solicitud;
@@ -82,14 +185,14 @@ export function ReservationForm({
         solicitud.costo_total != null
           ? Number(solicitud.costo_total)
           : // ② Si no, cae al cálculo automático de antes
+          Number(
             Number(
-              Number(
-                currentHotel?.tipos_cuartos.find(
-                  (item) =>
-                    item.nombre_tipo_cuarto == updateRoom(solicitud.room)
-                )?.costo ?? 0
-              ) * currentNoches
-            ) || 0,
+              currentHotel?.tipos_cuartos.find(
+                (item) =>
+                  item.nombre_tipo_cuarto == updateRoom(solicitud.room)
+              )?.costo ?? 0
+            ) * currentNoches
+          ) || 0,
       subtotal: 0,
       impuestos: 0,
     },
@@ -242,10 +345,10 @@ export function ReservationForm({
       const autoTotal = isCostoManual
         ? form.proveedor.total
         : Number(
-            form.hotel.content.tipos_cuartos.find(
-              (item) => item.nombre_tipo_cuarto == form.habitacion
-            )?.costo ?? 0
-          ) * nights;
+          form.hotel.content.tipos_cuartos.find(
+            (item) => item.nombre_tipo_cuarto == form.habitacion
+          )?.costo ?? 0
+        ) * nights;
 
       const items = calculateItems(autoTotal);
 
@@ -340,6 +443,7 @@ export function ReservationForm({
     isCostoManual,
     edicion,
   ]);
+
   const handleSubmit = (e: FormEvent) => {
     setLoading(true);
     e.preventDefault();
@@ -395,6 +499,12 @@ export function ReservationForm({
       ) * noches
     );
   }
+
+  const handleConfirmPayment = () => {
+    console.log("Pago confirmado");
+    // Aquí puedes agregar la lógica para procesar el pago
+    alert("Pago procesado exitosamente");
+  };
 
   return (
     <form
@@ -629,14 +739,6 @@ export function ReservationForm({
                     onChange={(value) => {
                       console.log("Viajero adicional:", value);
                     }}
-                    // onChange={(value) => {
-                    //   setForm((prev) => ({
-                    //     ...prev,
-                    //     viajeros_adicionales: prev.viajeros_adicionales.map((v, i) =>
-                    //       i === index ? { ...v, nombre: value } : v
-                    //     ),
-                    //   }));
-                    // }}
                   />
                 </div>
               ))}
@@ -645,9 +747,8 @@ export function ReservationForm({
             <div className="space-y-2">
               <ComboBox
                 label={`Viajeros`}
-                sublabel={`(${
-                  solicitud.nombre_viajero || solicitud.nombre_viajero_completo
-                } - ${solicitud.id_viajero})`}
+                sublabel={`(${solicitud.nombre_viajero || solicitud.nombre_viajero_completo
+                  } - ${solicitud.id_viajero})`}
                 onChange={(value) => {
                   if (edicion) {
                     setEdicionForm((prev) => ({
@@ -760,7 +861,6 @@ export function ReservationForm({
                       acc[tax.name] = tax.total;
                       return acc;
                     }, {}),
-                    // costo_impuestos: item.costo.impuestos,
                     costo_subtotal: item.costo.subtotal,
                     costo: item.costo.total,
                     venta: item.venta.total,
@@ -771,11 +871,6 @@ export function ReservationForm({
                   noche: (props: any) => (
                     <span title={props.value}>{props.value}</span>
                   ),
-                  // costo_impuestos: (props: any) => (
-                  //   <span title={props.value}>
-                  //     ${formatNumberWithCommas(props.value.toFixed(2))}
-                  //   </span>
-                  // ),
                   costo_subtotal: (props: any) => (
                     <span title={props.value}>
                       ${formatNumberWithCommas(props.value?.toFixed(2) || "")}
@@ -838,12 +933,6 @@ export function ReservationForm({
                       ${formatNumberWithCommas(form.proveedor.total.toFixed(2))}
                     </span>
                   </div>
-                  {/* <div className="flex justify-between border-t pt-2 mt-2 font-medium text-gray-700">
-                    <span>Ganancia:</span>
-                    <span className="text-gray-900">
-                      ${(form.venta.total - form.proveedor.total).toFixed(2)}
-                    </span>
-                  </div> */}
                   <div className="flex justify-between border-t pt-2 mt-2 font-medium text-gray-700">
                     <span>Markup:</span>
                     <span className="text-gray-900">
@@ -855,88 +944,17 @@ export function ReservationForm({
             )}
           </div>
         </TabsContent>
-        {/* 
-        <TabsContent value="pago" className="space-y-4">
-          <div className="grid gap-4">
-            <div className="space-y-2">
-              <Label>Método de Pago</Label>
-              <Select
-                value={paymentMethod.type}
-                onValueChange={(
-                  value: "spei" | "credit_card" | "balance" | ""
-                ) => setPaymentMethod({ ...paymentMethod, type: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona un método" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="spei">SPEI</SelectItem>
-                  <SelectItem value="credit_card">
-                    Tarjeta de Crédito
-                  </SelectItem>
-                  <SelectItem value="balance">Saldo a Favor</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Fecha de Pago</Label>
-              <div className="relative">
-                <Calendar className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="date"
-                  className="pl-8"
-                  value={paymentMethod.paymentDate}
-                  onChange={(e) =>
-                    setPaymentMethod({
-                      ...paymentMethod,
-                      paymentDate: e.target.value,
-                    })
-                  }
-                />
-              </div>
-            </div>
-
-            {paymentMethod.type === "credit_card" && (
-              <div className="space-y-2">
-                <Label>Últimos 4 dígitos</Label>
-                <div className="relative">
-                  <CreditCard className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    className="pl-8"
-                    maxLength={4}
-                    value={paymentMethod.cardLastDigits}
-                    onChange={(e) =>
-                      setPaymentMethod({
-                        ...paymentMethod,
-                        cardLastDigits: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label>Comentarios</Label>
-              <Textarea
-                value={paymentMethod.comments}
-                onChange={(e) =>
-                  setPaymentMethod({
-                    ...paymentMethod,
-                    comments: e.target.value,
-                  })
-                }
-                placeholder="Agregar comentarios sobre el pago..."
-              />
-            </div>
-          </div>
-        </TabsContent> */}
       </Tabs>
+
+      {/* Terminal de pago simplificada */}
+      <PaymentTerminal
+        total={form.venta.total}
+        onConfirmPayment={handleConfirmPayment}
+      />
 
       <DialogFooter>
         <Button disabled={!!loading} type="submit">
-          Actualizar Reserva
+          {edicion ? "Actualizar Reserva" : "Crear Reserva"}
         </Button>
       </DialogFooter>
     </form>
