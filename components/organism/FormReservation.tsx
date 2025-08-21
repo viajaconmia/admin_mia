@@ -1,4 +1,4 @@
-import React, { useState, useEffect, FormEvent } from "react";
+import React, { useState, useEffect, FormEvent, use } from "react";
 import { differenceInDays, parseISO, set } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -24,6 +24,7 @@ import { Hotel, Solicitud, ReservaForm, Viajero, EdicionForm } from "@/types";
 import { Table } from "../Table";
 import { formatNumberWithCommas, getEstatus } from "@/helpers/utils";
 import { updateRoom } from "@/lib/utils";
+import { useNotification } from "@/context/useNotificacion";
 
 interface ReservationFormProps {
   solicitud?: Solicitud & { nuevo_incluye_desayuno?: boolean | null };
@@ -55,6 +56,7 @@ export function ReservationForm({
   const [nuevo_incluye_desayuno, setNuevoIncluyeDesayuno] = useState<
     boolean | null
   >(solicitud.nuevo_incluye_desayuno || null);
+  const {showNotification} = useNotification();
   const [acompanantes, setAcompanantes] = useState<Viajero[]>([]);
   const [form, setForm] = useState<ReservaForm>({
     hotel: {
@@ -163,7 +165,8 @@ export function ReservationForm({
         setTravelers(data);
       });
     } catch (error) {
-      console.log(error);
+      console.log("MANEJANDO ERROR",error);
+      showNotification("error",error.message || "Error al cargar los viajeros");
       setTravelers([]);
     }
   }, []);
@@ -344,7 +347,7 @@ export function ReservationForm({
     isCostoManual,
     edicion,
   ]);
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     setLoading(true);
     e.preventDefault();
     if (edicion) {
@@ -364,20 +367,21 @@ export function ReservationForm({
         }
       );
     } else if (create) {
-      fetchCreateReservaOperaciones(
-        { ...form, nuevo_incluye_desayuno, acompanantes },
-        (data) => {
-          console.log(data);
-          if (data.error) {
-            alert("ERROR");
+      try {
+        
+        await fetchCreateReservaOperaciones(
+          { ...form, nuevo_incluye_desayuno, acompanantes }).then((data) => {
+            alert("Se creo correctamente la reservación");
             setLoading(false);
-            return;
-          }
-          alert("Se creo correctamente la reservación");
-          setLoading(false);
-          onClose();
-        }
-      );
+            onClose();
+          }).catch((error) => {
+            console.error("Error al crear la reserva:", error);
+        showNotification("error", error.message || "Error al crear la reserva");
+          });
+      } catch (error) {
+        console.error("Error al crear la reserva:", error);
+        showNotification("error", error.message || "Error al crear la reserva");
+      }
     } else {
       fetchCreateReservaFromSolicitud(
         { ...form, nuevo_incluye_desayuno, acompanantes },

@@ -53,7 +53,7 @@ export async function fetchCreateReservaOperaciones(
     console.log(response);
 
     if (response.error) {
-      throw new Error("Error al cargar los datos en reservas");
+      throw new Error(response.message || "Error al cargar los datos en reservas");
     }
     if (callback) {
       callback(response);
@@ -61,7 +61,7 @@ export async function fetchCreateReservaOperaciones(
 
     return response;
   } catch (error) {
-    console.log(error);
+    console.log("mostrando error",error);
     throw error;
   }
 }
