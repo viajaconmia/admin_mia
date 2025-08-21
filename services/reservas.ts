@@ -7,7 +7,7 @@ export async function updateReserva(
     acompanantes: Viajero[];
   },
   id_booking: string,
-  callback: (data: any) => void
+  callback?: (data: any) => void
 ) {
   try {
     const response = await fetch(`${URL}/mia/reservas?id=${id_booking}`, {
@@ -20,7 +20,9 @@ export async function updateReserva(
       body: JSON.stringify(reserva),
       cache: "no-store",
     }).then((res) => res.json());
-    callback(response);
+    if (callback) {
+      callback(response);
+    }
     console.log(response);
     if (response.error) {
       throw new Error("Error al cargar los datos en reservas");
@@ -32,7 +34,10 @@ export async function updateReserva(
   }
 }
 
-export async function fetchCreateReservaOperaciones(reserva, callback) {
+export async function fetchCreateReservaOperaciones(
+  reserva,
+  callback?: (data: any) => void
+) {
   try {
     const response = await fetch(`${URL}/mia/reservas/operaciones`, {
       method: "POST",
@@ -50,7 +55,9 @@ export async function fetchCreateReservaOperaciones(reserva, callback) {
     if (response.error) {
       throw new Error("Error al cargar los datos en reservas");
     }
-    callback(response);
+    if (callback) {
+      callback(response);
+    }
 
     return response;
   } catch (error) {
@@ -89,7 +96,7 @@ export async function fetchCreateReservaFromSolicitud(
     nuevo_incluye_desayuno: boolean | null;
     acompanantes: Viajero[];
   },
-  callback: (data: any) => void
+  callback?: (data: any) => void
 ) {
   try {
     const response = await fetch(`${URL}/mia/reservas`, {
@@ -116,11 +123,13 @@ export async function fetchCreateReservaFromSolicitud(
         message: "Error al cargar los datos en reservas",
       };
     }
-    callback({
-      ok: true,
-      message: "Reserva creada correctamente",
-      data: response,
-    });
+    if (callback) {
+      callback({
+        ok: true,
+        message: "Reserva creada correctamente",
+        data: response,
+      });
+    }
 
     return response;
   } catch (error) {
