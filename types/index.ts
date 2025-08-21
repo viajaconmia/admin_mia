@@ -90,6 +90,7 @@ export interface TypeFilters {
 
   fecha_pago?: string | null;
   estatusFactura ?: "Confirmada" |"Cancelada" |"En proceso"| "Sin Asignar" | null;
+  id_factura ?: string | null;
 }
 
 export interface EmpresaFromAgent {

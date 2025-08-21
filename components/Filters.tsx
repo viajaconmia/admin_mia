@@ -947,6 +947,15 @@ const FiltersModal: React.FC<{
                   options={["Confirmada", "Cancelada", "En proceso", "Sin Asignar"]}
                 />
               )}
+              {"id_factura" in filters && (
+                <TextInput
+                  label="ID de la factura"
+                  value={filters.id_factura}
+                  onChange={(value) =>
+                    setFilters((prev) => ({ ...prev, id_factura: value }))
+                  }
+                />
+              )}
             </div>
             <div className="flex justify-center gap-10">
               <button

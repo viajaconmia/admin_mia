@@ -11,6 +11,7 @@ import {
   updateReserva,
 } from "@/services/reservas";
 import {
+  CheckboxInput,
   ComboBox,
   DateInput,
   Dropdown,
@@ -25,7 +26,7 @@ import { formatNumberWithCommas, getEstatus } from "@/helpers/utils";
 import { updateRoom } from "@/lib/utils";
 
 interface ReservationFormProps {
-  solicitud?: Solicitud;
+  solicitud?: Solicitud & { nuevo_incluye_desayuno?: boolean | null };
   hotels: Hotel[];
   onClose: () => void;
   edicion?: boolean;
@@ -51,7 +52,10 @@ export function ReservationForm({
       parseISO(solicitud.check_in)
     );
   }
-
+  const [nuevo_incluye_desayuno, setNuevoIncluyeDesayuno] = useState<
+    boolean | null
+  >(solicitud.nuevo_incluye_desayuno || null);
+  const [acompanantes, setAcompanantes] = useState<Viajero[]>([]);
   const [form, setForm] = useState<ReservaForm>({
     hotel: {
       name: solicitud.hotel || "",
@@ -344,40 +348,50 @@ export function ReservationForm({
     setLoading(true);
     e.preventDefault();
     if (edicion) {
-      updateReserva(edicionForm, solicitud.id_booking, (data) => {
-        if (data.error) {
-          alert("Error al actualizar la reserva");
+      updateReserva(
+        { ...edicionForm, nuevo_incluye_desayuno, acompanantes },
+        solicitud.id_booking,
+        (data) => {
+          if (data.error) {
+            alert("Error al actualizar la reserva");
+            setLoading(false);
+            return;
+          }
+          alert("Reserva actualizada correctamente");
+          onClose();
           setLoading(false);
-          return;
+          console.log(data);
         }
-        alert("Reserva actualizada correctamente");
-        onClose();
-        setLoading(false);
-        console.log(data);
-      });
+      );
     } else if (create) {
-      fetchCreateReservaOperaciones(form, (data) => {
-        console.log(data);
-        if (data.error) {
-          alert("ERROR");
+      fetchCreateReservaOperaciones(
+        { ...form, nuevo_incluye_desayuno, acompanantes },
+        (data) => {
+          console.log(data);
+          if (data.error) {
+            alert("ERROR");
+            setLoading(false);
+            return;
+          }
+          alert("Se creo correctamente la reservación");
           setLoading(false);
-          return;
+          onClose();
         }
-        alert("Se creo correctamente la reservación");
-        setLoading(false);
-        onClose();
-      });
+      );
     } else {
-      fetchCreateReservaFromSolicitud(form, (data) => {
-        if (data.error) {
-          alert("Error al crear la reserva");
+      fetchCreateReservaFromSolicitud(
+        { ...form, nuevo_incluye_desayuno, acompanantes },
+        (data) => {
+          if (data.error) {
+            alert("Error al crear la reserva");
+            setLoading(false);
+            return;
+          }
+          alert("Reserva creada correctamente");
           setLoading(false);
-          return;
+          onClose();
         }
-        alert("Reserva creada correctamente");
-        setLoading(false);
-        onClose();
-      });
+      );
     }
   };
 
@@ -517,21 +531,6 @@ export function ReservationForm({
                   }
                   value={form.habitacion}
                 />
-                <div className="text-xs mt-2">
-                  {Boolean(
-                    form.hotel.content?.tipos_cuartos.find(
-                      (item) => item.nombre_tipo_cuarto === form.habitacion
-                    )?.incluye_desayuno
-                  ) ? (
-                    <p className="text-green-800 p-1  px-3 rounded-full bg-green-200 w-fit border border-green-300">
-                      Incluye desayuno
-                    </p>
-                  ) : (
-                    <p className="text-red-800 p-1 px-3 rounded-full bg-red-200 w-fit border border-red-300">
-                      No incluye desayuno
-                    </p>
-                  )}
-                </div>
               </div>
             </div>
             <div className="space-y-2">
@@ -640,14 +639,92 @@ export function ReservationForm({
                   />
                 </div>
               ))}
+              <div className="space-y-2">
+                <Label>Comentarios de la reserva</Label>
+                <Textarea
+                  onChange={(e) => {
+                    if (edicion) {
+                      setEdicionForm((prev) => ({
+                        ...prev,
+                        comments: {
+                          before: form.comments,
+                          current: e.target.value,
+                        },
+                      }));
+                    }
+                    setForm((prev) => ({ ...prev, comments: e.target.value }));
+                  }}
+                  value={form.comments}
+                ></Textarea>
+              </div>
             </div>
 
             <div className="space-y-2">
+              <div className="text-xs mt-2">
+                <div className="space-y-2">
+                  {nuevo_incluye_desayuno == null && (
+                    <>
+                      {Boolean(
+                        form.hotel.content?.tipos_cuartos.find(
+                          (item) => item.nombre_tipo_cuarto === form.habitacion
+                        )?.incluye_desayuno
+                      ) ? (
+                        <p className="text-green-800 p-1  px-3 rounded-full bg-green-200 w-fit border border-green-300">
+                          Incluye desayuno
+                        </p>
+                      ) : (
+                        <p className="text-red-800 p-1 px-3 rounded-full bg-red-200 w-fit border border-red-300">
+                          No incluye desayuno
+                        </p>
+                      )}
+                    </>
+                  )}
+
+                  {nuevo_incluye_desayuno == null ? (
+                    <>
+                      <CheckboxInput
+                        checked={nuevo_incluye_desayuno}
+                        label="Sobre escribir manualmente el desayuno"
+                        onChange={(value) => {
+                          setNuevoIncluyeDesayuno(
+                            !form.hotel.content?.tipos_cuartos.find(
+                              (item) =>
+                                item.nombre_tipo_cuarto === form.habitacion
+                            )?.incluye_desayuno
+                          );
+                        }}
+                      />
+                      <p className="text-gray-800 p-1  px-3 rounded-full bg-gray-200 w-fit border border-gray-300">
+                        Al guardar la reserva el valor se quedara al del hotel
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <CheckboxInput
+                        checked={nuevo_incluye_desayuno}
+                        label="incluye desayuno"
+                        onChange={(value) => {
+                          setNuevoIncluyeDesayuno(value);
+                        }}
+                      />
+                      {nuevo_incluye_desayuno ? (
+                        <p className="text-green-800 p-1  px-3 rounded-full bg-green-200 w-fit border border-green-300">
+                          Incluira desayuno al guardar aun si el hotel dice que
+                          no incluye
+                        </p>
+                      ) : (
+                        <p className="text-red-800 p-1 px-3 rounded-full bg-red-200 w-fit border border-red-300">
+                          No incluira el desayuno en el hotel aun si en el hotel
+                          dice que lo incluye
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
               <ComboBox
                 label={`Viajeros`}
-                sublabel={`(${
-                  solicitud.nombre_viajero || solicitud.nombre_viajero_completo
-                } - ${solicitud.id_viajero})`}
+                sublabel={`(${solicitud.nombre_viajero} - ${solicitud.id_viajero})`}
                 onChange={(value) => {
                   if (edicion) {
                     setEdicionForm((prev) => ({
@@ -667,28 +744,77 @@ export function ReservationForm({
                   name: form.viajero.nombre_completo || "",
                   content: form.viajero || null,
                 }}
-                options={travelers.map((item) => ({
-                  name: item.nombre_completo,
-                  content: item,
-                }))}
+                options={[...travelers]
+                  .filter(
+                    (traveler) =>
+                      !acompanantes
+                        .map((item) => item.id_viajero)
+                        .includes(traveler.id_viajero)
+                  )
+                  .map((item) => ({
+                    name: item.nombre_completo,
+                    content: item,
+                  }))}
               />
+
               <div className="space-y-2">
-                <Label>Comentarios de la reserva</Label>
-                <Textarea
-                  onChange={(e) => {
-                    if (edicion) {
-                      setEdicionForm((prev) => ({
-                        ...prev,
-                        comments: {
-                          before: form.comments,
-                          current: e.target.value,
-                        },
-                      }));
-                    }
-                    setForm((prev) => ({ ...prev, comments: e.target.value }));
-                  }}
-                  value={form.comments}
-                ></Textarea>
+                {acompanantes.map((acompanante, index) => {
+                  return (
+                    <ComboBox
+                      label={`Acompañante - ${index + 1}`}
+                      onDelete={() => {
+                        const newAcompanantes = [...acompanantes].toSpliced(
+                          index,
+                          1
+                        );
+                        console.log(newAcompanantes);
+                        setAcompanantes(newAcompanantes);
+                      }}
+                      onChange={(value) => {
+                        const newAcompanantesList = [...acompanantes];
+                        newAcompanantesList[index] = value.content as Viajero;
+                        setAcompanantes(newAcompanantesList);
+                      }}
+                      value={{
+                        name: acompanante.nombre_completo || "",
+                        content: acompanante || null,
+                      }}
+                      options={[...travelers]
+                        .filter(
+                          (traveler) =>
+                            (!acompanantes
+                              .map((item) => item.id_viajero)
+                              .includes(traveler.id_viajero) &&
+                              traveler.id_viajero != form.viajero.id_viajero) ||
+                            traveler.id_viajero == acompanante.id_viajero
+                        )
+                        .map((item) => ({
+                          name: item.nombre_completo,
+                          content: item,
+                        }))}
+                    />
+                  );
+                })}
+                {travelers.length > acompanantes.length + 1 && (
+                  <>
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        const filtrados = [...travelers].filter(
+                          (traveler) =>
+                            !acompanantes
+                              .map((item) => item.id_viajero)
+                              .includes(traveler.id_viajero) &&
+                            traveler.id_viajero != form.viajero.id_viajero
+                        );
+                        const nuevoArray = [...acompanantes, filtrados[0]];
+                        setAcompanantes(nuevoArray);
+                      }}
+                    >
+                      Agregar acompañante
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </div>

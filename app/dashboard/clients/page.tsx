@@ -27,7 +27,7 @@ import Modal from "@/components/organism/Modal";
 import NavContainer from "@/components/organism/NavContainer";
 import { AgentDetailsCard } from "./_components/DetailsClient";
 import { UsersClient } from "./_components/UsersClient";
-import { PageReservasClientes } from "@/components/template/PageReservaClient";
+import PageReservasClientes from "@/components/template/PageReservaClient";
 import PageCuentasPorCobrar from "@/components/template/PageCuentasPorCobrar";
 import { ToolTip } from "@/components/atom/ToolTip";
 import { set } from "date-fns";
@@ -74,7 +74,7 @@ function App() {
     ),
     id: (props: { value: string }) => (
       <span className="font-semibold text-sm" title={props.value}>
-        {props.value.slice(0, 11)}
+        {props.value.slice(0, 12)}
       </span>
     ),
     cliente: ({ value }: { value: Agente }) => (

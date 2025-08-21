@@ -1,6 +1,7 @@
+import { FullHotelData } from "@/app/dashboard/hoteles/_components/hotel-dialog";
 import { Hotel } from "@/types";
 import { Viajero } from "@/types";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 export const Dropdown = ({
@@ -29,8 +30,10 @@ export const Dropdown = ({
         {options.length > 0 ? (
           options.map((option) => {
             // Handle both string and object options
-            const optionValue = typeof option === 'string' ? option : option.value;
-            const optionLabel = typeof option === 'string' ? option : option.label;
+            const optionValue =
+              typeof option === "string" ? option : option.value;
+            const optionLabel =
+              typeof option === "string" ? option : option.label;
             return (
               <option key={optionValue} value={optionValue}>
                 {optionLabel}
@@ -53,7 +56,7 @@ export const DateInput = ({
   label,
   value,
   onChange,
-  disabled
+  disabled,
 }: {
   label: string;
   value: string;
@@ -181,7 +184,10 @@ export const TextAreaInput = ({
   </div>
 );
 // Utilidad para soportar opciones como objetos { name, ... }
-export type ComboBoxOption = { name: string; content: Hotel | Viajero };
+export type ComboBoxOption = {
+  name: string;
+  content: Hotel | Viajero | FullHotelData;
+};
 
 // Si quieres que el ComboBox soporte objetos, cambia la definición así:
 export const ComboBox = ({
@@ -192,6 +198,7 @@ export const ComboBox = ({
   sublabel,
   placeholderOption = "Selecciona una opción",
   disabled = false,
+  onDelete,
 }: {
   label?: string;
   sublabel?: string;
@@ -200,6 +207,7 @@ export const ComboBox = ({
   options?: ComboBoxOption[];
   placeholderOption?: string;
   disabled?: boolean;
+  onDelete?: () => void;
 }) => {
   const [inputValue, setInputValue] = useState(value?.name || "");
   const [isOpen, setIsOpen] = useState(false);
@@ -242,41 +250,53 @@ export const ComboBox = ({
     <div className="flex flex-col space-y-1" ref={containerRef}>
       {label && (
         <label className="text-sm text-gray-900 font-medium line-clamp-1">
-          {label}{" "}
-          <span className="text-gray-500 text-xs">
-            {" "}
-            - {sublabel.toLowerCase()}
-          </span>{" "}
+          {label}
+          {sublabel && (
+            <span className="text-gray-500 text-xs">
+              {` - ${sublabel.toLowerCase()}`}
+            </span>
+          )}
         </label>
       )}
-      <div className="relative">
-        <input
-          type="text"
-          disabled={disabled}
-          value={inputValue}
-          placeholder={placeholderOption}
-          onFocus={() => setIsOpen(true)}
-          onChange={(e) => {
-            setInputValue(e.target.value);
-            setIsOpen(true);
-          }}
-          className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-        />
-        <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-          <ChevronDown size={18} className="text-gray-500" />
+      <div className="relative flex gap-2">
+        <div className="flex-1 relative">
+          <input
+            type="text"
+            disabled={disabled}
+            value={inputValue}
+            placeholder={placeholderOption}
+            onFocus={() => setIsOpen(true)}
+            onChange={(e) => {
+              setInputValue(e.target.value);
+              setIsOpen(true);
+            }}
+            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          />
+          <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+            <ChevronDown size={18} className="text-gray-500" />
+          </div>
+          {isOpen && filteredOptions.length > 0 && (
+            <ul className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow max-h-60 overflow-y-auto text-sm">
+              {filteredOptions.map((option, index) => (
+                <li
+                  key={option.name + index}
+                  onClick={() => handleSelect(option)}
+                  className="px-3 py-2 cursor-pointer hover:bg-blue-100"
+                >
+                  {option.name}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
-        {isOpen && filteredOptions.length > 0 && (
-          <ul className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow max-h-60 overflow-y-auto text-sm">
-            {filteredOptions.map((option, index) => (
-              <li
-                key={option.name + index}
-                onClick={() => handleSelect(option)}
-                className="px-3 py-2 cursor-pointer hover:bg-blue-100"
-              >
-                {option.name}
-              </li>
-            ))}
-          </ul>
+        {onDelete && (
+          <button
+            onClick={onDelete}
+            type="button"
+            className="bg-gray-100 rounded-sm border border-gray-300 shadow-sm w-9 flex justify-center items-center"
+          >
+            <X className="w-4 h-4"></X>
+          </button>
         )}
       </div>
     </div>
@@ -381,9 +401,10 @@ export const CheckboxInput = ({
             ${checked ? "bg-green-500" : "bg-gray-300"} 
             /* Estilo de foco para el riel cuando el input interno está enfocado */
             focus-within:ring-2 focus-within:ring-offset-2 
-            ${disabled
-              ? "focus-within:ring-transparent"
-              : "focus-within:ring-green-400 dark:focus-within:ring-green-600"
+            ${
+              disabled
+                ? "focus-within:ring-transparent"
+                : "focus-within:ring-green-400 dark:focus-within:ring-green-600"
             }
           `}
         >
@@ -424,9 +445,10 @@ export const CheckboxInput = ({
             }}
             className={`
               ml-3 text-sm font-medium select-none
-              ${disabled
-                ? "text-gray-400 cursor-not-allowed"
-                : "text-gray-900 dark:text-gray-100 cursor-pointer"
+              ${
+                disabled
+                  ? "text-gray-400 cursor-not-allowed"
+                  : "text-gray-900 dark:text-gray-100 cursor-pointer"
               }
             `}
           >
