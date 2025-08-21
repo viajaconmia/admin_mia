@@ -5,7 +5,7 @@ import { Table3 } from "@/components/organism/Table3";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { formatNumberWithCommas } from "@/helpers/utils";
-
+import { SaldoFavor } from "@/services/SaldoAFavor"; // Importar el servicio
 
 interface TableRow {
   id_item: string;
@@ -59,16 +59,18 @@ interface PagarModalProps {
     referencia?: string;
     comentario?: string;
   };
-  rowData: any; // O define una interfaz más específica si prefieres
+  rowData: any;
   onClose: () => void;
   onSubmit: (data: any) => void;
+  hospedajeData?: any; // Nuevo prop opcional
 }
 
 export const PagarModalComponent: React.FC<PagarModalProps> = ({
   saldoData,
   rowData,
   onClose,
-  onSubmit
+  onSubmit,
+  hospedajeData = null // Valor por defecto null
 }) => {
   const [formData, setFormData] = useState({
     montoPago: saldoData.saldo,
@@ -86,13 +88,18 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
   const [itemsSaldo, setItemsSaldo] = useState<Record<string, number>>({ "": 0 });
   const [originalSaldoItems, setOriginalSaldoItems] = useState<Record<string, number>>({});
-
+  const [usingHospedajeData, setUsingHospedajeData] = useState<boolean>(false);
 
   useEffect(() => {
-    if (saldoData.id_agente) {
+    // Verificar si tenemos datos de hospedaje
+    if (hospedajeData && Object.keys(hospedajeData).length > 0) {
+      setUsingHospedajeData(true);
+      fetchSaldoFavor();
+    } else if (saldoData.id_agente) {
+      setUsingHospedajeData(false);
       fetchReservasConItems();
     }
-  }, [saldoData.id_agente]);
+  }, [saldoData.id_agente, hospedajeData]);
 
   const fetchReservasConItems = async () => {
     try {
@@ -141,6 +148,64 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
     }
   };
 
+  const fetchSaldoFavor = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Usar el servicio SaldoFavor para obtener los datos
+      const response: { message: string; data: any[] } =
+        await SaldoFavor.getPagos(saldoData.id_agente);
+
+      console.log("Datos de saldo a favor:", response.data);
+
+      // Procesar los datos según la estructura necesaria
+      // (Aquí debes adaptar la respuesta a la estructura de ReservaConItems)
+      const processedData = processHospedajeData(response.data);
+      setReservas(processedData);
+
+      // Inicializar saldos
+      const initialOriginalSaldo: Record<string, number> = {};
+      const initialSaldo: Record<string, number> = {};
+
+      processedData.forEach((reserva: ReservaConItems) => {
+        reserva.items_info?.items?.forEach(item => {
+          initialOriginalSaldo[item.id_item] = item.saldo;
+          initialSaldo[item.id_item] = item.saldo;
+        });
+      });
+
+      setOriginalSaldoItems(initialOriginalSaldo);
+      setItemsSaldo(initialSaldo);
+
+    } catch (err) {
+      console.error("Error fetching saldo favor:", err);
+      setError(err.message || 'Error al cargar los datos de saldo a favor');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Función para procesar los datos de hospedaje a la estructura esperada
+  const processHospedajeData = (hospedajeData: any[]): ReservaConItems[] => {
+    // Implementar la lógica para transformar los datos de hospedaje
+    // a la estructura de ReservaConItems
+    // Este es un ejemplo básico, debes adaptarlo a tu estructura real de datos
+    return hospedajeData.map(item => ({
+      id_reserva: item.id_reserva || '',
+      codigo_reserva: item.codigo_reserva || '',
+      codigo_reservacion_hotel: item.codigo_reservacion_hotel || '',
+      items: item.items || [],
+      nombre_hotel: item.nombre_hotel || '',
+      check_in: item.check_in || '',
+      check_out: item.check_out || '',
+      viajero: item.viajero || '',
+      status_reserva: item.status_reserva || '',
+      items_info: {
+        items: item.items_info?.items || []
+      }
+    }));
+  };
 
   const handleItemSelection = (id_item: string, saldoOriginal: number) => {
     setSelectedItems(prev => {
@@ -158,7 +223,6 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
           ...prevSaldo,
           [id_item]: saldoOriginal
         }));
-        console.log(itemsSaldo)
 
         setMontoRestante(restante);
         setMontoSeleccionado(newTotal);
@@ -190,10 +254,8 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
         setMontoSeleccionado(newTotal);
         return newSelection;
       }
-    }
-    );
+    });
   };
-
 
   const isItemSelected = (id_item: string): boolean => {
     return selectedItems.some(item => item.id_item === id_item);
@@ -241,9 +303,13 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
     };
 
     console.log('Payload:', payload);
-    console.log('Payload:', JSON.stringify(payload));
 
-    await fetch(`${URL}/mia/pagos/aplicarpagoPorSaldoAFavor`, {
+    // Determinar qué endpoint usar según el origen de los datos
+    const endpoint = usingHospedajeData
+      ? `${URL}/mia/pagos/aplicarpagoPorSaldoAFavorHospedaje`
+      : `${URL}/mia/pagos/aplicarpagoPorSaldoAFavor`;
+
+    await fetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -282,12 +348,12 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
       viajero: reserva.viajero,
       fecha_uso: reserva.check_in,
       total: item.total,
-      //cambiar por el de ian al tenerlo
       saldo: itemsSaldo[item.id_item] !== undefined ? itemsSaldo[item.id_item] : item.saldo,
       seleccionado: item,
       item: item
     }))
   );
+
   const renderers = {
     id_item: ({ value }: { value: string }) => (
       <span className="font-mono bg-gray-100 px-2 py-1 rounded text-sm">
@@ -312,7 +378,6 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
         ${value}
       </span>
     ),
-    // Formateador unificado
     fecha_uso: ({ value }: { value: string | null }) => {
       if (!value) return <div className="text-gray-400 italic">Sin fecha</div>;
 
@@ -322,7 +387,6 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
         </div>
       );
     },
-
     checkout: ({ value }: { value: string | null }) => {
       if (!value) return <div className="text-gray-400 italic">Sin fecha</div>;
 
@@ -332,7 +396,6 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
         </div>
       );
     },
-
     hotel: ({ value }: { value: string }) => (
       <span className="font-medium text-gray-800">
         {value}
@@ -349,7 +412,6 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
       </span>
     ),
   };
-  console.log("reservas", reservas)
 
   return (
     <div className="p-6">
@@ -372,7 +434,6 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
                 <p className={`text-lg font-semibold ${Number(montoSeleccionado) > saldoData.saldo ? 'text-red-600' : 'text-blue-600'}`}>
                   ${Number(montoSeleccionado).toFixed(2)}
                 </p>
-
               </div>
               <div>
                 <p className="text-sm text-gray-600">Monto restante:</p>

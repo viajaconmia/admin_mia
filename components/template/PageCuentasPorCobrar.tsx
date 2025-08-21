@@ -32,6 +32,8 @@ import { fetchAgenteById, fetchPagosByAgente } from "@/services/agentes";
 import { Loader } from "@/components/atom/Loader";
 import { API_KEY, URL } from "@/lib/constants/index";
 import { PagarModalComponent } from "./pagar_saldo";
+
+
 import { format } from "date-fns";
 import { es, se } from "date-fns/locale";
 import {
