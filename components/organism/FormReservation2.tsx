@@ -29,11 +29,16 @@ import {
   Solicitud2,
 } from "@/types";
 import { Table } from "../Table";
-import { formatNumberWithCommas, getEstatus } from "@/helpers/utils";
+import {
+  formatNumberWithCommas,
+  getEstatus,
+  separarCostos,
+} from "@/helpers/utils";
 import { updateRoom } from "@/lib/utils";
+import { X } from "lucide-react";
 
 interface ReservationFormProps {
-  solicitud?: Solicitud2;
+  solicitud?: Solicitud2 & { nuevo_incluye_desayuno?: boolean | null };
   hotels: Hotel[];
   onClose: () => void;
   edicion?: boolean;
@@ -59,6 +64,10 @@ export function ReservationForm2({
       parseISO(solicitud.check_in)
     );
   }
+  const [nuevo_incluye_desayuno, setNuevoIncluyeDesayuno] = useState<
+    boolean | null
+  >(solicitud.nuevo_incluye_desayuno || null);
+  const [acompanantes, setAcompanantes] = useState<Viajero[]>([]);
   const [cambiarHotel, setCambiarHotel] = useState(false);
   const [form, setForm] = useState<ReservaForm>({
     hotel: {
@@ -79,7 +88,7 @@ export function ReservationForm2({
       impuestos: Number(solicitud.total) * 0.16 || 0,
       markup: 0,
     },
-    estado_reserva: getEstatus(solicitud.status_reservacion) as
+    estado_reserva: getEstatus(solicitud.status_reserva) as
       | "Confirmada"
       | "En proceso"
       | "Cancelada",
@@ -150,9 +159,11 @@ export function ReservationForm2({
         currentNoches
       )
   );
+  const [inicial, setInicial] = useState(true);
 
   useEffect(() => {
-    console.log(form);
+    console.log("FORM", form);
+    console.log("Edicion FORM", edicionForm);
   }, [form]);
 
   useEffect(() => {
@@ -165,6 +176,7 @@ export function ReservationForm2({
           setForm((prev) => ({ ...prev, viajero: viajeroFiltrado[0] }));
         }
         setTravelers(data);
+        // console.log(data);
       });
     } catch (error) {
       console.log(error);
@@ -172,80 +184,86 @@ export function ReservationForm2({
     }
   }, []);
 
+  const nights = differenceInDays(
+    parseISO(form.check_out),
+    parseISO(form.check_in)
+  );
+
+  const roomPrice = Number(
+    form.hotel.content.tipos_cuartos.find(
+      (item) => item.nombre_tipo_cuarto == form.habitacion
+    )?.precio
+  );
+
+  // Función para calcular items basados en el costo total
+  const calculateItems = (total: number) => {
+    const costoBase = total - form.impuestos.otros_impuestos * nights;
+    const { subtotal, impuestos } = Object.keys(form.impuestos).reduce(
+      (acc, key) => {
+        const value = form.impuestos[key as keyof ReservaForm["impuestos"]];
+        if (key == "otros_impuestos") {
+          return acc;
+        } else {
+          return {
+            subtotal: acc.subtotal - (costoBase * value) / 100,
+            impuestos: acc.impuestos + (costoBase * value) / 100,
+          };
+        }
+      },
+      { subtotal: costoBase || 0, impuestos: 0 }
+    );
+
+    return Array.from({ length: nights }, (_, index) => ({
+      noche: index + 1,
+      costo: {
+        total: Number((total / nights || 0).toFixed(2)),
+        subtotal: Number((subtotal / nights || 0).toFixed(2)),
+        impuestos: Number((impuestos / nights || 0).toFixed(2)),
+      },
+      venta: {
+        total: Number(roomPrice),
+        subtotal: Number((roomPrice * 0.84).toFixed(2)),
+        impuestos: Number((roomPrice * 0.16).toFixed(2)),
+      },
+      impuestos: Object.keys(form.impuestos)
+        .map((key) => {
+          const value = Number(
+            form.impuestos[key as keyof ReservaForm["impuestos"]]
+          );
+          if (value <= 0) return null;
+          const base = Number(
+            (total / nights - form.impuestos.otros_impuestos).toFixed(2)
+          );
+          const totalTax =
+            key !== "otros_impuestos"
+              ? Number(((base * value) / 100).toFixed(2))
+              : value;
+          return {
+            name: key,
+            rate: key !== "otros_impuestos" ? value : 0,
+            tipo_impuesto: "c",
+            monto: key === "otros_impuestos" ? value : 0,
+            base: key === "otros_impuestos" ? base + value : base,
+            total: totalTax,
+          };
+        })
+        .filter(Boolean),
+    }));
+  };
+
   useEffect(() => {
+    if (inicial) {
+      setInicial(false);
+      return;
+    }
+    console.log("EJECUTANDOME");
     if (
       form.hotel.content &&
       form.check_in &&
       form.check_out &&
       form.habitacion
     ) {
-      const nights = differenceInDays(
-        parseISO(form.check_out),
-        parseISO(form.check_in)
-      );
-
-      const roomPrice = Number(
-        form.hotel.content.tipos_cuartos.find(
-          (item) => item.nombre_tipo_cuarto == form.habitacion
-        )?.precio
-      );
-
-      // Función para calcular items basados en el costo total
-      const calculateItems = (total: number) => {
-        const costoBase = total - form.impuestos.otros_impuestos * nights;
-        const { subtotal, impuestos } = Object.keys(form.impuestos).reduce(
-          (acc, key) => {
-            const value = form.impuestos[key as keyof ReservaForm["impuestos"]];
-            if (key == "otros_impuestos") {
-              return acc;
-            } else {
-              return {
-                subtotal: acc.subtotal - (costoBase * value) / 100,
-                impuestos: acc.impuestos + (costoBase * value) / 100,
-              };
-            }
-          },
-          { subtotal: costoBase || 0, impuestos: 0 }
-        );
-
-        return Array.from({ length: nights }, (_, index) => ({
-          noche: index + 1,
-          costo: {
-            total: Number((total / nights || 0).toFixed(2)),
-            subtotal: Number((subtotal / nights || 0).toFixed(2)),
-            impuestos: Number((impuestos / nights || 0).toFixed(2)),
-          },
-          venta: {
-            total: Number(roomPrice),
-            subtotal: Number((roomPrice * 0.84).toFixed(2)),
-            impuestos: Number((roomPrice * 0.16).toFixed(2)),
-          },
-          impuestos: Object.keys(form.impuestos)
-            .map((key) => {
-              const value = Number(
-                form.impuestos[key as keyof ReservaForm["impuestos"]]
-              );
-              if (value <= 0) return null;
-              const base = Number(
-                (total / nights - form.impuestos.otros_impuestos).toFixed(2)
-              );
-              const totalTax =
-                key !== "otros_impuestos"
-                  ? Number(((base * value) / 100).toFixed(2))
-                  : value;
-              return {
-                name: key,
-                rate: key !== "otros_impuestos" ? value : 0,
-                tipo_impuesto: "c",
-                monto: key === "otros_impuestos" ? value : 0,
-                base: key === "otros_impuestos" ? base + value : base,
-                total: totalTax,
-              };
-            })
-            .filter(Boolean),
-        }));
-      };
-      console.log(solicitud.metodo_pago_dinamico);
+      console.log("ESTOY HACIENDO CAMBIOS");
 
       // Calcular el total automático si no es modo manual
       const autoTotal = isCostoManual
@@ -317,9 +335,21 @@ export function ReservationForm2({
             },
             current: {
               ...form.venta,
-              total: Number((roomPrice * nights).toFixed(2) || 0),
-              subtotal: Number((roomPrice * nights * 0.84).toFixed(2) || 0),
-              impuestos: Number((roomPrice * nights * 0.16).toFixed(2) || 0),
+              total: Number(
+                solicitud.metodo_pago_dinamico == "Contado"
+                  ? separarCostos(Number(solicitud.total)).total
+                  : separarCostos(roomPrice * nights).total
+              ),
+              subtotal: Number(
+                solicitud.metodo_pago_dinamico == "Contado"
+                  ? separarCostos(Number(solicitud.total)).subtotal
+                  : separarCostos(roomPrice * nights).subtotal
+              ),
+              impuestos: Number(
+                solicitud.metodo_pago_dinamico == "Contado"
+                  ? separarCostos(Number(solicitud.total)).impuestos
+                  : separarCostos(roomPrice * nights).impuestos
+              ),
               markup: Number(
                 (
                   ((roomPrice * nights - autoTotal) / (roomPrice * nights)) *
@@ -345,53 +375,32 @@ export function ReservationForm2({
     form.impuestos,
     form.habitacion,
     form.hotel,
-    form.proveedor.total,
-    isCostoManual,
     edicion,
   ]);
-  const handleSubmit = (e: FormEvent) => {
-    setLoading(true);
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (edicion) {
-      console.log({ ...edicionForm, flag: cambiarHotel });
-      updateReserva(
-        { ...edicionForm, flag: cambiarHotel },
-        solicitud.id_booking,
-        (data) => {
-          if (data.error) {
-            alert("Error al actualizar la reserva");
-            setLoading(false);
-            return;
-          }
-          alert("Reserva actualizada correctamente");
-          onClose();
-          setLoading(false);
-          console.log(data);
-        }
-      );
-    } else if (create) {
-      fetchCreateReservaOperaciones(form, (data) => {
-        console.log(data);
-        if (data.error) {
-          alert("ERROR");
-          setLoading(false);
-          return;
-        }
-        alert("Se creo correctamente la reservación");
-        setLoading(false);
-        onClose();
-      });
-    } else {
-      fetchCreateReservaFromSolicitud(form, (data) => {
-        if (data.error) {
-          alert("Error al crear la reserva");
-          setLoading(false);
-          return;
-        }
-        alert("Reserva creada correctamente");
-        setLoading(false);
-        onClose();
-      });
+    setLoading(true);
+    const data = edicion
+      ? { ...edicionForm, nuevo_incluye_desayuno, acompanantes }
+      : { ...form, nuevo_incluye_desayuno, acompanantes };
+    console.log(data);
+    try {
+      let response;
+      if (edicion) {
+        response = await updateReserva(data, solicitud.id_booking);
+      } else if (create) {
+        response = await fetchCreateReservaOperaciones(data);
+      } else {
+        response = await fetchCreateReservaFromSolicitud(data);
+      }
+      console.log(response);
+      alert("Reserva creada correctamente");
+      onClose();
+    } catch (error) {
+      console.error(error);
+      alert("Error al guardar la reserva");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -410,6 +419,10 @@ export function ReservationForm2({
     );
   }
 
+  useEffect(() => {
+    console.log(acompanantes);
+  }, [acompanantes]);
+
   return (
     <form
       onSubmit={handleSubmit}
@@ -423,15 +436,6 @@ export function ReservationForm2({
 
         <TabsContent value="cliente" className="space-y-4">
           <div className="grid md:grid-cols-2 gap-4">
-            {solicitud.metodo_pago_dinamico == "Contado" && (
-              <div className="col-span-2">
-                <CheckboxInput
-                  checked={cambiarHotel}
-                  label="Editar solo el hotel?"
-                  onChange={(value) => setCambiarHotel(value)}
-                />
-              </div>
-            )}
             <div className="space-y-2">
               <ComboBox
                 label={`Hotel`}
@@ -540,21 +544,6 @@ export function ReservationForm2({
                   }
                   value={form.habitacion}
                 />
-                <div className="text-xs mt-2">
-                  {Boolean(
-                    form.hotel.content?.tipos_cuartos.find(
-                      (item) => item.nombre_tipo_cuarto === form.habitacion
-                    )?.incluye_desayuno
-                  ) ? (
-                    <p className="text-green-800 p-1  px-3 rounded-full bg-green-200 w-fit border border-green-300">
-                      Incluye desayuno
-                    </p>
-                  ) : (
-                    <p className="text-red-800 p-1 px-3 rounded-full bg-red-200 w-fit border border-red-300">
-                      No incluye desayuno
-                    </p>
-                  )}
-                </div>
               </div>
             </div>
             <div className="space-y-2">
@@ -663,9 +652,89 @@ export function ReservationForm2({
                   />
                 </div>
               ))}
+              <div className="space-y-2">
+                <Label>Comentarios de la reserva</Label>
+                <Textarea
+                  onChange={(e) => {
+                    if (edicion) {
+                      setEdicionForm((prev) => ({
+                        ...prev,
+                        comments: {
+                          before: form.comments,
+                          current: e.target.value,
+                        },
+                      }));
+                    }
+                    setForm((prev) => ({ ...prev, comments: e.target.value }));
+                  }}
+                  value={form.comments}
+                ></Textarea>
+              </div>
             </div>
 
             <div className="space-y-2">
+              <div className="text-xs mt-2">
+                <div className="space-y-2">
+                  {nuevo_incluye_desayuno == null && (
+                    <>
+                      {Boolean(
+                        form.hotel.content?.tipos_cuartos.find(
+                          (item) => item.nombre_tipo_cuarto === form.habitacion
+                        )?.incluye_desayuno
+                      ) ? (
+                        <p className="text-green-800 p-1  px-3 rounded-full bg-green-200 w-fit border border-green-300">
+                          Incluye desayuno
+                        </p>
+                      ) : (
+                        <p className="text-red-800 p-1 px-3 rounded-full bg-red-200 w-fit border border-red-300">
+                          No incluye desayuno
+                        </p>
+                      )}
+                    </>
+                  )}
+
+                  {nuevo_incluye_desayuno == null ? (
+                    <>
+                      <CheckboxInput
+                        checked={nuevo_incluye_desayuno}
+                        label="Sobre escribir manualmente el desayuno"
+                        onChange={(value) => {
+                          setNuevoIncluyeDesayuno(
+                            !form.hotel.content?.tipos_cuartos.find(
+                              (item) =>
+                                item.nombre_tipo_cuarto === form.habitacion
+                            )?.incluye_desayuno
+                          );
+                        }}
+                      />
+                      <p className="text-gray-800 p-1  px-3 rounded-full bg-gray-200 w-fit border border-gray-300">
+                        Al guardar la reserva el valor se quedara al del hotel
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <CheckboxInput
+                        checked={nuevo_incluye_desayuno}
+                        label="incluye desayuno"
+                        onChange={(value) => {
+                          setNuevoIncluyeDesayuno(value);
+                        }}
+                      />
+                      {nuevo_incluye_desayuno ? (
+                        <p className="text-green-800 p-1  px-3 rounded-full bg-green-200 w-fit border border-green-300">
+                          Incluira desayuno al guardar aun si el hotel dice que
+                          no incluye
+                        </p>
+                      ) : (
+                        <p className="text-red-800 p-1 px-3 rounded-full bg-red-200 w-fit border border-red-300">
+                          No incluira el desayuno en el hotel aun si en el hotel
+                          dice que lo incluye
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
               <ComboBox
                 label={`Viajeros`}
                 sublabel={`(${solicitud.nombre_viajero_reservacion} - ${solicitud.id_viajero_reserva})`}
@@ -688,28 +757,77 @@ export function ReservationForm2({
                   name: form.viajero.nombre_completo || "",
                   content: form.viajero || null,
                 }}
-                options={travelers.map((item) => ({
-                  name: item.nombre_completo,
-                  content: item,
-                }))}
+                options={[...travelers]
+                  .filter(
+                    (traveler) =>
+                      !acompanantes
+                        .map((item) => item.id_viajero)
+                        .includes(traveler.id_viajero)
+                  )
+                  .map((item) => ({
+                    name: item.nombre_completo,
+                    content: item,
+                  }))}
               />
+
               <div className="space-y-2">
-                <Label>Comentarios de la reserva</Label>
-                <Textarea
-                  onChange={(e) => {
-                    if (edicion) {
-                      setEdicionForm((prev) => ({
-                        ...prev,
-                        comments: {
-                          before: form.comments,
-                          current: e.target.value,
-                        },
-                      }));
-                    }
-                    setForm((prev) => ({ ...prev, comments: e.target.value }));
-                  }}
-                  value={form.comments}
-                ></Textarea>
+                {acompanantes.map((acompanante, index) => {
+                  return (
+                    <ComboBox
+                      label={`Acompañante - ${index + 1}`}
+                      onDelete={() => {
+                        const newAcompanantes = [...acompanantes].toSpliced(
+                          index,
+                          1
+                        );
+                        console.log(newAcompanantes);
+                        setAcompanantes(newAcompanantes);
+                      }}
+                      onChange={(value) => {
+                        const newAcompanantesList = [...acompanantes];
+                        newAcompanantesList[index] = value.content as Viajero;
+                        setAcompanantes(newAcompanantesList);
+                      }}
+                      value={{
+                        name: acompanante.nombre_completo || "",
+                        content: acompanante || null,
+                      }}
+                      options={[...travelers]
+                        .filter(
+                          (traveler) =>
+                            (!acompanantes
+                              .map((item) => item.id_viajero)
+                              .includes(traveler.id_viajero) &&
+                              traveler.id_viajero != form.viajero.id_viajero) ||
+                            traveler.id_viajero == acompanante.id_viajero
+                        )
+                        .map((item) => ({
+                          name: item.nombre_completo,
+                          content: item,
+                        }))}
+                    />
+                  );
+                })}
+                {travelers.length > acompanantes.length + 1 && (
+                  <>
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        const filtrados = [...travelers].filter(
+                          (traveler) =>
+                            !acompanantes
+                              .map((item) => item.id_viajero)
+                              .includes(traveler.id_viajero) &&
+                            traveler.id_viajero != form.viajero.id_viajero
+                        );
+                        const nuevoArray = [...acompanantes, filtrados[0]];
+                        setAcompanantes(nuevoArray);
+                      }}
+                    >
+                      Agregar acompañante
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -723,6 +841,7 @@ export function ReservationForm2({
                   value={form.proveedor.total}
                   onChange={(value) => {
                     setIsCostoManual(true); // El usuario editó manualmente
+                    const items = calculateItems(Number(value));
                     if (edicion) {
                       setEdicionForm((prev) => ({
                         ...prev,
@@ -733,11 +852,16 @@ export function ReservationForm2({
                             total: Number(value),
                           },
                         },
+                        items: {
+                          before: form.items,
+                          current: items.length > 0 ? items : [],
+                        },
                       }));
                     }
                     setForm((prev) => ({
                       ...prev,
                       proveedor: { ...prev.proveedor, total: Number(value) },
+                      items: items.length > 0 ? items : [],
                     }));
                   }}
                   label="Costo total"
@@ -954,8 +1078,22 @@ export function ReservationForm2({
           </div>
         </TabsContent> */}
       </Tabs>
-
-      <DialogFooter>
+      <DialogFooter className="flex justify-between w-fullborder">
+        {!edicionForm.venta?.current?.total ? (
+          <>
+            <p>El precio de la reserva no ha sido actualizada</p>
+          </>
+        ) : (
+          <>
+            <p className="text-md font-semibold p-2 bg-gray-300 rounded-full border text-gray-800">
+              Precio inicial: ${solicitud.total}
+            </p>
+            <p className="text-md font-semibold p-2 bg-green-300 rounded-full border text-green-800">
+              Precio actual:
+              {`$${edicionForm.venta.current.total.toFixed(2)}`}
+            </p>
+          </>
+        )}
         <Button disabled={!!loading} type="submit">
           Actualizar Reserva
         </Button>

@@ -30,7 +30,7 @@ export const fetchHotelesFiltro_Avanzado = async (
   callback: (data: FullHotelData[]) => void
 ) => {
   try {
-    console.log("Preparando filtros:", filters);
+    // console.log("Preparando filtros:", filters);
 
     // Preparar el payload eliminando valores nulos/vacíos
     const payload = Object.entries(filters).reduce((acc, [key, value]) => {
@@ -47,7 +47,7 @@ export const fetchHotelesFiltro_Avanzado = async (
       return acc;
     }, {});
 
-    console.log("Payload enviado:", payload);
+    // console.log("Payload enviado:", payload);
 
     const response = await fetch(
       `${URL}/mia/hoteles/Filtro-avanzado`,
@@ -72,7 +72,7 @@ export const fetchHotelesFiltro_Avanzado = async (
     const rawData = result.hoteles || result.data || result;
     const hoteles = Array.isArray(rawData) ? rawData : [rawData];
 
-    console.log("Hoteles recibidos:", hoteles);
+    // console.log("Hoteles recibidos:", hoteles);
     callback(hoteles);
 
     return hoteles;

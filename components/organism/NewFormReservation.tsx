@@ -1,8 +1,7 @@
 import React, { useState, useEffect, FormEvent } from "react";
-import { differenceInDays, parseISO, set } from "date-fns";
-import Button from "@/components/atom/Button";
+import { differenceInDays, parseISO } from "date-fns";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -18,125 +17,27 @@ import {
   DropdownValues,
   NumberInput,
   TextInput,
-
 } from "@/components/atom/Input";
 import { fetchViajerosFromAgent } from "@/services/viajeros";
-import { Hotel, Solicitud, ReservaForm, Viajero, EdicionForm } from "@/types";
+import { Hotel, ReservaForm, Viajero, EdicionForm, Solicitud2 } from "@/types";
 import { Table } from "../Table";
-import { formatNumberWithCommas, getEstatus } from "@/helpers/utils";
+import {
+  formatNumberWithCommas,
+  getEstatus,
+  separarCostos,
+} from "@/helpers/utils";
 import { updateRoom } from "@/lib/utils";
-import { CreditCard, CheckCircle2, BadgeDollarSign, Wallet } from "lucide-react";
-import { InputRadio } from "@/components/atom/Input";
-
-// Definir tipos para métodos de pago
-type MetodoPago = "wallet" | "credito";
-
-interface MetodoPagoInfo {
-  id: MetodoPago;
-  label: string;
-  icon: React.ElementType;
-  color: string;
-  description: string;
-}
-
-const metodos_pago: MetodoPagoInfo[] = [
-  {
-    id: "wallet",
-    label: "Wallet",
-    icon: Wallet,
-    color: "bg-green",
-    description: "Saldo a favor disponible",
-  },
-  {
-    id: "credito",
-    label: "Credito",
-    icon: BadgeDollarSign,
-    color: "bg-yellow",
-    description: "Credito disponible",
-  },
-];
-
-interface PaymentTerminalProps {
-  total: number;
-  onConfirmPayment: () => void;
-}
-
-const PaymentTerminal: React.FC<PaymentTerminalProps> = ({
-  total,
-  onConfirmPayment,
-}) => {
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<MetodoPago | null>(null);
-
-  const handleConfirmPayment = () => {
-    if (selectedPaymentMethod) {
-      onConfirmPayment();
-    }
-  };
-
-  const metodosPagoJSX = metodos_pago.map((metodo) => (
-    <InputRadio
-      key={metodo.id}
-      item={metodo}
-      name="metodo_pago"
-      onChange={() => setSelectedPaymentMethod(metodo.id)}
-      selectedItem={selectedPaymentMethod}
-      disabled={false}
-    />
-  ));
-
-  return (
-    <div className="bg-white rounded-t-lg p-4 shadow-xl border border-gray-300 sticky bottom-0 z-10 mt-6">
-      <div className="flex justify-between items-center text-2xl font-bold mb-4">
-        <span>Total:</span>
-        <span className="text-sky-700">${total.toFixed(2)}</span>
-      </div>
-
-      <div className="w-full">
-        <div className="grid grid-cols-2 gap-3">
-          {metodos_pago.map((metodo) => {
-            const isSelected = selectedPaymentMethod === metodo.id;
-            const selectedClass = isSelected ? 'ring-2 ring-offset-2 ring-blue-500' : '';
-
-            return (
-              <div
-                key={metodo.id}
-                className={`flex flex-col items-center justify-center p-3 border rounded-lg cursor-pointer transition-all ${metodo.color} ${selectedClass}`}
-                onClick={() => setSelectedPaymentMethod(metodo.id)}
-              >
-                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-white/80 mb-2">
-                  <metodo.icon size={20} />
-                </div>
-                <span className="text-sm font-medium text-center">{metodo.label}</span>
-                <span className="text-xs text-center mt-1 opacity-80">{metodo.description}</span>
-              </div>
-            );
-          })}
-        </div>
-        <div className="mt-4">
-          <Button
-            className="w-full"
-            variant="primary"
-            icon={CheckCircle2}
-            onClick={handleConfirmPayment}
-            disabled={!selectedPaymentMethod}
-          >
-            Pagar con {selectedPaymentMethod === 'wallet' ? 'Wallet' : 'Tarjeta'}
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-};
+import { DialogFooter } from "../ui/dialog";
 
 interface ReservationFormProps {
-  solicitud?: Solicitud & { nuevo_incluye_desayuno?: boolean | null };
+  solicitud?: Solicitud2 & { nuevo_incluye_desayuno?: boolean | null };
   hotels: Hotel[];
   onClose: () => void;
   edicion?: boolean;
   create?: boolean;
 }
 
-export function ReservationForm({
+export function ReservationForm2({
   solicitud,
   hotels,
   onClose,
@@ -148,7 +49,7 @@ export function ReservationForm({
 
   if (solicitud.check_in && solicitud.check_out) {
     currentHotel = hotels.filter(
-      (item) => item.nombre_hotel == solicitud?.hotel
+      (item) => item.nombre_hotel == solicitud?.hotel_reserva
     )[0];
     currentNoches = differenceInDays(
       parseISO(solicitud.check_out),
@@ -161,7 +62,7 @@ export function ReservationForm({
   const [acompanantes, setAcompanantes] = useState<Viajero[]>([]);
   const [form, setForm] = useState<ReservaForm>({
     hotel: {
-      name: solicitud.hotel || "",
+      name: solicitud.hotel_reserva || "",
       content: currentHotel || null,
     },
     habitacion: updateRoom(solicitud.room) || "",
@@ -178,7 +79,7 @@ export function ReservationForm({
       impuestos: Number(solicitud.total) * 0.16 || 0,
       markup: 0,
     },
-    estado_reserva: getEstatus(solicitud.status) as
+    estado_reserva: getEstatus(solicitud.status_reserva) as
       | "Confirmada"
       | "En proceso"
       | "Cancelada",
@@ -189,14 +90,14 @@ export function ReservationForm({
         solicitud.costo_total != null
           ? Number(solicitud.costo_total)
           : // ② Si no, cae al cálculo automático de antes
-          Number(
             Number(
-              currentHotel?.tipos_cuartos.find(
-                (item) =>
-                  item.nombre_tipo_cuarto == updateRoom(solicitud.room)
-              )?.costo ?? 0
-            ) * currentNoches
-          ) || 0,
+              Number(
+                currentHotel?.tipos_cuartos.find(
+                  (item) =>
+                    item.nombre_tipo_cuarto == updateRoom(solicitud.room)
+                )?.costo ?? 0
+              ) * currentNoches
+            ) || 0,
       subtotal: 0,
       impuestos: 0,
     },
@@ -224,7 +125,7 @@ export function ReservationForm({
     items: [],
     solicitud: {
       ...solicitud,
-      viajeros_adicionales: solicitud.viajeros_adicionales || [],
+      viajeros_adicionales: solicitud.viajeros_acompañantes || [],
     },
   });
   const [habitaciones, setHabitaciones] = useState(
@@ -251,19 +152,16 @@ export function ReservationForm({
   );
 
   useEffect(() => {
-    console.log(form);
-  }, [form]);
-
-  useEffect(() => {
     try {
       fetchViajerosFromAgent(solicitud.id_agente, (data) => {
         const viajeroFiltrado = data.filter(
-          (viajero) => viajero.id_viajero == solicitud.id_viajero
+          (viajero) => viajero.id_viajero == solicitud.id_viajero_reserva
         );
         if (viajeroFiltrado.length > 0) {
           setForm((prev) => ({ ...prev, viajero: viajeroFiltrado[0] }));
         }
         setTravelers(data);
+        console.log(data);
       });
     } catch (error) {
       console.log(error);
@@ -349,10 +247,10 @@ export function ReservationForm({
       const autoTotal = isCostoManual
         ? form.proveedor.total
         : Number(
-          form.hotel.content.tipos_cuartos.find(
-            (item) => item.nombre_tipo_cuarto == form.habitacion
-          )?.costo ?? 0
-        ) * nights;
+            form.hotel.content.tipos_cuartos.find(
+              (item) => item.nombre_tipo_cuarto == form.habitacion
+            )?.costo ?? 0
+          ) * nights;
 
       const items = calculateItems(autoTotal);
 
@@ -415,9 +313,21 @@ export function ReservationForm({
             },
             current: {
               ...form.venta,
-              total: Number((roomPrice * nights).toFixed(2) || 0),
-              subtotal: Number((roomPrice * nights * 0.84).toFixed(2) || 0),
-              impuestos: Number((roomPrice * nights * 0.16).toFixed(2) || 0),
+              total: Number(
+                solicitud.metodo_pago_dinamico == "Contado"
+                  ? separarCostos(Number(solicitud.total)).total
+                  : separarCostos(roomPrice * nights).total
+              ),
+              subtotal: Number(
+                solicitud.metodo_pago_dinamico == "Contado"
+                  ? separarCostos(Number(solicitud.total)).subtotal
+                  : separarCostos(roomPrice * nights).subtotal
+              ),
+              impuestos: Number(
+                solicitud.metodo_pago_dinamico == "Contado"
+                  ? separarCostos(Number(solicitud.total)).impuestos
+                  : separarCostos(roomPrice * nights).impuestos
+              ),
               markup: Number(
                 (
                   ((roomPrice * nights - autoTotal) / (roomPrice * nights)) *
@@ -448,57 +358,6 @@ export function ReservationForm({
     edicion,
   ]);
 
-  const handleSubmit = (e: FormEvent) => {
-    setLoading(true);
-    e.preventDefault();
-    if (edicion) {
-      updateReserva(
-        { ...edicionForm, nuevo_incluye_desayuno, acompanantes },
-        solicitud.id_booking,
-        (data) => {
-          if (data.error) {
-            alert("Error al actualizar la reserva");
-            setLoading(false);
-            return;
-          }
-          alert("Reserva actualizada correctamente");
-          onClose();
-          setLoading(false);
-          console.log(data);
-        }
-      );
-    } else if (create) {
-      fetchCreateReservaOperaciones(
-        { ...form, nuevo_incluye_desayuno, acompanantes },
-        (data) => {
-          console.log(data);
-          if (data.error) {
-            alert("ERROR");
-            setLoading(false);
-            return;
-          }
-          alert("Se creo correctamente la reservación");
-          setLoading(false);
-          onClose();
-        }
-      );
-    } else {
-      fetchCreateReservaFromSolicitud(
-        { ...form, nuevo_incluye_desayuno, acompanantes },
-        (data) => {
-          if (data.error) {
-            alert("Error al crear la reserva");
-            setLoading(false);
-            return;
-          }
-          alert("Reserva creada correctamente");
-          setLoading(false);
-          onClose();
-        }
-      );
-    }
-  };
-
   function getAutoCostoTotal(
     hotel: Hotel | null,
     habitacion: string,
@@ -514,16 +373,10 @@ export function ReservationForm({
     );
   }
 
-  const handleConfirmPayment = () => {
-    console.log("Pago confirmado");
-    // Aquí puedes agregar la lógica para procesar el pago
-    alert("Pago procesado exitosamente");
-  };
-
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-6 mx-5 overflow-y-auto rounded-md bg-white p-4"
+      className="space-y-6 mx-5 overflow-y-auto 9rounded-md bg-white p-4"
     >
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-[80vw]">
         <TabsList className="grid w-full grid-cols-2">
@@ -536,7 +389,7 @@ export function ReservationForm({
             <div className="space-y-2">
               <ComboBox
                 label={`Hotel`}
-                sublabel={`(${solicitud.hotel})`}
+                sublabel={`(${solicitud.hotel_reserva})`}
                 onChange={(value) => {
                   setIsCostoManual(false); // Agrega esto aquí
                   if ("tipos_cuartos" in value.content) {
@@ -615,7 +468,7 @@ export function ReservationForm({
                   name: item.nombre_hotel,
                   content: item,
                 }))}
-                placeholderOption={solicitud.hotel}
+                placeholderOption={solicitud.hotel_reserva}
               />
               <div>
                 <DropdownValues
@@ -738,6 +591,14 @@ export function ReservationForm({
                     onChange={(value) => {
                       console.log("Viajero adicional:", value);
                     }}
+                    // onChange={(value) => {
+                    //   setForm((prev) => ({
+                    //     ...prev,
+                    //     viajeros_adicionales: prev.viajeros_adicionales.map((v, i) =>
+                    //       i === index ? { ...v, nombre: value } : v
+                    //     ),
+                    //   }));
+                    // }}
                   />
                 </div>
               ))}
@@ -826,9 +687,7 @@ export function ReservationForm({
               </div>
               <ComboBox
                 label={`Viajeros`}
-                sublabel={`(${solicitud.nombre_viajero || solicitud.nombre_viajero_completo
-                  } - ${solicitud.id_viajero})`}
-                sublabel={`(${solicitud.nombre_viajero} - ${solicitud.id_viajero})`}
+                sublabel={`(${solicitud.nombre_viajero_reservacion} - ${solicitud.id_viajero_reserva})`}
                 onChange={(value) => {
                   if (edicion) {
                     setEdicionForm((prev) => ({
@@ -990,6 +849,7 @@ export function ReservationForm({
                       acc[tax.name] = tax.total;
                       return acc;
                     }, {}),
+                    // costo_impuestos: item.costo.impuestos,
                     costo_subtotal: item.costo.subtotal,
                     costo: item.costo.total,
                     venta: item.venta.total,
@@ -1000,6 +860,11 @@ export function ReservationForm({
                   noche: (props: any) => (
                     <span title={props.value}>{props.value}</span>
                   ),
+                  // costo_impuestos: (props: any) => (
+                  //   <span title={props.value}>
+                  //     ${formatNumberWithCommas(props.value.toFixed(2))}
+                  //   </span>
+                  // ),
                   costo_subtotal: (props: any) => (
                     <span title={props.value}>
                       ${formatNumberWithCommas(props.value?.toFixed(2) || "")}
@@ -1062,6 +927,12 @@ export function ReservationForm({
                       ${formatNumberWithCommas(form.proveedor.total.toFixed(2))}
                     </span>
                   </div>
+                  {/* <div className="flex justify-between border-t pt-2 mt-2 font-medium text-gray-700">
+                    <span>Ganancia:</span>
+                    <span className="text-gray-900">
+                      ${(form.venta.total - form.proveedor.total).toFixed(2)}
+                    </span>
+                  </div> */}
                   <div className="flex justify-between border-t pt-2 mt-2 font-medium text-gray-700">
                     <span>Markup:</span>
                     <span className="text-gray-900">
@@ -1074,16 +945,10 @@ export function ReservationForm({
           </div>
         </TabsContent>
       </Tabs>
-
-      {/* Terminal de pago simplificada */}
-      <PaymentTerminal
-        total={form.venta.total}
-        onConfirmPayment={handleConfirmPayment}
-      />
-
-      <DialogFooter>
+      <DialogFooter className="flex justify-between">
+        <p>{form.venta.total.toFixed(2)}</p>
         <Button disabled={!!loading} type="submit">
-          {edicion ? "Actualizar Reserva" : "Crear Reserva"}
+          Actualizar Reserva
         </Button>
       </DialogFooter>
     </form>
