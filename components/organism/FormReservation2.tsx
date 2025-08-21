@@ -1024,15 +1024,15 @@ export function ReservationForm2({
               Precio actual:
               {`$${edicionForm.venta.current.total.toFixed(2)}`}
             </p>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setCobrar(true)}
-            >
-              Modificar precio
-            </Button>
           </>
         )}
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => setCobrar(true)}
+        >
+          Modificar precio
+        </Button>
         <Button disabled={!!loading} type="submit">
           Actualizar datos de la reserva
         </Button>
@@ -1050,7 +1050,11 @@ export function ReservationForm2({
             onClose={() => {
               setCobrar(false);
             }}
-            precioNuevo={edicionForm.venta.current.total}
+            precioNuevo={
+              edicionForm?.venta?.current?.total
+                ? Number(edicionForm.venta.current.total)
+                : Number(solicitud.total) || 0
+            }
           ></EditPrecioVenta>
         </Modal>
       )}
