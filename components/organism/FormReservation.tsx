@@ -5,12 +5,15 @@ import { Label } from "@/components/ui/label";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { PagarModalComponent } from "@/components/template/pagar_saldo"; // Import the modal
+import { fetchAgenteById, fetchPagosByAgente } from "@/services/agentes";
 import {
   fetchCreateReservaFromSolicitud,
   fetchCreateReservaOperaciones,
   updateReserva,
 } from "@/services/reservas";
 import {
+  CheckboxInput,
   ComboBox,
   DateInput,
   Dropdown,
@@ -22,12 +25,13 @@ import { fetchViajerosFromAgent } from "@/services/viajeros";
 import { Hotel, Solicitud, ReservaForm, Viajero, EdicionForm } from "@/types";
 import { Table } from "../Table";
 import { formatNumberWithCommas, getEstatus } from "@/helpers/utils";
-import { PagarModalComponent } from "@/components/template/pagar_saldo"; // Import the modal
-
 import { updateRoom } from "@/lib/utils";
+import { useNotification } from "@/context/useNotificacion";
+import { CreditCard, Wallet } from 'lucide-react';
+
 
 interface ReservationFormProps {
-  solicitud?: Solicitud;
+  solicitud?: Solicitud & { nuevo_incluye_desayuno?: boolean | null };
   hotels: Hotel[];
   onClose: () => void;
   edicion?: boolean;
@@ -53,7 +57,11 @@ export function ReservationForm({
       parseISO(solicitud.check_in)
     );
   }
-
+  const [nuevo_incluye_desayuno, setNuevoIncluyeDesayuno] = useState<
+    boolean | null
+  >(solicitud.nuevo_incluye_desayuno || null);
+  const { showNotification } = useNotification();
+  const [acompanantes, setAcompanantes] = useState<Viajero[]>([]);
   const [form, setForm] = useState<ReservaForm>({
     hotel: {
       name: solicitud.hotel || "",
@@ -145,11 +153,11 @@ export function ReservationForm({
       )
   );
 
-  const [showPagarModal, setShowPagarModal] = useState(false);
-  const [reservaData, setReservaData] = useState<any>(null); // Datos para el modal
+  const [walletAmount, setWalletAmount] = useState<number>(0);
+  const [loadingWallet, setLoadingWallet] = useState(false);
 
   useEffect(() => {
-    console.log(form);
+    console.log("form ", form);
   }, [form]);
 
   useEffect(() => {
@@ -164,7 +172,8 @@ export function ReservationForm({
         setTravelers(data);
       });
     } catch (error) {
-      console.log(error);
+      console.log("MANEJANDO ERROR", error);
+      showNotification("error", error.message || "Error al cargar los viajeros");
       setTravelers([]);
     }
   }, []);
@@ -345,43 +354,107 @@ export function ReservationForm({
     isCostoManual,
     edicion,
   ]);
-  const handleSubmit = (e: FormEvent) => {
-    setLoading(true);
-    e.preventDefault();
 
-    if (create) {
-      fetchCreateReservaOperaciones({ ...form acompanantes }, (data) => {
-        if (data.error) {
-          alert("ERROR");
-          setLoading(false);
-          return;
-        }
-        // Guardar datos y abrir modal para operaciones
-        setReservaData(data);
-        setShowPagarModal(true);
-        setLoading(false);
-      });
-    } else {
-      fetchCreateReservaFromSolicitud(form, (data) => {
-        if (data.error) {
-          alert("Error al crear la reserva");
-          setLoading(false);
-          return;
-        }
-        // Guardar datos y abrir modal para solicitudes
-        setReservaData(data);
-        setShowPagarModal(true);
-        setLoading(false);
-      });
-    }
+  // Estado para controlar la visibilidad del modal de pago
+  const [showPagarModal, setShowPagarModal] = useState(false);
+  // Estado para almacenar los datos de la reserva para el modal
+  const [reservaData, setReservaData] = useState<any>(null);
+
+  // const handleSubmit = async (e: FormEvent) => {
+  //   setLoading(true);
+  //   e.preventDefault();
+  //   if (edicion) {
+  //     updateReserva(
+  //       { ...edicionForm, nuevo_incluye_desayuno, acompanantes },
+  //       solicitud.id_booking,
+  //       (data) => {
+  //         if (data.error) {
+  //           alert("Error al actualizar la reserva");
+  //           setLoading(false);
+  //           return;
+  //         }
+  //         alert("Reserva actualizada correctamente");
+  //         const reservaConAgente = {
+  //           ...data,
+  //           ...form,
+  //           id_agente: solicitud.id_agente,
+  //           Total: form.venta.total,
+  //           Noches: form.noches
+  //         };
+  //         setReservaData(reservaConAgente);
+  //         setShowPagarModal(true);
+  //         setLoading(false);
+  //         console.log("se mando la data", reservaConAgente);
+  //       }
+  //     );
+  //   } else if (create) {
+  //     try {
+
+  //       await fetchCreateReservaOperaciones(
+  //         { ...form, nuevo_incluye_desayuno, acompanantes }).then((data) => {
+  //           alert("Se creo correctamente la reservación");
+  //           const reservaConAgente = {
+  //             ...data,
+  //             ...form,
+  //             id_agente: solicitud.id_agente,
+  //             Total: form.venta.total,
+  //             Noches: form.noches
+  //           };
+  //           setReservaData(reservaConAgente);
+  //           setShowPagarModal(true);
+
+  //           setLoading(false);
+  //         }).catch((error) => {
+  //           console.error("Error al crear la reserva:", error);
+  //           showNotification("error", error.message || "Error al crear la reserva");
+  //         });
+  //     } catch (error) {
+  //       console.error("Error al crear la reserva:", error);
+  //       showNotification("error", error.message || "Error al crear la reserva");
+  //     }
+  //   } else {
+  //     fetchCreateReservaFromSolicitud(
+  //       { ...form, nuevo_incluye_desayuno, acompanantes },
+  //       (data) => {
+  //         if (data.error) {
+  //           alert("Error al crear la reserva");
+  //           setLoading(false);
+  //           return;
+  //         }
+  //         alert("Reserva creada correctamente");
+  //         const reservaConAgente = {
+  //           ...data,
+  //           ...form,
+  //           id_agente: solicitud.id_agente,
+  //           Total: form.venta.total,
+  //           Noches: form.noches
+  //         };
+  //         setReservaData(reservaConAgente);
+  //         setShowPagarModal(true);
+
+  //         setLoading(false);
+  //       }
+  //     );
+  //   }
+  // };
+
+
+  // Modificar el handleSubmit para que no guarde automáticamente
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    // Solo validar el formulario pero no guardar
+    // La reserva se guardará cuando se seleccione el método de pago
+    setLoading(true);
+
+    // Validaciones del formulario...
+
+    setLoading(false);
   };
 
-  // Función para cerrar el modal de pago
   const handleClosePagarModal = () => {
     setShowPagarModal(false);
-    onClose(); // También cerramos el formulario principal
+    onClose(); // También cierra el formulario principal 
   };
-
 
   function getAutoCostoTotal(
     hotel: Hotel | null,
@@ -397,6 +470,70 @@ export function ReservationForm({
       ) * noches
     );
   }
+
+  const updateAgentWallet = async () => {
+    try {
+      setLoadingWallet(true);
+      // Aquí debes implementar la llamada a tu API para obtener el saldo del agente
+      // Reemplaza fetchAgenteById con tu función real
+      const agenteActualizado = await fetchAgenteById(solicitud.id_agente);
+
+      console.log("Respuesta completa:", agenteActualizado);
+
+      const walletAmount = Array.isArray(agenteActualizado)
+        ? parseFloat(agenteActualizado[0].wallet)
+        : parseFloat(agenteActualizado.wallet);
+
+      setWalletAmount(walletAmount);
+      return walletAmount;
+    } catch (error) {
+      console.error("Error al obtener el saldo wallet:", error);
+      showNotification("error", "Error al obtener el saldo wallet");
+      return 0;
+    } finally {
+      setLoadingWallet(false);
+    }
+  };
+
+  // Función para manejar el pago con Wallet
+  const handleWalletPayment = async () => {
+    const saldo = await updateAgentWallet();
+
+    if (saldo < form.venta.total) {
+      showNotification("error", "Saldo insuficiente en la wallet");
+      return;
+    }
+
+    // Si el saldo es suficiente, mostrar el modal de pago
+    const reservaConAgente = {
+      ...reservaData, // o los datos que necesites pasar
+      ...form,
+      id_agente: solicitud.id_agente,
+      Total: form.venta.total,
+      Noches: form.noches,
+      metodoPago: 'wallet' // añadir información del método de pago
+    };
+
+    setReservaData(reservaConAgente);
+    setShowPagarModal(true);
+  };
+  useEffect(() => {
+    updateAgentWallet();
+  }, []);
+  // Función para manejar el pago con Crédito
+  const handleCreditPayment = () => {
+    const reservaConAgente = {
+      ...reservaData, // o los datos que necesites pasar
+      ...form,
+      id_agente: solicitud.id_agente,
+      Total: form.venta.total,
+      Noches: form.noches,
+      metodoPago: 'credito' // añadir información del método de pago
+    };
+
+    setReservaData(reservaConAgente);
+    setShowPagarModal(true);
+  };
 
   return (
     <>
@@ -520,21 +657,6 @@ export function ReservationForm({
                     }
                     value={form.habitacion}
                   />
-                  <div className="text-xs mt-2">
-                    {Boolean(
-                      form.hotel.content?.tipos_cuartos.find(
-                        (item) => item.nombre_tipo_cuarto === form.habitacion
-                      )?.incluye_desayuno
-                    ) ? (
-                      <p className="text-green-800 p-1  px-3 rounded-full bg-green-200 w-fit border border-green-300">
-                        Incluye desayuno
-                      </p>
-                    ) : (
-                      <p className="text-red-800 p-1 px-3 rounded-full bg-red-200 w-fit border border-red-300">
-                        No incluye desayuno
-                      </p>
-                    )}
-                  </div>
                 </div>
               </div>
               <div className="space-y-2">
@@ -643,13 +765,92 @@ export function ReservationForm({
                     />
                   </div>
                 ))}
+                <div className="space-y-2">
+                  <Label>Comentarios de la reserva</Label>
+                  <Textarea
+                    onChange={(e) => {
+                      if (edicion) {
+                        setEdicionForm((prev) => ({
+                          ...prev,
+                          comments: {
+                            before: form.comments,
+                            current: e.target.value,
+                          },
+                        }));
+                      }
+                      setForm((prev) => ({ ...prev, comments: e.target.value }));
+                    }}
+                    value={form.comments}
+                  ></Textarea>
+                </div>
               </div>
 
               <div className="space-y-2">
+                <div className="text-xs mt-2">
+                  <div className="space-y-2">
+                    {nuevo_incluye_desayuno == null && (
+                      <>
+                        {Boolean(
+                          form.hotel.content?.tipos_cuartos.find(
+                            (item) => item.nombre_tipo_cuarto === form.habitacion
+                          )?.incluye_desayuno
+                        ) ? (
+                          <p className="text-green-800 p-1  px-3 rounded-full bg-green-200 w-fit border border-green-300">
+                            Incluye desayuno
+                          </p>
+                        ) : (
+                          <p className="text-red-800 p-1 px-3 rounded-full bg-red-200 w-fit border border-red-300">
+                            No incluye desayuno
+                          </p>
+                        )}
+                      </>
+                    )}
+
+                    {nuevo_incluye_desayuno == null ? (
+                      <>
+                        <CheckboxInput
+                          checked={nuevo_incluye_desayuno}
+                          label="Sobre escribir manualmente el desayuno"
+                          onChange={(value) => {
+                            setNuevoIncluyeDesayuno(
+                              !form.hotel.content?.tipos_cuartos.find(
+                                (item) =>
+                                  item.nombre_tipo_cuarto === form.habitacion
+                              )?.incluye_desayuno
+                            );
+                          }}
+                        />
+                        <p className="text-gray-800 p-1  px-3 rounded-full bg-gray-200 w-fit border border-gray-300">
+                          Al guardar la reserva el valor se quedara al del hotel
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <CheckboxInput
+                          checked={nuevo_incluye_desayuno}
+                          label="incluye desayuno"
+                          onChange={(value) => {
+                            setNuevoIncluyeDesayuno(value);
+                          }}
+                        />
+                        {nuevo_incluye_desayuno ? (
+                          <p className="text-green-800 p-1  px-3 rounded-full bg-green-200 w-fit border border-green-300">
+                            Incluira desayuno al guardar aun si el hotel dice que
+                            no incluye
+                          </p>
+                        ) : (
+                          <p className="text-red-800 p-1 px-3 rounded-full bg-red-200 w-fit border border-red-300">
+                            No incluira el desayuno en el hotel aun si en el hotel
+                            dice que lo incluye
+                          </p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
                 <ComboBox
                   label={`Viajeros`}
-                  sublabel={`(${solicitud.nombre_viajero || solicitud.nombre_viajero_completo
-                    } - ${solicitud.id_viajero})`}
+                  sublabel={`(${solicitud.nombre_viajero} - ${solicitud.id_viajero})`}
                   onChange={(value) => {
                     if (edicion) {
                       setEdicionForm((prev) => ({
@@ -669,28 +870,77 @@ export function ReservationForm({
                     name: form.viajero.nombre_completo || "",
                     content: form.viajero || null,
                   }}
-                  options={travelers.map((item) => ({
-                    name: item.nombre_completo,
-                    content: item,
-                  }))}
+                  options={[...travelers]
+                    .filter(
+                      (traveler) =>
+                        !acompanantes
+                          .map((item) => item.id_viajero)
+                          .includes(traveler.id_viajero)
+                    )
+                    .map((item) => ({
+                      name: item.nombre_completo,
+                      content: item,
+                    }))}
                 />
+
                 <div className="space-y-2">
-                  <Label>Comentarios de la reserva</Label>
-                  <Textarea
-                    onChange={(e) => {
-                      if (edicion) {
-                        setEdicionForm((prev) => ({
-                          ...prev,
-                          comments: {
-                            before: form.comments,
-                            current: e.target.value,
-                          },
-                        }));
-                      }
-                      setForm((prev) => ({ ...prev, comments: e.target.value }));
-                    }}
-                    value={form.comments}
-                  ></Textarea>
+                  {acompanantes.map((acompanante, index) => {
+                    return (
+                      <ComboBox
+                        label={`Acompañante - ${index + 1}`}
+                        onDelete={() => {
+                          const newAcompanantes = [...acompanantes].toSpliced(
+                            index,
+                            1
+                          );
+                          console.log(newAcompanantes);
+                          setAcompanantes(newAcompanantes);
+                        }}
+                        onChange={(value) => {
+                          const newAcompanantesList = [...acompanantes];
+                          newAcompanantesList[index] = value.content as Viajero;
+                          setAcompanantes(newAcompanantesList);
+                        }}
+                        value={{
+                          name: acompanante.nombre_completo || "",
+                          content: acompanante || null,
+                        }}
+                        options={[...travelers]
+                          .filter(
+                            (traveler) =>
+                              (!acompanantes
+                                .map((item) => item.id_viajero)
+                                .includes(traveler.id_viajero) &&
+                                traveler.id_viajero != form.viajero.id_viajero) ||
+                              traveler.id_viajero == acompanante.id_viajero
+                          )
+                          .map((item) => ({
+                            name: item.nombre_completo,
+                            content: item,
+                          }))}
+                      />
+                    );
+                  })}
+                  {travelers.length > acompanantes.length + 1 && (
+                    <>
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          const filtrados = [...travelers].filter(
+                            (traveler) =>
+                              !acompanantes
+                                .map((item) => item.id_viajero)
+                                .includes(traveler.id_viajero) &&
+                              traveler.id_viajero != form.viajero.id_viajero
+                          );
+                          const nuevoArray = [...acompanantes, filtrados[0]];
+                          setAcompanantes(nuevoArray);
+                        }}
+                      >
+                        Agregar acompañante
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -857,99 +1107,48 @@ export function ReservationForm({
               )}
             </div>
           </TabsContent>
-          {/* 
-        <TabsContent value="pago" className="space-y-4">
-          <div className="grid gap-4">
-            <div className="space-y-2">
-              <Label>Método de Pago</Label>
-              <Select
-                value={paymentMethod.type}
-                onValueChange={(
-                  value: "spei" | "credit_card" | "balance" | ""
-                ) => setPaymentMethod({ ...paymentMethod, type: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona un método" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="spei">SPEI</SelectItem>
-                  <SelectItem value="credit_card">
-                    Tarjeta de Crédito
-                  </SelectItem>
-                  <SelectItem value="balance">Saldo a Favor</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
 
-            <div className="space-y-2">
-              <Label>Fecha de Pago</Label>
-              <div className="relative">
-                <Calendar className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="date"
-                  className="pl-8"
-                  value={paymentMethod.paymentDate}
-                  onChange={(e) =>
-                    setPaymentMethod({
-                      ...paymentMethod,
-                      paymentDate: e.target.value,
-                    })
-                  }
-                />
-              </div>
-            </div>
-
-            {paymentMethod.type === "credit_card" && (
-              <div className="space-y-2">
-                <Label>Últimos 4 dígitos</Label>
-                <div className="relative">
-                  <CreditCard className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    className="pl-8"
-                    maxLength={4}
-                    value={paymentMethod.cardLastDigits}
-                    onChange={(e) =>
-                      setPaymentMethod({
-                        ...paymentMethod,
-                        cardLastDigits: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label>Comentarios</Label>
-              <Textarea
-                value={paymentMethod.comments}
-                onChange={(e) =>
-                  setPaymentMethod({
-                    ...paymentMethod,
-                    comments: e.target.value,
-                  })
-                }
-                placeholder="Agregar comentarios sobre el pago..."
-              />
-            </div>
-          </div>
-        </TabsContent> */}
         </Tabs>
 
-
         <DialogFooter>
-          <Button disabled={!!loading} type="submit">
-            {edicion ? "Actualizar Reserva" : "Crear Reserva"}
-          </Button>
+          <div className="grid grid-cols-2 gap-3 w-full">
+            {/* Botón Wallet */}
+            <Button
+              type="button"
+              disabled={loading || loadingWallet || walletAmount < form.venta.total}
+              onClick={handleWalletPayment}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+            >
+              {loadingWallet ? (
+                <span>Cargando...</span>
+              ) : (
+                <>
+                  <Wallet className="w-5 h-5" />
+                  Wallet (${walletAmount.toFixed(2)})
+                </>
+              )}
+            </Button>
+
+            {/* Botón Crédito */}
+            <Button
+              type="button"
+              disabled={loading}
+              onClick={handleCreditPayment}
+              className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+            >
+              <CreditCard className="w-5 h-5" />
+              Crédito
+            </Button>
+          </div>
         </DialogFooter>
       </form>
 
-      {/* Modal de pago que se muestra después de crear una reserva */}
+      {/* Modal de pago */}
       {showPagarModal && reservaData && (
         <PagarModalComponent
-          open={showPagarModal}
           onClose={handleClosePagarModal}
-          hospedajeData={reservaData}
+          reservaData={reservaData}
+          open={showPagarModal}
         />
       )}
     </>

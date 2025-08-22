@@ -1297,60 +1297,55 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
           )}
           {/* Nuevo Modal Pagar con saldo */}
           {isPagarModalOpen && (
-            <Modal
-              title={`Pagar Saldo - ${item.nombre}`}
-              onClose={() => setIsPagarModalOpen(false)}
-            >
-              <PagarModalComponent
-                saldoData={{
-                  id_saldos: item.id_saldos,
-                  id_agente: item.id_agente,
-                  nombre: item.nombre,
-                  monto: item.monto,
-                  saldo: item.saldo,
-                  fecha_pago: item.fecha_pago,
-                  metodo_pago: item.metodo_pago,
-                  referencia: item.referencia,
-                  comentario: item.comentario,
-                }}
-                rowData={item} // Pasa el row completo como nueva prop
-                onClose={() => {
-                  console.log("Entrando al modal para mostrar datos");
-                  updateAgentWallet()
-                    .then((number) => setLocalWalletAmount(number || 0))
-                    .catch((error) =>
-                      console.error(
-                        "Error en el saldo del modal al cerrar",
-                        error
-                      )
-                    );
-                  setIsPagarModalOpen(false);
-                }}
-                onSubmit={async () => {
-                  console.log("Entrando al modal para mostrar datos");
-                  updateAgentWallet()
-                    .then((number) => {
-                      console.log(number);
-                      setLocalWalletAmount(number || 0);
-                    })
-                    .catch((error) =>
-                      console.error(
-                        "Error en el saldo del modal al cerrar",
-                        error
-                      )
-                    );
-                  const fetchSaldoFavor = async () => {
-                    const response: { message: string; data: Saldo[] } =
-                      await SaldoFavor.getPagos(agente.id_agente);
-                    console.log("esto trae", response.data);
-                    setSaldos(response.data);
-                  };
-                  fetchSaldoFavor();
-                  walletAmount == localWalletAmount;
-                  setIsPagarModalOpen(false);
-                }}
-              />
-            </Modal>
+            <PagarModalComponent
+              saldoData={{
+                id_saldos: item.id_saldos,
+                id_agente: item.id_agente,
+                nombre: item.nombre,
+                monto: item.monto,
+                saldo: item.saldo,
+                fecha_pago: item.fecha_pago,
+                metodo_pago: item.metodo_pago,
+                referencia: item.referencia,
+                comentario: item.comentario,
+              }}
+              rowData={item} // Pasa el row completo como nueva prop
+              onClose={() => {
+                console.log("Entrando al modal para mostrar datos");
+                updateAgentWallet()
+                  .then((number) => setLocalWalletAmount(number || 0))
+                  .catch((error) =>
+                    console.error(
+                      "Error en el saldo del modal al cerrar",
+                      error
+                    )
+                  );
+                setIsPagarModalOpen(false);
+              }}
+              onSubmit={async () => {
+                console.log("Entrando al modal para mostrar datos");
+                updateAgentWallet()
+                  .then((number) => {
+                    console.log(number);
+                    setLocalWalletAmount(number || 0);
+                  })
+                  .catch((error) =>
+                    console.error(
+                      "Error en el saldo del modal al cerrar",
+                      error
+                    )
+                  );
+                const fetchSaldoFavor = async () => {
+                  const response: { message: string; data: Saldo[] } =
+                    await SaldoFavor.getPagos(agente.id_agente);
+                  console.log("esto trae", response.data);
+                  setSaldos(response.data);
+                };
+                fetchSaldoFavor();
+                walletAmount == localWalletAmount;
+                setIsPagarModalOpen(false);
+              }}
+            />
           )}
         </div>
       );

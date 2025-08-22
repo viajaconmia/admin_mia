@@ -138,6 +138,7 @@ export interface AgenteConSaldos extends Agente {
 }
 
 export type Solicitud = {
+  nuevo_incluye_desayuno?: boolean | null;
   id_servicio?: string;
   estado_reserva?: string;
   created_at?: string; // o Date si lo vas a convertir
