@@ -248,7 +248,6 @@ const SalesManagementPage: React.FC<{
             value={precioActualizado}
             onChange={(value) => setPrecioActualizado(Number(value) || 0)}
             placeholder="0"
-            disabled={true}
             label="Precio actualizado"
           />
 
