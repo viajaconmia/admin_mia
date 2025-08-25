@@ -243,7 +243,6 @@ const TablaPagosVisualizacion = () => {
         montofacturado: response.montofacturado || "0",
         restante: response.restante || "0"
       };
-      console.log(balanceObtenido)
       setBalance(balanceObtenido);
     } catch (err) {
       console.error("Error al obtener el balance:", err);
@@ -735,36 +734,26 @@ const TablaPagosVisualizacion = () => {
     ),
 
     // Actions funcionalidad de botones
+    // ... (código anterior se mantiene igual)
+
+    // Actions funcionalidad de botones
     acciones: ({ value }: { value: { row: any }; item: any }) => {
-      const [showFacturaOptions, setShowFacturaOptions] = useState(false);
-      const [menuPosition, setMenuPosition] = useState<'bottom' | 'top'>('bottom');
-      const buttonRef = useRef<HTMLDivElement>(null);
-
-      useEffect(() => {
-        if (buttonRef.current && showFacturaOptions) {
-          const buttonRect = buttonRef.current.getBoundingClientRect();
-          const spaceBelow = window.innerHeight - buttonRect.bottom;
-          setMenuPosition(spaceBelow < 200 ? 'top' : 'bottom');
-        }
-      }, [showFacturaOptions]);
-
       const row = value.row;
       const selected = isRowSelected(row);
       const disabled = !canSelectRow(row);
 
       const tieneFacturas = row.facturas_asociadas && row.facturas_asociadas.length > 0;
-
       const mostrarOpcionesFacturacion = Number(row.monto_por_facturar) > 0;
 
-      // 🔧 Normaliza ids y montos tal como en el batch externo
+      // Normaliza ids y montos
       const idAgente = (row.id_agente || row.ig_agente || '').toString();
       const rawId = row.raw_id;
       const saldoNum = Number(row.monto_por_facturar) || 0;
       const rawIds2 = seleccionados.map(s => s.raw_id);
       const saldos = [row.monto_por_facturar];
-      const saldos3 = seleccionados.map(s => Number(s.monto_por_facturar)); // Obtener los saldos
-      let saldos2 = saldos.length > 1 ? saldos3 : saldos
-      console.log("seleccionado", saldos2)
+      const saldos3 = seleccionados.map(s => Number(s.monto_por_facturar));
+      let saldos2 = saldos.length > 1 ? saldos3 : saldos;
+
       let rawIds = rawIds2.length == 0
         ? [row.raw_id]
         : rawIds2;
@@ -773,16 +762,14 @@ const TablaPagosVisualizacion = () => {
         ? Number(row.monto_por_facturar)
         : totalSaldoSeleccionado;
 
-      console.log("saldos", rawIds, "rfef", monto)
-
       return (
-        <div className="flex gap-2 relative" ref={buttonRef}>
+        <div className="flex gap-1 items-center"> {/* Reducido el gap de 2 a 1 */}
           {/* Selección */}
           {mostrarOpcionesFacturacion && (
             <div className="flex items-center mr-1">
               <input
                 type="checkbox"
-                className="accent-purple-600 w-4 h-4"
+                className="accent-purple-600 w-3.5 h-3.5"
                 checked={selected}
                 disabled={disabled && !selected}
                 onChange={() => toggleSeleccion(row)}
@@ -793,93 +780,71 @@ const TablaPagosVisualizacion = () => {
 
           {/* Detalles */}
           <button
-            className="px-3 py-1.5 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors border border-blue-200 flex items-center gap-1"
+            className="px-2 py-1 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors border border-blue-200 flex items-center gap-1 text-xs"
             onClick={() => { setPagoSeleccionado(row); }}
           >
-            <Eye className="w-4 h-4" />
+            <Eye className="w-3 h-3" /> {/* Icono más pequeño */}
             <span>Detalles</span>
           </button>
 
           {/* Facturas */}
           {tieneFacturas && (
             <button
-              className="px-3 py-1.5 rounded-md bg-green-50 text-green-600 hover:bg-green-100 transition-colors border border-green-200 flex items-center gap-1"
+              className="px-2 py-1 rounded-md bg-green-50 text-green-600 hover:bg-green-100 transition-colors border border-green-200 flex items-center gap-1 text-xs"
               onClick={() => handleVerFacturas(row.facturas_asociadas)}
             >
-              <FileText className="w-4 h-4" />
+              <FileText className="w-3 h-3" />
               <span>Facturas</span>
             </button>
           )}
 
-          {/* Facturar */}
+          {/* Botón Generar Factura */}
           {mostrarOpcionesFacturacion && (
-            <div className="relative">
-              <button
-                className="px-3 py-1.5 rounded-md bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors border border-purple-200 flex items-center gap-1"
-                onClick={() => setShowFacturaOptions(!showFacturaOptions)}
-              >
-                <FilePlus className="w-4 h-4" />
-                <span>Facturar</span>
-              </button>
-
-              {showFacturaOptions && (
-                <div
-                  className={`absolute right-0 w-48 bg-white rounded-md shadow-lg z-10 border border-gray-200 ${menuPosition === 'top' ? 'bottom-full mb-1' : 'top-full mt-1'
-                    }`}
-                >
-                  <div className="py-1">
-                    {/* ✅ Generar factura - usa el MISMO payload que el batch externo */}
-                    <button
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-900"
-                      onClick={() => {
-                        if (!idAgente || !rawId) return;
-                        setBatchBilling({
-                          userId: idAgente,
-                          saldoMonto: monto,
-                          rawIds,
-                          saldos
-                        });
-                        setShowBatchMenu(false);
-                        setShowBillingPage(true);
-                        setShowFacturaOptions(false);
-                        setShowBillingPage(true); // usa el modal global ya existente
-                      }}
-                    >
-                      Generar factura
-                    </button>
-
-                    {/* ✅ Asignar factura - MISMO shape que el batch externo */}
-                    <button
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-purple-50 hover:text-purple-900"
-                      onClick={() => {
-                        const payload = buildAssignPayload({ seleccionados, row });
-                        if (!payload.rawIds.length) {
-                          alert("No hay pagos seleccionados y la fila no tiene raw_id.");
-                          return;
-                        }
-                        setPagoAFacturar({
-                          ...payload,
-                          pagoOriginal: row,
-                        });
-                        setShowFacturaOptions(false);
-                        setShowSubirFactura(true);
-                      }}
-                    >
-                      Asignar factura
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            <button
+              className="px-2 py-1 rounded-md bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors border border-purple-200 flex items-center gap-1 text-xs"
+              onClick={() => {
+                if (!idAgente || !rawId) return;
+                setBatchBilling({
+                  userId: idAgente,
+                  saldoMonto: monto,
+                  rawIds,
+                  saldos
+                });
+                setShowBatchMenu(false);
+                setShowBillingPage(true);
+              }}
+            >
+              <FilePlus className="w-3 h-3" />
+              <span>Generar</span> {/* Texto más corto */}
+            </button>
           )}
 
-          {/* Cerrar menú al hacer click fuera */}
-          {showFacturaOptions && (
-            <div className="fixed inset-0 z-0" onClick={() => setShowFacturaOptions(false)} />
+          {/* Botón Asignar Factura */}
+          {mostrarOpcionesFacturacion && (
+            <button
+              className="px-2 py-1 rounded-md bg-orange-50 text-orange-600 hover:bg-orange-100 transition-colors border border-orange-200 flex items-center gap-1 text-xs"
+              onClick={() => {
+                const payload = buildAssignPayload({ seleccionados, row });
+                if (!payload.rawIds.length) {
+                  alert("No hay pagos seleccionados y la fila no tiene raw_id.");
+                  return;
+                }
+                setPagoAFacturar({
+                  ...payload,
+                  pagoOriginal: row,
+                });
+                setShowSubirFactura(true);
+              }}
+            >
+              <FileCheck className="w-3 h-3" />
+              <span>Asignar</span> {/* Texto más corto */}
+            </button>
           )}
         </div>
       );
     }
+
+    // ... (el resto del código se mantiene igual)
 
   };
 
@@ -893,7 +858,6 @@ const TablaPagosVisualizacion = () => {
       </div>
     );
   }
-  console.log("balance", balance)
   return (
 
     <div className="bg-white rounded-lg p-6 w-full shadow-xl">

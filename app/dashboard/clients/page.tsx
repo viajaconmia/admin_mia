@@ -169,6 +169,7 @@ function App() {
       component: (
         <PageReservasClientes
           id_agente={selectedItem ? selectedItem.id_agente : ""}
+          agente={selectedItem}
         ></PageReservasClientes>
       ),
     },

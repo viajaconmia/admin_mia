@@ -563,22 +563,21 @@ const FiltersModal: React.FC<{
                     setFilters((prev) => ({
                       ...prev,
                       paymentMethod: value as
-                        | "Tarjeta Debito"
-                        | "Tarjeta Credito"
-                        | ""
+                        | "Tarjeta"
                         | "Credito"
                         | "Contado"
                         | "Wallet"
-                        | "Tranferencia",
+                        | "Tranferencia"
+                        | ""
                     }))
                   }
                   options={[
-                    "Tarjeta Debito",
-                    "Tarjeta Credito",
+                    "Tarjeta",
                     "Transferencia",
                     "Wallet",
                     "Credito",
                     "Contado",
+                    "",
                   ]}
                 />
               )}

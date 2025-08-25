@@ -24,7 +24,7 @@ import { currentDate } from "@/lib/utils";
 import { Table2 } from "@/components/organism/Table2";
 import { ReservationForm } from "@/components/organism/FormReservation";
 
-function App({ id_agente }: { id_agente?: string }) {
+function App({ id_agente, agente }: { id_agente?: string, agente?: any }) {
   const [allSolicitudes, setAllSolicitudes] = useState<Solicitud2[]>([]);
   const [selectedItem, setSelectedItem] = useState<Solicitud2 | null>(null);
   const [searchTerm, setSearchTerm] = useState<string | null>("");
@@ -48,50 +48,50 @@ function App({ id_agente }: { id_agente?: string }) {
 
   let formatedSolicitudes = Array.isArray(allSolicitudes)
     ? allSolicitudes
-        .filter(
-          (item) =>
-            (item.hotel_reserva?.toUpperCase() || "").includes(
-              searchTerm || ""
-            ) ||
-            (item.nombre_cliente?.toUpperCase() || "").includes(
-              searchTerm || ""
-            ) ||
-            (item.nombre_viajero_reservacion?.toUpperCase() || "").includes(
-              searchTerm || ""
-            )
-        )
-        .map((item) => ({
-          id_cliente: item.id_agente,
-          cliente: (item.nombre_cliente || "").toUpperCase(),
-          creado: item.created_at_reserva,
-          hotel: item.hotel_reserva || "",
-          codigo_hotel: item.codigo_reservacion_hotel,
-          viajero: item.nombre_viajero_reservacion || "",
-          check_in: item.check_in,
-          check_out: item.check_out,
-          noches: calcularNoches(item.check_in, item.check_out),
-          // habitacion: formatRoom(item.room),
-          tipo_cuarto: formatRoom(item.room),
-          costo_proveedor: Number(item.costo_total) || 0,
-          markup:
-            ((Number(item.total || 0) - Number(item.costo_total || 0)) /
-              Number(item.total || 0)) *
-            100,
-          precio_de_venta: parseFloat(item.total),
-          metodo_de_pago: item.metodo_pago_dinamico,
-          reservante:
-            item.quien_reservó === "CREADA POR OPERACIONES"
-              ? "Operaciones"
-              : "Cliente",
-          etapa_reservacion: item.etapa_reservacion,
-          estado_pago_proveedor: "",
-          estado_factura_proveedor: "",
-          estado: item.status_reserva,
-          detalles_cliente: "",
-          editar: "",
-          pagar: "",
-          item,
-        }))
+      .filter(
+        (item) =>
+          (item.hotel_reserva?.toUpperCase() || "").includes(
+            searchTerm || ""
+          ) ||
+          (item.nombre_cliente?.toUpperCase() || "").includes(
+            searchTerm || ""
+          ) ||
+          (item.nombre_viajero_reservacion?.toUpperCase() || "").includes(
+            searchTerm || ""
+          )
+      )
+      .map((item) => ({
+        id_cliente: item.id_agente,
+        cliente: (item.nombre_cliente || "").toUpperCase(),
+        creado: item.created_at_reserva,
+        hotel: item.hotel_reserva || "",
+        codigo_hotel: item.codigo_reservacion_hotel,
+        viajero: item.nombre_viajero_reservacion || "",
+        check_in: item.check_in,
+        check_out: item.check_out,
+        noches: calcularNoches(item.check_in, item.check_out),
+        // habitacion: formatRoom(item.room),
+        tipo_cuarto: formatRoom(item.room),
+        costo_proveedor: Number(item.costo_total) || 0,
+        markup:
+          ((Number(item.total || 0) - Number(item.costo_total || 0)) /
+            Number(item.total || 0)) *
+          100,
+        precio_de_venta: parseFloat(item.total),
+        metodo_de_pago: item.metodo_pago_dinamico,
+        reservante:
+          item.quien_reservó === "CREADA POR OPERACIONES"
+            ? "Operaciones"
+            : "Cliente",
+        etapa_reservacion: item.etapa_reservacion,
+        estado_pago_proveedor: "",
+        estado_factura_proveedor: "",
+        estado: item.status_reserva,
+        detalles_cliente: "",
+        editar: "",
+        pagar: "",
+        item,
+      }))
     : [];
 
   let componentes = {
@@ -130,13 +130,12 @@ function App({ id_agente }: { id_agente?: string }) {
     ),
     markup: (props: any) => (
       <span
-        className={`font-semibold border p-2 rounded-full ${
-          props.value == "Infinity"
-            ? "text-gray-700 bg-gray-100 border-gray-300 "
-            : props.value > 0
+        className={`font-semibold border p-2 rounded-full ${props.value == "Infinity"
+          ? "text-gray-700 bg-gray-100 border-gray-300 "
+          : props.value > 0
             ? "text-green-600 bg-green-100 border-green-300"
             : "text-red-600 bg-red-100 border-red-300"
-        }`}
+          }`}
       >
         {props.value == "Infinity" ? <>0%</> : <>{props.value.toFixed(2)}%</>}
       </span>
@@ -313,6 +312,7 @@ function App({ id_agente }: { id_agente?: string }) {
                 check_in: null,
                 check_out: null,
                 id_agente: id_agente,
+                agente: agente,
               }}
               hotels={hoteles}
               onClose={() => {

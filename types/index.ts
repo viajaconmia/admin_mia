@@ -19,13 +19,12 @@ export interface TypeFilters {
   status?: "Confirmada" | "Pendiente" | "Cancelada" | "Todos" | null;
   reservationStage?: "Reservado" | "In house" | "Check-out" | null;
   paymentMethod?:
-    | "Tarjeta Debito"
-    | "Tarjeta Credito"
-    | ""
-    | "Credito"
+  | "Credito"
+    | "Tarjeta"
     | "Contado"
     | "Wallet"
-    | "Tranferencia"
+  | "Tranferencia"
+  |""
     | null;
   filterType?:
     | "Check-in"
@@ -36,9 +35,7 @@ export interface TypeFilters {
     | null;
   active?: "Activo" | "Inactivo" | null;
   metodo?:
-    | "Tarjeta Debito"
-    | "Tarjeta Credito"
-    | ""
+    | "Tarjeta"
     | "Credito"
     | "Contado"
     | "Wallet"
@@ -138,6 +135,7 @@ export interface AgenteConSaldos extends Agente {
 }
 
 export type Solicitud = {
+  nuevo_incluye_desayuno?: boolean | null;
   id_servicio?: string;
   estado_reserva?: string;
   created_at?: string; // o Date si lo vas a convertir
