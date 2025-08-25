@@ -389,21 +389,25 @@ export function generateSecureToken(
   isSecureCode: boolean
 ): string {
   // Generate a secure token combining reservation data with timestamp and random elements
-  const timestamp = Date.now();
-  const randomStr = Math.random().toString(36).substring(2, 15);
-  const dataStr = `${reservationId}-${amount}-${cardType}-${
-    isSecureCode ? 1 : 0
-  }-${timestamp}`;
-
-  // In production, this should be properly encrypted on the backend
-  // For demo purposes, we'll use base64 encoding with additional obfuscation
-  const token = btoa(dataStr + "-" + randomStr)
-    .replace(/[+/=]/g, (match) => {
-      return { "+": "-", "/": "_", "=": "" }[match] || match;
-    })
-    .replaceAll("=", "");
-  console.log(token);
-  return token;
+  try {
+    const timestamp = Date.now();
+    const randomStr = Math.random().toString(36).substring(2, 15);
+    const dataStr = `${reservationId}-${amount}-${cardType}-${
+      isSecureCode ? 1 : 0
+    }-${timestamp}`;
+    console.log(dataStr);
+    // In production, this should be properly encrypted on the backend
+    // For demo purposes, we'll use base64 encoding with additional obfuscation
+    const token = btoa(dataStr + "-" + randomStr)
+      .replace(/[+/=]/g, (match) => {
+        return { "+": "-", "/": "_", "=": "" }[match] || match;
+      })
+      .replaceAll("=", "");
+    console.log(token);
+    return token;
+  } catch (error) {
+    console.log(error);
+  }
 }
 
 export function validateSecureToken(token: string): {

@@ -162,10 +162,10 @@ export function ReservationForm2({
   );
   const [inicial, setInicial] = useState(true);
 
-  useEffect(() => {
-    console.log("FORM", form);
-    console.log("Edicion FORM", edicionForm);
-  }, [form]);
+  // useEffect(() => {
+  //   console.log("FORM", form);
+  //   console.log("Edicion FORM", edicionForm);
+  // }, [form]);
 
   useEffect(() => {
     try {
@@ -176,8 +176,9 @@ export function ReservationForm2({
         if (viajeroFiltrado.length > 0) {
           setForm((prev) => ({ ...prev, viajero: viajeroFiltrado[0] }));
         }
-        const id_acompanantes =
-          solicitud.viajeros_adicionales_reserva.split(",");
+        const id_acompanantes = (
+          solicitud.viajeros_adicionales_reserva || ""
+        ).split(",");
         const acompanantesFiltrados = data.filter((viajero) =>
           id_acompanantes.includes(viajero.id_viajero)
         );
@@ -419,10 +420,6 @@ export function ReservationForm2({
       ) * noches
     );
   }
-
-  useEffect(() => {
-    console.log(acompanantes);
-  }, [acompanantes]);
 
   return (
     <form
@@ -775,6 +772,7 @@ export function ReservationForm2({
                 {acompanantes.map((acompanante, index) => {
                   return (
                     <ComboBox
+                      key={acompanante.id_viajero}
                       label={`Acompañante - ${index + 1}`}
                       onDelete={() => {
                         const newAcompanantes = [...acompanantes].toSpliced(
@@ -1026,15 +1024,15 @@ export function ReservationForm2({
               Precio actual:
               {`$${edicionForm.venta.current.total.toFixed(2)}`}
             </p>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setCobrar(true)}
-            >
-              Modificar precio
-            </Button>
           </>
         )}
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => setCobrar(true)}
+        >
+          Modificar precio
+        </Button>
         <Button disabled={!!loading} type="submit">
           Actualizar datos de la reserva
         </Button>
@@ -1052,14 +1050,14 @@ export function ReservationForm2({
             onClose={() => {
               setCobrar(false);
             }}
-            precioNuevo={edicionForm.venta.current.total}
+            precioNuevo={
+              edicionForm?.venta?.current?.total
+                ? Number(edicionForm.venta.current.total)
+                : Number(solicitud.total) || 0
+            }
           ></EditPrecioVenta>
         </Modal>
       )}
     </form>
   );
 }
-// UPDATE hospedajes SET codigo_reservacion_hotel = '904508' WHERE codigo_reservacion_hotel = 'CG';
-// UPDATE hospedajes SET codigo_reservacion_hotel = '903899' WHERE codigo_reservacion_hotel = 'CG';
-// UPDATE hospedajes SET codigo_reservacion_hotel = '904504' WHERE codigo_reservacion_hotel = 'NG';
-// UPDATE hospedajes SET codigo_reservacion_hotel = '904497' WHERE codigo_reservacion_hotel = 'NG';
