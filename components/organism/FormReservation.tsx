@@ -29,9 +29,8 @@ import { updateRoom } from "@/lib/utils";
 import { useNotification } from "@/context/useNotificacion";
 import { CreditCard, Wallet } from 'lucide-react';
 
-
 interface ReservationFormProps {
-  solicitud?: Solicitud & { nuevo_incluye_desayuno?: boolean | null };
+  solicitud?: Solicitud & { nuevo_incluye_desayuno?: boolean | null, agente?: any };
   hotels: Hotel[];
   onClose: () => void;
   edicion?: boolean;
@@ -115,7 +114,7 @@ export function ReservationForm({
       otros_impuestos:
         Number(
           currentHotel?.impuestos.find((item) => item.name == "otros_impuestos")
-            .monto
+            ?.monto
         ) || 0,
       otros_impuestos_porcentaje:
         Number(
@@ -152,6 +151,7 @@ export function ReservationForm({
         currentNoches
       )
   );
+  console.log(solicitud, "fevr")
 
   const [walletAmount, setWalletAmount] = useState<number>(0);
   const [loadingWallet, setLoadingWallet] = useState(false);
@@ -359,101 +359,18 @@ export function ReservationForm({
   const [showPagarModal, setShowPagarModal] = useState(false);
   // Estado para almacenar los datos de la reserva para el modal
   const [reservaData, setReservaData] = useState<any>(null);
-
-  // const handleSubmit = async (e: FormEvent) => {
-  //   setLoading(true);
-  //   e.preventDefault();
-  //   if (edicion) {
-  //     updateReserva(
-  //       { ...edicionForm, nuevo_incluye_desayuno, acompanantes },
-  //       solicitud.id_booking,
-  //       (data) => {
-  //         if (data.error) {
-  //           alert("Error al actualizar la reserva");
-  //           setLoading(false);
-  //           return;
-  //         }
-  //         alert("Reserva actualizada correctamente");
-  //         const reservaConAgente = {
-  //           ...data,
-  //           ...form,
-  //           id_agente: solicitud.id_agente,
-  //           Total: form.venta.total,
-  //           Noches: form.noches
-  //         };
-  //         setReservaData(reservaConAgente);
-  //         setShowPagarModal(true);
-  //         setLoading(false);
-  //         console.log("se mando la data", reservaConAgente);
-  //       }
-  //     );
-  //   } else if (create) {
-  //     try {
-
-  //       await fetchCreateReservaOperaciones(
-  //         { ...form, nuevo_incluye_desayuno, acompanantes }).then((data) => {
-  //           alert("Se creo correctamente la reservación");
-  //           const reservaConAgente = {
-  //             ...data,
-  //             ...form,
-  //             id_agente: solicitud.id_agente,
-  //             Total: form.venta.total,
-  //             Noches: form.noches
-  //           };
-  //           setReservaData(reservaConAgente);
-  //           setShowPagarModal(true);
-
-  //           setLoading(false);
-  //         }).catch((error) => {
-  //           console.error("Error al crear la reserva:", error);
-  //           showNotification("error", error.message || "Error al crear la reserva");
-  //         });
-  //     } catch (error) {
-  //       console.error("Error al crear la reserva:", error);
-  //       showNotification("error", error.message || "Error al crear la reserva");
-  //     }
-  //   } else {
-  //     fetchCreateReservaFromSolicitud(
-  //       { ...form, nuevo_incluye_desayuno, acompanantes },
-  //       (data) => {
-  //         if (data.error) {
-  //           alert("Error al crear la reserva");
-  //           setLoading(false);
-  //           return;
-  //         }
-  //         alert("Reserva creada correctamente");
-  //         const reservaConAgente = {
-  //           ...data,
-  //           ...form,
-  //           id_agente: solicitud.id_agente,
-  //           Total: form.venta.total,
-  //           Noches: form.noches
-  //         };
-  //         setReservaData(reservaConAgente);
-  //         setShowPagarModal(true);
-
-  //         setLoading(false);
-  //       }
-  //     );
-  //   }
-  // };
-
+  const isTotalZero = form.venta.total === 0;
 
   // Modificar el handleSubmit para que no guarde automáticamente
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    // Solo validar el formulario pero no guardar
-    // La reserva se guardará cuando se seleccione el método de pago
     setLoading(true);
-
-    // Validaciones del formulario...
-
     setLoading(false);
   };
 
   const handleClosePagarModal = () => {
     setShowPagarModal(false);
-    onClose(); // También cierra el formulario principal 
+    onClose();
   };
 
   function getAutoCostoTotal(
@@ -474,12 +391,7 @@ export function ReservationForm({
   const updateAgentWallet = async () => {
     try {
       setLoadingWallet(true);
-      // Aquí debes implementar la llamada a tu API para obtener el saldo del agente
-      // Reemplaza fetchAgenteById con tu función real
       const agenteActualizado = await fetchAgenteById(solicitud.id_agente);
-
-      console.log("Respuesta completa:", agenteActualizado);
-
       const walletAmount = Array.isArray(agenteActualizado)
         ? parseFloat(agenteActualizado[0].wallet)
         : parseFloat(agenteActualizado.wallet);
@@ -495,45 +407,97 @@ export function ReservationForm({
     }
   };
 
-  // Función para manejar el pago con Wallet
   const handleWalletPayment = async () => {
+    setLoading(true);
     const saldo = await updateAgentWallet();
 
     if (saldo < form.venta.total) {
       showNotification("error", "Saldo insuficiente en la wallet");
+      setLoading(false);
       return;
     }
 
-    // Si el saldo es suficiente, mostrar el modal de pago
-    const reservaConAgente = {
-      ...reservaData, // o los datos que necesites pasar
-      ...form,
-      id_agente: solicitud.id_agente,
-      Total: form.venta.total,
-      Noches: form.noches,
-      metodoPago: 'wallet' // añadir información del método de pago
-    };
-
-    setReservaData(reservaConAgente);
-    setShowPagarModal(true);
+    try {
+      // No se guarda la reserva aquí, solo se prepara la data para el modal
+      const reservaConAgente = {
+        ...form,
+        id_agente: solicitud.id_agente,
+        Total: form.venta.total,
+        Noches: form.noches,
+        metodoPago: 'wallet',
+        nuevo_incluye_desayuno,
+        acompanantes,
+        solicitud
+      };
+      setReservaData(reservaConAgente);
+      setShowPagarModal(true);
+      setLoading(false);
+      console.log("Datos para el modal de Wallet:", reservaConAgente);
+    } catch (error) {
+      console.error("Error en la reserva:", error);
+      showNotification("error", error.message || "Ocurrió un error inesperado.");
+      setLoading(false);
+    }
   };
+
   useEffect(() => {
     updateAgentWallet();
   }, []);
-  // Función para manejar el pago con Crédito
-  const handleCreditPayment = () => {
-    const reservaConAgente = {
-      ...reservaData, // o los datos que necesites pasar
-      ...form,
-      id_agente: solicitud.id_agente,
-      Total: form.venta.total,
-      Noches: form.noches,
-      metodoPago: 'credito' // añadir información del método de pago
-    };
 
-    setReservaData(reservaConAgente);
-    setShowPagarModal(true);
+  // Función para manejar el pago con Crédito
+  const handleCreditPayment = async () => {
+    setLoading(true);
+    try {
+      if (edicion) {
+        updateReserva(
+          { ...edicionForm, nuevo_incluye_desayuno, acompanantes },
+          solicitud.id_booking,
+          (data) => {
+            if (data.error) {
+              alert("Error al actualizar la reserva");
+              setLoading(false);
+              return;
+            }
+            alert("Reserva actualizada correctamente");
+            setLoading(false);
+            onClose(); // Cerrar el formulario después de guardar
+          }
+        );
+      } else if (create) {
+        await fetchCreateReservaOperaciones(
+          { ...form, nuevo_incluye_desayuno, acompanantes }
+        ).then((data) => {
+          alert("Se creo correctamente la reservación");
+          setLoading(false);
+          onClose(); // Cerrar el formulario después de guardar
+        }).catch((error) => {
+          console.error("Error al crear la reserva:", error);
+          showNotification("error", error.message || "Error al crear la reserva");
+          setLoading(false);
+        });
+      } else {
+        fetchCreateReservaFromSolicitud(
+          { ...form, nuevo_incluye_desayuno, acompanantes },
+          (data) => {
+            if (data.error) {
+              alert("Error al crear la reserva");
+              setLoading(false);
+              return;
+            }
+            alert("Reserva creada correctamente");
+            setLoading(false);
+            onClose(); // Cerrar el formulario después de guardar
+          }
+        );
+      }
+    } catch (error) {
+      console.error("Error en la reserva:", error);
+      showNotification("error", error.message || "Ocurrió un error inesperado.");
+      setLoading(false);
+    }
   };
+
+
 
   return (
     <>
@@ -754,14 +718,6 @@ export function ReservationForm({
                       onChange={(value) => {
                         console.log("Viajero adicional:", value);
                       }}
-                    // onChange={(value) => {
-                    //   setForm((prev) => ({
-                    //     ...prev,
-                    //     viajeros_adicionales: prev.viajeros_adicionales.map((v, i) =>
-                    //       i === index ? { ...v, nombre: value } : v
-                    //     ),
-                    //   }));
-                    // }}
                     />
                   </div>
                 ))}
@@ -882,11 +838,17 @@ export function ReservationForm({
                       content: item,
                     }))}
                 />
-
+                <div className="flex justify-between border-t pt-2 mt-2 font-medium text-lg text-blue-700 bg-blue-50 p-2 rounded-md">
+                  <span>Total de hospedaje:</span>
+                  <span className="text-blue-900 font-bold">
+                    ${formatNumberWithCommas(form.venta.total.toFixed(2))}
+                  </span>
+                </div>
                 <div className="space-y-2">
                   {acompanantes.map((acompanante, index) => {
                     return (
                       <ComboBox
+                        key={index}
                         label={`Acompañante - ${index + 1}`}
                         onDelete={() => {
                           const newAcompanantes = [...acompanantes].toSpliced(
@@ -1012,7 +974,6 @@ export function ReservationForm({
                         acc[tax.name] = tax.total;
                         return acc;
                       }, {}),
-                      // costo_impuestos: item.costo.impuestos,
                       costo_subtotal: item.costo.subtotal,
                       costo: item.costo.total,
                       venta: item.venta.total,
@@ -1023,11 +984,6 @@ export function ReservationForm({
                     noche: (props: any) => (
                       <span title={props.value}>{props.value}</span>
                     ),
-                    // costo_impuestos: (props: any) => (
-                    //   <span title={props.value}>
-                    //     ${formatNumberWithCommas(props.value.toFixed(2))}
-                    //   </span>
-                    // ),
                     costo_subtotal: (props: any) => (
                       <span title={props.value}>
                         ${formatNumberWithCommas(props.value?.toFixed(2) || "")}
@@ -1090,12 +1046,6 @@ export function ReservationForm({
                         ${formatNumberWithCommas(form.proveedor.total.toFixed(2))}
                       </span>
                     </div>
-                    {/* <div className="flex justify-between border-t pt-2 mt-2 font-medium text-gray-700">
-                    <span>Ganancia:</span>
-                    <span className="text-gray-900">
-                      ${(form.venta.total - form.proveedor.total).toFixed(2)}
-                    </span>
-                  </div> */}
                     <div className="flex justify-between border-t pt-2 mt-2 font-medium text-gray-700">
                       <span>Markup:</span>
                       <span className="text-gray-900">
@@ -1107,15 +1057,13 @@ export function ReservationForm({
               )}
             </div>
           </TabsContent>
-
         </Tabs>
 
         <DialogFooter>
           <div className="grid grid-cols-2 gap-3 w-full">
-            {/* Botón Wallet */}
             <Button
               type="button"
-              disabled={loading || loadingWallet || walletAmount < form.venta.total}
+              disabled={loading || loadingWallet || isTotalZero || walletAmount < form.venta.total}
               onClick={handleWalletPayment}
               className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
             >
@@ -1129,21 +1077,19 @@ export function ReservationForm({
               )}
             </Button>
 
-            {/* Botón Crédito */}
             <Button
               type="button"
-              disabled={loading}
+              disabled={loading || isTotalZero}
               onClick={handleCreditPayment}
               className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
             >
               <CreditCard className="w-5 h-5" />
-              Crédito
+              Crédito(${solicitud.agente.saldo})
             </Button>
           </div>
         </DialogFooter>
       </form>
 
-      {/* Modal de pago */}
       {showPagarModal && reservaData && (
         <PagarModalComponent
           onClose={handleClosePagarModal}

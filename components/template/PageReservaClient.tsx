@@ -24,7 +24,7 @@ import { currentDate } from "@/lib/utils";
 import { Table2 } from "@/components/organism/Table2";
 import { ReservationForm } from "@/components/organism/FormReservation";
 
-function App({ id_agente }: { id_agente?: string }) {
+function App({ id_agente, agente }: { id_agente?: string, agente?: any }) {
   const [allSolicitudes, setAllSolicitudes] = useState<Solicitud2[]>([]);
   const [selectedItem, setSelectedItem] = useState<Solicitud2 | null>(null);
   const [searchTerm, setSearchTerm] = useState<string | null>("");
@@ -312,6 +312,7 @@ function App({ id_agente }: { id_agente?: string }) {
                 check_in: null,
                 check_out: null,
                 id_agente: id_agente,
+                agente: agente,
               }}
               hotels={hoteles}
               onClose={() => {

@@ -66,6 +66,22 @@ interface PagarModalProps {
     id_agente: string;
     Total?: number;
     Noches?: number;
+    hotel?: any; // The entire hotel object
+    habitacion?: string;
+    check_in?: string;
+    check_out?: string;
+    codigo_reservacion_hotel?: string;
+    viajero?: any; // The entire viajero object
+    venta?: any; // The entire venta object
+    estado_reserva?: string;
+    comments?: string;
+    proveedor?: any; // The entire proveedor object
+    impuestos?: any; // The entire impuestos object
+    items?: any[]; // The array of item objects
+    solicitud?: any; // The entire solicitud object
+    nuevo_incluye_desayuno?: any;
+    acompanantes?: any[];
+    status_reserva?: string;
     // otros campos que pueda tener reservaData
   } | null;
 }
@@ -84,7 +100,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
   const effectiveSaldoData = saldoData || (reservaData ? {
     id_saldos: 'temporal',
     id_agente: reservaData.id_agente,
-    nombre: 'Agente',
+    nombre: reservaData.solicitud.agente.nombre_agente_completo || 'Agente',
     monto: reservaData.Total || 0,
     saldo: reservaData.Total || 0,
   } : {
@@ -228,8 +244,9 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
       } else {
         // Verificar si ya se ha alcanzado el límite
         const currentTotal = prev.reduce((sum, item) => sum + item.saldo, 0);
+        const mensaje = reservaData ? "Ya has pagado la reserva completa" : 'Ya has utilizado todo tu saldo disponible';
         if (currentTotal >= effectiveSaldoData.saldo) {
-          alert('Ya has utilizado todo tu saldo disponible');
+          alert(mensaje);
           return prev;
         }
 
@@ -282,83 +299,92 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Función para formatear a 2 decimales
     const formatToTwoDecimals = (value: number): number => {
       return parseFloat(value.toFixed(2));
     };
 
-    // Determinar qué datos usar según el flujo
-    const tableDataToUse = reservaData ?
-      // Datos del nuevo flujo (SaldoFavor)
-      saldoFavorData.map(saldo => ({
-        id_item: `saldo-${saldo.id_saldos}`,
-        id_servicio: '',
-        codigo_reservacion: saldo.referencia || '',
-        hotel: '',
-        viajero: '',
-        fecha_uso: saldo.fecha_creacion || '',
-        total: Number(saldo.monto) || 0,
-        saldo: itemsSaldo[`saldo-${saldo.id_saldos}`] !== undefined ?
-          itemsSaldo[`saldo-${saldo.id_saldos}`] :
-          (Number(saldo.saldo) || 0),
-        seleccionado: saldo,
-        item: saldo,
-        // Campos adicionales para el nuevo flujo
-        forma_De_Pago: formatFormaPago(saldo.metodo_pago),
-        tipo_tarjeta: saldo.tipo_tarjeta || "",
-        creado: saldo.fecha_creacion ? new Date(saldo.fecha_creacion) : null,
-        monto_pagado: Number(saldo.monto)
-      })) :
-      // Datos del flujo existente
-      reservas.flatMap(reserva =>
+    let payload;
+    let endpoint;
+
+    if (reservaData) {
+      payload = {
+        bandera: 1, // Siempre 1
+        hotel: reservaData.hotel || null, // Corregido: Usa el objeto 'hotel' completo
+        habitacion: reservaData.habitacion || '',
+        check_in: reservaData.check_in || '',
+        check_out: reservaData.check_out || '',
+        codigo_reservacion_hotel: reservaData.codigo_reservacion_hotel || '',
+        viajero: reservaData.viajero || {},
+        noches: reservaData.Noches || 0,
+        venta: reservaData.venta || {},
+        estado_reserva: reservaData.status_reserva || '',
+        comments: reservaData.comments || '',
+        proveedor: reservaData.proveedor || {},
+        impuestos: reservaData.impuestos || {},
+        items: reservaData.items || [],
+        solicitud: reservaData.solicitud || {},
+        nuevo_incluye_desayuno: reservaData.nuevo_incluye_desayuno || null,
+        acompanantes: reservaData.acompanantes || [],
+        ejemplo_saldos: selectedItems.map(item => {
+          const originalItem = saldoFavorData.find(sf => `saldo-${sf.id_saldos}` === item.id_item);
+          const appliedAmount = originalSaldoItems[item.id_item] - (itemsSaldo[item.id_item] || 0);
+
+          return {
+            id_saldo: originalItem?.id_saldos || '',
+            saldo_original: (originalItem?.saldo || 0),
+            saldo_actual: (itemsSaldo[item.id_item] || 0),
+            aplicado: (appliedAmount),
+            id_agente: effectiveSaldoData.id_agente,
+            metodo_de_pago: originalItem?.metodo_pago || 'wallet',
+            fecha_pago: originalItem?.fecha_pago || '',
+            concepto: originalItem?.concepto || null,
+            referencia: originalItem?.referencia || null,
+            currency: 'mxn',
+            tipo_de_tarjeta: originalItem?.tipo_tarjeta || null,
+            link_pago: null,
+            last_digits: null
+          };
+        }),
+      };
+      endpoint = "/mia/reservas/operaciones";
+    } else {
+      // Payload existente para el flujo de saldoData
+      const tableDataToUse = reservas.flatMap(reserva =>
         (reserva.items_info?.items || []).map(item => ({
           id_item: item.id_item,
           id_servicio: item.servicio,
-          codigo_reservacion: reserva.codigo_reservacion_hotel,
-          hotel: reserva.nombre_hotel,
-          viajero: reserva.viajero,
-          fecha_uso: reserva.check_in,
           total: item.total,
           saldo: itemsSaldo[item.id_item] !== undefined ? itemsSaldo[item.id_item] : item.saldo,
-          seleccionado: item,
-          item: item
         }))
       );
 
-    // Crear el payload con la estructura solicitada
-    const payload = {
-      SaldoAFavor: {
-        ...rowData,
-        saldo: formatToTwoDecimals(montorestante),
-      },
-      items_seleccionados: selectedItems.map(item => {
-        // Buscar el item completo en tableData para obtener más información
-        const itemData = tableDataToUse.find(td => td.id_item === item.id_item);
-        const saldoItem = itemsSaldo[item.id_item] || 0;
-        const totalItem = itemData?.total || 0;
-        const servicioItem = itemData?.id_servicio || '';
-        const saldoOriginal = originalSaldoItems[item.id_item] || 0;
+      payload = {
+        SaldoAFavor: {
+          ...rowData,
+          saldo: formatToTwoDecimals(montorestante),
+        },
+        items_seleccionados: selectedItems.map(item => {
+          const itemData = tableDataToUse.find(td => td.id_item === item.id_item);
+          const saldoItem = itemsSaldo[item.id_item] || 0;
+          const totalItem = itemData?.total || 0;
+          const servicioItem = itemData?.id_servicio || '';
+          const saldoOriginal = originalSaldoItems[item.id_item] || 0;
+          const fraccionado = saldoItem === 0 ? 0 : formatToTwoDecimals(totalItem - saldoItem);
 
-        // Calcular fracción (si saldo es 0, fraccionado es 0)
-        const fraccionado = saldoItem === 0 ? 0 : formatToTwoDecimals(totalItem - saldoItem);
-
-        return {
-          total: formatToTwoDecimals(totalItem),
-          saldo: formatToTwoDecimals(saldoOriginal),
-          saldonuevo: formatToTwoDecimals(saldoItem),
-          id_item: item.id_item,
-          fraccion: fraccionado,
-          id_servicio: servicioItem,
-        };
-      })
-    };
+          return {
+            total: formatToTwoDecimals(totalItem),
+            saldo: formatToTwoDecimals(saldoOriginal),
+            saldonuevo: formatToTwoDecimals(saldoItem),
+            id_item: item.id_item,
+            fraccion: fraccionado,
+            id_servicio: servicioItem,
+          };
+        })
+      };
+      endpoint = "/mia/pagos/aplicarpagoPorSaldoAFavor";
+    }
 
     console.log('Payload:', payload);
-
-    // Determinar la URL del endpoint según el flujo
-    const endpoint = reservaData ?
-      "/mia/pagos/nuevoEndpointParaReservaData" : // Reemplazar con el endpoint correcto
-      "/mia/pagos/aplicarpagoPorSaldoAFavor";
 
     try {
       const response = await fetch(`${URL}${endpoint}`, {
@@ -393,29 +419,31 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
       console.error("Error en la petición:", error);
     }
   };
-
-  // Preparar datos para la tabla según el flujo
   const tableData = reservaData ?
     // Datos del nuevo flujo (SaldoFavor)
-    saldoFavorData.map(saldo => ({
-      creado: saldo.fecha_creacion ? new Date(saldo.fecha_creacion) : null,
-      id_item: `saldo-${saldo.id_saldos}`,
-      id_servicio: '',
-      codigo_reservacion: saldo.referencia || '',
-      hotel: '',
-      viajero: '',
-      fecha_uso: saldo.fecha_creacion || '',
-      total: Number(saldo.monto) || 0,
-      item: saldo,
-      // Campos adicionales para el nuevo flujo
-      forma_De_Pago: formatFormaPago(saldo.metodo_pago),
-      tipo_tarjeta: saldo.tipo_tarjeta || "",
-      monto_pagado: Number(saldo.monto),
-      saldo: itemsSaldo[`saldo-${saldo.id_saldos}`] !== undefined ?
-        itemsSaldo[`saldo-${saldo.id_saldos}`] :
-        (Number(saldo.saldo) || 0),
-      seleccionado: saldo,
-    })) :
+    saldoFavorData
+      .filter(saldo => saldo.activo !== 0)
+      .map(saldo => ({
+        creado: saldo.fecha_creacion ? new Date(saldo.fecha_creacion) : null,
+        id_item: `saldo-${saldo.id_saldos}`,
+        id_servicio: '',
+        codigo_reservacion: saldo.referencia || '',
+        hotel: '',
+        viajero: '',
+        activo: saldo.activo,
+        fecha_uso: saldo.fecha_creacion || '',
+        total: Number(saldo.monto) || 0,
+        item: saldo,
+        // Campos adicionales para el nuevo flujo
+        forma_De_Pago: formatFormaPago(saldo.metodo_pago),
+        tipo_tarjeta: saldo.tipo_tarjeta || "",
+        monto_pagado: Number(saldo.monto),
+        saldo: Number(saldo.saldo) || 0,
+        seleccionado: saldo,
+        saldo_restante: itemsSaldo[`saldo-${saldo.id_saldos}`] !== undefined ?
+          itemsSaldo[`saldo-${saldo.id_saldos}`] :
+          (Number(saldo.saldo) || 0),
+      })) :
     // Datos del flujo existente
     reservas.flatMap(reserva =>
       (reserva.items_info?.items || []).map(item => ({
@@ -456,7 +484,13 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
         ${value.toFixed(2)}
       </span>
     ),
+
     saldo: ({ value }: { value: number }) => (
+      <span className={`font-medium text-sm px-2 py-1 rounded flex items-center justify-center ${value <= 0 ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
+        ${Number(value).toFixed(2)}
+      </span>
+    ),
+    saldo_restante: ({ value }: { value: number }) => (
       <span className={`font-medium text-sm px-2 py-1 rounded flex items-center justify-center ${value > 0 ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
         ${Number(value).toFixed(2)}
       </span>
@@ -532,11 +566,15 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
 
   // Columnas personalizadas según el flujo
   const customColumns = reservaData ?
-    ['seleccionado', 'creado', 'monto_pagado', 'saldo', 'forma_De_Pago', 'tipo_tarjeta'] :
+    ['seleccionado', 'creado', 'monto_pagado', 'saldo', 'forma_De_Pago', 'tipo_tarjeta', "saldo_restante"] :
     ['seleccionado', 'codigo_reservacion', 'hotel', 'fecha_uso', 'total', 'saldo'];
 
   // Si el modal no está abierto, no renderizar nada
   if (!open) return null;
+
+  const titulo = reservaData ?
+    "Informacion del pago de la reserva" :
+    "💰 Información del Saldo";
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-auto">
@@ -557,7 +595,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
           {/* Sección de Información del Saldo */}
           <div className="bg-white rounded-2xl shadow-md border border-blue-100 mb-6">
             <div className="bg-blue-50 rounded-t-2xl px-6 py-4 border-b border-blue-100">
-              <h3 className="text-blue-800 text-lg font-semibold">💰 Información del Saldo</h3>
+              <h3 className="text-blue-800 text-lg font-semibold">{titulo}</h3>
             </div>
             <div className="px-6 py-4 space-y-2">
               <p className="text-sm text-gray-700">
@@ -652,120 +690,5 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
       </div>
     </div>
   );
-
-  // return (
-  //   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-auto">
-  //     <div className="bg-white rounded-2xl shadow-xl border border-blue-100 max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-  //       {/* Header */}
-  //       <div className="bg-blue-50 rounded-t-2xl px-6 py-4 border-b border-blue-100 flex justify-between items-center">
-  //         <h2 className="text-xl font-semibold text-blue-800">Aplicar Pago con Saldo a Favor</h2>
-  //         <button
-  //           onClick={onClose}
-  //           className="text-gray-500 hover:text-gray-700 transition-colors"
-  //         >
-  //           <X size={24} />
-  //         </button>
-  //       </div>
-
-  //       {/* Contenido con scroll */}
-  //       <div className="flex-1 overflow-y-auto p-6">
-  //         {/* Sección de Información del Saldo */}
-  //         <div className="bg-white rounded-2xl shadow-md border border-blue-100 mb-6">
-  //           <div className="bg-blue-50 rounded-t-2xl px-6 py-4 border-b border-blue-100">
-  //             <h3 className="text-blue-800 text-lg font-semibold">💰 Información del Saldo</h3>
-  //           </div>
-  //           <div className="px-6 py-4 space-y-2">
-  //             <p className="text-sm text-gray-700">
-  //               <span className="font-semibold text-gray-900">Nombre del Agente:</span> {effectiveSaldoData.nombre}
-  //             </p>
-
-  //             {/* Mostrar Total y Noches cuando hay reservaData */}
-  //             {reservaData && (
-  //               <>
-  //                 <p className="text-sm text-gray-700">
-  //                   <span className="font-semibold text-gray-900">Total de la Reserva:</span>
-  //                   <span className="text-green-600 font-bold"> ${reservaData.Total?.toFixed(2) || '0.00'}</span>
-  //                 </p>
-  //                 <p className="text-sm text-gray-700 flex items-center">
-  //                   <span className="font-semibold text-gray-900">Noches:</span>
-  //                   <span className="ml-1 text-blue-600 font-medium flex items-center">
-  //                     <Moon className="w-4 h-4 mr-1" />
-  //                     {reservaData.Noches || 0}
-  //                   </span>
-  //                 </p>
-  //               </>
-  //             )}
-
-  //             <p className="text-sm text-gray-700">
-  //               <span className="font-semibold text-gray-900">Monto Total Disponible:</span>
-  //               <span className="text-green-600 font-bold"> ${Number(effectiveSaldoData.monto).toFixed(2)}</span>
-  //             </p>
-
-  //             <div className="mt-4 pt-4 border-t border-blue-100">
-  //               <div className="flex justify-between">
-  //                 <div>
-  //                   <p className="text-sm text-gray-600">Monto seleccionado:</p>
-  //                   <p className={`text-lg font-semibold ${Number(montoSeleccionado) > effectiveSaldoData.saldo ? 'text-red-600' : 'text-blue-600'}`}>
-  //                     ${Number(montoSeleccionado).toFixed(2)}
-  //                   </p>
-  //                 </div>
-  //                 <div>
-  //                   <p className="text-sm text-gray-600">Monto restante:</p>
-  //                   <p className="text-lg text-green-600 font-semibold">${Number(montorestante).toFixed(2)}</p>
-  //                 </div>
-  //               </div>
-  //             </div>
-  //           </div>
-  //         </div>
-
-  //         {/* Sección de Tabla */}
-  //         <div className="mb-6">
-  //           {loading ? (
-  //             <div className="text-center py-8">
-  //               <p>Cargando {reservaData ? 'datos de saldo' : 'reservas'}...</p>
-  //             </div>
-  //           ) : error ? (
-  //             <div className="text-red-500 p-4 bg-red-50 rounded">
-  //               {error}
-  //             </div>
-  //           ) : tableData.length === 0 ? (
-  //             <div className="text-gray-500 p-4 bg-gray-50 rounded">
-  //               No hay {reservaData ? 'saldos disponibles' : 'reservas con items'} pendientes
-  //             </div>
-  //           ) : (
-  //             <div className="min-h-[300px] max-h-[400px] overflow-auto">
-  //               <Table3
-  //                 registros={tableData}
-  //                 renderers={renderers}
-  //                 maxHeight="100%"
-  //                 customColumns={customColumns}
-  //               />
-  //             </div>
-  //           )}
-  //         </div>
-  //       </div>
-
-  //       {/* Footer con botones */}
-  //       <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
-  //         <div className="flex justify-end gap-3">
-  //           <button
-  //             onClick={onClose}
-  //             className="px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-  //           >
-  //             Cancelar
-  //           </button>
-  //           <button
-  //             onClick={handleSubmit}
-  //             className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center gap-2 disabled:opacity-50"
-  //             disabled={montoSeleccionado > effectiveSaldoData.saldo}
-  //           >
-  //             <DollarSign className="w-4 h-4" />
-  //             Registrar Pago
-  //           </button>
-  //         </div>
-  //       </div>
-  //     </div>
-  //   </div>
-  // );
 
 };
