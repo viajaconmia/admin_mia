@@ -1019,7 +1019,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         if (!isActive) return; // No permitir edición si está inactivo
 
         try {
-          console.log("Datos recibidos del modal:", updatedData);
 
           // Obtener el pago original para calcular la diferencia
           const pagoOriginal = saldos.find(
