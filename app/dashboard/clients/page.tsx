@@ -29,6 +29,7 @@ import { AgentDetailsCard } from "./_components/DetailsClient";
 import { UsersClient } from "./_components/UsersClient";
 import PageReservasClientes from "@/components/template/PageReservaClient";
 import PageCuentasPorCobrar from "@/components/template/PageCuentasPorCobrar";
+import { getReservasByAgente } from "@/services/reservas";
 import { ToolTip } from "@/components/atom/ToolTip";
 import { set } from "date-fns";
 
@@ -42,6 +43,8 @@ function App() {
   const [filters, setFilters] = useState<TypeFilters>(
     defaultFiltersSolicitudes
   );
+
+
 
   let formatedSolicitudes = clients
     .filter(
@@ -145,6 +148,8 @@ function App() {
       setLink(data.link);
     });
   };
+
+
 
   const handleFetchClients = () => {
     setLoading(true);
