@@ -1019,7 +1019,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         if (!isActive) return; // No permitir edición si está inactivo
 
         try {
-          console.log("Datos recibidos del modal:", updatedData);
 
           // Obtener el pago original para calcular la diferencia
           const pagoOriginal = saldos.find(
@@ -1077,8 +1076,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
               apiData.referencia = null;
               apiData.link_stripe =
                 updatedData.link_Stripe || item.link_stripe || null;
-              apiData.tipo_tarjeta =
-                metodoPagoNormalizado === "tarjeta" ? "credito" : "debito";
+              apiData.tipo_tarjeta = updatedData.tipo_tarjeta;
               apiData.ult_digits =
                 updatedData.ult_digits || item.ult_digits || null;
               apiData.banco_tarjeta =
@@ -2025,12 +2023,19 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
               disabled={state.paymentMethod === "LinkStripe"} // Deshabilitar cuando es LinkStripe
             />
 
-            <NumberInput
-              label="Monto Pagado"
-              value={Number(state.amount)}
-              onChange={(value) => handleInputChange("amount", value)}
-              disabled={isStripeLinked} // Agregamos esta condición
-            />
+            <div
+              onWheelCapture={() => {
+                const el = document.activeElement as HTMLElement | null;
+                if (el && el.tagName === "INPUT") (el as HTMLInputElement).blur();
+              }}
+            >
+              <NumberInput
+                label="Monto Pagado"
+                value={Number(state.amount)}
+                onChange={(value) => handleInputChange("amount", value)}
+                disabled={isStripeLinked}
+              />
+            </div>
 
             <CheckboxInput
               checked={state.discountApplied}
