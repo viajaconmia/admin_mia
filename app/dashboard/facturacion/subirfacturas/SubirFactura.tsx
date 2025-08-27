@@ -567,7 +567,7 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
         const confirmarCrearEmpresa = confirm(
           `No se encontró una empresa con RFC ${rfcReceptor} para este cliente. Deberas crear empresa`
         );
-        // return;
+        return;
 
       } else {
         // Asignar empresa encontrada automáticamente

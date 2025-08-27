@@ -35,7 +35,8 @@ import {
   separarCostos,
 } from "@/helpers/utils";
 import { updateRoom } from "@/lib/utils";
-import { X } from "lucide-react";
+import Modal from "./Modal";
+import EditPrecioVenta from "./EditPrecioVenta";
 
 interface ReservationFormProps {
   solicitud?: Solicitud2 & { nuevo_incluye_desayuno?: boolean | null };
@@ -68,7 +69,7 @@ export function ReservationForm2({
     boolean | null
   >(solicitud.nuevo_incluye_desayuno || null);
   const [acompanantes, setAcompanantes] = useState<Viajero[]>([]);
-  const [cambiarHotel, setCambiarHotel] = useState(false);
+  const [cobrar, setCobrar] = useState<boolean | null>(null);
   const [form, setForm] = useState<ReservaForm>({
     hotel: {
       name: solicitud.hotel_reserva || "",
@@ -161,10 +162,10 @@ export function ReservationForm2({
   );
   const [inicial, setInicial] = useState(true);
 
-  useEffect(() => {
-    console.log("FORM", form);
-    console.log("Edicion FORM", edicionForm);
-  }, [form]);
+  // useEffect(() => {
+  //   console.log("FORM", form);
+  //   console.log("Edicion FORM", edicionForm);
+  // }, [form]);
 
   useEffect(() => {
     try {
@@ -175,6 +176,13 @@ export function ReservationForm2({
         if (viajeroFiltrado.length > 0) {
           setForm((prev) => ({ ...prev, viajero: viajeroFiltrado[0] }));
         }
+        const id_acompanantes = (
+          solicitud.viajeros_adicionales_reserva || ""
+        ).split(",");
+        const acompanantesFiltrados = data.filter((viajero) =>
+          id_acompanantes.includes(viajero.id_viajero)
+        );
+        setAcompanantes(acompanantesFiltrados);
         setTravelers(data);
         // console.log(data);
       });
@@ -380,18 +388,12 @@ export function ReservationForm2({
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const data = edicion
-      ? { ...edicionForm, nuevo_incluye_desayuno, acompanantes }
-      : { ...form, nuevo_incluye_desayuno, acompanantes };
+    const data = { ...edicionForm, nuevo_incluye_desayuno, acompanantes };
     console.log(data);
     try {
       let response;
       if (edicion) {
         response = await updateReserva(data, solicitud.id_booking);
-      } else if (create) {
-        response = await fetchCreateReservaOperaciones(data);
-      } else {
-        response = await fetchCreateReservaFromSolicitud(data);
       }
       console.log(response);
       alert("Reserva creada correctamente");
@@ -418,10 +420,6 @@ export function ReservationForm2({
       ) * noches
     );
   }
-
-  useEffect(() => {
-    console.log(acompanantes);
-  }, [acompanantes]);
 
   return (
     <form
@@ -774,6 +772,7 @@ export function ReservationForm2({
                 {acompanantes.map((acompanante, index) => {
                   return (
                     <ComboBox
+                      key={acompanante.id_viajero}
                       label={`Acompañante - ${index + 1}`}
                       onDelete={() => {
                         const newAcompanantes = [...acompanantes].toSpliced(
@@ -1000,83 +999,6 @@ export function ReservationForm2({
             )}
           </div>
         </TabsContent>
-        {/* 
-        <TabsContent value="pago" className="space-y-4">
-          <div className="grid gap-4">
-            <div className="space-y-2">
-              <Label>Método de Pago</Label>
-              <Select
-                value={paymentMethod.type}
-                onValueChange={(
-                  value: "spei" | "credit_card" | "balance" | ""
-                ) => setPaymentMethod({ ...paymentMethod, type: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona un método" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="spei">SPEI</SelectItem>
-                  <SelectItem value="credit_card">
-                    Tarjeta de Crédito
-                  </SelectItem>
-                  <SelectItem value="balance">Saldo a Favor</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Fecha de Pago</Label>
-              <div className="relative">
-                <Calendar className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="date"
-                  className="pl-8"
-                  value={paymentMethod.paymentDate}
-                  onChange={(e) =>
-                    setPaymentMethod({
-                      ...paymentMethod,
-                      paymentDate: e.target.value,
-                    })
-                  }
-                />
-              </div>
-            </div>
-
-            {paymentMethod.type === "credit_card" && (
-              <div className="space-y-2">
-                <Label>Últimos 4 dígitos</Label>
-                <div className="relative">
-                  <CreditCard className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    className="pl-8"
-                    maxLength={4}
-                    value={paymentMethod.cardLastDigits}
-                    onChange={(e) =>
-                      setPaymentMethod({
-                        ...paymentMethod,
-                        cardLastDigits: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label>Comentarios</Label>
-              <Textarea
-                value={paymentMethod.comments}
-                onChange={(e) =>
-                  setPaymentMethod({
-                    ...paymentMethod,
-                    comments: e.target.value,
-                  })
-                }
-                placeholder="Agregar comentarios sobre el pago..."
-              />
-            </div>
-          </div>
-        </TabsContent> */}
       </Tabs>
       <DialogFooter className="flex justify-between w-fullborder">
         {!edicionForm.venta?.current?.total ? (
@@ -1085,19 +1007,57 @@ export function ReservationForm2({
           </>
         ) : (
           <>
-            <p className="text-md font-semibold p-2 bg-gray-300 rounded-full border text-gray-800">
+            <p className="text-sm font-normal p-2 bg-gray-300 rounded-full border text-gray-800">
               Precio inicial: ${solicitud.total}
             </p>
-            <p className="text-md font-semibold p-2 bg-green-300 rounded-full border text-green-800">
+            <p
+              className={`text-sm font-normal p-2 ${
+                Number(edicionForm.venta.current.total) ===
+                Number(solicitud.total)
+                  ? "bg-gray-50 text-gray-700"
+                  : Number(edicionForm.venta.current.total) <
+                    Number(solicitud.total)
+                  ? "bg-red-300 text-red-800"
+                  : "bg-green-300 text-green-800"
+              } rounded-full border `}
+            >
               Precio actual:
               {`$${edicionForm.venta.current.total.toFixed(2)}`}
             </p>
           </>
         )}
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => setCobrar(true)}
+        >
+          Modificar precio
+        </Button>
         <Button disabled={!!loading} type="submit">
-          Actualizar Reserva
+          Actualizar datos de la reserva
         </Button>
       </DialogFooter>
+      {cobrar && (
+        <Modal
+          onClose={() => {
+            setCobrar(false);
+          }}
+          title={`Maneja el precio de la reserva`}
+          subtitle="Modifica los valores de los items para poder tener el valor total de venta"
+        >
+          <EditPrecioVenta
+            reserva={solicitud}
+            onClose={() => {
+              setCobrar(false);
+            }}
+            precioNuevo={
+              edicionForm?.venta?.current?.total
+                ? Number(edicionForm.venta.current.total)
+                : Number(solicitud.total) || 0
+            }
+          ></EditPrecioVenta>
+        </Modal>
+      )}
     </form>
   );
 }

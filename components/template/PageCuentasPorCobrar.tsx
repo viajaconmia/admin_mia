@@ -32,6 +32,8 @@ import { fetchAgenteById, fetchPagosByAgente } from "@/services/agentes";
 import { Loader } from "@/components/atom/Loader";
 import { API_KEY, URL } from "@/lib/constants/index";
 import { PagarModalComponent } from "./pagar_saldo";
+
+
 import { format } from "date-fns";
 import { es, se } from "date-fns/locale";
 import {
@@ -1017,7 +1019,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         if (!isActive) return; // No permitir edición si está inactivo
 
         try {
-          console.log("Datos recibidos del modal:", updatedData);
 
           // Obtener el pago original para calcular la diferencia
           const pagoOriginal = saldos.find(
@@ -1075,8 +1076,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
               apiData.referencia = null;
               apiData.link_stripe =
                 updatedData.link_Stripe || item.link_stripe || null;
-              apiData.tipo_tarjeta =
-                metodoPagoNormalizado === "tarjeta" ? "credito" : "debito";
+              apiData.tipo_tarjeta = updatedData.tipo_tarjeta;
               apiData.ult_digits =
                 updatedData.ult_digits || item.ult_digits || null;
               apiData.banco_tarjeta =
@@ -1295,60 +1295,55 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
           )}
           {/* Nuevo Modal Pagar con saldo */}
           {isPagarModalOpen && (
-            <Modal
-              title={`Pagar Saldo - ${item.nombre}`}
-              onClose={() => setIsPagarModalOpen(false)}
-            >
-              <PagarModalComponent
-                saldoData={{
-                  id_saldos: item.id_saldos,
-                  id_agente: item.id_agente,
-                  nombre: item.nombre,
-                  monto: item.monto,
-                  saldo: item.saldo,
-                  fecha_pago: item.fecha_pago,
-                  metodo_pago: item.metodo_pago,
-                  referencia: item.referencia,
-                  comentario: item.comentario,
-                }}
-                rowData={item} // Pasa el row completo como nueva prop
-                onClose={() => {
-                  console.log("Entrando al modal para mostrar datos");
-                  updateAgentWallet()
-                    .then((number) => setLocalWalletAmount(number || 0))
-                    .catch((error) =>
-                      console.error(
-                        "Error en el saldo del modal al cerrar",
-                        error
-                      )
-                    );
-                  setIsPagarModalOpen(false);
-                }}
-                onSubmit={async () => {
-                  console.log("Entrando al modal para mostrar datos");
-                  updateAgentWallet()
-                    .then((number) => {
-                      console.log(number);
-                      setLocalWalletAmount(number || 0);
-                    })
-                    .catch((error) =>
-                      console.error(
-                        "Error en el saldo del modal al cerrar",
-                        error
-                      )
-                    );
-                  const fetchSaldoFavor = async () => {
-                    const response: { message: string; data: Saldo[] } =
-                      await SaldoFavor.getPagos(agente.id_agente);
-                    console.log("esto trae", response.data);
-                    setSaldos(response.data);
-                  };
-                  fetchSaldoFavor();
-                  walletAmount == localWalletAmount;
-                  setIsPagarModalOpen(false);
-                }}
-              />
-            </Modal>
+            <PagarModalComponent
+              saldoData={{
+                id_saldos: item.id_saldos,
+                id_agente: item.id_agente,
+                nombre: item.nombre,
+                monto: item.monto,
+                saldo: item.saldo,
+                fecha_pago: item.fecha_pago,
+                metodo_pago: item.metodo_pago,
+                referencia: item.referencia,
+                comentario: item.comentario,
+              }}
+              rowData={item} // Pasa el row completo como nueva prop
+              onClose={() => {
+                console.log("Entrando al modal para mostrar datos");
+                updateAgentWallet()
+                  .then((number) => setLocalWalletAmount(number || 0))
+                  .catch((error) =>
+                    console.error(
+                      "Error en el saldo del modal al cerrar",
+                      error
+                    )
+                  );
+                setIsPagarModalOpen(false);
+              }}
+              onSubmit={async () => {
+                console.log("Entrando al modal para mostrar datos");
+                updateAgentWallet()
+                  .then((number) => {
+                    console.log(number);
+                    setLocalWalletAmount(number || 0);
+                  })
+                  .catch((error) =>
+                    console.error(
+                      "Error en el saldo del modal al cerrar",
+                      error
+                    )
+                  );
+                const fetchSaldoFavor = async () => {
+                  const response: { message: string; data: Saldo[] } =
+                    await SaldoFavor.getPagos(agente.id_agente);
+                  console.log("esto trae", response.data);
+                  setSaldos(response.data);
+                };
+                fetchSaldoFavor();
+                walletAmount == localWalletAmount;
+                setIsPagarModalOpen(false);
+              }}
+            />
           )}
         </div>
       );
@@ -1712,7 +1707,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
         setIsStripeLinked(false);
         return;
       }
-
+      console.log("fetch", chargeId)
       const response = await fetch(
         `${URL}/mia/saldo/stripe-info?chargeId=${chargeId}`,
         {
@@ -1724,6 +1719,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
       );
 
       if (!response.ok) {
+        const data = await response.json();
+        console.log("error", data);
         throw new Error(`Error ${response.status}: ${response.statusText}`);
       }
 
@@ -2026,12 +2023,19 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
               disabled={state.paymentMethod === "LinkStripe"} // Deshabilitar cuando es LinkStripe
             />
 
-            <NumberInput
-              label="Monto Pagado"
-              value={Number(state.amount)}
-              onChange={(value) => handleInputChange("amount", value)}
-              disabled={isStripeLinked} // Agregamos esta condición
-            />
+            <div
+              onWheelCapture={() => {
+                const el = document.activeElement as HTMLElement | null;
+                if (el && el.tagName === "INPUT") (el as HTMLInputElement).blur();
+              }}
+            >
+              <NumberInput
+                label="Monto Pagado"
+                value={Number(state.amount)}
+                onChange={(value) => handleInputChange("amount", value)}
+                disabled={isStripeLinked}
+              />
+            </div>
 
             <CheckboxInput
               checked={state.discountApplied}
