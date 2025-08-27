@@ -20,7 +20,7 @@ import { URL, API_KEY } from "@/lib/constants/index";
 import { useRoute, Link } from "wouter";
 import { useApi } from "@/hooks/useApi";
 import { Pago } from "@/app/dashboard/payments/page";
-import { formatNumberWithCommas } from "@/helpers/utils";
+import { formatNumberWithCommas, obtenerPresignedUrl, subirArchivoAS3 } from "@/helpers/utils";
 
 
 const formatCurrency = (amount: number) => {
@@ -519,6 +519,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       const { data } = await respTimbrado.json();
       if (!respTimbrado.ok) throw new Error(data?.message || "Error al generar (múltiples)");
       alert("Factura generada con éxito");
+
       // Descargamos PDF/XML
       let pdfUrl = "";
       let xmlUrl = "";
@@ -532,6 +533,30 @@ export const BillingPage: React.FC<BillingPageProps> = ({
           setDescargaxml(xml);
           pdfUrl = pdf?.Url || "";
           xmlUrl = xml?.Url || "";
+
+          // --- SUBIR PDF A S3 ---
+          if (pdf?.Content) {
+            // Convertir base64 a Blob
+            const byteCharacters = atob(pdf.Content);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+              byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: "application/pdf" });
+            const file = new File([blob], `factura_${data?.facturama?.Id}.pdf`, { type: "application/pdf" });
+
+            // Obtener presigned URL y subir
+            const { url: presignedUrl, publicUrl } = await obtenerPresignedUrl(
+              file.name,
+              file.type,
+              "comprobantes"
+            );
+            await subirArchivoAS3(file, presignedUrl);
+
+            // Puedes usar publicUrl para guardar la referencia del archivo subido
+            console.log("PDF subido a S3:", publicUrl);
+          }
         }
       } catch (err) {
         console.warn("Descargas PDF/XML fallaron o no devuelven URL:", err);
