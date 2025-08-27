@@ -27,10 +27,13 @@ import { Table } from "../Table";
 import { formatNumberWithCommas, getEstatus } from "@/helpers/utils";
 import { updateRoom } from "@/lib/utils";
 import { useNotification } from "@/context/useNotificacion";
-import { CreditCard, Wallet } from 'lucide-react';
+import { CreditCard, Wallet } from "lucide-react";
 
 interface ReservationFormProps {
-  solicitud?: Solicitud & { nuevo_incluye_desayuno?: boolean | null, agente?: any };
+  solicitud?: Solicitud & {
+    nuevo_incluye_desayuno?: boolean | null;
+    agente?: any;
+  };
   hotels: Hotel[];
   onClose: () => void;
   edicion?: boolean;
@@ -91,14 +94,14 @@ export function ReservationForm({
         solicitud.costo_total != null
           ? Number(solicitud.costo_total)
           : // ② Si no, cae al cálculo automático de antes
-          Number(
             Number(
-              currentHotel?.tipos_cuartos.find(
-                (item) =>
-                  item.nombre_tipo_cuarto == updateRoom(solicitud.room)
-              )?.costo ?? 0
-            ) * currentNoches
-          ) || 0,
+              Number(
+                currentHotel?.tipos_cuartos.find(
+                  (item) =>
+                    item.nombre_tipo_cuarto == updateRoom(solicitud.room)
+                )?.costo ?? 0
+              ) * currentNoches
+            ) || 0,
       subtotal: 0,
       impuestos: 0,
     },
@@ -151,7 +154,7 @@ export function ReservationForm({
         currentNoches
       )
   );
-  console.log(solicitud, "fevr")
+  console.log(solicitud, "fevr");
 
   const [walletAmount, setWalletAmount] = useState<number>(0);
   const [loadingWallet, setLoadingWallet] = useState(false);
@@ -173,7 +176,10 @@ export function ReservationForm({
       });
     } catch (error) {
       console.log("MANEJANDO ERROR", error);
-      showNotification("error", error.message || "Error al cargar los viajeros");
+      showNotification(
+        "error",
+        error.message || "Error al cargar los viajeros"
+      );
       setTravelers([]);
     }
   }, []);
@@ -256,10 +262,10 @@ export function ReservationForm({
       const autoTotal = isCostoManual
         ? form.proveedor.total
         : Number(
-          form.hotel.content.tipos_cuartos.find(
-            (item) => item.nombre_tipo_cuarto == form.habitacion
-          )?.costo ?? 0
-        ) * nights;
+            form.hotel.content.tipos_cuartos.find(
+              (item) => item.nombre_tipo_cuarto == form.habitacion
+            )?.costo ?? 0
+          ) * nights;
 
       const items = calculateItems(autoTotal);
 
@@ -424,10 +430,10 @@ export function ReservationForm({
         id_agente: solicitud.id_agente,
         Total: form.venta.total,
         Noches: form.noches,
-        metodoPago: 'wallet',
+        metodoPago: "wallet",
         nuevo_incluye_desayuno,
         acompanantes,
-        solicitud
+        solicitud,
       };
       setReservaData(reservaConAgente);
       setShowPagarModal(true);
@@ -435,7 +441,10 @@ export function ReservationForm({
       console.log("Datos para el modal de Wallet:", reservaConAgente);
     } catch (error) {
       console.error("Error en la reserva:", error);
-      showNotification("error", error.message || "Ocurrió un error inesperado.");
+      showNotification(
+        "error",
+        error.message || "Ocurrió un error inesperado."
+      );
       setLoading(false);
     }
   };
@@ -464,17 +473,24 @@ export function ReservationForm({
           }
         );
       } else if (create) {
-        await fetchCreateReservaOperaciones(
-          { ...form, nuevo_incluye_desayuno, acompanantes }
-        ).then((data) => {
-          alert("Se creo correctamente la reservación");
-          setLoading(false);
-          onClose(); // Cerrar el formulario después de guardar
-        }).catch((error) => {
-          console.error("Error al crear la reserva:", error);
-          showNotification("error", error.message || "Error al crear la reserva");
-          setLoading(false);
-        });
+        await fetchCreateReservaOperaciones({
+          ...form,
+          nuevo_incluye_desayuno,
+          acompanantes,
+        })
+          .then((data) => {
+            alert("Se creo correctamente la reservación");
+            setLoading(false);
+            onClose(); // Cerrar el formulario después de guardar
+          })
+          .catch((error) => {
+            console.error("Error al crear la reserva:", error);
+            showNotification(
+              "error",
+              error.message || "Error al crear la reserva"
+            );
+            setLoading(false);
+          });
       } else {
         fetchCreateReservaFromSolicitud(
           { ...form, nuevo_incluye_desayuno, acompanantes },
@@ -492,12 +508,13 @@ export function ReservationForm({
       }
     } catch (error) {
       console.error("Error en la reserva:", error);
-      showNotification("error", error.message || "Ocurrió un error inesperado.");
+      showNotification(
+        "error",
+        error.message || "Ocurrió un error inesperado."
+      );
       setLoading(false);
     }
   };
-
-
 
   return (
     <>
@@ -505,7 +522,11 @@ export function ReservationForm({
         onSubmit={handleSubmit}
         className="space-y-6 mx-5 overflow-y-auto rounded-md bg-white p-4"
       >
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-[80vw]">
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="w-[80vw]"
+        >
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="cliente">Cliente</TabsTrigger>
             <TabsTrigger value="proveedor">Proveedor</TabsTrigger>
@@ -562,7 +583,8 @@ export function ReservationForm({
                         otros_impuestos_porcentaje:
                           Number(
                             hotelContent.impuestos.find(
-                              (item) => item.name === "otros_impuestos_porcentaje"
+                              (item) =>
+                                item.name === "otros_impuestos_porcentaje"
                             )?.porcentaje
                           ) || 0,
                       };
@@ -734,7 +756,10 @@ export function ReservationForm({
                           },
                         }));
                       }
-                      setForm((prev) => ({ ...prev, comments: e.target.value }));
+                      setForm((prev) => ({
+                        ...prev,
+                        comments: e.target.value,
+                      }));
                     }}
                     value={form.comments}
                   ></Textarea>
@@ -748,7 +773,8 @@ export function ReservationForm({
                       <>
                         {Boolean(
                           form.hotel.content?.tipos_cuartos.find(
-                            (item) => item.nombre_tipo_cuarto === form.habitacion
+                            (item) =>
+                              item.nombre_tipo_cuarto === form.habitacion
                           )?.incluye_desayuno
                         ) ? (
                           <p className="text-green-800 p-1  px-3 rounded-full bg-green-200 w-fit border border-green-300">
@@ -791,13 +817,13 @@ export function ReservationForm({
                         />
                         {nuevo_incluye_desayuno ? (
                           <p className="text-green-800 p-1  px-3 rounded-full bg-green-200 w-fit border border-green-300">
-                            Incluira desayuno al guardar aun si el hotel dice que
-                            no incluye
+                            Incluira desayuno al guardar aun si el hotel dice
+                            que no incluye
                           </p>
                         ) : (
                           <p className="text-red-800 p-1 px-3 rounded-full bg-red-200 w-fit border border-red-300">
-                            No incluira el desayuno en el hotel aun si en el hotel
-                            dice que lo incluye
+                            No incluira el desayuno en el hotel aun si en el
+                            hotel dice que lo incluye
                           </p>
                         )}
                       </>
@@ -873,7 +899,8 @@ export function ReservationForm({
                               (!acompanantes
                                 .map((item) => item.id_viajero)
                                 .includes(traveler.id_viajero) &&
-                                traveler.id_viajero != form.viajero.id_viajero) ||
+                                traveler.id_viajero !=
+                                  form.viajero.id_viajero) ||
                               traveler.id_viajero == acompanante.id_viajero
                           )
                           .map((item) => ({
@@ -939,7 +966,9 @@ export function ReservationForm({
 
                 {Object.keys(form.impuestos).map((key) => (
                   <NumberInput
-                    value={form.impuestos[key as keyof ReservaForm["impuestos"]]}
+                    value={
+                      form.impuestos[key as keyof ReservaForm["impuestos"]]
+                    }
                     key={key}
                     onChange={(value) => {
                       if (edicion) {
@@ -1043,7 +1072,10 @@ export function ReservationForm({
                     <div className="flex justify-between">
                       <span className="font-medium">Costo base:</span>
                       <span className="text-gray-900 font-semibold">
-                        ${formatNumberWithCommas(form.proveedor.total.toFixed(2))}
+                        $
+                        {formatNumberWithCommas(
+                          form.proveedor.total.toFixed(2)
+                        )}
                       </span>
                     </div>
                     <div className="flex justify-between border-t pt-2 mt-2 font-medium text-gray-700">
@@ -1063,7 +1095,12 @@ export function ReservationForm({
           <div className="grid grid-cols-2 gap-3 w-full">
             <Button
               type="button"
-              disabled={loading || loadingWallet || isTotalZero || walletAmount < form.venta.total}
+              disabled={
+                loading ||
+                loadingWallet ||
+                isTotalZero ||
+                walletAmount < form.venta.total
+              }
               onClick={handleWalletPayment}
               className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
             >
@@ -1084,7 +1121,7 @@ export function ReservationForm({
               className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
             >
               <CreditCard className="w-5 h-5" />
-              Crédito(${solicitud.agente.saldo})
+              Crédito(${solicitud.agente?.saldo || ""})
             </Button>
           </div>
         </DialogFooter>
