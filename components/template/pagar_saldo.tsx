@@ -306,7 +306,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
     let payload;
     let endpoint;
 
-    if (reservaData) {
+    if (reservaData && montorestante == 0) {
       payload = {
         bandera: 1, // Siempre 1
         hotel: reservaData.hotel || null, // Corregido: Usa el objeto 'hotel' completo
@@ -347,6 +347,11 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
         }),
       };
       endpoint = "/mia/reservas/operaciones";
+
+    } else if (reservaData && montorestante > 0) {
+      alert("Para registrar el pago, debes cubrir el total de la reserva.");
+      return;
+
     } else {
       // Payload existente para el flujo de saldoData
       const tableDataToUse = reservas.flatMap(reserva =>
