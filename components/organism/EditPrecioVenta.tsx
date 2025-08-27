@@ -24,13 +24,13 @@ type SaldoWallet = {
 const SalesManagementPage: React.FC<{
   reserva: Solicitud2;
   onClose: () => void;
-}> = ({ reserva, onClose }) => {
+  precioNuevo: number;
+}> = ({ reserva, onClose, precioNuevo }) => {
   const { showNotification } = useNotification();
   const [showWalletModal, setShowWalletModal] = useState<boolean>(false);
   const [saldoWallet, setSaldoWallet] = useState<SaldoWallet | null>(null);
-  const [precioActualizado, setPrecioActualizado] = useState<number>(
-    Number(reserva.total)
-  );
+  const [precioActualizado, setPrecioActualizado] =
+    useState<number>(precioNuevo);
   const {
     getTypesSaldo,
     loading,
@@ -45,8 +45,6 @@ const SalesManagementPage: React.FC<{
   const esBajada = diferencia < 0;
   const precioMinimo = noches;
   const esValido = precioActualizado >= precioMinimo;
-
-  // console.log(reserva);
 
   const consultarWallet = async (): Promise<void> => {
     try {
@@ -216,11 +214,6 @@ const SalesManagementPage: React.FC<{
       );
     }
   };
-
-  // const ajustarPrecio = (incremento: number) => {
-  //   const nuevoPrecio = Math.max(precioMinimo, precioActualizado + incremento);
-  //   setPrecioActualizado(nuevoPrecio);
-  // };
 
   return (
     <>

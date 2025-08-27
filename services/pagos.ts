@@ -42,7 +42,6 @@ export const fetchPagosPrepago = async (
   }
 
   const json = await response.json();
-  console.log("json", json)
   
   // Esperamos { message: string, data: any }
   if (!json || !("data" in json)) {
@@ -80,13 +79,15 @@ export const fetchPagosPrepagobalance = async (
       cache: "no-store",
     }
   );
+  console.log('fetchbalance', response);
 
   if (!response.ok) {
     throw new Error(`Error al cargar los pagos de prepago (HTTP ${response.status})`);
   }
 
   const json = await response.json();
-  
+    console.log('fetchbalance', json);
+
   // Verificamos la estructura de la respuesta
   if (!json || !("balance" in json) || !Array.isArray(json.balance) ){
     throw new Error("La respuesta no contiene un balance válido");
@@ -94,7 +95,6 @@ export const fetchPagosPrepagobalance = async (
 
   // Extraemos el primer elemento del array
   const balanceData = json.balance[0];
-  console.log("balancese",balanceData)
   // Retornamos el objeto balance directamente
   return {
     montototal: balanceData.total_pagos || "0",

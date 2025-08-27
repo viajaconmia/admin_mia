@@ -168,12 +168,43 @@ export const fetchReservationsAll = async (callback) => {
       },
       cache: "no-store",
     }).then((res) => res.json());
-    console.log(data);
+    console.log(data,"esto trae");
     callback(data);
   } catch (error) {
     throw error;
   }
 };
+
+export // Ejemplo de fetch desde el frontend
+const getReservasByAgente = async (id_agente) => {
+  try {
+    const response = await fetch(
+      `${URL}/mia/reservasClient/get_reservasClient_by_id_agente?user_id=${id_agente}`,
+      {
+        method: "GET",
+        headers: {
+        "x-api-key": API_KEY || "",
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Error HTTP: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log("Reservas obtenidas:", data);
+    return data;
+  } catch (error) {
+    console.error("Error al obtener reservas:", error);
+    return null;
+  }
+};
+
+
 
 export const fetchReservationsFacturacion = async (callback) => {
   try {
