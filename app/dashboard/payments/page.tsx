@@ -761,49 +761,6 @@ const TablaPagosVisualizacion = () => {
               <span>Facturas</span>
             </button>
           )}
-
-          {/* Botón Generar Factura */}
-          {mostrarOpcionesFacturacion && (
-            <button
-              className="px-2 py-1 rounded-md bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors border border-purple-200 flex items-center gap-1 text-xs"
-              onClick={() => {
-                if (!idAgente || !rawId) return;
-                setBatchBilling({
-                  userId: idAgente,
-                  saldoMonto: monto,
-                  rawIds,
-                  saldos
-                });
-                setShowBatchMenu(false);
-                setShowBillingPage(true);
-              }}
-            >
-              <FilePlus className="w-3 h-3" />
-              <span>Generar</span> {/* Texto más corto */}
-            </button>
-          )}
-
-          {/* Botón Asignar Factura */}
-          {mostrarOpcionesFacturacion && (
-            <button
-              className="px-2 py-1 rounded-md bg-orange-50 text-orange-600 hover:bg-orange-100 transition-colors border border-orange-200 flex items-center gap-1 text-xs"
-              onClick={() => {
-                const payload = buildAssignPayload({ seleccionados, row });
-                if (!payload.rawIds.length) {
-                  alert("No hay pagos seleccionados y la fila no tiene raw_id.");
-                  return;
-                }
-                setPagoAFacturar({
-                  ...payload,
-                  pagoOriginal: row,
-                });
-                setShowSubirFactura(true);
-              }}
-            >
-              <FileCheck className="w-3 h-3" />
-              <span>Asignar</span> {/* Texto más corto */}
-            </button>
-          )}
         </div>
       );
     }
