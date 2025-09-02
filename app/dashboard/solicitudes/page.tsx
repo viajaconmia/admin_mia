@@ -253,6 +253,7 @@ function App() {
                 room: selectedItem.room,
                 id_viajero: selectedItem.id_viajero_solicitud,
                 id_agente: selectedItem.id_agente,
+                // viajeros_adicionales:selectedItem.viajeros_acompañantes
               }}
               onClose={() => {
                 setSelectedItem(null);
