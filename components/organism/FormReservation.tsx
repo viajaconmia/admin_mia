@@ -166,6 +166,7 @@ export function ReservationForm({
   useEffect(() => {
     try {
       fetchViajerosFromAgent(solicitud.id_agente, (data) => {
+        console.log("data viajeros", data);
         const viajeroFiltrado = data.filter(
           (viajero) => viajero.id_viajero == solicitud.id_viajero
         );

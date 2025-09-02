@@ -17,14 +17,67 @@ import {
 import { Table } from "@/components/Table";
 import { fetchHoteles } from "@/services/hoteles";
 import Modal from "@/components/organism/Modal";
-import { TypeFilters, Solicitud } from "@/types";
+import { TypeFilters } from "@/types";
 import { set } from "date-fns";
 import { Loader } from "@/components/atom/Loader";
 import { currentDate } from "@/lib/utils";
 
+interface SolicitudClient {
+  id_agente: string;
+  id_servicio: string;
+  id_solicitud: string;
+  id_hospedaje: string | null;
+  id_hotel_solicitud: string;
+  id_hotel_reserva: string | null;
+  id_viajero_solicitud: string;
+  id_viajero_reserva: string | null;
+  id_booking: string | null;
+  id_pago: string | null;
+  id_credito: string | null;
+  id_factura: string | null;
+  id_facturama: string | null;
+  status_solicitud: string;
+  status_reserva: string | null;
+  etapa_reservacion: string;
+  created_at_solicitud: string;
+  created_at_reserva: string | null;
+  hotel_solicitud: string;
+  hotel_reserva: string | null;
+  check_in: string | null;
+  check_out: string | null;
+  room: string;
+  tipo_cuarto: string | null;
+  total_solicitud: string;
+  total: string | null;
+  nuevo_incluye_desayuno: string | null;
+  quien_reservó: string;
+  nombre_viajero_solicitud: string;
+  viajeros_acompañantes: any[];
+  nombres_viajeros_acompañantes: string;
+  nombre_viajero_reservacion: string | null;
+  viajeros_adicionales_reserva: any | null;
+  nombres_viajeros_adicionales_reserva: string | null;
+  updated_at: string | null;
+  costo_total: string | null;
+  comments: string | null;
+  confirmation_code: string;
+  codigo_reservacion_hotel: string | null;
+  metodo_pago_dinamico: string;
+  nombre_cliente: string;
+  correo: string;
+  telefono: string | null;
+  rfc: string | null;
+  tipo_persona: string;
+  items_reserva: any[];
+  pagos_asociados: any[];
+  facturas_asociadas: any[];
+}
+
 function App() {
-  const [allSolicitudes, setAllSolicitudes] = useState<Solicitud[]>([]);
-  const [selectedItem, setSelectedItem] = useState<Solicitud | null>(null);
+  const [allSolicitudes, setAllSolicitudes] = useState<SolicitudClient[]>([]);
+  const [selectedItem, setSelectedItem] = useState<SolicitudClient | null>(
+    null
+  );
   const [searchTerm, setSearchTerm] = useState<string | null>("");
   const [loading, setLoading] = useState(false);
   const [hoteles, setHoteles] = useState([]);
@@ -37,7 +90,8 @@ function App() {
     fetchSolicitudes(
       filters,
       { status: "Pendiente", id_booking: "Inactive" },
-      (data) => {
+      ({ data }) => {
+        console.log("THIS IS THE FUCKING DATA", data);
         setAllSolicitudes(data);
         setLoading(false);
       }
@@ -48,28 +102,26 @@ function App() {
     handleFetchSolicitudes();
   }, [filters]);
 
-  const handleEdit = (item: Solicitud) => {
+  const handleEdit = (item: SolicitudClient) => {
     setSelectedItem(item);
   };
 
   let formatedSolicitudes = allSolicitudes
     .filter(
       (item) =>
-        item.hotel.toUpperCase().includes(searchTerm) ||
-        item.nombre_agente_completo.toUpperCase().includes(searchTerm) ||
-        item.nombre_viajero_completo.toUpperCase().includes(searchTerm)
+        item.hotel_solicitud.toUpperCase().includes(searchTerm) ||
+        item.nombre_cliente.toUpperCase().includes(searchTerm) ||
+        item.nombre_viajero_solicitud.toUpperCase().includes(searchTerm)
     )
     .map((item) => ({
       id_cliente: item.id_agente,
-      cliente: (item?.razon_social || "").toUpperCase(),
-      creado: item.created_at,
-      hotel: item.hotel.toUpperCase(),
+      cliente: (item?.nombre_cliente || "").toUpperCase(),
+      creado: item.created_at_solicitud,
+      hotel: item.hotel_solicitud.toUpperCase(),
       codigo_hotel: item.codigo_reservacion_hotel,
-      viajero: (
-        item.nombre_viajero || item.nombre_viajero_completo
-      ).toUpperCase(),
-      check_in: item.check_in,
-      check_out: item.check_out,
+      viajero: (item.nombre_viajero_solicitud || "").toUpperCase(),
+      check_in: item.check_in_solicitud,
+      check_out: item.check_out_solicitud,
       noches: calcularNoches(item.check_in, item.check_out),
       habitacion: formatRoom(item.room),
       costo_proveedor: Number(item.costo_total) || 0,
@@ -79,15 +131,17 @@ function App() {
         100,
       precio_de_venta: parseFloat(item.total),
       metodo_de_pago: `${item.id_credito ? "credito" : "contado"}`,
-      reservante: item.id_usuario_generador ? "Cliente" : "Operaciones",
-      etapa_reservacion: item.estado_reserva,
+      reservante: item.quien_reservó ? "Cliente" : "Operaciones",
+      etapa_reservacion: item.etapa_reservacion,
       estado_pago_proveedor: "",
       estado_factura_proveedor: "",
       // estado: item.status,
       procesar: item,
     }));
 
-  let componentes = {
+  console.log(formatedSolicitudes);
+
+  let componentes: Record<keyof SolicitudClient, any> = {
     reservante: ({ value }: { value: string | null }) =>
       getWhoCreateBadge(value),
     etapa_reservacion: ({ value }: { value: string | null }) =>
@@ -137,9 +191,10 @@ function App() {
     ),
     viajero: (props: any) => <span title={props.value}>{props.value}</span>,
     habitacion: (props: any) => <span title={props.value}>{props.value}</span>,
-    check_in: (props: any) => (
-      <span title={props.value}>{formatDate(props.value)}</span>
-    ),
+    check_in: (props: any) => {
+      console.log(props);
+      return <span title={props.value}>{formatDate(props.value)}</span>;
+    },
     check_out: (props: any) => (
       <span title={props.value}>{formatDate(props.value)}</span>
     ),
@@ -191,7 +246,14 @@ function App() {
           >
             <ReservationForm
               hotels={hoteles}
-              solicitud={selectedItem}
+              solicitud={{
+                check_in: selectedItem.check_in_solicitud,
+                check_out: selectedItem.check_out_solicitud,
+                hotel: selectedItem.hotel_solicitud,
+                room: selectedItem.room,
+                id_viajero: selectedItem.id_viajero_solicitud,
+                id_agente: selectedItem.id_agente,
+              }}
               onClose={() => {
                 setSelectedItem(null);
                 handleFetchSolicitudes();
