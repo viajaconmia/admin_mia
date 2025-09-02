@@ -90,6 +90,8 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
     return typeof total === 'number' ? total : Number(total) || 0;
   });
 
+  console.log(facturaData, "rfrgr", archivoPDFUrl, "reve")
+
   useEffect(() => {
     if (pagoData?.monto) {
       setMaxMontoPermitido(pagoData.monto);
@@ -219,22 +221,31 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
         : [];
 
       let asignacionPayload: any;
+      let endpoint: string;
+      let method: string;
 
+      // Determinar el flujo según los datos disponibles
       if (pagoData) {
         // Lógica específica para pagoData
+        endpoint = `${URL}/mia/pagos/AsignarPagoItems`;
+        method = "PATCH";
         asignacionPayload = {
           ...pagoData,
           items: JSON.stringify(itemsAsignados),
           monto_asignado: montoSeleccionado
         };
       } else if (id_factura) {
-        // Lógica original para facturas
+        // Lógica para asignar items a una factura existente
+        endpoint = `${URL}/mia/factura/AsignarFacturaItems`;
+        method = "PATCH";
         asignacionPayload = {
           id_factura: id_factura,
           items: JSON.stringify(itemsAsignados)
         };
       } else {
-        // Lógica original para creación de facturas
+        // Lógica para creación de facturas desde carga
+        endpoint = `${URL}/mia/factura/CrearFacturaDesdeCarga`;
+        method = "POST";
         asignacionPayload = {
           fecha_emision: facturaData.comprobante.fecha.split("T")[0], // solo la fecha
           estado: "Completada",
@@ -254,14 +265,8 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
         };
       }
 
-      const endpoint = pagoData
-        ? `${URL}/mia/pagos/AsignarPagoItems` // Endpoint ficticio - debes ajustarlo
-        : id_factura
-          ? `${URL}/mia/factura/AsignarFacturaItems`
-          : `${URL}/mia/factura/CrearFacturaDesdeCarga`;
-
       const response = await fetch(endpoint, {
-        method: pagoData ? "PATCH" : id_factura ? "PATCH" : "POST",
+        method: method,
         headers: {
           "Content-Type": "application/json",
           "x-api-key": API_KEY,
@@ -273,20 +278,26 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
         throw new Error('Error al asignar los items');
       }
 
-      const data = await response.json();
+      // Siempre retornar null como se solicita
       onAssign?.(asignacionPayload);
       onClose();
       onCloseVistaPrevia?.();
-      return data;
+      return null;
     } catch (error) {
       console.error("Error al asignar items:", error);
       alert('Ocurrió un error al asignar los items');
-      throw error;
+      // También retornar null en caso de error
+      return null;
     }
   };
 
-  const handleAssign2 = async () => handleAssignBase(true);
-  const handleAssign = async () => handleAssignBase(false);
+  const handleAssign2 = async () => {
+    return handleAssignBase(true);
+  };
+
+  const handleAssign = async () => {
+    return handleAssignBase(false);
+  };
 
   if (!isOpen) return null;
 
