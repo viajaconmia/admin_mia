@@ -224,6 +224,7 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
       let endpoint: string;
       let method: string;
 
+      console.log("pago", pagoData, "id_factura", id_factura)
       // Determinar el flujo según los datos disponibles
       if (pagoData) {
         // Lógica específica para pagoData
@@ -236,60 +237,54 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
         };
       } else if (id_factura) {
         // Lógica para asignar items a una factura existente
+        console.log("asignar")
         endpoint = `${URL}/mia/factura/AsignarFacturaItems`;
         method = "PATCH";
         asignacionPayload = {
           id_factura: id_factura,
           items: JSON.stringify(itemsAsignados)
         };
+
       } else {
-        // Lógica para creación de facturas desde carga
-        endpoint = `${URL}/mia/factura/CrearFacturaDesdeCarga`;
-        method = "POST";
-        asignacionPayload = {
-          fecha_emision: facturaData.comprobante.fecha.split("T")[0], // solo la fecha
-          estado: "Completada",
-          usuario_creador: clienteSeleccionado.id_agente,
-          id_agente: clienteSeleccionado.id_agente,
-          total: parseFloat(facturaData.comprobante.total),
-          subtotal: parseFloat(facturaData.comprobante.subtotal),
-          impuestos: parseFloat(facturaData.impuestos?.traslado?.importe || "0.00"),
-          saldo: parseFloat(facturaData.comprobante.total),
-          rfc: facturaData.receptor.rfc,
-          id_empresa: empresaSeleccionada.id_empresa || null,
-          uuid_factura: facturaData.timbreFiscal.uuid,
-          rfc_emisor: facturaData.emisor.rfc,
-          url_pdf: archivoPDFUrl || null,
-          url_xml: archivoXMLUrl || null,
-          items: JSON.stringify(itemsAsignados),
-        };
+        // Lógica para creación de facturas desde carga - SOLO DEVUELVE ITEMS
+        console.log("Enviando items al componente padre:", itemsAsignados);
+
+        if (onAssign) {
+          console.log("entre al onAssign")
+          onAssign({
+            items: itemsAsignados,
+            monto_asignado: montoSeleccionado
+          });
+        } else {
+          console.warn("onAssign no está definido - no se puede enviar los items");
+        }
       }
 
-      const response = await fetch(endpoint, {
-        method: method,
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": API_KEY,
-        },
-        body: JSON.stringify(asignacionPayload),
-      });
+      console.log("asignar", asignacionPayload, "df", endpoint)
 
-      if (!response.ok) {
-        throw new Error('Error al asignar los items');
+      if (endpoint != null) {
+        const response = await fetch(endpoint, {
+          method: method,
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": API_KEY,
+          },
+          body: JSON.stringify(asignacionPayload),
+        });
+
+        if (!response.ok) {
+          throw new Error('Error al asignar los items');
+        }
       }
 
-      // Siempre retornar null como se solicita
-      onAssign?.(asignacionPayload);
       onClose();
       onCloseVistaPrevia?.();
-      return null;
+
     } catch (error) {
       console.error("Error al asignar items:", error);
-      alert('Ocurrió un error al asignar los items');
-      // También retornar null en caso de error
-      return null;
     }
-  };
+  }
+
 
   const handleAssign2 = async () => {
     return handleAssignBase(true);

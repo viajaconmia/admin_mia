@@ -238,7 +238,8 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
   const cerrarModal = useCallback(() => {
     setMostrarModal(false);
     resetearCampos();
-    // onSuccess(); // Call the success callback when closing
+    onSuccess(); // Call the success callback when closing
+    console.log("vrrrrrrrrrrr", onSuccess)
   }, [resetearCampos, onSuccess]);
 
 
@@ -383,6 +384,8 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
 
   const handleConfirmarFactura = async ({ payload, url }: { payload?: any, url?: string }) => {
     try {
+      console.log("🔄 Iniciando handleConfirmarFactura");
+      console.log("Payload recibido:", payload);
       setSubiendoArchivos(true);
 
       // Upload files only when confirming
@@ -408,7 +411,7 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
         rfc_emisor: facturaData.emisor.rfc,
         url_pdf: url ? url : archivoPDFUrl,
         url_xml: xmlUrl || null,
-        items_json: JSON.stringify([]),
+        items: JSON.stringify(payload || []),
       };
 
       console.log("Payload completo para API:", basePayload);
@@ -442,7 +445,6 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
       }
       // cerrarVistaPrevia();
     } catch (error) {
-      alert('Error al subir archivos');
       console.error(error);
     } finally {
       setSubiendoArchivos(false);
