@@ -94,14 +94,14 @@ export function ReservationForm({
         solicitud.costo_total != null
           ? Number(solicitud.costo_total)
           : // ② Si no, cae al cálculo automático de antes
+          Number(
             Number(
-              Number(
-                currentHotel?.tipos_cuartos.find(
-                  (item) =>
-                    item.nombre_tipo_cuarto == updateRoom(solicitud.room)
-                )?.costo ?? 0
-              ) * currentNoches
-            ) || 0,
+              currentHotel?.tipos_cuartos.find(
+                (item) =>
+                  item.nombre_tipo_cuarto == updateRoom(solicitud.room)
+              )?.costo ?? 0
+            ) * currentNoches
+          ) || 0,
       subtotal: 0,
       impuestos: 0,
     },
@@ -263,10 +263,10 @@ export function ReservationForm({
       const autoTotal = isCostoManual
         ? form.proveedor.total
         : Number(
-            form.hotel.content.tipos_cuartos.find(
-              (item) => item.nombre_tipo_cuarto == form.habitacion
-            )?.costo ?? 0
-          ) * nights;
+          form.hotel.content.tipos_cuartos.find(
+            (item) => item.nombre_tipo_cuarto == form.habitacion
+          )?.costo ?? 0
+        ) * nights;
 
       const items = calculateItems(autoTotal);
 
@@ -368,11 +368,21 @@ export function ReservationForm({
   const [reservaData, setReservaData] = useState<any>(null);
   const isTotalZero = form.venta.total === 0;
 
+  const isFormPrepopulated = solicitud.hotel !== null && solicitud.hotel !== undefined && solicitud.hotel !== '';
+
+
   // Modificar el handleSubmit para que no guarde automáticamente
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setLoading(false);
+
+    if (isFormPrepopulated) {
+      // Lógica para formulario prellenado (edición/creación)
+      handleProcessRequest();
+    } else {
+      // Lógica para formulario vacío (nueva reserva)
+      setLoading(true);
+      setLoading(false);
+    }
   };
 
   const handleClosePagarModal = () => {
@@ -425,7 +435,6 @@ export function ReservationForm({
     }
 
     try {
-      // No se guarda la reserva aquí, solo se prepara la data para el modal
       const reservaConAgente = {
         ...form,
         id_agente: solicitud.id_agente,
@@ -439,7 +448,6 @@ export function ReservationForm({
       setReservaData(reservaConAgente);
       setShowPagarModal(true);
       setLoading(false);
-      console.log("Datos para el modal de Wallet:", reservaConAgente);
     } catch (error) {
       console.error("Error en la reserva:", error);
       showNotification(
@@ -450,11 +458,20 @@ export function ReservationForm({
     }
   };
 
-  useEffect(() => {
-    updateAgentWallet();
-  }, []);
+  const handleprocesar = async () => {
 
-  // Función para manejar el pago con Crédito
+    fetchCreateReservaFromSolicitud({ ...form, nuevo_incluye_desayuno, acompanantes }, (data) => {
+      if (data.error) {
+        alert("Error al crear la reserva");
+        setLoading(false);
+        return;
+      }
+      alert("Reserva creada correctamente");
+      setLoading(false);
+      onClose();
+    });
+  }
+
   const handleCreditPayment = async () => {
     setLoading(true);
     try {
@@ -470,7 +487,7 @@ export function ReservationForm({
             }
             alert("Reserva actualizada correctamente");
             setLoading(false);
-            onClose(); // Cerrar el formulario después de guardar
+            onClose();
           }
         );
       } else if (create) {
@@ -478,11 +495,12 @@ export function ReservationForm({
           ...form,
           nuevo_incluye_desayuno,
           acompanantes,
+          bandera: 0
         })
           .then((data) => {
             alert("Se creo correctamente la reservación");
             setLoading(false);
-            onClose(); // Cerrar el formulario después de guardar
+            onClose();
           })
           .catch((error) => {
             console.error("Error al crear la reserva:", error);
@@ -503,7 +521,7 @@ export function ReservationForm({
             }
             alert("Reserva creada correctamente");
             setLoading(false);
-            onClose(); // Cerrar el formulario después de guardar
+            onClose();
           }
         );
       }
@@ -516,6 +534,63 @@ export function ReservationForm({
       setLoading(false);
     }
   };
+
+  // Nueva función para procesar solicitud (formulario prellenado)
+  const handleProcessRequest = async () => {
+    setLoading(true);
+    try {
+      if (edicion) {
+        updateReserva(
+          { ...edicionForm, nuevo_incluye_desayuno, acompanantes },
+          solicitud.id_booking,
+          (data) => {
+            if (data.error) {
+              alert("Error al actualizar la reserva");
+              setLoading(false);
+              return;
+            }
+            alert("Reserva actualizada correctamente");
+            setLoading(false);
+            onClose();
+          }
+        );
+      } else if (create) {
+        await fetchCreateReservaOperaciones({
+          ...form,
+          nuevo_incluye_desayuno,
+          acompanantes,
+          bandera: 0
+        })
+          .then((data) => {
+            alert("Se creo correctamente la reservación");
+            setLoading(false);
+            onClose();
+          })
+          .catch((error) => {
+            console.error("Error al crear la reserva:", error);
+            showNotification(
+              "error",
+              error.message || "Error al crear la reserva"
+            );
+            setLoading(false);
+          });
+      }
+    } catch (error) {
+      console.error("Error en la reserva:", error);
+      showNotification(
+        "error",
+        error.message || "Ocurrió un error inesperado."
+      );
+      setLoading(false);
+    }
+  };
+
+
+  console.log(solicitud, "feeffffffffffffff")
+
+  useEffect(() => {
+    updateAgentWallet();
+  }, []);
 
   return (
     <>
@@ -901,7 +976,7 @@ export function ReservationForm({
                                 .map((item) => item.id_viajero)
                                 .includes(traveler.id_viajero) &&
                                 traveler.id_viajero !=
-                                  form.viajero.id_viajero) ||
+                                form.viajero.id_viajero) ||
                               traveler.id_viajero == acompanante.id_viajero
                           )
                           .map((item) => ({
@@ -1093,38 +1168,51 @@ export function ReservationForm({
         </Tabs>
 
         <DialogFooter>
-          <div className="grid grid-cols-2 gap-3 w-full">
+          {isFormPrepopulated ? (
+            // Botón para formulario prellenado (edición/creación)
             <Button
-              type="button"
-              disabled={
-                loading ||
-                loadingWallet ||
-                isTotalZero ||
-                walletAmount < form.venta.total
-              }
-              onClick={handleWalletPayment}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+              type="submit"
+              disabled={loading}
+              onClick={handleprocesar}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors"
             >
-              {loadingWallet ? (
-                <span>Cargando...</span>
-              ) : (
-                <>
-                  <Wallet className="w-5 h-5" />
-                  Wallet (${walletAmount.toFixed(2)})
-                </>
-              )}
+              {loading ? "Procesando..." : "Procesar Solicitud"}
             </Button>
+          ) : (
+            // Botones para formulario vacío (nueva reserva)
+            <div className="grid grid-cols-2 gap-3 w-full">
+              <Button
+                type="button"
+                disabled={
+                  loading ||
+                  loadingWallet ||
+                  isTotalZero ||
+                  walletAmount < form.venta.total
+                }
+                onClick={handleWalletPayment}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+              >
+                {loadingWallet ? (
+                  <span>Cargando...</span>
+                ) : (
+                  <>
+                    <Wallet className="w-5 h-5" />
+                    Wallet (${walletAmount.toFixed(2)})
+                  </>
+                )}
+              </Button>
 
-            <Button
-              type="button"
-              disabled={loading || isTotalZero}
-              onClick={handleCreditPayment}
-              className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
-            >
-              <CreditCard className="w-5 h-5" />
-              Crédito(${solicitud.agente?.saldo || ""})
-            </Button>
-          </div>
+              <Button
+                type="button"
+                disabled={loading || isTotalZero}
+                onClick={handleCreditPayment}
+                className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+              >
+                <CreditCard className="w-5 h-5" />
+                Crédito(${solicitud.agente?.saldo || ""})
+              </Button>
+            </div>
+          )}
         </DialogFooter>
       </form>
 

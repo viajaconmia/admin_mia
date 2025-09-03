@@ -81,6 +81,7 @@ export interface Agente {
 
 
 export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFacturaProps) {
+  const [asignacionPayload, setAsignacionPayload] = useState<any>(null);
 
   // Estados iniciales
   const initialStates = {
@@ -238,93 +239,10 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
     setMostrarModal(false);
     resetearCampos();
     onSuccess(); // Call the success callback when closing
+    console.log("vrrrrrrrrrrr", onSuccess)
   }, [resetearCampos, onSuccess]);
 
 
-  // Función para confirmar la factura
-  // const handlePagos = async ({ payload, url }: { payload?: any, url?: string }) => {
-  //   try {
-  //     setSubiendoArchivos(true);
-
-  //     // Subir archivos a S3
-  //     const { xmlUrl } = await subirArchivosAS3();
-
-  //     if (!facturaData || !clienteSeleccionado || !pagoData) {
-  //       throw new Error("Faltan datos necesarios para procesar el pago");
-  //     }
-
-  //     if (!url) {
-  //       console.warn("URL del PDF no disponible");
-  //       // Puedes decidir si quieres continuar sin el PDF o lanzar un error
-  //     }
-  //     console.log("pdfurl", archivoPDFUrl)
-
-  //     // Aquí decidimos si la factura cubre completamente el pago o no
-  //     const montoPorFacturar = Number(pagoData.monto) || 0;
-  //     const totalFactura = parseFloat(facturaData.comprobante.total);
-  //     console.log("pagos y diferencias", pagoData.monto, "b", facturaData.comprobante.total)
-  //     let restante = totalFactura
-  //     const payloadpagosasoc = {
-  //       raw_id:,
-  //       monto: saldos - resta,
-  //     }
-  //     // Agregar datos específicos del pago
-  //     const pagoPayload = {
-  //       fecha_emision: facturaData.comprobante.fecha.split("T")[0],
-  //       estado: "Confirmada",
-  //       usuario_creador: clienteSeleccionado.id_agente,
-  //       id_agente: clienteSeleccionado.id_agente,
-  //       total: parseFloat(facturaData.comprobante.total),
-  //       subtotal: parseFloat(facturaData.comprobante.subtotal),
-  //       impuestos: parseFloat(facturaData.impuestos?.traslado?.importe || "0.00"),
-  //       saldo: parseFloat(facturaData.comprobante.total),
-  //       rfc: facturaData.receptor.rfc,
-  //       id_empresa: empresaSeleccionada?.id_empresa || null,
-  //       uuid_factura: facturaData.timbreFiscal.uuid,
-  //       rfc_emisor: facturaData.emisor.rfc,
-  //       url_pdf: url ? url : archivoPDFUrl,
-  //       url_xml: xmlUrl,
-  //       raw_id: pagoData.raw_id.startsWith('pag-') ? pagoData.raw_id : Number(pagoData.raw_id),
-  //       pago_referencia: pagoData.pago_referencia,
-  //       pago_fecha_pago: pagoData.pago_fecha_pago,
-  //       metodo_pago: pagoData.metodo_de_pago,
-  //       banco: pagoData.banco || pagoData.banco_tarjeta,
-  //       ultimos_digitos: pagoData.last_digits || pagoData.ult_digits,
-  //       autorizacion: pagoData.autorizacion_stripe || pagoData.numero_autorizacion,
-  //       tipo_tarjeta: pagoData.tipo_tarjeta || pagoData.tipo_de_tarjeta,
-  //       ...payloadpagosasoc
-  //     };
-
-  //     console.log("Payload completo para API con datos de pago:", pagoPayload);
-
-  //     if (montoPorFacturar < totalFactura) {
-  //       // Si el monto por facturar es menor que el total de la factura,
-  //       // llamamos directamente a AsignarFacturaModal
-  //       setArchivoPDFUrl(archivoPDFUrl);
-  //       setArchivoXMLUrl(xmlUrl);
-  //       setMostrarVistaPrevia(false);
-  //       setMostrarAsignarFactura(true);
-  //     } else {
-  //       const response = await fetch(`${URL}/mia/factura/CrearFacturaDesdeCargaPagos`, {
-  //         method: "POST",
-  //         headers: {
-  //           "Content-Type": "application/json",
-  //           "x-api-key": API_KEY,
-  //         },
-  //         body: JSON.stringify(pagoPayload),
-  //       });
-
-  //       console.log("payload enviado:", pagoPayload);
-  //       alert('Factura asignada al pago exitosamente');
-  //       cerrarVistaPrevia();
-  //     }
-  //   } catch (error) {
-  //     console.error("Error en handlePagos:", error);
-  //     alert('Error al procesar el pago');
-  //   } finally {
-  //     setSubiendoArchivos(false);
-  //   }
-  // };
 
   const handlePagos = async ({ url }: { url?: string }) => {
     try {
@@ -466,6 +384,8 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
 
   const handleConfirmarFactura = async ({ payload, url }: { payload?: any, url?: string }) => {
     try {
+      console.log("🔄 Iniciando handleConfirmarFactura");
+      console.log("Payload recibido:", payload);
       setSubiendoArchivos(true);
 
       // Upload files only when confirming
@@ -491,7 +411,7 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
         rfc_emisor: facturaData.emisor.rfc,
         url_pdf: url ? url : archivoPDFUrl,
         url_xml: xmlUrl || null,
-        items_json: JSON.stringify([]),
+        items: JSON.stringify(payload || []),
       };
 
       console.log("Payload completo para API:", basePayload);
@@ -525,7 +445,6 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
       }
       // cerrarVistaPrevia();
     } catch (error) {
-      alert('Error al subir archivos');
       console.error(error);
     } finally {
       setSubiendoArchivos(false);
@@ -769,18 +688,39 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
 
       <ConfirmacionModal
         isOpen={mostrarConfirmacion}
-        onCloseVistaPrevia={() => cerrarVistaPrevia()}
-        onClose={() => setMostrarConfirmacion(false)}
-        onConfirm={() => setMostrarAsignarFactura(true)}
-        onSaveOnly={() => handleConfirmarFactura({})}
+        onCloseVistaPrevia={() => {
+          cerrarVistaPrevia();
+          setAsignacionPayload(null); // Limpiar payload al cerrar
+        }}
+        onClose={() => {
+          setMostrarConfirmacion(false);
+          setAsignacionPayload(null); // Limpiar payload al cerrar
+        }}
+        onConfirm={() => {
+          setMostrarAsignarFactura(true);
+          setAsignacionPayload(null); // Preparar para nuevo payload
+        }}
+        onSaveOnly={() => {
+          handleConfirmarFactura({});
+          setAsignacionPayload(null); // Limpiar payload
+        }}
       />
 
       {mostrarAsignarFactura && (
         <AsignarFacturaModal
           isOpen={mostrarAsignarFactura}
-          onCloseVistaPrevia={() => cerrarVistaPrevia()}
-          onClose={() => setMostrarAsignarFactura(false)}
-          onAssign={(payload) => handleConfirmarFactura({ payload })}
+          onCloseVistaPrevia={() => {
+            cerrarVistaPrevia();
+            setAsignacionPayload(null); // Limpiar payload al cerrar
+          }}
+          onClose={() => {
+            setMostrarAsignarFactura(false);
+            setAsignacionPayload(null); // Limpiar payload al cerrar
+          }}
+          onAssign={(payload) => {
+            setAsignacionPayload(payload); // Guardar el payload
+            handleConfirmarFactura({ payload });
+          }}
           facturaData={facturaData}
           empresaSeleccionada={empresaSeleccionada}
           clienteSeleccionado={clienteSeleccionado}
