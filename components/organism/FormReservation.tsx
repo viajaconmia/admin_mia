@@ -460,7 +460,7 @@ export function ReservationForm({
 
   const handleprocesar = async () => {
 
-    fetchCreateReservaFromSolicitud({ ...form, nuevo_incluye_desayuno, acompanantes }, (data) => {
+    fetchCreateReservaFromSolicitud({ ...form, nuevo_incluye_desayuno, acompanantes, meta:{...solicitud} }, (data) => {
       if (data.error) {
         alert("Error al crear la reserva");
         setLoading(false);
