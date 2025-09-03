@@ -90,6 +90,8 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
     return typeof total === 'number' ? total : Number(total) || 0;
   });
 
+  console.log(facturaData, "rfrgr", archivoPDFUrl, "reve")
+
   useEffect(() => {
     if (pagoData?.monto) {
       setMaxMontoPermitido(pagoData.monto);
@@ -219,74 +221,78 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
         : [];
 
       let asignacionPayload: any;
+      let endpoint: string;
+      let method: string;
 
+      console.log("pago", pagoData, "id_factura", id_factura)
+      // Determinar el flujo según los datos disponibles
       if (pagoData) {
         // Lógica específica para pagoData
+        endpoint = `${URL}/mia/pagos/AsignarPagoItems`;
+        method = "PATCH";
         asignacionPayload = {
           ...pagoData,
           items: JSON.stringify(itemsAsignados),
           monto_asignado: montoSeleccionado
         };
       } else if (id_factura) {
-        // Lógica original para facturas
+        // Lógica para asignar items a una factura existente
+        console.log("asignar")
+        endpoint = `${URL}/mia/factura/AsignarFacturaItems`;
+        method = "PATCH";
         asignacionPayload = {
           id_factura: id_factura,
           items: JSON.stringify(itemsAsignados)
         };
+
       } else {
-        // Lógica original para creación de facturas
-        asignacionPayload = {
-          fecha_emision: facturaData.comprobante.fecha.split("T")[0], // solo la fecha
-          estado: "Completada",
-          usuario_creador: clienteSeleccionado.id_agente,
-          id_agente: clienteSeleccionado.id_agente,
-          total: parseFloat(facturaData.comprobante.total),
-          subtotal: parseFloat(facturaData.comprobante.subtotal),
-          impuestos: parseFloat(facturaData.impuestos?.traslado?.importe || "0.00"),
-          saldo: parseFloat(facturaData.comprobante.total),
-          rfc: facturaData.receptor.rfc,
-          id_empresa: empresaSeleccionada.id_empresa || null,
-          uuid_factura: facturaData.timbreFiscal.uuid,
-          rfc_emisor: facturaData.emisor.rfc,
-          url_pdf: archivoPDFUrl || null,
-          url_xml: archivoXMLUrl || null,
-          items: JSON.stringify(itemsAsignados),
-        };
+        // Lógica para creación de facturas desde carga - SOLO DEVUELVE ITEMS
+        console.log("Enviando items al componente padre:", itemsAsignados);
+
+        if (onAssign) {
+          console.log("entre al onAssign")
+          onAssign({
+            items: itemsAsignados,
+            monto_asignado: montoSeleccionado
+          });
+        } else {
+          console.warn("onAssign no está definido - no se puede enviar los items");
+        }
       }
 
-      const endpoint = pagoData
-        ? `${URL}/mia/pagos/AsignarPagoItems` // Endpoint ficticio - debes ajustarlo
-        : id_factura
-          ? `${URL}/mia/factura/AsignarFacturaItems`
-          : `${URL}/mia/factura/CrearFacturaDesdeCarga`;
+      console.log("asignar", asignacionPayload, "df", endpoint)
 
-      const response = await fetch(endpoint, {
-        method: pagoData ? "PATCH" : id_factura ? "PATCH" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": API_KEY,
-        },
-        body: JSON.stringify(asignacionPayload),
-      });
+      if (endpoint != null) {
+        const response = await fetch(endpoint, {
+          method: method,
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": API_KEY,
+          },
+          body: JSON.stringify(asignacionPayload),
+        });
 
-      if (!response.ok) {
-        throw new Error('Error al asignar los items');
+        if (!response.ok) {
+          throw new Error('Error al asignar los items');
+        }
       }
 
-      const data = await response.json();
-      onAssign?.(asignacionPayload);
       onClose();
       onCloseVistaPrevia?.();
-      return data;
+
     } catch (error) {
       console.error("Error al asignar items:", error);
-      alert('Ocurrió un error al asignar los items');
-      throw error;
     }
+  }
+
+
+  const handleAssign2 = async () => {
+    return handleAssignBase(true);
   };
 
-  const handleAssign2 = async () => handleAssignBase(true);
-  const handleAssign = async () => handleAssignBase(false);
+  const handleAssign = async () => {
+    return handleAssignBase(false);
+  };
 
   if (!isOpen) return null;
 

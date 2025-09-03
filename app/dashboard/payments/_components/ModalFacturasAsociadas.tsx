@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import { X, Copy, Check } from 'lucide-react';
+import { X, Copy, Check, Trash2 } from 'lucide-react';
 
 interface FacturaDetalle {
   id: string;
@@ -10,29 +10,38 @@ interface FacturaDetalle {
 interface ModalFacturasAsociadasProps {
   facturas: string[];
   onClose: () => void;
+  onDeleteFactura?: (facturaId: string) => void; // Nueva prop para manejar la eliminación
 }
 
-const ModalFacturasAsociadas: React.FC<ModalFacturasAsociadasProps> = ({ facturas, onClose }) => {
+const ModalFacturasAsociadas: React.FC<ModalFacturasAsociadasProps> = ({
+  facturas,
+  onClose,
+  onDeleteFactura
+}) => {
   const [copiedIndex, setCopiedIndex] = React.useState<number | null>(null);
+  const [facturasDetalladas, setFacturasDetalladas] = React.useState<FacturaDetalle[]>([]);
 
-  const parseFacturas = (facturasStr: string[]): FacturaDetalle[] => {
-    if (facturasStr.length === 0) return [];
+  // Parsear facturas al montar el componente
+  React.useEffect(() => {
+    const parseFacturas = (facturasStr: string[]): FacturaDetalle[] => {
+      if (facturasStr.length === 0) return [];
 
-    const combined = facturasStr.join(' || ');
-    const facturasSeparadas = combined.split('||').map(f => f.trim());
+      const combined = facturasStr.join(' || ');
+      const facturasSeparadas = combined.split('||').map(f => f.trim());
 
-    return facturasSeparadas.map(facturaStr => {
-      const idMatch = facturaStr.match(/Id factura: (.+?) \|/);
-      const totalMatch = facturaStr.match(/Total: (.+?)$/);
+      return facturasSeparadas.map(facturaStr => {
+        const idMatch = facturaStr.match(/Id factura: (.+?) \|/);
+        const totalMatch = facturaStr.match(/Total: (.+?)$/);
 
-      return {
-        id: idMatch ? idMatch[1].trim() : 'N/A',
-        total: totalMatch ? totalMatch[1].trim() : 'N/A'
-      };
-    });
-  };
+        return {
+          id: idMatch ? idMatch[1].trim() : 'N/A',
+          total: totalMatch ? totalMatch[1].trim() : 'N/A'
+        };
+      });
+    };
 
-  const facturasDetalladas = parseFacturas(facturas);
+    setFacturasDetalladas(parseFacturas(facturas));
+  }, [facturas]);
 
   const handleCopy = async (id: string, idx: number) => {
     try {
@@ -41,6 +50,20 @@ const ModalFacturasAsociadas: React.FC<ModalFacturasAsociadasProps> = ({ factura
       setTimeout(() => setCopiedIndex(null), 1500);
     } catch (e) {
       console.error('No se pudo copiar:', e);
+    }
+  };
+
+  const handleDelete = (facturaId: string, index: number) => {
+    if (window.confirm('¿Estás seguro de que deseas eliminar esta factura de la lista?')) {
+      // Si se proporcionó un callback, llamarlo
+      if (onDeleteFactura) {
+        onDeleteFactura(facturaId);
+      }
+
+      // También eliminamos localmente para actualizar la UI
+      const nuevasFacturas = [...facturasDetalladas];
+      nuevasFacturas.splice(index, 1);
+      setFacturasDetalladas(nuevasFacturas);
     }
   };
 
@@ -62,19 +85,20 @@ const ModalFacturasAsociadas: React.FC<ModalFacturasAsociadasProps> = ({ factura
             <div className="space-y-4">
               <div className="grid grid-cols-12 gap-4 font-semibold text-sm text-gray-600 border-b pb-2">
                 <div className="col-span-1">#</div>
-                <div className="col-span-7">ID Factura</div>
+                <div className="col-span-5">ID Factura</div>
                 <div className="col-span-1">Copiar</div>
                 <div className="col-span-3 flex justify-center">Total</div>
+                <div className="col-span-2 flex justify-center">Acciones</div>
               </div>
               {facturasDetalladas.map((factura, index) => {
                 const isCopied = copiedIndex === index;
                 return (
                   <div key={index} className="grid grid-cols-12 gap-4 items-center border-b pb-2">
                     <div className="col-span-1 text-gray-500">{index + 1}</div>
-                    <div className="col-span-7 font-mono text-sm break-all bg-gray-100 px-3 py-1 rounded">
+                    <div className="col-span-5 font-mono text-sm break-all bg-gray-100 px-3 py-1 rounded">
                       {factura.id}
                     </div>
-                    <div className="col-span-1 ">
+                    <div className="col-span-1">
                       <button
                         onClick={() => handleCopy(factura.id, index)}
                         className="p-1 text-gray-500 hover:text-gray-700"
@@ -83,8 +107,17 @@ const ModalFacturasAsociadas: React.FC<ModalFacturasAsociadasProps> = ({ factura
                         {isCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                       </button>
                     </div>
-                    <div className="col-span-2 text-sm font-medium flex justify-end">
+                    <div className="col-span-3 text-sm font-medium flex justify-end">
                       ${factura.total}
+                    </div>
+                    <div className="col-span-2 flex justify-center">
+                      <button
+                        onClick={() => handleDelete(factura.id, index)}
+                        className="p-1 text-red-500 hover:text-red-700 transition-colors"
+                        title="Eliminar factura"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
                 );
