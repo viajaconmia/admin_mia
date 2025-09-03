@@ -126,10 +126,10 @@ function App() {
       habitacion: formatRoom(item.room),
       costo_proveedor: Number(item.costo_total) || 0,
       markup:
-        ((Number(item.total || 0) - Number(item.costo_total || 0)) /
-          Number(item.total || 0)) *
+        ((Number(item.total_solicitud || 0) - Number(item.costo_total || 0)) /
+          Number(item.total_solicitud || 0)) *
         100,
-      precio_de_venta: parseFloat(item.total),
+      precio_de_venta: parseFloat(item.total_solicitud),
       metodo_de_pago: `${item.id_credito ? "credito" : "contado"}`,
       reservante: item.quien_reservó ? "Cliente" : "Operaciones",
       etapa_reservacion: item.etapa_reservacion,

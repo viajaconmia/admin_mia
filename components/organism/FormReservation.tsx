@@ -94,14 +94,14 @@ export function ReservationForm({
         solicitud.costo_total != null
           ? Number(solicitud.costo_total)
           : // ② Si no, cae al cálculo automático de antes
-          Number(
             Number(
-              currentHotel?.tipos_cuartos.find(
-                (item) =>
-                  item.nombre_tipo_cuarto == updateRoom(solicitud.room)
-              )?.costo ?? 0
-            ) * currentNoches
-          ) || 0,
+              Number(
+                currentHotel?.tipos_cuartos.find(
+                  (item) =>
+                    item.nombre_tipo_cuarto == updateRoom(solicitud.room)
+                )?.costo ?? 0
+              ) * currentNoches
+            ) || 0,
       subtotal: 0,
       impuestos: 0,
     },
@@ -263,10 +263,10 @@ export function ReservationForm({
       const autoTotal = isCostoManual
         ? form.proveedor.total
         : Number(
-          form.hotel.content.tipos_cuartos.find(
-            (item) => item.nombre_tipo_cuarto == form.habitacion
-          )?.costo ?? 0
-        ) * nights;
+            form.hotel.content.tipos_cuartos.find(
+              (item) => item.nombre_tipo_cuarto == form.habitacion
+            )?.costo ?? 0
+          ) * nights;
 
       const items = calculateItems(autoTotal);
 
@@ -368,8 +368,10 @@ export function ReservationForm({
   const [reservaData, setReservaData] = useState<any>(null);
   const isTotalZero = form.venta.total === 0;
 
-  const isFormPrepopulated = solicitud.hotel !== null && solicitud.hotel !== undefined && solicitud.hotel !== '';
-
+  const isFormPrepopulated =
+    solicitud.hotel !== null &&
+    solicitud.hotel !== undefined &&
+    solicitud.hotel !== "";
 
   // Modificar el handleSubmit para que no guarde automáticamente
   const handleSubmit = async (e: FormEvent) => {
@@ -495,7 +497,7 @@ export function ReservationForm({
           ...form,
           nuevo_incluye_desayuno,
           acompanantes,
-          bandera: 0
+          bandera: 0,
         })
           .then((data) => {
             alert("Se creo correctamente la reservación");
@@ -559,7 +561,7 @@ export function ReservationForm({
           ...form,
           nuevo_incluye_desayuno,
           acompanantes,
-          bandera: 0
+          bandera: 0,
         })
           .then((data) => {
             alert("Se creo correctamente la reservación");
@@ -585,8 +587,7 @@ export function ReservationForm({
     }
   };
 
-
-  console.log(solicitud, "feeffffffffffffff")
+  console.log(solicitud, "feeffffffffffffff");
 
   useEffect(() => {
     updateAgentWallet();
@@ -976,7 +977,7 @@ export function ReservationForm({
                                 .map((item) => item.id_viajero)
                                 .includes(traveler.id_viajero) &&
                                 traveler.id_viajero !=
-                                form.viajero.id_viajero) ||
+                                  form.viajero.id_viajero) ||
                               traveler.id_viajero == acompanante.id_viajero
                           )
                           .map((item) => ({
