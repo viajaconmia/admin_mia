@@ -9,6 +9,7 @@ import { TypeFilters, EmpresaFromAgent } from "@/types";
 import AsignarFacturaModal from './AsignarFactura';
 import { obtenerPresignedUrl, subirArchivoAS3 } from "@/helpers/utils";
 import { formatNumberWithCommas } from "@/helpers/utils";
+import { json } from "node:stream/consumers";
 
 interface SubirFacturaProps {
   pagoId?: string;  // Hacerlo opcional
@@ -95,6 +96,7 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
     facturaPagada: pagoData ? true : false // Cambio aquí
   };
 
+  const [facturaCreada, setFacturaCreada] = useState<any>(null);
   const [facturaData, setFacturaData] = useState<any>(null);
   const [mostrarModal, setMostrarModal] = useState(false);
   const [mostrarVistaPrevia, setMostrarVistaPrevia] = useState(false);
@@ -416,20 +418,32 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
 
       console.log("Payload completo para API:", basePayload);
 
-      const response = await fetch(`${URL}/mia/factura/CrearFacturaDesdeCarga`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": API_KEY,
-        },
-        body: JSON.stringify(basePayload),
-      });
+      if (basePayload.items != "1") {
+        const response = await fetch(`${URL}/mia/factura/CrearFacturaDesdeCarga`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": API_KEY,
+          },
+          body: JSON.stringify(basePayload),
 
+        });
+
+        if (!response.ok) {
+          throw new Error('Error al asignar la factura');
+        }
+
+        // Obtener la respuesta del servidor
+        const facturaResponse = await response.json();
+        console.log("Factura creada:", facturaResponse);
+
+        // Guardar la respuesta en el estado
+        setFacturaCreada(facturaResponse);
+
+
+      }
       console.log("payload enviado:", basePayload);
 
-      if (!response.ok) {
-        throw new Error('Error al asignar la factura');
-      }
 
       if (payload) {
         // Lógica para factura asignada
@@ -533,7 +547,7 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
     }
   };
 
-  console.log(pagoData)
+  console.log(facturaCreada.data.id_factura, "vfffffffffffffffff")
   return (
     <>
       <button
@@ -722,6 +736,7 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
             handleConfirmarFactura({ payload });
           }}
           facturaData={facturaData}
+          id_factura={facturaCreada.data.id_factura}
           empresaSeleccionada={empresaSeleccionada}
           clienteSeleccionado={clienteSeleccionado}
           archivoPDFUrl={archivoPDFUrl}
