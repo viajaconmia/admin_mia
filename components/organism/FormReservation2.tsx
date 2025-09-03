@@ -162,10 +162,9 @@ export function ReservationForm2({
   );
   const [inicial, setInicial] = useState(true);
 
-  // useEffect(() => {
-  //   console.log("FORM", form);
-  //   console.log("Edicion FORM", edicionForm);
-  // }, [form]);
+  useEffect(() => {
+    console.log("Edicion FORM", edicionForm.venta?.current, solicitud.total);
+  }, [form]);
 
   useEffect(() => {
     try {
@@ -343,21 +342,9 @@ export function ReservationForm2({
             },
             current: {
               ...form.venta,
-              total: Number(
-                solicitud.metodo_pago_dinamico == "Contado"
-                  ? separarCostos(Number(solicitud.total)).total
-                  : separarCostos(roomPrice * nights).total
-              ),
-              subtotal: Number(
-                solicitud.metodo_pago_dinamico == "Contado"
-                  ? separarCostos(Number(solicitud.total)).subtotal
-                  : separarCostos(roomPrice * nights).subtotal
-              ),
-              impuestos: Number(
-                solicitud.metodo_pago_dinamico == "Contado"
-                  ? separarCostos(Number(solicitud.total)).impuestos
-                  : separarCostos(roomPrice * nights).impuestos
-              ),
+              total: Number(separarCostos(roomPrice * nights).total),
+              subtotal: Number(separarCostos(roomPrice * nights).subtotal),
+              impuestos: Number(separarCostos(roomPrice * nights).impuestos),
               markup: Number(
                 (
                   ((roomPrice * nights - autoTotal) / (roomPrice * nights)) *
@@ -1000,39 +987,37 @@ export function ReservationForm2({
           </div>
         </TabsContent>
       </Tabs>
-      <DialogFooter className="flex justify-between w-fullborder">
-        {!edicionForm.venta?.current?.total ? (
+      <DialogFooter className="flex justify-between w-full items-center">
+        <p className="text-xs font-normal p-2 bg-gray-100 rounded-full border text-gray-900">
+          Precio actual de la reserva: ${solicitud.total}
+        </p>
+        {edicionForm.venta?.current?.total && (
           <>
-            <p>El precio de la reserva no ha sido actualizada</p>
-          </>
-        ) : (
-          <>
-            <p className="text-sm font-normal p-2 bg-gray-300 rounded-full border text-gray-800">
-              Precio inicial: ${solicitud.total}
-            </p>
-            <p
-              className={`text-sm font-normal p-2 ${
-                Number(edicionForm.venta.current.total) ===
-                Number(solicitud.total)
-                  ? "bg-gray-50 text-gray-700"
-                  : Number(edicionForm.venta.current.total) <
+            {Number(edicionForm.venta.current.total) !=
+              Number(solicitud.total) && (
+              <>
+                <p
+                  className={`text-xs font-normal p-2 ${
+                    Number(edicionForm.venta?.current.total) <
                     Number(solicitud.total)
-                  ? "bg-red-300 text-red-800"
-                  : "bg-green-300 text-green-800"
-              } rounded-full border `}
-            >
-              Precio actual:
-              {`$${edicionForm.venta.current.total.toFixed(2)}`}
-            </p>
+                      ? "bg-red-300 text-red-800"
+                      : "bg-green-200 text-green-800"
+                  } rounded-full border `}
+                >
+                  Precio recomendado:
+                  {`$${edicionForm.venta.current.total.toFixed(2)}`}
+                </p>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setCobrar(true)}
+                >
+                  ¿Quieres modificar el precio?
+                </Button>
+              </>
+            )}
           </>
         )}
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={() => setCobrar(true)}
-        >
-          Modificar precio
-        </Button>
         <Button disabled={!!loading} type="submit">
           Actualizar datos de la reserva
         </Button>
