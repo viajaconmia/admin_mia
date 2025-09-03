@@ -192,7 +192,6 @@ function App() {
     viajero: (props: any) => <span title={props.value}>{props.value}</span>,
     habitacion: (props: any) => <span title={props.value}>{props.value}</span>,
     check_in: (props: any) => {
-      console.log(props);
       return <span title={props.value}>{formatDate(props.value)}</span>;
     },
     check_out: (props: any) => (
@@ -253,6 +252,7 @@ function App() {
                 room: selectedItem.room,
                 id_viajero: selectedItem.id_viajero_solicitud,
                 id_agente: selectedItem.id_agente,
+                id_solicitud: selectedItem.id_solicitud,
                 // viajeros_adicionales:selectedItem.viajeros_acompañantes
               }}
               onClose={() => {
