@@ -91,6 +91,7 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
   });
 
   console.log(facturaData, "rfrgr", archivoPDFUrl, "reve")
+  console.log()
 
   useEffect(() => {
     if (pagoData?.monto) {
@@ -252,7 +253,7 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
         if (onAssign) {
           console.log("entre al onAssign")
           onAssign({
-            items: itemsAsignados,
+            itemsAsignados,
             monto_asignado: montoSeleccionado
           });
         } else {
