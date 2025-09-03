@@ -327,34 +327,6 @@ const TablaPagosVisualizacion = () => {
     });
   };
 
-  const tableData = pagos.map((pago) => ({
-    // Fields from your object
-    id_movimiento: pago.id_movimiento,
-    tipo_pago: pago.tipo_pago ?? "",
-    raw_id: pago.raw_id,
-    id_agente: (pago as any).id_agente, // puede venir como ig_agente pero la tabla también expone id_agente
-    nombre_agente: pago.nombre_agente ?? "",
-    fecha_creacion: pago.fecha_creacion,
-    fecha_pago: pago.fecha_pago,
-    monto: Number(pago.monto) || "0",
-    monto_por_facturar: Number(pago.monto_por_facturar) || "0",
-    currency: pago.currency ?? "MXN",
-    metodo: pago.metodo ?? "",
-    tipo: pago.tipo ?? "",
-    referencia: pago.referencia ?? "N/A",
-    concepto: pago.concepto ?? "",
-    link_pago: pago.link_pago ?? "",
-    autorizacion: pago.autorizacion ?? "N/A",
-    last_digits: pago.last_digits ?? "N/A",
-    banco: pago.banco ?? "N/A",
-    origen_pago: pago.origen_pago ?? "",
-    is_facturado: pago,
-
-    // Extras for the table
-    acciones: { row: pago },
-    item: pago,
-  }));
-
   const filteredData = useMemo(() => {
     // Filter the data
     const filteredItems = pagos.filter((pago) => {
@@ -433,14 +405,6 @@ const TablaPagosVisualizacion = () => {
         const normalizedFilter = filters.last_digits.toLowerCase();
         const normalizedDigits = pago.last_digits.toLowerCase();
         if (!normalizedDigits.includes(normalizedFilter)) {
-          return false;
-        }
-      }
-
-      // Filtro por estado de facturación
-      if (filters.is_facturado !== undefined && filters.is_facturado !== null) {
-        const isFacturado = Number(pago.is_facturado) || 0;
-        if (isFacturado !== filters.is_facturado) {
           return false;
         }
       }
@@ -573,7 +537,7 @@ const TablaPagosVisualizacion = () => {
         return sortConfig.sort ? aFacturado - bFacturado : bFacturado - aFacturado;
       }
 
-      return 0;
+
     });
   }, [pagos, filters, searchTerm, sortConfig.key, sortConfig.sort, filterBySelectedAgent, seleccionados, idAgenteSeleccionado]);
 
@@ -795,49 +759,6 @@ const TablaPagosVisualizacion = () => {
             >
               <FileText className="w-3 h-3" />
               <span>Facturas</span>
-            </button>
-          )}
-
-          {/* Botón Generar Factura */}
-          {mostrarOpcionesFacturacion && (
-            <button
-              className="px-2 py-1 rounded-md bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors border border-purple-200 flex items-center gap-1 text-xs"
-              onClick={() => {
-                if (!idAgente || !rawId) return;
-                setBatchBilling({
-                  userId: idAgente,
-                  saldoMonto: monto,
-                  rawIds,
-                  saldos
-                });
-                setShowBatchMenu(false);
-                setShowBillingPage(true);
-              }}
-            >
-              <FilePlus className="w-3 h-3" />
-              <span>Generar</span> {/* Texto más corto */}
-            </button>
-          )}
-
-          {/* Botón Asignar Factura */}
-          {mostrarOpcionesFacturacion && (
-            <button
-              className="px-2 py-1 rounded-md bg-orange-50 text-orange-600 hover:bg-orange-100 transition-colors border border-orange-200 flex items-center gap-1 text-xs"
-              onClick={() => {
-                const payload = buildAssignPayload({ seleccionados, row });
-                if (!payload.rawIds.length) {
-                  alert("No hay pagos seleccionados y la fila no tiene raw_id.");
-                  return;
-                }
-                setPagoAFacturar({
-                  ...payload,
-                  pagoOriginal: row,
-                });
-                setShowSubirFactura(true);
-              }}
-            >
-              <FileCheck className="w-3 h-3" />
-              <span>Asignar</span> {/* Texto más corto */}
             </button>
           )}
         </div>
