@@ -547,7 +547,6 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
     }
   };
 
-  console.log(facturaCreada.data.id_factura, "vfffffffffffffffff")
   return (
     <>
       <button
