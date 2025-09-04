@@ -461,20 +461,18 @@ export function ReservationForm({
   };
 
   const handleprocesar = async () => {
-    fetchCreateReservaFromSolicitud(
-      { ...form, nuevo_incluye_desayuno, acompanantes },
-      (data) => {
-        if (data.error) {
-          alert("Error al crear la reserva");
-          setLoading(false);
-          return;
-        }
-        alert("Reserva creada correctamente");
+
+    fetchCreateReservaFromSolicitud({ ...form, nuevo_incluye_desayuno, acompanantes, meta:{...solicitud} }, (data) => {
+      if (data.error) {
+        alert("Error al crear la reserva");
         setLoading(false);
-        onClose();
+        return;
       }
-    );
-  };
+      alert("Reserva creada correctamente");
+      setLoading(false);
+      onClose();
+    });
+  }
 
   const handleCreditPayment = async () => {
     setLoading(true);

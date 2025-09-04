@@ -248,6 +248,7 @@ function App() {
               solicitud={{
                 check_in: selectedItem.check_in_solicitud,
                 check_out: selectedItem.check_out_solicitud,
+                id_servicio: selectedItem.id_servicio,
                 hotel: selectedItem.hotel_solicitud,
                 room: selectedItem.room,
                 id_viajero: selectedItem.id_viajero_solicitud,
