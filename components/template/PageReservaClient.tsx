@@ -210,6 +210,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
     }
 
     fetchSolicitudes2(payload, {}, (data) => {
+      console.log(data);
       setAllSolicitudes(data || []);
       setLoading(false);
     });
