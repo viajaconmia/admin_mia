@@ -214,7 +214,12 @@ export const exportToCSV = (data, filename = "archivo.csv") => {
     ...data.map((row) =>
       headers
         .map((field) => {
-          const val = row[field];
+          let val = row[field];
+
+          if (field === "cliente" && val && typeof val === "object" && val.nombre_agente_completo) {
+            val = val.nombre_agente_completo;
+          }
+
           return `"${(val ?? "").toString().replace(/"/g, '""')}"`;
         })
         .join(",")
