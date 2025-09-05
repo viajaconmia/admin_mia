@@ -126,10 +126,10 @@ function App() {
       habitacion: formatRoom(item.room),
       costo_proveedor: Number(item.costo_total) || 0,
       markup:
-        ((Number(item.total || 0) - Number(item.costo_total || 0)) /
-          Number(item.total || 0)) *
+        ((Number(item.total_solicitud || 0) - Number(item.costo_total || 0)) /
+          Number(item.total_solicitud || 0)) *
         100,
-      precio_de_venta: parseFloat(item.total),
+      precio_de_venta: parseFloat(item.total_solicitud),
       metodo_de_pago: `${item.id_credito ? "credito" : "contado"}`,
       reservante: item.quien_reservó ? "Cliente" : "Operaciones",
       etapa_reservacion: item.etapa_reservacion,
@@ -192,7 +192,6 @@ function App() {
     viajero: (props: any) => <span title={props.value}>{props.value}</span>,
     habitacion: (props: any) => <span title={props.value}>{props.value}</span>,
     check_in: (props: any) => {
-      console.log(props);
       return <span title={props.value}>{formatDate(props.value)}</span>;
     },
     check_out: (props: any) => (
@@ -249,10 +248,12 @@ function App() {
               solicitud={{
                 check_in: selectedItem.check_in_solicitud,
                 check_out: selectedItem.check_out_solicitud,
+                id_servicio: selectedItem.id_servicio,
                 hotel: selectedItem.hotel_solicitud,
                 room: selectedItem.room,
                 id_viajero: selectedItem.id_viajero_solicitud,
                 id_agente: selectedItem.id_agente,
+                id_solicitud: selectedItem.id_solicitud,
                 // viajeros_adicionales:selectedItem.viajeros_acompañantes
               }}
               onClose={() => {

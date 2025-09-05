@@ -293,31 +293,34 @@ const SalesManagementPage: React.FC<{
                 {loading ? "Procesando..." : "Actualizar Precio"}
               </button>
             ) : (
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={consultarWallet}
-                  disabled={loading || loading}
-                  className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
-                >
-                  {loading ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <Wallet className="w-5 h-5" />
-                  )}
-                  {loading ? "Consultando..." : "Wallet"}
-                </button>
-                <button
-                  onClick={pagarConCredito}
-                  disabled={loading}
-                  className="bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
-                >
-                  {loading ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <CreditCard className="w-5 h-5" />
-                  )}
-                  {loading ? "Procesando..." : "Crédito"}
-                </button>
+              <div className="grid">
+                {reserva.metodo_pago_dinamico === "Credito" ? (
+                  <button
+                    onClick={pagarConCredito}
+                    disabled={loading}
+                    className="bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+                  >
+                    {loading ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <CreditCard className="w-5 h-5" />
+                    )}
+                    {loading ? "Procesando..." : "Crédito"}
+                  </button>
+                ) : (
+                  <button
+                    onClick={consultarWallet}
+                    disabled={loading || loading}
+                    className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+                  >
+                    {loading ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Wallet className="w-5 h-5" />
+                    )}
+                    {loading ? "Consultando..." : "Wallet"}
+                  </button>
+                )}
               </div>
             )}
           </div>
