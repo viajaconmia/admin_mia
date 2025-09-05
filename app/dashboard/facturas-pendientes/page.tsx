@@ -10,8 +10,8 @@ import { format } from "date-fns";
 import { fetchPagosPrepago, fetchPagosPrepagobalance } from "@/services/pagos";
 import { Banknote, FileCheck } from "lucide-react";
 import { es, se } from "date-fns/locale";
-import ModalDetallePago from './_components/detalles_pago';
-import ModalFacturasAsociadas from './_components/ModalFacturasAsociadas';
+import ModalDetallePago from '@/app/dashboard/payments/_components/detalles_pago';
+import ModalFacturasAsociadas from '@/app/dashboard/payments/_components/ModalFacturasAsociadas';
 import SubirFactura from "@/app/dashboard/facturacion/subirfacturas/SubirFactura";
 import { BillingPage } from "@/app/dashboard/facturacion/generar_factura/generar_factura";
 import { formatNumberWithCommas } from "@/helpers/utils";
@@ -761,6 +761,49 @@ const TablaPagosVisualizacion = () => {
               <span>Facturas</span>
             </button>
           )}
+
+          {/* Botón Generar Factura */}
+          {mostrarOpcionesFacturacion && (
+            <button
+              className="px-2 py-1 rounded-md bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors border border-purple-200 flex items-center gap-1 text-xs"
+              onClick={() => {
+                if (!idAgente || !rawId) return;
+                setBatchBilling({
+                  userId: idAgente,
+                  saldoMonto: monto,
+                  rawIds,
+                  saldos
+                });
+                setShowBatchMenu(false);
+                setShowBillingPage(true);
+              }}
+            >
+              <FilePlus className="w-3 h-3" />
+              <span>Generar</span> {/* Texto más corto */}
+            </button>
+          )}
+
+          {/* Botón Asignar Factura */}
+          {mostrarOpcionesFacturacion && (
+            <button
+              className="px-2 py-1 rounded-md bg-orange-50 text-orange-600 hover:bg-orange-100 transition-colors border border-orange-200 flex items-center gap-1 text-xs"
+              onClick={() => {
+                const payload = buildAssignPayload({ seleccionados, row });
+                if (!payload.rawIds.length) {
+                  alert("No hay pagos seleccionados y la fila no tiene raw_id.");
+                  return;
+                }
+                setPagoAFacturar({
+                  ...payload,
+                  pagoOriginal: row,
+                });
+                setShowSubirFactura(true);
+              }}
+            >
+              <FileCheck className="w-3 h-3" />
+              <span>Asignar</span> {/* Texto más corto */}
+            </button>
+          )}
         </div>
       );
     }
@@ -782,42 +825,8 @@ const TablaPagosVisualizacion = () => {
   return (
 
     <div className="bg-white rounded-lg p-6 w-full shadow-xl">
-      <h2 className="text-xl font-bold mb-4">Registro de Pagos</h2>
+      <h1 className="text-xl font-bold mb-4">Facturas Pendientes</h1>
 
-      {/* Sección de resumen de montos */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
-        {/* Monto Pagado */}
-        <div className="flex items-center gap-4 bg-white border border-blue-200 rounded-xl p-4 shadow-sm ring-1 ring-blue-100 hover:shadow-md transition">
-          <div className="flex items-center justify-center w-12 h-12 bg-blue-100 text-blue-600 rounded-lg">
-            <Banknote className="w-6 h-6" />
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-blue-700">Monto Pagado</h3>
-            <p className="text-2xl font-bold text-blue-800">
-              {balance ? formatCurrency(Number(balance.montototal)) : formatCurrency(0)}
-            </p>
-          </div>
-        </div>
-
-        {/* Monto Facturado */}
-        <div className="flex items-center gap-4 bg-white border border-green-200 rounded-xl p-4 shadow-sm ring-1 ring-green-100 hover:shadow-md transition">
-          <div className="flex items-center justify-center w-12 h-12 bg-green-100 text-green-600 rounded-lg">
-            <FileCheck className="w-6 h-6" />
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-green-700">Monto Facturado</h3>
-            <p className="text-2xl font-bold text-green-800">
-              {balance ? formatCurrency(Number(balance.montofacturado)) : formatCurrency(0)}
-            </p>
-            <p className="text-sm mt-1">
-              <span className="text-gray-600">Restante: </span>
-              <span className={`font-semibold ${balance && Number(balance.restante) >= 0 ? "text-red-600" : "text-green-600"}`}>
-                {balance ? formatCurrency(Number(balance.restante)) : formatCurrency(0)}
-              </span>
-            </p>
-          </div>
-        </div>
-      </div>
 
       {/* Resumen de selección */}
       {seleccionados.length > 0 && (
@@ -847,12 +856,6 @@ const TablaPagosVisualizacion = () => {
           )}
         </div>
       )}
-
-      {/* Tabla de registros
-      <Table4
-        registros={filteredData}
-        renderers={renderers}
-      /> */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <Filters
           onFilter={handleFilter}

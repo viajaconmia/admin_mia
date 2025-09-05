@@ -1,6 +1,7 @@
+import { FullHotelData } from "@/app/dashboard/hoteles/_components/hotel-dialog";
 import { Hotel } from "@/types";
 import { Viajero } from "@/types";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, CheckCircle, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 export const Dropdown = ({
@@ -29,8 +30,10 @@ export const Dropdown = ({
         {options.length > 0 ? (
           options.map((option) => {
             // Handle both string and object options
-            const optionValue = typeof option === 'string' ? option : option.value;
-            const optionLabel = typeof option === 'string' ? option : option.label;
+            const optionValue =
+              typeof option === "string" ? option : option.value;
+            const optionLabel =
+              typeof option === "string" ? option : option.label;
             return (
               <option key={optionValue} value={optionValue}>
                 {optionLabel}
@@ -53,10 +56,12 @@ export const DateInput = ({
   label,
   value,
   onChange,
+  disabled,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  disabled?: boolean;
 }) => (
   <div className="flex flex-col space-y-1">
     <label className="text-sm text-gray-900 font-medium">{label}</label>
@@ -65,6 +70,7 @@ export const DateInput = ({
         type="date"
         value={value || ""}
         onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
         className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
       />
     </div>
@@ -95,7 +101,7 @@ export const NumberInput = ({
       value={value || ""}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
-      className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+      className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground placeholder:text-gray-400 focus-visible:outline-1 focus-visible:outline-gray-950 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
     />
   </div>
 );
@@ -178,7 +184,10 @@ export const TextAreaInput = ({
   </div>
 );
 // Utilidad para soportar opciones como objetos { name, ... }
-export type ComboBoxOption = { name: string; content: Hotel | Viajero };
+export type ComboBoxOption = {
+  name: string;
+  content: Hotel | Viajero | FullHotelData;
+};
 
 // Si quieres que el ComboBox soporte objetos, cambia la definición así:
 export const ComboBox = ({
@@ -189,6 +198,7 @@ export const ComboBox = ({
   sublabel,
   placeholderOption = "Selecciona una opción",
   disabled = false,
+  onDelete,
 }: {
   label?: string;
   sublabel?: string;
@@ -197,6 +207,7 @@ export const ComboBox = ({
   options?: ComboBoxOption[];
   placeholderOption?: string;
   disabled?: boolean;
+  onDelete?: () => void;
 }) => {
   const [inputValue, setInputValue] = useState(value?.name || "");
   const [isOpen, setIsOpen] = useState(false);
@@ -239,41 +250,53 @@ export const ComboBox = ({
     <div className="flex flex-col space-y-1" ref={containerRef}>
       {label && (
         <label className="text-sm text-gray-900 font-medium line-clamp-1">
-          {label}{" "}
-          <span className="text-gray-500 text-xs">
-            {" "}
-            - {sublabel.toLowerCase()}
-          </span>{" "}
+          {label}
+          {sublabel && (
+            <span className="text-gray-500 text-xs">
+              {` - ${sublabel.toLowerCase()}`}
+            </span>
+          )}
         </label>
       )}
-      <div className="relative">
-        <input
-          type="text"
-          disabled={disabled}
-          value={inputValue}
-          placeholder={placeholderOption}
-          onFocus={() => setIsOpen(true)}
-          onChange={(e) => {
-            setInputValue(e.target.value);
-            setIsOpen(true);
-          }}
-          className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-        />
-        <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-          <ChevronDown size={18} className="text-gray-500" />
+      <div className="relative flex gap-2">
+        <div className="flex-1 relative">
+          <input
+            type="text"
+            disabled={disabled}
+            value={inputValue}
+            placeholder={placeholderOption}
+            onFocus={() => setIsOpen(true)}
+            onChange={(e) => {
+              setInputValue(e.target.value);
+              setIsOpen(true);
+            }}
+            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          />
+          <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+            <ChevronDown size={18} className="text-gray-500" />
+          </div>
+          {isOpen && filteredOptions.length > 0 && (
+            <ul className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow max-h-60 overflow-y-auto text-sm">
+              {filteredOptions.map((option, index) => (
+                <li
+                  key={option.name + index}
+                  onClick={() => handleSelect(option)}
+                  className="px-3 py-2 cursor-pointer hover:bg-blue-100"
+                >
+                  {option.name}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
-        {isOpen && filteredOptions.length > 0 && (
-          <ul className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow max-h-60 overflow-y-auto text-sm">
-            {filteredOptions.map((option, index) => (
-              <li
-                key={option.name + index}
-                onClick={() => handleSelect(option)}
-                className="px-3 py-2 cursor-pointer hover:bg-blue-100"
-              >
-                {option.name}
-              </li>
-            ))}
-          </ul>
+        {onDelete && (
+          <button
+            onClick={onDelete}
+            type="button"
+            className="bg-gray-100 rounded-sm border border-gray-300 shadow-sm w-9 flex justify-center items-center"
+          >
+            <X className="w-4 h-4"></X>
+          </button>
         )}
       </div>
     </div>
@@ -340,7 +363,65 @@ interface CheckboxInputProps {
   id?: string;
   disabled?: boolean;
 }
-
+export const InputRadio = <T,>({
+  name,
+  item,
+  selectedItem,
+  onChange,
+  disabled = false,
+}: {
+  name: string;
+  item: {
+    id: T;
+    label: string;
+    icon: React.ElementType;
+    color?: string;
+    description: string;
+  };
+  disabled?: boolean;
+  selectedItem: string;
+  onChange: React.Dispatch<React.SetStateAction<T>>;
+}) => {
+  const IconComponent = item.icon;
+  return (
+    <label
+      className={`flex items-center p-3 rounded-lg border-2 cursor-pointer transition-all duration-200 hover:shadow-md ${disabled === true
+        ? "border-gray-50 bg-gray-50"
+        : selectedItem === item.id
+          ? "border-blue-500 bg-blue-50"
+          : "border-gray-200 hover:border-gray-300"
+        }`}
+    >
+      <input
+        type="radio"
+        name={name}
+        value={item.id as string}
+        checked={selectedItem === item.id}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value as T)}
+        className="sr-only"
+      />
+      <div
+        className={`w-8 h-8 ${item.color || "bg-gray"}${disabled ? "-300" : "-600"
+          } rounded-full flex items-center justify-center mr-3`}
+      >
+        <IconComponent className="w-4 h-4 text-white" />
+      </div>
+      <div className="flex-1">
+        <div
+          className={`font-medium ${disabled ? "text-gray-500" : "text-gray-800"
+            }`}
+        >
+          {item.label}
+        </div>
+        <div className="text-xs text-gray-500">{item.description}</div>
+      </div>
+      {selectedItem === item.id && (
+        <CheckCircle className="w-5 h-5 text-blue-500" />
+      )}
+    </label>
+  );
+};
 export const CheckboxInput = ({
   // Asumiendo que este es el wrapper de tu componente
   label, // Texto descriptivo para el interruptor

@@ -1,4 +1,4 @@
-import { TypeFilters, Solicitud,Solicitud2 } from "@/types";
+import { TypeFilters, Solicitud, Solicitud2 } from "@/types";
 import { API_KEY, URL } from "@/lib/constants";
 
 export const fetchSolicitudes = async (
@@ -7,24 +7,15 @@ export const fetchSolicitudes = async (
   callback: (data: Solicitud[]) => void
 ) => {
   try {
-    const queryParams = new URLSearchParams();
-
-    Object.entries({ ...filters, ...defaultFilters }).forEach(
-      ([key, value]) => {
-        if (value !== undefined && value !== null && value !== "") {
-          queryParams.append(key, value.toString());
-        }
-      }
-    );
-
-    const url = `${URL}/mia/solicitud?${queryParams.toString()}`;
+    const url = `${URL}/mia/reservasClient/filtro_solicitudes_y_reservas?p_criterio=0`;
 
     const res = await fetch(url, {
-      method: "GET",
+      method: "POST",
       headers: {
         "x-api-key": API_KEY || "",
         "Cache-Control": "no-cache",
       },
+      body: JSON.stringify({ ...filters }),
     });
 
     const data = await res.json();
@@ -59,10 +50,10 @@ export const fetchSolicitudes2 = async (
     });
 
     const data = await res.json();
-    console.log("Esta es mi data 👌👌",data);
     callback(data.data || []);
     return data;
   } catch (err) {
+    console.log(err.response || err.message || "ERROR DESCONOCIDO");
     console.error("Error al actualizar solicitudes:", err);
   }
 };

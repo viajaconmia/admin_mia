@@ -1,5 +1,11 @@
 "use client";
-import React, { useState, useEffect, useReducer, ChangeEvent, useMemo } from "react";
+import React, {
+  useState,
+  useEffect,
+  useReducer,
+  ChangeEvent,
+  useMemo,
+} from "react";
 import {
   FileText,
   Tag,
@@ -25,9 +31,16 @@ import { SaldoFavor, NuevoSaldoAFavor, Saldo } from "@/services/SaldoAFavor";
 import { fetchAgenteById, fetchPagosByAgente } from "@/services/agentes";
 import { Loader } from "@/components/atom/Loader";
 import { API_KEY, URL } from "@/lib/constants/index";
-import { PagarModalComponent } from './pagar_saldo';
+import { PagarModalComponent } from "./pagar_saldo";
+
+
 import { format } from "date-fns";
-import { es } from "date-fns/locale";
+import { es, se } from "date-fns/locale";
+import {
+  obtenerPresignedUrl,
+  subirArchivoAS3,
+  subirArchivosAS3Luis,
+} from "@/helpers/utils";
 
 import {
   CheckboxInput,
@@ -46,14 +59,13 @@ import { url } from "node:inspector";
 
 // helpers/utils.ts
 export const normalizeText = (text: string): string => {
-  if (!text) return '';
+  if (!text) return "";
 
   return text
-    .normalize('NFD') // Elimina acentos y diacríticos
-    .replace(/[\u0300-\u036f]/g, '') // Elimina los caracteres de acentuación
+    .normalize("NFD") // Elimina acentos y diacríticos
+    .replace(/[\u0300-\u036f]/g, "") // Elimina los caracteres de acentuación
     .toUpperCase(); // Convierte a mayúsculas
 };
-
 
 // ========================================
 // COMPONENTE: MODAL DE PAGOS
@@ -71,11 +83,15 @@ interface PaymentModalProps {
     facturable: boolean;
     aplicable: boolean;
     link_Stripe: string;
+    ult_digits: string;
+    banco_tarjeta: string;
+    numero_autorizacion: string;
+    tipo_tarjeta: string;
   };
+
   onSubmit: (paymentData: NuevoSaldoAFavor) => Promise<any>;
   isEditing?: boolean;
   localWalletAmount?: number;
-
 }
 
 interface PaymentSummaryProps {
@@ -91,10 +107,35 @@ interface PaymentSummaryProps {
 const PaymentSummary: React.FC<PaymentSummaryProps> = ({
   totalBalance,
   assignedBalance,
-  statusInfo
+  statusInfo,
 }) => {
-  console.log("totalBalance", totalBalance, "/rvr", assignedBalance)
+  console.log("totalBalance", totalBalance, "/rvr", assignedBalance);
   const availableBalance = totalBalance - assignedBalance;
+
+  // Estados necesarios para subirArchivosAS3
+  const [comprobante, setComprobante] = useState<File | null>(null);
+  const [subiendoArchivos, setSubiendoArchivos] = useState(false);
+  const [comprobanteUrl, setComprobanteUrl] = useState<string | null>(null);
+
+  const subirArchivosAS3 = async (): Promise<{ comprobante: string }> => {
+    //
+    try {
+      setSubiendoArchivos(true);
+      const folder = "comprobantes_pagos";
+
+      const { urlComprobante, publicUrlComprobante } =
+        await obtenerPresignedUrl(comprobante.name, comprobante.type, folder);
+      await subirArchivoAS3(comprobante, urlComprobante);
+      setComprobanteUrl(publicUrlComprobante);
+
+      return { comprobante: publicUrlComprobante };
+    } catch (err) {
+      console.error("Error al subir archivos:", err);
+      throw err;
+    } finally {
+      setSubiendoArchivos(false);
+    }
+  };
 
   return (
     <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl p-6 text-white shadow-lg">
@@ -116,19 +157,23 @@ const PaymentSummary: React.FC<PaymentSummaryProps> = ({
       </div>
       {statusInfo && (
         <div className="mt-4 pt-4 border-t border-emerald-400">
-          <p className={`text-sm font-medium ${statusInfo.puedeCancelar ? 'text-emerald-100' : 'text-yellow-200'}`}>
+          <p
+            className={`text-sm font-medium ${statusInfo.puedeCancelar ? "text-emerald-100" : "text-yellow-200"
+              }`}
+          >
             {statusInfo.mensaje}
           </p>
           <p className="text-xs text-emerald-100 mt-1">
-            Diferencia: ${statusInfo.diferencia.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+            Diferencia: $
+            {statusInfo.diferencia.toLocaleString("es-MX", {
+              minimumFractionDigits: 2,
+            })}
           </p>
         </div>
       )}
     </div>
   );
 };
-
-
 
 //========================================
 //comprobantes pagos
@@ -139,62 +184,96 @@ interface Comprobantepago {
   tipoArchivo?: string;
   tamañoArchivo?: number;
   fechaSubida?: Date;
-  estado?: 'pendiente' | 'aprobado' | 'rechazado';
+  estado?: "pendiente" | "aprobado" | "rechazado";
+  urlArchivo: string; // Hacerlo obligatorio ya que es lo que realmente usamos
 }
 
 interface ComprobanteModalProps {
   idCliente: string;
   cliente: string;
   onClose: () => void;
-  onSave: (comprobante: Comprobantepago) => void;
+  onSave?: (comprobante: Comprobantepago) => void;
+  handleEdit?: (updatedData: { comprobante: string }) => Promise<void>;
+  isEditing?: boolean;
+  currentComprobante?: string | null;
+  item?: any; // O define un tipo más específico si es posible
 }
 
 const ComprobanteModal: React.FC<ComprobanteModalProps> = ({
   idCliente,
   cliente,
   onClose,
-  onSave
+  onSave,
+  handleEdit,
+  isEditing = false,
+  currentComprobante = null
 }) => {
   const [archivo, setArchivo] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    if (!file) return;
 
-    if (file) {
-      // Validaciones
-      const validTypes = ['application/pdf', 'image/jpeg', 'image/png'];
-      const maxSize = 5 * 1024 * 1024; // 5MB
+    const validTypes = ["application/pdf", "image/jpeg", "image/png"];
+    const maxSize = 5 * 1024 * 1024; // 5MB
 
-      if (!validTypes.includes(file.type)) {
-        setError('Formato no válido. Sube un PDF, JPEG o PNG');
-        return;
-      }
-
-      if (file.size > maxSize) {
-        setError('El archivo es demasiado grande (máx. 5MB)');
-        return;
-      }
-
-      setError(null);
-      setArchivo(file);
+    if (!validTypes.includes(file.type)) {
+      setError("Formato no válido. Sube un PDF, JPEG o PNG");
+      return;
     }
+
+    if (file.size > maxSize) {
+      setError("El archivo es demasiado grande (máx. 5MB)");
+      return;
+    }
+
+    setError(null);
+    setArchivo(file);
   };
 
-  const handleSubmit = () => {
-    if (archivo) {
-      onSave({
-        id_Cliente: idCliente,
-        archivo: archivo,
-        nombreArchivo: archivo.name,
-        tipoArchivo: archivo.type,
-        tamañoArchivo: archivo.size,
-        fechaSubida: new Date(),
-        estado: 'pendiente'
-      });
+  const handleSubmit = async () => {
+    if (!archivo) {
+      setError("Debes seleccionar un archivo");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const folder = "comprobantes_pagos";
+      const { url: uploadUrl, publicUrl } = await obtenerPresignedUrl(
+        `${folder}/${archivo.name}`,
+        archivo.type,
+        folder
+      );
+
+      await subirArchivoAS3(archivo, uploadUrl);
+
+
+      if (isEditing && handleEdit) {
+        await handleEdit({ comprobante: publicUrl });
+      } else if (onSave) {
+        const comprobanteData: Comprobantepago = {
+          id_Cliente: idCliente,
+          archivo,
+          nombreArchivo: archivo.name,
+          tipoArchivo: archivo.type,
+          tamañoArchivo: archivo.size,
+          fechaSubida: new Date(),
+          estado: "pendiente",
+          urlArchivo: publicUrl,
+        };
+        onSave(comprobanteData);
+      }
+
       onClose();
-    } else {
-      setError('Debes de seleccionar un archivo')
+    } catch (err) {
+      console.error("Error subiendo comprobante:", err);
+      setError("No se pudo subir el archivo. Intenta de nuevo.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -203,38 +282,50 @@ const ComprobanteModal: React.FC<ComprobanteModalProps> = ({
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
         <div className="flex items-center justify-between p-6 border-b border-gray-100">
           <h3 className="text-xl font-semibold text-gray-800">
-            Subir Comprobante para {cliente}
+            {isEditing ? "Actualizar" : "Subir"} Comprobante para {cliente}
           </h3>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full">
             <X className="w-5 h-5 text-gray-500" />
           </button>
         </div>
 
-        <div className="p-6">
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Seleccionar archivo
-              </label>
-              <input
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png"
-                onChange={handleFileChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md"
-              />
-              {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
+        <div className="p-6 space-y-4">
+          {isEditing && currentComprobante && (
+            <div className="mb-4">
+              <p className="font-medium">Comprobante actual:</p>
+              <a
+                href={currentComprobante}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-500 underline"
+              >
+                Ver comprobante actual
+              </a>
             </div>
+          )}
 
-            {archivo && (
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <p className="font-medium">Archivo seleccionado:</p>
-                <p>{archivo.name}</p>
-                <p className="text-sm text-gray-500">
-                  {(archivo.size / 1024).toFixed(2)}
-                </p>
-              </div>
-            )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Seleccionar archivo
+            </label>
+            <input
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png"
+              onChange={handleFileChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-md"
+            />
+            {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
           </div>
+
+          {archivo && (
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <p className="font-medium">Archivo seleccionado:</p>
+              <p>{archivo.name}</p>
+              <p className="text-sm text-gray-500">
+                {(archivo.size / 1024).toFixed(2)} KB
+              </p>
+            </div>
+          )}
 
           <div className="flex gap-3 mt-6">
             <button
@@ -246,9 +337,10 @@ const ComprobanteModal: React.FC<ComprobanteModalProps> = ({
             <button
               onClick={handleSubmit}
               disabled={!archivo}
-              className={`flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg ${!archivo ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-700'}`}
+              className={`flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg ${!archivo ? "opacity-50 cursor-not-allowed" : "hover:bg-blue-700"
+                }`}
             >
-              Guardar Comprobante
+              {loading ? "Procesando..." : isEditing ? "Actualizar" : "Guardar"}
             </button>
           </div>
         </div>
@@ -275,16 +367,15 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   // const [agente, setAgente] = useState<Agente | null>(null);
   const [loading, setLoading] = useState({
     agente: true,
-    pagos: true
+    pagos: true,
   });
 
   console.log("wallet", walletAmount);
   const [localWalletAmount, setLocalWalletAmount] = useState(walletAmount);
-  console.log("agente", agente.wallet)
-  console.log("local", localWalletAmount)
+  console.log("agente", agente.wallet);
+  console.log("local", localWalletAmount);
 
   console.log("wallet2", walletAmount);
-
 
   const [filters, setFilters] = useState<TypeFilters>({
     paymentMethod: "",
@@ -292,13 +383,14 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     id_stripe: null,
     facturable: null,
     comprobante: null,
-    paydate: null
+    paydate: null,
+    activo: null,
   });
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [saldoAFavor, setSaldoAFavor] = useState<number>(0);
-  const [lloading, setloading] = useState(false)
-  const [saldos, setSaldos] = useState<Saldo[]>([])
+  const [lloading, setloading] = useState(false);
+  const [saldos, setSaldos] = useState<Saldo[]>([]);
 
   interface SortConfig {
     key: string;
@@ -311,13 +403,11 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   });
 
   const handleSort = (key: string) => {
-    setSortConfig(prev => ({
+    setSortConfig((prev) => ({
       key,
       sort: prev.key === key ? !prev.sort : false, // Si es la misma columna, alternar, sino descendente
     }));
   };
-
-
 
   // Función para manejar los filtros
   const handleFilter = (newFilters: TypeFilters) => {
@@ -326,13 +416,26 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       paymentMethod: newFilters.paymentMethod || "",
       hasDiscount: newFilters.hasDiscount || "",
       id_stripe: newFilters.id_stripe || null,
-      facturable: typeof newFilters.facturable === 'string' ?
-        newFilters.facturable === 'SI' :
-        newFilters.facturable,
-      comprobante: typeof newFilters.comprobante === 'string' ?
-        newFilters.comprobante === 'SI' :
-        newFilters.comprobante,
-      paydate: newFilters.paydate || null
+      facturable:
+        typeof newFilters.facturable === "string"
+          ? newFilters.facturable === "SI"
+          : newFilters.facturable,
+      comprobante:
+        typeof newFilters.comprobante === "string"
+          ? newFilters.comprobante === "SI"
+          : newFilters.comprobante,
+      paydate: newFilters.paydate || null,
+
+      activo:
+        typeof newFilters.activo === "string"
+          ? newFilters.activo === "ACTIVO"
+            ? 1
+            : 0
+          : newFilters.activo === true
+            ? 1
+            : newFilters.activo === false
+              ? 0
+              : null,
     };
 
     setFilters(completeFilters);
@@ -346,7 +449,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   // 1. Función centralizada para actualizar el saldo
   const updateAgentWallet = async () => {
     try {
-      setLoading(prev => ({ ...prev, agente: true }));
+      setLoading((prev) => ({ ...prev, agente: true }));
       const agenteActualizado = await fetchAgenteById(agente.id_agente);
 
       console.log("Respuesta completa:", agenteActualizado); // Verifica la estructura completa
@@ -355,16 +458,14 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       const walletAmount = Array.isArray(agenteActualizado)
         ? parseFloat(agenteActualizado[0].wallet)
         : parseFloat(agenteActualizado.wallet);
-      console.log("Nuevo saldo:", walletAmount);
-      setLocalWalletAmount(walletAmount)
+      setLocalWalletAmount(walletAmount);
       return walletAmount;
-
     } catch (error) {
-      console.error('Error al actualizar el saldo del agente:', error);
-      setError('Error al actualizar el saldo disponible');
+      console.error("Error al actualizar el saldo del agente:", error);
+      setError("Error al actualizar el saldo disponible");
       throw error; // Es mejor lanzar el error para manejarlo donde se llame a esta función
     } finally {
-      setLoading(prev => ({ ...prev, agente: false }));
+      setLoading((prev) => ({ ...prev, agente: false }));
     }
   };
   // 2. Efecto para cargar datos iniciales y actualizar cuando cambia el ID del agente
@@ -388,38 +489,39 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   // 3. Efecto para actualizar cuando la pestaña vuelve a estar visible
   useEffect(() => {
     const handleVisibilityChange = async () => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === "visible") {
         try {
-          setLoading(prev => ({ ...prev, agente: true }));
+          setLoading((prev) => ({ ...prev, agente: true }));
           await updateAgentWallet();
           await reloadSaldos();
         } catch (error) {
-          console.error('Error al actualizar datos:', error);
-          setError('Error al actualizar los datos');
+          console.error("Error al actualizar datos:", error);
+          setError("Error al actualizar los datos");
         } finally {
-          setLoading(prev => ({ ...prev, agente: false }));
+          setLoading((prev) => ({ ...prev, agente: false }));
         }
       }
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [agente.id_agente]);
 
   useEffect(() => {
     const fetchSaldoFavor = async () => {
-      const response: { message: string, data: Saldo[] } = await SaldoFavor.getPagos(agente.id_agente)
-      console.log("esto trae", response.data)
-      setSaldos(response.data)
-    }
-    fetchSaldoFavor()
-  }, [])
+      const response: { message: string; data: Saldo[] } =
+        await SaldoFavor.getPagos(agente.id_agente);
+      console.log("esto trae", response.data);
+      setSaldos(response.data);
+    };
+    fetchSaldoFavor();
+  }, []);
 
   const filteredData = useMemo(() => {
     // Filter the data
-    const filteredItems = saldos.filter(saldo => {
+    const filteredItems = saldos.filter((saldo) => {
       // Filtro por método de pago
       if (filters.paymentMethod && saldo.metodo_pago) {
         const normalizedFilter = filters.paymentMethod.toLowerCase();
@@ -462,6 +564,24 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         }
       }
 
+      // Filtro por link_stripe (case-insensitive)
+      if (filters.id_stripe) {
+        const stripeId = filters.id_stripe.toLowerCase();
+        const saldoLink = saldo.link_stripe?.toLowerCase() || "";
+        if (!saldoLink.includes(stripeId)) {
+          return false;
+        }
+      }
+
+      // Filtro por activo/inactivo
+      if (filters.activo !== null && filters.activo !== undefined) {
+        const saldoActive = Boolean(saldo.activo); // Converts both true/1 to true, false/0 to false
+        const filterActive = Boolean(filters.activo);
+        if (saldoActive !== filterActive) {
+          return false;
+        }
+      }
+
       // Filtro por rango de fechas
       if (filters.startDate && saldo.created_at) {
         const createdDate = new Date(saldo.created_at);
@@ -480,8 +600,12 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       // Filtro por búsqueda de texto
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase();
-        const matchesReference = saldo.referencia?.toLowerCase().includes(searchLower);
-        const matchesComment = saldo.comentario?.toLowerCase().includes(searchLower);
+        const matchesReference = saldo.referencia
+          ?.toLowerCase()
+          .includes(searchLower);
+        const matchesComment = saldo.comentario
+          ?.toLowerCase()
+          .includes(searchLower);
         const matchesId = saldo.id_saldos?.toString().includes(searchLower);
 
         if (!matchesReference && !matchesComment && !matchesId) {
@@ -492,31 +616,36 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       return true;
     });
 
+    console.log("Filters:", filters);
+    console.log("Sample saldo:", saldos[0]);
+
     // Transform the filtered data
     const transformedData = filteredItems.map((saldo) => ({
       id_Cliente: saldo.id_agente,
       id_saldo: saldo.id_saldos,
-      cliente: (saldo.nombre || '').toUpperCase(),
+      cliente: (saldo.nombre || "").toUpperCase(),
       creado: saldo.fecha_creacion ? new Date(saldo.fecha_creacion) : null,
       monto_pagado: Number(saldo.monto),
       saldo: saldo.saldo,
-      forma_De_Pago: saldo.metodo_pago === 'transferencia'
-        ? 'Transferencia Bancaria'
-        : saldo.metodo_pago === 'tarjeta credito'
-          ? 'Tarjeta de Crédito'
-          : saldo.metodo_pago === 'tarjeta debito'
-            ? 'Tarjeta de Débito'
-            : saldo.metodo_pago || '',
-      tipo_tarjeta: saldo.tipo_tarjeta || '',
-      referencia: saldo.referencia || '',
+      forma_De_Pago:
+        saldo.metodo_pago === "transferencia"
+          ? "Transferencia Bancaria"
+          : saldo.metodo_pago === "tarjeta credito"
+            ? "Tarjeta de Crédito"
+            : saldo.metodo_pago === "tarjeta debito"
+              ? "Tarjeta de Débito"
+              : saldo.metodo_pago || "",
+
+      tipo_tarjeta: saldo.tipo_tarjeta || "",
+      referencia: saldo.referencia || "",
       link_stripe: saldo.link_stripe || null,
       fecha_De_Pago: saldo.fecha_pago ? new Date(saldo.fecha_pago) : null,
-      aplicable: saldo.is_descuento ? 'Si' : 'No',
+      aplicable: saldo.is_descuento ? "Si" : "No",
       comentario: saldo.notas || saldo.comentario || null,
-      facturable: saldo.is_facturable ? 'Si' : 'No',
+      facturable: saldo.is_facturable ? "Si" : "No",
       comprobante: saldo.comprobante || null,
       acciones: { row: saldo },
-      item: saldo
+      item: saldo,
     }));
 
     // Sort the data
@@ -525,19 +654,22 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       const bValue = b[sortConfig.key];
 
       // Handle dates
-      if (sortConfig.key.includes('fecha') || sortConfig.key.includes('creado')) {
+      if (
+        sortConfig.key.includes("fecha") ||
+        sortConfig.key.includes("creado")
+      ) {
         const dateA = new Date(aValue).getTime();
         const dateB = new Date(bValue).getTime();
         return sortConfig.sort ? dateA - dateB : dateB - dateA;
       }
 
       // Handle numbers
-      if (typeof aValue === 'number' && typeof bValue === 'number') {
+      if (typeof aValue === "number" && typeof bValue === "number") {
         return sortConfig.sort ? aValue - bValue : bValue - aValue;
       }
 
       // Handle strings
-      if (typeof aValue === 'string' && typeof bValue === 'string') {
+      if (typeof aValue === "string" && typeof bValue === "string") {
         return sortConfig.sort
           ? aValue.localeCompare(bValue)
           : bValue.localeCompare(aValue);
@@ -545,11 +677,9 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
 
       return 0;
     });
-
   }, [saldos, filters, searchTerm, sortConfig.key, sortConfig.sort]);
 
   const tableRenderers = {
-
     fecha_De_Pago: ({ value }: { value: Date | null }) => {
       if (!value) return <div className="text-gray-400 italic">Sin fecha</div>;
 
@@ -571,14 +701,18 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       );
     },
 
-    monto_pagado: ({ value, item }: { value: string, item: Saldo }) => {
+    monto_pagado: ({ value, item }: { value: string; item: Saldo }) => {
       const isActive = Boolean(item?.activo);
       const formatted = formatNumberWithCommas(parseFloat(value).toFixed(2));
 
       return (
         <span
           className={`font-semibold text-sm px-2 py-1 rounded flex items-center justify-center
-      ${isActive ? "bg-blue-100 text-blue-600" : "bg-red-100 text-red-600 line-through"}`}
+
+      ${isActive
+              ? "bg-blue-100 text-blue-600"
+              : "bg-red-100 text-red-600 line-through"
+            }`}
         >
           ${formatted}
         </span>
@@ -594,7 +728,11 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       return (
         <span
           className={`font-semibold text-sm px-2 py-1 rounded flex items-center justify-center
-      ${isActive ? "bg-blue-100 text-blue-600" : "bg-red-100 text-red-600 line-through"}`}
+
+      ${isActive
+              ? "bg-blue-100 text-blue-600"
+              : "bg-red-100 text-red-600 line-through"
+            }`}
         >
           ${formatted}
         </span>
@@ -605,11 +743,13 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       const isActive = Boolean(item.activo);
       return (
         <span
-          className={`font-semibold text-sm px-2 py-1 rounded ${isActive ? "bg-blue-50 text-blue-600" : "bg-red-100 text-red-600 line-through"
+          className={`font-semibold text-sm px-2 py-1 rounded ${isActive
+            ? "bg-blue-50 text-blue-600"
+            : "bg-red-100 text-red-600 line-through"
             }`}
           title={item.id_agente}
         >
-          {item.id_agente?.split("-").join("").slice(0, 10)}
+          {item.id_agente?.slice(0, 11)}
         </span>
       );
     },
@@ -618,7 +758,9 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       const isActive = Boolean(item.activo);
       return (
         <span
-          className={`font-semibold text-sm px-2 py-1 rounded ${isActive ? "bg-blue-50 text-blue-600" : "bg-red-100 text-red-600 line-through"
+          className={`font-semibold text-sm px-2 py-1 rounded ${isActive
+            ? "bg-blue-50 text-blue-600"
+            : "bg-red-100 text-red-600 line-through"
             }`}
         >
           {item.id_saldos}
@@ -626,33 +768,43 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       );
     },
 
-    tipo_tarjeta: ({ value, row }: { value: string | null, row: any }) => {
-      const isActive = row?.activo !== false;
+    tipo_tarjeta: ({ value, item }: { value: string | null; item: any }) => {
+      const isActive = item?.activo !== false;
+
       const lowerValue = value?.toLowerCase() || "";
 
       let iconColor = "text-gray-500";
-      if (lowerValue.includes("crédito") || lowerValue.includes("credito")) iconColor = "text-green-600";
-      else if (lowerValue.includes("débito") || lowerValue.includes("debito")) iconColor = "text-blue-600";
+      if (lowerValue.includes("crédito") || lowerValue.includes("credito"))
+        iconColor = "text-green-600";
+      else if (lowerValue.includes("débito") || lowerValue.includes("debito"))
+        iconColor = "text-blue-600";
 
       const shouldShowIcon = !!value;
 
       return (
-        <div className={`flex items-center gap-2 max-w-xs truncate ${!isActive ? "text-red-500 line-through" : ""}`}>
+        <div
+          className={`flex items-center gap-2 max-w-xs truncate ${!isActive ? "text-red-500 line-through" : ""
+            }`}
+        >
           {shouldShowIcon && <CreditCard className={`w-4 h-4 ${iconColor}`} />}
           <span>{value ? normalizeText(value) : ""}</span>
         </div>
       );
     },
 
-
-    forma_De_Pago: ({ value, row }: { value: string, row: any }) => {
-      const isActive = row?.activo !== false;
+    forma_De_Pago: ({ value, item }: { value: string; item: any }) => {
+      const isActive = item?.activo !== false;
       const normalizedValue = value.toLowerCase();
       return (
-        <div className={`flex items-center gap-2 ${!isActive ? "text-red-500 line-through" : ""}`}>
-          {normalizedValue.includes("crédito") || normalizedValue.includes("credito") ? (
+        <div
+          className={`flex items-center gap-2 ${!isActive ? "text-red-500 line-through" : ""
+            }`}
+        >
+          {normalizedValue.includes("crédito") ||
+            normalizedValue.includes("credito") ? (
             <CreditCard className="w-4 h-4 text-green-500" />
-          ) : normalizedValue.includes("débito") || normalizedValue.includes("debito") ? (
+          ) : normalizedValue.includes("débito") ||
+            normalizedValue.includes("debito") ? (
             <CreditCard className="w-4 h-4 text-blue-600" /> // Color diferente para débito
           ) : normalizedValue.includes("transferencia") ? (
             <DollarSign className="w-4 h-4 text-blue-500" />
@@ -666,22 +818,43 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       );
     },
 
-    comprobante: ({ value }: { value: Comprobantepago | null }) => {
+    comprobante: ({ value, item }: { value: string | null; item: any }) => {
       const [showModal, setShowModal] = useState(false);
 
-      const handleDownload = () => {
-        if (value) {
-          console.log("Descargando comprobante...", value);
+      const handleEditComprobante = async (updatedData: { comprobante: string }) => {
+        try {
+          // Crear objeto con todos los datos necesarios para la actualización
+          const apiData = {
+            id_saldos: item.id_saldos,
+            id_agente: item.id_agente,
+            saldo: item.saldo,
+            monto: item.monto,
+            metodo_pago: item.metodo_pago,
+            fecha_pago: item.fecha_pago,
+            notas: item.notas || null,
+            is_facturable: item.is_facturable,
+            is_descuento: item.is_descuento,
+            link_stripe: item.link_stripe || null,
+            tipo_tarjeta: item.tipo_tarjeta,
+            activo: item.activo,
+            comentario: item.comentario || null,
+            comprobante: updatedData.comprobante,
+            concepto: item.concepto,
+            currency: item.currency || "MXN",
+            referencia: item.referencia || null,
+            ult_digits: item.ult_digits || null,
+            banco_tarjeta: item.banco_tarjeta || null,
+            numero_autorizacion: item.numero_autorizacion || null,
+          };
 
-          // Lógica de descarga aquí
-        }
-      };
+          console.log("Datos actualizados:", updatedData);
+          console.log("Datos enviados a la API:", apiData);
 
-
-      const handleView = () => {
-        if (value) {
-          console.log("Mostrando comprobante...", value);
-          // Lógica para visualizar aquí
+          await SaldoFavor.actualizarPago(apiData);
+          await reloadSaldos();
+        } catch (error) {
+          console.error("Error al actualizar comprobante:", error);
+          setError(`Error al actualizar comprobante: ${error instanceof Error ? error.message : String(error)}`);
         }
       };
 
@@ -696,120 +869,166 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             </button>
             {showModal && (
               <ComprobanteModal
-                idCliente={agente?.id_agente || ""}
-                cliente={agente?.nombre_agente_completo || ""}
+                idCliente={item.id_agente}
+                cliente={item.nombre}
                 onClose={() => setShowModal(false)}
                 onSave={(comprobante) => {
                   console.log("Comprobante guardado:", comprobante);
                   setShowModal(false);
-                  // Actualizar el estado con el nuevo comprobante
+                  console.log("Item asociado:", item);
                 }}
+                handleEdit={handleEditComprobante}
+                isEditing={true}
+                item={item}
               />
             )}
           </>
         );
       }
 
-
       return (
-        <div className="flex gap-2">
-          <button
-            onClick={handleView}
-            className="text-green-600 hover:underline cursor-pointer"
+        <div className="flex gap-2 items-center">
+          <span className="text-gray-300">|</span>
+
+          {/* Botón para ver */}
+          <a
+            href={value}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-green-600 hover:text-green-800 cursor-pointer flex items-center"
+            title="Ver comprobante"
           >
-            Ver
-          </button>
-          <span>|</span>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+          </a>
+
+          <span className="text-gray-300">|</span>
+
+          {/* Botón para cambiar */}
           <button
-            onClick={handleDownload}
-            className="text-green-600 hover:underline cursor-pointer"
+            onClick={() => setShowModal(true)}
+            className="text-blue-600 hover:text-blue-800 cursor-pointer flex items-center"
+            title="Cambiar comprobante"
           >
-            Descargar
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
           </button>
+
+          {showModal && (
+            <ComprobanteModal
+              idCliente={item.id_agente}
+              cliente={item.nombre}
+              onClose={() => setShowModal(false)}
+              currentComprobante={value}
+              handleEdit={handleEditComprobante}
+              isEditing={true}
+              item={item}
+            />
+          )}
         </div>
       );
     },
-    aplicable: ({ value }: { value: 'Si' | 'No' }) => {
+
+    aplicable: ({ value }: { value: "Si" | "No" }) => {
       return (
-        <span className={`flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium w-full ${value === 'Si'
-          ? 'bg-green-200 text-green-800'
-          : 'bg-red-200 text-red-800'
-          }`}>
+        <span
+          className={`flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium w-full ${value === "Si"
+            ? "bg-green-200 text-green-800"
+            : "bg-red-200 text-red-800"
+            }`}
+        >
           <span className="text-center w-full">{normalizeText(value)}</span>
         </span>
       );
     },
 
-    referencia: ({ value, row }: { value: string | null, row: any }) => {
-      const isActive = row?.activo !== false;
+    referencia: ({ value, item }: { value: string | null; item: any }) => {
+      const isActive = item?.activo !== false;
       return (
-        <div className={`max-w-xs truncate ${!isActive ? "text-red-500 line-through" : ""}`}>
-          {value ? normalizeText(value) : ''}
-        </div>
-      );
-    },
-    comentario: ({ value, row }: { value: string | null, row: any }) => {
-      const isActive = row?.activo !== false;
-      return (
-        <div className={`max-w-xs truncate ${!isActive ? "text-red-500 line-through" : ""}`}>
-          {value ? normalizeText(value) : ''}
+        <div
+          className={`max-w-xs truncate ${!isActive ? "text-red-500 line-through" : ""
+            }`}
+        >
+          {value ? normalizeText(value) : ""}
         </div>
       );
     },
 
-    cliente: ({ value, row }: { value: string | null, row: any }) => {
-      const isActive = row?.activo !== false;
+    comentario: ({ value, item }: { value: string | null; item: any }) => {
+      const isActive = item?.activo !== false;
       return (
-        <div className={`max-w-xs truncate ${!isActive ? "text-red-500 line-through" : ""}`}>
+        <div
+          className={`max-w-xs truncate ${!isActive ? "text-red-500 line-through" : ""
+            }`}
+        >
+          {value ? normalizeText(value) : ""}
+        </div>
+      );
+    },
+
+    cliente: ({ value, item }: { value: string | null; item: any }) => {
+      const isActive = item?.activo !== false;
+      return (
+        <div
+          className={`max-w-xs truncate ${!isActive ? "text-red-500 line-through" : ""
+            }`}
+        >
           {normalizeText(value)}
         </div>
       );
     },
 
-
-    facturable: ({ value }: { value: 'Si' | 'No' }) => {
+    facturable: ({ value }: { value: "Si" | "No" }) => {
       return (
-        <span className={`flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium w-full ${value === 'Si'
-          ? 'bg-green-200 text-green-800'
-          : 'bg-red-200 text-red-800'
-          }`}>
+        <span
+          className={`flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-medium w-full ${value === "Si"
+            ? "bg-green-200 text-green-800"
+            : "bg-red-200 text-red-800"
+            }`}
+        >
           <span className="text-center w-full">{normalizeText(value)}</span>
         </span>
       );
     },
     //botones para eliminar y editar informacion
-    acciones: ({ value }: { value: { row: any } }) => {
-      const { row } = value;
+    acciones: ({ item }) => {
       const [isEditModalOpen, setIsEditModalOpen] = useState(false);
       const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
       const [isPagarModalOpen, setIsPagarModalOpen] = useState(false);
 
-      const isActive = row?.activo !== false;
+      const isActive = item?.activo !== 0;
       let editar = true;
-      const isDifferent = row?.saldo !== row?.monto;
-      const hasBalance = row?.saldo > 0; // Verifica si el saldo es mayor a 0
-      const hasLink = Boolean(row?.link_stripe && row.link_stripe.trim() !== "");
+      const isDifferent = item?.saldo !== item?.monto;
+      const hasBalance = item?.saldo > 0; // Verifica si el saldo es mayor a 0
+      const hasLink = Boolean(
+        item?.link_stripe && item.link_stripe.trim() !== ""
+      );
       const showDeleteButtons = isActive && !isDifferent;
       const showEditbuttosn = isActive && !isDifferent && !hasLink;
       const showPagarButton = isActive && hasBalance;
 
-      if (row.saldo !== row.monto_pagado) {
+      if (item.saldo !== item.monto_pagado) {
         editar = false;
       }
       // En la función handleEdit
 
       const handleEdit = async (updatedData: any) => {
-        if (!isActive) return;// No permitir edición si está inactivo
+        if (!isActive) return; // No permitir edición si está inactivo
 
         try {
-          console.log("Datos recibidos del modal:", updatedData);
 
           // Obtener el pago original para calcular la diferencia
-          const pagoOriginal = saldos.find(s => s.id_saldos === row.id_saldos);
+          const pagoOriginal = saldos.find(
+            (s) => s.id_saldos === item.id_saldos
+          );
           if (!pagoOriginal) throw new Error("No se encontró el pago original");
 
           // Validar que los datos requeridos estén presentes
-          if (!updatedData) throw new Error("No se recibieron datos del formulario");
+          if (!updatedData)
+            throw new Error("No se recibieron datos del formulario");
 
           const montoOriginal = parseFloat(pagoOriginal.monto.toString());
           const montoNuevo = parseFloat(updatedData.monto_pagado.toString());
@@ -818,32 +1037,34 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
           // Normalizar el método de pago correctamente
           const formaPago = updatedData.forma_pago.toLowerCase();
 
-          const metodoPagoNormalizado = formaPago.includes('transferencia')
-            ? 'transferencia'
-            : formaPago.includes('tarjeta')
-              ? 'tarjeta'
-              : 'wallet';
+          const metodoPagoNormalizado = formaPago.includes("transferencia")
+            ? "transferencia"
+            : formaPago.includes("tarjeta")
+              ? "tarjeta"
+              : "wallet";
 
           // Preparar datos base
           const apiData: any = {
-            id_saldos: row.id_saldos,
-            id_agente: row.id_agente,
-            monto: updatedData.monto_pagado?.toString() || row.monto,
-            fecha_pago: updatedData.fecha_pago || row.fecha_pago,
-            comentario: updatedData.comentario || row.comentario || null,
+            id_saldos: item.id_saldos,
+            id_agente: item.id_agente,
+            monto: updatedData.monto_pagado?.toString() || item.monto,
+            fecha_pago: updatedData.fecha_pago || item.fecha_pago,
+            comentario: updatedData.comentario || item.comentario || null,
             is_facturable: updatedData.is_facturable,
             is_descuento: updatedData.descuento_aplicable,
             metodo_pago: metodoPagoNormalizado,
-            saldo: updatedData.monto_pagado?.toString() || row.monto,
+            saldo: updatedData.monto_pagado?.toString() || item.monto,
             activo: true, // Siempre activo al editar
-            concepto: row.concepto || 'pago',
-            currency: row.currency || 'MXN',
+            concepto: item.concepto || "pago",
+            currency: item.currency || "MXN",
+            comprobante: item.comprobante
           };
 
           // Manejar campos específicos según el método de pago
           switch (metodoPagoNormalizado) {
-            case 'transferencia':
-              apiData.referencia = updatedData.referencia || row.referencia;
+            case "transferencia":
+              apiData.referencia = updatedData.referencia || item.referencia;
+
               apiData.link_stripe = null;
               apiData.tipo_tarjeta = null;
               apiData.ult_digits = null;
@@ -851,16 +1072,22 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
               apiData.numero_autorizacion = null;
               break;
 
-            case 'tarjeta':
+            case "tarjeta":
               apiData.referencia = null;
-              apiData.link_stripe = updatedData.link_Stripe || row.link_stripe || null;
-              apiData.tipo_tarjeta = metodoPagoNormalizado === 'tarjeta' ? 'credito' : 'debito';
-              apiData.ult_digits = updatedData.ult_digits || row.ult_digits || null;
-              apiData.banco_tarjeta = updatedData.banco_tarjeta || row.banco_tarjeta || null;
-              apiData.numero_autorizacion = updatedData.numero_autorizacion || row.numero_autorizacion || null;
+              apiData.link_stripe =
+                updatedData.link_Stripe || item.link_stripe || null;
+              apiData.tipo_tarjeta = updatedData.tipo_tarjeta;
+              apiData.ult_digits =
+                updatedData.ult_digits || item.ult_digits || null;
+              apiData.banco_tarjeta =
+                updatedData.banco_tarjeta || item.banco_tarjeta || null;
+              apiData.numero_autorizacion =
+                updatedData.numero_autorizacion ||
+                item.numero_autorizacion ||
+                null;
               break;
 
-            case 'wallet':
+            case "wallet":
               apiData.referencia = null;
               apiData.link_stripe = null;
               apiData.tipo_tarjeta = null;
@@ -874,8 +1101,8 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
           console.log("Datos para enviar a la API:", apiData);
 
           // Actualizar el saldo local con la diferencia
-          setLocalWalletAmount(prev => prev + diferencia);
-          console.log("agwnte", agente)
+          setLocalWalletAmount((prev) => prev + diferencia);
+          console.log("agwnte", agente);
           await updateAgentWallet();
 
           // Llamar a la API para actualizar
@@ -886,10 +1113,12 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
 
           // Cerrar el modal
           setIsEditModalOpen(false);
-
         } catch (error) {
           console.error("Error al actualizar el pago:", error);
-          setError(`Error al actualizar el pago: ${error instanceof Error ? error.message : String(error)}`);
+          setError(
+            `Error al actualizar el pago: ${error instanceof Error ? error.message : String(error)
+            }`
+          );
         }
       };
 
@@ -897,56 +1126,59 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         if (!isActive) return; // No permitir eliminación si ya está inactivo
 
         try {
-
           // Proceder con la eliminación lógica
           const deleteData = {
-            id_saldos: row.id_saldos,
-            id_agente: row.id_agente,
-            saldo: row.saldo,
-            monto: row.monto,
-            metodo_pago: row.metodo_pago,
-            fecha_pago: row.fecha_pago,
-            notas: row.notas || null,
-            is_facturable: row.is_facturable,
-            is_descuento: row.is_descuento,
-            link_stripe: row.link_stripe || null,
-            tipo_tarjeta: row.tipo_tarjeta,
+            id_saldos: item.id_saldos,
+            id_agente: item.id_agente,
+            saldo: item.saldo,
+            monto: item.monto,
+            metodo_pago: item.metodo_pago,
+            fecha_pago: item.fecha_pago,
+            notas: item.notas || null,
+            is_facturable: item.is_facturable,
+            is_descuento: item.is_descuento,
+            link_stripe: item.link_stripe || null,
+            tipo_tarjeta: item.tipo_tarjeta,
             activo: false, // Cambiamos a 0 para desactivar
-            comentario: row.comentario || null,
-            comprobante: row.comprobante,
-            concepto: row.concepto,
-            currency: row.currency || 'MXN',
-            referencia: row.referencia || null,
-            ult_digits: row.ult_digits || null,
-            banco_tarjeta: row.banco_tarjeta || null,
-            numero_autorizacion: row.numero_autorizacion || null,
+            comentario: item.comentario || null,
+            comprobante: item.comprobante,
+            concepto: item.concepto,
+            currency: item.currency || "MXN",
+            referencia: item.referencia || null,
+            ult_digits: item.ult_digits || null,
+            banco_tarjeta: item.banco_tarjeta || null,
+            numero_autorizacion: item.numero_autorizacion || null,
           };
-
 
           await updateAgentWallet();
 
           await SaldoFavor.actualizarPago(deleteData);
           // Actualizar el saldo local ANTES de recargar los datos
-          if (row.activo) {
-            setLocalWalletAmount(prev => prev - parseFloat(row.monto.toString()));
+
+          if (item.activo) {
+            setLocalWalletAmount(
+              (prev) => prev - parseFloat(item.monto.toString())
+            );
           }
-          console.log("local eliminado", localWalletAmount)
-          const updatedSaldos = await SaldoFavor.getPagos(row.id_agente);
+          console.log("local eliminado", localWalletAmount);
+          const updatedSaldos = await SaldoFavor.getPagos(item.id_agente);
+
           setSaldos(updatedSaldos.data);
           setIsDeleteModalOpen(false);
-
         } catch (error) {
           console.error("Error al eliminar el pago:", error);
-          setError(`Error al eliminar el pago: ${error instanceof Error ? error.message : String(error)}`);
+          setError(
+            `Error al eliminar el pago: ${error instanceof Error ? error.message : String(error)
+            }`
+          );
         }
       };
-
 
       return (
         <div className="flex gap-2">
           {/* Botón Editar */}
 
-          {(showEditbuttosn) && (
+          {showEditbuttosn && (
             <button
               className="p-1.5 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
               onClick={() => setIsEditModalOpen(true)}
@@ -957,7 +1189,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
           )}
 
           {/* Botón Eliminar - Solo se muestra si el pago está activo */}
-          {(showDeleteButtons) && (
+          {showDeleteButtons && (
             <button
               className="p-1.5 rounded-md bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
               onClick={() => setIsDeleteModalOpen(true)}
@@ -968,13 +1200,14 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
           )}
 
           {/* Nuevo Botón para el Modal de asignar pagos */}
-          {(showPagarButton) && (
+          {showPagarButton && (
             <button
               className="p-1.5 rounded-md bg-green-50 text-green-600 hover:bg-green-100 transition-colors"
               onClick={() => setIsPagarModalOpen(true)}
               title="Pagar Saldo"
             >
-              <DollarSign className="w-4 h-4" /> {/* Cambié el icono a DollarSign para mejor representación */}
+              <DollarSign className="w-4 h-4" />{" "}
+              {/* Cambié el icono a DollarSign para mejor representación */}
             </button>
           )}
 
@@ -989,18 +1222,26 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
                 onClose={() => setIsEditModalOpen(false)}
                 agente={agente}
                 initialData={{
-                  monto_pagado: row.monto,
-                  referencia: row.referencia,
-                  paymentMethod: row.metodo_pago === 'transferencia'
-                    ? 'Transferencia'
-                    : row.metodo_pago === 'tarjeta'
-                      ? 'Tarjeta'
-                      : 'Wallet',
-                  fecha_De_Pago: row.fecha_pago ? new Date(row.fecha_pago).toISOString().split('T')[0] : '',
-                  comentario: row.comentario || row.notas || '',
-                  facturable: row.is_facturable,
-                  aplicable: row.is_descuento,
-                  link_Stripe: row.link_stripe || ''
+                  monto_pagado: item.monto,
+                  referencia: item.referencia,
+                  paymentMethod:
+                    item.metodo_pago === "transferencia"
+                      ? "Transferencia"
+                      : item.metodo_pago === "tarjeta"
+                        ? "Tarjeta"
+                        : "Wallet",
+                  fecha_De_Pago: item.fecha_pago
+                    ? new Date(item.fecha_pago).toISOString().split("T")[0]
+                    : "",
+                  comentario: item.comentario || item.notas || "",
+                  facturable: item.is_facturable,
+                  aplicable: item.is_descuento,
+
+                  link_Stripe: item.link_stripe || "",
+                  ult_digits: item.ult_digits || "",
+                  banco_tarjeta: item.banco_tarjeta || "",
+                  numero_autorizacion: item.numero_autorizacion,
+                  tipo_tarjeta: item.tipo_tarjeta || "",
                 }}
                 onSubmit={handleEdit}
                 isEditing={true}
@@ -1054,45 +1295,55 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
           )}
           {/* Nuevo Modal Pagar con saldo */}
           {isPagarModalOpen && (
-            <Modal
-              title={`Pagar Saldo - ${row.nombre}`}
-              onClose={() => setIsPagarModalOpen(false)}
-            >
-              <PagarModalComponent
-                saldoData={{
-                  id_saldos: row.id_saldos,
-                  id_agente: row.id_agente,
-                  nombre: row.nombre,
-                  monto: row.monto,
-                  saldo: row.saldo,
-                  fecha_pago: row.fecha_pago,
-                  metodo_pago: row.metodo_pago,
-                  referencia: row.referencia,
-                  comentario: row.comentario
-                }}
-                rowData={row} // Pasa el row completo como nueva prop
-                onClose={() => {
-                  console.log("Entrando al modal para mostrar datos")
-                  updateAgentWallet().then(number => setLocalWalletAmount(number || 0)).catch(error => console.error("Error en el saldo del modal al cerrar", error))
-                  setIsPagarModalOpen(false)
-                }}
-                onSubmit={async () => {
-                  console.log("Entrando al modal para mostrar datos")
-                  updateAgentWallet().then(number => {
-                    console.log(number)
-                    setLocalWalletAmount(number || 0)
-                  }).catch(error => console.error("Error en el saldo del modal al cerrar", error))
-                  const fetchSaldoFavor = async () => {
-                    const response: { message: string, data: Saldo[] } = await SaldoFavor.getPagos(agente.id_agente)
-                    console.log("esto trae", response.data)
-                    setSaldos(response.data)
-                  }
-                  fetchSaldoFavor()
-                  walletAmount == localWalletAmount
-                  setIsPagarModalOpen(false)
-                }}
-              />
-            </Modal>
+            <PagarModalComponent
+              saldoData={{
+                id_saldos: item.id_saldos,
+                id_agente: item.id_agente,
+                nombre: item.nombre,
+                monto: item.monto,
+                saldo: item.saldo,
+                fecha_pago: item.fecha_pago,
+                metodo_pago: item.metodo_pago,
+                referencia: item.referencia,
+                comentario: item.comentario,
+              }}
+              rowData={item} // Pasa el row completo como nueva prop
+              onClose={() => {
+                console.log("Entrando al modal para mostrar datos");
+                updateAgentWallet()
+                  .then((number) => setLocalWalletAmount(number || 0))
+                  .catch((error) =>
+                    console.error(
+                      "Error en el saldo del modal al cerrar",
+                      error
+                    )
+                  );
+                setIsPagarModalOpen(false);
+              }}
+              onSubmit={async () => {
+                console.log("Entrando al modal para mostrar datos");
+                updateAgentWallet()
+                  .then((number) => {
+                    console.log(number);
+                    setLocalWalletAmount(number || 0);
+                  })
+                  .catch((error) =>
+                    console.error(
+                      "Error en el saldo del modal al cerrar",
+                      error
+                    )
+                  );
+                const fetchSaldoFavor = async () => {
+                  const response: { message: string; data: Saldo[] } =
+                    await SaldoFavor.getPagos(agente.id_agente);
+                  console.log("esto trae", response.data);
+                  setSaldos(response.data);
+                };
+                fetchSaldoFavor();
+                walletAmount == localWalletAmount;
+                setIsPagarModalOpen(false);
+              }}
+            />
           )}
         </div>
       );
@@ -1101,15 +1352,15 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
 
   const reloadSaldos = async () => {
     try {
-      setLoading(prev => ({ ...prev, pagos: true }));
+      setLoading((prev) => ({ ...prev, pagos: true }));
       const response = await SaldoFavor.getPagos(agente.id_agente);
       setSaldos(response.data);
-      console.log("data", response)
+      console.log("data", response);
     } catch (error) {
-      console.error('Error al recargar saldos:', error);
-      setError('Error al cargar los saldos');
+      console.error("Error al recargar saldos:", error);
+      setError("Error al cargar los saldos");
     } finally {
-      setLoading(prev => ({ ...prev, pagos: false }));
+      setLoading((prev) => ({ ...prev, pagos: false }));
     }
   };
 
@@ -1117,35 +1368,35 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
 
   const handleAddPayment = async (paymentData: NuevoSaldoAFavor) => {
     try {
-      setLoading(prev => ({ ...prev, pagos: true }));
+      setLoading((prev) => ({ ...prev, pagos: true }));
 
       // Crear el pago
       const response = await SaldoFavor.crearPago({
         ...paymentData,
-        id_cliente: agente.id_agente
+        id_cliente: agente.id_agente,
       });
-
 
       // Actualizar el estado local
       if (response.data) {
-        setSaldos(prevSaldos => [...prevSaldos, response.data]);
+        setSaldos((prevSaldos) => [...prevSaldos, response.data]);
       }
 
       // Actualizar el saldo local sumando el monto del nuevo pago
 
-      setLocalWalletAmount(walletAmount + parseFloat(paymentData.monto_pagado.toString()));
+      setLocalWalletAmount(
+        walletAmount + parseFloat(paymentData.monto_pagado.toString())
+      );
 
       await reloadSaldos();
       await updateAgentWallet();
 
       setAddPaymentModal(false);
       console.log("envio de pago", paymentData);
-
     } catch (err) {
       setError("Error al registrar el pago");
       console.error("Error:", err);
     } finally {
-      setLoading(prev => ({ ...prev, pagos: false }));
+      setLoading((prev) => ({ ...prev, pagos: false }));
     }
   };
 
@@ -1174,15 +1425,19 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   }
 
   if (!agente) {
-    return <div className="text-center py-8">No se encontró información del agente</div>;
+    return (
+      <div className="text-center py-8">
+        No se encontró información del agente
+      </div>
+    );
   }
 
   if (localWalletAmount !== 0) {
-    walletAmount = localWalletAmount
+    walletAmount = localWalletAmount;
   }
 
-  console.log("local ", localWalletAmount)
-  console.log("wallet", walletAmount)
+  console.log("local ", localWalletAmount);
+  console.log("wallet", walletAmount);
 
   return (
     <div className="h-full">
@@ -1201,7 +1456,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
               disabled={loading.pagos}
             >
               <Plus className="w-5 h-5" />
-              {loading.pagos ? 'Cargando...' : 'Agregar Pago'}
+              {loading.pagos ? "Cargando..." : "Agregar Pago"}
             </button>
           </div>
         </div>
@@ -1209,8 +1464,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         {/* Tabla de pagos */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           <Filters
-
-            onFilter={handleFilter}  // Pasamos handleFilter como prop
+            onFilter={handleFilter} // Pasamos handleFilter como prop
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
             defaultFilters={filters}
@@ -1223,20 +1477,48 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             </div>
           ) : (
             <Table3
-
               registros={filteredData}
               renderers={tableRenderers}
-              customColumns={["total", "saldo", "creado", "acciones"]}
-              sortConfig={sortConfig}
-              onSort={handleSort}
+              customColumns={[
+                "saldo",
+                "fecha_de_pago",
+                "tipo_tarjeta",
+                "forma_de_pago",
+                "creado",
+                "acciones",
+                "referencia",
+                "link_stripe",
+                "facturable",
+              ]}
+              //resto de columnas
+              //     id_Cliente:saldo.id_agente,
+              //   id_saldo: saldo.id_saldos,
+              // cliente: (saldo.nombre || '').toUpperCase(),
+              // creado: saldo.fecha_creacion ? new Date(saldo.fecha_creacion) : null,
+              // monto_pagado: Number(saldo.monto),
+              // saldo: saldo.saldo,
+              // forma_De_Pago: saldo.metodo_pago === 'transferencia'
+              // ? 'Transferencia Bancaria'
+              // : saldo.metodo_pago === 'tarjeta credito'
+              // ? 'Tarjeta de Crédito'
+              // : saldo.metodo_pago === 'tarjeta debito'
+              // ? 'Tarjeta de Débito'
+              // : saldo.metodo_pago || '',
+              // tipo_tarjeta: saldo.tipo_tarjeta || '',
+              // referencia: saldo.referencia || '',
+              // link_stripe: saldo.link_stripe || null,
+              // fecha_De_Pago: saldo.fecha_pago ? new Date(saldo.fecha_pago) : null,
+              // aplicable: saldo.is_descuento ? 'Si' : 'No',
+              // comentario: saldo.notas || saldo.comentario || null,
+              // facturable: saldo.is_facturable ? 'Si' : 'No',
+              // comprobante: saldo.comprobante || null,
               defaultSort={{
-                key: 'creado', // Default sort column
-                sort: false // Default sort direction
+                key: "creado", // Default sort column
+                sort: false, // Default sort direction
               }}
               exportButton={true}
               maxHeight="70vh"
             />
-
           )}
         </div>
       </div>
@@ -1253,14 +1535,13 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             onClose={() => setAddPaymentModal(false)}
             agente={agente}
             onSubmit={handleAddPayment}
-            localWalletAmount={localWalletAmount}// Pasa el valor actual
+            localWalletAmount={localWalletAmount} // Pasa el valor actual
           />
         </Modal>
       )}
     </div>
   );
 };
-
 
 // Tipos para el formulario
 //===========================
@@ -1340,23 +1621,23 @@ const validateForm = (state: FormState): FormErrors => {
   }
 
   // Validar link Stripe solo si es tarjeta
-  if ((state.paymentMethod === "Linkstripe") &&
-    !state.link_Stripe.trim()) {
-    errors.link_Stripe = "El link de Stripe es requerido para pagos con tarjeta";
+  if (state.paymentMethod === "Linkstripe" && !state.link_Stripe.trim()) {
+    errors.link_Stripe =
+      "El link de Stripe es requerido para pagos con tarjeta";
   }
 
   return errors;
 };
 
-//Modal de pagos 
-//para agregar pagos 
+//Modal de pagos
+//para agregar pagos
 const PaymentModal: React.FC<PaymentModalProps> = ({
   saldoAFavor = 0,
   onClose,
   agente,
   initialData,
   onSubmit,
-  isEditing = false
+  isEditing = false,
 }) => {
   const [state, dispatch] = useReducer(formReducer, initialState);
   const [errors, setErrors] = useState<FormErrors>({});
@@ -1364,10 +1645,10 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
   const [isStripeLinked, setIsStripeLinked] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [cardDetails, setCardDetails] = useState({
-    ult_digits: '',
-    banco_tarjeta: '',
-    numero_autorizacion: '',
-    tipo_tarjeta: 'credito', // Establecer un valor por defecto
+    ult_digits: "",
+    banco_tarjeta: "",
+    numero_autorizacion: "",
+    tipo_tarjeta: "", // Establecer un valor por defecto
   });
   // Determinar qué campos mostrar según el método de pago
   const showReferenceField = () => {
@@ -1379,12 +1660,15 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
   };
 
   const showCardDetailsFields = () => {
-    return state.paymentMethod === "Tarjeta" || state.paymentMethod === "LinkStripe";
+    return (
+      state.paymentMethod === "Tarjeta" || state.paymentMethod === "LinkStripe"
+    );
   };
 
   // Inicializar con datos si estamos editando
+  // Inicializar con datos si estamos editando
   useEffect(() => {
-    console.log("editando", initialData)
+    console.log("editando", initialData);
     if (isEditing && initialData) {
       dispatch({
         type: "SET_FORM",
@@ -1396,66 +1680,83 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
           discountApplied: initialData.aplicable,
           facturable: initialData.facturable,
           comments: initialData.comentario,
-          link_Stripe: initialData.link_Stripe
-        }
+          link_Stripe: initialData.link_Stripe,
+        },
+      });
+      console.log("data de editar", initialData);
+      setCardDetails({
+        ult_digits: initialData.ult_digits || "",
+        banco_tarjeta: initialData.banco_tarjeta || "wer",
+        numero_autorizacion: initialData.numero_autorizacion || "erfgb",
+        tipo_tarjeta: initialData.tipo_tarjeta || "",
       });
     }
   }, [isEditing, initialData]);
 
-  const paymentMethods = [
-    "Transferencia",
-    "Wallet",
-    "Tarjeta",
-    "LinkStripe",
-  ];
+  const paymentMethods = isEditing
+    ? ["Transferencia", "Wallet", "Tarjeta"]
+    : ["Transferencia", "Wallet", "Tarjeta", "LinkStripe"];
 
   const fetchStripeInfo = async (chargeId: string) => {
     try {
-      // Verificar que sea un ID de Stripe válido
-      if (!chargeId.startsWith('ch_') && !chargeId.startsWith('pi_')) {
-        console.warn('El ID de Stripe no tiene el formato esperado');
+      // Verificar que sea un ID de Stripe válido (empieza con ch_ o pi_ y tiene al menos 24 caracteres)
+      const isValidStripeId = /^(ch|pi)_[a-zA-Z0-9]{24,}$/.test(chargeId);
+
+      if (!isValidStripeId) {
+        // No hacer fetch si no es un ID válido
         setIsStripeLinked(false);
         return;
       }
-
-      const response = await fetch(`${URL}/mia/saldo/stripe-info?chargeId=${chargeId}`, {
-        headers: {
-          "x-api-key": API_KEY || "",
-          "Content-Type": "application/json",
-        },
-      });
+      console.log("fetch", chargeId)
+      const response = await fetch(
+        `${URL}/mia/saldo/stripe-info?chargeId=${chargeId}`,
+        {
+          headers: {
+            "x-api-key": API_KEY || "",
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
       if (!response.ok) {
+        const data = await response.json();
+        console.log("error", data);
         throw new Error(`Error ${response.status}: ${response.statusText}`);
       }
 
       const data = await response.json();
 
-      console.log('Respuesta de Stripe:', data);
+      console.log("Respuesta de Stripe:", data);
 
-      // Actualizar campos
-      setCardDetails({
-        ult_digits: data.data.ultimos_4_digitos || 'No encontrado',
-        banco_tarjeta: data.data.tipo_tarjeta || 'No encontrado',
-        numero_autorizacion: data.data.authorization_code || 'No encontrado',
-        tipo_tarjeta: data.data.funding || 'No encontrado',
-      });
-      const amount = data.data.monto || '0';
-      const paymentDate = data.data.fecha_pago ? new Date(data.data.fecha_pago).toISOString().split('T')[0] : '';
+      if (data.data.estado !== "failed") {
+        setCardDetails({
+          ult_digits: data.data.ultimos_4_digitos || "No encontrado",
+          banco_tarjeta: data.data.tipo_tarjeta || "No encontrado",
+          numero_autorizacion: data.data.authorization_code || "No encontrado",
+          tipo_tarjeta: data.data.funding || "No encontrado",
+        });
 
+        const amount = data.data.monto || "0";
+        const paymentDate = data.data.fecha_pago
+          ? new Date(data.data.fecha_pago).toISOString().split("T")[0]
+          : "";
 
-      handleInputChange("amount", amount);
-      handleInputChange("paymentDate", paymentDate);
+        handleInputChange("amount", amount);
+        handleInputChange("paymentDate", paymentDate);
 
-      setIsStripeLinked(true);
-
+        setIsStripeLinked(true);
+      } else {
+        alert("Link de Stripe fallido");
+        setIsStripeLinked(false);
+        return;
+      }
     } catch (error) {
-      console.error('Error en fetchStripeInfo:', error);
-      // Opcional: Mostrar mensaje de error al usuario
-      setErrors(prev => ({
+      console.error("Error en fetchStripeInfo:", error);
+      setErrors((prev) => ({
         ...prev,
-        link_Stripe: 'Error al obtener información de Stripe'
+        link_Stripe: "Error al obtener información de Stripe",
       }));
+      setIsStripeLinked(false);
     }
   };
 
@@ -1463,8 +1764,9 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     field: keyof FormState,
     value: string | boolean
   ) => {
-    if (field === 'paymentMethod') {
-      setIsStripeLinked(false);
+    if (field === "paymentMethod") {
+      // Resetear el estado de Stripe cuando cambia el método de pago
+      setIsStripeLinked(value === "LinkStripe");
       if (value !== "LinkStripe") {
         dispatch({ type: "SET_FIELD", field: "link_Stripe", value: "" });
       }
@@ -1475,8 +1777,6 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
       setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
   };
-
-
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1505,7 +1805,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
       } else if (state.paymentMethod === "Tarjeta") {
         metodoPagoReal = "tarjeta";
         // Determinar si es crédito o débito basado en la selección
-        tipoTarjetaValue = cardDetails.tipo_tarjeta === "credito" ? "credito" : "debito";
+        tipoTarjetaValue =
+          cardDetails.tipo_tarjeta === "credito" ? "credito" : "debito";
       } else {
         metodoPagoReal = state.paymentMethod.toLowerCase();
       }
@@ -1518,12 +1819,12 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
         referencia: state.reference,
         fecha_pago: state.paymentDate,
         // Campos específicos para tarjeta
-        ...((metodoPagoReal === "tarjeta") && {
+        ...(metodoPagoReal === "tarjeta" && {
           tipo_tarjeta: tipoTarjetaValue,
           ult_digits: cardDetails.ult_digits,
           banco_tarjeta: cardDetails.banco_tarjeta,
           numero_autorizacion: cardDetails.numero_autorizacion,
-          link_stripe: state.link_Stripe || ""
+          link_stripe: state.link_Stripe || "",
         }),
         descuento_aplicable: state.discountApplied,
         ...(state.comments && { comentario: state.comments }),
@@ -1545,12 +1846,15 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
         setErrors({
           ...errors,
           amount: error.message.includes("monto") ? error.message : undefined,
-          paymentMethod: error.message.includes("forma de pago") ? error.message : undefined,
+          paymentMethod: error.message.includes("forma de pago")
+            ? error.message
+            : undefined,
         });
       } else {
         setErrors({
           ...errors,
-          paymentMethod: "Ocurrió un error al procesar el pago. Intente nuevamente.",
+          paymentMethod:
+            "Ocurrió un error al procesar el pago. Intente nuevamente.",
         });
       }
     }
@@ -1571,7 +1875,9 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
               <CheckCircle className="w-6 h-6 text-green-600 mr-3" />
               <div>
                 <h3 className="text-lg font-semibold text-green-800">
-                  {isEditing ? "¡Pago actualizado exitosamente!" : "¡Pago registrado exitosamente!"}
+                  {isEditing
+                    ? "¡Pago actualizado exitosamente!"
+                    : "¡Pago registrado exitosamente!"}
                 </h3>
                 <p className="text-green-600">
                   La información ha sido guardada correctamente.
@@ -1588,9 +1894,13 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                 <h3 className="text-lg font-semibold text-red-800">
                   ¡Ocurrio un error!
                 </h3>
-                {Object.values(errors).filter(item => !!item).map(item =>
-                  <p key={item} className="text-red-600">◾{item}</p>
-                )}
+                {Object.values(errors)
+                  .filter((item) => !!item)
+                  .map((item) => (
+                    <p key={item} className="text-red-600">
+                      ◾{item}
+                    </p>
+                  ))}
               </div>
             </div>
           </div>
@@ -1598,7 +1908,6 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
 
         <form onSubmit={handleSubmit} className="p-4">
           <div className="space-y-4">
-
             <Dropdown
               label="Forma de Pago"
               value={state.paymentMethod}
@@ -1607,22 +1916,23 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
             />
 
             {/* Mostrar Link Stripe solo para tarjetas */}
-            {
-              showLinkStripeField() && (
-                <TextInput
-                  label="Link Stripe"
-                  value={state.link_Stripe}
-                  onChange={(value) => {
-                    handleInputChange("link_Stripe", value);
-                    // Solo hacer fetch si el método de pago es LinkStripe y hay texto
-                    if (state.paymentMethod === "LinkStripe" && value.trim() !== "") {
-                      fetchStripeInfo(value);
-                    }
-                  }}
-                  placeholder="Agrega el Link Stripe"
-                />
-              )
-            }
+            {showLinkStripeField() && (
+              <TextInput
+                label="Link Stripe"
+                value={state.link_Stripe}
+                onChange={(value) => {
+                  handleInputChange("link_Stripe", value);
+                  // Solo hacer fetch si el método de pago es LinkStripe y hay texto
+                  if (
+                    state.paymentMethod === "LinkStripe" &&
+                    value.trim() !== ""
+                  ) {
+                    fetchStripeInfo(value);
+                  }
+                }}
+                placeholder="Agrega el Link Stripe"
+              />
+            )}
 
             {/* Mostrar Referencia solo para transferencias */}
             {showReferenceField() && (
@@ -1639,36 +1949,69 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                 <TextInput
                   label="Últimos 4 dígitos"
                   value={cardDetails.ult_digits}
-                  onChange={(value) => setCardDetails(prev => ({ ...prev, ult_digits: value }))}
+                  onChange={(value) => {
+                    // Validar que solo sean números y máximo 4 dígitos
+                    if (/^\d{0,4}$/.test(value)) {
+                      setCardDetails((prev) => ({
+                        ...prev,
+                        ult_digits: value,
+                      }));
+                    }
+                  }}
                   placeholder="Últimos 4 dígitos de la tarjeta"
-                  disabled={isStripeLinked && state.paymentMethod === "LinkStripe"}
+                  disabled={
+                    isStripeLinked && state.paymentMethod === "LinkStripe"
+                  }
                 />
                 <TextInput
                   label="Banco de la tarjeta"
                   value={cardDetails.banco_tarjeta}
-                  onChange={(value) => setCardDetails(prev => ({ ...prev, banco_tarjeta: value }))}
+                  onChange={(value) =>
+                    setCardDetails((prev) => ({
+                      ...prev,
+                      banco_tarjeta: value,
+                    }))
+                  }
                   placeholder="Nombre del banco"
-                  disabled={isStripeLinked && state.paymentMethod === "LinkStripe"}
+                  disabled={
+                    isStripeLinked && state.paymentMethod === "LinkStripe"
+                  }
                 />
                 <TextInput
                   label="Número de autorización"
                   value={cardDetails.numero_autorizacion}
-                  onChange={(value) => setCardDetails(prev => ({ ...prev, numero_autorizacion: value }))}
+                  onChange={(value) =>
+                    setCardDetails((prev) => ({
+                      ...prev,
+                      numero_autorizacion: value,
+                    }))
+                  }
                   placeholder="Número de autorización"
-                  disabled={isStripeLinked && state.paymentMethod === "LinkStripe"}
+                  disabled={
+                    isStripeLinked && state.paymentMethod === "LinkStripe"
+                  }
                 />
                 <Dropdown
                   label="Tipo de Tarjeta"
-                  value={cardDetails.tipo_tarjeta === 'credito' ? 'credit' : cardDetails.tipo_tarjeta === "debito" ? 'debit' : cardDetails.tipo_tarjeta}
+                  value={
+                    cardDetails.tipo_tarjeta === "credito"
+                      ? "credit"
+                      : cardDetails.tipo_tarjeta === "debito"
+                        ? "debit"
+                        : cardDetails.tipo_tarjeta
+                  }
                   onChange={(value) => {
-                    const tipo_tarjeta = value === 'credit' ? 'credito' : 'debito';
-                    setCardDetails(prev => ({ ...prev, tipo_tarjeta }));
+                    const tipo_tarjeta =
+                      value === "credit" ? "credito" : "debito";
+                    setCardDetails((prev) => ({ ...prev, tipo_tarjeta }));
                   }}
                   options={[
                     { value: "credit", label: "Crédito" },
-                    { value: "debit", label: "Débito" }
+                    { value: "debit", label: "Débito" },
                   ]}
-                  disabled={isStripeLinked && state.paymentMethod === "LinkStripe"}
+                  disabled={
+                    isStripeLinked && state.paymentMethod === "LinkStripe"
+                  }
                 />
               </>
             )}
@@ -1677,15 +2020,22 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
               label="Fecha de Pago"
               value={state.paymentDate}
               onChange={(value) => handleInputChange("paymentDate", value)}
-
+              disabled={state.paymentMethod === "LinkStripe"} // Deshabilitar cuando es LinkStripe
             />
 
-            <NumberInput
-              label="Monto Pagado"
-              value={Number(state.amount)}
-              onChange={(value) => handleInputChange("amount", value)}
-              disabled={isStripeLinked || (isEditing && state.paymentMethod === "Tarjeta")} // Agregamos esta condición
-            />
+            <div
+              onWheelCapture={() => {
+                const el = document.activeElement as HTMLElement | null;
+                if (el && el.tagName === "INPUT") (el as HTMLInputElement).blur();
+              }}
+            >
+              <NumberInput
+                label="Monto Pagado"
+                value={Number(state.amount)}
+                onChange={(value) => handleInputChange("amount", value)}
+                disabled={isStripeLinked}
+              />
+            </div>
 
             <CheckboxInput
               checked={state.discountApplied}
@@ -1698,7 +2048,6 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
               onChange={(e) => handleInputChange("facturable", e)}
               label={"Facturable"}
             />
-
 
             <TextAreaInput
               label="Comentarios"

@@ -2,24 +2,29 @@ export interface TypeFilters {
   id_booking?: "Active" | "Inactive";
   codigo_reservacion?: string | null;
   client?: string | null;
+  id_movimiento?: number | null;
+  raw_id?: string | null;
   traveler?: string | null;
   hotel?: string | null;
   nombre?: string | null;
+  nombre_agente?: string | null;
   startDate?: string | null;
   endDate?: string | null;
   recordCount?: string | null;
   empresa?: string | null;
   hasDiscount?: string | null;
+  is_facturado?: number | null;
+  origen_pago?: string | null;
+    link_pago?:string|null ,
   status?: "Confirmada" | "Pendiente" | "Cancelada" | "Todos" | null;
   reservationStage?: "Reservado" | "In house" | "Check-out" | null;
   paymentMethod?:
-    | "Tarjeta Debito"
-    | "Tarjeta Credito"
-    | ""
-    | "Credito"
+  | "Credito"
+    | "Tarjeta"
     | "Contado"
     | "Wallet"
-    | "Tranferencia"
+  | "Tranferencia"
+  |""
     | null;
   filterType?:
     | "Check-in"
@@ -29,10 +34,19 @@ export interface TypeFilters {
     | "Actualizacion"
     | null;
   active?: "Activo" | "Inactivo" | null;
+  metodo?:
+    | "Tarjeta"
+    | "Credito"
+    | "Contado"
+    | "Wallet"
+    | "Tranferencia"
+    | null;
   hay_convenio?: "SI" | "NO";
   tipo_negociacion?: string | null;
   estado?: string | null;
   ciudad?: string | null;
+  banco?: string | null;
+  last_digits?: string | null;
   sencilla_precio_min?: number | null;
   sencilla_precio_max?: number | null;
   sencilla_costo_min?: number | null;
@@ -50,11 +64,12 @@ export interface TypeFilters {
   tipo_hospedaje?: string | null;
   correo?: string | null;
   infoCompleta?: string | null;
-  activo?: boolean | "ACTIVO" | "INACTIVO" | null;
+  activo?: boolean | "ACTIVO" | "INACTIVO" |1|0| null;
   pais?: string | null;
   reservante?: "Operaciones" | "Cliente";
   markUp?: number;
   id_client?: string | null;
+  id_agente?: string | null;
   statusPagoProveedor?: null | string;
   markup_start?: null | number;
   markup_end?: null | number;
@@ -68,7 +83,11 @@ export interface TypeFilters {
   facturable?: boolean | null;
   comprobante?: boolean | null; 
   paydate?: string | null;
+    fecha_creacion?: string | null;
+
+  fecha_pago?: string | null;
   estatusFactura ?: "Confirmada" |"Cancelada" |"En proceso"| "Sin Asignar" | null;
+  id_factura ?: string | null;
 }
 
 export interface EmpresaFromAgent {
@@ -78,7 +97,45 @@ export interface EmpresaFromAgent {
     [key: string]: any; // Para propiedades adicionales
 }
 
+export interface Agente {
+  id_agente: string;
+  nombre_agente_completo: string;
+  correo: string;
+  telefono: string;
+  created_at: string;
+  tiene_credito_consolidado: boolean | number; // Acepta ambos tipos
+  saldo?: number;
+  wallet?: string;
+  notas?: string;
+  vendedor?: string;
+}
+
+export interface AgenteConSaldos extends Agente {
+  saldos_facturables: Array<{
+    id_saldos: number;
+    fecha_creacion: string;
+    saldo: number;
+    monto: number;
+    metodo_pago: string;
+    fecha_pago: string;
+    concepto: string;
+    referencia: string;
+    currency: string;
+    tipo_tarjeta: string;
+    ult_digits: string;
+    comentario: string;
+    link_stripe: string;
+    is_facturable: boolean;
+    is_descuento: boolean;
+    comprobante: string;
+    activo: boolean;
+    numero_autorizacion: string;
+    banco_tarjeta: string;
+  }>;
+}
+
 export type Solicitud = {
+  nuevo_incluye_desayuno?: boolean | null;
   id_servicio?: string;
   estado_reserva?: string;
   created_at?: string; // o Date si lo vas a convertir
@@ -151,7 +208,7 @@ export interface Solicitud2 {
   comments: string;
   confirmation_code: string;
   codigo_reservacion_hotel: string;
-  metodo_pago_dinamico: string;
+  metodo_pago_dinamico: "Credito" | "Contado";
   nombre_cliente: string;
   correo: string;
   telefono: string;

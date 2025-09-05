@@ -27,6 +27,10 @@ interface AsignarFacturaProps {
   clienteSeleccionado?: any;
   archivoPDFUrl?: string | null;
   archivoXMLUrl?: string | null;
+  pagoData?: {
+    monto: number;
+    [key: string]: any;
+  };
 }
 
 interface ReservaConItems {
@@ -66,7 +70,8 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
   archivoXMLUrl,
   id_factura,
   empresaSeleccionada,
-  clienteSeleccionado
+  clienteSeleccionado,
+  pagoData
 }) => {
   const [montoSeleccionado, setMontoSeleccionado] = useState<number>(0);
   const [montorestante, setMontoRestante] = useState<number>(0);
@@ -74,20 +79,28 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
-  let [maxMontoPermitido] = useState(() => {
+
+  // Determinar el monto máximo permitido basado en pagoData o facturaData
+  const [maxMontoPermitido, setMaxMontoPermitido] = useState<number>(() => {
+    if (pagoData?.monto) {
+      return pagoData.monto;
+    }
+
     const total = facturaData?.comprobante?.total;
     return typeof total === 'number' ? total : Number(total) || 0;
   });
 
-  if (maxMontoPermitido == 0) {
-    const total = parseFloat(facturaData.total);
-    if (!isNaN(total)) {
-      console.log("Total válido:", total);
-    } else {
-      console.error("Valor inválido para total");
+  console.log(facturaData, "rfrgr", archivoPDFUrl, "reve")
+  console.log()
+
+  useEffect(() => {
+    if (pagoData?.monto) {
+      setMaxMontoPermitido(pagoData.monto);
+    } else if (facturaData) {
+      const total = facturaData?.comprobante?.total || facturaData.total;
+      setMaxMontoPermitido(typeof total === 'number' ? total : Number(total) || 0);
     }
-    maxMontoPermitido = total
-  }
+  }, [pagoData, facturaData]);
 
   useEffect(() => {
     if (isOpen && clienteSeleccionado) {
@@ -156,10 +169,14 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
         const currentTotal = prev.reduce((sum, item) => sum + item.saldo, 0);
         const newTotal = currentTotal + saldo;
         const restante = maxMontoPermitido - newTotal;
-        setMontoRestante(restante);
+        if (restante < 0) {
+          restante + saldo
+        } else {
+          setMontoRestante(restante);
+        }
 
         if (newTotal > maxMontoPermitido) {
-          alert(`No puedes exceder el monto total de la factura ($${maxMontoPermitido.toFixed(2)})`);
+          alert(`No puedes exceder el monto total ${pagoData ? 'del pago' : 'de la factura'} ($${maxMontoPermitido.toFixed(2)})`);
           return prev;
         }
 
@@ -205,63 +222,78 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
         : [];
 
       let asignacionPayload: any;
+      let endpoint: string;
+      let method: string;
 
-      if (id_factura) {
+      console.log("pago", pagoData, "id_factura", id_factura)
+      // Determinar el flujo según los datos disponibles
+      if (pagoData) {
+        // Lógica específica para pagoData
+        endpoint = `${URL}/mia/pagos/AsignarPagoItems`;
+        method = "PATCH";
+        asignacionPayload = {
+          ...pagoData,
+          items: JSON.stringify(itemsAsignados),
+          monto_asignado: montoSeleccionado
+        };
+      } else if (id_factura) {
+        // Lógica para asignar items a una factura existente
+        console.log("asignar")
+        endpoint = `${URL}/mia/factura/AsignarFacturaItems`;
+        method = "PATCH";
         asignacionPayload = {
           id_factura: id_factura,
           items: JSON.stringify(itemsAsignados)
         };
+
       } else {
-        asignacionPayload = {
-          fecha_emision: facturaData.comprobante.fecha.split("T")[0], // solo la fecha
-          estado: "Completada",
-          usuario_creador: clienteSeleccionado.id_agente,
-          id_agente: clienteSeleccionado.id_agente,
-          total: parseFloat(facturaData.comprobante.total),
-          subtotal: parseFloat(facturaData.comprobante.subtotal),
-          impuestos: parseFloat(facturaData.impuestos?.traslado?.importe || "0.00"),
-          saldo: parseFloat(facturaData.comprobante.total),
-          rfc: facturaData.receptor.rfc,
-          id_empresa: empresaSeleccionada.id_empresa || null,
-          uuid_factura: facturaData.timbreFiscal.uuid,
-          rfc_emisor: facturaData.emisor.rfc,
-          url_pdf: archivoPDFUrl || null,
-          url_xml: archivoXMLUrl || null,
-          items: JSON.stringify(itemsAsignados),
-        };
+        // Lógica para creación de facturas desde carga - SOLO DEVUELVE ITEMS
+        console.log("Enviando items al componente padre:", itemsAsignados);
+
+        if (onAssign) {
+          console.log("entre al onAssign")
+          onAssign({
+            itemsAsignados,
+            monto_asignado: montoSeleccionado
+          });
+        } else {
+          console.warn("onAssign no está definido - no se puede enviar los items");
+        }
       }
 
-      const endpoint = id_factura
-        ? `${URL}/mia/factura/AsignarFacturaItems`
-        : `${URL}/mia/factura/CrearFacturaDesdeCarga`;
+      console.log("asignar", asignacionPayload, "df", endpoint)
 
-      const response = await fetch(endpoint, {
-        method: id_factura ? "PATCH" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": API_KEY,
-        },
-        body: JSON.stringify(asignacionPayload),
-      });
+      if (endpoint != null) {
+        const response = await fetch(endpoint, {
+          method: method,
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": API_KEY,
+          },
+          body: JSON.stringify(asignacionPayload),
+        });
 
-      if (!response.ok) {
-        throw new Error('Error al asignar la factura');
+        if (!response.ok) {
+          throw new Error('Error al asignar los items');
+        }
       }
 
-      const data = await response.json();
-      onAssign?.(asignacionPayload);
       onClose();
       onCloseVistaPrevia?.();
-      return data;
+
     } catch (error) {
-      console.error("Error al asignar factura:", error);
-      alert('Ocurrió un error al asignar la factura');
-      throw error;
+      console.error("Error al asignar items:", error);
     }
+  }
+
+
+  const handleAssign2 = async () => {
+    return handleAssignBase(true);
   };
 
-  const handleAssign2 = async () => handleAssignBase(true);
-  const handleAssign = async () => handleAssignBase(false);
+  const handleAssign = async () => {
+    return handleAssignBase(false);
+  };
 
   if (!isOpen) return null;
 
@@ -322,14 +354,16 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
   return (
     <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
       <div className="bg-white rounded-lg p-6 w-full max-w-5xl shadow-xl">
-        <h2 className="text-xl font-bold mb-4">Asignar Factura a Items de Reservación</h2>
+        <h2 className="text-xl font-bold mb-4">
+          {pagoData ? 'Asignar Pago a Items de Reservación' : 'Asignar Factura a Items de Reservación'}
+        </h2>
 
         <div className="mb-6">
-          <p>Selecciona los items específicos a los que quieres asignar esta factura.</p>
+          <p>Selecciona los items específicos a los que quieres asignar {pagoData ? 'este pago' : 'esta factura'}.</p>
 
           <div className="flex justify-between my-4">
             <div>
-              <p className="text-sm text-gray-600">Monto factura:</p>
+              <p className="text-sm text-gray-600">{pagoData ? 'Monto pago:' : 'Monto factura:'}</p>
               <p className="text-lg font-semibold">${maxMontoPermitido.toFixed(2)}</p>
             </div>
             <div>
@@ -342,13 +376,13 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
                 ${montoSeleccionado.toFixed(2)}
               </p>
               {montoSeleccionado > maxMontoPermitido && (
-                <p className="text-xs text-red-500">¡Excede el monto de la factura!</p>
+                <p className="text-xs text-red-500">¡Excede el monto {pagoData ? 'del pago' : 'de la factura'}!</p>
               )}
             </div>
           </div>
 
           <div className="mb-6">
-            <h3 className="font-semibold mb-3">Elementos Pendientes de Facturación</h3>
+            <h3 className="font-semibold mb-3">Elementos Pendientes de {pagoData ? 'Pago' : 'Facturación'}</h3>
 
             {loading ? (
               <div className="text-center py-8">
@@ -360,7 +394,7 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
               </div>
             ) : reservas.length === 0 ? (
               <div className="text-gray-500 p-4 bg-gray-50 rounded">
-                No hay reservas con items pendientes de facturación
+                No hay reservas con items pendientes de {pagoData ? 'pago' : 'facturación'}
               </div>
             ) : (
               <Table2

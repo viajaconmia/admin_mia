@@ -1,10 +1,13 @@
-import { EdicionForm, ReservaForm } from "@/types";
+import { EdicionForm, ReservaForm, Viajero } from "@/types";
 import { URL, API_KEY } from "@/lib/constants";
 
 export async function updateReserva(
-  reserva: EdicionForm,
+  reserva: EdicionForm & {
+    nuevo_incluye_desayuno: boolean | null;
+    acompanantes: Viajero[];
+  },
   id_booking: string,
-  callback: (data: any) => void
+  callback?: (data: any) => void
 ) {
   try {
     const response = await fetch(`${URL}/mia/reservas?id=${id_booking}`, {
@@ -17,7 +20,9 @@ export async function updateReserva(
       body: JSON.stringify(reserva),
       cache: "no-store",
     }).then((res) => res.json());
-    callback(response);
+    if (callback) {
+      callback(response);
+    }
     console.log(response);
     if (response.error) {
       throw new Error("Error al cargar los datos en reservas");
@@ -29,7 +34,10 @@ export async function updateReserva(
   }
 }
 
-export async function fetchCreateReservaOperaciones(reserva, callback) {
+export async function fetchCreateReservaOperaciones(
+  reserva,
+  callback?: (data: any) => void
+) {
   try {
     const response = await fetch(`${URL}/mia/reservas/operaciones`, {
       method: "POST",
@@ -45,13 +53,15 @@ export async function fetchCreateReservaOperaciones(reserva, callback) {
     console.log(response);
 
     if (response.error) {
-      throw new Error("Error al cargar los datos en reservas");
+      throw new Error(response.message || "Error al cargar los datos en reservas");
     }
-    callback(response);
+    if (callback) {
+      callback(response);
+    }
 
     return response;
   } catch (error) {
-    console.log(error);
+    console.log("mostrando error",error);
     throw error;
   }
 }
@@ -82,8 +92,11 @@ export async function fetchCreateReserva(reserva) {
 }
 
 export async function fetchCreateReservaFromSolicitud(
-  reserva: ReservaForm,
-  callback: (data: any) => void
+  reserva: ReservaForm & {
+    nuevo_incluye_desayuno: boolean | null;
+    acompanantes: Viajero[];
+  },
+  callback?: (data: any) => void
 ) {
   try {
     const response = await fetch(`${URL}/mia/reservas`, {
@@ -110,11 +123,13 @@ export async function fetchCreateReservaFromSolicitud(
         message: "Error al cargar los datos en reservas",
       };
     }
-    callback({
-      ok: true,
-      message: "Reserva creada correctamente",
-      data: response,
-    });
+    if (callback) {
+      callback({
+        ok: true,
+        message: "Reserva creada correctamente",
+        data: response,
+      });
+    }
 
     return response;
   } catch (error) {
@@ -153,12 +168,43 @@ export const fetchReservationsAll = async (callback) => {
       },
       cache: "no-store",
     }).then((res) => res.json());
-    console.log(data);
+    console.log(data,"esto trae");
     callback(data);
   } catch (error) {
     throw error;
   }
 };
+
+export // Ejemplo de fetch desde el frontend
+const getReservasByAgente = async (id_agente) => {
+  try {
+    const response = await fetch(
+      `${URL}/mia/reservasClient/get_reservasClient_by_id_agente?user_id=${id_agente}`,
+      {
+        method: "GET",
+        headers: {
+        "x-api-key": API_KEY || "",
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Error HTTP: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log("Reservas obtenidas:", data);
+    return data;
+  } catch (error) {
+    console.error("Error al obtener reservas:", error);
+    return null;
+  }
+};
+
+
 
 export const fetchReservationsFacturacion = async (callback) => {
   try {
