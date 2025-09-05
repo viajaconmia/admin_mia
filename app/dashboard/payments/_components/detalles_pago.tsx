@@ -1,10 +1,10 @@
-// components/ModalDetallePago.tsx
 'use client';
 
 import React from 'react';
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { X, Copy, Check } from 'lucide-react';
+import { URL, HEADERS_API } from "@/lib/constants/index";
 import { formatNumberWithCommas } from "@/helpers/utils";
 
 interface Pago {
@@ -44,6 +44,8 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
   if (!pago) return null;
 
   const [copiedFacturaIdx, setCopiedFacturaIdx] = React.useState<number | null>(null);
+  const [detallesAdicionales, setDetallesAdicionales] = React.useState<any>(null);
+  const [loadingDetalles, setLoadingDetalles] = React.useState(false);
 
   const handleCopy = async (text: string, idx?: number) => {
     try {
@@ -101,8 +103,6 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
     }
   };
 
-
-
   const getTipoTarjeta = (): string => {
     const tipo = pago.tipo;
     if (!tipo) return 'N/A';
@@ -156,6 +156,49 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
   // Extraer solo los IDs de factura
   const facturaIds = React.useMemo(() => extractFacturaIds(pago.facturas_asociadas), [pago.facturas_asociadas]);
 
+  // useEffect para fetchDetalles
+  React.useEffect(() => {
+    const fetchDetalles = async () => {
+      if (!pago?.raw_id || !pago?.id_agente) {
+        console.log("no podemos revisar reservas asociadas");
+        return;
+      }
+
+      setLoadingDetalles(true);
+      try {
+        const url = `${URL}/mia/pagos/getDetallesConexion?id_agente=${pago.id_agente}&id_raw=${pago.raw_id}`;
+        const response = await fetch(url, {
+          method: "GET",
+          headers: HEADERS_API,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Error ${response.status}: ${response.statusText}`);
+        }
+        const data = await response.json();
+        setDetallesAdicionales(data);
+        console.log("Datos adicionales obtenidos:", data);
+      } catch (error) {
+        console.error("Error fetching detalles:", error);
+      } finally {
+        setLoadingDetalles(false);
+      }
+    };
+
+    fetchDetalles();
+  }, [pago]); // Se ejecuta cuando pago cambia
+
+  // Función para formatear fecha (sin "de")
+  const formatDateShort = (dateString: string | null | undefined): string => {
+    if (!dateString || dateString === "0000-00-00") return 'N/A';
+    try {
+      const date = new Date(dateString);
+      return format(date, "dd MMM yyyy", { locale: es });
+    } catch (e) {
+      console.error("Error formatting date:", e);
+      return dateString;
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -228,7 +271,6 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
                 <p className="mt-1 text-sm capitalize text-gray-800">{getMetodoPago()}</p>
               </div>
 
-
               <div>
                 <h3 className="text-sm font-medium text-gray-500">Estado de Facturación</h3>
                 {(() => {
@@ -297,7 +339,6 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
             </div>
           </div>
 
-
           {/* Info agente */}
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-purple-800 mb-4">Información del Agente</h3>
@@ -350,11 +391,12 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
                     {formatIdItem(pago.autorizacion)}
                   </p>
                   <button
-                    onClick={() => handleCopy(pago.autorizacion)}
+                    onClick={() => handleCopy(pago.autorizacion || '')}
                     className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 active:scale-[.99]"
-                    title="Copiar ID de factura"
+                    title="Copiar autorización"
                     type="button"
-                  >Copiar
+                  >
+                    Copiar
                   </button>
                 </div>
               </div>
@@ -371,7 +413,6 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
                   <p className="mt-1 text-sm font-semibold text-indigo-900">
                     {pago.referencia || 'N/A'}
                   </p>
-
                 </div>
 
                 <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-lg shadow-sm">
@@ -381,6 +422,107 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
                   </p>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Detalles reservas */}
+          {/* Detalles adicionales - Reservas */}
+          {loadingDetalles && (
+            <div className="mb-6">
+              <div className="flex items-center justify-center py-4">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <span className="ml-3 text-gray-600">Cargando detalles de reservas...</span>
+              </div>
+            </div>
+          )}
+
+          {detallesAdicionales?.data?.reservas && detallesAdicionales.data.reservas.length > 0 && (
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold mb-4 text-green-800">Reservas Asociadas</h3>
+              <div className="space-y-4">
+                {detallesAdicionales.data.reservas.map((reserva: any, index: number) => (
+                  <div key={reserva.id_solicitud || index} className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <h4 className="text-sm font-medium text-green-700">ID Solicitud</h4>
+                        <p className="mt-1 text-sm font-mono text-green-900 bg-white px-2 py-1 rounded border border-green-200">
+                          {reserva.id_solicitud || 'N/A'}
+                        </p>
+                      </div>
+
+                      <div>
+                        <h4 className="text-sm font-medium text-green-700">ID Booking</h4>
+                        <p className="mt-1 text-sm font-mono text-green-900 bg-white px-2 py-1 rounded border border-green-200">
+                          {reserva.id_booking || 'N/A'}
+                        </p>
+                      </div>
+
+                      <div>
+                        <h4 className="text-sm font-medium text-green-700">Total Booking</h4>
+                        <p className="mt-1 text-lg font-bold text-green-900">
+                          {formatCurrency(reserva.total_booking)}
+                        </p>
+                      </div>
+
+                      <div>
+                        <h4 className="text-sm font-medium text-green-700">Viajero Principal</h4>
+                        <p className="mt-1 text-sm text-green-900">
+                          {reserva.viajero || 'N/A'}
+                        </p>
+                      </div>
+
+                      <div>
+                        <h4 className="text-sm font-medium text-green-700">Viajeros Adicionales</h4>
+                        <p className="mt-1 text-sm text-green-900">
+                          {reserva.viajeros_adicionales_reserva || reserva.nombre_acompanantes_reserva || 'Ninguno'}
+                        </p>
+                      </div>
+
+                      <div>
+                        <h4 className="text-sm font-medium text-green-700">Tipo de Cuarto</h4>
+                        <p className="mt-1 text-sm text-green-900">
+                          {reserva.tipo_cuarto || 'N/A'}
+                        </p>
+                      </div>
+
+                      <div>
+                        <h4 className="text-sm font-medium text-green-700">Check-in</h4>
+                        <p className="mt-1 text-sm text-green-900">
+                          {formatDateShort(reserva.check_in)}
+                        </p>
+                      </div>
+
+                      <div>
+                        <h4 className="text-sm font-medium text-green-700">Check-out</h4>
+                        <p className="mt-1 text-sm text-green-900">
+                          {formatDateShort(reserva.check_out)}
+                        </p>
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <h4 className="text-sm font-medium text-green-700">Hotel</h4>
+                        <p className="mt-1 text-sm text-green-900">
+                          {reserva.nombre_hotel || 'N/A'}
+                        </p>
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <h4 className="text-sm font-medium text-green-700">Código de Confirmación</h4>
+                        <p className="mt-1 text-sm font-mono text-green-900 bg-white px-2 py-1 rounded border border-green-200">
+                          {reserva.confirmation_code || 'N/A'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {detallesAdicionales?.data?.reservas && detallesAdicionales.data.reservas.length === 0 && (
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold mb-4 text-gray-600">Reservas Asociadas</h3>
+              <p className="text-sm text-gray-500">No hay reservas asociadas a este pago</p>
             </div>
           )}
 
