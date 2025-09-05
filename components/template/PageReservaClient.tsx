@@ -73,7 +73,9 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
           check_out: item.check_out,
           noches: calcularNoches(item.check_in, item.check_out),
           // habitacion: formatRoom(item.room),
-          tipo_cuarto: item.tipo_cuarto?formatRoom(item.tipo_cuarto):formatRoom(item.room),
+          tipo_cuarto: item.tipo_cuarto
+            ? formatRoom(item.tipo_cuarto)
+            : formatRoom(item.room),
           costo_proveedor: Number(item.costo_total) || 0,
           markup:
             ((Number(item.total || 0) - Number(item.costo_total || 0)) /
@@ -106,7 +108,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
     detalles_cliente: ({ item }: { item: Solicitud2 }) => (
       <span className="font-semibold text-sm flex items-center gap-2 w-full">
         <a
-          href={`https://www.viajaconmia.com/reserva/${item.id_solicitud}`}
+          href={`https://www.viajaconmia.com/bookings/${item.id_solicitud}`}
           target="_blank"
           rel="noopener noreferrer"
           className="text-blue-600 hover:underline"
