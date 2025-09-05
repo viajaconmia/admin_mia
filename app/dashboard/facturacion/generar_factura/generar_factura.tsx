@@ -187,7 +187,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
     CfdiType: "",
     NameId: "",
     Observations: "",
-    ExpeditionPlace: "42501",
+    ExpeditionPlace: "11570",
     Serie: null,
     Folio: 0,
     PaymentForm: "",
