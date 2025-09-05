@@ -870,6 +870,8 @@ const TablaPagosVisualizacion = () => {
           <Table4
             registros={filteredData}
             renderers={renderers}
+            customColumns={['nombre_agente', 'fecha_pago', 'monto', 'monto_por_facturar', 'acciones', 'is_facturado', 'tipo']}
+
           />
         )}
       </div>
