@@ -328,8 +328,17 @@ const TablaPagosVisualizacion = () => {
   };
 
   const filteredData = useMemo(() => {
+    //filtro de prepagos
+    const filteredByRawId = pagos.filter((pago) => {
+      const rawId = pago.raw_id || '';
+      return !rawId.toLowerCase().startsWith('pag');
+    });
+
+    const filteredByFacturado = filteredByRawId.filter((pago) => {
+      return pago.is_facturado !== 1;
+    });
     // Filter the data
-    const filteredItems = pagos.filter((pago) => {
+    const filteredItems = filteredByFacturado.filter((pago) => {
       // Aplicar filtro por agente seleccionado si está activo
       if (filterBySelectedAgent && seleccionados.length > 0) {
         const pagoAgent = (pago.id_agente || pago.ig_agente || '').toString();
@@ -440,6 +449,15 @@ const TablaPagosVisualizacion = () => {
         const endDate = new Date(filters.endDate);
         endDate.setHours(23, 59, 59, 999); // Include the entire end day
         if (createdDate > endDate) {
+          return false;
+        }
+      }
+
+      // Filtro por raw_id
+      if (filters.raw_id && pago.raw_id) {
+        const normalizedFilter = filters.raw_id.toLowerCase();
+        const normalizedId = pago.raw_id.toLowerCase();
+        if (!normalizedId.includes(normalizedFilter)) {
           return false;
         }
       }
