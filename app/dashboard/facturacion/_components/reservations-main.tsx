@@ -303,8 +303,8 @@ const FacturacionModal: React.FC<{
     NameId: "1",
     Observations: "",
     // ExpeditionPlace: "11570",
-    ExpeditionPlace:"42501",
-        Serie: null,
+    ExpeditionPlace: "11570",
+    Serie: null,
 
     Folio: Math.round(Math.random() * 999999999),
     PaymentForm: "",
@@ -610,57 +610,57 @@ const FacturacionModal: React.FC<{
           OrderNumber: Math.round(Math.random() * 999999999).toString(),
           Items: isConsolidated
             ? [
-                {
-                  Quantity: "1",
-                  ProductCode: "90121500",
-                  UnitCode: "E48",
-                  Unit: "Unidad de servicio",
-                  Description: `HOSPEDAJE - ${totalNights} NOCHE(S) EN ${reservationsWithSelectedItems.length} RESERVA(S)`,
-                  UnitPrice: subtotal.toFixed(2),
-                  Subtotal: subtotal.toFixed(2),
-                  TaxObject: "02",
-                  Taxes: [
-                    {
-                      Name: "IVA",
-                      Rate: "0.16",
-                      Total: iva.toFixed(2),
-                      Base: subtotal.toFixed(2),
-                      IsRetention: "false",
-                      IsFederalTax: "true",
-                    },
-                  ],
-                  Total: totalFacturado.toFixed(2),
-                },
-              ]
+              {
+                Quantity: "1",
+                ProductCode: "90121500",
+                UnitCode: "E48",
+                Unit: "Unidad de servicio",
+                Description: `HOSPEDAJE - ${totalNights} NOCHE(S) EN ${reservationsWithSelectedItems.length} RESERVA(S)`,
+                UnitPrice: subtotal.toFixed(2),
+                Subtotal: subtotal.toFixed(2),
+                TaxObject: "02",
+                Taxes: [
+                  {
+                    Name: "IVA",
+                    Rate: "0.16",
+                    Total: iva.toFixed(2),
+                    Base: subtotal.toFixed(2),
+                    IsRetention: "false",
+                    IsFederalTax: "true",
+                  },
+                ],
+                Total: totalFacturado.toFixed(2),
+              },
+            ]
             : reservationsWithSelectedItems.map(reserva => {
-                const itemsSeleccionados = reserva.items.filter(item =>
-                  selectedItems[reserva.id_servicio]?.includes(item.id_item)
-                );
-                const subtotalReserva = itemsSeleccionados.reduce((sum, item) => sum + parseFloat(item.total) / 1.16, 0);
-                const ivaReserva = itemsSeleccionados.reduce((sum, item) => sum + (parseFloat(item.total) - parseFloat(item.total) / 1.16), 0);
-                const totalReserva = subtotalReserva + ivaReserva;
-                return {
-                  Quantity: "1",
-                  ProductCode: "90121500",
-                  UnitCode: "E48",
-                  Unit: "Unidad de servicio",
-                  Description: `HOSPEDAJE EN ${reserva.hotel} - DEL ${formatDate(reserva.check_in)} AL ${formatDate(reserva.check_out)} (${itemsSeleccionados.length} NOCHES) - ${reserva.nombre_viajero_completo}`,
-                  UnitPrice: subtotalReserva.toFixed(2),
-                  Subtotal: subtotalReserva.toFixed(2),
-                  TaxObject: "02",
-                  Taxes: [
-                    {
-                      Name: "IVA",
-                      Rate: "0.16",
-                      Total: ivaReserva.toFixed(2),
-                      Base: subtotalReserva.toFixed(2),
-                      IsRetention: "false",
-                      IsFederalTax: "true",
-                    },
-                  ],
-                  Total: totalReserva.toFixed(2),
-                };
-              }),
+              const itemsSeleccionados = reserva.items.filter(item =>
+                selectedItems[reserva.id_servicio]?.includes(item.id_item)
+              );
+              const subtotalReserva = itemsSeleccionados.reduce((sum, item) => sum + parseFloat(item.total) / 1.16, 0);
+              const ivaReserva = itemsSeleccionados.reduce((sum, item) => sum + (parseFloat(item.total) - parseFloat(item.total) / 1.16), 0);
+              const totalReserva = subtotalReserva + ivaReserva;
+              return {
+                Quantity: "1",
+                ProductCode: "90121500",
+                UnitCode: "E48",
+                Unit: "Unidad de servicio",
+                Description: `HOSPEDAJE EN ${reserva.hotel} - DEL ${formatDate(reserva.check_in)} AL ${formatDate(reserva.check_out)} (${itemsSeleccionados.length} NOCHES) - ${reserva.nombre_viajero_completo}`,
+                UnitPrice: subtotalReserva.toFixed(2),
+                Subtotal: subtotalReserva.toFixed(2),
+                TaxObject: "02",
+                Taxes: [
+                  {
+                    Name: "IVA",
+                    Rate: "0.16",
+                    Total: ivaReserva.toFixed(2),
+                    Base: subtotalReserva.toFixed(2),
+                    IsRetention: "false",
+                    IsFederalTax: "true",
+                  },
+                ],
+                Total: totalReserva.toFixed(2),
+              };
+            }),
         },
         info_user: {
           id_user: reservationsWithSelectedItems[0].id_usuario_generador,
@@ -1108,12 +1108,12 @@ const FacturacionModal: React.FC<{
                 <label className="block text-xs font-medium text-gray-700 mb-1">
                   Metodo de Pago
                 </label>
-                <select 
-                value={selectedPaymentMethod}
+                <select
+                  value={selectedPaymentMethod}
                   onChange={(e) => setSelectedPaymentMethod(e.target.value)}
                   className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
                   {paymentMethodOptions.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
+                    <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
               </div>
