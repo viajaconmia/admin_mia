@@ -351,7 +351,7 @@ const FacturacionModal: React.FC<{
             const data = await fetchEmpresasDatosFiscales(
               preparedReservations[0].id_usuario_generador
             );
-            console.log("😊😊😊", data);
+            console.log("😊😊😊rrrrrrrrrrrrrrrrr", data);
             setFiscalDataList(data);
             if (data.length > 0) {
               setSelectedFiscalData(data[0]);
@@ -604,7 +604,7 @@ const FacturacionModal: React.FC<{
             CfdiUse: selectedCfdiUse,
           },
           PaymentForm: selectedPaymentForm,
-          PaymentMethod: "PUE",
+          PaymentMethod: selectedPaymentMethod,
           Currency: "MXN",
           Date: formattedDate,
           OrderNumber: Math.round(Math.random() * 999999999).toString(),
