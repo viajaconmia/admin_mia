@@ -307,12 +307,14 @@ const FacturacionModal: React.FC<{
     Serie: null,
 
     Folio: Math.round(Math.random() * 999999999),
-    PaymentForm: "",
-    PaymentMethod: "PUE",
+    PaymentForm: selectedPaymentForm,
+    PaymentMethod: selectedPaymentMethod,
     Exportation: "01",
     Items: [] as any[],
   });
-
+  useEffect(() => {
+    console.log("SELECTEDPAYMENTMETHOD", selectedPaymentMethod)
+  }, [selectedPaymentMethod])
   // Preparar los datos de las reservaciones con sus items seleccionados
   useEffect(() => {
     if (reservations.length > 0 && Object.keys(selectedItems).length > 0) {
@@ -351,7 +353,7 @@ const FacturacionModal: React.FC<{
             const data = await fetchEmpresasDatosFiscales(
               preparedReservations[0].id_usuario_generador
             );
-            console.log("😊😊😊", data);
+            console.log("😊😊😊rrrrrrrrrrrrrrrrr", data);
             setFiscalDataList(data);
             if (data.length > 0) {
               setSelectedFiscalData(data[0]);
@@ -544,7 +546,7 @@ const FacturacionModal: React.FC<{
     reservationsWithSelectedItems,
     isConsolidated,
   ]);
-  console.log(cfdi);
+  console.log(cfdi, "feeeeeeeeeeeeeeeeeeeee");
   const validateInvoiceData = () => {
     if (reservationsWithSelectedItems.length === 0) {
       alert("No hay items seleccionados para facturar");
@@ -604,7 +606,7 @@ const FacturacionModal: React.FC<{
             CfdiUse: selectedCfdiUse,
           },
           PaymentForm: selectedPaymentForm,
-          PaymentMethod: "PUE",
+          PaymentMethod: selectedPaymentMethod,
           Currency: "MXN",
           Date: formattedDate,
           OrderNumber: Math.round(Math.random() * 999999999).toString(),
