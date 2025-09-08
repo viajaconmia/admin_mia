@@ -90,7 +90,6 @@ const CouponCanvas: React.FC<{ data: CouponData; currency: string }> = ({
   currency,
 }) => {
   const ref = useRef<HTMLCanvasElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const {
     hotel,
@@ -131,7 +130,6 @@ const CouponCanvas: React.FC<{ data: CouponData; currency: string }> = ({
   const f2 = acomodarNumero(precioTotal);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
     const c = ref.current;
     if (!c) return;
     const ctx = c.getContext("2d");
@@ -162,21 +160,19 @@ const CouponCanvas: React.FC<{ data: CouponData; currency: string }> = ({
     ctx.fillStyle = "#fff";
     ctx.fillRect(0, 0, W, H);
 
-    const centro = canvas.width / 2;
-
-    // Encabezado
-    ctx.font = "bold 20px Calibri";
+    // encabezado
     ctx.textAlign = "center";
-    ctx.fillStyle = "#002060";
-    ctx.fillText("KONE México SA DE CV", centro + centro / 2, 40);
-    ctx.fillText("Cotización - Host", centro + centro / 2, 60);
+    ctx.fillStyle = azul;
+    ctx.font = "bold 22px Calibri";
+    ctx.fillText("CENTRO DE TECNOLOGIA DEL SURESTE", W / 2, 50);
+    ctx.font = "bold 18px Calibri";
+    ctx.fillText("Cotización - Host", W / 2, 80);
 
     // logos (coloca tus URLs reales)
     const logo1 = new Image();
     const logo2 = new Image();
-    logo1.src = "https://upload.wikimedia.org/wikipedia/commons/8/84/Placeholder.png";
-    logo2.src = "https://upload.wikimedia.org/wikipedia/commons/8/84/Placeholder.png";
-    logo1.onload = () => ctx.drawImage(logo1, 20, 20, 90, 50);
+    logo1.src = "https://luiscastaneda-tos.github.io/log/files/cts.jpg";
+    logo1.onload = () => ctx.drawImage(logo1, 10, 20, 130, 90);
     logo2.onload = () => ctx.drawImage(logo2, 110, 42, 34, 34);
 
     // Hotel
@@ -455,27 +451,6 @@ const CouponForm: React.FC<{
               min="1"
             />
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Moneda
-            </label>
-            <select
-              value={currency}
-              onChange={(e) => onCurrencyChange(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              {currencies.map((curr) => (
-                <option key={curr} value={curr}>
-                  {curr}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Noktos */}
-        <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Noktos por noche por habitación
@@ -491,7 +466,9 @@ const CouponForm: React.FC<{
               min="0"
             />
           </div>
+
         </div>
+
 
         {/* Notas */}
         <div>
@@ -627,19 +604,19 @@ const LoginScreen: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [couponData, setCouponData] = useState<CouponData>({
-    hotel: "BEST WESTERN PLUS GRAN HOTEL CENTRO HISTORICO, GUADALAJARA",
-    direccion: "Calz Independencia Sur 168, Zona Centro, 44100 Guadalajara, Jal.",
-    checkin: "2025-07-27",
-    checkout: "2025-07-29",
-    noches: 2,
-    habitaciones: 2,
-    noktosNoche: 8,
-    noktosTotal: 32,
+    hotel: "",
+    direccion: "",
+    checkin: "",
+    checkout: "",
+    noches: 0,
+    habitaciones: 0,
+    noktosNoche: 0,
+    noktosTotal: 0,
     desayuno: "",
-    notas: "Tarifa Hab Doble",
-    precioNocheSinImpuestos: 1160,
-    precioNocheConImpuestos: 1345.60,
-    precioTotal: 5382.40,
+    notas: "",
+    precioNocheSinImpuestos: 0,
+    precioNocheConImpuestos: 0,
+    precioTotal: 0,
   });
 
   const [currency, setCurrency] = useState<string>("MXN");
