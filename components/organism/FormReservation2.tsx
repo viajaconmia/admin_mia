@@ -982,30 +982,28 @@ export function ReservationForm2({
           <>
             {Number(edicionForm.venta.current.total) !=
               Number(solicitud.total) && (
-              <>
-                <p
-                  className={`text-xs font-normal p-2 ${
-                    Number(edicionForm.venta?.current.total) <
-                    Number(solicitud.total)
-                      ? "bg-red-300 text-red-800"
-                      : "bg-green-200 text-green-950"
-                  } rounded-full border `}
-                >
-                  {`Precio recomendado: $${edicionForm.venta.current.total.toFixed(
-                    2
-                  )}`}
-                </p>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => setCobrar(true)}
-                >
-                  ¿Quieres modificar el precio al recomendado u otro?
-                </Button>
-              </>
+              <p
+                className={`text-xs font-normal p-2 ${
+                  Number(edicionForm.venta?.current.total) <
+                  Number(solicitud.total)
+                    ? "bg-red-300 text-red-800"
+                    : "bg-green-200 text-green-950"
+                } rounded-full border `}
+              >
+                {`Precio recomendado: $${edicionForm.venta.current.total.toFixed(
+                  2
+                )}`}
+              </p>
             )}
           </>
         )}
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => setCobrar(true)}
+        >
+          ¿Quieres modificar el precio al recomendado u otro?
+        </Button>
         <Button disabled={!!loading} type="submit">
           Actualizar datos de la reserva
         </Button>
