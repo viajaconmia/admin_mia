@@ -1503,7 +1503,6 @@ export function ReservationsMain() {
 
   const applyFilters = (reservations: Reservation[]): Reservation[] => {
     return reservations.filter((reservation) => {
-      console.log("checa esto:", reservation);
       // Search term filter
       const searchLower = filterOptions.searchTerm.toLowerCase();
       const matchesSearch =
