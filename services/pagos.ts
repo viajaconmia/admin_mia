@@ -79,14 +79,12 @@ export const fetchPagosPrepagobalance = async (
       cache: "no-store",
     }
   );
-  console.log('fetchbalance', response);
 
   if (!response.ok) {
     throw new Error(`Error al cargar los pagos de prepago (HTTP ${response.status})`);
   }
 
   const json = await response.json();
-    console.log('fetchbalance', json);
 
   // Verificamos la estructura de la respuesta
   if (!json || !("balance" in json) || !Array.isArray(json.balance) ){

@@ -359,12 +359,6 @@ export const fetchAgenteById = async (id: string) => {
       cache: "no-store",
     });
 
-    console.log("Respuesta HTTP:", {
-      status: response.status,
-      ok: response.ok,
-      url: response.url
-    });
-
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(`Error ${response.status}: ${errorText}`);
