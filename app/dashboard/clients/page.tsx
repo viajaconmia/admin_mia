@@ -73,7 +73,9 @@ function App() {
   console.log(formatedSolicitudes, "wferferv");
   let componentes = {
     creado: (props: any) => (
-      <span title={props.value}>{formatDate(props.value)}</span>
+      <span title={props.value}>
+        {props.value ? formatDate(props.value) : ""}
+      </span>
     ),
     id: (props: { value: string }) => (
       <span className="font-semibold text-sm" title={props.value}>
