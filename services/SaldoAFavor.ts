@@ -118,7 +118,6 @@
 
     // Obtener pagos por agente
     static async getPagos(idAgente: string) {
-      console.log("🐨🐨🐨🐨🐨",this.request)
 
       return this.request<{ message: string, data: Saldo[] }>(
         `/${idAgente}`,
