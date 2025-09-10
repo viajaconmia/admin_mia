@@ -18,6 +18,7 @@ import {
   ExternalLink,
   Banknote,
   Wallet,
+  AlertTriangle
 } from "lucide-react";
 import { Table } from "@/components/Table";
 import { TypeFilters } from "@/types";
@@ -32,6 +33,29 @@ import PageCuentasPorCobrar from "@/components/template/PageCuentasPorCobrar";
 import { getReservasByAgente } from "@/services/reservas";
 import { ToolTip } from "@/components/atom/ToolTip";
 import { set } from "date-fns";
+
+// Función para formatear el wallet igual que el crédito
+const getWalletBadge = (monto: number | null) => {
+  if (!monto) {
+    return (
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+        <AlertTriangle className="w-3 h-3 mr-1 text-gray-500" />
+        Sin saldo
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+      <Wallet className="w-3 h-3 mr-1 text-blue-600" />
+      {monto.toLocaleString("es-MX", {
+        style: "currency",
+        currency: "MXN",
+        minimumFractionDigits: 2
+      })}
+    </span>
+  );
+};
 
 function App() {
   const [clients, setClient] = useState<Agente[]>([]);
@@ -97,7 +121,7 @@ function App() {
     ),
     estado_credito: (props) => getStatusCreditBadge(props.value),
     credito: (props: { value: number }) => getCreditoBadge(props.value),
-    wallet: (props: { value: number }) => <>{props.value}</>,
+    wallet: (props: { value: number }) => getCreditoBadge(props.value), // Modificado aquí
     categoria: (props: { value: string }) => getRoleBadge(props.value),
     notas_internas: ({ value }: { value: string }) => (
       <ToolTip content={value.toUpperCase()}>
