@@ -118,7 +118,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
         <button
           onClick={() => {
             copyToClipboard(
-              `https://www.viajaconmia.com/reserva/${item.id_solicitud}`
+              `https://www.viajaconmia.com/bookings/${item.id_solicitud}`
             );
           }}
           className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition"
