@@ -9,20 +9,28 @@ import {
   ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
+import { AuthService } from "@/services/AuthService";
+
+export type User = {
+  username: string;
+  id: string;
+  token: string;
+  permisos: string[];
+};
 
 type AuthContextType = {
-  user: { token: string } | null;
+  user: User | null;
   isAuthenticated: boolean;
   loading: boolean; // <-- AÑADIR ESTO
-  login: (token: string) => void;
+  login: (email: string, password: string) => void;
   logout: () => void;
 };
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   isAuthenticated: false,
-  loading: true, // <-- AÑADIR ESTO (inicia en true)
-  login: () => {},
+  loading: true,
+  login: async () => {},
   logout: () => {},
 });
 
@@ -31,22 +39,28 @@ type AuthProviderProps = {
 };
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [user, setUser] = useState<{ token: string } | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true); // Ya teníamos este estado, ahora lo expondremos
   const router = useRouter();
 
   useEffect(() => {
-    const token = localStorage.getItem("session_token");
-    if (token) {
-      setUser({ token });
-    }
+    console.log("GALLETAS", document.cookie);
+    const user = localStorage.getItem("session_token");
+    // if (token) {
+    //   setUser();
+    // }
     setLoading(false); // La verificación ha terminado
   }, []);
 
-  const login = (token: string) => {
-    localStorage.setItem("session_token", token);
-    setUser({ token });
+  const login = async (email: string, password: string) => {
+    const { message, data } = await AuthService.getInstance().logIn({
+      password,
+      email,
+    });
+    console.log(data);
+    setUser(data);
     router.push("/dashboard");
+    return { message };
   };
 
   const logout = () => {
