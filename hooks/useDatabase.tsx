@@ -1,18 +1,16 @@
 /* LLAMADAS A LA API*/
 // const URL2 = "https://miaback.vercel.app";
 // const ROUTES = {
-//   stripe: "/v1/stripe",
-//   solicitud: "/v1/solicitud",
-//   agentes: "/v1/agentes"
+//   stripe: "/stripe",
+//   solicitud: "/solicitud",
+//   agentes: "/agentes"
 // };
 // const ENDPOINTS = {
 //   createAgente: "/create",
 // };
-const URL = "https://miaback.vercel.app";
-//const URL = "http://localhost:3001";
+// const URL = "https://miaback.vercel.app";
+import { URL, API_KEY } from "@/lib/constants/index";
 
-const API_KEY =
-  "nkt-U9TdZU63UENrblg1WI9I1Ln9NcGrOyaCANcpoS2PJT3BlbkFJ1KW2NIGUYF87cuvgUF3Q976fv4fPrnWQroZf0RzXTZTA942H3AMTKFKJHV6cTi8c6dd6tybUD65fybhPJT3BlbkFJ1KW2NIGPrnWQroZf0RzXTZTA942H3AMTKFy15whckAGSSRSTDvsvfHsrtbXhdrT";
 const AUTH = {
   "x-api-key": API_KEY,
 };
@@ -20,7 +18,7 @@ const AUTH = {
 export const createAgente = async (data: any, id: string) => {
   console.log(data.primer_nombre);
   try {
-    const response = await fetch(`${URL}/v1/mia/agentes`, {
+    const response = await fetch(`${URL}/mia/agentes`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -64,7 +62,7 @@ export const createEmpresa = async (data: any, id: string) => {
     " " +
     data.apellido_materno;
   try {
-    const response = await fetch(`${URL}/v1/mia/empresas`, {
+    const response = await fetch(`${URL}/mia/empresas`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -102,7 +100,7 @@ export const createEmpresa = async (data: any, id: string) => {
 export const createNewEmpresa = async (data: any, id: string) => {
   console.log(data);
   try {
-    const response = await fetch(`${URL}/v1/mia/empresas`, {
+    const response = await fetch(`${URL}/mia/empresas`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -144,7 +142,7 @@ export const updateEmpresa = async (
 ) => {
   console.log(data);
   try {
-    const response = await fetch(`${URL}/v1/mia/empresas/`, {
+    const response = await fetch(`${URL}/mia/empresas/`, {
       method: "PUT", // o "PATCH" dependiendo de tu API
       headers: {
         "Content-Type": "application/json",
@@ -183,7 +181,7 @@ export const updateEmpresa = async (
 
 export const createNewDatosFiscales = async (data: any) => {
   try {
-    const response = await fetch(`${URL}/v1/mia/datosFiscales`, {
+    const response = await fetch(`${URL}/mia/datosFiscales`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -219,7 +217,7 @@ export const createNewDatosFiscales = async (data: any) => {
 
 export const createStripeUser = async (email: string, id_agente: string) => {
   try {
-    const response = await fetch(`${URL}/v1/stripe/create-user-stripe`, {
+    const response = await fetch(`${URL}/stripe/create-user-stripe`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -251,7 +249,7 @@ export const createPaymentMethod = async (
   id_customer: string
 ) => {
   try {
-    const response = await fetch(`${URL}/v1/stripe/create-payment-method`, {
+    const response = await fetch(`${URL}/stripe/create-payment-method`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -284,7 +282,7 @@ export const createLogPayment = async (
   response_payment: any
 ) => {
   try {
-    const response = await fetch(`${URL}/v1/stripe/payment-log-storage`, {
+    const response = await fetch(`${URL}/stripe/payment-log-storage`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -348,7 +346,7 @@ export const createNewPago = async (
     };
 
     // Hacer la solicitud HTTP al backend para crear el pago
-    const response = await fetch(`${URL}/v1/mia/pagos`, {
+    const response = await fetch(`${URL}/mia/pagos`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -419,7 +417,7 @@ export const createNewViajero = async (data: any, id_empresa: string[]) => {
 
   try {
     console.log(data);
-    const response = await fetch(`${URL}/v1/mia/viajeros`, {
+    const response = await fetch(`${URL}/mia/viajeros`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -464,7 +462,7 @@ export const createNewViajero = async (data: any, id_empresa: string[]) => {
 export const createSaldo = async (data: any) => {
   try {
     console.log(data);
-    const response = await fetch(`${URL}/v1/mia/saldos`, {
+    const response = await fetch(`${URL}/mia/saldos`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -517,7 +515,7 @@ export const updateViajero = async (
 
   try {
     console.log(data);
-    const response = await fetch(`${URL}/v1/mia/viajeros`, {
+    const response = await fetch(`${URL}/mia/viajeros`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
@@ -564,7 +562,7 @@ export const getCompaniesAgent = async (agent_id: string) => {
   try {
     console.log("En proceso de obtener empresas");
     const response = await fetch(
-      `${URL}/v1/mia/agentes/empresas-con-agentes?id_agente=${encodeURIComponent(
+      `${URL}/mia/agentes/empresas-con-agentes?id_agente=${encodeURIComponent(
         agent_id
       )}`,
       {
@@ -587,7 +585,7 @@ export const getCompaniesAgentViajeros = async (agent_id: string) => {
   try {
     console.log("En proceso de obtener viajeros");
     const response = await fetch(
-      `${URL}/v1/mia/agentes/viajeros-con-empresas?id_agente=${encodeURIComponent(
+      `${URL}/mia/agentes/viajeros-con-empresas?id_agente=${encodeURIComponent(
         agent_id
       )}`,
       {
@@ -611,19 +609,20 @@ export const getEmpresasDatosFiscales = async (agent_id: string) => {
   try {
     console.log("En proceso de obtener viajeros");
     const response = await fetch(
-      `${URL}/v1/mia/agentes/empresas-con-datos-fiscales?id_agente=${encodeURIComponent(
+      `${URL}/mia/agentes/empresas-con-datos-fiscales?id_agente=${encodeURIComponent(
         agent_id
       )}`,
       {
         method: "GET",
         headers: {
+          "x-api-key": API_KEY || "",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
           "Content-Type": "application/json",
-          ...AUTH,
         },
       }
     );
     const json = await response.json();
-    console.log(json);
+    console.log(json, "dfddddddddddddddddddddddd");
     return json;
   } catch (error) {
     throw error;
@@ -633,7 +632,7 @@ export const getEmpresasDatosFiscales = async (agent_id: string) => {
 export const getFacturas = async (agent_id: string) => {
   try {
     console.log("En proceso de obtener facturas");
-    const response = await fetch(`${URL}/v1/mia/factura/getFacturas`, {
+    const response = await fetch(`${URL}/mia/factura/getFacturas`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -652,7 +651,7 @@ export const getPaymentMethods = async (agent_id: string) => {
   try {
     console.log("En proceso de obtener metodos de pago");
     const response = await fetch(
-      `${URL}/v1/stripe/get-payment-methods?id_agente=${encodeURIComponent(
+      `${URL}/stripe/get-payment-methods?id_agente=${encodeURIComponent(
         agent_id
       )}`,
       {
@@ -675,7 +674,7 @@ export const getCreditAgent = async (agent_id: string) => {
   try {
     console.log("En proceso de obtener metodos de pago");
     const response = await fetch(
-      `${URL}/v1/mia/pagos/agente?id_agente=${encodeURIComponent(agent_id)}`,
+      `${URL}/mia/pagos/agente?id_agente=${encodeURIComponent(agent_id)}`,
       {
         method: "GET",
         headers: {
@@ -696,7 +695,7 @@ export const getPagosAgente = async (agent_id: string) => {
   try {
     console.log("En proceso de obtener metodos de pago");
     const response = await fetch(
-      `${URL}/v1/mia/pagos/pagosAgente?id_agente=${encodeURIComponent(
+      `${URL}/mia/pagos/pagosAgente?id_agente=${encodeURIComponent(
         agent_id
       )}`,
       {
@@ -719,7 +718,7 @@ export const getPendientesAgente = async (agent_id: string) => {
   try {
     console.log("En proceso de obtener metodos de pago");
     const response = await fetch(
-      `${URL}/v1/mia/pagos/pendientesAgente?id_agente=${encodeURIComponent(
+      `${URL}/mia/pagos/pendientesAgente?id_agente=${encodeURIComponent(
         agent_id
       )}`,
       {
@@ -741,7 +740,7 @@ export const getPendientesAgente = async (agent_id: string) => {
 export const getHoteles = async () => {
   try {
     console.log("En proceso de obtener hoteles");
-    const response = await fetch(`${URL}/v1/mia/hoteles/hotelesWithTarifa`, {
+    const response = await fetch(`${URL}/mia/hoteles/hotelesWithTarifa`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -759,7 +758,7 @@ export const getHoteles = async () => {
 export const getSaldos = async () => {
   try {
     console.log("En proceso de obtener saldos a favor");
-    const response = await fetch(`${URL}/v1/mia/saldos`, {
+    const response = await fetch(`${URL}/mia/saldos`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -777,7 +776,7 @@ export const getSaldos = async () => {
 export const deleteTraveler = async (id_viajero: string) => {
   try {
     const response = await fetch(
-      `${URL}/v1/mia/viajeros?id_viajero=${id_viajero}`,
+      `${URL}/mia/viajeros?id_viajero=${id_viajero}`,
       {
         method: "DELETE",
         headers: {
