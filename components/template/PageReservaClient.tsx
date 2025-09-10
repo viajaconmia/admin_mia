@@ -302,7 +302,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
           >
             <PaymentModal reservation={selectedItem}></PaymentModal>
           </Modal>
-        )}
+        )}   
         {createReserva && (
           <Modal
             onClose={() => {

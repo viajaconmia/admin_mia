@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Pencil, Upload } from "lucide-react";
+import { Pencil, Upload, CreditCard, Send } from "lucide-react";
 import Filters from "@/components/Filters";
 import {
   calcularNoches,
@@ -12,32 +12,37 @@ import {
   getStatusBadge,
   getWhoCreateBadge,
 } from "@/helpers/utils";
-import { Table } from "@/components/Table";
-// import Modal from "@/components/organism/Modal";
-// import { FileUpload } from "@/components/atom/FileUpload";
-// import { PaymentForm } from "@/components/organism/paymentFormProveedor/PaymentForm";
-import { TypeFilters, Solicitud, SolicitudProveedor } from "@/types";
+import { Table } from "@/components/Table5";
+import { TypeFilters, SolicitudProveedor } from "@/types";
 import { Loader } from "@/components/atom/Loader";
 import { currentDate } from "@/lib/utils";
 import { fetchGetSolicitudesProveedores } from "@/services/pago_proveedor";
 
 function App() {
-  const [solicitudesPago, setSolicitudesPago] = useState<SolicitudProveedor[]>(
-    []
-  );
-  // const [selectedItem, setSelectedItem] = useState<Solicitud | null>(null);
+  const [solicitudesPago, setSolicitudesPago] = useState<SolicitudProveedor[]>([]);
   const [searchTerm, setSearchTerm] = useState<string | null>("");
   const [loading, setLoading] = useState(false);
-  const [filters, setFilters] = useState<TypeFilters>(
-    defaultFiltersSolicitudes
-  );
+  const [filters, setFilters] = useState<TypeFilters>(defaultFiltersSolicitudes);
+  const [activeFilter, setActiveFilter] = useState<string>("all"); // "all", "creditCard", "sentToPayments"
 
-  let formatedSolicitudes = solicitudesPago
+  // Filtrar las solicitudes según el filtro activo
+  const filteredSolicitudes = solicitudesPago.filter(item => {
+    if (activeFilter === "creditCard") {
+      // Filtrar pagos con tarjeta de crédito
+      return item.tarjeta && item.tarjeta.ultimos_4;
+    } else if (activeFilter === "sentToPayments") {
+      // Filtrar enviado a pagos (ajusta según tu lógica de negocio)
+      return item.solicitud_proveedor.estado_solicitud === "enviado";
+    }
+    return true; // Mostrar todos si no hay filtro activo
+  });
+
+  let formatedSolicitudes = filteredSolicitudes
     .filter(
       (item) =>
-        item.hotel.toUpperCase().includes(searchTerm) ||
-        item.nombre_agente_completo.toUpperCase().includes(searchTerm) ||
-        item.nombre_viajero_completo.toUpperCase().includes(searchTerm)
+        item.hotel.toUpperCase().includes(searchTerm?.toUpperCase() || "") ||
+        item.nombre_agente_completo.toUpperCase().includes(searchTerm?.toUpperCase() || "") ||
+        item.nombre_viajero_completo.toUpperCase().includes(searchTerm?.toUpperCase() || "")
     )
     .map((item) => ({
       id_cliente: item.id_agente,
@@ -73,16 +78,10 @@ function App() {
       digitos_tajeta: item.tarjeta.ultimos_4,
       banco: item.tarjeta.banco_emisor,
       tipo_tarjeta: item.tarjeta.tipo_tarjeta,
-      // costo_real_cobrado: item.pagos.reduce(
-      //   (acc, pago) => acc + Number(pago.costo_real_cobrado || 0),
-      //   0
-      // ),
       fecha_real_cobro: "",
       costo_facturado: "",
       fecha_facturacion: "",
       UUID: "",
-      // subir_factura: item,
-      // editar: item,
     }));
 
   let componentes = {
@@ -113,13 +112,12 @@ function App() {
     ),
     markup: (props: any) => (
       <span
-        className={`font-semibold border p-2 rounded-full ${
-          props.value == "Infinity"
-            ? "text-gray-700 bg-gray-100 border-gray-300 "
-            : props.value > 0
+        className={`font-semibold border p-2 rounded-full ${props.value == "Infinity"
+          ? "text-gray-700 bg-gray-100 border-gray-300 "
+          : props.value > 0
             ? "text-green-600 bg-green-100 border-green-300"
             : "text-red-600 bg-red-100 border-red-300"
-        }`}
+          }`}
       >
         {props.value == "Infinity" ? <>0%</> : <>{props.value.toFixed(2)}%</>}
       </span>
@@ -127,9 +125,9 @@ function App() {
     precio_de_venta: (props: any) => (
       <span title={props.value}>${props.value.toFixed(2)}</span>
     ),
-    metodo_de_pago: (props) => getPaymentBadge(props.value),
-    reservante: (props) => getWhoCreateBadge(props.value),
-    etapa_reservacion: (props) => getStageBadge(props.value),
+    metodo_de_pago: (props: any) => getPaymentBadge(props.value),
+    reservante: (props: any) => getWhoCreateBadge(props.value),
+    etapa_reservacion: (props: any) => getStageBadge(props.value),
     estado: (props: any) => getStatusBadge(props.value),
   };
 
@@ -160,6 +158,39 @@ function App() {
           />
         </div>
 
+        {/* Filtros adicionales para pagos con tarjeta y enviado a pagos */}
+        <div className="flex gap-4 mb-4">
+          <button
+            onClick={() => setActiveFilter("all")}
+            className={`flex items-center px-4 py-2 rounded-md ${activeFilter === "all"
+              ? "bg-blue-500 text-white"
+              : "bg-gray-200 text-gray-700"
+              }`}
+          >
+            <span>Todos</span>
+          </button>
+          <button
+            onClick={() => setActiveFilter("creditCard")}
+            className={`flex items-center px-4 py-2 rounded-md ${activeFilter === "creditCard"
+              ? "bg-blue-500 text-white"
+              : "bg-gray-200 text-gray-700"
+              }`}
+          >
+            <CreditCard className="w-4 h-4 mr-2" />
+            <span>Pagos con Tarjeta</span>
+          </button>
+          <button
+            onClick={() => setActiveFilter("sentToPayments")}
+            className={`flex items-center px-4 py-2 rounded-md ${activeFilter === "sentToPayments"
+              ? "bg-blue-500 text-white"
+              : "bg-gray-200 text-gray-700"
+              }`}
+          >
+            <Send className="w-4 h-4 mr-2" />
+            <span>Enviado a Pagos</span>
+          </button>
+        </div>
+
         <div>
           {loading ? (
             <Loader></Loader>
@@ -168,38 +199,10 @@ function App() {
               registros={formatedSolicitudes}
               renderers={componentes}
               defaultSort={defaultSort}
-              leyenda={`Haz filtrado ${solicitudesPago.length} solicitudes de pago`}
+              leyenda={`Haz filtrado ${formatedSolicitudes.length} solicitudes de pago`}
             ></Table>
           )}
         </div>
-        {/* {selectedItem && (
-          <Modal
-            onClose={() => {
-              setSelectedItem(null);
-            }}
-            title={
-              modalTab == "edit"
-                ? "Editar el pago a proveedor"
-                : "Facturas del proveedor"
-            }
-            subtitle={
-              modalTab == "edit"
-                ? "Modifica los detalles del pago a proveedor"
-                : "Sube las facturas del proveedor"
-            }
-          >
-            {modalTab == "edit" ? (
-              <PaymentForm></PaymentForm>
-            ) : (
-              <FileUpload
-                maxFiles={1}
-                onFilesUpload={(files) => {
-                  console.log(files);
-                }}
-              ></FileUpload>
-            )}
-          </Modal>
-        )} */}
       </div>
     </div>
   );
