@@ -25,22 +25,15 @@ export default function VistaPreviaModal({
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
   const [facturar, setFacturar] = useState<number>(0);
-  console.log("factura", facturaData)
-  console.log("pagos", pagoData)
-
-  console.log("eve", facturaData.comprobante.total)
 
   useEffect(() => {
     // Validación del monto cuando tenemos ambos datos
     if (pagoData && facturaData) {
       const montoPorFacturar = (pagoData.monto||pagoData.monto_por_facturar);
       setFacturar(montoPorFacturar);
-      console.log("facturar",facturar);
       const totalFactura = parseFloat(facturaData.comprobante.total);
-      console.log("montoPorFacturar", montoPorFacturar, "totalFactura", totalFactura)
       if (montoPorFacturar >= totalFactura) {
 
-        console.log("Payload para pago completo:", montoPorFacturar - totalFactura);
       }
     } else {
       setValidationMessage(null);
@@ -50,7 +43,6 @@ export default function VistaPreviaModal({
   useEffect(() => {
     async function generarYSubirPDF() {
       try {
-        console.log(`construyendo componente con form data: ${facturaData}`)
         // 1. Generar el PDF
 
         const pdfBlob = await generarFacturaPDF(facturaData);
@@ -91,7 +83,6 @@ export default function VistaPreviaModal({
 
     // Limpieza
     return () => {
-      console.log(`Destruyendo componente con form data: ${facturaData}`)
       if (pdfObjectUrl) {
         URL.revokeObjectURL(pdfObjectUrl);
       }
@@ -101,7 +92,6 @@ export default function VistaPreviaModal({
   const toggleView = () => setShowPdf(!showPdf);
 
   const handleConfirm = () => {
-    console.log(pdfUrl)
     const payload = {
       fecha_emision: facturaData.comprobante.fecha.split("T")[0],
       estado: "Confirmada",
