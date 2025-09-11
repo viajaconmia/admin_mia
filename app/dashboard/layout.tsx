@@ -82,12 +82,12 @@ const links = [
     icon: Receipt,
   },
   {
-    title: "Facturas Pendientes",
+    title: "Facturas Pendientes prepago",
     href: "/dashboard/facturas-pendientes",
     icon: Receipt,
   },
   {
-    title: "Items sin facturar",
+    title: "Cuentas por cobrar",
     href: "/dashboard/facturacion",
     icon: BookOpen,
   },
