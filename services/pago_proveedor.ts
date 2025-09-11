@@ -5,23 +5,14 @@ import {
   Solicitud,
   SolicitudProveedor,
   SuccessResponse,
-} from "@/types"; 
+} from "@/types";
 import { PaymentData } from "@/types/pago_proveedor";
-
-
-
 
 export const fetchCreateSolicitud = async (
   solicitud: PaymentData,
   callback: (response: SuccessResponse<PaymentData>) => void
 ) => {
   try {
-    // IMPRIMIR LOS DATOS QUE SE RECIBEN
-    console.log("📤 Datos enviados a la API:", JSON.stringify(solicitud, null, 2));
-    console.log("📋 Detalles del pago:", {
-      solicitud
-    });
-
     const response: GeneralResponse<PaymentData> = await fetch(
       `${URL}/mia/pago_proveedor/solicitud`,
       {
@@ -45,46 +36,6 @@ export const fetchCreateSolicitud = async (
       });
 
     if (!response.ok) {
-      console.log("❌ Error en la respuesta:", response);
-      throw new Error(
-        "Hubo un error: " + (response as ErrorResponse).details.message
-      );
-    }
-    
-    console.log("✅ Respuesta exitosa:", response);
-    callback(response);
-  } catch (error) {
-    console.error("💥 Error en fetchCreateSolicitud:", error);
-    alert(error.message);
-    throw error;
-  }
-};
-
-export const fetchGetSolicitudesProveedores = async (
-  callback: (response: SuccessResponse<SolicitudProveedor[]>) => void
-) => {
-  try {
-    const response: GeneralResponse<SolicitudProveedor[]> = await fetch(
-      `${URL}/mia/pago_proveedor/solicitud`,
-      {
-        headers: {
-          "x-api-key": API_KEY,
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          Pragma: "no-cache",
-          Expires: "0",
-          "Content-Type": "application/json",
-        },
-        cache: "no-store",
-      }
-    )
-      .then((res) => res.json())
-      .catch((error) => {
-        alert("Hubo un error");
-        console.log(error);
-        throw error;
-      });
-
-    if (!response.ok) {
       console.log(response);
       throw new Error(
         "Hubo un error: " + (response as ErrorResponse).details.message
@@ -96,6 +47,46 @@ export const fetchGetSolicitudesProveedores = async (
   } catch (error) {
     alert(error.message);
     console.log(error);
+    throw error;
+  }
+};
+export const fetchGetSolicitudesProveedores = async (
+  callback: (response: SuccessResponse<SolicitudProveedor[]>) => void
+) => {
+  try {
+    const res = await fetch(`${URL}/mia/pago_proveedor/solicitud`, {
+      headers: {
+        "x-api-key": API_KEY,
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        Pragma: "no-cache",
+        Expires: "0",
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
+
+    // 1) valida HTTP
+    if (!res.ok) {
+      const errorBody = await res.text().catch(() => "");
+      throw new Error(`HTTP ${res.status} – ${errorBody}`);
+    }
+
+    // 2) parsea
+    const json: GeneralResponse<SolicitudProveedor[]> = await res.json();
+
+    // 3) valida contrato de app
+    if (!json.ok) {
+      throw new Error(
+      );
+    }
+
+    // 4) log idéntico al body que viste en Network → Response
+    console.log("Respuesta solicitudes (body):", json);
+
+    callback(json as SuccessResponse<SolicitudProveedor[]>);
+  } catch (error: any) {
+    alert(error.message ?? "Error desconocido");
+    console.error(error);
     throw error;
   }
 };
