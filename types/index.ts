@@ -174,48 +174,49 @@ export type Solicitud = {
 };
 //TEMPORAL
 
-export interface Solicitud2 {
-  id_agente: string;
-  id_servicio: string;
-  id_solicitud: string;
-  id_hospedaje: string;
-  id_hotel_solicitud: string;
-  id_hotel_reserva: string;
-  id_viajero_solicitud: string;
-  id_viajero_reserva: string;
-  id_booking: string;
-  id_pago: string | null;
-  id_credito: string | null;
-  id_factura: string | null;
-  id_facturama: string | null;
-  status_solicitud: string;
-  status_reserva: string;
-  etapa_reservacion: string;
-  created_at_solicitud: string;
-  created_at_reserva: string;
-  hotel_solicitud: string;
-  hotel_reserva: string;
-  check_in: string;
-  check_out: string;
-  room: string;
-  tipo_cuarto: string;
-  total: string;
-  quien_reservó: string;
-  nombre_viajero_solicitud: string;
-  nombre_viajero_reservacion: string;
-  updated_at: string;
-  costo_total: string;
-  comments: string;
-  confirmation_code: string;
-  codigo_reservacion_hotel: string;
-  metodo_pago_dinamico: "Credito" | "Contado";
-  nombre_cliente: string;
-  correo: string;
-  telefono: string;
-  rfc: string | null;
-  tipo_persona: string;
-  viajeros_acompañantes: string[] | null;
-}
+  export interface Solicitud2 {
+    id_agente: string;
+    id_servicio: string;
+    id_solicitud: string;
+    id_hospedaje: string;
+    id_hotel_solicitud: string;
+    id_hotel_reserva: string;
+    id_viajero_solicitud: string;
+    id_viajero_reserva: string;
+    id_booking: string;
+    id_pago: string | null;
+    id_credito: string | null;
+    id_factura: string | null;
+    id_facturama: string | null;
+    status_solicitud: string;
+    status_reserva: string;
+    etapa_reservacion: string;
+    created_at_solicitud: string;
+    created_at_reserva: string;
+    hotel_solicitud: string;
+    hotel_reserva: string;
+    check_in: string;
+    check_out: string;
+    room: string;
+    tipo_cuarto: string;
+    total: string;
+    quien_reservó: string;
+    nombre_viajero_solicitud: string;
+    nombre_viajero_reservacion: string;
+    updated_at: string;
+    costo_total: string;
+    comments: string;
+    confirmation_code: string;
+    codigo_reservacion_hotel: string;
+    metodo_pago_dinamico: "Credito" | "Contado";
+    nombre_cliente: string;
+    correo: string;
+    telefono: string;
+    rfc: string | null;
+    tipo_persona: string;
+    viajeros_acompañantes: string[] | null;
+    items_reserva: string[];
+  }
 
 export interface Tax {
   id_impuesto: number;
@@ -557,6 +558,7 @@ export type PagoProveedor = {
   numero_autorizacion: string | null; // VARCHAR(100)
   creado_en: string; // TIMESTAMP
   actualizado_en: string; // TIMESTAMP
+  estado_pago: string|null;
   // Ten en cuenta que tu JSON de ejemplo también incluye id_solicitud_proveedor
   // y monto_aplicado directamente en los objetos 'pagos'.
   id_solicitud_proveedor: number; // de pagos_solicitudes
