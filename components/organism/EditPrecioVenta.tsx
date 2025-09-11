@@ -349,8 +349,8 @@ const SalesManagementPage: React.FC<{
                 <WalletOption
                   key={type}
                   tipo={type as TypesSaldoWallet}
-                  saldo={saldo}
-                  diferencia={diferencia}
+                  saldo={Number(saldo.toFixed(2))}
+                  diferencia={Number(diferencia.toFixed(2))}
                   loading={loading}
                   onClick={() => {
                     pagarConWallet(type as TypesSaldoWallet);
