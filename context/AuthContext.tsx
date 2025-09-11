@@ -10,9 +10,10 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { AuthService } from "@/services/AuthService";
+import { useNotification } from "./useNotificacion";
 
 export type User = {
-  username: string;
+  name: string;
   id: string;
   token: string;
   permisos: string[];
@@ -21,7 +22,7 @@ export type User = {
 type AuthContextType = {
   user: User | null;
   isAuthenticated: boolean;
-  loading: boolean; // <-- AÑADIR ESTO
+  loading: boolean;
   login: (email: string, password: string) => void;
   logout: () => void;
 };
@@ -42,31 +43,51 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true); // Ya teníamos este estado, ahora lo expondremos
   const router = useRouter();
+  const { showNotification } = useNotification();
 
   useEffect(() => {
-    console.log("GALLETAS", document.cookie);
-    const user = localStorage.getItem("session_token");
-    // if (token) {
-    //   setUser();
-    // }
-    setLoading(false); // La verificación ha terminado
+    const initSession = async () => {
+      try {
+        setLoading(true);
+        const { data } = await AuthService.getInstance().verifySession();
+        setUser(data);
+      } catch (error) {
+        console.log(error.message || "Error al verificar la sesion");
+      } finally {
+        setLoading(false);
+      }
+    };
+    initSession();
   }, []);
 
   const login = async (email: string, password: string) => {
-    const { message, data } = await AuthService.getInstance().logIn({
-      password,
-      email,
-    });
-    console.log(data);
-    setUser(data);
-    router.push("/dashboard");
-    return { message };
+    try {
+      setLoading(true);
+      const { data } = await AuthService.getInstance().logIn({
+        password,
+        email,
+      });
+
+      setUser(data || null);
+      router.push("/dashboard");
+    } catch (error) {
+      showNotification("error", error.message || "Error al hacer login");
+      console.log(error.message || "Error al hacer login");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const logout = () => {
-    localStorage.removeItem("session_token");
-    setUser(null);
-    router.push("/login");
+  const logout = async () => {
+    try {
+      setLoading(true);
+      await AuthService.getInstance().logOut();
+      setUser(null);
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const value: AuthContextType = {

@@ -1,86 +1,33 @@
 import React from "react";
 
-// Definimos las props que nuestro componente Loader puede aceptar
-interface LoaderProps {
-  size?: number; // Tamaño del spinner en píxeles
-  color?: string; // Color del spinner
-  thickness?: number; // Grosor del spinner en píxeles
-  text?: string; // Texto opcional para mostrar debajo del spinner
-  className?: string; // Para clases CSS adicionales si se necesitan
-  style?: React.CSSProperties; // Para estilos inline adicionales
-}
-
-export const Loader: React.FC<LoaderProps> = ({
-  size = 40, // Valor por defecto para el tamaño
-  color = "#007bff", // Color azul por defecto (Bootstrap primary)
-  thickness = 4, // Grosor por defecto
-  text,
-  className = "",
-  style = {},
-}) => {
-  // Estilos para el contenedor principal del loader (spinner + texto)
-  const containerStyle: React.CSSProperties = {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    ...style, // Permite fusionar estilos pasados como prop
-  };
-
-  // Estilos para el spinner
-  const spinnerStyle: React.CSSProperties = {
-    border: `${thickness}px solid rgba(0, 0, 0, 0.1)`, // Borde ligero
-    borderTopColor: color, // Borde superior con el color principal
-    borderRadius: "50%",
-    width: `${size}px`,
-    height: `${size}px`,
-    animation: "spin 1s linear infinite",
-  };
-
-  // Estilos para el texto opcional
-  const textStyle: React.CSSProperties = {
-    marginTop: "10px",
-    fontSize: "0.9rem",
-    color: "#333", // Un color de texto genérico
-  };
-
+export const Loader: React.FC = () => {
   return (
-    <div
-      style={containerStyle}
-      className={`loader-container ${className}`}
-      role="status"
-      aria-live="polite"
-    >
-      <div style={spinnerStyle} className="loader-spinner">
-        <span className="visually-hidden">Cargando...</span>{" "}
-        {/* Para accesibilidad */}
-      </div>
-      {text && (
-        <div style={textStyle} className="loader-text">
-          {text}
-        </div>
-      )}
-
-      {/* Keyframes para la animación del spinner (se inyectan en el <style> del head) */}
-      <style>
-        {`
-          @keyframes spin {
-            to {
-              transform: rotate(360deg);
-            }
-          }
-          .visually-hidden {
-            position: absolute;
-            width: 1px;
-            height: 1px;
-            margin: -1px;
-            padding: 0;
-            overflow: hidden;
-            clip: rect(0, 0, 0, 0);
-            border: 0;
-          }
-        `}
-      </style>
+    <div className="flex justify-center items-center py-4">
+      <svg
+        version="1.1"
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 493 539"
+        className="w-[50px] h-[50px] text-sky-950 animate-wobble-bounce"
+      >
+        <path
+          fill="currentColor"
+          d="M205.1,500.5C205.1,500.5,205,500.6,205.1,500.5C140.5,436.1,71.7,369.1,71.7,291.1 c0-86.6,84.2-157.1,187.6-157.1S447,204.4,447,291.1c0,74.8-63.4,139.6-150.8,154.1c0,0,0,0,0,0l-8.8-53.1 c61.3-10.2,105.8-52.6,105.8-100.9c0-56.9-60-103.2-133.7-103.2s-133.7,46.3-133.7,103.2c0,49.8,48,93.6,111.7,101.8c0,0,0,0,0,0 L205.1,500.5L205.1,500.5z"
+        />
+        <path
+          fill="currentColor"
+          d="M341,125.5c-2.9,0-5.8-0.7-8.6-2.1c-70.3-37.3-135.9-1.7-138.7-0.2c-8.8,4.9-20,1.8-24.9-7.1 c-4.9-8.8-1.8-20,7-24.9c3.4-1.9,85.4-47.1,173.8-0.2c9,4.8,12.4,15.9,7.6,24.8C353.9,122,347.6,125.5,341,125.5z"
+        />
+        <g>
+          <path
+            fill="currentColor"
+            d="M248.8,263.8c-38.1-26-73.7-0.8-75.2,0.2c-6.4,4.6-8.7,14-5.3,21.8c1.9,4.5,5.5,7.7,9.8,8.9 c4,1.1,8.2,0.3,11.6-2.1c0.9-0.6,21.4-14.9,43.5,0.2c2.2,1.5,4.6,2.3,7.1,2.4c0.2,0,0.4,0,0.6,0c0,0,0,0,0,0 c5.9,0,11.1-3.7,13.5-9.7C257.8,277.6,255.4,268.3,248.8,263.8z"
+          />
+          <path
+            fill="currentColor"
+            d="M348.8,263.8c-38.1-26-73.7-0.8-75.2,0.2c-6.4,4.6-8.7,14-5.3,21.8c1.9,4.5,5.5,7.7,9.8,8.9 c4,1.1,8.2,0.3,11.6-2.1c0.9-0.6,21.4-14.9,43.5,0.2c2.2,1.5,4.6,2.3,7.1,2.4c0.2,0,0.4,0,0.6,0c0,0,0,0,0,0 c5.9,0,11.1-3.7,13.5-9.7C357.8,277.6,355.4,268.3,348.8,263.8z"
+          />
+        </g>
+      </svg>
     </div>
   );
 };

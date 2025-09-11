@@ -56,6 +56,7 @@ export class ApiService {
       const config: RequestInit = {
         method,
         headers,
+        credentials: "include",
       };
 
       if (body && !["GET", "HEAD"].includes(method.toUpperCase())) {

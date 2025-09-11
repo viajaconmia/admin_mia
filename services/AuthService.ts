@@ -8,6 +8,9 @@ export class AuthService extends ApiService {
       LOGIN: "/login",
       LOGOUT: "/logout",
     },
+    GET: {
+      VERIFY_SESSION: "/verify-session",
+    },
   };
   private static instance: AuthService;
 
@@ -40,6 +43,11 @@ export class AuthService extends ApiService {
 
   public logOut = async (): Promise<ApiResponse<null>> =>
     this.post<null>({ path: this.formatPath(this.ENDPOINTS.POST.LOGOUT) });
+
+  public verifySession = async (): Promise<ApiResponse<User | null>> =>
+    this.get<User | null>({
+      path: this.formatPath(this.ENDPOINTS.GET.VERIFY_SESSION),
+    });
 
   public logIn = async ({
     password,

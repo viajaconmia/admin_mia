@@ -1,6 +1,7 @@
 import { environment } from "@/lib/constants";
 import "./globals.css";
 import { Providers } from "@/context/providers";
+import ProtectedRoute from "@/components/ProtectedLogin";
 
 export const metadata = {
   title: "MIA Admin",
@@ -20,7 +21,9 @@ export default function RootLayout({
             {environment.toUpperCase()}
           </div>
         )}
-        <Providers>{children}</Providers>
+        <Providers>
+          <ProtectedRoute>{children}</ProtectedRoute>
+        </Providers>
       </body>
     </html>
   );
