@@ -509,6 +509,8 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     fetchSaldoFavor();
   }, []);
 
+  console.log("slados",saldos)
+
   const filteredData = useMemo(() => {
     // Filter the data
     const filteredItems = saldos.filter((saldo) => {
@@ -631,6 +633,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       comentario: saldo.notas || saldo.comentario || null,
       facturable: saldo.is_facturable ? "Si" : "No",
       comprobante: saldo.comprobante || null,
+      concepto:saldo.concepto||null,
       acciones: { row: saldo },
       item: saldo,
     }));
@@ -940,6 +943,18 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     },
 
     comentario: ({ value, item }: { value: string | null; item: any }) => {
+      const isActive = item?.activo !== false;
+      return (
+        <div
+          className={`max-w-xs truncate ${!isActive ? "text-red-500 line-through" : ""
+            }`}
+        >
+          {value ? normalizeText(value) : ""}
+        </div>
+      );
+    },
+
+concepto  : ({ value, item }: { value: string | null; item: any }) => {
       const isActive = item?.activo !== false;
       return (
         <div

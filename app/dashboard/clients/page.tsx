@@ -18,6 +18,7 @@ import {
   ExternalLink,
   Banknote,
   Wallet,
+  AlertTriangle, DollarSign
 } from "lucide-react";
 import { Table } from "@/components/Table";
 import { TypeFilters } from "@/types";
@@ -32,6 +33,27 @@ import PageCuentasPorCobrar from "@/components/template/PageCuentasPorCobrar";
 import { getReservasByAgente } from "@/services/reservas";
 import { ToolTip } from "@/components/atom/ToolTip";
 import { set } from "date-fns";
+
+const getWalletBadge = (monto: string | null) => {
+  // Convertir el string a número para la verificación
+  const montoNum = monto ? parseFloat(monto) : null;
+
+  if (!montoNum) {
+    return (
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+        <AlertTriangle className="w-3 h-3 mr-1 text-gray-500" />
+        Sin saldo
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+      <DollarSign className="w-3 h-3 mr-1 text-emerald-600" />
+      {montoNum.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+    </span>
+  );
+};
 
 function App() {
   const [clients, setClient] = useState<Agente[]>([]);
@@ -62,7 +84,7 @@ function App() {
       estado_verificacion: "",
       estado_credito: Boolean(item.tiene_credito_consolidado),
       credito: item.saldo ? Number(item.saldo) : 0,
-      wallet: item.wallet ? parseFloat(item.wallet) : 0,
+      wallet: item.wallet || "0", // Mantenemos como string para getWalletBadge
       categoria: "Administrador",
       notas_internas: item.notas || "",
       vendedor: item.vendedor || "",
@@ -97,7 +119,7 @@ function App() {
     ),
     estado_credito: (props) => getStatusCreditBadge(props.value),
     credito: (props: { value: number }) => getCreditoBadge(props.value),
-    wallet: (props: { value: number }) => <>{props.value}</>,
+    wallet: (props: { value: string }) => getWalletBadge(props.value), // Modificado para aceptar string
     categoria: (props: { value: string }) => getRoleBadge(props.value),
     notas_internas: ({ value }: { value: string }) => (
       <ToolTip content={value.toUpperCase()}>

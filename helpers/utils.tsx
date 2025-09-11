@@ -352,6 +352,8 @@ export const getCreditoBadge = (monto: number | null) => {
   );
 };
 
+
+
 // utils/fileUpload.ts
 import { API_KEY, URL } from "@/lib/constants";
 
