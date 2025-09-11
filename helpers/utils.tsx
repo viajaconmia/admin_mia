@@ -43,7 +43,7 @@ export function copyToClipboard(text) {
   navigator.clipboard
     .writeText(text)
     .then(() => {
-      alert("Texto copiado al portapapeles");
+      console.log("texto copiado");
     })
     .catch((err) => {
       console.error("Error al copiar al portapapeles:", err);
@@ -216,7 +216,12 @@ export const exportToCSV = (data, filename = "archivo.csv") => {
         .map((field) => {
           let val = row[field];
 
-          if (field === "cliente" && val && typeof val === "object" && val.nombre_agente_completo) {
+          if (
+            field === "cliente" &&
+            val &&
+            typeof val === "object" &&
+            val.nombre_agente_completo
+          ) {
             val = val.nombre_agente_completo;
           }
 

@@ -3,19 +3,21 @@ import { ApiResponse, ApiService } from "./ApiService";
 
 export class AuthService extends ApiService {
   private ENDPOINTS = {
-    POST: {
-      SIGNUP: "/signup",
-      LOGIN: "/login",
-      LOGOUT: "/logout",
-    },
-    GET: {
-      VERIFY_SESSION: "/verify-session",
+    AUTH: {
+      POST: {
+        SIGNUP: "/auth/signup",
+        LOGIN: "/auth/login",
+        LOGOUT: "/auth/logout",
+      },
+      GET: {
+        VERIFY_SESSION: "/auth/verify-session",
+      },
     },
   };
   private static instance: AuthService;
 
   private constructor() {
-    super("/admin/auth");
+    super("/admin");
   }
 
   public static getInstance() {
@@ -37,16 +39,16 @@ export class AuthService extends ApiService {
     role: { id: number; name: string };
   }): Promise<ApiResponse<null>> =>
     this.post<null>({
-      path: this.formatPath(this.ENDPOINTS.POST.SIGNUP),
+      path: this.formatPath(this.ENDPOINTS.AUTH.POST.SIGNUP),
       body: { username, password, email, role },
     });
 
   public logOut = async (): Promise<ApiResponse<null>> =>
-    this.post<null>({ path: this.formatPath(this.ENDPOINTS.POST.LOGOUT) });
+    this.post<null>({ path: this.formatPath(this.ENDPOINTS.AUTH.POST.LOGOUT) });
 
   public verifySession = async (): Promise<ApiResponse<User | null>> =>
     this.get<User | null>({
-      path: this.formatPath(this.ENDPOINTS.GET.VERIFY_SESSION),
+      path: this.formatPath(this.ENDPOINTS.AUTH.GET.VERIFY_SESSION),
     });
 
   public logIn = async ({
@@ -57,7 +59,7 @@ export class AuthService extends ApiService {
     email: string;
   }): Promise<ApiResponse<User>> =>
     this.post<User>({
-      path: this.formatPath(this.ENDPOINTS.POST.LOGIN),
+      path: this.formatPath(this.ENDPOINTS.AUTH.POST.LOGIN),
       body: { password, email },
     });
 }

@@ -9,10 +9,14 @@ import {
   Receipt,
   Shield,
   BadgeDollarSign,
+  DoorOpen,
+  Settings2,
 } from "lucide-react";
 import NavContainer from "@/components/organism/NavContainer";
 import { useAuth } from "@/context/AuthContext";
 import { capitalizarTexto, obtenerIniciales } from "@/helpers/formater";
+import Button from "@/components/atom/Button";
+import { UserProfileImage } from "@/components/atom/UserProfileImage";
 
 export default function DashboardLayout({
   children,
@@ -27,6 +31,11 @@ export default function DashboardLayout({
       title: "Inicio",
       href: "/",
       icon: FileText,
+    },
+    {
+      title: "Administración",
+      href: "/dashboard/admin",
+      icon: Settings2,
     },
     {
       title: "Pagos proveedor",
@@ -96,16 +105,29 @@ export default function DashboardLayout({
   ];
 
   return (
-    <NavContainer title="Admin" links={links}>
-      <div className="h-screen bg-transparent overflow-y-auto">
-        <div className="backdrop-blur-3xl w-full p-2 px-6 flex justify-end items-center gap-2">
-          <div className="rounded-full w-8 h-8 bg-blue-200 flex justify-center items-center">
-            <p className="text-sm">{obtenerIniciales(user.name)}</p>
-          </div>
-          <p className="text-xs font-semibold">{capitalizarTexto(user.name)}</p>
+    <div className="backdrop-blur-3xl h-screen">
+      <NavContainer title="Admin" links={links}>
+        <div className="h-full bg-transparent overflow-y-auto">
+          {/* ESTO DEBERIA IR EN UN COMPONENTE APARTE, LUEGO LO MANEJO */}
+          <nav className="backdrop-blur-3xl w-full p-4 px-6 flex justify-end items-center gap-2">
+            <UserProfileImage name={user.name}></UserProfileImage>
+            {/* <p className="text-sm font-semibold">
+              {capitalizarTexto(user.name)}
+            </p> */}
+            <Button
+              size="sm"
+              icon={DoorOpen}
+              variant="secondary"
+              onClick={logout}
+            >
+              Cerrar sesión
+            </Button>
+          </nav>
+          <main className="px-4 bg-transparent w-full h-[calc(100vh-6rem)]">
+            {children}
+          </main>
         </div>
-        <main className="px-4 bg-transparent w-full h-full">{children}</main>
-      </div>
-    </NavContainer>
+      </NavContainer>
+    </div>
   );
 }
