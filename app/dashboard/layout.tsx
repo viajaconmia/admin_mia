@@ -82,7 +82,7 @@ const links = [
     icon: Receipt,
   },
   {
-    title: "Facturas Pendientes prepago",
+    title: "Facturas Pendientes prep",
     href: "/dashboard/facturas-pendientes",
     icon: Receipt,
   },
