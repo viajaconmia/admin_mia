@@ -327,14 +327,15 @@ export function TravelerTable({ facturas }: { facturas: Factura[] }) {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Cliente</TableHead>
-          <TableHead>Id Facturama</TableHead>
-          <TableHead>Total Factura</TableHead>
-          <TableHead>Subtotal Factura</TableHead>
+          <TableHead>id Cliente</TableHead>
+          <TableHead>RFC</TableHead>
+          <TableHead>Razón Social</TableHead>
+          <TableHead>UUID</TableHead>
+          <TableHead>Subtotal</TableHead>
+          <TableHead>IVA</TableHead>
+          <TableHead>Total</TableHead>
           <TableHead>Fecha de Emisión</TableHead>
-          <TableHead>Metodo de Pago</TableHead>
-          <TableHead>Hotel</TableHead>
-          <TableHead>Estado</TableHead>
+          <TableHead>Método de Pago</TableHead>
           <TableHead className="text-right">Acciones</TableHead>
         </TableRow>
       </TableHeader>
@@ -343,32 +344,24 @@ export function TravelerTable({ facturas }: { facturas: Factura[] }) {
           <>
             <TableRow key={factura.id_factura}>
               <TableCell className="font-medium">
-                {`${factura.nombre}`}
+                {`${factura.id_agente || factura.usuario_creador || 'N/A'}`}
               </TableCell>
               <TableCell className="font-medium">
-                {`${factura.id_facturama || "Carga Manual"}`}
+                {`${factura.rfc || 'N/A'}`}
               </TableCell>
-              <TableCell>{factura.total}</TableCell>
-              <TableCell>{factura.subtotal}</TableCell>
+              <TableCell className="font-medium">
+                {`${factura.nombre || 'N/A'}`}
+              </TableCell>
+              <TableCell className="font-medium">
+                {`${factura.uuid_factura || 'N/A'}`}
+              </TableCell>
+              <TableCell>{`$${parseFloat(factura.subtotal).toFixed(2)}`}</TableCell>
+              <TableCell>{`$${parseFloat(factura.impuestos).toFixed(2)}`}</TableCell>
+              <TableCell>{`$${parseFloat(factura.total).toFixed(2)}`}</TableCell>
               <TableCell>
                 {new Date(factura.fecha_emision).toLocaleDateString()}
               </TableCell>
-              <TableCell>{factura.metodo_de_pago}</TableCell>
-              <TableCell>{factura.hotel}</TableCell>
-              <TableCell>
-                <Badge
-                  variant="outline"
-                  className={
-                    factura.estado === "Confirmada"
-                      ? "bg-green-100 text-green-800 border-green-200"
-                      : factura.estado === "Cancelada"
-                        ? "bg-red-100 text-red-800 border-red-200"
-                        : "bg-blue-100 text-blue-800 border-blue-200"
-                  }
-                >
-                  {factura.estado}
-                </Badge>
-              </TableCell>
+              <TableCell>{factura.metodo_de_pago || 'N/A'}</TableCell>
               <TableCell className="text-right">
                 <div className="flex justify-end gap-2">
                   <DropdownMenu>

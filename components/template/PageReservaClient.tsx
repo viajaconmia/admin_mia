@@ -69,17 +69,12 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
         0
       );
 
-      if (sumaPagos + EPS > total) {
-        console.log("errores", sumaPagos)
-      }
-
       // Igual (con tolerancia) o mayor -> pagadas; menor -> pendientes
       if (sumaPagos + EPS >= total) {
         acc.pagadas.push(s);
       } else {
         acc.pendientes.push(s);
       }
-      console.log("pagos", acc)
     }
     return acc;
   }, [allSolicitudes]);
