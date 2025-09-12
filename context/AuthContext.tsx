@@ -11,16 +11,14 @@ import {
 import { useRouter } from "next/navigation";
 import { AuthService } from "@/services/AuthService";
 import { useNotification } from "./useNotificacion";
+import { User } from "@/types/auth";
 
-export type User = {
-  name: string;
-  id: string;
-  token: string;
+export type UserLoggin = User & {
   permisos: string[];
 };
 
 type AuthContextType = {
-  user: User | null;
+  user: UserLoggin | null;
   isAuthenticated: boolean;
   loading: boolean;
   login: (email: string, password: string) => void;
@@ -40,7 +38,7 @@ type AuthProviderProps = {
 };
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserLoggin | null>(null);
   const [loading, setLoading] = useState(true); // Ya teníamos este estado, ahora lo expondremos
   const router = useRouter();
   const { showNotification } = useNotification();

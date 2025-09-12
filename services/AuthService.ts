@@ -1,5 +1,6 @@
-import { User } from "@/context/AuthContext";
+import { UserLoggin } from "@/context/AuthContext";
 import { ApiResponse, ApiService } from "./ApiService";
+import { Role, User } from "@/types/auth";
 
 export class AuthService extends ApiService {
   private ENDPOINTS = {
@@ -11,9 +12,11 @@ export class AuthService extends ApiService {
       },
       GET: {
         VERIFY_SESSION: "/auth/verify-session",
+        GET_USERS: "/auth/usuarios",
       },
     },
   };
+
   private static instance: AuthService;
 
   private constructor() {
@@ -46,9 +49,16 @@ export class AuthService extends ApiService {
   public logOut = async (): Promise<ApiResponse<null>> =>
     this.post<null>({ path: this.formatPath(this.ENDPOINTS.AUTH.POST.LOGOUT) });
 
-  public verifySession = async (): Promise<ApiResponse<User | null>> =>
-    this.get<User | null>({
+  public verifySession = async (): Promise<ApiResponse<UserLoggin | null>> =>
+    this.get<UserLoggin | null>({
       path: this.formatPath(this.ENDPOINTS.AUTH.GET.VERIFY_SESSION),
+    });
+
+  public getUsers = async (): Promise<
+    ApiResponse<(User & Role & { permissions_extra: number })[]>
+  > =>
+    this.get<(User & Role & { permissions_extra: number })[]>({
+      path: this.formatPath(this.ENDPOINTS.AUTH.GET.GET_USERS),
     });
 
   public logIn = async ({
@@ -57,8 +67,8 @@ export class AuthService extends ApiService {
   }: {
     password: string;
     email: string;
-  }): Promise<ApiResponse<User>> =>
-    this.post<User>({
+  }): Promise<ApiResponse<UserLoggin>> =>
+    this.post<UserLoggin>({
       path: this.formatPath(this.ENDPOINTS.AUTH.POST.LOGIN),
       body: { password, email },
     });

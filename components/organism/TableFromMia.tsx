@@ -5,7 +5,11 @@ import { ArrowDown, ChevronDown, ChevronRight, Copy } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import React from "react";
 import Button from "../atom/Button";
-import { formatDate, formatNumberWithCommas } from "@/helpers/formater";
+import {
+  capitalizarTexto,
+  formatDate,
+  formatNumberWithCommas,
+} from "@/helpers/formater";
 import { copyToClipboard } from "@/helpers/utils";
 import { Loader } from "../atom/Loader";
 import { UserProfileImage } from "../atom/UserProfileImage";
@@ -31,7 +35,7 @@ type ComponentPropsMap<T> = {
   profile_image: {
     value: string;
   };
-  titles: { value: string; subtitle: string };
+  titles: { value: string; subtitle: string; item: T };
   custom: {
     component: React.ElementType;
     item: T;
@@ -146,10 +150,14 @@ export const TableFromMia = <T extends Record<string, any>>({
       ),
 
       profile_image: ({ value }) => <UserProfileImage name={value} />,
-      titles: ({ value, subtitle }) => (
+      titles: ({ value, subtitle, item }) => (
         <div className="flex flex-col items-start gap-1">
-          <h1 className="text-base">{value}</h1>
-          {subtitle && <h2 className="">{subtitle}</h2>}
+          <h1 className="text-base font-semibold">{capitalizarTexto(value)}</h1>
+          {subtitle && (
+            <h2 className="text-xs font-semibold text-gray-500">
+              {item[subtitle] || ""}
+            </h2>
+          )}
         </div>
       ),
       custom: ({ item, component: Comp }) => <Comp item={item} />,
@@ -255,7 +263,7 @@ export const TableFromMia = <T extends Record<string, any>>({
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {displayData.map((item, index) => (
-              <React.Fragment key={index}>
+              <React.Fragment key={index + (Math.random() * 9999).toFixed(2)}>
                 <tr className="hover:bg-gray-50">
                   {tableColumns.map((column) => {
                     const columnKey = String(column.key);
