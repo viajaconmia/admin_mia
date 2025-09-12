@@ -1,7 +1,14 @@
 "use client";
 
 import { useNotification } from "@/context/useNotificacion";
-import { ArrowDown, ChevronDown, ChevronRight, Copy } from "lucide-react";
+import {
+  ArrowDown,
+  ChevronDown,
+  ChevronRight,
+  Copy,
+  UserCheck,
+  UserX,
+} from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import React from "react";
 import Button from "../atom/Button";
@@ -40,7 +47,7 @@ type ComponentPropsMap<T> = {
     component: React.ElementType;
     item: T;
   };
-
+  active: { value: 1 | 0 };
   acciones: { onClick: () => void; value: string };
 };
 
@@ -148,10 +155,26 @@ export const TableFromMia = <T extends Record<string, any>>({
           </Button>
         </div>
       ),
+      active: ({ value }) => (
+        <div
+          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+            Boolean(value)
+              ? "bg-green-200 text-green-800 border-green-300"
+              : "bg-gray-200 text-gray-800 border-gray-300"
+          }`}
+        >
+          {Boolean(value) ? (
+            <UserCheck className="w-4 h-4 mr-1" />
+          ) : (
+            <UserX className="w-4 h-4 mr-1" />
+          )}
+          {Boolean(value) ? "Activo" : "Inactivo"}
+        </div>
+      ),
 
       profile_image: ({ value }) => <UserProfileImage name={value} />,
       titles: ({ value, subtitle, item }) => (
-        <div className="flex flex-col items-start gap-1">
+        <div className="flex flex-col items-start">
           <h1 className="text-base font-semibold">{capitalizarTexto(value)}</h1>
           {subtitle && (
             <h2 className="text-xs font-semibold text-gray-500">
@@ -246,7 +269,9 @@ export const TableFromMia = <T extends Record<string, any>>({
             <tr>
               {tableColumns.map((column) => (
                 <th
-                  key={String(column.key)}
+                  key={`${String(column.key)}-${(Math.random() * 9999).toFixed(
+                    2
+                  )}`}
                   onClick={() => handleSort(String(column.key))}
                   className={`px-6 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider ${
                     column.key !== "__expand__"
@@ -294,29 +319,31 @@ export const TableFromMia = <T extends Record<string, any>>({
                     }
 
                     // Columna de expansión
-                    if (columnKey === "__expand__" && expandableContent) {
-                      return (
-                        <td
-                          key={`${index}-${columnKey}`}
-                          className="px-2 py-2 whitespace-nowrap text-sm text-gray-800 text-left"
-                        >
-                          <button
-                            onClick={() => toggleRowExpansion(index)}
-                            className="p-1 rounded hover:bg-gray-200 transition-colors"
-                          >
-                            {expandedRows.has(index) ? (
-                              <ChevronDown className="w-4 h-4" />
-                            ) : (
-                              <ChevronRight className="w-4 h-4" />
-                            )}
-                          </button>
-                        </td>
-                      );
-                    }
+                    // if (columnKey === "__expand__" && expandableContent) {
+                    //   return (
+                    //     <td
+                    //       key={`${index}-${columnKey}`}
+                    //       className="px-2 py-2 whitespace-nowrap text-sm text-gray-800 text-left"
+                    //     >
+                    //       <button
+                    //         onClick={() => toggleRowExpansion(index)}
+                    //         className="p-1 rounded hover:bg-gray-200 transition-colors"
+                    //       >
+                    //         {expandedRows.has(index) ? (
+                    //           <ChevronDown className="w-4 h-4" />
+                    //         ) : (
+                    //           <ChevronRight className="w-4 h-4" />
+                    //         )}
+                    //       </button>
+                    //     </td>
+                    //   );
+                    // }
 
                     return (
                       <td
-                        key={`${index}-${columnKey}`}
+                        key={`${index}-${columnKey}-${(
+                          Math.random() * 999900
+                        ).toFixed(2)}`}
                         className="px-6 py-2 whitespace-nowrap text-sm text-gray-800 text-left"
                       >
                         {column.component ? (

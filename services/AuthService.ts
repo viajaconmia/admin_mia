@@ -55,9 +55,11 @@ export class AuthService extends ApiService {
     });
 
   public getUsers = async (): Promise<
-    ApiResponse<(User & Role & { permissions_extra: number })[]>
+    ApiResponse<
+      (User & Role & { permissions_extra: number; active: boolean })[]
+    >
   > =>
-    this.get<(User & Role & { permissions_extra: number })[]>({
+    this.get<(User & Role & { permissions_extra: number; active: boolean })[]>({
       path: this.formatPath(this.ENDPOINTS.AUTH.GET.GET_USERS),
     });
 

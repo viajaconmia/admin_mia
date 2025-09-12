@@ -14,7 +14,6 @@ import {
 } from "lucide-react";
 import NavContainer from "@/components/organism/NavContainer";
 import { useAuth } from "@/context/AuthContext";
-import { capitalizarTexto, obtenerIniciales } from "@/helpers/formater";
 import Button from "@/components/atom/Button";
 import { UserProfileImage } from "@/components/atom/UserProfileImage";
 
@@ -24,7 +23,6 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const { user, logout } = useAuth();
-  console.log(user);
   if (!user) return;
   const links = [
     {
