@@ -317,7 +317,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
         viajero: reservaData.viajero || {},
         noches: reservaData.Noches || 0,
         venta: reservaData.venta || {},
-        estado_reserva: reservaData.status_reserva || '',
+        estado_reserva: reservaData.estado_reserva || '',
         comments: reservaData.comments || '',
         proveedor: reservaData.proveedor || {},
         impuestos: reservaData.impuestos || {},
