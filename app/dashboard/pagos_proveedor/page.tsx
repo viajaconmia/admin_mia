@@ -12,7 +12,7 @@ import {
   getStatusBadge,
   getWhoCreateBadge,
 } from "@/helpers/utils";
-import { Table } from "@/components/Table5";
+import { Table5 } from "@/components/Table5";
 import { TypeFilters, SolicitudProveedor } from "@/types";
 import { Loader } from "@/components/atom/Loader";
 import { currentDate } from "@/lib/utils";
@@ -212,7 +212,7 @@ function App() {
         banco: item.tarjeta?.banco_emisor,
         tipo_tarjeta: item.tarjeta?.tipo_tarjeta,
 
-        // 👇 Para que Table lo pase a renderers como `item`
+        // 👇 Para que Table5 lo pase a renderers como `item`
         item: raw,
       };
     });
@@ -296,57 +296,57 @@ function App() {
   };
 
   // ---------- MULTIPANTALLA ----------
-  const cols = useResponsiveColumns({
-    xs: [
-      "creado",
-      "hotel",
-      "viajero",
-      "estado_pago",
-      "estado_factura_proveedor",
-      "monto_pagado_proveedor",
-    ],
-    md: [
-      "creado",
-      "hotel",
-      "viajero",
-      "check_in",
-      "check_out",
-      "monto_pagado_proveedor",
-      "fecha_real_cobro",
-      "metodo_de_pago",
-      "estado_pago",
-      "estado_factura_proveedor",
-      "precio_de_venta",
-    ],
-    lg: [
-      "creado",
-      "cliente",
-      "hotel",
-      "codigo_hotel",
-      "viajero",
-      "habitacion",
-      "check_in",
-      "check_out",
-      "noches",
-      "costo_proveedor",
-      "markup",
-      "precio_de_venta",
-      "metodo_de_pago",
-      "reservante",
-      "etapa_reservacion",
-      "estado",
-      "estado_pago",
-      "monto_pagado_proveedor",
-      "fecha_real_cobro",
-      "estado_factura_proveedor",
-      "costo_facturado",
-      "fecha_facturacion",
-      "UUID",
-      "banco",
-      "digitos_tajeta",
-      "tipo_tarjeta",
-    ],
-  });
+  // const cols = useResponsiveColumns({
+  //   xs: [
+  //     "creado",
+  //     "hotel",
+  //     "viajero",
+  //     "estado_pago",
+  //     "estado_factura_proveedor",
+  //     "monto_pagado_proveedor",
+  //   ],
+  //   md: [
+  //     "creado",
+  //     "hotel",
+  //     "viajero",
+  //     "check_in",
+  //     "check_out",
+  //     "monto_pagado_proveedor",
+  //     "fecha_real_cobro",
+  //     "metodo_de_pago",
+  //     "estado_pago",
+  //     "estado_factura_proveedor",
+  //     "precio_de_venta",
+  //   ],
+  //   lg: [
+  //     "creado",
+  //     "cliente",
+  //     "hotel",
+  //     "codigo_hotel",
+  //     "viajero",
+  //     "habitacion",
+  //     "check_in",
+  //     "check_out",
+  //     "noches",
+  //     "costo_proveedor",
+  //     "markup",
+  //     "precio_de_venta",
+  //     "metodo_de_pago",
+  //     "reservante",
+  //     "etapa_reservacion",
+  //     "estado",
+  //     "estado_pago",
+  //     "monto_pagado_proveedor",
+  //     "fecha_real_cobro",
+  //     "estado_factura_proveedor",
+  //     "costo_facturado",
+  //     "fecha_facturacion",
+  //     "UUID",
+  //     "banco",
+  //     "digitos_tajeta",
+  //     "tipo_tarjeta",
+  //   ],
+  // });
 
   const handleFetchSolicitudesPago = () => {
     setLoading(true);
@@ -411,11 +411,10 @@ function App() {
           {loading ? (
             <Loader />
           ) : (
-            <Table<ItemSolicitud>
+            <Table5<ItemSolicitud>
               registros={formatedSolicitudes}
               renderers={renderers}
               defaultSort={defaultSort}
-              customColumns={cols}
               leyenda={`Haz filtrado ${formatedSolicitudes.length} solicitudes de pago`}
             />
           )}

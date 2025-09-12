@@ -20,7 +20,7 @@ import { TypeFilters, Solicitud2 } from "@/types";
 import { Loader } from "@/components/atom/Loader";
 import { PaymentModal } from "@/components/organism/PaymentProveedor/PaymentProveedor";
 import { currentDate } from "@/lib/utils";
-import { Table } from "@/components/Table5";
+import { Table5 } from "@/components/Table5";
 import { ReservationForm2 } from "@/components/organism/FormReservation2";
 import { ReservationForm } from "@/components/organism/FormReservation";
 import { useResponsiveColumns } from "@/hooks/useResponsiveColumns";
@@ -69,12 +69,17 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
         0
       );
 
+      if (sumaPagos + EPS > total) {
+        console.log("errores", sumaPagos)
+      }
+
       // Igual (con tolerancia) o mayor -> pagadas; menor -> pendientes
       if (sumaPagos + EPS >= total) {
         acc.pagadas.push(s);
       } else {
         acc.pendientes.push(s);
       }
+      console.log("pagos", acc)
     }
     return acc;
   }, [allSolicitudes]);
@@ -101,35 +106,46 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
   // 3) Mapeo a filas para Table5
   const formatedSolicitudes =
     Array.isArray(solicitudesFiltradas) &&
-    solicitudesFiltradas.map((item) => ({
-      id_cliente: item.id_agente,
-      cliente: (item.nombre_cliente || "").toUpperCase(),
-      creado: item.created_at_reserva,
-      hotel: item.hotel_reserva || "",
-      codigo_hotel: item.codigo_reservacion_hotel,
-      viajero: item.nombre_viajero_reservacion || "",
-      check_in: item.check_in,
-      check_out: item.check_out,
-      noches: calcularNoches(item.check_in, item.check_out),
-      tipo_cuarto: item.tipo_cuarto ? formatRoom(item.tipo_cuarto) : formatRoom(item.room),
-      costo_proveedor: Number(item.costo_total) || 0,
-      markup:
-        ((Number(item.total || 0) - Number(item.costo_total || 0)) /
-          Number(item.total || 0)) *
-        100,
-      precio_de_venta: parseFloat(item.total),
-      metodo_de_pago: item.metodo_pago_dinamico,
-      reservante:
-        item.quien_reservó === "CREADA POR OPERACIONES" ? "Operaciones" : "Cliente",
-      etapa_reservacion: item.etapa_reservacion,
-      estado_pago_proveedor: "",
-      estado_factura_proveedor: "",
-      estado: item.status_reserva,
-      detalles_cliente: "",
-      editar: "",
-      pagar: "",
-      item, // para los renderers
-    }));
+    solicitudesFiltradas.map((item) => {
+      const total = parseNum(item.total);
+      const sumaPagos = (item.pagos_asociados || []).reduce(
+        (sum, p) => sum + parseNum(p.monto),
+        0
+      );
+      const faltaPagar = total - sumaPagos;
+
+      return {
+        id_cliente: item.id_agente,
+        cliente: (item.nombre_cliente || "").toUpperCase(),
+        creado: item.created_at_reserva,
+        hotel: item.hotel_reserva || "",
+        codigo_hotel: item.codigo_reservacion_hotel,
+        viajero: item.nombre_viajero_reservacion || "",
+        check_in: item.check_in,
+        check_out: item.check_out,
+        noches: calcularNoches(item.check_in, item.check_out),
+        tipo_cuarto: item.tipo_cuarto ? formatRoom(item.tipo_cuarto) : formatRoom(item.room),
+        costo_proveedor: Number(item.costo_total) || 0,
+        markup:
+          ((Number(item.total || 0) - Number(item.costo_total || 0)) /
+            Number(item.total || 0)) *
+          100,
+        precio_de_venta: parseFloat(item.total),
+        // MOSTRAR EN TODAS LAS VISTAS, no solo en pendientes
+        falta_pagar: faltaPagar,
+        metodo_de_pago: item.metodo_pago_dinamico,
+        reservante:
+          item.quien_reservó === "CREADA POR OPERACIONES" ? "Operaciones" : "Cliente",
+        etapa_reservacion: item.etapa_reservacion,
+        estado_pago_proveedor: "",
+        estado_factura_proveedor: "",
+        estado: item.status_reserva,
+        detalles_cliente: "",
+        editar: "",
+        pagar: "",
+        item, // para los renderers
+      };
+    });
 
   // ---------- RENDERERS ----------
   const renderers: Record<
@@ -139,6 +155,31 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
     reservante: ({ value }) => getWhoCreateBadge(value),
     etapa_reservacion: ({ value }) => getStageBadge(value),
     metodo_de_pago: ({ value }) => getPaymentBadge(value),
+    falta_pagar: ({ value }) => {
+      // Determinar el color según el valor
+      let colorClass = "text-gray-600"; // Valor por defecto
+      let titleText = `Falta por pagar: $${value.toFixed(2)}`;
+
+      if (value > 0) {
+        colorClass = "text-red-600";
+      } else if (value < 0) {
+        colorClass = "text-blue-600";
+        titleText = `Pago en exceso: $${Math.abs(value).toFixed(2)}`;
+      } else {
+        colorClass = "text-green-600";
+        titleText = "Completamente pagado";
+      }
+
+      return (
+        <span
+          className={`font-semibold ${colorClass}`}
+          title={titleText}
+        >
+          ${Number(value || 0).toFixed(2)}
+        </span>
+      );
+    },
+
 
     detalles_cliente: ({ item }) => (
       <span className="font-semibold text-sm flex items-center gap-2 w-full">
@@ -206,46 +247,6 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
     creado: ({ value }) => <span title={value}>{formatDate(value)}</span>,
   };
 
-  // ---------- MULTIPANTALLA ----------
-  const cols = useResponsiveColumns({
-    xs: ["creado", "hotel", "viajero", "check_in", "check_out", "estado", "editar", "pagar"],
-    md: [
-      "creado",
-      "hotel",
-      "viajero",
-      "check_in",
-      "check_out",
-      "noches",
-      "metodo_de_pago",
-      "reservante",
-      "etapa_reservacion",
-      "precio_de_venta",
-      "editar",
-      "pagar",
-    ],
-    lg: [
-      "creado",
-      "cliente",
-      "hotel",
-      "codigo_hotel",
-      "viajero",
-      "tipo_cuarto",
-      "check_in",
-      "check_out",
-      "noches",
-      "costo_proveedor",
-      "markup",
-      "precio_de_venta",
-      "metodo_de_pago",
-      "reservante",
-      "etapa_reservacion",
-      "estado",
-      "detalles_cliente",
-      "editar",
-      "pagar",
-    ],
-  });
-
   // ---------- Data fetching ----------
   const handleFetchSolicitudes = () => {
     setLoading(true);
@@ -312,11 +313,10 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
           {loading ? (
             <Loader />
           ) : (
-            <Table<Solicitud2>
+            <Table5<Solicitud2>
               registros={formatedSolicitudes}
               renderers={renderers}
               defaultSort={defaultSort}
-              customColumns={cols}
               leyenda={`${labelVista}: Has filtrado ${formatedSolicitudes.length} reservas`}
             >
               {id_agente && (
@@ -328,7 +328,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
                   Crear reserva
                 </button>
               )}
-            </Table>
+            </Table5>
           )}
         </div>
 
