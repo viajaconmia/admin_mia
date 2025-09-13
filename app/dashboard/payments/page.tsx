@@ -643,6 +643,17 @@ const TablaPagosVisualizacion = () => {
       </span>
     ),
 
+        currency:({ value }: { value: string }) => (
+  <span className="font-medium text-gray-800">
+    {value
+      ? value
+          .normalize("NFD")               // descompone caracteres con tildes
+          .replace(/[\u0300-\u036f]/g, "") // elimina acentos
+          .toUpperCase()                   // convierte a mayúsculas
+      : ""}
+  </span>
+),
+
     // Bank information
     banco: ({ value }: { value: string }) => (
       <span className="font-medium">
