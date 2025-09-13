@@ -475,9 +475,9 @@ const TablaPagosVisualizacion = () => {
     const transformedData = filteredItems.map((pago) => ({
       id_movimiento: pago.id_movimiento,
       tipo_pago: pago.tipo_pago ?? "",
-      raw_id: pago.raw_id,
+      id_pago: pago.raw_id,
       id_agente: pago.ig_agente,
-      nombre_agente: pago.nombre_agente ?? "",
+      nombre_cliente: pago.nombre_agente ?? "",
       fecha_creacion: pago.fecha_creacion,
       fecha_pago: pago.fecha_pago,
       monto: Number(pago.monto) || 0,
@@ -549,7 +549,7 @@ const TablaPagosVisualizacion = () => {
         {value}
       </span>
     ),
-    raw_id: ({ value }: { value: string }) => (
+    id_pago: ({ value }: { value: string }) => (
       <span className="font-mono bg-gray-100 px-2 py-1 rounded text-sm">
         {formatIdItem(value) || ''}
       </span>
@@ -564,6 +564,17 @@ const TablaPagosVisualizacion = () => {
         {value || ''}
       </span>
     ),
+
+    nombre_cliente: ({ value }: { value: string }) => (
+  <span className="font-medium text-gray-800">
+    {value
+      ? value
+          .normalize("NFD")               // descompone caracteres con tildes
+          .replace(/[\u0300-\u036f]/g, "") // elimina acentos
+          .toUpperCase()                   // convierte a mayúsculas
+      : ""}
+  </span>
+),
 
     // Amounts and numeric values
     monto: ({ value }: { value: number }) => (
@@ -584,15 +595,16 @@ const TablaPagosVisualizacion = () => {
       if (!isValidDate(date)) return <div className="text-gray-400 italic"></div>;
       return (
         <div className="whitespace-nowrap text-sm text-gray-600">
-          {format(date, "yy/MM/dd")}
+          {format(date, "dd/MM/yy")}
         </div>
       );
     },
+
     fecha_pago: ({ value }: { value: Date | string | null }) => {
       if (!value) return <div className="text-gray-400 italic"></div>;
       return (
         <div className="whitespace-nowrap text-sm text-gray-600">
-          {format(new Date(value), "yy/MM/dd")}
+          {format(new Date(value), "dd/MM/yy")}
         </div>
       );
     },
