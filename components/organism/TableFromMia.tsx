@@ -20,6 +20,7 @@ import {
 import { copyToClipboard } from "@/helpers/utils";
 import { Loader } from "../atom/Loader";
 import { UserProfileImage } from "../atom/UserProfileImage";
+import { CheckboxInput } from "../atom/Input";
 
 type ComponentPropsMap<T> = {
   text: { value: string };
@@ -41,6 +42,12 @@ type ComponentPropsMap<T> = {
   };
   profile_image: {
     value: string;
+  };
+  checkbox: {
+    value: boolean;
+    onChange: (value: boolean, item: T) => void;
+    label: string;
+    item: T;
   };
   titles: { value: string; subtitle: string; item: T };
   custom: {
@@ -184,6 +191,15 @@ export const TableFromMia = <T extends Record<string, any>>({
         </div>
       ),
       custom: ({ item, component: Comp }) => <Comp item={item} />,
+      checkbox: ({ value, onChange, label, item }) => (
+        <CheckboxInput
+          label={label}
+          checked={Boolean(value)}
+          onChange={(value: boolean) => {
+            onChange(value, item);
+          }}
+        />
+      ),
 
       acciones: ({ value, onClick }) => (
         <>

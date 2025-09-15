@@ -9,3 +9,9 @@ export type Role = {
   role_id: number;
   role_name: string;
 };
+export type Permission = {
+  id: number;
+  name: string;
+  description: string;
+  active?: boolean;
+};

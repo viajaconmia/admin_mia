@@ -1,6 +1,6 @@
 import { UserLoggin } from "@/context/AuthContext";
 import { ApiResponse, ApiService } from "./ApiService";
-import { Role, User } from "@/types/auth";
+import { Permission, Role, User } from "@/types/auth";
 
 export class AuthService extends ApiService {
   private ENDPOINTS = {
@@ -13,6 +13,7 @@ export class AuthService extends ApiService {
       GET: {
         VERIFY_SESSION: "/auth/verify-session",
         GET_USERS: "/auth/usuarios",
+        GET_PERMISOS: "/auth/permisos",
       },
     },
   };
@@ -61,6 +62,14 @@ export class AuthService extends ApiService {
   > =>
     this.get<(User & Role & { permissions_extra: number; active: boolean })[]>({
       path: this.formatPath(this.ENDPOINTS.AUTH.GET.GET_USERS),
+    });
+
+  public getPermisos = async (
+    id?: string
+  ): Promise<ApiResponse<Permission[]>> =>
+    this.get<Permission[]>({
+      path: this.formatPath(this.ENDPOINTS.AUTH.GET.GET_PERMISOS),
+      params: { id },
     });
 
   public logIn = async ({
