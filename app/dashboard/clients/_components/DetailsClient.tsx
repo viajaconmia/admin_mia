@@ -375,6 +375,28 @@ export function AgentDetailsCard({ agente }: { agente: Agente }) {
                       }}
                       label=""
                     />
+                    {/* Dirección */}
+                    {(company.calle ||
+                      company.colonia ||
+                      company.municipio ||
+                      company.estado ||
+                      company.codigo_postal) ? (
+                      <div className="text-xs text-gray-600 mt-1">
+                        {[company.calle, company.colonia, company.municipio, company.estado]
+                          .filter(Boolean)
+                          .join(", ")}
+                        {company.codigo_postal ? `, C.P. ${company.codigo_postal}` : ""}
+                      </div>
+                    ) : (
+                      <div className="text-xs text-gray-400 mt-1 italic">
+                        Sin dirección registrada
+                      </div>
+                    )}
+
+                     <div className="text-xs text-gray-600 mt-1">
+                       RFC: {company.rfc}
+                    </div>
+
                     <div className="col-span-3">
                       <NumberInput
                         onChange={(value) => {
