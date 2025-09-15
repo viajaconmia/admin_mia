@@ -37,7 +37,7 @@ export interface CfdiInvoice {
   PaymentForm: string; // "03"
   PaymentMethod: string; // "PUE"
   OrderNumber: string; // "12345"
-  ExpeditionPlace: string; // "42501"
+  ExpeditionPlace: string; // "11570"
   Date: string; // Formato ISO
   Observations: string;
   Exportation: string; // "01"

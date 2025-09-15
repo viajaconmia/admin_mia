@@ -94,14 +94,14 @@ export function ReservationForm({
         solicitud.costo_total != null
           ? Number(solicitud.costo_total)
           : // ② Si no, cae al cálculo automático de antes
+          Number(
             Number(
-              Number(
-                currentHotel?.tipos_cuartos.find(
-                  (item) =>
-                    item.nombre_tipo_cuarto == updateRoom(solicitud.room)
-                )?.costo ?? 0
-              ) * currentNoches
-            ) || 0,
+              currentHotel?.tipos_cuartos.find(
+                (item) =>
+                  item.nombre_tipo_cuarto == updateRoom(solicitud.room)
+              )?.costo ?? 0
+            ) * currentNoches
+          ) || 0,
       subtotal: 0,
       impuestos: 0,
     },
@@ -263,10 +263,10 @@ export function ReservationForm({
       const autoTotal = isCostoManual
         ? form.proveedor.total
         : Number(
-            form.hotel.content.tipos_cuartos.find(
-              (item) => item.nombre_tipo_cuarto == form.habitacion
-            )?.costo ?? 0
-          ) * nights;
+          form.hotel.content.tipos_cuartos.find(
+            (item) => item.nombre_tipo_cuarto == form.habitacion
+          )?.costo ?? 0
+        ) * nights;
 
       const items = calculateItems(autoTotal);
 
@@ -461,18 +461,20 @@ export function ReservationForm({
   };
 
   const handleprocesar = async () => {
-
-    fetchCreateReservaFromSolicitud({ ...form, nuevo_incluye_desayuno, acompanantes, meta:{...solicitud} }, (data) => {
-      if (data.error) {
-        alert("Error al crear la reserva");
+    fetchCreateReservaFromSolicitud(
+      { ...form, nuevo_incluye_desayuno, acompanantes, meta: { ...solicitud } },
+      (data) => {
+        if (data.error) {
+          alert("Error al crear la reserva");
+          setLoading(false);
+          return;
+        }
+        alert("Reserva creada correctamente");
         setLoading(false);
-        return;
+        onClose();
       }
-      alert("Reserva creada correctamente");
-      setLoading(false);
-      onClose();
-    });
-  }
+    );
+  };
 
   const handleCreditPayment = async () => {
     setLoading(true);
@@ -588,6 +590,7 @@ export function ReservationForm({
   };
 
   console.log(solicitud, "feeffffffffffffff");
+  console.log(form.venta.total, "total", walletAmount, "walllet",)
 
   useEffect(() => {
     updateAgentWallet();
@@ -977,7 +980,7 @@ export function ReservationForm({
                                 .map((item) => item.id_viajero)
                                 .includes(traveler.id_viajero) &&
                                 traveler.id_viajero !=
-                                  form.viajero.id_viajero) ||
+                                form.viajero.id_viajero) ||
                               traveler.id_viajero == acompanante.id_viajero
                           )
                           .map((item) => ({
@@ -1205,7 +1208,7 @@ export function ReservationForm({
 
               <Button
                 type="button"
-                disabled={loading || isTotalZero}
+                disabled={loading || isTotalZero || solicitud.agente.saldo < form.venta.total}
                 onClick={handleCreditPayment}
                 className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
               >

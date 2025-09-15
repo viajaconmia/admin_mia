@@ -47,8 +47,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
   const [createReserva, setCreateReserva] = useState(false);
   const [filters, setFilters] = useState<TypeFilters>(defaultFiltersSolicitudes);
 
-  // Se elimina el estado `activeVista` ya que la vista será estática
-  // const [activeVista, setActiveVista] = useState<Vista>("reservas");
+
 
   const handleEdit = (item: Solicitud2) => {
     setSelectedItem(item);
@@ -70,12 +69,18 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
         0
       );
 
+
+      if (sumaPagos + EPS > total) {
+        console.log("errores", sumaPagos)
+      }
+
       // Igual (con tolerancia) o mayor -> pagadas; menor -> pendientes
       if (sumaPagos + EPS >= total) {
         acc.pagadas.push(s);
       } else {
         acc.pendientes.push(s);
       }
+
     }
     return acc;
   }, [allSolicitudes]);
@@ -86,6 +91,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
     // Como ahora siempre es "reservas", devolvemos directamente `allSolicitudes`.
     return allSolicitudes; 
   }, [allSolicitudes]);
+
 
   // 2) Filtrado por búsqueda
   const solicitudesFiltradas = useMemo(() => {
@@ -273,6 +279,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
 
   const labelVista = "Reservas"; // Hardcodeado para mantener el texto
 
+
   return (
     <div className="h-fit">
       <h1 className="text-3xl font-bold tracking-tight text-sky-950 my-4">Reservas</h1>
@@ -285,7 +292,6 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
           setSearchTerm={setSearchTerm}
         />
 
-        {/* -------- Botonera: (ELIMINADA) -------- */}
 
         <div className="overflow-hidden">
           {loading ? (

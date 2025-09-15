@@ -1,15 +1,11 @@
 import React, { useState, useEffect, FormEvent } from "react";
-import { differenceInDays, parseISO, set } from "date-fns";
+import { differenceInDays, parseISO } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  fetchCreateReservaFromSolicitud,
-  fetchCreateReservaOperaciones,
-  updateReserva,
-} from "@/services/reservas";
+import { updateReserva } from "@/services/reservas";
 import {
   CheckboxInput,
   ComboBox,
@@ -20,14 +16,7 @@ import {
   TextInput,
 } from "@/components/atom/Input";
 import { fetchViajerosFromAgent } from "@/services/viajeros";
-import {
-  Hotel,
-  Solicitud,
-  ReservaForm,
-  Viajero,
-  EdicionForm,
-  Solicitud2,
-} from "@/types";
+import { Hotel, ReservaForm, Viajero, EdicionForm, Solicitud2 } from "@/types";
 import { Table } from "../Table";
 import {
   formatNumberWithCommas,
@@ -43,7 +32,6 @@ interface ReservationFormProps {
   hotels: Hotel[];
   onClose: () => void;
   edicion?: boolean;
-  create?: boolean;
 }
 
 export function ReservationForm2({
@@ -51,7 +39,6 @@ export function ReservationForm2({
   hotels,
   onClose,
   edicion = false,
-  create = false,
 }: ReservationFormProps) {
   let currentNoches = 0;
   let currentHotel;
@@ -75,7 +62,7 @@ export function ReservationForm2({
       name: solicitud.hotel_reserva || "",
       content: currentHotel || null,
     },
-    habitacion: updateRoom(solicitud.room) || "",
+    habitacion: updateRoom(solicitud.tipo_cuarto) || "",
     check_in: solicitud.check_in ? solicitud.check_in.split("T")[0] : "",
     check_out: solicitud.check_out ? solicitud.check_out.split("T")[0] : "",
     codigo_reservacion_hotel: solicitud.codigo_reservacion_hotel || "",
@@ -104,7 +91,7 @@ export function ReservationForm2({
               Number(
                 currentHotel?.tipos_cuartos.find(
                   (item) =>
-                    item.nombre_tipo_cuarto == updateRoom(solicitud.room)
+                    item.nombre_tipo_cuarto == updateRoom(solicitud.tipo_cuarto)
                 )?.costo ?? 0
               ) * currentNoches
             ) || 0,
@@ -156,7 +143,7 @@ export function ReservationForm2({
       Number(solicitud.costo_total) !==
       getAutoCostoTotal(
         currentHotel as Hotel,
-        updateRoom(solicitud.room),
+        updateRoom(solicitud.tipo_cuarto),
         currentNoches
       )
   );
@@ -384,7 +371,7 @@ export function ReservationForm2({
       }
       console.log(response);
       alert("Reserva creada correctamente");
-      onClose();
+      // onClose();
     } catch (error) {
       console.error(error);
       alert("Error al guardar la reserva");
@@ -995,29 +982,28 @@ export function ReservationForm2({
           <>
             {Number(edicionForm.venta.current.total) !=
               Number(solicitud.total) && (
-              <>
-                <p
-                  className={`text-xs font-normal p-2 ${
-                    Number(edicionForm.venta?.current.total) <
-                    Number(solicitud.total)
-                      ? "bg-red-300 text-red-800"
-                      : "bg-green-200 text-green-800"
-                  } rounded-full border `}
-                >
-                  Precio recomendado:
-                  {`$${edicionForm.venta.current.total.toFixed(2)}`}
-                </p>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => setCobrar(true)}
-                >
-                  ¿Quieres modificar el precio?
-                </Button>
-              </>
+              <p
+                className={`text-xs font-normal p-2 ${
+                  Number(edicionForm.venta?.current.total) <
+                  Number(solicitud.total)
+                    ? "bg-red-300 text-red-800"
+                    : "bg-green-200 text-green-950"
+                } rounded-full border `}
+              >
+                {`Precio recomendado: $${edicionForm.venta.current.total.toFixed(
+                  2
+                )}`}
+              </p>
             )}
           </>
         )}
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => setCobrar(true)}
+        >
+          ¿Quieres modificar el precio al recomendado u otro?
+        </Button>
         <Button disabled={!!loading} type="submit">
           Actualizar datos de la reserva
         </Button>
