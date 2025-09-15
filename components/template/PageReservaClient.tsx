@@ -133,8 +133,6 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
             Number(item.total || 0)) *
           100,
         precio_de_venta: parseFloat(item.total),
-        // MOSTRAR EN TODAS LAS VISTAS, no solo en pendientes
-        falta_pagar: faltaPagar,
         metodo_de_pago: item.metodo_pago_dinamico,
         reservante:
           item.quien_reservó === "CREADA POR OPERACIONES" ? "Operaciones" : "Cliente",
