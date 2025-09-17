@@ -47,7 +47,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
   const [createReserva, setCreateReserva] = useState(false);
   const [filters, setFilters] = useState<TypeFilters>(defaultFiltersSolicitudes);
 
-  const [activeVista, setActiveVista] = useState<Vista>("reservas");
+
 
   const handleEdit = (item: Solicitud2) => {
     setSelectedItem(item);
@@ -69,22 +69,29 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
         0
       );
 
+
+
+      if (sumaPagos + EPS > total) {
+        console.log("errores", sumaPagos)
+      }
+
       // Igual (con tolerancia) o mayor -> pagadas; menor -> pendientes
       if (sumaPagos + EPS >= total) {
         acc.pagadas.push(s);
       } else {
         acc.pendientes.push(s);
       }
-    }
+  }
     return acc;
   }, [allSolicitudes]);
 
-  // 1) Selección por vista
+  // 1) Selección por vista (simplificada para mostrar solo 'reservas')
   const solicitudesPorVista: SolicitudConPagos[] = useMemo(() => {
-    if (activeVista === "pagadas") return pagadas;
-    if (activeVista === "pendientes") return pendientes;
-    return allSolicitudes; // reservas = todo
-  }, [activeVista, allSolicitudes, pagadas, pendientes]);
+    // Si la vista fuera dinámica, se usaría una variable de estado.
+    // Como ahora siempre es "reservas", devolvemos directamente `allSolicitudes`.
+    return allSolicitudes; 
+  }, [allSolicitudes]);
+
 
   // 2) Filtrado por búsqueda
   const solicitudesFiltradas = useMemo(() => {
@@ -126,8 +133,6 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
             Number(item.total || 0)) *
           100,
         precio_de_venta: parseFloat(item.total),
-        // MOSTRAR EN TODAS LAS VISTAS, no solo en pendientes
-        falta_pagar: faltaPagar,
         metodo_de_pago: item.metodo_pago_dinamico,
         reservante:
           item.quien_reservó === "CREADA POR OPERACIONES" ? "Operaciones" : "Cliente",
@@ -270,7 +275,8 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
     fetchHoteles((data) => setHoteles(data));
   }, []);
 
-  const labelVista = activeVista === "reservas" ? "Reservas" : activeVista === "pagadas" ? "Pagadas" : "Pendientes";
+  const labelVista = "Reservas"; // Hardcodeado para mantener el texto
+
 
   return (
     <div className="h-fit">
@@ -284,30 +290,6 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
           setSearchTerm={setSearchTerm}
         />
 
-        {/* -------- Botonera: Reservas | Pagadas | Pendientes -------- */}
-        <div className="flex gap-4 mb-4">
-          <button
-            onClick={() => setActiveVista("reservas")}
-            className={`flex items-center px-4 py-2 rounded-md ${activeVista === "reservas" ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-700"
-              }`}
-          >
-            Reservas
-          </button>
-          <button
-            onClick={() => setActiveVista("pagadas")}
-            className={`flex items-center px-4 py-2 rounded-md ${activeVista === "pagadas" ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-700"
-              }`}
-          >
-            Pagadas
-          </button>
-          <button
-            onClick={() => setActiveVista("pendientes")}
-            className={`flex items-center px-4 py-2 rounded-md ${activeVista === "pendientes" ? "bg-blue-500 text-white" : "bg-gray-200 text-gray-700"
-              }`}
-          >
-            Pendientes
-          </button>
-        </div>
 
         <div className="overflow-hidden">
           {loading ? (

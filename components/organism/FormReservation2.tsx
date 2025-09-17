@@ -371,7 +371,7 @@ export function ReservationForm2({
       }
       console.log(response);
       alert("Reserva creada correctamente");
-      onClose();
+      // onClose();
     } catch (error) {
       console.error(error);
       alert("Error al guardar la reserva");
