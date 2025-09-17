@@ -329,12 +329,7 @@ const TablaPagosVisualizacion = () => {
 
   const filteredData = useMemo(() => {
     //filtro de prepagos
-    const filteredByRawId = pagos.filter((pago) => {
-      const rawId = pago.raw_id || '';
-      return !rawId.toLowerCase().startsWith('pag');
-    });
-
-    const filteredByFacturado = filteredByRawId.filter((pago) => {
+    const filteredByFacturado = pagos.filter((pago) => {
       return pago.is_facturado !== 1;
     });
     // Filter the data
