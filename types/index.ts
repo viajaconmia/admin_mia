@@ -197,6 +197,7 @@ export type Solicitud = {
     hotel_reserva: string;
     check_in: string;
     check_out: string;
+    
     room: string;
     tipo_cuarto: string;
     total: string;
@@ -216,6 +217,7 @@ export type Solicitud = {
     tipo_persona: string;
     viajeros_acompañantes: string[] | null;
     items_reserva: string[];
+    items_de_la_reserva: string[];
   }
 
 export interface Tax {

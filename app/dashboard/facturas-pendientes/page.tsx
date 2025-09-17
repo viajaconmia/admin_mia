@@ -602,7 +602,7 @@ const TablaPagosVisualizacion = () => {
       if (!isValidDate(date)) return <div className="text-gray-400 italic"></div>;
       return (
         <div className="whitespace-nowrap text-sm text-gray-600">
-          {format(date, "yy/MM/dd")}
+          {format(date, "dd/MM/yy")}
         </div>
       );
     },
@@ -610,7 +610,7 @@ const TablaPagosVisualizacion = () => {
       if (!value) return <div className="text-gray-400 italic"></div>;
       return (
         <div className="whitespace-nowrap text-sm text-gray-600">
-          {format(new Date(value), "yy/MM/dd")}
+          {format(new Date(value), "dd/MM/yy")}
         </div>
       );
     },
@@ -874,7 +874,9 @@ const TablaPagosVisualizacion = () => {
               {balance ? formatCurrency(Number(balance.montofacturado)) : formatCurrency(0)}
             </p>
             <p className="text-sm mt-1">
-              <span className="text-gray-600">Restante: </span>
+              <span className="text-gray-600
+              
+              ">Restante: </span>
               <span className={`font-semibold ${balance && Number(balance.restante) >= 0 ? "text-red-600" : "text-green-600"}`}>
                 {balance ? formatCurrency(Number(balance.restante)) : formatCurrency(0)}
               </span>

@@ -283,12 +283,6 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
         restante -= montoAsignar;
       }
 
-      // Si después de asignar a todos los pagos todavía queda restante
-      if (restante > 0) {
-        alert(`La factura excede los pagos disponibles por $${formatNumberWithCommas(restante)}`);
-        setSubiendoArchivos(false);
-        return;
-      }
 
       if (raw_Ids.length < 2) {
         // Preparar payload de la factura
@@ -300,7 +294,7 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
           total: parseFloat(facturaData.comprobante.total),
           subtotal: parseFloat(facturaData.comprobante.subtotal),
           impuestos: parseFloat(facturaData.impuestos?.traslado?.importe || "0.00"),
-          saldo: parseFloat(facturaData.comprobante.total),
+          saldo: restante,
           rfc: facturaData.receptor.rfc,
           id_empresa: empresaSeleccionada?.id_empresa || null,
           uuid_factura: facturaData.timbreFiscal.uuid,

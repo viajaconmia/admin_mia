@@ -74,7 +74,7 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
   pagoData
 }) => {
   const [montoSeleccionado, setMontoSeleccionado] = useState<number>(0);
-  const [montorestante, setMontoRestante] = useState<number>(0);
+  const [montorestante, setMontoRestante] = useState<number>(facturaData.saldo);
   const [reservas, setReservas] = useState<ReservaConItems[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -368,7 +368,7 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
             </div>
             <div>
               <p className="text-sm text-gray-600">Monto Restante:</p>
-              <p className="text-lg text-green-600 font-semibold">${montorestante.toFixed(2)}</p>
+              <p className="text-lg text-green-600 font-semibold">${montorestante}</p>
             </div>
             <div>
               <p className="text-sm text-gray-600">Seleccionado:</p>

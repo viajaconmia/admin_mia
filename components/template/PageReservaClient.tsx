@@ -268,6 +268,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
     });
   };
 
+
   useEffect(() => {
     handleFetchSolicitudes();
   }, [filters]);
@@ -277,8 +278,9 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
   }, []);
 
   const labelVista = "Reservas"; // Hardcodeado para mantener el texto
+  console.log("inroivnoribv", solicitudesFiltradas)
 
-
+  console.log("cambios", selectedItem)
   return (
     <div className="h-fit">
       <h1 className="text-3xl font-bold tracking-tight text-sky-950 my-4">Reservas</h1>
