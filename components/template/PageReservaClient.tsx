@@ -69,24 +69,19 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
         0
       );
 
-<<<<<<< HEAD
-=======
 
       if (sumaPagos + EPS > total) {
         console.log("errores", sumaPagos)
       }
 
->>>>>>> dc07e64e62b6224080b846db7d005656cffbb4fb
+
       // Igual (con tolerancia) o mayor -> pagadas; menor -> pendientes
       if (sumaPagos + EPS >= total) {
         acc.pagadas.push(s);
       } else {
         acc.pendientes.push(s);
       }
-<<<<<<< HEAD
-=======
 
->>>>>>> dc07e64e62b6224080b846db7d005656cffbb4fb
     }
     return acc;
   }, [allSolicitudes]);
@@ -95,7 +90,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
   const solicitudesPorVista: SolicitudConPagos[] = useMemo(() => {
     // Si la vista fuera dinámica, se usaría una variable de estado.
     // Como ahora siempre es "reservas", devolvemos directamente `allSolicitudes`.
-    return allSolicitudes; 
+    return allSolicitudes;
   }, [allSolicitudes]);
 
 
