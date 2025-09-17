@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { format } from "date-fns";
+import { da, es } from "date-fns/locale";
 import { fetchReservationsFacturacion } from "@/services/reservas";
 import Link from "next/link";
 import {
@@ -13,11 +14,7 @@ import useApi from "@/hooks/useApi";
 import { DescargaFactura, Root } from "@/types/billing";
 import { ChevronDownIcon, ChevronUpIcon, Download } from "lucide-react";
 import SubirFactura from "../subirfacturas/SubirFactura";
-import { exportToCSV } from "@/helpers/utils";
-import { FileDown } from "lucide-react";
-import { Loader } from "../atom/Loader";
 
-// Opciones y tipos...
 const cfdiUseOptions = [
   { value: "G01", label: "G01 - Adquisición de mercancías" },
   { value: "G02", label: "G02 - Devoluciones, descuentos o bonificaciones" },
@@ -179,10 +176,6 @@ interface Reservation {
   id_factura: string | null;
   primer_nombre: string | null;
   apellido_paterno: string | null;
-  items?: Item[];
-  nombre_viajero_completo?: string | null;
-  razon_social?: string;
-  costo_total?: string;
 }
 
 interface FiscalData {
@@ -227,7 +220,6 @@ interface Item {
 
 interface ReservationWithItems extends Reservation {
   items: Item[];
-  nightsCount?: number;
 }
 
 type ReservationStatus =
@@ -288,7 +280,7 @@ const StatusBadge: React.FC<{ status: ReservationStatus }> = ({ status }) => {
 };
 
 // Loader Component
-const LoaderComponent: React.FC = () => (
+const Loader: React.FC = () => (
   <div className="flex items-center justify-center min-h-[200px]">
     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700"></div>
     <span className="ml-3 text-gray-700">Cargando reservaciones...</span>
@@ -307,15 +299,15 @@ const FacturacionModal: React.FC<{
 
   // const reservations = reservationsInit;
   // const reservations = reservationsInit
-  //    .filter((reserva) => reserva.items != null)
-  //    .map((reserva) => ({
-  //      ...reserva,
-  //      items: reserva.items.map((item) => ({
-  //        ...item,
-  //        subtotal: (Number(item.total) / 1.16).toFixed(2),
-  //        impuestos: (item.total - Number(item.total) / 1.16).toFixed(2),
-  //      })),
-  //    }));
+  //   .filter((reserva) => reserva.items != null)
+  //   .map((reserva) => ({
+  //     ...reserva,
+  //     items: reserva.items.map((item) => ({
+  //       ...item,
+  //       subtotal: (Number(item.total) / 1.16).toFixed(2),
+  //       impuestos: (item.total - Number(item.total) / 1.16).toFixed(2),
+  //     })),
+  //   }));
   const [reservations, setReservations] = useState(
     reservationsInit
       .filter((reserva) => reserva.items != null)
@@ -357,8 +349,8 @@ const FacturacionModal: React.FC<{
     CfdiType: "I",
     NameId: "1",
     Observations: "",
-    ExpeditionPlace: "11570",
-    //ExpeditionPlace: "42501",
+    // ExpeditionPlace: "11570",
+    ExpeditionPlace: "42501",
     Serie: null,
 
     Folio: Math.round(Math.random() * 999999999),
@@ -387,7 +379,7 @@ const FacturacionModal: React.FC<{
             ...reserva,
             items: items.map((item) => ({
               ...item,
-              subtotal: Number(item.total) / 1.16,
+              subtotal: item.total / 1.16,
             })),
             nightsCount: items.length,
           };
@@ -569,10 +561,11 @@ const FacturacionModal: React.FC<{
                 ProductCode: "90121500",
                 UnitCode: "E48",
                 Unit: "Unidad de servicio",
-                Description: `HOSPEDAJE EN ${reserva.hotel
-                  } - DEL ${formatDate(reserva.check_in)} AL ${formatDate(
-                    reserva.check_out
-                  )} (${itemsSeleccionados.length} NOCHES) - ${reserva.nombre_viajero_completo
+                Description: `HOSPEDAJE EN ${reserva.hotel} - DEL ${formatDate(
+                  reserva.check_in
+                )} AL ${formatDate(
+                  reserva.check_out
+                )} (${selectedNightsCount} NOCHES) - ${reserva.nombre_viajero_completo
                   }`,
                 //IdentificationNumber: `HSP-${reserva.id_servicio}`,
                 UnitPrice: subtotalSelected.toFixed(2),
@@ -681,7 +674,6 @@ const FacturacionModal: React.FC<{
                 UnitCode: "E48",
                 Unit: "Unidad de servicio",
                 Description: `HOSPEDAJE - ${totalNights} NOCHE(S) EN ${reservationsWithSelectedItems.length} RESERVA(S)`,
-                //IdentificationNumber: "HSP",
                 UnitPrice: subtotal.toFixed(2),
                 Subtotal: subtotal.toFixed(2),
                 TaxObject: "02",
@@ -723,7 +715,6 @@ const FacturacionModal: React.FC<{
                     reserva.check_out
                   )} (${itemsSeleccionados.length} NOCHES) - ${reserva.nombre_viajero_completo
                   }`,
-                //IdentificationNumber: `HSP-${reserva.id_servicio}`,
                 UnitPrice: subtotalReserva.toFixed(2),
                 Subtotal: subtotalReserva.toFixed(2),
                 TaxObject: "02",
@@ -777,16 +768,16 @@ const FacturacionModal: React.FC<{
 
   // Calcular total de noches y monto
   const totalNights = reservationsWithSelectedItems.reduce(
-    (sum, reserva) => sum + (reserva.nightsCount || 0),
+    (sum, reserva) => sum + reserva.nightsCount,
     0
   );
   const totalAmount = reservationsWithSelectedItems.reduce(
     (sum, reserva) =>
       sum +
-      (reserva.items?.reduce(
+      reserva.items.reduce(
         (itemSum, item) => itemSum + parseFloat(item.total),
         0
-      ) || 0),
+      ),
     0
   );
 
@@ -946,209 +937,327 @@ const FacturacionModal: React.FC<{
           </div>
 
           <div className="mb-6">
-            <h4 className="text-md font-medium text-gray-900 mb-3">
-              Datos Fiscales
-            </h4>
-
-            {loading ? (
-              <div className="text-center py-4">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-                <p className="mt-2 text-sm text-gray-500">
-                  Cargando datos fiscales...
-                </p>
-              </div>
-            ) : error ? (
-              <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <svg
-                      className="h-5 w-5 text-red-400"
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </div>
-                  <div className="ml-3">
-                    <p className="text-sm text-red-700">{error}</p>
-                  </div>
-                </div>
-              </div>
-            ) : fiscalDataList.length === 0 ? (
-              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <svg
-                      className="h-5 w-5 text-yellow-400"
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </div>
-                  <div className="ml-3">
-                    <p className="text-sm text-yellow-700">
-                      No se encontraron datos fiscales registrados.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {fiscalDataList.map((data) => (
-                  <div
-                    key={data.id_datos_fiscales}
-                    className={`border rounded-md p-4 cursor-pointer ${selectedFiscalData?.id_datos_fiscales ===
-                      data.id_datos_fiscales
-                      ? "border-blue-500 bg-blue-50"
-                      : "border-gray-200"
-                      }`}
-                    onClick={() => setSelectedFiscalData(data)}
-                  >
-                    <div className="flex justify-between">
-                      <h5 className="font-medium text-gray-900">
-                        {data.razon_social_df}
-                      </h5>
-                      <span className="text-sm text-gray-500">
-                        RFC: {data.rfc}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Regimen Fiscal: {data.regimen_fiscal}
-                    </p>
-                    <p className="text-sm text-gray-600 mt-1">
-                      {data.estado}, {data.municipio}, {data.colonia}{" "}
-                      {data.codigo_postal_fiscal}, {data.calle}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Uso de CFDI
-              </label>
-              <select
-                value={selectedCfdiUse}
-                onChange={(e) => setSelectedCfdiUse(e.target.value)}
-                className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              >
-                {cfdiUseOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Forma de Pago
-              </label>
-              <select
-                value={selectedPaymentForm}
-                onChange={(e) => setSelectedPaymentForm(e.target.value)}
-                className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              >
-                {paymentFormOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Metodo de Pago
-              </label>
-              <select
-                value={selectedPaymentMethod}
-                onChange={(e) => setSelectedPaymentMethod(e.target.value)}
-                className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              >
-                {paymentMethodOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="mt-4 p-4 bg-gray-50 rounded-md">
-            <div className="flex justify-between items-center">
-              <div>
-                <span className="text-sm font-medium text-gray-700">
-                  Total a facturar:
-                </span>
-                <p className="text-xs text-gray-500 mt-1">
+            <div className="flex justify-between items-center mb-4">
+              <h4 className="text-md font-medium text-gray-900">
+                Resumen de Items Seleccionados
+              </h4>
+              <div className="flex items-center space-x-4">
+                <span className="text-sm text-gray-600">
                   {totalNights} noche(s) en{" "}
                   {reservationsWithSelectedItems.length} reserva(s)
-                </p>
+                </span>
+                <div className="flex items-center">
+                  <span className="text-sm font-medium text-gray-700 mr-2">
+                    Factura consolidada:
+                  </span>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="sr-only peer"
+                      checked={isConsolidated}
+                      onChange={() => setIsConsolidated(!isConsolidated)}
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
               </div>
-              <span className="text-lg font-bold text-gray-900">
-                {new Intl.NumberFormat("es-MX", {
-                  style: "currency",
-                  currency: "MXN",
-                }).format(totalAmount)}
-              </span>
+            </div>
+
+            <div className="max-h-96 overflow-y-auto border rounded-md mb-6">
+              {reservationsWithSelectedItems.length === 0 ? (
+                <div className="text-center py-4 text-sm text-gray-500">
+                  No hay items seleccionados para facturar
+                </div>
+              ) : (
+                reservationsWithSelectedItems.map((reserva) => (
+                  <div
+                    key={reserva.id_solicitud}
+                    className="border-b last:border-b-0"
+                  >
+                    <div className="bg-gray-50 p-3 sticky top-0 z-10">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <h4 className="font-medium">
+                            {reserva.hotel} - {formatDate(reserva.check_in)} a{" "}
+                            {formatDate(reserva.check_out)}
+                          </h4>
+                          <p className="text-sm text-gray-600">
+                            Código: {reserva.codigo_reservacion_hotel || "N/A"}{" "}
+                            |{reserva.nightsCount} noche(s)
+                          </p>
+                        </div>
+                        <span className="text-sm font-medium">
+                          {new Intl.NumberFormat("es-MX", {
+                            style: "currency",
+                            currency: "MXN",
+                          }).format(
+                            parseFloat(
+                              reserva.items.reduce(
+                                (itemSum, item) =>
+                                  itemSum + parseFloat(item.total),
+                                0
+                              )
+                            )
+                          )}
+                        </span>
+                      </div>
+                    </div>
+
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-100">
+                        <tr>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Fecha
+                          </th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Subtotal
+                          </th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Impuestos
+                          </th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Total
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {reserva.items.map((item) => (
+                          <tr key={item.id_item}>
+                            <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
+                              {formatDate(item.fecha_uso)}
+                            </td>
+                            <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                              {new Intl.NumberFormat("es-MX", {
+                                style: "currency",
+                                currency: "MXN",
+                              }).format(parseFloat(item.subtotal))}
+                            </td>
+                            <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                              {new Intl.NumberFormat("es-MX", {
+                                style: "currency",
+                                currency: "MXN",
+                              }).format(parseFloat(item.impuestos))}
+                            </td>
+                            <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
+                              {new Intl.NumberFormat("es-MX", {
+                                style: "currency",
+                                currency: "MXN",
+                              }).format(parseFloat(item.total))}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="mb-6">
+              <h4 className="text-md font-medium text-gray-900 mb-3">
+                Datos Fiscales
+              </h4>
+
+              {loading ? (
+                <div className="text-center py-4">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                  <p className="mt-2 text-sm text-gray-500">
+                    Cargando datos fiscales...
+                  </p>
+                </div>
+              ) : error ? (
+                <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <svg
+                        className="h-5 w-5 text-red-400"
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm text-red-700">{error}</p>
+                    </div>
+                  </div>
+                </div>
+              ) : fiscalDataList.length === 0 ? (
+                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <svg
+                        className="h-5 w-5 text-yellow-400"
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm text-yellow-700">
+                        No se encontraron datos fiscales registrados.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {fiscalDataList.map((data) => (
+                    <div
+                      key={data.id_datos_fiscales}
+                      className={`border rounded-md p-4 cursor-pointer ${selectedFiscalData?.id_datos_fiscales ===
+                        data.id_datos_fiscales
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-gray-200"
+                        }`}
+                      onClick={() => setSelectedFiscalData(data)}
+                    >
+                      <div className="flex justify-between">
+                        <h5 className="font-medium text-gray-900">
+                          {data.razon_social_df}
+                        </h5>
+                        <span className="text-sm text-gray-500">
+                          RFC: {data.rfc}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 mt-1">
+                        Regimen Fiscal: {data.regimen_fiscal}
+                      </p>
+                      <p className="text-sm text-gray-600 mt-1">
+                        {data.estado}, {data.municipio}, {data.colonia}{" "}
+                        {data.codigo_postal_fiscal}, {data.calle}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Uso de CFDI
+                </label>
+                <select
+                  value={selectedCfdiUse}
+                  onChange={(e) => setSelectedCfdiUse(e.target.value)}
+                  className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                >
+                  {cfdiUseOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Forma de Pago
+                </label>
+                <select
+                  value={selectedPaymentForm}
+                  onChange={(e) => setSelectedPaymentForm(e.target.value)}
+                  className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                >
+                  {paymentFormOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Metodo de Pago
+                </label>
+                <select
+                  value={selectedPaymentMethod}
+                  onChange={(e) => setSelectedPaymentMethod(e.target.value)}
+                  className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                >
+                  {paymentMethodOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="mt-4 p-4 bg-gray-50 rounded-md">
+              <div className="flex justify-between items-center">
+                <div>
+                  <span className="text-sm font-medium text-gray-700">
+                    Total a facturar:
+                  </span>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {totalNights} noche(s) en{" "}
+                    {reservationsWithSelectedItems.length} reserva(s)
+                  </p>
+                </div>
+                <span className="text-lg font-bold text-gray-900">
+                  {new Intl.NumberFormat("es-MX", {
+                    style: "currency",
+                    currency: "MXN",
+                  }).format(totalAmount)}
+                </span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="flex justify-end space-x-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            Cancelar
-          </button>
-          {isInvoiceGenerated ? (
-            <>
-              <a
-                href={`data:application/pdf;base64,${descarga?.Content}`}
-                download="factura.pdf"
-                className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors border border-blue-200"
-              >
-                <Download className="w-4 h-4" />
-                <span className="text-sm">Descargar PDF</span>
-              </a>
-            </>
-          ) : (
+          <div className="flex justify-end space-x-3">
             <button
               type="button"
-              onClick={handleConfirm}
-              disabled={
-                !selectedFiscalData ||
-                loading ||
-                reservationsWithSelectedItems.length === 0
-              }
-              className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${!selectedFiscalData ||
-                loading ||
-                reservationsWithSelectedItems.length === 0
-                ? "bg-blue-400 cursor-not-allowed"
-                : "bg-blue-600 hover:bg-blue-700"
-                } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
+              onClick={onClose}
+              className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
-              {loading
-                ? "Generando factura..."
-                : `Facturar ${isConsolidated ? "Consolidada" : "Detallada"}`}
+              Cancelar
             </button>
-          )}
+            {isInvoiceGenerated ? (
+              <>
+                <a
+                  href={`data:application/pdf;base64,${descarga?.Content}`}
+                  download="factura.pdf"
+                  className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors border border-blue-200"
+                >
+                  <Download className="w-4 h-4" />
+                  <span className="text-sm">Descargar PDF</span>
+                </a>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={handleConfirm}
+                disabled={
+                  !selectedFiscalData ||
+                  loading ||
+                  reservationsWithSelectedItems.length === 0
+                }
+                className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${!selectedFiscalData ||
+                  loading ||
+                  reservationsWithSelectedItems.length === 0
+                  ? "bg-blue-400 cursor-not-allowed"
+                  : "bg-blue-600 hover:bg-blue-700"
+                  } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
+              >
+                {loading
+                  ? "Generando factura..."
+                  : `Facturar ${isConsolidated ? "Consolidada" : "Detallada"}`}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -1377,7 +1486,7 @@ export function ReservationsMain() {
     );
     if (!reservation) return false;
 
-    const itemsFacturables = (reservation.items || [])
+    const itemsFacturables = reservation.items
       .filter((item) => item.id_factura == null)
       .map((item) => item.id_item);
 
@@ -1398,10 +1507,10 @@ export function ReservationsMain() {
         !filterOptions.searchTerm ||
         reservation.hotel.toLowerCase().includes(searchLower) ||
         reservation.codigo_reservacion_hotel
-          ?.toLowerCase()
+          .toLowerCase()
           .includes(searchLower) ||
-        (reservation as any).nombre_agente_completo
-          ?.toLowerCase()
+        reservation.nombre_agente_completo
+          .toLowerCase()
           .includes(searchLower) ||
         reservation?.razon_social?.toLowerCase().includes(searchLower) ||
         reservation?.id_usuario_generador?.toLowerCase().includes(searchLower);
@@ -1478,6 +1587,7 @@ export function ReservationsMain() {
             </div>
           </div>
         )}
+
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <div className="p-6">
             <div className="space-y-4">
@@ -1509,6 +1619,22 @@ export function ReservationsMain() {
                     </svg>
                   </span>
                 </div>
+
+                {/* <select
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    value={filterOptions.statusFilter}
+                    onChange={(e) =>
+                      handleFilterChange({
+                        statusFilter: e.target.value as ReservationStatus,
+                      })
+                    }
+                  >
+                    <option value="all">Todos los estados</option>
+                    <option value="pending">Pendientes</option>
+                    <option value="confirmed">Confirmadas</option>
+                    <option value="completed">Completadas</option>
+                    <option value="cancelled">Canceladas</option>
+                  </select> */}
               </div>
 
               {/* Advanced Filters Toggle */}
@@ -1529,34 +1655,7 @@ export function ReservationsMain() {
                     ▼
                   </span>
                 </button>
-                <div className="flex gap-4">
-                  <button
-                    onClick={() => {
-                      const dataToExport = reservacionesFacturables.map(
-                        (res) => ({
-                          "ID Cliente": res.id_usuario_generador,
-                          Cliente: res.razon_social,
-                          Creado: format(new Date(res.created_at), "dd/MM/yyyy"),
-                          Hotel: res.hotel,
-                          "Código Hotel": res.codigo_reservacion_hotel,
-                          Viajero: res.nombre_viajero_completo,
-                          "Check-in": format(new Date(res.check_in), "dd/MM/yyyy"),
-                          "Check-out": format(new Date(res.check_out), "dd/MM/yyyy"),
-                          Noches: calculateNights(res.check_in, res.check_out),
-                          Habitación: res.room,
-                          "Costo Proveedor": `$${res.costo_total}`,
-                          "Precio de Venta": `$${res.total}`,
-                        })
-                      );
-                      exportToCSV(dataToExport, "Reservaciones_Facturables.csv");
-                    }}
-                    className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2"
-                  >
-                    <FileDown className="w-4 h-4 mr-2" />
-                    Exportar CSV
-                  </button>
-                  <SubirFactura></SubirFactura>
-                </div>
+                <SubirFactura></SubirFactura>
               </div>
 
               {/* Advanced Filters */}
@@ -1676,15 +1775,15 @@ export function ReservationsMain() {
 
           {/* Results Table */}
           {loading ? (
-            <LoaderComponent />
+            <Loader />
           ) : error ? (
             <div className="p-6 bg-red-50 border-t border-red-200">
               <p className="text-red-700">{error}</p>
             </div>
           ) : (
-            <div className="overflow-x-auto relative border border-gray-200 rounded-sm w-full h-fit">
+            <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="sticky z-10 bg-gray-50 top-0">
+                <thead className="bg-gray-50">
                   <tr>
                     <th scope="col" className="relative px-6 py-3">
                       <input
@@ -1699,83 +1798,90 @@ export function ReservationsMain() {
                     </th>
                     <th
                       scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                     >
                       id Cliente
                     </th>
                     <th
                       scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                     >
                       Cliente
                     </th>
                     <th
                       scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                     >
                       Creado
                     </th>
                     <th
                       scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                     >
                       hotel
                     </th>
                     <th
                       scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                     >
                       código hotel
                     </th>
                     <th
                       scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                     >
                       viajero
                     </th>
                     <th
                       scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                     >
                       check in
                     </th>
                     <th
                       scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                     >
                       check out
                     </th>
+
                     <th
                       scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                     >
                       noches
                     </th>
                     <th
                       scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                     >
                       Habitación
                     </th>
                     <th
                       scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                     >
                       costo proveedor
                     </th>
                     <th
                       scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                     >
                       precio de venta
                     </th>
+                    {/* <th
+                      scope="col"
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    >
+                      Estado de pago
+                    </th> */}
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {reservacionesFacturables.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={13}
+                        colSpan={10}
                         className="px-6 py-4 text-center text-sm text-gray-500"
                       >
                         No se encontraron reservaciones con los filtros
@@ -1783,10 +1889,10 @@ export function ReservationsMain() {
                       </td>
                     </tr>
                   ) : (
-                    reservacionesFacturables.map((reservation, index) => (
+                    reservacionesFacturables.map((reservation) => (
                       <React.Fragment key={reservation.id_servicio}>
                         {/* Fila de la reservación */}
-                        <tr className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-gray-100`}>
+                        <tr className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <button
                               onClick={() =>
@@ -1814,9 +1920,9 @@ export function ReservationsMain() {
                                 )
                               }
                               disabled={
-                                !(reservation.items && reservation.items.some(
+                                !reservation.items.some(
                                   (item) => item.id_factura == null
-                                ))
+                                )
                               }
                             />
                           </td>
@@ -1859,6 +1965,7 @@ export function ReservationsMain() {
                               reservation.check_out
                             )}
                           </td>
+
                           <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-700 capitalize">
                             {reservation.room}
                           </td>
@@ -1868,29 +1975,45 @@ export function ReservationsMain() {
                           <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-700 capitalize">
                             ${reservation.total}
                           </td>
+                          {/* <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
+                            {formatCurrency(reservation.total)}
+                            {reservation.pendiente_por_cobrar > 0 && (
+                              <div className="text-xs text-amber-600 mt-1">
+                                Pendiente:{" "}
+                                {formatCurrency(
+                                  reservation.pendiente_por_cobrar.toString()
+                                )}
+                              </div>
+                            )}
+                          </td> */}
+                          {/* <td className="px-6 py-4 whitespace-nowrap">
+                            <StatusBadge
+                              status={getReservationStatus(reservation)}
+                            />
+                          </td> */}
                         </tr>
 
                         {/* Fila expandible con los items */}
                         {expandedReservations.includes(
                           reservation.id_servicio
                         ) && (
-                            <tr className="bg-gray-100">
-                              <td colSpan={13} className="p-0">
-                                <div className="p-4 ml-8">
+                            <tr className="bg-gray-50">
+                              <td colSpan={13} className="px-6 py-4">
+                                <div className="ml-8">
                                   <h4 className="text-xs font-medium text-gray-700 mb-2">
                                     Items (Noches) de la reservación
                                   </h4>
                                   <div className="flex items-center mb-2">
                                     <span className="text-xs text-gray-500">
                                       {
-                                        (reservation.items || []).filter(
+                                        reservation.items.filter(
                                           (item) => item.id_factura == null
                                         ).length
                                       }{" "}
                                       noche(s) pendientes por facturar
                                     </span>
                                   </div>
-                                  <table className="min-w-full divide-y divide-gray-200 border border-gray-200">
+                                  <table className="min-w-full divide-y divide-gray-200">
                                     <thead className="bg-gray-100">
                                       <tr>
                                         <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -1914,11 +2037,11 @@ export function ReservationsMain() {
                                       </tr>
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-200">
-                                      {(reservation.items || []).map((item) => (
+                                      {reservation.items.map((item) => (
                                         <tr
                                           key={item.id_item}
                                           className={`hover:bg-gray-50 ${item.id_factura != null
-                                            ? "bg-gray-100 text-gray-500"
+                                            ? "bg-gray-100"
                                             : ""
                                             }`}
                                         >
@@ -1939,22 +2062,22 @@ export function ReservationsMain() {
                                               disabled={item.id_factura != null}
                                             />
                                           </td>
-                                          <td className="px-4 py-2 whitespace-nowrap text-xs">
-                                            {formatDate(item.fecha_uso)}
+                                          <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-500">
+                                            {item.fecha_uso}
                                           </td>
-                                          <td className="px-4 py-2 whitespace-nowrap text-xs">
+                                          <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-500">
                                             {formatCurrency(
-                                              item.subtotal?.toString() || "0"
+                                              item.subtotal.toString()
                                             )}
                                           </td>
-                                          <td className="px-4 py-2 whitespace-nowrap text-xs">
+                                          <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-500">
                                             {formatCurrency(
-                                              item.impuestos?.toString() || "0"
+                                              item.impuestos.toString()
                                             )}
                                           </td>
-                                          <td className="px-4 py-2 whitespace-nowrap text-xs">
+                                          <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-500">
                                             {formatCurrency(
-                                              item.total?.toString() || "0"
+                                              item.total.toString()
                                             )}
                                           </td>
                                           <td className="px-4 py-2 whitespace-nowrap text-xs">

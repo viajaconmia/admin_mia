@@ -184,7 +184,6 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
     if (valor.length > 2) {
       const filtrados = clientes.filter(cliente => {
         // Verificar que las propiedades existan antes de llamar toLowerCase()
-        console.log("cliente", cliente)
         const nombre = cliente.nombre_agente_completo?.toLowerCase() || '';
         const correo = cliente.correo?.toLowerCase() || '';
         const rfc = cliente.rfc?.toLowerCase() || '';

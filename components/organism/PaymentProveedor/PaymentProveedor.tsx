@@ -58,6 +58,7 @@ export const PaymentModal = ({
     emails,
     cargo,
     document,
+    paymentStatus, // 'pagado' | 'enviado' (string)
   } = state;
 
   if (!reservation) return null;
@@ -68,10 +69,10 @@ export const PaymentModal = ({
 
   const creditCards = Array.isArray(data)
     ? data.map((card) => ({
-        ...card,
-        name: `${card.alias} -**** **** **** ${card.ultimos_4}`,
-        type: card.banco_emisor,
-      }))
+      ...card,
+      name: `${card.alias} -**** **** **** ${card.ultimos_4}`,
+      type: card.banco_emisor,
+    }))
     : [];
 
   const currentSelectedCard = creditCards.find(
@@ -91,7 +92,6 @@ export const PaymentModal = ({
     try {
       //Crea el de credito
       if (paymentType === "credit") {
-        // await generarSolicitud
         console.log({
           date,
           paymentType,
@@ -115,18 +115,20 @@ export const PaymentModal = ({
         }
 
         if (paymentMethod == "link" || paymentMethod == "card") {
-          // fetchCreateSolicitud(
-          //   {
-          //     selectedCard,
-          //     date,
-          //     comments,
-          //     paymentMethod,
-          //     paymentType,
-          //     monto_a_pagar,
-          //     id_hospedaje: reservation.id_hospedaje,
-          //   },
-          //   (response) => {}
-          // );
+          // 👇 Incluimos paymentStatus en el payload
+          fetchCreateSolicitud(
+            {
+              selectedCard,
+              date,
+              comments,
+              paymentMethod,
+              paymentType,
+              monto_a_pagar,
+              id_hospedaje: reservation.id_hospedaje,
+              paymentStatus,
+            },
+            (response) => { }
+          );
           if (paymentMethod == "card") {
             await generateQRPaymentPDF();
           }
@@ -138,6 +140,7 @@ export const PaymentModal = ({
             paymentType,
             monto_a_pagar,
             id_hospedaje: reservation.id_hospedaje,
+            paymentStatus, // <-- opcional también en transferencia
           };
           fetchCreateSolicitud(obj, (response) => {
             alert(response.message);
@@ -146,7 +149,7 @@ export const PaymentModal = ({
       }
 
       dispatch({ type: "SET_FIELD", field: "error", payload: "" });
-    } catch (error) {
+    } catch (error: any) {
       dispatch({
         type: "SET_FIELD",
         field: "error",
@@ -212,14 +215,14 @@ export const PaymentModal = ({
     console.log("Enviando cupón por email:", emails);
   };
 
+
   return (
     <div className="max-w-[85vw] w-screen p-2 pt-0 max-h-[90vh] grid grid-cols-2">
       <div
-        className={`top-0 col-span-2 z-10 p-4 rounded-md border border-red-300 bg-red-50 text-red-700 shadow-md flex items-start gap-3 transform transition-all duration-300 ease-out ${
-          error
+        className={`top-0 col-span-2 z-10 p-4 rounded-md border border-red-300 bg-red-50 text-red-700 shadow-md flex items-start gap-3 transform transition-all duration-300 ease-out ${error
             ? "opacity-100 scale-100 sticky"
             : "opacity-0 scale-10 pointer-events-none absolute"
-        }`}
+          }`}
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -466,6 +469,23 @@ export const PaymentModal = ({
                       item: item,
                     }))}
                     label="Seleccionar tarjeta"
+                  />
+                </div>
+                <div>
+                  <DropdownValues
+                    label="Estatus del pago"
+                    value={paymentStatus || ""}
+                    onChange={(value) =>
+                      dispatch({
+                        type: "SET_FIELD",
+                        field: "paymentStatus",
+                        payload: value.value, // 'pagado' | 'enviado'
+                      })
+                    }
+                    options={[
+                      { value: "pagado", label: "Pagado" },
+                      { value: "enviado", label: "Enviado a pago" },
+                    ]}
                   />
                 </div>
               </div>
