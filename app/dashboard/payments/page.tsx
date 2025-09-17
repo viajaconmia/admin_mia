@@ -788,8 +788,6 @@ const TablaPagosVisualizacion = () => {
       );
     }
 
-    // ... (el resto del código se mantiene igual)
-
   };
 
   // Muestra error si ocurrió

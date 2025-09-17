@@ -70,6 +70,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
       );
 
 
+
       if (sumaPagos + EPS > total) {
         console.log("errores", sumaPagos)
       }
@@ -80,8 +81,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
       } else {
         acc.pendientes.push(s);
       }
-
-    }
+  }
     return acc;
   }, [allSolicitudes]);
 
