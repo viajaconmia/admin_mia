@@ -235,8 +235,8 @@ export const BillingPage: React.FC<BillingPageProps> = ({
     CfdiType: "",
     NameId: "",
     Observations: "",
-    // ExpeditionPlace: "11570",
-    ExpeditionPlace: "42501", //Codigo Postal DE PRUEBA
+    ExpeditionPlace: "11570",
+    // ExpeditionPlace: "42501", //Codigo Postal DE PRUEBA
     Serie: null,
     Folio: 0,
     PaymentForm: "",
