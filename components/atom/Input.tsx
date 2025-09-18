@@ -76,6 +76,30 @@ export const DateInput = ({
     </div>
   </div>
 );
+export const DateTimeInput = ({
+  label,
+  value,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+}) => (
+  <div className="flex flex-col space-y-1">
+    <label className="text-sm text-gray-900 font-medium">{label}</label>
+    <div className="relative">
+      <input
+        type="datetime-local"
+        value={value || ""}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+      />
+    </div>
+  </div>
+);
 
 // Custom text input component
 export const NumberInput = ({
@@ -184,13 +208,13 @@ export const TextAreaInput = ({
   </div>
 );
 // Utilidad para soportar opciones como objetos { name, ... }
-export type ComboBoxOption = {
+export type ComboBoxOption<T> = {
   name: string;
-  content: Hotel | Viajero | FullHotelData;
+  content: T;
 };
 
 // Si quieres que el ComboBox soporte objetos, cambia la definición así:
-export const ComboBox = ({
+export const ComboBox = <T extends any>({
   label,
   value,
   onChange,
@@ -202,9 +226,9 @@ export const ComboBox = ({
 }: {
   label?: string;
   sublabel?: string;
-  value: ComboBoxOption | null;
-  onChange: (value: ComboBoxOption | null) => void;
-  options?: ComboBoxOption[];
+  value: ComboBoxOption<T> | null;
+  onChange: (value: ComboBoxOption<T> | null) => void;
+  options?: ComboBoxOption<T>[];
   placeholderOption?: string;
   disabled?: boolean;
   onDelete?: () => void;
@@ -212,7 +236,7 @@ export const ComboBox = ({
   const [inputValue, setInputValue] = useState(value?.name || "");
   const [isOpen, setIsOpen] = useState(false);
   const [filteredOptions, setFilteredOptions] =
-    useState<ComboBoxOption[]>(options);
+    useState<ComboBoxOption<T>[]>(options);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -240,7 +264,7 @@ export const ComboBox = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleSelect = (option: ComboBoxOption) => {
+  const handleSelect = (option: ComboBoxOption<T>) => {
     setInputValue(option.name);
     onChange(option);
     setIsOpen(false);
@@ -385,12 +409,13 @@ export const InputRadio = <T,>({
   const IconComponent = item.icon;
   return (
     <label
-      className={`flex items-center p-3 rounded-lg border-2 cursor-pointer transition-all duration-200 hover:shadow-md ${disabled === true
-        ? "border-gray-50 bg-gray-50"
-        : selectedItem === item.id
+      className={`flex items-center p-3 rounded-lg border-2 cursor-pointer transition-all duration-200 hover:shadow-md ${
+        disabled === true
+          ? "border-gray-50 bg-gray-50"
+          : selectedItem === item.id
           ? "border-blue-500 bg-blue-50"
           : "border-gray-200 hover:border-gray-300"
-        }`}
+      }`}
     >
       <input
         type="radio"
@@ -402,15 +427,17 @@ export const InputRadio = <T,>({
         className="sr-only"
       />
       <div
-        className={`w-8 h-8 ${item.color || "bg-gray"}${disabled ? "-300" : "-600"
-          } rounded-full flex items-center justify-center mr-3`}
+        className={`w-8 h-8 ${item.color || "bg-gray"}${
+          disabled ? "-300" : "-600"
+        } rounded-full flex items-center justify-center mr-3`}
       >
         <IconComponent className="w-4 h-4 text-white" />
       </div>
       <div className="flex-1">
         <div
-          className={`font-medium ${disabled ? "text-gray-500" : "text-gray-800"
-            }`}
+          className={`font-medium ${
+            disabled ? "text-gray-500" : "text-gray-800"
+          }`}
         >
           {item.label}
         </div>
@@ -459,9 +486,10 @@ export const CheckboxInput = ({
             ${checked ? "bg-green-500" : "bg-gray-300"} 
             /* Estilo de foco para el riel cuando el input interno está enfocado */
             focus-within:ring-2 focus-within:ring-offset-2 
-            ${disabled
-              ? "focus-within:ring-transparent"
-              : "focus-within:ring-green-400 dark:focus-within:ring-green-600"
+            ${
+              disabled
+                ? "focus-within:ring-transparent"
+                : "focus-within:ring-green-400 dark:focus-within:ring-green-600"
             }
           `}
         >
@@ -502,9 +530,10 @@ export const CheckboxInput = ({
             }}
             className={`
               ml-3 text-sm font-medium select-none
-              ${disabled
-                ? "text-gray-400 cursor-not-allowed"
-                : "text-gray-900 dark:text-gray-100 cursor-pointer"
+              ${
+                disabled
+                  ? "text-gray-400 cursor-not-allowed"
+                  : "text-gray-900 dark:text-gray-100 cursor-pointer"
               }
             `}
           >
