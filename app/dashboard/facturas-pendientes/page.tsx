@@ -347,6 +347,7 @@ const TablaPagosVisualizacion = () => {
   const filteredData = useMemo(() => {
     //filtro de prepagos
 
+
     const filteredByFacturado = pagos.filter((pago) => {
       // Pagos NO facturados (is_facturado = 0)
 
@@ -359,6 +360,7 @@ const TablaPagosVisualizacion = () => {
       }
 
       return noFacturado && conSaldoPendiente;
+
     });
 
     console.log("filtered", filteredByFacturado)
@@ -654,14 +656,18 @@ const TablaPagosVisualizacion = () => {
     fecha_creacion: ({ value }: { value: Date | string | null }) => {
       return (
         <div className="whitespace-nowrap text-sm text-gray-600">
+
           {formatDate(value?.toString() || null)}
+
         </div>
       );
     },
     fecha_pago: ({ value }: { value: Date | string | null }) => {
       return (
         <div className="whitespace-nowrap text-sm text-gray-600">
+
           {formatDate(value?.toString() || null)}
+
         </div>
       );
     },
