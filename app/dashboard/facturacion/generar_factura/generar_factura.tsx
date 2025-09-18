@@ -310,7 +310,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       ...prev,
       Receiver: {
         ...prev.Receiver,
-        Name: company.razon_social.trim() || "",
+        Name: company.razon_social_df.trim() || "",
         Rfc: company.rfc || "",
         FiscalRegime: company.regimen_fiscal || "",
         CfdiUse: selectedCfdiUse,
