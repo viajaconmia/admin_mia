@@ -1897,7 +1897,7 @@ export function ReservationsMain() {
                                           Selección
                                         </th>
                                         <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                          Fecha de uso
+                                          Noche
                                         </th>
                                         <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                           Subtotal

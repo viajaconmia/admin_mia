@@ -733,6 +733,7 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
           clienteSeleccionado={clienteSeleccionado}
           archivoPDFUrl={archivoPDFUrl}
           archivoXMLUrl={archivoXMLUrl}
+          saldo={facturaCreada.data.saldo}
         />
       )}
     </>

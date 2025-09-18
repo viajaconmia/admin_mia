@@ -15,7 +15,8 @@ export interface TypeFilters {
   hasDiscount?: string | null;
   is_facturado?: number | null;
   origen_pago?: string | null;
-    link_pago?:string|null ,
+  nombre_cliente?: string | null;
+  link_pago?:string|null ,
   status?: "Confirmada" | "Pendiente" | "Cancelada" | "Todos" | null;
   reservationStage?: "Reservado" | "In house" | "Check-out" | null;
   paymentMethod?:
@@ -35,11 +36,8 @@ export interface TypeFilters {
     | null;
   active?: "Activo" | "Inactivo" | null;
   metodo?:
-    | "Tarjeta"
     | "Credito"
     | "Contado"
-    | "Wallet"
-    | "Tranferencia"
     | null;
   hay_convenio?: "SI" | "NO";
   tipo_negociacion?: string | null;
@@ -70,6 +68,7 @@ export interface TypeFilters {
   markUp?: number;
   id_client?: string | null;
   id_agente?: string | null;
+  id_cliente?: string | null;
   statusPagoProveedor?: null | string;
   markup_start?: null | number;
   markup_end?: null | number;
