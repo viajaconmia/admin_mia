@@ -238,7 +238,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
     ExpeditionPlace: "11570",
     // ExpeditionPlace: "42501", //Codigo Postal DE PRUEBA
     Serie: null,
-    Folio: 0,
+    Folio: Number((Math.random() * 9999999).toFixed(0)),
     PaymentForm: "",
     PaymentMethod: selectedPaymentMethod,
     Exportation: "",
