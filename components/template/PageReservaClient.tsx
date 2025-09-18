@@ -24,6 +24,7 @@ import { Table5 } from "@/components/Table5";
 import { ReservationForm2 } from "@/components/organism/FormReservation2";
 import { ReservationForm } from "@/components/organism/FormReservation";
 import { useResponsiveColumns } from "@/hooks/useResponsiveColumns";
+import { TextTransform } from "@/app/dashboard/facturas-pendientes/page";
 
 type Vista = "reservas" | "pagadas" | "pendientes";
 
@@ -70,10 +71,10 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
       );
 
 
-
       if (sumaPagos + EPS > total) {
         console.log("errores", sumaPagos)
       }
+
 
       // Igual (con tolerancia) o mayor -> pagadas; menor -> pendientes
       if (sumaPagos + EPS >= total) {
@@ -81,7 +82,8 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
       } else {
         acc.pendientes.push(s);
       }
-  }
+
+    }
     return acc;
   }, [allSolicitudes]);
 
@@ -89,7 +91,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
   const solicitudesPorVista: SolicitudConPagos[] = useMemo(() => {
     // Si la vista fuera dinámica, se usaría una variable de estado.
     // Como ahora siempre es "reservas", devolvemos directamente `allSolicitudes`.
-    return allSolicitudes; 
+    return allSolicitudes;
   }, [allSolicitudes]);
 
 
@@ -219,7 +221,8 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
         {value == "Infinity" ? "0%" : `${Number(value).toFixed(2)}%`}
       </span>
     ),
-    codigo_hotel: ({ value }) => <span className="font-semibold">{value}</span>,
+    codigo_hotel: ({ value }: { value: string }) => (<TextTransform value={value} />),
+
     editar: ({ item }) => (
       <button
         onClick={() => handleEdit(item)}
@@ -244,9 +247,9 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
     estado: ({ value }) => <span title={value}>{getStatusBadge(value)}</span>,
     precio_de_venta: ({ value }) => <span title={value}>${Number(value || 0).toFixed(2)}</span>,
     costo_proveedor: ({ value }) => <span title={value}>${Number(value || 0).toFixed(2)}</span>,
-    hotel: ({ value }) => <span className="font-medium " title={value}>{value}</span>,
-    viajero: ({ value }) => <span title={value}>{value}</span>,
-    tipo_cuarto: ({ value }) => <span title={value}>{value}</span>,
+    hotel: ({ value }: { value: string }) => (<TextTransform value={value} />),
+    viajero: ({ value }: { value: string }) => (<TextTransform value={value} />),
+    tipo_cuarto: ({ value }: { value: string }) => (<TextTransform value={value} />),
     check_in: ({ value }) => <span title={value}>{formatDate(value)}</span>,
     check_out: ({ value }) => <span title={value}>{formatDate(value)}</span>,
     creado: ({ value }) => <span title={value}>{formatDate(value)}</span>,
@@ -267,6 +270,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
     });
   };
 
+
   useEffect(() => {
     handleFetchSolicitudes();
   }, [filters]);
@@ -276,8 +280,9 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
   }, []);
 
   const labelVista = "Reservas"; // Hardcodeado para mantener el texto
+  console.log("inroivnoribv", solicitudesFiltradas)
 
-
+  console.log("cambios", selectedItem)
   return (
     <div className="h-fit">
       <h1 className="text-3xl font-bold tracking-tight text-sky-950 my-4">Reservas</h1>
@@ -300,6 +305,27 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
               renderers={renderers}
               defaultSort={defaultSort}
               leyenda={`${labelVista}: Has filtrado ${formatedSolicitudes.length} reservas`}
+              customColumns={[
+                'id_cliente',
+                'cliente',
+                'creado',
+                'hotel',
+                'codigo_hotel',
+                'viajero',
+                'check_in',
+                'check_out',
+                'noches',
+                'tipo_cuarto',
+                'costo_proveedor',
+                'markup',
+                'precio_de_venta',
+                'metodo_de_pago',
+                'reservante',
+                'etapa_reservacion',
+                'estado',
+                'detalles_cliente',
+              ]}
+
             >
               {id_agente && (
                 <button

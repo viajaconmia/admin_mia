@@ -219,6 +219,9 @@ export const exportToCSV = (data, filename = "archivo.csv") => {
           if (field === "cliente" && val && typeof val === "object" && val.nombre_agente_completo) {
             val = val.nombre_agente_completo;
           }
+          if (field === "is_facturado" && val && typeof val === "object" && val.is_facturado) {
+            val = val.is_facturado;
+          }
 
           return `"${(val ?? "").toString().replace(/"/g, '""')}"`;
         })

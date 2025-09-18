@@ -18,6 +18,7 @@ import { formatNumberWithCommas } from "@/helpers/utils";
 import Filters from "@/components/Filters";
 import { TypeFilters } from "@/types";
 import { table } from 'console';
+import { formatDate, TextTransform } from "@/app/dashboard/facturas-pendientes/page";
 
 export interface Pago {
   id_movimiento: number;
@@ -98,19 +99,21 @@ const TablaPagosVisualizacion = () => {
   const [showFacturasModal, setShowFacturasModal] = useState(false);
   const [facturasAsociadas, setFacturasAsociadas] = useState<string[]>([]);
   const [filters, setFilters] = useState<TypeFilters>({
-    id_movimiento: 0,
+    id_movimiento: null,
     raw_id: "",
     fecha_pago: "",
-    id_agente: "",
-    nombre_agente: "",
+    id_cliente: "",
+    nombre_agente: "",     // ← antes tenías nombre_cliente
     metodo: "",
     fecha_creacion: "",
     banco: "",
-    last_digits: "",
-    is_facturado: 0,
     link_pago: "",
     origen_pago: "",
+    estatusFactura: null,
+    id_agente: "",
+    tipo_pago: undefined,
   });
+
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [seleccionados, setSeleccionados] = useState<Seleccion[]>([]);
@@ -125,39 +128,47 @@ const TablaPagosVisualizacion = () => {
     key: "creado",
     sort: false, // false para descendente por defecto
   });
+
   const handleFilter = (newFilters: TypeFilters) => {
     const completeFilters: TypeFilters = {
       id_movimiento:
         typeof newFilters.id_movimiento === "string"
-          ? parseInt(newFilters.id_movimiento) || 0
-          : newFilters.id_movimiento || 0,
+          ? parseInt(newFilters.id_movimiento as any) || null
+          : newFilters.id_movimiento ?? null,
 
-      raw_id: newFilters.raw_id || "",
-      fecha_pago: newFilters.fecha_pago || "",
-      id_agente: newFilters.id_agente || "",
-      nombre_agente: newFilters.nombre_agente || "",
-      metodo: newFilters.metodo || "",
-      fecha_creacion: newFilters.fecha_creacion || "",
-      banco: newFilters.banco || "",
-      last_digits: newFilters.last_digits || "",
+      raw_id: newFilters.raw_id ?? "",
+      fecha_pago: newFilters.fecha_pago ?? "",
+      id_cliente: newFilters.id_cliente ?? "",
+      nombre_agente: newFilters.nombre_agente ?? "",
+      metodo: newFilters.metodo ?? "",
+      fecha_creacion: newFilters.fecha_creacion ?? "",
+      banco: newFilters.banco ?? "",
+      last_digits: newFilters.last_digits ?? "",
 
       is_facturado:
         typeof newFilters.is_facturado === "string"
           ? newFilters.is_facturado === "SI"
             ? 1
-            : 0
+            : newFilters.is_facturado === "NO"
+              ? 0
+              : null
           : typeof newFilters.is_facturado === "boolean"
-            ? newFilters.is_facturado
-              ? 1
-              : 0
-            : newFilters.is_facturado || 0,
+            ? newFilters.is_facturado ? 1 : 0
+            : (newFilters.is_facturado ?? null),
 
-      link_pago: newFilters.link_pago || "",
-      origen_pago: newFilters.origen_pago || "",
+      link_pago: newFilters.link_pago ?? "",
+      origen_pago: newFilters.origen_pago ?? "",
+
+      estatusFactura: newFilters.estatusFactura ?? null,
+      startDate: newFilters.startDate ?? "",
+      endDate: newFilters.endDate ?? "",
+      id_agente: newFilters.id_agente ?? "",
+      tipo_pago: newFilters.tipo_pago ?? undefined,
     };
 
     setFilters(completeFilters);
   };
+
   const handleVerFacturas = (facturasStr: string) => {
     if (facturasStr) {
       const facturasArray = facturasStr.split(',').map(f => f.trim());
@@ -259,22 +270,6 @@ const TablaPagosVisualizacion = () => {
   }, []);
 
 
-  const formatDate = (dateString: string | null): string => {
-    if (!dateString || dateString === "0000-00-00") return 'N/A';
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('es-MX', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-      });
-    } catch (e) {
-      console.error("Error formatting date:", e);
-      return dateString as string;
-    }
-  };
-
-
   const isValidDate = (date: any): boolean => {
     return date instanceof Date && !isNaN(date.getTime());
   };
@@ -338,12 +333,32 @@ const TablaPagosVisualizacion = () => {
         }
       }
 
+      // Inside the filteredData useMemo, within the .filter() method:
+
+      // Check for a specific invoice ID filter
+      if (filters.id_factura && pago.facturas_asociadas) {
+        const facturas = pago.facturas_asociadas.split(',').map(f => f.trim());
+        const normalizedFilter = filters.id_factura.toLowerCase();
+
+        if (!facturas.some(f => f.toLowerCase() === normalizedFilter)) {
+          return false;
+        }
+      }
 
       // Filtro por raw_id
       if (filters.raw_id && pago.raw_id) {
         const normalizedFilter = filters.raw_id.toLowerCase();
         const normalizedId = pago.raw_id.toLowerCase();
         if (!normalizedId.includes(normalizedFilter)) {
+          return false;
+        }
+      }
+
+      // Inside the filteredData useMemo, within the .filter() method:
+
+      // Check for the payment type filter
+      if (filters.tipo_pago && pago.tipo_pago) {
+        if (pago.tipo_pago.toLowerCase() !== filters.tipo_pago.toLowerCase()) {
           return false;
         }
       }
@@ -367,12 +382,11 @@ const TablaPagosVisualizacion = () => {
 
       // Filtro por nombre de agente
       if (filters.nombre_agente && pago.nombre_agente) {
-        const normalizedFilter = filters.nombre_agente.toLowerCase();
-        const normalizedName = pago.nombre_agente.toLowerCase();
-        if (!normalizedName.includes(normalizedFilter)) {
-          return false;
-        }
+        const f = filters.nombre_agente.toLowerCase();
+        const n = pago.nombre_agente.toLowerCase();
+        if (!n.includes(f)) return false;
       }
+
 
       // Filtro por método de pago
       if (filters.metodo && pago.metodo) {
@@ -435,6 +449,28 @@ const TablaPagosVisualizacion = () => {
         }
       }
 
+      // Inside the filteredData useMemo, within the .filter() method:
+
+      // Check if a filter for invoice status exists
+      if (filters.estatusFactura) {
+        const isFacturado = Number(pago.is_facturado) || 0;
+        const saldoPorFacturar = Number(pago.monto_por_facturar) || 0;
+        const monto = Number(pago.monto) || 0;
+
+        let status = 'Sin Asignar';
+        if (isFacturado === 1 || saldoPorFacturar <= 0) {
+          status = 'Confirmada';
+        } else if (saldoPorFacturar === monto) {
+          status = 'Sin Asignar';
+        } else {
+          status = 'En proceso';
+        }
+
+        if (status !== filters.estatusFactura) {
+          return false;
+        }
+      }
+
       if (filters.endDate && pago.fecha_creacion) {
         const createdDate = new Date(pago.fecha_creacion);
         const endDate = new Date(filters.endDate);
@@ -476,8 +512,8 @@ const TablaPagosVisualizacion = () => {
       id_movimiento: pago.id_movimiento,
       tipo_pago: pago.tipo_pago ?? "",
       id_pago: pago.raw_id,
-      id_agente: pago.ig_agente,
-      nombre_cliente: pago.nombre_agente ?? "",
+      id_cliente: pago.ig_agente,
+      nombre: pago.nombre_agente ?? "",   // ← aquí
       fecha_creacion: pago.fecha_creacion,
       fecha_pago: pago.fecha_pago,
       monto: Number(pago.monto) || 0,
@@ -492,10 +528,11 @@ const TablaPagosVisualizacion = () => {
       last_digits: pago.last_digits ?? "N/A",
       banco: pago.banco ?? "N/A",
       origen_pago: pago.origen_pago ?? "",
-      is_facturado: pago,
+      is_facturado: pago,        // lo usas para pintar badge
       acciones: { row: pago },
       item: pago,
     }));
+
 
     // Sort the data
     return transformedData.sort((a, b) => {
@@ -549,32 +586,21 @@ const TablaPagosVisualizacion = () => {
         {value}
       </span>
     ),
-    id_pago: ({ value }: { value: string }) => (
+
+    raw_id: ({ value }: { value: string }) => (
       <span className="font-mono bg-gray-100 px-2 py-1 rounded text-sm">
         {formatIdItem(value) || ''}
       </span>
     ),
-    id_agente: ({ value }: { value: string }) => (
+
+    id_cliente: ({ value }: { value: string }) => (
       <span className="font-mono text-gray-700">
         {formatIdItem(value) || ''}
       </span>
     ),
     referencia: ({ value }: { value: string }) => (
-      <span className="font-medium">
-        {value || ''}
-      </span>
+      <TextTransform value={value} />
     ),
-
-    nombre_cliente: ({ value }: { value: string }) => (
-  <span className="font-medium text-gray-800">
-    {value
-      ? value
-          .normalize("NFD")               // descompone caracteres con tildes
-          .replace(/[\u0300-\u036f]/g, "") // elimina acentos
-          .toUpperCase()                   // convierte a mayúsculas
-      : ""}
-  </span>
-),
 
     // Amounts and numeric values
     monto: ({ value }: { value: number }) => (
@@ -590,40 +616,35 @@ const TablaPagosVisualizacion = () => {
 
     // Dates
     fecha_creacion: ({ value }: { value: Date | string | null }) => {
-      if (!value) return <div className="text-gray-400 italic"></div>;
-      const date = new Date(value);
-      if (!isValidDate(date)) return <div className="text-gray-400 italic"></div>;
       return (
         <div className="whitespace-nowrap text-sm text-gray-600">
-          {format(date, "dd/MM/yy")}
+          {formatDate(value?.toString() || null)}
         </div>
       );
     },
-
     fecha_pago: ({ value }: { value: Date | string | null }) => {
-      if (!value) return <div className="text-gray-400 italic"></div>;
       return (
         <div className="whitespace-nowrap text-sm text-gray-600">
-          {format(new Date(value), "dd/MM/yy")}
+          {formatDate(value?.toString() || null)}
         </div>
       );
     },
+    // `nombre_agente`
 
-    // Texts and concepts
-    nombre_agente: ({ value }: { value: string }) => (
-      <span className="font-medium text-gray-800">
-        {value || ''}
-      </span>
+    nombre_cliente: ({ value }: { value: string }) => (
+      <TextTransform value={value} />
     ),
+
+    // `concepto`
+
     concepto: ({ value }: { value: string }) => (
-      <span className="font-medium text-gray-800">
-        {value || ''}
-      </span>
+      <TextTransform value={value} />
     ),
+
+    // `origen_pago`
+
     origen_pago: ({ value }: { value: string }) => (
-      <span className="font-medium">
-        {value || ''}
-      </span>
+      <TextTransform value={value} />
     ),
 
     // Payment methods
@@ -633,32 +654,17 @@ const TablaPagosVisualizacion = () => {
       </span>
     ),
     tipo: ({ value }: { value: string }) => (
-      <span className="capitalize">
-        {value || ''}
-      </span>
+      <TextTransform value={value} />
+
     ),
     tipo_pago: ({ value }: { value: string }) => (
-      <span className="capitalize">
-        {value || ''}
-      </span>
-    ),
+      <TextTransform value={value} />
 
-        currency:({ value }: { value: string }) => (
-  <span className="font-medium text-gray-800">
-    {value
-      ? value
-          .normalize("NFD")               // descompone caracteres con tildes
-          .replace(/[\u0300-\u036f]/g, "") // elimina acentos
-          .toUpperCase()                   // convierte a mayúsculas
-      : ""}
-  </span>
-),
+    ),
 
     // Bank information
     banco: ({ value }: { value: string }) => (
-      <span className="font-medium">
-        {value || ''}
-      </span>
+      <TextTransform value={value || ''} />
     ),
     last_digits: ({ value }: { value: string | number }) => (
       <span className="font-mono bg-gray-100 px-2 py-1 rounded text-sm">
@@ -719,7 +725,6 @@ const TablaPagosVisualizacion = () => {
         <span className="text-gray-400"></span>
       )
     ),
-
     // Actions funcionalidad de botones
     // ... (código anterior se mantiene igual)
 
@@ -891,7 +896,7 @@ const TablaPagosVisualizacion = () => {
           <Table4
             registros={filteredData}
             renderers={renderers}
-            customColumns={['nombre_agente', 'fecha_pago', 'monto', 'monto_por_facturar', 'acciones', 'is_facturado', 'tipo']}
+            customColumns={['id_movimiento', 'id_cliente', 'nombre', 'fecha_pago', 'monto', 'subtotal', 'iva', 'monto_por_facturar', 'acciones', 'is_facturado', 'metodo']}
 
           />
         )}

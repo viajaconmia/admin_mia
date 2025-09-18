@@ -31,6 +31,7 @@ import { SaldoFavor, NuevoSaldoAFavor, Saldo } from "@/services/SaldoAFavor";
 import { fetchAgenteById, fetchPagosByAgente } from "@/services/agentes";
 import { Loader } from "@/components/atom/Loader";
 import { API_KEY, URL } from "@/lib/constants/index";
+import { formatDate } from "@/app/dashboard/facturas-pendientes/page";
 import { PagarModalComponent } from "./pagar_saldo";
 
 
@@ -509,7 +510,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     fetchSaldoFavor();
   }, []);
 
-  console.log("slados",saldos)
+  console.log("slados", saldos)
 
   const filteredData = useMemo(() => {
     // Filter the data
@@ -633,7 +634,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       comentario: saldo.notas || saldo.comentario || null,
       facturable: saldo.is_facturable ? "Si" : "No",
       comprobante: saldo.comprobante || null,
-      concepto:saldo.concepto||null,
+      concepto: saldo.concepto || null,
       acciones: { row: saldo },
       item: saldo,
     }));
@@ -670,12 +671,12 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   }, [saldos, filters, searchTerm, sortConfig.key, sortConfig.sort]);
 
   const tableRenderers = {
-    fecha_De_Pago: ({ value }: { value: Date | null }) => {
+    fecha_De_Pago: ({ value }: { value: string | null }) => {
       if (!value) return <div className="text-gray-400 italic">Sin fecha</div>;
 
       return (
         <div className="whitespace-nowrap text-sm text-blue-900">
-          {format(new Date(value), "dd 'de' MMMM yyyy", { locale: es })}
+          {formatDate(value)}
         </div>
       );
     },
@@ -954,7 +955,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       );
     },
 
-concepto  : ({ value, item }: { value: string | null; item: any }) => {
+    concepto: ({ value, item }: { value: string | null; item: any }) => {
       const isActive = item?.activo !== false;
       return (
         <div
