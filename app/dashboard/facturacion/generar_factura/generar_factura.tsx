@@ -235,8 +235,8 @@ export const BillingPage: React.FC<BillingPageProps> = ({
     CfdiType: "",
     NameId: "",
     Observations: "",
-    ExpeditionPlace: "11570",
-    // ExpeditionPlace: "42501", //Codigo Postal DE PRUEBA
+    // ExpeditionPlace: "11570",
+    ExpeditionPlace: "42501", //Codigo Postal DE PRUEBA
     Serie: null,
     Folio: 0,
     PaymentForm: "",
@@ -245,9 +245,9 @@ export const BillingPage: React.FC<BillingPageProps> = ({
     Items: [
       {
         Quantity: "1",
-        ProductCode: "SERV",
+        ProductCode: "90121500",
         UnitCode: "E48",
-        Unit: "Servicio",
+        Unit: "Unidad de servicio",
         Description: "Servicio de administración y Gestión de Reservas",
         // IdentificationNumber: "",
         UnitPrice: (saldoMonto / 1.16).toFixed(2),
@@ -485,7 +485,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
           PaymentMethod: selectedPaymentMethod,
           Currency: "MXN",
           Date: formattedDateTime,
-          OrderNumber: Math.floor(Math.random() * 1_000_000),
+          OrderNumber: Math.floor(Math.random() * 1000000),
           Items: [
             {
               ...cfdi.Items[0],
