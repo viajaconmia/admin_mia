@@ -236,6 +236,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
     NameId: "",
     Observations: "",
     ExpeditionPlace: "11570",
+    // ExpeditionPlace: "42501", //Codigo Postal DE PRUEBA
     Serie: null,
     Folio: 0,
     PaymentForm: "",
@@ -247,7 +248,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
         ProductCode: "SERV",
         UnitCode: "E48",
         Unit: "Servicio",
-        Description: "Pago de servicio",
+        Description: "Servicio de administración y Gestión de Reservas",
         // IdentificationNumber: "",
         UnitPrice: (saldoMonto / 1.16).toFixed(2),
         Subtotal: (saldoMonto / 1.16).toFixed(2), // Subtotal inicial
