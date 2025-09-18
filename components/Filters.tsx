@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Filter, Search, X } from "lucide-react";
 import {
   DateInput,
@@ -102,6 +102,10 @@ const FiltersModal: React.FC<{
     onFilter(updatedFilters);
   };
 
+  useEffect(() => {
+    if (defaultFilter) setFilters(defaultFilter);
+  }, [defaultFilter]);
+
   return (
     <>
       <div>
@@ -181,7 +185,7 @@ const FiltersModal: React.FC<{
 
               {"id_agente" in filters && (
                 <TextInput
-                  label="ID Agente"
+                  label="ID CLIENTE"
                   value={filters.id_agente}
                   onChange={(value) =>
                     setFilters((prev) => ({ ...prev, id_agente: value }))
@@ -191,7 +195,7 @@ const FiltersModal: React.FC<{
 
               {"nombre_agente" in filters && (
                 <TextInput
-                  label="Nombre Agente"
+                  label="Nombre Cliente"
                   value={filters.nombre_agente}
                   onChange={(value) =>
                     setFilters((prev) => ({ ...prev, nombre_agente: value }))
@@ -563,21 +567,16 @@ const FiltersModal: React.FC<{
                     setFilters((prev) => ({
                       ...prev,
                       paymentMethod: value as
-                        | "Tarjeta"
+
                         | "Credito"
                         | "Contado"
-                        | "Wallet"
-                        | "Tranferencia"
                         | ""
                     }))
                   }
                   options={[
-                    "Tarjeta",
-                    "Transferencia",
-                    "Wallet",
                     "Credito",
                     "Contado",
-                    "",
+
                   ]}
                 />
               )}

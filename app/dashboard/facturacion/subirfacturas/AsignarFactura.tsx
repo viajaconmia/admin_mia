@@ -31,6 +31,7 @@ interface AsignarFacturaProps {
     monto: number;
     [key: string]: any;
   };
+  saldo: number;
 }
 
 interface ReservaConItems {
@@ -71,10 +72,13 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
   id_factura,
   empresaSeleccionada,
   clienteSeleccionado,
-  pagoData
+  pagoData,
+  saldo
 }) => {
+
+  console.log("facturaData", facturaData)
   const [montoSeleccionado, setMontoSeleccionado] = useState<number>(0);
-  const [montorestante, setMontoRestante] = useState<number>(0);
+  const [montorestante, setMontoRestante] = useState<number>(facturaData.saldo);
   const [reservas, setReservas] = useState<ReservaConItems[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -368,7 +372,7 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
             </div>
             <div>
               <p className="text-sm text-gray-600">Monto Restante:</p>
-              <p className="text-lg text-green-600 font-semibold">${montorestante.toFixed(2)}</p>
+              <p className="text-lg text-green-600 font-semibold">${montorestante || facturaData.saldo}</p>
             </div>
             <div>
               <p className="text-sm text-gray-600">Seleccionado:</p>
@@ -424,7 +428,7 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
               onCloseVistaPrevia?.();
             }}
             className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50"
-            disabled={montoSeleccionado !== maxMontoPermitido}
+            disabled={montoSeleccionado >= maxMontoPermitido}
           >
             Confirmar Asignación
           </button>

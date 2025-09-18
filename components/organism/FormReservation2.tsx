@@ -34,6 +34,36 @@ interface ReservationFormProps {
   edicion?: boolean;
 }
 
+// Función para calcular las fechas entre check_in y check_out
+const calculateFechas = (check_in: string, check_out: string): string[] => {
+  const fechaInicio = new Date(check_in);
+  const fechaFin = new Date(check_out);
+
+  if (fechaInicio > fechaFin) {
+    console.error("Error: check_in no puede ser después de check_out");
+    return [];
+  }
+
+  if (isNaN(fechaInicio.getTime()) || isNaN(fechaFin.getTime())) {
+    console.error("Error: fechas no válidas");
+    return [];
+  }
+
+  const fechasArray: string[] = [];
+  const fechaActual = new Date(fechaInicio);
+
+  while (fechaActual <= fechaFin) {
+    const dia = fechaActual.getDate().toString().padStart(2, '0');
+    const mes = (fechaActual.getMonth() + 1).toString().padStart(2, '0');
+    const año = fechaActual.getFullYear();
+
+    fechasArray.push(`${dia}-${mes}-${año}`);
+    fechaActual.setDate(fechaActual.getDate() + 1);
+  }
+
+  return fechasArray;
+};
+
 export function ReservationForm2({
   solicitud,
   hotels,
@@ -56,6 +86,7 @@ export function ReservationForm2({
     boolean | null
   >(solicitud.nuevo_incluye_desayuno || null);
   const [acompanantes, setAcompanantes] = useState<Viajero[]>([]);
+  const [fechasItems, setFechasItems] = useState<string[]>([]);
   const [cobrar, setCobrar] = useState<boolean | null>(null);
   const [form, setForm] = useState<ReservaForm>({
     hotel: {
@@ -87,14 +118,14 @@ export function ReservationForm2({
         solicitud.costo_total != null
           ? Number(solicitud.costo_total)
           : // ② Si no, cae al cálculo automático de antes
+          Number(
             Number(
-              Number(
-                currentHotel?.tipos_cuartos.find(
-                  (item) =>
-                    item.nombre_tipo_cuarto == updateRoom(solicitud.tipo_cuarto)
-                )?.costo ?? 0
-              ) * currentNoches
-            ) || 0,
+              currentHotel?.tipos_cuartos.find(
+                (item) =>
+                  item.nombre_tipo_cuarto == updateRoom(solicitud.tipo_cuarto)
+              )?.costo ?? 0
+            ) * currentNoches
+          ) || 0,
       subtotal: 0,
       impuestos: 0,
     },
@@ -152,6 +183,24 @@ export function ReservationForm2({
   useEffect(() => {
     console.log("Edicion FORM", edicionForm.venta?.current, solicitud.total);
   }, [form]);
+
+
+  console.log("solicitud", solicitud);
+  console.log("Formulario", form);
+
+  useEffect(() => {
+    if (form.check_in && form.check_out) {
+      const fechasCalculadas = calculateFechas(form.check_in, form.check_out);
+      setFechasItems(fechasCalculadas);
+
+      // También puedes loggear las fechas para debug
+      console.log("Fechas calculadas:", fechasCalculadas);
+      console.log("Check-in:", form.check_in, "Check-out:", form.check_out);
+    } else {
+      setFechasItems([]);
+    }
+  }, [form.check_in, form.check_out]);
+
 
   useEffect(() => {
     try {
@@ -257,18 +306,19 @@ export function ReservationForm2({
       form.check_out &&
       form.habitacion
     ) {
-      console.log("ESTOY HACIENDO CAMBIOS");
+      console.log("ESTOY HACIENDO CAMBIOS", solicitud.items_de_la_reserva);
 
       // Calcular el total automático si no es modo manual
       const autoTotal = isCostoManual
         ? form.proveedor.total
         : Number(
-            form.hotel.content.tipos_cuartos.find(
-              (item) => item.nombre_tipo_cuarto == form.habitacion
-            )?.costo ?? 0
-          ) * nights;
+          form.hotel.content.tipos_cuartos.find(
+            (item) => item.nombre_tipo_cuarto == form.habitacion
+          )?.costo ?? 0
+        ) * nights;
 
       const items = calculateItems(autoTotal);
+
 
       // Actualizar estado
       setForm((prev) => ({
@@ -296,6 +346,9 @@ export function ReservationForm2({
         },
         items: autoTotal > 0 ? items : [],
         noches: Number(nights),
+        items_fechas: {
+          fechasItems
+        }
       }));
 
       // Lógica para edición
@@ -348,6 +401,8 @@ export function ReservationForm2({
             before: form.noches,
             current: Number(nights),
           },
+          fechasItems
+
         }));
       }
     }
@@ -613,14 +668,14 @@ export function ReservationForm2({
                     onChange={(value) => {
                       console.log("Viajero adicional:", value);
                     }}
-                    // onChange={(value) => {
-                    //   setForm((prev) => ({
-                    //     ...prev,
-                    //     viajeros_adicionales: prev.viajeros_adicionales.map((v, i) =>
-                    //       i === index ? { ...v, nombre: value } : v
-                    //     ),
-                    //   }));
-                    // }}
+                  // onChange={(value) => {
+                  //   setForm((prev) => ({
+                  //     ...prev,
+                  //     viajeros_adicionales: prev.viajeros_adicionales.map((v, i) =>
+                  //       i === index ? { ...v, nombre: value } : v
+                  //     ),
+                  //   }));
+                  // }}
                   />
                 </div>
               ))}
@@ -982,19 +1037,18 @@ export function ReservationForm2({
           <>
             {Number(edicionForm.venta.current.total) !=
               Number(solicitud.total) && (
-              <p
-                className={`text-xs font-normal p-2 ${
-                  Number(edicionForm.venta?.current.total) <
-                  Number(solicitud.total)
+                <p
+                  className={`text-xs font-normal p-2 ${Number(edicionForm.venta?.current.total) <
+                    Number(solicitud.total)
                     ? "bg-red-300 text-red-800"
                     : "bg-green-200 text-green-950"
-                } rounded-full border `}
-              >
-                {`Precio recomendado: $${edicionForm.venta.current.total.toFixed(
-                  2
-                )}`}
-              </p>
-            )}
+                    } rounded-full border `}
+                >
+                  {`Precio recomendado: $${edicionForm.venta.current.total.toFixed(
+                    2
+                  )}`}
+                </p>
+              )}
           </>
         )}
         <Button
