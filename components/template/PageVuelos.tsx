@@ -5,7 +5,6 @@ import {
   ComboBoxOption,
   DateTimeInput,
   Dropdown,
-  DropdownValues,
   NumberInput,
   TextAreaInput,
   TextInput,
@@ -13,6 +12,7 @@ import {
 import { ViajeroService, ViajerosService } from "@/services/ViajerosService";
 import { useNotification } from "@/context/useNotificacion";
 import { CheckCircle, Plus, Trash2 } from "lucide-react";
+import { MostrarSaldos } from "./MostrarSaldos";
 
 export const PageVuelos = ({ agente }: { agente: Agente }) => {
   const { showNotification } = useNotification();
@@ -44,109 +44,58 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
     ViajerosService.getInstance()
       .obtenerViajerosPorAgente(agente.id_agente)
       .then((res) => {
-        console.log(res.data);
         setViajeros(res.data || []);
       })
       .catch((error) =>
         showNotification("error", error.message || "Error al obtener viajeros")
       );
   }, []);
+
   return (
-    <div className="w-full h-fit p-2 space-y-4 relative">
-      <div className="w-full grid grid-cols-2 gap-4 p-2">
-        <ComboBox
-          value={
-            details.viajero
-              ? {
-                  name: details.viajero.nombre_completo,
-                  content: details.viajero,
-                }
-              : null
-          }
-          label="Viajero"
-          onChange={(value: ComboBoxOption<ViajeroService>) => {
-            setDetails((prev) => ({ ...prev, viajero: value.content }));
-          }}
-          options={viajeros.map((viajero) => ({
-            name: viajero.nombre_completo,
-            content: viajero,
-          }))}
-        />
-        <TextInput
-          value={details.codigo}
-          label="Código de reservación"
-          placeholder="HJK1243..."
-          onChange={(value: string) => {
-            setDetails((prev) => ({ ...prev, codigo: value }));
-          }}
-        />
-      </div>
-      <div className="space-y-4 mx-4">
-        {state.map((item, index) => {
-          let vuelo: Vuelo = Array.isArray(item) ? item[0] : item;
-          return (
-            <div
-              key={`${index}-vuelos`}
-              className="w-full h-fit bg-blue-50 p-2 rounded-md shadow-md flex flex-col gap-2"
-            >
-              <h1 className="w-full border-b text-gray-800 p-2 text-lg font-semibold">
-                Vuelo {index + 1}
-              </h1>
-              <div className="grid md:grid-cols-2 gap-4">
-                <Dropdown
-                  label="Tipo"
-                  value={vuelo.tipo}
-                  onChange={(value: string) => {
-                    handleUpdateVuelo(index, value, "tipo");
-                  }}
-                  options={["ida", "vuelta", "ida escala", "vuelta escala"]}
-                />
-                <TextInput
-                  value={vuelo.folio}
-                  onChange={(value: string) => {
-                    handleUpdateVuelo(index, value, "folio");
-                  }}
-                  label="Numero de vuelo"
-                />
-              </div>
-              <div className="grid  md:grid-cols-2 gap-4">
-                <Dropdown
-                  label="Origen"
-                  value={vuelo.tipo}
-                  onChange={(value: string) => {
-                    handleUpdateVuelo(index, value, "tipo");
-                  }}
-                  options={["ida", "vuelta", "ida escala", "vuelta escala"]}
-                />
-                <Dropdown
-                  label="Destino"
-                  value={vuelo.tipo}
-                  onChange={(value: string) => {
-                    handleUpdateVuelo(index, value, "tipo");
-                  }}
-                  options={["ida", "vuelta", "ida escala", "vuelta escala"]}
-                />
-              </div>
-              <div className="grid md:grid-cols-2 gap-4">
-                <DateTimeInput
-                  label="Fecha de salida"
-                  value={vuelo.check_in}
-                  onChange={(value: string) => {
-                    handleUpdateVuelo(index, value, "check_in");
-                  }}
-                />
-                <DateTimeInput
-                  label="Fecha de llegada"
-                  value={vuelo.check_out}
-                  onChange={(value: string) => {
-                    handleUpdateVuelo(index, value, "check_out");
-                  }}
-                />
-              </div>
-              <div className="grid md:grid-cols-2 gap-4">
+    <>
+      <div className="w-full h-fit p-2 space-y-4 relative">
+        <div className="w-full grid grid-cols-2 gap-4 p-2">
+          <ComboBox
+            value={
+              details.viajero
+                ? {
+                    name: details.viajero.nombre_completo,
+                    content: details.viajero,
+                  }
+                : null
+            }
+            label="Viajero"
+            onChange={(value: ComboBoxOption<ViajeroService>) => {
+              setDetails((prev) => ({ ...prev, viajero: value.content }));
+            }}
+            options={viajeros.map((viajero) => ({
+              name: viajero.nombre_completo,
+              content: viajero,
+            }))}
+          />
+          <TextInput
+            value={details.codigo}
+            label="Código de reservación"
+            placeholder="HJK1243..."
+            onChange={(value: string) => {
+              setDetails((prev) => ({ ...prev, codigo: value }));
+            }}
+          />
+        </div>
+        <div className="space-y-4 mx-4">
+          {state.map((item, index) => {
+            let vuelo: Vuelo = Array.isArray(item) ? item[0] : item;
+            return (
+              <div
+                key={`${index}-vuelos`}
+                className="w-full h-fit bg-blue-50 p-2 rounded-md shadow-md flex flex-col gap-2"
+              >
+                <h1 className="w-full border-b text-gray-800 p-2 text-lg font-semibold">
+                  Vuelo {index + 1}
+                </h1>
                 <div className="grid md:grid-cols-2 gap-4">
                   <Dropdown
-                    label="Aerolineas"
+                    label="Tipo"
                     value={vuelo.tipo}
                     onChange={(value: string) => {
                       handleUpdateVuelo(index, value, "tipo");
@@ -154,62 +103,122 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
                     options={["ida", "vuelta", "ida escala", "vuelta escala"]}
                   />
                   <TextInput
-                    label="Asientos"
+                    value={vuelo.folio}
+                    onChange={(value: string) => {
+                      handleUpdateVuelo(index, value, "folio");
+                    }}
+                    label="Numero de vuelo"
+                  />
+                </div>
+                <div className="grid  md:grid-cols-2 gap-4">
+                  <Dropdown
+                    label="Origen"
+                    value={vuelo.tipo}
+                    onChange={(value: string) => {
+                      handleUpdateVuelo(index, value, "tipo");
+                    }}
+                    options={["ida", "vuelta", "ida escala", "vuelta escala"]}
+                  />
+                  <Dropdown
+                    label="Destino"
+                    value={vuelo.tipo}
+                    onChange={(value: string) => {
+                      handleUpdateVuelo(index, value, "tipo");
+                    }}
+                    options={["ida", "vuelta", "ida escala", "vuelta escala"]}
+                  />
+                </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <DateTimeInput
+                    label="Fecha de salida"
+                    value={vuelo.check_in}
+                    onChange={(value: string) => {
+                      handleUpdateVuelo(index, value, "check_in");
+                    }}
+                  />
+                  <DateTimeInput
+                    label="Fecha de llegada"
                     value={vuelo.check_out}
                     onChange={(value: string) => {
                       handleUpdateVuelo(index, value, "check_out");
                     }}
                   />
                 </div>
-                <TextAreaInput
-                  label="Comentarios"
-                  value={vuelo.check_out}
-                  onChange={(value: string) => {
-                    handleUpdateVuelo(index, value, "check_out");
-                  }}
-                />
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <Dropdown
+                      label="Aerolineas"
+                      value={vuelo.tipo}
+                      onChange={(value: string) => {
+                        handleUpdateVuelo(index, value, "tipo");
+                      }}
+                      options={["ida", "vuelta", "ida escala", "vuelta escala"]}
+                    />
+                    <TextInput
+                      label="Asientos"
+                      value={vuelo.check_out}
+                      onChange={(value: string) => {
+                        handleUpdateVuelo(index, value, "check_out");
+                      }}
+                    />
+                  </div>
+                  <TextAreaInput
+                    label="Comentarios"
+                    value={vuelo.check_out}
+                    onChange={(value: string) => {
+                      handleUpdateVuelo(index, value, "check_out");
+                    }}
+                  />
+                </div>
+                {index != 0 && (
+                  <Button
+                    icon={Trash2}
+                    variant="warning"
+                    onClick={() => handleDelete(index)}
+                  >
+                    Eliminar vuelo
+                  </Button>
+                )}
               </div>
-              {index != 0 && (
-                <Button
-                  icon={Trash2}
-                  variant="warning"
-                  onClick={() => handleDelete(index)}
-                >
-                  Eliminar vuelo
-                </Button>
-              )}
+            );
+          })}
+        </div>
+        <div className="sticky bottom-0 pb-6 px-4 rounded-t-lg bg-gray-100 flex flex-col space-y-4">
+          <p className="py-4 border-b text-gray-700 font-semibold text-md">
+            Cantidad de vuelos: {state.length}
+          </p>
+          <div className="grid grid-cols-3 gap-2 w-full">
+            <NumberInput
+              label="Costo proveedor"
+              value={details.costo}
+              onChange={(value: string) => {}}
+            />
+            <NumberInput
+              label="Precio a cliente"
+              value={null}
+              onChange={(value: string) => {
+                // handleUpdateVuelo(index, value, "tipo");
+              }}
+            />
+            <div className="grid grid-cols-2 gap-2 pt-6">
+              <Button variant="secondary" icon={Plus} onClick={handleAddVuelo}>
+                Agregar vuelo
+              </Button>
+              <Button icon={CheckCircle} onClick={handleAddVuelo}>
+                Ir a pagar
+              </Button>
             </div>
-          );
-        })}
-      </div>
-      <div className="sticky bottom-0 pb-6 px-4 rounded-t-lg bg-gray-100 flex flex-col space-y-4">
-        <p className="py-4 border-b text-gray-700 font-semibold text-md">
-          Cantidad de vuelos: {state.length}
-        </p>
-        <div className="grid grid-cols-3 gap-2 w-full">
-          <NumberInput
-            label="Costo proveedor"
-            value={details.costo}
-            onChange={(value: string) => {}}
-          />
-          <NumberInput
-            label="Precio a cliente"
-            value={null}
-            onChange={(value: string) => {
-              // handleUpdateVuelo(index, value, "tipo");
-            }}
-          />
-          <div className="grid grid-cols-2 gap-2 pt-6">
-            <Button variant="secondary" icon={Plus} onClick={handleAddVuelo}>
-              Agregar vuelo
-            </Button>
-            <Button icon={CheckCircle} onClick={handleAddVuelo}>
-              Ir a pagar
-            </Button>
           </div>
         </div>
       </div>
-    </div>
+      <MostrarSaldos
+        onClose={function (): void {
+          throw new Error("Function not implemented.");
+        }}
+        agente={agente}
+        precio={0}
+      ></MostrarSaldos>
+    </>
   );
 };
 

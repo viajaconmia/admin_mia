@@ -1,14 +1,7 @@
 "use client";
 
 import { useNotification } from "@/context/useNotificacion";
-import {
-  ArrowDown,
-  ChevronDown,
-  ChevronRight,
-  Copy,
-  UserCheck,
-  UserX,
-} from "lucide-react";
+import { Copy, UserCheck, UserX } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import React from "react";
 import Button from "../atom/Button";
@@ -16,7 +9,7 @@ import {
   capitalizarTexto,
   formatDate,
   formatNumberWithCommas,
-} from "@/helpers/formatter";
+} from "@/helpers/formater";
 import { copyToClipboard } from "@/helpers/utils";
 import { Loader } from "../atom/Loader";
 // import { UserProfileImage } from "../atom/UserProfileImage";
