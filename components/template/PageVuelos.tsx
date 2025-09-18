@@ -12,7 +12,7 @@ import {
 } from "../atom/Input";
 import { ViajeroService, ViajerosService } from "@/services/ViajerosService";
 import { useNotification } from "@/context/useNotificacion";
-import { Plus, Trash2 } from "lucide-react";
+import { CheckCircle, Plus, Trash2 } from "lucide-react";
 
 export const PageVuelos = ({ agente }: { agente: Agente }) => {
   const { showNotification } = useNotification();
@@ -52,7 +52,7 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
       );
   }, []);
   return (
-    <div className="w-full h-fit p-2 space-y-4">
+    <div className="w-full h-fit p-2 space-y-4 relative">
       <div className="w-full grid grid-cols-2 gap-4 p-2">
         <ComboBox
           value={
@@ -81,7 +81,7 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
           }}
         />
       </div>
-      <div className="space-y-4 ">
+      <div className="space-y-4 mx-4">
         {state.map((item, index) => {
           let vuelo: Vuelo = Array.isArray(item) ? item[0] : item;
           return (
@@ -182,24 +182,32 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
           );
         })}
       </div>
-      <div className="grid md:grid-cols-2 gap-4">
-        <NumberInput
-          label="Costo proveedor"
-          value={details.costo}
-          onChange={(value: string) => {}}
-        />
-        <NumberInput
-          label="Precio a cliente"
-          value={null}
-          onChange={(value: string) => {
-            // handleUpdateVuelo(index, value, "tipo");
-          }}
-        />
-      </div>
-      <div className="flex gap-2 justify-end">
-        <Button icon={Plus} onClick={handleAddVuelo}>
-          Agregar vuelo
-        </Button>
+      <div className="sticky bottom-0 pb-6 px-4 rounded-t-lg bg-gray-100 flex flex-col space-y-4">
+        <p className="py-4 border-b text-gray-700 font-semibold text-md">
+          Cantidad de vuelos: {state.length}
+        </p>
+        <div className="grid grid-cols-3 gap-2 w-full">
+          <NumberInput
+            label="Costo proveedor"
+            value={details.costo}
+            onChange={(value: string) => {}}
+          />
+          <NumberInput
+            label="Precio a cliente"
+            value={null}
+            onChange={(value: string) => {
+              // handleUpdateVuelo(index, value, "tipo");
+            }}
+          />
+          <div className="grid grid-cols-2 gap-2 pt-6">
+            <Button variant="secondary" icon={Plus} onClick={handleAddVuelo}>
+              Agregar vuelo
+            </Button>
+            <Button icon={CheckCircle} onClick={handleAddVuelo}>
+              Confirmar y pagar
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );
