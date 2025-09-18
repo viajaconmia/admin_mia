@@ -204,7 +204,7 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
               Agregar vuelo
             </Button>
             <Button icon={CheckCircle} onClick={handleAddVuelo}>
-              Confirmar y pagar
+              Ir a pagar
             </Button>
           </div>
         </div>
