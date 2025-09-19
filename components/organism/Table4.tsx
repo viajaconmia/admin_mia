@@ -1,7 +1,8 @@
-import { ArrowDown, Columns } from "lucide-react";
+import { ArrowDown, Columns, FileDown } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { Loader } from "../atom/Loader";
 import React from "react";
+import { exportToCSV } from "@/helpers/utils";
 
 
 type Registro = {
@@ -116,6 +117,18 @@ export const Table4 = <T,>({
         </div>
         <div className="flex gap-4 items-center">
           {children}
+          <button
+            onClick={() => {
+              exportToCSV(
+                displayData.map(({ item, ...rest }) => rest),
+                "Solicitudes.csv"
+              );
+            }}
+            className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2"
+          >
+            <FileDown className="w-4 h-4 mr-2" />
+            Exportar CSV
+          </button>
           <div className="relative">
             <button
               className="inline-flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 transition"
@@ -156,6 +169,7 @@ export const Table4 = <T,>({
               </div>
             )}
           </div>
+
         </div>
       </div>
 

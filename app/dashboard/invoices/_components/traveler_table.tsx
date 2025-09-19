@@ -489,3 +489,4 @@ export function TravelerTable({ facturas }: { facturas: Factura[] }) {
     </Table>
   );
 }
+
