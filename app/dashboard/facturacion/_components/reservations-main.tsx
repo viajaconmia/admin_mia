@@ -6,7 +6,6 @@ import { fetchReservationsFacturacion } from "@/services/reservas";
 import Link from "next/link";
 import {
   fetchEmpresasDatosFiscales,
-  fetchSolicitudesItems,
 } from "@/hooks/useFetch";
 import { formatDate } from "@/helpers/utils";
 import useApi from "@/hooks/useApi";
@@ -15,7 +14,6 @@ import { ChevronDownIcon, ChevronUpIcon, Download } from "lucide-react";
 import SubirFactura from "../subirfacturas/SubirFactura";
 import { exportToCSV } from "@/helpers/utils";
 import { FileDown } from "lucide-react";
-import { Loader } from "../atom/Loader";
 
 // Opciones y tipos...
 const cfdiUseOptions = [
@@ -295,7 +293,7 @@ const LoaderComponent: React.FC = () => (
   </div>
 );
 
-const FacturacionModal: React.FC<{
+export const FacturacionModal: React.FC<{
   selectedItems: { [reservationId: string]: string[] };
   reservationsInit: Reservation[];
   onClose: () => void;

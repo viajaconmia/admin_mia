@@ -24,7 +24,9 @@ interface TableProps<T> {
   children?: React.ReactNode;
   maxHeight?: string;
   customColumns?: string[];
-  filasExpandibles?: { [id: string]: boolean }; // NUEVO
+  filasExpandibles?: { [id: string]: boolean };
+  expandedRenderer?: (row: Registro) => React.ReactNode; // NUEVO
+
 }
 
 export const Table4 = <T,>({
@@ -34,7 +36,7 @@ export const Table4 = <T,>({
   leyenda = "",
   children,
   maxHeight = "28rem",
-  customColumns, filasExpandibles
+  customColumns, filasExpandibles, expandedRenderer
 
 }: TableProps<T>) => {
   const [displayData, setDisplayData] = useState<Registro[]>(registros);
@@ -111,7 +113,11 @@ export const Table4 = <T,>({
   return (
     <div className="relative w-full h-full flex flex-col">
       {/* Encabezado y controles */}
-      <div className="flex w-full justify-between mb-2 shrink-0">
+      <div className="    sticky top-0 z-40 bg-white/95 supports-[backdrop-filter]:bg-white/80 backdrop-blur
+    border-b border-gray-200
+    flex w-full justify-between items-center
+    py-2 px-2 mb-2
+  ">
         <div className="flex flex-col justify-end">
           <span className="text-gray-600 text-sm font-normal ml-1">{leyenda}</span>
         </div>
@@ -262,6 +268,21 @@ export const Table4 = <T,>({
                               <p className="text-gray-500 text-xs italic">Sin saldos facturables.</p>
                             )}
                           </div>
+                        </td>
+                      </tr>
+                    )}
+                    {/* fila expandida -> usa expandedRenderer si existe */}
+                    {isExpanded && (
+                      <tr className="bg-gray-100">
+                        <td colSpan={columnKeys.length}>
+                          {expandedRenderer ? (
+                            expandedRenderer(item) // ← AQUÍ metes tu tabla de items/noches
+                          ) : (
+                            // fallback (tu contenido anterior si quieres conservarlo)
+                            <div className="p-4 text-xs text-gray-600">
+                              Sin renderer expandido.
+                            </div>
+                          )}
                         </td>
                       </tr>
                     )}
