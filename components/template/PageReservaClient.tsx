@@ -136,8 +136,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
           100,
         precio_de_venta: parseFloat(item.total),
         metodo_de_pago: item.metodo_pago_dinamico,
-        reservante:
-          item.quien_reservó === "CREADA POR OPERACIONES" ? "Operaciones" : "Cliente",
+        reservante: item.origen,
         etapa_reservacion: item.etapa_reservacion,
         estado_pago_proveedor: "",
         estado_factura_proveedor: "",

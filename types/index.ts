@@ -217,6 +217,7 @@ export type Solicitud = {
     viajeros_acompañantes: string[] | null;
     items_reserva: string[];
     items_de_la_reserva: string[];
+    origen: string;
   }
 
 export interface Tax {
