@@ -385,6 +385,7 @@ function App() {
           >
             <span>Todos</span>
           </button>
+
           <button
             onClick={() => setActiveFilter("creditCard")}
             className={`flex items-center px-4 py-2 rounded-md ${activeFilter === "creditCard"
@@ -395,6 +396,7 @@ function App() {
             <CreditCard className="w-4 h-4 mr-2" />
             <span>Pagos con Tarjeta</span>
           </button>
+
           <button
             onClick={() => setActiveFilter("sentToPayments")}
             className={`flex items-center px-4 py-2 rounded-md ${activeFilter === "sentToPayments"
