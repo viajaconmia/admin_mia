@@ -342,8 +342,6 @@ const TablaPagosVisualizacion = () => {
     });
   };
 
-  // console.log("cdddddddddddddd", pagos)
-
   const filteredData = useMemo(() => {
     //filtro de prepagos
 

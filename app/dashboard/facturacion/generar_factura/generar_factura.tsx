@@ -1009,8 +1009,8 @@ const DataFiscalModalWithCompanies: React.FC<DataFiscalModalProps> = ({
           const empresasValidas = Array.isArray(data)
             ? data.filter((empresa) => empresa.rfc) // Solo empresas con RFC
             : (data?.data || data?.empresas || []).filter(
-                (empresa) => empresa.rfc
-              );
+              (empresa) => empresa.rfc
+            );
 
           setEmpresas(empresasValidas);
 
