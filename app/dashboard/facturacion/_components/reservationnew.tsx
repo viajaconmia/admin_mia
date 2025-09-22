@@ -5,9 +5,11 @@ import { fetchReservationsFacturacion } from "@/services/reservas";
 import { Table4 } from "@/components/organism/Table4";
 import { format } from "date-fns";
 import { ChevronDownIcon, ChevronUpIcon } from "lucide-react";
+import Filters from "@/components/Filters";
+import { TypeFilters } from "@/types";
 import { formatDate } from "@/helpers/utils";
 import { FacturacionModal } from "@/app/dashboard/facturacion/_components/reservations-main";
-
+import SubirFactura from "@/app/dashboard/facturacion/subirfacturas/SubirFactura";
 // ---------- Tipos mínimos ----------
 interface Item {
   id_item: string;
@@ -23,7 +25,7 @@ interface Reservation {
   created_at: string;
   id_usuario_generador: string;
   razon_social?: string;
-  nombre_viajero_completo?: string | null;
+  nombre_viajero?: string | null;
   hotel: string;
   codigo_reservacion_hotel: string | null;
   check_in: string;
@@ -45,9 +47,9 @@ type SelectedMap = { [id_servicio: string]: string[] };
 
 // ---------- Helpers selección ----------
 const isItemFacturable = (it: Item) => it?.id_factura == null;
+
 const getSelectableItemsOfReservation = (r: Reservation) =>
   (r.items ?? []).filter(isItemFacturable).map((i) => i.id_item);
-
 
 const getDisplayDateForItem = (r: Reservation, idx: number) => {
   const ci = new Date(r.check_in);
@@ -72,12 +74,66 @@ const getDisplayDateForItem = (r: Reservation, idx: number) => {
   return format(co, "dd/MM/yyyy");
 };
 
+const hasPendingItems = (r: Reservation) =>
+  (r.items ?? []).some((it) => it?.id_factura == null);
+
+const DEFAULT_RESERVA_FILTERS: TypeFilters = {
+  // texto
+  id_agente: null,         // id_cliente en la tabla (mapea a id_usuario_generador)
+  nombre_agente: null,     // cliente en la tabla (mapea a razon_social)
+  hotel: null,             // hotel
+  codigo_reservacion: null,// codigo_hotel (mapea a codigo_reservacion_hotel)
+  traveler: null,          // viajero (mapea a nombre_viajero)
+  tipo_hospedaje: null,    // opcional - tú lo mapeas si aplica
+
+  // fechas (rango) y qué fecha usar
+  filterType: "Check-in",
+  startDate: null,
+  endDate: null,
+
+  // rangos numéricos útiles en columnas mostradas
+  markup_start: null,
+  markup_end: null,
+  startCantidad: null,     // para noches mínimas
+  endCantidad: null,       // para noches máximas
+
+  // otros campos de tu TypeFilters los dejamos fuera para no saturar el modal
+};
 
 // ---------- Componente ----------
 const ReservationsWithTable4: React.FC = () => {
+
+  //-----------helper de filtro agente------------
+  // Calcula y aplica el filtro id_agente según la selección actual
+  const updateAgentFilterFromSelection = (nextSelected: SelectedMap) => {
+    const selectedReservaIds = Object.keys(nextSelected);
+    if (selectedReservaIds.length === 0) {
+      // sin selección -> limpiar filtro
+      setFilters((prev) => ({ ...prev, id_agente: null }));
+      return;
+    }
+    const agentIds = selectedReservaIds
+      .map((id) => reservations.find((r) => r.id_servicio === id)?.id_usuario_generador)
+      .filter((v): v is string => !!v);
+
+    const unique = Array.from(new Set(agentIds));
+    // Si todas las seleccionadas son del mismo agente, filtramos por él
+    if (unique.length === 1) {
+      setFilters((prev) => ({ ...prev, id_agente: unique[0] }));
+    } else {
+      // Si por alguna razón hay mezcla, no tocamos el filtro (o podrías limpiarlo)
+      // setFilters((prev) => ({ ...prev, id_agente: null }));
+    }
+  };
+
+
+  const [filters, setFilters] = useState<TypeFilters>(DEFAULT_RESERVA_FILTERS);
+  const [searchTerm, setSearchTerm] = useState<string>("");
+
   const [reservations, setReservations] = useState<ReservationWithItems[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [onlyPending, setOnlyPending] = useState<boolean>(true);
 
   // selección por reservación -> ids de items
   const [selectedItems, setSelectedItems] = useState<SelectedMap>({});
@@ -105,6 +161,116 @@ const ReservationsWithTable4: React.FC = () => {
     fetchReservations();
   }, [fetchReservations]);
 
+  const [showAsignarModal, setShowAsignarModal] = useState(false);
+  const [asignarData, setAsignarData] = useState<{
+    items: string[]; agentId: string | null; initialItemsTotal?: number; itemsJson?: string;
+  }>({
+    items: [],
+    agentId: null,
+  });
+
+
+  //------filtrado------
+  // Normaliza strings para búsqueda
+  const norm = (s?: string | null) => (s ?? "").toString().trim().toUpperCase();
+
+  const itemsIndex = useMemo(() => {
+    const map = new Map<string, Item>();
+    reservations.forEach(res => res.items?.forEach(i => map.set(i.id_item, i)));
+    return map;
+  }, [reservations]);
+
+
+  // Decide qué campo de fecha usar según filterType
+  const pickDate = (r: Reservation, filterType?: TypeFilters["filterType"]) => {
+    switch (filterType) {
+      case "Check-in":
+        return r.check_in;
+      case "Check-out":
+        return r.check_out;
+      case "Creacion":
+        return r.created_at;
+      // "Transaccion" / "Actualizacion" no existen en Reservation: ignora o ajusta si tienes esos campos
+      default:
+        return r.check_in;
+    }
+  };
+
+  // Aplica todos los filtros soportados por las columnas de la tabla
+  const applyFiltersReservation = (
+    list: ReservationWithItems[],
+    f: TypeFilters,
+    q: string
+  ) => {
+    const qNorm = norm(q);
+
+    return list.filter((r) => {
+      // ---- 1) SEARCH global (código, id_cliente, cliente, hotel, viajero) ----
+      if (qNorm) {
+        const hay = [
+          r.codigo_reservacion_hotel,
+          r.id_usuario_generador,
+          r.razon_social,
+          r.hotel,
+          r.nombre_viajero,
+          r.id_servicio,
+          r.room,
+        ]
+          .map(norm)
+          .some((v) => v.includes(qNorm));
+        if (!hay) return false;
+      }
+
+      // ---- 2) Filtros por texto exacto / contiene ----
+      if (f.id_agente && norm(r.id_usuario_generador) !== norm(f.id_agente)) return false; // id_cliente
+      if (f.nombre_agente && !norm(r.razon_social).includes(norm(f.nombre_agente))) return false; // cliente
+      if (f.hotel && !norm(r.hotel).includes(norm(f.hotel))) return false; // hotel
+      if (f.codigo_reservacion && !norm(r.codigo_reservacion_hotel).includes(norm(f.codigo_reservacion))) return false; // código hotel
+      if (f.traveler && !norm(r.nombre_viajero).includes(norm(f.traveler))) return false; // viajero
+
+      // ---- 3) Filtro por fechas (rango) ----
+      if (f.startDate || f.endDate) {
+        const dateStr = pickDate(r, f.filterType);
+        const d = new Date(dateStr);
+        if (Number.isNaN(d.getTime())) return false;
+
+        if (f.startDate) {
+          const sd = new Date(f.startDate as string);
+          sd.setHours(0, 0, 0, 0);
+          if (d < sd) return false;
+        }
+        if (f.endDate) {
+          const ed = new Date(f.endDate as string);
+          ed.setHours(23, 59, 59, 999);
+          if (d > ed) return false;
+        }
+      }
+
+      // ---- 4) Rango noches (startCantidad / endCantidad) ----
+      const nights = Math.max(
+        0,
+        Math.ceil(
+          (new Date(r.check_out).getTime() - new Date(r.check_in).getTime()) /
+          (1000 * 60 * 60 * 24)
+        )
+      );
+      if (typeof f.startCantidad === "number" && nights < f.startCantidad) return false;
+      if (typeof f.endCantidad === "number" && nights > f.endCantidad) return false;
+
+      // ---- 5) Rango markup ----
+      const costoProveedor = Number(r.costo_total || 0);
+      const precioVenta = Number(r.total || 0);
+      const markUp = Math.max(0, precioVenta - costoProveedor);
+
+      if (typeof f.markup_start === "number" && markUp < f.markup_start) return false;
+      if (typeof f.markup_end === "number" && markUp > f.markup_end) return false;
+
+      return true;
+    });
+  };
+
+
+
   // ---- selección por RESERVA (todos los items facturables) ----
   const toggleReservationSelection = (reservationId: string) => {
     const reservation = reservations.find((r) => r.id_servicio === reservationId);
@@ -116,14 +282,21 @@ const ReservationsWithTable4: React.FC = () => {
 
     setSelectedItems((prev) => {
       const currentSelected = prev[reservationId] || [];
+      let nextSelected: SelectedMap;
 
       // si ya están todos, deselecciona
       if (currentSelected.length === itemsFacturables.length) {
         const { [reservationId]: _drop, ...rest } = prev;
-        return rest;
+        nextSelected = rest;
+      } else {
+        // seleccionar solo los facturables
+        nextSelected = { ...prev, [reservationId]: itemsFacturables };
       }
-      // seleccionar solo los facturables
-      return { ...prev, [reservationId]: itemsFacturables };
+
+      // <<< NUEVO: actualizar filtro por agente según la selección resultante >>>
+      updateAgentFilterFromSelection(nextSelected);
+
+      return nextSelected;
     });
   };
 
@@ -169,7 +342,60 @@ const ReservationsWithTable4: React.FC = () => {
   const getAllSelectedItems = () => Object.values(selectedItems).flat();
   const selectedCount = getAllSelectedItems().length;
 
+  // NUEVO: obtener el id del agente a partir de las reservas involucradas
+  const getAgentIdForSelection = (): string | null => {
+    const reservasSeleccionadas = Object.keys(selectedItems); // ids de reservación con al menos un item
+    const agentIds = reservasSeleccionadas
+      .map((id) => reservations.find((r) => r.id_servicio === id)?.id_usuario_generador)
+      .filter((v): v is string => !!v);
+
+    // Deben pertenecer al MISMO agente para esta UX (si quieres mezclar agentes, cambia esta regla)
+    const unique = Array.from(new Set(agentIds));
+    return unique.length === 1 ? unique[0] : null;
+  };
+
   const handleFacturar = () => setShowFacturacionModal(true);
+
+  const handleAsignar = () => {
+    const ids = getAllSelectedItems();
+    if (ids.length === 0) return;
+
+    const agentId = getAgentIdForSelection();
+    if (!agentId) {
+      alert("Selecciona items pertenecientes al mismo agente/cliente para asignar la factura.");
+      return;
+    }
+
+    // Construir el arreglo de objetos { id_item, total:number }
+    const itemsForApi = ids
+      .map((id_item) => {
+        const it = itemsIndex.get(id_item);
+        if (!it) return null;
+        // total debe ser número (no string)
+        const totalNum = Number(it.total ?? 0);
+        return { id_item, total: isNaN(totalNum) ? 0 : totalNum };
+      })
+      .filter(Boolean) as { id_item: string; total: number }[];
+
+    // String final que pide el backend
+    const itemsJson = JSON.stringify(itemsForApi);
+
+    // Suma de totales de los items seleccionados
+    const initialItemsTotal = itemsForApi.reduce((acc, it) => acc + it.total, 0);
+
+    console.log("[Reservations] payload itemsJson:", itemsJson);
+    // Ejemplo: [{"total":841,"id_item":"ite-7f5a401b-8689-45bc-8019-05b91629c912"}]
+
+    setAsignarData({
+      items: ids,                 // sigues manteniendo los ids si los ocupas
+      agentId,
+      initialItemsTotal,
+      itemsJson,                  // <<< NUEVO: payload listo para enviar
+    });
+    setShowAsignarModal(true);
+  };
+
+
 
   const confirmFacturacion = async () => {
     // después de facturar desde el modal, refrescamos y limpiamos
@@ -180,7 +406,14 @@ const ReservationsWithTable4: React.FC = () => {
 
   // ---- filas para Table4 ----
   const rows = useMemo(() => {
-    return reservations.map((r) => {
+    // 0) Origen: pendientes o todas
+    const base = onlyPending ? reservations.filter(hasPendingItems) : reservations;
+
+    // 1) Aplica filtros + search
+    const filtradas = applyFiltersReservation(base, filters, searchTerm);
+
+    // 2) Mapea a rows de la tabla
+    return filtradas.map((r) => {
       const noches = Math.max(
         0,
         Math.ceil(
@@ -191,17 +424,24 @@ const ReservationsWithTable4: React.FC = () => {
 
       const costoProveedor = Number(r.costo_total || 0);
       const precioVenta = Number(r.total || 0);
-      const markUp = Math.max(0, precioVenta - costoProveedor); // diferencia simple
+      const markUp = Math.max(0, precioVenta - costoProveedor);
+
+      const items = r.items ?? [];
+      const totalFacturado = items
+        .filter((it) => it?.id_factura != null)
+        .reduce((acc, it) => acc + Number((it as any).total || 0), 0);
+
+      const pendientePorFacturar = Math.max(0, precioVenta - totalFacturado);
 
       return {
-        id: r.id_servicio, // ← NECESARIO para filasExpandibles
-        seleccionado: r,   // ← el renderer usa esto (chevron + checkbox)
+        id: r.id_servicio,
+        seleccionado: r,
         id_cliente: r.id_usuario_generador,
         cliente: r.razon_social ?? "",
         creado: r.created_at,
         hotel: r.hotel,
         codigo_hotel: r.codigo_reservacion_hotel ?? "",
-        viajero: r.nombre_viajero_completo ?? "",
+        viajero: r.nombre_viajero ?? "",
         check_in: r.check_in,
         check_out: r.check_out,
         noches,
@@ -209,14 +449,22 @@ const ReservationsWithTable4: React.FC = () => {
         mark_up: markUp,
         precio_de_venta: precioVenta,
 
-        // necesario para el expandedRenderer
+        pendiente_por_facturar: pendientePorFacturar,
+        total_facturado: totalFacturado,
+
         detalles: {
           reserva: r,
-          items: r.items ?? [],
+          items,
+          resumenFacturacion: {
+            totalFacturado,
+            pendientePorFacturar,
+            precioVenta,
+          },
         },
       };
     });
-  }, [reservations]);
+  }, [reservations, onlyPending, filters, searchTerm]);
+
 
   // ---- renderers de columnas ----
   const renderers = {
@@ -282,6 +530,14 @@ const ReservationsWithTable4: React.FC = () => {
     ),
     precio_de_venta: ({ value }: { value: number }) => (
       <span className="font-semibold">
+        {new Intl.NumberFormat("es-MX", {
+          style: "currency",
+          currency: "MXN",
+        }).format(value || 0)}
+      </span>
+    ),
+    pendiente_por_facturar: ({ value }: { value: number }) => (
+      <span className="font-semibold text-amber-700">
         {new Intl.NumberFormat("es-MX", {
           style: "currency",
           currency: "MXN",
@@ -406,6 +662,7 @@ const ReservationsWithTable4: React.FC = () => {
     "check_out",
     "noches",
     "tipo_cuarto",
+    "pendiente_por_facturar", // <<--- NUEVA
     "mark_up",
     "precio_de_venta",
   ];
@@ -414,6 +671,14 @@ const ReservationsWithTable4: React.FC = () => {
     <div className="bg-white rounded-lg p-4 w-full shadow-sm">
       {loading && <div className="mb-2 text-sm text-gray-600">Cargando…</div>}
       {error && <div className="mb-2 text-red-600 text-sm">{error}</div>}
+
+      <Filters
+        onFilter={(f) => setFilters(f)}
+        defaultOpen={false}
+        defaultFilters={DEFAULT_RESERVA_FILTERS}
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+      />
 
       <Table4
         registros={rows}
@@ -444,6 +709,17 @@ const ReservationsWithTable4: React.FC = () => {
           >
             Facturar seleccionados ({selectedCount})
           </button>
+
+          <button
+            onClick={handleAsignar}
+            disabled={selectedCount === 0}
+            className={`px-4 py-1.5 text-sm rounded-md ${selectedCount === 0
+              ? "bg-emerald-300 text-white cursor-not-allowed"
+              : "bg-emerald-600 text-white hover:bg-emerald-700"
+              }`}
+            title="Asignar factura usando los items seleccionados"
+          >Asignar ({selectedCount})
+          </button>
         </div>
       </Table4>
 
@@ -456,6 +732,22 @@ const ReservationsWithTable4: React.FC = () => {
           onConfirm={confirmFacturacion}
         />
       )}
+      {/* Modal de Asignación (SubirFactura) */}
+      {showAsignarModal && (
+        <SubirFactura
+          onSuccess={() => {
+            confirmFacturacion(); // ya refresca y cierra modal de facturación
+            setShowAsignarModal(false);
+          }}
+          autoOpen
+          agentId={asignarData.agentId || undefined}
+          initialItems={asignarData.items}
+          initialItemsTotal={asignarData.initialItemsTotal}
+          itemsJson={asignarData.itemsJson}
+          onCloseExternal={() => setShowAsignarModal(false)}
+        />
+      )}
+
     </div>
   );
 };
