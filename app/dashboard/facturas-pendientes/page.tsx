@@ -391,6 +391,16 @@ const TablaPagosVisualizacion = () => {
         }
       }
 
+      if (filters.link_pago && pago.link_pago) {
+        const normalizedFilter = filters.link_pago.toLowerCase();
+        const normalizedLink = pago.link_pago.toLowerCase();
+        if (!normalizedLink.includes(normalizedFilter)) {
+          console.log("filtros", filters.link_pago, pago.link_pago)
+          return false;
+        }
+      }
+
+
       // Inside the filteredData useMemo, within the .filter() method:
 
       // Check for the payment type filter
@@ -612,7 +622,7 @@ const TablaPagosVisualizacion = () => {
 
 
     });
-  }, [pagos, filters, searchTerm, sortConfig.key, sortConfig.sort, filterBySelectedAgent, seleccionados, idAgenteSeleccionado]);
+  }, [pagos, filters, searchTerm, sortConfig.key, sortConfig.sort, filterBySelectedAgent, seleccionados, idAgenteSeleccionado, filters.link_pago]);
 
 
   const renderers = {
@@ -926,8 +936,8 @@ const TablaPagosVisualizacion = () => {
             </p>
             <p className="text-sm mt-1">
               <span className="text-gray-600
-              
-              ">Restante: </span>
+                
+                ">Restante: </span>
               <span className={`font-semibold ${balance && Number(balance.restante) >= 0 ? "text-red-600" : "text-green-600"}`}>
                 {balance ? formatCurrency(Number(balance.restante)) : formatCurrency(0)}
               </span>

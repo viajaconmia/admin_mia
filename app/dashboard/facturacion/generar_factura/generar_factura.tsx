@@ -424,16 +424,18 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       const raw_Ids = isBatch
         ? pagoData.map((p) => p.raw_id)
         : [pagoData[0]?.raw_id];
+      console.log("raws", rawIds);
 
       let saldos2 = isBatch
         ? pagoData.map((p) => parseFloat(p.saldo))
         : [parseFloat(pagoData[0]?.monto_por_facturar || pagoData[0]?.saldo)];
+
       console.log("arreglo", rawIds, "tamaño", rawIds.length);
 
       if (rawIds.length == 1) {
         saldos2 = saldoMonto;
-
         const montoAsignar = Math.min(restante, saldos2);
+
         pagosAsociados.push({
           raw_id: rawIds[0],
           monto: montoAsignar,
@@ -443,13 +445,16 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       } else {
         console.log("hola 🐨🐨🐨");
         for (let i = 0; i < raw_Ids.length; i++) {
+          console.log("restante", restante)
           if (restante <= 0) break;
 
           const montoAsignar = Math.min(restante, saldos2[i]);
+          console.log("asignar", montoAsignar)
           pagosAsociados.push({
             raw_id: raw_Ids[i],
             monto: montoAsignar,
           });
+          console.log("pagoasociados", pagosAsociados)
 
           restante -= montoAsignar;
         }
