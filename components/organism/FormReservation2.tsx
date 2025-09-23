@@ -425,7 +425,7 @@ export function ReservationForm2({
         response = await updateReserva(data, solicitud.id_booking);
       }
       console.log(response);
-      alert("Reserva creada correctamente");
+      alert("Reserva editada correctamente");
       // onClose();
     } catch (error) {
       console.error(error);
@@ -1029,39 +1029,31 @@ export function ReservationForm2({
           </div>
         </TabsContent>
       </Tabs>
+
       <DialogFooter className="flex justify-between w-full items-center">
         <p className="text-xs font-normal p-2 bg-gray-100 rounded-full border text-gray-900">
           Precio actual de la reserva: ${solicitud.total}
         </p>
-        {edicionForm.venta?.current?.total && (
-          <>
-            {Number(edicionForm.venta.current.total) !=
-              Number(solicitud.total) && (
-                <p
-                  className={`text-xs font-normal p-2 ${Number(edicionForm.venta?.current.total) <
-                    Number(solicitud.total)
-                    ? "bg-red-300 text-red-800"
-                    : "bg-green-200 text-green-950"
-                    } rounded-full border `}
-                >
-                  {`Precio recomendado: $${edicionForm.venta.current.total.toFixed(
-                    2
-                  )}`}
-                </p>
-              )}
-          </>
-        )}
+        {/* 
         <Button
           type="button"
           variant="secondary"
           onClick={() => setCobrar(true)}
         >
           ¿Quieres modificar el precio al recomendado u otro?
-        </Button>
-        <Button disabled={!!loading} type="submit">
+        </Button> */}
+
+        <Button
+          disabled={!!loading}
+          type="button"
+          onClick={() => setCobrar(true)
+
+          }
+        >
           Actualizar datos de la reserva
         </Button>
       </DialogFooter>
+
       {cobrar && (
         <Modal
           onClose={() => {
@@ -1080,6 +1072,7 @@ export function ReservationForm2({
                 ? Number(edicionForm.venta.current.total)
                 : Number(solicitud.total) || 0
             }
+            form={form}  // Aquí pasamos el formulario completo
           ></EditPrecioVenta>
         </Modal>
       )}

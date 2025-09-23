@@ -34,7 +34,7 @@ type SolicitudConPagos = Solicitud2 & {
 };
 
 const parseNum = (v: any) => (v == null ? 0 : Number(v));
-const EPS = 0.01; // tolerancia para flotantes
+const EPS = 0.01; // tolerancia para flotantes 
 
 function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
   // Cambiamos el estado a la versión con pagos opcionales

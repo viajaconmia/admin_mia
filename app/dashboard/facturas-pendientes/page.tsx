@@ -5,7 +5,7 @@ import { Table4 } from "@/components/organism/Table4";
 import { Loader } from "@/components/atom/Loader";
 
 // Versión de Feather Icons (similares a Lucide)
-import { Eye, FileText, FilePlus, X } from 'lucide-react';
+import { Eye, FileText, FilePlus, X, ShoppingCart } from 'lucide-react';
 import { format } from "date-fns";
 import { fetchPagosPrepago, fetchPagosPrepagobalance } from "@/services/pagos";
 import { Banknote, FileCheck } from "lucide-react";
@@ -18,6 +18,7 @@ import { formatNumberWithCommas } from "@/helpers/utils";
 import Filters from "@/components/Filters";
 import { TypeFilters } from "@/types";
 import { table } from 'console';
+
 
 export interface Pago {
   id_movimiento: number;
@@ -51,6 +52,7 @@ interface Balance {
   montototal: string;
   restante: string;
   montofacturado: string;
+  total_reservas_confirmadas: string;
 }
 
 
@@ -86,7 +88,6 @@ function buildAssignPayload(opts: { seleccionados: Seleccion[]; row?: any }) {
     saldoMonto: monto
   };
 }
-
 
 
 export const formatDate = (dateString: string | null): string => {
@@ -268,12 +269,13 @@ const TablaPagosVisualizacion = () => {
     try {
       setLoading(true);
       const response = await fetchPagosPrepagobalance();
-
+      console.log(response, "rrrrrrrrrrrrrrrrrr")
       // Asumiendo que la API devuelve directamente el objeto balance
       const balanceObtenido: Balance = {
         montototal: response.montototal || "0",
         montofacturado: response.montofacturado || "0",
-        restante: response.restante || "0"
+        restante: response.restante || "0",
+        total_reservas_confirmadas: response.total_reservas_confirmadas || "3"
       };
       setBalance(balanceObtenido);
     } catch (err) {
@@ -362,6 +364,7 @@ const TablaPagosVisualizacion = () => {
     });
 
     console.log("filtered", filteredByFacturado)
+
     // Filter the data
     const filteredItems = filteredByFacturado.filter((pago) => {
       // Aplicar filtro por agente seleccionado si está activo
@@ -390,18 +393,17 @@ const TablaPagosVisualizacion = () => {
           return false;
         }
       }
+      //filtro por link_pago
+      if (filters.link_pago) {
+        if (!pago.link_pago) return false;
+        const normalizedFilter = filters.link_pago.toLowerCase().trim();
+        const normalizedLink = pago.link_pago.toLowerCase().trim();
+        console.log("link_pago en filtros:", normalizedFilter);
+        console.log("link_pago del pago:", normalizedLink);
 
-      if (filters.link_pago && pago.link_pago) {
-        const normalizedFilter = filters.link_pago.toLowerCase();
-        const normalizedLink = pago.link_pago.toLowerCase();
-        if (!normalizedLink.includes(normalizedFilter)) {
-          console.log("filtros", filters.link_pago, pago.link_pago)
-          return false;
-        }
+        console.log(!normalizedLink.includes(normalizedFilter))
+        return normalizedLink.includes(normalizedFilter)
       }
-
-
-      // Inside the filteredData useMemo, within the .filter() method:
 
       // Check for the payment type filter
       if (filters.tipo_pago && pago.tipo_pago) {
@@ -902,6 +904,7 @@ const TablaPagosVisualizacion = () => {
       </div>
     );
   }
+  console.log(balance)
   return (
 
     <div className="bg-white rounded-lg p-6 w-full shadow-xl">
@@ -910,7 +913,7 @@ const TablaPagosVisualizacion = () => {
       <h2 className="text-xl font-bold mb-4">Registro de Pagos</h2>
 
       {/* Sección de resumen de montos */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
         {/* Monto Pagado */}
         <div className="flex items-center gap-4 bg-white border border-blue-200 rounded-xl p-4 shadow-sm ring-1 ring-blue-100 hover:shadow-md transition">
           <div className="flex items-center justify-center w-12 h-12 bg-blue-100 text-blue-600 rounded-lg">
@@ -935,16 +938,28 @@ const TablaPagosVisualizacion = () => {
               {balance ? formatCurrency(Number(balance.montofacturado)) : formatCurrency(0)}
             </p>
             <p className="text-sm mt-1">
-              <span className="text-gray-600
-                
-                ">Restante: </span>
+              <span className="text-gray-600">Restante: </span>
               <span className={`font-semibold ${balance && Number(balance.restante) >= 0 ? "text-red-600" : "text-green-600"}`}>
                 {balance ? formatCurrency(Number(balance.restante)) : formatCurrency(0)}
               </span>
             </p>
           </div>
         </div>
+
+        {/* Total Reservas Confirmadas */}
+        <div className="flex items-center gap-4 bg-white border border-yellow-200 rounded-xl p-4 shadow-sm ring-1 ring-yellow-100 hover:shadow-md transition">
+          <div className="flex items-center justify-center w-12 h-12 bg-yellow-100 text-yellow-600 rounded-lg">
+            <ShoppingCart className="w-6 h-6" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-yellow-700">Total Reservas Confirmadas</h3>
+            <p className="text-2xl font-bold text-yellow-800">
+              {balance ? formatCurrency(Number(balance.total_reservas_confirmadas)) : formatCurrency(0)}
+            </p>
+          </div>
+        </div>
       </div>
+
 
       {/* Resumen de selección */}
       {seleccionados.length > 0 && (
