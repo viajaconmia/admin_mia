@@ -250,12 +250,13 @@ const FiltersModal: React.FC<{
               {"link_pago" in filters && (
                 <TextInput
                   label="Link de Pago"
-                  value={filters.link_pago}
+                  value={filters.link_pago || ""}
                   onChange={(value) =>
                     setFilters((prev) => ({ ...prev, link_pago: value }))
                   }
                 />
               )}
+
 
               {"origen_pago" in filters && (
                 <TextInput
