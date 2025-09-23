@@ -284,6 +284,7 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
             <Table2
               registros={registros}
               renderers={buildRenderers()}
+              showButtons={false}
               maxHeight="260px"
               customColumns={['seleccionado', 'id_item', 'codigo', 'descripcion', 'fecha_uso', 'fecha_salida', 'precio']}
               leyenda=""
