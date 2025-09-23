@@ -66,9 +66,11 @@ export function formatNumberWithCommas(
 
   // 3. Unir la parte entera formateada con la parte decimal (si existe)
   if (decimalPart !== undefined) {
-    return `${formattedInteger}.${decimalPart}`;
+    return `${formattedInteger}.${
+      decimalPart.length == 2 ? decimalPart : `${decimalPart}0`
+    }`;
   } else {
-    return formattedInteger;
+    return formattedInteger + ".00";
   }
 }
 
@@ -81,3 +83,5 @@ export const formatDate = (dateString: string) => {
     year: "numeric",
   });
 };
+
+export const redondear = (number: number) => Number(number.toFixed(2));
