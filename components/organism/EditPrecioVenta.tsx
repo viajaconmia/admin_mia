@@ -24,10 +24,11 @@ type SaldoWallet = {
 
 const SalesManagementPage: React.FC<{
   reserva: Solicitud2;
+  onConfirm: (updatedForm: ReservaForm) => void; // Nueva prop para manejar la confirmación con el formulario actualizado
   onClose: () => void;
   form: ReservaForm;  // Recibimos form aquí
   precioNuevo: number;
-}> = ({ reserva, onClose, precioNuevo, form }) => {
+}> = ({ reserva, onClose, precioNuevo, form, onConfirm }) => {
   const { showNotification } = useNotification();
   const [showWalletModal, setShowWalletModal] = useState<boolean>(false);
   const [saldoWallet, setSaldoWallet] = useState<SaldoWallet | null>(null);
@@ -108,6 +109,7 @@ const SalesManagementPage: React.FC<{
         total_to_splitear = 0;
       });
 
+      // Actualizamos el item
       const updatedItem = {
         ...item,
         total: diferencia.toFixed(2),
@@ -123,31 +125,31 @@ const SalesManagementPage: React.FC<{
         costo_impuestos: "0",
         is_ajuste: 1 as 1,
         fecha_uso: item.fecha_uso.split("T")[0],
-        ...form,  // Formulario completo
+        ...form,  // Asegúrate de que estás pasando todo el formulario aquí
         bandera: 1,  // Bandera para indicar que es con wallet
       };
 
-      // Asegúrate de que pasas form y bandera aquí también
-      const { message } = await ajustePrecioCobrarSaldo({
-        updatedItem,
-        updatedSaldos: updatedSaldos,
-        diferencia,
-        precioActualizado,
-        id_booking: reserva.id_booking,
-        id_servicio: reserva.id_servicio,
-        bandera: 1,  // Indicar que es con wallet
-        form,  // Pasa el formulario
-      });
+      // Aquí pasamos el updatedForm al handleConfirm para actualizar el formulario
+      const updatedForm = { ...form, items: [updatedItem], bandera: 1 };
 
-      showNotification("success", message);
+      // Llamamos a handleConfirm pasando el formulario actualizado
+      handleConfirm(updatedForm);
+
+      showNotification("success", "Pago procesado exitosamente");
       setShowWalletModal(false);
       onClose();
     } catch (error) {
       showNotification(
         "error",
-        `Error en pago: ${error instanceof Error ? error.message : "Error desconocido"}`
+        `Error al procesar el pago con wallet: ${error instanceof Error ? error.message : "Error desconocido"}`
       );
     }
+  };
+
+
+  const handleConfirm = (updatedForm: ReservaForm) => {
+    console.log("Formulario actualizado en editar: ", updatedForm);
+    onConfirm(updatedForm);  // Pasamos el formulario actualizado a ReservationForm2
   };
 
   const pagarConCredito = async (): Promise<void> => {
