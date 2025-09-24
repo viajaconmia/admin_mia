@@ -439,54 +439,60 @@ export function TravelerTable({ facturas }: { facturas: Factura[] }) {
                           </DropdownMenuItem>
                         </>
                       )}
-                      {/* Opción para asignar factura - siempre visible */}
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setFacturaAsignando(factura.id_factura)
-                          setFacturaAgente(factura.id_agente)
-                          setFacturaEmpresa(factura.id_empresa)
-                          setFacturaData(factura)
-                        }}
-                      >
-                        <FilePlus className="mr-2 h-4 w-4" />
-                        Asignar factura
-                      </DropdownMenuItem>
+                      {factura.saldo > 0 && (
+                        < DropdownMenuItem
+                          onClick={() => {
+                            setFacturaAsignando(factura.id_factura)
+                            setFacturaAgente(factura.id_agente)
+                            setFacturaEmpresa(factura.id_empresa)
+                            setFacturaData(factura)
+                          }}
+
+                          disabled={factura.saldo === 0} // Deshabilitar si el saldo es 0
+                        >
+                          <FilePlus className="mr-2 h-4 w-4" />
+                          Asignar factura
+                        </DropdownMenuItem>)}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
               </TableCell>
-            </TableRow>
+            </TableRow >
           </>
         ))}
       </TableBody>
 
       {/* Modal de asignación (fuera del mapeo) */}
-      {facturaAsignando && (
-        <AsignarFacturaModal
-          isOpen={!!facturaAsignando}
-          onClose={() => {
-            setFacturaAsignando(null);
-            setFacturaAgente(null);
-            setFacturaData(null);
-            setFacturaEmpresa(null);
-          }}
-          id_factura={facturaAsignando}
-          clienteSeleccionado={facturaAgente}
-          facturaData={facturaData}
-          onAssign={() => { }}
-          onCloseVistaPrevia={() => { }}
-          empresaSeleccionada={FacturaEmpresa}
-        />
-      )}
+      {
+        facturaAsignando && (
+          <AsignarFacturaModal
+            isOpen={!!facturaAsignando}
+            onClose={() => {
+              setFacturaAsignando(null);
+              setFacturaAgente(null);
+              setFacturaData(null);
+              setFacturaEmpresa(null);
+            }}
+            id_factura={facturaAsignando}
+            clienteSeleccionado={facturaAgente}
+            facturaData={facturaData}
+            onAssign={() => { }}
+            onCloseVistaPrevia={() => { }}
+            empresaSeleccionada={FacturaEmpresa}
+          />
+        )
+      }
 
       {/* Modal de detalles de factura */}
-      {isModalOpen && (
-        <FacturaDetails
-          setModal={setIsModalOpen}
-          id_factura={isModalOpen}
-        />
-      )}
-    </Table>
+      {
+        isModalOpen && (
+          <FacturaDetails
+            setModal={setIsModalOpen}
+            id_factura={isModalOpen}
+          />
+        )
+      }
+    </Table >
   );
 }
 

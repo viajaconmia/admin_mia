@@ -5,7 +5,7 @@ import { Table4 } from "@/components/organism/Table4";
 import { Loader } from "@/components/atom/Loader";
 
 // Versión de Feather Icons (similares a Lucide)
-import { Eye, FileText, FilePlus, X } from 'lucide-react';
+import { Eye, FileText, FilePlus, X, ShoppingCart } from 'lucide-react';
 import { format } from "date-fns";
 import { fetchPagosPrepago, fetchPagosPrepagobalance } from "@/services/pagos";
 import { Banknote, FileCheck } from "lucide-react";
@@ -52,6 +52,7 @@ interface Balance {
   montototal: string;
   restante: string;
   montofacturado: string;
+  total_reservas_confirmadas: string;
 }
 
 
@@ -247,12 +248,12 @@ const TablaPagosVisualizacion = () => {
     try {
       setLoading(true);
       const response = await fetchPagosPrepagobalance();
-
       // Asumiendo que la API devuelve directamente el objeto balance
       const balanceObtenido: Balance = {
         montototal: response.montototal || "0",
         montofacturado: response.montofacturado || "0",
-        restante: response.restante || "0"
+        restante: response.restante || "0",
+        total_reservas_confirmadas: response.total_reservas_confirmadas || "0",
       };
       setBalance(balanceObtenido);
     } catch (err) {
@@ -753,7 +754,6 @@ const TablaPagosVisualizacion = () => {
       let monto = totalSaldoSeleccionado === 0
         ? Number(row.monto_por_facturar)
         : totalSaldoSeleccionado;
-
       return (
         <div className="flex gap-1 items-center"> {/* Reducido el gap de 2 a 1 */}
           {/* Selección */}
@@ -840,6 +840,18 @@ const TablaPagosVisualizacion = () => {
               <span className={`font-semibold ${balance && Number(balance.restante) >= 0 ? "text-red-600" : "text-green-600"}`}>
                 {balance ? formatCurrency(Number(balance.restante)) : formatCurrency(0)}
               </span>
+            </p>
+          </div>
+        </div>
+        {/* Total Reservas Confirmadas */}
+        <div className="flex items-center gap-4 bg-white border border-yellow-200 rounded-xl p-4 shadow-sm ring-1 ring-yellow-100 hover:shadow-md transition">
+          <div className="flex items-center justify-center w-12 h-12 bg-yellow-100 text-yellow-600 rounded-lg">
+            <ShoppingCart className="w-6 h-6" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-yellow-700">Total Reservas Confirmadas</h3>
+            <p className="text-2xl font-bold text-yellow-800">
+              {balance ? formatCurrency(Number(balance.total_reservas_confirmadas)) : formatCurrency(0)}
             </p>
           </div>
         </div>

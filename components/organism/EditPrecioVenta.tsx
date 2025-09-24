@@ -16,6 +16,7 @@ import { usePagos } from "@/hooks/usePagos";
 import Modal from "./Modal";
 import { NumberInput } from "../atom/Input";
 import { Saldo, TypesSaldoWallet } from "@/types/database_tables";
+import { ReservaForm } from "@/types";
 
 type SaldoWallet = {
   [key in TypesSaldoWallet]: number;
@@ -23,9 +24,11 @@ type SaldoWallet = {
 
 const SalesManagementPage: React.FC<{
   reserva: Solicitud2;
+  onConfirm: (updatedForm: ReservaForm) => void; // Nueva prop para manejar la confirmación con el formulario actualizado
   onClose: () => void;
+  form: ReservaForm;  // Recibimos form aquí
   precioNuevo: number;
-}> = ({ reserva, onClose, precioNuevo }) => {
+}> = ({ reserva, onClose, precioNuevo, form, onConfirm }) => {
   const { showNotification } = useNotification();
   const [showWalletModal, setShowWalletModal] = useState<boolean>(false);
   const [saldoWallet, setSaldoWallet] = useState<SaldoWallet | null>(null);
@@ -45,7 +48,7 @@ const SalesManagementPage: React.FC<{
   const esBajada = diferencia < 0;
   const precioMinimo = noches;
   const esValido = precioActualizado >= precioMinimo;
-
+  console.log("form,desde edit", form)
   const consultarWallet = async (): Promise<void> => {
     try {
       const { data } = await getTypesSaldo(reserva.id_agente);
@@ -68,8 +71,7 @@ const SalesManagementPage: React.FC<{
       console.log(error);
       showNotification(
         "error",
-        `Error al consultar wallet: ${
-          error instanceof Error ? error.message : "Error desconocido"
+        `Error al consultar wallet: ${error instanceof Error ? error.message : "Error desconocido"
         }`
       );
     }
@@ -80,8 +82,10 @@ const SalesManagementPage: React.FC<{
       const {
         data: { saldos, item },
       } = await getSaldosByType(tipo, reserva.id_agente, reserva.id_hospedaje);
+
       const updatedSaldos: (Saldo & { monto_cargado_al_item: string })[] = [];
       let total_to_splitear = diferencia;
+
       saldos.forEach((element) => {
         if (total_to_splitear <= 0) return;
         if (total_to_splitear > Number(element.saldo)) {
@@ -104,6 +108,8 @@ const SalesManagementPage: React.FC<{
         });
         total_to_splitear = 0;
       });
+
+      // Actualizamos el item
       const updatedItem = {
         ...item,
         total: diferencia.toFixed(2),
@@ -119,28 +125,31 @@ const SalesManagementPage: React.FC<{
         costo_impuestos: "0",
         is_ajuste: 1 as 1,
         fecha_uso: item.fecha_uso.split("T")[0],
+        ...form,  // Asegúrate de que estás pasando todo el formulario aquí
+        bandera: 1,  // Bandera para indicar que es con wallet
       };
 
-      const { message } = await ajustePrecioCobrarSaldo({
-        updatedItem,
-        updatedSaldos: updatedSaldos, // Pass the first object if only one is expected
-        diferencia,
-        precioActualizado,
-        id_booking: reserva.id_booking,
-        id_servicio: reserva.id_servicio,
-      });
+      // Aquí pasamos el updatedForm al handleConfirm para actualizar el formulario
+      const updatedForm = { ...form, items: [updatedItem], bandera: 1 };
 
-      showNotification("success", message);
+      // Llamamos a handleConfirm pasando el formulario actualizado
+      handleConfirm(updatedForm);
+
+      showNotification("success", "Pago procesado exitosamente");
       setShowWalletModal(false);
       onClose();
     } catch (error) {
       showNotification(
         "error",
-        `Error en pago: ${
-          error instanceof Error ? error.message : "Error desconocido"
-        }`
+        `Error al procesar el pago con wallet: ${error instanceof Error ? error.message : "Error desconocido"}`
       );
     }
+  };
+
+
+  const handleConfirm = (updatedForm: ReservaForm) => {
+    console.log("Formulario actualizado en editar: ", updatedForm);
+    onConfirm(updatedForm);  // Pasamos el formulario actualizado a ReservationForm2
   };
 
   const pagarConCredito = async (): Promise<void> => {
@@ -156,6 +165,8 @@ const SalesManagementPage: React.FC<{
         id_hospedaje: reserva.id_hospedaje,
         id_booking: reserva.id_booking,
         precio_actualizado: precioActualizado.toFixed(2),
+        ...form,  // Agregar el objeto form
+        bandera: 2,
       });
       console.log(data);
       showNotification("success", message);
@@ -163,8 +174,7 @@ const SalesManagementPage: React.FC<{
     } catch (error) {
       showNotification(
         "error",
-        `Error en pago con crédito: ${
-          error instanceof Error ? error.message : "Error desconocido"
+        `Error en pago con crédito: ${error instanceof Error ? error.message : "Error desconocido"
         }`
       );
     }
@@ -185,6 +195,8 @@ const SalesManagementPage: React.FC<{
             id_booking: reserva.id_booking,
             id_hospedaje: reserva.id_hospedaje,
             precio_actualizado: precioActualizado,
+            ...form,  // Agregar el objeto form
+            bandera: 2,
           });
           showNotification("success", message);
         } else {
@@ -199,6 +211,8 @@ const SalesManagementPage: React.FC<{
             id_hospedaje: reserva.id_hospedaje,
             precio_actualizado: precioActualizado,
             id_pago: reserva.id_pago,
+            ...form,  // Agregar el objeto form
+            bandera: 2,
           });
           console.log(message, data);
           showNotification("success", message);
@@ -208,8 +222,7 @@ const SalesManagementPage: React.FC<{
     } catch (error) {
       showNotification(
         "error",
-        `Error en pago con crédito: ${
-          error instanceof Error ? error.message : "Error desconocido"
+        `Error en pago con crédito: ${error instanceof Error ? error.message : "Error desconocido"
         }`
       );
     }
@@ -265,9 +278,8 @@ const SalesManagementPage: React.FC<{
                   </span>
                 </div>
                 <span
-                  className={`font-bold ${
-                    esBajada ? "text-red-600" : "text-emerald-600"
-                  }`}
+                  className={`font-bold ${esBajada ? "text-red-600" : "text-emerald-600"
+                    }`}
                 >
                   {esBajada ? "-" : "+"}${Math.abs(diferencia).toLocaleString()}
                 </span>
@@ -325,6 +337,17 @@ const SalesManagementPage: React.FC<{
             )}
           </div>
         )}
+        {diferencia == 0 && esValido && (
+          <div className="mt-6 pt-4 border-t border-slate-100">
+            <button
+              onClick={onClose}  // Puedes cambiar esto si necesitas otra acción
+              className="w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-6 rounded-xl transition-colors flex items-center justify-center gap-2"
+            >
+              Seguir sin cambios
+            </button>
+          </div>
+        )}
+
       </div>
 
       {/* Wallet Modal */}
@@ -400,8 +423,8 @@ export const WalletOption = ({
             {esTransferencia
               ? "Transferencia"
               : esTarjeta
-              ? "Tarjeta"
-              : "Wallet"}
+                ? "Tarjeta"
+                : "Wallet"}
           </span>
         </div>
         <span className={`text-sm font-bold text-${color}-600`}>
