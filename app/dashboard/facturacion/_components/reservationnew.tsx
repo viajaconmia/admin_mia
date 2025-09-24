@@ -10,6 +10,10 @@ import { TypeFilters } from "@/types";
 import { formatDate } from "@/helpers/utils";
 import { FacturacionModal } from "@/app/dashboard/facturacion/_components/reservations-main";
 import SubirFactura from "@/app/dashboard/facturacion/subirfacturas/SubirFactura";
+import { Balance } from "@/app/dashboard/facturas-pendientes/balance";
+import BalanceSummary from "@/app/dashboard/facturas-pendientes/balance";
+import { fetchPagosPrepagobalance } from "@/services/pagos";
+
 // ---------- Tipos mínimos ----------
 interface Item {
   id_item: string;
@@ -141,6 +145,41 @@ const ReservationsWithTable4: React.FC = () => {
   const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({});
   // modal
   const [showFacturacionModal, setShowFacturacionModal] = useState(false);
+
+  const [balance, setBalance] = useState<Balance | null>(null);
+
+  const obtenerBalance = async () => {
+    try {
+      setLoading(true);
+      const response = await fetchPagosPrepagobalance();
+      const balanceObtenido: Balance = {
+        montototal: response.montototal || "0",
+        montofacturado: response.montofacturado || "0",
+        restante: response.restante || "0",
+        total_reservas_confirmadas: response.total_reservas_confirmadas || "3",
+      };
+      setBalance(balanceObtenido);
+    } catch (err) {
+      console.error("Error al obtener el balance:", err);
+      setError("No se pudieron cargar los saldos de pagos. Intente nuevamente más tarde.");
+      setBalance(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    obtenerBalance();
+  }, []);
+
+  const formatCurrency = (value: number): string => {
+    return new Intl.NumberFormat('es-MX', {
+      style: 'currency',
+      currency: 'MXN',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(value);
+  };
 
   const fetchReservations = useCallback(async () => {
     setLoading(true);
@@ -671,6 +710,12 @@ const ReservationsWithTable4: React.FC = () => {
     <div className="bg-white rounded-lg p-4 w-full shadow-sm">
       {loading && <div className="mb-2 text-sm text-gray-600">Cargando…</div>}
       {error && <div className="mb-2 text-red-600 text-sm">{error}</div>}
+      {balance && (
+        <BalanceSummary
+          balance={balance}
+          formatCurrency={formatCurrency} // Pasa la función de formato de divisa
+        />
+      )}
 
       <Filters
         onFilter={(f) => setFilters(f)}
@@ -722,6 +767,7 @@ const ReservationsWithTable4: React.FC = () => {
           </button>
         </div>
       </Table4>
+
 
       {/* Modal de facturación */}
       {showFacturacionModal && (
