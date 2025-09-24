@@ -127,7 +127,7 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
         agente
       );
 
-      console.log(data);
+      console.log("this is the data", data);
       showNotification("success", message);
     } catch (error) {
       console.log(error);
@@ -233,7 +233,7 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
             onChange={(value: string) => {
               setDetails((prev) => ({ ...prev, status: value }));
             }}
-            options={["confirmada", "cancelada"]}
+            options={["Confirmada", "Cancelada"]}
           />
         </div>
         <div className="space-y-4 mx-4">
