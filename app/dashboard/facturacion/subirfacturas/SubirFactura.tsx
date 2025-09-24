@@ -747,7 +747,7 @@ export default function SubirFactura({
         <VistaPreviaModal
           facturaData={facturaData}
           pagoData={pagoData}
-          itemsTotal={getItemsTotal()}          // <-- NUEVO
+          itemsTotal={getItemsTotal()}
           onConfirm={(pdfUrl) => {
             setArchivoPDFUrl(pdfUrl);
 
