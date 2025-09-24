@@ -97,6 +97,7 @@ export const fetchPagosPrepagobalance = async (
   return {
     montototal: balanceData.total_pagos || "0",
     montofacturado: balanceData.total_facturado || "0",
-    restante: balanceData.restante || "0"
+    restante: balanceData.restante || "0",
+    total_reservas_confirmadas:balanceData.total_reservas_confirmadas||"0"
   };
 };
