@@ -6,7 +6,11 @@ import { useNotification } from "@/context/useNotificacion";
 import { BalanceCard } from "../molecule/BalanceCard";
 
 interface PagarModalProps {
-  onSubmit?: (data: any) => void;
+  onSubmit?: (
+    saldos: (Saldo & { restante: number; usado: boolean })[],
+    faltante: number,
+    isPrimary: boolean
+  ) => void;
   precio: number;
   agente: Agente;
 }
@@ -86,27 +90,6 @@ export const MostrarSaldos: React.FC<PagarModalProps> = ({
     }
   };
 
-  const onCreditoConfirm = () => {
-    try {
-      throw new Error("Aun no existe esta función, esta en proceso");
-      showNotification("success", "La reserva ha sido procesada con exito");
-    } catch (error) {
-      showNotification("error", error.message || "Error al procesar el pago");
-    }
-  };
-  const onConfirm = () => {
-    try {
-      if (faltante !== 0)
-        throw new Error(
-          "No has seleccionado el pago, si quieres continuar pagando a credito con el otro boton lo puedes procesar"
-        );
-
-      showNotification("success", "La reserva ha sido procesada con exito");
-    } catch (error) {
-      showNotification("error", error.message || "Error al procesar el pago");
-    }
-  };
-
   let total_saldos = redondear(
     saldosFavor.reduce((previus, current) => previus + Number(current.saldo), 0)
   );
@@ -124,6 +107,7 @@ export const MostrarSaldos: React.FC<PagarModalProps> = ({
         <>cargando...</>
       ) : (
         <TableFromMia
+          maxHeight="200px"
           data={saldosFavor}
           columns={[
             {
@@ -154,8 +138,34 @@ export const MostrarSaldos: React.FC<PagarModalProps> = ({
             redondear(previus + Number(current.saldo) - current.restante),
           0
         )}
-        onSecondary={onCreditoConfirm}
-        onConfirm={onConfirm}
+        onSecondary={() =>
+          onSubmit(
+            saldosFavor
+              .filter((saldo) => saldo.usado)
+              .map((saldo) => ({
+                ...saldo,
+                saldo_usado: redondear(
+                  Number(saldo.saldo) - saldo.restante
+                ).toFixed(2),
+              })),
+            faltante,
+            false
+          )
+        }
+        onConfirm={() =>
+          onSubmit(
+            saldosFavor
+              .filter((saldo) => saldo.usado)
+              .map((saldo) => ({
+                ...saldo,
+                saldo_usado: redondear(
+                  Number(saldo.saldo) - saldo.restante
+                ).toFixed(2),
+              })),
+            faltante,
+            true
+          )
+        }
       ></BalanceCard>
     </div>
   );

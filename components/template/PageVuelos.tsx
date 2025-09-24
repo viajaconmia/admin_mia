@@ -1,7 +1,6 @@
 import { useEffect, useReducer, useState } from "react";
 import Button from "../atom/Button";
 import {
-  ComboBox,
   ComboBox2,
   ComboBoxOption,
   ComboBoxOption2,
@@ -17,6 +16,9 @@ import { CheckCircle, Plus, Trash2 } from "lucide-react";
 import { MostrarSaldos } from "./MostrarSaldos";
 import Modal from "../organism/Modal";
 import { Aerolinea, Aeropuerto, ExtraService } from "@/services/ExtraServices";
+import { isSomeNull } from "@/helpers/validator";
+import { Saldo } from "@/services/SaldoAFavor";
+import { VuelosServices } from "@/services/VuelosServices";
 
 type ForSave = null | "aeropuerto" | "aerolinea";
 
@@ -60,6 +62,13 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
   const onPagar = () => {
     try {
       if (details.precio <= 0) throw new Error("El precio debe ser mayor a 0");
+      const res = state
+        .map((vuelo) => isSomeNull(vuelo, ["comentarios"]))
+        .some((bool) => !!bool);
+
+      if (res || isSomeNull(details)) {
+        throw new Error("Parece ser que dejaste algunos campos vacios");
+      }
       setOpen(true);
     } catch (error) {
       showNotification("error", error.message || "Error al ir a pagar");
@@ -93,6 +102,37 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
           error.message || "Error al agregar aeropuerto"
         )
       );
+  };
+
+  const handleSubmit = async (
+    saldos: (Saldo & { restante: number; usado: boolean })[],
+    faltante: number,
+    isPrimary: boolean
+  ) => {
+    try {
+      if (faltante != 0 && isPrimary)
+        throw new Error(
+          "No puedes pagar con este, por favor si quieres pagar con credito usa el otro boton"
+        );
+      if (faltante == 0 && !isPrimary)
+        throw new Error(
+          "Parece que ya pagaste todo con saldo a favor, ya no queda nada para pagar a credito"
+        );
+
+      const { message, data } = await VuelosServices.getInstance().createVuelo(
+        faltante,
+        saldos,
+        state.flat().filter((item): item is Vuelo => !Array.isArray(item)),
+        details,
+        agente
+      );
+
+      console.log(data);
+      showNotification("success", message);
+    } catch (error) {
+      console.log(error);
+      showNotification("error", error.message);
+    }
   };
 
   useEffect(() => {
@@ -137,7 +177,11 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
           title="Selecciona con que pagar"
           subtitle="Puedes escoger solo algunos y pagar lo restante con credito"
         >
-          <MostrarSaldos agente={agente} precio={details.precio} />
+          <MostrarSaldos
+            agente={agente}
+            precio={details.precio}
+            onSubmit={handleSubmit}
+          />
         </Modal>
       )}
       {save && (
@@ -157,7 +201,7 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
       )}
       <div className="w-full h-full p-2 space-y-4 relative">
         <div className="w-full grid grid-cols-3 gap-4 p-2">
-          <ComboBox
+          <ComboBox2
             value={
               details.viajero
                 ? {
@@ -457,7 +501,7 @@ const GuardarAerolineas = ({
   );
 };
 
-type Vuelo = {
+export type Vuelo = {
   tipo: "ida" | "vuelta" | "ida escala" | "vuelta escala" | null;
   folio: string | null;
   origen: Aeropuerto | null;
@@ -481,7 +525,7 @@ const initialState: Vuelo[] = [
     check_out: null,
     aerolinea: null,
     asiento: null,
-    comentarios: null,
+    comentarios: "",
     ubicacion_asiento: null,
     tipo_tarifa: null,
   },

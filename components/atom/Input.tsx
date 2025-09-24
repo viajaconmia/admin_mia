@@ -582,12 +582,52 @@ export const ComboBox2 = <T,>({
   // Estado interno
   const [inputValue, setInputValue] = useState(value?.name || "");
   const [isOpen, setIsOpen] = useState(false);
+  const [focus, setFocus] = useState<number | null>(null);
 
   // Memoizar opciones filtradas según inputValue
   const filteredOptions = useMemo(() => {
     const lower = inputValue.toLowerCase();
     return options.filter((o) => o?.name?.toLowerCase().includes(lower));
   }, [inputValue, options]);
+
+  // useEffect(() => {
+  //   document.addEventListener("keydown", handleMoveFocus);
+  //   return () => document.removeEventListener("keydown", handleMoveFocus);
+  // }, [filteredOptions, focus]);
+
+  const handleMoveFocus = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (isOpen && filteredOptions.length > 0) {
+      if (event.key === "ArrowDown") {
+        setFocus((prev) =>
+          prev === filteredOptions.length - 1 ? 0 : (prev ?? 0) + 1
+        );
+        event.preventDefault();
+      }
+      if (event.key === "ArrowUp") {
+        setFocus((prev) =>
+          prev === 0 ? filteredOptions.length - 1 : (prev ?? 0) - 1
+        );
+        event.preventDefault();
+      }
+      if (event.key === "Enter") {
+        handleSelectByEnter();
+        event.preventDefault();
+      }
+    }
+  };
+
+  const handleSelectByEnter = () => {
+    setFocus((f) => {
+      const option = filteredOptions[f ?? 0];
+      if (option && option.name !== inputValue) {
+        // posponer la llamada al padre
+        queueMicrotask(() => onChange(option));
+        setInputValue(option.name);
+      }
+      setIsOpen(false);
+      return null;
+    });
+  };
 
   // Cerrar dropdown al hacer click fuera
   useEffect(() => {
@@ -597,6 +637,7 @@ export const ComboBox2 = <T,>({
         !containerRef.current.contains(event.target as Node)
       ) {
         setIsOpen(false);
+        setFocus(null);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -609,6 +650,7 @@ export const ComboBox2 = <T,>({
       setInputValue(option.name);
     }
     setIsOpen(false);
+    setFocus(null);
   };
 
   return (
@@ -628,10 +670,15 @@ export const ComboBox2 = <T,>({
             disabled={disabled}
             value={inputValue}
             placeholder={placeholderOption}
-            onFocus={() => setIsOpen(true)}
+            onFocus={() => {
+              setIsOpen(true);
+              setFocus(0);
+            }}
+            onKeyDown={handleMoveFocus}
             onChange={(e) => {
               setInputValue(e.target.value);
               setIsOpen(true);
+              setFocus(0);
             }}
             className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           />
@@ -644,7 +691,9 @@ export const ComboBox2 = <T,>({
                 <li
                   key={option.name + index}
                   onClick={() => handleSelect(option)}
-                  className="px-3 py-2 cursor-pointer hover:bg-blue-100"
+                  className={`px-3 py-2 cursor-pointer hover:bg-blue-100 ${
+                    focus == index ? "bg-blue-100" : ""
+                  }`}
                 >
                   {option.name}
                 </li>
