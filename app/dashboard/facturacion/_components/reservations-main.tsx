@@ -181,6 +181,7 @@ interface Reservation {
   nombre_viajero_completo?: string | null;
   razon_social?: string;
   costo_total?: string;
+  nombre_viajero?: string;
 }
 
 interface FiscalData {
@@ -355,11 +356,11 @@ export const FacturacionModal: React.FC<{
     CfdiType: "I",
     NameId: "1",
     Observations: "",
-    ExpeditionPlace: "11570",
-    //ExpeditionPlace: "42501",
-    Serie: null,
+    //ExpeditionPlace: "11570",
+    ExpeditionPlace: "42501",
+    Serie: "2025-A",
 
-    Folio: Math.round(Math.random() * 999999999),
+    Folio: Math.round(Math.random() * 999999999), // Generación aleatoria
     PaymentForm: selectedPaymentForm,
     PaymentMethod: selectedPaymentMethod,
     Exportation: "01",
@@ -451,6 +452,7 @@ export const FacturacionModal: React.FC<{
         },
         0
       );
+      console.log("reserva", reservationsWithSelectedItems)
 
       if (isConsolidated) {
         // Factura consolidada - un solo concepto
@@ -499,15 +501,11 @@ export const FacturacionModal: React.FC<{
 
               const nochesReales = selectedItemsForReserva.length;
 
-              return `${reserva.hotel} - ${formatDate(
-                reserva.check_in
-              )} AL ${formatDate(
-                reserva.check_out
-              )} - ${nochesReales} NOCHES(S) - ${reserva.nombre_viajero_completo
-                }`;
+              return `${reserva.hotel} - ${formatDate(reserva.check_in)} AL ${formatDate(reserva.check_out)} - ${nochesReales} NOCHES(S) - ${reserva.nombre_viajero}`;
             })
             .join(" | ")}`,
         }));
+
       } else {
         // Factura detallada - un concepto por reservación con suma EXACTA de items seleccionados
         setCfdi((prev) => ({
@@ -623,6 +621,7 @@ export const FacturacionModal: React.FC<{
 
     return true;
   };
+
 
   const handleConfirm = async () => {
     if (!selectedFiscalData) {

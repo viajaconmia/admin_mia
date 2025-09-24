@@ -155,15 +155,7 @@ export const Table5 = <T,>({
                       >
                         Mostrar todas
                       </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          hideAllColumns();
-                        }}
-                        className="text-xs px-2 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200"
-                      >
-                        Ocultar todas
-                      </button>
+
                     </div>
                     {columnKeys.map((key) => (
                       <div
