@@ -7,7 +7,7 @@ import { format } from "date-fns";
 import { ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 import Filters from "@/components/Filters";
 import { TypeFilters } from "@/types";
-import { formatDate } from "@/helpers/utils";
+import { formatDate } from "../../facturas-pendientes/page";
 import { FacturacionModal } from "@/app/dashboard/facturacion/_components/reservations-main";
 import SubirFactura from "@/app/dashboard/facturacion/subirfacturas/SubirFactura";
 import { Balance } from "@/app/dashboard/facturas-pendientes/balance";
