@@ -16,6 +16,7 @@ export interface TypeFilters {
   is_facturado?: number | null;
   origen_pago?: string | null;
   nombre_cliente?: string | null;
+  estatus_pagos?: string | null;
   link_pago?:string|null ,
   status?: "Confirmada" | "Pendiente" | "Cancelada" | "Todos" | null;
   reservationStage?: "Reservado" | "In house" | "Check-out" | null;
@@ -560,7 +561,8 @@ export type PagoProveedor = {
   numero_autorizacion: string | null; // VARCHAR(100)
   creado_en: string; // TIMESTAMP
   actualizado_en: string; // TIMESTAMP
-  estado_pago: string|null;
+  estado_pago: string | null;
+  estatus_pagos?: string | null;
   // Ten en cuenta que tu JSON de ejemplo también incluye id_solicitud_proveedor
   // y monto_aplicado directamente en los objetos 'pagos'.
   id_solicitud_proveedor: number; // de pagos_solicitudes
