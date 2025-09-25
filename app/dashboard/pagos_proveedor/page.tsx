@@ -35,6 +35,7 @@ type ItemSolicitud = SolicitudProveedor & {
     uuid_cfdi?: string;
     estado_factura?: "emitida" | "pendiente" | string;
   }>;
+  estatus_pagos?: string | null;
 };
 
 function getPagoInfo(item: ItemSolicitud) {
@@ -119,7 +120,7 @@ const Pill = ({
 const pagoTone3 = (estado: string | null) => {
   const v = (estado || "").toLowerCase();
   if (v === "pagado") return "green";
-  if (v === "enviado a pago") return "blue";
+  if (v === "enviado_a_pago") return "blue";
   return "gray";
 };
 
@@ -147,12 +148,24 @@ function App() {
       return !!item.tarjeta?.ultimos_4;
     } else if (activeFilter === "sentToPayments") {
       const pagos = (item as ItemSolicitud).pagos || [];
+      console.log("rvrvrv", pagos)
       return pagos.some(
-        (p) => (p.estado_pago || "").toLowerCase() === "enviado a pago"
+        (p) => (p.estatus_pagos || "").toLowerCase() === "enviado_a_pago"
       );
     }
     return true;
   });
+
+  const formatDateSimple = (date: string | Date) => {
+    if (!date) return "—"; // Si no hay fecha, mostramos un guion
+    const localDate = new Date(date);
+    return localDate.toLocaleDateString("es-MX", { // Aquí usamos el formato mexicano (es-MX)
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  };
+
 
   const formatedSolicitudes = filteredSolicitudes
     .filter((item) => {
@@ -212,10 +225,14 @@ function App() {
         banco: item.tarjeta?.banco_emisor,
         tipo_tarjeta: item.tarjeta?.tipo_tarjeta,
 
-        // 👇 Para que Table5 lo pase a renderers como `item`
+        // **Nuevo campo estatus_pagos**
+        estatus_pagos: item.estatus_pagos ?? "", // Manejamos el caso en el que no existe
+
         item: raw,
       };
     });
+
+
 
   const renderers: Record<
     string,
@@ -223,20 +240,20 @@ function App() {
   > = {
     id_cliente: ({ value }) => (
       <span className="font-semibold text-sm">
-        {value ? String(value).slice(0, 11) : ""}
+        {value ? String(value).slice(0, 11).toUpperCase() : ""}
       </span>
     ),
-    creado: ({ value }) => <span title={value}>{formatDate(value)}</span>,
+    creado: ({ value }) => <span title={value}>{formatDateSimple(value)}</span>,
     hotel: ({ value }) => (
       <span className="font-medium" title={value}>
-        {value}
+        {value ? value.toUpperCase() : ""}
       </span>
     ),
     codigo_hotel: ({ value }) => (
-      <span className="font-semibold">{value}</span>
+      <span className="font-semibold">{value ? value.toUpperCase() : ""}</span>
     ),
-    check_in: ({ value }) => <span title={value}>{formatDate(value)}</span>,
-    check_out: ({ value }) => <span title={value}>{formatDate(value)}</span>,
+    check_in: ({ value }) => <span title={value}>{formatDateSimple(value)}</span>,
+    check_out: ({ value }) => <span title={value}>{formatDateSimple(value)}</span>,
     costo_proveedor: ({ value }) => (
       <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>
     ),
@@ -268,7 +285,7 @@ function App() {
     ),
     fecha_real_cobro: ({ value }) =>
       value ? (
-        <span title={value}>{formatDate(value)}</span>
+        <span title={value}>{formatDateSimple(value)}</span>
       ) : (
         <span className="text-gray-400">—</span>
       ),
@@ -284,16 +301,32 @@ function App() {
     ),
     fecha_facturacion: ({ value }) =>
       value ? (
-        <span title={value}>{formatDate(value)}</span>
+        <span title={value}>{formatDateSimple(value)}</span>
       ) : (
         <span className="text-gray-400">—</span>
       ),
+
     UUID: ({ value }) => (
       <span className="font-mono text-xs" title={value}>
         {value ? String(value).slice(0, 8) + "…" : "—"}
       </span>
     ),
+    fecha_solicitud: ({ value }) =>
+      value ? (
+        <span title={value}>{formatDateSimple(value)}</span>
+      ) : (
+        <span className="text-gray-400">—</span>
+      ),
+    forma_de_pago_solicitada: ({ value }) => (
+      <span className="font-semibold">
+        {value ? value.toUpperCase() : ""}
+      </span>
+    ),
+    estatus_pagos: ({ value }) => (
+      <Pill text={value ? value.toUpperCase() : "—"} tone="blue" />
+    ),
   };
+
 
   // ---------- MULTIPANTALLA ----------
   // const cols = useResponsiveColumns({
