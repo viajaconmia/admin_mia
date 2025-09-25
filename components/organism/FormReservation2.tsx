@@ -54,7 +54,7 @@ export function ReservationForm2({
   }
   const [nuevo_incluye_desayuno, setNuevoIncluyeDesayuno] = useState<
     boolean | null
-  >(solicitud.nuevo_incluye_desayuno || null);
+  >(solicitud.nuevo_incluye_desayuno === null? null:Boolean(solicitud.nuevo_incluye_desayuno));
   const [acompanantes, setAcompanantes] = useState<Viajero[]>([]);
   const [cobrar, setCobrar] = useState<boolean | null>(null);
   const [form, setForm] = useState<ReservaForm>({
