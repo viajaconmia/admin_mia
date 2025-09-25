@@ -7,13 +7,12 @@ import { format } from "date-fns";
 import { ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 import Filters from "@/components/Filters";
 import { TypeFilters } from "@/types";
-import {  formatDate,} from "@/helpers/utils";
 import { FacturacionModal } from "@/app/dashboard/facturacion/_components/reservations-main";
 import SubirFactura from "@/app/dashboard/facturacion/subirfacturas/SubirFactura";
 import { Balance } from "@/app/dashboard/facturas-pendientes/balance";
 import BalanceSummary from "@/app/dashboard/facturas-pendientes/balance";
 import { fetchPagosPrepagobalance } from "@/services/pagos";
-
+import { formatDate, } from "@/helpers/utils";
 // ---------- Tipos mínimos ----------
 interface Item {
   id_item: string;
@@ -55,28 +54,7 @@ const isItemFacturable = (it: Item) => it?.id_factura == null;
 const getSelectableItemsOfReservation = (r: Reservation) =>
   (r.items ?? []).filter(isItemFacturable).map((i) => i.id_item);
 
-const getDisplayDateForItem = (r: Reservation, idx: number) => {
-  const ci = new Date(r.check_in);
-  const co = new Date(r.check_out);
-  const nights = Math.max(
-    0,
-    Math.ceil((co.getTime() - ci.getTime()) / (1000 * 60 * 60 * 24))
-  );
 
-  if (Number.isNaN(ci.getTime()) || Number.isNaN(co.getTime())) {
-    // fallback seguro si vienen fechas raras
-    return formatDate(r.check_in);
-  }
-
-  if (idx < nights) {
-    const d = new Date(ci);
-    d.setDate(d.getDate() + idx);
-    return format(d, "dd/MM/yyyy");
-  }
-
-  // si hay más items que noches, los últimos = check_out
-  return format(co, "dd/MM/yyyy");
-};
 
 const hasPendingItems = (r: Reservation) =>
   (r.items ?? []).some((it) => it?.id_factura == null);
@@ -144,7 +122,9 @@ const ReservationsWithTable4: React.FC = () => {
   // filas expandibles
   const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({});
   // modal
+
   const [showFacturacionModal, setShowFacturacionModal] = useState(false);
+  const [showsubirFacModal, setShowSubirFacModal] = useState(false);
 
   const [balance, setBalance] = useState<Balance | null>(null);
 
@@ -395,6 +375,9 @@ const ReservationsWithTable4: React.FC = () => {
 
   const handleFacturar = () => setShowFacturacionModal(true);
 
+
+  const handleSubirfactura = () => setShowSubirFacModal(true);
+
   const handleAsignar = () => {
     const ids = getAllSelectedItems();
     if (ids.length === 0) return;
@@ -442,6 +425,10 @@ const ReservationsWithTable4: React.FC = () => {
     setSelectedItems({});
     setShowFacturacionModal(false);
   };
+
+  const subirFactura = async () => {
+    setShowSubirFacModal(false);
+  }
 
   // ---- filas para Table4 ----
   const rows = useMemo(() => {
@@ -542,17 +529,17 @@ const ReservationsWithTable4: React.FC = () => {
 
     creado: ({ value }: { value: string }) => (
       <span className="whitespace-nowrap text-xs text-gray-600">
-        {format(new Date(value), "dd/MM/yyyy")}
+        {formatDate(value)}
       </span>
     ),
     check_in: ({ value }: { value: string }) => (
       <span className="whitespace-nowrap text-xs text-gray-600">
-        {format(new Date(value), "dd/MM/yyyy")}
+        {formatDate(value)}
       </span>
     ),
     check_out: ({ value }: { value: string }) => (
       <span className="whitespace-nowrap text-xs text-gray-600">
-        {format(new Date(value), "dd/MM/yyyy")}
+        {formatDate(value)}
       </span>
     ),
     noches: ({ value }: { value: number }) => <span>{value}</span>,
@@ -656,7 +643,7 @@ const ReservationsWithTable4: React.FC = () => {
                     />
                   </td>
                   <td className="px-4 py-2 whitespace-nowrap text-xs">
-                    {getDisplayDateForItem(r, idx)}
+                    {format(new Date(item.fecha_uso), "dd/MM/yyyy")}
                   </td>
                   <td className="px-4 py-2 whitespace-nowrap text-xs">
                     {fmtMoney(item.subtotal)}
@@ -766,19 +753,39 @@ const ReservationsWithTable4: React.FC = () => {
             title="Asignar factura usando los items seleccionados"
           >Asignar ({selectedCount})
           </button>
+          <button
+            onClick={handleSubirfactura}
+            disabled={selectedCount > 0}
+            className={`px-4 py-1.5 text-sm rounded-md ${selectedCount > 0
+              ? "bg-emerald-300 text-white cursor-not-allowed"
+              : "bg-emerald-600 text-white hover:bg-emerald-700"
+              }`}
+            title="Subir factura sin seleccionar items"
+          >
+            Subir factura
+          </button>
         </div>
       </Table4>
 
-
-      {/* Modal de facturación */}
-      {showFacturacionModal && (
-        <FacturacionModal
-          selectedItems={selectedItems}
-          reservationsInit={reservations}
-          onClose={() => setShowFacturacionModal(false)}
-          onConfirm={confirmFacturacion}
+      {showsubirFacModal && (
+        <SubirFactura
+          autoOpen
+          onSuccess={() => {
+            // aquí decides qué hacer al cerrar (refrescar lista, toasts, etc.)
+            setShowSubirFacModal(false);
+          }}
+          onCloseExternal={() => setShowSubirFacModal(false)} // opcional
         />
       )}
+
+      {/* {showsubirFacModal && (
+        <SubirFactura
+          autoOpen
+          onClose={() => setShowSubirFacModal(false)} // fallback
+        />
+      )} */}
+
+
       {/* Modal de Asignación (SubirFactura) */}
       {showAsignarModal && (
         <SubirFactura
