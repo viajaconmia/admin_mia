@@ -745,6 +745,7 @@ const ReservationsWithTable4: React.FC = () => {
             Deseleccionar todo
           </button>
           <button
+            type="button"
             onClick={handleFacturar}
             disabled={selectedCount === 0}
             className={`px-4 py-1.5 text-sm rounded-md ${selectedCount === 0

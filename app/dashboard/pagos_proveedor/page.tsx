@@ -35,6 +35,7 @@ type ItemSolicitud = SolicitudProveedor & {
     uuid_cfdi?: string;
     estado_factura?: "emitida" | "pendiente" | string;
   }>;
+  estatus_pagos?: string | null;
 };
 
 function getPagoInfo(item: ItemSolicitud) {
@@ -119,7 +120,7 @@ const Pill = ({
 const pagoTone3 = (estado: string | null) => {
   const v = (estado || "").toLowerCase();
   if (v === "pagado") return "green";
-  if (v === "enviado a pago") return "blue";
+  if (v === "enviado_a_pago") return "blue";
   return "gray";
 };
 
@@ -147,8 +148,9 @@ function App() {
       return !!item.tarjeta?.ultimos_4;
     } else if (activeFilter === "sentToPayments") {
       const pagos = (item as ItemSolicitud).pagos || [];
+      console.log("rvrvrv", pagos)
       return pagos.some(
-        (p) => (p.estatus_pagos || "").toLowerCase() === "enviado a pago"
+        (p) => (p.estatus_pagos || "").toLowerCase() === "enviado_a_pago"
       );
     }
     return true;
