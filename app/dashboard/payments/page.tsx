@@ -756,20 +756,6 @@ const TablaPagosVisualizacion = () => {
         : totalSaldoSeleccionado;
       return (
         <div className="flex gap-1 items-center"> {/* Reducido el gap de 2 a 1 */}
-          {/* Selección */}
-          {mostrarOpcionesFacturacion && (
-            <div className="flex items-center mr-1">
-              <input
-                type="checkbox"
-                className="accent-purple-600 w-3.5 h-3.5"
-                checked={selected}
-                disabled={disabled && !selected}
-                onChange={() => toggleSeleccion(row)}
-                title={disabled && !selected ? 'Debe coincidir el mismo agente' : 'Seleccionar pago'}
-              />
-            </div>
-          )}
-
           {/* Detalles */}
           <button
             className="px-2 py-1 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors border border-blue-200 flex items-center gap-1 text-xs"

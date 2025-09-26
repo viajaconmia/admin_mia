@@ -144,18 +144,20 @@ function App() {
 
   const norm = (s?: string | null) => (s ?? "").trim().toLowerCase();
 
-  // Filtra todo lo que esté pagado desde el inicio
   const cleanedSolicitudes = solicitudesPago.filter(
-    (it) => norm((it as ItemSolicitud).estatus_pagos) !== "pagado"
+    (it) => norm((it as ItemSolicitud).estatus_pagos) == "pagado"
   );
-
 
   // Filtro adicional
   const filteredSolicitudes = cleanedSolicitudes.filter((item) => {
     if (activeFilter === "creditCard") {
       return !!item.tarjeta?.ultimos_4;
-    } else if (activeFilter === "enviado_a_pago") {
-      return (item as ItemSolicitud).estatus_pagos?.toLowerCase() === "enviado_a_pago";
+    } else if (activeFilter === "sentToPayments") {
+      const pagos = (item as ItemSolicitud).pagos || [];
+      console.log("rvrvrv", pagos)
+      return pagos.some(
+        (p) => (p.estatus_pagos || "").toLowerCase() === "enviado_a_pago"
+      );
     }
     return true;
   });
@@ -331,60 +333,6 @@ function App() {
     ),
   };
 
-
-  // ---------- MULTIPANTALLA ----------
-  // const cols = useResponsiveColumns({
-  //   xs: [
-  //     "creado",
-  //     "hotel",
-  //     "viajero",
-  //     "estado_pago",
-  //     "estado_factura_proveedor",
-  //     "monto_pagado_proveedor",
-  //   ],
-  //   md: [
-  //     "creado",
-  //     "hotel",
-  //     "viajero",
-  //     "check_in",
-  //     "check_out",
-  //     "monto_pagado_proveedor",
-  //     "fecha_real_cobro",
-  //     "metodo_de_pago",
-  //     "estado_pago",
-  //     "estado_factura_proveedor",
-  //     "precio_de_venta",
-  //   ],
-  //   lg: [
-  //     "creado",
-  //     "cliente",
-  //     "hotel",
-  //     "codigo_hotel",
-  //     "viajero",
-  //     "habitacion",
-  //     "check_in",
-  //     "check_out",
-  //     "noches",
-  //     "costo_proveedor",
-  //     "markup",
-  //     "precio_de_venta",
-  //     "metodo_de_pago",
-  //     "reservante",
-  //     "etapa_reservacion",
-  //     "estado",
-  //     "estado_pago",
-  //     "monto_pagado_proveedor",
-  //     "fecha_real_cobro",
-  //     "estado_factura_proveedor",
-  //     "costo_facturado",
-  //     "fecha_facturacion",
-  //     "UUID",
-  //     "banco",
-  //     "digitos_tajeta",
-  //     "tipo_tarjeta",
-  //   ],
-  // });
-
   const handleFetchSolicitudesPago = () => {
     setLoading(true);
     fetchGetSolicitudesProveedores((data) => {
@@ -433,18 +381,6 @@ function App() {
             <CreditCard className="w-4 h-4 mr-2" />
             <span>Pagos con Tarjeta</span>
           </button>
-
-          <button
-            onClick={() => setActiveFilter("enviado_a_pago")}
-            className={`flex items-center px-4 py-2 rounded-md ${activeFilter === "enviado_a_pago"
-              ? "bg-blue-500 text-white"
-              : "bg-gray-200 text-gray-700"
-              }`}
-          >
-            <Send className="w-4 h-4 mr-2" />
-            <span>Enviado a Pagos</span>
-          </button>
-
         </div>
 
         <div>

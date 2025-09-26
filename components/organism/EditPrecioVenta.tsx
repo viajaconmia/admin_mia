@@ -23,9 +23,10 @@ type SaldoWallet = {
 
 const SalesManagementPage: React.FC<{
   reserva: Solicitud2;
+  hotelData: { id_hotel: number; nombre_hotel: string } | null;
   onClose: () => void;
   precioNuevo: number;
-}> = ({ reserva, onClose, precioNuevo }) => {
+}> = ({ reserva, onClose, precioNuevo, hotelData }) => {
   const { showNotification } = useNotification();
   const [showWalletModal, setShowWalletModal] = useState<boolean>(false);
   const [saldoWallet, setSaldoWallet] = useState<SaldoWallet | null>(null);
@@ -73,6 +74,7 @@ const SalesManagementPage: React.FC<{
       );
     }
   };
+
 
   const pagarConWallet = async (tipo: TypesSaldoWallet): Promise<void> => {
     try {
@@ -127,6 +129,7 @@ const SalesManagementPage: React.FC<{
         precioActualizado,
         id_booking: reserva.id_booking,
         id_servicio: reserva.id_servicio,
+        hotel: hotelData
       });
 
       showNotification("success", message);
@@ -154,6 +157,7 @@ const SalesManagementPage: React.FC<{
         id_hospedaje: reserva.id_hospedaje,
         id_booking: reserva.id_booking,
         precio_actualizado: precioActualizado.toFixed(2),
+        hotelData: hotelData,
       });
       console.log(data);
       showNotification("success", message);

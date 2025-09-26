@@ -740,7 +740,7 @@ const ReservationsWithTable4: React.FC = () => {
               : "bg-blue-600 text-white hover:bg-blue-700"
               }`}
           >
-            Facturar seleccionados ({selectedCount})
+            Facturar ({selectedCount})
           </button>
 
           <button
@@ -775,15 +775,18 @@ const ReservationsWithTable4: React.FC = () => {
             setShowSubirFacModal(false);
           }}
           onCloseExternal={() => setShowSubirFacModal(false)} // opcional
+
         />
       )}
-
-      {/* {showsubirFacModal && (
-        <SubirFactura
-          autoOpen
-          onClose={() => setShowSubirFacModal(false)} // fallback
+      {/* Modal de facturación */}
+      {showFacturacionModal && (
+        <FacturacionModal
+          selectedItems={selectedItems}
+          reservationsInit={reservations}
+          onClose={() => setShowFacturacionModal(false)}
+          onConfirm={confirmFacturacion}
         />
-      )} */}
+      )}
 
 
       {/* Modal de Asignación (SubirFactura) */}
