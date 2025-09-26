@@ -775,6 +775,7 @@ const ReservationsWithTable4: React.FC = () => {
             setShowSubirFacModal(false);
           }}
           onCloseExternal={() => setShowSubirFacModal(false)} // opcional
+
         />
       )}
       {/* Modal de facturación */}
@@ -786,6 +787,7 @@ const ReservationsWithTable4: React.FC = () => {
           onConfirm={confirmFacturacion}
         />
       )}
+
 
       {/* Modal de Asignación (SubirFactura) */}
       {showAsignarModal && (
