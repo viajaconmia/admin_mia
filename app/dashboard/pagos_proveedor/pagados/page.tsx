@@ -142,8 +142,14 @@ function App() {
   const [filters, setFilters] = useState<TypeFilters>(defaultFiltersSolicitudes);
   const [activeFilter, setActiveFilter] = useState<string>("all"); // "all" | "creditCard" | "sentToPayments"
 
+  const norm = (s?: string | null) => (s ?? "").trim().toLowerCase();
+
+  const cleanedSolicitudes = solicitudesPago.filter(
+    (it) => norm((it as ItemSolicitud).estatus_pagos) == "pagado"
+  );
+
   // Filtro adicional
-  const filteredSolicitudes = solicitudesPago.filter((item) => {
+  const filteredSolicitudes = cleanedSolicitudes.filter((item) => {
     if (activeFilter === "creditCard") {
       return !!item.tarjeta?.ultimos_4;
     } else if (activeFilter === "sentToPayments") {
@@ -374,17 +380,6 @@ function App() {
           >
             <CreditCard className="w-4 h-4 mr-2" />
             <span>Pagos con Tarjeta</span>
-          </button>
-
-          <button
-            onClick={() => setActiveFilter("sentToPayments")}
-            className={`flex items-center px-4 py-2 rounded-md ${activeFilter === "sentToPayments"
-              ? "bg-blue-500 text-white"
-              : "bg-gray-200 text-gray-700"
-              }`}
-          >
-            <Send className="w-4 h-4 mr-2" />
-            <span>Enviado a Pagos</span>
           </button>
         </div>
 
