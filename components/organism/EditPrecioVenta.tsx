@@ -75,7 +75,6 @@ const SalesManagementPage: React.FC<{
     }
   };
 
-  console.log("info hotel", hotelData)
 
   const pagarConWallet = async (tipo: TypesSaldoWallet): Promise<void> => {
     try {
