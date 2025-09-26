@@ -18,7 +18,9 @@ import {
   ExternalLink,
   Banknote,
   Wallet,
-  AlertTriangle, DollarSign
+  AlertTriangle,
+  DollarSign,
+  Plane,
 } from "lucide-react";
 import { Table } from "@/components/Table";
 import { TypeFilters } from "@/types";
@@ -33,6 +35,7 @@ import PageCuentasPorCobrar from "@/components/template/PageCuentasPorCobrar";
 import { getReservasByAgente } from "@/services/reservas";
 import { ToolTip } from "@/components/atom/ToolTip";
 import { set } from "date-fns";
+import { PageVuelos } from "@/components/template/PageVuelos";
 
 const getWalletBadge = (monto: string | null) => {
   // Convertir el string a número para la verificación
@@ -66,8 +69,6 @@ function App() {
     defaultFiltersSolicitudes
   );
 
-
-
   let formatedSolicitudes = clients
     .filter(
       (item) =>
@@ -92,7 +93,6 @@ function App() {
       soporte: item,
       detalles: item,
     }));
-  console.log(formatedSolicitudes, "wferferv");
   let componentes = {
     creado: (props: any) => (
       <span title={props.value}>
@@ -173,12 +173,9 @@ function App() {
     });
   };
 
-
-
   const handleFetchClients = () => {
     setLoading(true);
     fetchAgentes(filters, {} as TypeFilters, (data) => {
-      console.log("Agentes fetched:", data);
       setClient(data);
       setLoading(false);
     });
@@ -201,6 +198,12 @@ function App() {
           agente={selectedItem}
         ></PageReservasClientes>
       ),
+    },
+    {
+      title: "Vuelos",
+      tab: "vuelos",
+      icon: Plane,
+      component: <PageVuelos agente={selectedItem} />,
     },
     {
       title: "Facturas",
