@@ -13,15 +13,16 @@ interface PagarModalProps {
   ) => void;
   precio: number;
   agente: Agente;
+  loading: boolean;
 }
 
 export const MostrarSaldos: React.FC<PagarModalProps> = ({
   onSubmit,
   precio = 0,
   agente,
+  loading,
 }) => {
   const [faltante, setFaltante] = useState<number>(precio);
-  const [loading, setLoading] = useState<boolean>(false);
   const [saldosFavor, setSaldosFavor] = useState<
     (Saldo & { restante: number; usado: boolean })[]
   >([]);
@@ -33,7 +34,6 @@ export const MostrarSaldos: React.FC<PagarModalProps> = ({
 
   const fetchSaldos = async () => {
     try {
-      setLoading(true);
       if (!agente.id_agente) {
         throw new Error("ID de agente no disponible");
       }
@@ -51,8 +51,6 @@ export const MostrarSaldos: React.FC<PagarModalProps> = ({
       setSaldosFavor(saldos || []);
     } catch (err) {
       showNotification("error", err.message || "error al obtener los saldos");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -103,36 +101,33 @@ export const MostrarSaldos: React.FC<PagarModalProps> = ({
 
   return (
     <div className="flex-1 overflow-y-auto p-2 space-y-4">
-      {loading ? (
-        <>cargando...</>
-      ) : (
-        <TableFromMia
-          maxHeight="200px"
-          data={saldosFavor}
-          columns={[
-            {
-              component: "checkbox",
-              header: null,
-              key: "usado",
-              componentProps: {
-                label: "",
-                onChange: onSelectSaldo,
-              },
+      <TableFromMia
+        maxHeight="200px"
+        data={saldosFavor}
+        columns={[
+          {
+            component: "checkbox",
+            header: null,
+            key: "usado",
+            componentProps: {
+              label: "",
+              onChange: onSelectSaldo,
             },
-            { component: "text", header: "id saldo", key: "id_saldos" },
-            { component: "precio", header: "saldo", key: "restante" },
-            {
-              component: "text",
-              header: "forma de pago",
-              key: "metodo_pago",
-            },
-            { component: "text", header: "comentario", key: "comentario" },
-          ]}
-        />
-      )}
+          },
+          { component: "text", header: "id saldo", key: "id_saldos" },
+          { component: "precio", header: "saldo", key: "restante" },
+          {
+            component: "text",
+            header: "forma de pago",
+            key: "metodo_pago",
+          },
+          { component: "text", header: "comentario", key: "comentario" },
+        ]}
+      />
       <BalanceCard
         saldoAFavor={total_saldos}
         precioAPagar={precio}
+        loading={loading}
         totalSeleccionado={saldosFavor.reduce(
           (previus, current) =>
             redondear(previus + Number(current.saldo) - current.restante),

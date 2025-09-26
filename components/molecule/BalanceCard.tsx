@@ -8,6 +8,7 @@ interface BalanceCardProps {
   totalSeleccionado: number;
   onConfirm?: () => void;
   onSecondary?: () => void;
+  loading: boolean;
 }
 
 export const BalanceCard: React.FC<BalanceCardProps> = ({
@@ -16,6 +17,7 @@ export const BalanceCard: React.FC<BalanceCardProps> = ({
   totalSeleccionado,
   onConfirm,
   onSecondary,
+  loading,
 }) => {
   const saldoRestante = redondear(saldoAFavor - totalSeleccionado);
   const montoFinal = redondear(precioAPagar - totalSeleccionado);
@@ -73,14 +75,18 @@ export const BalanceCard: React.FC<BalanceCardProps> = ({
           <Button
             className="w-full"
             onClick={onSecondary}
-            disabled={cubreTodo}
+            disabled={cubreTodo || loading}
             variant="secondary"
           >
             Completar pago con credito
           </Button>
         )}
         {onConfirm && (
-          <Button className="w-full" onClick={onConfirm} disabled={!cubreTodo}>
+          <Button
+            className="w-full"
+            onClick={onConfirm}
+            disabled={!cubreTodo || loading}
+          >
             Confirmar pago
           </Button>
         )}

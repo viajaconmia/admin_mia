@@ -22,6 +22,14 @@ import { VuelosServices } from "@/services/VuelosServices";
 
 type ForSave = null | "aeropuerto" | "aerolinea";
 
+const initialDetails = {
+  codigo: null,
+  viajero: null,
+  costo: null,
+  precio: null,
+  status: "confirmada",
+};
+
 export const PageVuelos = ({ agente }: { agente: Agente }) => {
   const { showNotification } = useNotification();
   const [state, dispatch] = useReducer(vuelosReducer, initialState);
@@ -31,16 +39,11 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
     costo: number | null;
     precio: number | null;
     status: string | null;
-  }>({
-    codigo: null,
-    viajero: null,
-    costo: null,
-    precio: null,
-    status: "confirmada",
-  });
+  }>(initialDetails);
   const [viajeros, setViajeros] = useState<ViajeroService[]>([]);
   const [aerolineas, setAerolineas] = useState<Aerolinea[]>([]);
   const [aeropuertos, setAeropuertos] = useState<Aeropuerto[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
   const [open, setOpen] = useState<boolean>(false);
   const [save, setSave] = useState<ForSave>(null);
 
@@ -110,6 +113,7 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
     isPrimary: boolean
   ) => {
     try {
+      setLoading(true);
       if (faltante != 0 && isPrimary)
         throw new Error(
           "No puedes pagar con este, por favor si quieres pagar con credito usa el otro boton"
@@ -127,11 +131,15 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
         agente
       );
 
-      console.log(data);
+      dispatch({ type: "RESET", payload: null });
+      setDetails(initialDetails);
+      setOpen(false);
       showNotification("success", message);
     } catch (error) {
       console.log(error);
       showNotification("error", error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -181,6 +189,7 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
             agente={agente}
             precio={details.precio}
             onSubmit={handleSubmit}
+            loading={loading}
           />
         </Modal>
       )}
@@ -532,6 +541,7 @@ const initialState: Vuelo[] = [
 ];
 
 type Action =
+  | { type: "RESET"; payload: null }
   | { type: "ADD_VUELO"; payload: null }
   | { type: "DELETE_VUELO"; payload: number }
   | {
@@ -556,6 +566,8 @@ const vuelosReducer = (state: Vuelo[], action: Action) => {
         [action.payload.field]: action.payload.value,
       };
       return newState;
+    case "RESET":
+      return initialState;
     default:
       return state;
   }
