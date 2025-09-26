@@ -327,60 +327,6 @@ function App() {
     ),
   };
 
-
-  // ---------- MULTIPANTALLA ----------
-  // const cols = useResponsiveColumns({
-  //   xs: [
-  //     "creado",
-  //     "hotel",
-  //     "viajero",
-  //     "estado_pago",
-  //     "estado_factura_proveedor",
-  //     "monto_pagado_proveedor",
-  //   ],
-  //   md: [
-  //     "creado",
-  //     "hotel",
-  //     "viajero",
-  //     "check_in",
-  //     "check_out",
-  //     "monto_pagado_proveedor",
-  //     "fecha_real_cobro",
-  //     "metodo_de_pago",
-  //     "estado_pago",
-  //     "estado_factura_proveedor",
-  //     "precio_de_venta",
-  //   ],
-  //   lg: [
-  //     "creado",
-  //     "cliente",
-  //     "hotel",
-  //     "codigo_hotel",
-  //     "viajero",
-  //     "habitacion",
-  //     "check_in",
-  //     "check_out",
-  //     "noches",
-  //     "costo_proveedor",
-  //     "markup",
-  //     "precio_de_venta",
-  //     "metodo_de_pago",
-  //     "reservante",
-  //     "etapa_reservacion",
-  //     "estado",
-  //     "estado_pago",
-  //     "monto_pagado_proveedor",
-  //     "fecha_real_cobro",
-  //     "estado_factura_proveedor",
-  //     "costo_facturado",
-  //     "fecha_facturacion",
-  //     "UUID",
-  //     "banco",
-  //     "digitos_tajeta",
-  //     "tipo_tarjeta",
-  //   ],
-  // });
-
   const handleFetchSolicitudesPago = () => {
     setLoading(true);
     fetchGetSolicitudesProveedores((data) => {
