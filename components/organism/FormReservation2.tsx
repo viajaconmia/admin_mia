@@ -19,6 +19,7 @@ import { fetchViajerosFromAgent } from "@/services/viajeros";
 import { Hotel, ReservaForm, Viajero, EdicionForm, Solicitud2 } from "@/types";
 import { Table } from "../Table";
 import {
+  calcularNoches,
   formatNumberWithCommas,
   getEstatus,
   separarCostos,
@@ -370,7 +371,6 @@ export function ReservationForm2({
         response = await updateReserva(data, solicitud.id_booking);
       }
       console.log(response);
-      alert("Reserva creada correctamente");
       // onClose();
     } catch (error) {
       console.error(error);
@@ -408,11 +408,16 @@ export function ReservationForm2({
     return {
       "tipo-habi": roomType,                         // SENCILLO / DOBLE, etc.
       precio: Number(roomObj?.precio ?? 0),          // Precio de venta de ese tipo de cuarto
-      hotel: form.hotel?.name || "",                 // 12 BEES HOTEL
+      hotel: form.hotel?.name || "",   
+      form,
+      nuevo_incluye_desayuno,
+      acompanantes,
+      noches:{...edicionForm.noches, before: calcularNoches(solicitud.check_in, solicitud.check_out)},
       // Si quieres repetir la clave como pediste:
       // "tipo-habi-2": roomType,
     };
-  }, [form.habitacion, form.hotel])
+  }, [form.habitacion, form.hotel,form.noches, nuevo_incluye_desayuno, acompanantes, edicionForm.noches, solicitud.check_in, solicitud.check_out]);
+  
   console.log("hoteldata", hotelData)
   return (
     <form
