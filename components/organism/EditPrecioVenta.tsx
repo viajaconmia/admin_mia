@@ -21,6 +21,10 @@ type SaldoWallet = {
   [key in TypesSaldoWallet]: number;
 };
 
+// handleSubmitReserva.ts
+import { updateReserva } from "@/services/reservas";
+
+
 const SalesManagementPage: React.FC<{
   reserva: Solicitud2;
   hotelData: { id_hotel: number; nombre_hotel: string } | null;
@@ -46,6 +50,9 @@ const SalesManagementPage: React.FC<{
   const esBajada = diferencia < 0;
   const precioMinimo = noches;
   const esValido = precioActualizado >= precioMinimo;
+
+
+  console.log("hotelData en edit precio", hotelData);
 
   const consultarWallet = async (): Promise<void> => {
     try {
@@ -123,6 +130,9 @@ const SalesManagementPage: React.FC<{
       };
 
       const { message } = await ajustePrecioCobrarSaldo({
+        id_hospedaje: reserva.id_hospedaje,
+        check_in: reserva.check_in,
+        check_out: reserva.check_out,
         updatedItem,
         updatedSaldos: updatedSaldos, // Pass the first object if only one is expected
         diferencia,
@@ -158,6 +168,8 @@ const SalesManagementPage: React.FC<{
         id_booking: reserva.id_booking,
         precio_actualizado: precioActualizado.toFixed(2),
         hotelData: hotelData,
+        chack_in: reserva.check_in,
+        check_out: reserva.check_out,
       });
       console.log(data);
       showNotification("success", message);
@@ -186,6 +198,9 @@ const SalesManagementPage: React.FC<{
             id_booking: reserva.id_booking,
             id_hospedaje: reserva.id_hospedaje,
             precio_actualizado: precioActualizado,
+            hotel: hotelData,
+            check_in: reserva.check_in,
+            check_out: reserva.check_out,
           });
           showNotification("success", message);
         } else {
@@ -200,6 +215,9 @@ const SalesManagementPage: React.FC<{
             id_hospedaje: reserva.id_hospedaje,
             precio_actualizado: precioActualizado,
             id_pago: reserva.id_pago,
+            hotel: hotelData,
+            check_in: reserva.check_in,
+            check_out: reserva.check_out,
           });
           console.log(message, data);
           showNotification("success", message);

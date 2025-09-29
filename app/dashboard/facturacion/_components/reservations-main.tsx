@@ -275,12 +275,7 @@ interface ReservationWithItems extends Reservation {
   nightsCount?: number;
 }
 
-type ReservationStatus =
-  | "pending"
-  | "confirmed"
-  | "completed"
-  | "cancelled"
-  | "all";
+type ReservationStatus = | "pending" | "confirmed" | "completed" | "cancelled" | "all";
 
 interface FilterOptions {
   searchTerm: string;
@@ -383,9 +378,9 @@ export const FacturacionModal: React.FC<{
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("PUE");
   const { crearCfdi, descargarFactura, mandarCorreo } = useApi();
   const [descarga, setDescarga] = useState<DescargaFactura | null>(null);
-  const [isInvoiceGenerated, setIsInvoiceGenerated] = useState<Root | null>(
-    null
-  );
+  const [isInvoiceGenerated, setIsInvoiceGenerated] = useState<Root | null>(null);
+  
+
   const [isConsolidated, setIsConsolidated] = useState(true);
   const [reservationsWithSelectedItems, setReservationsWithSelectedItems] =
     useState<ReservationWithItems[]>([]);
@@ -422,8 +417,8 @@ export const FacturacionModal: React.FC<{
     CfdiType: "I",
     NameId: "1",
     Observations: "",
-    ExpeditionPlace: "11570",
-    //ExpeditionPlace: "42501",
+    //ExpeditionPlace: "11570",
+    ExpeditionPlace: "42501",
     Serie: null,
 
     Folio: Math.round(Math.random() * 999999999),
@@ -538,7 +533,7 @@ export const FacturacionModal: React.FC<{
           Items: [
             {
               Quantity: "1",
-              ProductCode: "90121500",
+              ProductCode: "90111500",
               UnitCode: "E48",
               Unit: "Unidad de servicio",
               Description: `HOSPEDAJE - ${totalNights} NOCHE(S) EN ${reservationsWithSelectedItems.length} RESERVA(S)`,

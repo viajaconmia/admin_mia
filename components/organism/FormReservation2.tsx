@@ -54,7 +54,7 @@ export function ReservationForm2({
   }
   const [nuevo_incluye_desayuno, setNuevoIncluyeDesayuno] = useState<
     boolean | null
-  >(solicitud.nuevo_incluye_desayuno === null? null:Boolean(solicitud.nuevo_incluye_desayuno));
+  >(solicitud.nuevo_incluye_desayuno === null ? null : Boolean(solicitud.nuevo_incluye_desayuno));
   const [acompanantes, setAcompanantes] = useState<Viajero[]>([]);
   const [cobrar, setCobrar] = useState<boolean | null>(null);
   const [form, setForm] = useState<ReservaForm>({
@@ -409,10 +409,14 @@ export function ReservationForm2({
       "tipo-habi": roomType,                         // SENCILLO / DOBLE, etc.
       precio: Number(roomObj?.precio ?? 0),          // Precio de venta de ese tipo de cuarto
       hotel: form.hotel?.name || "",                 // 12 BEES HOTEL
+      form,
+      nuevo_incluye_desayuno,
+      acompanantes
       // Si quieres repetir la clave como pediste:
       // "tipo-habi-2": roomType,
     };
-  }, [form.habitacion, form.hotel])
+  }, [form.habitacion, form.hotel, form, nuevo_incluye_desayuno, acompanantes]);
+
   console.log("hoteldata", hotelData)
   return (
     <form
