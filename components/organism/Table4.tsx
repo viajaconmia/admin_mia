@@ -57,6 +57,8 @@ export const Table4 = <T,>({
   console.log("Registros recibidos en Table4:", registros);
   console.log("Registros recibidos en Table4:", displayData);
 
+
+
   const showAllColumns = () => {
     setVisibleColumns(new Set(columnKeys));
   };
