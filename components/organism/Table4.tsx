@@ -54,6 +54,8 @@ export const Table4 = <T,>({
   );
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(new Set());
   const [showColumnSelector, setShowColumnSelector] = useState(false);
+  console.log("Registros recibidos en Table4:", registros);
+  console.log("Registros recibidos en Table4:", displayData);
 
 
 
