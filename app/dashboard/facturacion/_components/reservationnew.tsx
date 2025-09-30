@@ -190,7 +190,7 @@ const DEFAULT_RESERVA_FILTERS: TypeFilters = {
   tipo_hospedaje: null,    // opcional - tú lo mapeas si aplica
 
   // fechas (rango) y qué fecha usar
-  filterType: "Check-in",
+  filterType: null,
   startDate: null,
   endDate: null,
 
@@ -473,7 +473,6 @@ const ReservationsWithTable4: React.FC = () => {
     setSelectedItems((prev) => {
       const currentSelected = prev[reservationId] || [];
       let nextSelected: SelectedMap;
-      console.log("resertion", reservation)
       // Verifica si la selección de este usuario corresponde al mismo agente
       const agentId = reservation.id_usuario_generador;
       const selectedAgentId = Object.keys(prev).map((resId) =>
@@ -587,7 +586,6 @@ const ReservationsWithTable4: React.FC = () => {
     // Suma de totales de los items seleccionados
     const initialItemsTotal = itemsForApi.reduce((acc, it) => acc + it.total, 0);
 
-    console.log("[Reservations] payload itemsJson:", itemsJson);
     // Ejemplo: [{"total":841,"id_item":"ite-7f5a401b-8689-45bc-8019-05b91629c912"}]
 
     setAsignarData({
@@ -618,21 +616,14 @@ const ReservationsWithTable4: React.FC = () => {
     const base = onlyPending ? reservations.filter(hasPendingItems) : reservations;
 
     // 1) Aplica filtros + search
-    console.log("Aplicando filtros:", filters, "y búsqueda:", searchTerm);
     const filtradas = applyFiltersReservation(base, filters, searchTerm);
 
-    console.log("Reservas mostradas después del filtro:", filtradas);
-    console.log(`Total de reservas mostradas: ${filtradas.length}`);
-
-    // 2) Mapea a rows de la tabla
-    // ... dentro de useMemo rows:
-    return filtradas.map((r) => {
+    // 2) Mapea a rows de la tabla creando nuevos objetos para React
+    return filtradas.map((r, index) => {
       const noches = Math.max(
         0,
-        Math.ceil(
-          (new Date(r.check_out).getTime() - new Date(r.check_in).getTime()) /
-          (1000 * 60 * 60 * 24)
-        )
+        Math.ceil((new Date(r.check_out).getTime() - new Date(r.check_in).getTime()) /
+          (1000 * 60 * 60 * 24))
       );
 
       const costoProveedor = Number(r.costo_total || 0);
@@ -645,11 +636,10 @@ const ReservationsWithTable4: React.FC = () => {
         .reduce((acc, it) => acc + Number((it as any).total || 0), 0);
 
       const pendientePorFacturar = Math.max(0, precioVenta - totalFacturado);
-      console.log(`id_cliente: ${r.id_usuario_generador}`)
 
       return {
-        id: r.id_servicio,
-        seleccionado: r,
+        id: `${r.id_servicio}-${index}`, // 🔑 clave única
+        seleccionado: { ...r },          // ⚡ nuevo objeto para React
         id_cliente: r.id_usuario_generador,
         cliente: r.razon_social ?? "",
         creado: r.created_at,
@@ -664,20 +654,24 @@ const ReservationsWithTable4: React.FC = () => {
         precio_de_venta: precioVenta,
         pendiente_por_facturar: pendientePorFacturar,
         total_facturado: totalFacturado,
-
-        // 👇 NO pases los items aquí
         detalles: {
           reservaId: r.id_servicio,
         },
       };
     });
+
   }, [reservations, onlyPending, filters, searchTerm]);
 
-  console.log("rows", rows)
 
   // ---- renderers de columnas ----
   const renderers = {
     // 1) columna combinada: chevron + checkbox por reserva
+    cliente: ({ value }: { value: string }) => (
+      <span className="whitespace-nowrap text-xs text-gray-600">
+        {value.toUpperCase()}
+      </span>
+    ),
+
     seleccionado: ({ value }: { value: Reservation }) => {
       const r = value;
       const checked = isReservationFullySelected(r.id_servicio);
@@ -765,9 +759,11 @@ const ReservationsWithTable4: React.FC = () => {
 
   // Reemplaza tu expandedRenderer por:
   const expandedRenderer = (row: any) => {
-    const reservationId: string = row.detalles?.reservaId ?? row.id; // fallback al id de la fila
+    const reservationId: string = row.detalles?.reservaId ?? row.id;
+
     return (
       <LazyItemsTable
+        key={reservationId} // 🔑 clave única para evitar duplicados
         reservationId={reservationId}
         getReservationById={getReservationById}
         isItemSelected={isItemSelected}
@@ -776,8 +772,6 @@ const ReservationsWithTable4: React.FC = () => {
       />
     );
   };
-
-
 
   // ---- columnas en el orden solicitado ----
   const columns = [
