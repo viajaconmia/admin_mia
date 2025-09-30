@@ -618,16 +618,8 @@ const ReservationsWithTable4: React.FC = () => {
     // 1) Aplica filtros + search
     const filtradas = applyFiltersReservation(base, filters, searchTerm);
 
-<<<<<<< HEAD
     // 2) Mapea a rows de la tabla creando nuevos objetos para React
     return filtradas.map((r, index) => {
-=======
-    console.log("Reservas mostradas después del filtro:", filtradas);
-    console.log(`Total de reservas mostradas: ${filtradas.length}`);
-    // 2) Mapea a rows de la tabla
-    // ... dentro de useMemo rows:
-    return filtradas.map((r) => {
->>>>>>> 39e426657bd40e21cc2c9e56e6f8e9045c8983d1
       const noches = Math.max(
         0,
         Math.ceil((new Date(r.check_out).getTime() - new Date(r.check_in).getTime()) /
