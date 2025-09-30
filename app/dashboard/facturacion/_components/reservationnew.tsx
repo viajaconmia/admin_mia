@@ -618,8 +618,12 @@ const ReservationsWithTable4: React.FC = () => {
     const base = onlyPending ? reservations.filter(hasPendingItems) : reservations;
 
     // 1) Aplica filtros + search
+    console.log("Aplicando filtros:", filters, "y búsqueda:", searchTerm);
+
     const filtradas = applyFiltersReservation(base, filters, searchTerm);
 
+    console.log("Reservas mostradas después del filtro:", filtradas);
+    console.log(`Total de reservas mostradas: ${filtradas.length}`);
     // 2) Mapea a rows de la tabla
     // ... dentro de useMemo rows:
     return filtradas.map((r) => {
