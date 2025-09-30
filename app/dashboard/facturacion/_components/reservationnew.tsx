@@ -892,7 +892,6 @@ const ReservationsWithTable4: React.FC = () => {
         />
       )}
 
-
       {/* Modal de Asignación (SubirFactura) */}
       {showAsignarModal && (
         <SubirFactura
