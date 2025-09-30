@@ -2,7 +2,7 @@ import { FullHotelData } from "@/app/dashboard/hoteles/_components/hotel-dialog"
 import { Hotel } from "@/types";
 import { Viajero } from "@/types";
 import { ChevronDown, CheckCircle, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 export const Dropdown = ({
   label,
@@ -10,14 +10,16 @@ export const Dropdown = ({
   onChange,
   options = [],
   disabled = false,
+  className,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   options?: string[] | { value: string; label: string }[]; // Update this line
   disabled?: boolean;
+  className?: string;
 }) => (
-  <div className="flex flex-col space-y-1">
+  <div className={`flex flex-col space-y-1 ${className}`}>
     <label className="text-sm text-gray-900 font-medium">{label}</label>
     <div className="relative">
       <select
@@ -76,6 +78,30 @@ export const DateInput = ({
     </div>
   </div>
 );
+export const DateTimeInput = ({
+  label,
+  value,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+}) => (
+  <div className="flex flex-col space-y-1">
+    <label className="text-sm text-gray-900 font-medium">{label}</label>
+    <div className="relative">
+      <input
+        type="datetime-local"
+        value={value || ""}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+      />
+    </div>
+  </div>
+);
 
 // Custom text input component
 export const NumberInput = ({
@@ -110,16 +136,18 @@ export const TextInput = ({
   label,
   value,
   onChange,
+  className,
   disabled = false,
   placeholder = "",
 }: {
   label?: string;
   value: string;
+  className?: string;
   disabled?: boolean;
   onChange: (value: string) => void;
   placeholder?: string;
 }) => (
-  <div className="flex flex-col space-y-1">
+  <div className={`flex flex-col space-y-1 ${className}`}>
     {label && (
       <label className="text-sm text-gray-900 font-medium">{label}</label>
     )}
@@ -184,13 +212,13 @@ export const TextAreaInput = ({
   </div>
 );
 // Utilidad para soportar opciones como objetos { name, ... }
-export type ComboBoxOption = {
+export type ComboBoxOption<T> = {
   name: string;
-  content: Hotel | Viajero | FullHotelData;
+  content: T;
 };
 
 // Si quieres que el ComboBox soporte objetos, cambia la definición así:
-export const ComboBox = ({
+export const ComboBox = <T extends any>({
   label,
   value,
   onChange,
@@ -202,9 +230,9 @@ export const ComboBox = ({
 }: {
   label?: string;
   sublabel?: string;
-  value: ComboBoxOption | null;
-  onChange: (value: ComboBoxOption | null) => void;
-  options?: ComboBoxOption[];
+  value: ComboBoxOption<T> | null;
+  onChange: (value: ComboBoxOption<T> | null) => void;
+  options?: ComboBoxOption<T>[];
   placeholderOption?: string;
   disabled?: boolean;
   onDelete?: () => void;
@@ -212,7 +240,7 @@ export const ComboBox = ({
   const [inputValue, setInputValue] = useState(value?.name || "");
   const [isOpen, setIsOpen] = useState(false);
   const [filteredOptions, setFilteredOptions] =
-    useState<ComboBoxOption[]>(options);
+    useState<ComboBoxOption<T>[]>(options);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -240,7 +268,7 @@ export const ComboBox = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleSelect = (option: ComboBoxOption) => {
+  const handleSelect = (option: ComboBoxOption<T>) => {
     setInputValue(option.name);
     onChange(option);
     setIsOpen(false);
@@ -385,12 +413,13 @@ export const InputRadio = <T,>({
   const IconComponent = item.icon;
   return (
     <label
-      className={`flex items-center p-3 rounded-lg border-2 cursor-pointer transition-all duration-200 hover:shadow-md ${disabled === true
-        ? "border-gray-50 bg-gray-50"
-        : selectedItem === item.id
+      className={`flex items-center p-3 rounded-lg border-2 cursor-pointer transition-all duration-200 hover:shadow-md ${
+        disabled === true
+          ? "border-gray-50 bg-gray-50"
+          : selectedItem === item.id
           ? "border-blue-500 bg-blue-50"
           : "border-gray-200 hover:border-gray-300"
-        }`}
+      }`}
     >
       <input
         type="radio"
@@ -402,15 +431,17 @@ export const InputRadio = <T,>({
         className="sr-only"
       />
       <div
-        className={`w-8 h-8 ${item.color || "bg-gray"}${disabled ? "-300" : "-600"
-          } rounded-full flex items-center justify-center mr-3`}
+        className={`w-8 h-8 ${item.color || "bg-gray"}${
+          disabled ? "-300" : "-600"
+        } rounded-full flex items-center justify-center mr-3`}
       >
         <IconComponent className="w-4 h-4 text-white" />
       </div>
       <div className="flex-1">
         <div
-          className={`font-medium ${disabled ? "text-gray-500" : "text-gray-800"
-            }`}
+          className={`font-medium ${
+            disabled ? "text-gray-500" : "text-gray-800"
+          }`}
         >
           {item.label}
         </div>
@@ -459,9 +490,10 @@ export const CheckboxInput = ({
             ${checked ? "bg-green-500" : "bg-gray-300"} 
             /* Estilo de foco para el riel cuando el input interno está enfocado */
             focus-within:ring-2 focus-within:ring-offset-2 
-            ${disabled
-              ? "focus-within:ring-transparent"
-              : "focus-within:ring-green-400 dark:focus-within:ring-green-600"
+            ${
+              disabled
+                ? "focus-within:ring-transparent"
+                : "focus-within:ring-green-400 dark:focus-within:ring-green-600"
             }
           `}
         >
@@ -502,14 +534,181 @@ export const CheckboxInput = ({
             }}
             className={`
               ml-3 text-sm font-medium select-none
-              ${disabled
-                ? "text-gray-400 cursor-not-allowed"
-                : "text-gray-900 dark:text-gray-100 cursor-pointer"
+              ${
+                disabled
+                  ? "text-gray-400 cursor-not-allowed"
+                  : "text-gray-900 dark:text-gray-100 cursor-pointer"
               }
             `}
           >
             {label}
           </span>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export type ComboBoxOption2<T> = {
+  name: string;
+  content: T;
+};
+
+type ComboBoxProps2<T> = {
+  label?: string;
+  sublabel?: string;
+  value: ComboBoxOption2<T> | null;
+  onChange: (value: ComboBoxOption2<T> | null) => void;
+  options?: ComboBoxOption2<T>[];
+  placeholderOption?: string;
+  disabled?: boolean;
+  className?: string;
+  onDelete?: () => void;
+};
+
+export const ComboBox2 = <T,>({
+  label,
+  sublabel,
+  value,
+  onChange,
+  options = [],
+  placeholderOption = "Selecciona una opción",
+  disabled = false,
+  className,
+  onDelete,
+}: ComboBoxProps2<T>) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Estado interno
+  const [inputValue, setInputValue] = useState(value?.name || "");
+  const [isOpen, setIsOpen] = useState(false);
+  const [focus, setFocus] = useState<number | null>(null);
+
+  // Memoizar opciones filtradas según inputValue
+  const filteredOptions = useMemo(() => {
+    const lower = inputValue.toLowerCase();
+    return options.filter((o) => o?.name?.toLowerCase().includes(lower));
+  }, [inputValue, options]);
+
+  // useEffect(() => {
+  //   document.addEventListener("keydown", handleMoveFocus);
+  //   return () => document.removeEventListener("keydown", handleMoveFocus);
+  // }, [filteredOptions, focus]);
+
+  const handleMoveFocus = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (isOpen && filteredOptions.length > 0) {
+      if (event.key === "ArrowDown") {
+        setFocus((prev) =>
+          prev === filteredOptions.length - 1 ? 0 : (prev ?? 0) + 1
+        );
+        event.preventDefault();
+      }
+      if (event.key === "ArrowUp") {
+        setFocus((prev) =>
+          prev === 0 ? filteredOptions.length - 1 : (prev ?? 0) - 1
+        );
+        event.preventDefault();
+      }
+      if (event.key === "Enter") {
+        handleSelectByEnter();
+        event.preventDefault();
+      }
+    }
+  };
+
+  const handleSelectByEnter = () => {
+    setFocus((f) => {
+      const option = filteredOptions[f ?? 0];
+      if (option && option.name !== inputValue) {
+        // posponer la llamada al padre
+        queueMicrotask(() => onChange(option));
+        setInputValue(option.name);
+      }
+      setIsOpen(false);
+      return null;
+    });
+  };
+
+  // Cerrar dropdown al hacer click fuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+        setFocus(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleSelect = (option: ComboBoxOption<T>) => {
+    if (option.name !== inputValue) {
+      onChange(option);
+      setInputValue(option.name);
+    }
+    setIsOpen(false);
+    setFocus(null);
+  };
+
+  return (
+    <div className={`flex flex-col space-y-1 ${className}`} ref={containerRef}>
+      {label && (
+        <label className="text-sm text-gray-900 font-medium line-clamp-1">
+          {label}
+          {sublabel && (
+            <span className="text-gray-500 text-xs">{` - ${sublabel.toLowerCase()}`}</span>
+          )}
+        </label>
+      )}
+      <div className="relative flex gap-2">
+        <div className="flex-1 relative">
+          <input
+            type="text"
+            disabled={disabled}
+            value={inputValue}
+            placeholder={placeholderOption}
+            onFocus={() => {
+              setIsOpen(true);
+              setFocus(0);
+            }}
+            onKeyDown={handleMoveFocus}
+            onChange={(e) => {
+              setInputValue(e.target.value);
+              setIsOpen(true);
+              setFocus(0);
+            }}
+            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          />
+          <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+            <ChevronDown size={18} className="text-gray-500" />
+          </div>
+          {isOpen && filteredOptions.length > 0 && (
+            <ul className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow max-h-60 overflow-y-auto text-sm">
+              {filteredOptions.map((option, index) => (
+                <li
+                  key={option.name + index}
+                  onClick={() => handleSelect(option)}
+                  className={`px-3 py-2 cursor-pointer hover:bg-blue-100 ${
+                    focus == index ? "bg-blue-100" : ""
+                  }`}
+                >
+                  {option.name}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        {onDelete && (
+          <button
+            onClick={onDelete}
+            type="button"
+            className="bg-gray-100 rounded-sm border border-gray-300 shadow-sm w-9 flex justify-center items-center"
+          >
+            <X className="w-4 h-4" />
+          </button>
         )}
       </div>
     </div>

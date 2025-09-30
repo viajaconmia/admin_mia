@@ -59,6 +59,127 @@ const getSelectableItemsOfReservation = (r: Reservation) =>
 const hasPendingItems = (r: Reservation) =>
   (r.items ?? []).some((it) => it?.id_factura == null);
 
+// --- Tabla perezosa de items (solo se monta si la fila está expandida) ---
+const LazyItemsTable = React.memo(function LazyItemsTable({
+  reservationId,
+  getReservationById,
+  isItemSelected,
+  toggleItemSelection,
+  adjustItemDates,
+}: {
+  reservationId: string;
+  getReservationById: (id: string) => ReservationWithItems | undefined;
+  isItemSelected: (reservationId: string, itemId: string) => boolean;
+  toggleItemSelection: (reservationId: string, itemId: string) => void;
+  adjustItemDates: (r: ReservationWithItems) => ReservationWithItems;
+}) {
+  const r = getReservationById(reservationId);
+  if (!r) return null;
+
+  // Ajuste de fechas solo cuando se expande
+  const reservationWithDates = React.useMemo(
+    () => adjustItemDates(r),
+    // Si la API te garantiza que los items cambian de ref, puedes usar r.items como dep;
+    // si no, usa campos estables como id, check_in/out y longitud de items:
+    [r.id_servicio, r.check_in, r.check_out, r.items]
+  );
+
+  const items: Item[] = reservationWithDates.items ?? [];
+  const factPend = React.useMemo(
+    () => items.filter((i) => i.id_factura == null).length,
+    [items]
+  );
+
+  const fmtMoney = (s: string) =>
+    new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" })
+      .format(Number(s || "0"));
+
+  return (
+    <div className="p-4 ml-8">
+      <h4 className="text-xs font-medium text-gray-700 mb-2">
+        Items (Noches) de la reservación
+      </h4>
+      <div className="flex items-center mb-2">
+        <span className="text-xs text-gray-500">
+          {factPend} noche(s) pendientes por facturar
+        </span>
+      </div>
+
+      <table className="min-w-full divide-y divide-gray-200 border border-gray-200">
+        <thead className="bg-gray-100">
+          <tr>
+            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Selección
+            </th>
+            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Noche
+            </th>
+            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Subtotal
+            </th>
+            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Impuestos
+            </th>
+            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Total
+            </th>
+            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Estado facturación
+            </th>
+          </tr>
+        </thead>
+        <tbody className="bg-white divide-y divide-gray-200">
+          {items.map((item) => {
+            const disabled = item.id_factura != null;
+            const checked = isItemSelected(reservationId, item.id_item);
+
+            return (
+              <tr
+                key={item.id_item}
+                className={`hover:bg-gray-50 ${disabled ? "bg-gray-100 text-gray-500" : ""}`}
+              >
+                <td className="px-4 py-2 whitespace-nowrap">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    checked={checked}
+                    onChange={() => toggleItemSelection(reservationId, item.id_item)}
+                    disabled={disabled}
+                  />
+                </td>
+                <td className="px-4 py-2 whitespace-nowrap text-xs">
+                  {format(new Date(item.fecha_uso), "dd/MM/yyyy")}
+                </td>
+                <td className="px-4 py-2 whitespace-nowrap text-xs">
+                  {fmtMoney(item.subtotal)}
+                </td>
+                <td className="px-4 py-2 whitespace-nowrap text-xs">
+                  {fmtMoney(item.impuestos)}
+                </td>
+                <td className="px-4 py-2 whitespace-nowrap text-xs">
+                  {fmtMoney(item.total)}
+                </td>
+                <td className="px-4 py-2 whitespace-nowrap text-xs">
+                  {disabled ? (
+                    <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                      Facturado
+                    </span>
+                  ) : (
+                    <span className="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                      Pendiente
+                    </span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+});
+
+
 const DEFAULT_RESERVA_FILTERS: TypeFilters = {
   // texto
   id_agente: null,         // id_cliente en la tabla (mapea a id_usuario_generador)
@@ -90,15 +211,16 @@ const ReservationsWithTable4: React.FC = () => {
   const updateAgentFilterFromSelection = (nextSelected: SelectedMap) => {
     const selectedReservaIds = Object.keys(nextSelected);
     if (selectedReservaIds.length === 0) {
-      // sin selección -> limpiar filtro
       setFilters((prev) => ({ ...prev, id_agente: null }));
       return;
     }
+
     const agentIds = selectedReservaIds
       .map((id) => reservations.find((r) => r.id_servicio === id)?.id_usuario_generador)
       .filter((v): v is string => !!v);
 
     const unique = Array.from(new Set(agentIds));
+
     // Si todas las seleccionadas son del mismo agente, filtramos por él
     if (unique.length === 1) {
       setFilters((prev) => ({ ...prev, id_agente: unique[0] }));
@@ -106,6 +228,28 @@ const ReservationsWithTable4: React.FC = () => {
       // Si por alguna razón hay mezcla, no tocamos el filtro (o podrías limpiarlo)
       // setFilters((prev) => ({ ...prev, id_agente: null }));
     }
+  };
+
+  const adjustItemDates = (reservation: ReservationWithItems): ReservationWithItems => {
+    const checkIn = new Date(reservation.check_in);
+    const checkOut = new Date(reservation.check_out);
+
+    const nights = Math.max(
+      0,
+      Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24))
+    );
+
+    const adjustedItems = (reservation.items ?? []).map((item, index) => {
+      // Regla solicitada: si hay más ítems que noches, esos extras se quedan con fecha de check-in
+      if (index >= nights) {
+        return { ...item, fecha_uso: checkIn.toISOString() };
+      }
+      const d = new Date(checkIn);
+      d.setDate(checkIn.getDate() + index);
+      return { ...item, fecha_uso: d.toISOString() };
+    });
+
+    return { ...reservation, items: adjustedItems };
   };
 
 
@@ -152,6 +296,12 @@ const ReservationsWithTable4: React.FC = () => {
     obtenerBalance();
   }, []);
 
+  // useEffect(() => {
+  //   // Llamamos a la función que ajusta las fechas de los ítems
+  //   const updatedReservations = reservations.map((reservation) => adjustItemDates(reservation));
+  //   setReservations(updatedReservations); // Actualizamos el estado con las reservas con fechas ajustadas
+  // }, [reservations]); // Este useEffect se ejecutará cuando las reservas cambien
+
   const formatCurrency = (value: number): string => {
     return new Intl.NumberFormat('es-MX', {
       style: 'currency',
@@ -191,7 +341,14 @@ const ReservationsWithTable4: React.FC = () => {
 
   //------filtrado------
   // Normaliza strings para búsqueda
-  const norm = (s?: string | null) => (s ?? "").toString().trim().toUpperCase();
+  const norm = (s?: string | number | null) =>
+    (s ?? "")
+      .toString()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "") // quita acentos
+      .replace(/\s+/g, " ")            // colapsa espacios
+      .trim()
+      .toUpperCase();
 
   const itemsIndex = useMemo(() => {
     const map = new Map<string, Item>();
@@ -203,17 +360,14 @@ const ReservationsWithTable4: React.FC = () => {
   // Decide qué campo de fecha usar según filterType
   const pickDate = (r: Reservation, filterType?: TypeFilters["filterType"]) => {
     switch (filterType) {
-      case "Check-in":
-        return r.check_in;
-      case "Check-out":
-        return r.check_out;
-      case "Creacion":
-        return r.created_at;
-      // "Transaccion" / "Actualizacion" no existen en Reservation: ignora o ajusta si tienes esos campos
-      default:
-        return r.check_in;
+      case "Check-in": return r.check_in;
+      case "Check-out": return r.check_out;
+      case "Creacion": return r.created_at;
+      default: return r.check_in;
     }
   };
+
+  const tokens = (s?: string | null) => norm(s).split(" ").filter(Boolean);
 
   // Aplica todos los filtros soportados por las columnas de la tabla
   const applyFiltersReservation = (
@@ -221,12 +375,12 @@ const ReservationsWithTable4: React.FC = () => {
     f: TypeFilters,
     q: string
   ) => {
-    const qNorm = norm(q);
+    const qTokens = tokens(q); // palabras buscadas (AND)
 
     return list.filter((r) => {
-      // ---- 1) SEARCH global (código, id_cliente, cliente, hotel, viajero) ----
-      if (qNorm) {
-        const hay = [
+      // ---- 1) SEARCH global (AND por tokens en el "haystack") ----
+      if (qTokens.length) {
+        const haystack = [
           r.codigo_reservacion_hotel,
           r.id_usuario_generador,
           r.razon_social,
@@ -236,16 +390,35 @@ const ReservationsWithTable4: React.FC = () => {
           r.room,
         ]
           .map(norm)
-          .some((v) => v.includes(qNorm));
-        if (!hay) return false;
+          .join(" | ");
+
+        const okAll = qTokens.every((t) => haystack.includes(t));
+        if (!okAll) return false;
       }
 
-      // ---- 2) Filtros por texto exacto / contiene ----
-      if (f.id_agente && norm(r.id_usuario_generador) !== norm(f.id_agente)) return false; // id_cliente
-      if (f.nombre_agente && !norm(r.razon_social).includes(norm(f.nombre_agente))) return false; // cliente
-      if (f.hotel && !norm(r.hotel).includes(norm(f.hotel))) return false; // hotel
-      if (f.codigo_reservacion && !norm(r.codigo_reservacion_hotel).includes(norm(f.codigo_reservacion))) return false; // código hotel
-      if (f.traveler && !norm(r.nombre_viajero).includes(norm(f.traveler))) return false; // viajero
+      // ---- 2) Filtros por texto exacto / contiene (normalizados) ----
+      // id_agente: suele ser id exacto -> igualdad estricta normalizada
+      if (f.id_agente) {
+        if (norm(r.id_usuario_generador) !== norm(f.id_agente)) return false;
+      }
+
+      // nombre_agente, hotel, traveler, codigo_reservacion: contiene (case/accents-insensitive)
+      if (f.nombre_agente) {
+        if (!norm(r.razon_social).includes(norm(f.nombre_agente))) return false;
+      }
+
+      if (f.hotel) {
+        if (!norm(r.hotel).includes(norm(f.hotel))) return false;
+      }
+
+      if (f.traveler) {
+        if (!norm(r.nombre_viajero).includes(norm(f.traveler))) return false;
+      }
+
+      if (f.codigo_reservacion) {
+        if (!norm(r.codigo_reservacion_hotel).includes(norm(f.codigo_reservacion)))
+          return false;
+      }
 
       // ---- 3) Filtro por fechas (rango) ----
       if (f.startDate || f.endDate) {
@@ -288,8 +461,6 @@ const ReservationsWithTable4: React.FC = () => {
     });
   };
 
-
-
   // ---- selección por RESERVA (todos los items facturables) ----
   const toggleReservationSelection = (reservationId: string) => {
     const reservation = reservations.find((r) => r.id_servicio === reservationId);
@@ -303,7 +474,18 @@ const ReservationsWithTable4: React.FC = () => {
       const currentSelected = prev[reservationId] || [];
       let nextSelected: SelectedMap;
 
-      // si ya están todos, deselecciona
+      // Verifica si la selección de este usuario corresponde al mismo agente
+      const agentId = reservation.id_usuario_generador;
+      const selectedAgentId = Object.keys(prev).map((resId) =>
+        reservations.find((r) => r.id_servicio === resId)?.id_usuario_generador
+      ).find((id) => id !== agentId);
+
+      if (selectedAgentId) {
+        alert("No puedes seleccionar ítems de otro agente.");
+        return prev; // No se permite la selección de otro agente
+      }
+
+      // Si ya están todos, deselecciona
       if (currentSelected.length === itemsFacturables.length) {
         const { [reservationId]: _drop, ...rest } = prev;
         nextSelected = rest;
@@ -312,7 +494,7 @@ const ReservationsWithTable4: React.FC = () => {
         nextSelected = { ...prev, [reservationId]: itemsFacturables };
       }
 
-      // <<< NUEVO: actualizar filtro por agente según la selección resultante >>>
+      // Actualiza el filtro por agente
       updateAgentFilterFromSelection(nextSelected);
 
       return nextSelected;
@@ -439,6 +621,7 @@ const ReservationsWithTable4: React.FC = () => {
     const filtradas = applyFiltersReservation(base, filters, searchTerm);
 
     // 2) Mapea a rows de la tabla
+    // ... dentro de useMemo rows:
     return filtradas.map((r) => {
       const noches = Math.max(
         0,
@@ -474,18 +657,12 @@ const ReservationsWithTable4: React.FC = () => {
         tipo_cuarto: r.room,
         mark_up: markUp,
         precio_de_venta: precioVenta,
-
         pendiente_por_facturar: pendientePorFacturar,
         total_facturado: totalFacturado,
 
+        // 👇 NO pases los items aquí
         detalles: {
-          reserva: r,
-          items,
-          resumenFacturacion: {
-            totalFacturado,
-            pendientePorFacturar,
-            precioVenta,
-          },
+          reservaId: r.id_servicio,
         },
       };
     });
@@ -575,104 +752,25 @@ const ReservationsWithTable4: React.FC = () => {
   // ---- Expanded renderer: tabla de ITEMS (noches) igual al original ----
 
   // Renderer expandido actualizado
+  const getReservationById = React.useCallback(
+    (id: string) => reservations.find((rr) => rr.id_servicio === id),
+    [reservations]
+  );
+
+  // Reemplaza tu expandedRenderer por:
   const expandedRenderer = (row: any) => {
-    const r: Reservation = row.detalles.reserva;
-    const items: Item[] = row.detalles.items ?? [];
-    const factPend = items.filter((i) => i.id_factura == null).length;
-
-    const fmtMoney = (s: string) =>
-      new Intl.NumberFormat("es-MX", {
-        style: "currency",
-        currency: "MXN",
-      }).format(Number(s || "0"));
-
+    const reservationId: string = row.detalles?.reservaId ?? row.id; // fallback al id de la fila
     return (
-      <div className="p-4 ml-8">
-        <h4 className="text-xs font-medium text-gray-700 mb-2">
-          Items (Noches) de la reservación
-        </h4>
-        <div className="flex items-center mb-2">
-          <span className="text-xs text-gray-500">
-            {factPend} noche(s) pendientes por facturar
-          </span>
-        </div>
-
-        <table className="min-w-full divide-y divide-gray-200 border border-gray-200">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Selección
-              </th>
-              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Noche
-              </th>
-              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Subtotal
-              </th>
-              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Impuestos
-              </th>
-              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Total
-              </th>
-              <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Estado facturación
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {items.map((item, idx) => {
-              const disabled = item.id_factura != null;
-              const checked = isItemSelected(r.id_servicio, item.id_item);
-
-              return (
-                <tr
-                  key={item.id_item}
-                  className={`hover:bg-gray-50 ${disabled ? "bg-gray-100 text-gray-500" : ""
-                    }`}
-                >
-                  <td className="px-4 py-2 whitespace-nowrap">
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      checked={checked}
-                      onChange={() =>
-                        toggleItemSelection(r.id_servicio, item.id_item)
-                      }
-                      disabled={disabled}
-                    />
-                  </td>
-                  <td className="px-4 py-2 whitespace-nowrap text-xs">
-                    {format(new Date(item.fecha_uso), "dd/MM/yyyy")}
-                  </td>
-                  <td className="px-4 py-2 whitespace-nowrap text-xs">
-                    {fmtMoney(item.subtotal)}
-                  </td>
-                  <td className="px-4 py-2 whitespace-nowrap text-xs">
-                    {fmtMoney(item.impuestos)}
-                  </td>
-                  <td className="px-4 py-2 whitespace-nowrap text-xs">
-                    {fmtMoney(item.total)}
-                  </td>
-                  <td className="px-4 py-2 whitespace-nowrap text-xs">
-                    {disabled ? (
-                      <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                        Facturado
-                      </span>
-                    ) : (
-                      <span className="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                        Pendiente
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      <LazyItemsTable
+        reservationId={reservationId}
+        getReservationById={getReservationById}
+        isItemSelected={isItemSelected}
+        toggleItemSelection={toggleItemSelection}
+        adjustItemDates={adjustItemDates}
+      />
     );
   };
+
 
 
   // ---- columnas en el orden solicitado ----
@@ -775,6 +873,7 @@ const ReservationsWithTable4: React.FC = () => {
             setShowSubirFacModal(false);
           }}
           onCloseExternal={() => setShowSubirFacModal(false)} // opcional
+
         />
       )}
       {/* Modal de facturación */}

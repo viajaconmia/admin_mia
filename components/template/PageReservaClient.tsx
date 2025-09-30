@@ -25,8 +25,11 @@ import { ReservationForm2 } from "@/components/organism/FormReservation2";
 import { ReservationForm } from "@/components/organism/FormReservation";
 import { useResponsiveColumns } from "@/hooks/useResponsiveColumns";
 import { TextTransform } from "@/app/dashboard/facturas-pendientes/page";
+
+import { environment } from "@/lib/constants";
 import { Button } from "../ui/button";
 import { generateCuponForOperaciones } from "@/lib/qr-generator";
+
 
 type Vista = "reservas" | "pagadas" | "pendientes";
 
@@ -184,7 +187,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
     detalles_cliente: ({ item }) => (
       <span className="font-semibold text-sm flex items-center gap-2 w-full">
         <a
-          href={`https://www.viajaconmia.com/bookings/${item.id_solicitud}`}
+          href={`${!!!environment?"https://www.viajaconmia.com/bookings/":"http://localhost:5173/bookings/"}${item.id_solicitud}`}
           target="_blank"
           rel="noopener noreferrer"
           className="text-blue-600 hover:underline"
@@ -194,7 +197,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
         <button
           onClick={() => {
             copyToClipboard(
-              `https://www.viajaconmia.com/bookings/${item.id_solicitud}`
+              `${!!!environment?"https://www.viajaconmia.com/bookings/":"http://localhost:5173/bookings/"}${item.id_solicitud}`
             );
           }}
           className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition"
@@ -316,24 +319,27 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
               defaultSort={defaultSort}
               leyenda={`${labelVista}: Has filtrado ${formatedSolicitudes.length} reservas`}
               customColumns={[
-                "id_cliente",
-                "cliente",
-                "creado",
-                "hotel",
-                "codigo_hotel",
-                "viajero",
-                "check_in",
-                "check_out",
-                "noches",
-                "tipo_cuarto",
-                "costo_proveedor",
-                "markup",
-                "precio_de_venta",
-                "metodo_de_pago",
-                "reservante",
-                "etapa_reservacion",
-                "estado",
-                "detalles_cliente",
+
+                'id_cliente',
+                'cliente',
+                'creado',
+                'hotel',
+                'codigo_hotel',
+                'viajero',
+                'check_in',
+                'check_out',
+                'noches',
+                'tipo_cuarto',
+                'costo_proveedor',
+                'markup',
+                'precio_de_venta',
+                'metodo_de_pago',
+                'reservante',
+                'etapa_reservacion',
+                'estado',
+                'detalles_cliente',
+                'editar'
+
               ]}
             >
               {id_agente && (

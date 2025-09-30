@@ -889,9 +889,6 @@ const TablaPagosVisualizacion = () => {
         </div>
       );
     }
-
-    // ... (el resto del código se mantiene igual)
-
   };
 
   // Muestra error si ocurrió

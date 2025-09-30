@@ -1245,4 +1245,3 @@ export const FacturacionModal: React.FC<{
     </div>
   );
 };
-
