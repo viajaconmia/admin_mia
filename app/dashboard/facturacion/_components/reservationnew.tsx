@@ -473,7 +473,7 @@ const ReservationsWithTable4: React.FC = () => {
     setSelectedItems((prev) => {
       const currentSelected = prev[reservationId] || [];
       let nextSelected: SelectedMap;
-
+      console.log("resertion", reservation)
       // Verifica si la selección de este usuario corresponde al mismo agente
       const agentId = reservation.id_usuario_generador;
       const selectedAgentId = Object.keys(prev).map((resId) =>
@@ -618,7 +618,11 @@ const ReservationsWithTable4: React.FC = () => {
     const base = onlyPending ? reservations.filter(hasPendingItems) : reservations;
 
     // 1) Aplica filtros + search
+    console.log("Aplicando filtros:", filters, "y búsqueda:", searchTerm);
     const filtradas = applyFiltersReservation(base, filters, searchTerm);
+
+    console.log("Reservas mostradas después del filtro:", filtradas);
+    console.log(`Total de reservas mostradas: ${filtradas.length}`);
 
     // 2) Mapea a rows de la tabla
     // ... dentro de useMemo rows:
@@ -641,6 +645,7 @@ const ReservationsWithTable4: React.FC = () => {
         .reduce((acc, it) => acc + Number((it as any).total || 0), 0);
 
       const pendientePorFacturar = Math.max(0, precioVenta - totalFacturado);
+      console.log(`id_cliente: ${r.id_usuario_generador}`)
 
       return {
         id: r.id_servicio,
@@ -668,6 +673,7 @@ const ReservationsWithTable4: React.FC = () => {
     });
   }, [reservations, onlyPending, filters, searchTerm]);
 
+  console.log("rows", rows)
 
   // ---- renderers de columnas ----
   const renderers = {
