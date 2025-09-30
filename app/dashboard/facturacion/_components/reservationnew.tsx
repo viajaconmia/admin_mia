@@ -623,7 +623,6 @@ const ReservationsWithTable4: React.FC = () => {
 
     console.log("Reservas mostradas después del filtro:", filtradas);
     console.log(`Total de reservas mostradas: ${filtradas.length}`);
-
     // 2) Mapea a rows de la tabla
     // ... dentro de useMemo rows:
     return filtradas.map((r) => {
