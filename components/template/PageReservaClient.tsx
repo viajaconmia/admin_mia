@@ -25,6 +25,7 @@ import { ReservationForm2 } from "@/components/organism/FormReservation2";
 import { ReservationForm } from "@/components/organism/FormReservation";
 import { useResponsiveColumns } from "@/hooks/useResponsiveColumns";
 import { TextTransform } from "@/app/dashboard/facturas-pendientes/page";
+import { environment } from "@/lib/constants";
 
 type Vista = "reservas" | "pagadas" | "pendientes";
 
@@ -185,7 +186,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
     detalles_cliente: ({ item }) => (
       <span className="font-semibold text-sm flex items-center gap-2 w-full">
         <a
-          href={`https://www.viajaconmia.com/bookings/${item.id_solicitud}`}
+          href={`${!!!environment?"https://www.viajaconmia.com/bookings/":"http://localhost:5173/bookings/"}${item.id_solicitud}`}
           target="_blank"
           rel="noopener noreferrer"
           className="text-blue-600 hover:underline"
@@ -195,7 +196,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
         <button
           onClick={() => {
             copyToClipboard(
-              `https://www.viajaconmia.com/bookings/${item.id_solicitud}`
+              `${!!!environment?"https://www.viajaconmia.com/bookings/":"http://localhost:5173/bookings/"}${item.id_solicitud}`
             );
           }}
 
@@ -323,6 +324,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
                 'etapa_reservacion',
                 'estado',
                 'detalles_cliente',
+                'editar'
               ]}
 
             >
