@@ -275,7 +275,12 @@ interface ReservationWithItems extends Reservation {
   nightsCount?: number;
 }
 
-type ReservationStatus = | "pending" | "confirmed" | "completed" | "cancelled" | "all";
+type ReservationStatus =
+  | "pending"
+  | "confirmed"
+  | "completed"
+  | "cancelled"
+  | "all";
 
 interface FilterOptions {
   searchTerm: string;
@@ -378,32 +383,12 @@ export const FacturacionModal: React.FC<{
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("PUE");
   const { crearCfdi, descargarFactura, mandarCorreo } = useApi();
   const [descarga, setDescarga] = useState<DescargaFactura | null>(null);
-  const [isInvoiceGenerated, setIsInvoiceGenerated] = useState<Root | null>(null);
-  
-
+  const [isInvoiceGenerated, setIsInvoiceGenerated] = useState<Root | null>(
+    null
+  );
   const [isConsolidated, setIsConsolidated] = useState(true);
   const [reservationsWithSelectedItems, setReservationsWithSelectedItems] =
     useState<ReservationWithItems[]>([]);
-
-  // --- Helpers fecha de vencimiento ---
-  const addDays = (d: Date, days: number) => {
-    const x = new Date(d);
-    x.setDate(x.getDate() + days);
-    return x;
-  };
-  const toInputDate = (d: Date) => {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
-  };
-  // Fecha de vencimiento (por defecto a 30 días)
-  const [dueDate, setDueDate] = useState<string>(() =>
-    toInputDate(addDays(new Date(), 30))
-  );
-  // Para limitar el mínimo a hoy
-  const minDueDate = toInputDate(new Date());
-
 
   // Estado para el CFDI
   const [cfdi, setCfdi] = useState({
@@ -417,8 +402,8 @@ export const FacturacionModal: React.FC<{
     CfdiType: "I",
     NameId: "1",
     Observations: "",
-    //ExpeditionPlace: "11570",
-    ExpeditionPlace: "42501",
+    ExpeditionPlace: "11570",
+    //ExpeditionPlace: "42501",
     Serie: null,
 
     Folio: Math.round(Math.random() * 999999999),
@@ -533,7 +518,7 @@ export const FacturacionModal: React.FC<{
           Items: [
             {
               Quantity: "1",
-              ProductCode: "90111500",
+              ProductCode: "90121500",
               UnitCode: "E48",
               Unit: "Unidad de servicio",
               Description: `HOSPEDAJE - ${totalNights} NOCHE(S) EN ${reservationsWithSelectedItems.length} RESERVA(S)`,
@@ -661,7 +646,6 @@ export const FacturacionModal: React.FC<{
     reservationsWithSelectedItems,
     isConsolidated,
   ]);
-
   console.log(cfdi, "feeeeeeeeeeeeeeeeeeeee");
   const validateInvoiceData = () => {
     if (reservationsWithSelectedItems.length === 0) {
@@ -801,7 +785,6 @@ export const FacturacionModal: React.FC<{
             }),
         },
         info_user: {
-          fecha_vencimiento: dueDate,
           id_user: reservationsWithSelectedItems[0].id_usuario_generador,
           id_solicitud: reservationsWithSelectedItems.map(
             (reserva) => reserva.id_solicitud
@@ -813,7 +796,6 @@ export const FacturacionModal: React.FC<{
           },
         },
         items_facturados: itemsFacturados, // Relación item-monto
-
       };
 
       // Aquí deberías llamar a tu API para crear la factura
@@ -1146,22 +1128,6 @@ export const FacturacionModal: React.FC<{
                   </option>
                 ))}
               </select>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Fecha de vencimiento
-                </label>
-                <input
-                  type="date"
-                  value={dueDate}
-                  min={minDueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                  className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                />
-                <p className="text-[11px] text-gray-500 mt-1">
-                  Por defecto se establece 30 días a partir de hoy.
-                </p>
-              </div>
-
             </div>
           </div>
 
@@ -1279,4 +1245,3 @@ export const FacturacionModal: React.FC<{
     </div>
   );
 };
-
