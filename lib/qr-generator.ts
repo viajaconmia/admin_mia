@@ -2,6 +2,8 @@ import jsPDF from "jspdf";
 import QRCode from "qrcode";
 import autoTable from "jspdf-autotable";
 import { currentDate } from "./utils";
+import { ReservaCompleta } from "@/types/reserva";
+import { Solicitud2 } from "@/types";
 
 // Define una interfaz para una sola reservación en la tabla
 interface ReservationLine {
@@ -379,6 +381,117 @@ export async function generateSecureQRPaymentPDF(
   // =================================================================
   // 3. RETORNAR EL DOCUMENTO
   // =================================================================
+  return doc;
+}
+
+export async function generateCuponForOperaciones(
+  reserva: Solicitud2
+): Promise<jsPDF> {
+  const doc = new jsPDF("p", "mm", "a4"); // Usamos 'mm' para más precisión y tamaño A4
+
+  // --- Generación del QR ---
+  // =================================================================
+  // 1. CONSTANTES DE ESTILO Y CONFIGURACIÓN
+  // =================================================================
+  const STYLES = {
+    COLORS: {
+      PRIMARY: [0, 115, 185], // Un azul similar al de la imagen
+      TEXT_NORMAL: [0, 0, 0],
+      TEXT_MUTED: [100, 100, 100],
+      TEXT_HIGHLIGHT: [220, 38, 38], // Rojo para destacar
+      TABLE_HEADER: [0, 115, 185], // Azul para la cabecera de la tabla
+    },
+    FONTS: {
+      TITLE: 14,
+      SUBTITLE: 11,
+      BODY: 10,
+      SMALL: 9,
+    },
+    MARGINS: { LEFT: 15, RIGHT: 15, TOP: 20 },
+    SPACING: { LINE: 7, SECTION: 10 },
+  };
+
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  let y = STYLES.MARGINS.TOP;
+
+  // =================================================================
+  // 2. CUERPO DEL DOCUMENTO
+  // =================================================================
+
+  // --- Logo y Datos Superiores ---
+  // Para el logo, necesitas tenerlo accesible como URL o DataURL
+  try {
+    // Intenta añadir el logo si la URL es válida. Si no, no hagas nada.
+    const logoUrl = "https://luiscastaneda-tos.github.io/log/files/nokt.png";
+    doc.addImage(logoUrl, "SVG", STYLES.MARGINS.LEFT, y - 10, 25, 15);
+  } catch (e) {
+    console.error("No se pudo cargar el logo:", e);
+  }
+
+  doc.setFontSize(STYLES.FONTS.BODY);
+  doc.setTextColor(...(STYLES.COLORS.TEXT_NORMAL as [number, number, number]));
+  const fechaActual = currentDate();
+  doc.text(`Fecha: ${fechaActual}`, pageW - STYLES.MARGINS.RIGHT, y, {
+    align: "right",
+  });
+
+  y += STYLES.SPACING.SECTION;
+  y += STYLES.SPACING.SECTION;
+  y += STYLES.SPACING.SECTION;
+
+  // --- Tabla de Reservaciones ---
+  const tableHead = [
+    [
+      "Tipo Habitación",
+      "Nombre",
+      "Check in",
+      "Check out",
+      "Reservación",
+      "Monto a Pagar",
+    ],
+  ];
+  const tableBody = [reserva].map((r) => [
+    r.tipo_cuarto,
+    r.hotel_reserva,
+    r.check_in.split("T")[0],
+    r.check_out.split("T")[0],
+    r.codigo_reservacion_hotel,
+    `$${reserva.total}`,
+  ]);
+
+  autoTable(doc, {
+    head: tableHead,
+    body: tableBody,
+    startY: y,
+    theme: "grid",
+    headStyles: {
+      fillColor: STYLES.COLORS.TABLE_HEADER as [number, number, number],
+      textColor: [255, 255, 255],
+      fontStyle: "bold",
+    },
+    styles: {
+      fontSize: STYLES.FONTS.SMALL,
+      cellPadding: 2,
+    },
+    margin: { left: STYLES.MARGINS.LEFT, right: STYLES.MARGINS.RIGHT },
+  });
+
+  y = (doc as any).lastAutoTable.finalY + STYLES.SPACING.SECTION;
+
+  y += STYLES.SPACING.SECTION;
+
+  // --- Footer ---
+  // Este se mantiene al final de la página, sin importar la altura del contenido
+  doc.setFontSize(STYLES.FONTS.SMALL);
+  doc.setTextColor(...(STYLES.COLORS.TEXT_MUTED as [number, number, number]));
+  doc.text(
+    `Documento generado automáticamente por el sistema`,
+    pageW / 2,
+    pageH - 10,
+    { align: "center" }
+  );
+
   return doc;
 }
 

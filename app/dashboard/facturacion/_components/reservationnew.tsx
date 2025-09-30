@@ -90,15 +90,16 @@ const ReservationsWithTable4: React.FC = () => {
   const updateAgentFilterFromSelection = (nextSelected: SelectedMap) => {
     const selectedReservaIds = Object.keys(nextSelected);
     if (selectedReservaIds.length === 0) {
-      // sin selección -> limpiar filtro
       setFilters((prev) => ({ ...prev, id_agente: null }));
       return;
     }
+
     const agentIds = selectedReservaIds
       .map((id) => reservations.find((r) => r.id_servicio === id)?.id_usuario_generador)
       .filter((v): v is string => !!v);
 
     const unique = Array.from(new Set(agentIds));
+
     // Si todas las seleccionadas son del mismo agente, filtramos por él
     if (unique.length === 1) {
       setFilters((prev) => ({ ...prev, id_agente: unique[0] }));
@@ -108,6 +109,28 @@ const ReservationsWithTable4: React.FC = () => {
     }
   };
 
+  const adjustItemDates = (reservation: ReservationWithItems) => {
+    const checkIn = new Date(reservation.check_in);
+    const checkOut = new Date(reservation.check_out);
+    const nights = Math.max(
+      0,
+      Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24))
+    );
+
+    reservation.items.forEach((item, index) => {
+      // Si hay más ítems que noches, asignar la fecha de check_out a los ítems extras
+      if (index >= nights) {
+        item.fecha_uso = checkOut.toISOString(); // Asignamos la fecha de check_out
+      } else {
+        // Asignamos la fecha de uso según la noche correspondiente
+        const itemDate = new Date(checkIn);
+        itemDate.setDate(checkIn.getDate() + index); // Aumentamos los días de check_in
+        item.fecha_uso = itemDate.toISOString();
+      }
+    });
+
+    return reservation;
+  };
 
   const [filters, setFilters] = useState<TypeFilters>(DEFAULT_RESERVA_FILTERS);
   const [searchTerm, setSearchTerm] = useState<string>("");
@@ -151,6 +174,12 @@ const ReservationsWithTable4: React.FC = () => {
   useEffect(() => {
     obtenerBalance();
   }, []);
+
+  useEffect(() => {
+    // Llamamos a la función que ajusta las fechas de los ítems
+    const updatedReservations = reservations.map((reservation) => adjustItemDates(reservation));
+    setReservations(updatedReservations); // Actualizamos el estado con las reservas con fechas ajustadas
+  }, [reservations]); // Este useEffect se ejecutará cuando las reservas cambien
 
   const formatCurrency = (value: number): string => {
     return new Intl.NumberFormat('es-MX', {
@@ -303,7 +332,18 @@ const ReservationsWithTable4: React.FC = () => {
       const currentSelected = prev[reservationId] || [];
       let nextSelected: SelectedMap;
 
-      // si ya están todos, deselecciona
+      // Verifica si la selección de este usuario corresponde al mismo agente
+      const agentId = reservation.id_usuario_generador;
+      const selectedAgentId = Object.keys(prev).map((resId) =>
+        reservations.find((r) => r.id_servicio === resId)?.id_usuario_generador
+      ).find((id) => id !== agentId);
+
+      if (selectedAgentId) {
+        alert("No puedes seleccionar ítems de otro agente.");
+        return prev; // No se permite la selección de otro agente
+      }
+
+      // Si ya están todos, deselecciona
       if (currentSelected.length === itemsFacturables.length) {
         const { [reservationId]: _drop, ...rest } = prev;
         nextSelected = rest;
@@ -312,7 +352,7 @@ const ReservationsWithTable4: React.FC = () => {
         nextSelected = { ...prev, [reservationId]: itemsFacturables };
       }
 
-      // <<< NUEVO: actualizar filtro por agente según la selección resultante >>>
+      // Actualiza el filtro por agente
       updateAgentFilterFromSelection(nextSelected);
 
       return nextSelected;
@@ -740,7 +780,7 @@ const ReservationsWithTable4: React.FC = () => {
               : "bg-blue-600 text-white hover:bg-blue-700"
               }`}
           >
-            Facturar seleccionados ({selectedCount})
+            Facturar ({selectedCount})
           </button>
 
           <button
@@ -775,15 +815,18 @@ const ReservationsWithTable4: React.FC = () => {
             setShowSubirFacModal(false);
           }}
           onCloseExternal={() => setShowSubirFacModal(false)} // opcional
+
         />
       )}
-
-      {/* {showsubirFacModal && (
-        <SubirFactura
-          autoOpen
-          onClose={() => setShowSubirFacModal(false)} // fallback
+      {/* Modal de facturación */}
+      {showFacturacionModal && (
+        <FacturacionModal
+          selectedItems={selectedItems}
+          reservationsInit={reservations}
+          onClose={() => setShowFacturacionModal(false)}
+          onConfirm={confirmFacturacion}
         />
-      )} */}
+      )}
 
 
       {/* Modal de Asignación (SubirFactura) */}

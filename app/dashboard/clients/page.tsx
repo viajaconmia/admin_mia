@@ -21,6 +21,7 @@ import {
   AlertTriangle,
   DollarSign,
   Plane,
+
 } from "lucide-react";
 import { Table } from "@/components/Table";
 import { TypeFilters } from "@/types";
@@ -32,10 +33,12 @@ import { AgentDetailsCard } from "./_components/DetailsClient";
 import { UsersClient } from "./_components/UsersClient";
 import PageReservasClientes from "@/components/template/PageReservaClient";
 import PageCuentasPorCobrar from "@/components/template/PageCuentasPorCobrar";
-import { getReservasByAgente } from "@/services/reservas";
 import { ToolTip } from "@/components/atom/ToolTip";
+
 import { set } from "date-fns";
 import { PageVuelos } from "@/components/template/PageVuelos";
+
+import { Configuration } from "@/components/template/crearEmpresa";
 
 const getWalletBadge = (monto: string | null) => {
   // Convertir el string a número para la verificación
@@ -234,7 +237,7 @@ function App() {
       title: "Empresas",
       tab: "empresas",
       icon: Building,
-      component: <div>Empresas</div>,
+      component: <Configuration id_agente={selectedItem?.id_agente || null} />,
     },
     {
       title: "Metodos de pago",

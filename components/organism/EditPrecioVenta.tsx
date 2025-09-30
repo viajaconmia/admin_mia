@@ -51,6 +51,9 @@ const SalesManagementPage: React.FC<{
   const precioMinimo = noches;
   const esValido = precioActualizado >= precioMinimo;
 
+
+  console.log("hotelData en edit precio", hotelData);
+
   const consultarWallet = async (): Promise<void> => {
     try {
       const { data } = await getTypesSaldo(reserva.id_agente);
@@ -128,6 +131,7 @@ const SalesManagementPage: React.FC<{
 
       const { message } = await ajustePrecioCobrarSaldo({
         id_hospedaje:reserva.id_hospedaje,
+
         check_in: reserva.check_in,
         check_out: reserva.check_out,
         updatedItem,
@@ -197,7 +201,9 @@ const SalesManagementPage: React.FC<{
             precio_actualizado: precioActualizado,
             hotel: hotelData,
             check_in: reserva.check_in,
+
         check_out: reserva.check_out,
+
           });
           showNotification("success", message);
         } else {
