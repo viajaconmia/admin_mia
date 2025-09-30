@@ -30,7 +30,14 @@ const SalesManagementPage: React.FC<{
   hotelData: { id_hotel: number; nombre_hotel: string } | null;
   onClose: () => void;
   precioNuevo: number;
-}> = ({ reserva, onClose, precioNuevo, hotelData }) => {
+  onConfirm?: (ctx: {
+    tipo: "credito" | "wallet" | "regreso";
+    diferencia: number;
+    precioActualizado: number;
+    metodo_wallet?: "transferencia" | "tarjeta" | "wallet";
+    extra?: any;
+  }) => Promise<void> | void;
+}> = ({ reserva, onClose, precioNuevo, hotelData, onConfirm }) => {
   const { showNotification } = useNotification();
   const [showWalletModal, setShowWalletModal] = useState<boolean>(false);
   const [saldoWallet, setSaldoWallet] = useState<SaldoWallet | null>(null);
@@ -50,6 +57,25 @@ const SalesManagementPage: React.FC<{
   const esBajada = diferencia < 0;
   const precioMinimo = noches;
   const esValido = precioActualizado >= precioMinimo;
+
+  const afterSuccess = async (ctx: {
+    tipo: "credito" | "wallet" | "regreso";
+    diferencia: number;
+    precioActualizado: number;
+    metodo_wallet?: "transferencia" | "tarjeta" | "wallet";
+    extra?: any;
+  }) => {
+    try {
+      // dispara confirmación hacia arriba
+      await onConfirm?.(ctx);
+    } finally {
+      // cierra UI local
+      setShowWalletModal(false);
+      onClose();
+    }
+  };
+
+  console.log("hotelData en edit precio", hotelData);
 
   const consultarWallet = async (): Promise<void> => {
     try {
@@ -126,8 +152,9 @@ const SalesManagementPage: React.FC<{
         fecha_uso: item.fecha_uso.split("T")[0],
       };
 
-      const { message } = await ajustePrecioCobrarSaldo({
-        id_hospedaje:reserva.id_hospedaje,
+      const { message, data } = await ajustePrecioCobrarSaldo({
+        id_hospedaje: reserva.id_hospedaje,
+
         check_in: reserva.check_in,
         check_out: reserva.check_out,
         updatedItem,
@@ -141,6 +168,13 @@ const SalesManagementPage: React.FC<{
 
       showNotification("success", message);
       setShowWalletModal(false);
+      await afterSuccess({
+        tipo: "wallet",
+        diferencia,
+        precioActualizado,
+        metodo_wallet: tipo,
+        extra: { updatedItem, updatedSaldos, data }
+      });
       onClose();
     } catch (error) {
       showNotification(
@@ -170,6 +204,12 @@ const SalesManagementPage: React.FC<{
       });
       console.log(data);
       showNotification("success", message);
+      await afterSuccess({
+        tipo: "credito",
+        diferencia,
+        precioActualizado,
+        extra: { data }
+      });
       onClose();
     } catch (error) {
       showNotification(
@@ -188,7 +228,7 @@ const SalesManagementPage: React.FC<{
 
       if (esBajada) {
         if (reserva.metodo_pago_dinamico === "Credito") {
-          const { message } = await actualizarYRegresarCredito({
+          const { message, data } = await actualizarYRegresarCredito({
             id_agente: reserva.id_agente,
             id_servicio: reserva.id_servicio,
             diferencia,
@@ -197,9 +237,17 @@ const SalesManagementPage: React.FC<{
             precio_actualizado: precioActualizado,
             hotel: hotelData,
             check_in: reserva.check_in,
-        check_out: reserva.check_out,
+
+            check_out: reserva.check_out,
+
           });
           showNotification("success", message);
+          await afterSuccess({
+            tipo: "regreso",
+            diferencia,
+            precioActualizado,
+            extra: { data, via: "credito" }
+          });
         } else {
           console.log(
             "Debemos regresarle el dinero al cliente, por lo tanto cambiamos el precio de los items, de la reserva y le agregamos un saldo con el restante y el otro se lo debemos quitar al pago"
@@ -218,6 +266,12 @@ const SalesManagementPage: React.FC<{
           });
           console.log(message, data);
           showNotification("success", message);
+          await afterSuccess({
+            tipo: "regreso",
+            diferencia,
+            precioActualizado,
+            extra: { data, via: "contado" }
+          });
         }
       }
       onClose();

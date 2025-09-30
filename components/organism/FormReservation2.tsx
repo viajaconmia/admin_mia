@@ -55,7 +55,7 @@ export function ReservationForm2({
   }
   const [nuevo_incluye_desayuno, setNuevoIncluyeDesayuno] = useState<
     boolean | null
-  >(solicitud.nuevo_incluye_desayuno || null);
+  >(solicitud.nuevo_incluye_desayuno === null ? null : Boolean(solicitud.nuevo_incluye_desayuno));
   const [acompanantes, setAcompanantes] = useState<Viajero[]>([]);
   const [cobrar, setCobrar] = useState<boolean | null>(null);
   const [form, setForm] = useState<ReservaForm>({
@@ -183,6 +183,26 @@ export function ReservationForm2({
     parseISO(form.check_out),
     parseISO(form.check_in)
   );
+
+  // ⬇️ NUEVO: factoriza la lógica de guardado para reusarla
+  const saveReservation = async (): Promise<boolean> => {
+    setLoading(true);
+    const data = { ...edicionForm, nuevo_incluye_desayuno, acompanantes };
+    try {
+      if (edicion) {
+        await updateReserva(data, solicitud.id_booking);
+      }
+      // Usa tu notificador si quieres; dejé alert por conservar tu flujo
+      alert("Reserva actualizada correctamente");
+      return true;
+    } catch (error) {
+      console.error(error);
+      alert("Error al guardar la reserva");
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const roomPrice = Number(
     form.hotel.content.tipos_cuartos.find(
@@ -360,25 +380,52 @@ export function ReservationForm2({
     form.hotel,
     edicion,
   ]);
+  // const handleSubmit = async (e: FormEvent) => {
+  //   e.preventDefault();
+  //   setLoading(true);
+  //   const data = { ...edicionForm, nuevo_incluye_desayuno, acompanantes };
+  //   console.log(data);
+  //   try {
+  //     let response;
+  //     if (edicion) {
+  //       response = await updateReserva(data, solicitud.id_booking);
+  //     }
+  //     console.log(response);
+  //     alert("Reserva creada correctamente");
+  //     // onClose();
+  //   } catch (error) {
+  //     console.error(error);
+  //     alert("Error al guardar la reserva");
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    const data = { ...edicionForm, nuevo_incluye_desayuno, acompanantes };
-    console.log(data);
-    try {
-      let response;
-      if (edicion) {
-        response = await updateReserva(data, solicitud.id_booking);
-      }
-      console.log(response);
-      // onClose();
-    } catch (error) {
-      console.error(error);
-      alert("Error al guardar la reserva");
-    } finally {
-      setLoading(false);
+    await saveReservation();
+    // onClose(); // si deseas cerrar siempre al guardar manual, descomenta
+  };
+
+  const handleConfirmPrecio = async (ctx: {
+    tipo: "credito" | "wallet" | "regreso";
+    diferencia: number;
+    precioActualizado: number;
+    metodo_wallet?: "transferencia" | "tarjeta" | "wallet";
+    extra?: any;
+  }) => {
+    // 1) Guarda la edición de la reserva
+    const ok = await saveReservation();
+
+    // 2) Opcionalmente puedes tomar decisiones según el tipo
+    // console.log("Confirmación de precio:", ctx);
+
+    if (ok) {
+      setCobrar(false);   // cierra el modal de precio
+      onClose();          // cierra el formulario si así lo quieres
     }
   };
+
 
   function getAutoCostoTotal(
     hotel: Hotel | null,
@@ -408,16 +455,17 @@ export function ReservationForm2({
     return {
       "tipo-habi": roomType,                         // SENCILLO / DOBLE, etc.
       precio: Number(roomObj?.precio ?? 0),          // Precio de venta de ese tipo de cuarto
-      hotel: form.hotel?.name || "",   
+      hotel: form.hotel?.name || "",
       form,
       nuevo_incluye_desayuno,
       acompanantes,
-      noches:{...edicionForm.noches, before: calcularNoches(solicitud.check_in, solicitud.check_out)},
+      noches: { ...edicionForm.noches, before: calcularNoches(solicitud.check_in, solicitud.check_out) },
       // Si quieres repetir la clave como pediste:
       // "tipo-habi-2": roomType,
     };
-  }, [form.habitacion, form.hotel,form.noches, nuevo_incluye_desayuno, acompanantes, edicionForm.noches, solicitud.check_in, solicitud.check_out]);
-  
+  }, [form.habitacion, form.hotel, form.noches, nuevo_incluye_desayuno, acompanantes, edicionForm.noches, solicitud.check_in, solicitud.check_out]);
+
+
   console.log("hoteldata", hotelData)
   return (
     <form
@@ -1045,6 +1093,7 @@ export function ReservationForm2({
             onClose={() => {
               setCobrar(false);
             }}
+            onConfirm={handleConfirmPrecio}
             precioNuevo={
               edicionForm?.venta?.current?.total
                 ? Number(edicionForm.venta.current.total)

@@ -142,16 +142,20 @@ function App() {
   const [filters, setFilters] = useState<TypeFilters>(defaultFiltersSolicitudes);
   const [activeFilter, setActiveFilter] = useState<string>("all"); // "all" | "creditCard" | "sentToPayments"
 
+  const norm = (s?: string | null) => (s ?? "").trim().toLowerCase();
+
+  // Filtra todo lo que esté pagado desde el inicio
+  const cleanedSolicitudes = solicitudesPago.filter(
+    (it) => norm((it as ItemSolicitud).estatus_pagos) !== "pagado"
+  );
+
+
   // Filtro adicional
-  const filteredSolicitudes = solicitudesPago.filter((item) => {
+  const filteredSolicitudes = cleanedSolicitudes.filter((item) => {
     if (activeFilter === "creditCard") {
       return !!item.tarjeta?.ultimos_4;
-    } else if (activeFilter === "sentToPayments") {
-      const pagos = (item as ItemSolicitud).pagos || [];
-      console.log("rvrvrv", pagos)
-      return pagos.some(
-        (p) => (p.estatus_pagos || "").toLowerCase() === "enviado_a_pago"
-      );
+    } else if (activeFilter === "enviado_a_pago") {
+      return (item as ItemSolicitud).estatus_pagos?.toLowerCase() === "enviado_a_pago";
     }
     return true;
   });
@@ -431,8 +435,8 @@ function App() {
           </button>
 
           <button
-            onClick={() => setActiveFilter("sentToPayments")}
-            className={`flex items-center px-4 py-2 rounded-md ${activeFilter === "sentToPayments"
+            onClick={() => setActiveFilter("enviado_a_pago")}
+            className={`flex items-center px-4 py-2 rounded-md ${activeFilter === "enviado_a_pago"
               ? "bg-blue-500 text-white"
               : "bg-gray-200 text-gray-700"
               }`}
@@ -440,6 +444,7 @@ function App() {
             <Send className="w-4 h-4 mr-2" />
             <span>Enviado a Pagos</span>
           </button>
+
         </div>
 
         <div>
