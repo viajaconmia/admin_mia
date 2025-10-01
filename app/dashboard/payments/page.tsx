@@ -89,6 +89,17 @@ function buildAssignPayload(opts: { seleccionados: Seleccion[]; row?: any }) {
   };
 }
 
+// Agrega esta función helper en TablaPagosVisualizacion
+const normalizeText = (text: string): string => {
+  if (!text) return '';
+
+  return text
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+};
+
 const TablaPagosVisualizacion = () => {
   const [pagoSeleccionado, setPagoSeleccionado] = useState<Pago | null>(null);
   const [showSubirFactura, setShowSubirFactura] = useState(false);
@@ -104,15 +115,21 @@ const TablaPagosVisualizacion = () => {
     raw_id: "",
     fecha_pago: "",
     id_cliente: "",
-    nombre_agente: "",     // ← antes tenías nombre_cliente
+    nombre_agente: "",
     metodo: "",
     fecha_creacion: "",
     banco: "",
+    last_digits: "",
     link_pago: "",
     origen_pago: "",
     estatusFactura: null,
     id_agente: "",
     tipo_pago: undefined,
+    startDate: "",
+    endDate: "",
+    is_facturado: null,
+    // Agrega este filtro que falta para facturas
+    id_factura: "",
   });
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -381,13 +398,14 @@ const TablaPagosVisualizacion = () => {
         }
       }
 
-      // Filtro por nombre de agente
+      // Filtro por nombre de agente (con normalización)
       if (filters.nombre_agente && pago.nombre_agente) {
-        const f = filters.nombre_agente.toLowerCase();
-        const n = pago.nombre_agente.toLowerCase();
-        if (!n.includes(f)) return false;
+        const normalizedFilter = normalizeText(filters.nombre_agente);
+        const normalizedAgentName = normalizeText(pago.nombre_agente);
+        if (!normalizedAgentName.includes(normalizedFilter)) {
+          return false;
+        }
       }
-
 
       // Filtro por método de pago
       if (filters.metodo && pago.metodo) {
@@ -483,28 +501,34 @@ const TablaPagosVisualizacion = () => {
 
       // Filtro por búsqueda de texto
       if (searchTerm) {
-        const searchLower = searchTerm.toLowerCase();
+        const searchLower = normalizeText(searchTerm);
+
         const matchesReference = pago.referencia
-          ?.toLowerCase()
-          .includes(searchLower);
+          ? normalizeText(pago.referencia).includes(searchLower)
+          : false;
+
         const matchesConcept = pago.concepto
-          ?.toLowerCase()
-          .includes(searchLower);
-        const matchesId = pago.id_movimiento?.toString().includes(searchLower);
-        const matchesRawId = pago.raw_id?.toLowerCase().includes(searchLower);
+          ? normalizeText(pago.concepto).includes(searchLower)
+          : false;
+
+        const matchesId = pago.id_movimiento?.toString().includes(searchTerm);
+        const matchesRawId = pago.raw_id?.toLowerCase().includes(searchTerm.toLowerCase());
+
         const matchesAgentName = pago.nombre_agente
-          ?.toLowerCase()
-          .includes(searchLower);
+          ? normalizeText(pago.nombre_agente).includes(normalizeText(searchLower))
+          : false;
+        if (pago.nombre_agente.includes("KARLA"))
+          console.log(normalizeText(pago.nombre_agente), "probando filtros", normalizeText(searchLower))
+
         const matchesAgentId = pago.ig_agente
-          ?.toLowerCase()
-          .includes(searchLower);
+          ? normalizeText(pago.ig_agente).includes(searchLower)
+          : false;
 
         if (!matchesReference && !matchesConcept && !matchesId &&
           !matchesRawId && !matchesAgentName && !matchesAgentId) {
           return false;
         }
       }
-
       return true;
     });
 
@@ -579,7 +603,7 @@ const TablaPagosVisualizacion = () => {
     });
   }, [pagos, filters, searchTerm, sortConfig.key, sortConfig.sort, filterBySelectedAgent, seleccionados, idAgenteSeleccionado]);
 
-
+  console.log(filteredData)
   const renderers = {
     // IDs and references
     id_movimiento: ({ value }: { value: number }) => (
@@ -632,8 +656,11 @@ const TablaPagosVisualizacion = () => {
     },
     // `nombre_agente`
 
-    nombre_cliente: ({ value }: { value: string }) => (
-      <TextTransform value={value} />
+    // En la sección de renderers, modifica el renderer de nombre:
+    nombre: ({ value }: { value: string }) => (
+      <span className="font-medium">
+        {normalizeText(value)}
+      </span>
     ),
 
     // `concepto`
