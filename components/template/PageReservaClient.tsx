@@ -338,7 +338,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
                 'etapa_reservacion',
                 'estado',
                 'detalles_cliente',
-                'editar'
+                
 
               ]}
             >
