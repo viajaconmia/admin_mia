@@ -5,6 +5,7 @@ import React from "react";
 import { exportToCSV } from "@/helpers/utils";
 
 
+
 type Registro = {
   [key: string]: any;
 };
@@ -54,10 +55,6 @@ export const Table4 = <T,>({
   );
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(new Set());
   const [showColumnSelector, setShowColumnSelector] = useState(false);
-  console.log("Registros recibidos en Table4:", registros);
-  console.log("Registros recibidos en Table4:", displayData);
-
-
 
   const showAllColumns = () => {
     setVisibleColumns(new Set(columnKeys));
@@ -216,7 +213,7 @@ export const Table4 = <T,>({
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {displayData.map((item, index) => {
-                const isExpanded = filasExpandibles?.[item.id];
+                const isExpanded = filasExpandibles?.[item.detalles?.reservaId] || filasExpandibles?.[item.id];
 
                 return (
                   <React.Fragment key={item.id !== undefined ? item.id : index}>

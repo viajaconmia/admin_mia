@@ -58,36 +58,17 @@ interface Balance {
 
 type Seleccion = { id_agente: string; raw_id: string; monto_por_facturar: number };
 
-function buildAssignPayload(opts: { seleccionados: Seleccion[]; row?: any }) {
-  const { seleccionados, row } = opts;
-  const haySeleccion = seleccionados && seleccionados.length > 0;
 
-  const rawIds = haySeleccion
-    ? seleccionados.map(s => s.raw_id)
-    : row
-      ? [String(row.raw_id)]
-      : [];
+// Agrega esta función helper en TablaPagosVisualizacion
+const normalizeText = (text: string): string => {
+  if (!text) return '';
 
-  const saldos = haySeleccion
-    ? seleccionados.map(s => Number(s.monto_por_facturar) || 0)
-    : row
-      ? [Number(row.monto_por_facturar) || 0]
-      : [];
-
-  const id_agente = haySeleccion
-    ? String(seleccionados[0].id_agente)
-    : String(row?.id_agente || row?.ig_agente || "");
-
-  const monto = saldos.reduce((a, b) => a + (Number(b) || 0), 0);
-
-  return {
-    id_agente,
-    rawIds,          // siempre array
-    saldos,          // siempre array
-    monto,           // total
-    saldoMonto: monto
-  };
-}
+  return text
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+};
 
 // Agrega esta función helper en TablaPagosVisualizacion
 const normalizeText = (text: string): string => {
@@ -109,6 +90,7 @@ const TablaPagosVisualizacion = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showFacturasModal, setShowFacturasModal] = useState(false);
+  const [facturasCtx, setFacturasCtx] = useState<{ id_agente: string; raw_id: string } | null>(null);
   const [facturasAsociadas, setFacturasAsociadas] = useState<string[]>([]);
   const [filters, setFilters] = useState<TypeFilters>({
     id_movimiento: null,
@@ -796,7 +778,19 @@ const TablaPagosVisualizacion = () => {
           {tieneFacturas && (
             <button
               className="px-2 py-1 rounded-md bg-green-50 text-green-600 hover:bg-green-100 transition-colors border border-green-200 flex items-center gap-1 text-xs"
-              onClick={() => handleVerFacturas(row.facturas_asociadas)}
+              onClick={() => {
+                // Asegura id_agente y raw_id correctos para el modal
+                const idAgente = (row.id_agente || row.ig_agente || '').toString();
+                const rawId = row.raw_id || '';
+
+                if (!idAgente || !rawId) {
+                  alert('No se pudo abrir el detalle: faltan id_agente o raw_id en el pago.');
+                  return;
+                }
+
+                setFacturasCtx({ id_agente: idAgente, raw_id: rawId });
+                setShowFacturasModal(true);
+              }}
             >
               <FileText className="w-3 h-3" />
               <span>Facturas</span>
@@ -807,7 +801,7 @@ const TablaPagosVisualizacion = () => {
     }
 
   };
-
+  console.log(pagoSeleccionado)
   // Muestra error si ocurrió
   if (error) {
     return (
@@ -966,7 +960,8 @@ const TablaPagosVisualizacion = () => {
       {/* Modal de facturas asociadas */}
       {showFacturasModal && (
         <ModalFacturasAsociadas
-          facturas={facturasAsociadas}
+          id_agente={facturasCtx.id_agente}
+          raw_id={facturasCtx.raw_id}
           onClose={() => {
             setShowFacturasModal(false)
             obtenerPagos();

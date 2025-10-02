@@ -4,9 +4,10 @@ import { Table4 } from "@/components/organism/Table4";
 import React, { useState, useEffect, useMemo } from "react";
 import { formatNumberWithCommas } from "@/helpers/utils";
 import Filters from "@/components/Filters";
-import { TypeFilters } from "@/types"; // Asegúrate de importar TypeFilters
+import { TypeFilters } from "@/types";
+import { PagarModalComponent } from "@/components/template/pagar_saldo"; // Import the modal
 
-// Modificado para que acepte tanto cadenas como fechas
+//formato de fechas
 const formatDate = (dateString: string | Date | null): string => {
   if (!dateString || dateString === "0000-00-00") return 'N/A';
 
@@ -21,16 +22,64 @@ const formatDate = (dateString: string | Date | null): string => {
   });
 };
 
+const normalize = (v: unknown) =>
+  (typeof v === "string" ? v.trim().toLowerCase() : "").replace(/\s+/g, "");
+
+const matches = (field: unknown, query: unknown) => {
+  const f = normalize(field);
+  const q = normalize(query);
+  if (!q) return true;
+  // Si parece un UUID (>=30 chars), exige igualdad exacta; si no, búsqueda parcial
+  return q.length >= 30 ? f === q : f.includes(q);
+};
+
+// Trata 0, "0", "0.00", etc. como cero
+const isZeroSaldo = (s: unknown) => {
+  const n = Number(
+    typeof s === "string" ? s.replace(/,/g, "") : s
+  );
+  return Number.isFinite(n) && Math.abs(n) < 1e-6;
+};
+
 const CuentasPorCobrar = () => {
   const [facturas, setFacturas] = useState<any[]>([]); // Guardar las facturas obtenidas
+  const [facturaData, setFacturaData] = useState<any>(null);
   const [filteredFacturas, setFilteredFacturas] = useState<any[]>([]); // Facturas filtradas
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState<TypeFilters>({});
+  const [showPagarModal, setShowPagarModal] = useState(false);
+  const [selectedFacturas, setSelectedFacturas] = useState<Set<string>>(new Set()); // Facturas seleccionadas
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+
+  const handleClosePagarModal = () => {
+    setShowPagarModal(false);
+  };
 
   // Función para determinar si una fila puede ser seleccionada
   const canSelectRow = (row: any) => {
-    return row.estado !== 'pagada' && parseFloat(row.saldo) > 0;
+    const saldo = parseFloat(row.saldo);
+    const total = parseFloat(row.total);
+    return (saldo <= total || saldo === null) && row.estado !== 'pagada';
+  };
+
+  //función para asignar pagos a las facturas seleccionadas
+  const handlePagos = () => {
+    const facturasSeleccionadas = facturas.filter(factura => selectedFacturas.has(factura.id_factura));
+
+    if (facturasSeleccionadas.length > 0) {
+      // Prepara los datos para el modal
+      const datosFacturas = facturasSeleccionadas.map(factura => ({
+        monto: factura.total,
+        saldo: factura.saldo, // Agregar el saldo actual
+        facturaSeleccionada: factura,
+        id_agente: factura.id_agente,
+        agente: factura.nombre_agente,
+      }));
+
+      setFacturaData(datosFacturas); // Enviar todas las facturas al modal
+      setShowPagarModal(true); // Mostrar el modal
+    }
   };
 
 
@@ -46,6 +95,52 @@ const CuentasPorCobrar = () => {
     // Aquí puedes agregar la lógica para eliminar
   };
 
+  const handleSelectFactura = (id: string, idAgente: string) => {
+    setSelectedFacturas((prevSelected) => {
+      const newSelected = new Set(prevSelected);
+      const wasSelected = newSelected.has(id);
+
+      if (wasSelected) {
+        newSelected.delete(id);
+      } else {
+        newSelected.add(id);
+      }
+
+      // ⬇️ Si no queda ninguna, resetea agente (esto dispara el useEffect de arriba y limpia el filtro)
+      if (newSelected.size === 0) {
+        setSelectedAgentId(null);
+        return newSelected;
+      }
+
+      // Verifica mezcla de agentes con lo actualmente seleccionado
+      const seleccionadas = facturas.filter(f => newSelected.has(f.id_factura));
+      const allSameAgent = seleccionadas.every(f => f.id_agente === idAgente);
+
+      if (!allSameAgent) {
+        // No permitir mezclar: revertimos el último toggle si fue un intento de mezclar
+        if (!wasSelected) newSelected.delete(id);
+        return new Set(newSelected);
+      }
+
+      // ⬇️ Si es la primera vez que fijamos agente, lo establecemos
+      if (!selectedAgentId) {
+        setSelectedAgentId(idAgente);
+      }
+
+      return newSelected;
+    });
+  };
+
+  const handleDeseleccionarPagos = () => {
+    // Limpia checks
+    setSelectedFacturas(new Set());
+    // Quita el “candado” de agente (tu useEffect ya pondrá filters.id_agente = null)
+    setSelectedAgentId(null);
+    // Limpia datos del modal por si estaban
+    setFacturaData(null);
+    setShowPagarModal(false);
+  };
+
   // Función para aplicar filtros
   const handleFilter = (newFilters: TypeFilters) => {
     setFilters(newFilters);
@@ -55,13 +150,16 @@ const CuentasPorCobrar = () => {
   useEffect(() => {
     let result = [...facturas];
 
+    result = result.filter(factura => !isZeroSaldo(factura.saldo));
+
     // Aplicar búsqueda
     if (searchTerm) {
       result = result.filter(factura =>
         factura.id_factura?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         factura.rfc?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         factura.nombre_agente?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        factura.uuid_factura?.toLowerCase().includes(searchTerm.toLowerCase())
+        factura.uuid_factura?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        factura.id_agente?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -125,6 +223,10 @@ const CuentasPorCobrar = () => {
         parseFloat(factura.saldo) <= filters.endCantidad!
       );
     }
+    // Filtrar por ID de agente (correcto: contra r.id_agente)
+    if (filters.id_agente) {
+      result = result.filter(r => matches(r.id_agente, filters.id_agente));
+    }
 
     setFilteredFacturas(result);
   }, [facturas, searchTerm, filters]);
@@ -156,7 +258,7 @@ const CuentasPorCobrar = () => {
     saldo: ({ value }: { value: string }) => {
       const saldoNumero = parseFloat(value);
       return (
-        <span className={`font-bold ${saldoNumero > 0 ? 'text-red-600' : 'text-green-600'}`}>
+        <span className={`font-bold ${saldoNumero >= 0 ? 'text-green-600' : 'text-red-600'}`}>
           ${formatNumberWithCommas(saldoNumero)}
         </span>
       );
@@ -194,7 +296,7 @@ const CuentasPorCobrar = () => {
         <span className="text-gray-400 text-sm">N/A</span>
       )
     ),
-    nombre_agente: ({ value }: { value: string }) => (
+    nombre: ({ value }: { value: string }) => (
       <span className="text-sm text-gray-800">{value}</span>
     ),
     fecha_vencimiento: ({ value }: { value: string | Date | null }) => {
@@ -227,13 +329,20 @@ const CuentasPorCobrar = () => {
 
       return <span className={`font-medium ${color}`}>{status}</span>;
     },
+
     acciones: ({ value }: { value: { row: any } }) => {
       const row = value.row;
-      const disabled = !canSelectRow(row);
+      const isChecked = selectedFacturas.has(row.id_factura);
 
       return (
         <div className="flex gap-2">
-          <button
+          <input
+            type="checkbox"
+            checked={isChecked}
+            onChange={() => handleSelectFactura(row.id_factura, row.id_agente)}
+            className="mr-2"
+          />
+          {/* <button
             className="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
             onClick={() => handleEditar(row.id_factura)}
             disabled={disabled}
@@ -246,11 +355,21 @@ const CuentasPorCobrar = () => {
             disabled={disabled}
           >
             Eliminar
-          </button>
+          </button> */}
         </div>
       );
     },
   };
+
+  // ⬇️ Agrega este useEffect junto a tus otros useEffect
+  useEffect(() => {
+    // Auto-ocultar por agente: si hay un agente seleccionado, filtramos por él;
+    // si no hay selección, limpiamos el filtro.
+    setFilters((prev) => ({
+      ...prev,
+      id_agente: selectedAgentId ? selectedAgentId : null,
+    }));
+  }, [selectedAgentId]);
 
   useEffect(() => {
     const fetchFacturas = async () => {
@@ -287,60 +406,57 @@ const CuentasPorCobrar = () => {
   const rows = useMemo(() => {
     return filteredFacturas.map((r) => {
       return {
+        acciones: { row: r },
+        id_cliente: r.id_agente,
+        nombre: r.nombre_agente,
         id_factura: r.id_factura,
         fecha_emision: r.fecha_emision,
         estado: r.estado,
         usuario_creador: r.usuario_creador,
         total: r.total,
-        subtotal: r.subtotal,
-        impuestos: r.impuestos,
         saldo: r.saldo,
         created_at: r.created_at,
         updated_at: r.updated_at,
-        id_facturama: r.id_facturama,
-        rfc: r.rfc,
-        id_empresa: r.id_empresa,
-        uuid_factura: r.uuid_factura,
-        rfc_emisor: r.rfc_emisor,
-        url_pdf: r.url_pdf,
-        url_xml: r.url_xml,
-        id_agente: r.id_agente,
-        nombre_agente: r.nombre_agente,
         fecha_vencimiento: r.fecha_vencimiento,
-        acciones: { row: r }
       };
     });
   }, [filteredFacturas]);
 
-  // Columnas basadas en los datos que realmente llegan
+  // Columnas basadas en los datos que realmente llegan - MOVIDO AQUÍ
   const availableColumns = useMemo(() => {
     if (filteredFacturas.length === 0) return [];
 
-    // Obtener todas las keys del primer objeto
+    // Tomamos todas las keys del primer objeto
     const allKeys = Object.keys(filteredFacturas[0]);
-
-    // Filtrar solo las columnas que queremos mostrar
-    const columnsToShow = allKeys.filter(key =>
-      !['items_asociados', 'reservas_asociadas', 'pagos_asociados'].includes(key)
+    // Filtramos las que no son deseadas
+    const columnsToShow = allKeys.filter(
+      (key) =>
+        !["items_asociados", "reservas_asociadas", "pagos_asociados"].includes(key)
     );
 
-    // Agregar la columna acciones al final
-    return [...columnsToShow, 'acciones'];
+    // Si ya viene "acciones" en allKeys la quitamos para reordenarla
+    const withoutAcciones = columnsToShow.filter((key) => key !== "acciones");
+
+    // La volvemos a agregar pero al principio
+    return ["acciones", "nombre", "id_cliente", ...withoutAcciones];
   }, [filteredFacturas]);
+
 
   // Definir los filtros disponibles para este componente
   const availableFilters: TypeFilters = {
     id_factura: null,
     estado: null,
     rfc: null,
-    nombre_agente: null,
+    nombre: null,
     estatusFactura: null,
     fecha_creacion: null,
     fecha_pago: null,
     startCantidad: null,
     endCantidad: null,
+    id_agente: null,
   };
 
+  // MOVER EL CONDICIONAL DE LOADING HASTA EL FINAL
   if (loading) {
     return <h1>Cargando...</h1>;
   }
@@ -354,15 +470,34 @@ const CuentasPorCobrar = () => {
         defaultFilters={availableFilters}
       />
 
-      <div className="text-sm text-gray-600">
-        Mostrando {filteredFacturas.length} de {facturas.length} facturas
-      </div>
-
       <Table4
         registros={rows}
         renderers={renderers}
         customColumns={availableColumns}
-      />
+      >
+        <button
+          className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
+          onClick={handlePagos} // Sin argumentos
+          disabled={selectedFacturas.size === 0}
+        >
+          Asignar Pago
+        </button>
+        <button
+          className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
+          onClick={handleDeseleccionarPagos}
+          disabled={selectedFacturas.size === 0}
+        >
+          Deseleccionar pagos
+        </button>
+      </Table4>
+
+      {showPagarModal && facturaData && (
+        <PagarModalComponent
+          onClose={handleClosePagarModal}
+          facturaData={facturaData} // Enviar los datos de la factura al modal
+          open={showPagarModal}
+        />
+      )}
     </div>
   );
 };
