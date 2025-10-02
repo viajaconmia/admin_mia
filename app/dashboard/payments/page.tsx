@@ -70,17 +70,6 @@ const normalizeText = (text: string): string => {
     .trim();
 };
 
-// Agrega esta función helper en TablaPagosVisualizacion
-const normalizeText = (text: string): string => {
-  if (!text) return '';
-
-  return text
-    .toUpperCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim();
-};
-
 const TablaPagosVisualizacion = () => {
   const [pagoSeleccionado, setPagoSeleccionado] = useState<Pago | null>(null);
   const [showSubirFactura, setShowSubirFactura] = useState(false);
