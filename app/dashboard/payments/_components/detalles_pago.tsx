@@ -6,6 +6,43 @@ import { es } from "date-fns/locale";
 import { X, Copy, Check } from 'lucide-react';
 import { URL, HEADERS_API } from "@/lib/constants/index";
 import { formatNumberWithCommas } from "@/helpers/utils";
+import { Table4 } from "@/components/organism/Table4";
+
+type ReservaAPI = {
+  id_solicitud?: string;
+  id_booking?: string;
+  total_booking?: number | string;
+  viajero?: string;
+  viajeros_adicionales_reserva?: string;
+  nombre_acompanantes_reserva?: string;
+  tipo_cuarto?: string;
+  check_in?: string;
+  check_out?: string;
+  nombre_hotel?: string;
+  confirmation_code?: string;
+  [k: string]: any;
+};
+
+const buildReservasRows = (reservas: ReservaAPI[] = []) => {
+  return reservas.map((r, idx) => ({
+    // columnas planas (puedes renombrar como gustes)
+    id: r.id_solicitud || `row-${idx}`,         // usado como key
+    id_solicitud: r.id_solicitud || "N/A",
+    id_booking: r.id_booking || "N/A",
+    viajero: r.viajero || "N/A",
+    viajeros_adicionales:
+      r.viajeros_adicionales_reserva || r.nombre_acompanantes_reserva || "Ninguno",
+    tipo_cuarto: r.tipo_cuarto || "N/A",
+    hotel: r.nombre_hotel || "N/A",
+    check_in: r.check_in || "N/A",
+    check_out: r.check_out || "N/A",
+    total_booking: r.total_booking ?? 0,
+    confirmation_code: r.codigo_reservacion_hotel || "N/A",
+
+    // si quieres pasar el objeto original por si usas expandedRenderer
+    item: r,
+  }));
+};
 
 interface Pago {
   id_movimiento?: number;
@@ -58,6 +95,30 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
       console.error('No se pudo copiar:', e);
     }
   };
+
+  const CurrencyCell: React.FC<{ value: any }> = ({ value }) => {
+    const numValue = typeof value === "string" ? parseFloat(value) : (value || 0);
+    return (
+      <span className="font-semibold">
+        {new Intl.NumberFormat("es-MX", {
+          style: "currency",
+          currency: "MXN",
+          minimumFractionDigits: 2,
+        }).format(numValue)}
+      </span>
+    );
+  };
+
+  const DateShortCell: React.FC<{ value: any }> = ({ value }) => {
+    if (!value || value === "N/A" || value === "0000-00-00") return <span>N/A</span>;
+    try {
+      const d = new Date(value);
+      return <span>{format(d, "dd MMM yyyy", { locale: es })}</span>;
+    } catch {
+      return <span>{String(value)}</span>;
+    }
+  };
+
 
   const formatCurrency = (value: number | string | undefined): string => {
     const numValue = typeof value === 'string' ? parseFloat(value) : value || 0;
@@ -116,9 +177,22 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
     }
   };
 
-  const getFacturadoStatus = (): string => {
-    return pago.is_facturado === 1 ? 'Facturado' : 'No facturado';
-  };
+  const reservasRows = React.useMemo(() => {
+    const reservas: ReservaAPI[] =
+      detallesAdicionales?.data?.reservas && Array.isArray(detallesAdicionales.data.reservas)
+        ? detallesAdicionales.data.reservas
+        : [];
+    return buildReservasRows(reservas);
+  }, [detallesAdicionales]);
+
+  const reservaRenderers = React.useMemo(() => {
+    return {
+      total_booking: CurrencyCell,
+      check_in: DateShortCell,
+      check_out: DateShortCell,
+    } as const;
+  }, []);
+
 
   // Función para extraer solo los IDs de factura del string completo
   const extractFacturaIds = (facturasData: any): string[] => {
@@ -426,105 +500,52 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
           )}
 
           {/* Detalles reservas */}
-          {/* Detalles adicionales - Reservas */}
-          {loadingDetalles && (
-            <div className="mb-6">
-              <div className="flex items-center justify-center py-4">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                <span className="ml-3 text-gray-600">Cargando detalles de reservas...</span>
-              </div>
-            </div>
-          )}
-
-          {detallesAdicionales?.data?.reservas && detallesAdicionales.data.reservas.length > 0 && (
+          {!loadingDetalles && reservasRows.length > 0 && (
             <div className="mb-6">
               <h3 className="text-lg font-semibold mb-4 text-green-800">Reservas Asociadas</h3>
-              <div className="space-y-4">
-                {detallesAdicionales.data.reservas.map((reserva: any, index: number) => (
-                  <div key={reserva.id_solicitud || index} className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <h4 className="text-sm font-medium text-green-700">ID Solicitud</h4>
-                        <p className="mt-1 text-sm font-mono text-green-900 bg-white px-2 py-1 rounded border border-green-200">
-                          {reserva.id_solicitud || 'N/A'}
-                        </p>
-                      </div>
 
-                      <div>
-                        <h4 className="text-sm font-medium text-green-700">ID Booking</h4>
-                        <p className="mt-1 text-sm font-mono text-green-900 bg-white px-2 py-1 rounded border border-green-200">
-                          {reserva.id_booking || 'N/A'}
-                        </p>
-                      </div>
-
-                      <div>
-                        <h4 className="text-sm font-medium text-green-700">Total Booking</h4>
-                        <p className="mt-1 text-lg font-bold text-green-900">
-                          {formatCurrency(reserva.total_booking)}
-                        </p>
-                      </div>
-
-                      <div>
-                        <h4 className="text-sm font-medium text-green-700">Viajero Principal</h4>
-                        <p className="mt-1 text-sm text-green-900">
-                          {reserva.viajero || 'N/A'}
-                        </p>
-                      </div>
-
-                      <div>
-                        <h4 className="text-sm font-medium text-green-700">Viajeros Adicionales</h4>
-                        <p className="mt-1 text-sm text-green-900">
-                          {reserva.viajeros_adicionales_reserva || reserva.nombre_acompanantes_reserva || 'Ninguno'}
-                        </p>
-                      </div>
-
-                      <div>
-                        <h4 className="text-sm font-medium text-green-700">Tipo de Cuarto</h4>
-                        <p className="mt-1 text-sm text-green-900">
-                          {reserva.tipo_cuarto || 'N/A'}
-                        </p>
-                      </div>
-
-                      <div>
-                        <h4 className="text-sm font-medium text-green-700">Check-in</h4>
-                        <p className="mt-1 text-sm text-green-900">
-                          {formatDateShort(reserva.check_in)}
-                        </p>
-                      </div>
-
-                      <div>
-                        <h4 className="text-sm font-medium text-green-700">Check-out</h4>
-                        <p className="mt-1 text-sm text-green-900">
-                          {formatDateShort(reserva.check_out)}
-                        </p>
-                      </div>
-
-                      <div className="md:col-span-2">
-                        <h4 className="text-sm font-medium text-green-700">Hotel</h4>
-                        <p className="mt-1 text-sm text-green-900">
-                          {reserva.nombre_hotel || 'N/A'}
-                        </p>
-                      </div>
-
-                      <div className="md:col-span-2">
-                        <h4 className="text-sm font-medium text-green-700">Código de Confirmación</h4>
-                        <p className="mt-1 text-sm font-mono text-green-900 bg-white px-2 py-1 rounded border border-green-200">
-                          {reserva.confirmation_code || 'N/A'}
-                        </p>
-                      </div>
+              <Table4
+                registros={reservasRows}
+                renderers={reservaRenderers as any}
+                leyenda={`Total de reservas: ${reservasRows.length}`}
+                // Puedes fijar el orden/visibilidad de columnas:
+                customColumns={[
+                  "id_solicitud",
+                  "id_booking",
+                  "hotel",
+                  "tipo_cuarto",
+                  "viajero",
+                  "viajeros_adicionales",
+                  "check_in",
+                  "check_out",
+                  "total_booking",
+                  "confirmation_code",
+                ]}
+                // Si quieres filas expandibles, pasa un mapa con las que deban abrir
+                filasExpandibles={{}} // o { [id]: true }
+                // Ejemplo de expandedRenderer (opcional)
+                expandedRenderer={(row) => (
+                  <div className="p-3 text-xs text-gray-700">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      <div><b>ID Solicitud:</b> {row.id_solicitud}</div>
+                      <div><b>ID Booking:</b> {row.id_booking}</div>
+                      <div><b>Conf. Code:</b> {row.confirmation_code}</div>
                     </div>
+                    {/* aquí podrías meter items/noches si tu API los trae */}
                   </div>
-                ))}
-              </div>
+                )}
+              />
             </div>
           )}
 
-          {detallesAdicionales?.data?.reservas && detallesAdicionales.data.reservas.length === 0 && (
+          {!loadingDetalles && reservasRows.length === 0 && (
             <div className="mb-6">
-              <h3 className="text-lg font-semibold mb-4 text-gray-600">Reservas Asociadas</h3>
+              {/* Si no quieres mostrar nada, elimina todo este bloque */}
+              <h3 className="text-lg font-semibold mb-2 text-gray-600">Reservas Asociadas</h3>
               <p className="text-sm text-gray-500">No hay reservas asociadas a este pago</p>
             </div>
           )}
+
 
           {/* Facturas asociadas: mostrar solo IDs */}
           <div>

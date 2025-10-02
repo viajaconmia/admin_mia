@@ -17,8 +17,6 @@ import { BillingPage } from "@/app/dashboard/facturacion/generar_factura/generar
 import { formatNumberWithCommas } from "@/helpers/utils";
 import Filters from "@/components/Filters";
 import { TypeFilters } from "@/types";
-import { table } from 'console';
-
 
 export interface Pago {
   id_movimiento: number;
@@ -127,6 +125,7 @@ const TablaPagosVisualizacion = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showFacturasModal, setShowFacturasModal] = useState(false);
+  const [facturasCtx, setFacturasCtx] = useState<{ id_agente: string; raw_id: string } | null>(null);
   const [facturasAsociadas, setFacturasAsociadas] = useState<string[]>([]);
   const [filters, setFilters] = useState<TypeFilters>({
     id_movimiento: null,
@@ -269,7 +268,6 @@ const TablaPagosVisualizacion = () => {
     try {
       setLoading(true);
       const response = await fetchPagosPrepagobalance();
-      console.log(response, "rrrrrrrrrrrrrrrrrr")
       // Asumiendo que la API devuelve directamente el objeto balance
       const balanceObtenido: Balance = {
         montototal: response.montototal || "0",
@@ -356,14 +354,11 @@ const TablaPagosVisualizacion = () => {
       // Pagos que tienen saldo pendiente por facturar (monto_por_facturar > 0)
       const conSaldoPendiente = facturado >= 0;
       if (pago.id_movimiento == 1) {
-        console.log("fac", pago, noFacturado, facturado, conSaldoPendiente)
       }
 
       return noFacturado && conSaldoPendiente;
 
     });
-
-    console.log("filtered", filteredByFacturado)
 
     // Filter the data
     const filteredItems = filteredByFacturado.filter((pago) => {
@@ -398,10 +393,6 @@ const TablaPagosVisualizacion = () => {
         if (!pago.link_pago) return false;
         const normalizedFilter = filters.link_pago.toLowerCase().trim();
         const normalizedLink = pago.link_pago.toLowerCase().trim();
-        console.log("link_pago en filtros:", normalizedFilter);
-        console.log("link_pago del pago:", normalizedLink);
-
-        console.log(!normalizedLink.includes(normalizedFilter))
         return normalizedLink.includes(normalizedFilter)
       }
 
@@ -837,7 +828,19 @@ const TablaPagosVisualizacion = () => {
           {tieneFacturas && (
             <button
               className="px-2 py-1 rounded-md bg-green-50 text-green-600 hover:bg-green-100 transition-colors border border-green-200 flex items-center gap-1 text-xs"
-              onClick={() => handleVerFacturas(row.facturas_asociadas)}
+              onClick={() => {
+                // Asegura id_agente y raw_id correctos para el modal
+                const idAgente = (row.id_agente || row.ig_agente || '').toString();
+                const rawId = row.raw_id || '';
+
+                if (!idAgente || !rawId) {
+                  alert('No se pudo abrir el detalle: faltan id_agente o raw_id en el pago.');
+                  return;
+                }
+
+                setFacturasCtx({ id_agente: idAgente, raw_id: rawId });
+                setShowFacturasModal(true);
+              }}
             >
               <FileText className="w-3 h-3" />
               <span>Facturas</span>
@@ -901,7 +904,6 @@ const TablaPagosVisualizacion = () => {
       </div>
     );
   }
-  console.log(balance)
   return (
 
     <div className="bg-white rounded-lg p-6 w-full shadow-xl">
@@ -1047,8 +1049,8 @@ const TablaPagosVisualizacion = () => {
       {/* Modal de facturas asociadas */}
       {showFacturasModal && (
         <ModalFacturasAsociadas
-          facturas={facturasAsociadas}
-          onClose={() => {
+          id_agente={facturasCtx.id_agente}
+          raw_id={facturasCtx.raw_id} onClose={() => {
             setShowFacturasModal(false)
             obtenerPagos();
             obtenerBalance();
