@@ -15,12 +15,11 @@ import { useNotification } from "@/context/useNotificacion";
 import { CheckCircle, Plus, Trash2 } from "lucide-react";
 import { MostrarSaldos } from "./MostrarSaldos";
 import Modal from "../organism/Modal";
-import { Aerolinea, Aeropuerto, ExtraService } from "@/services/ExtraServices";
+import { Aeropuerto, ExtraService, Proveedor } from "@/services/ExtraServices";
 import { isSomeNull } from "@/helpers/validator";
 import { Saldo } from "@/services/SaldoAFavor";
 import { VuelosServices } from "@/services/VuelosServices";
-
-type ForSave = null | "aeropuerto" | "aerolinea";
+import { ForSave, GuardadoRapido } from "./GuardadoRapido";
 
 const initialDetails = {
   codigo: null,
@@ -41,7 +40,7 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
     status: string | null;
   }>(initialDetails);
   const [viajeros, setViajeros] = useState<ViajeroService[]>([]);
-  const [aerolineas, setAerolineas] = useState<Aerolinea[]>([]);
+  const [aerolineas, setAerolineas] = useState<Proveedor[]>([]);
   const [aeropuertos, setAeropuertos] = useState<Aeropuerto[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [open, setOpen] = useState<boolean>(false);
@@ -78,33 +77,14 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
     }
   };
 
-  const handleGuardarAerolinea = (value: string) => {
-    ExtraService.getInstance()
-      .createAerolinea(value)
-      .then((res) => {
-        setAerolineas(res.data || []);
-        showNotification("success", res.message);
-        setSave(null);
-      })
-      .catch((error) =>
-        showNotification("error", error.message || "Error al agregar aerolinea")
-      );
+  const handleGuardarAerolinea = (aerolineas: Proveedor[]) => {
+    setAerolineas(aerolineas);
+    setSave(null);
   };
 
-  const handleGuardarAeropuerto = (codigo: string, ubicacion: string) => {
-    ExtraService.getInstance()
-      .createAeropuerto(codigo, ubicacion)
-      .then((res) => {
-        setAeropuertos(res.data || []);
-        showNotification("success", res.message);
-        setSave(null);
-      })
-      .catch((error) =>
-        showNotification(
-          "error",
-          error.message || "Error al agregar aeropuerto"
-        )
-      );
+  const handleGuardarAeropuerto = (aeropuertos: Aeropuerto[]) => {
+    setAeropuertos(aeropuertos);
+    setSave(null);
   };
 
   const handleSubmit = async (
@@ -155,7 +135,6 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
     ExtraService.getInstance()
       .getAerolineas()
       .then((res) => {
-        console.log(res);
         setAerolineas(res.data || []);
       })
       .catch((error) =>
@@ -164,7 +143,6 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
     ExtraService.getInstance()
       .getAeropuerto()
       .then((res) => {
-        console.log(res);
         setAeropuertos(res.data || []);
       })
       .catch((error) =>
@@ -198,11 +176,13 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
           onClose={() => {
             setSave(null);
           }}
-          title="Agregar aerolinea"
-          subtitle="Agrega los valores de la nueva aerolinea para agregarla"
+          title={`Agregar ${save == "vuelo" ? "aerolinea" : "aeropuerto"}`}
+          subtitle={`Agrega los valores de la nueva ${
+            save == "vuelo" ? "aerolinea" : "aeropuerto"
+          } para agregarla`}
         >
-          <GuardarAerolineas
-            onSaveAerolinea={handleGuardarAerolinea}
+          <GuardadoRapido
+            onSaveProveedor={handleGuardarAerolinea}
             type={save}
             onSaveAeropuerto={handleGuardarAeropuerto}
           />
@@ -286,7 +266,7 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
                       }
                       className="col-span-2"
                       label="Aerolinea"
-                      onChange={(value: ComboBoxOption2<Aerolinea>) => {
+                      onChange={(value: ComboBoxOption2<Proveedor>) => {
                         handleUpdateVuelo(index, "aerolinea", value.content);
                       }}
                       options={aerolineas.map((aerolinea) => ({
@@ -298,7 +278,7 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
                       icon={Plus}
                       size="md"
                       className="mt-6 h-fit"
-                      onClick={() => setSave("aerolinea")}
+                      onClick={() => setSave("vuelo")}
                     >
                       Agregar
                     </Button>
@@ -451,65 +431,6 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
   );
 };
 
-const GuardarAerolineas = ({
-  onSaveAerolinea,
-  onSaveAeropuerto,
-  type,
-}: {
-  onSaveAerolinea: (value: string) => void;
-  onSaveAeropuerto: (codigo: string, ubicacion: string) => void;
-  type: ForSave;
-}) => {
-  const [principal, setPrincipal] = useState<string>("");
-  const [secundario, setSecundario] = useState<string>("");
-  if (!type) return;
-  return (
-    <div
-      className={`grid gap-4 items-end ${
-        type == "aerolinea" ? "grid-cols-2" : "grid-cols-3"
-      }`}
-    >
-      {type == "aerolinea" && (
-        <>
-          <TextInput
-            value={principal}
-            label="Aerolinea"
-            onChange={(value: string) => setPrincipal(value)}
-          />
-          <Button
-            onClick={() => {
-              onSaveAerolinea(principal);
-            }}
-          >
-            Guardar
-          </Button>
-        </>
-      )}
-      {type == "aeropuerto" && (
-        <>
-          <TextInput
-            value={principal}
-            label="Codigo"
-            onChange={(value: string) => setPrincipal(value)}
-          />
-          <TextInput
-            value={secundario}
-            label="Ubicación"
-            onChange={(value: string) => setSecundario(value)}
-          />
-          <Button
-            onClick={() => {
-              onSaveAeropuerto(principal, secundario);
-            }}
-          >
-            Guardar
-          </Button>
-        </>
-      )}
-    </div>
-  );
-};
-
 export type Vuelo = {
   tipo: "ida" | "vuelta" | "ida escala" | "vuelta escala" | null;
   folio: string | null;
@@ -517,7 +438,7 @@ export type Vuelo = {
   destino: Aeropuerto | null;
   check_in: string | null;
   check_out: string | null;
-  aerolinea: Aerolinea | null;
+  aerolinea: Proveedor | null;
   asiento: string | null;
   comentarios: string | null;
   ubicacion_asiento: string | null;
@@ -549,7 +470,7 @@ type Action =
       payload: {
         index: number;
         field: keyof Vuelo;
-        value: string | null | Aerolinea | Aeropuerto;
+        value: string | null | Proveedor | Aeropuerto;
       };
     };
 

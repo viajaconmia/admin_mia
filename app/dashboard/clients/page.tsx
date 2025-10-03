@@ -21,6 +21,7 @@ import {
   AlertTriangle,
   DollarSign,
   Plane,
+  CarTaxiFrontIcon,
 } from "lucide-react";
 import { Table } from "@/components/Table";
 import { TypeFilters } from "@/types";
@@ -36,6 +37,7 @@ import { getReservasByAgente } from "@/services/reservas";
 import { ToolTip } from "@/components/atom/ToolTip";
 import { set } from "date-fns";
 import { PageVuelos } from "@/components/template/PageVuelos";
+import { CarRentalPage } from "@/components/pages/CarRental";
 
 const getWalletBadge = (monto: string | null) => {
   // Convertir el string a número para la verificación
@@ -204,6 +206,12 @@ function App() {
       tab: "vuelos",
       icon: Plane,
       component: <PageVuelos agente={selectedItem} />,
+    },
+    {
+      title: "Renta de autos",
+      tab: "car-rental",
+      icon: CarTaxiFrontIcon,
+      component: <CarRentalPage agente={selectedItem} />,
     },
     {
       title: "Facturas",

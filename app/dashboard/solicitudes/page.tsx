@@ -109,7 +109,7 @@ function App() {
   let formatedSolicitudes = allSolicitudes
     .filter(
       (item) =>
-        item.hotel_solicitud.toUpperCase().includes(searchTerm) ||
+        (item.hotel_solicitud || "").toUpperCase().includes(searchTerm) ||
         item.nombre_cliente.toUpperCase().includes(searchTerm) ||
         item.nombre_viajero_solicitud.toUpperCase().includes(searchTerm)
     )
@@ -117,13 +117,13 @@ function App() {
       id_cliente: item.id_agente,
       cliente: (item?.nombre_cliente || "").toUpperCase(),
       creado: item.created_at_solicitud,
-      hotel: item.hotel_solicitud.toUpperCase(),
-      codigo_hotel: item.codigo_reservacion_hotel,
+      hotel: (item.hotel_solicitud || "").toUpperCase() || "",
+      codigo_hotel: item.codigo_reservacion_hotel || "",
       viajero: (item.nombre_viajero_solicitud || "").toUpperCase(),
       check_in: item.check_in_solicitud,
       check_out: item.check_out_solicitud,
       noches: calcularNoches(item.check_in, item.check_out),
-      habitacion: formatRoom(item.room),
+      habitacion: item.room ? formatRoom(item.room) : "",
       costo_proveedor: Number(item.costo_total) || 0,
       markup:
         ((Number(item.total_solicitud || 0) - Number(item.costo_total || 0)) /
@@ -192,10 +192,16 @@ function App() {
     viajero: (props: any) => <span title={props.value}>{props.value}</span>,
     habitacion: (props: any) => <span title={props.value}>{props.value}</span>,
     check_in: (props: any) => {
-      return <span title={props.value}>{formatDate(props.value)}</span>;
+      return (
+        <span title={props.value}>
+          {props.value ? formatDate(props.value) : ""}
+        </span>
+      );
     },
     check_out: (props: any) => (
-      <span title={props.value}>{formatDate(props.value)}</span>
+      <span title={props.value}>
+        {props.value ? formatDate(props.value) : ""}
+      </span>
     ),
     creado: (props: any) => (
       <span title={props.value}>{formatDate(props.value)}</span>
