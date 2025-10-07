@@ -205,8 +205,8 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
       // Adaptar según la estructura real de los datos de SaldoFavor
       response.data?.forEach((saldo: any) => {
         // Para el nuevo flujo, usamos el saldo completo como "item"
-        const idItem = `saldo-${saldo.id_saldos}`;
-        const saldoValor = Number(saldo.saldo) || 0;
+        const idItem = reservaData ? `saldo-${saldo.id_saldos}` : `saldo - ${saldo.id_saldos}`;
+        const saldoValor = reservaData ? Number(saldo.saldo) || 0 : Number(saldo.monto_por_facturar);
 
         initialOriginalSaldo[idItem] = saldoValor;
         initialSaldo[idItem] = saldoValor;
@@ -515,31 +515,40 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
       console.error("Error en la petición:", error);
     }
   };
+
   const tableData = reservaData || facturaData ?
     // Datos del nuevo flujo (SaldoFavor)
     saldoFavorData
       .filter(saldo => saldo.activo !== 0)
-      .map(saldo => ({
-        creado: saldo.fecha_creacion ? new Date(saldo.fecha_creacion) : null,
-        id_item: `saldo-${saldo.id_saldos}`,
-        id_servicio: '',
-        codigo_reservacion: saldo.referencia || '',
-        hotel: '',
-        viajero: '',
-        activo: saldo.activo,
-        fecha_uso: saldo.fecha_creacion || '',
-        total: Number(saldo.monto) || 0,
-        item: saldo,
-        // Campos adicionales para el nuevo flujo
-        forma_De_Pago: formatFormaPago(saldo.metodo_pago),
-        tipo_tarjeta: saldo.tipo_tarjeta || "",
-        monto_pagado: Number(saldo.monto),
-        saldo: Number(saldo.saldo) || 0,
-        seleccionado: saldo,
-        saldo_restante: itemsSaldo[`saldo-${saldo.id_saldos}`] !== undefined ?
+      .map(saldo => {
+
+        const saldorestante1 = reservaData ? itemsSaldo[`saldo-${saldo.id_saldos}`] !== undefined ?
           itemsSaldo[`saldo-${saldo.id_saldos}`] :
-          (Number(saldo.saldo) || 0),
-      })) :
+          (Number(saldo.saldo) || 0) :
+          itemsSaldo[`monto_por_facturar - ${saldo.id_saldos}`] !== undefined ?
+            itemsSaldo[`monto_por_facturar - ${saldo.id_saldos}`] :
+            (Number(saldo.monto_por_facturar) || 0)
+
+        return {
+          creado: saldo.fecha_creacion ? new Date(saldo.fecha_creacion) : null,
+          id_item: `${saldo.id_saldos}`,
+          id_servicio: '',
+          codigo_reservacion: saldo.referencia || '',
+          hotel: '',
+          viajero: '',
+          activo: saldo.activo,
+          fecha_uso: saldo.fecha_creacion || '',
+          total: Number(saldo.monto) || 0,
+          item: saldo,
+          // Campos adicionales para el nuevo flujo
+          forma_De_Pago: formatFormaPago(saldo.metodo_pago),
+          tipo_tarjeta: saldo.tipo_tarjeta || "",
+          monto_pagado: Number(saldo.monto),
+          saldo: facturaData ? Number(saldo.monto_por_facturar) : Number(saldo.saldo),
+          seleccionado: saldo,
+          saldo_restante: saldorestante1
+        }
+      }) :
     // Datos del flujo existente
     reservas.flatMap(reserva =>
       (reserva.items_info?.items || []).map(item => ({
