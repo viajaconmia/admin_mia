@@ -58,36 +58,17 @@ interface Balance {
 
 type Seleccion = { id_agente: string; raw_id: string; monto_por_facturar: number };
 
-function buildAssignPayload(opts: { seleccionados: Seleccion[]; row?: any }) {
-  const { seleccionados, row } = opts;
-  const haySeleccion = seleccionados && seleccionados.length > 0;
 
-  const rawIds = haySeleccion
-    ? seleccionados.map(s => s.raw_id)
-    : row
-      ? [String(row.raw_id)]
-      : [];
+// Agrega esta función helper en TablaPagosVisualizacion
+const normalizeText = (text: string): string => {
+  if (!text) return '';
 
-  const saldos = haySeleccion
-    ? seleccionados.map(s => Number(s.monto_por_facturar) || 0)
-    : row
-      ? [Number(row.monto_por_facturar) || 0]
-      : [];
-
-  const id_agente = haySeleccion
-    ? String(seleccionados[0].id_agente)
-    : String(row?.id_agente || row?.ig_agente || "");
-
-  const monto = saldos.reduce((a, b) => a + (Number(b) || 0), 0);
-
-  return {
-    id_agente,
-    rawIds,          // siempre array
-    saldos,          // siempre array
-    monto,           // total
-    saldoMonto: monto
-  };
-}
+  return text
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+};
 
 const TablaPagosVisualizacion = () => {
   const [pagoSeleccionado, setPagoSeleccionado] = useState<Pago | null>(null);
@@ -98,21 +79,28 @@ const TablaPagosVisualizacion = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showFacturasModal, setShowFacturasModal] = useState(false);
+  const [facturasCtx, setFacturasCtx] = useState<{ id_agente: string; raw_id: string } | null>(null);
   const [facturasAsociadas, setFacturasAsociadas] = useState<string[]>([]);
   const [filters, setFilters] = useState<TypeFilters>({
     id_movimiento: null,
     raw_id: "",
     fecha_pago: "",
     id_cliente: "",
-    nombre_agente: "",     // ← antes tenías nombre_cliente
+    nombre_agente: "",
     metodo: "",
     fecha_creacion: "",
     banco: "",
+    last_digits: "",
     link_pago: "",
     origen_pago: "",
     estatusFactura: null,
     id_agente: "",
     tipo_pago: undefined,
+    startDate: "",
+    endDate: "",
+    is_facturado: null,
+    // Agrega este filtro que falta para facturas
+    id_factura: "",
   });
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -381,13 +369,14 @@ const TablaPagosVisualizacion = () => {
         }
       }
 
-      // Filtro por nombre de agente
+      // Filtro por nombre de agente (con normalización)
       if (filters.nombre_agente && pago.nombre_agente) {
-        const f = filters.nombre_agente.toLowerCase();
-        const n = pago.nombre_agente.toLowerCase();
-        if (!n.includes(f)) return false;
+        const normalizedFilter = normalizeText(filters.nombre_agente);
+        const normalizedAgentName = normalizeText(pago.nombre_agente);
+        if (!normalizedAgentName.includes(normalizedFilter)) {
+          return false;
+        }
       }
-
 
       // Filtro por método de pago
       if (filters.metodo && pago.metodo) {
@@ -483,28 +472,34 @@ const TablaPagosVisualizacion = () => {
 
       // Filtro por búsqueda de texto
       if (searchTerm) {
-        const searchLower = searchTerm.toLowerCase();
+        const searchLower = normalizeText(searchTerm);
+
         const matchesReference = pago.referencia
-          ?.toLowerCase()
-          .includes(searchLower);
+          ? normalizeText(pago.referencia).includes(searchLower)
+          : false;
+
         const matchesConcept = pago.concepto
-          ?.toLowerCase()
-          .includes(searchLower);
-        const matchesId = pago.id_movimiento?.toString().includes(searchLower);
-        const matchesRawId = pago.raw_id?.toLowerCase().includes(searchLower);
+          ? normalizeText(pago.concepto).includes(searchLower)
+          : false;
+
+        const matchesId = pago.id_movimiento?.toString().includes(searchTerm);
+        const matchesRawId = pago.raw_id?.toLowerCase().includes(searchTerm.toLowerCase());
+
         const matchesAgentName = pago.nombre_agente
-          ?.toLowerCase()
-          .includes(searchLower);
+          ? normalizeText(pago.nombre_agente).includes(normalizeText(searchLower))
+          : false;
+        if (pago.nombre_agente.includes("KARLA"))
+          console.log(normalizeText(pago.nombre_agente), "probando filtros", normalizeText(searchLower))
+
         const matchesAgentId = pago.ig_agente
-          ?.toLowerCase()
-          .includes(searchLower);
+          ? normalizeText(pago.ig_agente).includes(searchLower)
+          : false;
 
         if (!matchesReference && !matchesConcept && !matchesId &&
           !matchesRawId && !matchesAgentName && !matchesAgentId) {
           return false;
         }
       }
-
       return true;
     });
 
@@ -579,7 +574,7 @@ const TablaPagosVisualizacion = () => {
     });
   }, [pagos, filters, searchTerm, sortConfig.key, sortConfig.sort, filterBySelectedAgent, seleccionados, idAgenteSeleccionado]);
 
-
+  console.log(filteredData)
   const renderers = {
     // IDs and references
     id_movimiento: ({ value }: { value: number }) => (
@@ -632,8 +627,11 @@ const TablaPagosVisualizacion = () => {
     },
     // `nombre_agente`
 
-    nombre_cliente: ({ value }: { value: string }) => (
-      <TextTransform value={value} />
+    // En la sección de renderers, modifica el renderer de nombre:
+    nombre: ({ value }: { value: string }) => (
+      <span className="font-medium">
+        {normalizeText(value)}
+      </span>
     ),
 
     // `concepto`
@@ -769,7 +767,19 @@ const TablaPagosVisualizacion = () => {
           {tieneFacturas && (
             <button
               className="px-2 py-1 rounded-md bg-green-50 text-green-600 hover:bg-green-100 transition-colors border border-green-200 flex items-center gap-1 text-xs"
-              onClick={() => handleVerFacturas(row.facturas_asociadas)}
+              onClick={() => {
+                // Asegura id_agente y raw_id correctos para el modal
+                const idAgente = (row.id_agente || row.ig_agente || '').toString();
+                const rawId = row.raw_id || '';
+
+                if (!idAgente || !rawId) {
+                  alert('No se pudo abrir el detalle: faltan id_agente o raw_id en el pago.');
+                  return;
+                }
+
+                setFacturasCtx({ id_agente: idAgente, raw_id: rawId });
+                setShowFacturasModal(true);
+              }}
             >
               <FileText className="w-3 h-3" />
               <span>Facturas</span>
@@ -780,7 +790,7 @@ const TablaPagosVisualizacion = () => {
     }
 
   };
-
+  console.log(pagoSeleccionado)
   // Muestra error si ocurrió
   if (error) {
     return (
@@ -939,7 +949,8 @@ const TablaPagosVisualizacion = () => {
       {/* Modal de facturas asociadas */}
       {showFacturasModal && (
         <ModalFacturasAsociadas
-          facturas={facturasAsociadas}
+          id_agente={facturasCtx.id_agente}
+          raw_id={facturasCtx.raw_id}
           onClose={() => {
             setShowFacturasModal(false)
             obtenerPagos();

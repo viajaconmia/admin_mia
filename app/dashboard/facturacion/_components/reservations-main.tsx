@@ -379,7 +379,7 @@ export const FacturacionModal: React.FC<{
   const { crearCfdi, descargarFactura, mandarCorreo } = useApi();
   const [descarga, setDescarga] = useState<DescargaFactura | null>(null);
   const [isInvoiceGenerated, setIsInvoiceGenerated] = useState<Root | null>(null);
-  
+
 
   const [isConsolidated, setIsConsolidated] = useState(true);
   const [reservationsWithSelectedItems, setReservationsWithSelectedItems] =
@@ -719,6 +719,13 @@ export const FacturacionModal: React.FC<{
       const subtotal = totalFacturado / 1.16;
       const iva = totalFacturado - subtotal;
 
+      const [customDescription, setCustomDescription] = useState("");
+
+      // Generar descripción por defecto
+      const defaultDescription = `HOSPEDAJE - ${totalNights} NOCHE(S) EN ${reservationsWithSelectedItems.length} RESERVA(S)`;
+
+      const descriptionToUse = customDescription || defaultDescription;
+
       // Construir payload similar a generar_factura.tsx
       const payloadCFDI = {
         cfdi: {
@@ -739,7 +746,7 @@ export const FacturacionModal: React.FC<{
                 ProductCode: "90121500",
                 UnitCode: "E48",
                 Unit: "Unidad de servicio",
-                Description: `HOSPEDAJE - ${totalNights} NOCHE(S) EN ${reservationsWithSelectedItems.length} RESERVA(S)`,
+                Description: descriptionToUse,
                 //IdentificationNumber: "HSP",
                 UnitPrice: subtotal.toFixed(2),
                 Subtotal: subtotal.toFixed(2),
@@ -777,11 +784,7 @@ export const FacturacionModal: React.FC<{
                 ProductCode: "90121500",
                 UnitCode: "E48",
                 Unit: "Unidad de servicio",
-                Description: `HOSPEDAJE EN ${reserva.hotel
-                  } - DEL ${formatDate(reserva.check_in)} AL ${formatDate(
-                    reserva.check_out
-                  )} (${itemsSeleccionados.length} NOCHES) - ${reserva.nombre_viajero_completo
-                  }`,
+                Description: descriptionToUse,
                 //IdentificationNumber: `HSP-${reserva.id_servicio}`,
                 UnitPrice: subtotalReserva.toFixed(2),
                 Subtotal: subtotalReserva.toFixed(2),
@@ -1162,6 +1165,21 @@ export const FacturacionModal: React.FC<{
                 </p>
               </div>
 
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Descripción personalizada
+                </label>
+                <textarea
+                  value={customDescription}
+                  onChange={(e) => setCustomDescription(e.target.value)}
+                  placeholder={defaultDescription}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Deja vacío para usar la descripción por defecto: "{defaultDescription}"
+                </p>
+              </div>
             </div>
           </div>
 
@@ -1279,4 +1297,3 @@ export const FacturacionModal: React.FC<{
     </div>
   );
 };
-
