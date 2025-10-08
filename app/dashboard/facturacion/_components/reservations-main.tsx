@@ -1166,7 +1166,7 @@ export const FacturacionModal: React.FC<{
               </div>
 
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                {/* <label className="block text-sm font-medium text-gray-700 mb-2">
                   Descripción personalizada
                 </label>
                 <textarea
@@ -1178,7 +1178,7 @@ export const FacturacionModal: React.FC<{
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   Deja vacío para usar la descripción por defecto: "{defaultDescription}"
-                </p>
+                </p> */}
               </div>
             </div>
           </div>
