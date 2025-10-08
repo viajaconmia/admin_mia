@@ -488,6 +488,7 @@ export const FacturacionModal: React.FC<{
 
 
   console.log("fiacla", fiscalDataList)
+  const [customDescription, setCustomDescription] = useState("");
 
   // Actualizar CFDI cuando cambian los datos
   useEffect(() => {
@@ -719,7 +720,6 @@ export const FacturacionModal: React.FC<{
       const subtotal = totalFacturado / 1.16;
       const iva = totalFacturado - subtotal;
 
-      const [customDescription, setCustomDescription] = useState("");
 
       // Generar descripción por defecto
       const defaultDescription = `HOSPEDAJE - ${totalNights} NOCHE(S) EN ${reservationsWithSelectedItems.length} RESERVA(S)`;
@@ -831,6 +831,7 @@ export const FacturacionModal: React.FC<{
       onConfirm(selectedFiscalData, isConsolidated);
       setIsInvoiceGenerated(response);
     } catch (error) {
+      console.error(error)
       alert(
         "Ocurrió un error al generar la factura: " + (error as Error).message
       );
@@ -956,7 +957,7 @@ export const FacturacionModal: React.FC<{
                     reservationsWithSelectedItems
                       .slice(0, 2)
                       .map((reserva, index) => (
-                        <tr key={`preview-${reserva.id_solicitud}`}>
+                        <tr key={`preview-${reserva.id_solicitud}-${Math.round(Math.random() * 9999999)}`}>
                           <td className="px-3 py-2 text-sm border-b">
                             90121500
                           </td>
@@ -1071,7 +1072,7 @@ export const FacturacionModal: React.FC<{
               <div className="space-y-4">
                 {fiscalDataList.map((data) => (
                   <div
-                    key={data.id_datos_fiscales}
+                    key={`${Math.round(Math.random() * 9999999)}-data.id_datos_fiscales`}
                     className={`border rounded-md p-4 cursor-pointer ${selectedFiscalData?.id_datos_fiscales ===
                       data.id_datos_fiscales
                       ? "border-blue-500 bg-blue-50"
@@ -1111,7 +1112,7 @@ export const FacturacionModal: React.FC<{
                 className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               >
                 {cfdiUseOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
+                  <option key={`option.value-${Math.round(Math.random() * 9999999)}`} value={option.value}>
                     {option.label}
                   </option>
                 ))}
@@ -1128,7 +1129,7 @@ export const FacturacionModal: React.FC<{
                 className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               >
                 {paymentFormOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
+                  <option key={`option.value-${Math.round(Math.random() * 9999999)}`} value={option.value}>
                     {option.label}
                   </option>
                 ))}
@@ -1144,7 +1145,7 @@ export const FacturacionModal: React.FC<{
                 className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               >
                 {paymentMethodOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
+                  <option key={`option.value-${Math.round(Math.random() * 9999999)}`} value={option.value}>
                     {option.label}
                   </option>
                 ))}
