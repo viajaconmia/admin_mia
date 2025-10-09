@@ -27,6 +27,7 @@ import { useResponsiveColumns } from "@/hooks/useResponsiveColumns";
 import { TextTransform } from "@/app/dashboard/facturas-pendientes/page";
 import { Button } from "../ui/button";
 import { generateCuponForOperaciones } from "@/lib/qr-generator";
+import { ROUTES } from "@/constant/routes";
 
 type Vista = "reservas" | "pagadas" | "pendientes";
 
@@ -184,7 +185,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
     detalles_cliente: ({ item }) => (
       <span className="font-semibold text-sm flex items-center gap-2 w-full">
         <a
-          href={`https://www.viajaconmia.com/bookings/${item.id_solicitud}`}
+          href={ROUTES.BOOKING.ID_SOLICITUD(item.id_solicitud)}
           target="_blank"
           rel="noopener noreferrer"
           className="text-blue-600 hover:underline"
@@ -193,9 +194,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
         </a>
         <button
           onClick={() => {
-            copyToClipboard(
-              `https://www.viajaconmia.com/bookings/${item.id_solicitud}`
-            );
+            copyToClipboard(ROUTES.BOOKING.ID_SOLICITUD(item.id_solicitud));
           }}
           className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition"
         >
