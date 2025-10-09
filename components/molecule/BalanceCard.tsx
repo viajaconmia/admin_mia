@@ -71,24 +71,34 @@ export const BalanceCard: React.FC<BalanceCardProps> = ({
       </div>
 
       <div className="flex gap-3">
-        {onSecondary && (
-          <Button
-            className="w-full"
-            onClick={onSecondary}
-            disabled={cubreTodo || loading}
-            variant="secondary"
-          >
-            Completar pago con credito
-          </Button>
-        )}
-        {onConfirm && (
-          <Button
-            className="w-full"
-            onClick={onConfirm}
-            disabled={!cubreTodo || loading}
-          >
-            Confirmar pago
-          </Button>
+        {precioAPagar > 0 ? (
+          <>
+            {onSecondary && (
+              <Button
+                className="w-full"
+                onClick={onSecondary}
+                disabled={cubreTodo || loading}
+                variant="secondary"
+              >
+                Completar pago con credito
+              </Button>
+            )}
+            {onConfirm && (
+              <Button
+                className="w-full"
+                onClick={onConfirm}
+                disabled={!cubreTodo || loading}
+              >
+                Confirmar pago
+              </Button>
+            )}
+          </>
+        ) : (
+          <>
+            <Button className="w-full" onClick={onConfirm}>
+              Continuar
+            </Button>
+          </>
         )}
       </div>
     </div>

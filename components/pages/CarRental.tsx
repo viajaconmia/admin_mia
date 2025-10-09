@@ -81,10 +81,14 @@ export const CarRentalPage = ({ agente }: { agente: Agente }) => {
           "Parece que ya pagaste todo con saldo a favor, ya no queda nada para pagar a credito"
         );
       const { data, message } =
-        await CarRentalServices.getInstance().createCarRentalOperaciones();
+        await CarRentalServices.getInstance().createCarRentalOperaciones({
+          ...state,
+          saldos,
+          faltante: faltante.toFixed(2),
+          id_agente: agente.id_agente,
+        });
       //Aqui se hace la petición
 
-      console.log({ ...state, saldos });
       dispatch({ type: "RESET", payload: null });
       setOpen(false);
       showNotification("success", message);
@@ -148,7 +152,7 @@ export const CarRentalPage = ({ agente }: { agente: Agente }) => {
           subtitle="Puedes escoger solo algunos y pagar lo restante con credito"
         >
           <MostrarSaldos
-            agente={agente}
+            id_agente={agente.id_agente}
             precio={state.precio}
             onSubmit={handleSubmit}
             loading={loading}
@@ -501,359 +505,23 @@ export type CarRental = {
   devuelta_lugar: Sucursal | null;
 };
 
-// const initialState: CarRental = {
-//   costo: null,
-//   precio: null,
-//   conductores: [null],
-//   codigo: null,
-//   status: null,
-//   edad: null,
-//   check_in: null,
-//   check_out: null,
-//   proveedor: null,
-//   auto_descripcion: null,
-//   max_pasajeros: null,
-//   tipo_vehiculo: null,
-//   seguro: null,
-//   comentarios: null,
-//   recogida_lugar: null,
-//   devuelta_lugar: null,
-// };
-
 const initialState: CarRental = {
-  costo: 1200,
-  precio: 1500,
-  conductores: [
-    {
-      id_agente: "40a7bc5e-6115-4936-a438-687cb7036a0a",
-      id_viajero: "40fac32c-a2e3-4606-bcf9-5b9d729ee9c4",
-      primer_nombre: "angel",
-      segundo_nombre: null,
-      apellido_paterno: "pruebas",
-      apellido_materno: null,
-      correo: "angel.pruebas@noktos.com",
-      fecha_nacimiento: null,
-      genero: null,
-      telefono: null,
-      created_at: "2025-09-05T17:21:54.000Z",
-      updated_at: "2025-09-05T17:21:54.000Z",
-      nacionalidad: null,
-      numero_pasaporte: null,
-      numero_empleado: null,
-      activo: 1,
-      is_user: 1,
-      nombre_completo: "angel pruebas",
-    },
-  ],
-  codigo: "REN-20251002",
-  status: "Confirmada",
-  edad: "+25",
-  check_in: "2025-10-10T10:00",
-  check_out: "2025-10-15T10:00",
-  proveedor: {
-    id: 14,
-    nombre: "NATIONAL CART",
-    pais: "mexico",
-    rfc: null,
-    telefono: null,
-    email: null,
-    sitio_web: null,
-    type: "renta_carro",
-    creado_en: "2025-10-01T18:22:34.000Z",
-  },
-  auto_descripcion: "Toyota Corolla 2023, automático, gasolina",
-  max_pasajeros: 5,
-  tipo_vehiculo: "ESTANDAR",
-  seguro: "Todo riesgo",
-  comentarios: "Revisar llantas antes de salir",
-  recogida_lugar: {
-    id_sucursal: "2c15e2ca-9fbc-11f0-aba2-0a2c204555ab",
-    id_proveedor: 15,
-    nombre: "Cuidado Con el Perro Tacubaya",
-    calle: "Avenida Parque Lira",
-    colonia: "Tacubaya",
-    codigo_postal: "11870",
-    ciudad: "Ciudad de México",
-    estado: "Ciudad de México",
-    pais: "México",
-    latitud: "19.4020739",
-    longitud: "-99.1864734",
-    telefono: "+52 55 5130 5730",
-    activo: 1,
-    horario: {
-      periods: [
-        {
-          open: {
-            day: 0,
-            time: "1000",
-            hours: 10,
-            minutes: 0,
-            nextDate: 1759680000000,
-          },
-          close: {
-            day: 0,
-            time: "2000",
-            hours: 20,
-            minutes: 0,
-            nextDate: 1759716000000,
-          },
-        },
-        {
-          open: {
-            day: 1,
-            time: "1000",
-            hours: 10,
-            minutes: 0,
-            nextDate: 1759766400000,
-          },
-          close: {
-            day: 1,
-            time: "2000",
-            hours: 20,
-            minutes: 0,
-            nextDate: 1759802400000,
-          },
-        },
-        {
-          open: {
-            day: 2,
-            time: "1000",
-            hours: 10,
-            minutes: 0,
-            nextDate: 1759852800000,
-          },
-          close: {
-            day: 2,
-            time: "2000",
-            hours: 20,
-            minutes: 0,
-            nextDate: 1759888800000,
-          },
-        },
-        {
-          open: {
-            day: 3,
-            time: "1000",
-            hours: 10,
-            minutes: 0,
-            nextDate: 1759939200000,
-          },
-          close: {
-            day: 3,
-            time: "2000",
-            hours: 20,
-            minutes: 0,
-            nextDate: 1759975200000,
-          },
-        },
-        {
-          open: {
-            day: 4,
-            time: "1000",
-            hours: 10,
-            minutes: 0,
-            nextDate: 1760025600000,
-          },
-          close: {
-            day: 4,
-            time: "2000",
-            hours: 20,
-            minutes: 0,
-            nextDate: 1759456800000,
-          },
-        },
-        {
-          open: {
-            day: 5,
-            time: "1000",
-            hours: 10,
-            minutes: 0,
-            nextDate: 1759507200000,
-          },
-          close: {
-            day: 5,
-            time: "2000",
-            hours: 20,
-            minutes: 0,
-            nextDate: 1759543200000,
-          },
-        },
-        {
-          open: {
-            day: 6,
-            time: "1000",
-            hours: 10,
-            minutes: 0,
-            nextDate: 1759593600000,
-          },
-          close: {
-            day: 6,
-            time: "2000",
-            hours: 20,
-            minutes: 0,
-            nextDate: 1759629600000,
-          },
-        },
-      ],
-      open_now: true,
-      weekday_text: [
-        "lunes: 10:00â20:00",
-        "martes: 10:00â20:00",
-        "miÃ©rcoles: 10:00â20:00",
-        "jueves: 10:00â20:00",
-        "viernes: 10:00â20:00",
-        "sÃ¡bado: 10:00â20:00",
-        "domingo: 10:00â20:00",
-      ],
-    },
-    created_at: "2025-10-02T18:18:19.000Z",
-    direccion:
-      "Av. Parque Lira 339, Tacubaya, Miguel Hidalgo, 11870 Ciudad de México, CDMX, México",
-  },
-  devuelta_lugar: {
-    id_sucursal: "2c15e2ca-9fbc-11f0-aba2-0a2c204555ab",
-    id_proveedor: 15,
-    nombre: "Cuidado Con el Perro Tacubaya",
-    calle: "Avenida Parque Lira",
-    colonia: "Tacubaya",
-    codigo_postal: "11870",
-    ciudad: "Ciudad de México",
-    estado: "Ciudad de México",
-    pais: "México",
-    latitud: "19.4020739",
-    longitud: "-99.1864734",
-    telefono: "+52 55 5130 5730",
-    activo: 1,
-    horario: {
-      periods: [
-        {
-          open: {
-            day: 0,
-            time: "1000",
-            hours: 10,
-            minutes: 0,
-            nextDate: 1759680000000,
-          },
-          close: {
-            day: 0,
-            time: "2000",
-            hours: 20,
-            minutes: 0,
-            nextDate: 1759716000000,
-          },
-        },
-        {
-          open: {
-            day: 1,
-            time: "1000",
-            hours: 10,
-            minutes: 0,
-            nextDate: 1759766400000,
-          },
-          close: {
-            day: 1,
-            time: "2000",
-            hours: 20,
-            minutes: 0,
-            nextDate: 1759802400000,
-          },
-        },
-        {
-          open: {
-            day: 2,
-            time: "1000",
-            hours: 10,
-            minutes: 0,
-            nextDate: 1759852800000,
-          },
-          close: {
-            day: 2,
-            time: "2000",
-            hours: 20,
-            minutes: 0,
-            nextDate: 1759888800000,
-          },
-        },
-        {
-          open: {
-            day: 3,
-            time: "1000",
-            hours: 10,
-            minutes: 0,
-            nextDate: 1759939200000,
-          },
-          close: {
-            day: 3,
-            time: "2000",
-            hours: 20,
-            minutes: 0,
-            nextDate: 1759975200000,
-          },
-        },
-        {
-          open: {
-            day: 4,
-            time: "1000",
-            hours: 10,
-            minutes: 0,
-            nextDate: 1760025600000,
-          },
-          close: {
-            day: 4,
-            time: "2000",
-            hours: 20,
-            minutes: 0,
-            nextDate: 1759456800000,
-          },
-        },
-        {
-          open: {
-            day: 5,
-            time: "1000",
-            hours: 10,
-            minutes: 0,
-            nextDate: 1759507200000,
-          },
-          close: {
-            day: 5,
-            time: "2000",
-            hours: 20,
-            minutes: 0,
-            nextDate: 1759543200000,
-          },
-        },
-        {
-          open: {
-            day: 6,
-            time: "1000",
-            hours: 10,
-            minutes: 0,
-            nextDate: 1759593600000,
-          },
-          close: {
-            day: 6,
-            time: "2000",
-            hours: 20,
-            minutes: 0,
-            nextDate: 1759629600000,
-          },
-        },
-      ],
-      open_now: true,
-      weekday_text: [
-        "lunes: 10:00â20:00",
-        "martes: 10:00â20:00",
-        "miÃ©rcoles: 10:00â20:00",
-        "jueves: 10:00â20:00",
-        "viernes: 10:00â20:00",
-        "sÃ¡bado: 10:00â20:00",
-        "domingo: 10:00â20:00",
-      ],
-    },
-    created_at: "2025-10-02T18:18:19.000Z",
-    direccion:
-      "Av. Parque Lira 339, Tacubaya, Miguel Hidalgo, 11870 Ciudad de México, CDMX, México",
-  },
+  costo: null,
+  precio: null,
+  conductores: [null],
+  codigo: null,
+  status: null,
+  edad: null,
+  check_in: null,
+  check_out: null,
+  proveedor: null,
+  auto_descripcion: null,
+  max_pasajeros: null,
+  tipo_vehiculo: null,
+  seguro: null,
+  comentarios: null,
+  recogida_lugar: null,
+  devuelta_lugar: null,
 };
 
 type Action =
