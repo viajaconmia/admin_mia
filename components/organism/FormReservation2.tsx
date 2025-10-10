@@ -55,7 +55,11 @@ export function ReservationForm2({
   }
   const [nuevo_incluye_desayuno, setNuevoIncluyeDesayuno] = useState<
     boolean | null
-  >(solicitud.nuevo_incluye_desayuno === null ? null : Boolean(solicitud.nuevo_incluye_desayuno));
+  >(
+    solicitud.nuevo_incluye_desayuno === null
+      ? null
+      : Boolean(solicitud.nuevo_incluye_desayuno)
+  );
   const [acompanantes, setAcompanantes] = useState<Viajero[]>([]);
   const [cobrar, setCobrar] = useState<boolean | null>(null);
   const [form, setForm] = useState<ReservaForm>({
@@ -88,14 +92,14 @@ export function ReservationForm2({
         solicitud.costo_total != null
           ? Number(solicitud.costo_total)
           : // ② Si no, cae al cálculo automático de antes
-          Number(
             Number(
-              currentHotel?.tipos_cuartos.find(
-                (item) =>
-                  item.nombre_tipo_cuarto == updateRoom(solicitud.tipo_cuarto)
-              )?.costo ?? 0
-            ) * currentNoches
-          ) || 0,
+              Number(
+                currentHotel?.tipos_cuartos.find(
+                  (item) =>
+                    item.nombre_tipo_cuarto == updateRoom(solicitud.tipo_cuarto)
+                )?.costo ?? 0
+              ) * currentNoches
+            ) || 0,
       subtotal: 0,
       impuestos: 0,
     },
@@ -284,10 +288,10 @@ export function ReservationForm2({
       const autoTotal = isCostoManual
         ? form.proveedor.total
         : Number(
-          form.hotel.content.tipos_cuartos.find(
-            (item) => item.nombre_tipo_cuarto == form.habitacion
-          )?.costo ?? 0
-        ) * nights;
+            form.hotel.content.tipos_cuartos.find(
+              (item) => item.nombre_tipo_cuarto == form.habitacion
+            )?.costo ?? 0
+          ) * nights;
 
       const items = calculateItems(autoTotal);
 
@@ -421,11 +425,10 @@ export function ReservationForm2({
     // console.log("Confirmación de precio:", ctx);
 
     if (ok) {
-      setCobrar(false);   // cierra el modal de precio
-      onClose();          // cierra el formulario si así lo quieres
+      setCobrar(false); // cierra el modal de precio
+      onClose(); // cierra el formulario si así lo quieres
     }
   };
-
 
   function getAutoCostoTotal(
     hotel: Hotel | null,
@@ -444,7 +447,7 @@ export function ReservationForm2({
 
   // const hotelDat() => {
   // }
-  console.log("form", form)
+  console.log("form", form);
 
   const hotelData = useMemo(() => {
     const roomType = form.habitacion || "";
@@ -453,20 +456,31 @@ export function ReservationForm2({
     );
 
     return {
-      "tipo-habi": roomType,                         // SENCILLO / DOBLE, etc.
-      precio: Number(roomObj?.precio ?? 0),          // Precio de venta de ese tipo de cuarto
+      "tipo-habi": roomType, // SENCILLO / DOBLE, etc.
+      precio: Number(roomObj?.precio ?? 0), // Precio de venta de ese tipo de cuarto
       hotel: form.hotel?.name || "",
       form,
       nuevo_incluye_desayuno,
       acompanantes,
-      noches: { ...edicionForm.noches, before: calcularNoches(solicitud.check_in, solicitud.check_out) },
+      noches: {
+        ...edicionForm.noches,
+        before: calcularNoches(solicitud.check_in, solicitud.check_out),
+      },
       // Si quieres repetir la clave como pediste:
       // "tipo-habi-2": roomType,
     };
-  }, [form.habitacion, form.hotel, form.noches, nuevo_incluye_desayuno, acompanantes, edicionForm.noches, solicitud.check_in, solicitud.check_out]);
+  }, [
+    form.habitacion,
+    form.hotel,
+    form.noches,
+    nuevo_incluye_desayuno,
+    acompanantes,
+    edicionForm.noches,
+    solicitud.check_in,
+    solicitud.check_out,
+  ]);
 
-
-  console.log("hoteldata", hotelData)
+  console.log("hoteldata", hotelData);
   return (
     <form
       onSubmit={handleSubmit}
@@ -685,14 +699,14 @@ export function ReservationForm2({
                     onChange={(value) => {
                       console.log("Viajero adicional:", value);
                     }}
-                  // onChange={(value) => {
-                  //   setForm((prev) => ({
-                  //     ...prev,
-                  //     viajeros_adicionales: prev.viajeros_adicionales.map((v, i) =>
-                  //       i === index ? { ...v, nombre: value } : v
-                  //     ),
-                  //   }));
-                  // }}
+                    // onChange={(value) => {
+                    //   setForm((prev) => ({
+                    //     ...prev,
+                    //     viajeros_adicionales: prev.viajeros_adicionales.map((v, i) =>
+                    //       i === index ? { ...v, nombre: value } : v
+                    //     ),
+                    //   }));
+                    // }}
                   />
                 </div>
               ))}
@@ -1054,18 +1068,19 @@ export function ReservationForm2({
           <>
             {Number(edicionForm.venta.current.total) !=
               Number(solicitud.total) && (
-                <p
-                  className={`text-xs font-normal p-2 ${Number(edicionForm.venta?.current.total) <
-                    Number(solicitud.total)
+              <p
+                className={`text-xs font-normal p-2 ${
+                  Number(edicionForm.venta?.current.total) <
+                  Number(solicitud.total)
                     ? "bg-red-300 text-red-800"
                     : "bg-green-200 text-green-950"
-                    } rounded-full border `}
-                >
-                  {`Precio recomendado: $${edicionForm.venta.current.total.toFixed(
-                    2
-                  )}`}
-                </p>
-              )}
+                } rounded-full border `}
+              >
+                {`Precio recomendado: $${edicionForm.venta.current.total.toFixed(
+                  2
+                )}`}
+              </p>
+            )}
           </>
         )}
         <Button

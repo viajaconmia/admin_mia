@@ -1051,6 +1051,17 @@ export function ReservationForm({
                 )}
               </div>
             </div>
+            <div className="grid md:grid-cols-3">
+              <Button
+                className="md:col-start-3"
+                type="button"
+                onClick={() => {
+                  setActiveTab("proveedor");
+                }}
+              >
+                Continuar
+              </Button>
+            </div>
           </TabsContent>
 
           <TabsContent value="proveedor" className="space-y-4">
@@ -1206,60 +1217,59 @@ export function ReservationForm({
                 </div>
               )}
             </div>
+            <div>
+              {isFormPrepopulated ? (
+                // Botón para formulario prellenado (edición/creación)
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  onClick={handleprocesar}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors"
+                >
+                  {loading ? "Procesando..." : "Procesar Solicitud"}
+                </Button>
+              ) : (
+                // Botones para formulario vacío (nueva reserva)
+                <div className="grid grid-cols-2 gap-3 w-full">
+                  <Button
+                    type="button"
+                    disabled={
+                      loading ||
+                      loadingWallet ||
+                      isTotalZero ||
+                      walletAmount < form.venta.total
+                    }
+                    onClick={handleWalletPayment}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+                  >
+                    {loadingWallet ? (
+                      <span>Cargando...</span>
+                    ) : (
+                      <>
+                        <Wallet className="w-5 h-5" />
+                        Wallet (${walletAmount.toFixed(2)})
+                      </>
+                    )}
+                  </Button>
+
+                  <Button
+                    type="button"
+                    disabled={
+                      loading ||
+                      isTotalZero ||
+                      solicitud.agente.saldo < form.venta.total
+                    }
+                    onClick={handleCreditPayment}
+                    className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
+                  >
+                    <CreditCard className="w-5 h-5" />
+                    Crédito(${solicitud.agente?.saldo || ""})
+                  </Button>
+                </div>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
-
-        <DialogFooter>
-          {isFormPrepopulated ? (
-            // Botón para formulario prellenado (edición/creación)
-            <Button
-              type="submit"
-              disabled={loading}
-              onClick={handleprocesar}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors"
-            >
-              {loading ? "Procesando..." : "Procesar Solicitud"}
-            </Button>
-          ) : (
-            // Botones para formulario vacío (nueva reserva)
-            <div className="grid grid-cols-2 gap-3 w-full">
-              <Button
-                type="button"
-                disabled={
-                  loading ||
-                  loadingWallet ||
-                  isTotalZero ||
-                  walletAmount < form.venta.total
-                }
-                onClick={handleWalletPayment}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
-              >
-                {loadingWallet ? (
-                  <span>Cargando...</span>
-                ) : (
-                  <>
-                    <Wallet className="w-5 h-5" />
-                    Wallet (${walletAmount.toFixed(2)})
-                  </>
-                )}
-              </Button>
-
-              <Button
-                type="button"
-                disabled={
-                  loading ||
-                  isTotalZero ||
-                  solicitud.agente.saldo < form.venta.total
-                }
-                onClick={handleCreditPayment}
-                className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
-              >
-                <CreditCard className="w-5 h-5" />
-                Crédito(${solicitud.agente?.saldo || ""})
-              </Button>
-            </div>
-          )}
-        </DialogFooter>
       </form>
 
       {showPagarModal && reservaData && (
