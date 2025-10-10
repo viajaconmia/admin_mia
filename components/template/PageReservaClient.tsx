@@ -25,6 +25,8 @@ import { ReservationForm2 } from "@/components/organism/FormReservation2";
 import { ReservationForm } from "@/components/organism/FormReservation";
 import { useResponsiveColumns } from "@/hooks/useResponsiveColumns";
 import { TextTransform } from "@/app/dashboard/facturas-pendientes/page";
+
+import { environment } from "@/lib/constants";
 import { Button } from "../ui/button";
 import { generateCuponForOperaciones } from "@/lib/qr-generator";
 import { ROUTES } from "@/constant/routes";

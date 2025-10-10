@@ -1,123 +1,505 @@
-"use client";
-
-import React, { useEffect, useState } from "react";
+'use client';
+import { API_KEY, URL } from "@/lib/constants";
+import { Table4 } from "@/components/organism/Table4";
+import React, { useState, useEffect, useMemo } from "react";
+import { formatNumberWithCommas } from "@/helpers/utils";
 import Filters from "@/components/Filters";
-import { Table } from "@/components/Table";
 import { TypeFilters } from "@/types";
-import { Loader } from "@/components/atom/Loader";
-import { fetchAgentes } from "@/services/agentes";
-import Modal from "@/components/organism/Modal";
+import { PagarModalComponent } from "@/components/template/pagar_saldo"; // Import the modal
 
-function App() {
-  const [clients, setClient] = useState<Agente[]>([]);
-  const [selectedItem, setSelectedItem] = useState<Agente | null>(null);
-  const [searchTerm, setSearchTerm] = useState<string | null>("");
-  const [loading, setLoading] = useState(false);
-  const [link, setLink] = useState<null | string>(null);
-  const [filters, setFilters] = useState<TypeFilters>(
-    defaultFiltersSolicitudes
+//formato de fechas
+const formatDate = (dateString: string | Date | null): string => {
+  if (!dateString || dateString === "0000-00-00") return 'N/A';
+
+  const date = new Date(dateString);
+
+  if (isNaN(date.getTime())) return 'N/A';
+
+  return date.toLocaleDateString('es-MX', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+};
+
+const normalize = (v: unknown) =>
+  (typeof v === "string" ? v.trim().toLowerCase() : "").replace(/\s+/g, "");
+
+const matches = (field: unknown, query: unknown) => {
+  const f = normalize(field);
+  const q = normalize(query);
+  if (!q) return true;
+  // Si parece un UUID (>=30 chars), exige igualdad exacta; si no, búsqueda parcial
+  return q.length >= 30 ? f === q : f.includes(q);
+};
+
+// Trata 0, "0", "0.00", etc. como cero
+const isZeroSaldo = (s: unknown) => {
+  const n = Number(
+    typeof s === "string" ? s.replace(/,/g, "") : s
   );
+  return Number.isFinite(n) && Math.abs(n) < 1e-6;
+};
 
-  let formatedSolicitudes = clients
-    .filter(
-      (item) => item.nombre_agente_completo.toUpperCase().includes(searchTerm)
-      // item.correo.to
-    )
-    .map((item) => ({
-      id_cliente: item.id_agente,
-      nombre_del_cliente: item.nombre_agente_completo || "",
-      correo: item.correo,
-      telefono: item.telefono,
-      estado_verificacion: "",
-      estado_credito: Boolean(item.tiene_credito_consolidado),
-      credito: item.saldo ? Number(item.saldo) : 0,
-      wallet: 0,
-      categoria: "Administrador",
-      notas_internas: item.notas || "",
-      vendedor: item.vendedor || "",
-      // saldo_a_favor: item,
-      // soporte: item,
-      // detalles: item,
-    }));
+const CuentasPorCobrar = () => {
+  const [facturas, setFacturas] = useState<any[]>([]); // Guardar las facturas obtenidas
+  const [facturaData, setFacturaData] = useState<any>(null);
+  const [filteredFacturas, setFilteredFacturas] = useState<any[]>([]); // Facturas filtradas
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filters, setFilters] = useState<TypeFilters>({});
+  const [showPagarModal, setShowPagarModal] = useState(false);
+  const [selectedFacturas, setSelectedFacturas] = useState<Set<string>>(new Set()); // Facturas seleccionadas
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
 
-  const componentes = {};
+  const handleClosePagarModal = () => {
+    setShowPagarModal(false);
+  };
 
-  const handleFetchClients = () => {
-    setLoading(true);
-    fetchAgentes(filters, {} as TypeFilters, (data) => {
-      console.log("Agentes fetched:", data);
-      setClient(data);
-      setLoading(false);
+  // Función para determinar si una fila puede ser seleccionada
+  const canSelectRow = (row: any) => {
+    const saldo = parseFloat(row.saldo);
+    const total = parseFloat(row.total);
+    return (saldo <= total || saldo === null) && row.estado !== 'pagada';
+  };
+
+  //función para asignar pagos a las facturas seleccionadas
+  const handlePagos = () => {
+    const facturasSeleccionadas = facturas.filter(factura => selectedFacturas.has(factura.id_factura));
+
+    if (facturasSeleccionadas.length > 0) {
+      // Prepara los datos para el modal
+      const datosFacturas = facturasSeleccionadas.map(factura => ({
+        monto: factura.total,
+        saldo: factura.saldo, // Agregar el saldo actual
+        facturaSeleccionada: factura,
+        id_agente: factura.id_agente,
+        agente: factura.nombre_agente,
+      }));
+
+      setFacturaData(datosFacturas); // Enviar todas las facturas al modal
+      setShowPagarModal(true); // Mostrar el modal
+    }
+  };
+
+
+  // Función para manejar la acción Editar
+  const handleEditar = (id: string) => {
+    console.log(`Editar factura con ID: ${id}`);
+    // Aquí puedes agregar la lógica para editar
+  };
+
+  // Función para manejar la acción Eliminar
+  const handleEliminar = (id: string) => {
+    console.log(`Eliminar factura con ID: ${id}`);
+    // Aquí puedes agregar la lógica para eliminar
+  };
+
+  const handleSelectFactura = (id: string, idAgente: string) => {
+    setSelectedFacturas((prevSelected) => {
+      const newSelected = new Set(prevSelected);
+      const wasSelected = newSelected.has(id);
+
+      if (wasSelected) {
+        newSelected.delete(id);
+      } else {
+        newSelected.add(id);
+      }
+
+      // ⬇️ Si no queda ninguna, resetea agente (esto dispara el useEffect de arriba y limpia el filtro)
+      if (newSelected.size === 0) {
+        setSelectedAgentId(null);
+        return newSelected;
+      }
+
+      // Verifica mezcla de agentes con lo actualmente seleccionado
+      const seleccionadas = facturas.filter(f => newSelected.has(f.id_factura));
+      const allSameAgent = seleccionadas.every(f => f.id_agente === idAgente);
+
+      if (!allSameAgent) {
+        // No permitir mezclar: revertimos el último toggle si fue un intento de mezclar
+        if (!wasSelected) newSelected.delete(id);
+        return new Set(newSelected);
+      }
+
+      // ⬇️ Si es la primera vez que fijamos agente, lo establecemos
+      if (!selectedAgentId) {
+        setSelectedAgentId(idAgente);
+      }
+
+      return newSelected;
     });
   };
 
+  const handleDeseleccionarPagos = () => {
+    // Limpia checks
+    setSelectedFacturas(new Set());
+    // Quita el “candado” de agente (tu useEffect ya pondrá filters.id_agente = null)
+    setSelectedAgentId(null);
+    // Limpia datos del modal por si estaban
+    setFacturaData(null);
+    setShowPagarModal(false);
+  };
+
+  // Función para aplicar filtros
+  const handleFilter = (newFilters: TypeFilters) => {
+    setFilters(newFilters);
+  };
+
+  // Aplicar filtros y búsqueda
   useEffect(() => {
-    handleFetchClients();
-  }, [filters]);
+    let result = [...facturas];
+
+    result = result.filter(factura => !isZeroSaldo(factura.saldo));
+
+    // Aplicar búsqueda
+    if (searchTerm) {
+      result = result.filter(factura =>
+        factura.id_factura?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        factura.rfc?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        factura.nombre_agente?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        factura.uuid_factura?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        factura.id_agente?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Aplicar filtros
+    if (filters.estado) {
+      result = result.filter(factura =>
+        factura.estado?.toLowerCase() === filters.estado?.toLowerCase()
+      );
+    }
+
+    if (filters.id_factura) {
+      result = result.filter(factura =>
+        factura.id_factura?.toLowerCase().includes(filters.id_factura?.toLowerCase())
+      );
+    }
+
+    if (filters.rfc) {
+      result = result.filter(factura =>
+        factura.rfc?.toLowerCase().includes(filters.rfc?.toLowerCase())
+      );
+    }
+
+    if (filters.nombre_agente) {
+      result = result.filter(factura =>
+        factura.nombre_agente?.toLowerCase().includes(filters.nombre_agente?.toLowerCase())
+      );
+    }
+
+    if (filters.estatusFactura) {
+      result = result.filter(factura =>
+        factura.estado?.toLowerCase() === filters.estatusFactura?.toLowerCase()
+      );
+    }
+
+    if (filters.fecha_creacion) {
+      result = result.filter(factura => {
+        const fechaFactura = new Date(factura.created_at).toISOString().split('T')[0];
+        const fechaFiltro = new Date(filters.fecha_creacion!).toISOString().split('T')[0];
+        return fechaFactura === fechaFiltro;
+      });
+    }
+
+    if (filters.fecha_pago) {
+      result = result.filter(factura => {
+        // Aquí necesitas ajustar según la propiedad correcta de fecha de pago
+        const fechaPago = factura.fecha_pago ? new Date(factura.fecha_pago).toISOString().split('T')[0] : null;
+        const fechaFiltro = new Date(filters.fecha_pago!).toISOString().split('T')[0];
+        return fechaPago === fechaFiltro;
+      });
+    }
+
+    // Filtro por saldo
+    if (filters.startCantidad !== undefined && filters.startCantidad !== null) {
+      result = result.filter(factura =>
+        parseFloat(factura.saldo) >= filters.startCantidad!
+      );
+    }
+
+    if (filters.endCantidad !== undefined && filters.endCantidad !== null) {
+      result = result.filter(factura =>
+        parseFloat(factura.saldo) <= filters.endCantidad!
+      );
+    }
+    // Filtrar por ID de agente (correcto: contra r.id_agente)
+    if (filters.id_agente) {
+      result = result.filter(r => matches(r.id_agente, filters.id_agente));
+    }
+
+    setFilteredFacturas(result);
+  }, [facturas, searchTerm, filters]);
+
+  const renderers = {
+    id_factura: ({ value }: { value: string }) => (
+      <span className="font-mono bg-gray-100 px-2 py-1 rounded text-sm">{value}</span>
+    ),
+    fecha_emision: ({ value }: { value: string | Date | null }) => (
+      <div className="whitespace-nowrap text-sm text-gray-600">{formatDate(value)}</div>
+    ),
+    estado: ({ value }: { value: string }) => (
+      <span className={`px-2 py-1 rounded-full text-xs ${value === 'Confirmada' ? 'bg-green-100 text-green-800' :
+        value === 'Pendiente' ? 'bg-yellow-100 text-yellow-800' :
+          'bg-gray-100 text-gray-800'
+        }`}>
+        {value}
+      </span>
+    ),
+    total: ({ value }: { value: string }) => (
+      <span className="font-bold text-blue-600">${formatNumberWithCommas(parseFloat(value))}</span>
+    ),
+    subtotal: ({ value }: { value: string }) => (
+      <span className="font-medium text-gray-700">${formatNumberWithCommas(parseFloat(value))}</span>
+    ),
+    impuestos: ({ value }: { value: string }) => (
+      <span className="font-medium text-red-600">${formatNumberWithCommas(parseFloat(value))}</span>
+    ),
+    saldo: ({ value }: { value: string }) => {
+      const saldoNumero = parseFloat(value);
+      return (
+        <span className={`font-bold ${saldoNumero >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+          ${formatNumberWithCommas(saldoNumero)}
+        </span>
+      );
+    },
+    created_at: ({ value }: { value: string | Date | null }) => (
+      <div className="whitespace-nowrap text-sm text-gray-600">{formatDate(value)}</div>
+    ),
+    updated_at: ({ value }: { value: string | Date | null }) => (
+      <div className="whitespace-nowrap text-sm text-gray-600">{formatDate(value)}</div>
+    ),
+    rfc: ({ value }: { value: string }) => (
+      <span className="font-mono text-sm">{value}</span>
+    ),
+    uuid_factura: ({ value }: { value: string }) => (
+      <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">{value}</span>
+    ),
+    rfc_emisor: ({ value }: { value: string }) => (
+      <span className="font-mono text-sm">{value}</span>
+    ),
+    url_pdf: ({ value }: { value: string }) => (
+      value ? (
+        <a href={value} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-sm">
+          Ver PDF
+        </a>
+      ) : (
+        <span className="text-gray-400 text-sm">N/A</span>
+      )
+    ),
+    url_xml: ({ value }: { value: string }) => (
+      value ? (
+        <a href={value} target="_blank" rel="noopener noreferrer" className="text-green-600 hover:underline text-sm">
+          Ver XML
+        </a>
+      ) : (
+        <span className="text-gray-400 text-sm">N/A</span>
+      )
+    ),
+    nombre: ({ value }: { value: string }) => (
+      <span className="text-sm text-gray-800">{value}</span>
+    ),
+    fecha_vencimiento: ({ value }: { value: string | Date | null }) => {
+      const today = new Date();
+      const fechaVencimiento = new Date(value);
+
+      // Verificar si la fecha es válida
+      if (isNaN(fechaVencimiento.getTime())) return 'N/A';
+
+      // Calcular la diferencia en días
+      const diferenciaDias = Math.floor((fechaVencimiento.getTime() - today.getTime()) / (1000 * 3600 * 24));
+
+      // Mostrar la diferencia
+      let status = '';
+      let color = '';
+
+      if (diferenciaDias > 0) {
+        // Si está vigente
+        status = `${diferenciaDias} días restantes`;
+        color = 'text-green-600';
+      } else if (diferenciaDias < 0) {
+        // Si está atrasada
+        status = `${Math.abs(diferenciaDias)} días atrasado`;
+        color = 'text-red-600';
+      } else {
+        // Si está vencida hoy
+        status = 'Vencida hoy';
+        color = 'text-red-600';
+      }
+
+      return <span className={`font-medium ${color}`}>{status}</span>;
+    },
+
+    acciones: ({ value }: { value: { row: any } }) => {
+      const row = value.row;
+      const isChecked = selectedFacturas.has(row.id_factura);
+
+      return (
+        <div className="flex gap-2">
+          <input
+            type="checkbox"
+            checked={isChecked}
+            onChange={() => handleSelectFactura(row.id_factura, row.id_agente)}
+            className="mr-2"
+          />
+          {/* <button
+            className="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
+            onClick={() => handleEditar(row.id_factura)}
+            disabled={disabled}
+          >
+            Editar
+          </button>
+          <button
+            className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
+            onClick={() => handleEliminar(row.id_factura)}
+            disabled={disabled}
+          >
+            Eliminar
+          </button> */}
+        </div>
+      );
+    },
+  };
+
+  // ⬇️ Agrega este useEffect junto a tus otros useEffect
+  useEffect(() => {
+    // Auto-ocultar por agente: si hay un agente seleccionado, filtramos por él;
+    // si no hay selección, limpiamos el filtro.
+    setFilters((prev) => ({
+      ...prev,
+      id_agente: selectedAgentId ? selectedAgentId : null,
+    }));
+  }, [selectedAgentId]);
+
+  useEffect(() => {
+    const fetchFacturas = async () => {
+      const endpoint = `${URL}/mia/factura/getfacturasPagoPendiente`;
+      try {
+        const response = await fetch(endpoint, {
+          method: "GET",
+          headers: {
+            "x-api-key": API_KEY || "",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Content-Type": "application/json",
+          },
+          cache: "no-store",
+        });
+
+        const data = await response.json();
+
+        if (Array.isArray(data) && (data[0]?.error || data[1]?.error)) {
+          throw new Error("Error al cargar los datos");
+        }
+
+        setFacturas(data);
+        setFilteredFacturas(data); // Inicialmente mostrar todos los datos
+      } catch (error) {
+        console.log("Error al cargar los datos en facturas:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchFacturas();
+  }, []);
+
+  const rows = useMemo(() => {
+    return filteredFacturas.map((r) => {
+      return {
+        acciones: { row: r },
+        id_cliente: r.id_agente,
+        nombre: r.nombre_agente,
+        id_factura: r.id_factura,
+        fecha_emision: r.fecha_emision,
+        estado: r.estado,
+        usuario_creador: r.usuario_creador,
+        total: r.total,
+        saldo: r.saldo,
+        created_at: r.created_at,
+        updated_at: r.updated_at,
+        fecha_vencimiento: r.fecha_vencimiento,
+      };
+    });
+  }, [filteredFacturas]);
+
+  // Columnas basadas en los datos que realmente llegan - MOVIDO AQUÍ
+  const availableColumns = useMemo(() => {
+    if (filteredFacturas.length === 0) return [];
+
+    // Tomamos todas las keys del primer objeto
+    const allKeys = Object.keys(filteredFacturas[0]);
+    // Filtramos las que no son deseadas
+    const columnsToShow = allKeys.filter(
+      (key) =>
+        !["items_asociados", "reservas_asociadas", "pagos_asociados"].includes(key)
+    );
+
+    // Si ya viene "acciones" en allKeys la quitamos para reordenarla
+    const withoutAcciones = columnsToShow.filter((key) => key !== "acciones");
+
+    // La volvemos a agregar pero al principio
+    return ["acciones", "nombre", "id_cliente", ...withoutAcciones];
+  }, [filteredFacturas]);
+
+
+  // Definir los filtros disponibles para este componente
+  const availableFilters: TypeFilters = {
+    id_factura: null,
+    estado: null,
+    rfc: null,
+    nombre: null,
+    estatusFactura: null,
+    fecha_creacion: null,
+    fecha_pago: null,
+    startCantidad: null,
+    endCantidad: null,
+    id_agente: null,
+  };
+
+  // MOVER EL CONDICIONAL DE LOADING HASTA EL FINAL
+  if (loading) {
+    return <h1>Cargando...</h1>;
+  }
 
   return (
-    <div className="h-fit">
-      <h1 className="text-3xl font-bold tracking-tight text-sky-950 my-4">
-        Cuentas por cobrar
-      </h1>
-      <div className="w-full mx-auto bg-white p-4 rounded-lg shadow">
-        <div>
-          <Filters
-            defaultFilters={filters}
-            onFilter={setFilters}
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
-          />
-        </div>
+    <div className="space-y-4">
+      <Filters
+        onFilter={handleFilter}
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        defaultFilters={availableFilters}
+      />
 
-        {/* Reservations Table */}
-        <div className="overflow-hidden">
-          {loading ? (
-            <Loader />
-          ) : (
-            <Table
-              registros={formatedSolicitudes}
-              renderers={componentes}
-              defaultSort={defaultSort}
-              leyenda={`Haz filtrado ${clients.length} clientes`}
-            />
-          )}
-        </div>
-      </div>
-      {link && (
-        <Modal
-          onClose={() => {
-            setLink(null);
-          }}
-          title="Soporte al cliente"
-          subtitle="Da click para ir al perfil del cliente"
+      <Table4
+        registros={rows}
+        renderers={renderers}
+        customColumns={availableColumns}
+      >
+        <button
+          className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
+          onClick={handlePagos} // Sin argumentos
+          disabled={selectedFacturas.size === 0}
         >
-          <div className="w-96 h-16 flex justify-center items-center">
-            Estamos en proceso, por favor vuelve a cargar la página.
-          </div>
-        </Modal>
+          Asignar Pago
+        </button>
+        <button
+          className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
+          onClick={handleDeseleccionarPagos}
+          disabled={selectedFacturas.size === 0}
+        >
+          Deseleccionar pagos
+        </button>
+      </Table4>
+
+      {showPagarModal && facturaData && (
+        <PagarModalComponent
+          onClose={handleClosePagarModal}
+          facturaData={facturaData} // Enviar los datos de la factura al modal
+          open={showPagarModal}
+        />
       )}
     </div>
   );
-}
-
-const defaultSort = {
-  key: "creado",
-  sort: false,
 };
 
-const defaultFiltersSolicitudes: TypeFilters = {
-  filterType: null,
-  startDate: null,
-  endDate: null,
-  client: null,
-  correo: null,
-  telefono: null,
-  estado_credito: null,
-  vendedor: null,
-  notas: null,
-  startCantidad: null,
-  endCantidad: null,
-};
-
-export default App;
+export default CuentasPorCobrar;

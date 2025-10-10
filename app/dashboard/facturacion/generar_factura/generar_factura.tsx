@@ -186,6 +186,86 @@ interface FiscalDataModalProps {
   isOpen: boolean;
 }
 
+// Función para convertir base64 a archivo
+const base64ToFile = (base64String: string, fileName: string, mimeType: string): File => {
+  try {
+    // Remover el prefijo data: si existe
+    const base64Data = base64String.replace(/^data:[^;]+;base64,/, '');
+    
+    // Decodificar base64
+    const byteCharacters = atob(base64Data);
+    const byteNumbers = new Array(byteCharacters.length);
+    
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: mimeType });
+    
+    return new File([blob], fileName, { type: mimeType });
+  } catch (error) {
+    console.error('Error al convertir base64 a archivo:', error);
+    throw new Error('Error al procesar el archivo');
+  }
+};
+
+// Función para subir archivo a S3
+const subirArchivoAS3Seguro = async (file: File, bucket: string = "comprobantes") => {
+  try {
+    console.log(`Iniciando subida de ${file.name} (${file.type})`);
+    
+    // Obtener URL pre-firmada
+    const { url: presignedUrl, publicUrl } = await obtenerPresignedUrl(
+      file.name,
+      file.type,
+      bucket
+    );
+    
+    console.log(`URL pre-firmada obtenida para ${file.name}`);
+    
+    // Subir archivo
+    await subirArchivoAS3(file, presignedUrl);
+    
+    console.log(`✅ Archivo ${file.name} subido exitosamente a S3: ${publicUrl}`);
+    
+    return publicUrl;
+  } catch (error) {
+    console.error(`❌ Error al subir ${file.name} a S3:`, error);
+    throw new Error(`Error al subir ${file.name} a S3: ${error.message}`);
+  }
+};
+
+// Función para asignar URLs de factura
+const asignarURLS_factura = async (id_factura: string, url_pdf: string, url_xml: string) => {
+  try {
+    console.log('Asignando URLs a factura:', { id_factura, url_pdf, url_xml });
+    
+    const resp = await fetch(
+      `${URL}/mia/factura/asignarURLS_factura?id_factura=${encodeURIComponent(id_factura)}&url_pdf=${encodeURIComponent(url_pdf)}&url_xml=${encodeURIComponent(url_xml)}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": API_KEY,
+        },
+      }
+    );
+    
+    if (!resp.ok) {
+      const errorData = await resp.json();
+      throw new Error(errorData?.message || "Error al asignar URLs de factura");
+    }
+    
+    const data = await resp.json();
+    console.log('✅ URLs asignadas correctamente en BD:', data);
+    return data;
+  } catch (error) {
+    console.error("❌ Error al asignar URLs de factura:", error);
+    throw error;
+  }
+};
+
 export const BillingPage: React.FC<BillingPageProps> = ({
   onBack,
   invoiceData,
@@ -236,7 +316,8 @@ export const BillingPage: React.FC<BillingPageProps> = ({
     NameId: "",
     Observations: "",
     ExpeditionPlace: "11570",
-    //ExpeditionPlace: "42501", //Codigo Postal DE PRUEBA
+    // ExpeditionPlace: "42501", //Codigo Postal DE PRUEBA
+
     Serie: null,
     Folio: Number((Math.random() * 9999999).toFixed(0)),
     PaymentForm: "",
@@ -591,57 +672,112 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       );
 
       const { data } = await respTimbrado.json();
+      console.log("data 😎😎😎😎😎😎", data);
       if (!respTimbrado.ok)
         throw new Error(data?.message || "Error al generar (múltiples)");
       alert("Factura generada con éxito");
 
-      // Descargamos PDF/XML
+      // PROCESO DE DESCARGA Y SUBIDA A S3 CORREGIDO
       let pdfUrl = "";
       let xmlUrl = "";
+
       try {
         if (data?.facturama?.Id) {
-          const [pdf, xml] = await Promise.all([
+          console.log("=== INICIANDO DESCARGA DE PDF Y XML ===");
+          console.log("ID de factura:", data.facturama.Id);
+
+          // Descargamos PDF y XML en paralelo
+          const [pdfResponse, xmlResponse] = await Promise.all([
             descargarFactura(data.facturama.Id),
             descargarFacturaXML(data.facturama.Id),
           ]);
-          setDescarga(pdf);
-          setDescargaxml(xml);
-          pdfUrl = pdf?.Url || "";
-          xmlUrl = xml?.Url || "";
 
-          // --- SUBIR PDF A S3 ---
-          if (pdf?.Content) {
-            // Convertir base64 a Blob
-            const byteCharacters = atob(pdf.Content);
-            const byteNumbers = new Array(byteCharacters.length);
-            for (let i = 0; i < byteCharacters.length; i++) {
-              byteNumbers[i] = byteCharacters.charCodeAt(i);
+          console.log("PDF Response:", pdfResponse);
+          console.log("XML Response:", xmlResponse);
+
+          setDescarga(pdfResponse);
+          setDescargaxml(xmlResponse);
+
+          // --- PROCESAR Y SUBIR PDF A S3 ---
+          if (pdfResponse?.Content) {
+            try {
+              console.log("📄 Procesando PDF...");
+              const pdfFile = base64ToFile(
+                pdfResponse.Content,
+                `factura_${data.facturama.Id}.pdf`,
+                "application/pdf"
+              );
+              
+              pdfUrl = await subirArchivoAS3Seguro(pdfFile, "comprobantes");
+              console.log("✅ PDF subido exitosamente:", pdfUrl);
+            } catch (pdfError) {
+              console.error("❌ Error al procesar/subir PDF:", pdfError);
+              alert("Error al subir PDF a S3, pero la factura se generó correctamente");
             }
-            const byteArray = new Uint8Array(byteNumbers);
-            const blob = new Blob([byteArray], { type: "application/pdf" });
-            const file = new File(
-              [blob],
-              `factura_${data?.facturama?.Id}.pdf`,
-              { type: "application/pdf" }
-            );
+          } else {
+            console.warn("⚠️ No hay contenido PDF para subir");
+          }
 
-            // Obtener presigned URL y subir
-            const { url: presignedUrl, publicUrl } = await obtenerPresignedUrl(
-              file.name,
-              file.type,
-              "comprobantes"
-            );
-            await subirArchivoAS3(file, presignedUrl);
+          // --- PROCESAR Y SUBIR XML A S3 ---
+          if (xmlResponse?.Content) {
+            try {
+              console.log("📄 Procesando XML...");
+              
+              // Verificar que el contenido XML es válido
+              if (typeof xmlResponse.Content === 'string' && xmlResponse.Content.trim()) {
+                const xmlFile = base64ToFile(
+                  xmlResponse.Content,
+                  `factura_${data.facturama.Id}.xml`,
+                  "application/xml"
+                );
+                
+                xmlUrl = await subirArchivoAS3Seguro(xmlFile, "comprobantes");
+                console.log("✅ XML subido exitosamente:", xmlUrl);
+              } else {
+                throw new Error("Contenido XML no válido o vacío");
+              }
+            } catch (xmlError) {
+              console.error("❌ Error al procesar/subir XML:", xmlError);
+              alert("Error al subir XML a S3, pero la factura se generó correctamente");
+            }
+          } else {
+            console.warn("⚠️ No hay contenido XML para subir");
+          }
 
-            // Puedes usar publicUrl para guardar la referencia del archivo subido
-            console.log("PDF subido a S3:", publicUrl);
+          // --- ASIGNAR URLs EN LA BASE DE DATOS ---
+          if (pdfUrl || xmlUrl) {
+            try {
+              console.log("🔗 Asignando URLs en base de datos...");
+              console.log({ id_factura: data.id_factura, pdfUrl, xmlUrl });
+              await asignarURLS_factura(data.id_factura, pdfUrl, xmlUrl);
+              console.log("✅ URLs asignadas correctamente en BD");
+              
+              // Notificar al usuario si algún archivo no se pudo subir
+              if (!pdfUrl && !xmlUrl) {
+                alert("Factura generada, pero no se pudieron subir los archivos a S3");
+              } else if (!pdfUrl) {
+                alert("Factura generada. XML subido correctamente, pero hubo un error con el PDF");
+              } else if (!xmlUrl) {
+                alert("Factura generada. PDF subido correctamente, pero hubo un error con el XML");
+              } else {
+                alert("Factura generada y archivos subidos correctamente a S3");
+              }
+              
+            } catch (assignError) {
+              console.error("❌ Error al asignar URLs en BD:", assignError);
+              alert("Factura generada y archivos subidos, pero error al registrar URLs en BD");
+            }
+          } else {
+            console.warn("⚠️ No se pudieron subir ninguno de los archivos a S3");
+            alert("Factura generada, pero no se pudieron subir los archivos a S3");
           }
         }
-      } catch (err) {
-        console.warn("Descargas PDF/XML fallaron o no devuelven URL:", err);
+      } catch (downloadError) {
+        console.error("❌ Error en proceso de descarga/subida:", downloadError);
+        alert("Factura generada, pero error al procesar archivos");
       }
 
-      // 4.2) Construimos el payload resumen
+      // 4.2) Construimos el payload resumen (mantenemos la lógica existente)
       const subtotalN = Number(subtotal);
       const impuestosN = Number(iva);
       const totalN = parseFloat(customAmount.toString());
@@ -660,6 +796,9 @@ export const BillingPage: React.FC<BillingPageProps> = ({
 
       // Guardamos el objeto para mostrar botones de descarga
       setIsInvoiceGenerated(data.facturama);
+      
+      console.log("=== PROCESO COMPLETADO ===");
+
     } catch (error: any) {
       console.error("Error:", error);
       alert(error?.message || "Ocurrió un error al generar la(s) factura(s)");
@@ -968,6 +1107,7 @@ interface DataFiscalModalProps {
   actualizarCompany: (company: any) => void;
   agentId: string; // Nuevo prop
 }
+
 export const getEmpresasDatosFiscales = async (agent_id: string) => {
   console.log(agent_id);
   try {

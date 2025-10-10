@@ -22,7 +22,6 @@ interface SubirFacturaProps {
   initialItemsTotal?: number; // <--- NUEVO: total de ítems opcional
 }
 
-
 interface Pago {
   id_agente: string;
   raw_id: string;
@@ -436,7 +435,13 @@ export default function SubirFactura({
 
       // Upload files only when confirming
       const { xmlUrl } = await subirArchivosAS3();
-
+      let items = ""
+      if (initialItems && initialItems.length > 0) {
+        items = itemsJson
+      } else {
+        items = JSON.stringify([])
+      }
+      console.log("items", items)
       if (!url) {
         console.warn("URL del PDF no disponible");
         // Puedes decidir si quieres continuar sin el PDF o lanzar un error
@@ -457,7 +462,7 @@ export default function SubirFactura({
         rfc_emisor: facturaData.emisor.rfc,
         url_pdf: url ? url : archivoPDFUrl,
         url_xml: xmlUrl || null,
-        items: initialItems ? itemsJson : [],
+        items: items,
       };
 
       console.log("Payload completo para API:", basePayload);

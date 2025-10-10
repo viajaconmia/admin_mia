@@ -64,6 +64,7 @@ export function ReservationForm({
   >(solicitud.nuevo_incluye_desayuno || null);
   const { showNotification } = useNotification();
   const [acompanantes, setAcompanantes] = useState<Viajero[]>([]);
+  const [defaultViajero, setDefaultViajero] = useState<Viajero | null>(null);
   const [form, setForm] = useState<ReservaForm>({
     hotel: {
       name: solicitud.hotel || "",
@@ -94,14 +95,14 @@ export function ReservationForm({
         solicitud.costo_total != null
           ? Number(solicitud.costo_total)
           : // ② Si no, cae al cálculo automático de antes
-          Number(
             Number(
-              currentHotel?.tipos_cuartos.find(
-                (item) =>
-                  item.nombre_tipo_cuarto == updateRoom(solicitud.room)
-              )?.costo ?? 0
-            ) * currentNoches
-          ) || 0,
+              Number(
+                currentHotel?.tipos_cuartos.find(
+                  (item) =>
+                    item.nombre_tipo_cuarto == updateRoom(solicitud.room)
+                )?.costo ?? 0
+              ) * currentNoches
+            ) || 0,
       subtotal: 0,
       impuestos: 0,
     },
@@ -186,6 +187,37 @@ export function ReservationForm({
   }, []);
 
   useEffect(() => {
+    try {
+      fetchViajerosFromAgent(solicitud.id_agente, (data) => {
+        const viajeroFiltrado = data.filter(
+          (viajero) => viajero.id_viajero == solicitud.id_viajero_reserva
+        );
+
+        // guarda el fallback
+        const fallback = viajeroFiltrado[0] ?? null;
+        setDefaultViajero(fallback);
+
+        // si está disponible y el form no tiene viajero válido, úsalo
+        if (fallback && !form.viajero?.id_viajero) {
+          setForm((prev) => ({ ...prev, viajero: fallback }));
+        }
+
+        const id_acompanantes = (
+          solicitud.viajeros_adicionales_reserva || ""
+        ).split(",");
+        const acompanantesFiltrados = data.filter((viajero) =>
+          id_acompanantes.includes(viajero.id_viajero)
+        );
+        setAcompanantes(acompanantesFiltrados);
+        setTravelers(data);
+      });
+    } catch (error) {
+      console.log(error);
+      setTravelers([]);
+    }
+  }, []);
+
+  useEffect(() => {
     if (
       form.hotel.content &&
       form.check_in &&
@@ -263,10 +295,10 @@ export function ReservationForm({
       const autoTotal = isCostoManual
         ? form.proveedor.total
         : Number(
-          form.hotel.content.tipos_cuartos.find(
-            (item) => item.nombre_tipo_cuarto == form.habitacion
-          )?.costo ?? 0
-        ) * nights;
+            form.hotel.content.tipos_cuartos.find(
+              (item) => item.nombre_tipo_cuarto == form.habitacion
+            )?.costo ?? 0
+          ) * nights;
 
       const items = calculateItems(autoTotal);
 
@@ -590,7 +622,7 @@ export function ReservationForm({
   };
 
   console.log(solicitud, "feeffffffffffffff");
-  console.log(form.venta.total, "total", walletAmount, "walllet",)
+  console.log(form.venta.total, "total", walletAmount, "walllet");
 
   useEffect(() => {
     updateAgentWallet();
@@ -945,72 +977,78 @@ export function ReservationForm({
                     }))}
                 />
                 <div className="flex justify-between border-t pt-2 mt-2 font-medium text-lg text-blue-700 bg-blue-50 p-2 rounded-md">
-                  <span>Total de hospedaje:</span>
-                  <span className="text-blue-900 font-bold">
-                    ${formatNumberWithCommas(form.venta.total.toFixed(2))}
-                  </span>
+                  <NumberInput
+                    label="Precio de reserva"
+                    value={Number(form.venta.total.toFixed(2))}
+                    onChange={(value) => {
+                      setForm((prev) => ({
+                        ...prev,
+                        venta: { ...prev.venta, total: Number(value) },
+                      }));
+                    }}
+                  ></NumberInput>
                 </div>
-                <div className="space-y-2">
-                  {acompanantes.map((acompanante, index) => {
-                    return (
-                      <ComboBox
-                        key={index}
-                        label={`Acompañante - ${index + 1}`}
-                        onDelete={() => {
-                          const newAcompanantes = [...acompanantes].toSpliced(
-                            index,
-                            1
-                          );
-                          console.log(newAcompanantes);
-                          setAcompanantes(newAcompanantes);
-                        }}
-                        onChange={(value) => {
-                          const newAcompanantesList = [...acompanantes];
-                          newAcompanantesList[index] = value.content as Viajero;
-                          setAcompanantes(newAcompanantesList);
-                        }}
-                        value={{
-                          name: acompanante.nombre_completo || "",
-                          content: acompanante || null,
-                        }}
-                        options={[...travelers]
-                          .filter(
-                            (traveler) =>
-                              (!acompanantes
-                                .map((item) => item.id_viajero)
-                                .includes(traveler.id_viajero) &&
-                                traveler.id_viajero !=
-                                form.viajero.id_viajero) ||
-                              traveler.id_viajero == acompanante.id_viajero
-                          )
-                          .map((item) => ({
-                            name: item.nombre_completo,
-                            content: item,
-                          }))}
-                      />
-                    );
-                  })}
-                  {travelers.length > acompanantes.length + 1 && (
-                    <>
-                      <Button
-                        type="button"
-                        onClick={() => {
-                          const filtrados = [...travelers].filter(
-                            (traveler) =>
-                              !acompanantes
-                                .map((item) => item.id_viajero)
-                                .includes(traveler.id_viajero) &&
-                              traveler.id_viajero != form.viajero.id_viajero
-                          );
-                          const nuevoArray = [...acompanantes, filtrados[0]];
-                          setAcompanantes(nuevoArray);
-                        }}
-                      >
-                        Agregar acompañante
-                      </Button>
-                    </>
-                  )}
-                </div>
+              </div>
+
+              <div className="space-y-2">
+                {acompanantes.map((acompanante, index) => {
+                  return (
+                    <ComboBox
+                      key={index}
+                      label={`Acompañante - ${index + 1}`}
+                      onDelete={() => {
+                        const newAcompanantes = [...acompanantes].toSpliced(
+                          index,
+                          1
+                        );
+                        console.log(newAcompanantes);
+                        setAcompanantes(newAcompanantes);
+                      }}
+                      onChange={(value) => {
+                        const newAcompanantesList = [...acompanantes];
+                        newAcompanantesList[index] = value.content as Viajero;
+                        setAcompanantes(newAcompanantesList);
+                      }}
+                      value={{
+                        name: acompanante.nombre_completo || "",
+                        content: acompanante || null,
+                      }}
+                      options={[...travelers]
+                        .filter(
+                          (traveler) =>
+                            (!acompanantes
+                              .map((item) => item.id_viajero)
+                              .includes(traveler.id_viajero) &&
+                              traveler.id_viajero != form.viajero.id_viajero) ||
+                            traveler.id_viajero == acompanante.id_viajero
+                        )
+                        .map((item) => ({
+                          name: item.nombre_completo,
+                          content: item,
+                        }))}
+                    />
+                  );
+                })}
+                {travelers.length > acompanantes.length + 1 && (
+                  <>
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        const filtrados = [...travelers].filter(
+                          (traveler) =>
+                            !acompanantes
+                              .map((item) => item.id_viajero)
+                              .includes(traveler.id_viajero) &&
+                            traveler.id_viajero != form.viajero.id_viajero
+                        );
+                        const nuevoArray = [...acompanantes, filtrados[0]];
+                        setAcompanantes(nuevoArray);
+                      }}
+                    >
+                      Agregar acompañante
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </TabsContent>
@@ -1208,7 +1246,11 @@ export function ReservationForm({
 
               <Button
                 type="button"
-                disabled={loading || isTotalZero || solicitud.agente.saldo < form.venta.total}
+                disabled={
+                  loading ||
+                  isTotalZero ||
+                  solicitud.agente.saldo < form.venta.total
+                }
                 onClick={handleCreditPayment}
                 className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
               >
