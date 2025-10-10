@@ -22,14 +22,6 @@ import { ViajeAereo, VuelosServices } from "@/services/VuelosServices";
 import { ForSave, GuardadoRapido } from "./GuardadoRapido";
 import { Vuelo } from "./PageVuelos";
 
-const initialDetails = {
-  codigo: null,
-  viajero: null,
-  costo: null,
-  precio: null,
-  status: "confirmada",
-};
-
 export const EditarVuelos = ({
   vuelo,
 }: {
