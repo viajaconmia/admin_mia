@@ -1024,8 +1024,10 @@ export function ReservationForm({
                           },
                           venta: {
                             total: Number(roomPrice),
-                            subtotal: Number((roomPrice * 0.84).toFixed(2)),
-                            impuestos: Number((roomPrice * 0.16).toFixed(2)),
+                            subtotal: Number((roomPrice / 1.16).toFixed(2)),
+                            impuestos: Number(
+                              (roomPrice - roomPrice / 1.16).toFixed(2)
+                            ),
                           },
                           impuestos: Object.keys(form.impuestos)
                             .map((key) => {
@@ -1214,8 +1216,10 @@ export function ReservationForm({
                           },
                           venta: {
                             total: Number(roomPrice),
-                            subtotal: Number((roomPrice * 0.84).toFixed(2)),
-                            impuestos: Number((roomPrice * 0.16).toFixed(2)),
+                            subtotal: Number((roomPrice / 1.16).toFixed(2)),
+                            impuestos: Number(
+                              (roomPrice - roomPrice / 1.16).toFixed(2)
+                            ),
                           },
                           impuestos: Object.keys(form.impuestos)
                             .map((key) => {
