@@ -156,11 +156,10 @@ export const EditarVuelos = ({
         viaje_aereo: vuelo,
       };
 
+      console.log(body);
       const response = await VuelosServices.getInstance().editarViajeAereo(
         body
       );
-      console.log(vuelo);
-      console.log(response);
 
       // const { message, data } = await VuelosServices.getInstance().createVuelo(
       //   faltante,
@@ -209,7 +208,6 @@ export const EditarVuelos = ({
     VuelosServices.getInstance()
       .getVueloById(vuelo.id_viaje_aereo)
       .then((response) => {
-        console.log(response.data);
         dispatch({ type: "LOAD_VUELO", payload: response.data });
         dispatchBefore({ type: "LOAD_VUELO", payload: response.data });
       })
