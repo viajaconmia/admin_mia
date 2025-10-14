@@ -51,6 +51,11 @@ export function copyToClipboard(text) {
 }
 
 export const formatDate = (dateString: string) => {
+  if (!dateString || typeof dateString !== "string") {
+    console.error("dateString inválido:", dateString);
+    return [null, null, null];
+  }
+
   const [year, month, day] = dateString.split("T")[0].split("-");
   const date = new Date(+year, +month - 1, +day);
   return date.toLocaleDateString("es-MX", {
@@ -62,9 +67,9 @@ export const formatDate = (dateString: string) => {
 
 export const formatRoom = (room: string) => {
   let response = room;
-  if (response.toUpperCase() == "SINGLE") {
+  if (((response || "").toUpperCase()) == "SINGLE") {
     response = "SENCILLO";
-  } else if (response.toUpperCase() == "DOUBLE") {
+  } else if ((response || "").toUpperCase() == "DOUBLE") {
     response = "DOBLE";
   }
   return response;

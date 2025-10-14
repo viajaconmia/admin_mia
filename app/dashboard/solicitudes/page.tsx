@@ -109,7 +109,7 @@ function App() {
   let formatedSolicitudes = allSolicitudes
     .filter(
       (item) =>
-        item.hotel_solicitud.toUpperCase().includes(searchTerm) ||
+        (item.hotel_solicitud || "").toUpperCase().includes(searchTerm) ||
         item.nombre_cliente.toUpperCase().includes(searchTerm) ||
         item.nombre_viajero_solicitud.toUpperCase().includes(searchTerm)
     )
@@ -117,7 +117,7 @@ function App() {
       id_cliente: item.id_agente,
       cliente: (item?.nombre_cliente || "").toUpperCase(),
       creado: item.created_at_solicitud,
-      hotel: item.hotel_solicitud.toUpperCase(),
+      hotel: (item.hotel_solicitud || "").toUpperCase(),
       codigo_hotel: item.codigo_reservacion_hotel,
       viajero: (item.nombre_viajero_solicitud || "").toUpperCase(),
       check_in: item.check_in_solicitud,
@@ -155,13 +155,12 @@ function App() {
     ),
     markup: (props: any) => (
       <span
-        className={`font-semibold border p-2 rounded-full ${
-          props.value == "Infinity"
-            ? "text-gray-700 bg-gray-100 border-gray-300 "
-            : props.value > 0
+        className={`font-semibold border p-2 rounded-full ${props.value == "Infinity"
+          ? "text-gray-700 bg-gray-100 border-gray-300 "
+          : props.value > 0
             ? "text-green-600 bg-green-100 border-green-300"
             : "text-red-600 bg-red-100 border-red-300"
-        }`}
+          }`}
       >
         {props.value == "Infinity" ? <>0%</> : <>{props.value.toFixed(2)}%</>}
       </span>
