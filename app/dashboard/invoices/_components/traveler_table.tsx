@@ -364,7 +364,7 @@ export function TravelerTable({ facturas }: { facturas: Factura[] }) {
                 {new Date(factura.fecha_emision).toLocaleDateString()}
               </TableCell>
               <TableCell>{factura.metodo_de_pago || 'N/A'}</TableCell>
-              <TableCell>{factura.is_pagada || 'N/A'}</TableCell>
+              <TableCell>{factura.is_prepagada === 1 ? 'Sí' : 'No'}</TableCell>
               <TableCell className="text-right">
                 <div className="flex justify-end gap-2">
                   <DropdownMenu>
