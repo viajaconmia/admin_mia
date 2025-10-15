@@ -5,7 +5,6 @@ import { Table3 } from "@/components/organism/Table3";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { SaldoFavor } from "@/services/SaldoAFavor";
-import { fetchFacturas } from "@/services/facturacion"
 
 interface TableRow {
   id_item: string;
@@ -496,12 +495,6 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
 
     console.log('Payload:', payload, id);
 
-    const facturas = await fetchFacturas({
-      id_agente: effectiveSaldoData.id_agente,
-      id_buscar: id, // Ajusta según tu flujo
-    });
-
-    console.log("facturas", facturas)
 
     try {
       const response = await fetch(`${URL}${endpoint}`, {
@@ -541,7 +534,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
   const tableData = reservaData || facturaData[0] != 0 ?
     // Datos del nuevo flujo (SaldoFavor)
     saldoFavorData
-      .filter(saldo => saldo.activo !== 0)
+      .filter(saldo => saldo.activo !== 0 && saldo.saldo != 0)
       .map(saldo => {
 
         const saldorestante1 = reservaData ? itemsSaldo[`saldo-${saldo.id_saldos}`] !== undefined ?
@@ -566,7 +559,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
           forma_De_Pago: formatFormaPago(saldo.metodo_pago),
           tipo_tarjeta: saldo.tipo_tarjeta || "",
           monto_pagado: Number(saldo.monto),
-          saldo: facturaData ? Number(saldo.monto_por_facturar) : Number(saldo.saldo),
+          saldo: facturaData[0] != 0 ? Number(saldo.monto_por_facturar) : Number(saldo.saldo),
           seleccionado: saldo,
           saldo_restante: saldorestante1
         }

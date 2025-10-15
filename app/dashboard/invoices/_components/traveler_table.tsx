@@ -336,7 +336,9 @@ export function TravelerTable({ facturas }: { facturas: Factura[] }) {
           <TableHead>Total</TableHead>
           <TableHead>Fecha de Emisión</TableHead>
           <TableHead>Método de Pago</TableHead>
+          <TableHead>Pregada</TableHead>
           <TableHead className="text-right">Acciones</TableHead>
+
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -362,6 +364,7 @@ export function TravelerTable({ facturas }: { facturas: Factura[] }) {
                 {new Date(factura.fecha_emision).toLocaleDateString()}
               </TableCell>
               <TableCell>{factura.metodo_de_pago || 'N/A'}</TableCell>
+              <TableCell>{factura.is_pagada || 'N/A'}</TableCell>
               <TableCell className="text-right">
                 <div className="flex justify-end gap-2">
                   <DropdownMenu>
