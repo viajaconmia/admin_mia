@@ -52,11 +52,6 @@ const links = [
     icon: CreditCard,
   },
   {
-    title: "Pagos proveedor pagados",
-    href: "/dashboard/pagos_proveedor/pagados",
-    icon: CreditCard,
-  },
-  {
     title: "Solicitudes",
     href: "/dashboard/solicitudes",
     icon: FileText,

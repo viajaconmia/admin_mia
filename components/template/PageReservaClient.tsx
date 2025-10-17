@@ -187,7 +187,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
     detalles_cliente: ({ item }) => (
       <span className="font-semibold text-sm flex items-center gap-2 w-full">
         <a
-          href={`${!!!environment?"https://www.viajaconmia.com/bookings/":"http://localhost:5173/bookings/"}${item.id_solicitud}`}
+          href={`${!!!environment ? "https://www.viajaconmia.com/bookings/" : "http://localhost:5173/bookings/"}${item.id_solicitud}`}
           target="_blank"
           rel="noopener noreferrer"
           className="text-blue-600 hover:underline"
@@ -197,7 +197,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
         <button
           onClick={() => {
             copyToClipboard(
-              `${!!!environment?"https://www.viajaconmia.com/bookings/":"http://localhost:5173/bookings/"}${item.id_solicitud}`
+              `${!!!environment ? "https://www.viajaconmia.com/bookings/" : "http://localhost:5173/bookings/"}${item.id_solicitud}`
             );
           }}
           className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition"
@@ -213,13 +213,12 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
     ),
     markup: ({ value }) => (
       <span
-        className={`font-semibold border p-2 rounded-full ${
-          value == "Infinity"
-            ? "text-gray-700 bg-gray-100 border-gray-300 "
-            : value > 0
+        className={`font-semibold border p-2 rounded-full ${value == "Infinity"
+          ? "text-gray-700 bg-gray-100 border-gray-300 "
+          : value > 0
             ? "text-green-600 bg-green-100 border-green-300"
             : "text-red-600 bg-red-100 border-red-300"
-        }`}
+          }`}
       >
         {value == "Infinity" ? "0%" : `${Number(value).toFixed(2)}%`}
       </span>
@@ -338,7 +337,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
                 'etapa_reservacion',
                 'estado',
                 'detalles_cliente',
-                'editar'
+                'pagar'
 
               ]}
             >
