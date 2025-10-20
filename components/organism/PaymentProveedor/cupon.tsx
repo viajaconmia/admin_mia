@@ -808,7 +808,6 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
         }
       }
 
-
       // ====== Página 2: FACTURACIÓN ======
       // Usa "credito" si sólo quieres esa sección; usa "full" para el bloque completo
       drawBillingInfoOnLastPage(pdf, "credito");

@@ -185,11 +185,10 @@ export function ReservationForm2({
     }
   }, []);
 
-
-
   const viajero = travelers[0]
   console.log("viajero", viajero)
   console.log("solicitud", travelers)
+
 
 
   // ⬇️ NUEVO: factoriza la lógica de guardado para reusarla

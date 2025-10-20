@@ -187,6 +187,37 @@ export function ReservationForm({
   }, []);
 
   useEffect(() => {
+    try {
+      fetchViajerosFromAgent(solicitud.id_agente, (data) => {
+        const viajeroFiltrado = data.filter(
+          (viajero) => viajero.id_viajero == solicitud.id_viajero_reserva
+        );
+
+        // guarda el fallback
+        const fallback = viajeroFiltrado[0] ?? null;
+        setDefaultViajero(fallback);
+
+        // si está disponible y el form no tiene viajero válido, úsalo
+        if (fallback && !form.viajero?.id_viajero) {
+          setForm((prev) => ({ ...prev, viajero: fallback }));
+        }
+
+        const id_acompanantes = (
+          solicitud.viajeros_adicionales_reserva || ""
+        ).split(",");
+        const acompanantesFiltrados = data.filter((viajero) =>
+          id_acompanantes.includes(viajero.id_viajero)
+        );
+        setAcompanantes(acompanantesFiltrados);
+        setTravelers(data);
+      });
+    } catch (error) {
+      console.log(error);
+      setTravelers([]);
+    }
+  }, []);
+
+  useEffect(() => {
     if (
       form.hotel.content &&
       form.check_in &&
