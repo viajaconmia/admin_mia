@@ -29,7 +29,7 @@ import { TextTransform } from "@/app/dashboard/facturas-pendientes/page";
 import { environment } from "@/lib/constants";
 import { Button } from "../ui/button";
 import { generateCuponForOperaciones } from "@/lib/qr-generator";
-
+import { ROUTES } from "@/constant/routes";
 
 type Vista = "reservas" | "pagadas" | "pendientes";
 
@@ -187,7 +187,8 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
     detalles_cliente: ({ item }) => (
       <span className="font-semibold text-sm flex items-center gap-2 w-full">
         <a
-          href={`${!!!environment?"https://www.viajaconmia.com/bookings/":"http://localhost:5173/bookings/"}${item.id_solicitud}`}
+
+          href={ROUTES.BOOKING.ID_SOLICITUD(item.id_solicitud)}
           target="_blank"
           rel="noopener noreferrer"
           className="text-blue-600 hover:underline"
@@ -196,9 +197,8 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
         </a>
         <button
           onClick={() => {
-            copyToClipboard(
-              `${!!!environment?"https://www.viajaconmia.com/bookings/":"http://localhost:5173/bookings/"}${item.id_solicitud}`
-            );
+
+            copyToClipboard(ROUTES.BOOKING.ID_SOLICITUD(item.id_solicitud));
           }}
           className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition"
         >
@@ -213,13 +213,12 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
     ),
     markup: ({ value }) => (
       <span
-        className={`font-semibold border p-2 rounded-full ${
-          value == "Infinity"
-            ? "text-gray-700 bg-gray-100 border-gray-300 "
-            : value > 0
+        className={`font-semibold border p-2 rounded-full ${value == "Infinity"
+          ? "text-gray-700 bg-gray-100 border-gray-300 "
+          : value > 0
             ? "text-green-600 bg-green-100 border-green-300"
             : "text-red-600 bg-red-100 border-red-300"
-        }`}
+          }`}
       >
         {value == "Infinity" ? "0%" : `${Number(value).toFixed(2)}%`}
       </span>
@@ -319,26 +318,24 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
               defaultSort={defaultSort}
               leyenda={`${labelVista}: Has filtrado ${formatedSolicitudes.length} reservas`}
               customColumns={[
-
-                'id_cliente',
-                'cliente',
-                'creado',
-                'hotel',
-                'codigo_hotel',
-                'viajero',
-                'check_in',
-                'check_out',
-                'noches',
-                'tipo_cuarto',
-                'costo_proveedor',
-                'markup',
-                'precio_de_venta',
-                'metodo_de_pago',
-                'reservante',
-                'etapa_reservacion',
-                'estado',
-                'detalles_cliente',
-                'editar'
+                "id_cliente",
+                "cliente",
+                "creado",
+                "hotel",
+                "codigo_hotel",
+                "viajero",
+                "check_in",
+                "check_out",
+                "noches",
+                "tipo_cuarto",
+                "costo_proveedor",
+                "markup",
+                "precio_de_venta",
+                "metodo_de_pago",
+                "reservante",
+                "etapa_reservacion",
+                "estado",
+                "detalles_cliente",
 
               ]}
             >
