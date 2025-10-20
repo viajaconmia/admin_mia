@@ -56,7 +56,11 @@ export function ReservationForm2({
   }
   const [nuevo_incluye_desayuno, setNuevoIncluyeDesayuno] = useState<
     boolean | null
-  >(solicitud.nuevo_incluye_desayuno === null ? null : Boolean(solicitud.nuevo_incluye_desayuno));
+  >(
+    solicitud.nuevo_incluye_desayuno === null
+      ? null
+      : Boolean(solicitud.nuevo_incluye_desayuno)
+  );
   const [acompanantes, setAcompanantes] = useState<Viajero[]>([]);
   const [cobrar, setCobrar] = useState<boolean | null>(null);
   const [form, setForm] = useState<ReservaForm>({
@@ -136,6 +140,7 @@ export function ReservationForm2({
       current: form.estado_reserva,
     },
     metadata: solicitud,
+
   });
   const [loading, setLoading] = useState(false);
   const [travelers, setTravelers] = useState<Viajero[]>([]);
@@ -152,7 +157,7 @@ export function ReservationForm2({
   const [inicial, setInicial] = useState(true);
 
   useEffect(() => {
-    console.log("Edicion FORM", edicionForm.venta?.current, solicitud.total);
+    console.log("Edicion FORM", edicionForm, viajero);
   }, [form]);
 
   useEffect(() => {
@@ -181,10 +186,16 @@ export function ReservationForm2({
   }, []);
 
 
+
+  const viajero = travelers[0]
+  console.log("viajero", viajero)
+  console.log("solicitud", travelers)
+
+
   // ⬇️ NUEVO: factoriza la lógica de guardado para reusarla
   const saveReservation = async (): Promise<boolean> => {
     setLoading(true);
-    const data = { ...edicionForm, nuevo_incluye_desayuno, acompanantes };
+    const data = { ...edicionForm, nuevo_incluye_desayuno, acompanantes, };
     try {
       if (edicion) {
         await updateReserva(data, solicitud.id_booking);
@@ -419,11 +430,10 @@ export function ReservationForm2({
     // console.log("Confirmación de precio:", ctx);
 
     if (ok) {
-      setCobrar(false);   // cierra el modal de precio
-      onClose();          // cierra el formulario si así lo quieres
+      setCobrar(false); // cierra el modal de precio
+      onClose(); // cierra el formulario si así lo quieres
     }
   };
-
 
   function getAutoCostoTotal(
     hotel: Hotel | null,
@@ -442,7 +452,7 @@ export function ReservationForm2({
 
   // const hotelDat() => {
   // }
-  console.log("form", form)
+  console.log("form", form);
 
   const hotelData = useMemo(() => {
     const roomType = form.habitacion || "";
@@ -451,20 +461,31 @@ export function ReservationForm2({
     );
 
     return {
-      "tipo-habi": roomType,                         // SENCILLO / DOBLE, etc.
-      precio: Number(roomObj?.precio ?? 0),          // Precio de venta de ese tipo de cuarto
+      "tipo-habi": roomType, // SENCILLO / DOBLE, etc.
+      precio: Number(roomObj?.precio ?? 0), // Precio de venta de ese tipo de cuarto
       hotel: form.hotel?.name || "",
       form,
       nuevo_incluye_desayuno,
       acompanantes,
-      noches: { ...edicionForm.noches, before: calcularNoches(solicitud.check_in, solicitud.check_out) },
+      noches: {
+        ...edicionForm.noches,
+        before: calcularNoches(solicitud.check_in, solicitud.check_out),
+      },
       // Si quieres repetir la clave como pediste:
       // "tipo-habi-2": roomType,
     };
-  }, [form.habitacion, form.hotel, form.noches, nuevo_incluye_desayuno, acompanantes, edicionForm.noches, solicitud.check_in, solicitud.check_out]);
+  }, [
+    form.habitacion,
+    form.hotel,
+    form.noches,
+    nuevo_incluye_desayuno,
+    acompanantes,
+    edicionForm.noches,
+    solicitud.check_in,
+    solicitud.check_out,
+  ]);
 
-
-  console.log("hoteldata", hotelData)
+  console.log("hoteldata", hotelData);
   return (
     <form
       onSubmit={handleSubmit}
@@ -781,15 +802,15 @@ export function ReservationForm2({
                 label={`Viajeros`}
                 sublabel={`(${solicitud.nombre_viajero_reservacion} - ${solicitud.id_viajero_reserva})`}
                 onChange={(value) => {
-                  if (edicion) {
-                    setEdicionForm((prev) => ({
-                      ...prev,
-                      viajero: {
-                        before: form.viajero,
-                        current: value.content as Viajero,
-                      },
-                    }));
-                  }
+
+                  setEdicionForm((prev) => ({
+                    ...prev,
+                    viajero: {
+                      before: form.viajero,
+                      current: value.content as Viajero,
+                    },
+                  }));
+
                   setForm((prev) => ({
                     ...prev,
                     viajero: value.content as Viajero,

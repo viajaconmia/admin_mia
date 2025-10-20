@@ -29,7 +29,7 @@ import { TextTransform } from "@/app/dashboard/facturas-pendientes/page";
 import { environment } from "@/lib/constants";
 import { Button } from "../ui/button";
 import { generateCuponForOperaciones } from "@/lib/qr-generator";
-
+import { ROUTES } from "@/constant/routes";
 
 type Vista = "reservas" | "pagadas" | "pendientes";
 
@@ -337,7 +337,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
                 'etapa_reservacion',
                 'estado',
                 'detalles_cliente',
-                'pagar'
+
 
               ]}
             >

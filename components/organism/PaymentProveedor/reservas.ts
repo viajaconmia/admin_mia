@@ -14,3 +14,13 @@ export const fetchReservation = async (
   const data: any = json.data[0];
   callback(data);
 };
+
+export const getUbicacion = async (id: string) => {
+  const response = await fetch(`${URL}/mia/solicitud/ubicacion?id=${id}`, {
+    method: "GET",
+    headers: HEADERS_API,
+  });
+  const json = await response.json();
+  console.log(json);
+  return json;
+};

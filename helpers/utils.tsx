@@ -51,10 +51,13 @@ export function copyToClipboard(text) {
 }
 
 export const formatDate = (dateString: string) => {
+
   if (!dateString || typeof dateString !== "string") {
     console.error("dateString inválido:", dateString);
-    return [null, null, null];
+    return ""
   }
+
+
 
   const [year, month, day] = dateString.split("T")[0].split("-");
   const date = new Date(+year, +month - 1, +day);
@@ -67,6 +70,10 @@ export const formatDate = (dateString: string) => {
 
 export const formatRoom = (room: string) => {
   let response = room;
+
+  if (typeof room !== "string") return "";
+
+
   if (((response || "").toUpperCase()) == "SINGLE") {
     response = "SENCILLO";
   } else if ((response || "").toUpperCase() == "DOUBLE") {
@@ -221,10 +228,20 @@ export const exportToCSV = (data, filename = "archivo.csv") => {
         .map((field) => {
           let val = row[field];
 
-          if (field === "cliente" && val && typeof val === "object" && val.nombre_agente_completo) {
+          if (
+            field === "cliente" &&
+            val &&
+            typeof val === "object" &&
+            val.nombre_agente_completo
+          ) {
             val = val.nombre_agente_completo;
           }
-          if (field === "is_facturado" && val && typeof val === "object" && val.is_facturado) {
+          if (
+            field === "is_facturado" &&
+            val &&
+            typeof val === "object" &&
+            val.is_facturado
+          ) {
             val = val.is_facturado;
           }
 
@@ -359,8 +376,6 @@ export const getCreditoBadge = (monto: number | null) => {
     </span>
   );
 };
-
-
 
 // utils/fileUpload.ts
 import { API_KEY, URL } from "@/lib/constants";
