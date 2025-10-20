@@ -95,14 +95,14 @@ export function ReservationForm({
         solicitud.costo_total != null
           ? Number(solicitud.costo_total)
           : // ② Si no, cae al cálculo automático de antes
+          Number(
             Number(
-              Number(
-                currentHotel?.tipos_cuartos.find(
-                  (item) =>
-                    item.nombre_tipo_cuarto == updateRoom(solicitud.room)
-                )?.costo ?? 0
-              ) * currentNoches
-            ) || 0,
+              currentHotel?.tipos_cuartos.find(
+                (item) =>
+                  item.nombre_tipo_cuarto == updateRoom(solicitud.room)
+              )?.costo ?? 0
+            ) * currentNoches
+          ) || 0,
       subtotal: 0,
       impuestos: 0,
     },
@@ -295,10 +295,10 @@ export function ReservationForm({
       const autoTotal = isCostoManual
         ? form.proveedor.total
         : Number(
-            form.hotel.content.tipos_cuartos.find(
-              (item) => item.nombre_tipo_cuarto == form.habitacion
-            )?.costo ?? 0
-          ) * nights;
+          form.hotel.content.tipos_cuartos.find(
+            (item) => item.nombre_tipo_cuarto == form.habitacion
+          )?.costo ?? 0
+        ) * nights;
 
       const items = calculateItems(autoTotal);
 
@@ -993,7 +993,7 @@ export function ReservationForm({
                           (acc, key) => {
                             const value =
                               form.impuestos[
-                                key as keyof ReservaForm["impuestos"]
+                              key as keyof ReservaForm["impuestos"]
                               ];
                             if (key == "otros_impuestos") {
                               return acc;
@@ -1033,7 +1033,7 @@ export function ReservationForm({
                             .map((key) => {
                               const value = Number(
                                 form.impuestos[
-                                  key as keyof ReservaForm["impuestos"]
+                                key as keyof ReservaForm["impuestos"]
                                 ]
                               );
                               if (value <= 0) return null;
@@ -1185,7 +1185,7 @@ export function ReservationForm({
                           (acc, key) => {
                             const value =
                               form.impuestos[
-                                key as keyof ReservaForm["impuestos"]
+                              key as keyof ReservaForm["impuestos"]
                               ];
                             if (key == "otros_impuestos") {
                               return acc;
@@ -1225,7 +1225,7 @@ export function ReservationForm({
                             .map((key) => {
                               const value = Number(
                                 form.impuestos[
-                                  key as keyof ReservaForm["impuestos"]
+                                key as keyof ReservaForm["impuestos"]
                                 ]
                               );
                               if (value <= 0) return null;
@@ -1329,8 +1329,8 @@ export function ReservationForm({
                         {!props.value
                           ? ""
                           : formatNumberWithCommas(
-                              (props.value || 0)?.toFixed(2) || ""
-                            )}
+                            (props.value || 0)?.toFixed(2) || ""
+                          )}
                       </span>
                     ),
                     costo: (props: any) => (
@@ -1339,8 +1339,8 @@ export function ReservationForm({
                         {!props.value
                           ? ""
                           : formatNumberWithCommas(
-                              (props.value || 0)?.toFixed(2) || ""
-                            )}
+                            (props.value || 0)?.toFixed(2) || ""
+                          )}
                       </span>
                     ),
                     venta: (props: any) => (
@@ -1349,8 +1349,8 @@ export function ReservationForm({
                         {!props.value
                           ? ""
                           : formatNumberWithCommas(
-                              (props.value || 0)?.toFixed(2) || ""
-                            )}
+                            (props.value || 0)?.toFixed(2) || ""
+                          )}
                       </span>
                     ),
                     iva: (props: any) => (
@@ -1359,8 +1359,8 @@ export function ReservationForm({
                         {!props.value
                           ? ""
                           : formatNumberWithCommas(
-                              (props.value || 0)?.toFixed(2) || ""
-                            )}
+                            (props.value || 0)?.toFixed(2) || ""
+                          )}
                       </span>
                     ),
                     ish: (props: any) => (
@@ -1369,8 +1369,8 @@ export function ReservationForm({
                         {!props.value
                           ? ""
                           : formatNumberWithCommas(
-                              (props.value || 0)?.toFixed(2) || ""
-                            )}
+                            (props.value || 0)?.toFixed(2) || ""
+                          )}
                       </span>
                     ),
                     otros_impuestos: (props: any) => (

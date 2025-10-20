@@ -33,14 +33,6 @@ const matches = (field: unknown, query: unknown) => {
   return q.length >= 30 ? f === q : f.includes(q);
 };
 
-// Trata 0, "0", "0.00", etc. como cero
-const isZeroSaldo = (s: unknown) => {
-  const n = Number(
-    typeof s === "string" ? s.replace(/,/g, "") : s
-  );
-  return Number.isFinite(n) && Math.abs(n) < 1e-6;
-};
-
 const CuentasPorCobrar = () => {
   const [facturas, setFacturas] = useState<any[]>([]); // Guardar las facturas obtenidas
   const [facturaData, setFacturaData] = useState<any>(null);
@@ -149,8 +141,6 @@ const CuentasPorCobrar = () => {
   // Aplicar filtros y búsqueda
   useEffect(() => {
     let result = [...facturas];
-
-    result = result.filter(factura => !isZeroSaldo(factura.saldo));
 
     // Aplicar búsqueda
     if (searchTerm) {
@@ -421,6 +411,8 @@ const CuentasPorCobrar = () => {
       };
     });
   }, [filteredFacturas]);
+
+  console.log(rows, "cambios de data")
 
   // Columnas basadas en los datos que realmente llegan - MOVIDO AQUÍ
   const availableColumns = useMemo(() => {

@@ -21,6 +21,40 @@ import { useResponsiveColumns } from "@/hooks/useResponsiveColumns";
 
 // --- helpers locales ---
 const parseNum = (v: any) => (v == null ? 0 : Number(v));
+// --- helpers de estatus y agrupación ---
+const norm = (s?: string | null) => (s ?? "").trim().toLowerCase();
+
+type CategoriaEstatus = "spei_solicitado" | "pagotdc" | "cupon_enviado" | "pagada" | "otros";
+
+function mapEstatusToCategoria(estatus?: string | null): CategoriaEstatus {
+  const v = norm(estatus);
+
+  // matches exactos o cercanos
+  if (v === "spei_solicitado" || v.includes("spei")) return "spei_solicitado";
+  if (v === "pagotdc" || v.includes("tdc") || v.includes("tarjeta")) return "pagotdc";
+  if (v === "cupon_enviado" || v.includes("cupon") || v.includes("cupón")) return "cupon_enviado";
+  if (v === "pagada" || v === "pagado") return "pagada";
+  return "otros";
+}
+
+function agruparPorCategoria<T extends { estatus_pagos?: string | null }>(
+  registros: T[]
+) {
+  return registros.reduce(
+    (acc, r) => {
+      const cat = mapEstatusToCategoria(r.estatus_pagos);
+      acc[cat].push(r);
+      return acc;
+    },
+    {
+      spei_solicitado: [] as T[],
+      pagotdc: [] as T[],
+      cupon_enviado: [] as T[],
+      pagada: [] as T[],
+      otros: [] as T[],
+    }
+  );
+}
 
 type ItemSolicitud = SolicitudProveedor & {
   pagos?: Array<{
@@ -141,24 +175,11 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState<TypeFilters>(defaultFiltersSolicitudes);
   const [activeFilter, setActiveFilter] = useState<string>("all"); // "all" | "creditCard" | "sentToPayments"
-
+  // categoría visible en la tabla
+  const [categoria, setCategoria] = useState<CategoriaEstatus | "all">("all");
   const norm = (s?: string | null) => (s ?? "").trim().toLowerCase();
 
-  // Filtra todo lo que esté pagado desde el inicio
-  const cleanedSolicitudes = solicitudesPago.filter(
-    (it) => norm((it as ItemSolicitud).estatus_pagos) !== "pagado"
-  );
 
-
-  // Filtro adicional
-  const filteredSolicitudes = cleanedSolicitudes.filter((item) => {
-    if (activeFilter === "creditCard") {
-      return !!item.tarjeta?.ultimos_4;
-    } else if (activeFilter === "enviado_a_pago") {
-      return (item as ItemSolicitud).estatus_pagos?.toLowerCase() === "enviado_a_pago";
-    }
-    return true;
-  });
 
   const formatDateSimple = (date: string | Date) => {
     if (!date) return "—"; // Si no hay fecha, mostramos un guion
@@ -170,16 +191,23 @@ function App() {
     });
   };
 
+  // 1) Aplica tu filtro extra (credit card / enviado_a_pago) si aún lo quieres.
+  //    Si ya no lo necesitas, puedes quitar activeFilter y dejar solo la categoría.
+  const filteredSolicitudes = solicitudesPago.filter((item) => {
+    if (activeFilter === "creditCard") return !!item.tarjeta?.ultimos_4;
+    if (activeFilter === "enviado_a_pago")
+      return (item as ItemSolicitud).estatus_pagos?.toLowerCase() === "enviado_a_pago";
+    return true;
+  });
 
+  // 2) Búsqueda y mapeo a tu estructura de tabla
   const formatedSolicitudes = filteredSolicitudes
     .filter((item) => {
       const q = (searchTerm || "").toUpperCase();
       return (
         item.hotel.toUpperCase().includes(q) ||
         item.nombre_agente_completo.toUpperCase().includes(q) ||
-        ((item.nombre_viajero_completo || item.nombre_viajero || "")
-          .toUpperCase()
-          .includes(q))
+        ((item.nombre_viajero_completo || item.nombre_viajero || "").toUpperCase().includes(q))
       );
     })
     .map((raw) => {
@@ -193,17 +221,14 @@ function App() {
         creado: item.created_at,
         hotel: item.hotel.toUpperCase(),
         codigo_hotel: item.codigo_reservacion_hotel,
-        viajero: (
-          item.nombre_viajero_completo || item.nombre_viajero || ""
-        ).toUpperCase(),
+        viajero: (item.nombre_viajero_completo || item.nombre_viajero || "").toUpperCase(),
         check_in: item.check_in,
         check_out: item.check_out,
         noches: calcularNoches(item.check_in, item.check_out),
         habitacion: formatRoom(item.room),
         costo_proveedor: Number(item.costo_total) || 0,
         markup:
-          ((Number(item.total || 0) - Number(item.costo_total || 0)) /
-            Number(item.total || 0)) *
+          ((Number(item.total || 0) - Number(item.costo_total || 0)) / Number(item.total || 0)) *
           100,
         precio_de_venta: parseFloat(item.total),
         metodo_de_pago: item.id_credito ? "credito" : "contado",
@@ -229,14 +254,19 @@ function App() {
         banco: item.tarjeta?.banco_emisor,
         tipo_tarjeta: item.tarjeta?.tipo_tarjeta,
 
-        // **Nuevo campo estatus_pagos**
-        estatus_pagos: item.estatus_pagos ?? "", // Manejamos el caso en el que no existe
+        // Estatus original (lo usaremos para categorizar)
+        estatus_pagos: item.estatus_pagos ?? "",
 
         item: raw,
       };
     });
 
+  // 3) Agrupa por categoría
+  const grupos = agruparPorCategoria(formatedSolicitudes);
 
+  // 4) Decide qué lista mostrar según la categoría seleccionada
+  const registrosVisibles =
+    categoria === "all" ? formatedSolicitudes : grupos[categoria];
 
   const renderers: Record<
     string,
@@ -411,40 +441,41 @@ function App() {
           setSearchTerm={setSearchTerm}
         />
 
-        {/* Filtros extra */}
-        <div className="flex gap-4 mb-4">
-          <button
-            onClick={() => setActiveFilter("all")}
-            className={`flex items-center px-4 py-2 rounded-md ${activeFilter === "all"
-              ? "bg-blue-500 text-white"
-              : "bg-gray-200 text-gray-700"
-              }`}
-          >
-            <span>Todos</span>
-          </button>
+        {/* Categorías por estatus_pagos */}
+        {/* Categorías por estatus_pagos */}
+        <div className="flex flex-wrap gap-2 mb-4 border-b border-gray-300 pb-2">
+          {([
+            { key: "all", label: "Todos", count: formatedSolicitudes.length },
+            { key: "spei_solicitado", label: "SPEI solicitado", count: grupos.spei_solicitado.length },
+            { key: "pagotdc", label: "Pago TDC", count: grupos.pagotdc.length },
+            { key: "cupon_enviado", label: "Cupón enviado", count: grupos.cupon_enviado.length },
+            { key: "pagada", label: "Pagada", count: grupos.pagada.length },
+          ] as Array<{ key: CategoriaEstatus | "all"; label: string; count: number }>).map(btn => {
+            const isActive = categoria === btn.key;
+            return (
+              <button
+                key={btn.key}
+                onClick={() => setCategoria(btn.key)}
+                className={`relative px-4 py-2 rounded-t-md font-medium border border-b-0 
+          transition-all duration-200 
+          ${isActive
+                    ? "bg-white text-blue-700 border-blue-600 shadow-md -mb-[1px]"
+                    : "bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200"
+                  }`}
+                title={`Mostrar ${btn.label.toLowerCase()}`}
+              >
+                <span>{btn.label}</span>
+                <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${isActive ? "bg-blue-100 text-blue-700" : "bg-white border"}`}>
+                  {btn.count}
+                </span>
 
-          <button
-            onClick={() => setActiveFilter("creditCard")}
-            className={`flex items-center px-4 py-2 rounded-md ${activeFilter === "creditCard"
-              ? "bg-blue-500 text-white"
-              : "bg-gray-200 text-gray-700"
-              }`}
-          >
-            <CreditCard className="w-4 h-4 mr-2" />
-            <span>Pagos con Tarjeta</span>
-          </button>
-
-          <button
-            onClick={() => setActiveFilter("enviado_a_pago")}
-            className={`flex items-center px-4 py-2 rounded-md ${activeFilter === "enviado_a_pago"
-              ? "bg-blue-500 text-white"
-              : "bg-gray-200 text-gray-700"
-              }`}
-          >
-            <Send className="w-4 h-4 mr-2" />
-            <span>Enviado a Pagos</span>
-          </button>
-
+                {/* efecto carpeta */}
+                {isActive && (
+                  <span className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-white"></span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
         <div>
@@ -452,10 +483,10 @@ function App() {
             <Loader />
           ) : (
             <Table5<ItemSolicitud>
-              registros={formatedSolicitudes}
+              registros={registrosVisibles}
               renderers={renderers}
               defaultSort={defaultSort}
-              leyenda={`Haz filtrado ${formatedSolicitudes.length} solicitudes de pago`}
+              leyenda={`Mostrando ${registrosVisibles.length} registros (${categoria === "all" ? "todas las categorías" : `categoría: ${categoria}`})`}
             />
           )}
         </div>
