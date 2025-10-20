@@ -193,6 +193,7 @@ export const PaymentModal = ({ reservation }: { reservation: Solicitud2 | null; 
   // };
 
   // ====== Descargar cupón desde botón externo ======
+
   const handleDownloadCoupon = async () => {
     await reservaRef.current?.download();
   };
