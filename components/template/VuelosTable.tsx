@@ -7,7 +7,8 @@ import { EditarVuelos } from "./EditarVuelos";
 export const VuelosTable = () => {
   const [vuelos, setVuelos] = useState<ViajeAereo[]>([]);
   const [selected, setSelected] = useState(null);
-  useEffect(() => {
+
+  const fetchVuelos = () => {
     VuelosServices.getInstance()
       .getVuelos()
       .then((response) => {
@@ -17,6 +18,9 @@ export const VuelosTable = () => {
       .catch((error) => {
         console.log(error);
       });
+  };
+  useEffect(() => {
+    fetchVuelos();
   }, []);
   return (
     <>
@@ -26,7 +30,13 @@ export const VuelosTable = () => {
           subtitle="Modifica los datos del vuelo"
           onClose={() => setSelected(null)}
         >
-          <EditarVuelos vuelo={selected}></EditarVuelos>
+          <EditarVuelos
+            vuelo={selected}
+            onSubmit={() => {
+              setSelected(null);
+              fetchVuelos();
+            }}
+          ></EditarVuelos>
         </Modal>
       )}
       <TableFromMia

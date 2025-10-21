@@ -24,8 +24,10 @@ import { Vuelo } from "./PageVuelos";
 
 export const EditarVuelos = ({
   vuelo,
+  onSubmit,
 }: {
   vuelo: ViajeAereo & { id_agente: string; nombre: string };
+  onSubmit: () => void;
 }) => {
   const [viajeros, setViajeros] = useState<ViajeroService[]>([]);
   const [aerolineas, setAerolineas] = useState<Proveedor[]>([]);
@@ -157,7 +159,7 @@ export const EditarVuelos = ({
       };
 
       console.log(body);
-      const response = await VuelosServices.getInstance().editarViajeAereo(
+      const { message } = await VuelosServices.getInstance().editarViajeAereo(
         body
       );
 
@@ -168,10 +170,12 @@ export const EditarVuelos = ({
       //   details,
       //   agente
       // );
+      //
 
       // dispatch({ type: "RESET", payload: null });
+      showNotification("success", message);
       setOpen(false);
-      // showNotification("success", message);
+      onSubmit();
     } catch (error) {
       console.log(error);
       showNotification("error", error.message);
