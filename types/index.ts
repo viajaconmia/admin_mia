@@ -15,7 +15,9 @@ export interface TypeFilters {
   hasDiscount?: string | null;
   is_facturado?: number | null;
   origen_pago?: string | null;
-    link_pago?:string|null ,
+  nombre_cliente?: string | null;
+  estatus_pagos?: string | null;
+  link_pago?:string|null ,
   status?: "Confirmada" | "Pendiente" | "Cancelada" | "Todos" | null;
   reservationStage?: "Reservado" | "In house" | "Check-out" | null;
   paymentMethod?:
@@ -35,11 +37,8 @@ export interface TypeFilters {
     | null;
   active?: "Activo" | "Inactivo" | null;
   metodo?:
-    | "Tarjeta"
     | "Credito"
     | "Contado"
-    | "Wallet"
-    | "Tranferencia"
     | null;
   hay_convenio?: "SI" | "NO";
   tipo_negociacion?: string | null;
@@ -70,6 +69,7 @@ export interface TypeFilters {
   markUp?: number;
   id_client?: string | null;
   id_agente?: string | null;
+  id_cliente?: string | null;
   statusPagoProveedor?: null | string;
   markup_start?: null | number;
   markup_end?: null | number;
@@ -197,6 +197,7 @@ export type Solicitud = {
     hotel_reserva: string;
     check_in: string;
     check_out: string;
+    
     room: string;
     tipo_cuarto: string;
     total: string;
@@ -216,6 +217,8 @@ export type Solicitud = {
     tipo_persona: string;
     viajeros_acompañantes: string[] | null;
     items_reserva: string[];
+    items_de_la_reserva: string[];
+    origen: string;
   }
 
 export interface Tax {
@@ -558,7 +561,8 @@ export type PagoProveedor = {
   numero_autorizacion: string | null; // VARCHAR(100)
   creado_en: string; // TIMESTAMP
   actualizado_en: string; // TIMESTAMP
-  estado_pago: string|null;
+  estado_pago: string | null;
+  estatus_pagos?: string | null;
   // Ten en cuenta que tu JSON de ejemplo también incluye id_solicitud_proveedor
   // y monto_aplicado directamente en los objetos 'pagos'.
   id_solicitud_proveedor: number; // de pagos_solicitudes

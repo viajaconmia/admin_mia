@@ -109,6 +109,7 @@ export const Table5 = <T,>({
   };
 
   return (
+    // The main container remains a relative parent
     <div className="relative w-full">
       {exportButton && (
         <div className="flex w-full justify-between mb-2">
@@ -117,6 +118,8 @@ export const Table5 = <T,>({
               {leyenda}
             </span>
           </div>
+          {/* Moved the column selector button and dropdown here,
+          outside the overflow container */}
           <div className="flex gap-4">
             {children}
             <button
@@ -140,8 +143,8 @@ export const Table5 = <T,>({
                 Columnas
               </button>
               {showColumnSelector && (
-                <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg z-20 border border-gray-200">
-                  <div className="p-2 max-h-60 overflow-y-auto">
+                <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-md shadow-lg z-30 border border-gray-200 max-h-72 overflow-y-auto">
+                  <div className="p-2">
                     <div className="flex gap-2 mb-2">
                       <button
                         onClick={(e) => {
@@ -152,15 +155,7 @@ export const Table5 = <T,>({
                       >
                         Mostrar todas
                       </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          hideAllColumns();
-                        }}
-                        className="text-xs px-2 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200"
-                      >
-                        Ocultar todas
-                      </button>
+
                     </div>
                     {columnKeys.map((key) => (
                       <div
@@ -190,6 +185,7 @@ export const Table5 = <T,>({
         </div>
       )}
       {loading && <Loader />}
+      {/* The table container itself still needs the overflow styles */}
       {displayData.length > 0 && !loading ? (
         <div
           className="overflow-y-auto relative border border-gray-200 rounded-sm w-full h-fit"

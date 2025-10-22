@@ -220,8 +220,8 @@ export const PaymentModal = ({
     <div className="max-w-[85vw] w-screen p-2 pt-0 max-h-[90vh] grid grid-cols-2">
       <div
         className={`top-0 col-span-2 z-10 p-4 rounded-md border border-red-300 bg-red-50 text-red-700 shadow-md flex items-start gap-3 transform transition-all duration-300 ease-out ${error
-            ? "opacity-100 scale-100 sticky"
-            : "opacity-0 scale-10 pointer-events-none absolute"
+          ? "opacity-100 scale-100 sticky"
+          : "opacity-0 scale-10 pointer-events-none absolute"
           }`}
       >
         <svg
@@ -484,7 +484,7 @@ export const PaymentModal = ({
                     }
                     options={[
                       { value: "pagado", label: "Pagado" },
-                      { value: "enviado", label: "Enviado a pago" },
+                      { value: "enviado_a_pago", label: "Enviado a pago" },
                     ]}
                   />
                 </div>

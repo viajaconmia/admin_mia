@@ -84,6 +84,9 @@ interface PagarModalProps {
     status_reserva?: string;
     // otros campos que pueda tener reservaData
   } | null;
+  facturaData?: {
+    id_factura: string, nombre_agente: string, id_agente: string, monto: number,
+  } | null
 }
 
 export const PagarModalComponent: React.FC<PagarModalProps> = ({
@@ -92,17 +95,49 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
   onClose,
   onSubmit,
   open = true,
-  reservaData = null
+  reservaData = null,
+  facturaData = null,
 }) => {
   console.log("reservaData recibida:", reservaData);
+  console.log("facturas recibida:", facturaData);
 
+  // Funciones para manejar las facturas
+  function obtenerMontosFacturas(facturas_Data) {
+    return facturas_Data.map(factura => factura.monto);
+  }
+
+  function obtenerSaldosFacturas(facturas_Data) {
+    return facturas_Data.map(factura => factura.saldo);
+  }
+
+  function sumarMontos(montosArray) {
+    return montosArray.reduce((total, monto) => total + parseFloat(monto), 0);
+  }
+
+  let montos = 0;
+  let saldos = 0;
+  let totalMonto = 0;
+  let totalSaldo = 0;
+
+  if (facturaData != null) {
+    montos = obtenerMontosFacturas(facturaData);
+    saldos = obtenerSaldosFacturas(facturaData);
+    console.log("Total :", saldos);
+
+    totalMonto = sumarMontos(montos);
+    totalSaldo = sumarMontos(saldos);
+
+    console.log("Total sumado:", totalMonto);
+    console.log("Total sumado:", totalSaldo);
+  }
+  const id_agente = reservaData?.id_agente || facturaData?.id_agente || "desconocido";
   // Si no hay saldoData pero hay reservaData, crear un saldoData básico
-  const effectiveSaldoData = saldoData || (reservaData ? {
+  const effectiveSaldoData = saldoData || (reservaData || facturaData ? {
     id_saldos: 'temporal',
-    id_agente: reservaData.id_agente,
-    nombre: reservaData.solicitud.agente.nombre_agente_completo || 'Agente',
-    monto: reservaData.Total || 0,
-    saldo: reservaData.Total || 0,
+    id_agente: id_agente,
+    nombre: reservaData?.solicitud.agente.nombre || facturaData?.nombre_agente || 'Agente',
+    monto: reservaData?.Total || montos || 0,
+    saldo: reservaData?.Total || saldos || 0,
   } : {
     id_saldos: '',
     id_agente: '',
@@ -110,6 +145,8 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
     monto: 0,
     saldo: 0,
   });
+
+  console.log(effectiveSaldoData)
 
   const [formData, setFormData] = useState({
     montoPago: effectiveSaldoData.saldo,
@@ -138,17 +175,26 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
     }
   }, [effectiveSaldoData.id_agente, reservaData]);
 
+  useEffect(() => {
+    if (facturaData) {
+      // Si recibimos facturaData, seguimos el flujo similar a reservaData
+      fetchSaldoFavorData();
+    }
+  }, [effectiveSaldoData.id_agente, facturaData]);
+
   // Función para obtener datos del nuevo flujo (SaldoFavor)
   const fetchSaldoFavorData = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      if (!reservaData?.id_agente) {
-        throw new Error('ID de agente no disponible en reservaData');
+      const agente = reservaData?.id_agente || facturaData[0]?.id_agente
+      if (!agente) {
+        throw new Error('ID de agente no disponible en reservaData ni facturaData');
       }
+      console.log("euuuuuuuuuuuuuuuuuuuuubbbuuuuuuufe", agente)
 
-      const response = await SaldoFavor.getPagos(reservaData.id_agente);
+      const response = await SaldoFavor.getPagos(agente);
       console.log("Datos de SaldoFavor:", response.data);
       setSaldoFavorData(response.data || []);
 
@@ -352,6 +398,29 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
       alert("Para registrar el pago, debes cubrir el total de la reserva.");
       return;
 
+    } else if (facturaData) {
+      console.log(
+        selectedItems.map(item => {
+          const originalItem = saldoFavorData.find(sf => `saldo-${sf.id_saldos}` === item.id_item);
+          const appliedAmount = originalSaldoItems[item.id_item] - (itemsSaldo[item.id_item] || 0);
+
+          return {
+            id_saldo: originalItem?.id_saldos || '',
+            saldo_original: (originalItem?.saldo || 0),
+            saldo_actual: (itemsSaldo[item.id_item] || 0),
+            aplicado: (appliedAmount),
+            id_agente: effectiveSaldoData.id_agente,
+            metodo_de_pago: originalItem?.metodo_pago || 'wallet',
+            fecha_pago: originalItem?.fecha_pago || '',
+            concepto: originalItem?.concepto || null,
+            referencia: originalItem?.referencia || null,
+            currency: 'mxn',
+            tipo_de_tarjeta: originalItem?.tipo_tarjeta || null,
+            link_pago: null,
+            last_digits: null
+          };
+        }),
+      )
     } else {
       // Payload existente para el flujo de saldoData
       const tableDataToUse = reservas.flatMap(reserva =>
@@ -424,7 +493,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
       console.error("Error en la petición:", error);
     }
   };
-  const tableData = reservaData ?
+  const tableData = reservaData || facturaData ?
     // Datos del nuevo flujo (SaldoFavor)
     saldoFavorData
       .filter(saldo => saldo.activo !== 0)
@@ -466,7 +535,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
     );
 
   // Renderers para la tabla - diferentes según el flujo
-  const renderers = reservaData ? {
+  const renderers = reservaData || facturaData ? {
     // Renderers para el nuevo flujo (SaldoFavor)
     seleccionado: ({ value }: { value: any }) => (
       <input
@@ -485,7 +554,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
       );
     },
     monto_pagado: ({ value }: { value: number }) => (
-      <span className="font-medium font-semibold text-sm px-2 py-1 rounded flex items-center justify-center bg-blue-50 text-blue-600">
+      <span className="font-medium text-sm px-2 py-1 rounded flex items-center justify-center bg-blue-50 text-blue-600">
         ${value.toFixed(2)}
       </span>
     ),
@@ -531,7 +600,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
       />
     ),
     total: ({ value }: { value: number }) => (
-      <span className="font-medium font-semibold text-sm px-2 py-1 rounded flex items-center justify-center bg-blue-50 text-blue-600">
+      <span className="font-medium text-sm px-2 py-1 rounded flex items-center justify-center bg-blue-50 text-blue-600">
         ${value}
       </span>
     ),
@@ -570,7 +639,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
   };
 
   // Columnas personalizadas según el flujo
-  const customColumns = reservaData ?
+  const customColumns = reservaData || facturaData ?
     ['seleccionado', 'creado', 'monto_pagado', 'saldo', 'forma_De_Pago', 'tipo_tarjeta', "saldo_restante"] :
     ['seleccionado', 'codigo_reservacion', 'hotel', 'fecha_uso', 'total', 'saldo'];
 

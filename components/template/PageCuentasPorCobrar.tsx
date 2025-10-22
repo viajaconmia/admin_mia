@@ -31,6 +31,7 @@ import { SaldoFavor, NuevoSaldoAFavor, Saldo } from "@/services/SaldoAFavor";
 import { fetchAgenteById, fetchPagosByAgente } from "@/services/agentes";
 import { Loader } from "@/components/atom/Loader";
 import { API_KEY, URL } from "@/lib/constants/index";
+import { formatDate } from "@/app/dashboard/facturas-pendientes/page";
 import { PagarModalComponent } from "./pagar_saldo";
 
 
@@ -509,7 +510,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     fetchSaldoFavor();
   }, []);
 
-  console.log("slados",saldos)
+  console.log("slados", saldos)
 
   const filteredData = useMemo(() => {
     // Filter the data
@@ -633,7 +634,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       comentario: saldo.notas || saldo.comentario || null,
       facturable: saldo.is_facturable ? "Si" : "No",
       comprobante: saldo.comprobante || null,
-      concepto:saldo.concepto||null,
       acciones: { row: saldo },
       item: saldo,
     }));
@@ -669,13 +669,49 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     });
   }, [saldos, filters, searchTerm, sortConfig.key, sortConfig.sort]);
 
+  // 👇 dentro de PageCuentasPorCobrar
+  const actualizarSoloComentario = async (item: Saldo, nuevoComentario: string) => {
+    try {
+      const apiData = {
+        id_saldos: item.id_saldos,
+        id_agente: item.id_agente,
+        saldo: item.saldo,
+        monto: item.monto,
+        metodo_pago: item.metodo_pago, // 'transferencia' | 'tarjeta' | 'wallet'
+        fecha_pago: item.fecha_pago,
+        is_facturable: item.is_facturable,
+        is_descuento: item.is_descuento,
+        link_stripe: item.link_stripe || null,
+        tipo_tarjeta: item.tipo_tarjeta || null,
+        activo: item.activo,
+        comentario: nuevoComentario,           // 👈 el único cambio
+        comprobante: item.comprobante || null,
+        currency: item.currency || "MXN",
+        referencia: item.referencia || null,
+        ult_digits: item.ult_digits || null,
+        banco_tarjeta: item.banco_tarjeta || null,
+        numero_autorizacion: item.numero_autorizacion || null,
+      };
+
+      await SaldoFavor.actualizarPago(apiData);
+      await reloadSaldos();
+    } catch (error) {
+      console.error("Error al actualizar comentario:", error);
+      setError(
+        `Error al actualizar comentario: ${error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
+  };
+
+
   const tableRenderers = {
-    fecha_De_Pago: ({ value }: { value: Date | null }) => {
+    fecha_De_Pago: ({ value }: { value: string | null }) => {
       if (!value) return <div className="text-gray-400 italic">Sin fecha</div>;
 
       return (
         <div className="whitespace-nowrap text-sm text-blue-900">
-          {format(new Date(value), "dd 'de' MMMM yyyy", { locale: es })}
+          {formatDate(value)}
         </div>
       );
     },
@@ -829,7 +865,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             activo: item.activo,
             comentario: item.comentario || null,
             comprobante: updatedData.comprobante,
-            concepto: item.concepto,
             currency: item.currency || "MXN",
             referencia: item.referencia || null,
             ult_digits: item.ult_digits || null,
@@ -942,26 +977,57 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       );
     },
 
-    comentario: ({ value, item }: { value: string | null; item: any }) => {
-      const isActive = item?.activo !== false;
-      return (
-        <div
-          className={`max-w-xs truncate ${!isActive ? "text-red-500 line-through" : ""
-            }`}
-        >
-          {value ? normalizeText(value) : ""}
-        </div>
-      );
-    },
+    comentario: ({ value, item }: { value: string | null; item: Saldo }) => {
+      const [editing, setEditing] = useState(false);
+      const [nuevo, setNuevo] = useState(value || "");
 
-concepto  : ({ value, item }: { value: string | null; item: any }) => {
       const isActive = item?.activo !== false;
+
+      const save = async () => {
+        await actualizarSoloComentario(item, nuevo);
+        setEditing(false);
+      };
+
       return (
-        <div
-          className={`max-w-xs truncate ${!isActive ? "text-red-500 line-through" : ""
-            }`}
-        >
-          {value ? normalizeText(value) : ""}
+        <div className={`relative flex items-center gap-2 ${!isActive ? "text-red-500 line-through" : ""}`}>
+          <div className="max-w-xs truncate">{value ? normalizeText(value) : ""}</div>
+
+          <button
+            type="button"
+            title="Editar comentario"
+            onClick={(e) => { e.stopPropagation(); setEditing(true); }}
+            className="p-1 rounded hover:bg-gray-100 disabled:opacity-50"
+            disabled={!isActive}
+          >
+            <Pencil className="w-4 h-4 text-gray-600" />
+          </button>
+
+          {editing && (
+            <div className="absolute z-20 top-7 left-0 bg-white border border-gray-200 rounded-lg shadow-lg p-3 w-72">
+              <textarea
+                className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                rows={3}
+                value={nuevo}
+                onChange={(e) => setNuevo(e.target.value)}
+              />
+              <div className="mt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  className="px-3 py-1 text-sm rounded-md border border-gray-300"
+                  onClick={() => { setEditing(false); setNuevo(value || ""); }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="px-3 py-1 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700"
+                  onClick={save}
+                >
+                  Guardar
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       );
     },
@@ -1052,7 +1118,6 @@ concepto  : ({ value, item }: { value: string | null; item: any }) => {
             metodo_pago: metodoPagoNormalizado,
             saldo: updatedData.monto_pagado?.toString() || item.monto,
             activo: true, // Siempre activo al editar
-            concepto: item.concepto || "pago",
             currency: item.currency || "MXN",
             comprobante: item.comprobante
           };
@@ -1137,7 +1202,6 @@ concepto  : ({ value, item }: { value: string | null; item: any }) => {
             activo: false, // Cambiamos a 0 para desactivar
             comentario: item.comentario || null,
             comprobante: item.comprobante,
-            concepto: item.concepto,
             currency: item.currency || "MXN",
             referencia: item.referencia || null,
             ult_digits: item.ult_digits || null,
