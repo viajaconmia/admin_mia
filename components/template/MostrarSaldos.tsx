@@ -11,6 +11,7 @@ interface PagarModalProps {
     faltante: number,
     isPrimary: boolean
   ) => void;
+  reserva_Data?: any;
   precio: number;
   id_agente: string;
   loading: boolean;
@@ -18,6 +19,7 @@ interface PagarModalProps {
 
 export const MostrarSaldos: React.FC<PagarModalProps> = ({
   onSubmit,
+  reserva_Data,
   precio = 0,
   id_agente,
   loading,
@@ -27,6 +29,8 @@ export const MostrarSaldos: React.FC<PagarModalProps> = ({
     (Saldo & { restante: number; usado: boolean })[]
   >([]);
   const { showNotification } = useNotification();
+
+  console.log("reserva_data", reserva_Data)
 
   useEffect(() => {
     fetchSaldos();
@@ -86,6 +90,9 @@ export const MostrarSaldos: React.FC<PagarModalProps> = ({
             : saldo
         )
       );
+      if (reserva_Data) {
+        console.log
+      }
     } catch (error) {
       showNotification("error", error.message || "Error al seleccionar saldo");
     }

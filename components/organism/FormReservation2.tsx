@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, FormEvent } from "react";
 import { differenceInDays, parseISO } from "date-fns";
-import { Button } from "@/components/ui/button";
+import Button from "@/components/atom/Button";
 import { Label } from "@/components/ui/label";
+import { CheckCircle, Plus, Trash2 } from "lucide-react";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -55,6 +56,7 @@ export function ReservationForm2({
       parseISO(solicitud.check_in)
     );
   }
+
   const [nuevo_incluye_desayuno, setNuevoIncluyeDesayuno] = useState<
     boolean | null
   >(
@@ -62,8 +64,12 @@ export function ReservationForm2({
       ? null
       : Boolean(solicitud.nuevo_incluye_desayuno)
   );
+
   const [acompanantes, setAcompanantes] = useState<Viajero[]>([]);
   const [cobrar, setCobrar] = useState<boolean | null>(null);
+  const [id_agente, setId_agente] = useState<string | null>(null)
+  const [reservaData, setReservaData] = useState<any>(null)
+  const [precio, setPrecio] = useState<number>(0)
   const [open, setOpen] = useState<boolean>(false);
   const [form, setForm] = useState<ReservaForm>({
     hotel: {
@@ -160,7 +166,10 @@ export function ReservationForm2({
 
   useEffect(() => {
     console.log("Edicion FORM", edicionForm, viajero);
+    setId_agente(edicionForm.metadata.id_agente || null)
+    setPrecio(Number(edicionForm.metadata.costo_total) || 0)
   }, [form]);
+
 
   useEffect(() => {
     try {
@@ -191,7 +200,11 @@ export function ReservationForm2({
   console.log("viajero", viajero)
   console.log("solicitud", travelers)
 
-
+  const handleData = () => {
+    const data = { ...edicionForm, nuevo_incluye_desayuno, acompanantes, };
+    setReservaData(data);
+    console.log("reserfa", reservaData)
+  }
 
   // ⬇️ NUEVO: factoriza la lógica de guardado para reusarla
   const saveReservation = async (): Promise<boolean> => {
@@ -201,6 +214,9 @@ export function ReservationForm2({
       if (edicion) {
         await updateReserva(data, solicitud.id_booking);
       }
+      const data2 = { ...data, id_booking: solicitud.id_booking };
+      setReservaData(data2);
+      console.log("reserfa", reservaData)
       // Usa tu notificador si quieres; dejé alert por conservar tu flujo
       alert("Reserva actualizada correctamente");
       return true;
@@ -414,6 +430,7 @@ export function ReservationForm2({
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     await saveReservation();
+    console.log("reserva", form)
     // onClose(); // si deseas cerrar siempre al guardar manual, descomenta
   };
 
@@ -436,6 +453,8 @@ export function ReservationForm2({
       onClose(); // cierra el formulario si así lo quieres
     }
   };
+
+
 
   function getAutoCostoTotal(
     hotel: Hotel | null,
@@ -487,12 +506,12 @@ export function ReservationForm2({
     solicitud.check_out,
   ]);
 
-  console.log("hoteldata", hotelData);
   return (
     <form
       onSubmit={handleSubmit}
       className="space-y-6 mx-5 overflow-y-auto rounded-md bg-white p-4"
     >
+
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-[80vw]">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="cliente">Cliente</TabsTrigger>
@@ -897,6 +916,17 @@ export function ReservationForm2({
               </div>
             </div>
           </div>
+          <div className="grid md:grid-cols-3">
+            <Button
+              className="md:col-start-3"
+              type="button"
+              onClick={() => {
+                setActiveTab("proveedor");
+              }}
+            >
+              Continuar
+            </Button>
+          </div>
         </TabsContent>
 
         <TabsContent value="proveedor" className="space-y-4">
@@ -1065,82 +1095,72 @@ export function ReservationForm2({
               </div>
             )}
           </div>
+          <div>
+            <NumberInput
+              label="Precio a cliente"
+              value={precio}
+              onChange={(value: string) => setPrecio(Number(value))}
+            />
+            <Button
+              type="button"
+              icon={CheckCircle}
+              onClick={() => {
+                handleData();   // guarda los datos
+                setOpen(true);  // abre el modal o lo que sea
+              }}
+            >
+              Ir a pagar
+            </Button>
+
+          </div>
         </TabsContent>
+
       </Tabs>
-      <DialogFooter className="flex justify-between w-full items-center">
-        <p className="text-xs font-normal p-2 bg-gray-100 rounded-full border text-gray-900">
-          Precio actual de la reserva: ${solicitud.total}
-        </p>
-        {edicionForm.venta?.current?.total && (
-          <>
-            {Number(edicionForm.venta.current.total) !=
-              Number(solicitud.total) && (
-                <p
-                  className={`text-xs font-normal p-2 ${Number(edicionForm.venta?.current.total) <
-                    Number(solicitud.total)
-                    ? "bg-red-300 text-red-800"
-                    : "bg-green-200 text-green-950"
-                    } rounded-full border `}
-                >
-                  {`Precio recomendado: $${edicionForm.venta.current.total.toFixed(
-                    2
-                  )}`}
-                </p>
-              )}
-          </>
-        )}
-        <Button
-          type="button"
-          variant="secondary"
-          // setCobrar es el otro
-          onClick={() => setOpen(true)}
-        >
-          ¿Quieres modificar el precio al recomendado u otro?
-        </Button>
-        <Button disabled={!!loading} type="submit">
-          Actualizar datos de la reserva
-        </Button>
-      </DialogFooter>
-      {cobrar && (
-        <Modal
-          onClose={() => {
-            setCobrar(false);
-          }}
-          title={`Maneja el precio de la reserva`}
-          subtitle="Modifica los valores de los items para poder tener el valor total de venta"
-        >
-          <EditPrecioVenta
-            reserva={solicitud}
-            hotelData={hotelData}
+      {
+        cobrar && (
+          <Modal
             onClose={() => {
               setCobrar(false);
             }}
-            onConfirm={handleConfirmPrecio}
-            precioNuevo={
-              edicionForm?.venta?.current?.total
-                ? Number(edicionForm.venta.current.total)
-                : Number(solicitud.total) || 0
-            }
-          ></EditPrecioVenta>
-        </Modal>
-      )}
+            title={`Maneja el precio de la reserva`}
+            subtitle="Modifica los valores de los items para poder tener el valor total de venta"
+          >
+            <EditPrecioVenta
+              reserva={solicitud}
+              hotelData={hotelData}
+              onClose={() => {
+                setCobrar(false);
+              }}
+              onConfirm={handleConfirmPrecio}
+              precioNuevo={
+                edicionForm?.venta?.current?.total
+                  ? Number(edicionForm.venta.current.total)
+                  : Number(solicitud.total) || 0
+              }
+            ></EditPrecioVenta>
+          </Modal>
+        )
+      }
 
-      {open && (
-        <Modal
-          onClose={() => {
-            setOpen(false);
-          }}
-          title="Selecciona con que pagar"
-          subtitle="Puedes escoger solo algunos y pagar lo restante con credito"
-        >
-          <MostrarSaldos
-            id_agente={agente.id_agente}
-            precio={details.precio}
-            onSubmit={handleSubmit}
-            loading={loading}
-          />
-        </Modal>
-      )}
-    </form>
+      {
+        open && (
+          <Modal
+            onClose={() => {
+              setOpen(false);
+            }}
+            title="Selecciona con que pagar"
+            subtitle="Puedes escoger solo algunos y pagar lo restante con credito"
+          >
+            <MostrarSaldos
+              id_agente={id_agente}
+              precio={precio}
+              reserva_Data={reservaData}
+              loading={loading}
+
+            />
+          </Modal>
+        )
+      }
+    </form >
   );
 }
