@@ -18,27 +18,17 @@ import Modal from "../organism/Modal";
 import { Aeropuerto, ExtraService, Proveedor } from "@/services/ExtraServices";
 import { isSomeNull } from "@/helpers/validator";
 import { Saldo } from "@/services/SaldoAFavor";
-import { VuelosServices } from "@/services/VuelosServices";
+import { ViajeAereo, VuelosServices } from "@/services/VuelosServices";
 import { ForSave, GuardadoRapido } from "./GuardadoRapido";
+import { Vuelo } from "./PageVuelos";
 
-const initialDetails = {
-  codigo: null,
-  viajero: null,
-  costo: null,
-  precio: null,
-  status: "confirmada",
-};
-
-export const PageVuelos = ({ agente }: { agente: Agente }) => {
-  const { showNotification } = useNotification();
-  const [state, dispatch] = useReducer(vuelosReducer, initialState);
-  const [details, setDetails] = useState<{
-    codigo: string | null;
-    viajero: ViajeroService | null;
-    costo: number | null;
-    precio: number | null;
-    status: string | null;
-  }>(initialDetails);
+export const EditarVuelos = ({
+  vuelo,
+  onSubmit,
+}: {
+  vuelo: ViajeAereo & { id_agente: string; nombre: string };
+  onSubmit: () => void;
+}) => {
   const [viajeros, setViajeros] = useState<ViajeroService[]>([]);
   const [aerolineas, setAerolineas] = useState<Proveedor[]>([]);
   const [aeropuertos, setAeropuertos] = useState<Aeropuerto[]>([]);
@@ -46,33 +36,81 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
   const [open, setOpen] = useState<boolean>(false);
   const [save, setSave] = useState<ForSave>(null);
 
+  const [state, dispatch] = useReducer(vuelosReducer, initialState);
+  const [before, dispatchBefore] = useReducer(vuelosReducer, initialState);
+
+  const { showNotification } = useNotification();
+
   const handleDelete = (index: number) =>
     dispatch({ type: "DELETE_VUELO", payload: index });
 
   const handleAddVuelo = () => dispatch({ type: "ADD_VUELO", payload: null });
 
+  const handleUpdateViaje = <K extends keyof ViajeAereoDetails>(
+    field: K,
+    value: ViajeAereoDetails[K]
+  ) => {
+    dispatch({
+      type: "UPDATE_VUELO",
+      payload: { field: field, value: value },
+    });
+  };
+
   const handleUpdateVuelo = <K extends keyof Vuelo>(
     index: number,
     field: K,
     value: Vuelo[K]
-  ) =>
+  ) => {
+    const newVuelos = [...state.vuelos];
+    newVuelos[index] = {
+      ...newVuelos[index],
+      [field]: value,
+    };
     dispatch({
       type: "UPDATE_VUELO",
-      payload: { index: index, field: field, value: value },
+      payload: { field: "vuelos", value: newVuelos },
     });
+  };
+
+  const verificar = (key: string, current: any, before: any) => {
+    if (typeof current !== typeof before) return { [key]: { current, before } };
+    if (
+      typeof current === "object" &&
+      !Array.isArray(current) &&
+      current !== null
+    ) {
+      let data = {};
+      let cambio = false;
+      Object.entries(current).forEach(([key2, value2]) => {
+        let propiedades = verificar(key2, value2, before[key2]);
+        if (propiedades) cambio = true;
+        data = { ...data, ...propiedades };
+      });
+      return cambio ? { [key]: { current: data, before } } : undefined;
+    }
+    if (Array.isArray(current)) {
+      let isCambio = current.map((current, index) =>
+        verificar(String(index), current, before[index])
+      );
+      isCambio = isCambio.some((item) => !!item);
+      return isCambio ? { [key]: { current, before } } : undefined;
+    }
+    if (current !== before) return { [key]: { current, before } };
+    return undefined;
+  };
 
   const onPagar = () => {
     try {
-      if (details.precio <= 0) throw new Error("El precio debe ser mayor a 0");
-      const res = state
+      if (state.precio <= 0) throw new Error("El precio debe ser mayor a 0");
+      const res = state.vuelos
         .map((vuelo) => isSomeNull(vuelo, ["comentarios"]))
         .some((bool) => !!bool);
-
-      if (res || isSomeNull(details)) {
+      if (res || isSomeNull(state)) {
         throw new Error("Parece ser que dejaste algunos campos vacios");
       }
       setOpen(true);
     } catch (error) {
+      console.log(error);
       showNotification("error", error.message || "Error al ir a pagar");
     }
   };
@@ -81,7 +119,6 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
     setAerolineas(aerolineas);
     setSave(null);
   };
-
   const handleGuardarAeropuerto = (aeropuertos: Aeropuerto[]) => {
     setAeropuertos(aeropuertos);
     setSave(null);
@@ -94,27 +131,51 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
   ) => {
     try {
       setLoading(true);
-      if (faltante != 0 && isPrimary)
+      if (faltante > 0 && isPrimary)
         throw new Error(
-          "No puedes pagar con este, por favor si quieres pagar con credito usa el otro boton"
+          "Al parecer aun falta por pagar, deberas usar credito para pagar"
         );
       if (faltante == 0 && !isPrimary)
         throw new Error(
           "Parece que ya pagaste todo con saldo a favor, ya no queda nada para pagar a credito"
         );
+      let data = {};
+      Object.entries(state).forEach(([key, value]) => {
+        let propiedades = verificar(key, value, before[key]);
+        if (!propiedades) return;
+        data = { ...data, ...propiedades };
+      });
+      const cambios = { logs: data, keys: Object.keys(data) };
+      if (cambios.keys.length == 0)
+        throw new Error("No se detectaron cambios a realizar");
 
-      const { message, data } = await VuelosServices.getInstance().createVuelo(
-        faltante,
+      const body = {
         saldos,
-        state.flat().filter((item): item is Vuelo => !Array.isArray(item)),
-        details,
-        agente
+        faltante,
+        cambios,
+        before,
+        current: state,
+        viaje_aereo: vuelo,
+      };
+
+      console.log(body);
+      const { message } = await VuelosServices.getInstance().editarViajeAereo(
+        body
       );
 
-      dispatch({ type: "RESET", payload: null });
-      setDetails(initialDetails);
-      setOpen(false);
+      // const { message, data } = await VuelosServices.getInstance().createVuelo(
+      //   faltante,
+      //   saldos,
+      //   state.flat().filter((item): item is Vuelo => !Array.isArray(item)),
+      //   details,
+      //   agente
+      // );
+      //
+
+      // dispatch({ type: "RESET", payload: null });
       showNotification("success", message);
+      setOpen(false);
+      onSubmit();
     } catch (error) {
       console.log(error);
       showNotification("error", error.message);
@@ -125,7 +186,7 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
 
   useEffect(() => {
     ViajerosService.getInstance()
-      .obtenerViajerosPorAgente(agente.id_agente)
+      .obtenerViajerosPorAgente(vuelo.id_agente)
       .then((res) => {
         setViajeros(res.data || []);
       })
@@ -146,11 +207,17 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
         setAeropuertos(res.data || []);
       })
       .catch((error) =>
-        showNotification(
-          "error",
-          error.message || "Error al obtener aeropuerto"
-        )
+        showNotification("error", error.message || "Error con aeropuerto")
       );
+    VuelosServices.getInstance()
+      .getVueloById(vuelo.id_viaje_aereo)
+      .then((response) => {
+        dispatch({ type: "LOAD_VUELO", payload: response.data });
+        dispatchBefore({ type: "LOAD_VUELO", payload: response.data });
+      })
+      .catch((error) => {
+        console.log(error);
+      });
   }, []);
 
   return (
@@ -163,12 +230,14 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
           title="Selecciona con que pagar"
           subtitle="Puedes escoger solo algunos y pagar lo restante con credito"
         >
-          <MostrarSaldos
-            id_agente={agente.id_agente}
-            precio={details.precio}
-            onSubmit={handleSubmit}
-            loading={loading}
-          />
+          <>
+            <MostrarSaldos
+              id_agente={vuelo.id_agente}
+              precio={Number(state.precio) - Number(before.precio)}
+              onSubmit={handleSubmit}
+              loading={loading}
+            />
+          </>
         </Modal>
       )}
       {save && (
@@ -192,16 +261,16 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
         <div className="w-full grid grid-cols-3 gap-4 p-2">
           <ComboBox2
             value={
-              details.viajero
+              state.viajero
                 ? {
-                    name: details.viajero.nombre_completo,
-                    content: details.viajero,
+                    name: state.viajero.nombre_completo,
+                    content: state.viajero,
                   }
                 : null
             }
             label="Viajero"
             onChange={(value: ComboBoxOption<ViajeroService>) => {
-              setDetails((prev) => ({ ...prev, viajero: value.content }));
+              handleUpdateViaje("viajero", value.content);
             }}
             options={viajeros.map((viajero) => ({
               name: viajero.nombre_completo,
@@ -209,24 +278,24 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
             }))}
           />
           <TextInput
-            value={details.codigo}
+            value={state.codigo}
             label="Código de reservación"
             placeholder="HJK1243..."
             onChange={(value: string) => {
-              setDetails((prev) => ({ ...prev, codigo: value }));
+              handleUpdateViaje("codigo", value);
             }}
           />
           <Dropdown
             label="Estado"
-            value={details.status}
+            value={state.status}
             onChange={(value: string) => {
-              setDetails((prev) => ({ ...prev, status: value }));
+              handleUpdateViaje("status", value);
             }}
             options={["confirmada", "cancelada"]}
           />
         </div>
         <div className="space-y-4 mx-4">
-          {state.map((item, index) => {
+          {state.vuelos.map((item, index) => {
             let vuelo: Vuelo = Array.isArray(item) ? item[0] : item;
             return (
               <div
@@ -404,16 +473,16 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
           <div className="grid grid-cols-3 gap-2 w-full">
             <NumberInput
               label="Costo proveedor"
-              value={details.costo}
+              value={state.costo}
               onChange={(value: string) =>
-                setDetails((prev) => ({ ...prev, costo: Number(value) }))
+                handleUpdateViaje("costo", Number(value))
               }
             />
             <NumberInput
               label="Precio a cliente"
-              value={details.precio}
+              value={state.precio}
               onChange={(value: string) =>
-                setDetails((prev) => ({ ...prev, precio: Number(value) }))
+                handleUpdateViaje("precio", Number(value))
               }
             />
             <div className="grid grid-cols-2 gap-2 pt-6">
@@ -421,7 +490,7 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
                 Agregar vuelo
               </Button>
               <Button icon={CheckCircle} onClick={onPagar}>
-                Ir a pagar
+                Continuar{" "}
               </Button>
             </div>
           </div>
@@ -431,63 +500,69 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
   );
 };
 
-export type Vuelo = {
-  tipo: "ida" | "vuelta" | "ida escala" | "vuelta escala" | null;
-  folio: string | null;
-  origen: Aeropuerto | null;
-  destino: Aeropuerto | null;
-  check_in: string | null;
-  check_out: string | null;
-  aerolinea: Proveedor | null;
-  asiento: string | null;
-  comentarios: string | null;
-  ubicacion_asiento: string | null;
-  tipo_tarifa: string | null;
-  id?: number;
+export type ViajeAereoDetails = {
+  codigo: string | null;
+  viajero: ViajeroService | null;
+  costo: number | null;
+  precio: number | null;
+  status: string | null;
+  vuelos: Vuelo[];
 };
 
-const initialState: Vuelo[] = [
-  {
-    tipo: null,
-    folio: null,
-    origen: null,
-    destino: null,
-    check_in: null,
-    check_out: null,
-    aerolinea: null,
-    asiento: null,
-    comentarios: "",
-    ubicacion_asiento: null,
-    tipo_tarifa: null,
-  },
-];
+const initialStateVuelo: Vuelo = {
+  tipo: null,
+  folio: null,
+  origen: null,
+  destino: null,
+  check_in: null,
+  check_out: null,
+  aerolinea: null,
+  asiento: null,
+  comentarios: "",
+  ubicacion_asiento: null,
+  tipo_tarifa: null,
+};
 
-type Action<K extends keyof Vuelo> =
+const initialState: ViajeAereoDetails = {
+  codigo: null,
+  viajero: null,
+  costo: null,
+  precio: null,
+  status: null,
+  vuelos: [initialStateVuelo],
+};
+
+type Action<K extends keyof ViajeAereoDetails> =
   | { type: "RESET"; payload: null }
   | { type: "ADD_VUELO"; payload: null }
   | { type: "DELETE_VUELO"; payload: number }
+  | { type: "LOAD_VUELO"; payload: ViajeAereoDetails }
   | {
       type: "UPDATE_VUELO";
       payload: {
-        index: number;
         field: K;
-        value: Vuelo[K];
+        value: ViajeAereoDetails[K];
       };
     };
 
-const vuelosReducer = (state: Vuelo[], action: Action<keyof Vuelo>) => {
+const vuelosReducer = (
+  state: ViajeAereoDetails,
+  action: Action<keyof ViajeAereoDetails>
+) => {
   switch (action.type) {
     case "ADD_VUELO":
-      return [...state, { ...initialState }];
+      return { ...state, vuelos: [...state.vuelos, initialStateVuelo] };
     case "DELETE_VUELO":
-      return state.filter((_, index: number) => index != action.payload);
-    case "UPDATE_VUELO":
-      const newState = [...state];
-      newState[action.payload.index] = {
-        ...newState[action.payload.index],
-        [action.payload.field]: action.payload.value,
+      return {
+        ...state,
+        vuelos: state.vuelos.filter(
+          (_, index: number) => index != action.payload
+        ),
       };
-      return newState;
+    case "UPDATE_VUELO":
+      return { ...state, [action.payload.field]: action.payload.value };
+    case "LOAD_VUELO":
+      return { ...action.payload };
     case "RESET":
       return initialState;
     default:

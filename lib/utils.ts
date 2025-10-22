@@ -51,3 +51,18 @@ export const downloadFile = async (url: string, filename: string) => {
     console.error("Error al descargar archivo:", error);
   }
 };
+export const getTodayDate = () => {
+  return new Date().toISOString().split("T")[0];
+};
+export const getTodayDateTime = () => {
+  const date = new Date();
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset()); // corrige zona horaria
+  return date.toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM
+};
+
+export const getDatePlusFiveYears = () => {
+  const date = new Date();
+  date.setFullYear(date.getFullYear() + 5);
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+  return date.toISOString().slice(0, 16);
+};

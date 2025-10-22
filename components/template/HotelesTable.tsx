@@ -1,34 +1,48 @@
-"use client";
+import {
+  calcularNoches,
+  copyToClipboard,
+  formatDate,
+  formatRoom,
+  getPaymentBadge,
+  getStageBadge,
+  getStatusBadge,
+  getWhoCreateBadge,
+} from "@/helpers/utils";
+import { fetchHoteles } from "@/services/hoteles";
+import { fetchSolicitudes2 } from "@/services/solicitudes";
+import { Solicitud2, TypeFilters } from "@/types";
+import { Building2, DollarSign, Loader, Pencil } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Table5 } from "../Table5";
+import Modal from "../organism/Modal";
+import { ReservationForm2 } from "../organism/FormReservation2";
+import { PaymentModal } from "../organism/PaymentProveedor/PaymentProveedor";
+import { ReservationForm } from "../organism/FormReservation";
 
-import React, { useState } from "react";
-import Filters from "@/components/Filters";
-import { TypeFilters } from "@/types";
-import { currentDate } from "@/lib/utils";
-import { HotelesTable } from "./HotelesTable";
-import { TabsList } from "../molecule/TabList";
-import { Building2, CarTaxiFront, Plane, Shuffle } from "lucide-react";
-import { VuelosTable } from "./VuelosTable";
-import { TextTransform } from "@/app/dashboard/facturas-pendientes/page";
+type SolicitudConPagos = Solicitud2 & {
+  pagos_asociados?: Array<{ monto?: string | number | null }>;
+};
 
-import { environment } from "@/lib/constants";
-import { Button } from "../ui/button";
-import { generateCuponForOperaciones } from "@/lib/qr-generator";
-import { ROUTES } from "@/constant/routes";
+const parseNum = (v: any) => (v == null ? 0 : Number(v));
 
-type TabsReservation = "hoteles" | "vuelos" | "renta autos" | "todos";
-
-function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
-  const [tab, setTab] = useState<TabsReservation>("todos");
-  const [searchTerm, setSearchTerm] = useState<string>("");
+export const HotelesTable = ({
+  searchTerm,
+  id_agente,
+  filters,
+  agente,
+}: {
+  searchTerm: string;
+  id_agente: string;
+  agente: Agente;
+  filters: TypeFilters;
+}) => {
+  const [allSolicitudes, setAllSolicitudes] = useState<SolicitudConPagos[]>([]);
+  const [selectedItem, setSelectedItem] = useState<Solicitud2 | null>(null);
   const [loading, setLoading] = useState(false);
   const [hoteles, setHoteles] = useState([]);
   const [modificar, setModificar] = useState(false);
   const [pagar, setPagar] = useState(false);
   const [createReserva, setCreateReserva] = useState(false);
-  const [filters, setFilters] = useState<TypeFilters>(
-    defaultFiltersSolicitudes
-  );
-
   const handleEdit = (item: Solicitud2) => {
     setSelectedItem(item);
     setModificar(true);
@@ -38,52 +52,17 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
     setPagar(true);
   };
 
-  // ---------- handleConteo: clasifica pagadas vs pendientes ----------
-  const { pagadas, pendientes } = useMemo(() => {
-    const acc = {
-      pagadas: [] as SolicitudConPagos[],
-      pendientes: [] as SolicitudConPagos[],
-    };
-
-    for (const s of allSolicitudes) {
-      const total = parseNum(s.total);
-      const sumaPagos = (s.pagos_asociados || []).reduce(
-        (sum, p) => sum + parseNum(p.monto),
-        0
-      );
-
-      if (sumaPagos + EPS > total) {
-        console.log("errores", sumaPagos);
-      }
-
-      // Igual (con tolerancia) o mayor -> pagadas; menor -> pendientes
-      if (sumaPagos + EPS >= total) {
-        acc.pagadas.push(s);
-      } else {
-        acc.pendientes.push(s);
-      }
-    }
-    return acc;
-  }, [allSolicitudes]);
-
-  // 1) Selección por vista (simplificada para mostrar solo 'reservas')
-  const solicitudesPorVista: SolicitudConPagos[] = useMemo(() => {
-    // Si la vista fuera dinámica, se usaría una variable de estado.
-    // Como ahora siempre es "reservas", devolvemos directamente `allSolicitudes`.
-    return allSolicitudes;
-  }, [allSolicitudes]);
-
   // 2) Filtrado por búsqueda
   const solicitudesFiltradas = useMemo(() => {
     const q = (searchTerm || "").toUpperCase();
-    return solicitudesPorVista.filter((item) => {
+    return allSolicitudes.filter((item) => {
       return (
         (item.hotel_reserva?.toUpperCase() || "").includes(q) ||
         (item.nombre_cliente?.toUpperCase() || "").includes(q) ||
         (item.nombre_viajero_reservacion?.toUpperCase() || "").includes(q)
       );
     });
-  }, [solicitudesPorVista, searchTerm]);
+  }, [allSolicitudes, searchTerm]);
 
   // 3) Mapeo a filas para Table5
   const formatedSolicitudes =
@@ -164,9 +143,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
     detalles_cliente: ({ item }) => (
       <span className="font-semibold text-sm flex items-center gap-2 w-full">
         <a
-
-
-          href={ROUTES.BOOKING.ID_SOLICITUD(item.id_solicitud)}
+          href={`https://www.viajaconmia.com/bookings/${item.id_solicitud}`}
           target="_blank"
           rel="noopener noreferrer"
           className="text-blue-600 hover:underline"
@@ -175,9 +152,9 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
         </a>
         <button
           onClick={() => {
-
-
-            copyToClipboard(ROUTES.BOOKING.ID_SOLICITUD(item.id_solicitud));
+            copyToClipboard(
+              `https://www.viajaconmia.com/bookings/${item.id_solicitud}`
+            );
           }}
           className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition"
         >
@@ -192,12 +169,13 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
     ),
     markup: ({ value }) => (
       <span
-        className={`font-semibold border p-2 rounded-full ${value == "Infinity"
-          ? "text-gray-700 bg-gray-100 border-gray-300 "
-          : value > 0
+        className={`font-semibold border p-2 rounded-full ${
+          value == "Infinity"
+            ? "text-gray-700 bg-gray-100 border-gray-300 "
+            : value > 0
             ? "text-green-600 bg-green-100 border-green-300"
             : "text-red-600 bg-red-100 border-red-300"
-          }`}
+        }`}
       >
         {value == "Infinity" ? "0%" : `${Number(value).toFixed(2)}%`}
       </span>
@@ -267,89 +245,95 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
   useEffect(() => {
     fetchHoteles((data) => setHoteles(data));
   }, []);
-
-  const labelVista = "Reservas"; // Hardcodeado para mantener el texto
-
   return (
-    <div className="h-fit">
-      <h1 className="text-3xl font-bold tracking-tight text-sky-950 my-4">
-        Reservas
-      </h1>
-
-      <div className="w-full mx-auto bg-white p-4 rounded-lg shadow">
-        <Filters
-          defaultFilters={filters}
-          onFilter={setFilters}
-          searchTerm={searchTerm}
-          setSearchTerm={setSearchTerm}
-        />
-
-        <div className="overflow-hidden">
-          {loading ? (
-            <Loader />
-          ) : (
-            <Table5<Solicitud2>
-              registros={formatedSolicitudes}
-              renderers={renderers}
-              defaultSort={defaultSort}
-              leyenda={`${labelVista}: Has filtrado ${formatedSolicitudes.length} reservas`}
-
-              customColumns={[
-                "id_cliente",
-                "cliente",
-                "creado",
-                "hotel",
-                "codigo_hotel",
-                "viajero",
-                "check_in",
-                "check_out",
-                "noches",
-                "tipo_cuarto",
-                "costo_proveedor",
-                "markup",
-                "precio_de_venta",
-                "metodo_de_pago",
-                "reservante",
-                "etapa_reservacion",
-                "estado",
-                "detalles_cliente",
-
-              ]}
-
-            >
-              {id_agente && (
-                <button
-                  onClick={() => setCreateReserva(true)}
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2"
-                >
-                  <Building2 className="w-4 h-4 mr-2" />
-                  Crear reserva
-                </button>
-              )}
-            </Table5>
-          )}
-        </div>
+    <>
+      <div className="">
+        {loading ? (
+          <Loader />
+        ) : (
+          <Table5<Solicitud2>
+            maxHeight="24rem"
+            registros={formatedSolicitudes}
+            renderers={renderers}
+            defaultSort={defaultSort}
+            leyenda={`Has filtrado ${formatedSolicitudes.length} reservas`}
+          >
+            {id_agente && (
+              <button
+                onClick={() => setCreateReserva(true)}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2"
+              >
+                <Building2 className="w-4 h-4 mr-2" />
+                Crear reserva
+              </button>
+            )}
+          </Table5>
+        )}
       </div>
-    </div>
-  );
-}
 
-const defaultFiltersSolicitudes: TypeFilters = {
-  codigo_reservacion: null,
-  client: null,
-  reservante: null,
-  reservationStage: null,
-  hotel: null,
-  status: "Confirmada",
-  startDate: currentDate(),
-  endDate: currentDate(),
-  traveler: null,
-  paymentMethod: null,
-  id_client: null,
-  statusPagoProveedor: null,
-  filterType: "Transaccion",
-  markup_end: null,
-  markup_start: null,
+      {selectedItem && modificar && (
+        <Modal
+          onClose={() => {
+            setModificar(false);
+            setSelectedItem(null);
+          }}
+          title="Editar reserva"
+          subtitle="Modifica los detalles de una reservación anteriormente procesada."
+        >
+          <ReservationForm2
+            hotels={hoteles}
+            solicitud={selectedItem}
+            onClose={() => {
+              setModificar(false);
+              setSelectedItem(null);
+              handleFetchSolicitudes();
+            }}
+            edicion={true}
+          />
+        </Modal>
+      )}
+
+      {selectedItem && pagar && (
+        <Modal
+          onClose={() => {
+            setPagar(false);
+            setSelectedItem(null);
+          }}
+          title="Pagar reserva al proveedor"
+        >
+          <PaymentModal reservation={selectedItem} />
+        </Modal>
+      )}
+
+      {createReserva && (
+        <Modal
+          onClose={() => {
+            setSelectedItem(null);
+            setCreateReserva(false);
+          }}
+          title="Crea una nueva reserva"
+          subtitle="Agrega los detalles de una nueva reserva"
+        >
+          <ReservationForm
+            solicitud={{
+              hotel: null,
+              check_in: null,
+              check_out: null,
+              id_agente: id_agente,
+              agente: agente,
+            }}
+            hotels={hoteles}
+            onClose={() => {
+              handleFetchSolicitudes();
+              setCreateReserva(false);
+            }}
+            edicion={false}
+            create={true}
+          />
+        </Modal>
+      )}
+    </>
+  );
 };
 
-export default App;
+const defaultSort = { key: "creado", sort: false };
