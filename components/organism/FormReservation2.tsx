@@ -43,10 +43,10 @@ export function ReservationForm2({
 }: ReservationFormProps) {
   let currentNoches = 0;
   let currentHotel;
-
+  console.log("raro", hotels);
   if (solicitud.check_in && solicitud.check_out) {
     currentHotel = hotels.filter(
-      (item) => item.nombre_hotel == solicitud?.hotel_reserva
+      (item) => item.id_hotel == solicitud?.id_hotel
     )[0];
     currentNoches = differenceInDays(
       parseISO(solicitud.check_out),
@@ -139,7 +139,6 @@ export function ReservationForm2({
       current: form.estado_reserva,
     },
     metadata: solicitud,
-    
   });
   const [loading, setLoading] = useState(false);
   const [travelers, setTravelers] = useState<Viajero[]>([]);
@@ -156,7 +155,7 @@ export function ReservationForm2({
   const [inicial, setInicial] = useState(true);
 
   useEffect(() => {
-    console.log("Edicion FORM", edicionForm,viajero);
+    console.log("Edicion FORM", edicionForm, viajero);
   }, [form]);
 
   useEffect(() => {
@@ -184,9 +183,9 @@ export function ReservationForm2({
     }
   }, []);
 
-  const viajero = travelers[0]
-  console.log("viajero", viajero)
-  console.log("solicitud", travelers)
+  const viajero = travelers[0];
+  console.log("viajero", viajero);
+  console.log("solicitud", travelers);
 
   const nights = differenceInDays(
     parseISO(form.check_out),
@@ -196,7 +195,7 @@ export function ReservationForm2({
   // ⬇️ NUEVO: factoriza la lógica de guardado para reusarla
   const saveReservation = async (): Promise<boolean> => {
     setLoading(true);
-    const data = { ...edicionForm, nuevo_incluye_desayuno, acompanantes, };
+    const data = { ...edicionForm, nuevo_incluye_desayuno, acompanantes };
     try {
       if (edicion) {
         await updateReserva(data, solicitud.id_booking);
@@ -212,7 +211,7 @@ export function ReservationForm2({
       setLoading(false);
     }
   };
-
+  console.log("HERE I AM", form);
   const roomPrice = Number(
     form.hotel.content.tipos_cuartos.find(
       (item) => item.nombre_tipo_cuarto == form.habitacion
@@ -802,15 +801,14 @@ export function ReservationForm2({
                 label={`Viajeros`}
                 sublabel={`(${solicitud.nombre_viajero_reservacion} - ${solicitud.id_viajero_reserva})`}
                 onChange={(value) => {
-                  
-                    setEdicionForm((prev) => ({
-                      ...prev,
-                      viajero: {
-                        before: form.viajero,
-                        current: value.content as Viajero,
-                      },
-                    }));
-                  
+                  setEdicionForm((prev) => ({
+                    ...prev,
+                    viajero: {
+                      before: form.viajero,
+                      current: value.content as Viajero,
+                    },
+                  }));
+
                   setForm((prev) => ({
                     ...prev,
                     viajero: value.content as Viajero,
