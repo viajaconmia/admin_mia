@@ -6,6 +6,7 @@ import { DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { updateReserva } from "@/services/reservas";
+import { MostrarSaldos } from "@/components/template/MostrarSaldos";
 import { isValid } from "date-fns";
 import {
   CheckboxInput,
@@ -63,6 +64,7 @@ export function ReservationForm2({
   );
   const [acompanantes, setAcompanantes] = useState<Viajero[]>([]);
   const [cobrar, setCobrar] = useState<boolean | null>(null);
+  const [open, setOpen] = useState<boolean>(false);
   const [form, setForm] = useState<ReservaForm>({
     hotel: {
       name: solicitud.hotel_reserva || "",
@@ -429,7 +431,8 @@ export function ReservationForm2({
     // console.log("Confirmación de precio:", ctx);
 
     if (ok) {
-      setCobrar(false); // cierra el modal de precio
+      // setCobrar(false);
+      setOpen(false)// cierra el modal de precio
       onClose(); // cierra el formulario si así lo quieres
     }
   };
@@ -1089,7 +1092,8 @@ export function ReservationForm2({
         <Button
           type="button"
           variant="secondary"
-          onClick={() => setCobrar(true)}
+          // setCobrar es el otro
+          onClick={() => setOpen(true)}
         >
           ¿Quieres modificar el precio al recomendado u otro?
         </Button>
@@ -1118,6 +1122,23 @@ export function ReservationForm2({
                 : Number(solicitud.total) || 0
             }
           ></EditPrecioVenta>
+        </Modal>
+      )}
+
+      {open && (
+        <Modal
+          onClose={() => {
+            setOpen(false);
+          }}
+          title="Selecciona con que pagar"
+          subtitle="Puedes escoger solo algunos y pagar lo restante con credito"
+        >
+          <MostrarSaldos
+            id_agente={agente.id_agente}
+            precio={details.precio}
+            onSubmit={handleSubmit}
+            loading={loading}
+          />
         </Modal>
       )}
     </form>
