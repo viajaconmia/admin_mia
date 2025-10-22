@@ -355,7 +355,7 @@ export async function generateSecureQRPaymentPDF(
   );
 
   y_contact += STYLES.SPACING.LINE;
-
+ 
   // --- Footer ---
   // Este se mantiene al final de la página, sin importar la altura del contenido
   doc.setFontSize(STYLES.FONTS.SMALL);

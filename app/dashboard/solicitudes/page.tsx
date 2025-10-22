@@ -155,13 +155,12 @@ function App() {
     ),
     markup: (props: any) => (
       <span
-        className={`font-semibold border p-2 rounded-full ${
-          props.value == "Infinity"
-            ? "text-gray-700 bg-gray-100 border-gray-300 "
-            : props.value > 0
+        className={`font-semibold border p-2 rounded-full ${props.value == "Infinity"
+          ? "text-gray-700 bg-gray-100 border-gray-300 "
+          : props.value > 0
             ? "text-green-600 bg-green-100 border-green-300"
             : "text-red-600 bg-red-100 border-red-300"
-        }`}
+          }`}
       >
         {props.value == "Infinity" ? <>0%</> : <>{props.value.toFixed(2)}%</>}
       </span>
