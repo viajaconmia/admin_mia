@@ -119,4 +119,5 @@ export type Factura = {
   nombre_agente?: string | null;
   tiene_credito_consolidado?: boolean;
   id_empresa?: string | null;
+  rfc?:string|null
 }

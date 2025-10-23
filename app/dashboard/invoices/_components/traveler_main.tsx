@@ -9,10 +9,10 @@ import { TravelerDialog } from "../_components/traveler_dialog";
 import { Factura } from "@/types/_types";
 import { fetchFacturas } from "@/services/facturas";
 import { TypeFilters } from "@/types";
-const defaultFiltersFacturas : TypeFilters = {
+const defaultFiltersFacturas: TypeFilters = {
   estatusFactura: "Confirmada",
   id_factura: null,
-  
+
 }
 export function TravelersPage() {
   const [searchTerm, setSearchTerm] = useState<string>("");
@@ -40,9 +40,9 @@ export function TravelersPage() {
       setIsLoading(false);
     });
   };
-useEffect(() => {
-  handleFetchFacturas(defaultFiltersFacturas);
-}, []);
+  useEffect(() => {
+    handleFetchFacturas(defaultFiltersFacturas);
+  }, []);
   useEffect(() => {
 
     if (isFilterActive) {
@@ -68,10 +68,10 @@ useEffect(() => {
         </div>
       </Card>
 
-     <TravelerDialog
+      <TravelerDialog
         open={isDialogOpen}
         onOpenChange={setIsDialogOpen}
-      /> 
+      />
     </div>
   );
 }

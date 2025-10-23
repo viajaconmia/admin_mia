@@ -4,6 +4,7 @@ import { PagosService } from "@/services/PagosService";
 import { SaldosService } from "@/services/SaldosService";
 import { Item, Saldo, TypesSaldoWallet } from "@/types/database_tables";
 import { useCallback, useState } from "react";
+import { ReservaForm } from "@/types";
 
 export const usePagos = () => {
   const [loading, setLoading] = useState<boolean>(false);
@@ -52,6 +53,8 @@ export const usePagos = () => {
       id_hospedaje: string;
       id_booking: string;
       precio_actualizado: string;
+      bandera: number;  // Agregar bandera
+      form: ReservaForm;
     }) => {
       setLoading(true);
       try {
@@ -78,6 +81,8 @@ export const usePagos = () => {
       id_hospedaje: string;
       precio_actualizado: number;
       id_pago: string;
+      bandera: number;  // Agregar bandera
+      form: ReservaForm;
     }) => {
       setLoading(true);
       try {
@@ -103,14 +108,14 @@ export const usePagos = () => {
       precioActualizado: number;
       id_booking: string;
       id_servicio: string;
+      bandera: number;  // Bandera aquí
+      form: ReservaForm;  // Formulario aquí
     }) => {
       setLoading(true);
       try {
         return await PagosService.getInstance().ajustePrecioConSaldo(body);
       } catch (error) {
-        console.error(
-          error.response || error.message || "Error desconocido en la función"
-        );
+        console.error(error.response || error.message || "Error desconocido en la función");
         throw error;
       } finally {
         setLoading(false);
@@ -118,6 +123,7 @@ export const usePagos = () => {
     },
     []
   );
+
   const actualizarYRegresarCredito = useCallback(
     async (body: {
       id_agente: string;
@@ -126,6 +132,8 @@ export const usePagos = () => {
       id_booking: string;
       id_hospedaje: string;
       precio_actualizado: number;
+      bandera: number;  // Agregar bandera
+      form: ReservaForm;
     }) => {
       setLoading(true);
       try {

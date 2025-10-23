@@ -24,6 +24,12 @@ import { Table5 } from "@/components/Table5";
 import { ReservationForm2 } from "@/components/organism/FormReservation2";
 import { ReservationForm } from "@/components/organism/FormReservation";
 import { useResponsiveColumns } from "@/hooks/useResponsiveColumns";
+import { TextTransform } from "@/app/dashboard/facturas-pendientes/page";
+
+import { environment } from "@/lib/constants";
+import { Button } from "../ui/button";
+import { generateCuponForOperaciones } from "@/lib/qr-generator";
+import { ROUTES } from "@/constant/routes";
 
 type Vista = "reservas" | "pagadas" | "pendientes";
 
@@ -45,9 +51,9 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
   const [modificar, setModificar] = useState(false);
   const [pagar, setPagar] = useState(false);
   const [createReserva, setCreateReserva] = useState(false);
-  const [filters, setFilters] = useState<TypeFilters>(defaultFiltersSolicitudes);
-
-
+  const [filters, setFilters] = useState<TypeFilters>(
+    defaultFiltersSolicitudes
+  );
 
   const handleEdit = (item: Solicitud2) => {
     setSelectedItem(item);
@@ -60,7 +66,10 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
 
   // ---------- handleConteo: clasifica pagadas vs pendientes ----------
   const { pagadas, pendientes } = useMemo(() => {
-    const acc = { pagadas: [] as SolicitudConPagos[], pendientes: [] as SolicitudConPagos[] };
+    const acc = {
+      pagadas: [] as SolicitudConPagos[],
+      pendientes: [] as SolicitudConPagos[],
+    };
 
     for (const s of allSolicitudes) {
       const total = parseNum(s.total);
@@ -69,9 +78,8 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
         0
       );
 
-
       if (sumaPagos + EPS > total) {
-        console.log("errores", sumaPagos)
+        console.log("errores", sumaPagos);
       }
 
       // Igual (con tolerancia) o mayor -> pagadas; menor -> pendientes
@@ -80,7 +88,6 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
       } else {
         acc.pendientes.push(s);
       }
-
     }
     return acc;
   }, [allSolicitudes]);
@@ -89,9 +96,8 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
   const solicitudesPorVista: SolicitudConPagos[] = useMemo(() => {
     // Si la vista fuera dinámica, se usaría una variable de estado.
     // Como ahora siempre es "reservas", devolvemos directamente `allSolicitudes`.
-    return allSolicitudes; 
+    return allSolicitudes;
   }, [allSolicitudes]);
-
 
   // 2) Filtrado por búsqueda
   const solicitudesFiltradas = useMemo(() => {
@@ -126,18 +132,17 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
         check_in: item.check_in,
         check_out: item.check_out,
         noches: calcularNoches(item.check_in, item.check_out),
-        tipo_cuarto: item.tipo_cuarto ? formatRoom(item.tipo_cuarto) : formatRoom(item.room),
+        tipo_cuarto: item.tipo_cuarto
+          ? formatRoom(item.tipo_cuarto)
+          : formatRoom(item.room),
         costo_proveedor: Number(item.costo_total) || 0,
         markup:
           ((Number(item.total || 0) - Number(item.costo_total || 0)) /
             Number(item.total || 0)) *
           100,
         precio_de_venta: parseFloat(item.total),
-        // MOSTRAR EN TODAS LAS VISTAS, no solo en pendientes
-        falta_pagar: faltaPagar,
         metodo_de_pago: item.metodo_pago_dinamico,
-        reservante:
-          item.quien_reservó === "CREADA POR OPERACIONES" ? "Operaciones" : "Cliente",
+        reservante: item.origen,
         etapa_reservacion: item.etapa_reservacion,
         estado_pago_proveedor: "",
         estado_factura_proveedor: "",
@@ -173,20 +178,17 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
       }
 
       return (
-        <span
-          className={`font-semibold ${colorClass}`}
-          title={titleText}
-        >
+        <span className={`font-semibold ${colorClass}`} title={titleText}>
           ${Number(value || 0).toFixed(2)}
         </span>
       );
     },
 
-
     detalles_cliente: ({ item }) => (
       <span className="font-semibold text-sm flex items-center gap-2 w-full">
         <a
-          href={`https://www.viajaconmia.com/bookings/${item.id_solicitud}`}
+
+          href={ROUTES.BOOKING.ID_SOLICITUD(item.id_solicitud)}
           target="_blank"
           rel="noopener noreferrer"
           className="text-blue-600 hover:underline"
@@ -195,11 +197,9 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
         </a>
         <button
           onClick={() => {
-            copyToClipboard(
-              `https://www.viajaconmia.com/bookings/${item.id_solicitud}`
-            );
-          }}
 
+            copyToClipboard(ROUTES.BOOKING.ID_SOLICITUD(item.id_solicitud));
+          }}
           className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition"
         >
           Copiar
@@ -207,7 +207,9 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
       </span>
     ),
     id_cliente: ({ value }) => (
-      <span className="font-semibold text-sm">{value ? String(value).slice(0, 11) : ""}</span>
+      <span className="font-semibold text-sm">
+        {value ? String(value).slice(0, 11) : ""}
+      </span>
     ),
     markup: ({ value }) => (
       <span
@@ -221,7 +223,10 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
         {value == "Infinity" ? "0%" : `${Number(value).toFixed(2)}%`}
       </span>
     ),
-    codigo_hotel: ({ value }) => <span className="font-semibold">{value}</span>,
+    codigo_hotel: ({ value }: { value: string }) => (
+      <TextTransform value={value} />
+    ),
+
     editar: ({ item }) => (
       <button
         onClick={() => handleEdit(item)}
@@ -244,11 +249,17 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
         <span className="text-gray-400 text-xs">—</span>
       ),
     estado: ({ value }) => <span title={value}>{getStatusBadge(value)}</span>,
-    precio_de_venta: ({ value }) => <span title={value}>${Number(value || 0).toFixed(2)}</span>,
-    costo_proveedor: ({ value }) => <span title={value}>${Number(value || 0).toFixed(2)}</span>,
-    hotel: ({ value }) => <span className="font-medium " title={value}>{value}</span>,
-    viajero: ({ value }) => <span title={value}>{value}</span>,
-    tipo_cuarto: ({ value }) => <span title={value}>{value}</span>,
+    precio_de_venta: ({ value }) => (
+      <span title={value}>${Number(value || 0).toFixed(2)}</span>
+    ),
+    costo_proveedor: ({ value }) => (
+      <span title={value}>${Number(value || 0).toFixed(2)}</span>
+    ),
+    hotel: ({ value }: { value: string }) => <TextTransform value={value} />,
+    viajero: ({ value }: { value: string }) => <TextTransform value={value} />,
+    tipo_cuarto: ({ value }: { value: string }) => (
+      <TextTransform value={value} />
+    ),
     check_in: ({ value }) => <span title={value}>{formatDate(value)}</span>,
     check_out: ({ value }) => <span title={value}>{formatDate(value)}</span>,
     creado: ({ value }) => <span title={value}>{formatDate(value)}</span>,
@@ -258,7 +269,9 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
   const handleFetchSolicitudes = () => {
     setLoading(true);
     const payload = Object.entries(filters)
-      .filter(([, value]) => value !== undefined && value !== null && value !== "")
+      .filter(
+        ([, value]) => value !== undefined && value !== null && value !== ""
+      )
       .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {} as any);
 
     if (id_agente) payload["id_client"] = id_agente;
@@ -278,11 +291,14 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
   }, []);
 
   const labelVista = "Reservas"; // Hardcodeado para mantener el texto
+  console.log("inroivnoribv", solicitudesFiltradas);
 
-
+  console.log("cambios", selectedItem);
   return (
     <div className="h-fit">
-      <h1 className="text-3xl font-bold tracking-tight text-sky-950 my-4">Reservas</h1>
+      <h1 className="text-3xl font-bold tracking-tight text-sky-950 my-4">
+        Reservas
+      </h1>
 
       <div className="w-full mx-auto bg-white p-4 rounded-lg shadow">
         <Filters
@@ -291,7 +307,6 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
         />
-
 
         <div className="overflow-hidden">
           {loading ? (
@@ -302,6 +317,27 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
               renderers={renderers}
               defaultSort={defaultSort}
               leyenda={`${labelVista}: Has filtrado ${formatedSolicitudes.length} reservas`}
+              customColumns={[
+                "id_cliente",
+                "cliente",
+                "creado",
+                "hotel",
+                "codigo_hotel",
+                "viajero",
+                "check_in",
+                "check_out",
+                "noches",
+                "tipo_cuarto",
+                "costo_proveedor",
+                "markup",
+                "precio_de_venta",
+                "metodo_de_pago",
+                "reservante",
+                "etapa_reservacion",
+                "estado",
+                "detalles_cliente",
+
+              ]}
             >
               {id_agente && (
                 <button

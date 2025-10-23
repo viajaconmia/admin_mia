@@ -1,7 +1,9 @@
-import { ArrowDown, Columns } from "lucide-react";
+import { ArrowDown, Columns, FileDown } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { Loader } from "../atom/Loader";
 import React from "react";
+import { exportToCSV } from "@/helpers/utils";
+
 
 
 type Registro = {
@@ -23,7 +25,9 @@ interface TableProps<T> {
   children?: React.ReactNode;
   maxHeight?: string;
   customColumns?: string[];
-  filasExpandibles?: { [id: string]: boolean }; // NUEVO
+  filasExpandibles?: { [id: string]: boolean };
+  expandedRenderer?: (row: Registro) => React.ReactNode; // NUEVO
+
 }
 
 export const Table4 = <T,>({
@@ -33,7 +37,7 @@ export const Table4 = <T,>({
   leyenda = "",
   children,
   maxHeight = "28rem",
-  customColumns, filasExpandibles
+  customColumns, filasExpandibles, expandedRenderer
 
 }: TableProps<T>) => {
   const [displayData, setDisplayData] = useState<Registro[]>(registros);
@@ -110,12 +114,28 @@ export const Table4 = <T,>({
   return (
     <div className="relative w-full h-full flex flex-col">
       {/* Encabezado y controles */}
-      <div className="flex w-full justify-between mb-2 shrink-0">
+      <div className="    sticky top-0 z-40 bg-white/95 supports-[backdrop-filter]:bg-white/80 backdrop-blur
+    border-b border-gray-200
+    flex w-full justify-between items-center
+    py-2 px-2 mb-2
+  ">
         <div className="flex flex-col justify-end">
           <span className="text-gray-600 text-sm font-normal ml-1">{leyenda}</span>
         </div>
         <div className="flex gap-4 items-center">
           {children}
+          <button
+            onClick={() => {
+              exportToCSV(
+                displayData.map(({ item, ...rest }) => rest),
+                "Solicitudes.csv"
+              );
+            }}
+            className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2"
+          >
+            <FileDown className="w-4 h-4 mr-2" />
+            Exportar CSV
+          </button>
           <div className="relative">
             <button
               className="inline-flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 transition"
@@ -156,6 +176,7 @@ export const Table4 = <T,>({
               </div>
             )}
           </div>
+
         </div>
       </div>
 
@@ -192,7 +213,7 @@ export const Table4 = <T,>({
             </thead>
             <tbody className="bg-white divide-y divide-gray-100">
               {displayData.map((item, index) => {
-                const isExpanded = filasExpandibles?.[item.id];
+                const isExpanded = filasExpandibles?.[item.detalles?.reservaId] || filasExpandibles?.[item.id];
 
                 return (
                   <React.Fragment key={item.id !== undefined ? item.id : index}>
@@ -248,6 +269,21 @@ export const Table4 = <T,>({
                               <p className="text-gray-500 text-xs italic">Sin saldos facturables.</p>
                             )}
                           </div>
+                        </td>
+                      </tr>
+                    )}
+                    {/* fila expandida -> usa expandedRenderer si existe */}
+                    {isExpanded && (
+                      <tr className="bg-gray-100">
+                        <td colSpan={columnKeys.length}>
+                          {expandedRenderer ? (
+                            expandedRenderer(item) // ← AQUÍ metes tu tabla de items/noches
+                          ) : (
+                            // fallback (tu contenido anterior si quieres conservarlo)
+                            <div className="p-4 text-xs text-gray-600">
+                              Sin renderer expandido.
+                            </div>
+                          )}
                         </td>
                       </tr>
                     )}

@@ -28,12 +28,24 @@ export const NotificationProvider = ({
     message: "",
     show: false,
   });
+  const [idTime, setIdTime] = useState<NodeJS.Timeout | null>(null);
 
   const showNotification = (type: NotificationType, message: string) => {
-    setNotification({ type, message, show: true });
-    setTimeout(() => {
+    if (idTime) {
+      clearTimeout(idTime);
+    }
+    setNotification({ type: notification.type, message: "", show: false });
+    setTimeout(
+      () => {
+        setNotification({ type, message, show: true });
+      },
+      idTime ? 200 : 0
+    );
+    const id = setTimeout(() => {
       setNotification((prev) => ({ ...prev, show: false }));
+      setIdTime(null);
     }, 7000);
+    setIdTime(id);
   };
   const hideNotification = () => {
     setNotification((prev) => ({ ...prev, show: false }));

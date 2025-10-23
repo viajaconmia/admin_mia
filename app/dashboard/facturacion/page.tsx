@@ -1,4 +1,5 @@
-import { ReservationsMain } from "./_components/reservations-main";
+//import { ReservationsMain } from "./_components/reservations-main";
+import TablaReservation from "@/app/dashboard/facturacion/_components/reservationnew";
 import { API_KEY } from "@/lib/constants";
 import { Suspense } from "react";
 
@@ -12,7 +13,7 @@ export default async function ReservationsPage() {
           </>
         }
       >
-        <ReservationsMain />;
+        <TablaReservation />;
       </Suspense>
     );
   } catch (error) {
