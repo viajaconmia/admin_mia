@@ -17,6 +17,34 @@ export function currentDate() {
   return `${año}-${mes}-${dia}`;
 }
 
+export  const verificar = (key: string, current: any, before: any) => {
+    if (typeof current !== typeof before) return { [key]: { current, before } };
+    if (
+      typeof current === "object" &&
+      !Array.isArray(current) &&
+      current !== null
+    ) {
+      let data = {};
+      let cambio = false;
+      Object.entries(current).forEach(([key2, value2]) => {
+        let propiedades = verificar(key2, value2, before[key2]);
+        if (propiedades) cambio = true;
+        data = { ...data, ...propiedades };
+      });
+      return cambio ? { [key]: { current: data, before } } : undefined;
+    }
+    if (Array.isArray(current)) {
+      let isCambio = current.map((current, index) =>
+        verificar(String(index), current, before[index])
+      );
+      isCambio = isCambio.some((item) => !!item);
+      return isCambio ? { [key]: { current, before } } : undefined;
+    }
+    if (current !== before) return { [key]: { current, before } };
+    return undefined;
+  };
+
+
 export function updateRoom(room: string) {
   let updated;
   if (room) {

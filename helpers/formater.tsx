@@ -68,9 +68,8 @@ export function formatNumberWithCommas(
   // Armar el número completo
   const formatted =
     decimalPart !== undefined
-      ? `${formattedInteger}.${
-          decimalPart.length == 2 ? decimalPart : `${decimalPart}0`
-        }`
+      ? `${formattedInteger}.${decimalPart.length == 2 ? decimalPart : `${decimalPart}0`
+      }`
       : `${formattedInteger}.00`;
 
   // Volver a agregar el signo negativo si era negativo
@@ -86,5 +85,33 @@ export const formatDate = (dateString: string) => {
     year: "numeric",
   });
 };
+
+// ✅ Recomendado: usa Intl (respeta es-MX: 1,234,567.89)
+export const formatNumber = (
+  value: number | string,
+  opts: Intl.NumberFormatOptions = {}
+) => {
+  if (value === null || value === undefined || value === "") return "";
+  const n = typeof value === "string" ? Number(value) : value;
+  if (Number.isNaN(n)) return String(value);
+  return new Intl.NumberFormat("es-MX", { useGrouping: true, ...opts }).format(n);
+};
+
+export const formatMoneyMXN = (value: number | string) =>
+  formatNumber(value, { style: "currency", currency: "MXN", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/* ⚠️ Alternativa si quieres COMAS sí o sí (p. ej. formato fijo "###,###.##"):
+   Mantiene signo y decimales tal cual.
+*/
+export const withCommas = (value: number | string) => {
+  if (value === null || value === undefined || value === "") return "";
+  const s = String(value);
+  const neg = s.startsWith("-") ? "-" : "";
+  const [intRaw, dec = ""] = s.replace(/[^0-9.\-]/g, "").split(".");
+  const int = intRaw.replace("-", "");
+  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return dec ? `${neg}${grouped}.${dec}` : `${neg}${grouped}`;
+};
+
 
 export const redondear = (number: number) => Number(number.toFixed(2));

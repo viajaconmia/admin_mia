@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { updateReserva } from "@/services/reservas";
 import { MostrarSaldos } from "@/components/template/MostrarSaldos";
 import { isValid } from "date-fns";
+import { EnvioPago, SubmitPayload } from "@/components/template/MostrarSaldos"
 import {
   CheckboxInput,
   ComboBox,
@@ -71,6 +72,7 @@ export function ReservationForm2({
   const [reservaData, setReservaData] = useState<any>(null)
   const [precio, setPrecio] = useState<number>(0)
   const [open, setOpen] = useState<boolean>(false);
+  const [pagoSeleccion, setPagoSeleccion] = useState<any>(null);
   const [form, setForm] = useState<ReservaForm>({
     hotel: {
       name: solicitud.hotel_reserva || "",
@@ -170,6 +172,43 @@ export function ReservationForm2({
     setPrecio(Number(edicionForm.metadata.costo_total) || 0)
   }, [form]);
 
+  const handleSaldosSubmit = async (saldos, restante, usado) => {
+    const data = { ...edicionForm, nuevo_incluye_desayuno, acompanantes, saldos, restante, usado };
+    console.log("Saldos para pagar:", saldos, restante, usado)
+    setPagoSeleccion({ saldos, restante, usado });
+    await updateReserva(data, solicitud.id_booking);
+    console.log("infoenviada", data)
+    // handleSubmit(reservaData);
+    setOpen(false);
+    // 1) Ensambla la base actual de la reserva (estado más reciente)
+    // const baseReserva = {
+    //   ...edicionForm,
+    //   nuevo_incluye_desayuno,
+    //   acompanantes,
+    //   id_booking: solicitud.id_booking,
+    // };
+
+    // 2) Arma el objeto final que quieres enviar al backend
+    //    Incluye el flujo/mode (editar/normal), el pago y, si aplica, la reserva del payload
+    // const dataCompleta: any = {
+    //   ...baseReserva,
+    //   flujo: payload.modo,     // "editar" | "normal"
+    //   pago: payload.pago,      // { saldos, faltante, isPrimary }
+    // };
+
+    // if (payload.modo === "editar") {
+    //   dataCompleta.reserva = payload.reserva; // Solo si existe
+    // }
+
+    // 3) Guarda en tu estado para que quede listo para enviarse
+    // setReservaData(dataCompleta);
+
+    // 4) (Opcional) Aquí puedes disparar la llamada al backend si quieres enviarlo ya:
+    //   - Si ya guardaste la edición: puedes mandar el pago
+    //   - Si necesitas cerrar modal o navegar, hazlo aquí
+    // console.log("DATA LISTA PARA ENVIAR:", dataCompleta);
+    // Si quieres cerrar el modal al confirmar:
+  };
 
   useEffect(() => {
     try {
@@ -203,20 +242,21 @@ export function ReservationForm2({
   const handleData = () => {
     const data = { ...edicionForm, nuevo_incluye_desayuno, acompanantes, };
     setReservaData(data);
+    setOpen(true);
     console.log("reserfa", reservaData)
   }
 
   // ⬇️ NUEVO: factoriza la lógica de guardado para reusarla
   const saveReservation = async (): Promise<boolean> => {
     setLoading(true);
-    const data = { ...edicionForm, nuevo_incluye_desayuno, acompanantes, };
+    const data = { ...edicionForm, nuevo_incluye_desayuno, acompanantes };
     try {
       if (edicion) {
         await updateReserva(data, solicitud.id_booking);
       }
-      const data2 = { ...data, id_booking: solicitud.id_booking };
+      const data2 = { ...data, id_booking: solicitud.id_booking, saldos: pagoSeleccion };
       setReservaData(data2);
-      console.log("reserfa", reservaData)
+      console.log("reserfa34344", reservaData)
       // Usa tu notificador si quieres; dejé alert por conservar tu flujo
       alert("Reserva actualizada correctamente");
       return true;
@@ -428,7 +468,6 @@ export function ReservationForm2({
   // };
 
   const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
     await saveReservation();
     console.log("reserva", form)
     // onClose(); // si deseas cerrar siempre al guardar manual, descomenta
@@ -917,6 +956,11 @@ export function ReservationForm2({
             </div>
           </div>
           <div className="grid md:grid-cols-3">
+            <NumberInput
+              label="Precio a cliente"
+              value={precio}
+              onChange={(value: string) => setPrecio(Number(value))}
+            />
             <Button
               className="md:col-start-3"
               type="button"
@@ -1083,7 +1127,7 @@ export function ReservationForm2({
                     <span>Ganancia:</span>
                     <span className="text-gray-900">
                       ${(form.venta.total - form.proveedor.total).toFixed(2)}
-                    </span>
+                      </span>
                   </div> */}
                   <div className="flex justify-between border-t pt-2 mt-2 font-medium text-gray-700">
                     <span>Markup:</span>
@@ -1096,17 +1140,12 @@ export function ReservationForm2({
             )}
           </div>
           <div>
-            <NumberInput
-              label="Precio a cliente"
-              value={precio}
-              onChange={(value: string) => setPrecio(Number(value))}
-            />
             <Button
               type="button"
               icon={CheckCircle}
               onClick={() => {
                 handleData();   // guarda los datos
-                setOpen(true);  // abre el modal o lo que sea
+                // abre el modal o lo que sea
               }}
             >
               Ir a pagar
@@ -1141,7 +1180,6 @@ export function ReservationForm2({
           </Modal>
         )
       }
-
       {
         open && (
           <Modal
@@ -1152,15 +1190,16 @@ export function ReservationForm2({
             subtitle="Puedes escoger solo algunos y pagar lo restante con credito"
           >
             <MostrarSaldos
-              id_agente={id_agente}
+              id_agente={id_agente as string}
               precio={precio}
-              reserva_Data={reservaData}
+              reserva_Data={reservaData}   // si ya guardaste antes, se manda; si no, irá undefined
               loading={loading}
-
+              onSubmit={handleSaldosSubmit}
             />
           </Modal>
         )
       }
+
     </form >
   );
 }

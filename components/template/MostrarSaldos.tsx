@@ -103,7 +103,7 @@ export const MostrarSaldos: React.FC<PagarModalProps> = ({
   );
 
   return (
-    <div className="flex-1 overflow-y-auto p-2 space-y-4">
+    <div className="flex-1 overflow-y-auto p-2 space-y-4 h-fit">
       <TableFromMia
         maxHeight="200px"
         data={saldosFavor}

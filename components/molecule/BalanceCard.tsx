@@ -53,9 +53,8 @@ export const BalanceCard: React.FC<BalanceCardProps> = ({
         <div className="flex justify-between items-center">
           <span className="text-gray-600">Saldo restante</span>
           <span
-            className={`font-semibold ${
-              saldoRestante >= 0 ? "text-green-600" : "text-red-600"
-            }`}
+            className={`font-semibold ${saldoRestante >= 0 ? "text-green-600" : "text-red-600"
+              }`}
           >
             ${formatNumberWithCommas(saldoRestante)}
           </span>
@@ -78,6 +77,7 @@ export const BalanceCard: React.FC<BalanceCardProps> = ({
                 className="w-full"
                 onClick={onSecondary}
                 disabled={cubreTodo || loading}
+                type="button"
                 variant="secondary"
               >
                 Completar pago con credito
@@ -86,6 +86,7 @@ export const BalanceCard: React.FC<BalanceCardProps> = ({
             {onConfirm && (
               <Button
                 className="w-full"
+                type="button"
                 onClick={onConfirm}
                 disabled={!cubreTodo || loading}
               >
@@ -95,7 +96,9 @@ export const BalanceCard: React.FC<BalanceCardProps> = ({
           </>
         ) : (
           <>
-            <Button className="w-full" onClick={onConfirm}>
+            <Button className="w-full"
+              type="button"
+              onClick={onConfirm}>
               Continuar
             </Button>
           </>

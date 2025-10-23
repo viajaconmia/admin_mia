@@ -9,6 +9,7 @@ import { URL, API_KEY } from "@/lib/constants/index";
 import useApi from "@/hooks/useApi";
 import { DescargaFactura, Root } from "@/types/billing";
 import { ChevronDownIcon, ChevronUpIcon, Download } from "lucide-react";
+import { formatNumber, formatMoneyMXN, withCommas } from "@/helpers/formater";
 
 // --- Helpers de descarga robusta ---
 const normalizeBase64 = (b64?: string | null) => {
@@ -1092,17 +1093,17 @@ export const FacturacionModal: React.FC<{
                             <p className="text-gray-600">
                               Traslados:
                               <br />
-                              IVA: 002, Base: ${totalAmount.toFixed(2)}, Tasa:
+                              IVA: 002, Base: ${withCommas(totalAmount.toFixed(2))}, Tasa:
                               0.160000, Importe: $
-                              {(totalAmount * 0.16).toFixed(2)}
+                              {withCommas((totalAmount * 0.16).toFixed(2))}
                             </p>
                           </div>
                         </td>
                         <td className="px-3 py-2 text-sm border-b">
-                          ${totalAmount.toFixed(2)}
+                          {formatMoneyMXN(totalAmount.toFixed(2))}
                         </td>
                         <td className="px-3 py-2 text-sm border-b">
-                          ${totalAmount.toFixed(2)}
+                          {formatMoneyMXN(totalAmount.toFixed(2))}
                         </td>
                       </tr>
                     </>
@@ -1246,8 +1247,8 @@ export const FacturacionModal: React.FC<{
                       Regimen Fiscal: {data.regimen_fiscal}
                     </p>
                     <p className="text-sm text-gray-600 mt-1">
-                      {data.estado}, {data.municipio}, {data.colonia}{" "}
-                      {data.codigo_postal_fiscal}, {data.calle}
+                      {data.codigo_postal_fiscal},{data.estado}, {data.municipio}, {data.colonia}{" "}
+                      , {data.calle}
                     </p>
                   </div>
                 ))}
