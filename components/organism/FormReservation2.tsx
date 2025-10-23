@@ -6,7 +6,7 @@ import { CheckCircle, Plus, Trash2 } from "lucide-react";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { updateReserva } from "@/services/reservas";
+import { updateReserva, new_edit } from "@/services/reservas";
 import { MostrarSaldos } from "@/components/template/MostrarSaldos";
 import { isValid } from "date-fns";
 import { EnvioPago, SubmitPayload } from "@/components/template/MostrarSaldos"
@@ -176,7 +176,7 @@ export function ReservationForm2({
     const data = { ...edicionForm, nuevo_incluye_desayuno, acompanantes, saldos, restante, usado };
     console.log("Saldos para pagar:", saldos, restante, usado)
     setPagoSeleccion({ saldos, restante, usado });
-    await updateReserva(data, solicitud.id_booking);
+    await new_edit(data, solicitud.id_booking);
     console.log("infoenviada", data)
     // handleSubmit(reservaData);
     setOpen(false);
