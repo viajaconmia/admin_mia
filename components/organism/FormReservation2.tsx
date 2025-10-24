@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { updateReserva, new_edit } from "@/services/reservas";
 import { MostrarSaldos } from "@/components/template/MostrarSaldos";
 import { isValid } from "date-fns";
-import { EnvioPago, SubmitPayload } from "@/components/template/MostrarSaldos"
+import { EnvioPago, SubmitPayload } from "@/components/template/MostrarSaldos";
 import {
   CheckboxInput,
   ComboBox,
@@ -31,6 +31,7 @@ import {
 import { updateRoom } from "@/lib/utils";
 import Modal from "./Modal";
 import EditPrecioVenta from "./EditPrecioVenta";
+import { redondear } from "@/helpers/formater";
 
 interface ReservationFormProps {
   solicitud?: Solicitud2 & { nuevo_incluye_desayuno?: boolean | null };
@@ -68,9 +69,9 @@ export function ReservationForm2({
 
   const [acompanantes, setAcompanantes] = useState<Viajero[]>([]);
   const [cobrar, setCobrar] = useState<boolean | null>(null);
-  const [id_agente, setId_agente] = useState<string | null>(null)
-  const [reservaData, setReservaData] = useState<any>(null)
-  const [precio, setPrecio] = useState<number>(0)
+  const [id_agente, setId_agente] = useState<string | null>(null);
+  const [reservaData, setReservaData] = useState<any>(null);
+  const [precio, setPrecio] = useState<number>(0);
   const [open, setOpen] = useState<boolean>(false);
   const [pagoSeleccion, setPagoSeleccion] = useState<any>(null);
   const [form, setForm] = useState<ReservaForm>({
@@ -103,14 +104,14 @@ export function ReservationForm2({
         solicitud.costo_total != null
           ? Number(solicitud.costo_total)
           : // ② Si no, cae al cálculo automático de antes
-          Number(
             Number(
-              currentHotel?.tipos_cuartos.find(
-                (item) =>
-                  item.nombre_tipo_cuarto == updateRoom(solicitud.tipo_cuarto)
-              )?.costo ?? 0
-            ) * currentNoches
-          ) || 0,
+              Number(
+                currentHotel?.tipos_cuartos.find(
+                  (item) =>
+                    item.nombre_tipo_cuarto == updateRoom(solicitud.tipo_cuarto)
+                )?.costo ?? 0
+              ) * currentNoches
+            ) || 0,
       subtotal: 0,
       impuestos: 0,
     },
@@ -150,7 +151,6 @@ export function ReservationForm2({
       current: form.estado_reserva,
     },
     metadata: solicitud,
-
   });
   const [loading, setLoading] = useState(false);
   const [travelers, setTravelers] = useState<Viajero[]>([]);
@@ -168,16 +168,23 @@ export function ReservationForm2({
 
   useEffect(() => {
     console.log("Edicion FORM", edicionForm, viajero);
-    setId_agente(edicionForm.metadata.id_agente || null)
-    setPrecio(Number(edicionForm.metadata.total) || 0)
+    setId_agente(edicionForm.metadata.id_agente || null);
+    setPrecio(Number(edicionForm.metadata.total) || 0);
   }, [form]);
 
   const handleSaldosSubmit = async (saldos, restante, usado) => {
-    const data = { ...edicionForm, nuevo_incluye_desayuno, acompanantes, saldos, restante, usado };
-    console.log("Saldos para pagar:", saldos, restante, usado)
+    const data = {
+      ...edicionForm,
+      nuevo_incluye_desayuno,
+      acompanantes,
+      saldos,
+      restante,
+      usado,
+    };
+    console.log("Saldos para pagar:", saldos, restante, usado);
     setPagoSeleccion({ saldos, restante, usado });
     await new_edit(data, solicitud.id_booking);
-    console.log("infoenviada", data)
+    console.log("infoenviada", data);
     // handleSubmit(reservaData);
     setOpen(false);
     // 1) Ensambla la base actual de la reserva (estado más reciente)
@@ -240,11 +247,11 @@ export function ReservationForm2({
   console.log("solicitud", travelers);
 
   const handleData = () => {
-    const data = { ...edicionForm, nuevo_incluye_desayuno, acompanantes, };
+    const data = { ...edicionForm, nuevo_incluye_desayuno, acompanantes };
     setReservaData(data);
     setOpen(true);
-    console.log("reserfa", reservaData)
-  }
+    console.log("reserfa", reservaData);
+  };
 
   // ⬇️ NUEVO: factoriza la lógica de guardado para reusarla
   const saveReservation = async (): Promise<boolean> => {
@@ -254,9 +261,13 @@ export function ReservationForm2({
       if (edicion) {
         await updateReserva(data, solicitud.id_booking);
       }
-      const data2 = { ...data, id_booking: solicitud.id_booking, saldos: pagoSeleccion };
+      const data2 = {
+        ...data,
+        id_booking: solicitud.id_booking,
+        saldos: pagoSeleccion,
+      };
       setReservaData(data2);
-      console.log("reserfa34344", reservaData)
+      console.log("reserfa34344", reservaData);
       // Usa tu notificador si quieres; dejé alert por conservar tu flujo
       alert("Reserva actualizada correctamente");
       return true;
@@ -269,10 +280,11 @@ export function ReservationForm2({
     }
   };
 
-  const safeParse = (d?: string) => (d ? parseISO(d) : new Date('Invalid'));
+  const safeParse = (d?: string) => (d ? parseISO(d) : new Date("Invalid"));
   const ci = safeParse(form.check_in);
   const co = safeParse(form.check_out);
-  const nights = isValid(ci) && isValid(co) ? Math.max(0, differenceInDays(co, ci)) : 0;
+  const nights =
+    isValid(ci) && isValid(co) ? Math.max(0, differenceInDays(co, ci)) : 0;
 
   const roomPrice = Number(
     form.hotel?.content?.tipos_cuartos?.find(
@@ -284,8 +296,10 @@ export function ReservationForm2({
   const calculateItems = (total: number) => {
     if (!nights || nights <= 0 || !Number.isFinite(total)) return [];
 
-    const costoBase = total - (Number(form.impuestos.otros_impuestos) * nights);
-    const { subtotal, impuestos } = (Object.keys(form.impuestos) as Array<keyof ReservaForm["impuestos"]>).reduce(
+    const costoBase = total - Number(form.impuestos.otros_impuestos) * nights;
+    const { subtotal, impuestos } = (
+      Object.keys(form.impuestos) as Array<keyof ReservaForm["impuestos"]>
+    ).reduce(
       (acc, key) => {
         const value = Number(form.impuestos[key]) || 0;
         if (key === "otros_impuestos") return acc; // fijo ya restado
@@ -298,18 +312,26 @@ export function ReservationForm2({
     );
 
     return Array.from({ length: nights }, (_, index) => {
-      const basePorNoche = Number(((total / nights) - Number(form.impuestos.otros_impuestos)).toFixed(2));
-      const impuestosPorNoche = (Object.keys(form.impuestos) as Array<keyof ReservaForm["impuestos"]>)
+      const basePorNoche = Number(
+        (total / nights - Number(form.impuestos.otros_impuestos)).toFixed(2)
+      );
+      const impuestosPorNoche = (
+        Object.keys(form.impuestos) as Array<keyof ReservaForm["impuestos"]>
+      )
         .map((key) => {
           const value = Number(form.impuestos[key]) || 0;
           if (value <= 0) return null;
-          const totalTax = key !== "otros_impuestos" ? Number(((basePorNoche * value) / 100).toFixed(2)) : value;
+          const totalTax =
+            key !== "otros_impuestos"
+              ? Number(((basePorNoche * value) / 100).toFixed(2))
+              : value;
           return {
             name: key,
             rate: key !== "otros_impuestos" ? value : 0,
             tipo_impuesto: "c",
             monto: key === "otros_impuestos" ? value : 0,
-            base: key === "otros_impuestos" ? basePorNoche + value : basePorNoche,
+            base:
+              key === "otros_impuestos" ? basePorNoche + value : basePorNoche,
             total: totalTax,
           };
         })
@@ -318,9 +340,9 @@ export function ReservationForm2({
       return {
         noche: index + 1,
         costo: {
-          total: Number(((total / nights) || 0).toFixed(2)),
-          subtotal: Number(((subtotal / nights) || 0).toFixed(2)),
-          impuestos: Number(((impuestos / nights) || 0).toFixed(2)),
+          total: Number((total / nights || 0).toFixed(2)),
+          subtotal: Number((subtotal / nights || 0).toFixed(2)),
+          impuestos: Number((impuestos / nights || 0).toFixed(2)),
         },
         venta: {
           total: Number(roomPrice),
@@ -350,10 +372,10 @@ export function ReservationForm2({
       const autoTotal = isCostoManual
         ? form.proveedor.total
         : Number(
-          form.hotel.content.tipos_cuartos.find(
-            (item) => item.nombre_tipo_cuarto == form.habitacion
-          )?.costo ?? 0
-        ) * nights;
+            form.hotel.content.tipos_cuartos.find(
+              (item) => item.nombre_tipo_cuarto == form.habitacion
+            )?.costo ?? 0
+          ) * nights;
 
       const items = calculateItems(autoTotal);
 
@@ -469,7 +491,7 @@ export function ReservationForm2({
 
   const handleSubmit = async (e: FormEvent) => {
     await saveReservation();
-    console.log("reserva", form)
+    console.log("reserva", form);
     // onClose(); // si deseas cerrar siempre al guardar manual, descomenta
   };
 
@@ -488,12 +510,10 @@ export function ReservationForm2({
 
     if (ok) {
       // setCobrar(false);
-      setOpen(false)// cierra el modal de precio
+      setOpen(false); // cierra el modal de precio
       onClose(); // cierra el formulario si así lo quieres
     }
   };
-
-
 
   function getAutoCostoTotal(
     hotel: Hotel | null,
@@ -550,7 +570,6 @@ export function ReservationForm2({
       onSubmit={handleSubmit}
       className="space-y-6 mx-5 overflow-y-auto rounded-md bg-white p-4"
     >
-
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-[80vw]">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="cliente">Cliente</TabsTrigger>
@@ -764,14 +783,14 @@ export function ReservationForm2({
                     onChange={(value) => {
                       console.log("Viajero adicional:", value);
                     }}
-                  // onChange={(value) => {
-                  //   setForm((prev) => ({
-                  //     ...prev,
-                  //     viajeros_adicionales: prev.viajeros_adicionales.map((v, i) =>
-                  //       i === index ? { ...v, nombre: value } : v
-                  //     ),
-                  //   }));
-                  // }}
+                    // onChange={(value) => {
+                    //   setForm((prev) => ({
+                    //     ...prev,
+                    //     viajeros_adicionales: prev.viajeros_adicionales.map((v, i) =>
+                    //       i === index ? { ...v, nombre: value } : v
+                    //     ),
+                    //   }));
+                    // }}
                   />
                 </div>
               ))}
@@ -862,7 +881,6 @@ export function ReservationForm2({
                 label={`Viajeros`}
                 sublabel={`(${solicitud.nombre_viajero_reservacion} - ${solicitud.id_viajero_reserva})`}
                 onChange={(value) => {
-
                   setEdicionForm((prev) => ({
                     ...prev,
                     viajero: {
@@ -1144,62 +1162,55 @@ export function ReservationForm2({
               type="button"
               icon={CheckCircle}
               onClick={() => {
-                handleData();   // guarda los datos
+                handleData(); // guarda los datos
                 // abre el modal o lo que sea
               }}
             >
               Ir a pagar
             </Button>
-
           </div>
         </TabsContent>
-
       </Tabs>
-      {
-        cobrar && (
-          <Modal
+      {cobrar && (
+        <Modal
+          onClose={() => {
+            setCobrar(false);
+          }}
+          title={`Maneja el precio de la reserva`}
+          subtitle="Modifica los valores de los items para poder tener el valor total de venta"
+        >
+          <EditPrecioVenta
+            reserva={solicitud}
+            hotelData={hotelData}
             onClose={() => {
               setCobrar(false);
             }}
-            title={`Maneja el precio de la reserva`}
-            subtitle="Modifica los valores de los items para poder tener el valor total de venta"
-          >
-            <EditPrecioVenta
-              reserva={solicitud}
-              hotelData={hotelData}
-              onClose={() => {
-                setCobrar(false);
-              }}
-              onConfirm={handleConfirmPrecio}
-              precioNuevo={
-                edicionForm?.venta?.current?.total
-                  ? Number(edicionForm.venta.current.total)
-                  : Number(solicitud.total) || 0
-              }
-            ></EditPrecioVenta>
-          </Modal>
-        )
-      }
-      {
-        open && (
-          <Modal
-            onClose={() => {
-              setOpen(false);
-            }}
-            title="Selecciona con que pagar"
-            subtitle="Puedes escoger solo algunos y pagar lo restante con credito"
-          >
-            <MostrarSaldos
-              id_agente={id_agente as string}
-              precio={precio}
-              reserva_Data={reservaData}   // si ya guardaste antes, se manda; si no, irá undefined
-              loading={loading}
-              onSubmit={handleSaldosSubmit}
-            />
-          </Modal>
-        )
-      }
-
-    </form >
+            onConfirm={handleConfirmPrecio}
+            precioNuevo={
+              edicionForm?.venta?.current?.total
+                ? Number(edicionForm.venta.current.total)
+                : Number(solicitud.total) || 0
+            }
+          ></EditPrecioVenta>
+        </Modal>
+      )}
+      {open && (
+        <Modal
+          onClose={() => {
+            setOpen(false);
+          }}
+          title="Selecciona con que pagar"
+          subtitle="Puedes escoger solo algunos y pagar lo restante con credito"
+        >
+          <MostrarSaldos
+            id_agente={id_agente as string}
+            precio={redondear(precio - Number(solicitud.total))}
+            reserva_Data={reservaData} // si ya guardaste antes, se manda; si no, irá undefined
+            loading={loading}
+            onSubmit={handleSaldosSubmit}
+          />
+        </Modal>
+      )}
+    </form>
   );
 }
