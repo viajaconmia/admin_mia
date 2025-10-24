@@ -33,21 +33,23 @@ export function obtenerIniciales(nombreCompleto: string) {
 export function formatNumberWithCommas(
   numberStr: string | number | undefined | null
 ): string {
-  // Si el valor es undefined o null, retornar cadena vacía
   if (numberStr == null) return "";
 
-  // Convertir a string si es un número
   const str = typeof numberStr === "number" ? numberStr.toString() : numberStr;
 
-  // Si la cadena está vacía, retornar cadena vacía
   if (str.trim() === "") return "";
-  // 1. Separar la parte entera de la parte decimal
-  const parts = str.split(".");
+
+  // Detectar si el número es negativo
+  const isNegative = str.startsWith("-");
+
+  // Remover el signo temporalmente para formatear solo el número
+  const cleanStr = isNegative ? str.slice(1) : str;
+
+  const parts = cleanStr.split(".");
   const integerPart = parts[0];
   const decimalPart = parts.length > 1 ? parts[1] : undefined;
 
-  // 2. Formatear la parte entera
-  // Invertimos la parte entera para facilitar la inserción de comas cada tres dígitos desde la derecha
+  // Formatear la parte entera
   const reversedInteger = integerPart.split("").reverse().join("");
   let formattedReversedInteger = "";
 
@@ -58,20 +60,20 @@ export function formatNumberWithCommas(
     formattedReversedInteger += reversedInteger[i];
   }
 
-  // Volvemos a invertir la parte entera formateada para obtener el orden correcto
   const formattedInteger = formattedReversedInteger
     .split("")
     .reverse()
     .join("");
 
-  // 3. Unir la parte entera formateada con la parte decimal (si existe)
-  if (decimalPart !== undefined) {
-    return `${formattedInteger}.${
-      decimalPart.length == 2 ? decimalPart : `${decimalPart}0`
-    }`;
-  } else {
-    return formattedInteger + ".00";
-  }
+  // Armar el número completo
+  const formatted =
+    decimalPart !== undefined
+      ? `${formattedInteger}.${decimalPart.length == 2 ? decimalPart : `${decimalPart}0`
+      }`
+      : `${formattedInteger}.00`;
+
+  // Volver a agregar el signo negativo si era negativo
+  return isNegative ? `-${formatted}` : formatted;
 }
 
 export const formatDate = (dateString: string) => {
@@ -83,5 +85,33 @@ export const formatDate = (dateString: string) => {
     year: "numeric",
   });
 };
+
+// ✅ Recomendado: usa Intl (respeta es-MX: 1,234,567.89)
+export const formatNumber = (
+  value: number | string,
+  opts: Intl.NumberFormatOptions = {}
+) => {
+  if (value === null || value === undefined || value === "") return "";
+  const n = typeof value === "string" ? Number(value) : value;
+  if (Number.isNaN(n)) return String(value);
+  return new Intl.NumberFormat("es-MX", { useGrouping: true, ...opts }).format(n);
+};
+
+export const formatMoneyMXN = (value: number | string) =>
+  formatNumber(value, { style: "currency", currency: "MXN", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/* ⚠️ Alternativa si quieres COMAS sí o sí (p. ej. formato fijo "###,###.##"):
+   Mantiene signo y decimales tal cual.
+*/
+export const withCommas = (value: number | string) => {
+  if (value === null || value === undefined || value === "") return "";
+  const s = String(value);
+  const neg = s.startsWith("-") ? "-" : "";
+  const [intRaw, dec = ""] = s.replace(/[^0-9.\-]/g, "").split(".");
+  const int = intRaw.replace("-", "");
+  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return dec ? `${neg}${grouped}.${dec}` : `${neg}${grouped}`;
+};
+
 
 export const redondear = (number: number) => Number(number.toFixed(2));

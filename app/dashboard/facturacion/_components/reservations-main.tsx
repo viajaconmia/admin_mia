@@ -4,10 +4,12 @@ import React, { useEffect, useState } from "react";
 import {
   fetchEmpresasDatosFiscales,
 } from "@/hooks/useFetch";
-import { formatDate } from "@/helpers/utils";
+import { formatDate, subirArchivoAS3, obtenerPresignedUrl } from "@/helpers/utils";
+import { URL, API_KEY } from "@/lib/constants/index";
 import useApi from "@/hooks/useApi";
 import { DescargaFactura, Root } from "@/types/billing";
 import { ChevronDownIcon, ChevronUpIcon, Download } from "lucide-react";
+import { formatNumber, formatMoneyMXN, withCommas } from "@/helpers/formater";
 
 // --- Helpers de descarga robusta ---
 const normalizeBase64 = (b64?: string | null) => {
@@ -16,6 +18,40 @@ const normalizeBase64 = (b64?: string | null) => {
   const clean = b64.split("base64,").pop()!.replace(/[\r\n\s]/g, "");
   return clean.replace(/-/g, "+").replace(/_/g, "/");
 };
+
+// --- Subida segura a S3 con URL pre-firmada ---
+const subirArchivoAS3Seguro = async (file: File, bucket: string = "comprobantes") => {
+  try {
+    console.log(`Iniciando subida de ${file.name} (${file.type})`);
+
+    // 1) Obtener URL pre-firmada
+    const { url: presignedUrl, publicUrl } = await obtenerPresignedUrl(
+      file.name,
+      file.type,
+      bucket
+    );
+
+    console.log(`URL pre-firmada obtenida para ${file.name}`);
+
+    // 2) Subir archivo
+    await subirArchivoAS3(file, presignedUrl);
+
+    console.log(`✅ Archivo ${file.name} subido exitosamente a S3: ${publicUrl}`);
+
+    return publicUrl;
+  } catch (error: any) {
+    console.error(`❌ Error al subir ${file.name} a S3:`, error);
+    throw new Error(`Error al subir ${file.name} a S3: ${error.message}`);
+  }
+};
+
+// Convierte base64 -> Blob (ya la tienes) y ahora -> File
+const base64ToFile = (b64: string, mime: string, filename: string) =>
+  new File([base64ToBlob(b64, mime)], filename, { type: mime });
+
+// Detecta si viene como URL http(s)
+const isHttpUrl = (s?: string | null) => !!s && /^https?:\/\//i.test(s);
+
 
 const base64ToBlob = (b64: string, mime: string) => {
   const clean = normalizeBase64(b64);
@@ -26,15 +62,17 @@ const base64ToBlob = (b64: string, mime: string) => {
   return new Blob([byteArray], { type: mime });
 };
 
+// ✅ Mejora opcional: revocar el ObjectURL con delay (Safari fix)
 const downloadBlob = (blob: Blob, filename: string) => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
+  a.style.display = "none";
   document.body.appendChild(a);
   a.click();
   a.remove();
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), 1500); // <- antes era inmediato
 };
 
 const downloadBase64File = (b64: string, mime: string, filename: string) => {
@@ -291,6 +329,40 @@ interface FilterOptions {
   estado: string;
 }
 
+// ✅ Nuevo: asignar URLs a la factura en tu backend
+const asignarURLS_factura = async (id_factura: string, url_pdf: string, url_xml: string) => {
+  try {
+    console.log('Asignando URLs a factura:', { id_factura, url_pdf, url_xml });
+
+    const resp = await fetch(
+      `${URL}/mia/factura/asignarURLS_factura?id_factura=${encodeURIComponent(id_factura)}&url_pdf=${encodeURIComponent(url_pdf)}&url_xml=${encodeURIComponent(url_xml)}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": API_KEY,
+        },
+      }
+    );
+
+    if (!resp.ok) {
+      const errorData = await resp.json();
+      throw new Error(errorData?.message || "Error al asignar URLs de factura");
+    }
+
+    const data = await resp.json();
+    console.log('✅ URLs asignadas correctamente en BD:', data);
+    return data;
+  } catch (error) {
+    console.error("❌ Error al asignar URLs de factura:", error);
+    throw error;
+  }
+};
+
+// ✅ Nuevo: genera data:URL a partir de base64
+const base64ToDataUrl = (b64: string, mime: string) =>
+  `data:${mime};base64,${normalizeBase64(b64)}`;
+
 // Status Badge Component
 const StatusBadge: React.FC<{ status: ReservationStatus }> = ({ status }) => {
   switch (status) {
@@ -404,7 +476,6 @@ export const FacturacionModal: React.FC<{
   // Para limitar el mínimo a hoy
   const minDueDate = toInputDate(new Date());
 
-
   // Estado para el CFDI
   const [cfdi, setCfdi] = useState({
     Receiver: {
@@ -488,6 +559,7 @@ export const FacturacionModal: React.FC<{
 
 
   console.log("fiacla", fiscalDataList)
+  const [customDescription, setCustomDescription] = useState("");
 
   // Actualizar CFDI cuando cambian los datos
   useEffect(() => {
@@ -536,7 +608,7 @@ export const FacturacionModal: React.FC<{
               ProductCode: "90111500",
               UnitCode: "E48",
               Unit: "Unidad de servicio",
-              Description: `HOSPEDAJE - ${totalNights} NOCHE(S) EN ${reservationsWithSelectedItems.length} RESERVA(S)`,
+              Description: "Servicio de administración y Gestión de Reservas",
               //IdentificationNumber: "HSP",
               UnitPrice: subtotalConsolidado.toFixed(2),
               Subtotal: subtotalConsolidado.toFixed(2),
@@ -554,17 +626,7 @@ export const FacturacionModal: React.FC<{
               Total: totalAmount.toFixed(2),
             },
           ],
-          Observations: `DETALLE DE RESERVACIONES: ${reservationsWithSelectedItems
-            .map((reserva) => {
-              const selectedItemsForReserva = reserva.items.filter((item) =>
-                selectedItems[reserva.id_servicio]?.includes(item.id_item)
-              );
-
-              const nochesReales = selectedItemsForReserva.length;
-
-              return `${reserva.hotel} - ${formatDate(reserva.check_in)} AL ${formatDate(reserva.check_out)} - ${nochesReales} NOCHES(S) - ${reserva.nombre_viajero}`;
-            })
-            .join(" | ")}`,
+          Observations: descriptionToUse,
         }));
 
       } else {
@@ -626,11 +688,7 @@ export const FacturacionModal: React.FC<{
                 ProductCode: "90121500",
                 UnitCode: "E48",
                 Unit: "Unidad de servicio",
-                Description: `HOSPEDAJE EN ${reserva.hotel
-                  } - DEL ${formatDate(reserva.check_in)} AL ${formatDate(
-                    reserva.check_out
-                  )} (${itemsSeleccionados.length} NOCHES) - ${reserva.nombre_viajero_completo
-                  }`,
+                Description: `Servicio de administración y Gestión de Reservas`,
                 //IdentificationNumber: `HSP-${reserva.id_servicio}`,
                 UnitPrice: subtotalSelected.toFixed(2),
                 Subtotal: subtotalSelected.toFixed(2),
@@ -649,7 +707,7 @@ export const FacturacionModal: React.FC<{
               };
             })
             .filter((item) => item !== null), // Filtrar items nulos
-          Observations: `FACTURA DE ${totalNights} NOCHE(S) DE HOSPEDAJE EN ${reservationsWithSelectedItems.length} RESERVA(S)`,
+          Observations: descriptionToUse,
         }));
       }
     }
@@ -684,8 +742,8 @@ export const FacturacionModal: React.FC<{
     return true;
   };
 
-
   const handleConfirm = async () => {
+
     if (!selectedFiscalData) {
       setError("Debes seleccionar unos datos fiscales");
       return;
@@ -719,14 +777,7 @@ export const FacturacionModal: React.FC<{
       const subtotal = totalFacturado / 1.16;
       const iva = totalFacturado - subtotal;
 
-      const [customDescription, setCustomDescription] = useState("");
-
-      // Generar descripción por defecto
-      const defaultDescription = `HOSPEDAJE - ${totalNights} NOCHE(S) EN ${reservationsWithSelectedItems.length} RESERVA(S)`;
-
-      const descriptionToUse = customDescription || defaultDescription;
-
-      // Construir payload similar a generar_factura.tsx
+      // Construir payload
       const payloadCFDI = {
         cfdi: {
           ...cfdi,
@@ -739,6 +790,7 @@ export const FacturacionModal: React.FC<{
           Currency: "MXN",
           Date: formattedDate,
           OrderNumber: Math.round(Math.random() * 999999999).toString(),
+          Observations: descriptionToUse,      // <— SOBRESCRIBE AQUÍ
           Items: isConsolidated
             ? [
               {
@@ -746,8 +798,7 @@ export const FacturacionModal: React.FC<{
                 ProductCode: "90121500",
                 UnitCode: "E48",
                 Unit: "Unidad de servicio",
-                Description: descriptionToUse,
-                //IdentificationNumber: "HSP",
+                Description: `Servicio de administración y Gestión de Reservas`,
                 UnitPrice: subtotal.toFixed(2),
                 Subtotal: subtotal.toFixed(2),
                 TaxObject: "02",
@@ -779,14 +830,15 @@ export const FacturacionModal: React.FC<{
                 0
               );
               const totalReserva = subtotalReserva + ivaReserva;
+
               return {
                 Quantity: "1",
                 ProductCode: "90121500",
                 UnitCode: "E48",
                 Unit: "Unidad de servicio",
-                Description: descriptionToUse,
-                //IdentificationNumber: `HSP-${reserva.id_servicio}`,
+                Description: `Servicio de administración y Gestión de Reservas`,
                 UnitPrice: subtotalReserva.toFixed(2),
+                Observations: descriptionToUse,      // <— SOBRESCRIBE AQUÍ
                 Subtotal: subtotalReserva.toFixed(2),
                 TaxObject: "02",
                 Taxes: [
@@ -815,25 +867,105 @@ export const FacturacionModal: React.FC<{
             id_empresa: selectedFiscalData.id_empresa,
           },
         },
-        items_facturados: itemsFacturados, // Relación item-monto
-
+        items_facturados: itemsFacturados,
       };
 
-      // Aquí deberías llamar a tu API para crear la factura
+      // Crear factura
       const response = await crearCfdi(payloadCFDI.cfdi, payloadCFDI.info_user);
-
       if (response.error) throw new Error(response.error);
 
+      setIsInvoiceGenerated(response);
+
+      // Descargar representaciones
+      const factura = await descargarFactura(response.Id);
+      setDescarga(factura);
+
+      const fileBase = `factura_${response?.Folio ?? cfdi?.Folio ?? "archivo"}`;
+
+      // --- Obtener representaciones PDF y XML ---
+      const pdfRaw = getPdfBase64(factura) ?? (typeof factura === "string" ? factura : null);
+      const xmlRaw = getXmlBase64(factura);
+
+      console.log("url", pdfRaw, xmlRaw)
+
+      // Intentaremos producir URLs finales (si ya vienen como URL, las usamos; si vienen en base64, subimos a S3)
+      let finalPdfUrl: string | null = null;
+      let finalXmlUrl: string | null = null;
+
+      // 1) PDF
+      if (typeof pdfRaw === "string") {
+        if (isHttpUrl(pdfRaw)) {
+          // Ya es URL lista
+          finalPdfUrl = pdfRaw;
+        } else {
+          // Es base64 -> subimos a S3
+          const pdfFile = base64ToFile(pdfRaw, "application/pdf", `${fileBase}.pdf`);
+          finalPdfUrl = await subirArchivoAS3Seguro(pdfFile, "comprobantes");
+        }
+
+        // Descarga para el usuario (opcional, conservé tu comportamiento)
+        if (isHttpUrl(pdfRaw)) {
+          const a = document.createElement("a");
+          a.href = pdfRaw;
+          a.download = `${fileBase}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        } else {
+          downloadBase64File(pdfRaw, "application/pdf", `${fileBase}.pdf`);
+        }
+      } else {
+        console.warn("No se encontró contenido PDF en la respuesta de descarga.");
+      }
+
+      // 2) XML
+      if (typeof xmlRaw === "string") {
+        if (isHttpUrl(xmlRaw)) {
+          finalXmlUrl = xmlRaw;
+        } else {
+          const xmlFile = base64ToFile(xmlRaw, "application/xml", `${fileBase}.xml`);
+          finalXmlUrl = await subirArchivoAS3Seguro(xmlFile, "comprobantes");
+        }
+
+        // Descarga para el usuario (opcional)
+        if (isHttpUrl(xmlRaw)) {
+          const a = document.createElement("a");
+          a.href = xmlRaw;
+          a.download = `${fileBase}.xml`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        } else {
+          downloadBase64File(xmlRaw, "application/xml", `${fileBase}.xml`);
+        }
+      } else {
+        console.warn("No se encontró contenido XML en la respuesta de descarga.");
+      }
+
+      // 3) Registrar URLs en tu backend (si tenemos al menos el PDF)
+      try {
+        await asignarURLS_factura(
+          response.Id,               // cambia si tu endpoint espera otro id
+          finalPdfUrl ?? "",         // envía "" si no se obtuvo
+          finalXmlUrl ?? ""
+        );
+        console.log("✅ URLs de factura registradas en BD.");
+      } catch (e) {
+        console.error("❌ Error al asignar URLs de factura:", e);
+      }
+
       alert("Se ha generado con éxito la factura");
+
+      // Mantengo tu refresco local de la descarga
       descargarFactura(response.Id)
-        .then((factura) => setDescarga(factura))
+        .then((f) => setDescarga(f))
         .catch((err) => console.error(err));
+
       onConfirm(selectedFiscalData, isConsolidated);
       setIsInvoiceGenerated(response);
     } catch (error) {
-      alert(
-        "Ocurrió un error al generar la factura: " + (error as Error).message
-      );
+      console.error(error);
+      alert("Ocurrió un error al generar la factura: " + (error as Error).message);
     } finally {
       setLoading(false);
     }
@@ -844,6 +976,30 @@ export const FacturacionModal: React.FC<{
     (sum, reserva) => sum + (reserva.nightsCount || 0),
     0
   );
+
+  // Generar descripción por defecto
+  const defaultDescription = `DETALLE DE RESERVACIONES: ${reservationsWithSelectedItems
+    .map((reserva) => {
+      const selectedItemsForReserva = reserva.items.filter((item) =>
+        selectedItems[reserva.id_servicio]?.includes(item.id_item)
+      );
+
+      const nochesReales = selectedItemsForReserva.length;
+
+      return `${reserva.hotel} - ${formatDate(
+        reserva.check_in
+      )} AL ${formatDate(
+        reserva.check_out
+      )} - ${nochesReales} NOCHES(S) - ${reserva.nombre_viajero_completo
+        }`;
+    })
+    .join(" | ")}`;
+
+  const descriptionToUse = customDescription ?? defaultDescription
+  console.log("descrip", customDescription)
+
+
+
   const totalAmount = reservationsWithSelectedItems.reduce(
     (sum, reserva) =>
       sum +
@@ -937,17 +1093,17 @@ export const FacturacionModal: React.FC<{
                             <p className="text-gray-600">
                               Traslados:
                               <br />
-                              IVA: 002, Base: ${totalAmount.toFixed(2)}, Tasa:
+                              IVA: 002, Base: ${withCommas(totalAmount.toFixed(2))}, Tasa:
                               0.160000, Importe: $
-                              {(totalAmount * 0.16).toFixed(2)}
+                              {withCommas((totalAmount * 0.16).toFixed(2))}
                             </p>
                           </div>
                         </td>
                         <td className="px-3 py-2 text-sm border-b">
-                          ${totalAmount.toFixed(2)}
+                          {formatMoneyMXN(totalAmount.toFixed(2))}
                         </td>
                         <td className="px-3 py-2 text-sm border-b">
-                          ${totalAmount.toFixed(2)}
+                          {formatMoneyMXN(totalAmount.toFixed(2))}
                         </td>
                       </tr>
                     </>
@@ -956,7 +1112,7 @@ export const FacturacionModal: React.FC<{
                     reservationsWithSelectedItems
                       .slice(0, 2)
                       .map((reserva, index) => (
-                        <tr key={`preview-${reserva.id_solicitud}`}>
+                        <tr key={`preview-${reserva.id_solicitud}-${Math.round(Math.random() * 9999999)}`}>
                           <td className="px-3 py-2 text-sm border-b">
                             90121500
                           </td>
@@ -1071,7 +1227,7 @@ export const FacturacionModal: React.FC<{
               <div className="space-y-4">
                 {fiscalDataList.map((data) => (
                   <div
-                    key={data.id_datos_fiscales}
+                    key={`${Math.round(Math.random() * 9999999)}-data.id_datos_fiscales`}
                     className={`border rounded-md p-4 cursor-pointer ${selectedFiscalData?.id_datos_fiscales ===
                       data.id_datos_fiscales
                       ? "border-blue-500 bg-blue-50"
@@ -1091,8 +1247,8 @@ export const FacturacionModal: React.FC<{
                       Regimen Fiscal: {data.regimen_fiscal}
                     </p>
                     <p className="text-sm text-gray-600 mt-1">
-                      {data.estado}, {data.municipio}, {data.colonia}{" "}
-                      {data.codigo_postal_fiscal}, {data.calle}
+                      {data.codigo_postal_fiscal},{data.estado}, {data.municipio}, {data.colonia}{" "}
+                      , {data.calle}
                     </p>
                   </div>
                 ))}
@@ -1111,7 +1267,7 @@ export const FacturacionModal: React.FC<{
                 className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               >
                 {cfdiUseOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
+                  <option key={`option.value-${Math.round(Math.random() * 9999999)}`} value={option.value}>
                     {option.label}
                   </option>
                 ))}
@@ -1128,7 +1284,7 @@ export const FacturacionModal: React.FC<{
                 className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               >
                 {paymentFormOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
+                  <option key={`option.value-${Math.round(Math.random() * 9999999)}`} value={option.value}>
                     {option.label}
                   </option>
                 ))}
@@ -1144,7 +1300,7 @@ export const FacturacionModal: React.FC<{
                 className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               >
                 {paymentMethodOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
+                  <option key={`option.value-${Math.round(Math.random() * 9999999)}`} value={option.value}>
                     {option.label}
                   </option>
                 ))}
@@ -1167,7 +1323,7 @@ export const FacturacionModal: React.FC<{
 
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Descripción personalizada
+                  Observacion personalizada
                 </label>
                 <textarea
                   value={customDescription}

@@ -4,5 +4,11 @@ export const isSomeNull = (
 ) =>
   Object.entries(objeto)
     .filter(([key]) => !excluir.includes(key))
-    .map(([key, value]) => (typeof value == "string" ? value.trim() : value))
+    .map(([key, value]) =>
+      typeof value == "string"
+        ? value.trim()
+        : Array.isArray(value)
+        ? value.some((item) => item != null)
+        : value
+    )
     .some((item) => !item);
