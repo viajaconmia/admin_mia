@@ -211,7 +211,6 @@ const ComprobanteModal: React.FC<ComprobanteModalProps> = ({
   const [archivo, setArchivo] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -370,6 +369,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     pagos: true,
   });
   const [localWalletAmount, setLocalWalletAmount] = useState(walletAmount);
+  console.log("id_cliente", agente)
 
   const [filters, setFilters] = useState<TypeFilters>({
     paymentMethod: "",
@@ -503,9 +503,11 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
 
   useEffect(() => {
     const fetchSaldoFavor = async () => {
+      console.log("agente, info", agente)
       const response: { message: string; data: Saldo[] } =
         await SaldoFavor.getPagos(agente.id_agente);
-      setSaldos(response.data);
+      console.log("envio de informacion", response.data.filter(s => s.id_agente === agente.id_agente))
+      setSaldos(response.data.filter(s => s.id_agente === agente.id_agente));
     };
     fetchSaldoFavor();
   }, []);
@@ -1219,9 +1221,10 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
               (prev) => prev - parseFloat(item.monto.toString())
             );
           }
-          const updatedSaldos = await SaldoFavor.getPagos(item.id_agente);
+          const updatedSaldos = await SaldoFavor.getPagos(agente.id_agente);
 
-          setSaldos(updatedSaldos.data);
+          setSaldos(updatedSaldos.data.filter(s => s.id_agente === agente.id_agente));
+
           setIsDeleteModalOpen(false);
         } catch (error) {
           console.error("Error al eliminar el pago:", error);
@@ -1391,7 +1394,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
                 const fetchSaldoFavor = async () => {
                   const response: { message: string; data: Saldo[] } =
                     await SaldoFavor.getPagos(agente.id_agente);
-                  setSaldos(response.data);
+                  setSaldos(response.data.filter(s => s.id_agente === agente.id_agente));
                 };
                 fetchSaldoFavor();
                 walletAmount == localWalletAmount;
@@ -1407,8 +1410,9 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   const reloadSaldos = async () => {
     try {
       setLoading((prev) => ({ ...prev, pagos: true }));
+      console.log("envjrjrvjrv", agente)
       const response = await SaldoFavor.getPagos(agente.id_agente);
-      setSaldos(response.data);
+      setSaldos(response.data.filter(s => s.id_agente === agente.id_agente));
     } catch (error) {
       console.error("Error al recargar saldos:", error);
       setError("Error al cargar los saldos");
@@ -1428,11 +1432,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         ...paymentData,
         id_cliente: agente.id_agente,
       });
-
-      // Actualizar el estado local
-      if (response.data) {
-        setSaldos((prevSaldos) => [...prevSaldos, response.data]);
-      }
 
       // Actualizar el saldo local sumando el monto del nuevo pago
 

@@ -104,7 +104,7 @@ export class SaldoFavor {
 
   // Obtener pagos por agente
   static async getPagos(idAgente: string) {
-    console.log(idAgente)
+    console.log(idAgente,"vonrivbriovbriovbirbviorbviobriovbroivbirbviorbvirbvobriobrbvoirbvoibrivrb")
     return this.request<{ message: string; data: Saldo[] }>(`/${idAgente}`, {
       method: "GET",
     });
