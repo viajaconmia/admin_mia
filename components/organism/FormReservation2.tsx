@@ -169,7 +169,7 @@ export function ReservationForm2({
   useEffect(() => {
     console.log("Edicion FORM", edicionForm, viajero);
     setId_agente(edicionForm.metadata.id_agente || null)
-    setPrecio(Number(edicionForm.metadata.costo_total) || 0)
+    setPrecio(Number(edicionForm.metadata.total) || 0)
   }, [form]);
 
   const handleSaldosSubmit = async (saldos, restante, usado) => {

@@ -43,14 +43,17 @@ export async function new_edit(
   callback?: (data: any) => void
 ) {
   try {
-    const response = await fetch(`${URL}/mia/reservas/nuevo-editar-reserva=${id_booking}}`, {
+    const response = await fetch(`${URL}/mia/reservas/nuevo-editar-reserva`, {
       method: "PUT",
       headers: {
         "x-api-key": API_KEY || "",
         "Cache-Control": "no-cache, no-store, must-revalidate",
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(reserva),
+      body: JSON.stringify({
+        ...reserva,
+        id_booking
+      }),
       cache: "no-store",
     }).then((res) => res.json());
     if (callback) {
