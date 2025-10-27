@@ -856,7 +856,7 @@ export function ReservationForm({
                     value={form.comments}
                   ></Textarea>
                   <ComboBox2
-                    label="Usuario creador"
+                    label="Asignar creación a:"
                     value={
                       usuarioCreador
                         ? {
