@@ -221,6 +221,10 @@ export function ReservationForm({
   }, []);
 
   useEffect(() => {
+    console.log(travelers);
+  }, [travelers]);
+
+  useEffect(() => {
     if (
       form.hotel.content &&
       form.check_in &&
