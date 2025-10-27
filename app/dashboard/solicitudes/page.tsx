@@ -116,7 +116,7 @@ function App() {
     .map((item) => ({
       id_cliente: item.id_agente,
       cliente: (item?.nombre_cliente || "").toUpperCase(),
-      creado: new Date(item.created_at_solicitud).toLocaleString("es-MX"),
+      creado: new Date(item.created_at_solicitud).toLocaleString(),
       hotel: (item.hotel_solicitud || "").toUpperCase(),
       codigo_hotel: item.codigo_reservacion_hotel,
       viajero: (item.nombre_viajero_solicitud || "").toUpperCase(),
