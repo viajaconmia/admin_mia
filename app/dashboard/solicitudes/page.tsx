@@ -116,7 +116,7 @@ function App() {
     .map((item) => ({
       id_cliente: item.id_agente,
       cliente: (item?.nombre_cliente || "").toUpperCase(),
-      creado: new Date(item.created_at_solicitud).toLocaleString(),
+      creado: item.created_at_solicitud,
       hotel: (item.hotel_solicitud || "").toUpperCase(),
       codigo_hotel: item.codigo_reservacion_hotel,
       viajero: (item.nombre_viajero_solicitud || "").toUpperCase(),
@@ -197,7 +197,9 @@ function App() {
     check_out: (props: any) => (
       <span title={props.value}>{formatDate(props.value)}</span>
     ),
-    creado: (props: any) => <span title={props.value}>{props.value}</span>,
+    creado: (props: any) => (
+      <span title={props.value}>{formatDate(props.value)}</span>
+    ),
   };
 
   useEffect(() => {
