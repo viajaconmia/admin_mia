@@ -16,11 +16,109 @@ type LogoLoaded = {
   ar: number; // aspect ratio = width/height
 };
 
-
 export type ReservaHandle = {
   download: () => Promise<void>;
   getPdfBlob: () => Promise<Blob | null>;
 };
+
+function measureBillingBoxHeight(pdf: jsPDF, mode: "full" | "credito" = "credito"): number {
+  const BLUE_50 = { r: 239, g: 246, b: 255 };
+  const BLUE_200 = { r: 191, g: 219, b: 254 };
+  const BLUE_900 = { r: 30, g: 58, b: 138 };
+
+  const pageW = pdf.internal.pageSize.getWidth();
+  const marginX = 12;
+  const boxW = pageW - marginX * 2;
+  const paddingX = 8;
+  const paddingY = 8;
+  const headingH = 6;
+  const lineGap = 3;
+  const lineH = 5;
+
+  const comunes = [
+    "Razón social: NOKTOS ALIANZA",
+    "RFC: NAL190807BU2",
+    "Código postal: 11570",
+    "Dirección: Presidente Masarik No. 29, Interior E-3, Col. Chapultepec Morales, Alcaldía Miguel Hidalgo, CDMX.",
+    "E-mail: operaciones@noktos.com",
+    "Régimen Fiscal: 601 - General de Ley Personas Morales",
+    "Uso de CFDI: G03 - Gastos en general",
+  ];
+  const metodoForma =
+    mode === "credito"
+      ? ["Método de pago: PPD - Pago en parcialidades o diferido", "Forma de pago: 99 - Por definir"]
+      : ["Método de pago: PUE - Pago en una sola exhibición", "Forma de pago: 03 - Transferencia electrónica de fondos"];
+  const lines = [...comunes, ...metodoForma];
+
+  const maxWidth = boxW - paddingX * 2;
+  const wrapped = lines.map((L) => pdf.splitTextToSize(L, maxWidth));
+  let contentH = paddingY * 2 + headingH + 4;
+  wrapped.forEach((w) => (contentH += w.length * lineH + lineGap));
+  return contentH;
+}
+
+function drawBillingInfoInline(pdf: jsPDF, y: number, mode: "full" | "credito" = "credito"): number {
+  const BLUE_50 = { r: 239, g: 246, b: 255 };
+  const BLUE_200 = { r: 191, g: 219, b: 254 };
+  const BLUE_600 = { r: 37, g: 99, b: 235 };
+  const BLUE_900 = { r: 30, g: 58, b: 138 };
+  const TEXT_DARK = { r: 30, g: 41, b: 59 };
+
+  const pageW = pdf.internal.pageSize.getWidth();
+  const marginX = 12;
+  const boxW = pageW - marginX * 2;
+  const paddingX = 8;
+  const paddingY = 8;
+  const headingH = 6;
+  const lineGap = 3;
+  const lineH = 5;
+
+  const comunes = [
+    "Razón social: NOKTOS ALIANZA",
+    "RFC: NAL190807BU2",
+    "Código postal: 11570",
+    "Dirección: Presidente Masarik No. 29, Interior E-3, Col. Chapultepec Morales, Alcaldía Miguel Hidalgo, CDMX.",
+    "E-mail: operaciones@noktos.com",
+    "Régimen Fiscal: 601 - General de Ley Personas Morales",
+    "Uso de CFDI: G03 - Gastos en general",
+  ];
+
+  const metodoForma =
+    mode === "credito"
+      ? ["Método de pago: PPD - Pago en parcialidades o diferido", "Forma de pago: 99 - Por definir"]
+      : ["Método de pago: PUE - Pago en una sola exhibición", "Forma de pago: 03 - Transferencia electrónica de fondos"];
+  const lines = [...comunes, ...metodoForma];
+
+  // Medidas y caja
+  const contentH = measureBillingBoxHeight(pdf, mode);
+  pdf.setDrawColor(BLUE_200.r, BLUE_200.g, BLUE_200.b);
+  pdf.setFillColor(BLUE_50.r, BLUE_50.g, BLUE_50.b);
+  if ((pdf as any).roundedRect) (pdf as any).roundedRect(marginX, y, boxW, contentH, 3, 3, "FD");
+  else pdf.rect(marginX, y, boxW, contentH, "FD");
+
+  // Título
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(12);
+  pdf.setTextColor(BLUE_900.r, BLUE_900.g, BLUE_900.b);
+  pdf.text("Datos para facturación (CRÉDITO)", marginX + paddingX, y + paddingY + headingH);
+
+  // Contenido
+  let cy = y + paddingY + headingH + 4;
+  const maxWidth = boxW - paddingX * 2;
+  const wrapped = lines.map((L) => pdf.splitTextToSize(L, maxWidth));
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(10.5);
+  pdf.setTextColor(TEXT_DARK.r, TEXT_DARK.g, TEXT_DARK.b);
+  wrapped.forEach((w) => {
+    pdf.text(w, marginX + paddingX, cy);
+    cy += w.length * lineH + lineGap;
+  });
+
+  // Reset
+  pdf.setTextColor(0, 0, 0);
+  pdf.setDrawColor(0, 0, 0);
+  return contentH;
+}
 
 // Carga IMG (PNG/JPG) a dataURL + aspect ratio
 async function loadImageAsDataURL(src: string): Promise<LogoLoaded> {
@@ -140,9 +238,6 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
     setReservationDetails(reservation ?? null);
     setLoading(!reservation);
   }, [reservation]);
-
-  // (si ocuparas el fetch por id, reactívalo)
-  // useEffect(() => { ... }, [reservationIdBase64]);
 
   useEffect(() => {
     (async () => {
@@ -279,81 +374,8 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
   const hotelCardRef = useRef<HTMLDivElement>(null);
   // respiro entre bloques inferiores
 
-  function drawPoliciesOnCurrentPage(pdf: jsPDF) {
-    const pageW = pdf.internal.pageSize.getWidth();
-    const pageH = pdf.internal.pageSize.getHeight();
 
-    const BLUE_50 = { r: 239, g: 246, b: 255 };
-    const BLUE_200 = { r: 191, g: 219, b: 254 };
-    const BLUE_600 = { r: 37, g: 99, b: 235 };
-    const TEXT_DARK = { r: 30, g: 41, b: 59 };
-
-    const marginX = 12;
-    const sideW = pageW - marginX * 2;
-
-    const politicas = [
-      "1.- Los cambios y cancelaciones solo aplican cuando se tratan de Tarifas Reembolsables y están sujetas a disponibilidad.",
-      "2.- Cualquier cambio o cancelación a la reservación deberá ser solicitada a los canales de contacto oficiales con una anticipación mínima de 72 horas antes de la fecha de llegada o inicio de servicios proporcionando la (s) clave (s) de confirmación y la sede.",
-      "3.- El huésped debe realizar el check out con base en los horarios y formas establecidas por cada hotel, si el huésped no ejecuta la actividad en tiempo y forma, el proveedor podrá cobrar al viajero penalizaciones.",
-      "4.- En caso de que el viajero realice una salida anticipada o desee extender su estadía (sujeto a disponibilidad), deberá notificarlo al proveedor y a Noktos a través de correo electrónico, teléfono o whatsapp, para evitar penalizaciones adicionales.",
-      "5.- El viajero debe respetar las políticas y lineamientos de cada proveedor para evitar incurrir en multas y penalizaciones. En caso de que el hotel reporte algún mal comportamiento o una penalización que el viajero se haya negado a pagar, MIA by NOKTOS se reserva el derecho de seguirle brindando servicio al cliente / huésped involucrado.",
-      "6.- El link de google maps es aproximado, favor de validar la dirección abajo del nombre del proveedor.",
-    ];
-
-    // Tipografías reducidas para que quepa con contacto
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(10.5);
-    const title = "POLÍTICAS";
-
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(9.5);
-    const paddingX = 1;
-    const paddingY = 6;
-    const titleBarH = 9;
-    const maxTextWidth = sideW - paddingX * 2;
-
-    const wrapped = politicas.flatMap(p => pdf.splitTextToSize(p, maxTextWidth));
-    const lineH = 5;
-    const contentH = wrapped.length * lineH;
-    const boxH = paddingY + titleBarH + paddingY + contentH + paddingY;
-
-    // Colócala justo arriba del bloque de contacto
-    const bottomMargin = 12;
-    const contactApproxH = 42;
-    const gapBetweenCards = 6;
-    const y = pageH - bottomMargin - contactApproxH - gapBetweenCards - boxH;
-    const x = marginX;
-
-    pdf.setDrawColor(BLUE_200.r, BLUE_200.g, BLUE_200.b);
-    pdf.setFillColor(BLUE_50.r, BLUE_50.g, BLUE_50.b);
-    (pdf as any).roundedRect
-      ? (pdf as any).roundedRect(x, y, sideW, boxH, 3, 3, "FD")
-      : pdf.rect(x, y, sideW, boxH, "FD");
-
-    pdf.setFillColor(BLUE_600.r, BLUE_600.g, BLUE_600.b);
-    pdf.rect(x, y, sideW, titleBarH, "F");
-
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(10.5);
-    pdf.setTextColor(255, 255, 255);
-    pdf.text(title, x + paddingX, y + titleBarH - 2.2);
-
-    let cursorY = y + titleBarH + paddingY;
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(9.5);
-    pdf.setTextColor(TEXT_DARK.r, TEXT_DARK.g, TEXT_DARK.b);
-    for (const line of wrapped) {
-      pdf.text(line as string, x + paddingX, cursorY);
-      cursorY += lineH;
-    }
-
-    // reset
-    pdf.setTextColor(0, 0, 0);
-    pdf.setDrawColor(0, 0, 0);
-  }
-
-
-  function drawContactInfoOnCurrentPage(pdf: jsPDF): number {
+  function drawContactInfoOnCurrentPage(pdf: jsPDF, customY?: number): number {
     const pageW = pdf.internal.pageSize.getWidth();
     const pageH = pdf.internal.pageSize.getHeight();
 
@@ -388,7 +410,7 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
     // Posición pegada al pie (y la devolvemos)
     const bottomMargin = 8;
     const x = marginX;
-    const y = pageH - bottomMargin - boxH;
+    const y = customY !== undefined ? customY : pageH - bottomMargin - boxH;
 
     // Fondo
     pdf.setDrawColor(BD.r, BD.g, BD.b);
@@ -426,7 +448,7 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
 
     // Links
     pdf.setTextColor(PRI.r, PRI.g, PRI.b);
-    pdf.textWithLink(whatsappNumber, tx + pdf.getTextWidth("WhatsApp "), cy, { url: "https://wa.me/525510445254" });
+    pdf.textWithLink(whatsappNumber, 1.5 + tx + pdf.getTextWidth("WhatsApp "), cy, { url: "https://wa.me/525510445254" });
     pdf.textWithLink(" Llamar", tx + leftW + pdf.getTextWidth(rightLine), cy, { url: "tel:+528006665867" });
 
     // Línea 2: Correo
@@ -445,11 +467,8 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
   }
 
 
-  function drawBillingInfoOnLastPage(
-    pdf: jsPDF,
-    mode: "full" | "credito" = "full" // ← nuevo
-  ) {
-    // Siempre agregamos una página dedicada a facturación
+  function drawBillingInfoCompact(pdf: jsPDF, mode: "full" | "credito" = "credito") {
+    // Página nueva con fondo azul claro
     pdf.addPage();
     paintFullBluePage(pdf);
 
@@ -463,91 +482,27 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
     const BLUE_900 = { r: 30, g: 58, b: 138 };
     const TEXT_DARK = { r: 30, g: 41, b: 59 };
 
+    // Layout compacto
     const marginX = 12;
-    const marginY = 16;
+    const marginY = 20;
     const boxW = pageW - marginX * 2;
-    let y = marginY;
-
-    const titleBarH = 12;
     const paddingX = 8;
     const paddingY = 8;
+    const titleBarH = 12;
     const lineGap = 3;
 
-    // === Título principal (ajustado cuando es solo CRÉDITO) ===
-    const titleText =
-      mode === "credito" ? "FACTURACIÓN (CRÉDITO)" : "FACTURACIÓN DE RESERVACIONES";
+    // Header
+    const titleText = mode === "credito" ? "FACTURACIÓN (CRÉDITO)" : "FACTURACIÓN";
     pdf.setFillColor(BLUE_600.r, BLUE_600.g, BLUE_600.b);
-    pdf.rect(marginX, y, boxW, titleBarH, "F");
+    pdf.rect(marginX, marginY, boxW, titleBarH, "F");
     pdf.setTextColor(255, 255, 255);
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(13);
-    pdf.text(titleText, marginX + paddingX, y + titleBarH - 3);
-    y += titleBarH + 6;
+    pdf.text(titleText, marginX + paddingX, marginY + titleBarH - 3);
 
-    // Aviso superior (omite si solo es crédito, para ir directo al grano)
-    if (mode !== "credito") {
-      pdf.setTextColor(TEXT_DARK.r, TEXT_DARK.g, TEXT_DARK.b);
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(11);
-      const aviso =
-        "Recuerda que la facturación de cada reservación debe hacerse por habitación y con esta información:";
-      const avisoWrapped = pdf.splitTextToSize(aviso, boxW);
-      pdf.text(avisoWrapped, marginX, y);
-      y += avisoWrapped.length * 5 + 6;
-    }
+    let y = marginY + titleBarH + 6;
 
-    // Helper para secciones
-    const drawSection = (heading: string, lines: string[]) => {
-      const startY = y;
-
-      // Medir alto del contenido
-      let contentHeight = paddingY * 2 + 6; // base
-      pdf.setFontSize(12);
-      const headingH = 6;
-      contentHeight += headingH + 4;
-
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(10.5);
-      const maxWidth = boxW - paddingX * 2;
-      const wrappedLines = lines.map((L) => pdf.splitTextToSize(L, maxWidth));
-      wrappedLines.forEach((w) => (contentHeight += w.length * 5 + lineGap));
-
-      // Salto si no cabe
-      if (startY + contentHeight + 10 > pageH) {
-        pdf.addPage();
-        paintFullBluePage(pdf);
-        y = marginY;
-      }
-
-      // Fondo
-      pdf.setDrawColor(BLUE_200.r, BLUE_200.g, BLUE_200.b);
-      pdf.setFillColor(BLUE_50.r, BLUE_50.g, BLUE_50.b);
-      if ((pdf as any).roundedRect) {
-        (pdf as any).roundedRect(marginX, y, boxW, contentHeight, 3, 3, "FD");
-      } else {
-        pdf.rect(marginX, y, boxW, contentHeight, "FD");
-      }
-
-      // Heading
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(12);
-      pdf.setTextColor(BLUE_900.r, BLUE_900.g, BLUE_900.b);
-      pdf.text(heading, marginX + paddingX, y + paddingY + headingH);
-      let cy = y + paddingY + headingH + 4;
-
-      // Líneas
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(10.5);
-      pdf.setTextColor(TEXT_DARK.r, TEXT_DARK.g, TEXT_DARK.b);
-      wrappedLines.forEach((w) => {
-        pdf.text(w, marginX + paddingX, cy);
-        cy += w.length * 5 + lineGap;
-      });
-
-      y += contentHeight + 8;
-    };
-
-    // === Contenido base ===
+    // Tarjeta única (datos comunes + método/forma)
     const comunes = [
       "Razón social: NOKTOS ALIANZA",
       "RFC: NAL190807BU2",
@@ -558,35 +513,49 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
       "Uso de CFDI: G03 - Gastos en general",
     ];
 
-    // Render condicional
-    if (mode === "credito") {
-      drawSection("CRÉDITO", [
-        ...comunes,
-        "Método de pago: PPD - Pago en parcialidades o diferido",
-        "Forma de pago: 99 - Por definir",
-      ]);
-      return; // ← solo esa sección
+    const metodoForma =
+      mode === "credito"
+        ? ["Método de pago: PPD - Pago en parcialidades o diferido", "Forma de pago: 99 - Por definir"]
+        : ["Método de pago: PUE - Pago en una sola exhibición", "Forma de pago: 03 - Transferencia electrónica de fondos"];
+
+    const lines = [...comunes, ...metodoForma];
+
+    // Medición de alto
+    const maxWidth = boxW - paddingX * 2;
+    const wrapped = lines.map((L) => pdf.splitTextToSize(L, maxWidth));
+    const headingH = 6;
+    const lineH = 5;
+
+    let contentH = paddingY * 2 + headingH + 4; // paddings + heading
+    wrapped.forEach((w) => (contentH += w.length * lineH + lineGap));
+
+    // Fondo de la tarjeta
+    pdf.setDrawColor(BLUE_200.r, BLUE_200.g, BLUE_200.b);
+    pdf.setFillColor(BLUE_50.r, BLUE_50.g, BLUE_50.b);
+    if ((pdf as any).roundedRect) {
+      (pdf as any).roundedRect(marginX, y, boxW, contentH, 3, 3, "FD");
+    } else {
+      pdf.rect(marginX, y, boxW, contentH, "FD");
     }
 
-    // Modo completo (como lo tenías)
-    // drawSection("PAGO CON TDC", [
-    //   ...comunes,
-    //   "Método de pago: PUE - Pago en una sola exhibición",
-    //   "Forma de pago: 04 - Tarjeta de crédito",
-    // ]);
+    // Título de la tarjeta
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(12);
+    pdf.setTextColor(BLUE_900.r, BLUE_900.g, BLUE_900.b);
+    pdf.text("Datos para facturación", marginX + paddingX, y + paddingY + headingH);
+    let cy = y + paddingY + headingH + 4;
 
-    // drawSection("PAGO CON TRANSFERENCIA", [
-    //   ...comunes,
-    //   "Método de pago: PUE - Pago en una sola exhibición",
-    //   "Forma de pago: 03 - Transferencia electrónica de fondos",
-    // ]);
+    // Contenido
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10.5);
+    pdf.setTextColor(TEXT_DARK.r, TEXT_DARK.g, TEXT_DARK.b);
 
-    drawSection("CRÉDITO", [
-      ...comunes,
-      "Método de pago: PPD - Pago en parcialidades o diferido",
-      "Forma de pago: 99 - Por definir",
-    ]);
+    wrapped.forEach((w) => {
+      pdf.text(w, marginX + paddingX, cy);
+      cy += w.length * lineH + lineGap;
+    });
   }
+
 
 
   function paintFullBluePage(pdf: jsPDF) {
@@ -594,6 +563,23 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
     const h = pdf.internal.pageSize.getHeight();
     pdf.setFillColor(221, 235, 254); // #DDEBFE
     pdf.rect(0, 0, w, h, "F");
+  }
+
+  function measureContactBoxHeight(pdf: jsPDF): number {
+    // Estos números deben coincidir con los usados en drawContactInfoOnCurrentPage
+    const paddingY = 6;
+    const titleBarH = 8;
+    const lineH = 4.6;
+    const lineGap = 2;
+
+    // título + paddings
+    let contentH = paddingY + titleBarH + paddingY;
+    // 2 renglones: (1) WhatsApp+Tel, (2) Correo
+    contentH += lineH + lineGap; // (1)
+    contentH += lineH;           // (2)
+
+    // + padding inferior
+    return contentH + paddingY;
   }
 
 
@@ -639,7 +625,7 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
       content.style.width = "100%";
       content.style.overflow = "visible";
       content.style.maxHeight = "none";
-      content.style.padding = "20px 16px";
+      content.style.padding = "16px 12px"; // Reducir padding para más espacio
 
       if (scroller) {
         scroller.style.overflow = "visible";
@@ -659,7 +645,7 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
 
       // Captura
       const canvas = await html2canvas(content, {
-        scale: Math.min(2, window.devicePixelRatio || 1) * 2,
+        scale: Math.min(1.5, window.devicePixelRatio || 1), // Reducir escala para menos altura
         useCORS: true,
         backgroundColor: null,
         scrollY: 0,
@@ -674,75 +660,61 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
       const pdf = new jsPDF("p", "mm", "a4");
       const pageW = pdf.internal.pageSize.getWidth();   // 210
       const pageH = pdf.internal.pageSize.getHeight();  // 297
-      // --- Reservas para que TODO quede en una sola página ---
-      const RESERVED_BOTTOM_MM = 64; // espacio para contacto+facturación (ajustable)
-      const BOTTOM_GAP_MM = 4;
 
-      // Limitar la altura para dejar hueco a los bloques inferiores
+      // REDUCIR espacio reservado para que quepa en una página
+      const RESERVED_BOTTOM_MM = 45; // Reducido de 64 a 45
+      const BOTTOM_GAP_MM = 3;
 
-      // Queremos TODO (HTML) en la página 1: escalar a alto de página,
-      // dejando un margen inferior “visual” para que no tape políticas/contacto.
-      // Sugerencia: dibujamos la imagen full-page y luego ponemos políticas/contacto encima.
+      // Calcular dimensiones de la imagen
       const imgWmm = pageW;
       const imgHmm = (canvas.height * imgWmm) / canvas.width;
       const maxImgHmm = pageH - RESERVED_BOTTOM_MM;
+
       let drawW = imgWmm;
       let drawH = imgHmm;
 
+      // Escalar si es necesario para que quepa con el espacio reservado
       if (drawH > maxImgHmm) {
         const scale = maxImgHmm / drawH;
         drawW = drawW * scale;
         drawH = drawH * scale;
       }
+
       const drawX = (pageW - drawW) / 2;
-      const drawY = 0;
+      const drawY = 2; // Pequeño margen superior
 
-
-      // Si es más alto que la página, lo comprimimos proporcionalmente
-
-      if (imgHmm > pageH) {
-        const scale = pageH / imgHmm;
-        drawW = imgWmm * scale;
-        drawH = imgHmm * scale;
-      }
-
-
-      // Página 1
+      // Página 1 - Todo en una sola página
       paintFullBluePage(pdf);
       pdf.addImage(imgData, "PNG", drawX, drawY, drawW, drawH);
       drawLogosOnPage(pdf, logos);
 
       // --- Políticas y Contacto en la misma página (1) ---
+      // Queremos TODO en la misma hoja: Facturación arriba, Contacto abajo
+      const bottomMargin = 8;
+      const gap = 4;
 
-      const contactH = drawContactInfoOnCurrentPage(pdf);
+      // Alturas necesarias
+      const contactBoxH = measureContactBoxHeight(pdf);
+      const billingBoxH = measureBillingBoxHeight(pdf, "credito");
 
-      // 2) Facturación compact, justo encima de contacto
-      const pageH2 = pdf.internal.pageSize.getHeight();
-      const billingH = drawBillingInfoCompact(pdf, pageH2 - 8 - contactH - BOTTOM_GAP_MM);
-      drawPoliciesOnCurrentPage(pdf);
+      // Calculamos el Y superior para facturación (antes del contacto)
+      const billingY = pageH - bottomMargin - contactBoxH - gap - billingBoxH;
+      const contactY = billingY + billingBoxH + gap;
 
-      // --- Link invisible sobre la tarjeta del hotel (en página 1) ---
+      // Dibuja facturación inline y luego contacto
+      drawBillingInfoInline(pdf, billingY, "credito");
+      drawContactInfoOnCurrentPage(pdf, contactY);
 
-      // === Config de depuración / posicionamiento del link ===
-      const LINK_DEBUG = false;                  // ← pinta el borde rojo si true
-      const LINK_BORDER_COLOR: [number, number, number] = [0, 0, 0]; // rojo
-      const LINK_STROKE_WIDTH = 0.6;           // grosor del borde (mm)
 
-      // Offsets en MILÍMETROS sobre el resultado final (tras escalar canvas → PDF):
-      const LINK_OFFSET_MM = { x: 36, y: 12.5 };   // mueve el rectángulo a la derecha/abajo (+) o izquierda/arriba (-)
-
-      // “Crecer/encoger” el área de click en MILÍMETROS (útil si quieres darle aire)
-      const LINK_GROW_MM = { w: 0, h: 0 };     // se aplica de forma simétrica a los lados (ver fórmula)
-
-      // --- Link invisible (con borde rojo opcional) y label "Ver ubicación" ---
-
+      // --- Link invisible sobre la tarjeta del hotel ---
+      // --- Link VISIBLE de Google Maps sobre la card del hotel ---
       if (hotelRect && mapsUrl) {
         const relXpx = hotelRect.left - pageRect.left;
         const relYpx = hotelRect.top - pageRect.top;
         const wpx = hotelRect.width;
         const hpx = hotelRect.height;
 
-        // Escala px → mm
+        // Escala px → mm en PDF (imagen ya escalada a drawW x drawH)
         const mmPerPxX = drawW / canvas.width;
         const mmPerPxY = drawH / canvas.height;
 
@@ -751,57 +723,83 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
         let wmm = wpx * mmPerPxX;
         let hmm = hpx * mmPerPxY;
 
-        // Ajustes opcionales
-        if (LINK_GROW_MM.w) {
-          xmm -= LINK_GROW_MM.w / 2;
-          wmm += LINK_GROW_MM.w;
-        }
-        if (LINK_GROW_MM.h) {
-          ymm -= LINK_GROW_MM.h / 2;
-          hmm += LINK_GROW_MM.h;
-        }
-
+        // Ajuste fino para colocar el chip
+        const LINK_OFFSET_MM = { x: 36, y: 12.5 };
         xmm += LINK_OFFSET_MM.x;
         ymm += LINK_OFFSET_MM.y;
 
-        // === NUEVO: texto "Ver ubicación" encima del cuadro ===
-        const labelText = "Ver ubicación";
-        const labelFontSize = 7;
-        const labelOffsetY = .5; // mm de separación del borde superior
-
+        // ---- CHIP visible "Abrir en Google Maps" ----
+        const labelText = "Abrir en Google Maps";
         pdf.setFont("helvetica", "bold");
-        pdf.setFontSize(labelFontSize);
-        pdf.setTextColor(220, 220, 220); // Gris muy claro (un gris muy común)
+        pdf.setFontSize(8);
 
-        // Centrado horizontal respecto al cuadro
-        const textWidth = pdf.getTextWidth(labelText);
-        const labelX = xmm + (wmm - textWidth) / 2;
-        const labelY = ymm - labelOffsetY;
-        pdf.text(labelText, labelX, labelY);
+        const padX = 2.6;
+        const padY = 1.8;
+        const textW = pdf.getTextWidth(labelText);
+        const chipW = textW + padX * 2 + 4; // +4 para un mini icono
+        const chipH = 6.8;
 
-        // (Opcional) Borde de debug
-        if (LINK_DEBUG) {
-          pdf.setDrawColor(...LINK_BORDER_COLOR);
-          (pdf as any).setLineWidth?.(LINK_STROKE_WIDTH);
-          pdf.rect(xmm, ymm, wmm, hmm);
-          pdf.setDrawColor(0, 0, 0);
-          (pdf as any).setLineWidth?.(0.2);
-        }
+        const chipX = xmm + (wmm - chipW) / 2;
+        const chipY = ymm - chipH - 1.5; // sobre la card
 
-        // Link clickeable
-        if ((pdf as any).link) {
-          (pdf as any).link(xmm, ymm, wmm, hmm, { url: mapsUrl });
+        // Fondo del chip
+        const BLUE = { r: 59, g: 130, b: 246 };    // blue-500
+        const BLUE_D = { r: 30, g: 64, b: 175 };  // azul más oscuro
+        pdf.setFillColor(BLUE.r, BLUE.g, BLUE.b);
+        pdf.setDrawColor(BLUE_D.r, BLUE_D.g, BLUE_D.b);
+        if ((pdf as any).roundedRect) {
+          (pdf as any).roundedRect(chipX, chipY, chipW, chipH, 1.6, 1.6, "FD");
         } else {
-          pdf.setTextColor(0, 0, 255);
-          pdf.setFontSize(1);
-          pdf.textWithLink(" ", xmm + 0.5, ymm + 1, { url: mapsUrl });
-          pdf.setTextColor(0, 0, 0);
+          pdf.rect(chipX, chipY, chipW, chipH, "FD");
         }
+
+        // (opcional) Dibujar un “pin” simple a la izquierda
+        const pinCx = chipX + 2.4;     // centro del pin
+        const pinCy = chipY + chipH / 2; // verticalmente centrado
+        pdf.setFillColor(255, 255, 255);
+        // círculo
+        pdf.circle(pinCx, pinCy - 0.6, 0.8, "F");
+        // triángulo (punta)
+        pdf.triangle(
+          pinCx - 0.7, pinCy - 0.1,
+          pinCx + 0.7, pinCy - 0.1,
+          pinCx, pinCy + 1.2,
+          "F"
+        );
+
+        // Texto del chip
+        pdf.setTextColor(255, 255, 255);
+        pdf.text(labelText, pinCx + 2.2, chipY + chipH - 2.1);
+
+        // ---- Área CLICKEABLE ----
+        // Si quieres que el clic sea SOLO el chip:
+        const linkX = chipX, linkY = chipY, linkW = chipW, linkH = chipH;
+
+        if ((pdf as any).link) {
+          (pdf as any).link(linkX, linkY, linkW, linkH, { url: mapsUrl });
+        } else {
+          pdf.textWithLink(" ", linkX + linkW / 2, linkY + linkH / 2, { url: mapsUrl });
+        }
+
+        const RED_STROKE_MM = 0.5;
+
+
+        // (opcional) Caja de depuración para ver dónde está el link
+        const SHOW_DEBUG_LINK_BOX = false; // pon true para ver el marco
+        if (SHOW_DEBUG_LINK_BOX) {
+          pdf.setDrawColor(255, 0, 0);
+          pdf.setLineWidth(RED_STROKE_MM);
+          pdf.rect(linkX, linkY, linkW, linkH); // marco fino blanco
+        }
+
+        // Reset
+        pdf.setTextColor(0, 0, 0);
+        pdf.setDrawColor(0, 0, 0);
       }
 
-      // ====== Página 2: FACTURACIÓN ======
-      // Usa "credito" si sólo quieres esa sección; usa "full" para el bloque completo
-      drawBillingInfoOnLastPage(pdf, "credito");
+
+      // ELIMINAR la página adicional de facturación
+      // drawBillingInfoOnLastPage(pdf, "credito"); // ← COMENTAR ESTA LÍNEA
 
       const filename = `reservacion-${reservationDetails?.codigo_confirmacion || "sin-codigo"}.pdf`;
       if (opts?.save) pdf.save(filename);
@@ -878,7 +876,6 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
               </button>
               <button
                 data-hide-in-pdf="true"
-                onClick={onClose}
                 className="p-2.5 rounded-lg hover:bg-slate-100 transition-colors border border-slate-200"
                 aria-label="Cerrar"
               >
@@ -905,10 +902,14 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
                 <div className="text-center mb-6">
                   <h1 className="text-2xl font-bold text-blue-900">Resumen de reservación</h1>
                   {reservationDetails?.codigo_confirmacion && (
-                    <p className="text-blue-600 mt-2 break-words tracking-normal">
-                      Confirmación #{reservationDetails?.codigo_confirmacion}
+                    <p className="mt-2">
+                      <span className="text-slate-600 text-sm mr-1 align-middle">Confirmación</span>
+                      <code className="text-blue-700 font-mono text-xl md:text-2xl tracking-wider leading-none align-middle select-all">
+                        #{String(reservationDetails?.codigo_confirmacion).trim()}
+                      </code>
                     </p>
                   )}
+
                 </div>
 
                 {/* Main Content */}
