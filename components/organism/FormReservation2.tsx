@@ -71,7 +71,6 @@ export function ReservationForm2({
   const [cobrar, setCobrar] = useState<boolean | null>(null);
   const [id_agente, setId_agente] = useState<string | null>(null);
   const [reservaData, setReservaData] = useState<any>(null);
-  const [precio, setPrecio] = useState<number>(0);
   const [open, setOpen] = useState<boolean>(false);
   const [pagoSeleccion, setPagoSeleccion] = useState<any>(null);
   const [form, setForm] = useState<ReservaForm>({
@@ -94,44 +93,44 @@ export function ReservationForm2({
       markup: 0,
     },
     estado_reserva: getEstatus(solicitud.status_reserva) as
-      | "Confirmada"
-      | "En proceso"
-      | "Cancelada",
+    | "Confirmada"
+    | "En proceso"
+    | "Cancelada",
     comments: solicitud.comments || "",
     proveedor: {
       total:
-        // ① Si la solicitud viene con costo_total, úsalo
-        solicitud.costo_total != null
-          ? Number(solicitud.costo_total)
-          : // ② Si no, cae al cálculo automático de antes
-            Number(
-              Number(
-                currentHotel?.tipos_cuartos.find(
-                  (item) =>
-                    item.nombre_tipo_cuarto == updateRoom(solicitud.tipo_cuarto)
-                )?.costo ?? 0
-              ) * currentNoches
-            ) || 0,
+      // ① Si la solicitud viene con costo_total, úsalo
+      solicitud.costo_total != null
+      ? Number(solicitud.costo_total)
+      : // ② Si no, cae al cálculo automático de antes
+      Number(
+        Number(
+          currentHotel?.tipos_cuartos.find(
+            (item) =>
+              item.nombre_tipo_cuarto == updateRoom(solicitud.tipo_cuarto)
+          )?.costo ?? 0
+        ) * currentNoches
+      ) || 0,
       subtotal: 0,
       impuestos: 0,
     },
     impuestos: {
       iva:
-        Number(
-          currentHotel?.impuestos.find((item) => item.name == "iva")?.porcentaje
-        ) || 0,
+      Number(
+        currentHotel?.impuestos.find((item) => item.name == "iva")?.porcentaje
+      ) || 0,
       ish:
-        Number(
-          currentHotel?.impuestos.find((item) => item.name == "ish")?.porcentaje
-        ) || 0,
+      Number(
+        currentHotel?.impuestos.find((item) => item.name == "ish")?.porcentaje
+      ) || 0,
       otros_impuestos:
-        Number(
-          currentHotel?.impuestos.find((item) => item.name == "otros_impuestos")
-            .monto
-        ) || 0,
+      Number(
+        currentHotel?.impuestos.find((item) => item.name == "otros_impuestos")
+        .monto
+      ) || 0,
       otros_impuestos_porcentaje:
-        Number(
-          currentHotel?.impuestos.find(
+      Number(
+        currentHotel?.impuestos.find(
             (item) => item.name == "otros_impuestos_porcentaje"
           )?.porcentaje
         ) || 0,
@@ -165,11 +164,12 @@ export function ReservationForm2({
       )
   );
   const [inicial, setInicial] = useState(true);
+  const [precio, setPrecio] = useState<number>(form.venta.total);
 
   useEffect(() => {
     console.log("Edicion FORM", edicionForm, viajero);
     setId_agente(edicionForm.metadata.id_agente || null);
-    setPrecio(Number(edicionForm.metadata.total) || 0);
+    setPrecio(form.venta.total)
   }, [form]);
 
   const handleSaldosSubmit = async (saldos, restante, usado) => {
@@ -533,6 +533,7 @@ export function ReservationForm2({
   // const hotelDat() => {
   // }
   console.log("form", form);
+  console.log("precio", precio);
 
   const hotelData = useMemo(() => {
     const roomType = form.habitacion || "";
@@ -651,6 +652,7 @@ export function ReservationForm2({
                       impuestos: impuestosObj,
                     };
                   });
+                                      setPrecio(form.venta.total);
                 }}
                 value={{
                   name: form.hotel.name,
@@ -752,7 +754,8 @@ export function ReservationForm2({
                     }));
                   }
                   setForm((prev) => ({ ...prev, check_in: value }));
-                }}
+                                      setPrecio(form.venta.total);
+    }}
               />
               <DateInput
                 label="Check-out"
@@ -769,6 +772,7 @@ export function ReservationForm2({
                     }));
                   }
                   setForm((prev) => ({ ...prev, check_out: value }));
+                                      setPrecio(form.venta.total);
                 }}
               />
               {form.solicitud.viajeros_adicionales.map((viajero, index) => (
@@ -1021,6 +1025,7 @@ export function ReservationForm2({
                       proveedor: { ...prev.proveedor, total: Number(value) },
                       items: items.length > 0 ? items : [],
                     }));
+                                      setPrecio(form.venta.total);
                   }}
                   label="Costo total"
                 />
