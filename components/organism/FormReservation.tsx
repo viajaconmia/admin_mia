@@ -872,10 +872,12 @@ export function ReservationForm({
                     onChange={(opcion) => {
                       console.log(opcion);
                     }}
-                    options={travelers.map((traveler) => ({
-                      name: traveler.nombre_completo,
-                      content: traveler,
-                    }))}
+                    options={travelers
+                      .filter((tr) => Boolean(tr.is_user))
+                      .map((traveler) => ({
+                        name: traveler.nombre_completo,
+                        content: traveler,
+                      }))}
                   />
                 </div>
               </div>
