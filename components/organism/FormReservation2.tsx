@@ -169,7 +169,6 @@ export function ReservationForm2({
   useEffect(() => {
     console.log("Edicion FORM", edicionForm, viajero);
     setId_agente(edicionForm.metadata.id_agente || null)
-    setPrecio(Number(edicionForm.metadata.total) || 0)
   }, [form]);
 
   const handleSaldosSubmit = async (saldos, restante, usado) => {
@@ -357,6 +356,8 @@ export function ReservationForm2({
 
       const items = calculateItems(autoTotal);
 
+
+
       // Actualizar estado
       setForm((prev) => ({
         ...prev,
@@ -494,7 +495,6 @@ export function ReservationForm2({
   };
 
 
-
   function getAutoCostoTotal(
     hotel: Hotel | null,
     habitacion: string,
@@ -512,7 +512,8 @@ export function ReservationForm2({
 
   // const hotelDat() => {
   // }
-  console.log("form", form);
+  console.log("forrrm", form);
+  console.log("prcccccccccccccccccecio", precio)
 
   const hotelData = useMemo(() => {
     const roomType = form.habitacion || "";
@@ -733,6 +734,7 @@ export function ReservationForm2({
                     }));
                   }
                   setForm((prev) => ({ ...prev, check_in: value }));
+                  setPrecio(Number((roomPrice * nights).toFixed(2) || 0))
                 }}
               />
               <DateInput
@@ -750,6 +752,8 @@ export function ReservationForm2({
                     }));
                   }
                   setForm((prev) => ({ ...prev, check_out: value }));
+                  console.log("vr", form.venta.total)
+                  setPrecio(form.venta.total)
                 }}
               />
               {form.solicitud.viajeros_adicionales.map((viajero, index) => (
@@ -870,7 +874,7 @@ export function ReservationForm2({
                       current: value.content as Viajero,
                     },
                   }));
-
+                  setPrecio(Number((roomPrice * nights).toFixed(2) || 0))
                   setForm((prev) => ({
                     ...prev,
                     viajero: value.content as Viajero,
@@ -1003,6 +1007,7 @@ export function ReservationForm2({
                       proveedor: { ...prev.proveedor, total: Number(value) },
                       items: items.length > 0 ? items : [],
                     }));
+                    setPrecio(Number((roomPrice * nights).toFixed(2) || 0))
                   }}
                   label="Costo total"
                 />
