@@ -56,6 +56,7 @@ function measureBillingBoxHeight(pdf: jsPDF, mode: "full" | "credito" = "credito
   wrapped.forEach((w) => (contentH += w.length * lineH + lineGap));
   return contentH;
 }
+const mmToPx = (mm: number, dpi = 300) => Math.round((mm / 25.4) * dpi);
 
 function drawBillingInfoInline(pdf: jsPDF, y: number, mode: "full" | "credito" = "credito"): number {
   const BLUE_50 = { r: 239, g: 246, b: 255 };
@@ -78,7 +79,6 @@ function drawBillingInfoInline(pdf: jsPDF, y: number, mode: "full" | "credito" =
     "RFC: NAL190807BU2",
     "Código postal: 11570",
     "Dirección: Presidente Masarik No. 29, Interior E-3, Col. Chapultepec Morales, Alcaldía Miguel Hidalgo, CDMX.",
-    "E-mail: operaciones@noktos.com",
     "Régimen Fiscal: 601 - General de Ley Personas Morales",
     "Uso de CFDI: G03 - Gastos en general",
   ];
@@ -396,7 +396,7 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
 
     const title = "Contacto 24/7";
     const whatsappNumber = "5510445254";
-    const mail = "support@noktos.zohodesk.com";
+    const mail = "operaciones@noktos.com";
     const phone = "800 666 5867 opción 2";
 
     // Calcula alto
@@ -437,9 +437,9 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
     // Línea 1: WhatsApp + Tel (mismo renglón)
     const wsLabel = "WhatsApp:";
     const telLabel = "Tel:";
-    const sep = "   •   ";
+    const sep = "                       •   ";
 
-    const leftLine = `${wsLabel} ${whatsappNumber}`;
+    const leftLine = `${wsLabel} `;
     const rightLine = `${telLabel} ${phone}`;
     const leftW = pdf.getTextWidth(leftLine + sep);
 
@@ -449,7 +449,7 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
     // Links
     pdf.setTextColor(PRI.r, PRI.g, PRI.b);
     pdf.textWithLink(whatsappNumber, 1.5 + tx + pdf.getTextWidth("WhatsApp "), cy, { url: "https://wa.me/525510445254" });
-    pdf.textWithLink(" Llamar", tx + leftW + pdf.getTextWidth(rightLine), cy, { url: "tel:+528006665867" });
+    pdf.textWithLink("   Llamar", tx + leftW + pdf.getTextWidth(rightLine), cy, { url: "tel:+528006665867" });
 
     // Línea 2: Correo
     cy += lineH + lineGap;
@@ -508,7 +508,6 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
       "RFC: NAL190807BU2",
       "Código postal: 11570",
       "Dirección: Presidente Masarik No. 29, Interior E-3, Col. Chapultepec Morales, Alcaldía Miguel Hidalgo, CDMX.",
-      "E-mail: operaciones@noktos.com",
       "Régimen Fiscal: 601 - General de Ley Personas Morales",
       "Uso de CFDI: G03 - Gastos en general",
     ];
@@ -643,11 +642,22 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
       const pageRect = content.getBoundingClientRect();
       const hotelRect = hotelCardRef.current?.getBoundingClientRect() || null;
 
+      // dentro de buildPdf(), después de crear pdf:
+      // ======== PDF =========
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pageWmm = pdf.internal.pageSize.getWidth();     // ~210 mm
+      const pageHmm = pdf.internal.pageSize.getHeight();    // ~297 mm
+      const targetPxW = mmToPx(pageWmm, 300);               // ≈ 2480 px a 300 DPI
+      const pageW = pdf.internal.pageSize.getWidth();   // 210
+      const pageH = pdf.internal.pageSize.getHeight();  // 297
+
+
       // Captura
       const canvas = await html2canvas(content, {
-        scale: Math.min(1.5, window.devicePixelRatio || 1), // Reducir escala para menos altura
+        scale: 1, // Reducir escala para menos altura
         useCORS: true,
         backgroundColor: null,
+        width: targetPxW,
         scrollY: 0,
         windowWidth: document.documentElement.scrollWidth,
         windowHeight: document.documentElement.scrollHeight,
@@ -656,10 +666,6 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
 
       const imgData = canvas.toDataURL("image/png");
 
-      // ======== PDF =========
-      const pdf = new jsPDF("p", "mm", "a4");
-      const pageW = pdf.internal.pageSize.getWidth();   // 210
-      const pageH = pdf.internal.pageSize.getHeight();  // 297
 
       // REDUCIR espacio reservado para que quepa en una página
       const RESERVED_BOTTOM_MM = 45; // Reducido de 64 a 45
@@ -705,101 +711,126 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
       drawBillingInfoInline(pdf, billingY, "credito");
       drawContactInfoOnCurrentPage(pdf, contactY);
 
-
-      // --- Link invisible sobre la tarjeta del hotel ---
-      // --- Link VISIBLE de Google Maps sobre la card del hotel ---
+      // --- Link clickeable sobre TODA la card del hotel + chip visible opcional ---
       if (hotelRect && mapsUrl) {
+        // Conversión px→mm según la imagen escalada al PDF
+        const mmPerPxX = drawW / canvas.width;
+        const mmPerPxY = drawH / canvas.height;
+
+        // Posición/medidas de la card (en px, relativas al contenedor capturado)
         const relXpx = hotelRect.left - pageRect.left;
         const relYpx = hotelRect.top - pageRect.top;
         const wpx = hotelRect.width;
         const hpx = hotelRect.height;
 
-        // Escala px → mm en PDF (imagen ya escalada a drawW x drawH)
-        const mmPerPxX = drawW / canvas.width;
-        const mmPerPxY = drawH / canvas.height;
+        // Posición/medidas de la card convertidas a mm dentro del PDF
+        let cardXmm = drawX + relXpx * mmPerPxX;
+        let cardYmm = drawY + relYpx * mmPerPxY;
+        let cardWmm = wpx * mmPerPxX;
+        let cardHmm = hpx * mmPerPxY;
 
-        let xmm = drawX + relXpx * mmPerPxX;
-        let ymm = drawY + relYpx * mmPerPxY;
-        let wmm = wpx * mmPerPxX;
-        let hmm = hpx * mmPerPxY;
+        // ========== PERILLAS DE AJUSTE ==========
 
-        // Ajuste fino para colocar el chip
-        const LINK_OFFSET_MM = { x: 36, y: 12.5 };
-        xmm += LINK_OFFSET_MM.x;
-        ymm += LINK_OFFSET_MM.y;
+        const POS_MODE: "CENTER_TOP" | "CENTER_MIDDLE" | "ABSOLUTE_MM" = "CENTER_TOP"; // <<< AJUSTA AQUÍ >>>
 
-        // ---- CHIP visible "Abrir en Google Maps" ----
-        const labelText = "Abrir en Google Maps";
-        pdf.setFont("helvetica", "bold");
-        pdf.setFontSize(8);
+        // 2) OFFSETS (en mm). Úsalos para mover fino el botón en X/Y.
+        //    Se aplican SOBRE la posición dada por POS_MODE.
+        const OFFSET_X_MM = -75;  // ← mueve a la derecha (+) o izquierda (−)   // <<< AJUSTA AQUÍ >>>
+        const OFFSET_Y_MM = 4;  // ← mueve hacia abajo (+) o arriba (−)       // <<< AJUSTA AQUÍ >>>
 
-        const padX = 2.6;
-        const padY = 1.8;
-        const textW = pdf.getTextWidth(labelText);
-        const chipW = textW + padX * 2 + 4; // +4 para un mini icono
-        const chipH = 6.8;
+        // 3) TAMAÑO DEL BOTÓN (mm). Solo borde (sin relleno).
+        const BUTTON_W_MM = 40; // ancho                                     // <<< AJUSTA AQUÍ >>>
+        const BUTTON_H_MM = 8;  // alto                                      // <<< AJUSTA AQUÍ >>>
 
-        const chipX = xmm + (wmm - chipW) / 2;
-        const chipY = ymm - chipH - 1.5; // sobre la card
+        // 4) ESTILO DEL BORDE
+        const BORDER_COLOR = { r: 0, g: 0, b: 0 }; // rojo                  // <<< AJUSTA AQUÍ >>>
+        const BORDER_WIDTH_MM = 0.6;                                         // <<< AJUSTA AQUÍ >>>
+        const BORDER_RADIUS_MM = 1.8;                                        // <<< AJUSTA AQUÍ >>>
 
-        // Fondo del chip
-        const BLUE = { r: 59, g: 130, b: 246 };    // blue-500
-        const BLUE_D = { r: 30, g: 64, b: 175 };  // azul más oscuro
-        pdf.setFillColor(BLUE.r, BLUE.g, BLUE.b);
-        pdf.setDrawColor(BLUE_D.r, BLUE_D.g, BLUE_D.b);
-        if ((pdf as any).roundedRect) {
-          (pdf as any).roundedRect(chipX, chipY, chipW, chipH, 1.6, 1.6, "FD");
-        } else {
-          pdf.rect(chipX, chipY, chipW, chipH, "FD");
+        // 5) VISIBILIDAD
+        //    - SHOW_BUTTON_OUTLINE=true: ver el “botón” (transparente con borde)
+        //    - SHOW_BUTTON_OUTLINE=false: invisible (deja solo el área clickeable)
+        const SHOW_BUTTON_OUTLINE = false; // pon en false para dejarlo invisible // <<< AJUSTA AQUÍ >>>
+
+        // 6) ÁREA CLICKEABLE
+        //    Si quieres que el clic sea TODO el botón (recomendado), deja true.
+        //    Si prefieres que sea TODO el rectángulo de la card del hotel, pon false.
+        const LINK_OVER_BUTTON = true; // true: botón | false: toda la card      // <<< AJUSTA AQUÍ >>>
+
+        // 7) DEBUG VISUAL: dibuja un marco rojo sobre el área clic real
+        const SHOW_DEBUG_LINK_BOX = false; //                                // <<< AJUSTA AQUÍ >>>
+        // ========================================
+
+        // Cálculo de posición del botón según modo
+        const pageW = pdf.internal.pageSize.getWidth();
+        const pageH = pdf.internal.pageSize.getHeight();
+
+        let btnX = 0, btnY = 0;
+        if (POS_MODE === "CENTER_TOP") {
+          btnX = cardXmm + (cardWmm - BUTTON_W_MM) / 2;
+          btnY = cardYmm - BUTTON_H_MM - 1.5; // un poco arriba de la card
+        } else if (POS_MODE === "CENTER_MIDDLE") {
+          btnX = cardXmm + (cardWmm - BUTTON_W_MM) / 2;
+          btnY = cardYmm + (cardHmm - BUTTON_H_MM) / 2;
+        } else { // "ABSOLUTE_MM"
+          // Coordenadas absolutas de la página (mm desde la esquina sup-izq)
+          btnX = 20;  // X absoluto en mm                                     // <<< AJUSTA AQUÍ >>>
+          btnY = 30;  // Y absoluto en mm                                     // <<< AJUSTA AQUÍ >>>
         }
 
-        // (opcional) Dibujar un “pin” simple a la izquierda
-        const pinCx = chipX + 2.4;     // centro del pin
-        const pinCy = chipY + chipH / 2; // verticalmente centrado
-        pdf.setFillColor(255, 255, 255);
-        // círculo
-        pdf.circle(pinCx, pinCy - 0.6, 0.8, "F");
-        // triángulo (punta)
-        pdf.triangle(
-          pinCx - 0.7, pinCy - 0.1,
-          pinCx + 0.7, pinCy - 0.1,
-          pinCx, pinCy + 1.2,
-          "F"
-        );
+        // Aplica offsets finos
+        btnX += OFFSET_X_MM;
+        btnY += OFFSET_Y_MM;
 
-        // Texto del chip
-        pdf.setTextColor(255, 255, 255);
-        pdf.text(labelText, pinCx + 2.2, chipY + chipH - 2.1);
+        // Clamps de seguridad (evita salirse de la página)
+        const PAD = 0.5;
+        const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+        btnX = clamp(btnX, PAD, pageW - BUTTON_W_MM - PAD);
+        btnY = clamp(btnY, PAD, pageH - BUTTON_H_MM - PAD);
 
-        // ---- Área CLICKEABLE ----
-        // Si quieres que el clic sea SOLO el chip:
-        const linkX = chipX, linkY = chipY, linkW = chipW, linkH = chipH;
+        // Área click: botón o toda la card
+        const linkX = LINK_OVER_BUTTON ? btnX : cardXmm;
+        const linkY = LINK_OVER_BUTTON ? btnY : cardYmm;
+        const linkW = LINK_OVER_BUTTON ? BUTTON_W_MM : cardWmm;
+        const linkH = LINK_OVER_BUTTON ? BUTTON_H_MM : cardHmm;
 
+        // Asegura estar en la página correcta
+        pdf.setPage(1);
+
+        // 1) Dibujo del “botón” transparente (solo borde), si lo quieres visible
+        if (SHOW_BUTTON_OUTLINE) {
+          pdf.setDrawColor(BORDER_COLOR.r, BORDER_COLOR.g, BORDER_COLOR.b);
+          pdf.setLineWidth(BORDER_WIDTH_MM);
+          if ((pdf as any).roundedRect) {
+            // "S" = Stroke only (sin relleno)
+            (pdf as any).roundedRect(btnX, btnY, BUTTON_W_MM, BUTTON_H_MM, BORDER_RADIUS_MM, BORDER_RADIUS_MM, "S");
+          } else {
+            pdf.rect(btnX, btnY, BUTTON_W_MM, BUTTON_H_MM); // stroke por defecto
+          }
+        }
+
+        // 2) Anotación clickeable (invisible)
         if ((pdf as any).link) {
           (pdf as any).link(linkX, linkY, linkW, linkH, { url: mapsUrl });
         } else {
+          // Fallback mínimo
+          pdf.setTextColor(0, 0, 255);
+          pdf.setFontSize(1);
           pdf.textWithLink(" ", linkX + linkW / 2, linkY + linkH / 2, { url: mapsUrl });
+          pdf.setTextColor(0, 0, 0);
         }
 
-        const RED_STROKE_MM = 0.5;
-
-
-        // (opcional) Caja de depuración para ver dónde está el link
-        const SHOW_DEBUG_LINK_BOX = false; // pon true para ver el marco
+        // 3) Marco de debug (para comprobar exactamente el área clic)
         if (SHOW_DEBUG_LINK_BOX) {
           pdf.setDrawColor(255, 0, 0);
-          pdf.setLineWidth(RED_STROKE_MM);
-          pdf.rect(linkX, linkY, linkW, linkH); // marco fino blanco
+          pdf.setLineWidth(0.3);
+          pdf.rect(linkX, linkY, linkW, linkH);
         }
 
         // Reset
-        pdf.setTextColor(0, 0, 0);
         pdf.setDrawColor(0, 0, 0);
+        pdf.setLineWidth(0.2);
       }
-
-
-      // ELIMINAR la página adicional de facturación
-      // drawBillingInfoOnLastPage(pdf, "credito"); // ← COMENTAR ESTA LÍNEA
 
       const filename = `reservacion-${reservationDetails?.codigo_confirmacion || "sin-codigo"}.pdf`;
       if (opts?.save) pdf.save(filename);
