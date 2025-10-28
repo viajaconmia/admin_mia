@@ -11,15 +11,17 @@ interface PagarModalProps {
     faltante: number,
     isPrimary: boolean
   ) => void;
+  reserva_Data?: any;
   precio: number;
-  agente: Agente;
+  id_agente: string;
   loading: boolean;
 }
 
 export const MostrarSaldos: React.FC<PagarModalProps> = ({
   onSubmit,
+  reserva_Data,
   precio = 0,
-  agente,
+  id_agente,
   loading,
 }) => {
   const [faltante, setFaltante] = useState<number>(precio);
@@ -28,17 +30,18 @@ export const MostrarSaldos: React.FC<PagarModalProps> = ({
   >([]);
   const { showNotification } = useNotification();
 
+  console.log("reserva_data", reserva_Data)
+
   useEffect(() => {
     fetchSaldos();
   }, []);
 
   const fetchSaldos = async () => {
     try {
-      if (!agente.id_agente) {
+      if (!id_agente) {
         throw new Error("ID de agente no disponible");
       }
-
-      const { data } = await SaldoFavor.getPagos(agente.id_agente);
+      const { data } = await SaldoFavor.getPagos(id_agente);
       const saldosActivos = data.filter((saldo) => Boolean(saldo.activo));
 
       const saldos: (Saldo & { restante: number; usado: boolean })[] =
@@ -61,6 +64,10 @@ export const MostrarSaldos: React.FC<PagarModalProps> = ({
     try {
       if (faltante == 0 && value)
         throw new Error("Ya has seleccionado el total del precio");
+      if (faltante < 0 && value)
+        throw new Error(
+          "Parece que se debe regresar dinero por esta reserva, solo presiona en continuar"
+        );
 
       const restante: number = value
         ? faltante < item.restante
@@ -83,6 +90,9 @@ export const MostrarSaldos: React.FC<PagarModalProps> = ({
             : saldo
         )
       );
+      if (reserva_Data) {
+        console.log
+      }
     } catch (error) {
       showNotification("error", error.message || "Error al seleccionar saldo");
     }
@@ -92,15 +102,8 @@ export const MostrarSaldos: React.FC<PagarModalProps> = ({
     saldosFavor.reduce((previus, current) => previus + Number(current.saldo), 0)
   );
 
-  if (precio <= 0)
-    return (
-      <div className="w-60 h-28">
-        <h1>El precio debe tener un valor o ser mayor a 0</h1>
-      </div>
-    );
-
   return (
-    <div className="flex-1 overflow-y-auto p-2 space-y-4">
+    <div className="flex-1 overflow-y-auto p-2 space-y-4 h-fit">
       <TableFromMia
         maxHeight="200px"
         data={saldosFavor}

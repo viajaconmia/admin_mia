@@ -53,9 +53,8 @@ export const BalanceCard: React.FC<BalanceCardProps> = ({
         <div className="flex justify-between items-center">
           <span className="text-gray-600">Saldo restante</span>
           <span
-            className={`font-semibold ${
-              saldoRestante >= 0 ? "text-green-600" : "text-red-600"
-            }`}
+            className={`font-semibold ${saldoRestante >= 0 ? "text-green-600" : "text-red-600"
+              }`}
           >
             ${formatNumberWithCommas(saldoRestante)}
           </span>
@@ -71,24 +70,38 @@ export const BalanceCard: React.FC<BalanceCardProps> = ({
       </div>
 
       <div className="flex gap-3">
-        {onSecondary && (
-          <Button
-            className="w-full"
-            onClick={onSecondary}
-            disabled={cubreTodo || loading}
-            variant="secondary"
-          >
-            Completar pago con credito
-          </Button>
-        )}
-        {onConfirm && (
-          <Button
-            className="w-full"
-            onClick={onConfirm}
-            disabled={!cubreTodo || loading}
-          >
-            Confirmar pago
-          </Button>
+        {precioAPagar > 0 ? (
+          <>
+            {onSecondary && (
+              <Button
+                className="w-full"
+                onClick={onSecondary}
+                disabled={cubreTodo || loading}
+                type="button"
+                variant="secondary"
+              >
+                Completar pago con credito
+              </Button>
+            )}
+            {onConfirm && (
+              <Button
+                className="w-full"
+                type="button"
+                onClick={onConfirm}
+                disabled={!cubreTodo || loading}
+              >
+                Confirmar pago
+              </Button>
+            )}
+          </>
+        ) : (
+          <>
+            <Button className="w-full"
+              type="button"
+              onClick={onConfirm}>
+              Continuar
+            </Button>
+          </>
         )}
       </div>
     </div>

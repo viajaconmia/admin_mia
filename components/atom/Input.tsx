@@ -1,8 +1,16 @@
 import { FullHotelData } from "@/app/dashboard/hoteles/_components/hotel-dialog";
+import { useGoogleMaps } from "@/hooks/useGoogleMaps";
+import { api_google } from "@/lib/constants";
 import { Hotel } from "@/types";
 import { Viajero } from "@/types";
 import { ChevronDown, CheckCircle, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+
+declare global {
+  interface Window {
+    google: any;
+  }
+}
 
 export const Dropdown = ({
   label,
@@ -78,22 +86,29 @@ export const DateInput = ({
     </div>
   </div>
 );
+
 export const DateTimeInput = ({
   label,
   value,
   onChange,
   disabled,
+  min,
+  max,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
+  min?: string;
+  max?: string;
 }) => (
   <div className="flex flex-col space-y-1">
     <label className="text-sm text-gray-900 font-medium">{label}</label>
     <div className="relative">
       <input
         type="datetime-local"
+        min={min}
+        max={max}
         value={value || ""}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
@@ -110,14 +125,16 @@ export const NumberInput = ({
   onChange,
   disabled = false,
   placeholder,
+  className = "",
 }: {
   label?: string;
   value: number;
   onChange: (value: string) => void;
   placeholder?: string;
   disabled?: boolean;
+  className?: string;
 }) => (
-  <div className="flex flex-col space-y-1">
+  <div className={`flex flex-col space-y-1 ${className}`}>
     {label && (
       <label className="text-sm text-gray-900 font-medium">{label}</label>
     )}
@@ -191,14 +208,18 @@ export const TextAreaInput = ({
   label,
   value,
   onChange,
+  rows = 2,
   placeholder = "",
+  className = "",
 }: {
   label?: string;
   value: string;
+  rows?: number;
   onChange: (value: string) => void;
   placeholder?: string;
+  className?: string;
 }) => (
-  <div className="flex flex-col space-y-1">
+  <div className={`flex flex-col space-y-1 ${className}`}>
     {label && (
       <label className="text-sm text-gray-900 font-medium">{label}</label>
     )}
@@ -206,7 +227,7 @@ export const TextAreaInput = ({
       value={value || ""}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      rows={2}
+      rows={rows}
       className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
     />
   </div>
@@ -579,7 +600,6 @@ export const ComboBox2 = <T,>({
 }: ComboBoxProps2<T>) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Estado interno
   const [inputValue, setInputValue] = useState(value?.name || "");
   const [isOpen, setIsOpen] = useState(false);
   const [focus, setFocus] = useState<number | null>(null);
@@ -594,6 +614,10 @@ export const ComboBox2 = <T,>({
   //   document.addEventListener("keydown", handleMoveFocus);
   //   return () => document.removeEventListener("keydown", handleMoveFocus);
   // }, [filteredOptions, focus]);
+
+  // useEffect(() => {
+  //   if(value)
+  // },[value])
 
   const handleMoveFocus = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (isOpen && filteredOptions.length > 0) {
@@ -644,6 +668,10 @@ export const ComboBox2 = <T,>({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (value?.name) setInputValue(value.name);
+  }, [value]);
+
   const handleSelect = (option: ComboBoxOption<T>) => {
     if (option.name !== inputValue) {
       onChange(option);
@@ -680,7 +708,9 @@ export const ComboBox2 = <T,>({
               setIsOpen(true);
               setFocus(0);
             }}
-            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            className={`flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
+              value == null && inputValue ? "border-red-600" : ""
+            }`}
           />
           <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
             <ChevronDown size={18} className="text-gray-500" />
@@ -714,3 +744,106 @@ export const ComboBox2 = <T,>({
     </div>
   );
 };
+
+export type AddressType =
+  | "street_number"
+  | "route"
+  | "sublocality"
+  | "sublocality_level_1"
+  | "locality"
+  | "administrative_area_level_1"
+  | "country"
+  | "postal_code"
+  | "political";
+
+export type AddressComponentStrict = {
+  long_name: string;
+  short_name: string;
+  types: AddressType[];
+};
+
+export type AddressComponentsStrict = AddressComponentStrict[];
+export type Geometry = {
+  location: {
+    lat: () => number;
+    lng: () => number;
+  };
+  viewport: {
+    // viewport normalmente es un objeto LatLngBounds, con northeast y southwest
+    northeast: {
+      lat: number;
+      lng: number;
+    };
+    southwest: {
+      lat: number;
+      lng: number;
+    };
+  };
+};
+
+export type OpeningHours = {
+  open_now: boolean;
+  periods: {
+    close: {
+      day: number; // 0 = domingo, 1 = lunes, ...
+      time: string; // formato "HHMM"
+      hours: number; // hora en número
+      minutes: number; // minutos en número
+      nextDate: number; // timestamp en ms
+    };
+    open: {
+      day: number;
+      time: string;
+      hours: number;
+      minutes: number;
+      nextDate: number;
+    };
+  }[];
+  weekday_text: string[]; // textos tipo "lunes: 10:00–20:00"
+};
+
+export type PlaceMaps = {
+  address_components: AddressComponentsStrict;
+  geometry: Geometry;
+  formatted_address: string;
+  vicinity: string;
+  opening_hours: OpeningHours;
+  international_phone_number: string;
+  name: string;
+};
+
+export function InputGoogle({
+  onChange,
+}: {
+  onChange: (place: PlaceMaps) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const loaded = useGoogleMaps(api_google);
+
+  useEffect(() => {
+    if (!loaded || !inputRef.current) return;
+
+    const autocomplete = new window.google.maps.places.Autocomplete(
+      inputRef.current,
+      {
+        types: ["geocode", "establishment"],
+        // componentRestrictions: { country: "mx" },
+      }
+    );
+
+    autocomplete.addListener("place_changed", () => {
+      const place = autocomplete.getPlace();
+      console.log(place);
+      onChange(place as PlaceMaps);
+    });
+  }, [loaded]);
+
+  return (
+    <input
+      ref={inputRef}
+      type="text"
+      placeholder="Buscar ubicación..."
+      className="w-96 px-4 py-2 border rounded-full shadow-sm focus:outline-none"
+    />
+  );
+}

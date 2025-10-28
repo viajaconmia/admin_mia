@@ -9,6 +9,7 @@ import { URL, API_KEY } from "@/lib/constants/index";
 import useApi from "@/hooks/useApi";
 import { DescargaFactura, Root } from "@/types/billing";
 import { ChevronDownIcon, ChevronUpIcon, Download } from "lucide-react";
+import { formatNumber, formatMoneyMXN, withCommas } from "@/helpers/formater";
 
 // --- Helpers de descarga robusta ---
 const normalizeBase64 = (b64?: string | null) => {
@@ -487,8 +488,8 @@ export const FacturacionModal: React.FC<{
     CfdiType: "I",
     NameId: "1",
     Observations: "",
-    //ExpeditionPlace: "11570",
-    ExpeditionPlace: "42501",
+    ExpeditionPlace: "11570",
+    //ExpeditionPlace: "42501",
     Serie: null,
 
     Folio: Math.round(Math.random() * 999999999),
@@ -607,7 +608,7 @@ export const FacturacionModal: React.FC<{
               ProductCode: "90111500",
               UnitCode: "E48",
               Unit: "Unidad de servicio",
-              Description: `HOSPEDAJE - ${totalNights} NOCHE(S) EN ${reservationsWithSelectedItems.length} RESERVA(S)`,
+              Description: "Servicio de administración y Gestión de Reservas",
               //IdentificationNumber: "HSP",
               UnitPrice: subtotalConsolidado.toFixed(2),
               Subtotal: subtotalConsolidado.toFixed(2),
@@ -625,17 +626,7 @@ export const FacturacionModal: React.FC<{
               Total: totalAmount.toFixed(2),
             },
           ],
-          Observations: `DETALLE DE RESERVACIONES: ${reservationsWithSelectedItems
-            .map((reserva) => {
-              const selectedItemsForReserva = reserva.items.filter((item) =>
-                selectedItems[reserva.id_servicio]?.includes(item.id_item)
-              );
-
-              const nochesReales = selectedItemsForReserva.length;
-
-              return `${reserva.hotel} - ${formatDate(reserva.check_in)} AL ${formatDate(reserva.check_out)} - ${nochesReales} NOCHES(S) - ${reserva.nombre_viajero}`;
-            })
-            .join(" | ")}`,
+          Observations: descriptionToUse,
         }));
 
       } else {
@@ -697,11 +688,7 @@ export const FacturacionModal: React.FC<{
                 ProductCode: "90121500",
                 UnitCode: "E48",
                 Unit: "Unidad de servicio",
-                Description: `HOSPEDAJE EN ${reserva.hotel
-                  } - DEL ${formatDate(reserva.check_in)} AL ${formatDate(
-                    reserva.check_out
-                  )} (${itemsSeleccionados.length} NOCHES) - ${reserva.nombre_viajero_completo
-                  }`,
+                Description: `Servicio de administración y Gestión de Reservas`,
                 //IdentificationNumber: `HSP-${reserva.id_servicio}`,
                 UnitPrice: subtotalSelected.toFixed(2),
                 Subtotal: subtotalSelected.toFixed(2),
@@ -720,7 +707,7 @@ export const FacturacionModal: React.FC<{
               };
             })
             .filter((item) => item !== null), // Filtrar items nulos
-          Observations: `FACTURA DE ${totalNights} NOCHE(S) DE HOSPEDAJE EN ${reservationsWithSelectedItems.length} RESERVA(S)`,
+          Observations: descriptionToUse,
         }));
       }
     }
@@ -756,6 +743,7 @@ export const FacturacionModal: React.FC<{
   };
 
   const handleConfirm = async () => {
+
     if (!selectedFiscalData) {
       setError("Debes seleccionar unos datos fiscales");
       return;
@@ -802,6 +790,7 @@ export const FacturacionModal: React.FC<{
           Currency: "MXN",
           Date: formattedDate,
           OrderNumber: Math.round(Math.random() * 999999999).toString(),
+          Observations: descriptionToUse,      // <— SOBRESCRIBE AQUÍ
           Items: isConsolidated
             ? [
               {
@@ -809,7 +798,7 @@ export const FacturacionModal: React.FC<{
                 ProductCode: "90121500",
                 UnitCode: "E48",
                 Unit: "Unidad de servicio",
-                Description: descriptionToUse,
+                Description: `Servicio de administración y Gestión de Reservas`,
                 UnitPrice: subtotal.toFixed(2),
                 Subtotal: subtotal.toFixed(2),
                 TaxObject: "02",
@@ -847,8 +836,9 @@ export const FacturacionModal: React.FC<{
                 ProductCode: "90121500",
                 UnitCode: "E48",
                 Unit: "Unidad de servicio",
-                Description: descriptionToUse,
+                Description: `Servicio de administración y Gestión de Reservas`,
                 UnitPrice: subtotalReserva.toFixed(2),
+                Observations: descriptionToUse,      // <— SOBRESCRIBE AQUÍ
                 Subtotal: subtotalReserva.toFixed(2),
                 TaxObject: "02",
                 Taxes: [
@@ -988,9 +978,27 @@ export const FacturacionModal: React.FC<{
   );
 
   // Generar descripción por defecto
-  const defaultDescription = `HOSPEDAJE - ${totalNights} NOCHE(S) EN ${reservationsWithSelectedItems.length} RESERVA(S)`;
+  const defaultDescription = `DETALLE DE RESERVACIONES: ${reservationsWithSelectedItems
+    .map((reserva) => {
+      const selectedItemsForReserva = reserva.items.filter((item) =>
+        selectedItems[reserva.id_servicio]?.includes(item.id_item)
+      );
 
-  const descriptionToUse = customDescription || defaultDescription;
+      const nochesReales = selectedItemsForReserva.length;
+
+      return `${reserva.hotel} - ${formatDate(
+        reserva.check_in
+      )} AL ${formatDate(
+        reserva.check_out
+      )} - ${nochesReales} NOCHES(S) - ${reserva.nombre_viajero_completo
+        }`;
+    })
+    .join(" | ")}`;
+
+  const descriptionToUse = customDescription ?? defaultDescription
+  console.log("descrip", customDescription)
+
+
 
   const totalAmount = reservationsWithSelectedItems.reduce(
     (sum, reserva) =>
@@ -1085,17 +1093,17 @@ export const FacturacionModal: React.FC<{
                             <p className="text-gray-600">
                               Traslados:
                               <br />
-                              IVA: 002, Base: ${totalAmount.toFixed(2)}, Tasa:
+                              IVA: 002, Base: ${withCommas(totalAmount.toFixed(2))}, Tasa:
                               0.160000, Importe: $
-                              {(totalAmount * 0.16).toFixed(2)}
+                              {withCommas((totalAmount * 0.16).toFixed(2))}
                             </p>
                           </div>
                         </td>
                         <td className="px-3 py-2 text-sm border-b">
-                          ${totalAmount.toFixed(2)}
+                          {formatMoneyMXN(totalAmount.toFixed(2))}
                         </td>
                         <td className="px-3 py-2 text-sm border-b">
-                          ${totalAmount.toFixed(2)}
+                          {formatMoneyMXN(totalAmount.toFixed(2))}
                         </td>
                       </tr>
                     </>
@@ -1239,8 +1247,8 @@ export const FacturacionModal: React.FC<{
                       Regimen Fiscal: {data.regimen_fiscal}
                     </p>
                     <p className="text-sm text-gray-600 mt-1">
-                      {data.estado}, {data.municipio}, {data.colonia}{" "}
-                      {data.codigo_postal_fiscal}, {data.calle}
+                      {data.codigo_postal_fiscal},{data.estado}, {data.municipio}, {data.colonia}{" "}
+                      , {data.calle}
                     </p>
                   </div>
                 ))}
@@ -1315,7 +1323,7 @@ export const FacturacionModal: React.FC<{
 
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Descripción personalizada
+                  Observacion personalizada
                 </label>
                 <textarea
                   value={customDescription}

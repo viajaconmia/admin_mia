@@ -727,7 +727,6 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
       drawLogosOnPage(pdf, logos);
 
       // --- Políticas y Contacto en la misma página (1) ---
-      drawPoliciesOnCurrentPage(pdf);
       drawContactInfoOnCurrentPage(pdf);
 
       // --- Link invisible sobre la tarjeta del hotel (en página 1) ---
