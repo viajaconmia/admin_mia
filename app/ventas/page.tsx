@@ -443,13 +443,14 @@ const CouponForm: React.FC<{
 };
 
 // Componente de Login
-const LoginScreen: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
+export const LoginScreen: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const correctPassword = "noktos2025"; // Cambia esta contraseña por la que desees
+  const password_reservas = "123456";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -468,7 +469,7 @@ const LoginScreen: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 flex items-center justify-center px-4">
+    <div className="h-full bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 flex items-center justify-center px-4">
       <div className="max-w-md w-full">
         <div className="bg-white rounded-2xl shadow-2xl p-8">
           {/* Logo y título */}
