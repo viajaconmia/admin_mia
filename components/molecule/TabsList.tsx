@@ -34,8 +34,9 @@ export const TabsList = ({ onChange, tabs, activeTab }: TabsListProps) => {
               icon={icon}
               className={`${activeTab !== tab && "text-gray-500"} py-4   ${
                 tabs.length < 3
-                  ? "text-xs flex-col gap-[2px] px-0"
-                  : medidas[tabs.length - 1]
+                  ? "text-xs flex-col justify-center items-center gap-[2px] px-0"
+                  : // : medidas[tabs.length - 1]
+                    ""
               }`}
             >
               {label.slice(0, 1).toUpperCase() + label.slice(1)}

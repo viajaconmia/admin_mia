@@ -16,6 +16,14 @@ export class AuthService extends ApiService {
         GET_PERMISOS: "/auth/permisos",
       },
     },
+    USER: {
+      GET: {
+        ROLES: "/user/roles",
+      },
+      PATCH: {
+        UPDATE_ACTIVE: "/user/active",
+      },
+    },
   };
 
   private static instance: AuthService;
@@ -83,4 +91,13 @@ export class AuthService extends ApiService {
       path: this.formatPath(this.ENDPOINTS.AUTH.POST.LOGIN),
       body: { password, email },
     });
+
+  public updateActiveUser = async (id: string, value: boolean) =>
+    this.patch({
+      body: { id, value },
+      path: this.formatPath(this.ENDPOINTS.USER.PATCH.UPDATE_ACTIVE),
+    });
+
+  public getRoles = async (): Promise<ApiResponse<Role[]>> =>
+    this.get<Role[]>({ path: this.formatPath(this.ENDPOINTS.USER.GET.ROLES) });
 }

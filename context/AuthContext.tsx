@@ -1,4 +1,3 @@
-// context/AuthContext.tsx
 "use client";
 
 import {
@@ -87,6 +86,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    console.log(user);
+  }, [user]);
 
   const value: AuthContextType = {
     user,
