@@ -373,7 +373,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
     let payload;
     let endpoint;
 
-    if (reservaData && montorestante == 0) {
+    if (reservaData && Number(montorestante.toFixed(0)) == 0) {
       payload = {
         bandera: 1, // Siempre 1
         hotel: reservaData.hotel || null, // Corregido: Usa el objeto 'hotel' completo
