@@ -31,33 +31,24 @@ export default function AdministracionUsuarios() {
 
   return (
     <>
-      <div className="mt-8">
-        {/* <TableFromMia
-          data={users}
+      <div className="bg-white rounded-b-xl pt-4">
+        <TableFromMia<Role>
+          data={roles}
           columns={[
-            { component: "profile_image", key: "name", header: "" },
-            // { component: "copiar_and_button", key: "id", header: "" },
-            {
-              component: "titles",
-              key: "name",
-              header: "Usuario",
-              componentProps: { subtitle: "email" },
-            },
-            { component: "text", key: "role_name", header: "Role" },
             {
               component: "text",
-              key: "permissions_extra",
-              header: "Permisos",
+              key: "role_id",
+              header: "ID",
             },
             {
-              component: "date",
-              key: "created_at",
-              header: "Fecha de creación",
+              component: "titles",
+              key: "role_name",
+              header: "Role",
             },
             {
               component: "button",
               key: null,
-              header: "Permiso",
+              header: "Permisos",
               componentProps: {
                 label: "administrar permisos",
                 onClick: ({
@@ -66,21 +57,12 @@ export default function AdministracionUsuarios() {
                   item: User &
                     Role & { permissions_extra: number; active: boolean };
                 }) => {
-                  setSelectedUser(item);
+                  //setSelectedUser(item);
                 },
               },
             },
-            {
-              component: "checkbox",
-              key: "active",
-              header: "Activar",
-              componentProps: {
-                label: "",
-                onChange: handleActiveUser,
-              },
-            },
           ]}
-        /> */}
+        />
       </div>
       {/* {selectedUser && (
         <Modal
