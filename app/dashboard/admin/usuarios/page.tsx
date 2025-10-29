@@ -42,7 +42,6 @@ export default function AdministracionUsuarios() {
     try {
       await AuthService.getInstance().signUp(user);
       fetchUsers();
-      handleAddUser();
     } catch (error) {
       showNotification("error", error.message || "Error al crear user");
     }
@@ -79,9 +78,6 @@ export default function AdministracionUsuarios() {
     fetchUsers();
     fetchRoles();
   }, []);
-  useEffect(() => {
-    console.log(users);
-  }, [users]);
 
   return (
     <>
@@ -157,7 +153,7 @@ export default function AdministracionUsuarios() {
 
 const PermisosByUser = ({ id }: { id: string }) => {
   const [permisos, setPermisos] = useState<Permission[]>([]);
-  const [ediciones, setEdiciones] = useState(null);
+  const { showNotification } = useNotification();
 
   useEffect(() => {
     AuthService.getInstance()
@@ -177,16 +173,25 @@ const PermisosByUser = ({ id }: { id: string }) => {
             key: "active",
             componentProps: {
               label: "",
-              onChange: (value: boolean, item: Permission) => {
-                console.log(value, item);
-                setPermisos((prev) =>
-                  prev.map((permiso) => {
-                    if (permiso.id == item.id) {
-                      return { ...permiso, active: value };
-                    }
-                    return permiso;
-                  })
-                );
+              onChange: async (value: boolean, item: Permission) => {
+                console.log(value, item, id);
+                try {
+                  await AuthService.getInstance().updateUserPermission(
+                    item.id,
+                    id,
+                    value
+                  );
+                  setPermisos((prev) =>
+                    prev.map((permiso) => {
+                      if (permiso.id == item.id) {
+                        return { ...permiso, active: value };
+                      }
+                      return permiso;
+                    })
+                  );
+                } catch (error) {
+                  showNotification("error", error.message);
+                }
               },
             },
           },

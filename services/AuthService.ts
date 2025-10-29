@@ -22,6 +22,13 @@ export class AuthService extends ApiService {
       },
       PATCH: {
         UPDATE_ACTIVE: "/user/active",
+        UPDATE_PERMISSION: "/user/permission",
+        UPDATE_ROLE: "/user/role",
+      },
+    },
+    ROLES: {
+      POST: {
+        CREAR: "/auth/role",
       },
     },
   };
@@ -98,6 +105,28 @@ export class AuthService extends ApiService {
       path: this.formatPath(this.ENDPOINTS.USER.PATCH.UPDATE_ACTIVE),
     });
 
+  public updateUserPermission = async (
+    id_permission: number,
+    id_user: string,
+    value: boolean
+  ) =>
+    this.patch({
+      body: { id_permission, id_user, value },
+      path: this.formatPath(this.ENDPOINTS.USER.PATCH.UPDATE_PERMISSION),
+    });
+
+  public updateUserRole = async (id_role: number, id_user: string) =>
+    this.patch({
+      body: { id_role, id_user },
+      path: this.formatPath(this.ENDPOINTS.USER.PATCH.UPDATE_ROLE),
+    });
+
   public getRoles = async (): Promise<ApiResponse<Role[]>> =>
     this.get<Role[]>({ path: this.formatPath(this.ENDPOINTS.USER.GET.ROLES) });
+
+  public crearRole = async (name: string) =>
+    this.post({
+      path: this.formatPath(this.ENDPOINTS.ROLES.POST.CREAR),
+      body: { name },
+    });
 }
