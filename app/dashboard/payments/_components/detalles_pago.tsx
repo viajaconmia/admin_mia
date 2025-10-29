@@ -229,18 +229,20 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
 
   // Extraer solo los IDs de factura
   const facturaIds = React.useMemo(() => extractFacturaIds(pago.facturas_asociadas), [pago.facturas_asociadas]);
-
+  console.log("pagos", pago)
   // useEffect para fetchDetalles
   React.useEffect(() => {
     const fetchDetalles = async () => {
-      if (!pago?.raw_id || !pago?.id_agente) {
+      const id = pago?.raw_id || String(pago.id_saldos) || "";
+      if (id || !pago?.id_agente) {
         console.log("no podemos revisar reservas asociadas");
-        return;
+
       }
+      console.log(id)
 
       setLoadingDetalles(true);
       try {
-        const url = `${URL}/mia/pagos/getDetallesConexion?id_agente=${pago.id_agente}&id_raw=${pago.raw_id}`;
+        const url = `${URL}/mia/pagos/DetallesConexion?id_agente=${pago.id_agente}&id_raw=${id}`;
         const response = await fetch(url, {
           method: "GET",
           headers: HEADERS_API,

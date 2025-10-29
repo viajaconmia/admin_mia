@@ -33,7 +33,7 @@ import { Loader } from "@/components/atom/Loader";
 import { API_KEY, URL } from "@/lib/constants/index";
 import { formatDate } from "@/app/dashboard/facturas-pendientes/page";
 import { PagarModalComponent } from "./pagar_saldo";
-
+import ModalDetallePago from "@/app/dashboard/payments/_components/detalles_pago"
 
 import { format } from "date-fns";
 import { es, se } from "date-fns/locale";
@@ -1063,6 +1063,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       const [isEditModalOpen, setIsEditModalOpen] = useState(false);
       const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
       const [isPagarModalOpen, setIsPagarModalOpen] = useState(false);
+      const [isDetails, SetDetails] = useState(false);
 
       const isActive = item?.activo !== 0;
       let editar = true;
@@ -1074,6 +1075,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       const showDeleteButtons = isActive && !isDifferent;
       const showEditbuttosn = isActive && !isDifferent && !hasLink;
       const showPagarButton = isActive && hasBalance;
+      console.log("item,", isActive)
 
       if (item.saldo !== item.monto_pagado) {
         editar = false;
@@ -1259,6 +1261,13 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
               <Trash2 className="w-4 h-4" />
             </button>
           )}
+          {isActive && (
+            <button
+              title="Detailes"
+              onClick={() => SetDetails(true)}>
+              nrin
+            </button>
+          )}
 
           {/* Nuevo Botón para el Modal de asignar pagos */}
           {showPagarButton && (
@@ -1270,6 +1279,16 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
               <DollarSign className="w-4 h-4" />{" "}
               {/* Cambié el icono a DollarSign para mejor representación */}
             </button>
+          )}
+
+          {isDetails && (
+            <ModalDetallePago
+              title="Detalle del pago"
+              pago={item}
+              onClose={() => {
+                SetDetails(false);
+              }}
+            />
           )}
 
           {/* Modal de Edición */}
@@ -1570,7 +1589,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
           )}
         </div>
       </div>
-
       {/* Modal para agregar pago */}
 
       {addPaymentModal && agente && (
