@@ -1,20 +1,105 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { format } from "date-fns";
-import { da, es } from "date-fns/locale";
-import { fetchReservationsFacturacion } from "@/services/reservas";
-import Link from "next/link";
 import {
   fetchEmpresasDatosFiscales,
-  fetchSolicitudesItems,
 } from "@/hooks/useFetch";
-import { formatDate } from "@/helpers/utils";
+import { formatDate, subirArchivoAS3, obtenerPresignedUrl } from "@/helpers/utils";
+import { URL, API_KEY } from "@/lib/constants/index";
 import useApi from "@/hooks/useApi";
 import { DescargaFactura, Root } from "@/types/billing";
 import { ChevronDownIcon, ChevronUpIcon, Download } from "lucide-react";
-import SubirFactura from "../subirfacturas/SubirFactura";
+import { formatNumber, formatMoneyMXN, withCommas } from "@/helpers/formater";
 
+// --- Helpers de descarga robusta ---
+const normalizeBase64 = (b64?: string | null) => {
+  if (!b64) return "";
+  // Soportar "data:...;base64," y variantes URL-safe (-, _)
+  const clean = b64.split("base64,").pop()!.replace(/[\r\n\s]/g, "");
+  return clean.replace(/-/g, "+").replace(/_/g, "/");
+};
+
+// --- Subida segura a S3 con URL pre-firmada ---
+const subirArchivoAS3Seguro = async (file: File, bucket: string = "comprobantes") => {
+  try {
+    console.log(`Iniciando subida de ${file.name} (${file.type})`);
+
+    // 1) Obtener URL pre-firmada
+    const { url: presignedUrl, publicUrl } = await obtenerPresignedUrl(
+      file.name,
+      file.type,
+      bucket
+    );
+
+    console.log(`URL pre-firmada obtenida para ${file.name}`);
+
+    // 2) Subir archivo
+    await subirArchivoAS3(file, presignedUrl);
+
+    console.log(`✅ Archivo ${file.name} subido exitosamente a S3: ${publicUrl}`);
+
+    return publicUrl;
+  } catch (error: any) {
+    console.error(`❌ Error al subir ${file.name} a S3:`, error);
+    throw new Error(`Error al subir ${file.name} a S3: ${error.message}`);
+  }
+};
+
+// Convierte base64 -> Blob (ya la tienes) y ahora -> File
+const base64ToFile = (b64: string, mime: string, filename: string) =>
+  new File([base64ToBlob(b64, mime)], filename, { type: mime });
+
+// Detecta si viene como URL http(s)
+const isHttpUrl = (s?: string | null) => !!s && /^https?:\/\//i.test(s);
+
+
+const base64ToBlob = (b64: string, mime: string) => {
+  const clean = normalizeBase64(b64);
+  const byteChars = atob(clean);
+  const byteNumbers = new Array(byteChars.length);
+  for (let i = 0; i < byteChars.length; i++) byteNumbers[i] = byteChars.charCodeAt(i);
+  const byteArray = new Uint8Array(byteNumbers);
+  return new Blob([byteArray], { type: mime });
+};
+
+// ✅ Mejora opcional: revocar el ObjectURL con delay (Safari fix)
+const downloadBlob = (blob: Blob, filename: string) => {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.style.display = "none";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500); // <- antes era inmediato
+};
+
+const downloadBase64File = (b64: string, mime: string, filename: string) => {
+  const blob = base64ToBlob(b64, mime);
+  downloadBlob(blob, filename);
+};
+
+// Permite distintas formas de respuesta del backend
+const getPdfBase64 = (d: any) => d?.PdfBase64 ?? d?.pdfBase64 ?? d?.pdf ?? (d?.FileExtension === "pdf" ? d?.Content : null);
+const getXmlBase64 = (d: any) => d?.XmlBase64 ?? d?.xmlBase64 ?? d?.xml ?? (d?.FileExtension === "xml" ? d?.Content : null);
+
+// Si alguna API te devuelve URLs directas ya firmadas:
+const maybeDownloadByUrl = (urlOrBase64: string, fallbackMime: string, filename: string) => {
+  if (/^https?:\/\//i.test(urlOrBase64)) {
+    const a = document.createElement("a");
+    a.href = urlOrBase64;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    return true;
+  }
+  return false;
+};
+
+
+// Opciones y tipos...
 const cfdiUseOptions = [
   { value: "G01", label: "G01 - Adquisición de mercancías" },
   { value: "G02", label: "G02 - Devoluciones, descuentos o bonificaciones" },
@@ -176,6 +261,11 @@ interface Reservation {
   id_factura: string | null;
   primer_nombre: string | null;
   apellido_paterno: string | null;
+  items?: Item[];
+  nombre_viajero_completo?: string | null;
+  razon_social?: string;
+  costo_total?: string;
+  nombre_viajero?: string;
 }
 
 interface FiscalData {
@@ -220,14 +310,10 @@ interface Item {
 
 interface ReservationWithItems extends Reservation {
   items: Item[];
+  nightsCount?: number;
 }
 
-type ReservationStatus =
-  | "pending"
-  | "confirmed"
-  | "completed"
-  | "cancelled"
-  | "all";
+type ReservationStatus = | "pending" | "confirmed" | "completed" | "cancelled" | "all";
 
 interface FilterOptions {
   searchTerm: string;
@@ -242,6 +328,40 @@ interface FilterOptions {
   };
   estado: string;
 }
+
+// ✅ Nuevo: asignar URLs a la factura en tu backend
+const asignarURLS_factura = async (id_factura: string, url_pdf: string, url_xml: string) => {
+  try {
+    console.log('Asignando URLs a factura:', { id_factura, url_pdf, url_xml });
+
+    const resp = await fetch(
+      `${URL}/mia/factura/asignarURLS_factura?id_factura=${encodeURIComponent(id_factura)}&url_pdf=${encodeURIComponent(url_pdf)}&url_xml=${encodeURIComponent(url_xml)}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": API_KEY,
+        },
+      }
+    );
+
+    if (!resp.ok) {
+      const errorData = await resp.json();
+      throw new Error(errorData?.message || "Error al asignar URLs de factura");
+    }
+
+    const data = await resp.json();
+    console.log('✅ URLs asignadas correctamente en BD:', data);
+    return data;
+  } catch (error) {
+    console.error("❌ Error al asignar URLs de factura:", error);
+    throw error;
+  }
+};
+
+// ✅ Nuevo: genera data:URL a partir de base64
+const base64ToDataUrl = (b64: string, mime: string) =>
+  `data:${mime};base64,${normalizeBase64(b64)}`;
 
 // Status Badge Component
 const StatusBadge: React.FC<{ status: ReservationStatus }> = ({ status }) => {
@@ -280,14 +400,14 @@ const StatusBadge: React.FC<{ status: ReservationStatus }> = ({ status }) => {
 };
 
 // Loader Component
-const Loader: React.FC = () => (
+const LoaderComponent: React.FC = () => (
   <div className="flex items-center justify-center min-h-[200px]">
     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-700"></div>
     <span className="ml-3 text-gray-700">Cargando reservaciones...</span>
   </div>
 );
 
-const FacturacionModal: React.FC<{
+export const FacturacionModal: React.FC<{
   selectedItems: { [reservationId: string]: string[] };
   reservationsInit: Reservation[];
   onClose: () => void;
@@ -299,15 +419,15 @@ const FacturacionModal: React.FC<{
 
   // const reservations = reservationsInit;
   // const reservations = reservationsInit
-  //   .filter((reserva) => reserva.items != null)
-  //   .map((reserva) => ({
-  //     ...reserva,
-  //     items: reserva.items.map((item) => ({
-  //       ...item,
-  //       subtotal: (Number(item.total) / 1.16).toFixed(2),
-  //       impuestos: (item.total - Number(item.total) / 1.16).toFixed(2),
-  //     })),
-  //   }));
+  //    .filter((reserva) => reserva.items != null)
+  //    .map((reserva) => ({
+  //      ...reserva,
+  //      items: reserva.items.map((item) => ({
+  //        ...item,
+  //        subtotal: (Number(item.total) / 1.16).toFixed(2),
+  //        impuestos: (item.total - Number(item.total) / 1.16).toFixed(2),
+  //      })),
+  //    }));
   const [reservations, setReservations] = useState(
     reservationsInit
       .filter((reserva) => reserva.items != null)
@@ -330,12 +450,31 @@ const FacturacionModal: React.FC<{
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("PUE");
   const { crearCfdi, descargarFactura, mandarCorreo } = useApi();
   const [descarga, setDescarga] = useState<DescargaFactura | null>(null);
-  const [isInvoiceGenerated, setIsInvoiceGenerated] = useState<Root | null>(
-    null
-  );
+  const [isInvoiceGenerated, setIsInvoiceGenerated] = useState<Root | null>(null);
+
+
   const [isConsolidated, setIsConsolidated] = useState(true);
   const [reservationsWithSelectedItems, setReservationsWithSelectedItems] =
     useState<ReservationWithItems[]>([]);
+
+  // --- Helpers fecha de vencimiento ---
+  const addDays = (d: Date, days: number) => {
+    const x = new Date(d);
+    x.setDate(x.getDate() + days);
+    return x;
+  };
+  const toInputDate = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
+  // Fecha de vencimiento (por defecto a 30 días)
+  const [dueDate, setDueDate] = useState<string>(() =>
+    toInputDate(addDays(new Date(), 30))
+  );
+  // Para limitar el mínimo a hoy
+  const minDueDate = toInputDate(new Date());
 
   // Estado para el CFDI
   const [cfdi, setCfdi] = useState({
@@ -349,8 +488,8 @@ const FacturacionModal: React.FC<{
     CfdiType: "I",
     NameId: "1",
     Observations: "",
-    // ExpeditionPlace: "11570",
     ExpeditionPlace: "11570",
+    //ExpeditionPlace: "42501",
     Serie: null,
 
     Folio: Math.round(Math.random() * 999999999),
@@ -371,15 +510,15 @@ const FacturacionModal: React.FC<{
           const selectedItemIds = selectedItems[reserva.id_servicio] || [];
           const items = Array.isArray(reserva.items)
             ? reserva.items.filter((item) =>
-                selectedItemIds.includes(item.id_item)
-              )
+              selectedItemIds.includes(item.id_item)
+            )
             : [];
 
           return {
             ...reserva,
             items: items.map((item) => ({
               ...item,
-              subtotal: item.total / 1.16,
+              subtotal: Number(item.total) / 1.16,
             })),
             nightsCount: items.length,
           };
@@ -388,6 +527,7 @@ const FacturacionModal: React.FC<{
       console.log("preparedReservations: ", preparedReservations);
 
       setReservationsWithSelectedItems(preparedReservations);
+
 
       // Cargar datos fiscales si no están cargados
       if (
@@ -417,6 +557,10 @@ const FacturacionModal: React.FC<{
     }
   }, [selectedItems, reservations]);
 
+
+  console.log("fiacla", fiscalDataList)
+  const [customDescription, setCustomDescription] = useState("");
+
   // Actualizar CFDI cuando cambian los datos
   useEffect(() => {
     if (selectedFiscalData && reservationsWithSelectedItems.length > 0) {
@@ -441,6 +585,7 @@ const FacturacionModal: React.FC<{
         },
         0
       );
+      console.log("reserva", reservationsWithSelectedItems)
 
       if (isConsolidated) {
         // Factura consolidada - un solo concepto
@@ -460,10 +605,10 @@ const FacturacionModal: React.FC<{
           Items: [
             {
               Quantity: "1",
-              ProductCode: "90121500",
+              ProductCode: "90111500",
               UnitCode: "E48",
               Unit: "Unidad de servicio",
-              Description: `HOSPEDAJE - ${totalNights} NOCHE(S) EN ${reservationsWithSelectedItems.length} RESERVA(S)`,
+              Description: "Servicio de administración y Gestión de Reservas",
               //IdentificationNumber: "HSP",
               UnitPrice: subtotalConsolidado.toFixed(2),
               Subtotal: subtotalConsolidado.toFixed(2),
@@ -481,24 +626,9 @@ const FacturacionModal: React.FC<{
               Total: totalAmount.toFixed(2),
             },
           ],
-          Observations: `DETALLE DE RESERVACIONES: ${reservationsWithSelectedItems
-            .map((reserva) => {
-              const selectedItemsForReserva = reserva.items.filter((item) =>
-                selectedItems[reserva.id_servicio]?.includes(item.id_item)
-              );
-
-              const nochesReales = selectedItemsForReserva.length;
-
-              return `${reserva.hotel} - ${formatDate(
-                reserva.check_in
-              )} AL ${formatDate(
-                reserva.check_out
-              )} - ${nochesReales} NOCHES(S) - ${
-                reserva.nombre_viajero_completo
-              }`;
-            })
-            .join(" | ")}`,
+          Observations: descriptionToUse,
         }));
+
       } else {
         // Factura detallada - un concepto por reservación con suma EXACTA de items seleccionados
         setCfdi((prev) => ({
@@ -507,7 +637,7 @@ const FacturacionModal: React.FC<{
             Name: selectedFiscalData.razon_social_df,
             CfdiUse: selectedCfdiUse,
             Rfc: selectedFiscalData.rfc,
-            FiscalRegime: selectedFiscalData.regimen_fiscal || "612",
+            FiscalRegime: selectedFiscalData.regimen_fiscal,
             TaxZipCode: selectedFiscalData.codigo_postal_fiscal,
           },
           PaymentForm: selectedPaymentForm,
@@ -558,13 +688,7 @@ const FacturacionModal: React.FC<{
                 ProductCode: "90121500",
                 UnitCode: "E48",
                 Unit: "Unidad de servicio",
-                Description: `HOSPEDAJE EN ${reserva.hotel} - DEL ${formatDate(
-                  reserva.check_in
-                )} AL ${formatDate(
-                  reserva.check_out
-                )} (${selectedNightsCount} NOCHES) - ${
-                  reserva.nombre_viajero_completo
-                }`,
+                Description: `Servicio de administración y Gestión de Reservas`,
                 //IdentificationNumber: `HSP-${reserva.id_servicio}`,
                 UnitPrice: subtotalSelected.toFixed(2),
                 Subtotal: subtotalSelected.toFixed(2),
@@ -583,7 +707,7 @@ const FacturacionModal: React.FC<{
               };
             })
             .filter((item) => item !== null), // Filtrar items nulos
-          Observations: `FACTURA DE ${totalNights} NOCHE(S) DE HOSPEDAJE EN ${reservationsWithSelectedItems.length} RESERVA(S)`,
+          Observations: descriptionToUse,
         }));
       }
     }
@@ -595,6 +719,7 @@ const FacturacionModal: React.FC<{
     reservationsWithSelectedItems,
     isConsolidated,
   ]);
+
   console.log(cfdi, "feeeeeeeeeeeeeeeeeeeee");
   const validateInvoiceData = () => {
     if (reservationsWithSelectedItems.length === 0) {
@@ -618,6 +743,7 @@ const FacturacionModal: React.FC<{
   };
 
   const handleConfirm = async () => {
+
     if (!selectedFiscalData) {
       setError("Debes seleccionar unos datos fiscales");
       return;
@@ -651,7 +777,7 @@ const FacturacionModal: React.FC<{
       const subtotal = totalFacturado / 1.16;
       const iva = totalFacturado - subtotal;
 
-      // Construir payload similar a generar_factura.tsx
+      // Construir payload
       const payloadCFDI = {
         cfdi: {
           ...cfdi,
@@ -664,75 +790,73 @@ const FacturacionModal: React.FC<{
           Currency: "MXN",
           Date: formattedDate,
           OrderNumber: Math.round(Math.random() * 999999999).toString(),
+          Observations: descriptionToUse,      // <— SOBRESCRIBE AQUÍ
           Items: isConsolidated
             ? [
-                {
-                  Quantity: "1",
-                  ProductCode: "90121500",
-                  UnitCode: "E48",
-                  Unit: "Unidad de servicio",
-                  Description: `HOSPEDAJE - ${totalNights} NOCHE(S) EN ${reservationsWithSelectedItems.length} RESERVA(S)`,
-                  UnitPrice: subtotal.toFixed(2),
-                  Subtotal: subtotal.toFixed(2),
-                  TaxObject: "02",
-                  Taxes: [
-                    {
-                      Name: "IVA",
-                      Rate: "0.16",
-                      Total: iva.toFixed(2),
-                      Base: subtotal.toFixed(2),
-                      IsRetention: "false",
-                      IsFederalTax: "true",
-                    },
-                  ],
-                  Total: totalFacturado.toFixed(2),
-                },
-              ]
+              {
+                Quantity: "1",
+                ProductCode: "90121500",
+                UnitCode: "E48",
+                Unit: "Unidad de servicio",
+                Description: `Servicio de administración y Gestión de Reservas`,
+                UnitPrice: subtotal.toFixed(2),
+                Subtotal: subtotal.toFixed(2),
+                TaxObject: "02",
+                Taxes: [
+                  {
+                    Name: "IVA",
+                    Rate: "0.16",
+                    Total: iva.toFixed(2),
+                    Base: subtotal.toFixed(2),
+                    IsRetention: "false",
+                    IsFederalTax: "true",
+                  },
+                ],
+                Total: totalFacturado.toFixed(2),
+              },
+            ]
             : reservationsWithSelectedItems.map((reserva) => {
-                const itemsSeleccionados = reserva.items.filter((item) =>
-                  selectedItems[reserva.id_servicio]?.includes(item.id_item)
-                );
-                const subtotalReserva = itemsSeleccionados.reduce(
-                  (sum, item) => sum + parseFloat(item.total) / 1.16,
-                  0
-                );
-                const ivaReserva = itemsSeleccionados.reduce(
-                  (sum, item) =>
-                    sum +
-                    (parseFloat(item.total) - parseFloat(item.total) / 1.16),
-                  0
-                );
-                const totalReserva = subtotalReserva + ivaReserva;
-                return {
-                  Quantity: "1",
-                  ProductCode: "90121500",
-                  UnitCode: "E48",
-                  Unit: "Unidad de servicio",
-                  Description: `HOSPEDAJE EN ${
-                    reserva.hotel
-                  } - DEL ${formatDate(reserva.check_in)} AL ${formatDate(
-                    reserva.check_out
-                  )} (${itemsSeleccionados.length} NOCHES) - ${
-                    reserva.nombre_viajero_completo
-                  }`,
-                  UnitPrice: subtotalReserva.toFixed(2),
-                  Subtotal: subtotalReserva.toFixed(2),
-                  TaxObject: "02",
-                  Taxes: [
-                    {
-                      Name: "IVA",
-                      Rate: "0.16",
-                      Total: ivaReserva.toFixed(2),
-                      Base: subtotalReserva.toFixed(2),
-                      IsRetention: "false",
-                      IsFederalTax: "true",
-                    },
-                  ],
-                  Total: totalReserva.toFixed(2),
-                };
-              }),
+              const itemsSeleccionados = reserva.items.filter((item) =>
+                selectedItems[reserva.id_servicio]?.includes(item.id_item)
+              );
+              const subtotalReserva = itemsSeleccionados.reduce(
+                (sum, item) => sum + parseFloat(item.total) / 1.16,
+                0
+              );
+              const ivaReserva = itemsSeleccionados.reduce(
+                (sum, item) =>
+                  sum +
+                  (parseFloat(item.total) - parseFloat(item.total) / 1.16),
+                0
+              );
+              const totalReserva = subtotalReserva + ivaReserva;
+
+              return {
+                Quantity: "1",
+                ProductCode: "90121500",
+                UnitCode: "E48",
+                Unit: "Unidad de servicio",
+                Description: `Servicio de administración y Gestión de Reservas`,
+                UnitPrice: subtotalReserva.toFixed(2),
+                Observations: descriptionToUse,      // <— SOBRESCRIBE AQUÍ
+                Subtotal: subtotalReserva.toFixed(2),
+                TaxObject: "02",
+                Taxes: [
+                  {
+                    Name: "IVA",
+                    Rate: "0.16",
+                    Total: ivaReserva.toFixed(2),
+                    Base: subtotalReserva.toFixed(2),
+                    IsRetention: "false",
+                    IsFederalTax: "true",
+                  },
+                ],
+                Total: totalReserva.toFixed(2),
+              };
+            }),
         },
         info_user: {
+          fecha_vencimiento: dueDate,
           id_user: reservationsWithSelectedItems[0].id_usuario_generador,
           id_solicitud: reservationsWithSelectedItems.map(
             (reserva) => reserva.id_solicitud
@@ -743,24 +867,105 @@ const FacturacionModal: React.FC<{
             id_empresa: selectedFiscalData.id_empresa,
           },
         },
-        items_facturados: itemsFacturados, // Relación item-monto
+        items_facturados: itemsFacturados,
       };
 
-      // Aquí deberías llamar a tu API para crear la factura
+      // Crear factura
       const response = await crearCfdi(payloadCFDI.cfdi, payloadCFDI.info_user);
-
       if (response.error) throw new Error(response.error);
 
+      setIsInvoiceGenerated(response);
+
+      // Descargar representaciones
+      const factura = await descargarFactura(response.Id);
+      setDescarga(factura);
+
+      const fileBase = `factura_${response?.Folio ?? cfdi?.Folio ?? "archivo"}`;
+
+      // --- Obtener representaciones PDF y XML ---
+      const pdfRaw = getPdfBase64(factura) ?? (typeof factura === "string" ? factura : null);
+      const xmlRaw = getXmlBase64(factura);
+
+      console.log("url", pdfRaw, xmlRaw)
+
+      // Intentaremos producir URLs finales (si ya vienen como URL, las usamos; si vienen en base64, subimos a S3)
+      let finalPdfUrl: string | null = null;
+      let finalXmlUrl: string | null = null;
+
+      // 1) PDF
+      if (typeof pdfRaw === "string") {
+        if (isHttpUrl(pdfRaw)) {
+          // Ya es URL lista
+          finalPdfUrl = pdfRaw;
+        } else {
+          // Es base64 -> subimos a S3
+          const pdfFile = base64ToFile(pdfRaw, "application/pdf", `${fileBase}.pdf`);
+          finalPdfUrl = await subirArchivoAS3Seguro(pdfFile, "comprobantes");
+        }
+
+        // Descarga para el usuario (opcional, conservé tu comportamiento)
+        if (isHttpUrl(pdfRaw)) {
+          const a = document.createElement("a");
+          a.href = pdfRaw;
+          a.download = `${fileBase}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        } else {
+          downloadBase64File(pdfRaw, "application/pdf", `${fileBase}.pdf`);
+        }
+      } else {
+        console.warn("No se encontró contenido PDF en la respuesta de descarga.");
+      }
+
+      // 2) XML
+      if (typeof xmlRaw === "string") {
+        if (isHttpUrl(xmlRaw)) {
+          finalXmlUrl = xmlRaw;
+        } else {
+          const xmlFile = base64ToFile(xmlRaw, "application/xml", `${fileBase}.xml`);
+          finalXmlUrl = await subirArchivoAS3Seguro(xmlFile, "comprobantes");
+        }
+
+        // Descarga para el usuario (opcional)
+        if (isHttpUrl(xmlRaw)) {
+          const a = document.createElement("a");
+          a.href = xmlRaw;
+          a.download = `${fileBase}.xml`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        } else {
+          downloadBase64File(xmlRaw, "application/xml", `${fileBase}.xml`);
+        }
+      } else {
+        console.warn("No se encontró contenido XML en la respuesta de descarga.");
+      }
+
+      // 3) Registrar URLs en tu backend (si tenemos al menos el PDF)
+      try {
+        await asignarURLS_factura(
+          response.Id,               // cambia si tu endpoint espera otro id
+          finalPdfUrl ?? "",         // envía "" si no se obtuvo
+          finalXmlUrl ?? ""
+        );
+        console.log("✅ URLs de factura registradas en BD.");
+      } catch (e) {
+        console.error("❌ Error al asignar URLs de factura:", e);
+      }
+
       alert("Se ha generado con éxito la factura");
+
+      // Mantengo tu refresco local de la descarga
       descargarFactura(response.Id)
-        .then((factura) => setDescarga(factura))
+        .then((f) => setDescarga(f))
         .catch((err) => console.error(err));
+
       onConfirm(selectedFiscalData, isConsolidated);
       setIsInvoiceGenerated(response);
     } catch (error) {
-      alert(
-        "Ocurrió un error al generar la factura: " + (error as Error).message
-      );
+      console.error(error);
+      alert("Ocurrió un error al generar la factura: " + (error as Error).message);
     } finally {
       setLoading(false);
     }
@@ -768,16 +973,40 @@ const FacturacionModal: React.FC<{
 
   // Calcular total de noches y monto
   const totalNights = reservationsWithSelectedItems.reduce(
-    (sum, reserva) => sum + reserva.nightsCount,
+    (sum, reserva) => sum + (reserva.nightsCount || 0),
     0
   );
+
+  // Generar descripción por defecto
+  const defaultDescription = `DETALLE DE RESERVACIONES: ${reservationsWithSelectedItems
+    .map((reserva) => {
+      const selectedItemsForReserva = reserva.items.filter((item) =>
+        selectedItems[reserva.id_servicio]?.includes(item.id_item)
+      );
+
+      const nochesReales = selectedItemsForReserva.length;
+
+      return `${reserva.hotel} - ${formatDate(
+        reserva.check_in
+      )} AL ${formatDate(
+        reserva.check_out
+      )} - ${nochesReales} NOCHES(S) - ${reserva.nombre_viajero_completo
+        }`;
+    })
+    .join(" | ")}`;
+
+  const descriptionToUse = customDescription ?? defaultDescription
+  console.log("descrip", customDescription)
+
+
+
   const totalAmount = reservationsWithSelectedItems.reduce(
     (sum, reserva) =>
       sum +
-      reserva.items.reduce(
+      (reserva.items?.reduce(
         (itemSum, item) => itemSum + parseFloat(item.total),
         0
-      ),
+      ) || 0),
     0
   );
 
@@ -864,17 +1093,17 @@ const FacturacionModal: React.FC<{
                             <p className="text-gray-600">
                               Traslados:
                               <br />
-                              IVA: 002, Base: ${totalAmount.toFixed(2)}, Tasa:
+                              IVA: 002, Base: ${withCommas(totalAmount.toFixed(2))}, Tasa:
                               0.160000, Importe: $
-                              {(totalAmount * 0.16).toFixed(2)}
+                              {withCommas((totalAmount * 0.16).toFixed(2))}
                             </p>
                           </div>
                         </td>
                         <td className="px-3 py-2 text-sm border-b">
-                          ${totalAmount.toFixed(2)}
+                          {formatMoneyMXN(totalAmount.toFixed(2))}
                         </td>
                         <td className="px-3 py-2 text-sm border-b">
-                          ${totalAmount.toFixed(2)}
+                          {formatMoneyMXN(totalAmount.toFixed(2))}
                         </td>
                       </tr>
                     </>
@@ -883,7 +1112,7 @@ const FacturacionModal: React.FC<{
                     reservationsWithSelectedItems
                       .slice(0, 2)
                       .map((reserva, index) => (
-                        <tr key={`preview-${reserva.id_solicitud}`}>
+                        <tr key={`preview-${reserva.id_solicitud}-${Math.round(Math.random() * 9999999)}`}>
                           <td className="px-3 py-2 text-sm border-b">
                             90121500
                           </td>
@@ -937,1192 +1166,290 @@ const FacturacionModal: React.FC<{
           </div>
 
           <div className="mb-6">
-            <div className="flex justify-between items-center mb-4">
-              <h4 className="text-md font-medium text-gray-900">
-                Resumen de Items Seleccionados
-              </h4>
-              <div className="flex items-center space-x-4">
-                <span className="text-sm text-gray-600">
-                  {totalNights} noche(s) en{" "}
-                  {reservationsWithSelectedItems.length} reserva(s)
-                </span>
-                <div className="flex items-center">
-                  <span className="text-sm font-medium text-gray-700 mr-2">
-                    Factura consolidada:
-                  </span>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="sr-only peer"
-                      checked={isConsolidated}
-                      onChange={() => setIsConsolidated(!isConsolidated)}
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                  </label>
-                </div>
+            <h4 className="text-md font-medium text-gray-900 mb-3">
+              Datos Fiscales
+            </h4>
+
+            {loading ? (
+              <div className="text-center py-4">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                <p className="mt-2 text-sm text-gray-500">
+                  Cargando datos fiscales...
+                </p>
               </div>
-            </div>
-
-            <div className="max-h-96 overflow-y-auto border rounded-md mb-6">
-              {reservationsWithSelectedItems.length === 0 ? (
-                <div className="text-center py-4 text-sm text-gray-500">
-                  No hay items seleccionados para facturar
-                </div>
-              ) : (
-                reservationsWithSelectedItems.map((reserva) => (
-                  <div
-                    key={reserva.id_solicitud}
-                    className="border-b last:border-b-0"
-                  >
-                    <div className="bg-gray-50 p-3 sticky top-0 z-10">
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <h4 className="font-medium">
-                            {reserva.hotel} - {formatDate(reserva.check_in)} a{" "}
-                            {formatDate(reserva.check_out)}
-                          </h4>
-                          <p className="text-sm text-gray-600">
-                            Código: {reserva.codigo_reservacion_hotel || "N/A"}{" "}
-                            |{reserva.nightsCount} noche(s)
-                          </p>
-                        </div>
-                        <span className="text-sm font-medium">
-                          {new Intl.NumberFormat("es-MX", {
-                            style: "currency",
-                            currency: "MXN",
-                          }).format(
-                            parseFloat(
-                              reserva.items.reduce(
-                                (itemSum, item) =>
-                                  itemSum + parseFloat(item.total),
-                                0
-                              )
-                            )
-                          )}
-                        </span>
-                      </div>
-                    </div>
-
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-100">
-                        <tr>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Fecha
-                          </th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Subtotal
-                          </th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Impuestos
-                          </th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Total
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {reserva.items.map((item) => (
-                          <tr key={item.id_item}>
-                            <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-900">
-                              {formatDate(item.fecha_uso)}
-                            </td>
-                            <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                              {new Intl.NumberFormat("es-MX", {
-                                style: "currency",
-                                currency: "MXN",
-                              }).format(parseFloat(item.subtotal))}
-                            </td>
-                            <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                              {new Intl.NumberFormat("es-MX", {
-                                style: "currency",
-                                currency: "MXN",
-                              }).format(parseFloat(item.impuestos))}
-                            </td>
-                            <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                              {new Intl.NumberFormat("es-MX", {
-                                style: "currency",
-                                currency: "MXN",
-                              }).format(parseFloat(item.total))}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ))
-              )}
-            </div>
-
-            <div className="mb-6">
-              <h4 className="text-md font-medium text-gray-900 mb-3">
-                Datos Fiscales
-              </h4>
-
-              {loading ? (
-                <div className="text-center py-4">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-                  <p className="mt-2 text-sm text-gray-500">
-                    Cargando datos fiscales...
-                  </p>
-                </div>
-              ) : error ? (
-                <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
-                  <div className="flex">
-                    <div className="flex-shrink-0">
-                      <svg
-                        className="h-5 w-5 text-red-400"
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </div>
-                    <div className="ml-3">
-                      <p className="text-sm text-red-700">{error}</p>
-                    </div>
-                  </div>
-                </div>
-              ) : fiscalDataList.length === 0 ? (
-                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
-                  <div className="flex">
-                    <div className="flex-shrink-0">
-                      <svg
-                        className="h-5 w-5 text-yellow-400"
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </div>
-                    <div className="ml-3">
-                      <p className="text-sm text-yellow-700">
-                        No se encontraron datos fiscales registrados.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {fiscalDataList.map((data) => (
-                    <div
-                      key={data.id_datos_fiscales}
-                      className={`border rounded-md p-4 cursor-pointer ${
-                        selectedFiscalData?.id_datos_fiscales ===
-                        data.id_datos_fiscales
-                          ? "border-blue-500 bg-blue-50"
-                          : "border-gray-200"
-                      }`}
-                      onClick={() => setSelectedFiscalData(data)}
+            ) : error ? (
+              <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <svg
+                      className="h-5 w-5 text-red-400"
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
                     >
-                      <div className="flex justify-between">
-                        <h5 className="font-medium text-gray-900">
-                          {data.razon_social_df}
-                        </h5>
-                        <span className="text-sm text-gray-500">
-                          RFC: {data.rfc}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 mt-1">
-                        Regimen Fiscal: {data.regimen_fiscal}
-                      </p>
-                      <p className="text-sm text-gray-600 mt-1">
-                        {data.estado}, {data.municipio}, {data.colonia}{" "}
-                        {data.codigo_postal_fiscal}, {data.calle}
-                      </p>
-                    </div>
-                  ))}
+                      <path
+                        fillRule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm text-red-700">{error}</p>
+                  </div>
                 </div>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Uso de CFDI
-                </label>
-                <select
-                  value={selectedCfdiUse}
-                  onChange={(e) => setSelectedCfdiUse(e.target.value)}
-                  className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                >
-                  {cfdiUseOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
               </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Forma de Pago
-                </label>
-                <select
-                  value={selectedPaymentForm}
-                  onChange={(e) => setSelectedPaymentForm(e.target.value)}
-                  className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                >
-                  {paymentFormOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Metodo de Pago
-                </label>
-                <select
-                  value={selectedPaymentMethod}
-                  onChange={(e) => setSelectedPaymentMethod(e.target.value)}
-                  className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                >
-                  {paymentMethodOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="mt-4 p-4 bg-gray-50 rounded-md">
-              <div className="flex justify-between items-center">
-                <div>
-                  <span className="text-sm font-medium text-gray-700">
-                    Total a facturar:
-                  </span>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {totalNights} noche(s) en{" "}
-                    {reservationsWithSelectedItems.length} reserva(s)
-                  </p>
+            ) : fiscalDataList.length === 0 ? (
+              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <svg
+                      className="h-5 w-5 text-yellow-400"
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm text-yellow-700">
+                      No se encontraron datos fiscales registrados.
+                    </p>
+                  </div>
                 </div>
-                <span className="text-lg font-bold text-gray-900">
-                  {new Intl.NumberFormat("es-MX", {
-                    style: "currency",
-                    currency: "MXN",
-                  }).format(totalAmount)}
-                </span>
               </div>
-            </div>
-          </div>
-
-          <div className="flex justify-end space-x-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              Cancelar
-            </button>
-            {isInvoiceGenerated ? (
-              <>
-                <a
-                  href={`data:application/pdf;base64,${descarga?.Content}`}
-                  download="factura.pdf"
-                  className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors border border-blue-200"
-                >
-                  <Download className="w-4 h-4" />
-                  <span className="text-sm">Descargar PDF</span>
-                </a>
-              </>
             ) : (
-              <button
-                type="button"
-                onClick={handleConfirm}
-                disabled={
-                  !selectedFiscalData ||
-                  loading ||
-                  reservationsWithSelectedItems.length === 0
-                }
-                className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
-                  !selectedFiscalData ||
-                  loading ||
-                  reservationsWithSelectedItems.length === 0
-                    ? "bg-blue-400 cursor-not-allowed"
-                    : "bg-blue-600 hover:bg-blue-700"
-                } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
-              >
-                {loading
-                  ? "Generando factura..."
-                  : `Facturar ${isConsolidated ? "Consolidada" : "Detallada"}`}
-              </button>
+              <div className="space-y-4">
+                {fiscalDataList.map((data) => (
+                  <div
+                    key={`${Math.round(Math.random() * 9999999)}-data.id_datos_fiscales`}
+                    className={`border rounded-md p-4 cursor-pointer ${selectedFiscalData?.id_datos_fiscales ===
+                      data.id_datos_fiscales
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-gray-200"
+                      }`}
+                    onClick={() => setSelectedFiscalData(data)}
+                  >
+                    <div className="flex justify-between">
+                      <h5 className="font-medium text-gray-900">
+                        {data.razon_social_df}
+                      </h5>
+                      <span className="text-sm text-gray-500">
+                        RFC: {data.rfc}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Regimen Fiscal: {data.regimen_fiscal}
+                    </p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {data.codigo_postal_fiscal},{data.estado}, {data.municipio}, {data.colonia}{" "}
+                      , {data.calle}
+                    </p>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Uso de CFDI
+              </label>
+              <select
+                value={selectedCfdiUse}
+                onChange={(e) => setSelectedCfdiUse(e.target.value)}
+                className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              >
+                {cfdiUseOptions.map((option) => (
+                  <option key={`option.value-${Math.round(Math.random() * 9999999)}`} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Forma de Pago
+              </label>
+              <select
+                value={selectedPaymentForm}
+                onChange={(e) => setSelectedPaymentForm(e.target.value)}
+                className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              >
+                {paymentFormOptions.map((option) => (
+                  <option key={`option.value-${Math.round(Math.random() * 9999999)}`} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Metodo de Pago
+              </label>
+              <select
+                value={selectedPaymentMethod}
+                onChange={(e) => setSelectedPaymentMethod(e.target.value)}
+                className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              >
+                {paymentMethodOptions.map((option) => (
+                  <option key={`option.value-${Math.round(Math.random() * 9999999)}`} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Fecha de vencimiento
+                </label>
+                <input
+                  type="date"
+                  value={dueDate}
+                  min={minDueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                  className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                />
+                <p className="text-[11px] text-gray-500 mt-1">
+                  Por defecto se establece 30 días a partir de hoy.
+                </p>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Observacion personalizada
+                </label>
+                <textarea
+                  value={customDescription}
+                  onChange={(e) => setCustomDescription(e.target.value)}
+                  placeholder={defaultDescription}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Deja vacío para usar la descripción por defecto: "{defaultDescription}"
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 p-4 bg-gray-50 rounded-md">
+            <div className="flex justify-between items-center">
+              <div>
+                <span className="text-sm font-medium text-gray-700">
+                  Total a facturar:
+                </span>
+                <p className="text-xs text-gray-500 mt-1">
+                  {totalNights} noche(s) en{" "}
+                  {reservationsWithSelectedItems.length} reserva(s)
+                </p>
+              </div>
+              <span className="text-lg font-bold text-gray-900">
+                {new Intl.NumberFormat("es-MX", {
+                  style: "currency",
+                  currency: "MXN",
+                }).format(totalAmount)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end space-x-3">
+          <button
+            type="button"
+            className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            Cancelar
+          </button>
+          {isInvoiceGenerated ? (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (!descarga) return;
+                  const pdf =
+                    getPdfBase64(descarga) ??
+                    (typeof descarga === "string" ? descarga : null);
+
+                  // Si el backend te regresó una URL ya lista:
+                  if (typeof pdf === "string" && maybeDownloadByUrl(pdf, "application/pdf", `factura_${isInvoiceGenerated?.Folio ?? cfdi?.Folio ?? "archivo"}.pdf`)) {
+                    return;
+                  }
+
+                  if (!pdf) {
+                    alert("No se encontró el PDF en la respuesta de descarga.");
+                    return;
+                  }
+                  downloadBase64File(
+                    pdf,
+                    "application/pdf",
+                    `factura_${isInvoiceGenerated?.Folio ?? cfdi?.Folio ?? "archivo"}.pdf`
+                  );
+                }}
+                className="px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors border border-blue-200 flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                <span className="text-sm">Descargar PDF</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (!descarga) return;
+                  const xml =
+                    getXmlBase64(descarga) ??
+                    (typeof descarga === "string" ? null : null);
+
+                  // Si el backend te regresó una URL ya lista:
+                  if (typeof xml === "string" && maybeDownloadByUrl(xml, "application/xml", `factura_${isInvoiceGenerated?.Folio ?? cfdi?.Folio ?? "archivo"}.xml`)) {
+                    return;
+                  }
+
+                  if (!xml) {
+                    alert("No se encontró el XML en la respuesta de descarga.");
+                    return;
+                  }
+                  downloadBase64File(
+                    xml,
+                    "application/xml",
+                    `factura_${isInvoiceGenerated?.Folio ?? cfdi?.Folio ?? "archivo"}.xml`
+                  );
+                }}
+                className="px-4 py-2 bg-white text-green-600 rounded-lg hover:bg-green-50 transition-colors border border-green-200 flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                <span className="text-sm">Descargar XML</span>
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={handleConfirm}
+              disabled={
+                !selectedFiscalData ||
+                loading ||
+                reservationsWithSelectedItems.length === 0
+              }
+              className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${!selectedFiscalData ||
+                loading ||
+                reservationsWithSelectedItems.length === 0
+                ? "bg-blue-400 cursor-not-allowed"
+                : "bg-blue-600 hover:bg-blue-700"
+                } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
+            >
+              {loading
+                ? "Generando factura..."
+                : `Facturar ${isConsolidated ? "Consolidada" : "Detallada"}`}
+            </button>
+          )}
         </div>
       </div>
     </div>
   );
 };
-
-export function ReservationsMain() {
-  const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [filterOptions, setFilterOptions] = useState<FilterOptions>({
-    searchTerm: "",
-    statusFilter: "all",
-    dateRangeFilter: {
-      startDate: null,
-      endDate: null,
-    },
-    priceRangeFilter: {
-      min: null,
-      max: null,
-    },
-    estado: "Confirmada",
-  });
-  const [isAdvancedFiltersOpen, setIsAdvancedFiltersOpen] = useState(false);
-  const [localDateRange, setLocalDateRange] = useState({
-    start: "",
-    end: "",
-  });
-  const [localPriceRange, setLocalPriceRange] = useState({
-    min: "",
-    max: "",
-  });
-  const [selectedItems, setSelectedItems] = useState<{
-    [reservationId: string]: string[];
-  }>({});
-  const [showFacturacionModal, setShowFacturacionModal] = useState(false);
-  const [expandedReservations, setExpandedReservations] = useState<string[]>(
-    []
-  );
-
-  useEffect(() => {
-    fetchReservations();
-  }, []);
-
-  const getReservationStatus = (
-    reservation: Reservation
-  ): ReservationStatus => {
-    if (reservation.pendiente_por_cobrar > 0) return "pending";
-    if (reservation.id_booking) return "confirmed";
-    return "completed";
-  };
-
-  const fetchReservations = async () => {
-    setLoading(true);
-    await fetchReservationsFacturacion((data) => {
-      console.log(data);
-      setReservations(data);
-      setLoading(false);
-    }).catch((err) => {
-      setError("Error al cargar las reservaciones");
-      setLoading(false);
-      console.error(err);
-    });
-  };
-
-  const formatCurrency = (value: string) => {
-    return new Intl.NumberFormat("es-MX", {
-      style: "currency",
-      currency: "MXN",
-    }).format(parseFloat(value));
-  };
-
-  const calculateNights = (checkIn: string, checkOut: string) => {
-    const checkInDate = new Date(checkIn);
-    const checkOutDate = new Date(checkOut);
-    const diffTime = Math.abs(checkOutDate.getTime() - checkInDate.getTime());
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  };
-
-  const handleFilterChange = (newFilters: Partial<FilterOptions>) => {
-    setFilterOptions((prev) => ({
-      ...prev,
-      ...newFilters,
-    }));
-  };
-
-  const toggleReservationSelection = (reservationId: string) => {
-    const reservation = reservations.find(
-      (r) => r.id_servicio === reservationId
-    );
-    if (!reservation || !reservation.items) return;
-
-    const itemsFacturables = reservation.items
-      .filter((item) => item?.id_factura == null)
-      .map((item) => item.id_item);
-
-    setSelectedItems((prev) => {
-      const currentSelected = prev[reservationId] || [];
-
-      // Si ya están todos seleccionados, deseleccionar
-      if (currentSelected.length === itemsFacturables.length) {
-        const newState = { ...prev };
-        delete newState[reservationId];
-        return newState;
-      }
-
-      // Seleccionar solo los facturables
-      return {
-        ...prev,
-        [reservationId]: itemsFacturables,
-      };
-    });
-  };
-
-  // Modifica la función de selección para ignorar items ya facturados
-  const toggleItemSelection = (reservationId: string, itemId: string) => {
-    const reservation = reservations.find(
-      (r) => r.id_servicio === reservationId
-    );
-    const item = reservation?.items.find((i) => i.id_item === itemId);
-
-    // No hacer nada si el item ya está facturado
-    if (item?.id_factura != null) return;
-
-    setSelectedItems((prev) => {
-      const currentSelected = prev[reservationId] || [];
-
-      if (currentSelected.includes(itemId)) {
-        // Deseleccionar el item
-        const newSelected = currentSelected.filter((id) => id !== itemId);
-        if (newSelected.length === 0) {
-          const newState = { ...prev };
-          delete newState[reservationId];
-          return newState;
-        }
-        return {
-          ...prev,
-          [reservationId]: newSelected,
-        };
-      } else {
-        // Seleccionar el item
-        return {
-          ...prev,
-          [reservationId]: [...currentSelected, itemId],
-        };
-      }
-    });
-  };
-
-  const toggleSelectAll = () => {
-    const allSelected =
-      getAllSelectedItems().length === getAllSelectableItems().length;
-
-    if (allSelected) {
-      // Deseleccionar todo
-      setSelectedItems({});
-    } else {
-      // Seleccionar todo
-      const newSelectedItems: { [key: string]: string[] } = {};
-
-      filteredReservations.forEach((reservation) => {
-        if (reservation.id_factura == null) {
-          newSelectedItems[reservation.id_servicio] = reservation.items.map(
-            (item) => item.id_item
-          );
-        }
-      });
-
-      setSelectedItems(newSelectedItems);
-    }
-  };
-
-  const toggleExpandReservation = (reservationId: string) => {
-    setExpandedReservations((prev) =>
-      prev.includes(reservationId)
-        ? prev.filter((id) => id !== reservationId)
-        : [...prev, reservationId]
-    );
-  };
-
-  const handleFacturar = () => {
-    setShowFacturacionModal(true);
-  };
-
-  const confirmFacturacion = async (
-    fiscalData: FiscalData,
-    isConsolidated: boolean
-  ) => {
-    try {
-      setLoading(true);
-      // Aquí iría tu lógica para facturar
-      console.log("Facturando items:", selectedItems);
-
-      // Simulación de éxito en facturación
-      await new Promise((resolve) => setTimeout(resolve, 1000)); // Elimina esto en producción
-
-      // Refrescar los datos
-      await fetchReservations();
-
-      setShowFacturacionModal(false);
-      setSelectedItems({});
-    } catch (error) {
-      console.error("Error al facturar:", error);
-      setLoading(false);
-    }
-  };
-
-  // Obtener todos los items seleccionados
-  const getAllSelectedItems = () => {
-    return Object.values(selectedItems).flat();
-  };
-
-  // Obtener todos los items que se pueden seleccionar (sin factura)
-  const getAllSelectableItems = () => {
-    return filteredReservations
-      .filter((reservation) => reservation.id_factura == null)
-      .flatMap(
-        (reservation) => reservation.items?.map((item) => item.id_item) || []
-      );
-  };
-
-  // Verificar si una reservación está completamente seleccionada
-  const isReservationFullySelected = (reservationId: string) => {
-    const reservation = reservations.find(
-      (r) => r.id_servicio === reservationId
-    );
-    if (!reservation) return false;
-
-    const itemsFacturables = reservation.items
-      .filter((item) => item.id_factura == null)
-      .map((item) => item.id_item);
-
-    const selected = selectedItems[reservationId] || [];
-    return selected.length > 0 && selected.length === itemsFacturables.length;
-  };
-
-  // Verificar si un item está seleccionado
-  const isItemSelected = (reservationId: string, itemId: string) => {
-    return (selectedItems[reservationId] || []).includes(itemId);
-  };
-
-  const applyFilters = (reservations: Reservation[]): Reservation[] => {
-    return reservations.filter((reservation) => {
-      console.log("checa esto:", reservation);
-      // Search term filter
-      const searchLower = filterOptions.searchTerm.toLowerCase();
-      const matchesSearch =
-        !filterOptions.searchTerm ||
-        reservation.hotel.toLowerCase().includes(searchLower) ||
-        reservation.codigo_reservacion_hotel
-          .toLowerCase()
-          .includes(searchLower) ||
-        reservation.nombre_agente_completo
-          .toLowerCase()
-          .includes(searchLower) ||
-        reservation?.razon_social?.toLowerCase().includes(searchLower) ||
-        reservation?.id_usuario_generador?.toLowerCase().includes(searchLower);
-
-      // Status filter
-      const status = getReservationStatus(reservation);
-      const matchesStatus =
-        filterOptions.statusFilter === "all" ||
-        status === filterOptions.statusFilter;
-
-      // Date range filter
-      const checkIn = new Date(reservation.created_at);
-      const checkOut = new Date(reservation.created_at);
-      const matchesDateRange =
-        (!filterOptions.dateRangeFilter.startDate ||
-          checkIn >= filterOptions.dateRangeFilter.startDate) &&
-        (!filterOptions.dateRangeFilter.endDate ||
-          checkOut <= filterOptions.dateRangeFilter.endDate);
-
-      // Price range filter
-      const price = parseFloat(reservation.total);
-      const matchesPriceRange =
-        (filterOptions.priceRangeFilter.min === null ||
-          price >= filterOptions.priceRangeFilter.min) &&
-        (filterOptions.priceRangeFilter.max === null ||
-          price <= filterOptions.priceRangeFilter.max);
-      const isConfirmada = filterOptions.estado === "Confirmada";
-      return (
-        matchesSearch &&
-        matchesStatus &&
-        matchesDateRange &&
-        matchesPriceRange &&
-        isConfirmada
-      );
-    });
-  };
-
-  const filteredReservations = applyFilters(reservations);
-  const reservacionesFacturables = filteredReservations.filter(
-    (reservation): boolean => {
-      return (
-        reservation?.items?.some((item) => item?.id_factura == null) ?? false
-      );
-    }
-  );
-  console.log(reservacionesFacturables);
-  const totalSelectedItems = getAllSelectedItems().length;
-
-  return (
-    <div className="min-h-screen">
-      <main className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Selection Bar */}
-        {totalSelectedItems > 0 && (
-          <div className="mb-4 p-4 bg-blue-50 rounded-lg flex justify-between items-center">
-            <div className="flex items-center">
-              <span className="text-blue-800 font-medium">
-                {totalSelectedItems} item(s) seleccionado(s)
-              </span>
-            </div>
-            <div className="flex space-x-3">
-              <button
-                onClick={() => setSelectedItems({})}
-                className="px-3 py-1.5 text-sm font-medium text-blue-700 bg-white border border-blue-300 rounded-md hover:bg-blue-100"
-              >
-                Deseleccionar todo
-              </button>
-              <button
-                onClick={handleFacturar}
-                className="px-4 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
-                disabled={totalSelectedItems === 0}
-              >
-                Facturar seleccionados
-              </button>
-            </div>
-          </div>
-        )}
-
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="p-6">
-            <div className="space-y-4">
-              {/* Basic Filters */}
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-1">
-                <div className="relative">
-                  <input
-                    type="text"
-                    className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Buscar nombre de cliente, empresa o ID cliente..."
-                    value={filterOptions.searchTerm}
-                    onChange={(e) =>
-                      handleFilterChange({ searchTerm: e.target.value })
-                    }
-                  />
-                  <span className="absolute left-3 top-2.5 text-gray-400">
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                      />
-                    </svg>
-                  </span>
-                </div>
-
-                {/* <select
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    value={filterOptions.statusFilter}
-                    onChange={(e) =>
-                      handleFilterChange({
-                        statusFilter: e.target.value as ReservationStatus,
-                      })
-                    }
-                  >
-                    <option value="all">Todos los estados</option>
-                    <option value="pending">Pendientes</option>
-                    <option value="confirmed">Confirmadas</option>
-                    <option value="completed">Completadas</option>
-                    <option value="cancelled">Canceladas</option>
-                  </select> */}
-              </div>
-
-              {/* Advanced Filters Toggle */}
-              <div className="flex justify-between items-center gap-2">
-                <button
-                  onClick={() =>
-                    setIsAdvancedFiltersOpen(!isAdvancedFiltersOpen)
-                  }
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  {isAdvancedFiltersOpen
-                    ? "Ocultar filtros avanzados"
-                    : "Mostrar filtros avanzados"}
-                  <span
-                    className={`ml-2 transition-transform duration-200 ${
-                      isAdvancedFiltersOpen ? "rotate-180" : ""
-                    }`}
-                  >
-                    ▼
-                  </span>
-                </button>
-                <SubirFactura></SubirFactura>
-              </div>
-
-              {/* Advanced Filters */}
-              {isAdvancedFiltersOpen && (
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Rango de fechas
-                    </label>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <input
-                          type="date"
-                          className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          value={localDateRange.start}
-                          onChange={(e) => {
-                            setLocalDateRange((prev) => ({
-                              ...prev,
-                              start: e.target.value,
-                            }));
-                            handleFilterChange({
-                              dateRangeFilter: {
-                                ...filterOptions.dateRangeFilter,
-                                startDate: e.target.value
-                                  ? new Date(e.target.value)
-                                  : null,
-                              },
-                            });
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <input
-                          type="date"
-                          className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          value={localDateRange.end}
-                          onChange={(e) => {
-                            setLocalDateRange((prev) => ({
-                              ...prev,
-                              end: e.target.value,
-                            }));
-                            handleFilterChange({
-                              dateRangeFilter: {
-                                ...filterOptions.dateRangeFilter,
-                                endDate: e.target.value
-                                  ? new Date(e.target.value)
-                                  : null,
-                              },
-                            });
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Rango de precio
-                    </label>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="relative">
-                        <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">
-                          $
-                        </span>
-                        <input
-                          type="number"
-                          className="w-full pl-8 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="Mínimo"
-                          value={localPriceRange.min}
-                          onChange={(e) => {
-                            setLocalPriceRange((prev) => ({
-                              ...prev,
-                              min: e.target.value,
-                            }));
-                            handleFilterChange({
-                              priceRangeFilter: {
-                                ...filterOptions.priceRangeFilter,
-                                min: e.target.value
-                                  ? parseFloat(e.target.value)
-                                  : null,
-                              },
-                            });
-                          }}
-                        />
-                      </div>
-                      <div className="relative">
-                        <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">
-                          $
-                        </span>
-                        <input
-                          type="number"
-                          className="w-full pl-8 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          placeholder="Máximo"
-                          value={localPriceRange.max}
-                          onChange={(e) => {
-                            setLocalPriceRange((prev) => ({
-                              ...prev,
-                              max: e.target.value,
-                            }));
-                            handleFilterChange({
-                              priceRangeFilter: {
-                                ...filterOptions.priceRangeFilter,
-                                max: e.target.value
-                                  ? parseFloat(e.target.value)
-                                  : null,
-                              },
-                            });
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Results Table */}
-          {loading ? (
-            <Loader />
-          ) : error ? (
-            <div className="p-6 bg-red-50 border-t border-red-200">
-              <p className="text-red-700">{error}</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th scope="col" className="relative px-6 py-3">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        checked={
-                          totalSelectedItems > 0 &&
-                          totalSelectedItems === getAllSelectableItems().length
-                        }
-                        onChange={toggleSelectAll}
-                      />
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      id Cliente
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Cliente
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Creado
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      hotel
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      código hotel
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      viajero
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      check in
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      check out
-                    </th>
-
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      noches
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Habitación
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      costo proveedor
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      precio de venta
-                    </th>
-                    {/* <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Estado de pago
-                    </th> */}
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {reservacionesFacturables.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={10}
-                        className="px-6 py-4 text-center text-sm text-gray-500"
-                      >
-                        No se encontraron reservaciones con los filtros
-                        actuales.
-                      </td>
-                    </tr>
-                  ) : (
-                    reservacionesFacturables.map((reservation) => (
-                      <React.Fragment key={reservation.id_servicio}>
-                        {/* Fila de la reservación */}
-                        <tr className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <button
-                              onClick={() =>
-                                toggleExpandReservation(reservation.id_servicio)
-                              }
-                              className="mr-2 p-1 text-gray-500 hover:text-gray-700"
-                            >
-                              {expandedReservations.includes(
-                                reservation.id_servicio
-                              ) ? (
-                                <ChevronUpIcon className="h-5 w-5" />
-                              ) : (
-                                <ChevronDownIcon className="h-5 w-5" />
-                              )}
-                            </button>
-                            <input
-                              type="checkbox"
-                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                              checked={isReservationFullySelected(
-                                reservation.id_servicio
-                              )}
-                              onChange={() =>
-                                toggleReservationSelection(
-                                  reservation.id_servicio
-                                )
-                              }
-                              disabled={
-                                !reservation.items.some(
-                                  (item) => item.id_factura == null
-                                )
-                              }
-                            />
-                          </td>
-                          <td className="px-6 py-4 text-xs text-gray-800 font-medium">
-                            {reservation.id_usuario_generador}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-700">
-                            {reservation.razon_social}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-700">
-                            {format(
-                              new Date(reservation.created_at),
-                              "dd/MM/yyyy"
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-xs font-medium text-gray-900 overflow-hidden text-ellipsis max-w-[400px]">
-                            {reservation.hotel}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-700">
-                            {reservation.codigo_reservacion_hotel}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-700">
-                            {reservation.nombre_viajero_completo}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-700">
-                            {format(
-                              new Date(reservation.check_in),
-                              "dd/MM/yyyy"
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-700">
-                            {format(
-                              new Date(reservation.check_out),
-                              "dd/MM/yyyy"
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-700">
-                            {calculateNights(
-                              reservation.check_in,
-                              reservation.check_out
-                            )}
-                          </td>
-
-                          <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-700 capitalize">
-                            {reservation.room}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-700 capitalize">
-                            ${reservation.costo_total}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-700 capitalize">
-                            ${reservation.total}
-                          </td>
-                          {/* <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
-                            {formatCurrency(reservation.total)}
-                            {reservation.pendiente_por_cobrar > 0 && (
-                              <div className="text-xs text-amber-600 mt-1">
-                                Pendiente:{" "}
-                                {formatCurrency(
-                                  reservation.pendiente_por_cobrar.toString()
-                                )}
-                              </div>
-                            )}
-                          </td> */}
-                          {/* <td className="px-6 py-4 whitespace-nowrap">
-                            <StatusBadge
-                              status={getReservationStatus(reservation)}
-                            />
-                          </td> */}
-                        </tr>
-
-                        {/* Fila expandible con los items */}
-                        {expandedReservations.includes(
-                          reservation.id_servicio
-                        ) && (
-                          <tr className="bg-gray-50">
-                            <td colSpan={13} className="px-6 py-4">
-                              <div className="ml-8">
-                                <h4 className="text-xs font-medium text-gray-700 mb-2">
-                                  Items (Noches) de la reservación
-                                </h4>
-                                <div className="flex items-center mb-2">
-                                  <span className="text-xs text-gray-500">
-                                    {
-                                      reservation.items.filter(
-                                        (item) => item.id_factura == null
-                                      ).length
-                                    }{" "}
-                                    noche(s) pendientes por facturar
-                                  </span>
-                                </div>
-                                <table className="min-w-full divide-y divide-gray-200">
-                                  <thead className="bg-gray-100">
-                                    <tr>
-                                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Selección
-                                      </th>
-                                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Fecha de uso
-                                      </th>
-                                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Subtotal
-                                      </th>
-                                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Impuestos
-                                      </th>
-                                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Total
-                                      </th>
-                                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Estado facturación
-                                      </th>
-                                    </tr>
-                                  </thead>
-                                  <tbody className="bg-white divide-y divide-gray-200">
-                                    {reservation.items.map((item) => (
-                                      <tr
-                                        key={item.id_item}
-                                        className={`hover:bg-gray-50 ${
-                                          item.id_factura != null
-                                            ? "bg-gray-100"
-                                            : ""
-                                        }`}
-                                      >
-                                        <td className="px-4 py-2 whitespace-nowrap">
-                                          <input
-                                            type="checkbox"
-                                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                            checked={isItemSelected(
-                                              reservation.id_servicio,
-                                              item.id_item
-                                            )}
-                                            onChange={() =>
-                                              toggleItemSelection(
-                                                reservation.id_servicio,
-                                                item.id_item
-                                              )
-                                            }
-                                            disabled={item.id_factura != null}
-                                          />
-                                        </td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-500">
-                                          {item.fecha_uso}
-                                        </td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-500">
-                                          {formatCurrency(
-                                            item.subtotal.toString()
-                                          )}
-                                        </td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-500">
-                                          {formatCurrency(
-                                            item.impuestos.toString()
-                                          )}
-                                        </td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-xs text-gray-500">
-                                          {formatCurrency(
-                                            item.total.toString()
-                                          )}
-                                        </td>
-                                        <td className="px-4 py-2 whitespace-nowrap text-xs">
-                                          {item.id_factura != null ? (
-                                            <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                                              Facturado
-                                            </span>
-                                          ) : (
-                                            <span className="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                                              Pendiente
-                                            </span>
-                                          )}
-                                        </td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </main>
-
-      {/* Facturación Modal */}
-      {showFacturacionModal && (
-        <FacturacionModal
-          selectedItems={selectedItems}
-          reservationsInit={reservations}
-          onClose={() => setShowFacturacionModal(false)}
-          onConfirm={confirmFacturacion}
-        />
-      )}
-    </div>
-  );
-}

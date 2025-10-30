@@ -31,6 +31,7 @@ import { SaldoFavor, NuevoSaldoAFavor, Saldo } from "@/services/SaldoAFavor";
 import { fetchAgenteById, fetchPagosByAgente } from "@/services/agentes";
 import { Loader } from "@/components/atom/Loader";
 import { API_KEY, URL } from "@/lib/constants/index";
+import { formatDate } from "@/app/dashboard/facturas-pendientes/page";
 import { PagarModalComponent } from "./pagar_saldo";
 
 
@@ -109,7 +110,6 @@ const PaymentSummary: React.FC<PaymentSummaryProps> = ({
   assignedBalance,
   statusInfo,
 }) => {
-  console.log("totalBalance", totalBalance, "/rvr", assignedBalance);
   const availableBalance = totalBalance - assignedBalance;
 
   // Estados necesarios para subirArchivosAS3
@@ -369,13 +369,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     agente: true,
     pagos: true,
   });
-
-  console.log("wallet", walletAmount);
   const [localWalletAmount, setLocalWalletAmount] = useState(walletAmount);
-  console.log("agente", agente.wallet);
-  console.log("local", localWalletAmount);
-
-  console.log("wallet2", walletAmount);
 
   const [filters, setFilters] = useState<TypeFilters>({
     paymentMethod: "",
@@ -452,8 +446,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       setLoading((prev) => ({ ...prev, agente: true }));
       const agenteActualizado = await fetchAgenteById(agente.id_agente);
 
-      console.log("Respuesta completa:", agenteActualizado); // Verifica la estructura completa
-
       // Si la respuesta es un array (como en tu ejemplo), necesitas acceder al primer elemento
       const walletAmount = Array.isArray(agenteActualizado)
         ? parseFloat(agenteActualizado[0].wallet)
@@ -513,11 +505,12 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     const fetchSaldoFavor = async () => {
       const response: { message: string; data: Saldo[] } =
         await SaldoFavor.getPagos(agente.id_agente);
-      console.log("esto trae", response.data);
       setSaldos(response.data);
     };
     fetchSaldoFavor();
   }, []);
+
+  console.log("slados", saldos)
 
   const filteredData = useMemo(() => {
     // Filter the data
@@ -616,9 +609,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       return true;
     });
 
-    console.log("Filters:", filters);
-    console.log("Sample saldo:", saldos[0]);
-
     // Transform the filtered data
     const transformedData = filteredItems.map((saldo) => ({
       id_Cliente: saldo.id_agente,
@@ -679,13 +669,49 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     });
   }, [saldos, filters, searchTerm, sortConfig.key, sortConfig.sort]);
 
+  // 👇 dentro de PageCuentasPorCobrar
+  const actualizarSoloComentario = async (item: Saldo, nuevoComentario: string) => {
+    try {
+      const apiData = {
+        id_saldos: item.id_saldos,
+        id_agente: item.id_agente,
+        saldo: item.saldo,
+        monto: item.monto,
+        metodo_pago: item.metodo_pago, // 'transferencia' | 'tarjeta' | 'wallet'
+        fecha_pago: item.fecha_pago,
+        is_facturable: item.is_facturable,
+        is_descuento: item.is_descuento,
+        link_stripe: item.link_stripe || null,
+        tipo_tarjeta: item.tipo_tarjeta || null,
+        activo: item.activo,
+        comentario: nuevoComentario,           // 👈 el único cambio
+        comprobante: item.comprobante || null,
+        currency: item.currency || "MXN",
+        referencia: item.referencia || null,
+        ult_digits: item.ult_digits || null,
+        banco_tarjeta: item.banco_tarjeta || null,
+        numero_autorizacion: item.numero_autorizacion || null,
+      };
+
+      await SaldoFavor.actualizarPago(apiData);
+      await reloadSaldos();
+    } catch (error) {
+      console.error("Error al actualizar comentario:", error);
+      setError(
+        `Error al actualizar comentario: ${error instanceof Error ? error.message : String(error)
+        }`
+      );
+    }
+  };
+
+
   const tableRenderers = {
-    fecha_De_Pago: ({ value }: { value: Date | null }) => {
+    fecha_De_Pago: ({ value }: { value: string | null }) => {
       if (!value) return <div className="text-gray-400 italic">Sin fecha</div>;
 
       return (
         <div className="whitespace-nowrap text-sm text-blue-900">
-          {format(new Date(value), "dd 'de' MMMM yyyy", { locale: es })}
+          {formatDate(value)}
         </div>
       );
     },
@@ -839,16 +865,12 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             activo: item.activo,
             comentario: item.comentario || null,
             comprobante: updatedData.comprobante,
-            concepto: item.concepto,
             currency: item.currency || "MXN",
             referencia: item.referencia || null,
             ult_digits: item.ult_digits || null,
             banco_tarjeta: item.banco_tarjeta || null,
             numero_autorizacion: item.numero_autorizacion || null,
           };
-
-          console.log("Datos actualizados:", updatedData);
-          console.log("Datos enviados a la API:", apiData);
 
           await SaldoFavor.actualizarPago(apiData);
           await reloadSaldos();
@@ -873,9 +895,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
                 cliente={item.nombre}
                 onClose={() => setShowModal(false)}
                 onSave={(comprobante) => {
-                  console.log("Comprobante guardado:", comprobante);
                   setShowModal(false);
-                  console.log("Item asociado:", item);
                 }}
                 handleEdit={handleEditComprobante}
                 isEditing={true}
@@ -957,14 +977,57 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       );
     },
 
-    comentario: ({ value, item }: { value: string | null; item: any }) => {
+    comentario: ({ value, item }: { value: string | null; item: Saldo }) => {
+      const [editing, setEditing] = useState(false);
+      const [nuevo, setNuevo] = useState(value || "");
+
       const isActive = item?.activo !== false;
+
+      const save = async () => {
+        await actualizarSoloComentario(item, nuevo);
+        setEditing(false);
+      };
+
       return (
-        <div
-          className={`max-w-xs truncate ${!isActive ? "text-red-500 line-through" : ""
-            }`}
-        >
-          {value ? normalizeText(value) : ""}
+        <div className={`relative flex items-center gap-2 ${!isActive ? "text-red-500 line-through" : ""}`}>
+          <div className="max-w-xs truncate">{value ? normalizeText(value) : ""}</div>
+
+          <button
+            type="button"
+            title="Editar comentario"
+            onClick={(e) => { e.stopPropagation(); setEditing(true); }}
+            className="p-1 rounded hover:bg-gray-100 disabled:opacity-50"
+            disabled={!isActive}
+          >
+            <Pencil className="w-4 h-4 text-gray-600" />
+          </button>
+
+          {editing && (
+            <div className="absolute z-20 top-7 left-0 bg-white border border-gray-200 rounded-lg shadow-lg p-3 w-72">
+              <textarea
+                className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                rows={3}
+                value={nuevo}
+                onChange={(e) => setNuevo(e.target.value)}
+              />
+              <div className="mt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  className="px-3 py-1 text-sm rounded-md border border-gray-300"
+                  onClick={() => { setEditing(false); setNuevo(value || ""); }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="px-3 py-1 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700"
+                  onClick={save}
+                >
+                  Guardar
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       );
     },
@@ -1055,7 +1118,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             metodo_pago: metodoPagoNormalizado,
             saldo: updatedData.monto_pagado?.toString() || item.monto,
             activo: true, // Siempre activo al editar
-            concepto: item.concepto || "pago",
             currency: item.currency || "MXN",
             comprobante: item.comprobante
           };
@@ -1098,11 +1160,9 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
           }
 
           // Mostrar los datos que se enviarán a la API
-          console.log("Datos para enviar a la API:", apiData);
 
           // Actualizar el saldo local con la diferencia
           setLocalWalletAmount((prev) => prev + diferencia);
-          console.log("agwnte", agente);
           await updateAgentWallet();
 
           // Llamar a la API para actualizar
@@ -1142,7 +1202,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             activo: false, // Cambiamos a 0 para desactivar
             comentario: item.comentario || null,
             comprobante: item.comprobante,
-            concepto: item.concepto,
             currency: item.currency || "MXN",
             referencia: item.referencia || null,
             ult_digits: item.ult_digits || null,
@@ -1160,7 +1219,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
               (prev) => prev - parseFloat(item.monto.toString())
             );
           }
-          console.log("local eliminado", localWalletAmount);
           const updatedSaldos = await SaldoFavor.getPagos(item.id_agente);
 
           setSaldos(updatedSaldos.data);
@@ -1309,7 +1367,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
               }}
               rowData={item} // Pasa el row completo como nueva prop
               onClose={() => {
-                console.log("Entrando al modal para mostrar datos");
                 updateAgentWallet()
                   .then((number) => setLocalWalletAmount(number || 0))
                   .catch((error) =>
@@ -1321,10 +1378,8 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
                 setIsPagarModalOpen(false);
               }}
               onSubmit={async () => {
-                console.log("Entrando al modal para mostrar datos");
                 updateAgentWallet()
                   .then((number) => {
-                    console.log(number);
                     setLocalWalletAmount(number || 0);
                   })
                   .catch((error) =>
@@ -1336,7 +1391,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
                 const fetchSaldoFavor = async () => {
                   const response: { message: string; data: Saldo[] } =
                     await SaldoFavor.getPagos(agente.id_agente);
-                  console.log("esto trae", response.data);
                   setSaldos(response.data);
                 };
                 fetchSaldoFavor();
@@ -1355,7 +1409,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       setLoading((prev) => ({ ...prev, pagos: true }));
       const response = await SaldoFavor.getPagos(agente.id_agente);
       setSaldos(response.data);
-      console.log("data", response);
     } catch (error) {
       console.error("Error al recargar saldos:", error);
       setError("Error al cargar los saldos");
@@ -1391,7 +1444,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       await updateAgentWallet();
 
       setAddPaymentModal(false);
-      console.log("envio de pago", paymentData);
     } catch (err) {
       setError("Error al registrar el pago");
       console.error("Error:", err);
@@ -1435,9 +1487,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   if (localWalletAmount !== 0) {
     walletAmount = localWalletAmount;
   }
-
-  console.log("local ", localWalletAmount);
-  console.log("wallet", walletAmount);
 
   return (
     <div className="h-full">
@@ -1668,7 +1717,6 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
   // Inicializar con datos si estamos editando
   // Inicializar con datos si estamos editando
   useEffect(() => {
-    console.log("editando", initialData);
     if (isEditing && initialData) {
       dispatch({
         type: "SET_FORM",
@@ -1683,7 +1731,6 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
           link_Stripe: initialData.link_Stripe,
         },
       });
-      console.log("data de editar", initialData);
       setCardDetails({
         ult_digits: initialData.ult_digits || "",
         banco_tarjeta: initialData.banco_tarjeta || "wer",
@@ -1707,7 +1754,6 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
         setIsStripeLinked(false);
         return;
       }
-      console.log("fetch", chargeId)
       const response = await fetch(
         `${URL}/mia/saldo/stripe-info?chargeId=${chargeId}`,
         {
@@ -1720,13 +1766,11 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
 
       if (!response.ok) {
         const data = await response.json();
-        console.log("error", data);
         throw new Error(`Error ${response.status}: ${response.statusText}`);
       }
 
       const data = await response.json();
 
-      console.log("Respuesta de Stripe:", data);
 
       if (data.data.estado !== "failed") {
         setCardDetails({

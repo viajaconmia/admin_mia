@@ -7,6 +7,7 @@ import { Console } from 'console';
 interface VistaPreviaProps {
   facturaData: any;
   pagoData: any;
+  itemsTotal?: number;
   onClose: () => void;
   onConfirm: (url: any) => void; // Ahora recibe el payload completo
   isLoading?: boolean;
@@ -14,6 +15,7 @@ interface VistaPreviaProps {
 
 export default function VistaPreviaModal({
   facturaData,
+  itemsTotal,
   pagoData,
   onClose,
   onConfirm,
@@ -25,22 +27,15 @@ export default function VistaPreviaModal({
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
   const [facturar, setFacturar] = useState<number>(0);
-  console.log("factura", facturaData)
-  console.log("pagos", pagoData)
-
-  console.log("eve", facturaData.comprobante.total)
 
   useEffect(() => {
     // Validación del monto cuando tenemos ambos datos
     if (pagoData && facturaData) {
-      const montoPorFacturar = (pagoData.monto||pagoData.monto_por_facturar);
+      const montoPorFacturar = (pagoData.monto || pagoData.monto_por_facturar);
       setFacturar(montoPorFacturar);
-      console.log("facturar",facturar);
       const totalFactura = parseFloat(facturaData.comprobante.total);
-      console.log("montoPorFacturar", montoPorFacturar, "totalFactura", totalFactura)
       if (montoPorFacturar >= totalFactura) {
 
-        console.log("Payload para pago completo:", montoPorFacturar - totalFactura);
       }
     } else {
       setValidationMessage(null);
@@ -50,7 +45,6 @@ export default function VistaPreviaModal({
   useEffect(() => {
     async function generarYSubirPDF() {
       try {
-        console.log(`construyendo componente con form data: ${facturaData}`)
         // 1. Generar el PDF
 
         const pdfBlob = await generarFacturaPDF(facturaData);
@@ -91,7 +85,6 @@ export default function VistaPreviaModal({
 
     // Limpieza
     return () => {
-      console.log(`Destruyendo componente con form data: ${facturaData}`)
       if (pdfObjectUrl) {
         URL.revokeObjectURL(pdfObjectUrl);
       }
@@ -101,7 +94,13 @@ export default function VistaPreviaModal({
   const toggleView = () => setShowPdf(!showPdf);
 
   const handleConfirm = () => {
-    console.log(pdfUrl)
+    const totalFactura = parseFloat(facturaData.comprobante.total);
+    if (typeof itemsTotal === 'number' && itemsTotal > 0) {
+      if (itemsTotal > totalFactura) {
+        alert('El total de los ítems es mayor al total de la factura.');
+        return; // bloquea avance
+      }
+    }
     const payload = {
       fecha_emision: facturaData.comprobante.fecha.split("T")[0],
       estado: "Confirmada",
@@ -116,7 +115,7 @@ export default function VistaPreviaModal({
       uuid_factura: facturaData.timbreFiscal.uuid,
       rfc_emisor: facturaData.emisor.rfc,
       url_pdf: pdfUrl,
-      url_xml: null, // No disponible en VistaPrevia
+      url_xml: null, // No disponible en VistaPrevia 
       items_json: JSON.stringify([]),
       // Campos adicionales de pago si existe pagoData
       ...(pagoData && {
@@ -158,6 +157,11 @@ export default function VistaPreviaModal({
       minute: '2-digit'
     });
   };
+  console.log("factura", facturaData, "pagos", itemsTotal)
+  const totalFactura = parseFloat(facturaData.comprobante.total);
+  const diferencia = totalFactura - (itemsTotal || 0);
+  const ok = (itemsTotal || 0) <= totalFactura;
+
   return (
     <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
       <div className="bg-white p-6 rounded shadow-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -182,6 +186,43 @@ export default function VistaPreviaModal({
             {showPdf ? 'Ver datos estructurados' : 'Ver vista PDF'}
           </button>
         </div>
+        {/* Resumen de Ítems Seleccionados */}
+        {typeof itemsTotal === 'number' && itemsTotal > 0 && (
+          <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h3 className="font-bold text-blue-800 mb-2">Ítems seleccionados</h3>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <p className="text-sm">Total de ítems:</p>
+                <p className="font-semibold">
+                  {itemsTotal.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm">Total de la factura:</p>
+                <p className="font-semibold">
+                  {formatCurrency(facturaData.comprobante.total)}
+                </p>
+              </div>
+            </div>
+
+            {(() => {
+
+              return (
+                <div className={`mt-2 p-2 rounded ${ok ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                  {ok ? (
+                    <p className="font-semibold">
+                      Diferencia (factura - ítems): {formatCurrency(diferencia.toFixed(2))}
+                    </p>
+                  ) : (
+                    <p className="font-semibold">
+                      El total de los ítems excede el total de la factura. Ajusta la selección o usa otra factura.
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+        )}
 
         {/* Nuevo bloque para mostrar información de pago */}
         {pagoData?.monto != null && (
@@ -249,7 +290,8 @@ export default function VistaPreviaModal({
           <button
             className="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
             onClick={handleConfirm}
-            disabled={isLoading || uploadingPdf || !pdfUrl}
+
+            disabled={isLoading || uploadingPdf || !pdfUrl || !ok}
           >
             {(isLoading || uploadingPdf) ? "Procesando..." : "Aceptar y Continuar"}
           </button>

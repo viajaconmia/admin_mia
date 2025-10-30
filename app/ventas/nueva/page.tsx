@@ -4,12 +4,11 @@ import React, {
   useState,
   useRef,
   useEffect,
-  SelectHTMLAttributes,
 } from "react";
-import { FileText, Lock, Eye, EyeOff } from "lucide-react";
+import { FileText, Lock, Eye, EyeOff, Hotel } from "lucide-react";
 import { calcularNoches } from "@/helpers/utils";
 import { fetchHotelesFiltro_Avanzado } from "@/services/hoteles";
-import { FullHotelData } from "../dashboard/hoteles/_components/hotel-table";
+import { FullHotelData } from "../../dashboard/hoteles/_components/hotel-table";
 import { ComboBox } from "@/components/atom/Input";
 
 // Tipos
@@ -19,11 +18,25 @@ interface CouponData {
   checkin: string;
   checkout: string;
   noches: number;
-  noktos: number;
+  habitaciones: number;
+  noktosNoche: number;
+  noktosTotal: number;
   desayuno: string;
   notas: string;
-  precio: number;
-  impuestos: number;
+  precioNocheSinImpuestos: number;
+  precioNocheConImpuestos: number;
+  precioTotal: number;
+}
+
+// fecha 
+// --- UTIL EXTRA ---
+function formatearFechaYMDaDMY(fechaISO: string) {
+  if (!fechaISO) return "";
+  const d = new Date(fechaISO);
+  const dd = d.getDate();
+  const mm = d.getMonth() + 1;
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
 }
 
 // Utilidades
@@ -62,182 +75,221 @@ function acomodarNumero(numero: number | string): string {
 }
 
 // Componente de Canvas
+// helper fecha dd/mm/aaaa
+function fechaDMY(iso: string) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const dd = d.getDate();
+  const mm = d.getMonth() + 1;
+  const yy = d.getFullYear();
+  return `${dd}/${mm}/${yy}`;
+}
+
 const CouponCanvas: React.FC<{ data: CouponData; currency: string }> = ({
   data,
   currency,
 }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const ref = useRef<HTMLCanvasElement>(null);
 
   const {
     hotel,
+    direccion,
     checkin,
     checkout,
     noches,
-    noktos,
-    desayuno,
+    habitaciones,
+    noktosNoche,
+    noktosTotal,
     notas,
-    precio,
-    impuestos,
-    direccion,
+    precioNocheSinImpuestos,
+    precioNocheConImpuestos,
+    precioTotal,
   } = data;
 
-  const direccionLineas = separarTexto(direccion, 80);
-  const precioPersona = acomodarNumero(precio);
-  const precioImpuestos = acomodarNumero(impuestos);
-  const nota = separarTexto(String(notas) + " " + String(desayuno), 40);
+  function wrap(txt: string, maxChars: number) {
+    if (!txt) return [""];
+    const out: string[] = [];
+    let line = "";
+    txt.split(" ").forEach((w) => {
+      const t = line ? line + " " + w : w;
+      if (t.length <= maxChars) line = t;
+      else {
+        if (line) out.push(line);
+        line = w;
+      }
+    });
+    if (line) out.push(line);
+    return out;
+  }
+
+  const dirLines = wrap(direccion, 70);
+  const notaLines = wrap(String(notas), 60);
+
+  const f0 = acomodarNumero(precioNocheSinImpuestos);
+  const f1 = acomodarNumero(precioNocheConImpuestos);
+  const f2 = acomodarNumero(precioTotal);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext("2d");
+    const c = ref.current;
+    if (!c) return;
+    const ctx = c.getContext("2d");
     if (!ctx) return;
 
-    // Función para dibujar rectángulos con texto
-    function drawTextRect(
-      x: number,
-      y: number,
-      width: number,
-      height: number,
-      text: string,
-      textColor: string,
-      bgColor: string
-    ) {
-      ctx.fillStyle = bgColor;
-      ctx.fillRect(x, y, width, height);
+    // Lienzo fijo (no usar transform scale)
+    const W = (c.width = 700);
+    const H = (c.height = 900);
 
-      ctx.fillStyle = textColor;
-      ctx.font = "16px Calibri";
-      ctx.textAlign = "center";
-      ctx.fillText(text, x + width / 2, y + height / 2 + 5);
-    }
+    // Guía: pares nombre-valor
+    const M = 40;               // margen
+    const LBL_X = M;            // columna de nombre
+    const VAL_X = W - M;        // columna de valor (alineado a la derecha)
+    const azul = "#002060";
 
-    // Limpiar canvas
-    ctx.fillStyle = "#FFFFFF";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const drawPair = (label: string, value: string, y: number, boldValue = false) => {
+      ctx.textAlign = "left";
+      ctx.fillStyle = azul;
+      ctx.font = "bold 18px Calibri";
+      ctx.fillText(label, LBL_X, y);
+      ctx.textAlign = "right";
+      ctx.fillStyle = "#111827";
+      ctx.font = (boldValue ? "bold " : "") + "18px Calibri";
+      ctx.fillText(value, VAL_X, y);
+    };
 
-    const centro = canvas.width / 2;
+    // limpiar
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, W, H);
 
-    // Encabezado
-    ctx.font = "bold 20px Calibri";
+    // encabezado
     ctx.textAlign = "center";
-    ctx.fillStyle = "#002060";
-    ctx.fillText("KONE México SA DE CV", centro + centro / 2, 40);
-    ctx.fillText("Cotización - Host", centro + centro / 2, 60);
+    ctx.fillStyle = azul;
+    ctx.font = "bold 22px Calibri";
+    ctx.fillText("CENTRO DE TECNOLOGIA DEL SURESTE", W / 2, 50);
+    ctx.font = "bold 18px Calibri";
+    ctx.fillText("Cotización - Host", W / 2, 80);
 
-    // Información del hotel
-    ctx.font = "20px Calibri";
+    // logos (coloca tus URLs reales)
+    const logo1 = new Image();
+    const logo2 = new Image();
+    logo1.src = "https://luiscastaneda-tos.github.io/log/files/cts.jpg";
+    logo1.onload = () => ctx.drawImage(logo1, 10, 20, 130, 90);
+    logo2.onload = () => ctx.drawImage(logo2, 110, 42, 34, 34);
+
+    // Hotel
+    let y = 130;
     ctx.textAlign = "left";
-    ctx.fillStyle = "#FF0000";
-    ctx.fillText("Nota:", 15, 520);
-    ctx.fillStyle = "#002060";
-    ctx.fillText("HOTEL", 20, 130);
-    ctx.fillText("Dirección", 20, 190);
+    ctx.fillStyle = azul;
+    ctx.font = "bold 20px Calibri";
+    ctx.fillText("Hotel", LBL_X, y);
 
-    // Nombre del hotel
-    ctx.fillStyle = "#002060";
-    ctx.textAlign = "center";
-    ctx.fillText(hotel, centro, 160);
+    y += 28;
+    ctx.font = "bold 18px Calibri";
+    ctx.fillText(hotel, LBL_X, y);
 
     // Dirección
-    ctx.font = "14px Calibri";
-    for (let y = 0; y < direccionLineas.length; y++) {
-      ctx.fillText(direccionLineas[y], centro, 220 + y * 25);
-    }
-
-    // Fechas
-    ctx.font = "20px Calibri";
-    ctx.fillStyle = "#002060";
+    y += 35;
     ctx.font = "bold 20px Calibri";
-    ctx.fillText("Check in", centro / 2, 280);
-    ctx.fillText("Check out", centro + centro / 2, 280);
-    ctx.font = "20px Calibri";
-    ctx.fillText(checkin, centro / 2, 310);
-    ctx.fillText(checkout, centro + centro / 2, 310);
-    ctx.fillText(`Total de noches: ${noches}`, centro, 350);
+    ctx.fillText("Dirección", LBL_X, y);
+
+    y += 30;
+    ctx.font = "16px Calibri";
+    ctx.fillStyle = "#111827";
+    dirLines.forEach((ln, i) => ctx.fillText(ln, LBL_X, y + i * 22));
+    y += dirLines.length * 22 + 6;
+
+    // Bloque doble: Check in (izquierda) / Check out (derecha)
+    ctx.fillStyle = azul;
+    ctx.textAlign = "left";
+    ctx.font = "bold 18px Calibri";
+    ctx.fillText("Check in", LBL_X, y);
+    ctx.textAlign = "right";
+    ctx.fillText("Check out", VAL_X, y);
+
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#111827";
+    ctx.font = "18px Calibri";
+    ctx.fillText(fechaDMY(checkin), LBL_X, y + 24);
+    ctx.textAlign = "right";
+    ctx.fillText(fechaDMY(checkout), VAL_X, y + 24);
+
+    y += 52;
+
+    // De aquí en adelante: NOMBRE IZQ / VALOR DER
+    drawPair("Total de Noches", String(noches || 0), y);
+    y += 28;
+
+    drawPair("Numero de Habitaciones", String(habitaciones || 0), y);
+    y += 36;
 
     // Precios
-    ctx.textAlign = "right";
-    ctx.fillText("Precio por noche por habitación", centro, 390);
-    ctx.fillText("Precio por noche por habitación", centro, 450);
+    drawPair("Precio por noche por habitación (sin  impuestos)",
+      `$ ${f0} ${currency}`, y);
+    y += 28;
 
-    ctx.textAlign = "right";
-    ctx.fillStyle = "#002060";
-    ctx.fillText("(sin impuestos)", centro, 410);
-    ctx.fillText("(incluye impuestos)", centro, 470);
+    drawPair("Precio por noche por habitación (incluye impuestos)",
+      `$ ${f1} ${currency}`, y);
+    y += 28;
 
+    drawPair("Precio por toda la estancia (incluye impuestos)",
+      `$ ${f2} ${currency}`, y, true);
+    y += 36;
+
+    // NOKTOS
+    drawPair("NOKTOS  POR  NOCHE", String(noktosNoche || 0), y);
+    y += 28;
+    drawPair("NOKTOS  POR  TODA  LA  ESTANCIA", String(noktosTotal || 0), y);
+    y += 36;
+
+    // Nota
     ctx.textAlign = "left";
-    ctx.font = "bold 20px Calibri";
-    ctx.fillText("$ " + precioPersona + ` ${currency}`, centro + 20, 410);
-    ctx.fillText("$ " + precioImpuestos + ` ${currency}`, centro + 20, 470);
-
-    // Notas
-    ctx.font = "20px Calibri";
-    ctx.textAlign = "left";
-    ctx.fillStyle = "#002060";
-    for (let y = 0; y < nota.length; y++) {
-      ctx.fillText(nota[y], 70, 520 + y * 25);
-    }
+    ctx.fillStyle = "#FF0000";
+    ctx.font = "bold 18px Calibri";
+    ctx.fillText("Nota:", LBL_X, y);
+    ctx.fillStyle = "#111827";
+    ctx.font = "16px Calibri";
+    notaLines.forEach((ln, i) => ctx.fillText(ln, LBL_X + 55, y + i * 22));
+    y += notaLines.length * 22 + 28;
 
     // Footer
+    const fy = Math.max(y, H - 80);
     ctx.textAlign = "center";
-    drawTextRect(0, 580, canvas.width, 85, "", "#002060", "#ffffff");
-
-    ctx.font = "bold 20px Calibri";
-    ctx.fillStyle = "#06304b";
+    ctx.fillStyle = "#FF0000";
+    ctx.font = "bold 16px Calibri";
     ctx.fillText(
-      "Tarifa no reembolsable (No aplica cambio y/o cancelaciones)",
-      centro,
-      590
+      "Tarifa No Reembolsable (no hay cambios, ni cancelaciones)",
+      W / 2,
+      fy
     );
-    ctx.fillText("Tarifa sujeto disponibilidad", centro, 615);
-
-    // Firma
-    ctx.textAlign = "left";
-    ctx.fillStyle = "#002060";
-    ctx.fillText("Quedo al pendiente del Vo.Bo.", 10, 640);
-    ctx.fillText("Saludos,", 10, 660);
-    ctx.fillText("Noktos", 10, 690);
-
-    // Cargar imágenes
-    const img = new Image();
-    img.src =
-      "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRCCnXXDdUwbDQkIKpIgnllhb-febE-E2isQQ&s";
-    img.onload = () => {
-      ctx.drawImage(img, 20, 18, 80, 60);
-    };
-
-    const kone = new Image();
-    kone.src = "https://cdn.worldvectorlogo.com/logos/kone-3.svg";
-    kone.onload = () => {
-      ctx.drawImage(kone, 150, 20, 110, 55);
-    };
+    ctx.fillText("Tarifa sujeta a disponibilidad", W / 2, fy + 24);
   }, [
-    data,
-    currency,
-    direccionLineas,
-    precioPersona,
-    precioImpuestos,
-    nota,
     hotel,
+    direccion,
     checkin,
     checkout,
     noches,
-    noktos,
+    habitaciones,
+    noktosNoche,
+    noktosTotal,
+    notas,
+    precioNocheSinImpuestos,
+    precioNocheConImpuestos,
+    precioTotal,
+    currency,
   ]);
 
   return (
-    <div className="flex flex-col border transform scale-75">
+    <div className="flex flex-col border">
       <h2 className="text-xl font-bold mb-4 text-gray-800">{hotel}</h2>
       <canvas
-        ref={canvasRef}
+        ref={ref}
         width={700}
-        height={750}
-        className="border  border-gray-300 shadow-lg w-full h-full rounded-lg"
+        height={900}
+        className="border border-gray-300 shadow-lg w-[700px] h-[900px] rounded-lg bg-white"
       />
     </div>
   );
 };
+
 
 // Componente de Formulario
 const CouponForm: React.FC<{
@@ -249,6 +301,7 @@ const CouponForm: React.FC<{
 }> = ({ data, currency, onDataChange, onCurrencyChange, onReset }) => {
   const [hoteles, setHoteles] = useState<FullHotelData[]>([]);
   const [hotelSelected, setHotelSelected] = useState<string>("");
+
   const handleInputChange = (
     field: keyof CouponData,
     value: string | number
@@ -266,16 +319,26 @@ const CouponForm: React.FC<{
   }, []);
 
   const currencies = ["MXN", "USD", "EUR"];
+
+  // Calcular precios cuando cambian noches, habitaciones o noktos
   useEffect(() => {
-    if (data.noktos) {
+    if (data.noktosNoche && data.habitaciones && data.noches) {
+      const noktosTotal = data.noktosNoche * data.habitaciones * data.noches;
+      const precioNocheSinImpuestos = data.noktosNoche * 145;
+      const precioNocheConImpuestos = data.noktosNoche * 168.2;
+      const precioTotal = precioNocheConImpuestos * data.habitaciones * data.noches;
+
       onDataChange({
         ...data,
-        precio: Number((data.noktos * 145).toFixed(2)),
-        impuestos: Number((data.noktos * 168.2).toFixed(2)),
+        noktosTotal,
+        precioNocheSinImpuestos,
+        precioNocheConImpuestos,
+        precioTotal
       });
     }
-  }, [data.noktos]);
+  }, [data.noktosNoche, data.habitaciones, data.noches]);
 
+  // Calcular noches cuando cambian las fechas
   useEffect(() => {
     if (data.checkin && data.checkout) {
       handleInputChange(
@@ -294,7 +357,6 @@ const CouponForm: React.FC<{
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
-            {/* <label htmlFor="">Selecciona el hotel</label> */}
             <ComboBox
               value={
                 hoteles
@@ -319,6 +381,7 @@ const CouponForm: React.FC<{
               }))}
             ></ComboBox>
           </div>
+
           {/* Hotel */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -374,57 +437,51 @@ const CouponForm: React.FC<{
           </div>
         </div>
 
-        {/* Noches y Noktos */}
+        {/* Noches y Habitaciones */}
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Moneda
+              Número de habitaciones
             </label>
-            <select
-              value={currency}
-              onChange={(e) => onCurrencyChange(e.target.value)}
+            <input
+              type="number"
+              value={data.habitaciones}
+              onChange={(e) => handleInputChange("habitaciones", parseInt(e.target.value) || 1)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              {currencies.map((curr) => (
-                <option key={curr} value={curr}>
-                  {curr}
-                </option>
-              ))}
-            </select>
+              min="1"
+            />
           </div>
-
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Noktos por noche
+              Noktos por noche por habitación
             </label>
             <input
               type="number"
               step="0.01"
-              value={data.noktos}
+              value={data.noktosNoche}
               onChange={(e) => {
-                handleInputChange("noktos", parseFloat(e.target.value) || 0);
+                handleInputChange("noktosNoche", parseFloat(e.target.value) || 0);
               }}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               min="0"
             />
           </div>
+
         </div>
 
-        {/* Desayuno */}
-        <div className="grid grid-cols-2 gap-4">
-          {/* Notas */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Notas
-            </label>
-            <input
-              type="text"
-              value={data.notas}
-              onChange={(e) => handleInputChange("notas", e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Notas adicionales"
-            />
-          </div>
+
+        {/* Notas */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Notas
+          </label>
+          <input
+            type="text"
+            value={data.notas}
+            onChange={(e) => handleInputChange("notas", e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="Notas adicionales (ej: Tarifa Hab Doble)"
+          />
         </div>
       </div>
 
@@ -440,21 +497,20 @@ const CouponForm: React.FC<{
   );
 };
 
-// Componente de Login
+// Componente de Login (sin cambios)
 const LoginScreen: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const correctPassword = "noktos2025"; // Cambia esta contraseña por la que desees
+  const correctPassword = "noktos2025";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError("");
 
-    // Simular un pequeño delay para mejor UX
     await new Promise((resolve) => setTimeout(resolve, 500));
 
     if (password === correctPassword) {
@@ -469,7 +525,6 @@ const LoginScreen: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
     <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 flex items-center justify-center px-4">
       <div className="max-w-md w-full">
         <div className="bg-white rounded-2xl shadow-2xl p-8">
-          {/* Logo y título */}
           <div className="text-center mb-8">
             <div className="mx-auto w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mb-4">
               <Lock className="w-8 h-8 text-white" />
@@ -480,7 +535,6 @@ const LoginScreen: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
             <p className="text-gray-600">Generador de Cupones KONE</p>
           </div>
 
-          {/* Formulario */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label
@@ -555,11 +609,14 @@ function App() {
     checkin: "",
     checkout: "",
     noches: 0,
-    noktos: 0,
+    habitaciones: 0,
+    noktosNoche: 0,
+    noktosTotal: 0,
     desayuno: "",
     notas: "",
-    precio: 0,
-    impuestos: 0,
+    precioNocheSinImpuestos: 0,
+    precioNocheConImpuestos: 0,
+    precioTotal: 0,
   });
 
   const [currency, setCurrency] = useState<string>("MXN");
@@ -583,23 +640,23 @@ function App() {
       checkin: "",
       checkout: "",
       noches: 0,
-      noktos: 0,
+      habitaciones: 1,
+      noktosNoche: 0,
+      noktosTotal: 0,
       desayuno: "",
       notas: "",
-      precio: 0,
-      impuestos: 0,
+      precioNocheSinImpuestos: 0,
+      precioNocheConImpuestos: 0,
+      precioTotal: 0,
     });
   };
 
-  // Si no está autenticado, mostrar pantalla de login
   if (!isAuthenticated) {
     return <LoginScreen onLogin={handleLogin} />;
   }
 
-  // Si está autenticado, mostrar la aplicación principal
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
@@ -619,10 +676,8 @@ function App() {
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="max-w-7xl mx-auto py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Formulario - Lado Izquierdo */}
           <div className="order-2 lg:order-1">
             <CouponForm
               data={couponData}
@@ -633,7 +688,6 @@ function App() {
             />
           </div>
 
-          {/* Cupón - Lado Derecho */}
           <div className="order-1 lg:order-2">
             <div className="sticky top-8">
               <CouponCanvas data={couponData} currency={currency} />

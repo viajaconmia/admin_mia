@@ -79,14 +79,12 @@ export const fetchPagosPrepagobalance = async (
       cache: "no-store",
     }
   );
-  console.log('fetchbalance', response);
 
   if (!response.ok) {
     throw new Error(`Error al cargar los pagos de prepago (HTTP ${response.status})`);
   }
 
   const json = await response.json();
-    console.log('fetchbalance', json);
 
   // Verificamos la estructura de la respuesta
   if (!json || !("balance" in json) || !Array.isArray(json.balance) ){
@@ -99,6 +97,7 @@ export const fetchPagosPrepagobalance = async (
   return {
     montototal: balanceData.total_pagos || "0",
     montofacturado: balanceData.total_facturado || "0",
-    restante: balanceData.restante || "0"
+    restante: balanceData.restante || "0",
+    total_reservas_confirmadas:balanceData.total_reservas_confirmadas||"0"
   };
 };

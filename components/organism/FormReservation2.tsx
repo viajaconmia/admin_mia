@@ -1,4 +1,4 @@
-import React, { useState, useEffect, FormEvent } from "react";
+import React, { useState, useEffect, useMemo, FormEvent } from "react";
 import { differenceInDays, parseISO } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -19,6 +19,7 @@ import { fetchViajerosFromAgent } from "@/services/viajeros";
 import { Hotel, ReservaForm, Viajero, EdicionForm, Solicitud2 } from "@/types";
 import { Table } from "../Table";
 import {
+  calcularNoches,
   formatNumberWithCommas,
   getEstatus,
   separarCostos,
@@ -42,10 +43,10 @@ export function ReservationForm2({
 }: ReservationFormProps) {
   let currentNoches = 0;
   let currentHotel;
-
+  console.log("raro", hotels);
   if (solicitud.check_in && solicitud.check_out) {
     currentHotel = hotels.filter(
-      (item) => item.nombre_hotel == solicitud?.hotel_reserva
+      (item) => item.id_hotel == solicitud?.id_hotel
     )[0];
     currentNoches = differenceInDays(
       parseISO(solicitud.check_out),
@@ -54,7 +55,11 @@ export function ReservationForm2({
   }
   const [nuevo_incluye_desayuno, setNuevoIncluyeDesayuno] = useState<
     boolean | null
-  >(solicitud.nuevo_incluye_desayuno || null);
+  >(
+    solicitud.nuevo_incluye_desayuno === null
+      ? null
+      : Boolean(solicitud.nuevo_incluye_desayuno)
+  );
   const [acompanantes, setAcompanantes] = useState<Viajero[]>([]);
   const [cobrar, setCobrar] = useState<boolean | null>(null);
   const [form, setForm] = useState<ReservaForm>({
@@ -150,7 +155,7 @@ export function ReservationForm2({
   const [inicial, setInicial] = useState(true);
 
   useEffect(() => {
-    console.log("Edicion FORM", edicionForm.venta?.current, solicitud.total);
+    console.log("Edicion FORM", edicionForm, viajero);
   }, [form]);
 
   useEffect(() => {
@@ -178,11 +183,35 @@ export function ReservationForm2({
     }
   }, []);
 
+  const viajero = travelers[0];
+  console.log("viajero", viajero);
+  console.log("solicitud", travelers);
+
   const nights = differenceInDays(
     parseISO(form.check_out),
     parseISO(form.check_in)
   );
 
+  // ⬇️ NUEVO: factoriza la lógica de guardado para reusarla
+  const saveReservation = async (): Promise<boolean> => {
+    setLoading(true);
+    const data = { ...edicionForm, nuevo_incluye_desayuno, acompanantes };
+    try {
+      if (edicion) {
+        await updateReserva(data, solicitud.id_booking);
+      }
+      // Usa tu notificador si quieres; dejé alert por conservar tu flujo
+      alert("Reserva actualizada correctamente");
+      return true;
+    } catch (error) {
+      console.error(error);
+      alert("Error al guardar la reserva");
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+  console.log("HERE I AM", form);
   const roomPrice = Number(
     form.hotel.content.tipos_cuartos.find(
       (item) => item.nombre_tipo_cuarto == form.habitacion
@@ -359,24 +388,49 @@ export function ReservationForm2({
     form.hotel,
     edicion,
   ]);
+  // const handleSubmit = async (e: FormEvent) => {
+  //   e.preventDefault();
+  //   setLoading(true);
+  //   const data = { ...edicionForm, nuevo_incluye_desayuno, acompanantes };
+  //   console.log(data);
+  //   try {
+  //     let response;
+  //     if (edicion) {
+  //       response = await updateReserva(data, solicitud.id_booking);
+  //     }
+  //     console.log(response);
+  //     alert("Reserva creada correctamente");
+  //     // onClose();
+  //   } catch (error) {
+  //     console.error(error);
+  //     alert("Error al guardar la reserva");
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    const data = { ...edicionForm, nuevo_incluye_desayuno, acompanantes };
-    console.log(data);
-    try {
-      let response;
-      if (edicion) {
-        response = await updateReserva(data, solicitud.id_booking);
-      }
-      console.log(response);
-      alert("Reserva creada correctamente");
-      onClose();
-    } catch (error) {
-      console.error(error);
-      alert("Error al guardar la reserva");
-    } finally {
-      setLoading(false);
+    await saveReservation();
+    // onClose(); // si deseas cerrar siempre al guardar manual, descomenta
+  };
+
+  const handleConfirmPrecio = async (ctx: {
+    tipo: "credito" | "wallet" | "regreso";
+    diferencia: number;
+    precioActualizado: number;
+    metodo_wallet?: "transferencia" | "tarjeta" | "wallet";
+    extra?: any;
+  }) => {
+    // 1) Guarda la edición de la reserva
+    const ok = await saveReservation();
+
+    // 2) Opcionalmente puedes tomar decisiones según el tipo
+    // console.log("Confirmación de precio:", ctx);
+
+    if (ok) {
+      setCobrar(false); // cierra el modal de precio
+      onClose(); // cierra el formulario si así lo quieres
     }
   };
 
@@ -395,6 +449,42 @@ export function ReservationForm2({
     );
   }
 
+  // const hotelDat() => {
+  // }
+  console.log("form", form);
+
+  const hotelData = useMemo(() => {
+    const roomType = form.habitacion || "";
+    const roomObj = form.hotel?.content?.tipos_cuartos?.find(
+      (t) => t.nombre_tipo_cuarto === roomType
+    );
+
+    return {
+      "tipo-habi": roomType, // SENCILLO / DOBLE, etc.
+      precio: Number(roomObj?.precio ?? 0), // Precio de venta de ese tipo de cuarto
+      hotel: form.hotel?.name || "",
+      form,
+      nuevo_incluye_desayuno,
+      acompanantes,
+      noches: {
+        ...edicionForm.noches,
+        before: calcularNoches(solicitud.check_in, solicitud.check_out),
+      },
+      // Si quieres repetir la clave como pediste:
+      // "tipo-habi-2": roomType,
+    };
+  }, [
+    form.habitacion,
+    form.hotel,
+    form.noches,
+    nuevo_incluye_desayuno,
+    acompanantes,
+    edicionForm.noches,
+    solicitud.check_in,
+    solicitud.check_out,
+  ]);
+
+  console.log("hoteldata", hotelData);
   return (
     <form
       onSubmit={handleSubmit}
@@ -711,15 +801,14 @@ export function ReservationForm2({
                 label={`Viajeros`}
                 sublabel={`(${solicitud.nombre_viajero_reservacion} - ${solicitud.id_viajero_reserva})`}
                 onChange={(value) => {
-                  if (edicion) {
-                    setEdicionForm((prev) => ({
-                      ...prev,
-                      viajero: {
-                        before: form.viajero,
-                        current: value.content as Viajero,
-                      },
-                    }));
-                  }
+                  setEdicionForm((prev) => ({
+                    ...prev,
+                    viajero: {
+                      before: form.viajero,
+                      current: value.content as Viajero,
+                    },
+                  }));
+
                   setForm((prev) => ({
                     ...prev,
                     viajero: value.content as Viajero,
@@ -1018,9 +1107,11 @@ export function ReservationForm2({
         >
           <EditPrecioVenta
             reserva={solicitud}
+            hotelData={hotelData}
             onClose={() => {
               setCobrar(false);
             }}
+            onConfirm={handleConfirmPrecio}
             precioNuevo={
               edicionForm?.venta?.current?.total
                 ? Number(edicionForm.venta.current.total)

@@ -8,14 +8,18 @@ import { fetchAgentes, fetchEmpresasAgentesDataFiscal } from "@/services/agentes
 import { TypeFilters, EmpresaFromAgent } from "@/types";
 import AsignarFacturaModal from './AsignarFactura';
 import { obtenerPresignedUrl, subirArchivoAS3 } from "@/helpers/utils";
-import { formatNumberWithCommas } from "@/helpers/utils";
-import { json } from "node:stream/consumers";
 
 interface SubirFacturaProps {
-  pagoId?: string;  // Hacerlo opcional
-  pagoData?: Pago | null;  // Hacerlo opcional
+  pagoId?: string;            //id del saldo tomado
+  pagoData?: Pago | null;    //datos del pago
   isBatch?: boolean;
-  onSuccess: () => void;
+  onSuccess: () => void;       //callback al subir factura
+  agentId?: string;            // id del agente a precargar
+  initialItems?: string[];     // ids de items seleccionados desde la tabla
+  itemsJson?: string;  //items en formato json
+  autoOpen?: boolean;          // abre el modal de inmediato
+  onCloseExternal?: () => void; // permite cerrar desde el padre (opcional)
+  initialItemsTotal?: number; // <--- NUEVO: total de ítems opcional
 }
 
 interface Pago {
@@ -49,8 +53,6 @@ const AUTH = {
   "x-api-key": API_KEY,
 };
 
-// const [pagoData, setPagoData] = useState<Pago | null>(null);
-
 export const getEmpresasDatosFiscales = async (agent_id: string) => {
   try {
     const response = await fetch(
@@ -79,21 +81,47 @@ export interface Agente {
   razon_social?: string;
 }
 
+export default function SubirFactura({
+  pagoId,
+  pagoData,
+  onSuccess,
+  agentId,
+  initialItems = [],
+  initialItemsTotal = 0,
+  itemsJson = '',
+  autoOpen = false,
+  onCloseExternal,
+}: SubirFacturaProps) {
 
-
-export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFacturaProps) {
   const [asignacionPayload, setAsignacionPayload] = useState<any>(null);
+
+  //calcular total items
+  const getItemsTotal = useCallback((): number => {
+    // @ts-ignore: prop puede venir o no (TS ya sabe por la interface)
+    const itemsTotalProp = (typeof initialItemsTotal === 'number') ? initialItemsTotal : undefined;
+    if (typeof itemsTotalProp === 'number') return itemsTotalProp;
+
+    // Sumar montos si initialItems es array de objetos con "monto"
+    if (Array.isArray(initialItems)) {
+      return initialItems.reduce((acc, it: any) => acc + Number(it?.monto || 0), 0);
+    }
+    return 0;
+  }, [initialItems /*, initialItemsTotal*/]);
+
+  // Al inicio del componente:
+  const hasItems = Array.isArray(initialItems) && initialItems.length > 0;
+  console.log("hasitems", hasItems)
 
   // Estados iniciales
   const initialStates = {
     facturaData: null,
-    cliente: pagoData?.id_agente || '',  // Prellenar con datos del pago si existen
+    cliente: pagoData?.id_agente || agentId || '',  // Prellenar con datos del pago si existen
     clienteSeleccionado: null,
     archivoPDF: null,
     archivoXML: null,
     empresasAgente: [],
     empresaSeleccionada: null,
-    facturaPagada: pagoData ? true : false // Cambio aquí
+    facturaPagada: pagoData ? true : (!hasItems ? true : false),
   };
 
   const [facturaCreada, setFacturaCreada] = useState<any>(null);
@@ -118,18 +146,7 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
   const [loadingEmpresas, setLoadingEmpresas] = useState(false);
   const [facturaPagada, setFacturaPagada] = useState(false);
   const [mostrarAsignarFactura, setMostrarAsignarFactura] = useState(false);
-
-  //auto seleccionar al cliente
-  useEffect(() => {
-    if (pagoData?.id_agente && clientes.length > 0) {
-      const matchingClient = clientes.find(c => c.id_agente === pagoData.id_agente);
-      if (matchingClient) {
-        setCliente(matchingClient.nombre_agente_completo);
-        setClienteSeleccionado(matchingClient);
-        cargarEmpresasAgente(matchingClient.id_agente);
-      }
-    }
-  }, [pagoData, clientes]);
+  const isClienteBloqueado = !!agentId || !!pagoData?.id_agente;
 
   // Autoabrir el modal si hay pagoData
   useEffect(() => {
@@ -137,6 +154,14 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
       abrirModal();
     }
   }, [pagoData]);
+
+  useEffect(() => {
+    if (initialItems && initialItems.length > 0) {
+      setAsignacionPayload(initialItems);
+    }
+  }, [initialItems]);
+
+
 
   const subirArchivosAS3 = async (): Promise<{ pdfUrl: string | null, xmlUrl: string }> => {
     if (!archivoXML) {
@@ -184,7 +209,6 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
     if (valor.length > 2) {
       const filtrados = clientes.filter(cliente => {
         // Verificar que las propiedades existan antes de llamar toLowerCase()
-        console.log("cliente", cliente)
         const nombre = cliente.nombre_agente_completo?.toLowerCase() || '';
         const correo = cliente.correo?.toLowerCase() || '';
         const rfc = cliente.rfc?.toLowerCase() || '';
@@ -217,6 +241,25 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
       });
   }, []);
 
+
+  //auto seleccionar al cliente
+
+  useEffect(() => {
+    if (!clientes.length) return;
+
+    const targetId = pagoData?.id_agente || agentId;
+    if (!targetId) return;
+
+    const matching = clientes.find(c => String(c.id_agente) === String(targetId));
+    console.log('[SubirFactura] auto-select cliente', { targetId, found: !!matching });
+    console.log("22222", matching)
+    if (matching) {
+      setCliente(matching.nombre_agente_completo);
+      setClienteSeleccionado(matching);
+      cargarEmpresasAgente(matching.id_agente);
+    }
+  }, [clientes, agentId, pagoData?.id_agente]);
+
   // Estados iniciales para resetear campos
   const resetearCampos = useCallback(() => {
     setFacturaData(initialStates.facturaData);
@@ -229,13 +272,19 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
     setFacturaPagada(initialStates.facturaPagada);
     setClientesFiltrados([]);
     setMostrarSugerencias(false);
-  }, [initialStates]);
+  }, []);
 
   const abrirModal = useCallback(() => {
     resetearCampos();
     setMostrarModal(true);
     handleFetchClients();
   }, [resetearCampos, handleFetchClients]);
+
+  useEffect(() => {
+    if (autoOpen) {
+      abrirModal();
+    }
+  }, [autoOpen]);
 
   const cerrarModal = useCallback(() => {
     setMostrarModal(false);
@@ -284,12 +333,6 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
         restante -= montoAsignar;
       }
 
-      // Si después de asignar a todos los pagos todavía queda restante
-      if (restante > 0) {
-        alert(`La factura excede los pagos disponibles por $${formatNumberWithCommas(restante)}`);
-        setSubiendoArchivos(false);
-        return;
-      }
 
       if (raw_Ids.length < 2) {
         // Preparar payload de la factura
@@ -301,7 +344,7 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
           total: parseFloat(facturaData.comprobante.total),
           subtotal: parseFloat(facturaData.comprobante.subtotal),
           impuestos: parseFloat(facturaData.impuestos?.traslado?.importe || "0.00"),
-          saldo: parseFloat(facturaData.comprobante.total),
+          saldo: restante,
           rfc: facturaData.receptor.rfc,
           id_empresa: empresaSeleccionada?.id_empresa || null,
           uuid_factura: facturaData.timbreFiscal.uuid,
@@ -392,7 +435,13 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
 
       // Upload files only when confirming
       const { xmlUrl } = await subirArchivosAS3();
-
+      let items = ""
+      if (initialItems && initialItems.length > 0) {
+        items = itemsJson
+      } else {
+        items = JSON.stringify([])
+      }
+      console.log("items", items)
       if (!url) {
         console.warn("URL del PDF no disponible");
         // Puedes decidir si quieres continuar sin el PDF o lanzar un error
@@ -406,14 +455,14 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
         total: parseFloat(facturaData.comprobante.total),
         subtotal: parseFloat(facturaData.comprobante.subtotal),
         impuestos: parseFloat(facturaData.impuestos?.traslado?.importe || "0.00"),
-        saldo: parseFloat(facturaData.comprobante.total),
+        saldo: parseFloat(facturaData.comprobante.total) - initialItemsTotal,
         rfc: facturaData.receptor.rfc,
         id_empresa: empresaSeleccionada.id_empresa || null,
         uuid_factura: facturaData.timbreFiscal.uuid,
         rfc_emisor: facturaData.emisor.rfc,
         url_pdf: url ? url : archivoPDFUrl,
         url_xml: xmlUrl || null,
-        items: JSON.stringify(payload || []),
+        items: items,
       };
 
       console.log("Payload completo para API:", basePayload);
@@ -547,6 +596,8 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
     }
   };
 
+  console.log("items", initialItems, "total", initialItemsTotal)
+
   return (
     <>
       <button
@@ -566,42 +617,56 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
 
             <div className="relative mb-4">
               <label className="block mb-2 font-medium">Cliente</label>
-              <input
-                type="text"
-                placeholder="Buscar cliente por nombre, email o RFC..."
-                className={`w-full p-2 border rounded ${errors.clienteSeleccionado ? "border-red-500" : "border-gray-300"}`}
-                value={cliente}
-                onChange={handleBuscarCliente}
-                onFocus={() => cliente.length > 2 && setMostrarSugerencias(true)}
-                onBlur={() => setTimeout(() => setMostrarSugerencias(false), 200)}
-                disabled={!!pagoData?.id_agente} // Disable if we have pagoData
-              />
 
-              {mostrarSugerencias && clientesFiltrados.length > 0 && (
-                <ul className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-                  {clientesFiltrados.map(cliente => (
-                    <li
-                      key={cliente.id_agente}
-                      className="p-2 mb-2 hover:bg-gray-100 cursor-pointer"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => {
-                        setCliente(cliente.nombre_agente_completo);
-                        setClienteSeleccionado(cliente);
-                        setMostrarSugerencias(false);
-                        cargarEmpresasAgente(cliente.id_agente);
-                      }}
-                    >
-                      {cliente.nombre_agente_completo} - {cliente.correo}
-                      {cliente.rfc && ` - ${cliente.rfc}`}
-                    </li>
-                  ))}
-                </ul>
-              )}
+              {isClienteBloqueado ? (
+                <>
+                  {/* Modo bloqueado: solo lectura */}
+                  <div className="w-full p-2 border rounded bg-gray-100 text-gray-700">
+                    {(clienteSeleccionado?.nombre_agente_completo) || cliente || "Cargando cliente..."}
+                  </div>
+                  {/* Si quieres conservar el id para formularios */}
+                  <input type="hidden" name="id_agente" value={clienteSeleccionado?.id_agente || agentId || pagoData?.id_agente || ""} />
+                </>
+              ) : (
+                <>
+                  <input
+                    type="text"
+                    placeholder="Buscar cliente por nombre, email o RFC..."
+                    className={`w-full p-2 border rounded ${errors.clienteSeleccionado ? "border-red-500" : "border-gray-300"}`}
+                    value={cliente}
+                    onChange={handleBuscarCliente}
+                    onFocus={() => cliente.length > 2 && setMostrarSugerencias(true)}
+                    onBlur={() => setTimeout(() => setMostrarSugerencias(false), 200)}
+                  />
 
-              {errors.clienteSeleccionado && (
-                <p className="text-red-500 text-sm mt-1">{errors.clienteSeleccionado}</p>
+                  {mostrarSugerencias && clientesFiltrados.length > 0 && (
+                    <ul className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                      {clientesFiltrados.map(cliente => (
+                        <li
+                          key={cliente.id_agente}
+                          className="p-2 mb-2 hover:bg-gray-100 cursor-pointer"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => {
+                            setCliente(cliente.nombre_agente_completo);
+                            setClienteSeleccionado(cliente);
+                            setMostrarSugerencias(false);
+                            cargarEmpresasAgente(cliente.id_agente);
+                          }}
+                        >
+                          {cliente.nombre_agente_completo} - {cliente.correo}
+                          {cliente.rfc && ` - ${cliente.rfc}`}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {errors.clienteSeleccionado && (
+                    <p className="text-red-500 text-sm mt-1">{errors.clienteSeleccionado}</p>
+                  )}
+                </>
               )}
             </div>
+
             <div>
 
               {/* XML */}
@@ -648,18 +713,19 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
                 type="checkbox"
                 id="facturaPagada"
                 checked={facturaPagada}
-                onChange={(e) => !pagoData && setFacturaPagada(e.target.checked)} // Solo permite cambios si no hay pagoData
-                disabled={!!pagoData} // Deshabilitado si hay pagoData
-                className={`h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded ${!!pagoData ? 'opacity-50 cursor-not-allowed' : ''
-                  }`}
+                onChange={(e) => !pagoData && hasItems && setFacturaPagada(e.target.checked)}
+                disabled={!!pagoData || hasItems} // <-- bloqueado si hay pagos o NO hay ítems
+                className={`h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded ${!!pagoData || !hasItems ? 'opacity-50 cursor-not-allowed' : ''}`}
               />
               <label
                 htmlFor="facturaPagada"
-                className={`ml-2 block text-sm ${!!pagoData ? 'text-gray-500' : 'text-gray-900'
-                  }`}
+                className={`ml-2 block text-sm ${!!pagoData || !hasItems ? 'text-gray-500' : 'text-gray-900'}`}
               >
-                {pagoData ? 'Factura marcada como pagada (asociada a pago)' : 'La factura está pagada'}
+                {pagoData
+                  ? 'Factura marcada como pagada (asociada a pago)'
+                  : (!hasItems ? 'Factura marcada como pagada (sin ítems)' : 'La factura está pagada')}
               </label>
+
             </div>
 
             <div className="flex justify-end gap-2 mt-4">
@@ -686,17 +752,50 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
         <VistaPreviaModal
           facturaData={facturaData}
           pagoData={pagoData}
+          itemsTotal={getItemsTotal()}
           onConfirm={(pdfUrl) => {
             setArchivoPDFUrl(pdfUrl);
+
+            // Rama 1: Hay ítems => flujo normal (no pagada)
+            if (hasItems) {
+              setFacturaPagada(false);
+              handleConfirmarFactura({ url: pdfUrl });  // items se envían desde handleConfirmarFactura
+              return;
+            }
+
+            // Rama 2: NO hay ítems => flujo "pagada" como en pagos
+            setFacturaPagada(true);
             if (pagoData && facturaData) {
-              handlePagos({ url: pdfUrl })
+              handlePagos({ url: pdfUrl }); // paga contra saldos/raw_ids
             } else {
+              // Sin pagoData: guardar como pagada con saldo=0 (ver cambio en handleConfirmarFactura)
               handleConfirmarFactura({ url: pdfUrl });
             }
           }}
           onClose={cerrarVistaPrevia}
           isLoading={subiendoArchivos}
         />
+      )}
+
+
+      {/* Totales de Ítems vs Factura */}
+      {facturaData && getItemsTotal() > 0 && (
+        <div className="mt-3 p-3 rounded border text-sm">
+          <div className="flex items-center justify-between">
+            <span className="font-medium">Total ítems seleccionados:</span>
+            <span>
+              {new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" })
+                .format(getItemsTotal())}
+            </span>
+          </div>
+          <div className="flex items-center justify-between mt-1">
+            <span className="font-medium">Total de la factura (XML):</span>
+            <span>
+              {new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" })
+                .format(parseFloat(facturaData?.comprobante?.total || "0"))}
+            </span>
+          </div>
+        </div>
       )}
 
       <ConfirmacionModal
@@ -740,6 +839,7 @@ export default function SubirFactura({ pagoId, pagoData, onSuccess }: SubirFactu
           clienteSeleccionado={clienteSeleccionado}
           archivoPDFUrl={archivoPDFUrl}
           archivoXMLUrl={archivoXMLUrl}
+          saldo={facturaCreada.data.saldo}
         />
       )}
     </>
