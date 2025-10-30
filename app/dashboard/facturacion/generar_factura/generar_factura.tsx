@@ -292,7 +292,6 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   );
   const { descargarFactura, mandarCorreo, descargarFacturaXML } = useApi();
   const [minAmount, setMinAmount] = useState(0);
-  const [customAmount, setCustomAmount] = useState(saldoMonto);
   console.log("custom", customAmount);
   console.log("custom", saldoMonto);
   console.log("pago data", pagoData)
@@ -352,6 +351,8 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       },
     ],
   });
+  const [customAmount, setCustomAmount] = useState(saldoMonto);
+
 
   console.log("IDs de pagos:", rawIds);
   console.log("Es facturación por lotes?", isBatch);

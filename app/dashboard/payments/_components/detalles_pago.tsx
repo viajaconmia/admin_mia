@@ -240,7 +240,7 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
 
       setLoadingDetalles(true);
       try {
-        const url = `${URL}/mia/pagos/getDetallesConexion?id_agente=${pago.id_agente}&id_raw=${pago.raw_id}`;
+        const url = `${URL}/mia/pagos/DetallesConexion?id_agente=${pago.id_agente}&id_raw=${pago.raw_id}`;
         const response = await fetch(url, {
           method: "GET",
           headers: HEADERS_API,

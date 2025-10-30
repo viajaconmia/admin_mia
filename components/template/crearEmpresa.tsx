@@ -60,18 +60,19 @@ export const createNewEmpresa = async (data: any, id: string) => {
       },
       body: JSON.stringify({
         agente_id: id,
-        razon_social: data.razon_social,
-        nombre_comercial: data.nombre_comercial,
+        razon_social: data.razon_social?.trim() || null,
+        nombre_comercial: data.nombre_comercial?.trim() || null,
         tipo_persona: data.tipo_persona,
-        calle: data.empresa_direccion || null,
-        colonia: data.empresa_colonia || null,
-        estado: data.empresa_estado || null,
-        municipio: data.empresa_municipio || null,
-        codigo_postal: data.empresa_cp || null,
+        calle: data.empresa_direccion?.trim() || null,
+        colonia: data.empresa_colonia?.trim() || null,
+        estado: data.empresa_estado?.trim() || null,
+        municipio: data.empresa_municipio?.trim() || null,
+        codigo_postal: data.empresa_cp?.toString().trim() || null,
       }),
     });
 
     const json = await response.json();
+
     if (json.message === "Agente creado correctamente") {
       return {
         success: true,
@@ -264,14 +265,14 @@ export function FiscalDataModal({
         company.taxInfo || {
           id_datos_fiscales: "",
           id_empresa: company.id_empresa,
-          rfc: "",
-          calle: "",
-          colonia: "",
+          rfc: company.rfc,
+          calle: company.calle,
+          colonia: company.empresa_colonia,
           municipio: "",
           estado: "",
-          codigo_postal_fiscal: "",
-          regimen_fiscal: "",
-          razon_social: "",
+          codigo_postal_fiscal: company.empresa_cp,
+          regimen_fiscal: company.regimen_fiscal,
+          razon_social: company.razon_social,
         }
       );
       setIsEditing(!company.taxInfo);
@@ -280,6 +281,8 @@ export function FiscalDataModal({
   }, [isOpen, company]);
 
   const [error, setError] = useState("");
+
+  console.log(company)
 
   useEffect(() => {
     if (formData.codigo_postal_fiscal.length === 5) {
@@ -353,7 +356,7 @@ export function FiscalDataModal({
       );
     }
   };
-
+  console.log("envio", formData)
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg w-full max-w-2xl">
@@ -510,20 +513,7 @@ export function FiscalDataModal({
                 <button
                   type="button"
                   onClick={() => {
-                    setFormData(
-                      company.taxInfo || {
-                        id_datos_fiscales: "",
-                        id_empresa: company.id_empresa,
-                        rfc: "",
-                        calle: "",
-                        colonia: "",
-                        municipio: "",
-                        estado: "",
-                        codigo_postal_fiscal: "",
-                        regimen_fiscal: "",
-                        razon_social: "",
-                      }
-                    );
+
                     setIsEditing(false);
                     setError("");
                   }}

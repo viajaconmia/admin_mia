@@ -492,7 +492,6 @@ export const FacturacionModal: React.FC<{
     ExpeditionPlace: "42501",
     Serie: null,
 
-    Folio: Math.round(Math.random() * 999999999),
     PaymentForm: selectedPaymentForm,
     PaymentMethod: selectedPaymentMethod,
     Exportation: "01",
@@ -990,12 +989,14 @@ export const FacturacionModal: React.FC<{
         reserva.check_in
       )} AL ${formatDate(
         reserva.check_out
-      )} - ${nochesReales} NOCHES(S) - ${reserva.nombre_viajero_completo
+      )} - ${nochesReales} NOCHES(S) - ${reserva.nombre_viajero
         }`;
     })
     .join(" | ")}`;
 
-  const descriptionToUse = customDescription ?? defaultDescription
+  const isCustomValid = customDescription && /[a-zA-Z0-9\S]/.test(customDescription.trim());
+  const descriptionToUse = isCustomValid ? customDescription : defaultDescription;
+
   console.log("descrip", customDescription)
 
 
