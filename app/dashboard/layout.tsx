@@ -92,7 +92,7 @@ const links = [
     icon: Receipt,
   },
   {
-    title: "Cuentas por cobrar",
+    title: "Facturas pendientes credito",
     href: "/dashboard/facturacion",
     icon: BookOpen,
   },
