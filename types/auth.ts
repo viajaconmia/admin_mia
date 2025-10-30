@@ -14,4 +14,5 @@ export type Permission = {
   name: string;
   description: string;
   active?: boolean;
+  categoria: "funcionalidad" | "vista";
 };

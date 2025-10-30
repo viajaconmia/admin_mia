@@ -152,7 +152,9 @@ export default function AdministracionUsuarios() {
 }
 
 const PermisosByUser = ({ id }: { id: string }) => {
-  const [permisos, setPermisos] = useState<Permission[]>([]);
+  const [permisos, setPermisos] = useState<
+    (Permission & { origen?: "roles" | "individual" })[]
+  >([]);
   const { showNotification } = useNotification();
 
   useEffect(() => {
@@ -173,7 +175,10 @@ const PermisosByUser = ({ id }: { id: string }) => {
             key: "active",
             componentProps: {
               label: "",
-              onChange: async (value: boolean, item: Permission) => {
+              onChange: async (
+                value: boolean,
+                item: Permission & { origen: "roles" | "individual" }
+              ) => {
                 console.log(value, item, id);
                 try {
                   await AuthService.getInstance().updateUserPermission(
@@ -196,7 +201,9 @@ const PermisosByUser = ({ id }: { id: string }) => {
             },
           },
           { component: "text", header: "Nombre", key: "name" },
+          { component: "text", key: "categoria", header: "Tipo" },
           { component: "text", key: "description", header: "Descripción" },
+          { component: "text", key: "origen", header: "Origen" },
         ]}
       />
     </div>
