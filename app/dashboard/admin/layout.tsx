@@ -3,15 +3,20 @@
 import { TextInput } from "@/components/atom/Input";
 import { WraperContainer } from "@/components/atom/WraperContainer";
 import { Tab, TabsList } from "@/components/molecule/TabsList";
+import { PERMISOS } from "@/constant/permisos";
+import { usePermiso } from "@/hooks/usePermission";
 import { ShieldCheck, Users2 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { useSearchParams } from "wouter";
 
 export default function AdministracionLayout({ children }) {
-  const [searchParams, setSearchParams] = useSearchParams();
   const pathname = usePathname();
   const router = useRouter();
+  const { hasPermission } = usePermiso();
   let selected = pathname.split("/").filter((item) => Boolean(item))[2] || "";
+
+  hasPermission(PERMISOS.VISTAS.ADMIN);
+
   return (
     <WraperContainer>
       <div className="w-full h-full">

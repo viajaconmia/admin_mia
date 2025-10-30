@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 
 export default function AdministracionUsuarios() {
   const [roles, setRoles] = useState([]);
+  const [selectedRole, setSelectedRole] = useState<Role>(null);
   const [create, setCreate] = useState<boolean>(false);
   const { showNotification } = useNotification();
 
@@ -83,23 +84,23 @@ export default function AdministracionUsuarios() {
                   item: User &
                     Role & { permissions_extra: number; active: boolean };
                 }) => {
-                  //setSelectedUser(item);
+                  setSelectedRole(item);
                 },
               },
             },
           ]}
         />
       </div>
-      {/* {selectedUser && (
+      {selectedRole && (
         <Modal
           title="Editar permisos del usuario"
           onClose={() => {
-            setSelectedUser(null);
+            setSelectedRole(null);
           }}
         >
-          <PermisosByUser id={selectedUser.id} />
+          <PermisosByRole id={selectedRole.role_id} />
         </Modal>
-      )} */}
+      )}
       {create && (
         <Modal title="Crea un nuevo rol" onClose={handleOpenAddRole}>
           <AddRole onSubmit={handleAddRole} />
@@ -130,12 +131,13 @@ const AddRole = ({ onSubmit }: { onSubmit: (role: string) => void }) => {
   );
 };
 
-const PermisosByUser = ({ id }: { id: string }) => {
+const PermisosByRole = ({ id }: { id: number }) => {
   const [permisos, setPermisos] = useState<Permission[]>([]);
+  const { showNotification } = useNotification();
 
   useEffect(() => {
     AuthService.getInstance()
-      .getPermisos(id)
+      .getPermisosByRole(id)
       .then((response) => setPermisos(response.data || []))
       .catch((error) => console.error(error.message));
   }, []);
@@ -151,20 +153,30 @@ const PermisosByUser = ({ id }: { id: string }) => {
             key: "active",
             componentProps: {
               label: "",
-              onChange: (value: boolean, item: Permission) => {
-                console.log(value, item);
-                setPermisos((prev) =>
-                  prev.map((permiso) => {
-                    if (permiso.id == item.id) {
-                      return { ...permiso, active: value };
-                    }
-                    return permiso;
-                  })
-                );
+              onChange: async (value: boolean, item: Permission) => {
+                console.log(value, item, id);
+                try {
+                  await AuthService.getInstance().updateRolePermission(
+                    item.id,
+                    id,
+                    value
+                  );
+                  setPermisos((prev) =>
+                    prev.map((permiso) => {
+                      if (permiso.id == item.id) {
+                        return { ...permiso, active: value };
+                      }
+                      return permiso;
+                    })
+                  );
+                } catch (error) {
+                  showNotification("error", error.message);
+                }
               },
             },
           },
           { component: "text", header: "Nombre", key: "name" },
+          { component: "text", key: "categoria", header: "Tipo" },
           { component: "text", key: "description", header: "Descripción" },
         ]}
       />

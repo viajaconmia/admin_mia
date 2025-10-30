@@ -14,6 +14,10 @@ export class AuthService extends ApiService {
         VERIFY_SESSION: "/auth/verify-session",
         GET_USERS: "/auth/usuarios",
         GET_PERMISOS: "/auth/permisos",
+        GET_PERMISOS_BY_ROLE: "/auth/role",
+      },
+      PATCH: {
+        UPDATE_PERMISSION_FROM_ROLE: "/auth/role",
       },
     },
     USER: {
@@ -87,6 +91,14 @@ export class AuthService extends ApiService {
       params: { id },
     });
 
+  public getPermisosByRole = async (
+    id?: number
+  ): Promise<ApiResponse<Permission[]>> =>
+    this.get<Permission[]>({
+      path: this.formatPath(this.ENDPOINTS.AUTH.GET.GET_PERMISOS_BY_ROLE),
+      params: { id },
+    });
+
   public logIn = async ({
     password,
     email,
@@ -113,6 +125,18 @@ export class AuthService extends ApiService {
     this.patch({
       body: { id_permission, id_user, value },
       path: this.formatPath(this.ENDPOINTS.USER.PATCH.UPDATE_PERMISSION),
+    });
+
+  public updateRolePermission = async (
+    id_permission: number,
+    id_role: number,
+    value: boolean
+  ) =>
+    this.patch({
+      body: { id_permission, id_role, value },
+      path: this.formatPath(
+        this.ENDPOINTS.AUTH.PATCH.UPDATE_PERMISSION_FROM_ROLE
+      ),
     });
 
   public updateUserRole = async (id_role: number, id_user: string) =>
