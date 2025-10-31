@@ -281,7 +281,7 @@ const AddUser = ({
   };
   return (
     <form className="p-2 space-y-2 w-[90vw] max-w-lg" onSubmit={handleSubmit}>
-      <ComboBox
+      <ComboBox2
         label="Rol"
         value={
           user.role
@@ -291,18 +291,16 @@ const AddUser = ({
                 content: null,
               }
         }
-        onChange={(value: ComboBoxOption | null) =>
+        onChange={(value) =>
           setUser((prev) => ({
             ...prev,
             role: value ? (value.content as Role) : null,
           }))
         }
-        options={
-          roles.map((rol) => ({
-            name: rol.role_name,
-            content: rol,
-          })) as unknown as ComboBoxOption[]
-        }
+        options={roles.map((rol) => ({
+          name: rol.role_name,
+          content: rol,
+        }))}
       />
       <TextInput
         value={user.username}
