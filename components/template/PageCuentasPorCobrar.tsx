@@ -1207,6 +1207,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             ult_digits: item.ult_digits || null,
             banco_tarjeta: item.banco_tarjeta || null,
             numero_autorizacion: item.numero_autorizacion || null,
+            is_cancelado: 1,
           };
 
           await updateAgentWallet();

@@ -379,6 +379,10 @@ export const fetchAgenteById = async (id: string) => {
   }
 };
 
+export const fetchpagossaldos = async (id) => {
+  
+}
+
 export const fetchEmpresasByAgente = async (id) => {
   try {
     const response = await fetch(`${URL}/mia/empresas/agente?id=${id}`, {
