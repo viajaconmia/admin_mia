@@ -30,6 +30,8 @@ import { environment } from "@/lib/constants";
 import { Button } from "../ui/button";
 import { generateCuponForOperaciones } from "@/lib/qr-generator";
 import { ROUTES } from "@/constant/routes";
+import { usePermiso } from "@/hooks/usePermission";
+import { PERMISOS } from "@/constant/permisos";
 
 type Vista = "reservas" | "pagadas" | "pendientes";
 
@@ -54,6 +56,9 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
   const [filters, setFilters] = useState<TypeFilters>(
     defaultFiltersSolicitudes
   );
+  const { hasPermission } = usePermiso();
+
+  hasPermission(PERMISOS.VISTAS.RESERVAS);
 
   const handleEdit = (item: Solicitud2) => {
     setSelectedItem(item);

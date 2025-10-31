@@ -21,7 +21,6 @@ import {
   AlertTriangle,
   DollarSign,
   Plane,
-
 } from "lucide-react";
 import { Table } from "@/components/Table";
 import { TypeFilters } from "@/types";
@@ -29,8 +28,8 @@ import { Loader } from "@/components/atom/Loader";
 import { fetchAgentes, fetchInitSuperAgent } from "@/services/agentes";
 import Modal from "@/components/organism/Modal";
 import NavContainer from "@/components/organism/NavContainer";
-import { AgentDetailsCard } from "./_components/DetailsClient";
-import { UsersClient } from "./_components/UsersClient";
+import { AgentDetailsCard } from "@/components/organism/DetailsClient";
+import { UsersClient } from "@/components/organism/UsersClient";
 import PageReservasClientes from "@/components/template/PageReservaClient";
 import PageCuentasPorCobrar from "@/components/template/PageCuentasPorCobrar";
 import { ToolTip } from "@/components/atom/ToolTip";
@@ -39,6 +38,8 @@ import { set } from "date-fns";
 import { PageVuelos } from "@/components/template/PageVuelos";
 
 import { Configuration } from "@/components/template/crearEmpresa";
+import { usePermiso } from "@/hooks/usePermission";
+import { PERMISOS } from "@/constant/permisos";
 
 const getWalletBadge = (monto: string | null) => {
   // Convertir el string a número para la verificación
@@ -71,6 +72,9 @@ function App() {
   const [filters, setFilters] = useState<TypeFilters>(
     defaultFiltersSolicitudes
   );
+  const { hasPermission } = usePermiso();
+
+  hasPermission(PERMISOS.VISTAS.CLIENTES);
 
   let formatedSolicitudes = clients
     .filter(

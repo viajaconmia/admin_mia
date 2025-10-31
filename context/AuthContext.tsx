@@ -1,4 +1,3 @@
-// context/AuthContext.tsx
 "use client";
 
 import {
@@ -9,20 +8,27 @@ import {
   ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
+import { AuthService } from "@/services/AuthService";
+import { useNotification } from "./useNotificacion";
+import { User } from "@/types/auth";
+
+export type UserLoggin = User & {
+  permisos: string[];
+};
 
 type AuthContextType = {
-  user: { token: string } | null;
+  user: UserLoggin | null;
   isAuthenticated: boolean;
-  loading: boolean; // <-- AÑADIR ESTO
-  login: (token: string) => void;
+  loading: boolean;
+  login: (email: string, password: string) => void;
   logout: () => void;
 };
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
   isAuthenticated: false,
-  loading: true, // <-- AÑADIR ESTO (inicia en true)
-  login: () => {},
+  loading: true,
+  login: async () => {},
   logout: () => {},
 });
 
@@ -31,29 +37,59 @@ type AuthProviderProps = {
 };
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [user, setUser] = useState<{ token: string } | null>(null);
+  const [user, setUser] = useState<UserLoggin | null>(null);
   const [loading, setLoading] = useState(true); // Ya teníamos este estado, ahora lo expondremos
   const router = useRouter();
+  const { showNotification } = useNotification();
 
   useEffect(() => {
-    const token = localStorage.getItem("session_token");
-    if (token) {
-      setUser({ token });
-    }
-    setLoading(false); // La verificación ha terminado
+    const initSession = async () => {
+      try {
+        setLoading(true);
+        const { data } = await AuthService.getInstance().verifySession();
+        setUser(data);
+      } catch (error) {
+        console.log(error.message || "Error al verificar la sesion");
+      } finally {
+        setLoading(false);
+      }
+    };
+    initSession();
   }, []);
 
-  const login = (token: string) => {
-    localStorage.setItem("session_token", token);
-    setUser({ token });
-    router.push("/dashboard");
+  const login = async (email: string, password: string) => {
+    try {
+      setLoading(true);
+      const { data } = await AuthService.getInstance().logIn({
+        password,
+        email,
+      });
+
+      setUser(data || null);
+      router.push("/dashboard");
+    } catch (error) {
+      showNotification("error", error.message || "Error al hacer login");
+      console.log(error.message || "Error al hacer login");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const logout = () => {
-    localStorage.removeItem("session_token");
-    setUser(null);
-    router.push("/login");
+  const logout = async () => {
+    try {
+      setLoading(true);
+      await AuthService.getInstance().logOut();
+      setUser(null);
+    } catch (error) {
+      console.log(error);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  useEffect(() => {
+    console.log(user);
+  }, [user]);
 
   const value: AuthContextType = {
     user,
