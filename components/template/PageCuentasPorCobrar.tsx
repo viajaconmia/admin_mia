@@ -634,6 +634,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       comentario: saldo.notas || saldo.comentario || null,
       facturable: saldo.is_facturable ? "Si" : "No",
       comprobante: saldo.comprobante || null,
+      is_cancelado: saldo.is_cancelado,
       acciones: { row: saldo },
       item: saldo,
     }));
@@ -1199,7 +1200,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             is_descuento: item.is_descuento,
             link_stripe: item.link_stripe || null,
             tipo_tarjeta: item.tipo_tarjeta,
-            activo: false, // Cambiamos a 0 para desactivar
             comentario: item.comentario || null,
             comprobante: item.comprobante,
             currency: item.currency || "MXN",
@@ -1207,6 +1207,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             ult_digits: item.ult_digits || null,
             banco_tarjeta: item.banco_tarjeta || null,
             numero_autorizacion: item.numero_autorizacion || null,
+            is_cancelado:1,
           };
 
           await updateAgentWallet();
