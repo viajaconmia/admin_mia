@@ -6,6 +6,8 @@ import { fetchOtp } from "@/services/solicitudes";
 import { Table } from "@/components/Table";
 import { TypeFilters, Solicitud } from "@/types";
 import { Loader } from "@/components/atom/Loader";
+import { usePermiso } from "@/hooks/usePermission";
+import { PERMISOS } from "@/constant/permisos";
 
 interface Otp {
   id: number;
@@ -18,6 +20,9 @@ function App() {
   const [searchTerm, setSearchTerm] = useState<string | null>("");
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState<TypeFilters>({});
+  const { hasPermission } = usePermiso();
+
+  hasPermission(PERMISOS.VISTAS.CONFIRMATION_CODE);
 
   let formatedSolicitudes = allOtp
     .filter((item) => item.email.toUpperCase().includes(searchTerm))

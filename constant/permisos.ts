@@ -1,5 +1,20 @@
 export const PERMISOS = {
   VISTAS: {
-    ADMIN: "vista(admin)",
+    ADMIN: "view.admin",
+    INICIO: "view.inicio",
+    PROVEEDOR_PAGOS: "view.proveedor-pagos",
+    PROVEEDOR_PAGOS_PAGADOS: "view.proveedor-pagados",
+    RESERVAS: "view.reservas",
+    CLIENTES: "view.clientes",
+    HOTELES: "view.hoteles",
+    SOLICITUDES: "view.solicitudes",
+    PAGOS: "view.pagos",
+    FACTURAS: "view.facturas",
+    FACTURAS_PREPAGO: "view.fact-prepago",
+    FACTURAS_CREDITO: "view.fact-cred",
+    CONFIRMATION_CODE: "view.confirm-code",
+    VIAJEROS: "view.viajeros",
+    APLICACION_DE_SALDO: "view.apli-sald",
+    CUENTAS_POR_COBRAR: "view.cuenta-cobr",
   },
 } as const;
