@@ -38,6 +38,7 @@ export default function AdministracionUsuarios() {
     try {
       await AuthService.getInstance().crearRole(role);
       fetchRoles();
+      setCreate(null);
     } catch (error) {
       showNotification(
         "error",

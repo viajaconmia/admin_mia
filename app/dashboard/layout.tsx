@@ -56,82 +56,72 @@ export default function DashboardLayout({
 const links = [
   {
     title: "Inicio",
-    href: "/",
+    href: "/dashboard",
     icon: FileText,
   },
   {
-    title: "Administración",
+    title: "Administración", //
     href: "/dashboard/admin",
     icon: Settings2,
   },
   {
-    title: "Pagos proveedor",
-    href: "/dashboard/pagos_proveedor",
-    icon: CreditCard,
-  },
-  {
-    title: "Pagos proveedor pagados",
-    href: "/dashboard/pagos_proveedor/pagados",
-    icon: CreditCard,
-  },
-  {
-    title: "Solicitudes",
+    title: "Solicitudes", //
     href: "/dashboard/solicitudes",
     icon: FileText,
   },
   {
-    title: "Reservas",
+    title: "Reservas", //
     href: "/dashboard/reservas",
     icon: BookOpen,
   },
   {
-    title: "Clientes",
+    title: "Clientes", //
     href: "/dashboard/clients",
     icon: Users,
   },
   {
-    title: "Hoteles",
+    title: "Hoteles", //
     href: "/dashboard/hoteles",
     icon: Building2,
   },
   {
-    title: "Pagos",
+    title: "Pagos proveedor", //
+    href: "/dashboard/pagos_proveedor",
+    icon: CreditCard,
+  },
+  {
+    title: "Pagos proveedor pagados", //
+    href: "/dashboard/pagos_proveedor/pagados",
+    icon: CreditCard,
+  },
+  {
+    title: "Cuentas por cobrar", //
+    href: "/dashboard/cuentas-cobrar",
+    icon: FileText,
+  },
+  {
+    title: "Pagos", //
     href: "/dashboard/payments",
     icon: CreditCard,
   },
   {
-    title: "Facturas",
+    title: "Facturas", //
     href: "/dashboard/invoices",
     icon: Receipt,
   },
   {
-    title: "Facturas Pendientes",
+    title: "Facturas Pendientes", //
     href: "/dashboard/facturas-pendientes",
     icon: Receipt,
   },
   {
-    title: "Items sin facturar",
+    title: "Facturas pendientes cred", //
     href: "/dashboard/facturacion",
     icon: BookOpen,
   },
   {
-    title: "Codigo confirmación",
-    href: "/dashboard/codigo",
+    title: "Codigo confirmación", //
+    href: "/dashboard/codigo-confirmacion",
     icon: Shield,
-  },
-  {
-    title: "Viajeros",
-    href: "/dashboard/viajeros",
-    icon: Users,
-  },
-  {
-    title: "Aplicación de saldo",
-    href: "/dashboard/aplicacion-saldo",
-    icon: BadgeDollarSign,
-  },
-  {
-    title: "Cuentas por cobrar",
-    href: "/dashboard/cuentas-cobrar",
-    icon: FileText,
   },
 ];

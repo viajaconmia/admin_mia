@@ -1,6 +1,12 @@
 "use client";
 import Button from "@/components/atom/Button";
-import { ComboBox, ComboBoxOption, TextInput } from "@/components/atom/Input";
+import {
+  ComboBox,
+  ComboBox2,
+  ComboBoxOption,
+  ComboBoxOption2,
+  TextInput,
+} from "@/components/atom/Input";
 import Modal from "@/components/organism/Modal";
 import { TableFromMia } from "@/components/organism/TableFromMia";
 import { useNotification } from "@/context/useNotificacion";
@@ -41,7 +47,8 @@ export default function AdministracionUsuarios() {
   const handleAddUser = async (user) => {
     try {
       await AuthService.getInstance().signUp(user);
-      fetchUsers();
+      await fetchUsers();
+      setCreate(null);
     } catch (error) {
       showNotification("error", error.message || "Error al crear user");
     }
@@ -98,7 +105,46 @@ export default function AdministracionUsuarios() {
               header: "Usuario",
               componentProps: { subtitle: "email" },
             },
-            { component: "text", key: "role_name", header: "Role" },
+            // { component: "text", key: "role_name", header: "Role" },
+            {
+              component: "custom",
+              key: "role_name",
+              header: "Role",
+              componentProps: {
+                component: ({ item }) => (
+                  <ComboBox2
+                    value={{
+                      name: item.role_name,
+                      content: null,
+                    }}
+                    options={roles.map((rol) => ({
+                      name: rol.role_name,
+                      content: rol,
+                    }))}
+                    onChange={async (value) => {
+                      try {
+                        console.log("WEARE");
+                        await AuthService.getInstance().updateUserRole(
+                          value.content.role_id,
+                          item.id
+                        );
+                        setUsers((prev) => [
+                          ...prev.map((user) =>
+                            user.id == item.id
+                              ? {
+                                  ...user,
+                                  role_id: value.content.role_id,
+                                  role_name: value.content.role_name,
+                                }
+                              : user
+                          ),
+                        ]);
+                      } catch (error) {}
+                    }}
+                  ></ComboBox2>
+                ),
+              },
+            },
             {
               component: "text",
               key: "permissions_extra",

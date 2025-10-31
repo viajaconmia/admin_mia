@@ -1,24 +1,29 @@
-'use client';
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+"use client";
+import React, { useEffect, useState, useRef, useMemo } from "react";
 import { URL, API_KEY } from "@/lib/constants/index";
 import { Table4 } from "@/components/organism/Table4";
 import { Loader } from "@/components/atom/Loader";
 
 // Versión de Feather Icons (similares a Lucide)
-import { Eye, FileText, FilePlus, X, ShoppingCart } from 'lucide-react';
+import { Eye, FileText, FilePlus, X, ShoppingCart } from "lucide-react";
 import { format } from "date-fns";
 import { fetchPagosPrepago, fetchPagosPrepagobalance } from "@/services/pagos";
 import { Banknote, FileCheck } from "lucide-react";
 import { es, se } from "date-fns/locale";
-import ModalDetallePago from './_components/detalles_pago';
-import ModalFacturasAsociadas from './_components/ModalFacturasAsociadas';
+import ModalDetallePago from "./_components/detalles_pago";
+import ModalFacturasAsociadas from "./_components/ModalFacturasAsociadas";
 import SubirFactura from "@/app/dashboard/facturacion/subirfacturas/SubirFactura";
 import { BillingPage } from "@/app/dashboard/facturacion/generar_factura/generar_factura";
 import { formatNumberWithCommas } from "@/helpers/utils";
 import Filters from "@/components/Filters";
 import { TypeFilters } from "@/types";
-import { table } from 'console';
-import { formatDate, TextTransform } from "@/app/dashboard/facturas-pendientes/page";
+import { table } from "console";
+import {
+  formatDate,
+  TextTransform,
+} from "@/app/dashboard/facturas-pendientes/page";
+import { usePermiso } from "@/hooks/usePermission";
+import { PERMISOS } from "@/constant/permisos";
 
 export interface Pago {
   id_movimiento: number;
@@ -55,13 +60,15 @@ interface Balance {
   total_reservas_confirmadas: string;
 }
 
-
-type Seleccion = { id_agente: string; raw_id: string; monto_por_facturar: number };
-
+type Seleccion = {
+  id_agente: string;
+  raw_id: string;
+  monto_por_facturar: number;
+};
 
 // Agrega esta función helper en TablaPagosVisualizacion
 const normalizeText = (text: string): string => {
-  if (!text) return '';
+  if (!text) return "";
 
   return text
     .toUpperCase()
@@ -79,7 +86,10 @@ const TablaPagosVisualizacion = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showFacturasModal, setShowFacturasModal] = useState(false);
-  const [facturasCtx, setFacturasCtx] = useState<{ id_agente: string; raw_id: string } | null>(null);
+  const [facturasCtx, setFacturasCtx] = useState<{
+    id_agente: string;
+    raw_id: string;
+  } | null>(null);
   const [facturasAsociadas, setFacturasAsociadas] = useState<string[]>([]);
   const [filters, setFilters] = useState<TypeFilters>({
     id_movimiento: null,
@@ -102,12 +112,18 @@ const TablaPagosVisualizacion = () => {
     // Agrega este filtro que falta para facturas
     id_factura: "",
   });
+  const { hasPermission } = usePermiso();
+
+  hasPermission(PERMISOS.VISTAS.PAGOS);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [seleccionados, setSeleccionados] = useState<Seleccion[]>([]);
   const idAgenteSeleccionado = seleccionados[0]?.id_agente ?? null;
-  const totalSaldoSeleccionado = seleccionados.reduce((a, s) => a + (Number(s.monto_por_facturar) || 0), 0);
+  const totalSaldoSeleccionado = seleccionados.reduce(
+    (a, s) => a + (Number(s.monto_por_facturar) || 0),
+    0
+  );
 
   interface SortConfig {
     key: string;
@@ -139,11 +155,13 @@ const TablaPagosVisualizacion = () => {
           ? newFilters.is_facturado === "SI"
             ? 1
             : newFilters.is_facturado === "NO"
-              ? 0
-              : null
+            ? 0
+            : null
           : typeof newFilters.is_facturado === "boolean"
-            ? newFilters.is_facturado ? 1 : 0
-            : (newFilters.is_facturado ?? null),
+          ? newFilters.is_facturado
+            ? 1
+            : 0
+          : newFilters.is_facturado ?? null,
 
       link_pago: newFilters.link_pago ?? "",
       origen_pago: newFilters.origen_pago ?? "",
@@ -160,7 +178,7 @@ const TablaPagosVisualizacion = () => {
 
   const handleVerFacturas = (facturasStr: string) => {
     if (facturasStr) {
-      const facturasArray = facturasStr.split(',').map(f => f.trim());
+      const facturasArray = facturasStr.split(",").map((f) => f.trim());
       setFacturasAsociadas(facturasArray);
     } else {
       setFacturasAsociadas([]);
@@ -168,11 +186,16 @@ const TablaPagosVisualizacion = () => {
     setShowFacturasModal(true);
   };
 
-  type BatchPayload = { userId: string; saldoMonto: number; rawIds: string[], saldos: number[]; } | null;
+  type BatchPayload = {
+    userId: string;
+    saldoMonto: number;
+    rawIds: string[];
+    saldos: number[];
+  } | null;
 
   const [showBatchMenu, setShowBatchMenu] = useState(false);
   const batchBtnRef = useRef<HTMLDivElement>(null);
-  const [batchMenuPos, setBatchMenuPos] = useState<'bottom' | 'top'>('bottom');
+  const [batchMenuPos, setBatchMenuPos] = useState<"bottom" | "top">("bottom");
   const [filterBySelectedAgent, setFilterBySelectedAgent] = useState(false);
   const [showBillingPage, setShowBillingPage] = useState(false);
   const [batchBilling, setBatchBilling] = useState<BatchPayload>(null);
@@ -183,7 +206,7 @@ const TablaPagosVisualizacion = () => {
     if (batchBtnRef.current && showBatchMenu) {
       const r = batchBtnRef.current.getBoundingClientRect();
       const spaceBelow = window.innerHeight - r.bottom;
-      setBatchMenuPos(spaceBelow < 200 ? 'top' : 'bottom');
+      setBatchMenuPos(spaceBelow < 200 ? "top" : "bottom");
     }
   }, [showBatchMenu]);
 
@@ -193,27 +216,49 @@ const TablaPagosVisualizacion = () => {
       const data = await fetchPagosPrepago();
       // Normalizar todos los datos para que cumplan con interface Pago
       const pagosMapeados: Pago[] = data.map((pago: any) => ({
-        id_movimiento: Number(pago.id_movimiento ?? pago.id ?? pago.id_pago ?? 0),
-        tipo_pago: pago.tipo_pago ?? pago.tipo_de_pago ?? pago.metodo_pago ?? pago.metodo_de_pago ?? "",
+        id_movimiento: Number(
+          pago.id_movimiento ?? pago.id ?? pago.id_pago ?? 0
+        ),
+        tipo_pago:
+          pago.tipo_pago ??
+          pago.tipo_de_pago ??
+          pago.metodo_pago ??
+          pago.metodo_de_pago ??
+          "",
         raw_id: pago.raw_id ?? pago.id_pago ?? pago.id ?? "",
-        fecha_pago: pago.fecha_pago ?? pago.pago_fecha_pago ?? pago.fecha_transaccion ?? "",
+        fecha_pago:
+          pago.fecha_pago ??
+          pago.pago_fecha_pago ??
+          pago.fecha_transaccion ??
+          "",
         ig_agente: pago.ig_agente ?? pago.agente_pago ?? pago.id_agente ?? "",
-        nombre_agente: pago.nombre_agente ?? pago.agente_saldo ?? pago.nombre ?? "",
+        nombre_agente:
+          pago.nombre_agente ?? pago.agente_saldo ?? pago.nombre ?? "",
         metodo: pago.metodo ?? pago.metodo_pago ?? pago.metodo_de_pago ?? "",
-        fecha_creacion: pago.fecha_creacion ?? pago.pago_fecha_creacion ?? pago.created_at ?? "",
+        fecha_creacion:
+          pago.fecha_creacion ??
+          pago.pago_fecha_creacion ??
+          pago.created_at ??
+          "",
         monto: formatNumberWithCommas(pago.monto),
         monto_facturado: formatNumberWithCommas(pago.monto_facturado),
-        saldo_numero: pago.saldo === "pago_directo"
-          ? Number(pago.monto) // Versión numérica para cálculos
-          : Number(pago.saldo ?? pago.saldo_monto ?? 0),
+        saldo_numero:
+          pago.saldo === "pago_directo"
+            ? Number(pago.monto) // Versión numérica para cálculos
+            : Number(pago.saldo ?? pago.saldo_monto ?? 0),
         banco: pago.banco ?? pago.banco_tarjeta ?? undefined,
         last_digits: pago.last_digits ?? pago.ult_digits ?? undefined,
         is_facturado: Number(pago.is_facturado ?? pago.facturado ?? 0),
-        tipo: pago.tipo ?? pago.tipo_de_tarjeta ?? pago.tipo_tarjeta ?? undefined,
+        tipo:
+          pago.tipo ?? pago.tipo_de_tarjeta ?? pago.tipo_tarjeta ?? undefined,
         referencia: pago.referencia ?? pago.pago_referencia ?? "",
         concepto: pago.concepto ?? pago.pago_concepto ?? "",
         link_pago: pago.link_pago ?? pago.link_stripe ?? "",
-        autorizacion: pago.autorizacion ?? pago.numero_autorizacion ?? pago.autorizacion_stripe ?? "",
+        autorizacion:
+          pago.autorizacion ??
+          pago.numero_autorizacion ??
+          pago.autorizacion_stripe ??
+          "",
         origen_pago: pago.origen_pago ?? "",
         facturas_asociadas: pago.facturas_asociadas ?? pago.comprobante ?? null,
 
@@ -225,7 +270,9 @@ const TablaPagosVisualizacion = () => {
       setError(null);
     } catch (err) {
       console.error("Error al obtener los pagos:", err);
-      setError("No se pudieron cargar los pagos. Intente nuevamente más tarde.");
+      setError(
+        "No se pudieron cargar los pagos. Intente nuevamente más tarde."
+      );
       setPagos([]);
     } finally {
       setLoading(false);
@@ -246,68 +293,73 @@ const TablaPagosVisualizacion = () => {
       setBalance(balanceObtenido);
     } catch (err) {
       console.error("Error al obtener el balance:", err);
-      setError("No se pudieron cargar los saldos de pagos. Intente nuevamente más tarde.");
+      setError(
+        "No se pudieron cargar los saldos de pagos. Intente nuevamente más tarde."
+      );
       setBalance(null);
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
     obtenerBalance();
     obtenerPagos();
   }, []);
 
-
   const isValidDate = (date: any): boolean => {
     return date instanceof Date && !isNaN(date.getTime());
   };
 
   const formatIdItem = (id: string): string => {
-    if (!id) return '';
+    if (!id) return "";
     return id.length > 4 ? `...${id.slice(-4)}` : id;
   };
 
   const formatCurrency = (value: number): string => {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: 'MXN',
+    return new Intl.NumberFormat("es-MX", {
+      style: "currency",
+      currency: "MXN",
       minimumFractionDigits: 2,
-      maximumFractionDigits: 2
+      maximumFractionDigits: 2,
     }).format(value);
   };
 
-  const isRowSelected = (row: Pago) => seleccionados.some(s => s.raw_id === row.raw_id);
+  const isRowSelected = (row: Pago) =>
+    seleccionados.some((s) => s.raw_id === row.raw_id);
   const canSelectRow = (row: Pago) => {
-    const rowAgent = row.id_agente || row.ig_agente || '';
+    const rowAgent = row.id_agente || row.ig_agente || "";
     return seleccionados.length === 0 || rowAgent === idAgenteSeleccionado;
   };
   const toggleSeleccion = (row: Pago) => {
-    const rowAgent = (row.id_agente || row.ig_agente || '').toString();
+    const rowAgent = (row.id_agente || row.ig_agente || "").toString();
     const monto_por_facturar = Number(row.monto_por_facturar) || 0;
     const raw = row.raw_id;
 
     if (!raw) return;
 
     if (seleccionados.length > 0 && rowAgent !== idAgenteSeleccionado) {
-      alert('Solo puedes seleccionar pagos del mismo agente.');
+      alert("Solo puedes seleccionar pagos del mismo agente.");
       return;
     }
 
-    setSeleccionados(prev => {
-      const exists = prev.some(s => s.raw_id === raw);
+    setSeleccionados((prev) => {
+      const exists = prev.some((s) => s.raw_id === raw);
       if (exists) {
         // Si estamos deseleccionando el último elemento, desactivamos el filtro
         if (prev.length === 1) {
           setFilterBySelectedAgent(false);
         }
-        return prev.filter(s => s.raw_id !== raw);
+        return prev.filter((s) => s.raw_id !== raw);
       }
       // Al seleccionar el primer elemento, activamos el filtro
       if (prev.length === 0) {
         setFilterBySelectedAgent(true);
       }
-      return [...prev, { id_agente: rowAgent, raw_id: raw, monto_por_facturar }];
+      return [
+        ...prev,
+        { id_agente: rowAgent, raw_id: raw, monto_por_facturar },
+      ];
     });
   };
 
@@ -316,7 +368,7 @@ const TablaPagosVisualizacion = () => {
     const filteredItems = pagos.filter((pago) => {
       // Aplicar filtro por agente seleccionado si está activo
       if (filterBySelectedAgent && seleccionados.length > 0) {
-        const pagoAgent = (pago.id_agente || pago.ig_agente || '').toString();
+        const pagoAgent = (pago.id_agente || pago.ig_agente || "").toString();
         if (pagoAgent !== idAgenteSeleccionado) {
           return false;
         }
@@ -326,10 +378,12 @@ const TablaPagosVisualizacion = () => {
 
       // Check for a specific invoice ID filter
       if (filters.id_factura && pago.facturas_asociadas) {
-        const facturas = pago.facturas_asociadas.split(',').map(f => f.trim());
+        const facturas = pago.facturas_asociadas
+          .split(",")
+          .map((f) => f.trim());
         const normalizedFilter = filters.id_factura.toLowerCase();
 
-        if (!facturas.some(f => f.toLowerCase() === normalizedFilter)) {
+        if (!facturas.some((f) => f.toLowerCase() === normalizedFilter)) {
           return false;
         }
       }
@@ -354,7 +408,9 @@ const TablaPagosVisualizacion = () => {
 
       // Filtro por fecha de pago
       if (filters.fecha_pago && pago.fecha_pago) {
-        const paymentDate = new Date(pago.fecha_pago).toISOString().split('T')[0];
+        const paymentDate = new Date(pago.fecha_pago)
+          .toISOString()
+          .split("T")[0];
         if (paymentDate !== filters.fecha_pago) {
           return false;
         }
@@ -389,7 +445,9 @@ const TablaPagosVisualizacion = () => {
 
       // Filtro por fecha de creación
       if (filters.fecha_creacion && pago.fecha_creacion) {
-        const creationDate = new Date(pago.fecha_creacion).toISOString().split('T')[0];
+        const creationDate = new Date(pago.fecha_creacion)
+          .toISOString()
+          .split("T")[0];
         if (creationDate !== filters.fecha_creacion) {
           return false;
         }
@@ -447,13 +505,13 @@ const TablaPagosVisualizacion = () => {
         const saldoPorFacturar = Number(pago.monto_por_facturar) || 0;
         const monto = Number(pago.monto) || 0;
 
-        let status = 'Sin Asignar';
+        let status = "Sin Asignar";
         if (isFacturado === 1 || saldoPorFacturar <= 0) {
-          status = 'Confirmada';
+          status = "Confirmada";
         } else if (saldoPorFacturar === monto) {
-          status = 'Sin Asignar';
+          status = "Sin Asignar";
         } else {
-          status = 'En proceso';
+          status = "En proceso";
         }
 
         if (status !== filters.estatusFactura) {
@@ -483,20 +541,34 @@ const TablaPagosVisualizacion = () => {
           : false;
 
         const matchesId = pago.id_movimiento?.toString().includes(searchTerm);
-        const matchesRawId = pago.raw_id?.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesRawId = pago.raw_id
+          ?.toLowerCase()
+          .includes(searchTerm.toLowerCase());
 
         const matchesAgentName = pago.nombre_agente
-          ? normalizeText(pago.nombre_agente).includes(normalizeText(searchLower))
+          ? normalizeText(pago.nombre_agente).includes(
+              normalizeText(searchLower)
+            )
           : false;
         if (pago.nombre_agente.includes("KARLA"))
-          console.log(normalizeText(pago.nombre_agente), "probando filtros", normalizeText(searchLower))
+          console.log(
+            normalizeText(pago.nombre_agente),
+            "probando filtros",
+            normalizeText(searchLower)
+          );
 
         const matchesAgentId = pago.ig_agente
           ? normalizeText(pago.ig_agente).includes(searchLower)
           : false;
 
-        if (!matchesReference && !matchesConcept && !matchesId &&
-          !matchesRawId && !matchesAgentName && !matchesAgentId) {
+        if (
+          !matchesReference &&
+          !matchesConcept &&
+          !matchesId &&
+          !matchesRawId &&
+          !matchesAgentName &&
+          !matchesAgentId
+        ) {
           return false;
         }
       }
@@ -509,7 +581,7 @@ const TablaPagosVisualizacion = () => {
       tipo_pago: pago.tipo_pago ?? "",
       id_pago: pago.raw_id,
       id_cliente: pago.ig_agente,
-      nombre: pago.nombre_agente ?? "",   // ← aquí
+      nombre: pago.nombre_agente ?? "", // ← aquí
       fecha_creacion: pago.fecha_creacion,
       fecha_pago: pago.fecha_pago,
       monto: Number(pago.monto) || 0,
@@ -524,11 +596,10 @@ const TablaPagosVisualizacion = () => {
       last_digits: pago.last_digits ?? "N/A",
       banco: pago.banco ?? "N/A",
       origen_pago: pago.origen_pago ?? "",
-      is_facturado: pago,        // lo usas para pintar badge
+      is_facturado: pago, // lo usas para pintar badge
       acciones: { row: pago },
       item: pago,
     }));
-
 
     // Sort the data
     return transformedData.sort((a, b) => {
@@ -548,8 +619,7 @@ const TablaPagosVisualizacion = () => {
 
       // Handle numbers
       if (
-        typeof aValue === "number" &&
-        typeof bValue === "number" ||
+        (typeof aValue === "number" && typeof bValue === "number") ||
         sortConfig.key === "monto" ||
         sortConfig.key === "monto_por_facturar"
       ) {
@@ -567,14 +637,23 @@ const TablaPagosVisualizacion = () => {
       if (sortConfig.key === "is_facturado") {
         const aFacturado = Number(aValue?.is_facturado) || 0;
         const bFacturado = Number(bValue?.is_facturado) || 0;
-        return sortConfig.sort ? aFacturado - bFacturado : bFacturado - aFacturado;
+        return sortConfig.sort
+          ? aFacturado - bFacturado
+          : bFacturado - aFacturado;
       }
-
-
     });
-  }, [pagos, filters, searchTerm, sortConfig.key, sortConfig.sort, filterBySelectedAgent, seleccionados, idAgenteSeleccionado]);
+  }, [
+    pagos,
+    filters,
+    searchTerm,
+    sortConfig.key,
+    sortConfig.sort,
+    filterBySelectedAgent,
+    seleccionados,
+    idAgenteSeleccionado,
+  ]);
 
-  console.log(filteredData)
+  console.log(filteredData);
   const renderers = {
     // IDs and references
     id_movimiento: ({ value }: { value: number }) => (
@@ -585,13 +664,13 @@ const TablaPagosVisualizacion = () => {
 
     raw_id: ({ value }: { value: string }) => (
       <span className="font-mono bg-gray-100 px-2 py-1 rounded text-sm">
-        {formatIdItem(value) || ''}
+        {formatIdItem(value) || ""}
       </span>
     ),
 
     id_cliente: ({ value }: { value: string }) => (
       <span className="font-mono text-gray-700">
-        {formatIdItem(value) || ''}
+        {formatIdItem(value) || ""}
       </span>
     ),
     referencia: ({ value }: { value: string }) => (
@@ -605,7 +684,11 @@ const TablaPagosVisualizacion = () => {
       </span>
     ),
     monto_por_facturar: ({ value }: { value: number }) => (
-      <span className={`font-medium ${value > 0 ? 'text-green-600' : 'text-red-600'}`}>
+      <span
+        className={`font-medium ${
+          value > 0 ? "text-green-600" : "text-red-600"
+        }`}
+      >
         ${formatNumberWithCommas(value)}
       </span>
     ),
@@ -629,16 +712,12 @@ const TablaPagosVisualizacion = () => {
 
     // En la sección de renderers, modifica el renderer de nombre:
     nombre: ({ value }: { value: string }) => (
-      <span className="font-medium">
-        {normalizeText(value)}
-      </span>
+      <span className="font-medium">{normalizeText(value)}</span>
     ),
 
     // `concepto`
 
-    concepto: ({ value }: { value: string }) => (
-      <TextTransform value={value} />
-    ),
+    concepto: ({ value }: { value: string }) => <TextTransform value={value} />,
 
     // `origen_pago`
 
@@ -649,31 +728,25 @@ const TablaPagosVisualizacion = () => {
     // Payment methods
     metodo: ({ value }: { value: string }) => (
       <span className="capitalize bg-blue-50 text-blue-700 px-2 py-1 rounded-full text-xs">
-        {value || ''}
+        {value || ""}
       </span>
     ),
-    tipo: ({ value }: { value: string }) => (
-      <TextTransform value={value} />
-
-    ),
+    tipo: ({ value }: { value: string }) => <TextTransform value={value} />,
     tipo_pago: ({ value }: { value: string }) => (
       <TextTransform value={value} />
-
     ),
 
     // Bank information
     banco: ({ value }: { value: string }) => (
-      <TextTransform value={value || ''} />
+      <TextTransform value={value || ""} />
     ),
     last_digits: ({ value }: { value: string | number }) => (
       <span className="font-mono bg-gray-100 px-2 py-1 rounded text-sm">
-        {value || ''}
+        {value || ""}
       </span>
     ),
     autorizacion: ({ value }: { value: string }) => (
-      <span className="font-mono text-sm">
-        {value || ''}
-      </span>
+      <span className="font-mono text-sm">{value || ""}</span>
     ),
 
     // Status and booleans
@@ -684,18 +757,18 @@ const TablaPagosVisualizacion = () => {
       const monto = Number(value?.monto) || 0;
       const isFacturado = Number(value?.is_facturado) || 0;
 
-      let className = '';
-      let texto = '';
+      let className = "";
+      let texto = "";
 
       if (isFacturado === 1 || saldoPorFacturar <= 0) {
-        className = 'bg-green-100 text-green-800';
-        texto = 'Facturado';
+        className = "bg-green-100 text-green-800";
+        texto = "Facturado";
       } else if (saldoPorFacturar === monto) {
-        className = 'bg-gray-100 text-gray-800';
-        texto = 'No facturado';
+        className = "bg-gray-100 text-gray-800";
+        texto = "No facturado";
       } else {
-        className = 'bg-yellow-100 text-yellow-800';
-        texto = 'Parcial';
+        className = "bg-yellow-100 text-yellow-800";
+        texto = "Parcial";
       }
 
       return (
@@ -705,25 +778,26 @@ const TablaPagosVisualizacion = () => {
       );
     },
     // Links and documents
-    link_pago: ({ value }: { value: string }) => (
+    link_pago: ({ value }: { value: string }) =>
       value ? (
-        <span className="font-mono text-xs text-blue-600">
-          {value}
-        </span>
+        <span className="font-mono text-xs text-blue-600">{value}</span>
       ) : (
         <span className="text-gray-400"></span>
-      )
-    ),
+      ),
 
-    facturas_asociadas: ({ value }: { value: string }) => (
+    facturas_asociadas: ({ value }: { value: string }) =>
       value ? (
-        <a href={value} target="_blank" rel="noopener noreferrer" className="text-green-600 hover:underline">
+        <a
+          href={value}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-green-600 hover:underline"
+        >
           Descargar
         </a>
       ) : (
         <span className="text-gray-400"></span>
-      )
-    ),
+      ),
     // Actions funcionalidad de botones
     // ... (código anterior se mantiene igual)
 
@@ -733,47 +807,56 @@ const TablaPagosVisualizacion = () => {
       const selected = isRowSelected(row);
       const disabled = !canSelectRow(row);
 
-      const tieneFacturas = row.facturas_asociadas && row.facturas_asociadas.length > 0;
+      const tieneFacturas =
+        row.facturas_asociadas && row.facturas_asociadas.length > 0;
       const mostrarOpcionesFacturacion = Number(row.monto_por_facturar) > 0;
 
       // Normaliza ids y montos
-      const idAgente = (row.id_agente || row.ig_agente || '').toString();
+      const idAgente = (row.id_agente || row.ig_agente || "").toString();
       const rawId = row.raw_id;
       const saldoNum = Number(row.monto_por_facturar) || 0;
-      const rawIds2 = seleccionados.map(s => s.raw_id);
+      const rawIds2 = seleccionados.map((s) => s.raw_id);
       const saldos = [row.monto_por_facturar];
-      const saldos3 = seleccionados.map(s => Number(s.monto_por_facturar));
+      const saldos3 = seleccionados.map((s) => Number(s.monto_por_facturar));
       let saldos2 = saldos.length > 1 ? saldos3 : saldos;
 
-      let rawIds = rawIds2.length == 0
-        ? [row.raw_id]
-        : rawIds2;
+      let rawIds = rawIds2.length == 0 ? [row.raw_id] : rawIds2;
 
-      let monto = totalSaldoSeleccionado === 0
-        ? Number(row.monto_por_facturar)
-        : totalSaldoSeleccionado;
+      let monto =
+        totalSaldoSeleccionado === 0
+          ? Number(row.monto_por_facturar)
+          : totalSaldoSeleccionado;
       return (
-        <div className="flex gap-1 items-center"> {/* Reducido el gap de 2 a 1 */}
+        <div className="flex gap-1 items-center">
+          {" "}
+          {/* Reducido el gap de 2 a 1 */}
           {/* Detalles */}
           <button
             className="px-2 py-1 rounded-md bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors border border-blue-200 flex items-center gap-1 text-xs"
-            onClick={() => { setPagoSeleccionado(row); }}
+            onClick={() => {
+              setPagoSeleccionado(row);
+            }}
           >
             <Eye className="w-3 h-3" /> {/* Icono más pequeño */}
             <span>Detalles</span>
           </button>
-
           {/* Facturas */}
           {tieneFacturas && (
             <button
               className="px-2 py-1 rounded-md bg-green-50 text-green-600 hover:bg-green-100 transition-colors border border-green-200 flex items-center gap-1 text-xs"
               onClick={() => {
                 // Asegura id_agente y raw_id correctos para el modal
-                const idAgente = (row.id_agente || row.ig_agente || '').toString();
-                const rawId = row.raw_id || '';
+                const idAgente = (
+                  row.id_agente ||
+                  row.ig_agente ||
+                  ""
+                ).toString();
+                const rawId = row.raw_id || "";
 
                 if (!idAgente || !rawId) {
-                  alert('No se pudo abrir el detalle: faltan id_agente o raw_id en el pago.');
+                  alert(
+                    "No se pudo abrir el detalle: faltan id_agente o raw_id en el pago."
+                  );
                   return;
                 }
 
@@ -787,10 +870,9 @@ const TablaPagosVisualizacion = () => {
           )}
         </div>
       );
-    }
-
+    },
   };
-  console.log(pagoSeleccionado)
+  console.log(pagoSeleccionado);
   // Muestra error si ocurrió
   if (error) {
     return (
@@ -802,7 +884,6 @@ const TablaPagosVisualizacion = () => {
     );
   }
   return (
-
     <div className="bg-white rounded-lg p-6 w-full shadow-xl">
       <h2 className="text-xl font-bold mb-4">Registro de Pagos</h2>
 
@@ -814,9 +895,13 @@ const TablaPagosVisualizacion = () => {
             <Banknote className="w-6 h-6" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-blue-700">Monto Pagado</h3>
+            <h3 className="text-sm font-semibold text-blue-700">
+              Monto Pagado
+            </h3>
             <p className="text-2xl font-bold text-blue-800">
-              {balance ? formatCurrency(Number(balance.montototal)) : formatCurrency(0)}
+              {balance
+                ? formatCurrency(Number(balance.montototal))
+                : formatCurrency(0)}
             </p>
           </div>
         </div>
@@ -827,14 +912,26 @@ const TablaPagosVisualizacion = () => {
             <FileCheck className="w-6 h-6" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-green-700">Monto Facturado</h3>
+            <h3 className="text-sm font-semibold text-green-700">
+              Monto Facturado
+            </h3>
             <p className="text-2xl font-bold text-green-800">
-              {balance ? formatCurrency(Number(balance.montofacturado)) : formatCurrency(0)}
+              {balance
+                ? formatCurrency(Number(balance.montofacturado))
+                : formatCurrency(0)}
             </p>
             <p className="text-sm mt-1">
               <span className="text-gray-600">Restante: </span>
-              <span className={`font-semibold ${balance && Number(balance.restante) >= 0 ? "text-red-600" : "text-green-600"}`}>
-                {balance ? formatCurrency(Number(balance.restante)) : formatCurrency(0)}
+              <span
+                className={`font-semibold ${
+                  balance && Number(balance.restante) >= 0
+                    ? "text-red-600"
+                    : "text-green-600"
+                }`}
+              >
+                {balance
+                  ? formatCurrency(Number(balance.restante))
+                  : formatCurrency(0)}
               </span>
             </p>
           </div>
@@ -845,9 +942,13 @@ const TablaPagosVisualizacion = () => {
             <ShoppingCart className="w-6 h-6" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-yellow-700">Total Reservas Confirmadas</h3>
+            <h3 className="text-sm font-semibold text-yellow-700">
+              Total Reservas Confirmadas
+            </h3>
             <p className="text-2xl font-bold text-yellow-800">
-              {balance ? formatCurrency(Number(balance.total_reservas_confirmadas)) : formatCurrency(0)}
+              {balance
+                ? formatCurrency(Number(balance.total_reservas_confirmadas))
+                : formatCurrency(0)}
             </p>
           </div>
         </div>
@@ -857,14 +958,16 @@ const TablaPagosVisualizacion = () => {
       {seleccionados.length > 0 && (
         <div className="mb-4 p-3 border border-purple-200 bg-purple-50 rounded-lg flex items-center justify-between">
           <div className="text-sm text-purple-900">
-            <span className="font-semibold">Seleccionados:</span> {seleccionados.length} &nbsp;|&nbsp;
-            <span className="font-semibold">Agente:</span> {idAgenteSeleccionado} &nbsp;|&nbsp;
-            <span className="font-semibold">Suma saldo:</span> {formatCurrency(totalSaldoSeleccionado)}
+            <span className="font-semibold">Seleccionados:</span>{" "}
+            {seleccionados.length} &nbsp;|&nbsp;
+            <span className="font-semibold">Agente:</span>{" "}
+            {idAgenteSeleccionado} &nbsp;|&nbsp;
+            <span className="font-semibold">Suma saldo:</span>{" "}
+            {formatCurrency(totalSaldoSeleccionado)}
           </div>
 
           <div className="flex gap-2 items-center">
             {/* Dropdown Facturar (igual a acciones) */}
-
 
             {/* Limpiar */}
             <button
@@ -877,7 +980,10 @@ const TablaPagosVisualizacion = () => {
 
           {/* Cerrar menú al hacer click fuera */}
           {showBatchMenu && (
-            <div className="fixed inset-0 z-0" onClick={() => setShowBatchMenu(false)} />
+            <div
+              className="fixed inset-0 z-0"
+              onClick={() => setShowBatchMenu(false)}
+            />
           )}
         </div>
       )}
@@ -904,8 +1010,19 @@ const TablaPagosVisualizacion = () => {
           <Table4
             registros={filteredData}
             renderers={renderers}
-            customColumns={['id_movimiento', 'id_cliente', 'nombre', 'fecha_pago', 'monto', 'subtotal', 'iva', 'monto_por_facturar', 'acciones', 'is_facturado', 'metodo']}
-
+            customColumns={[
+              "id_movimiento",
+              "id_cliente",
+              "nombre",
+              "fecha_pago",
+              "monto",
+              "subtotal",
+              "iva",
+              "monto_por_facturar",
+              "acciones",
+              "is_facturado",
+              "metodo",
+            ]}
           />
         )}
       </div>
@@ -923,8 +1040,7 @@ const TablaPagosVisualizacion = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-gray-800">
-              </h2>
+              <h2 className="text-xl font-bold text-gray-800"></h2>
               <button
                 onClick={() => setShowSubirFactura(false)}
                 className="text-gray-500 hover:text-gray-700"
@@ -934,7 +1050,7 @@ const TablaPagosVisualizacion = () => {
             </div>
             <div className="p-6">
               <SubirFactura
-                pagoData={pagoAFacturar}  // Pasamos el objeto completo del pago
+                pagoData={pagoAFacturar} // Pasamos el objeto completo del pago
                 onSuccess={() => {
                   setShowSubirFactura(false);
                   obtenerPagos();
@@ -952,7 +1068,7 @@ const TablaPagosVisualizacion = () => {
           id_agente={facturasCtx.id_agente}
           raw_id={facturasCtx.raw_id}
           onClose={() => {
-            setShowFacturasModal(false)
+            setShowFacturasModal(false);
             obtenerPagos();
             obtenerBalance();
           }}
@@ -965,7 +1081,8 @@ const TablaPagosVisualizacion = () => {
           <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
               <h2 className="text-xl font-bold text-gray-800">
-                Generar factura para pagos seleccionados ({seleccionados.length})
+                Generar factura para pagos seleccionados ({seleccionados.length}
+                )
               </h2>
               <button
                 onClick={() => {
@@ -990,12 +1107,16 @@ const TablaPagosVisualizacion = () => {
                 userId={batchBilling.userId}
                 saldoMonto={batchBilling.saldoMonto}
                 rawIds={batchBilling.rawIds}
-                saldos={seleccionados.map(s => Number(s.monto_por_facturar) || 0)}
+                saldos={seleccionados.map(
+                  (s) => Number(s.monto_por_facturar) || 0
+                )}
                 isBatch={true}
-                pagoData={seleccionados.map(s => {
-                  const pago = pagos.find(p => p.raw_id === s.raw_id);
-                  return pago || null;
-                }).filter(Boolean)} // Pasamos un array con todos los pagos seleccionados
+                pagoData={seleccionados
+                  .map((s) => {
+                    const pago = pagos.find((p) => p.raw_id === s.raw_id);
+                    return pago || null;
+                  })
+                  .filter(Boolean)} // Pasamos un array con todos los pagos seleccionados
               />
             </div>
           </div>
@@ -1012,7 +1133,7 @@ const TablaPagosVisualizacion = () => {
               </h2>
               <button
                 onClick={() => {
-                  setShowBatchSubirFactura(false)
+                  setShowBatchSubirFactura(false);
                   obtenerPagos();
                   obtenerBalance();
                 }}

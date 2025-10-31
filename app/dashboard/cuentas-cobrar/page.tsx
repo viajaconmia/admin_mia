@@ -1,4 +1,4 @@
-'use client';
+"use client";
 import { API_KEY, URL } from "@/lib/constants";
 import { Table4 } from "@/components/organism/Table4";
 import React, { useState, useEffect, useMemo } from "react";
@@ -6,19 +6,21 @@ import { formatNumberWithCommas } from "@/helpers/utils";
 import Filters from "@/components/Filters";
 import { TypeFilters } from "@/types";
 import { PagarModalComponent } from "@/components/template/pagar_saldo"; // Import the modal
+import { usePermiso } from "@/hooks/usePermission";
+import { PERMISOS } from "@/constant/permisos";
 
 //formato de fechas
 const formatDate = (dateString: string | Date | null): string => {
-  if (!dateString || dateString === "0000-00-00") return 'N/A';
+  if (!dateString || dateString === "0000-00-00") return "N/A";
 
   const date = new Date(dateString);
 
-  if (isNaN(date.getTime())) return 'N/A';
+  if (isNaN(date.getTime())) return "N/A";
 
-  return date.toLocaleDateString('es-MX', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
+  return date.toLocaleDateString("es-MX", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
   });
 };
 
@@ -35,9 +37,7 @@ const matches = (field: unknown, query: unknown) => {
 
 // Trata 0, "0", "0.00", etc. como cero
 const isZeroSaldo = (s: unknown) => {
-  const n = Number(
-    typeof s === "string" ? s.replace(/,/g, "") : s
-  );
+  const n = Number(typeof s === "string" ? s.replace(/,/g, "") : s);
   return Number.isFinite(n) && Math.abs(n) < 1e-6;
 };
 
@@ -49,8 +49,13 @@ const CuentasPorCobrar = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState<TypeFilters>({});
   const [showPagarModal, setShowPagarModal] = useState(false);
-  const [selectedFacturas, setSelectedFacturas] = useState<Set<string>>(new Set()); // Facturas seleccionadas
+  const [selectedFacturas, setSelectedFacturas] = useState<Set<string>>(
+    new Set()
+  ); // Facturas seleccionadas
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const { hasPermission } = usePermiso();
+
+  hasPermission(PERMISOS.VISTAS.CUENTAS_POR_COBRAR);
 
   const handleClosePagarModal = () => {
     setShowPagarModal(false);
@@ -60,16 +65,18 @@ const CuentasPorCobrar = () => {
   const canSelectRow = (row: any) => {
     const saldo = parseFloat(row.saldo);
     const total = parseFloat(row.total);
-    return (saldo <= total || saldo === null) && row.estado !== 'pagada';
+    return (saldo <= total || saldo === null) && row.estado !== "pagada";
   };
 
   //función para asignar pagos a las facturas seleccionadas
   const handlePagos = () => {
-    const facturasSeleccionadas = facturas.filter(factura => selectedFacturas.has(factura.id_factura));
+    const facturasSeleccionadas = facturas.filter((factura) =>
+      selectedFacturas.has(factura.id_factura)
+    );
 
     if (facturasSeleccionadas.length > 0) {
       // Prepara los datos para el modal
-      const datosFacturas = facturasSeleccionadas.map(factura => ({
+      const datosFacturas = facturasSeleccionadas.map((factura) => ({
         monto: factura.total,
         saldo: factura.saldo, // Agregar el saldo actual
         facturaSeleccionada: factura,
@@ -81,7 +88,6 @@ const CuentasPorCobrar = () => {
       setShowPagarModal(true); // Mostrar el modal
     }
   };
-
 
   // Función para manejar la acción Editar
   const handleEditar = (id: string) => {
@@ -113,8 +119,10 @@ const CuentasPorCobrar = () => {
       }
 
       // Verifica mezcla de agentes con lo actualmente seleccionado
-      const seleccionadas = facturas.filter(f => newSelected.has(f.id_factura));
-      const allSameAgent = seleccionadas.every(f => f.id_agente === idAgente);
+      const seleccionadas = facturas.filter((f) =>
+        newSelected.has(f.id_factura)
+      );
+      const allSameAgent = seleccionadas.every((f) => f.id_agente === idAgente);
 
       if (!allSameAgent) {
         // No permitir mezclar: revertimos el último toggle si fue un intento de mezclar
@@ -150,82 +158,104 @@ const CuentasPorCobrar = () => {
   useEffect(() => {
     let result = [...facturas];
 
-    result = result.filter(factura => !isZeroSaldo(factura.saldo));
+    result = result.filter((factura) => !isZeroSaldo(factura.saldo));
 
     // Aplicar búsqueda
     if (searchTerm) {
-      result = result.filter(factura =>
-        factura.id_factura?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        factura.rfc?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        factura.nombre_agente?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        factura.uuid_factura?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        factura.id_agente?.toLowerCase().includes(searchTerm.toLowerCase())
+      result = result.filter(
+        (factura) =>
+          factura.id_factura
+            ?.toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
+          factura.rfc?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          factura.nombre_agente
+            ?.toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
+          factura.uuid_factura
+            ?.toLowerCase()
+            .includes(searchTerm.toLowerCase()) ||
+          factura.id_agente?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
     // Aplicar filtros
     if (filters.estado) {
-      result = result.filter(factura =>
-        factura.estado?.toLowerCase() === filters.estado?.toLowerCase()
+      result = result.filter(
+        (factura) =>
+          factura.estado?.toLowerCase() === filters.estado?.toLowerCase()
       );
     }
 
     if (filters.id_factura) {
-      result = result.filter(factura =>
-        factura.id_factura?.toLowerCase().includes(filters.id_factura?.toLowerCase())
+      result = result.filter((factura) =>
+        factura.id_factura
+          ?.toLowerCase()
+          .includes(filters.id_factura?.toLowerCase())
       );
     }
 
     if (filters.rfc) {
-      result = result.filter(factura =>
+      result = result.filter((factura) =>
         factura.rfc?.toLowerCase().includes(filters.rfc?.toLowerCase())
       );
     }
 
     if (filters.nombre_agente) {
-      result = result.filter(factura =>
-        factura.nombre_agente?.toLowerCase().includes(filters.nombre_agente?.toLowerCase())
+      result = result.filter((factura) =>
+        factura.nombre_agente
+          ?.toLowerCase()
+          .includes(filters.nombre_agente?.toLowerCase())
       );
     }
 
     if (filters.estatusFactura) {
-      result = result.filter(factura =>
-        factura.estado?.toLowerCase() === filters.estatusFactura?.toLowerCase()
+      result = result.filter(
+        (factura) =>
+          factura.estado?.toLowerCase() ===
+          filters.estatusFactura?.toLowerCase()
       );
     }
 
     if (filters.fecha_creacion) {
-      result = result.filter(factura => {
-        const fechaFactura = new Date(factura.created_at).toISOString().split('T')[0];
-        const fechaFiltro = new Date(filters.fecha_creacion!).toISOString().split('T')[0];
+      result = result.filter((factura) => {
+        const fechaFactura = new Date(factura.created_at)
+          .toISOString()
+          .split("T")[0];
+        const fechaFiltro = new Date(filters.fecha_creacion!)
+          .toISOString()
+          .split("T")[0];
         return fechaFactura === fechaFiltro;
       });
     }
 
     if (filters.fecha_pago) {
-      result = result.filter(factura => {
+      result = result.filter((factura) => {
         // Aquí necesitas ajustar según la propiedad correcta de fecha de pago
-        const fechaPago = factura.fecha_pago ? new Date(factura.fecha_pago).toISOString().split('T')[0] : null;
-        const fechaFiltro = new Date(filters.fecha_pago!).toISOString().split('T')[0];
+        const fechaPago = factura.fecha_pago
+          ? new Date(factura.fecha_pago).toISOString().split("T")[0]
+          : null;
+        const fechaFiltro = new Date(filters.fecha_pago!)
+          .toISOString()
+          .split("T")[0];
         return fechaPago === fechaFiltro;
       });
     }
 
     // Filtro por saldo
     if (filters.startCantidad !== undefined && filters.startCantidad !== null) {
-      result = result.filter(factura =>
-        parseFloat(factura.saldo) >= filters.startCantidad!
+      result = result.filter(
+        (factura) => parseFloat(factura.saldo) >= filters.startCantidad!
       );
     }
 
     if (filters.endCantidad !== undefined && filters.endCantidad !== null) {
-      result = result.filter(factura =>
-        parseFloat(factura.saldo) <= filters.endCantidad!
+      result = result.filter(
+        (factura) => parseFloat(factura.saldo) <= filters.endCantidad!
       );
     }
     // Filtrar por ID de agente (correcto: contra r.id_agente)
     if (filters.id_agente) {
-      result = result.filter(r => matches(r.id_agente, filters.id_agente));
+      result = result.filter((r) => matches(r.id_agente, filters.id_agente));
     }
 
     setFilteredFacturas(result);
@@ -233,69 +263,102 @@ const CuentasPorCobrar = () => {
 
   const renderers = {
     id_factura: ({ value }: { value: string }) => (
-      <span className="font-mono bg-gray-100 px-2 py-1 rounded text-sm">{value}</span>
+      <span className="font-mono bg-gray-100 px-2 py-1 rounded text-sm">
+        {value}
+      </span>
     ),
     fecha_emision: ({ value }: { value: string | Date | null }) => (
-      <div className="whitespace-nowrap text-sm text-gray-600">{formatDate(value)}</div>
+      <div className="whitespace-nowrap text-sm text-gray-600">
+        {formatDate(value)}
+      </div>
     ),
     estado: ({ value }: { value: string }) => (
-      <span className={`px-2 py-1 rounded-full text-xs ${value === 'Confirmada' ? 'bg-green-100 text-green-800' :
-        value === 'Pendiente' ? 'bg-yellow-100 text-yellow-800' :
-          'bg-gray-100 text-gray-800'
-        }`}>
+      <span
+        className={`px-2 py-1 rounded-full text-xs ${
+          value === "Confirmada"
+            ? "bg-green-100 text-green-800"
+            : value === "Pendiente"
+            ? "bg-yellow-100 text-yellow-800"
+            : "bg-gray-100 text-gray-800"
+        }`}
+      >
         {value}
       </span>
     ),
     total: ({ value }: { value: string }) => (
-      <span className="font-bold text-blue-600">${formatNumberWithCommas(parseFloat(value))}</span>
+      <span className="font-bold text-blue-600">
+        ${formatNumberWithCommas(parseFloat(value))}
+      </span>
     ),
     subtotal: ({ value }: { value: string }) => (
-      <span className="font-medium text-gray-700">${formatNumberWithCommas(parseFloat(value))}</span>
+      <span className="font-medium text-gray-700">
+        ${formatNumberWithCommas(parseFloat(value))}
+      </span>
     ),
     impuestos: ({ value }: { value: string }) => (
-      <span className="font-medium text-red-600">${formatNumberWithCommas(parseFloat(value))}</span>
+      <span className="font-medium text-red-600">
+        ${formatNumberWithCommas(parseFloat(value))}
+      </span>
     ),
     saldo: ({ value }: { value: string }) => {
       const saldoNumero = parseFloat(value);
       return (
-        <span className={`font-bold ${saldoNumero >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+        <span
+          className={`font-bold ${
+            saldoNumero >= 0 ? "text-green-600" : "text-red-600"
+          }`}
+        >
           ${formatNumberWithCommas(saldoNumero)}
         </span>
       );
     },
     created_at: ({ value }: { value: string | Date | null }) => (
-      <div className="whitespace-nowrap text-sm text-gray-600">{formatDate(value)}</div>
+      <div className="whitespace-nowrap text-sm text-gray-600">
+        {formatDate(value)}
+      </div>
     ),
     updated_at: ({ value }: { value: string | Date | null }) => (
-      <div className="whitespace-nowrap text-sm text-gray-600">{formatDate(value)}</div>
+      <div className="whitespace-nowrap text-sm text-gray-600">
+        {formatDate(value)}
+      </div>
     ),
     rfc: ({ value }: { value: string }) => (
       <span className="font-mono text-sm">{value}</span>
     ),
     uuid_factura: ({ value }: { value: string }) => (
-      <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">{value}</span>
+      <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
+        {value}
+      </span>
     ),
     rfc_emisor: ({ value }: { value: string }) => (
       <span className="font-mono text-sm">{value}</span>
     ),
-    url_pdf: ({ value }: { value: string }) => (
+    url_pdf: ({ value }: { value: string }) =>
       value ? (
-        <a href={value} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-sm">
+        <a
+          href={value}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 hover:underline text-sm"
+        >
           Ver PDF
         </a>
       ) : (
         <span className="text-gray-400 text-sm">N/A</span>
-      )
-    ),
-    url_xml: ({ value }: { value: string }) => (
+      ),
+    url_xml: ({ value }: { value: string }) =>
       value ? (
-        <a href={value} target="_blank" rel="noopener noreferrer" className="text-green-600 hover:underline text-sm">
+        <a
+          href={value}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-green-600 hover:underline text-sm"
+        >
           Ver XML
         </a>
       ) : (
         <span className="text-gray-400 text-sm">N/A</span>
-      )
-    ),
+      ),
     nombre: ({ value }: { value: string }) => (
       <span className="text-sm text-gray-800">{value}</span>
     ),
@@ -304,27 +367,29 @@ const CuentasPorCobrar = () => {
       const fechaVencimiento = new Date(value);
 
       // Verificar si la fecha es válida
-      if (isNaN(fechaVencimiento.getTime())) return 'N/A';
+      if (isNaN(fechaVencimiento.getTime())) return "N/A";
 
       // Calcular la diferencia en días
-      const diferenciaDias = Math.floor((fechaVencimiento.getTime() - today.getTime()) / (1000 * 3600 * 24));
+      const diferenciaDias = Math.floor(
+        (fechaVencimiento.getTime() - today.getTime()) / (1000 * 3600 * 24)
+      );
 
       // Mostrar la diferencia
-      let status = '';
-      let color = '';
+      let status = "";
+      let color = "";
 
       if (diferenciaDias > 0) {
         // Si está vigente
         status = `${diferenciaDias} días restantes`;
-        color = 'text-green-600';
+        color = "text-green-600";
       } else if (diferenciaDias < 0) {
         // Si está atrasada
         status = `${Math.abs(diferenciaDias)} días atrasado`;
-        color = 'text-red-600';
+        color = "text-red-600";
       } else {
         // Si está vencida hoy
-        status = 'Vencida hoy';
-        color = 'text-red-600';
+        status = "Vencida hoy";
+        color = "text-red-600";
       }
 
       return <span className={`font-medium ${color}`}>{status}</span>;
@@ -431,7 +496,9 @@ const CuentasPorCobrar = () => {
     // Filtramos las que no son deseadas
     const columnsToShow = allKeys.filter(
       (key) =>
-        !["items_asociados", "reservas_asociadas", "pagos_asociados"].includes(key)
+        !["items_asociados", "reservas_asociadas", "pagos_asociados"].includes(
+          key
+        )
     );
 
     // Si ya viene "acciones" en allKeys la quitamos para reordenarla
@@ -440,7 +507,6 @@ const CuentasPorCobrar = () => {
     // La volvemos a agregar pero al principio
     return ["acciones", "nombre", "id_cliente", ...withoutAcciones];
   }, [filteredFacturas]);
-
 
   // Definir los filtros disponibles para este componente
   const availableFilters: TypeFilters = {

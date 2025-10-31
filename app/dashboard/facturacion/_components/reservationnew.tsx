@@ -12,7 +12,9 @@ import SubirFactura from "@/app/dashboard/facturacion/subirfacturas/SubirFactura
 import { Balance } from "@/app/dashboard/facturas-pendientes/balance";
 import BalanceSummary from "@/app/dashboard/facturas-pendientes/balance";
 import { fetchPagosPrepagobalance } from "@/services/pagos";
-import { formatDate, } from "@/helpers/utils";
+import { formatDate } from "@/helpers/utils";
+import { usePermiso } from "@/hooks/usePermission";
+import { PERMISOS } from "@/constant/permisos";
 // ---------- Tipos mínimos ----------
 interface Item {
   id_item: string;
@@ -54,8 +56,6 @@ const isItemFacturable = (it: Item) => it?.id_factura == null;
 const getSelectableItemsOfReservation = (r: Reservation) =>
   (r.items ?? []).filter(isItemFacturable).map((i) => i.id_item);
 
-
-
 const hasPendingItems = (r: Reservation) =>
   (r.items ?? []).some((it) => it?.id_factura == null);
 
@@ -91,8 +91,10 @@ const LazyItemsTable = React.memo(function LazyItemsTable({
   );
 
   const fmtMoney = (s: string) =>
-    new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" })
-      .format(Number(s || "0"));
+    new Intl.NumberFormat("es-MX", {
+      style: "currency",
+      currency: "MXN",
+    }).format(Number(s || "0"));
 
   return (
     <div className="p-4 ml-8">
@@ -136,14 +138,18 @@ const LazyItemsTable = React.memo(function LazyItemsTable({
             return (
               <tr
                 key={item.id_item}
-                className={`hover:bg-gray-50 ${disabled ? "bg-gray-100 text-gray-500" : ""}`}
+                className={`hover:bg-gray-50 ${
+                  disabled ? "bg-gray-100 text-gray-500" : ""
+                }`}
               >
                 <td className="px-4 py-2 whitespace-nowrap">
                   <input
                     type="checkbox"
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     checked={checked}
-                    onChange={() => toggleItemSelection(reservationId, item.id_item)}
+                    onChange={() =>
+                      toggleItemSelection(reservationId, item.id_item)
+                    }
                     disabled={disabled}
                   />
                 </td>
@@ -179,15 +185,14 @@ const LazyItemsTable = React.memo(function LazyItemsTable({
   );
 });
 
-
 const DEFAULT_RESERVA_FILTERS: TypeFilters = {
   // texto
-  id_agente: null,         // id_cliente en la tabla (mapea a id_usuario_generador)
-  nombre_agente: null,     // cliente en la tabla (mapea a razon_social)
-  hotel: null,             // hotel
-  codigo_reservacion: null,// codigo_hotel (mapea a codigo_reservacion_hotel)
-  traveler: null,          // viajero (mapea a nombre_viajero)
-  tipo_hospedaje: null,    // opcional - tú lo mapeas si aplica
+  id_agente: null, // id_cliente en la tabla (mapea a id_usuario_generador)
+  nombre_agente: null, // cliente en la tabla (mapea a razon_social)
+  hotel: null, // hotel
+  codigo_reservacion: null, // codigo_hotel (mapea a codigo_reservacion_hotel)
+  traveler: null, // viajero (mapea a nombre_viajero)
+  tipo_hospedaje: null, // opcional - tú lo mapeas si aplica
 
   // fechas (rango) y qué fecha usar
   filterType: null,
@@ -197,14 +202,16 @@ const DEFAULT_RESERVA_FILTERS: TypeFilters = {
   // rangos numéricos útiles en columnas mostradas
   markup_start: null,
   markup_end: null,
-  startCantidad: null,     // para noches mínimas
-  endCantidad: null,       // para noches máximas
+  startCantidad: null, // para noches mínimas
+  endCantidad: null, // para noches máximas
 
   // otros campos de tu TypeFilters los dejamos fuera para no saturar el modal
 };
 
 // ---------- Componente ----------
 const ReservationsWithTable4: React.FC = () => {
+  const { hasPermission } = usePermiso();
+  hasPermission(PERMISOS.VISTAS.FACTURAS_CREDITO);
 
   //-----------helper de filtro agente------------
   // Calcula y aplica el filtro id_agente según la selección actual
@@ -216,7 +223,10 @@ const ReservationsWithTable4: React.FC = () => {
     }
 
     const agentIds = selectedReservaIds
-      .map((id) => reservations.find((r) => r.id_servicio === id)?.id_usuario_generador)
+      .map(
+        (id) =>
+          reservations.find((r) => r.id_servicio === id)?.id_usuario_generador
+      )
       .filter((v): v is string => !!v);
 
     const unique = Array.from(new Set(agentIds));
@@ -230,13 +240,17 @@ const ReservationsWithTable4: React.FC = () => {
     }
   };
 
-  const adjustItemDates = (reservation: ReservationWithItems): ReservationWithItems => {
+  const adjustItemDates = (
+    reservation: ReservationWithItems
+  ): ReservationWithItems => {
     const checkIn = new Date(reservation.check_in);
     const checkOut = new Date(reservation.check_out);
 
     const nights = Math.max(
       0,
-      Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24))
+      Math.ceil(
+        (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24)
+      )
     );
 
     const adjustedItems = (reservation.items ?? []).map((item, index) => {
@@ -251,7 +265,6 @@ const ReservationsWithTable4: React.FC = () => {
 
     return { ...reservation, items: adjustedItems };
   };
-
 
   const [filters, setFilters] = useState<TypeFilters>(DEFAULT_RESERVA_FILTERS);
   const [searchTerm, setSearchTerm] = useState<string>("");
@@ -285,7 +298,9 @@ const ReservationsWithTable4: React.FC = () => {
       setBalance(balanceObtenido);
     } catch (err) {
       console.error("Error al obtener el balance:", err);
-      setError("No se pudieron cargar los saldos de pagos. Intente nuevamente más tarde.");
+      setError(
+        "No se pudieron cargar los saldos de pagos. Intente nuevamente más tarde."
+      );
       setBalance(null);
     } finally {
       setLoading(false);
@@ -303,11 +318,11 @@ const ReservationsWithTable4: React.FC = () => {
   // }, [reservations]); // Este useEffect se ejecutará cuando las reservas cambien
 
   const formatCurrency = (value: number): string => {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: 'MXN',
+    return new Intl.NumberFormat("es-MX", {
+      style: "currency",
+      currency: "MXN",
       minimumFractionDigits: 2,
-      maximumFractionDigits: 2
+      maximumFractionDigits: 2,
     }).format(value);
   };
 
@@ -332,12 +347,14 @@ const ReservationsWithTable4: React.FC = () => {
 
   const [showAsignarModal, setShowAsignarModal] = useState(false);
   const [asignarData, setAsignarData] = useState<{
-    items: string[]; agentId: string | null; initialItemsTotal?: number; itemsJson?: string;
+    items: string[];
+    agentId: string | null;
+    initialItemsTotal?: number;
+    itemsJson?: string;
   }>({
     items: [],
     agentId: null,
   });
-
 
   //------filtrado------
   // Normaliza strings para búsqueda
@@ -346,24 +363,29 @@ const ReservationsWithTable4: React.FC = () => {
       .toString()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "") // quita acentos
-      .replace(/\s+/g, " ")            // colapsa espacios
+      .replace(/\s+/g, " ") // colapsa espacios
       .trim()
       .toUpperCase();
 
   const itemsIndex = useMemo(() => {
     const map = new Map<string, Item>();
-    reservations.forEach(res => res.items?.forEach(i => map.set(i.id_item, i)));
+    reservations.forEach((res) =>
+      res.items?.forEach((i) => map.set(i.id_item, i))
+    );
     return map;
   }, [reservations]);
-
 
   // Decide qué campo de fecha usar según filterType
   const pickDate = (r: Reservation, filterType?: TypeFilters["filterType"]) => {
     switch (filterType) {
-      case "Check-in": return r.check_in;
-      case "Check-out": return r.check_out;
-      case "Creacion": return r.created_at;
-      default: return r.check_in;
+      case "Check-in":
+        return r.check_in;
+      case "Check-out":
+        return r.check_out;
+      case "Creacion":
+        return r.created_at;
+      default:
+        return r.check_in;
     }
   };
 
@@ -416,7 +438,9 @@ const ReservationsWithTable4: React.FC = () => {
       }
 
       if (f.codigo_reservacion) {
-        if (!norm(r.codigo_reservacion_hotel).includes(norm(f.codigo_reservacion)))
+        if (
+          !norm(r.codigo_reservacion_hotel).includes(norm(f.codigo_reservacion))
+        )
           return false;
       }
 
@@ -443,19 +467,23 @@ const ReservationsWithTable4: React.FC = () => {
         0,
         Math.ceil(
           (new Date(r.check_out).getTime() - new Date(r.check_in).getTime()) /
-          (1000 * 60 * 60 * 24)
+            (1000 * 60 * 60 * 24)
         )
       );
-      if (typeof f.startCantidad === "number" && nights < f.startCantidad) return false;
-      if (typeof f.endCantidad === "number" && nights > f.endCantidad) return false;
+      if (typeof f.startCantidad === "number" && nights < f.startCantidad)
+        return false;
+      if (typeof f.endCantidad === "number" && nights > f.endCantidad)
+        return false;
 
       // ---- 5) Rango markup ----
       const costoProveedor = Number(r.costo_total || 0);
       const precioVenta = Number(r.total || 0);
       const markUp = Math.max(0, precioVenta - costoProveedor);
 
-      if (typeof f.markup_start === "number" && markUp < f.markup_start) return false;
-      if (typeof f.markup_end === "number" && markUp > f.markup_end) return false;
+      if (typeof f.markup_start === "number" && markUp < f.markup_start)
+        return false;
+      if (typeof f.markup_end === "number" && markUp > f.markup_end)
+        return false;
 
       return true;
     });
@@ -463,7 +491,9 @@ const ReservationsWithTable4: React.FC = () => {
 
   // ---- selección por RESERVA (todos los items facturables) ----
   const toggleReservationSelection = (reservationId: string) => {
-    const reservation = reservations.find((r) => r.id_servicio === reservationId);
+    const reservation = reservations.find(
+      (r) => r.id_servicio === reservationId
+    );
     if (!reservation || !reservation.items) return;
 
     const itemsFacturables = reservation.items
@@ -475,9 +505,13 @@ const ReservationsWithTable4: React.FC = () => {
       let nextSelected: SelectedMap;
       // Verifica si la selección de este usuario corresponde al mismo agente
       const agentId = reservation.id_usuario_generador;
-      const selectedAgentId = Object.keys(prev).map((resId) =>
-        reservations.find((r) => r.id_servicio === resId)?.id_usuario_generador
-      ).find((id) => id !== agentId);
+      const selectedAgentId = Object.keys(prev)
+        .map(
+          (resId) =>
+            reservations.find((r) => r.id_servicio === resId)
+              ?.id_usuario_generador
+        )
+        .find((id) => id !== agentId);
 
       if (selectedAgentId) {
         alert("No puedes seleccionar ítems de otro agente.");
@@ -502,7 +536,9 @@ const ReservationsWithTable4: React.FC = () => {
 
   // ---- selección por ITEM (no tocar si ya está facturado) ----
   const toggleItemSelection = (reservationId: string, itemId: string) => {
-    const reservation = reservations.find((r) => r.id_servicio === reservationId);
+    const reservation = reservations.find(
+      (r) => r.id_servicio === reservationId
+    );
     const item = reservation?.items?.find((i) => i.id_item === itemId);
     if (item?.id_factura != null) return; // item ya facturado
 
@@ -522,7 +558,9 @@ const ReservationsWithTable4: React.FC = () => {
   };
 
   const isReservationFullySelected = (reservationId: string) => {
-    const reservation = reservations.find((r) => r.id_servicio === reservationId);
+    const reservation = reservations.find(
+      (r) => r.id_servicio === reservationId
+    );
     if (!reservation) return false;
 
     const itemsFacturables = (reservation.items || [])
@@ -546,7 +584,10 @@ const ReservationsWithTable4: React.FC = () => {
   const getAgentIdForSelection = (): string | null => {
     const reservasSeleccionadas = Object.keys(selectedItems); // ids de reservación con al menos un item
     const agentIds = reservasSeleccionadas
-      .map((id) => reservations.find((r) => r.id_servicio === id)?.id_usuario_generador)
+      .map(
+        (id) =>
+          reservations.find((r) => r.id_servicio === id)?.id_usuario_generador
+      )
       .filter((v): v is string => !!v);
 
     // Deben pertenecer al MISMO agente para esta UX (si quieres mezclar agentes, cambia esta regla)
@@ -556,7 +597,6 @@ const ReservationsWithTable4: React.FC = () => {
 
   const handleFacturar = () => setShowFacturacionModal(true);
 
-
   const handleSubirfactura = () => setShowSubirFacModal(true);
 
   const handleAsignar = () => {
@@ -565,7 +605,9 @@ const ReservationsWithTable4: React.FC = () => {
 
     const agentId = getAgentIdForSelection();
     if (!agentId) {
-      alert("Selecciona items pertenecientes al mismo agente/cliente para asignar la factura.");
+      alert(
+        "Selecciona items pertenecientes al mismo agente/cliente para asignar la factura."
+      );
       return;
     }
 
@@ -584,20 +626,21 @@ const ReservationsWithTable4: React.FC = () => {
     const itemsJson = JSON.stringify(itemsForApi);
 
     // Suma de totales de los items seleccionados
-    const initialItemsTotal = itemsForApi.reduce((acc, it) => acc + it.total, 0);
+    const initialItemsTotal = itemsForApi.reduce(
+      (acc, it) => acc + it.total,
+      0
+    );
 
     // Ejemplo: [{"total":841,"id_item":"ite-7f5a401b-8689-45bc-8019-05b91629c912"}]
 
     setAsignarData({
-      items: ids,                 // sigues manteniendo los ids si los ocupas
+      items: ids, // sigues manteniendo los ids si los ocupas
       agentId,
       initialItemsTotal,
-      itemsJson,                  // <<< NUEVO: payload listo para enviar
+      itemsJson, // <<< NUEVO: payload listo para enviar
     });
     setShowAsignarModal(true);
   };
-
-
 
   const confirmFacturacion = async () => {
     // después de facturar desde el modal, refrescamos y limpiamos
@@ -608,12 +651,14 @@ const ReservationsWithTable4: React.FC = () => {
 
   const subirFactura = async () => {
     setShowSubirFacModal(false);
-  }
+  };
 
   // ---- filas para Table4 ----
   const rows = useMemo(() => {
     // 0) Origen: pendientes o todas
-    const base = onlyPending ? reservations.filter(hasPendingItems) : reservations;
+    const base = onlyPending
+      ? reservations.filter(hasPendingItems)
+      : reservations;
 
     // 1) Aplica filtros + search
     const filtradas = applyFiltersReservation(base, filters, searchTerm);
@@ -622,8 +667,10 @@ const ReservationsWithTable4: React.FC = () => {
     return filtradas.map((r, index) => {
       const noches = Math.max(
         0,
-        Math.ceil((new Date(r.check_out).getTime() - new Date(r.check_in).getTime()) /
-          (1000 * 60 * 60 * 24))
+        Math.ceil(
+          (new Date(r.check_out).getTime() - new Date(r.check_in).getTime()) /
+            (1000 * 60 * 60 * 24)
+        )
       );
 
       const costoProveedor = Number(r.costo_total || 0);
@@ -639,7 +686,7 @@ const ReservationsWithTable4: React.FC = () => {
 
       return {
         id: `${r.id_servicio}-${index}`, // 🔑 clave única
-        seleccionado: { ...r },          // ⚡ nuevo objeto para React
+        seleccionado: { ...r }, // ⚡ nuevo objeto para React
         id_cliente: r.id_usuario_generador,
         cliente: r.razon_social ?? "",
         creado: r.created_at,
@@ -659,9 +706,7 @@ const ReservationsWithTable4: React.FC = () => {
         },
       };
     });
-
   }, [reservations, onlyPending, filters, searchTerm]);
-
 
   // ---- renderers de columnas ----
   const renderers = {
@@ -822,10 +867,11 @@ const ReservationsWithTable4: React.FC = () => {
           <button
             onClick={() => setSelectedItems({})}
             disabled={selectedCount === 0}
-            className={`px-3 py-1.5 text-sm rounded-md border ${selectedCount === 0
-              ? "text-gray-400 border-gray-200 cursor-not-allowed"
-              : "text-gray-700 border-gray-300 hover:bg-gray-50"
-              }`}
+            className={`px-3 py-1.5 text-sm rounded-md border ${
+              selectedCount === 0
+                ? "text-gray-400 border-gray-200 cursor-not-allowed"
+                : "text-gray-700 border-gray-300 hover:bg-gray-50"
+            }`}
           >
             Deseleccionar todo
           </button>
@@ -833,10 +879,11 @@ const ReservationsWithTable4: React.FC = () => {
             type="button"
             onClick={handleFacturar}
             disabled={selectedCount === 0}
-            className={`px-4 py-1.5 text-sm rounded-md ${selectedCount === 0
-              ? "bg-blue-300 text-white cursor-not-allowed"
-              : "bg-blue-600 text-white hover:bg-blue-700"
-              }`}
+            className={`px-4 py-1.5 text-sm rounded-md ${
+              selectedCount === 0
+                ? "bg-blue-300 text-white cursor-not-allowed"
+                : "bg-blue-600 text-white hover:bg-blue-700"
+            }`}
           >
             Facturar ({selectedCount})
           </button>
@@ -844,20 +891,23 @@ const ReservationsWithTable4: React.FC = () => {
           <button
             onClick={handleAsignar}
             disabled={selectedCount === 0}
-            className={`px-4 py-1.5 text-sm rounded-md ${selectedCount === 0
-              ? "bg-emerald-300 text-white cursor-not-allowed"
-              : "bg-emerald-600 text-white hover:bg-emerald-700"
-              }`}
+            className={`px-4 py-1.5 text-sm rounded-md ${
+              selectedCount === 0
+                ? "bg-emerald-300 text-white cursor-not-allowed"
+                : "bg-emerald-600 text-white hover:bg-emerald-700"
+            }`}
             title="Asignar factura usando los items seleccionados"
-          >Asignar ({selectedCount})
+          >
+            Asignar ({selectedCount})
           </button>
           <button
             onClick={handleSubirfactura}
             disabled={selectedCount > 0}
-            className={`px-4 py-1.5 text-sm rounded-md ${selectedCount > 0
-              ? "bg-emerald-300 text-white cursor-not-allowed"
-              : "bg-emerald-600 text-white hover:bg-emerald-700"
-              }`}
+            className={`px-4 py-1.5 text-sm rounded-md ${
+              selectedCount > 0
+                ? "bg-emerald-300 text-white cursor-not-allowed"
+                : "bg-emerald-600 text-white hover:bg-emerald-700"
+            }`}
             title="Subir factura sin seleccionar items"
           >
             Subir factura
@@ -873,7 +923,6 @@ const ReservationsWithTable4: React.FC = () => {
             setShowSubirFacModal(false);
           }}
           onCloseExternal={() => setShowSubirFacModal(false)} // opcional
-
         />
       )}
       {/* Modal de facturación */}
@@ -901,7 +950,6 @@ const ReservationsWithTable4: React.FC = () => {
           onCloseExternal={() => setShowAsignarModal(false)}
         />
       )}
-
     </div>
   );
 };
