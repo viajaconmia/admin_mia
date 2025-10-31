@@ -115,7 +115,8 @@ const links = [
     icon: Receipt,
   },
   {
-    title: "Facturas pendientes cred", //
+
+    title: "Facturas pendientes credito",
     href: "/dashboard/facturacion",
     icon: BookOpen,
   },
