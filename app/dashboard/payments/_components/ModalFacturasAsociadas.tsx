@@ -59,7 +59,7 @@ const ModalFacturasAsociadas: React.FC<ModalFacturasAsociadasProps> = ({
         setLoading(true);
         setError(null);
 
-        const url = `${URL}/mia/pagos/getDetallesConexion?id_agente=${encodeURIComponent(id_agente)}&id_raw=${encodeURIComponent(raw_id)}`;
+        const url = `${URL}/mia/pagos/DetallesConexion?id_agente=${encodeURIComponent(id_agente)}&id_raw=${encodeURIComponent(raw_id)}`;
         const resp = await fetch(url, { method: 'GET', headers: HEADERS_API });
         if (!resp.ok) throw new Error(`Error ${resp.status}: ${resp.statusText}`);
 

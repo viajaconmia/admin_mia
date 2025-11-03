@@ -18,6 +18,7 @@ import {
   CreditCard,
   Calendar,
   X,
+  Eye,
   Pencil,
   Trash2,
   Wallet,
@@ -33,7 +34,7 @@ import { Loader } from "@/components/atom/Loader";
 import { API_KEY, URL } from "@/lib/constants/index";
 import { formatDate } from "@/app/dashboard/facturas-pendientes/page";
 import { PagarModalComponent } from "./pagar_saldo";
-
+import ModalDetallePago from "@/app/dashboard/payments/_components/detalles_pago";
 
 import { format } from "date-fns";
 import { es, se } from "date-fns/locale";
@@ -363,12 +364,14 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   //aqui traigo el saldo
 }) => {
   const [addPaymentModal, setAddPaymentModal] = useState(false);
+  const [detalles, setDetalles] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // const [agente, setAgente] = useState<Agente | null>(null);
   const [loading, setLoading] = useState({
     agente: true,
     pagos: true,
   });
+  const [pagoDetallado, setPagoDetallado] = useState<any>(null);
   const [localWalletAmount, setLocalWalletAmount] = useState(walletAmount);
 
   const [filters, setFilters] = useState<TypeFilters>({
@@ -1207,7 +1210,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             ult_digits: item.ult_digits || null,
             banco_tarjeta: item.banco_tarjeta || null,
             numero_autorizacion: item.numero_autorizacion || null,
-            is_cancelado:1,
+            is_cancelado: 1,
           };
 
           await updateAgentWallet();
@@ -1232,6 +1235,11 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
           );
         }
       };
+      const handleDetalles = async () => {
+        console.log(item, "pago elegido")
+        setPagoDetallado(item)
+        setDetalles(true)
+      }
 
       return (
         <div className="flex gap-2">
@@ -1269,6 +1277,13 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
               {/* Cambié el icono a DollarSign para mejor representación */}
             </button>
           )}
+          {/* ✅ Botón Detalles (nuevo estilo) */}
+          <button
+            className="p-1.5 rounded-md bg-amber-50 text-amber-600 hover:bg-amber-100 transition-colors"
+            onClick={handleDetalles}
+            title="Ver Detalles"
+          > <Eye className="w-4 h-4" />
+          </button>
 
           {/* Modal de Edición */}
           {isEditModalOpen && (
@@ -1589,7 +1604,17 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
           />
         </Modal>
       )}
+
+      {detalles && agente && (
+
+        <ModalDetallePago
+          onClose={() => setDetalles(false)}
+          pago={pagoDetallado}
+        />
+
+      )}
     </div>
+
   );
 };
 
