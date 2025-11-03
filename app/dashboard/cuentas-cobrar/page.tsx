@@ -6,6 +6,8 @@ import { formatNumberWithCommas } from "@/helpers/utils";
 import Filters from "@/components/Filters";
 import { TypeFilters } from "@/types";
 import { PagarModalComponent } from "@/components/template/pagar_saldo";
+import { usePermiso } from "@/hooks/usePermission";
+import { PERMISOS } from "@/constant/permisos";
 
 // ====== util fechas / formatos ======
 const formatDate = (dateString: string | Date | null): string => {
@@ -67,8 +69,6 @@ const CuentasPorCobrar = () => {
     });
   };
 
-  const handleClosePagarModal = () => setShowPagarModal(false);
-
   // Selección de facturas (se mantiene igual, pero se usa dentro del detalle)
   const { hasAccess } = usePermiso();
 
@@ -86,25 +86,25 @@ const CuentasPorCobrar = () => {
   };
 
   //función para asignar pagos a las facturas seleccionadas
-  const handlePagos = () => {
-    const facturasSeleccionadas = facturas.filter((factura) =>
-      selectedFacturas.has(factura.id_factura)
-    );
+  // const handlePagos = () => {
+  //   const facturasSeleccionadas = facturas.filter((factura) =>
+  //     selectedFacturas.has(factura.id_factura)
+  //   );
 
-    if (facturasSeleccionadas.length > 0) {
-      // Prepara los datos para el modal
-      const datosFacturas = facturasSeleccionadas.map((factura) => ({
-        monto: factura.total,
-        saldo: factura.saldo, // Agregar el saldo actual
-        facturaSeleccionada: factura,
-        id_agente: factura.id_agente,
-        agente: factura.nombre_agente,
-      }));
+  //   if (facturasSeleccionadas.length > 0) {
+  //     // Prepara los datos para el modal
+  //     const datosFacturas = facturasSeleccionadas.map((factura) => ({
+  //       monto: factura.total,
+  //       saldo: factura.saldo, // Agregar el saldo actual
+  //       facturaSeleccionada: factura,
+  //       id_agente: factura.id_agente,
+  //       agente: factura.nombre_agente,
+  //     }));
 
-      setFacturaData(datosFacturas); // Enviar todas las facturas al modal
-      setShowPagarModal(true); // Mostrar el modal
-    }
-  };
+  //     setFacturaData(datosFacturas); // Enviar todas las facturas al modal
+  //     setShowPagarModal(true); // Mostrar el modal
+  //   }
+  // };
 
   // Función para manejar la acción Editar
   const handleEditar = (id: string) => {
