@@ -1,22 +1,17 @@
 "use client";
-// import { useNotification } from "@/context/useNotificacion";
+
+import { WraperContainer } from "@/components/atom/WraperContainer";
+import { useAuth } from "@/context/AuthContext";
 
 export default function Dashboard() {
-  // const { showNotification } = useNotification();
-  //Aqui se pondran las cosas como de las que se ocupan de estadisticas
+  const { user } = useAuth();
   return (
     <>
-      <h1 className="mt-10">La pagina de inicio esta en proceso...</h1>
-      {/* <button
-        onClick={() => {
-          showNotification(
-            "success",
-            "mostrando el error aquiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii"
-          );
-        }}
-      >
-        mostrar noti
-      </button> */}
+      <h1>
+        seguimos en proceso pero hola {user.name}, esta es tu pagina de inicio
+      </h1>
     </>
   );
 }
+
+// const Man;

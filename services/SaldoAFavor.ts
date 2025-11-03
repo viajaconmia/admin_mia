@@ -35,6 +35,8 @@ export type Saldo = {
   is_facturable: number;
   is_descuento: number;
   comprobante: string | null;
+  is_cancelado: number;
+  notas: string | null;
   activo: number;
   numero_autorizacion: string | null;
   banco_tarjeta: string | null;

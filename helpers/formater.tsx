@@ -46,6 +46,14 @@ export function formatNumberWithCommas(
   const cleanStr = isNegative ? str.slice(1) : str;
 
   const parts = cleanStr.split(".");
+
+  // Detectar si el número es negativo
+  const isNegative = str.startsWith("-");
+
+  // Remover el signo temporalmente para formatear solo el número
+  const cleanStr = isNegative ? str.slice(1) : str;
+
+  const parts = cleanStr.split(".");
   const integerPart = parts[0];
   const decimalPart = parts.length > 1 ? parts[1] : undefined;
 
@@ -65,15 +73,13 @@ export function formatNumberWithCommas(
     .reverse()
     .join("");
 
-  // Armar el número completo
-  const formatted =
-    decimalPart !== undefined
-      ? `${formattedInteger}.${decimalPart.length == 2 ? decimalPart : `${decimalPart}0`
-      }`
-      : `${formattedInteger}.00`;
-
-  // Volver a agregar el signo negativo si era negativo
-  return isNegative ? `-${formatted}` : formatted;
+  // 3. Unir la parte entera formateada con la parte decimal (si existe)
+  if (decimalPart !== undefined) {
+    return `${formattedInteger}.${decimalPart.length == 2 ? decimalPart : `${decimalPart}0`
+      }`;
+  } else {
+    return formattedInteger + ".00";
+  }
 }
 
 export const formatDate = (dateString: string) => {

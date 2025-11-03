@@ -9,11 +9,12 @@ import { TravelerDialog } from "../_components/traveler_dialog";
 import { Factura } from "@/types/_types";
 import { fetchFacturas } from "@/services/facturas";
 import { TypeFilters } from "@/types";
+import { PERMISOS } from "@/constant/permisos";
+import { usePermiso } from "@/hooks/usePermission";
 const defaultFiltersFacturas: TypeFilters = {
   estatusFactura: "Confirmada",
   id_factura: null,
-
-}
+};
 export function TravelersPage() {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -23,6 +24,9 @@ export function TravelersPage() {
   const [sortField, setSortField] = useState(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [filteredFacturas, setFilteredFacturas] = useState<Factura[]>([]); // Nuevo estado
+  const { hasPermission } = usePermiso();
+
+  hasPermission(PERMISOS.VISTAS.FACTURAS);
 
   const handleFilter = (filters) => {
     setIsLoading(true);
@@ -35,7 +39,7 @@ export function TravelersPage() {
 
   const handleFetchFacturas = (filters) => {
     fetchFacturas(filters, (data) => {
-      console.log(data)
+      console.log(data);
       setFilteredFacturas(data || []); // Actualiza el estado con las facturas filtradas
       setIsLoading(false);
     });
@@ -44,7 +48,6 @@ export function TravelersPage() {
     handleFetchFacturas(defaultFiltersFacturas);
   }, []);
   useEffect(() => {
-
     if (isFilterActive) {
       handleFetchFacturas(defaultFiltersFacturas);
     }
@@ -64,7 +67,8 @@ export function TravelersPage() {
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
           />
-          <TravelerTable facturas={filteredFacturas} /> {/* Usa el estado filtrado */}
+          <TravelerTable facturas={filteredFacturas} />{" "}
+          {/* Usa el estado filtrado */}
         </div>
       </Card>
 

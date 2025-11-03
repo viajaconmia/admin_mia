@@ -40,7 +40,7 @@ export default function NavContainer({
     <div className="flex h-full w-full min-w-[85vw]">
       {/* Sidebar */}
       <div
-        className={`relative h-full bg-white/70 transition-all duration-300 ${
+        className={`relative h-full transition-all duration-300 ${
           isOpen || isHover ? "w-52" : "w-16"
         }`}
       >

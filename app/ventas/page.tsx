@@ -129,7 +129,7 @@ const CouponCanvas: React.FC<{ data: CouponData; currency: string }> = ({
     ctx.font = "20px Calibri";
     ctx.textAlign = "left";
     ctx.fillStyle = "#FF0000";
-    ctx.fillText("Nota:", 20, 570);
+    ctx.fillText("Nota:", 15, 520);
     ctx.fillStyle = "#002060";
     ctx.fillText("HOTEL", 20, 130);
     ctx.fillText("Dirección", 20, 190);
@@ -160,8 +160,6 @@ const CouponCanvas: React.FC<{ data: CouponData; currency: string }> = ({
     ctx.textAlign = "right";
     ctx.fillText("Precio por noche por habitación", centro, 390);
     ctx.fillText("Precio por noche por habitación", centro, 450);
-    ctx.textAlign = "center";
-    ctx.fillText(`Noktos por noche: ${noktos}`, centro, 510);
 
     ctx.textAlign = "right";
     ctx.fillStyle = "#002060";
@@ -178,7 +176,7 @@ const CouponCanvas: React.FC<{ data: CouponData; currency: string }> = ({
     ctx.textAlign = "left";
     ctx.fillStyle = "#002060";
     for (let y = 0; y < nota.length; y++) {
-      ctx.fillText(nota[y], 70, 570 + y * 25);
+      ctx.fillText(nota[y], 70, 520 + y * 25);
     }
 
     // Footer
@@ -190,16 +188,16 @@ const CouponCanvas: React.FC<{ data: CouponData; currency: string }> = ({
     ctx.fillText(
       "Tarifa no reembolsable (No aplica cambio y/o cancelaciones)",
       centro,
-      615
+      590
     );
-    ctx.fillText("Tarifa sujeto disponibilidad", centro, 645);
+    ctx.fillText("Tarifa sujeto disponibilidad", centro, 615);
 
     // Firma
     ctx.textAlign = "left";
     ctx.fillStyle = "#002060";
-    ctx.fillText("Quedo al pendiente del Vo.Bo.", 10, 690);
-    ctx.fillText("Saludos,", 10, 720);
-    ctx.fillText("Noktos", 10, 750);
+    ctx.fillText("Quedo al pendiente del Vo.Bo.", 10, 640);
+    ctx.fillText("Saludos,", 10, 660);
+    ctx.fillText("Noktos", 10, 690);
 
     // Cargar imágenes
     const img = new Image();

@@ -8,6 +8,8 @@ import { HotelesTable } from "./HotelesTable";
 import { TabsList } from "../molecule/TabList";
 import { Building2, CarTaxiFront, Plane, Shuffle } from "lucide-react";
 import { VuelosTable } from "./VuelosTable";
+import { usePermiso } from "@/hooks/usePermission";
+import { PERMISOS } from "@/constant/permisos";
 
 type TabsReservation = "hoteles" | "vuelos" | "renta autos" | "todos";
 

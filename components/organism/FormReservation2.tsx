@@ -47,10 +47,10 @@ export function ReservationForm2({
 }: ReservationFormProps) {
   let currentNoches = 0;
   let currentHotel;
-
+  console.log("raro", hotels);
   if (solicitud.check_in && solicitud.check_out) {
     currentHotel = hotels.filter(
-      (item) => item.nombre_hotel == solicitud?.hotel_reserva
+      (item) => item.id_hotel == solicitud?.id_hotel
     )[0];
     currentNoches = differenceInDays(
       parseISO(solicitud.check_out),
@@ -168,7 +168,6 @@ export function ReservationForm2({
 
   useEffect(() => {
     console.log("Edicion FORM", edicionForm, viajero);
-    setId_agente(edicionForm.metadata.id_agente || null)
   }, [form]);
 
   const handleSaldosSubmit = async (saldos, restante, usado) => {
@@ -234,9 +233,9 @@ export function ReservationForm2({
     }
   }, []);
 
-  const viajero = travelers[0]
-  console.log("viajero", viajero)
-  console.log("solicitud", travelers)
+  const viajero = travelers[0];
+  console.log("viajero", viajero);
+  console.log("solicitud", travelers);
 
   const handleData = () => {
     const data = { ...edicionForm, nuevo_incluye_desayuno, acompanantes, };
@@ -272,7 +271,7 @@ export function ReservationForm2({
   const ci = safeParse(form.check_in);
   const co = safeParse(form.check_out);
   const nights = isValid(ci) && isValid(co) ? Math.max(0, differenceInDays(co, ci)) : 0;
-
+  console.log("HERE I AM", form);
   const roomPrice = Number(
     form.hotel?.content?.tipos_cuartos?.find(
       (item) => item.nombre_tipo_cuarto === form.habitacion
@@ -874,7 +873,7 @@ export function ReservationForm2({
                       current: value.content as Viajero,
                     },
                   }));
-                  setPrecio(Number((roomPrice * nights).toFixed(2) || 0))
+
                   setForm((prev) => ({
                     ...prev,
                     viajero: value.content as Viajero,
