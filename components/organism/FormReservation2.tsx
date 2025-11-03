@@ -27,6 +27,7 @@ import {
 import { updateRoom } from "@/lib/utils";
 import Modal from "./Modal";
 import EditPrecioVenta from "./EditPrecioVenta";
+import { usePermiso } from "@/hooks/usePermission";
 
 interface ReservationFormProps {
   solicitud?: Solicitud2 & { nuevo_incluye_desayuno?: boolean | null };
@@ -41,6 +42,7 @@ export function ReservationForm2({
   onClose,
   edicion = false,
 }: ReservationFormProps) {
+  const { Can } = usePermiso();
   let currentNoches = 0;
   let currentHotel;
   console.log("raro", hotels);
@@ -213,9 +215,9 @@ export function ReservationForm2({
   };
   console.log("HERE I AM", form);
   const roomPrice = Number(
-    form.hotel.content.tipos_cuartos.find(
+    form.hotel?.content?.tipos_cuartos?.find(
       (item) => item.nombre_tipo_cuarto == form.habitacion
-    )?.precio
+    )?.precio || 0
   );
 
   // Función para calcular items basados en el costo total
@@ -1086,13 +1088,15 @@ export function ReservationForm2({
             )}
           </>
         )}
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={() => setCobrar(true)}
-        >
-          ¿Quieres modificar el precio al recomendado u otro?
-        </Button>
+        <Can permiso={"button.edit-price-booking"}>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setCobrar(true)}
+          >
+            ¿Quieres modificar el precio al recomendado u otro?
+          </Button>
+        </Can>
         <Button disabled={!!loading} type="submit">
           Actualizar datos de la reserva
         </Button>

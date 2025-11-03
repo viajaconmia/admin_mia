@@ -159,9 +159,9 @@ const TablaPagosVisualizacion = () => {
     (a, s) => a + (Number(s.monto_por_facturar) || 0),
     0
   );
-  const { hasPermission } = usePermiso();
+  const { hasAccess } = usePermiso();
 
-  hasPermission(PERMISOS.VISTAS.FACTURAS_PREPAGO);
+  hasAccess(PERMISOS.VISTAS.FACTURAS_PREPAGO);
 
   interface SortConfig {
     key: string;

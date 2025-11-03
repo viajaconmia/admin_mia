@@ -12,10 +12,10 @@ import { useSearchParams } from "wouter";
 export default function AdministracionLayout({ children }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { hasPermission } = usePermiso();
+  const { hasAccess } = usePermiso();
   let selected = pathname.split("/").filter((item) => Boolean(item))[2] || "";
 
-  hasPermission(PERMISOS.VISTAS.ADMIN);
+  hasAccess(PERMISOS.VISTAS.ADMIN);
 
   return (
     <WraperContainer>

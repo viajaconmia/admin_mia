@@ -112,9 +112,9 @@ const TablaPagosVisualizacion = () => {
     // Agrega este filtro que falta para facturas
     id_factura: "",
   });
-  const { hasPermission } = usePermiso();
+  const { hasAccess } = usePermiso();
 
-  hasPermission(PERMISOS.VISTAS.PAGOS);
+  hasAccess(PERMISOS.VISTAS.PAGOS);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<string>("all");
