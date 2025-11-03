@@ -1,441 +1,158 @@
-"use client";
+'use client';
 import { API_KEY, URL } from "@/lib/constants";
 import { Table4 } from "@/components/organism/Table4";
 import React, { useState, useEffect, useMemo } from "react";
 import { formatNumberWithCommas } from "@/helpers/utils";
 import Filters from "@/components/Filters";
 import { TypeFilters } from "@/types";
-import { PagarModalComponent } from "@/components/template/pagar_saldo"; // Import the modal
-import { usePermiso } from "@/hooks/usePermission";
-import { PERMISOS } from "@/constant/permisos";
+import { PagarModalComponent } from "@/components/template/pagar_saldo";
 
-//formato de fechas
+// ====== util fechas / formatos ======
 const formatDate = (dateString: string | Date | null): string => {
   if (!dateString || dateString === "0000-00-00") return "N/A";
-
   const date = new Date(dateString);
-
   if (isNaN(date.getTime())) return "N/A";
-
-  return date.toLocaleDateString("es-MX", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
+  return date.toLocaleDateString("es-MX", { year: "numeric", month: "2-digit", day: "2-digit" });
 };
-
 const normalize = (v: unknown) =>
   (typeof v === "string" ? v.trim().toLowerCase() : "").replace(/\s+/g, "");
-
 const matches = (field: unknown, query: unknown) => {
   const f = normalize(field);
   const q = normalize(query);
   if (!q) return true;
-  // Si parece un UUID (>=30 chars), exige igualdad exacta; si no, búsqueda parcial
   return q.length >= 30 ? f === q : f.includes(q);
 };
-
-// Trata 0, "0", "0.00", etc. como cero
-const isZeroSaldo = (s: unknown) => {
-  const n = Number(typeof s === "string" ? s.replace(/,/g, "") : s);
-  return Number.isFinite(n) && Math.abs(n) < 1e-6;
+const daysDiffFromToday = (d: string | Date | null) => {
+  if (!d) return null;
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return null;
+  const today = new Date();
+  // quitar horas para comparación por día
+  const a = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const b = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()).getTime();
+  return Math.floor((b - a) / (1000 * 3600 * 24));
 };
+const money = (n: number) => `$${formatNumberWithCommas(n || 0)}`;
 
+// =============================== Componente ===============================
 const CuentasPorCobrar = () => {
-  const [facturas, setFacturas] = useState<any[]>([]); // Guardar las facturas obtenidas
+  const [facturas, setFacturas] = useState<any[]>([]);
   const [facturaData, setFacturaData] = useState<any>(null);
-  const [filteredFacturas, setFilteredFacturas] = useState<any[]>([]); // Facturas filtradas
+  const [filteredFacturas, setFilteredFacturas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState<TypeFilters>({});
   const [showPagarModal, setShowPagarModal] = useState(false);
-  const [selectedFacturas, setSelectedFacturas] = useState<Set<string>>(
-    new Set()
-  ); // Facturas seleccionadas
+  const [selectedFacturas, setSelectedFacturas] = useState<Set<string>>(new Set());
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
-  const { hasPermission } = usePermiso();
 
-  hasPermission(PERMISOS.VISTAS.CUENTAS_POR_COBRAR);
-
-  const handleClosePagarModal = () => {
-    setShowPagarModal(false);
+  // NUEVO: control de desplegables por agente
+  const [expandedAgents, setExpandedAgents] = useState<Set<string>>(new Set());
+  const toggleAgent = (idAgente: string) => {
+    setExpandedAgents(prev => {
+      const next = new Set(prev);
+      if (next.has(idAgente)) next.delete(idAgente);
+      else next.add(idAgente);
+      return next;
+    });
   };
 
-  // Función para determinar si una fila puede ser seleccionada
-  const canSelectRow = (row: any) => {
-    const saldo = parseFloat(row.saldo);
-    const total = parseFloat(row.total);
-    return (saldo <= total || saldo === null) && row.estado !== "pagada";
-  };
+  const handleClosePagarModal = () => setShowPagarModal(false);
 
-  //función para asignar pagos a las facturas seleccionadas
-  const handlePagos = () => {
-    const facturasSeleccionadas = facturas.filter((factura) =>
-      selectedFacturas.has(factura.id_factura)
-    );
-
-    if (facturasSeleccionadas.length > 0) {
-      // Prepara los datos para el modal
-      const datosFacturas = facturasSeleccionadas.map((factura) => ({
-        monto: factura.total,
-        saldo: factura.saldo, // Agregar el saldo actual
-        facturaSeleccionada: factura,
-        id_agente: factura.id_agente,
-        agente: factura.nombre_agente,
-      }));
-
-      setFacturaData(datosFacturas); // Enviar todas las facturas al modal
-      setShowPagarModal(true); // Mostrar el modal
-    }
-  };
-
-  // Función para manejar la acción Editar
-  const handleEditar = (id: string) => {
-    console.log(`Editar factura con ID: ${id}`);
-    // Aquí puedes agregar la lógica para editar
-  };
-
-  // Función para manejar la acción Eliminar
-  const handleEliminar = (id: string) => {
-    console.log(`Eliminar factura con ID: ${id}`);
-    // Aquí puedes agregar la lógica para eliminar
-  };
-
+  // Selección de facturas (se mantiene igual, pero se usa dentro del detalle)
   const handleSelectFactura = (id: string, idAgente: string) => {
     setSelectedFacturas((prevSelected) => {
       const newSelected = new Set(prevSelected);
       const wasSelected = newSelected.has(id);
 
-      if (wasSelected) {
-        newSelected.delete(id);
-      } else {
-        newSelected.add(id);
-      }
+      if (wasSelected) newSelected.delete(id);
+      else newSelected.add(id);
 
-      // ⬇️ Si no queda ninguna, resetea agente (esto dispara el useEffect de arriba y limpia el filtro)
       if (newSelected.size === 0) {
         setSelectedAgentId(null);
         return newSelected;
       }
 
-      // Verifica mezcla de agentes con lo actualmente seleccionado
-      const seleccionadas = facturas.filter((f) =>
-        newSelected.has(f.id_factura)
-      );
-      const allSameAgent = seleccionadas.every((f) => f.id_agente === idAgente);
-
+      const seleccionadas = facturas.filter(f => newSelected.has(f.id_factura));
+      const allSameAgent = seleccionadas.every(f => f.id_agente === idAgente);
       if (!allSameAgent) {
-        // No permitir mezclar: revertimos el último toggle si fue un intento de mezclar
-        if (!wasSelected) newSelected.delete(id);
+        if (!wasSelected) newSelected.delete(id); // revertir mezcla
         return new Set(newSelected);
       }
-
-      // ⬇️ Si es la primera vez que fijamos agente, lo establecemos
-      if (!selectedAgentId) {
-        setSelectedAgentId(idAgente);
-      }
-
+      if (!selectedAgentId) setSelectedAgentId(idAgente);
       return newSelected;
     });
   };
 
   const handleDeseleccionarPagos = () => {
-    // Limpia checks
     setSelectedFacturas(new Set());
-    // Quita el “candado” de agente (tu useEffect ya pondrá filters.id_agente = null)
     setSelectedAgentId(null);
-    // Limpia datos del modal por si estaban
     setFacturaData(null);
     setShowPagarModal(false);
   };
 
-  // Función para aplicar filtros
-  const handleFilter = (newFilters: TypeFilters) => {
-    setFilters(newFilters);
-  };
+  const handleFilter = (newFilters: TypeFilters) => setFilters(newFilters);
 
-  // Aplicar filtros y búsqueda
+  // Filtros y búsqueda sobre facturas crudas (igual que antes)
   useEffect(() => {
     let result = [...facturas];
-
-    result = result.filter((factura) => !isZeroSaldo(factura.saldo));
-
-    // Aplicar búsqueda
     if (searchTerm) {
-      result = result.filter(
-        (factura) =>
-          factura.id_factura
-            ?.toLowerCase()
-            .includes(searchTerm.toLowerCase()) ||
-          factura.rfc?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          factura.nombre_agente
-            ?.toLowerCase()
-            .includes(searchTerm.toLowerCase()) ||
-          factura.uuid_factura
-            ?.toLowerCase()
-            .includes(searchTerm.toLowerCase()) ||
-          factura.id_agente?.toLowerCase().includes(searchTerm.toLowerCase())
+      const q = searchTerm.toLowerCase();
+      result = result.filter(f =>
+        f.id_factura?.toLowerCase().includes(q) ||
+        f.rfc?.toLowerCase().includes(q) ||
+        f.nombre_agente?.toLowerCase().includes(q) ||
+        f.uuid_factura?.toLowerCase().includes(q) ||
+        f.id_agente?.toLowerCase().includes(q)
       );
     }
-
-    // Aplicar filtros
     if (filters.estado) {
-      result = result.filter(
-        (factura) =>
-          factura.estado?.toLowerCase() === filters.estado?.toLowerCase()
-      );
+      result = result.filter(f => f.estado?.toLowerCase() === filters.estado?.toLowerCase());
     }
-
     if (filters.id_factura) {
-      result = result.filter((factura) =>
-        factura.id_factura
-          ?.toLowerCase()
-          .includes(filters.id_factura?.toLowerCase())
-      );
+      result = result.filter(f => f.id_factura?.toLowerCase().includes(filters.id_factura?.toLowerCase()));
     }
-
     if (filters.rfc) {
-      result = result.filter((factura) =>
-        factura.rfc?.toLowerCase().includes(filters.rfc?.toLowerCase())
-      );
+      result = result.filter(f => f.rfc?.toLowerCase().includes(filters.rfc?.toLowerCase()));
     }
-
     if (filters.nombre_agente) {
-      result = result.filter((factura) =>
-        factura.nombre_agente
-          ?.toLowerCase()
-          .includes(filters.nombre_agente?.toLowerCase())
-      );
+      result = result.filter(f => f.nombre_agente?.toLowerCase().includes(filters.nombre_agente?.toLowerCase()));
     }
-
     if (filters.estatusFactura) {
-      result = result.filter(
-        (factura) =>
-          factura.estado?.toLowerCase() ===
-          filters.estatusFactura?.toLowerCase()
-      );
+      result = result.filter(f => f.estado?.toLowerCase() === filters.estatusFactura?.toLowerCase());
     }
-
     if (filters.fecha_creacion) {
-      result = result.filter((factura) => {
-        const fechaFactura = new Date(factura.created_at)
-          .toISOString()
-          .split("T")[0];
-        const fechaFiltro = new Date(filters.fecha_creacion!)
-          .toISOString()
-          .split("T")[0];
+      result = result.filter(f => {
+        const fechaFactura = new Date(f.created_at).toISOString().split("T")[0];
+        const fechaFiltro = new Date(filters.fecha_creacion!).toISOString().split("T")[0];
         return fechaFactura === fechaFiltro;
       });
     }
-
     if (filters.fecha_pago) {
-      result = result.filter((factura) => {
-        // Aquí necesitas ajustar según la propiedad correcta de fecha de pago
-        const fechaPago = factura.fecha_pago
-          ? new Date(factura.fecha_pago).toISOString().split("T")[0]
-          : null;
-        const fechaFiltro = new Date(filters.fecha_pago!)
-          .toISOString()
-          .split("T")[0];
+      result = result.filter(f => {
+        const fechaPago = f.fecha_pago ? new Date(f.fecha_pago).toISOString().split("T")[0] : null;
+        const fechaFiltro = new Date(filters.fecha_pago!).toISOString().split("T")[0];
         return fechaPago === fechaFiltro;
       });
     }
-
-    // Filtro por saldo
     if (filters.startCantidad !== undefined && filters.startCantidad !== null) {
-      result = result.filter(
-        (factura) => parseFloat(factura.saldo) >= filters.startCantidad!
-      );
+      result = result.filter(f => parseFloat(f.saldo) >= filters.startCantidad!);
     }
-
     if (filters.endCantidad !== undefined && filters.endCantidad !== null) {
-      result = result.filter(
-        (factura) => parseFloat(factura.saldo) <= filters.endCantidad!
-      );
+      result = result.filter(f => parseFloat(f.saldo) <= filters.endCantidad!);
     }
-    // Filtrar por ID de agente (correcto: contra r.id_agente)
     if (filters.id_agente) {
-      result = result.filter((r) => matches(r.id_agente, filters.id_agente));
+      result = result.filter(r => matches(r.id_agente, filters.id_agente));
     }
-
     setFilteredFacturas(result);
   }, [facturas, searchTerm, filters]);
 
-  const renderers = {
-    id_factura: ({ value }: { value: string }) => (
-      <span className="font-mono bg-gray-100 px-2 py-1 rounded text-sm">
-        {value}
-      </span>
-    ),
-    fecha_emision: ({ value }: { value: string | Date | null }) => (
-      <div className="whitespace-nowrap text-sm text-gray-600">
-        {formatDate(value)}
-      </div>
-    ),
-    estado: ({ value }: { value: string }) => (
-      <span
-        className={`px-2 py-1 rounded-full text-xs ${
-          value === "Confirmada"
-            ? "bg-green-100 text-green-800"
-            : value === "Pendiente"
-            ? "bg-yellow-100 text-yellow-800"
-            : "bg-gray-100 text-gray-800"
-        }`}
-      >
-        {value}
-      </span>
-    ),
-    total: ({ value }: { value: string }) => (
-      <span className="font-bold text-blue-600">
-        ${formatNumberWithCommas(parseFloat(value))}
-      </span>
-    ),
-    subtotal: ({ value }: { value: string }) => (
-      <span className="font-medium text-gray-700">
-        ${formatNumberWithCommas(parseFloat(value))}
-      </span>
-    ),
-    impuestos: ({ value }: { value: string }) => (
-      <span className="font-medium text-red-600">
-        ${formatNumberWithCommas(parseFloat(value))}
-      </span>
-    ),
-    saldo: ({ value }: { value: string }) => {
-      const saldoNumero = parseFloat(value);
-      return (
-        <span
-          className={`font-bold ${
-            saldoNumero >= 0 ? "text-green-600" : "text-red-600"
-          }`}
-        >
-          ${formatNumberWithCommas(saldoNumero)}
-        </span>
-      );
-    },
-    created_at: ({ value }: { value: string | Date | null }) => (
-      <div className="whitespace-nowrap text-sm text-gray-600">
-        {formatDate(value)}
-      </div>
-    ),
-    updated_at: ({ value }: { value: string | Date | null }) => (
-      <div className="whitespace-nowrap text-sm text-gray-600">
-        {formatDate(value)}
-      </div>
-    ),
-    rfc: ({ value }: { value: string }) => (
-      <span className="font-mono text-sm">{value}</span>
-    ),
-    uuid_factura: ({ value }: { value: string }) => (
-      <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
-        {value}
-      </span>
-    ),
-    rfc_emisor: ({ value }: { value: string }) => (
-      <span className="font-mono text-sm">{value}</span>
-    ),
-    url_pdf: ({ value }: { value: string }) =>
-      value ? (
-        <a
-          href={value}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-600 hover:underline text-sm"
-        >
-          Ver PDF
-        </a>
-      ) : (
-        <span className="text-gray-400 text-sm">N/A</span>
-      ),
-    url_xml: ({ value }: { value: string }) =>
-      value ? (
-        <a
-          href={value}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-green-600 hover:underline text-sm"
-        >
-          Ver XML
-        </a>
-      ) : (
-        <span className="text-gray-400 text-sm">N/A</span>
-      ),
-    nombre: ({ value }: { value: string }) => (
-      <span className="text-sm text-gray-800">{value}</span>
-    ),
-    fecha_vencimiento: ({ value }: { value: string | Date | null }) => {
-      const today = new Date();
-      const fechaVencimiento = new Date(value);
-
-      // Verificar si la fecha es válida
-      if (isNaN(fechaVencimiento.getTime())) return "N/A";
-
-      // Calcular la diferencia en días
-      const diferenciaDias = Math.floor(
-        (fechaVencimiento.getTime() - today.getTime()) / (1000 * 3600 * 24)
-      );
-
-      // Mostrar la diferencia
-      let status = "";
-      let color = "";
-
-      if (diferenciaDias > 0) {
-        // Si está vigente
-        status = `${diferenciaDias} días restantes`;
-        color = "text-green-600";
-      } else if (diferenciaDias < 0) {
-        // Si está atrasada
-        status = `${Math.abs(diferenciaDias)} días atrasado`;
-        color = "text-red-600";
-      } else {
-        // Si está vencida hoy
-        status = "Vencida hoy";
-        color = "text-red-600";
-      }
-
-      return <span className={`font-medium ${color}`}>{status}</span>;
-    },
-
-    acciones: ({ value }: { value: { row: any } }) => {
-      const row = value.row;
-      const isChecked = selectedFacturas.has(row.id_factura);
-
-      return (
-        <div className="flex gap-2">
-          <input
-            type="checkbox"
-            checked={isChecked}
-            onChange={() => handleSelectFactura(row.id_factura, row.id_agente)}
-            className="mr-2"
-          />
-          {/* <button
-            className="bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
-            onClick={() => handleEditar(row.id_factura)}
-            disabled={disabled}
-          >
-            Editar
-          </button>
-          <button
-            className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
-            onClick={() => handleEliminar(row.id_factura)}
-            disabled={disabled}
-          >
-            Eliminar
-          </button> */}
-        </div>
-      );
-    },
-  };
-
-  // ⬇️ Agrega este useEffect junto a tus otros useEffect
+  // Auto-filtro por agente al seleccionar facturas
   useEffect(() => {
-    // Auto-ocultar por agente: si hay un agente seleccionado, filtramos por él;
-    // si no hay selección, limpiamos el filtro.
-    setFilters((prev) => ({
-      ...prev,
-      id_agente: selectedAgentId ? selectedAgentId : null,
-    }));
+    setFilters(prev => ({ ...prev, id_agente: selectedAgentId ? selectedAgentId : null }));
   }, [selectedAgentId]);
 
+  // Fetch
   useEffect(() => {
     const fetchFacturas = async () => {
       const endpoint = `${URL}/mia/factura/getfacturasPagoPendiente`;
@@ -449,66 +166,245 @@ const CuentasPorCobrar = () => {
           },
           cache: "no-store",
         });
-
         const data = await response.json();
-
         if (Array.isArray(data) && (data[0]?.error || data[1]?.error)) {
           throw new Error("Error al cargar los datos");
         }
-
         setFacturas(data);
-        setFilteredFacturas(data); // Inicialmente mostrar todos los datos
+        setFilteredFacturas(data);
       } catch (error) {
         console.log("Error al cargar los datos en facturas:", error);
       } finally {
         setLoading(false);
       }
     };
-
     fetchFacturas();
   }, []);
 
-  const rows = useMemo(() => {
-    return filteredFacturas.map((r) => {
-      return {
-        acciones: { row: r },
-        id_cliente: r.id_agente,
-        nombre: r.nombre_agente,
-        id_factura: r.id_factura,
-        fecha_emision: r.fecha_emision,
-        estado: r.estado,
-        usuario_creador: r.usuario_creador,
-        total: r.total,
-        saldo: r.saldo,
-        created_at: r.created_at,
-        updated_at: r.updated_at,
-        fecha_vencimiento: r.fecha_vencimiento,
+  // ============ AGRUPACIÓN POR AGENTE + SUMAS ============
+  type GrupoAgente = {
+    id_agente: string;
+    nombre_agente: string;
+    total_sum: number;
+    saldo_sum: number;
+    pendiente_sum: number; // saldo con fecha no vencida (>= 0 días)
+    atrasado_sum: number;  // saldo con fecha vencida  (< 0 días)
+    facturas: any[];
+  };
+
+  const grupos = useMemo<GrupoAgente[]>(() => {
+    const map = new Map<string, GrupoAgente>();
+    for (const f of filteredFacturas) {
+      const id = f.id_agente || "SIN_AGENTE";
+      const g = map.get(id) ?? {
+        id_agente: id,
+        nombre_agente: f.nombre_agente || "Sin nombre",
+        total_sum: 0,
+        saldo_sum: 0,
+        pendiente_sum: 0,
+        atrasado_sum: 0,
+        facturas: [],
       };
-    });
-  }, [filteredFacturas]);
 
-  // Columnas basadas en los datos que realmente llegan - MOVIDO AQUÍ
-  const availableColumns = useMemo(() => {
-    if (filteredFacturas.length === 0) return [];
+      const total = parseFloat(f.total ?? 0) || 0;
+      const saldo = parseFloat(f.saldo ?? 0);
+      const diff = daysDiffFromToday(f.fecha_vencimiento);
+      const isVencida = diff !== null ? diff < 0 : false;
 
-    // Tomamos todas las keys del primer objeto
-    const allKeys = Object.keys(filteredFacturas[0]);
-    // Filtramos las que no son deseadas
-    const columnsToShow = allKeys.filter(
-      (key) =>
-        !["items_asociados", "reservas_asociadas", "pagos_asociados"].includes(
-          key
-        )
+      g.total_sum += total;
+      g.saldo_sum += isFinite(saldo) ? saldo : 0;
+      if (isFinite(saldo)) {
+        if (isVencida) g.atrasado_sum += saldo;
+        else g.pendiente_sum += saldo;
+      }
+      g.facturas.push(f);
+      map.set(id, g);
+    }
+    // sort opcional por nombre de agente
+    return Array.from(map.values()).sort((a, b) =>
+      (a.nombre_agente || "").localeCompare(b.nombre_agente || "")
     );
-
-    // Si ya viene "acciones" en allKeys la quitamos para reordenarla
-    const withoutAcciones = columnsToShow.filter((key) => key !== "acciones");
-
-    // La volvemos a agregar pero al principio
-    return ["acciones", "nombre", "id_cliente", ...withoutAcciones];
   }, [filteredFacturas]);
 
-  // Definir los filtros disponibles para este componente
+  // ============ RENDERERS ============
+  const renderers = {
+    nombre_agente: ({ value }: { value: string }) => (
+      <span className="text-sm text-gray-800">{value}</span>
+    ),
+    id_agente: ({ value }: { value: string }) => (
+      <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">{value}</span>
+    ),
+    total_sum: ({ value }: { value: number }) => <span className="font-bold text-blue-600">{money(value)}</span>,
+    saldo_sum: ({ value }: { value: number }) => (
+      <span className={`font-bold ${value >= 0 ? "text-green-600" : "text-red-600"}`}>{money(value)}</span>
+    ),
+    pendiente_sum: ({ value }: { value: number }) => (
+      <span className="font-semibold text-amber-700">{money(value)}</span>
+    ),
+    atrasado_sum: ({ value }: { value: number }) => (
+      <span className="font-semibold text-red-600">{money(value)}</span>
+    ),
+    // NUEVO: columna con botón para desplegar detalle por agente
+    detalles: ({ value }: { value: { grupo: GrupoAgente } }) => {
+      const { grupo } = value;
+      const abierto = expandedAgents.has(grupo.id_agente);
+      return (
+        <div className="space-y-2">
+          <button
+            className="text-sm px-3 py-1 rounded bg-gray-100 hover:bg-gray-200"
+            onClick={() => toggleAgent(grupo.id_agente)}
+          >
+            {abierto ? "Ocultar facturas" : "Ver facturas"}
+          </button>
+
+          {abierto && (
+            <div className="rounded-lg border border-gray-200">
+              <table className="min-w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr className="text-left">
+                    <th className="px-3 py-2">Sel</th>
+                    <th className="px-3 py-2">ID Factura</th>
+                    <th className="px-3 py-2">Emisión</th>
+                    <th className="px-3 py-2">Estado</th>
+                    <th className="px-3 py-2">Total</th>
+                    <th className="px-3 py-2">Saldo</th>
+                    <th className="px-3 py-2">Vencimiento</th>
+                    <th className="px-3 py-2">PDF</th>
+                    <th className="px-3 py-2">XML</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {grupo.facturas.map((r) => {
+                    const isChecked = selectedFacturas.has(r.id_factura);
+                    const saldoNum = parseFloat(r.saldo ?? 0) || 0;
+                    const diff = daysDiffFromToday(r.fecha_vencimiento);
+                    const vencTxt =
+                      diff === null
+                        ? "N/A"
+                        : diff > 0
+                          ? `${diff} días restantes`
+                          : diff < 0
+                            ? `${Math.abs(diff)} días atrasado`
+                            : "Vence hoy";
+                    const vencColor =
+                      diff === null ? "text-gray-500" : diff < 0 ? "text-red-600" : "text-green-600";
+
+                    return (
+                      <tr key={r.id_factura} className="border-t">
+                        <td className="px-3 py-2">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => handleSelectFactura(r.id_factura, r.id_agente)}
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className="font-mono bg-gray-100 px-2 py-1 rounded text-xs">{r.id_factura}</span>
+                        </td>
+                        <td className="px-3 py-2 text-gray-600">{formatDate(r.fecha_emision)}</td>
+                        <td className="px-3 py-2">
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs ${r.estado === "Confirmada"
+                              ? "bg-green-100 text-green-800"
+                              : r.estado === "Pendiente"
+                                ? "bg-yellow-100 text-yellow-800"
+                                : "bg-gray-100 text-gray-800"
+                              }`}
+                          >
+                            {r.estado}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 font-bold text-blue-600">{money(parseFloat(r.total ?? 0) || 0)}</td>
+                        <td
+                          className={`px-3 py-2 font-bold ${saldoNum >= 0 ? "text-green-600" : "text-red-600"
+                            }`}
+                        >
+                          {money(saldoNum)}
+                        </td>
+                        <td className={`px-3 py-2 font-medium ${vencColor}`}>{vencTxt}</td>
+                        <td className="px-3 py-2">
+                          {r.url_pdf ? (
+                            <a
+                              href={r.url_pdf}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:underline"
+                            >
+                              Ver PDF
+                            </a>
+                          ) : (
+                            <span className="text-gray-400">N/A</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2">
+                          {r.url_xml ? (
+                            <a
+                              href={r.url_xml}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-green-600 hover:underline"
+                            >
+                              Ver XML
+                            </a>
+                          ) : (
+                            <span className="text-gray-400">N/A</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      );
+    },
+  };
+
+  // ====== filas para Table4 AHORA SON RESÚMENES POR AGENTE ======
+  const rows = useMemo(() => {
+    return grupos.map((g) => ({
+      detalles: { grupo: g },           // renderer "detalles" muestra el desplegable
+      nombre_agente: g.nombre_agente,
+      id_agente: g.id_agente,
+      total_sum: g.total_sum,
+      saldo_sum: g.saldo_sum,
+      pendiente_sum: g.pendiente_sum,
+      atrasado_sum: g.atrasado_sum,
+    }));
+  }, [grupos, expandedAgents, selectedFacturas]);
+
+  // Columnas del resumen por agente
+  const availableColumns = useMemo(() => {
+    return [
+      "detalles",
+      "nombre_agente",
+      "id_agente",
+      "total_sum",
+      "saldo_sum",
+      "pendiente_sum",
+      "atrasado_sum",
+    ];
+  }, []);
+
+  // Botón "Asignar pago": usa las facturas seleccionadas
+  const handlePagos = () => {
+    const facturasSeleccionadas = facturas.filter(f => selectedFacturas.has(f.id_factura));
+    if (facturasSeleccionadas.length > 0) {
+      const datosFacturas = facturasSeleccionadas.map(f => ({
+        monto: f.total,
+        saldo: f.saldo,
+        facturaSeleccionada: f,
+        id_agente: f.id_agente,
+        agente: f.nombre_agente,
+      }));
+      setFacturaData(datosFacturas);
+      setShowPagarModal(true);
+    }
+  };
+
+  // Filtros disponibles (igual que antes)
   const availableFilters: TypeFilters = {
     id_factura: null,
     estado: null,
@@ -522,10 +418,7 @@ const CuentasPorCobrar = () => {
     id_agente: null,
   };
 
-  // MOVER EL CONDICIONAL DE LOADING HASTA EL FINAL
-  if (loading) {
-    return <h1>Cargando...</h1>;
-  }
+  if (loading) return <h1>Cargando...</h1>;
 
   return (
     <div className="space-y-4">
@@ -536,14 +429,10 @@ const CuentasPorCobrar = () => {
         defaultFilters={availableFilters}
       />
 
-      <Table4
-        registros={rows}
-        renderers={renderers}
-        customColumns={availableColumns}
-      >
+      <Table4 registros={rows} renderers={renderers} customColumns={availableColumns}>
         <button
           className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
-          onClick={handlePagos} // Sin argumentos
+          onClick={handlePagos}
           disabled={selectedFacturas.size === 0}
         >
           Asignar Pago
@@ -559,8 +448,8 @@ const CuentasPorCobrar = () => {
 
       {showPagarModal && facturaData && (
         <PagarModalComponent
-          onClose={handleClosePagarModal}
-          facturaData={facturaData} // Enviar los datos de la factura al modal
+          onClose={() => setShowPagarModal(false)}
+          facturaData={facturaData}
           open={showPagarModal}
         />
       )}
