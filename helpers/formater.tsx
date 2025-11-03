@@ -46,14 +46,6 @@ export function formatNumberWithCommas(
   const cleanStr = isNegative ? str.slice(1) : str;
 
   const parts = cleanStr.split(".");
-
-  // Detectar si el número es negativo
-  const isNegative = str.startsWith("-");
-
-  // Remover el signo temporalmente para formatear solo el número
-  const cleanStr = isNegative ? str.slice(1) : str;
-
-  const parts = cleanStr.split(".");
   const integerPart = parts[0];
   const decimalPart = parts.length > 1 ? parts[1] : undefined;
 

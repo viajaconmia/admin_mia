@@ -71,6 +71,7 @@ export function ReservationForm2({
   const [id_agente, setId_agente] = useState<string | null>(null)
   const [reservaData, setReservaData] = useState<any>(null)
   const [precio, setPrecio] = useState<number>(0)
+
   const [open, setOpen] = useState<boolean>(false);
   const [pagoSeleccion, setPagoSeleccion] = useState<any>(null);
   const [form, setForm] = useState<ReservaForm>({
@@ -1049,7 +1050,7 @@ export function ReservationForm2({
                       acc[tax.name] = tax.total;
                       return acc;
                     }, {}),
-                    // costo_impuestos: item.costo.impuestos,
+                    // costo_impuestos: item.costo.impuestos, 
                     costo_subtotal: item.costo.subtotal,
                     costo: item.costo.total,
                     venta: item.venta.total,
