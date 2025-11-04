@@ -32,7 +32,7 @@ const daysDiffFromToday = (d: string | Date | null) => {
   const b = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()).getTime();
   return Math.floor((b - a) / (1000 * 3600 * 24));
 };
-const money = (n: number) => `$${formatNumberWithCommas(n || 0)}`;
+const money = (n: number) => `$${formatNumberWithCommas(Number(n || 0).toFixed(2))}`;
 
 // =============================== Componente ===============================
 const CuentasPorCobrar = () => {
@@ -180,6 +180,8 @@ const CuentasPorCobrar = () => {
     };
     fetchFacturas();
   }, []);
+
+  console.log(facturas)
 
   // ============ AGRUPACIÓN POR AGENTE + SUMAS ============
   type GrupoAgente = {
