@@ -7,7 +7,7 @@ import { Loader } from "@/components/atom/Loader";
 // Versión de Feather Icons (similares a Lucide)
 import { Eye, FileText, FilePlus, X, ShoppingCart } from "lucide-react";
 import { format } from "date-fns";
-import { fetchPagosPrepago, fetchPagosPrepagobalance } from "@/services/pagos";
+import {fetchPagosPrepagobalance } from "@/services/pagos";
 import { Banknote, FileCheck } from "lucide-react";
 import { es, se } from "date-fns/locale";
 import ModalDetallePago from "@/app/dashboard/payments/_components/detalles_pago";
@@ -159,9 +159,9 @@ const TablaPagosVisualizacion = () => {
     (a, s) => a + (Number(s.monto_por_facturar) || 0),
     0
   );
-  const { hasPermission } = usePermiso();
+  const { hasAccess } = usePermiso();
 
-  hasPermission(PERMISOS.VISTAS.FACTURAS_PREPAGO);
+  hasAccess(PERMISOS.VISTAS.FACTURAS_PREPAGO);
 
   interface SortConfig {
     key: string;
@@ -241,9 +241,9 @@ const TablaPagosVisualizacion = () => {
   const obtenerPagos = async () => {
     try {
       setLoading(true);
-      const data = await fetchPagosPrepago();
+      const data = await fetchPagosPrepagobalance();
       // Normalizar todos los datos para que cumplan con interface Pago
-      const pagosMapeados: Pago[] = data.map((pago: any) => ({
+      const pagosMapeados: Pago[] = data.respuesta.map((pago: any) => ({
         id_movimiento: Number(
           pago.id_movimiento ?? pago.id ?? pago.id_pago ?? 0
         ),
@@ -319,6 +319,7 @@ const TablaPagosVisualizacion = () => {
         total_reservas_confirmadas: response.total_reservas_confirmadas || "3",
       };
       setBalance(balanceObtenido);
+      console.log(response,"balnacecedonp")
     } catch (err) {
       console.error("Error al obtener el balance:", err);
       setError(

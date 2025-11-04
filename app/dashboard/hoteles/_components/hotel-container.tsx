@@ -48,9 +48,9 @@ export function HotelContainer() {
   const itemsPerPage = 20;
   const [sortField, setSortField] = useState(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
-  const { hasPermission } = usePermiso();
+  const { hasAccess } = usePermiso();
 
-  hasPermission(PERMISOS.VISTAS.HOTELES);
+  hasAccess(PERMISOS.VISTAS.HOTELES);
 
   const handleFilter = (filters) => {
     setIsLoading(true);

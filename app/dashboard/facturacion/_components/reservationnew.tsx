@@ -210,8 +210,8 @@ const DEFAULT_RESERVA_FILTERS: TypeFilters = {
 
 // ---------- Componente ----------
 const ReservationsWithTable4: React.FC = () => {
-  const { hasPermission } = usePermiso();
-  hasPermission(PERMISOS.VISTAS.FACTURAS_CREDITO);
+  const { hasAccess } = usePermiso();
+  hasAccess(PERMISOS.VISTAS.FACTURAS_CREDITO);
 
   //-----------helper de filtro agente------------
   // Calcula y aplica el filtro id_agente según la selección actual

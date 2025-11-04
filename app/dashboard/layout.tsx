@@ -110,7 +110,7 @@ const links = [
     icon: Receipt,
   },
   {
-    title: "Facturas Pendientes", //
+    title: "Facturas Pendientes Prepago", //
     href: "/dashboard/facturas-pendientes",
     icon: Receipt,
   },

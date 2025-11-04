@@ -86,9 +86,9 @@ function App() {
   const [filters, setFilters] = useState<TypeFilters>(
     defaultFiltersSolicitudes
   );
-  const { hasPermission } = usePermiso();
+  const { hasAccess } = usePermiso();
 
-  hasPermission(PERMISOS.VISTAS.SOLICITUDES);
+  hasAccess(PERMISOS.VISTAS.SOLICITUDES);
 
   const handleFetchSolicitudes = () => {
     setLoading(true);

@@ -18,6 +18,7 @@ import {
   CreditCard,
   Calendar,
   X,
+  Eye,
   Pencil,
   Trash2,
   Wallet,
@@ -33,7 +34,7 @@ import { Loader } from "@/components/atom/Loader";
 import { API_KEY, URL } from "@/lib/constants/index";
 import { formatDate } from "@/app/dashboard/facturas-pendientes/page";
 import { PagarModalComponent } from "./pagar_saldo";
-
+import ModalDetallePago from "@/app/dashboard/payments/_components/detalles_pago";
 
 import { format } from "date-fns";
 import { es, se } from "date-fns/locale";
@@ -363,12 +364,14 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   //aqui traigo el saldo
 }) => {
   const [addPaymentModal, setAddPaymentModal] = useState(false);
+  const [detalles, setDetalles] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // const [agente, setAgente] = useState<Agente | null>(null);
   const [loading, setLoading] = useState({
     agente: true,
     pagos: true,
   });
+  const [pagoDetallado, setPagoDetallado] = useState<any>(null);
   const [localWalletAmount, setLocalWalletAmount] = useState(walletAmount);
 
   const [filters, setFilters] = useState<TypeFilters>({
@@ -634,6 +637,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       comentario: saldo.notas || saldo.comentario || null,
       facturable: saldo.is_facturable ? "Si" : "No",
       comprobante: saldo.comprobante || null,
+      is_cancelado: saldo.is_cancelado,
       acciones: { row: saldo },
       item: saldo,
     }));
@@ -1199,7 +1203,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             is_descuento: item.is_descuento,
             link_stripe: item.link_stripe || null,
             tipo_tarjeta: item.tipo_tarjeta,
-            activo: false, // Cambiamos a 0 para desactivar
             comentario: item.comentario || null,
             comprobante: item.comprobante,
             currency: item.currency || "MXN",
@@ -1232,6 +1235,11 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
           );
         }
       };
+      const handleDetalles = async () => {
+        console.log(item, "pago elegido")
+        setPagoDetallado(item)
+        setDetalles(true)
+      }
 
       return (
         <div className="flex gap-2">
@@ -1269,6 +1277,13 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
               {/* Cambié el icono a DollarSign para mejor representación */}
             </button>
           )}
+          {/* ✅ Botón Detalles (nuevo estilo) */}
+          <button
+            className="p-1.5 rounded-md bg-amber-50 text-amber-600 hover:bg-amber-100 transition-colors"
+            onClick={handleDetalles}
+            title="Ver Detalles"
+          > <Eye className="w-4 h-4" />
+          </button>
 
           {/* Modal de Edición */}
           {isEditModalOpen && (
@@ -1490,7 +1505,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   }
 
   return (
-    <div className="h-full">
+    <div>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
         {/* Resumen de saldo */}
         <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1589,7 +1604,17 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
           />
         </Modal>
       )}
+
+      {detalles && agente && (
+
+        <ModalDetallePago
+          onClose={() => setDetalles(false)}
+          pago={pagoDetallado}
+        />
+
+      )}
     </div>
+
   );
 };
 
