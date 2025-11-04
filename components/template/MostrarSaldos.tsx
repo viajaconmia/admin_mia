@@ -34,6 +34,7 @@ export const MostrarSaldos: React.FC<PagarModalProps> = ({
 
   const fetchSaldos = async () => {
     try {
+      if (precio == 0) return;
       if (!agente.id_agente) {
         throw new Error("ID de agente no disponible");
       }
@@ -92,10 +93,16 @@ export const MostrarSaldos: React.FC<PagarModalProps> = ({
     saldosFavor.reduce((previus, current) => previus + Number(current.saldo), 0)
   );
 
-  if (precio <= 0)
+  if (precio == 0)
     return (
-      <div className="w-60 h-28">
-        <h1>El precio debe tener un valor o ser mayor a 0</h1>
+      <div className="w-fit space-y-4">
+        <BalanceCard
+          saldoAFavor={total_saldos}
+          precioAPagar={precio}
+          loading={loading}
+          totalSeleccionado={0}
+          onConfirm={() => onSubmit([], faltante, true)}
+        ></BalanceCard>
       </div>
     );
 
