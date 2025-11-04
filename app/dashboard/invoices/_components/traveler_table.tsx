@@ -337,6 +337,7 @@ export function TravelerTable({ facturas }: { facturas: Factura[] }) {
           <TableHead>Fecha de Emisión</TableHead>
           <TableHead>Método de Pago</TableHead>
           <TableHead>Pregada</TableHead>
+          <TableHead>Origen</TableHead>
           <TableHead className="text-right">Acciones</TableHead>
 
         </TableRow>
@@ -365,6 +366,8 @@ export function TravelerTable({ facturas }: { facturas: Factura[] }) {
               </TableCell>
               <TableCell>{factura.metodo_de_pago || 'N/A'}</TableCell>
               <TableCell>{factura.is_prepagada === 1 ? 'Sí' : 'No'}</TableCell>
+              <TableCell>{factura.origen === 1 ? 'Cliente' : 'Operaciones'}</TableCell>
+
               <TableCell className="text-right">
                 <div className="flex justify-end gap-2">
                   <DropdownMenu>
