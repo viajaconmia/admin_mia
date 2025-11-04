@@ -56,9 +56,9 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
   const [filters, setFilters] = useState<TypeFilters>(
     defaultFiltersSolicitudes
   );
-  const { hasPermission } = usePermiso();
+  const { hasAccess, Can } = usePermiso();
 
-  hasPermission(PERMISOS.VISTAS.RESERVAS);
+  hasAccess(PERMISOS.VISTAS.RESERVAS);
 
   const handleEdit = (item: Solicitud2) => {
     setSelectedItem(item);
@@ -232,13 +232,15 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
     ),
 
     editar: ({ item }) => (
-      <button
-        onClick={() => handleEdit(item)}
-        className="text-blue-600 hover:text-blue-900 transition duration-150 ease-in-out flex gap-2 items-center"
-      >
-        <Pencil className="w-4 h-4" />
-        Editar
-      </button>
+      <Can permiso="button.edit-booking">
+        <button
+          onClick={() => handleEdit(item)}
+          className="text-blue-600 hover:text-blue-900 transition duration-150 ease-in-out flex gap-2 items-center"
+        >
+          <Pencil className="w-4 h-4" />
+          Editar
+        </button>
+      </Can>
     ),
     pagar: ({ item }) =>
       item.status_reserva === "Confirmada" ? (
@@ -340,6 +342,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
                 "etapa_reservacion",
                 "estado",
                 "detalles_cliente",
+                "editar",
                 "pagar",
               ]}
             >

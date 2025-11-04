@@ -1,4 +1,4 @@
-'use client';
+"use client";
 import { API_KEY, URL } from "@/lib/constants";
 import { Table4 } from "@/components/organism/Table4";
 import React, { useState, useEffect, useMemo } from "react";
@@ -6,13 +6,19 @@ import { formatNumberWithCommas } from "@/helpers/utils";
 import Filters from "@/components/Filters";
 import { TypeFilters } from "@/types";
 import { PagarModalComponent } from "@/components/template/pagar_saldo";
+import { usePermiso } from "@/hooks/usePermission";
+import { PERMISOS } from "@/constant/permisos";
 
 // ====== util fechas / formatos ======
 const formatDate = (dateString: string | Date | null): string => {
   if (!dateString || dateString === "0000-00-00") return "N/A";
   const date = new Date(dateString);
   if (isNaN(date.getTime())) return "N/A";
-  return date.toLocaleDateString("es-MX", { year: "numeric", month: "2-digit", day: "2-digit" });
+  return date.toLocaleDateString("es-MX", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
 };
 const normalize = (v: unknown) =>
   (typeof v === "string" ? v.trim().toLowerCase() : "").replace(/\s+/g, "");
@@ -28,7 +34,11 @@ const daysDiffFromToday = (d: string | Date | null) => {
   if (isNaN(dt.getTime())) return null;
   const today = new Date();
   // quitar horas para comparación por día
-  const a = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const a = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate()
+  ).getTime();
   const b = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()).getTime();
   return Math.floor((b - a) / (1000 * 3600 * 24));
 };
@@ -43,13 +53,15 @@ const CuentasPorCobrar = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState<TypeFilters>({});
   const [showPagarModal, setShowPagarModal] = useState(false);
-  const [selectedFacturas, setSelectedFacturas] = useState<Set<string>>(new Set());
+  const [selectedFacturas, setSelectedFacturas] = useState<Set<string>>(
+    new Set()
+  );
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
 
   // NUEVO: control de desplegables por agente
   const [expandedAgents, setExpandedAgents] = useState<Set<string>>(new Set());
   const toggleAgent = (idAgente: string) => {
-    setExpandedAgents(prev => {
+    setExpandedAgents((prev) => {
       const next = new Set(prev);
       if (next.has(idAgente)) next.delete(idAgente);
       else next.add(idAgente);
@@ -57,9 +69,55 @@ const CuentasPorCobrar = () => {
     });
   };
 
-  const handleClosePagarModal = () => setShowPagarModal(false);
-
   // Selección de facturas (se mantiene igual, pero se usa dentro del detalle)
+  const { hasAccess } = usePermiso();
+
+  hasAccess(PERMISOS.VISTAS.CUENTAS_POR_COBRAR);
+
+  const handleClosePagarModal = () => {
+    setShowPagarModal(false);
+  };
+
+  // Función para determinar si una fila puede ser seleccionada
+  const canSelectRow = (row: any) => {
+    const saldo = parseFloat(row.saldo);
+    const total = parseFloat(row.total);
+    return (saldo <= total || saldo === null) && row.estado !== "pagada";
+  };
+
+  //función para asignar pagos a las facturas seleccionadas
+  // const handlePagos = () => {
+  //   const facturasSeleccionadas = facturas.filter((factura) =>
+  //     selectedFacturas.has(factura.id_factura)
+  //   );
+
+  //   if (facturasSeleccionadas.length > 0) {
+  //     // Prepara los datos para el modal
+  //     const datosFacturas = facturasSeleccionadas.map((factura) => ({
+  //       monto: factura.total,
+  //       saldo: factura.saldo, // Agregar el saldo actual
+  //       facturaSeleccionada: factura,
+  //       id_agente: factura.id_agente,
+  //       agente: factura.nombre_agente,
+  //     }));
+
+  //     setFacturaData(datosFacturas); // Enviar todas las facturas al modal
+  //     setShowPagarModal(true); // Mostrar el modal
+  //   }
+  // };
+
+  // Función para manejar la acción Editar
+  const handleEditar = (id: string) => {
+    console.log(`Editar factura con ID: ${id}`);
+    // Aquí puedes agregar la lógica para editar
+  };
+
+  // Función para manejar la acción Eliminar
+  const handleEliminar = (id: string) => {
+    console.log(`Eliminar factura con ID: ${id}`);
+    // Aquí puedes agregar la lógica para eliminar
+  };
+
   const handleSelectFactura = (id: string, idAgente: string) => {
     setSelectedFacturas((prevSelected) => {
       const newSelected = new Set(prevSelected);
@@ -73,8 +131,10 @@ const CuentasPorCobrar = () => {
         return newSelected;
       }
 
-      const seleccionadas = facturas.filter(f => newSelected.has(f.id_factura));
-      const allSameAgent = seleccionadas.every(f => f.id_agente === idAgente);
+      const seleccionadas = facturas.filter((f) =>
+        newSelected.has(f.id_factura)
+      );
+      const allSameAgent = seleccionadas.every((f) => f.id_agente === idAgente);
       if (!allSameAgent) {
         if (!wasSelected) newSelected.delete(id); // revertir mezcla
         return new Set(newSelected);
@@ -98,58 +158,84 @@ const CuentasPorCobrar = () => {
     let result = [...facturas];
     if (searchTerm) {
       const q = searchTerm.toLowerCase();
-      result = result.filter(f =>
-        f.id_factura?.toLowerCase().includes(q) ||
-        f.rfc?.toLowerCase().includes(q) ||
-        f.nombre_agente?.toLowerCase().includes(q) ||
-        f.uuid_factura?.toLowerCase().includes(q) ||
-        f.id_agente?.toLowerCase().includes(q)
+      result = result.filter(
+        (f) =>
+          f.id_factura?.toLowerCase().includes(q) ||
+          f.rfc?.toLowerCase().includes(q) ||
+          f.nombre_agente?.toLowerCase().includes(q) ||
+          f.uuid_factura?.toLowerCase().includes(q) ||
+          f.id_agente?.toLowerCase().includes(q)
       );
     }
     if (filters.estado) {
-      result = result.filter(f => f.estado?.toLowerCase() === filters.estado?.toLowerCase());
+      result = result.filter(
+        (f) => f.estado?.toLowerCase() === filters.estado?.toLowerCase()
+      );
     }
     if (filters.id_factura) {
-      result = result.filter(f => f.id_factura?.toLowerCase().includes(filters.id_factura?.toLowerCase()));
+      result = result.filter((f) =>
+        f.id_factura?.toLowerCase().includes(filters.id_factura?.toLowerCase())
+      );
     }
     if (filters.rfc) {
-      result = result.filter(f => f.rfc?.toLowerCase().includes(filters.rfc?.toLowerCase()));
+      result = result.filter((f) =>
+        f.rfc?.toLowerCase().includes(filters.rfc?.toLowerCase())
+      );
     }
     if (filters.nombre_agente) {
-      result = result.filter(f => f.nombre_agente?.toLowerCase().includes(filters.nombre_agente?.toLowerCase()));
+      result = result.filter((f) =>
+        f.nombre_agente
+          ?.toLowerCase()
+          .includes(filters.nombre_agente?.toLowerCase())
+      );
     }
     if (filters.estatusFactura) {
-      result = result.filter(f => f.estado?.toLowerCase() === filters.estatusFactura?.toLowerCase());
+      result = result.filter(
+        (f) => f.estado?.toLowerCase() === filters.estatusFactura?.toLowerCase()
+      );
     }
     if (filters.fecha_creacion) {
-      result = result.filter(f => {
+      result = result.filter((f) => {
         const fechaFactura = new Date(f.created_at).toISOString().split("T")[0];
-        const fechaFiltro = new Date(filters.fecha_creacion!).toISOString().split("T")[0];
+        const fechaFiltro = new Date(filters.fecha_creacion!)
+          .toISOString()
+          .split("T")[0];
         return fechaFactura === fechaFiltro;
       });
     }
     if (filters.fecha_pago) {
-      result = result.filter(f => {
-        const fechaPago = f.fecha_pago ? new Date(f.fecha_pago).toISOString().split("T")[0] : null;
-        const fechaFiltro = new Date(filters.fecha_pago!).toISOString().split("T")[0];
+      result = result.filter((f) => {
+        const fechaPago = f.fecha_pago
+          ? new Date(f.fecha_pago).toISOString().split("T")[0]
+          : null;
+        const fechaFiltro = new Date(filters.fecha_pago!)
+          .toISOString()
+          .split("T")[0];
         return fechaPago === fechaFiltro;
       });
     }
     if (filters.startCantidad !== undefined && filters.startCantidad !== null) {
-      result = result.filter(f => parseFloat(f.saldo) >= filters.startCantidad!);
+      result = result.filter(
+        (f) => parseFloat(f.saldo) >= filters.startCantidad!
+      );
     }
     if (filters.endCantidad !== undefined && filters.endCantidad !== null) {
-      result = result.filter(f => parseFloat(f.saldo) <= filters.endCantidad!);
+      result = result.filter(
+        (f) => parseFloat(f.saldo) <= filters.endCantidad!
+      );
     }
     if (filters.id_agente) {
-      result = result.filter(r => matches(r.id_agente, filters.id_agente));
+      result = result.filter((r) => matches(r.id_agente, filters.id_agente));
     }
     setFilteredFacturas(result);
   }, [facturas, searchTerm, filters]);
 
   // Auto-filtro por agente al seleccionar facturas
   useEffect(() => {
-    setFilters(prev => ({ ...prev, id_agente: selectedAgentId ? selectedAgentId : null }));
+    setFilters((prev) => ({
+      ...prev,
+      id_agente: selectedAgentId ? selectedAgentId : null,
+    }));
   }, [selectedAgentId]);
 
   // Fetch
@@ -190,7 +276,7 @@ const CuentasPorCobrar = () => {
     total_sum: number;
     saldo_sum: number;
     pendiente_sum: number; // saldo con fecha no vencida (>= 0 días)
-    atrasado_sum: number;  // saldo con fecha vencida  (< 0 días)
+    atrasado_sum: number; // saldo con fecha vencida  (< 0 días)
     facturas: any[];
   };
 
@@ -234,11 +320,21 @@ const CuentasPorCobrar = () => {
       <span className="text-sm text-gray-800">{value}</span>
     ),
     id_agente: ({ value }: { value: string }) => (
-      <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">{value}</span>
+      <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
+        {value}
+      </span>
     ),
-    total_sum: ({ value }: { value: number }) => <span className="font-bold text-blue-600">{money(value)}</span>,
+    total_sum: ({ value }: { value: number }) => (
+      <span className="font-bold text-blue-600">{money(value)}</span>
+    ),
     saldo_sum: ({ value }: { value: number }) => (
-      <span className={`font-bold ${value >= 0 ? "text-green-600" : "text-red-600"}`}>{money(value)}</span>
+      <span
+        className={`font-bold ${
+          value >= 0 ? "text-green-600" : "text-red-600"
+        }`}
+      >
+        {money(value)}
+      </span>
     ),
     pendiente_sum: ({ value }: { value: number }) => (
       <span className="font-semibold text-amber-700">{money(value)}</span>
@@ -284,12 +380,16 @@ const CuentasPorCobrar = () => {
                       diff === null
                         ? "N/A"
                         : diff > 0
-                          ? `${diff} días restantes`
-                          : diff < 0
-                            ? `${Math.abs(diff)} días atrasado`
-                            : "Vence hoy";
+                        ? `${diff} días restantes`
+                        : diff < 0
+                        ? `${Math.abs(diff)} días atrasado`
+                        : "Vence hoy";
                     const vencColor =
-                      diff === null ? "text-gray-500" : diff < 0 ? "text-red-600" : "text-green-600";
+                      diff === null
+                        ? "text-gray-500"
+                        : diff < 0
+                        ? "text-red-600"
+                        : "text-green-600";
 
                     return (
                       <tr key={r.id_factura} className="border-t">
@@ -297,33 +397,45 @@ const CuentasPorCobrar = () => {
                           <input
                             type="checkbox"
                             checked={isChecked}
-                            onChange={() => handleSelectFactura(r.id_factura, r.id_agente)}
+                            onChange={() =>
+                              handleSelectFactura(r.id_factura, r.id_agente)
+                            }
                           />
                         </td>
                         <td className="px-3 py-2">
-                          <span className="font-mono bg-gray-100 px-2 py-1 rounded text-xs">{r.id_factura}</span>
+                          <span className="font-mono bg-gray-100 px-2 py-1 rounded text-xs">
+                            {r.id_factura}
+                          </span>
                         </td>
-                        <td className="px-3 py-2 text-gray-600">{formatDate(r.fecha_emision)}</td>
+                        <td className="px-3 py-2 text-gray-600">
+                          {formatDate(r.fecha_emision)}
+                        </td>
                         <td className="px-3 py-2">
                           <span
-                            className={`px-2 py-1 rounded-full text-xs ${r.estado === "Confirmada"
-                              ? "bg-green-100 text-green-800"
-                              : r.estado === "Pendiente"
+                            className={`px-2 py-1 rounded-full text-xs ${
+                              r.estado === "Confirmada"
+                                ? "bg-green-100 text-green-800"
+                                : r.estado === "Pendiente"
                                 ? "bg-yellow-100 text-yellow-800"
                                 : "bg-gray-100 text-gray-800"
-                              }`}
+                            }`}
                           >
                             {r.estado}
                           </span>
                         </td>
-                        <td className="px-3 py-2 font-bold text-blue-600">{money(parseFloat(r.total ?? 0) || 0)}</td>
+                        <td className="px-3 py-2 font-bold text-blue-600">
+                          {money(parseFloat(r.total ?? 0) || 0)}
+                        </td>
                         <td
-                          className={`px-3 py-2 font-bold ${saldoNum >= 0 ? "text-green-600" : "text-red-600"
-                            }`}
+                          className={`px-3 py-2 font-bold ${
+                            saldoNum >= 0 ? "text-green-600" : "text-red-600"
+                          }`}
                         >
                           {money(saldoNum)}
                         </td>
-                        <td className={`px-3 py-2 font-medium ${vencColor}`}>{vencTxt}</td>
+                        <td className={`px-3 py-2 font-medium ${vencColor}`}>
+                          {vencTxt}
+                        </td>
                         <td className="px-3 py-2">
                           {r.url_pdf ? (
                             <a
@@ -367,7 +479,7 @@ const CuentasPorCobrar = () => {
   // ====== filas para Table4 AHORA SON RESÚMENES POR AGENTE ======
   const rows = useMemo(() => {
     return grupos.map((g) => ({
-      detalles: { grupo: g },           // renderer "detalles" muestra el desplegable
+      detalles: { grupo: g }, // renderer "detalles" muestra el desplegable
       nombre_agente: g.nombre_agente,
       id_agente: g.id_agente,
       total_sum: g.total_sum,
@@ -392,9 +504,11 @@ const CuentasPorCobrar = () => {
 
   // Botón "Asignar pago": usa las facturas seleccionadas
   const handlePagos = () => {
-    const facturasSeleccionadas = facturas.filter(f => selectedFacturas.has(f.id_factura));
+    const facturasSeleccionadas = facturas.filter((f) =>
+      selectedFacturas.has(f.id_factura)
+    );
     if (facturasSeleccionadas.length > 0) {
-      const datosFacturas = facturasSeleccionadas.map(f => ({
+      const datosFacturas = facturasSeleccionadas.map((f) => ({
         monto: f.total,
         saldo: f.saldo,
         facturaSeleccionada: f,
@@ -431,7 +545,11 @@ const CuentasPorCobrar = () => {
         defaultFilters={availableFilters}
       />
 
-      <Table4 registros={rows} renderers={renderers} customColumns={availableColumns}>
+      <Table4
+        registros={rows}
+        renderers={renderers}
+        customColumns={availableColumns}
+      >
         <button
           className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
           onClick={handlePagos}

@@ -72,9 +72,9 @@ function App() {
   const [filters, setFilters] = useState<TypeFilters>(
     defaultFiltersSolicitudes
   );
-  const { hasPermission } = usePermiso();
+  const { hasAccess } = usePermiso();
 
-  hasPermission(PERMISOS.VISTAS.CLIENTES);
+  hasAccess(PERMISOS.VISTAS.CLIENTES);
 
   let formatedSolicitudes = clients
     .filter(

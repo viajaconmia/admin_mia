@@ -24,9 +24,9 @@ export function TravelersPage() {
   const [sortField, setSortField] = useState(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [filteredFacturas, setFilteredFacturas] = useState<Factura[]>([]); // Nuevo estado
-  const { hasPermission } = usePermiso();
+  const { hasAccess } = usePermiso();
 
-  hasPermission(PERMISOS.VISTAS.FACTURAS);
+  hasAccess(PERMISOS.VISTAS.FACTURAS);
 
   const handleFilter = (filters) => {
     setIsLoading(true);

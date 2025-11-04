@@ -20,9 +20,9 @@ function App() {
   const [searchTerm, setSearchTerm] = useState<string | null>("");
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState<TypeFilters>({});
-  const { hasPermission } = usePermiso();
+  const { hasAccess } = usePermiso();
 
-  hasPermission(PERMISOS.VISTAS.CONFIRMATION_CODE);
+  hasAccess(PERMISOS.VISTAS.CONFIRMATION_CODE);
 
   let formatedSolicitudes = allOtp
     .filter((item) => item.email.toUpperCase().includes(searchTerm))
