@@ -168,19 +168,40 @@ export function ReservationForm2({
       setLoading(true);
       const data = {
         ...edicionForm,
+        venta:
+          Number(solicitud.total).toFixed(2) != Number(precio).toFixed(2)
+            ? {
+                before: {
+                  total: solicitud.total,
+                  impuestos: (
+                    Number(solicitud.total) -
+                    Number(solicitud.total) / 1.16
+                  ).toFixed(2),
+                  subtotal: (Number(solicitud.total) / 1.16).toFixed(2),
+                },
+                current: {
+                  total: precio,
+                  impuestos: (precio - precio / 1.16).toFixed(2),
+                  subtotal: (precio / 1.16).toFixed(2),
+                },
+              }
+            : { ...edicionForm.venta },
         nuevo_incluye_desayuno,
         acompanantes,
         saldos,
         restante,
       };
       const response = await new_edit(data, solicitud.id_booking);
-      console.log("respuesta", response);
       console.log("infoenviada", data);
-      // handleSubmit(reservaData);
-      // setOpen(false);
+
+      setOpen(false);
+      onClose();
+      showNotification("success", response.message);
     } catch (error) {
       console.log(error);
       showNotification("error", error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -394,26 +415,6 @@ export function ReservationForm2({
     form.hotel,
     edicion,
   ]);
-  // const handleSubmit = async (e: FormEvent) => {
-  //   e.preventDefault();
-  //   setLoading(true);
-  //   const data = { ...edicionForm, nuevo_incluye_desayuno, acompanantes };
-  //   console.log(data);
-  //   try {
-  //     let response;
-  //     if (edicion) {
-  //       response = await updateReserva(data, solicitud.id_booking);
-  //     }
-  //     console.log(response);
-  //     alert("Reserva creada correctamente");
-  //     // onClose();
-  //   } catch (error) {
-  //     console.error(error);
-  //     alert("Error al guardar la reserva");
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
 
   function getAutoCostoTotal(
     hotel: Hotel | null,
@@ -430,14 +431,8 @@ export function ReservationForm2({
     );
   }
 
-  // const hotelDat() => {
-  // }
-  console.log("form", form);
-  console.log("precio", precio);
-
   return (
     <form
-      // onSubmit={handleSubmit}||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||
       onSubmit={(e) => e.preventDefault()}
       className="space-y-6 mx-5 overflow-y-auto rounded-md bg-white p-4"
     >
@@ -845,11 +840,24 @@ export function ReservationForm2({
           </div>
           <div className="grid md:grid-cols-3">
             <Can permiso={PERMISOS.COMPONENTES.EDITAR_PRECIO_RESERVA}>
-              <NumberInput
-                label="Precio a cliente"
-                value={precio}
-                onChange={(value: string) => setPrecio(Number(value))}
-              />
+              <div className="flex flex-col gap-2">
+                <NumberInput
+                  label="Precio a cliente"
+                  value={precio}
+                  onChange={(value: string) => setPrecio(Number(value))}
+                />
+                {form.venta.total.toFixed(2) != precio.toFixed(2) && (
+                  <p
+                    className="text-xs text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                    onClick={() => {
+                      setPrecio(form.venta.total);
+                    }}
+                  >
+                    Quieres cambiar el precio al precio sugerido? : $
+                    {form.venta.total}
+                  </p>
+                )}
+              </div>
             </Can>
             <Button
               className="md:col-start-3"
