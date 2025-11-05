@@ -26,8 +26,6 @@ const Filters: React.FC<{
     const toggleModal = () => {
       setIsOpen(!isOpen);
     };
-    console.log(searchTerm, "buscar")
-    console.log(setSearchTerm, "vmnrnv")
     return (
       <div className="overflow-hidden max-w-full mx-auto relative flex flex-col md:flex-row md:items-center md:flex-wrap justify-between gap-4">
         <div className="relative flex-1 pt-2">
@@ -39,8 +37,13 @@ const Filters: React.FC<{
             className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
             placeholder="Buscar por código, ID, cliente..."
             value={searchTerm || ""}
-            onChange={(e) => setSearchTerm(e.target.value.toUpperCase())}
-          />
+            onChange={(e) => {
+              const v = e.target.value
+                ?.normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                ?.toUpperCase();
+              if (typeof setSearchTerm === "function") setSearchTerm(v);
+            }} />
         </div>
         <div className="flex justify-between items-center gap-4">
           <button
@@ -106,7 +109,6 @@ const FiltersModal: React.FC<{
   useEffect(() => {
     if (defaultFilter) setFilters(defaultFilter);
   }, [defaultFilter]);
-  console.log(filters, "cambisode filtro")
   return (
     <>
       <div>
@@ -213,7 +215,15 @@ const FiltersModal: React.FC<{
                   }
                 />
               )}
-
+              {"cliente" in filters && (
+                <TextInput
+                  label="Nombre Cliente"
+                  value={filters.cliente}
+                  onChange={(value) =>
+                    setFilters((prev) => ({ ...prev, cliente: value }))
+                  }
+                />
+              )}
               {"fecha_creacion" in filters && (
                 <DateInput
                   label="Fecha de Creación"
@@ -255,6 +265,15 @@ const FiltersModal: React.FC<{
                     }))
                   }
                   options={["SI", "NO"]}
+                />
+              )}
+              {"uuid" in filters && (
+                <TextInput
+                  label="UUID"
+                  value={filters.uuid || ""}
+                  onChange={(value) =>
+                    setFilters((prev) => ({ ...prev, uuid: value }))
+                  }
                 />
               )}
 

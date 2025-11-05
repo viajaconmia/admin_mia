@@ -198,7 +198,7 @@ const defaultFiltersFacturas: TypeFilters = {
   rfc: ""
 };
 
-export function TravelersPage() {
+function TravelersPage() {
   const { hasAccess } = usePermiso();
   hasAccess(PERMISOS.VISTAS.FACTURAS);
 
@@ -556,3 +556,4 @@ export function TravelersPage() {
   );
 }
 
+export default TravelersPage
