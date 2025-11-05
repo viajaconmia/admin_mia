@@ -14,6 +14,7 @@ import { usePermiso } from "@/hooks/usePermission";
 const defaultFiltersFacturas: TypeFilters = {
   estatusFactura: "Confirmada",
   id_factura: null,
+  id_cliente: "",
 };
 export function TravelersPage() {
   const [searchTerm, setSearchTerm] = useState<string>("");
@@ -63,7 +64,7 @@ export function TravelersPage() {
           <Filters
             defaultFilters={defaultFiltersFacturas}
             onFilter={handleFilter}
-            defaultOpen={false}
+            defaultOpen={true}
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
           />

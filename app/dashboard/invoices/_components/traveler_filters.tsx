@@ -32,7 +32,7 @@ export function TravelerFilters({ onCreateClick }: TravelerFiltersProps) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos los estados</SelectItem>
-            <SelectItem value="Confirmada">Confirmada</SelectItem>
+            <SelectItem value="Confiada">Confirmada</SelectItem>
             <SelectItem value="Cancelada">Cancelada</SelectItem>
             <SelectItem value="En proceso">En proceso</SelectItem>
           </SelectContent>

@@ -26,7 +26,8 @@ const Filters: React.FC<{
     const toggleModal = () => {
       setIsOpen(!isOpen);
     };
-
+    console.log(searchTerm, "buscar")
+    console.log(setSearchTerm, "vmnrnv")
     return (
       <div className="overflow-hidden max-w-full mx-auto relative flex flex-col md:flex-row md:items-center md:flex-wrap justify-between gap-4">
         <div className="relative flex-1 pt-2">
@@ -105,7 +106,7 @@ const FiltersModal: React.FC<{
   useEffect(() => {
     if (defaultFilter) setFilters(defaultFilter);
   }, [defaultFilter]);
-
+  console.log(filters, "cambisode filtro")
   return (
     <>
       <div>
@@ -189,6 +190,16 @@ const FiltersModal: React.FC<{
                   value={filters.id_agente}
                   onChange={(value) =>
                     setFilters((prev) => ({ ...prev, id_agente: value }))
+                  }
+                />
+              )}
+
+              {"id_cliente" in filters && (
+                <TextInput
+                  label="ID CLIENTE"
+                  value={filters.id_cliente}
+                  onChange={(value) =>
+                    setFilters((prev) => ({ ...prev, id_cliente: value }))
                   }
                 />
               )}
