@@ -17,4 +17,7 @@ export const PERMISOS = {
     APLICACION_DE_SALDO: "view.apli-sald",
     CUENTAS_POR_COBRAR: "view.cuenta-cobr",
   },
+  COMPONENTES: {
+    EDITAR_PRECIO_RESERVA: "button.edit-price-booking",
+  },
 } as const;

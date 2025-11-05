@@ -27,7 +27,7 @@ export const BalanceCard: React.FC<BalanceCardProps> = ({
     <div
       className={`rounded-xl p-6 transition-all duration-300 hover:shadow-xl bg-white border border-gray-200 shadow-lg`}
     >
-      {precioAPagar != 0 ? (
+      {precioAPagar >= 0 ? (
         <>
           <div className="grid grid-cols-2 gap-4 mb-6">
             <div className="bg-gray-50 p-4 rounded-lg">
@@ -97,8 +97,6 @@ export const BalanceCard: React.FC<BalanceCardProps> = ({
       ) : (
         <>
           <h1 className="mb-4 font-semibold text-lg">
-            No se han encontrado cambios en el precio,
-            <br />
             ¿estas seguro de continuar con la edicion?
           </h1>
           {onConfirm && (

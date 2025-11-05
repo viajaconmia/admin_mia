@@ -28,8 +28,10 @@ import {
 } from "@/helpers/utils";
 import { updateRoom } from "@/lib/utils";
 import Modal from "./Modal";
-import EditPrecioVenta from "./EditPrecioVenta";
 import { redondear } from "@/helpers/formater";
+import { useNotification } from "@/context/useNotificacion";
+import { usePermiso } from "@/hooks/usePermission";
+import { PERMISOS } from "@/constant/permisos";
 
 interface ReservationFormProps {
   solicitud?: Solicitud2 & { nuevo_incluye_desayuno?: boolean | null };
@@ -46,7 +48,6 @@ export function ReservationForm2({
 }: ReservationFormProps) {
   let currentNoches = 0;
   let currentHotel;
-  console.log("raro", hotels);
   if (solicitud.check_in && solicitud.check_out) {
     currentHotel = hotels.filter(
       (item) => item.id_hotel == solicitud?.id_hotel
@@ -57,6 +58,7 @@ export function ReservationForm2({
     );
   }
 
+  const { Can } = usePermiso();
   const [nuevo_incluye_desayuno, setNuevoIncluyeDesayuno] = useState<
     boolean | null
   >(
@@ -66,11 +68,7 @@ export function ReservationForm2({
   );
 
   const [acompanantes, setAcompanantes] = useState<Viajero[]>([]);
-  const [cobrar, setCobrar] = useState<boolean | null>(null);
-  const [id_agente, setId_agente] = useState<string | null>(null);
-  const [reservaData, setReservaData] = useState<any>(null);
   const [open, setOpen] = useState<boolean>(false);
-  const [pagoSeleccion, setPagoSeleccion] = useState<any>(null);
   const [form, setForm] = useState<ReservaForm>({
     hotel: {
       name: solicitud.hotel_reserva || "",
@@ -163,20 +161,27 @@ export function ReservationForm2({
   );
   const [inicial, setInicial] = useState(true);
   const [precio, setPrecio] = useState<number>(form.venta.total);
+  const { showNotification } = useNotification();
 
   const handleSaldosSubmit = async (saldos, restante, usado) => {
-    const data = {
-      ...edicionForm,
-      nuevo_incluye_desayuno,
-      acompanantes,
-      saldos,
-      restante,
-    };
-    // setPagoSeleccion({ saldos, restante, usado });
-    // await new_edit(data, solicitud.id_booking);
-    console.log("infoenviada", data);
-    // handleSubmit(reservaData);
-    // setOpen(false);
+    try {
+      setLoading(true);
+      const data = {
+        ...edicionForm,
+        nuevo_incluye_desayuno,
+        acompanantes,
+        saldos,
+        restante,
+      };
+      const response = await new_edit(data, solicitud.id_booking);
+      console.log("respuesta", response);
+      console.log("infoenviada", data);
+      // handleSubmit(reservaData);
+      // setOpen(false);
+    } catch (error) {
+      console.log(error);
+      showNotification("error", error.message);
+    }
   };
 
   useEffect(() => {
@@ -203,44 +208,6 @@ export function ReservationForm2({
       setTravelers([]);
     }
   }, []);
-
-  const viajero = travelers[0];
-  console.log("viajero", viajero);
-  console.log("solicitud", travelers);
-
-  const handleData = () => {
-    const data = { ...edicionForm, nuevo_incluye_desayuno, acompanantes };
-    setReservaData(data);
-    setOpen(true);
-    console.log("reserfa", reservaData);
-  };
-
-  // ⬇️ NUEVO: factoriza la lógica de guardado para reusarla
-  const saveReservation = async (): Promise<boolean> => {
-    setLoading(true);
-    const data = { ...edicionForm, nuevo_incluye_desayuno, acompanantes };
-    try {
-      if (edicion) {
-        await updateReserva(data, solicitud.id_booking);
-      }
-      const data2 = {
-        ...data,
-        id_booking: solicitud.id_booking,
-        saldos: pagoSeleccion,
-      };
-      setReservaData(data2);
-      console.log("reserfa34344", reservaData);
-      // Usa tu notificador si quieres; dejé alert por conservar tu flujo
-      alert("Reserva actualizada correctamente");
-      return true;
-    } catch (error) {
-      console.error(error);
-      alert("Error al guardar la reserva");
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const safeParse = (d?: string) => (d ? parseISO(d) : new Date("Invalid"));
   const ci = safeParse(form.check_in);
@@ -321,15 +288,12 @@ export function ReservationForm2({
       setInicial(false);
       return;
     }
-    console.log("EJECUTANDOME");
     if (
       form.hotel.content &&
       form.check_in &&
       form.check_out &&
       form.habitacion
     ) {
-      console.log("ESTOY HACIENDO CAMBIOS");
-
       // Calcular el total automático si no es modo manual
       const autoTotal = isCostoManual
         ? form.proveedor.total
@@ -451,12 +415,6 @@ export function ReservationForm2({
   //   }
   // };
 
-  const handleSubmit = async (e: FormEvent) => {
-    await saveReservation();
-    console.log("reserva", form);
-    // onClose(); // si deseas cerrar siempre al guardar manual, descomenta
-  };
-
   function getAutoCostoTotal(
     hotel: Hotel | null,
     habitacion: string,
@@ -476,37 +434,6 @@ export function ReservationForm2({
   // }
   console.log("form", form);
   console.log("precio", precio);
-
-  const hotelData = useMemo(() => {
-    const roomType = form.habitacion || "";
-    const roomObj = form.hotel?.content?.tipos_cuartos?.find(
-      (t) => t.nombre_tipo_cuarto === roomType
-    );
-
-    return {
-      "tipo-habi": roomType, // SENCILLO / DOBLE, etc.
-      precio: Number(roomObj?.precio ?? 0), // Precio de venta de ese tipo de cuarto
-      hotel: form.hotel?.name || "",
-      form,
-      nuevo_incluye_desayuno,
-      acompanantes,
-      noches: {
-        ...edicionForm.noches,
-        before: calcularNoches(solicitud.check_in, solicitud.check_out),
-      },
-      // Si quieres repetir la clave como pediste:
-      // "tipo-habi-2": roomType,
-    };
-  }, [
-    form.habitacion,
-    form.hotel,
-    form.noches,
-    nuevo_incluye_desayuno,
-    acompanantes,
-    edicionForm.noches,
-    solicitud.check_in,
-    solicitud.check_out,
-  ]);
 
   return (
     <form
@@ -595,7 +522,6 @@ export function ReservationForm2({
                       impuestos: impuestosObj,
                     };
                   });
-                  setPrecio(form.venta.total);
                 }}
                 value={{
                   name: form.hotel.name,
@@ -697,7 +623,6 @@ export function ReservationForm2({
                     }));
                   }
                   setForm((prev) => ({ ...prev, check_in: value }));
-                  setPrecio(form.venta.total);
                 }}
               />
               <DateInput
@@ -715,7 +640,6 @@ export function ReservationForm2({
                     }));
                   }
                   setForm((prev) => ({ ...prev, check_out: value }));
-                  setPrecio(form.venta.total);
                 }}
               />
               {form.solicitud.viajeros_adicionales.map((viajero, index) => (
@@ -869,7 +793,6 @@ export function ReservationForm2({
                           index,
                           1
                         );
-                        console.log(newAcompanantes);
                         setAcompanantes(newAcompanantes);
                       }}
                       onChange={(value) => {
@@ -921,11 +844,13 @@ export function ReservationForm2({
             </div>
           </div>
           <div className="grid md:grid-cols-3">
-            <NumberInput
-              label="Precio a cliente"
-              value={precio}
-              onChange={(value: string) => setPrecio(Number(value))}
-            />
+            <Can permiso={PERMISOS.COMPONENTES.EDITAR_PRECIO_RESERVA}>
+              <NumberInput
+                label="Precio a cliente"
+                value={precio}
+                onChange={(value: string) => setPrecio(Number(value))}
+              />
+            </Can>
             <Button
               className="md:col-start-3"
               type="button"
@@ -1096,12 +1021,9 @@ export function ReservationForm2({
             <Button
               type="button"
               icon={CheckCircle}
-              onClick={() => {
-                handleData(); // guarda los datos
-                // abre el modal o lo que sea
-              }}
+              onClick={() => setOpen(true)}
             >
-              Continuar con los cambios
+              Confirmar cambios
             </Button>
           </div>
         </TabsContent>

@@ -93,7 +93,7 @@ export const MostrarSaldos: React.FC<PagarModalProps> = ({
     saldosFavor.reduce((previus, current) => previus + Number(current.saldo), 0)
   );
 
-  if (precio == 0)
+  if (precio <= 0)
     return (
       <div className="w-fit space-y-4">
         <BalanceCard
