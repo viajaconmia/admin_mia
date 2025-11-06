@@ -551,9 +551,9 @@ const ReservationsWithTable4: React.FC = () => {
           const { [reservationId]: _drop, ...rest } = prev;
           return rest;
         }
-        return { ...prev, [reservationId]: newSelected, hospedaje: reservation.id_hospedaje };
+        return { ...prev, [reservationId]: newSelected };
       } else {
-        return { ...prev, [reservationId]: [...currentSelected, itemId,], hospedaje: reservation.id_hospedaje };
+        return { ...prev, [reservationId]: [...currentSelected, itemId,] };
       }
     });
   };

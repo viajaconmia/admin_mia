@@ -340,15 +340,18 @@ export function TravelersPage() {
         </button>
       );
     },
-    cliente: ({ value }: { value: string }) => {
-      const normalize = (str: string) =>
-        str
-          ?.normalize("NFD") // separa los acentos
-          .replace(/[\u0300-\u036f]/g, "") // elimina los diacríticos
-          .toUpperCase() || "N/A"; // convierte a mayúsculas
+    // cliente: ({ value }: { value: string }) => {
+    //   const shouldSplitCol = (colKey: string) =>
+    //     splitStringsBySpace &&
+    //     (Array.isArray(splitColumns) ? splitColumns.includes(colKey) : true);
+    //   const normalize = (str: string) =>
+    //     str
+    //       ?.normalize("NFD") // separa los acentos
+    //       .replace(/[\u0300-\u036f]/g, "") // elimina los diacríticos
+    //       .toUpperCase() || "N/A"; // convierte a mayúsculas
 
-      return <span className="font-semibold text-gray-800">{normalize(value)}</span>;
-    },
+    //   return <span className="font-semibold text-gray-800">{normalize(value)}</span>;
+    // },
     subtotal: ({ value }: { value: number }) => <span>{fmtMoney(value)}</span>,
     iva: ({ value }: { value: number }) => <span>{fmtMoney(value)}</span>,
     total: ({ value }: { value: number }) => <span className="font-semibold text-blue-700">{fmtMoney(value)}</span>,
@@ -522,6 +525,7 @@ export function TravelersPage() {
             customColumns={customColumns}
             defaultSort={{ key: "fecha_emision", sort: false }} // desc
             maxHeight="32rem"
+            splitStringsBySpace
           />
         </div>
       </Card>
