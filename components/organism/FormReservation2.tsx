@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useMemo, FormEvent } from "react";
+import React, { useState, useEffect } from "react";
 import { differenceInDays, parseISO } from "date-fns";
 import Button from "@/components/atom/Button";
 import { Label } from "@/components/ui/label";
-import { CheckCircle, Plus, Trash2 } from "lucide-react";
+import { CheckCircle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { updateReserva, new_edit } from "@/services/reservas";
+import { new_edit } from "@/services/reservas";
 import { MostrarSaldos } from "@/components/template/MostrarSaldos";
 import { isValid } from "date-fns";
 import {
@@ -21,7 +21,6 @@ import { fetchViajerosFromAgent } from "@/services/viajeros";
 import { Hotel, ReservaForm, Viajero, EdicionForm, Solicitud2 } from "@/types";
 import { Table } from "../Table";
 import {
-  calcularNoches,
   formatNumberWithCommas,
   getEstatus,
   separarCostos,
@@ -88,10 +87,7 @@ export function ReservationForm2({
       impuestos: Number(solicitud.total) * 0.16 || 0,
       markup: 0,
     },
-    estado_reserva: getEstatus(solicitud.status_reserva) as
-      | "Confirmada"
-      | "En proceso"
-      | "Cancelada",
+    estado_reserva: getEstatus(solicitud.status_reserva),
     comments: solicitud.comments || "",
     proveedor: {
       total:
