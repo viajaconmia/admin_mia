@@ -839,13 +839,15 @@ export function ReservationForm2({
             </div>
           </div>
           <div className="grid md:grid-cols-3">
-            <Can permiso={PERMISOS.COMPONENTES.EDITAR_PRECIO_RESERVA}>
-              <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2">
+              <Can permiso={PERMISOS.COMPONENTES.EDITAR_PRECIO_RESERVA}>
                 <NumberInput
                   label="Precio a cliente"
                   value={precio}
                   onChange={(value: string) => setPrecio(Number(value))}
                 />
+              </Can>
+              <Can permiso={PERMISOS.COMPONENTES.EDITAR_PRECIO_RESERVA}>
                 {form.venta.total.toFixed(2) != precio.toFixed(2) && (
                   <p
                     className="text-xs text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
@@ -857,8 +859,8 @@ export function ReservationForm2({
                     {form.venta.total}
                   </p>
                 )}
-              </div>
-            </Can>
+              </Can>
+            </div>
             <Button
               className="md:col-start-3"
               type="button"
