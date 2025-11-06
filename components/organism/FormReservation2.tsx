@@ -176,7 +176,7 @@ export function ReservationForm2({
                   subtotal: (Number(solicitud.total) / 1.16).toFixed(2),
                 },
                 current: {
-                  total: precio,
+                  total: precio.toFixed(2),
                   impuestos: (precio - precio / 1.16).toFixed(2),
                   subtotal: (precio / 1.16).toFixed(2),
                 },
