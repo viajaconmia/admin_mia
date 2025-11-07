@@ -423,10 +423,12 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
         }),
       };
       endpoint = "/mia/reservas/operaciones";
+
     } else if (reservaData && Number(montorestante.toFixed(0)) > 0) {
       console.log("montoRestante", montorestante);
       alert("Para registrar el pago, debes cubrir el total de la reserva.");
       return;
+
     } else if (facturaData) {
       console.log(
         selectedItems.map((item) => {
@@ -453,6 +455,8 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
           };
         })
       );
+
+
     } else {
       // Payload existente para el flujo de saldoData
       const tableDataToUse = reservas.flatMap((reserva) =>
