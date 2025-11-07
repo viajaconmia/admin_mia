@@ -7,7 +7,7 @@ import { Loader } from "@/components/atom/Loader";
 // Versión de Feather Icons (similares a Lucide)
 import { Eye, FileText, FilePlus, X, ShoppingCart } from "lucide-react";
 import { format } from "date-fns";
-import {fetchPagosPrepagobalance } from "@/services/pagos";
+import { fetchPagosPrepagobalance } from "@/services/pagos";
 import { Banknote, FileCheck } from "lucide-react";
 import { es, se } from "date-fns/locale";
 import ModalDetallePago from "@/app/dashboard/payments/_components/detalles_pago";
@@ -19,6 +19,7 @@ import Filters from "@/components/Filters";
 import { TypeFilters } from "@/types";
 import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
+import { formatDate } from "@/helpers/utils";
 
 export interface Pago {
   id_movimiento: number;
@@ -68,14 +69,14 @@ function buildAssignPayload(opts: { seleccionados: Seleccion[]; row?: any }) {
   const rawIds = haySeleccion
     ? seleccionados.map((s) => s.raw_id)
     : row
-    ? [String(row.raw_id)]
-    : [];
+      ? [String(row.raw_id)]
+      : [];
 
   const saldos = haySeleccion
     ? seleccionados.map((s) => Number(s.monto_por_facturar) || 0)
     : row
-    ? [Number(row.monto_por_facturar) || 0]
-    : [];
+      ? [Number(row.monto_por_facturar) || 0]
+      : [];
 
   const id_agente = haySeleccion
     ? String(seleccionados[0].id_agente)
@@ -91,21 +92,6 @@ function buildAssignPayload(opts: { seleccionados: Seleccion[]; row?: any }) {
     saldoMonto: monto,
   };
 }
-
-export const formatDate = (dateString: string | null): string => {
-  if (!dateString || dateString === "0000-00-00") return "N/A";
-  try {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("es-MX", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    });
-  } catch (e) {
-    console.error("Error formatting date:", e);
-    return dateString as string;
-  }
-};
 
 export const TextTransform = ({ value }) => {
   const transformText = (text) => {
@@ -193,10 +179,10 @@ const TablaPagosVisualizacion = () => {
             ? 1
             : 0
           : typeof newFilters.is_facturado === "boolean"
-          ? newFilters.is_facturado
-            ? 1
-            : 0
-          : newFilters.is_facturado || 0,
+            ? newFilters.is_facturado
+              ? 1
+              : 0
+            : newFilters.is_facturado || 0,
 
       link_pago: newFilters.link_pago || "",
       origen_pago: newFilters.origen_pago || "",
@@ -319,7 +305,7 @@ const TablaPagosVisualizacion = () => {
         total_reservas_confirmadas: response.total_reservas_confirmadas || "3",
       };
       setBalance(balanceObtenido);
-      console.log(response,"balnacecedonp")
+      console.log(response, "balnacecedonp")
     } catch (err) {
       console.error("Error al obtener el balance:", err);
       setError(
@@ -716,9 +702,8 @@ const TablaPagosVisualizacion = () => {
     ),
     monto_por_facturar: ({ value }: { value: number }) => (
       <span
-        className={`font-medium ${
-          value > 0 ? "text-green-600" : "text-red-600"
-        }`}
+        className={`font-medium ${value > 0 ? "text-green-600" : "text-red-600"
+          }`}
       >
         ${formatNumberWithCommas(value)}
       </span>
@@ -1017,11 +1002,10 @@ const TablaPagosVisualizacion = () => {
             <p className="text-sm mt-1">
               <span className="text-gray-600">Restante: </span>
               <span
-                className={`font-semibold ${
-                  balance && Number(balance.restante) >= 0
-                    ? "text-red-600"
-                    : "text-green-600"
-                }`}
+                className={`font-semibold ${balance && Number(balance.restante) >= 0
+                  ? "text-red-600"
+                  : "text-green-600"
+                  }`}
               >
                 {balance
                   ? formatCurrency(Number(balance.restante))
