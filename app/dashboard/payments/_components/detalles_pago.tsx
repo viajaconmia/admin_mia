@@ -226,10 +226,8 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
     const fetchDetalles = async () => {
       if (!id_buscar || !pago?.id_agente) return;
       setLoadingDetalles(true);
-      let id_buscador = [];
-      id_buscador[0] == id_buscar;
       try {
-        const url = `${URL}/mia/pagos/DetallesConexion?id_agente=${pago.id_agente}&id_raw=${id_buscador}`;
+        const url = `${URL}/mia/pagos/DetallesConexion?id_agente=${pago.id_agente}&id_raw=${id_buscar}`;
         const response = await fetch(url, {
           method: "GET",
           headers: HEADERS_API,
