@@ -706,7 +706,7 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
                     );
                   })
                 ) : (
-                  <p className="mt-1 text-sm text-gray-500">No hay facturas asociadas</p>
+                  <p className="mt-1 text-sm text-gray-500">Cargando ...</p>
                 )}
               </div>
             )}
