@@ -35,7 +35,7 @@ const buildReservasRows = (reservas: ReservaAPI[] = []) => {
     hotel: r.nombre_hotel ||r.hotel|| "N/A",
     check_in: r.check_in || "N/A",
     check_out: r.check_out || "N/A",
-    total_booking: r.total_booking ?? 0,
+    total_booking: r.total_booking ||r.total ||0,
     confirmation_code: r.codigo_reservacion_hotel || "N/A",
     item: r,
   }));
@@ -516,7 +516,7 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
           {!loadingDetalles && reservasRows.length === 0 && (
             <div className="mb-6">
               <h3 className="text-lg font-semibold mb-2 text-gray-600">Reservas Asociadas</h3>
-              <p className="text-sm text-gray-500">No hay reservas asociadas a este pago</p>
+              <p className="text-sm text-gray-500">Cargando...</p>
             </div>
           )}
 
