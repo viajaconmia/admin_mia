@@ -26,5 +26,5 @@ export const usePermiso = () => {
     return <>{children}</>;
   };
 
-  return { hasAccess, Can };
+  return { hasAccess, Can, hasPermission };
 };

@@ -57,7 +57,7 @@ export function ReservationForm2({
     );
   }
 
-  const { Can } = usePermiso();
+  const { hasPermission } = usePermiso();
   const [nuevo_incluye_desayuno, setNuevoIncluyeDesayuno] = useState<
     boolean | null
   >(
@@ -428,6 +428,33 @@ export function ReservationForm2({
       ) * noches
     );
   }
+
+  const mostrarPrecio = () => {
+    if (hasPermission(PERMISOS.COMPONENTES.EDITAR_PRECIO_RESERVA)) {
+      return (
+        <div className="flex flex-col gap-2">
+          <NumberInput
+            label="Precio a cliente"
+            value={precio}
+            onChange={(value: string) => setPrecio(Number(value))}
+          />
+          {form.venta.total.toFixed(2) != precio.toFixed(2) && (
+            <p
+              className="text-xs text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+              onClick={() => {
+                setPrecio(form.venta.total);
+              }}
+            >
+              Quieres cambiar el precio al precio sugerido? : $
+              {form.venta.total}
+            </p>
+          )}
+        </div>
+      );
+    } else {
+      return <></>;
+    }
+  };
 
   return (
     <form
@@ -837,28 +864,7 @@ export function ReservationForm2({
             </div>
           </div>
           <div className="grid md:grid-cols-3">
-            <div className="flex flex-col gap-2">
-              <Can permiso={PERMISOS.COMPONENTES.EDITAR_PRECIO_RESERVA}>
-                <NumberInput
-                  label="Precio a cliente"
-                  value={precio}
-                  onChange={(value: string) => setPrecio(Number(value))}
-                />
-              </Can>
-              <Can permiso={PERMISOS.COMPONENTES.EDITAR_PRECIO_RESERVA}>
-                {form.venta.total.toFixed(2) != precio.toFixed(2) && (
-                  <p
-                    className="text-xs text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
-                    onClick={() => {
-                      setPrecio(form.venta.total);
-                    }}
-                  >
-                    Quieres cambiar el precio al precio sugerido? : $
-                    {form.venta.total}
-                  </p>
-                )}
-              </Can>
-            </div>
+            {mostrarPrecio()}
             <Button
               className="md:col-start-3"
               type="button"
