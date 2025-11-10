@@ -19,9 +19,11 @@ import Filters from "@/components/Filters";
 import { TypeFilters } from "@/types";
 import { table } from "console";
 import {
-  formatDate,
   TextTransform,
 } from "@/app/dashboard/facturas-pendientes/page";
+
+import { formatDate } from "@/helpers/utils";
+
 import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
 
@@ -155,13 +157,13 @@ const TablaPagosVisualizacion = () => {
           ? newFilters.is_facturado === "SI"
             ? 1
             : newFilters.is_facturado === "NO"
-            ? 0
-            : null
+              ? 0
+              : null
           : typeof newFilters.is_facturado === "boolean"
-          ? newFilters.is_facturado
-            ? 1
-            : 0
-          : newFilters.is_facturado ?? null,
+            ? newFilters.is_facturado
+              ? 1
+              : 0
+            : newFilters.is_facturado ?? null,
 
       link_pago: newFilters.link_pago ?? "",
       origen_pago: newFilters.origen_pago ?? "",
@@ -547,8 +549,8 @@ const TablaPagosVisualizacion = () => {
 
         const matchesAgentName = pago.nombre_agente
           ? normalizeText(pago.nombre_agente).includes(
-              normalizeText(searchLower)
-            )
+            normalizeText(searchLower)
+          )
           : false;
         if (pago.nombre_agente.includes("KARLA"))
           console.log(
@@ -685,9 +687,8 @@ const TablaPagosVisualizacion = () => {
     ),
     monto_por_facturar: ({ value }: { value: number }) => (
       <span
-        className={`font-medium ${
-          value > 0 ? "text-green-600" : "text-red-600"
-        }`}
+        className={`font-medium ${value > 0 ? "text-green-600" : "text-red-600"
+          }`}
       >
         ${formatNumberWithCommas(value)}
       </span>
@@ -923,11 +924,10 @@ const TablaPagosVisualizacion = () => {
             <p className="text-sm mt-1">
               <span className="text-gray-600">Restante: </span>
               <span
-                className={`font-semibold ${
-                  balance && Number(balance.restante) >= 0
-                    ? "text-red-600"
-                    : "text-green-600"
-                }`}
+                className={`font-semibold ${balance && Number(balance.restante) >= 0
+                  ? "text-red-600"
+                  : "text-green-600"
+                  }`}
               >
                 {balance
                   ? formatCurrency(Number(balance.restante))

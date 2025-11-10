@@ -295,7 +295,7 @@ export default function SubirFactura({
 
 
 
-  const handlePagos = async ({ url }: { url?: string }) => {
+  const handlePagos = async ({ url, fecha_vencimiento }: { url?: string, fecha_vencimiento?: string }) => {
     try {
       setSubiendoArchivos(true);
 
@@ -351,6 +351,7 @@ export default function SubirFactura({
           rfc_emisor: facturaData.emisor.rfc,
           url_pdf: url ? url : archivoPDFUrl,
           url_xml: xmlUrl,
+          fecha_vencimiento: fecha_vencimiento || null,  // <-- NUEVO
         };
 
         // Agregar datos específicos del pago
@@ -391,7 +392,8 @@ export default function SubirFactura({
           uuid_factura: facturaData.timbreFiscal.uuid,
           rfc_emisor: facturaData.emisor.rfc,
           url_pdf: url ? url : archivoPDFUrl,
-          url_xml: xmlUrl
+          url_xml: xmlUrl,
+          fecha_vencimiento: fecha_vencimiento || null,  // <-- NUEVO
         };
 
         // Payload completo para la API
@@ -427,10 +429,11 @@ export default function SubirFactura({
     }
   };
 
-  const handleConfirmarFactura = async ({ payload, url }: { payload?: any, url?: string }) => {
+  const handleConfirmarFactura = async ({
+    payload, url, fecha_vencimiento }: { payload?: any, url?: string, fecha_vencimiento?: string }) => {
     try {
       console.log("🔄 Iniciando handleConfirmarFactura");
-      console.log("Payload recibido:", payload);
+      console.log("Payload recibido:", fecha_vencimiento);
       setSubiendoArchivos(true);
 
       // Upload files only when confirming
@@ -463,6 +466,7 @@ export default function SubirFactura({
         url_pdf: url ? url : archivoPDFUrl,
         url_xml: xmlUrl || null,
         items: items,
+        fecha_vencimiento: fecha_vencimiento || null, // <-- NUEVO
       };
 
       console.log("Payload completo para API:", basePayload);
@@ -753,23 +757,23 @@ export default function SubirFactura({
           facturaData={facturaData}
           pagoData={pagoData}
           itemsTotal={getItemsTotal()}
-          onConfirm={(pdfUrl) => {
+          onConfirm={(pdfUrl, fecha_vencimiento) => {
             setArchivoPDFUrl(pdfUrl);
 
             // Rama 1: Hay ítems => flujo normal (no pagada)
             if (hasItems) {
               setFacturaPagada(false);
-              handleConfirmarFactura({ url: pdfUrl });  // items se envían desde handleConfirmarFactura
+              handleConfirmarFactura({ url: pdfUrl, fecha_vencimiento: fecha_vencimiento });  // items se envían desde handleConfirmarFactura
               return;
             }
 
             // Rama 2: NO hay ítems => flujo "pagada" como en pagos
             setFacturaPagada(true);
             if (pagoData && facturaData) {
-              handlePagos({ url: pdfUrl }); // paga contra saldos/raw_ids
+              handlePagos({ url: pdfUrl, fecha_vencimiento: fecha_vencimiento }); // paga contra saldos/raw_ids
             } else {
               // Sin pagoData: guardar como pagada con saldo=0 (ver cambio en handleConfirmarFactura)
-              handleConfirmarFactura({ url: pdfUrl });
+              handleConfirmarFactura({ url: pdfUrl, fecha_vencimiento: fecha_vencimiento });
             }
           }}
           onClose={cerrarVistaPrevia}
