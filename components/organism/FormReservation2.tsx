@@ -220,6 +220,8 @@ export function ReservationForm2({
         setTravelers(data);
         // console.log(data);
       });
+      const items = calculateItems(Number(solicitud.total));
+      setForm((prev) => ({ ...prev, items }));
     } catch (error) {
       console.log(error);
       setTravelers([]);
