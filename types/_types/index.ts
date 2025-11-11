@@ -116,6 +116,7 @@ export type Factura = {
   status_solicitud?: 'pending' | 'complete' | 'canceled';
   id_usuario_generador?: string | null;
   id_agente?: string | null;
+  id_cliente?: string | null;
   nombre_agente?: string | null;
   tiene_credito_consolidado?: boolean;
   id_empresa?: string | null;

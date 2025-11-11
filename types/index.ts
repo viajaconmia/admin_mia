@@ -10,6 +10,7 @@ export interface TypeFilters {
   nombre_agente?: string | null;
   startDate?: string | null;
   endDate?: string | null;
+  cliente?: string | null;
   recordCount?: string | null;
   empresa?: string | null;
   hasDiscount?: string | null;
@@ -81,7 +82,7 @@ export interface TypeFilters {
   comprobante?: boolean | null;
   paydate?: string | null;
   fecha_creacion?: string | null;
-
+  uuid?: string | null;
   fecha_pago?: string | null;
   estatusFactura?:
     | "Confirmada"

@@ -414,7 +414,7 @@ export const FacturacionModal: React.FC<{
   onConfirm: (fiscalData: FiscalData, isConsolidated: boolean) => void;
 }> = ({ selectedItems, reservationsInit, onClose, onConfirm }) => {
   // console.log("reservationInit", reservationsInit);
-  // console.log("selectedItems", selectedItems);
+  console.log("selectedItems", selectedItems);
   // console.log(reservationsInit.map((reserva) => reserva.items));
 
   // const reservations = reservationsInit;

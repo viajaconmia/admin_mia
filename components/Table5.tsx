@@ -23,6 +23,11 @@ interface TableProps<T> {
   children?: React.ReactNode;
   maxHeight?: string;
   customColumns?: string[];
+
+  /** Activa el split de strings por espacio a múltiples líneas */
+  splitStringsBySpace?: boolean;
+  /** Restringe el split a estas columnas (keys exactos del objeto) */
+  splitColumns?: string[];
 }
 
 export const Table5 = <T,>({
@@ -34,6 +39,9 @@ export const Table5 = <T,>({
   children,
   maxHeight = "28rem",
   customColumns,
+
+  splitStringsBySpace = false,
+  splitColumns,
 }: TableProps<T>) => {
   const [displayData, setDisplayData] = useState<Registro[]>(registros);
   const [loading, setLoading] = useState<boolean>(false);
@@ -108,8 +116,47 @@ export const Table5 = <T,>({
     }, 0);
   };
 
+  console.log("informacion", registros, renderers, customColumns)
+
+  /** --- NUEVO: reglas forzadas para nombre/cliente --- */
+  const FORCE_SPLIT_COLS = new Set(["nombre", "cliente"]);
+  const toUpperNoAccents = (s: string) =>
+    s
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toUpperCase();
+
+  /** ¿Debemos hacer split en esta columna por config general? */
+  const shouldSplitCol = (colKey: string) =>
+    splitStringsBySpace &&
+    (Array.isArray(splitColumns) ? splitColumns.includes(colKey) : true);
+
+  /** Render genérico con reglas específicas para nombre/cliente */
+  const renderValue = (colKey: string, value: unknown) => {
+    const lc = colKey.toLowerCase();
+    const isForcedNameCol = FORCE_SPLIT_COLS.has(lc);
+
+    if (typeof value === "string") {
+      // Para "nombre" / "cliente": forzar MAYÚSCULAS + sin acentos
+      const base = isForcedNameCol ? toUpperNoAccents(value) : value;
+
+      // Split por espacios si (a) es columna forzada o (b) el split global/por columna aplica
+      const mustSplit = isForcedNameCol || shouldSplitCol(colKey);
+      if (mustSplit) {
+        const withNewLines = base.trim().split(/\s+/).join("\n");
+        return <span className="whitespace-pre-line break-words">{withNewLines}</span>;
+      }
+
+      // Si no se hace split, al menos respeta el upper/sin acento para nombre/cliente
+      if (isForcedNameCol) {
+        return <span className="break-words">{base}</span>;
+      }
+    }
+
+    return String(value ?? "");
+  };
+
   return (
-    // The main container remains a relative parent
     <div className="relative w-full">
       {exportButton && (
         <div className="flex w-full justify-between mb-2">
@@ -118,8 +165,6 @@ export const Table5 = <T,>({
               {leyenda}
             </span>
           </div>
-          {/* Moved the column selector button and dropdown here,
-          outside the overflow container */}
           <div className="flex gap-4">
             {children}
             <button
@@ -155,7 +200,6 @@ export const Table5 = <T,>({
                       >
                         Mostrar todas
                       </button>
-
                     </div>
                     {columnKeys.map((key) => (
                       <div
@@ -185,7 +229,6 @@ export const Table5 = <T,>({
         </div>
       )}
       {loading && <Loader />}
-      {/* The table container itself still needs the overflow styles */}
       {displayData.length > 0 && !loading ? (
         <div
           className="overflow-y-auto relative border border-gray-200 rounded-sm w-full h-fit"
@@ -234,14 +277,16 @@ export const Table5 = <T,>({
 
                       return (
                         <td
-                          key={`${item.id !== undefined ? item.id : index
-                            }-${colKey}`}
+                          key={`${item.id !== undefined ? item.id : index}-${colKey}`}
                           className="px-6 py-2 whitespace-nowrap text-xs text-gray-900"
                         >
                           {Renderer ? (
+                            // Si usas un Renderer custom, tú controlas el formato.
                             <Renderer value={value} item={item.item} index={index} />
                           ) : (
-                            String(value || "")
+                            <div className="whitespace-pre-line break-words">
+                              {renderValue(colKey, value)}
+                            </div>
                           )}
                         </td>
                       );

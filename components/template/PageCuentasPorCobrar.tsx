@@ -32,7 +32,7 @@ import { SaldoFavor, NuevoSaldoAFavor, Saldo } from "@/services/SaldoAFavor";
 import { fetchAgenteById, fetchPagosByAgente } from "@/services/agentes";
 import { Loader } from "@/components/atom/Loader";
 import { API_KEY, URL } from "@/lib/constants/index";
-import { formatDate } from "@/app/dashboard/facturas-pendientes/page";
+import { formatDate } from "@/helpers/utils";
 import { PagarModalComponent } from "./pagar_saldo";
 import ModalDetallePago from "@/app/dashboard/payments/_components/detalles_pago";
 

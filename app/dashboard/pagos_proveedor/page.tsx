@@ -18,6 +18,8 @@ import { Loader } from "@/components/atom/Loader";
 import { currentDate } from "@/lib/utils";
 import { fetchGetSolicitudesProveedores } from "@/services/pago_proveedor";
 import { useResponsiveColumns } from "@/hooks/useResponsiveColumns";
+import { usePermiso } from "@/hooks/usePermission";
+import { PERMISOS } from "@/constant/permisos";
 
 // --- helpers locales ---
 const parseNum = (v: any) => (v == null ? 0 : Number(v));
