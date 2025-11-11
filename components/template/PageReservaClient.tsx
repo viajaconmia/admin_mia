@@ -69,34 +69,6 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
     setPagar(true);
   };
 
-  // ---------- handleConteo: clasifica pagadas vs pendientes ----------
-  const { pagadas, pendientes } = useMemo(() => {
-    const acc = {
-      pagadas: [] as SolicitudConPagos[],
-      pendientes: [] as SolicitudConPagos[],
-    };
-
-    for (const s of allSolicitudes) {
-      const total = parseNum(s.total);
-      const sumaPagos = (s.pagos_asociados || []).reduce(
-        (sum, p) => sum + parseNum(p.monto),
-        0
-      );
-
-      if (sumaPagos + EPS > total) {
-        console.log("errores", sumaPagos);
-      }
-
-      // Igual (con tolerancia) o mayor -> pagadas; menor -> pendientes
-      if (sumaPagos + EPS >= total) {
-        acc.pagadas.push(s);
-      } else {
-        acc.pendientes.push(s);
-      }
-    }
-    return acc;
-  }, [allSolicitudes]);
-
   // 1) Selección por vista (simplificada para mostrar solo 'reservas')
   const solicitudesPorVista: SolicitudConPagos[] = useMemo(() => {
     // Si la vista fuera dinámica, se usaría una variable de estado.
@@ -244,13 +216,15 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
     ),
     pagar: ({ item }) =>
       item.status_reserva === "Confirmada" ? (
-        <button
-          onClick={() => handlePagar(item)}
-          className="text-blue-600 hover:text-blue-900 transition duration-150 ease-in-out flex gap-2 items-center"
-        >
-          <DollarSign className="w-4 h-4" />
-          Pagar
-        </button>
+        <Can permiso={PERMISOS.COMPONENTES.BOTON.PAGAR_PROVEEDOR}>
+          <button
+            onClick={() => handlePagar(item)}
+            className="text-blue-600 hover:text-blue-900 transition duration-150 ease-in-out flex gap-2 items-center"
+          >
+            <DollarSign className="w-4 h-4" />
+            Pagar
+          </button>
+        </Can>
       ) : (
         <span className="text-gray-400 text-xs">—</span>
       ),
@@ -347,13 +321,15 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
               ]}
             >
               {id_agente && (
-                <button
-                  onClick={() => setCreateReserva(true)}
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2"
-                >
-                  <Building2 className="w-4 h-4 mr-2" />
-                  Crear reserva
-                </button>
+                <Can permiso={PERMISOS.COMPONENTES.BOTON.CREAR_RESERVA}>
+                  <button
+                    onClick={() => setCreateReserva(true)}
+                    className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2"
+                  >
+                    <Building2 className="w-4 h-4 mr-2" />
+                    Crear reserva
+                  </button>
+                </Can>
               )}
             </Table5>
           )}
