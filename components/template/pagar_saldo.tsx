@@ -416,6 +416,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
 
     }
     else if (facturaData[0] != 0) {
+
       // Construimos el arreglo ejemplo_saldos igual que en reservaData
       const ejemplo_saldos = selectedItems.map(item => {
         const originalItem = saldoFavorData.find(sf => `saldo-${sf.id_saldos}` === item.id_item);
@@ -435,6 +436,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
           tipo_de_tarjeta: originalItem?.tipo_tarjeta || null,
           link_pago: null,
           last_digits: null
+
         };
       });
 
@@ -534,7 +536,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
   const tableData = reservaData || facturaData[0] != 0 ?
     // Datos del nuevo flujo (SaldoFavor)
     saldoFavorData
-      .filter(saldo => saldo.activo !== 0 && saldo.saldo != 0)
+      .filter(saldo => saldo.activo !== 0 && saldo.saldo != 0 && saldo.is_facturable == 1)
       .map(saldo => {
 
         const saldorestante1 = reservaData ? itemsSaldo[`saldo-${saldo.id_saldos}`] !== undefined ?
@@ -562,6 +564,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
           saldo: facturaData[0] != 0 ? Number(saldo.monto_por_facturar) : Number(saldo.saldo),
           seleccionado: saldo,
           saldo_restante: saldorestante1
+
         }
       }) :
     // Datos del flujo existente
@@ -587,7 +590,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
       <input
         type="checkbox"
         checked={isItemSelected(`saldo-${value.id_saldos}`)}
-        onChange={() => handleItemSelection(`saldo-${value.id_saldos}`, Number(value.saldo))}
+        onChange={() => handleItemSelection(`saldo-${value.id_saldos}`, facturaData[0] != 0 ? Number(value.monto_por_facturar) : Number(value.saldo))}
         className={`h-4 w-4 focus:ring-blue-500 border-gray-300 rounded`}
       />
     ),
