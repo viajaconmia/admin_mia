@@ -162,13 +162,19 @@ export function ReservationForm2({
   const handleSaldosSubmit = async (saldos, restante, usado) => {
     try {
       setLoading(true);
+      console.log(
+        Number(solicitud.total).toFixed(2) != Number(precio).toFixed(2),
+        solicitud.total,
+        precio
+      );
+      const { venta, ...rest } = edicionForm;
       const data = {
-        ...edicionForm,
-        venta:
-          Number(solicitud.total).toFixed(2) != Number(precio).toFixed(2)
-            ? {
+        ...rest,
+        ...(Number(solicitud.total).toFixed(2) != Number(precio).toFixed(2)
+          ? {
+              venta: {
                 before: {
-                  total: solicitud.total,
+                  total: Number(solicitud.total).toFixed(2),
                   impuestos: (
                     Number(solicitud.total) -
                     Number(solicitud.total) / 1.16
@@ -180,8 +186,28 @@ export function ReservationForm2({
                   impuestos: (precio - precio / 1.16).toFixed(2),
                   subtotal: (precio / 1.16).toFixed(2),
                 },
-              }
-            : { ...edicionForm.venta },
+              },
+            }
+          : {
+              venta: {
+                before: {
+                  total: Number(solicitud.total).toFixed(2),
+                  impuestos: (
+                    Number(solicitud.total) -
+                    Number(solicitud.total) / 1.16
+                  ).toFixed(2),
+                  subtotal: (Number(solicitud.total) / 1.16).toFixed(2),
+                },
+                current: {
+                  total: Number(solicitud.total).toFixed(2),
+                  impuestos: (
+                    Number(solicitud.total) -
+                    Number(solicitud.total) / 1.16
+                  ).toFixed(2),
+                  subtotal: (Number(solicitud.total) / 1.16).toFixed(2),
+                },
+              },
+            }),
         nuevo_incluye_desayuno,
         acompanantes,
         saldos,
