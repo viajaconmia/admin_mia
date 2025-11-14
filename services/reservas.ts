@@ -1,6 +1,42 @@
 import { EdicionForm, ReservaForm, Viajero } from "@/types";
 import { URL, API_KEY } from "@/lib/constants";
 
+export async function new_edit(
+  reserva: EdicionForm & {
+    nuevo_incluye_desayuno: boolean | null;
+    acompanantes: Viajero[];
+  },
+  id_booking: string,
+  callback?: (data: any) => void
+) {
+  try {
+    const response = await fetch(`${URL}/mia/reservas/nuevo-editar-reserva`, {
+      method: "PUT",
+      headers: {
+        "x-api-key": API_KEY || "",
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        ...reserva,
+        id_booking,
+      }),
+      cache: "no-store",
+    }).then((res) => res.json());
+    if (callback) {
+      callback(response);
+    }
+    console.log(response);
+    if (response.error) {
+      throw new Error("Error al cargar los datos en reservas");
+    }
+    return response;
+  } catch (error) {
+    console.log(error);
+    throw error;
+  }
+}
+
 export async function updateReserva(
   reserva: EdicionForm & {
     nuevo_incluye_desayuno: boolean | null;
