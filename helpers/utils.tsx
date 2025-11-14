@@ -15,7 +15,9 @@ import {
   Skull,
 } from "lucide-react";
 
-export const getEstatus = (estatus: string) => {
+export const getEstatus = (
+  estatus: string
+): "Confirmada" | "En proceso" | "Cancelada" => {
   let data = estatus;
   switch (data) {
     case "pending":
@@ -30,7 +32,7 @@ export const getEstatus = (estatus: string) => {
     default:
       break;
   }
-  return data;
+  return data as "Confirmada" | "En proceso" | "Cancelada";
 };
 
 export function separarCostos(total: number) {
