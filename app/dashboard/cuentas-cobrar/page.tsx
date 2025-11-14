@@ -329,9 +329,8 @@ const CuentasPorCobrar = () => {
     ),
     saldo_sum: ({ value }: { value: number }) => (
       <span
-        className={`font-bold ${
-          value >= 0 ? "text-green-600" : "text-red-600"
-        }`}
+        className={`font-bold ${value >= 0 ? "text-green-600" : "text-red-600"
+          }`}
       >
         {money(value)}
       </span>
@@ -361,7 +360,7 @@ const CuentasPorCobrar = () => {
                 <thead className="bg-gray-50">
                   <tr className="text-left">
                     <th className="px-3 py-2">Sel</th>
-                    <th className="px-3 py-2">ID Factura</th>
+                    <th className="px-3 py-2">UUID</th>
                     <th className="px-3 py-2">Emisión</th>
                     <th className="px-3 py-2">Estado</th>
                     <th className="px-3 py-2">Total</th>
@@ -380,16 +379,16 @@ const CuentasPorCobrar = () => {
                       diff === null
                         ? "N/A"
                         : diff > 0
-                        ? `${diff} días restantes`
-                        : diff < 0
-                        ? `${Math.abs(diff)} días atrasado`
-                        : "Vence hoy";
+                          ? `${diff} días restantes`
+                          : diff < 0
+                            ? `${Math.abs(diff)} días atrasado`
+                            : "Vence hoy";
                     const vencColor =
                       diff === null
                         ? "text-gray-500"
                         : diff < 0
-                        ? "text-red-600"
-                        : "text-green-600";
+                          ? "text-red-600"
+                          : "text-green-600";
 
                     return (
                       <tr key={r.id_factura} className="border-t">
@@ -412,13 +411,12 @@ const CuentasPorCobrar = () => {
                         </td>
                         <td className="px-3 py-2">
                           <span
-                            className={`px-2 py-1 rounded-full text-xs ${
-                              r.estado === "Confirmada"
+                            className={`px-2 py-1 rounded-full text-xs ${r.estado === "Confirmada"
                                 ? "bg-green-100 text-green-800"
                                 : r.estado === "Pendiente"
-                                ? "bg-yellow-100 text-yellow-800"
-                                : "bg-gray-100 text-gray-800"
-                            }`}
+                                  ? "bg-yellow-100 text-yellow-800"
+                                  : "bg-gray-100 text-gray-800"
+                              }`}
                           >
                             {r.estado}
                           </span>
@@ -427,9 +425,8 @@ const CuentasPorCobrar = () => {
                           {money(parseFloat(r.total ?? 0) || 0)}
                         </td>
                         <td
-                          className={`px-3 py-2 font-bold ${
-                            saldoNum >= 0 ? "text-green-600" : "text-red-600"
-                          }`}
+                          className={`px-3 py-2 font-bold ${saldoNum >= 0 ? "text-green-600" : "text-red-600"
+                            }`}
                         >
                           {money(saldoNum)}
                         </td>

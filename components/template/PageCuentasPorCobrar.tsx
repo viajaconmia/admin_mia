@@ -508,6 +508,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     const fetchSaldoFavor = async () => {
       const response: { message: string; data: Saldo[] } =
         await SaldoFavor.getPagos(agente.id_agente);
+      console.log(response)
       setSaldos(response.data);
     };
     fetchSaldoFavor();
@@ -1123,7 +1124,8 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             saldo: updatedData.monto_pagado?.toString() || item.monto,
             activo: true, // Siempre activo al editar
             currency: item.currency || "MXN",
-            comprobante: item.comprobante
+            comprobante: item.comprobante,
+            is_cancelado: 0
           };
 
           // Manejar campos específicos según el método de pago

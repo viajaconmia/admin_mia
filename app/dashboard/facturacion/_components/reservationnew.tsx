@@ -239,6 +239,27 @@ const ReservationsWithTable4: React.FC = () => {
     }
   };
 
+  const buildSelectHospedajeFromSelection = (selected: SelectedMap): SelectedMap => {
+    const result: SelectedMap = {};
+
+    Object.keys(selected).forEach((id_servicio) => {
+      const reserva = reservations.find((r) => r.id_servicio === id_servicio);
+      if (!reserva) return;
+
+      // 👇 Aquí pones lo que quieras guardar como "hospedaje"
+      // Ejemplo con id_booking (cámbialo por id_hospedaje si lo traes):
+      const hospedajeId = reserva.id_hospedaje;
+
+      if (hospedajeId) {
+        // lo metemos como array porque SelectedMap es string[]
+        result[id_servicio] = [hospedajeId];
+      }
+    });
+
+    return result;
+  };
+
+
   const adjustItemDates = (
     reservation: ReservationWithItems
   ): ReservationWithItems => {
@@ -275,6 +296,7 @@ const ReservationsWithTable4: React.FC = () => {
 
   // selección por reservación -> ids de items
   const [selectedItems, setSelectedItems] = useState<SelectedMap>({});
+  const [selectHospedaje, setSelectHospedaje] = useState<SelectedMap>({});
   // filas expandibles
   const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({});
   // modal
@@ -499,7 +521,10 @@ const ReservationsWithTable4: React.FC = () => {
       .filter((item) => item?.id_factura == null)
       .map((item) => item.id_item);
 
+
     setSelectedItems((prev) => {
+      console.log(reservation, "reservaas ❤️❤️❤️❤️❤️❤️ ")
+
       const currentSelected = prev[reservationId] || [];
       let nextSelected: SelectedMap;
       // Verifica si la selección de este usuario corresponde al mismo
@@ -539,7 +564,7 @@ const ReservationsWithTable4: React.FC = () => {
     const reservation = reservations.find(
       (r) => r.id_servicio === reservationId
     );
-    console.log(reservation)
+    console.log(reservation, "reservaas ❤️❤️❤️❤️❤️❤️ ")
     const item = reservation?.items?.find((i) => i.id_item === itemId);
     if (item?.id_factura != null) return; // item ya facturado
 
@@ -596,11 +621,19 @@ const ReservationsWithTable4: React.FC = () => {
     return unique.length === 1 ? unique[0] : null;
   };
 
-  const handleFacturar = () => setShowFacturacionModal(true);
+  const handleFacturar = () => {
+    // construimos el mapa de hospedajes a partir de lo seleccionado
+    const nextSelectHospedaje = buildSelectHospedajeFromSelection(selectedItems);
+    setSelectHospedaje(nextSelectHospedaje);
+
+    setShowFacturacionModal(true);
+  };
 
   const handleSubirfactura = () => setShowSubirFacModal(true);
 
   const handleAsignar = () => {
+    const nextSelectHospedaje = buildSelectHospedajeFromSelection(selectedItems);
+    setSelectHospedaje(nextSelectHospedaje);
     const ids = getAllSelectedItems();
     if (ids.length === 0) return;
 
@@ -926,6 +959,7 @@ const ReservationsWithTable4: React.FC = () => {
       {showFacturacionModal && (
         <FacturacionModal
           selectedItems={selectedItems}
+          selectedHospedaje={selectHospedaje}   // 👈 NUEVO
           reservationsInit={reservations}
           onClose={() => setShowFacturacionModal(false)}
           onConfirm={confirmFacturacion}

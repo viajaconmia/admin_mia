@@ -18,6 +18,9 @@ export const PERMISOS = {
     CUENTAS_POR_COBRAR: "view.cuenta-cobr",
   },
   COMPONENTES: {
-    EDITAR_PRECIO_RESERVA: "button.edit-price-booking",
+    BOTON: {
+      PAGAR_PROVEEDOR: "button.pagar-proveedor-reserva",
+      CREAR_RESERVA: "button.crear-reserva",
+    },
   },
 } as const;
