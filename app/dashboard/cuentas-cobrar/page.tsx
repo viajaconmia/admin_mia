@@ -403,7 +403,7 @@ const CuentasPorCobrar = () => {
                         </td>
                         <td className="px-3 py-2">
                           <span className="font-mono bg-gray-100 px-2 py-1 rounded text-xs">
-                            {r.uuid_factura}
+                            {r.id_factura}
                           </span>
                         </td>
                         <td className="px-3 py-2 text-gray-600">
