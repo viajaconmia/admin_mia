@@ -82,6 +82,7 @@ export async function fetchCreateReservaOperaciones(
         "Cache-Control": "no-cache, no-store, must-revalidate",
         "Content-Type": "application/json",
       },
+      credentials: "include",
       body: JSON.stringify(reserva),
       cache: "no-store",
     }).then((res) => res.json());
@@ -112,6 +113,7 @@ export async function fetchCreateReserva(reserva) {
         "Cache-Control": "no-cache, no-store, must-revalidate",
         "Content-Type": "application/json",
       },
+      credentials: "include",
       body: JSON.stringify(reserva),
       cache: "no-store",
     }).then((res) => res.json());
