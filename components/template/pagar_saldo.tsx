@@ -191,9 +191,9 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
     }
   }, [effectiveSaldoData.id_agente, reservaData]);
 
-  useEffect(() => {
-    console.log(reservas);
-  }, [reservas]);
+  // useEffect(() => {
+  //   console.log(reservas);
+  // }, [reservas]);
 
   useEffect(() => {
     if (facturaData[0] != 0) {
@@ -565,7 +565,9 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
         saldoFavorData
           .filter(
             (saldo) =>
-              saldo.activo !== 0 && saldo.saldo != 0 && saldo.is_facturable == 1
+              saldo.activo !== 0 &&
+              saldo.saldo != 0 &&
+              (saldo.is_facturable == 1 || reservaData)
           )
           .map((saldo) => {
             const saldorestante1 = reservaData
