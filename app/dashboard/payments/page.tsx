@@ -552,12 +552,6 @@ const TablaPagosVisualizacion = () => {
             normalizeText(searchLower)
           )
           : false;
-        if (pago.nombre_agente.includes("KARLA"))
-          console.log(
-            normalizeText(pago.nombre_agente),
-            "probando filtros",
-            normalizeText(searchLower)
-          );
 
         const matchesAgentId = pago.ig_agente
           ? normalizeText(pago.ig_agente).includes(searchLower)

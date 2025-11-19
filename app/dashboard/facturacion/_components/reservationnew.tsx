@@ -742,6 +742,20 @@ const ReservationsWithTable4: React.FC = () => {
     });
   }, [reservations, onlyPending, filters, searchTerm]);
 
+  useEffect(() => {
+    if (!rows.length) return;
+
+    const idsUnicos = new Set(
+      rows
+        .map(r => r.seleccionado?.id_hospedaje)
+        .filter(Boolean) // quitar null/undefined
+    );
+
+    console.log("Total de id_hospedaje únicos:", idsUnicos.size);
+    console.log("Lista de ids únicos:", Array.from(idsUnicos));
+  }, [rows]);
+
+
   // ---- renderers de columnas ----
   const renderers = {
     // 1) columna combinada: chevron + checkbox por reserva
@@ -836,6 +850,8 @@ const ReservationsWithTable4: React.FC = () => {
     [reservations]
   );
 
+
+
   // Reemplaza tu expandedRenderer por:
   const expandedRenderer = (row: any) => {
     const reservationId: string = row.detalles?.reservaId ?? row.id;
@@ -869,6 +885,8 @@ const ReservationsWithTable4: React.FC = () => {
     "mark_up",
     "precio_de_venta",
   ];
+
+  console.log(rows, "cambios")
 
   return (
     <div className="bg-white rounded-lg p-4 w-full shadow-sm">
