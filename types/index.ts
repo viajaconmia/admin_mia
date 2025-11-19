@@ -178,6 +178,7 @@ export type Solicitud = {
 //TEMPORAL
 
 export interface Solicitud2 {
+  id_hotel: string | null;
   id_agente: string;
   id_servicio: string;
   id_solicitud: string;
