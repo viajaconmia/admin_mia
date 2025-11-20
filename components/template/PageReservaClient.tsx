@@ -188,13 +188,12 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
     ),
     markup: ({ value }) => (
       <span
-        className={`font-semibold border p-2 rounded-full ${
-          value == "Infinity"
-            ? "text-gray-700 bg-gray-100 border-gray-300 "
-            : value > 0
+        className={`font-semibold border p-2 rounded-full ${value == "Infinity"
+          ? "text-gray-700 bg-gray-100 border-gray-300 "
+          : value > 0
             ? "text-green-600 bg-green-100 border-green-300"
             : "text-red-600 bg-red-100 border-red-300"
-        }`}
+          }`}
       >
         {value == "Infinity" ? "0%" : `${Number(value).toFixed(2)}%`}
       </span>
@@ -235,8 +234,6 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
     costo_proveedor: ({ value }) => (
       <span title={value}>${Number(value || 0).toFixed(2)}</span>
     ),
-    hotel: ({ value }: { value: string }) => <TextTransform value={value} />,
-    viajero: ({ value }: { value: string }) => <TextTransform value={value} />,
     tipo_cuarto: ({ value }: { value: string }) => (
       <TextTransform value={value} />
     ),
