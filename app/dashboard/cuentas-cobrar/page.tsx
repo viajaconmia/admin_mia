@@ -316,7 +316,6 @@ const CuentasPorCobrar = () => {
     );
   }, [filteredFacturas]);
 
-  console.log(rows, "cambios de data")
 
   console.log(rows, "cambios de data")
 

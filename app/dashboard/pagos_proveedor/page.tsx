@@ -5,7 +5,6 @@ import { CreditCard, Send } from "lucide-react";
 import Filters from "@/components/Filters";
 import {
   calcularNoches,
-  formatDate,
   formatRoom,
   getPaymentBadge,
   getStageBadge,
@@ -17,14 +16,15 @@ import { TypeFilters, SolicitudProveedor } from "@/types";
 import { Loader } from "@/components/atom/Loader";
 import { currentDate } from "@/lib/utils";
 import { fetchGetSolicitudesProveedores } from "@/services/pago_proveedor";
-import { useResponsiveColumns } from "@/hooks/useResponsiveColumns";
 import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
 
-// --- helpers locales ---
+// ---------- HELPERS GENERALES ----------
+
 const parseNum = (v: any) => (v == null ? 0 : Number(v));
-// --- helpers de estatus y agrupación ---
 const norm = (s?: string | null) => (s ?? "").trim().toLowerCase();
+
+// ---------- CATEGORÍAS ----------
 
 type CategoriaEstatus =
   | "spei_solicitado"
@@ -33,25 +33,48 @@ type CategoriaEstatus =
   | "pagada"
   | "otros";
 
-function mapEstatusToCategoria(estatus?: string | null): CategoriaEstatus {
-  const v = norm(estatus);
+type RowConCamposCategoria = {
+  estado_pago?: string | null;
+  estatus_pagos?: string | null;
+  forma_de_pago_solicitada?: string | null;
+  filtro_pago?: string | null; // 👈 viene del back
+};
 
-  // matches exactos o cercanos
-  if (v === "spei_solicitado" || v.includes("spei")) return "spei_solicitado";
-  if (v === "pagotdc" || v.includes("tdc") || v.includes("tarjeta"))
-    return "pagotdc";
-  if (v === "cupon_enviado" || v.includes("cupon") || v.includes("cupón"))
+// 🔥 AHORA usamos filtro_pago como fuente de verdad
+function mapRegistroToCategoria(r: RowConCamposCategoria): CategoriaEstatus {
+  const f = norm(r.filtro_pago);
+
+  if (f === "spei_solicitado") return "spei_solicitado";
+  if (f === "pago_tdc") return "pagotdc"; // back manda "pago_tdc"
+  if (f === "cupon_enviado") return "cupon_enviado";
+  if (f === "pagada") return "pagada";
+
+  // Fallback por si algún registro viniera sin filtro_pago
+  const estadoPago = norm(r.estado_pago);
+  const estatusGlobal = norm(r.estatus_pagos);
+  const forma = norm(r.forma_de_pago_solicitada);
+
+  if (
+    estadoPago === "pagado" ||
+    estatusGlobal === "pagado" ||
+    estatusGlobal === "pagada"
+  ) {
+    return "pagada";
+  }
+  if (forma === "transfer" || forma === "transferencia" || forma.includes("spei")) {
+    return "spei_solicitado";
+  }
+  if (forma === "card" || forma.includes("tarjeta")) return "pagotdc";
+  if (forma === "cupon" || forma === "cupón" || forma.includes("link"))
     return "cupon_enviado";
-  if (v === "pagada" || v === "pagado") return "pagada";
+
   return "otros";
 }
 
-function agruparPorCategoria<T extends { estatus_pagos?: string | null }>(
-  registros: T[]
-) {
+function agruparPorCategoria<T extends RowConCamposCategoria>(registros: T[]) {
   return registros.reduce(
     (acc, r) => {
-      const cat = mapEstatusToCategoria(r.estatus_pagos);
+      const cat = mapRegistroToCategoria(r);
       acc[cat].push(r);
       return acc;
     },
@@ -64,6 +87,8 @@ function agruparPorCategoria<T extends { estatus_pagos?: string | null }>(
     }
   );
 }
+
+// ---------- TIPOS DE ITEM ----------
 
 type ItemSolicitud = SolicitudProveedor & {
   pagos?: Array<{
@@ -79,7 +104,10 @@ type ItemSolicitud = SolicitudProveedor & {
     estado_factura?: "emitida" | "pendiente" | string;
   }>;
   estatus_pagos?: string | null;
+  filtro_pago?: string | null; // 👈 también lo ponemos aquí
 };
+
+// ---------- INFO DE PAGOS / FACTURAS ----------
 
 function getPagoInfo(item: ItemSolicitud) {
   const pagos = (item?.pagos || []).slice().sort((a, b) => {
@@ -142,6 +170,8 @@ function getFacturaInfo(item: ItemSolicitud) {
   return { estado, totalFacturado, fechaUltimaFactura, uuid };
 }
 
+// ---------- UI HELPERS ----------
+
 const Pill = ({
   text,
   tone = "gray",
@@ -182,6 +212,18 @@ const facturaTone = (estado: string) =>
         ? "red"
         : "gray";
 
+const formatDateSimple = (date: string | Date) => {
+  if (!date) return "—";
+  const localDate = new Date(date);
+  return localDate.toLocaleDateString("es-MX", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+};
+
+// ---------- COMPONENTE PRINCIPAL ----------
+
 function App() {
   const [solicitudesPago, setSolicitudesPago] = useState<SolicitudProveedor[]>(
     []
@@ -191,52 +233,27 @@ function App() {
   const [filters, setFilters] = useState<TypeFilters>(
     defaultFiltersSolicitudes
   );
-  const [activeFilter, setActiveFilter] = useState<string>("all"); // "all" | "creditCard" | "sentToPayments"
+  const [activeFilter, setActiveFilter] = useState<string>("all");
+  const [categoria, setCategoria] = useState<CategoriaEstatus | "all">("all");
+
+  // 🔹 NUEVO: estado para solicitudes seleccionadas
+  const [solicitud, setSolicitud] = useState<SolicitudProveedor[]>([]);
+
   const { hasAccess } = usePermiso();
 
   hasAccess(PERMISOS.VISTAS.PROVEEDOR_PAGOS);
 
-  // categoría visible en la tabla
-  const [categoria, setCategoria] = useState<CategoriaEstatus | "all">("all");
-  const norm = (s?: string | null) => (s ?? "").trim().toLowerCase();
+  const cleanedSolicitudes = (solicitudesPago || []) as ItemSolicitud[];
 
-  // Filtra todo lo que esté pagado desde el inicio
-  const cleanedSolicitudes = solicitudesPago.filter(
-    (it) => norm((it as ItemSolicitud).estatus_pagos) !== "pagado"
-  );
-
-
-  // Filtro adicional
   const filteredSolicitudes = cleanedSolicitudes.filter((item) => {
     if (activeFilter === "creditCard") {
       return !!item.tarjeta?.ultimos_4;
     } else if (activeFilter === "enviado_a_pago") {
-      return (item as ItemSolicitud).estatus_pagos?.toLowerCase() === "enviado_a_pago";
+      return item.estatus_pagos?.toLowerCase() === "enviado_a_pago";
     }
     return true;
   });
 
-  const formatDateSimple = (date: string | Date) => {
-    if (!date) return "—"; // Si no hay fecha, mostramos un guion
-    const localDate = new Date(date);
-    return localDate.toLocaleDateString("es-MX", {
-      // Aquí usamos el formato mexicano (es-MX)
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
-  };
-
-  // 1) Aplica tu filtro extra (credit card / enviado_a_pago) si aún lo quieres.
-  //    Si ya no lo necesitas, puedes quitar activeFilter y dejar solo la categoría.
-  const filteredSolicitudes = solicitudesPago.filter((item) => {
-    if (activeFilter === "creditCard") return !!item.tarjeta?.ultimos_4;
-    if (activeFilter === "enviado_a_pago")
-      return (item as ItemSolicitud).estatus_pagos?.toLowerCase() === "enviado_a_pago";
-    return true;
-  });
-
-  // 2) Búsqueda y mapeo a tu estructura de tabla
   const formatedSolicitudes = filteredSolicitudes
     .filter((item) => {
       const q = (searchTerm || "").toUpperCase();
@@ -254,11 +271,13 @@ function App() {
       const facInfo = getFacturaInfo(item);
 
       return {
-        id_cliente: item.id_agente,
-        cliente: (item?.razon_social || "").toUpperCase(),
+        // 🔹 NUEVO: campo al inicio para seleccionar (primera columna)
+        seleccionar: "",
+
+        // 🟦 INFORMACIÓN DE LA RESERVA
+        codigo_hotel: item.codigo_reservacion_hotel,
         creado: item.created_at,
         hotel: item.hotel.toUpperCase(),
-        codigo_hotel: item.codigo_reservacion_hotel,
         viajero: (
           item.nombre_viajero_completo ||
           item.nombre_viajero ||
@@ -270,74 +289,111 @@ function App() {
         habitacion: formatRoom(item.room),
         costo_proveedor: Number(item.costo_total) || 0,
         markup:
-          ((Number(item.total || 0) - Number(item.costo_total || 0)) / Number(item.total || 0)) *
+          ((Number(item.total || 0) - Number(item.costo_total || 0)) /
+            Number(item.total || 0)) *
           100,
         precio_de_venta: parseFloat(item.total),
         metodo_de_pago: item.id_credito ? "credito" : "contado",
-        reservante: item.id_usuario_generador ? "Cliente" : "Operaciones",
         etapa_reservacion: item.estado_reserva,
         estado: item.status,
-
-        // Pagos / Factura
-        estado_pago: pagoInfo.estado_pago,
-        monto_pagado_proveedor: pagoInfo.totalPagado,
-        fecha_real_cobro: pagoInfo.fechaUltimoPago,
-
-        estado_factura_proveedor: facInfo.estado,
-        costo_facturado: facInfo.totalFacturado,
-        fecha_facturacion: facInfo.fechaUltimaFactura,
-        UUID: facInfo.uuid,
-
-        fecha_solicitud: item.solicitud_proveedor?.fecha_solicitud,
+        reservante: item.id_usuario_generador ? "Cliente" : "Operaciones",
+        // 🟩 INFORMACIÓN DEL CLIENTE
+        id_cliente: item.id_agente,
+        cliente: (item.nombre_agente_completo || "").toUpperCase(),
+        // 🟨 INFORMACIÓN DEL PROVEEDOR
         razon_social: item.proveedor?.razon_social,
         rfc: item.proveedor?.rfc,
+        // 🟧 INFORMACIÓN DE LA SOLICITUD / PAGOS / FACTURACIÓN
+        fecha_de_pago: item.solicitud_proveedor?.fecha_solicitud,
         forma_de_pago_solicitada:
           item.solicitud_proveedor?.forma_pago_solicitada,
         digitos_tajeta: item.tarjeta?.ultimos_4,
         banco: item.tarjeta?.banco_emisor,
         tipo_tarjeta: item.tarjeta?.tipo_tarjeta,
-
-        // Estatus original (lo usaremos para categorizar)
+        // 🟥 PAGO AL PROVEEDOR
+        estado_pago: pagoInfo.estado_pago,
+        monto_pagado_proveedor: pagoInfo.totalPagado,
+        fecha_real_cobro: pagoInfo.fechaUltimoPago,
+        // 🟪 FACTURACIÓN
+        estado_factura_proveedor: facInfo.estado,
+        total_facturado: facInfo.totalFacturado,
+        fecha_facturacion: facInfo.fechaUltimaFactura,
+        UUID: facInfo.uuid,
         estatus_pagos: item.estatus_pagos ?? "",
-
+        filtro_pago: item.filtro_pago ?? "", // 🔹 importante para agruparPorCategoria
+        // Objeto completo original por si se requiere
         item: raw,
       };
     });
 
-  // 3) Agrupa por categoría
   const grupos = agruparPorCategoria(formatedSolicitudes);
 
-  // 4) Decide qué lista mostrar según la categoría seleccionada
   const registrosVisibles =
     categoria === "all" ? formatedSolicitudes : grupos[categoria];
 
+  // ---------- HANDLERS NUEVOS ----------
+
+  const handleLayout = () => {
+    console.log("hola");
+  };
+
+  const handleCsv = () => {
+    console.log("hola");
+  };
+
   const renderers: Record<
     string,
-    React.FC<{ value: any; item: ItemSolicitud; index: number }>
+    React.FC<{ value: any; item: any; index: number }>
   > = {
+    // 🔹 Renderer de selección (checkbox)
+    seleccionar: ({ item }) => {
+      const raw: SolicitudProveedor | undefined = item?.item;
+      const isSelected = raw
+        ? solicitud.some((s) => s === raw)
+        : false;
+
+      return (
+        <input
+          type="checkbox"
+          checked={isSelected}
+          onChange={(e) => {
+            if (!raw) return;
+            setSolicitud((prev) => {
+              const exists = prev.some((s) => s === raw);
+              if (e.target.checked) {
+                return exists ? prev : [...prev, raw];
+              }
+              return prev.filter((s) => s !== raw);
+            });
+          }}
+        />
+      );
+    },
+
     id_cliente: ({ value }) => (
       <span className="font-semibold text-sm">
         {value ? String(value).slice(0, 11).toUpperCase() : ""}
       </span>
     ),
+
     creado: ({ value }) => <span title={value}>{formatDateSimple(value)}</span>,
-    hotel: ({ value }) => (
-      <span className="font-medium" title={value}>
-        {value ? value.toUpperCase() : ""}
-      </span>
-    ),
+
     codigo_hotel: ({ value }) => (
       <span className="font-semibold">{value ? value.toUpperCase() : ""}</span>
     ),
+
     check_in: ({ value }) => (
       <span title={value}>{formatDateSimple(value)}</span>
     ),
+
     check_out: ({ value }) => (
       <span title={value}>{formatDateSimple(value)}</span>
     ),
+
     costo_proveedor: ({ value }) => (
       <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>
     ),
+
     markup: ({ value }) => (
       <span
         className={`font-semibold border p-2 rounded-full ${value == "Infinity"
@@ -350,23 +406,31 @@ function App() {
         {value == "Infinity" ? "0%" : `${Number(value).toFixed(2)}%`}
       </span>
     ),
+
     precio_de_venta: ({ value }) => (
       <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>
     ),
+
     metodo_de_pago: ({ value }) => getPaymentBadge(value),
     reservante: ({ value }) => getWhoCreateBadge(value),
     etapa_reservacion: ({ value }) => getStageBadge(value),
     estado: ({ value }) => getStatusBadge(value),
 
+    // ----------- PAGO -----------
     estado_pago: ({ value }) => (
       <Pill
-        text={(value ?? "—").toUpperCase()}
+        text={(value ?? "—")
+          .replace("pagado", "Pagado")
+          .replace("enviado_a_pago", "Enviado a Pago")
+          .toUpperCase()}
         tone={pagoTone3(value) as any}
       />
     ),
+
     monto_pagado_proveedor: ({ value }) => (
       <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>
     ),
+
     fecha_real_cobro: ({ value }) =>
       value ? (
         <span title={value}>{formatDateSimple(value)}</span>
@@ -374,15 +438,22 @@ function App() {
         <span className="text-gray-400">—</span>
       ),
 
+    // ----------- FACTURA -----------
     estado_factura_proveedor: ({ value }) => (
       <Pill
-        text={(value || "—").toUpperCase()}
+        text={(value || "—")
+          .replace("facturado", "Facturado")
+          .replace("parcial", "Parcial")
+          .replace("pendiente", "Pendiente")
+          .toUpperCase()}
         tone={facturaTone((value || "").toLowerCase()) as any}
       />
     ),
+
     costo_facturado: ({ value }) => (
       <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>
     ),
+
     fecha_facturacion: ({ value }) =>
       value ? (
         <span title={value}>{formatDateSimple(value)}</span>
@@ -392,80 +463,57 @@ function App() {
 
     UUID: ({ value }) => (
       <span className="font-mono text-xs" title={value}>
-        {value ? String(value).slice(0, 8) + "…" : "—"}
+        {value ? "CFDI: " + String(value).slice(0, 8) + "…" : "—"}
       </span>
     ),
-    fecha_solicitud: ({ value }) =>
+
+    // ----------- SOLICITUD -----------
+    fecha_de_pago: ({ value }) =>
       value ? (
         <span title={value}>{formatDateSimple(value)}</span>
       ) : (
         <span className="text-gray-400">—</span>
       ),
+
     forma_de_pago_solicitada: ({ value }) => (
-      <span className="font-semibold">{value ? value.toUpperCase() : ""}</span>
+      <span className="font-semibold">
+        {value
+          ? value
+            .replace("transfer", "Transferencia")
+            .replace("card", "Tarjeta")
+            .replace("cupon", "Cupón")
+            .toUpperCase()
+          : ""}
+      </span>
     ),
+
     estatus_pagos: ({ value }) => (
-      <Pill text={value ? value.toUpperCase() : "—"} tone="blue" />
+      <Pill
+        text={
+          value
+            ? value
+              .replace("enviado_a_pago", "Enviado a Pago")
+              .replace("pagado", "Pagado")
+              .toUpperCase()
+            : "—"
+        }
+        tone="blue"
+      />
     ),
   };
 
-  // ---------- MULTIPANTALLA ----------
-  // const cols = useResponsiveColumns({
-  //   xs: [
-  //     "creado",
-  //     "hotel",
-  //     "viajero",
-  //     "estado_pago",
-  //     "estado_factura_proveedor",
-  //     "monto_pagado_proveedor",
-  //   ],
-  //   md: [
-  //     "creado",
-  //     "hotel",
-  //     "viajero",
-  //     "check_in",
-  //     "check_out",
-  //     "monto_pagado_proveedor",
-  //     "fecha_real_cobro",
-  //     "metodo_de_pago",
-  //     "estado_pago",
-  //     "estado_factura_proveedor",
-  //     "precio_de_venta",
-  //   ],
-  //   lg: [
-  //     "creado",
-  //     "cliente",
-  //     "hotel",
-  //     "codigo_hotel",
-  //     "viajero",
-  //     "habitacion",
-  //     "check_in",
-  //     "check_out",
-  //     "noches",
-  //     "costo_proveedor",
-  //     "markup",
-  //     "precio_de_venta",
-  //     "metodo_de_pago",
-  //     "reservante",
-  //     "etapa_reservacion",
-  //     "estado",
-  //     "estado_pago",
-  //     "monto_pagado_proveedor",
-  //     "fecha_real_cobro",
-  //     "estado_factura_proveedor",
-  //     "costo_facturado",
-  //     "fecha_facturacion",
-  //     "UUID",
-  //     "banco",
-  //     "digitos_tajeta",
-  //     "tipo_tarjeta",
-  //   ],
-  // });
-
   const handleFetchSolicitudesPago = () => {
     setLoading(true);
-    fetchGetSolicitudesProveedores((data) => {
-      setSolicitudesPago(data.data);
+    fetchGetSolicitudesProveedores((resp) => {
+      const payload = resp.data;
+
+      const lista = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.todos)
+          ? payload.todos
+          : [];
+
+      setSolicitudesPago(lista as any);
       setLoading(false);
     });
   };
@@ -488,16 +536,41 @@ function App() {
           setSearchTerm={setSearchTerm}
         />
 
-        {/* Categorías por estatus_pagos */}
-        {/* Categorías por estatus_pagos */}
+        {/* Tabs de categorías */}
         <div className="flex flex-wrap gap-2 mb-4 border-b border-gray-300 pb-2">
-          {([
-            { key: "all", label: "Todos", count: formatedSolicitudes.length },
-            { key: "spei_solicitado", label: "SPEI solicitado", count: grupos.spei_solicitado.length },
-            { key: "pagotdc", label: "Pago TDC", count: grupos.pagotdc.length },
-            { key: "cupon_enviado", label: "Cupón enviado", count: grupos.cupon_enviado.length },
-            { key: "pagada", label: "Pagada", count: grupos.pagada.length },
-          ] as Array<{ key: CategoriaEstatus | "all"; label: string; count: number }>).map(btn => {
+          {(
+            [
+              {
+                key: "all",
+                label: "Todos",
+                count: formatedSolicitudes.length,
+              },
+              {
+                key: "spei_solicitado",
+                label: "SPEI solicitado",
+                count: grupos.spei_solicitado.length,
+              },
+              {
+                key: "pagotdc",
+                label: "Pago TDC",
+                count: grupos.pagotdc.length,
+              },
+              {
+                key: "cupon_enviado",
+                label: "Cupón enviado",
+                count: grupos.cupon_enviado.length,
+              },
+              {
+                key: "pagada",
+                label: "Pagada",
+                count: grupos.pagada.length,
+              },
+            ] as Array<{
+              key: CategoriaEstatus | "all";
+              label: string;
+              count: number;
+            }>
+          ).map((btn) => {
             const isActive = categoria === btn.key;
             return (
               <button
@@ -512,11 +585,15 @@ function App() {
                 title={`Mostrar ${btn.label.toLowerCase()}`}
               >
                 <span>{btn.label}</span>
-                <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${isActive ? "bg-blue-100 text-blue-700" : "bg-white border"}`}>
+                <span
+                  className={`ml-2 text-xs px-2 py-0.5 rounded-full ${isActive
+                    ? "bg-blue-100 text-blue-700"
+                    : "bg-white border"
+                    }`}
+                >
                   {btn.count}
                 </span>
 
-                {/* efecto carpeta */}
                 {isActive && (
                   <span className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-white"></span>
                 )}
@@ -530,14 +607,33 @@ function App() {
             <Loader />
           ) : (
             <Table5<ItemSolicitud>
-              registros={registrosVisibles}
+              registros={registrosVisibles as any}
               renderers={renderers}
               defaultSort={defaultSort}
-              leyenda={`Mostrando ${registrosVisibles.length} registros (${categoria === "all"
+              leyenda={`Mostrando ${registrosVisibles.length
+                } registros (${categoria === "all"
                   ? "todas las categorías"
                   : `categoría: ${categoria}`
                 })`}
-            />
+            >
+              {/* 🔹 Botones para subir CSV y layout */}
+              <div className="flex gap-2 mb-3">
+                <button
+                  type="button"
+                  onClick={handleCsv}
+                  className="px-3 py-2 rounded-md text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 transition"
+                >
+                  Subir CSV
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLayout}
+                  className="px-3 py-2 rounded-md text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition"
+                >
+                  Subir layout
+                </button>
+              </div>
+            </Table5>
           )}
         </div>
       </div>

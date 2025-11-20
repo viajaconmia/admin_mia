@@ -1,8 +1,24 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { Building2, DollarSign, Pencil } from "lucide-react";
 import Filters from "@/components/Filters";
-import { TypeFilters } from "@/types";
+import { fetchSolicitudes2 } from "@/services/solicitudes";
+import {
+  calcularNoches,
+  copyToClipboard,
+  formatDate,
+  formatRoom,
+  getPaymentBadge,
+  getStageBadge,
+  getStatusBadge,
+  getWhoCreateBadge,
+} from "@/helpers/utils";
+import { fetchHoteles } from "@/services/hoteles";
+import Modal from "@/components/organism/Modal";
+import { TypeFilters, Solicitud2 } from "@/types";
+import { Loader } from "@/components/atom/Loader";
+import { PaymentModal } from "@/components/organism/PaymentProveedor/PaymentProveedor";
 import { currentDate } from "@/lib/utils";
 import { Table5 } from "@/components/Table5";
 import { ReservationForm2 } from "@/components/organism/FormReservation2";
@@ -17,11 +33,26 @@ import { ROUTES } from "@/constant/routes";
 import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
 
-type TabsReservation = "hoteles" | "vuelos" | "renta autos" | "todos";
+type Vista = "reservas" | "pagadas" | "pendientes";
+
+// --- Tipado local para pagos_asociados (opcional) ---
+type SolicitudConPagos = Solicitud2 & {
+  pagos_asociados?: Array<{ monto?: string | number | null }>;
+};
+
+const parseNum = (v: any) => (v == null ? 0 : Number(v));
+const EPS = 0.01; // tolerancia para flotantes
 
 function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
-  const [tab, setTab] = useState<TabsReservation>("todos");
+  // Cambiamos el estado a la versión con pagos opcionales
+  const [allSolicitudes, setAllSolicitudes] = useState<SolicitudConPagos[]>([]);
+  const [selectedItem, setSelectedItem] = useState<Solicitud2 | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const [loading, setLoading] = useState(false);
+  const [hoteles, setHoteles] = useState([]);
+  const [modificar, setModificar] = useState(false);
+  const [pagar, setPagar] = useState(false);
+  const [createReserva, setCreateReserva] = useState(false);
   const [filters, setFilters] = useState<TypeFilters>(
     defaultFiltersSolicitudes
   );
@@ -37,34 +68,6 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
     setSelectedItem(item);
     setPagar(true);
   };
-
-  // ---------- handleConteo: clasifica pagadas vs pendientes ----------
-  const { pagadas, pendientes } = useMemo(() => {
-    const acc = {
-      pagadas: [] as SolicitudConPagos[],
-      pendientes: [] as SolicitudConPagos[],
-    };
-
-    for (const s of allSolicitudes) {
-      const total = parseNum(s.total);
-      const sumaPagos = (s.pagos_asociados || []).reduce(
-        (sum, p) => sum + parseNum(p.monto),
-        0
-      );
-
-      if (sumaPagos + EPS > total) {
-        console.log("errores", sumaPagos);
-      }
-
-      // Igual (con tolerancia) o mayor -> pagadas; menor -> pendientes
-      if (sumaPagos + EPS >= total) {
-        acc.pagadas.push(s);
-      } else {
-        acc.pendientes.push(s);
-      }
-    }
-    return acc;
-  }, [allSolicitudes]);
 
   // 1) Selección por vista (simplificada para mostrar solo 'reservas')
   const solicitudesPorVista: SolicitudConPagos[] = useMemo(() => {
@@ -200,23 +203,27 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
     ),
 
     editar: ({ item }) => (
-      <button
-        onClick={() => handleEdit(item)}
-        className="text-blue-600 hover:text-blue-900 transition duration-150 ease-in-out flex gap-2 items-center"
-      >
-        <Pencil className="w-4 h-4" />
-        Editar
-      </button>
+      <Can permiso="button.edit-booking">
+        <button
+          onClick={() => handleEdit(item)}
+          className="text-blue-600 hover:text-blue-900 transition duration-150 ease-in-out flex gap-2 items-center"
+        >
+          <Pencil className="w-4 h-4" />
+          Editar
+        </button>
+      </Can>
     ),
     pagar: ({ item }) =>
       item.status_reserva === "Confirmada" ? (
-        <button
-          onClick={() => handlePagar(item)}
-          className="text-blue-600 hover:text-blue-900 transition duration-150 ease-in-out flex gap-2 items-center"
-        >
-          <DollarSign className="w-4 h-4" />
-          Pagar
-        </button>
+        <Can permiso={PERMISOS.COMPONENTES.BOTON.PAGAR_PROVEEDOR}>
+          <button
+            onClick={() => handlePagar(item)}
+            className="text-blue-600 hover:text-blue-900 transition duration-150 ease-in-out flex gap-2 items-center"
+          >
+            <DollarSign className="w-4 h-4" />
+            Pagar
+          </button>
+        </Can>
       ) : (
         <span className="text-gray-400 text-xs">—</span>
       ),
@@ -224,36 +231,174 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
     precio_de_venta: ({ value }) => (
       <span title={value}>${Number(value || 0).toFixed(2)}</span>
     ),
-    vuelos: <VuelosTable />,
-    "renta autos": <></>,
-    todos: <></>,
+    costo_proveedor: ({ value }) => (
+      <span title={value}>${Number(value || 0).toFixed(2)}</span>
+    ),
+    tipo_cuarto: ({ value }: { value: string }) => (
+      <TextTransform value={value} />
+    ),
+    check_in: ({ value }) => <span title={value}>{formatDate(value)}</span>,
+    check_out: ({ value }) => <span title={value}>{formatDate(value)}</span>,
+    creado: ({ value }) => <span title={value}>{formatDate(value)}</span>,
   };
 
+  // ---------- Data fetching ----------
+  const handleFetchSolicitudes = () => {
+    setLoading(true);
+    const payload = Object.entries(filters)
+      .filter(
+        ([, value]) => value !== undefined && value !== null && value !== ""
+      )
+      .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {} as any);
+
+    if (id_agente) payload["id_client"] = id_agente;
+
+    fetchSolicitudes2(payload, {}, (data) => {
+      setAllSolicitudes((data || []) as SolicitudConPagos[]);
+      setLoading(false);
+    });
+  };
+
+  useEffect(() => {
+    handleFetchSolicitudes();
+  }, [filters]);
+
+  useEffect(() => {
+    fetchHoteles((data) => setHoteles(data));
+  }, []);
+
+  const labelVista = "Reservas"; // Hardcodeado para mantener el texto
+  console.log("inroivnoribv", solicitudesFiltradas);
+
+  console.log("cambios", selectedItem);
   return (
     <div className="h-fit">
-      <div className="w-full mx-auto rounded-md bg-white shadow-lg">
-        <div>
-          <TabsList
-            tabs={tabs}
-            onChange={(tab: string) => setTab(tab as TabsReservation)}
-            activeTab={tab}
-          />
-          <div className="p-4 pb-0">
-            <Filters
-              defaultFilters={filters}
-              onFilter={setFilters}
-              searchTerm={searchTerm}
-              setSearchTerm={setSearchTerm}
+      <h1 className="text-3xl font-bold tracking-tight text-sky-950 my-4">
+        Reservas
+      </h1>
+
+      <div className="w-full mx-auto bg-white p-4 rounded-lg shadow">
+        <Filters
+          defaultFilters={filters}
+          onFilter={setFilters}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+        />
+
+        <div className="overflow-hidden">
+          {loading ? (
+            <Loader />
+          ) : (
+            <Table5<Solicitud2>
+              registros={formatedSolicitudes}
+              renderers={renderers}
+              defaultSort={defaultSort}
+              leyenda={`${labelVista}: Has filtrado ${formatedSolicitudes.length} reservas`}
+              customColumns={[
+                "id_cliente",
+                "cliente",
+                "creado",
+                "hotel",
+                "codigo_hotel",
+                "viajero",
+                "check_in",
+                "check_out",
+                "noches",
+                "tipo_cuarto",
+                "costo_proveedor",
+                "markup",
+                "precio_de_venta",
+                "metodo_de_pago",
+                "reservante",
+                "etapa_reservacion",
+                "estado",
+                "detalles_cliente",
+                "editar",
+                "pagar",
+              ]}
+            >
+              {id_agente && (
+                <Can permiso={PERMISOS.COMPONENTES.BOTON.CREAR_RESERVA}>
+                  <button
+                    onClick={() => setCreateReserva(true)}
+                    className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2"
+                  >
+                    <Building2 className="w-4 h-4 mr-2" />
+                    Crear reserva
+                  </button>
+                </Can>
+              )}
+            </Table5>
+          )}
+        </div>
+
+        {selectedItem && modificar && (
+          <Modal
+            onClose={() => {
+              setModificar(false);
+              setSelectedItem(null);
+            }}
+            title="Editar reserva"
+            subtitle="Modifica los detalles de una reservación anteriormente procesada."
+          >
+            <ReservationForm2
+              hotels={hoteles}
+              solicitud={selectedItem}
+              onClose={() => {
+                setModificar(false);
+                setSelectedItem(null);
+                handleFetchSolicitudes();
+              }}
+              edicion={true}
             />
-          </div>
-        </div>
-        <div>
-          <div className="p-4">{pageTabs[tab]}</div>
-        </div>
+          </Modal>
+        )}
+
+        {selectedItem && pagar && (
+          <Modal
+            onClose={() => {
+              setPagar(false);
+              setSelectedItem(null);
+            }}
+            title="Pagar reserva al proveedor"
+          >
+            <PaymentModal reservation={selectedItem} />
+          </Modal>
+        )}
+
+        {createReserva && (
+          <Modal
+            onClose={() => {
+              setSelectedItem(null);
+              setCreateReserva(false);
+            }}
+            title="Crea una nueva reserva"
+            subtitle="Agrega los detalles de una nueva reserva"
+          >
+            <ReservationForm
+              solicitud={{
+                hotel: null,
+                check_in: null,
+                check_out: null,
+                id_agente: id_agente,
+                agente: agente,
+              }}
+              hotels={hoteles}
+              onClose={() => {
+                handleFetchSolicitudes();
+                setCreateReserva(false);
+              }}
+              edicion={false}
+              create={true}
+            />
+          </Modal>
+        )}
       </div>
     </div>
   );
 }
+
+const defaultSort = { key: "creado", sort: false };
 
 const defaultFiltersSolicitudes: TypeFilters = {
   codigo_reservacion: null,
