@@ -1648,7 +1648,7 @@ const initialState: FormState = {
   paymentMethod: "",
   paymentDate: "",
   discountApplied: false,
-  facturable: false,
+  facturable: true,
   comments: "",
   link_Stripe: "",
 };
@@ -1726,6 +1726,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     banco_tarjeta: "",
     numero_autorizacion: "",
     tipo_tarjeta: "", // Establecer un valor por defecto
+    facturable: true,
   });
   // Determinar qué campos mostrar según el método de pago
   const showReferenceField = () => {
