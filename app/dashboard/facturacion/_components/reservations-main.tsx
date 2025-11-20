@@ -10,6 +10,7 @@ import useApi from "@/hooks/useApi";
 import { DescargaFactura, Root } from "@/types/billing";
 import { ChevronDownIcon, ChevronUpIcon, Download } from "lucide-react";
 import { formatNumber, formatMoneyMXN, withCommas } from "@/helpers/formater";
+import { Console } from "console";
 
 // --- Helpers de descarga robusta ---
 const normalizeBase64 = (b64?: string | null) => {
@@ -409,12 +410,15 @@ const LoaderComponent: React.FC = () => (
 
 export const FacturacionModal: React.FC<{
   selectedItems: { [reservationId: string]: string[] };
+  selectedHospedaje: { [hospedajeId: string]: string[] };
   reservationsInit: Reservation[];
   onClose: () => void;
   onConfirm: (fiscalData: FiscalData, isConsolidated: boolean) => void;
-}> = ({ selectedItems, reservationsInit, onClose, onConfirm }) => {
+}> = ({ selectedItems, selectedHospedaje, reservationsInit, onClose, onConfirm }) => {
   // console.log("reservationInit", reservationsInit);
-  // console.log("selectedItems", selectedItems);
+  console.log("selectedItems", selectedItems);
+  console.log("selecthospedaj", selectedHospedaje);
+
   // console.log(reservationsInit.map((reserva) => reserva.items));
 
   // const reservations = reservationsInit;
@@ -488,8 +492,8 @@ export const FacturacionModal: React.FC<{
     CfdiType: "I",
     NameId: "1",
     Observations: "",
-    //ExpeditionPlace: "11570",
-    ExpeditionPlace: "42501",
+    ExpeditionPlace: "11570",
+    //ExpeditionPlace: "42501",
     Serie: null,
 
     Folio: Math.round(Math.random() * 999999999),
@@ -742,6 +746,7 @@ export const FacturacionModal: React.FC<{
     return true;
   };
 
+
   const handleConfirm = async () => {
 
     if (!selectedFiscalData) {
@@ -758,16 +763,25 @@ export const FacturacionModal: React.FC<{
       const formattedDate = now.toISOString().split(".")[0];
 
       // Distribuir montos por item seleccionado
-      const itemsFacturados = reservationsWithSelectedItems.flatMap((reserva) =>
-        reserva.items
+      const itemsFacturados = reservationsWithSelectedItems.flatMap((reserva) => {
+        const id_servicio = reserva.id_servicio;
+
+        // Tomamos el primer hospedaje asociado a ese servicio
+        const id_hospedaje = selectedHospedaje[id_servicio]?.[0] ?? null;
+
+        return reserva.items
           .filter((item) =>
-            selectedItems[reserva.id_servicio]?.includes(item.id_item)
+            selectedItems[id_servicio]?.includes(item.id_item)
           )
           .map((item) => ({
             id_item: item.id_item,
             monto: parseFloat(item.total),
-          }))
-      );
+            id_servicio,          // 👈 lo agregas aquí
+            id_hospedaje,         // 👈 y también el hospedaje si lo necesitas
+          }));
+      });
+
+      console.log("items con id_hospedaje", itemsFacturados)
 
       // Calcular totales
       const totalFacturado = itemsFacturados.reduce(
@@ -866,6 +880,7 @@ export const FacturacionModal: React.FC<{
             rfc: cfdi.Receiver.Rfc,
             id_empresa: selectedFiscalData.id_empresa,
           },
+          items_facturados: itemsFacturados,
         },
         items_facturados: itemsFacturados,
       };
@@ -990,12 +1005,14 @@ export const FacturacionModal: React.FC<{
         reserva.check_in
       )} AL ${formatDate(
         reserva.check_out
-      )} - ${nochesReales} NOCHES(S) - ${reserva.nombre_viajero_completo
+      )} - ${nochesReales} NOCHES(S) - ${reserva.nombre_viajero
         }`;
     })
     .join(" | ")}`;
 
-  const descriptionToUse = customDescription ?? defaultDescription
+  const isCustomValid = customDescription && /[a-zA-Z0-9\S]/.test(customDescription.trim());
+  const descriptionToUse = isCustomValid ? customDescription : defaultDescription;
+
   console.log("descrip", customDescription)
 
 

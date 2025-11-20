@@ -18,21 +18,30 @@ import { Loader } from "@/components/atom/Loader";
 import { currentDate } from "@/lib/utils";
 import { fetchGetSolicitudesProveedores } from "@/services/pago_proveedor";
 import { useResponsiveColumns } from "@/hooks/useResponsiveColumns";
+import { usePermiso } from "@/hooks/usePermission";
+import { PERMISOS } from "@/constant/permisos";
 
 // --- helpers locales ---
 const parseNum = (v: any) => (v == null ? 0 : Number(v));
 // --- helpers de estatus y agrupación ---
 const norm = (s?: string | null) => (s ?? "").trim().toLowerCase();
 
-type CategoriaEstatus = "spei_solicitado" | "pagotdc" | "cupon_enviado" | "pagada" | "otros";
+type CategoriaEstatus =
+  | "spei_solicitado"
+  | "pagotdc"
+  | "cupon_enviado"
+  | "pagada"
+  | "otros";
 
 function mapEstatusToCategoria(estatus?: string | null): CategoriaEstatus {
   const v = norm(estatus);
 
   // matches exactos o cercanos
   if (v === "spei_solicitado" || v.includes("spei")) return "spei_solicitado";
-  if (v === "pagotdc" || v.includes("tdc") || v.includes("tarjeta")) return "pagotdc";
-  if (v === "cupon_enviado" || v.includes("cupon") || v.includes("cupón")) return "cupon_enviado";
+  if (v === "pagotdc" || v.includes("tdc") || v.includes("tarjeta"))
+    return "pagotdc";
+  if (v === "cupon_enviado" || v.includes("cupon") || v.includes("cupón"))
+    return "cupon_enviado";
   if (v === "pagada" || v === "pagado") return "pagada";
   return "otros";
 }
@@ -79,7 +88,10 @@ function getPagoInfo(item: ItemSolicitud) {
     return db - da;
   });
   const ultimoPago = pagos[0];
-  const totalPagado = pagos.reduce((acc, p) => acc + parseNum(p.monto_pagado), 0);
+  const totalPagado = pagos.reduce(
+    (acc, p) => acc + parseNum(p.monto_pagado),
+    0
+  );
   const fechas = pagos
     .map((p) => p.fecha_pago || p.creado_en)
     .filter(Boolean)
@@ -95,7 +107,9 @@ function getFacturaInfo(item: ItemSolicitud) {
   const facturas = item?.facturas || [];
   if (!facturas.length) {
     return {
-      estado: (item?.solicitud_proveedor?.estado_facturacion as string) || "sin factura",
+      estado:
+        (item?.solicitud_proveedor?.estado_facturacion as string) ||
+        "sin factura",
       totalFacturado: 0,
       fechaUltimaFactura: "",
       uuid: "",
@@ -113,7 +127,8 @@ function getFacturaInfo(item: ItemSolicitud) {
   );
   let estado: "parcial" | "facturado" | string = "parcial";
   if (todasEmitidas) estado = "facturado";
-  if (!todasEmitidas && !hayPendiente) estado = (facturas[0].estado_factura || "").toLowerCase();
+  if (!todasEmitidas && !hayPendiente)
+    estado = (facturas[0].estado_factura || "").toLowerCase();
 
   const fechas = facturas
     .map((f) => f.fecha_factura)
@@ -173,18 +188,39 @@ function App() {
   );
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [loading, setLoading] = useState(false);
-  const [filters, setFilters] = useState<TypeFilters>(defaultFiltersSolicitudes);
+  const [filters, setFilters] = useState<TypeFilters>(
+    defaultFiltersSolicitudes
+  );
   const [activeFilter, setActiveFilter] = useState<string>("all"); // "all" | "creditCard" | "sentToPayments"
+  const { hasAccess } = usePermiso();
+
+  hasAccess(PERMISOS.VISTAS.PROVEEDOR_PAGOS);
+
   // categoría visible en la tabla
   const [categoria, setCategoria] = useState<CategoriaEstatus | "all">("all");
   const norm = (s?: string | null) => (s ?? "").trim().toLowerCase();
 
+  // Filtra todo lo que esté pagado desde el inicio
+  const cleanedSolicitudes = solicitudesPago.filter(
+    (it) => norm((it as ItemSolicitud).estatus_pagos) !== "pagado"
+  );
 
+
+  // Filtro adicional
+  const filteredSolicitudes = cleanedSolicitudes.filter((item) => {
+    if (activeFilter === "creditCard") {
+      return !!item.tarjeta?.ultimos_4;
+    } else if (activeFilter === "enviado_a_pago") {
+      return (item as ItemSolicitud).estatus_pagos?.toLowerCase() === "enviado_a_pago";
+    }
+    return true;
+  });
 
   const formatDateSimple = (date: string | Date) => {
     if (!date) return "—"; // Si no hay fecha, mostramos un guion
     const localDate = new Date(date);
-    return localDate.toLocaleDateString("es-MX", { // Aquí usamos el formato mexicano (es-MX)
+    return localDate.toLocaleDateString("es-MX", {
+      // Aquí usamos el formato mexicano (es-MX)
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
@@ -207,7 +243,9 @@ function App() {
       return (
         item.hotel.toUpperCase().includes(q) ||
         item.nombre_agente_completo.toUpperCase().includes(q) ||
-        ((item.nombre_viajero_completo || item.nombre_viajero || "").toUpperCase().includes(q))
+        (item.nombre_viajero_completo || item.nombre_viajero || "")
+          .toUpperCase()
+          .includes(q)
       );
     })
     .map((raw) => {
@@ -221,7 +259,11 @@ function App() {
         creado: item.created_at,
         hotel: item.hotel.toUpperCase(),
         codigo_hotel: item.codigo_reservacion_hotel,
-        viajero: (item.nombre_viajero_completo || item.nombre_viajero || "").toUpperCase(),
+        viajero: (
+          item.nombre_viajero_completo ||
+          item.nombre_viajero ||
+          ""
+        ).toUpperCase(),
         check_in: item.check_in,
         check_out: item.check_out,
         noches: calcularNoches(item.check_in, item.check_out),
@@ -249,7 +291,8 @@ function App() {
         fecha_solicitud: item.solicitud_proveedor?.fecha_solicitud,
         razon_social: item.proveedor?.razon_social,
         rfc: item.proveedor?.rfc,
-        forma_de_pago_solicitada: item.solicitud_proveedor?.forma_pago_solicitada,
+        forma_de_pago_solicitada:
+          item.solicitud_proveedor?.forma_pago_solicitada,
         digitos_tajeta: item.tarjeta?.ultimos_4,
         banco: item.tarjeta?.banco_emisor,
         tipo_tarjeta: item.tarjeta?.tipo_tarjeta,
@@ -286,8 +329,12 @@ function App() {
     codigo_hotel: ({ value }) => (
       <span className="font-semibold">{value ? value.toUpperCase() : ""}</span>
     ),
-    check_in: ({ value }) => <span title={value}>{formatDateSimple(value)}</span>,
-    check_out: ({ value }) => <span title={value}>{formatDateSimple(value)}</span>,
+    check_in: ({ value }) => (
+      <span title={value}>{formatDateSimple(value)}</span>
+    ),
+    check_out: ({ value }) => (
+      <span title={value}>{formatDateSimple(value)}</span>
+    ),
     costo_proveedor: ({ value }) => (
       <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>
     ),
@@ -312,7 +359,10 @@ function App() {
     estado: ({ value }) => getStatusBadge(value),
 
     estado_pago: ({ value }) => (
-      <Pill text={(value ?? "—").toUpperCase()} tone={pagoTone3(value) as any} />
+      <Pill
+        text={(value ?? "—").toUpperCase()}
+        tone={pagoTone3(value) as any}
+      />
     ),
     monto_pagado_proveedor: ({ value }) => (
       <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>
@@ -352,15 +402,12 @@ function App() {
         <span className="text-gray-400">—</span>
       ),
     forma_de_pago_solicitada: ({ value }) => (
-      <span className="font-semibold">
-        {value ? value.toUpperCase() : ""}
-      </span>
+      <span className="font-semibold">{value ? value.toUpperCase() : ""}</span>
     ),
     estatus_pagos: ({ value }) => (
       <Pill text={value ? value.toUpperCase() : "—"} tone="blue" />
     ),
   };
-
 
   // ---------- MULTIPANTALLA ----------
   // const cols = useResponsiveColumns({
@@ -486,7 +533,10 @@ function App() {
               registros={registrosVisibles}
               renderers={renderers}
               defaultSort={defaultSort}
-              leyenda={`Mostrando ${registrosVisibles.length} registros (${categoria === "all" ? "todas las categorías" : `categoría: ${categoria}`})`}
+              leyenda={`Mostrando ${registrosVisibles.length} registros (${categoria === "all"
+                  ? "todas las categorías"
+                  : `categoría: ${categoria}`
+                })`}
             />
           )}
         </div>

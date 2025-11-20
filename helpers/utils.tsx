@@ -15,7 +15,9 @@ import {
   Skull,
 } from "lucide-react";
 
-export const getEstatus = (estatus: string) => {
+export const getEstatus = (
+  estatus: string
+): "Confirmada" | "En proceso" | "Cancelada" => {
   let data = estatus;
   switch (data) {
     case "pending":
@@ -30,7 +32,7 @@ export const getEstatus = (estatus: string) => {
     default:
       break;
   }
-  return data;
+  return data as "Confirmada" | "En proceso" | "Cancelada";
 };
 
 export function separarCostos(total: number) {
@@ -43,7 +45,7 @@ export function copyToClipboard(text) {
   navigator.clipboard
     .writeText(text)
     .then(() => {
-      alert("Texto copiado al portapapeles");
+      console.log("texto copiado");
     })
     .catch((err) => {
       console.error("Error al copiar al portapapeles:", err);

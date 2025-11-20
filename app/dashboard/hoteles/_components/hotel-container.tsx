@@ -7,6 +7,8 @@ import { HotelDialog } from "./hotel-dialog";
 import { AddHotelDialog } from "./addHotelDialog";
 import Filters from "@/components/Filters";
 import { fetchHotelesFiltro_Avanzado } from "@/services/hoteles";
+import { usePermiso } from "@/hooks/usePermission";
+import { PERMISOS } from "@/constant/permisos";
 
 const defaultFiltersHoteles = {
   nombre: null,
@@ -46,6 +48,9 @@ export function HotelContainer() {
   const itemsPerPage = 20;
   const [sortField, setSortField] = useState(null);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const { hasAccess } = usePermiso();
+
+  hasAccess(PERMISOS.VISTAS.HOTELES);
 
   const handleFilter = (filters) => {
     setIsLoading(true);
@@ -60,8 +65,8 @@ export function HotelContainer() {
     delete apiFilters.infoCompleta;
 
     fetchHotelesFiltro_Avanzado(apiFilters, (data) => {
-      const fetchedHotels = data || []
-        // Array.isArray(data) && Array.isArray(data[0]) ? data[0] : [];
+      const fetchedHotels = data || [];
+      // Array.isArray(data) && Array.isArray(data[0]) ? data[0] : [];
 
       if (infoCompletaFilter !== null && infoCompletaFilter !== undefined) {
         const filtered = fetchedHotels.filter(

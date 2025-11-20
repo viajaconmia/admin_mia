@@ -327,7 +327,7 @@ export function TravelerTable({ facturas }: { facturas: Factura[] }) {
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>id Cliente</TableHead>
+          <TableHead>id_cliente</TableHead>
           <TableHead>RFC</TableHead>
           <TableHead>Razón Social</TableHead>
           <TableHead>UUID</TableHead>
@@ -337,16 +337,22 @@ export function TravelerTable({ facturas }: { facturas: Factura[] }) {
           <TableHead>Fecha de Emisión</TableHead>
           <TableHead>Método de Pago</TableHead>
           <TableHead>Pregada</TableHead>
+          <TableHead>Origen</TableHead>
           <TableHead className="text-right">Acciones</TableHead>
 
         </TableRow>
       </TableHeader>
       <TableBody>
-        {facturas.map((factura) => (
-          <>
+        {facturas.map((factura) => {
+          const idCliente =
+            factura.id_agente ??
+            factura.usuario_creador ??
+            null;
+
+          return (
             <TableRow key={factura.id_factura}>
               <TableCell className="font-medium">
-                {`${factura.id_agente || factura.usuario_creador || 'N/A'}`}
+                {idCliente ?? 'N/A'}
               </TableCell>
               <TableCell className="font-medium">
                 {`${factura.rfc || 'N/A'}`}
@@ -365,6 +371,7 @@ export function TravelerTable({ facturas }: { facturas: Factura[] }) {
               </TableCell>
               <TableCell>{factura.metodo_de_pago || 'N/A'}</TableCell>
               <TableCell>{factura.is_prepagada === 1 ? 'Sí' : 'No'}</TableCell>
+              <TableCell>{factura.origen === 1 ? 'Cliente' : 'Operaciones'}</TableCell>
               <TableCell className="text-right">
                 <div className="flex justify-end gap-2">
                   <DropdownMenu>
@@ -460,9 +467,9 @@ export function TravelerTable({ facturas }: { facturas: Factura[] }) {
                   </DropdownMenu>
                 </div>
               </TableCell>
-            </TableRow >
-          </>
-        ))}
+            </TableRow>
+          );
+        })}
       </TableBody>
 
       {/* Modal de asignación (fuera del mapeo) */}

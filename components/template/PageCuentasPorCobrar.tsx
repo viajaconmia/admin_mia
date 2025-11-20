@@ -18,6 +18,7 @@ import {
   CreditCard,
   Calendar,
   X,
+  Eye,
   Pencil,
   Trash2,
   Wallet,
@@ -31,9 +32,9 @@ import { SaldoFavor, NuevoSaldoAFavor, Saldo } from "@/services/SaldoAFavor";
 import { fetchAgenteById, fetchPagosByAgente } from "@/services/agentes";
 import { Loader } from "@/components/atom/Loader";
 import { API_KEY, URL } from "@/lib/constants/index";
-import { formatDate } from "@/app/dashboard/facturas-pendientes/page";
+import { formatDate } from "@/helpers/utils";
 import { PagarModalComponent } from "./pagar_saldo";
-
+import ModalDetallePago from "@/app/dashboard/payments/_components/detalles_pago";
 
 import { format } from "date-fns";
 import { es, se } from "date-fns/locale";
@@ -363,12 +364,14 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   //aqui traigo el saldo
 }) => {
   const [addPaymentModal, setAddPaymentModal] = useState(false);
+  const [detalles, setDetalles] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // const [agente, setAgente] = useState<Agente | null>(null);
   const [loading, setLoading] = useState({
     agente: true,
     pagos: true,
   });
+  const [pagoDetallado, setPagoDetallado] = useState<any>(null);
   const [localWalletAmount, setLocalWalletAmount] = useState(walletAmount);
 
   const [filters, setFilters] = useState<TypeFilters>({
@@ -505,6 +508,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     const fetchSaldoFavor = async () => {
       const response: { message: string; data: Saldo[] } =
         await SaldoFavor.getPagos(agente.id_agente);
+      console.log(response)
       setSaldos(response.data);
     };
     fetchSaldoFavor();
@@ -634,6 +638,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       comentario: saldo.notas || saldo.comentario || null,
       facturable: saldo.is_facturable ? "Si" : "No",
       comprobante: saldo.comprobante || null,
+      is_cancelado: saldo.is_cancelado,
       acciones: { row: saldo },
       item: saldo,
     }));
@@ -1119,7 +1124,8 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             saldo: updatedData.monto_pagado?.toString() || item.monto,
             activo: true, // Siempre activo al editar
             currency: item.currency || "MXN",
-            comprobante: item.comprobante
+            comprobante: item.comprobante,
+            is_cancelado: 0
           };
 
           // Manejar campos específicos según el método de pago
@@ -1199,7 +1205,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             is_descuento: item.is_descuento,
             link_stripe: item.link_stripe || null,
             tipo_tarjeta: item.tipo_tarjeta,
-            activo: false, // Cambiamos a 0 para desactivar
             comentario: item.comentario || null,
             comprobante: item.comprobante,
             currency: item.currency || "MXN",
@@ -1207,6 +1212,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             ult_digits: item.ult_digits || null,
             banco_tarjeta: item.banco_tarjeta || null,
             numero_autorizacion: item.numero_autorizacion || null,
+            is_cancelado: 1,
           };
 
           await updateAgentWallet();
@@ -1231,6 +1237,11 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
           );
         }
       };
+      const handleDetalles = async () => {
+        console.log(item, "pago elegido")
+        setPagoDetallado(item)
+        setDetalles(true)
+      }
 
       return (
         <div className="flex gap-2">
@@ -1268,6 +1279,13 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
               {/* Cambié el icono a DollarSign para mejor representación */}
             </button>
           )}
+          {/* ✅ Botón Detalles (nuevo estilo) */}
+          <button
+            className="p-1.5 rounded-md bg-amber-50 text-amber-600 hover:bg-amber-100 transition-colors"
+            onClick={handleDetalles}
+            title="Ver Detalles"
+          > <Eye className="w-4 h-4" />
+          </button>
 
           {/* Modal de Edición */}
           {isEditModalOpen && (
@@ -1489,7 +1507,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   }
 
   return (
-    <div className="h-full">
+    <div>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
         {/* Resumen de saldo */}
         <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1588,7 +1606,17 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
           />
         </Modal>
       )}
+
+      {detalles && agente && (
+
+        <ModalDetallePago
+          onClose={() => setDetalles(false)}
+          pago={pagoDetallado}
+        />
+
+      )}
     </div>
+
   );
 };
 
@@ -1620,7 +1648,7 @@ const initialState: FormState = {
   paymentMethod: "",
   paymentDate: "",
   discountApplied: false,
-  facturable: false,
+  facturable: true,
   comments: "",
   link_Stripe: "",
 };
@@ -1698,6 +1726,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     banco_tarjeta: "",
     numero_autorizacion: "",
     tipo_tarjeta: "", // Establecer un valor por defecto
+    facturable: true,
   });
   // Determinar qué campos mostrar según el método de pago
   const showReferenceField = () => {

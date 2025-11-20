@@ -21,6 +21,8 @@ import { TypeFilters } from "@/types";
 import { set } from "date-fns";
 import { Loader } from "@/components/atom/Loader";
 import { currentDate } from "@/lib/utils";
+import { usePermiso } from "@/hooks/usePermission";
+import { PERMISOS } from "@/constant/permisos";
 
 interface SolicitudClient {
   id_agente: string;
@@ -84,6 +86,9 @@ function App() {
   const [filters, setFilters] = useState<TypeFilters>(
     defaultFiltersSolicitudes
   );
+  const { hasAccess } = usePermiso();
+
+  hasAccess(PERMISOS.VISTAS.SOLICITUDES);
 
   const handleFetchSolicitudes = () => {
     setLoading(true);

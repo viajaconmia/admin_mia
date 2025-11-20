@@ -4,6 +4,8 @@ import { redondear } from "@/helpers/formater";
 import { TableFromMia } from "../organism/TableFromMia";
 import { useNotification } from "@/context/useNotificacion";
 import { BalanceCard } from "../molecule/BalanceCard";
+import Button from "../atom/Button";
+import { Shuffle } from "lucide-react";
 
 interface PagarModalProps {
   onSubmit?: (
@@ -38,7 +40,8 @@ export const MostrarSaldos: React.FC<PagarModalProps> = ({
 
   const fetchSaldos = async () => {
     try {
-      if (!id_agente) {
+      if (precio <= 0) return;
+      if (!agente.id_agente) {
         throw new Error("ID de agente no disponible");
       }
       const { data } = await SaldoFavor.getPagos(id_agente);
@@ -98,12 +101,53 @@ export const MostrarSaldos: React.FC<PagarModalProps> = ({
     }
   };
 
+  const handleAutomatic = () => {
+    let index = 0,
+      saldo = saldosFavor.length,
+      porLlenar = faltante;
+    const saldos = [...saldosFavor];
+    while (porLlenar > 0 && index < saldo) {
+      let item = saldos[index];
+      let restante =
+        porLlenar < item.restante
+          ? Number((Number(item.saldo) - porLlenar).toFixed(2))
+          : 0;
+
+      porLlenar =
+        porLlenar < Number(item.restante)
+          ? 0
+          : Number((porLlenar - Number(item.saldo)).toFixed(2));
+
+      saldos[index] = { ...item, restante, usado: true };
+      index++;
+    }
+    console.log(saldos);
+    setFaltante(porLlenar);
+    setSaldosFavor(saldos);
+  };
+
   let total_saldos = redondear(
     saldosFavor.reduce((previus, current) => previus + Number(current.saldo), 0)
   );
 
+  if (precio <= 0)
+    return (
+      <div className="w-fit space-y-4">
+        <BalanceCard
+          saldoAFavor={total_saldos}
+          precioAPagar={precio}
+          loading={loading}
+          totalSeleccionado={0}
+          onConfirm={() => onSubmit([], faltante, true)}
+        ></BalanceCard>
+      </div>
+    );
+
   return (
-    <div className="flex-1 overflow-y-auto p-2 space-y-4 h-fit">
+    <div className="flex-1 overflow-y-auto p-2 space-y-4">
+      <Button icon={Shuffle} onClick={handleAutomatic}>
+        Seleccion automatica
+      </Button>
       <TableFromMia
         maxHeight="200px"
         data={saldosFavor}

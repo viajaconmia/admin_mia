@@ -1,6 +1,5 @@
-import { TypeFilters, UpdateRequestBody,AgenteConSaldos } from "@/types";
+import { TypeFilters, UpdateRequestBody, AgenteConSaldos } from "@/types";
 import { API_KEY, URL } from "@/lib/constants";
-
 
 // ... otros imports y funciones existentes ...
 
@@ -14,11 +13,11 @@ export const fetchPagosByAgente = async (agenteId: string): Promise<Pago[]> => {
     },
     cache: "no-store",
   });
-  
+
   if (!response.ok) {
     throw new Error("Error al cargar los pagos del agente");
   }
-  
+
   const data = await response.json();
   return data;
 };
@@ -53,6 +52,7 @@ export const fetchInitSuperAgent = async (
       Expires: "0",
       "Content-Type": "application/json",
     },
+    credentials: "include",
     body: JSON.stringify({ email }),
     cache: "no-store",
   });
@@ -115,11 +115,11 @@ export const fetchUpdateEmpresasAgentes = async (
 //       cache: "no-store",
 //     }
 //   );
-  
+
 //   if (!response.ok) {
 //     throw new Error("Error al cargar los datos");
 //   }
-  
+
 //   const data: AgenteConSaldos[] = await response.json();
 //   return data;
 // };
@@ -147,21 +147,21 @@ export const fetchAgentesWithFacturableSaldos = async (
       cache: "no-store",
     }
   );
-  
+
   if (!response.ok) {
     throw new Error("Error al cargar los datos");
   }
-  
+
   const data = await response.json();
-  
+
   // Verificación de tipo segura
   if (!Array.isArray(data)) {
     throw new Error("La respuesta no es un array");
   }
 
-  return data.map(item => ({
+  return data.map((item) => ({
     ...item,
-    saldos_facturables: item.saldos_facturables || [] // Asegura que siempre haya un array
+    saldos_facturables: item.saldos_facturables || [], // Asegura que siempre haya un array
   }));
 };
 
@@ -272,9 +272,13 @@ export const fetchEmpresasAgentesDataFiscal = async (
     // Caso 2: Es un array (ya sea vacío o con datos)
     if (Array.isArray(data)) {
       // Validar estructura de cada elemento si es necesario
-      const isValid = data.every(item => item.id && item.razon_social && item.rfc);
+      const isValid = data.every(
+        (item) => item.id && item.razon_social && item.rfc
+      );
       if (!isValid) {
-        console.warn("Algunos elementos del array no tienen la estructura esperada");
+        console.warn(
+          "Algunos elementos del array no tienen la estructura esperada"
+        );
       }
       if (callback) callback(data);
       return data;
@@ -301,8 +305,9 @@ export const fetchEmpresasAgentesDataFiscal = async (
 
     // Si no coincide con ningún formato conocido
     console.error("Formato de respuesta no reconocido:", data);
-    throw new Error(`Formato de respuesta no reconocido. Tipo recibido: ${typeof data}`);
-    
+    throw new Error(
+      `Formato de respuesta no reconocido. Tipo recibido: ${typeof data}`
+    );
   } catch (error) {
     console.error("Error en fetchEmpresasAgentesDataFiscal:", error);
     // Retornar array vacío en caso de error para que la UI no se rompa
@@ -332,6 +337,7 @@ export const fetchAgentes = async (
         Pragma: "no-cache",
         Expires: "0",
       },
+      credentials: "include",
       cache: "no-store",
     }
   );
@@ -369,7 +375,9 @@ export const fetchAgenteById = async (id: string) => {
 
     // Verificación básica de consistencia
     if (data.id && data.id !== cleanId) {
-      console.warn(`ADVERTENCIA: El ID solicitado (${cleanId}) no coincide con el ID recibido (${data.id})`);
+      console.warn(
+        `ADVERTENCIA: El ID solicitado (${cleanId}) no coincide con el ID recibido (${data.id})`
+      );
     }
 
     return data;
@@ -378,6 +386,8 @@ export const fetchAgenteById = async (id: string) => {
     throw error;
   }
 };
+
+export const fetchpagossaldos = async (id) => {};
 
 export const fetchEmpresasByAgente = async (id) => {
   try {

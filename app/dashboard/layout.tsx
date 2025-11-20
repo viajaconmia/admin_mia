@@ -7,108 +7,121 @@ import {
   Building2,
   CreditCard,
   Receipt,
-  Clock,
   Shield,
   BadgeDollarSign,
+  DoorOpen,
+  Settings2,
 } from "lucide-react";
 import NavContainer from "@/components/organism/NavContainer";
-import ProtectedRoute from "@/components/ProtectedRoute";
+import { useAuth } from "@/context/AuthContext";
+import Button from "@/components/atom/Button";
+import { UserProfileImage } from "@/components/atom/UserProfileImage";
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { user, logout } = useAuth();
+
+  if (!user) return;
+
   return (
-    <ProtectedRoute>
+    <div className="backdrop-blur-3xl h-screen">
       <NavContainer title="Admin" links={links}>
-        <div className="h-screen bg-transparent overflow-y-auto">
-          <main className="p-8 pt-0 bg-transparent">{children}</main>
+        <div className="h-full bg-transparent overflow-y-auto">
+          {/* ESTO DEBERIA IR EN UN COMPONENTE APARTE, LUEGO LO MANEJO */}
+          <nav className="backdrop-blur-3xl w-full p-4 px-6 flex justify-end items-center gap-2">
+            <UserProfileImage name={user.name}></UserProfileImage>
+            {/* <p className="text-sm font-semibold">
+              {capitalizarTexto(user.name)}
+            </p> */}
+            <Button
+              size="sm"
+              icon={DoorOpen}
+              variant="secondary"
+              onClick={logout}
+            >
+              Cerrar sesión
+            </Button>
+          </nav>
+          <main className="px-4 bg-transparent w-full h-[calc(100vh-6rem)]">
+            {children}
+          </main>
         </div>
       </NavContainer>
-    </ProtectedRoute>
+    </div>
   );
 }
-
 const links = [
   {
     title: "Inicio",
-    href: "/",
+    href: "/dashboard",
     icon: FileText,
   },
-  // {
-  //   title: "Dashboard",
-  //   href: "/dashboard",
-  //   icon: LayoutDashboard,
-  // },
-  // {
-  //   title: "Credito",
-  //   href: "/dashboard/credito",
-  //   icon: CreditCard,
-  // },
   {
-    title: "Pagos proveedor",
-    href: "/dashboard/pagos_proveedor",
-    icon: CreditCard,
+    title: "Administración", //
+    href: "/dashboard/admin",
+    icon: Settings2,
   },
   {
-    title: "Solicitudes",
+    title: "Solicitudes", //
     href: "/dashboard/solicitudes",
     icon: FileText,
   },
   {
-    title: "Reservas",
+    title: "Reservas", //
     href: "/dashboard/reservas",
     icon: BookOpen,
   },
   {
-    title: "Clientes",
+    title: "Clientes", //
     href: "/dashboard/clients",
     icon: Users,
   },
   {
-    title: "Hoteles",
+    title: "Hoteles", //
     href: "/dashboard/hoteles",
     icon: Building2,
   },
   {
-    title: "Pagos",
+    title: "Pagos proveedor", //
+    href: "/dashboard/pagos_proveedor",
+    icon: CreditCard,
+  },
+  {
+    title: "Pagos proveedor pagados", //
+    href: "/dashboard/pagos_proveedor/pagados",
+    icon: CreditCard,
+  },
+  {
+    title: "Cuentas por cobrar", //
+    href: "/dashboard/cuentas-cobrar",
+    icon: FileText,
+  },
+  {
+    title: "Pagos", //
     href: "/dashboard/payments",
     icon: CreditCard,
   },
   {
-    title: "Facturas",
+    title: "Facturas", //
     href: "/dashboard/invoices",
     icon: Receipt,
   },
   {
-    title: "Facturas Pendientes prep",
+    title: "Facturas Pendientes Prepago", //
     href: "/dashboard/facturas-pendientes",
     icon: Receipt,
   },
   {
-    title: "Cuentas por cobrar",
+    title: "Facturas pendientes credito",
     href: "/dashboard/facturacion",
     icon: BookOpen,
   },
   {
-    title: "Codigo confirmación",
-    href: "/dashboard/codigo",
+    title: "Codigo confirmación", //
+    href: "/dashboard/codigo-confirmacion",
     icon: Shield,
-  },
-  {
-    title: "Viajeros",
-    href: "/dashboard/viajeros",
-    icon: Users,
-  },
-  {
-    title: "Aplicación de saldo",
-    href: "/dashboard/aplicacion-saldo",
-    icon: BadgeDollarSign,
-  },
-  {
-    title: "Cuentas por cobrar",
-    href: "/dashboard/cuentas-cobrar",
-    icon: FileText,
   },
 ];
