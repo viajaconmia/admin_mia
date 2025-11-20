@@ -21,6 +21,7 @@ export const PERMISOS = {
     BOTON: {
       PAGAR_PROVEEDOR: "button.pagar-proveedor-reserva",
       CREAR_RESERVA: "button.crear-reserva",
+      EDITAR_PRECIO_RESERVA: "button.edit-price-booking",
     },
   },
 } as const;

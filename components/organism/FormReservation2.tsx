@@ -456,7 +456,7 @@ export function ReservationForm2({
   }
 
   const mostrarPrecio = () => {
-    if (hasPermission(PERMISOS.COMPONENTES.EDITAR_PRECIO_RESERVA)) {
+    if (hasPermission(PERMISOS.COMPONENTES.BOTON.EDITAR_PRECIO_RESERVA)) {
       return (
         <div className="flex flex-col gap-2">
           <NumberInput
