@@ -89,6 +89,7 @@ interface PaymentModalProps {
     banco_tarjeta: string;
     numero_autorizacion: string;
     tipo_tarjeta: string;
+    wallet_credito: boolean;
   };
 
   onSubmit: (paymentData: NuevoSaldoAFavor) => Promise<any>;
@@ -875,6 +876,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             ult_digits: item.ult_digits || null,
             banco_tarjeta: item.banco_tarjeta || null,
             numero_autorizacion: item.numero_autorizacion || null,
+            wallet_credito: item.wallet_credito || false
           };
 
           await SaldoFavor.actualizarPago(apiData);
@@ -1125,7 +1127,9 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             activo: true, // Siempre activo al editar
             currency: item.currency || "MXN",
             comprobante: item.comprobante,
-            is_cancelado: 0
+            is_cancelado: 0,
+            wallet_credito: updatedData.wallet_credito || false
+
           };
 
           // Manejar campos específicos según el método de pago
@@ -1213,6 +1217,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             banco_tarjeta: item.banco_tarjeta || null,
             numero_autorizacion: item.numero_autorizacion || null,
             is_cancelado: 1,
+            wallet_credito: item.wallet_credito || false
           };
 
           await updateAgentWallet();
@@ -1631,6 +1636,7 @@ interface FormState {
   facturable: boolean;
   comments: string;
   link_Stripe: string;
+  wallet_credito: boolean
 }
 
 interface FormErrors {
@@ -1651,6 +1657,7 @@ const initialState: FormState = {
   facturable: true,
   comments: "",
   link_Stripe: "",
+  wallet_credito: false,
 };
 
 // Tipos de acciones
@@ -1758,6 +1765,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
           facturable: initialData.facturable,
           comments: initialData.comentario,
           link_Stripe: initialData.link_Stripe,
+          wallet_credito: initialData.wallet_credito,
         },
       });
       setCardDetails({
@@ -1899,7 +1907,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
           numero_autorizacion: cardDetails.numero_autorizacion,
           link_stripe: state.link_Stripe || "",
         }),
-        descuento_aplicable: state.discountApplied,
+        wallet_credito: state.wallet_credito,
         ...(state.comments && { comentario: state.comments }),
       };
 
@@ -2111,9 +2119,9 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
             </div>
 
             <CheckboxInput
-              checked={state.discountApplied}
-              onChange={(e) => handleInputChange("discountApplied", e)}
-              label={"Descuento aplicado"}
+              checked={state.wallet_credito}
+              onChange={(e) => handleInputChange("wallet_credito", e)}
+              label={"Wallet credito"}
             />
 
             <CheckboxInput
