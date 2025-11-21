@@ -14,6 +14,7 @@ export interface NuevoSaldoAFavor {
   ult_digits: string;
   banco_tarjeta: string;
   numero_autorizacion: string;
+  wallet_credito: boolean;
 }
 
 export type Saldo = {
