@@ -89,7 +89,7 @@ interface PaymentModalProps {
     banco_tarjeta: string;
     numero_autorizacion: string;
     tipo_tarjeta: string;
-    wallet_credito: boolean;
+    is_wallet_credito: boolean;
   };
 
   onSubmit: (paymentData: NuevoSaldoAFavor) => Promise<any>;
@@ -876,7 +876,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             ult_digits: item.ult_digits || null,
             banco_tarjeta: item.banco_tarjeta || null,
             numero_autorizacion: item.numero_autorizacion || null,
-            wallet_credito: item.wallet_credito || false
+            is_wallet_credito: item.is_wallet_credito ? 1 : 0
           };
 
           await SaldoFavor.actualizarPago(apiData);
@@ -1128,8 +1128,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             currency: item.currency || "MXN",
             comprobante: item.comprobante,
             is_cancelado: 0,
-            wallet_credito: updatedData.wallet_credito || false
-
+            is_wallet_credito: updatedData.is_wallet_credito ? 1 : 0
           };
 
           // Manejar campos específicos según el método de pago
@@ -1217,7 +1216,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             banco_tarjeta: item.banco_tarjeta || null,
             numero_autorizacion: item.numero_autorizacion || null,
             is_cancelado: 1,
-            wallet_credito: item.wallet_credito || false
+            is_wallet_credito: item.is_wallet_credito ? 1 : 0
           };
 
           await updateAgentWallet();
@@ -1317,7 +1316,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
                   comentario: item.comentario || item.notas || "",
                   facturable: item.is_facturable,
                   aplicable: item.is_descuento,
-
+                  is_wallet_credito: item.is_wallet_credito,
                   link_Stripe: item.link_stripe || "",
                   ult_digits: item.ult_digits || "",
                   banco_tarjeta: item.banco_tarjeta || "",
@@ -1430,7 +1429,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   const reloadSaldos = async () => {
     try {
       setLoading((prev) => ({ ...prev, pagos: true }));
-      const response = await SaldoFavor.getPagos(agente.id_agente);
+      const response = await SaldoFavor.getPagos(agente.id_agente, true);
       setSaldos(response.data);
     } catch (error) {
       console.error("Error al recargar saldos:", error);
@@ -1636,7 +1635,7 @@ interface FormState {
   facturable: boolean;
   comments: string;
   link_Stripe: string;
-  wallet_credito: boolean
+  is_wallet_credito: boolean
 }
 
 interface FormErrors {
@@ -1657,7 +1656,7 @@ const initialState: FormState = {
   facturable: true,
   comments: "",
   link_Stripe: "",
-  wallet_credito: false,
+  is_wallet_credito: false,
 };
 
 // Tipos de acciones
@@ -1765,7 +1764,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
           facturable: initialData.facturable,
           comments: initialData.comentario,
           link_Stripe: initialData.link_Stripe,
-          wallet_credito: initialData.wallet_credito,
+          is_wallet_credito: initialData.is_wallet_credito ? true : false,
         },
       });
       setCardDetails({
@@ -1907,7 +1906,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
           numero_autorizacion: cardDetails.numero_autorizacion,
           link_stripe: state.link_Stripe || "",
         }),
-        wallet_credito: state.wallet_credito,
+        is_wallet_credito: state.is_wallet_credito,
         ...(state.comments && { comentario: state.comments }),
       };
 
@@ -2119,8 +2118,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
             </div>
 
             <CheckboxInput
-              checked={state.wallet_credito}
-              onChange={(e) => handleInputChange("wallet_credito", e)}
+              checked={state.is_wallet_credito}
+              onChange={(e) => handleInputChange("is_wallet_credito", e)}
               label={"Wallet credito"}
             />
 

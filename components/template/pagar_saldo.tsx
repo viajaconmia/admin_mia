@@ -521,6 +521,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
           "Content-Type": "application/json",
           "x-api-key": API_KEY,
         },
+        credentials: "include",
         body: JSON.stringify(payload),
       });
 
@@ -857,15 +858,12 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
     }
     return (
       <Modal
-        onClose={function (): void {
-          throw new Error("Function not implemented.");
-        }}
+        onClose={() => { onClose() }}
       >
         Cargando...
       </Modal>
     );
   }
-
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-auto">

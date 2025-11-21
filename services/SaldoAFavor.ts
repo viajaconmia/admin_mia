@@ -14,7 +14,7 @@ export interface NuevoSaldoAFavor {
   ult_digits: string;
   banco_tarjeta: string;
   numero_autorizacion: string;
-  wallet_credito: boolean;
+  is_wallet_credito: boolean;
 }
 
 export type Saldo = {
@@ -106,12 +106,11 @@ export class SaldoFavor {
   }
 
   // Obtener pagos por agente
-  static async getPagos(idAgente: string) {
+  static async getPagos(idAgente: string , incluirCreditoWallet:boolean = false) {
     console.log(idAgente)
-    return this.request<{ message: string; data: Saldo[] }>(`/${idAgente}`, {
+    return this.request<{ message: string; data: Saldo[] }>(`/${idAgente}${incluirCreditoWallet?"?incluir=true":""}`, {
       method: "GET",
     });
   }
-
   
 }
