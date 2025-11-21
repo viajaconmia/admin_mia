@@ -24,4 +24,8 @@ export const PERMISOS = {
       EDITAR_PRECIO_RESERVA: "button.edit-price-booking",
     },
   },
+  VERSION: {
+    AGREGAR_WALLET_OPERACIONES: "modal.operaciones-agregar-wallet",
+    AGREGAR_WALLET_FINANZAS: "modal.finanzas-agregar-wallet",
+  },
 } as const;
