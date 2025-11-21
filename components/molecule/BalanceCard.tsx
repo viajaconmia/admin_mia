@@ -92,6 +92,23 @@ export const BalanceCard: React.FC<BalanceCardProps> = ({
               </Button>
             )}
           </div>
-        </div>
-      );
+        </>
+      ) : (
+        <>
+          <h1 className="mb-4 font-semibold text-lg">
+            ¿estas seguro de continuar con la edicion?
+          </h1>
+          {onConfirm && (
+            <Button
+              className="w-full"
+              onClick={onConfirm}
+              disabled={!cubreTodo || loading}
+            >
+              Confirmar
+            </Button>
+          )}
+        </>
+      )}
+    </div>
+  );
 };
