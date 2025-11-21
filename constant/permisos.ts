@@ -21,6 +21,11 @@ export const PERMISOS = {
     BOTON: {
       PAGAR_PROVEEDOR: "button.pagar-proveedor-reserva",
       CREAR_RESERVA: "button.crear-reserva",
+      EDITAR_PRECIO_RESERVA: "button.edit-price-booking",
     },
+  },
+  VERSION: {
+    AGREGAR_WALLET_OPERACIONES: "modal.operaciones-agregar-wallet",
+    AGREGAR_WALLET_FINANZAS: "modal.finanzas-agregar-wallet",
   },
 } as const;

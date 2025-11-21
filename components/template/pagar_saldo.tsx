@@ -105,6 +105,18 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
   console.log("reservaData recibida:", reservaData);
   console.log("facturas recibida:", facturaData);
 
+  // Helper global para dinero
+  const toMoney = (v: any): number => {
+    const n = Number(v) || 0;
+    return Number(n.toFixed(2));
+  };
+
+  // Comparar si “es cero” con tolerancia
+  const isZeroMoney = (v: number): boolean => {
+    return Math.abs(toMoney(v)) < 0.01; // menos de 1 centavo lo tratamos como 0
+  };
+
+
   // Funciones para manejar las facturas
   function obtenerMontosFacturas(facturas_Data) {
     return facturas_Data.map((factura) => factura.monto);
@@ -168,11 +180,12 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
       effectiveSaldoData.fecha_pago || new Date().toISOString().split("T")[0],
   });
 
-  const [montoSeleccionado, setMontoSeleccionado] = useState<number>(0);
+  const [montoSeleccionado, setMontoSeleccionado] = useState<number>(toMoney(0));
   const [uno, setUno] = useState<number>(1);
   const [montorestante, setMontoRestante] = useState<number>(
-    effectiveSaldoData.saldo
+    toMoney(effectiveSaldoData.saldo)
   );
+
   const autoPayTriggered = useRef(false);
   const [reservas, setReservas] = useState<ReservaConItems[]>([]);
   const [loading, setLoading] = useState(false);
@@ -304,21 +317,20 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
   const handleItemSelection = (id_item: string, saldoOriginal: number) => {
     setSelectedItems((prev) => {
       const isCurrentlySelected = prev.some((item) => item.id_item === id_item);
-      const currentSaldo = itemsSaldo[id_item] ?? saldoOriginal;
+      const currentSaldo = toMoney(itemsSaldo[id_item] ?? saldoOriginal);
 
       if (isCurrentlySelected) {
         // Deseleccionar item - restaurar el saldo original
         const newSelection = prev.filter((item) => item.id_item !== id_item);
-        const newTotal = newSelection.reduce(
-          (sum, item) => sum + item.saldo,
-          0
+        const newTotal = toMoney(
+          newSelection.reduce((sum, item) => sum + item.saldo, 0)
         );
-        const restante = effectiveSaldoData.saldo - newTotal;
+        const restante = toMoney(effectiveSaldoData.saldo - newTotal);
 
         // Restaurar el saldo original del item
         setItemsSaldo((prevSaldo) => ({
           ...prevSaldo,
-          [id_item]: saldoOriginal,
+          [id_item]: toMoney(saldoOriginal),
         }));
 
         setMontoRestante(restante);
@@ -326,28 +338,31 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
         return newSelection;
       } else {
         // Verificar si ya se ha alcanzado el límite
-        const currentTotal = prev.reduce((sum, item) => sum + item.saldo, 0);
+        const currentTotal = toMoney(
+          prev.reduce((sum, item) => sum + item.saldo, 0)
+        );
         const mensaje = reservaData
           ? "Ya has pagado la reserva completa"
           : "Ya has utilizado todo tu saldo disponible";
-        if (currentTotal >= effectiveSaldoData.saldo) {
+
+        if (currentTotal >= toMoney(effectiveSaldoData.saldo)) {
           alert(mensaje);
           return prev;
         }
 
         // Calcular cuánto podemos aplicar de este ítem
-        const saldoDisponible = effectiveSaldoData.saldo - currentTotal;
-        const montoAAplicar = Math.min(currentSaldo, saldoDisponible);
+        const saldoDisponible = toMoney(effectiveSaldoData.saldo - currentTotal);
+        const montoAAplicar = toMoney(Math.min(currentSaldo, saldoDisponible));
 
-        // Actualizar el saldo del ítem (lo que queda por payar)
-        const nuevoSaldoItem = currentSaldo - montoAAplicar;
+        // Actualizar el saldo del ítem (lo que queda por pagar)
+        const nuevoSaldoItem = toMoney(currentSaldo - montoAAplicar);
         setItemsSaldo((prevSaldo) => ({
           ...prevSaldo,
           [id_item]: nuevoSaldoItem,
         }));
 
-        const newTotal = currentTotal + montoAAplicar;
-        const restante = effectiveSaldoData.saldo - newTotal;
+        const newTotal = toMoney(currentTotal + montoAAplicar);
+        const restante = toMoney(effectiveSaldoData.saldo - newTotal);
 
         const newSelection = [...prev, { id_item, saldo: montoAAplicar }];
         setMontoRestante(restante);
@@ -356,6 +371,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
       }
     });
   };
+
 
   const isItemSelected = (id_item: string): boolean => {
     return selectedItems.some((item) => item.id_item === id_item);
@@ -393,7 +409,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
     let methodo;
     let id;
 
-    if (reservaData && Number(montorestante.toFixed(0)) == 0) {
+    if (reservaData && isZeroMoney(montorestante)) {
       payload = {
         bandera: 1, // Siempre 1
         hotel: reservaData.hotel || null, // Corregido: Usa el objeto 'hotel' completo
@@ -437,7 +453,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
         }),
       };
       endpoint = "/mia/reservas/operaciones";
-    } else if (reservaData && Number(montorestante.toFixed(0)) > 0) {
+    } else if (reservaData && !isZeroMoney(montorestante)) {
       console.log("montoRestante", montorestante);
       alert("Para registrar el pago, debes cubrir el total de la reserva.");
       return;
@@ -521,6 +537,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
           "Content-Type": "application/json",
           "x-api-key": API_KEY,
         },
+        credentials: "include",
         body: JSON.stringify(payload),
       });
 
@@ -748,10 +765,6 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
 
   // Selecciona saldos en orden y auto-llama handleSubmit cuando cubre el total
   const seleccionarSaldosEnOrdenYAutoPagar = (saldosCrudos: any[]) => {
-    // helper para redondear a 2 decimales
-    const round2 = (n: number) =>
-      Math.round((Number(n) + Number.EPSILON) * 100) / 100;
-
     // Solo aplica con reservaData y una sola vez
     if (!reservaData || autoPayTriggered.current) return;
 
@@ -773,49 +786,50 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
     const tmpOriginal: Record<string, number> = { ...originalSaldoItems };
     const nuevaSeleccion: SelectedItem[] = [];
 
-    // Objetivo a cubrir: total de la reserva
-    let restante = Number(reservaData?.Total || 0);
-    let aplicadoTotal = 0;
+    // Objetivo a cubrir: total de la reserva (ya redondeado)
+    let restante = toMoney(reservaData?.Total || 0);
+    let aplicadoTotal = toMoney(0);
 
     for (const s of saldosOrdenados) {
-      if (restante <= 0) break;
+      if (isZeroMoney(restante) || restante < 0) break;
 
       const idItem = `saldo-${s.id_saldos}`;
-      const disponibleActual =
+      const disponibleActual = toMoney(
         typeof tmpItemsSaldo[idItem] === "number"
-          ? Number(tmpItemsSaldo[idItem])
-          : Number(s?.saldo || 0);
+          ? tmpItemsSaldo[idItem]
+          : s?.saldo || 0
+      );
 
       // Asegura valores iniciales en los mapas (por si vienen vacíos)
       if (tmpOriginal[idItem] === undefined)
-        tmpOriginal[idItem] = Number(s?.saldo || 0);
+        tmpOriginal[idItem] = toMoney(s?.saldo || 0);
       if (tmpItemsSaldo[idItem] === undefined)
-        tmpItemsSaldo[idItem] = Number(s?.saldo || 0);
+        tmpItemsSaldo[idItem] = toMoney(s?.saldo || 0);
 
       if (disponibleActual <= 0) continue;
 
       const aplicarRaw = Math.min(disponibleActual, restante);
-      const aplicar = round2(aplicarRaw);
+      const aplicar = toMoney(aplicarRaw);
       if (aplicar <= 0) continue;
 
       // Descuenta del saldo del ítem y agrega a la selección
-      tmpItemsSaldo[idItem] = round2(disponibleActual - aplicar);
+      tmpItemsSaldo[idItem] = toMoney(disponibleActual - aplicar);
       nuevaSeleccion.push({ id_item: idItem, saldo: aplicar });
 
-      aplicadoTotal = round2(aplicadoTotal + aplicar);
-      restante = round2(restante - aplicar);
+      aplicadoTotal = toMoney(aplicadoTotal + aplicar);
+      restante = toMoney(restante - aplicar);
     }
 
     // Logs detallados de lo seleccionado
     const resumenSeleccion = nuevaSeleccion.map((sel) => {
-      const original = Number(tmpOriginal[sel.id_item] ?? 0);
-      const final = Number(tmpItemsSaldo[sel.id_item] ?? 0);
-      const aplicado = round2(original - final);
+      const original = toMoney(tmpOriginal[sel.id_item] ?? 0);
+      const final = toMoney(tmpItemsSaldo[sel.id_item] ?? 0);
+      const aplicado = toMoney(original - final);
       return {
         id_item: sel.id_item,
         aplicado,
-        saldo_inicial: round2(original),
-        saldo_final: round2(final),
+        saldo_inicial: original,
+        saldo_final: final,
       };
     });
 
@@ -833,16 +847,20 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
     setItemsSaldo(tmpItemsSaldo);
     setOriginalSaldoItems(tmpOriginal);
     setSelectedItems(nuevaSeleccion);
-    setMontoSeleccionado(round2(aplicadoTotal));
+    setMontoSeleccionado(aplicadoTotal);
 
     // En flujo de reserva, el "saldo disponible" (effectiveSaldoData.saldo) es el Total
-    const saldoDisponible = Number(effectiveSaldoData?.saldo || 0);
-    const nuevoRestante = round2(saldoDisponible - aplicadoTotal);
+    const saldoDisponible = toMoney(effectiveSaldoData?.saldo || 0);
+    const nuevoRestante = toMoney(saldoDisponible - aplicadoTotal);
     setMontoRestante(nuevoRestante);
 
     console.log(`Monto seleccionado total: $${aplicadoTotal.toFixed(2)}`);
-    console.log(`Monto restante total: $${montorestante.toFixed(2)}`);
+    console.log(`Monto restante total (calculado): $${nuevoRestante.toFixed(2)}`);
+
+    // marca que ya se hizo el autopay una vez
+    autoPayTriggered.current = true;
   };
+
 
   const titulo = reservaData
     ? "Informacion del pago de la reserva"
@@ -856,9 +874,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
     }
     return (
       <Modal
-        onClose={function (): void {
-          throw new Error("Function not implemented.");
-        }}
+        onClose={() => { onClose() }}
       >
         Cargando...
       </Modal>

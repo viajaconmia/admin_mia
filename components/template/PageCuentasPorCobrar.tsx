@@ -55,6 +55,8 @@ import {
 
 import { formatNumberWithCommas } from "@/helpers/utils";
 import { url } from "node:inspector";
+import { usePermiso } from "@/hooks/usePermission";
+import { PERMISOS } from "@/constant/permisos";
 // ========================================
 // TIPOS DE DATOS
 // ========================================
@@ -89,6 +91,7 @@ interface PaymentModalProps {
     banco_tarjeta: string;
     numero_autorizacion: string;
     tipo_tarjeta: string;
+    is_wallet_credito: boolean;
   };
 
   onSubmit: (paymentData: NuevoSaldoAFavor) => Promise<any>;
@@ -207,7 +210,7 @@ const ComprobanteModal: React.FC<ComprobanteModalProps> = ({
   onSave,
   handleEdit,
   isEditing = false,
-  currentComprobante = null
+  currentComprobante = null,
 }) => {
   const [archivo, setArchivo] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -252,7 +255,6 @@ const ComprobanteModal: React.FC<ComprobanteModalProps> = ({
 
       await subirArchivoAS3(archivo, uploadUrl);
 
-
       if (isEditing && handleEdit) {
         await handleEdit({ comprobante: publicUrl });
       } else if (onSave) {
@@ -285,7 +287,10 @@ const ComprobanteModal: React.FC<ComprobanteModalProps> = ({
           <h3 className="text-xl font-semibold text-gray-800">
             {isEditing ? "Actualizar" : "Subir"} Comprobante para {cliente}
           </h3>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full">
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded-full"
+          >
             <X className="w-5 h-5 text-gray-500" />
           </button>
         </div>
@@ -365,6 +370,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
 }) => {
   const [addPaymentModal, setAddPaymentModal] = useState(false);
   const [detalles, setDetalles] = useState(false);
+  const { hasPermission } = usePermiso();
   const [error, setError] = useState<string | null>(null);
   // const [agente, setAgente] = useState<Agente | null>(null);
   const [loading, setLoading] = useState({
@@ -508,13 +514,13 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     const fetchSaldoFavor = async () => {
       const response: { message: string; data: Saldo[] } =
         await SaldoFavor.getPagos(agente.id_agente);
-      console.log(response)
+      console.log(response);
       setSaldos(response.data);
     };
     fetchSaldoFavor();
   }, []);
 
-  console.log("slados", saldos)
+  console.log("slados", saldos);
 
   const filteredData = useMemo(() => {
     // Filter the data
@@ -675,7 +681,10 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   }, [saldos, filters, searchTerm, sortConfig.key, sortConfig.sort]);
 
   // 👇 dentro de PageCuentasPorCobrar
-  const actualizarSoloComentario = async (item: Saldo, nuevoComentario: string) => {
+  const actualizarSoloComentario = async (
+    item: Saldo,
+    nuevoComentario: string
+  ) => {
     try {
       const apiData = {
         id_saldos: item.id_saldos,
@@ -689,7 +698,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         link_stripe: item.link_stripe || null,
         tipo_tarjeta: item.tipo_tarjeta || null,
         activo: item.activo,
-        comentario: nuevoComentario,           // 👈 el único cambio
+        comentario: nuevoComentario, // 👈 el único cambio
         comprobante: item.comprobante || null,
         currency: item.currency || "MXN",
         referencia: item.referencia || null,
@@ -708,7 +717,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       );
     }
   };
-
 
   const tableRenderers = {
     fecha_De_Pago: ({ value }: { value: string | null }) => {
@@ -852,7 +860,9 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     comprobante: ({ value, item }: { value: string | null; item: any }) => {
       const [showModal, setShowModal] = useState(false);
 
-      const handleEditComprobante = async (updatedData: { comprobante: string }) => {
+      const handleEditComprobante = async (updatedData: {
+        comprobante: string;
+      }) => {
         try {
           // Crear objeto con todos los datos necesarios para la actualización
           const apiData = {
@@ -875,13 +885,17 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             ult_digits: item.ult_digits || null,
             banco_tarjeta: item.banco_tarjeta || null,
             numero_autorizacion: item.numero_autorizacion || null,
+            is_wallet_credito: item.is_wallet_credito ? 1 : 0
           };
 
           await SaldoFavor.actualizarPago(apiData);
           await reloadSaldos();
         } catch (error) {
           console.error("Error al actualizar comprobante:", error);
-          setError(`Error al actualizar comprobante: ${error instanceof Error ? error.message : String(error)}`);
+          setError(
+            `Error al actualizar comprobante: ${error instanceof Error ? error.message : String(error)
+            }`
+          );
         }
       };
 
@@ -923,9 +937,25 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             className="text-green-600 hover:text-green-800 cursor-pointer flex items-center"
             title="Ver comprobante"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+              />
             </svg>
           </a>
 
@@ -937,8 +967,19 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             className="text-blue-600 hover:text-blue-800 cursor-pointer flex items-center"
             title="Cambiar comprobante"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+              />
             </svg>
           </button>
 
@@ -994,13 +1035,21 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       };
 
       return (
-        <div className={`relative flex items-center gap-2 ${!isActive ? "text-red-500 line-through" : ""}`}>
-          <div className="max-w-xs truncate">{value ? normalizeText(value) : ""}</div>
+        <div
+          className={`relative flex items-center gap-2 ${!isActive ? "text-red-500 line-through" : ""
+            }`}
+        >
+          <div className="max-w-xs truncate">
+            {value ? normalizeText(value) : ""}
+          </div>
 
           <button
             type="button"
             title="Editar comentario"
-            onClick={(e) => { e.stopPropagation(); setEditing(true); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setEditing(true);
+            }}
             className="p-1 rounded hover:bg-gray-100 disabled:opacity-50"
             disabled={!isActive}
           >
@@ -1019,7 +1068,10 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
                 <button
                   type="button"
                   className="px-3 py-1 text-sm rounded-md border border-gray-300"
-                  onClick={() => { setEditing(false); setNuevo(value || ""); }}
+                  onClick={() => {
+                    setEditing(false);
+                    setNuevo(value || "");
+                  }}
                 >
                   Cancelar
                 </button>
@@ -1087,7 +1139,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         if (!isActive) return; // No permitir edición si está inactivo
 
         try {
-
           // Obtener el pago original para calcular la diferencia
           const pagoOriginal = saldos.find(
             (s) => s.id_saldos === item.id_saldos
@@ -1125,7 +1176,8 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             activo: true, // Siempre activo al editar
             currency: item.currency || "MXN",
             comprobante: item.comprobante,
-            is_cancelado: 0
+            is_cancelado: 0,
+            is_wallet_credito: updatedData.is_wallet_credito ? 1 : 0
           };
 
           // Manejar campos específicos según el método de pago
@@ -1213,6 +1265,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             banco_tarjeta: item.banco_tarjeta || null,
             numero_autorizacion: item.numero_autorizacion || null,
             is_cancelado: 1,
+            is_wallet_credito: item.is_wallet_credito ? 1 : 0
           };
 
           await updateAgentWallet();
@@ -1238,10 +1291,10 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         }
       };
       const handleDetalles = async () => {
-        console.log(item, "pago elegido")
-        setPagoDetallado(item)
-        setDetalles(true)
-      }
+        console.log(item, "pago elegido");
+        setPagoDetallado(item);
+        setDetalles(true);
+      };
 
       return (
         <div className="flex gap-2">
@@ -1284,7 +1337,9 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             className="p-1.5 rounded-md bg-amber-50 text-amber-600 hover:bg-amber-100 transition-colors"
             onClick={handleDetalles}
             title="Ver Detalles"
-          > <Eye className="w-4 h-4" />
+          >
+            {" "}
+            <Eye className="w-4 h-4" />
           </button>
 
           {/* Modal de Edición */}
@@ -1312,7 +1367,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
                   comentario: item.comentario || item.notas || "",
                   facturable: item.is_facturable,
                   aplicable: item.is_descuento,
-
+                  is_wallet_credito: item.is_wallet_credito,
                   link_Stripe: item.link_stripe || "",
                   ult_digits: item.ult_digits || "",
                   banco_tarjeta: item.banco_tarjeta || "",
@@ -1425,7 +1480,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   const reloadSaldos = async () => {
     try {
       setLoading((prev) => ({ ...prev, pagos: true }));
-      const response = await SaldoFavor.getPagos(agente.id_agente);
+      const response = await SaldoFavor.getPagos(agente.id_agente, true);
       setSaldos(response.data);
     } catch (error) {
       console.error("Error al recargar saldos:", error);
@@ -1519,7 +1574,10 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
           <div className="flex justify-end items-center">
             <button
               onClick={() => setAddPaymentModal(true)}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors font-medium shadow-sm"
+              className={`inline-flex items-center gap-2 px-6 py-3 ${hasPermission(PERMISOS.VERSION.AGREGAR_WALLET_OPERACIONES)
+                ? "bg-emerald-600 hover:bg-emerald-700"
+                : "bg-yellow-600 hover:bg-yellow-700"
+                } text-white rounded-xl transition-colors font-medium shadow-sm`}
               disabled={loading.pagos}
             >
               <Plus className="w-5 h-5" />
@@ -1608,15 +1666,12 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       )}
 
       {detalles && agente && (
-
         <ModalDetallePago
           onClose={() => setDetalles(false)}
           pago={pagoDetallado}
         />
-
       )}
     </div>
-
   );
 };
 
@@ -1631,6 +1686,7 @@ interface FormState {
   facturable: boolean;
   comments: string;
   link_Stripe: string;
+  is_wallet_credito: boolean
 }
 
 interface FormErrors {
@@ -1651,6 +1707,7 @@ const initialState: FormState = {
   facturable: true,
   comments: "",
   link_Stripe: "",
+  is_wallet_credito: false,
 };
 
 // Tipos de acciones
@@ -1728,6 +1785,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     tipo_tarjeta: "", // Establecer un valor por defecto
     facturable: true,
   });
+  const { hasPermission, Can } = usePermiso();
   // Determinar qué campos mostrar según el método de pago
   const showReferenceField = () => {
     return state.paymentMethod === "Transferencia";
@@ -1758,6 +1816,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
           facturable: initialData.facturable,
           comments: initialData.comentario,
           link_Stripe: initialData.link_Stripe,
+          is_wallet_credito: initialData.is_wallet_credito ? true : false,
         },
       });
       setCardDetails({
@@ -1769,9 +1828,15 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
     }
   }, [isEditing, initialData]);
 
-  const paymentMethods = isEditing
+  const metodos = isEditing
     ? ["Transferencia", "Wallet", "Tarjeta"]
     : ["Transferencia", "Wallet", "Tarjeta", "LinkStripe"];
+
+  const paymentMethods = hasPermission(
+    PERMISOS.VERSION.AGREGAR_WALLET_OPERACIONES
+  )
+    ? metodos
+    : metodos.filter((m) => m !== "Wallet");
 
   const fetchStripeInfo = async (chargeId: string) => {
     try {
@@ -1799,7 +1864,6 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
       }
 
       const data = await response.json();
-
 
       if (data.data.estado !== "failed") {
         setCardDetails({
@@ -1899,7 +1963,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
           numero_autorizacion: cardDetails.numero_autorizacion,
           link_stripe: state.link_Stripe || "",
         }),
-        descuento_aplicable: state.discountApplied,
+        is_wallet_credito: state.is_wallet_credito,
         ...(state.comments && { comentario: state.comments }),
       };
 
@@ -2099,7 +2163,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
             <div
               onWheelCapture={() => {
                 const el = document.activeElement as HTMLElement | null;
-                if (el && el.tagName === "INPUT") (el as HTMLInputElement).blur();
+                if (el && el.tagName === "INPUT")
+                  (el as HTMLInputElement).blur();
               }}
             >
               <NumberInput
@@ -2109,12 +2174,13 @@ const PaymentModal: React.FC<PaymentModalProps> = ({
                 disabled={isStripeLinked}
               />
             </div>
-
-            <CheckboxInput
-              checked={state.discountApplied}
-              onChange={(e) => handleInputChange("discountApplied", e)}
-              label={"Descuento aplicado"}
-            />
+            <Can permiso={PERMISOS.VERSION.AGREGAR_WALLET_FINANZAS}>
+              <CheckboxInput
+                checked={state.is_wallet_credito}
+                onChange={(e) => handleInputChange("is_wallet_credito", e)}
+                label={"Wallet credito"}
+              />
+            </Can>
 
             <CheckboxInput
               checked={state.facturable}
