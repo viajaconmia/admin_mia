@@ -158,9 +158,8 @@ const Pill = ({
   };
   return (
     <span
-      className={`px-2 py-1 rounded-full border text-xs font-semibold ${
-        tones[tone] || tones.gray
-      }`}
+      className={`px-2 py-1 rounded-full border text-xs font-semibold ${tones[tone] || tones.gray
+        }`}
     >
       {text}
     </span>
@@ -178,10 +177,10 @@ const facturaTone = (estado: string) =>
   estado === "facturado"
     ? "green"
     : estado === "parcial"
-    ? "yellow"
-    : estado === "pendiente"
-    ? "red"
-    : "gray";
+      ? "yellow"
+      : estado === "pendiente"
+        ? "red"
+        : "gray";
 
 function App() {
   const [solicitudesPago, setSolicitudesPago] = useState<SolicitudProveedor[]>(
@@ -329,13 +328,12 @@ function App() {
     ),
     markup: ({ value }) => (
       <span
-        className={`font-semibold border p-2 rounded-full ${
-          value == "Infinity"
+        className={`font-semibold border p-2 rounded-full ${value == "Infinity"
             ? "text-gray-700 bg-gray-100 border-gray-300 "
             : value > 0
-            ? "text-green-600 bg-green-100 border-green-300"
-            : "text-red-600 bg-red-100 border-red-300"
-        }`}
+              ? "text-green-600 bg-green-100 border-green-300"
+              : "text-red-600 bg-red-100 border-red-300"
+          }`}
       >
         {value == "Infinity" ? "0%" : `${Number(value).toFixed(2)}%`}
       </span>
@@ -399,59 +397,6 @@ function App() {
     ),
   };
 
-  // ---------- MULTIPANTALLA ----------
-  // const cols = useResponsiveColumns({
-  //   xs: [
-  //     "creado",
-  //     "hotel",
-  //     "viajero",
-  //     "estado_pago",
-  //     "estado_factura_proveedor",
-  //     "monto_pagado_proveedor",
-  //   ],
-  //   md: [
-  //     "creado",
-  //     "hotel",
-  //     "viajero",
-  //     "check_in",
-  //     "check_out",
-  //     "monto_pagado_proveedor",
-  //     "fecha_real_cobro",
-  //     "metodo_de_pago",
-  //     "estado_pago",
-  //     "estado_factura_proveedor",
-  //     "precio_de_venta",
-  //   ],
-  //   lg: [
-  //     "creado",
-  //     "cliente",
-  //     "hotel",
-  //     "codigo_hotel",
-  //     "viajero",
-  //     "habitacion",
-  //     "check_in",
-  //     "check_out",
-  //     "noches",
-  //     "costo_proveedor",
-  //     "markup",
-  //     "precio_de_venta",
-  //     "metodo_de_pago",
-  //     "reservante",
-  //     "etapa_reservacion",
-  //     "estado",
-  //     "estado_pago",
-  //     "monto_pagado_proveedor",
-  //     "fecha_real_cobro",
-  //     "estado_factura_proveedor",
-  //     "costo_facturado",
-  //     "fecha_facturacion",
-  //     "UUID",
-  //     "banco",
-  //     "digitos_tajeta",
-  //     "tipo_tarjeta",
-  //   ],
-  // });
-
   const handleFetchSolicitudesPago = () => {
     setLoading(true);
     fetchGetSolicitudesProveedores((data) => {
@@ -513,18 +458,16 @@ function App() {
                 onClick={() => setCategoria(btn.key)}
                 className={`relative px-4 py-2 rounded-t-md font-medium border border-b-0 
           transition-all duration-200 
-          ${
-            isActive
-              ? "bg-white text-blue-700 border-blue-600 shadow-md -mb-[1px]"
-              : "bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200"
-          }`}
+          ${isActive
+                    ? "bg-white text-blue-700 border-blue-600 shadow-md -mb-[1px]"
+                    : "bg-gray-100 text-gray-600 border-gray-300 hover:bg-gray-200"
+                  }`}
                 title={`Mostrar ${btn.label.toLowerCase()}`}
               >
                 <span>{btn.label}</span>
                 <span
-                  className={`ml-2 text-xs px-2 py-0.5 rounded-full ${
-                    isActive ? "bg-blue-100 text-blue-700" : "bg-white border"
-                  }`}
+                  className={`ml-2 text-xs px-2 py-0.5 rounded-full ${isActive ? "bg-blue-100 text-blue-700" : "bg-white border"
+                    }`}
                 >
                   {btn.count}
                 </span>
@@ -546,11 +489,10 @@ function App() {
               registros={registrosVisibles}
               renderers={renderers}
               defaultSort={defaultSort}
-              leyenda={`Mostrando ${registrosVisibles.length} registros (${
-                categoria === "all"
+              leyenda={`Mostrando ${registrosVisibles.length} registros (${categoria === "all"
                   ? "todas las categorías"
                   : `categoría: ${categoria}`
-              })`}
+                })`}
             />
           )}
         </div>
