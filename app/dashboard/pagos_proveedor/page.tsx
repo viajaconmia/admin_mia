@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { CreditCard, Send } from "lucide-react";
+import { CreditCard, Send, Pencil } from "lucide-react";
 import Filters from "@/components/Filters";
 import {
   calcularNoches,
@@ -88,6 +88,63 @@ function agruparPorCategoria<T extends RowConCamposCategoria>(registros: T[]) {
   );
 }
 
+// -----helper para asignar color en fechas ----
+const getFechaPagoColor = (dateStr?: string | Date | null) => {
+  if (!dateStr) return "";
+
+  const pagoDate = new Date(dateStr);
+  if (isNaN(pagoDate.getTime())) return "";
+
+  // Normalizamos ambas fechas a inicio del día para comparar sin horas
+  const hoy = new Date();
+  const hoySinHora = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+  const pagoSinHora = new Date(
+    pagoDate.getFullYear(),
+    pagoDate.getMonth(),
+    pagoDate.getDate()
+  );
+
+  const diffMs = pagoSinHora.getTime() - hoySinHora.getTime();
+  const diffDays = diffMs / (1000 * 60 * 60 * 24);
+
+  // 🔴 Ya pasó la fecha
+  if (diffDays < 0) return "bg-red-100 text-red-800 border-red-300";
+
+  // 🟡 Hoy o en los próximos 2 días
+  if (diffDays <= 2) return "bg-yellow-100 text-yellow-800 border-yellow-300";
+
+  // 🟢 Faltan más de 2 días
+  return "bg-green-100 text-green-800 border-green-300";
+};
+
+const getFechaPagoRowClass = (dateStr?: string | Date | null) => {
+  if (!dateStr) return "";
+
+  const pagoDate = new Date(dateStr);
+  if (isNaN(pagoDate.getTime())) return "";
+
+  const hoy = new Date();
+  const hoySinHora = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+  const pagoSinHora = new Date(
+    pagoDate.getFullYear(),
+    pagoDate.getMonth(),
+    pagoDate.getDate()
+  );
+
+  const diffMs = pagoSinHora.getTime() - hoySinHora.getTime();
+  const diffDays = diffMs / (1000 * 60 * 60 * 24);
+
+  // 🔴 Ya pasó la fecha
+  if (diffDays < 0) return "bg-red-200";
+
+  // 🟡 Hoy o en los próximos 2 días
+  if (diffDays <= 2) return "bg-yellow-200";
+
+  // 🟢 Faltan más de 2 días
+  return "bg-green-200";
+};
+
+
 // ---------- TIPOS DE ITEM ----------
 
 type ItemSolicitud = SolicitudProveedor & {
@@ -170,6 +227,28 @@ function getFacturaInfo(item: ItemSolicitud) {
   return { estado, totalFacturado, fechaUltimaFactura, uuid };
 }
 
+
+
+const handleEdit = (
+  item: ItemSolicitud,
+  field: "razon_social" | "rfc" | "costo_proveedor",
+  newValue: string
+) => {
+  // Por ahora solo mostramos que se está editando
+  console.log("editando", {
+    field,
+    newValue,
+    id_solicitud: (item as any).id_solicitud,
+    id: (item as any).id,
+  });
+
+  // Aquí después podrás hacer:
+  // - actualizar un estado local de edición
+  // - llamar a un servicio para guardar en el back, etc.
+};
+
+
+
 // ---------- UI HELPERS ----------
 
 const Pill = ({
@@ -239,7 +318,51 @@ function App() {
   // 🔹 NUEVO: estado para solicitudes seleccionadas
   const [solicitud, setSolicitud] = useState<SolicitudProveedor[]>([]);
 
+  // 🔹 NUEVO: objeto (map) de seleccionados
+  type SelectedSolicitudesMap = Record<string, SolicitudProveedor>;
+  const [selectedSolicitudesMap, setSelectedSolicitudesMap] =
+    useState<SelectedSolicitudesMap>({});
+
   const { hasAccess } = usePermiso();
+
+  const [editModal, setEditModal] = useState<{
+    open: boolean;
+    item: ItemSolicitud | null;
+    field: "razon_social" | "rfc" | "costo_proveedor" | null;
+    value: string;
+  }>({
+    open: false,
+    item: null,
+    field: null,
+    value: "",
+  });
+
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const closeEditModal = () => {
+    setEditModal({
+      open: false,
+      item: null,
+      field: null,
+      value: "",
+    });
+    setEditError(null);
+  };
+
+  const handleConfirmEdit = () => {
+    if (!editModal.item || !editModal.field) return;
+
+    const cleaned = editModal.value.replace(",", ".").trim();
+    if (cleaned === "" || isNaN(Number(cleaned))) {
+      setEditError("Valor no válido. Usa solo números (puedes usar punto decimal).");
+      return;
+    }
+
+    // 🔥 Llamamos a tu handleEdit real
+    handleEdit(editModal.item, editModal.field, cleaned);
+
+    closeEditModal();
+  };
 
   hasAccess(PERMISOS.VISTAS.PROVEEDOR_PAGOS);
 
@@ -278,6 +401,8 @@ function App() {
         codigo_hotel: item.codigo_reservacion_hotel,
         creado: item.created_at,
         hotel: item.hotel.toUpperCase(),
+        razon_social: item.proveedor?.razon_social,
+        rfc: item.proveedor?.rfc,
         viajero: (
           item.nombre_viajero_completo ||
           item.nombre_viajero ||
@@ -301,8 +426,6 @@ function App() {
         id_cliente: item.id_agente,
         cliente: (item.nombre_agente_completo || "").toUpperCase(),
         // 🟨 INFORMACIÓN DEL PROVEEDOR
-        razon_social: item.proveedor?.razon_social,
-        rfc: item.proveedor?.rfc,
         // 🟧 INFORMACIÓN DE LA SOLICITUD / PAGOS / FACTURACIÓN
         fecha_de_pago: item.solicitud_proveedor?.fecha_solicitud,
         forma_de_pago_solicitada:
@@ -313,14 +436,13 @@ function App() {
         // 🟥 PAGO AL PROVEEDOR
         estado_pago: pagoInfo.estado_pago,
         monto_pagado_proveedor: pagoInfo.totalPagado,
-        fecha_real_cobro: pagoInfo.fechaUltimoPago,
+        fecha_real_pago: pagoInfo.fechaUltimoPago,
         // 🟪 FACTURACIÓN
         estado_factura_proveedor: facInfo.estado,
         total_facturado: facInfo.totalFacturado,
         fecha_facturacion: facInfo.fechaUltimaFactura,
         UUID: facInfo.uuid,
         estatus_pagos: item.estatus_pagos ?? "",
-        filtro_pago: item.filtro_pago ?? "", // 🔹 importante para agruparPorCategoria
         // Objeto completo original por si se requiere
         item: raw,
       };
@@ -347,23 +469,52 @@ function App() {
   > = {
     // 🔹 Renderer de selección (checkbox)
     seleccionar: ({ item }) => {
-      const raw: SolicitudProveedor | undefined = item?.item;
-      const isSelected = raw
-        ? solicitud.some((s) => s === raw)
-        : false;
+      // 👉 aquí item YA es la SolicitudProveedor original
+      const raw: SolicitudProveedor | undefined = item;
+      if (!raw) return null;
+
+      // 🔑 Definimos una llave única para el mapa
+      const key =
+        (raw as any).id_solicitud ||
+        (raw as any).id ||
+        (raw as any).codigo_reservacion_hotel;
+
+      const isSelected = key ? !!selectedSolicitudesMap[key] : false;
 
       return (
         <input
           type="checkbox"
           checked={isSelected}
           onChange={(e) => {
-            if (!raw) return;
-            setSolicitud((prev) => {
-              const exists = prev.some((s) => s === raw);
+            if (!key) return;
+
+            // 🧠 1) Actualizamos el objeto (mapa)
+            setSelectedSolicitudesMap((prev) => {
+              const next = { ...prev };
               if (e.target.checked) {
-                return exists ? prev : [...prev, raw];
+                next[key] = raw;
+              } else {
+                delete next[key];
               }
-              return prev.filter((s) => s !== raw);
+              return next;
+            });
+
+            // 📚 2) Mantenemos también el arreglo `solicitud`
+            setSolicitud((prev) => {
+              if (e.target.checked) {
+                const exists = prev.some(
+                  (s) =>
+                    (s as any).id_solicitud === (raw as any).id_solicitud ||
+                    (s as any).id === (raw as any).id
+                );
+                return exists ? prev : [...prev, raw];
+              } else {
+                return prev.filter(
+                  (s) =>
+                    (s as any).id_solicitud !== (raw as any).id_solicitud &&
+                    (s as any).id !== (raw as any).id
+                );
+              }
             });
           }}
         />
@@ -390,9 +541,43 @@ function App() {
       <span title={value}>{formatDateSimple(value)}</span>
     ),
 
-    costo_proveedor: ({ value }) => (
-      <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>
-    ),
+    costo_proveedor: ({ value, item }) => {
+      const raw = item as ItemSolicitud;
+      const monto = Number(value || 0);
+
+      return (
+        <div className="flex items-center gap-2">
+          {/* Pill del monto */}
+          <span
+            title={String(value)}
+            className="inline-flex items-center px-2 py-1 rounded-full bg-gray-100 text-xs font-medium text-gray-800 border border-gray-200"
+          >
+            ${monto.toFixed(2)}
+          </span>
+
+          {/* Botón editar amigable que abre el mini modal */}
+          <button
+            type="button"
+            className="inline-flex items-center px-2 py-1 rounded-full border border-blue-200 bg-blue-50 text-[11px] font-medium text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition"
+            onClick={() => {
+              const actual = isNaN(monto) ? "" : monto.toString();
+              setEditError(null);
+              setEditModal({
+                open: true,
+                item: raw,
+                field: "costo_proveedor",
+                value: actual,
+              });
+            }}
+          >
+            <Pencil className="w-3 h-3 mr-1" />
+            Editar
+          </button>
+        </div>
+      );
+    },
+
+
 
     markup: ({ value }) => (
       <span
@@ -431,7 +616,7 @@ function App() {
       <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>
     ),
 
-    fecha_real_cobro: ({ value }) =>
+    fecha_real_pago: ({ value }) =>
       value ? (
         <span title={value}>{formatDateSimple(value)}</span>
       ) : (
@@ -468,12 +653,22 @@ function App() {
     ),
 
     // ----------- SOLICITUD -----------
-    fecha_de_pago: ({ value }) =>
-      value ? (
-        <span title={value}>{formatDateSimple(value)}</span>
-      ) : (
-        <span className="text-gray-400">—</span>
-      ),
+    fecha_de_pago: ({ value }) => {
+      if (!value) {
+        return <span className="text-gray-400">—</span>;
+      }
+
+      const colorClasses = getFechaPagoColor(value);
+
+      return (
+        <span
+          title={value}
+          className={`px-2 py-1 rounded-full text-xs font-semibold border ${colorClasses}`}
+        >
+          {formatDateSimple(value)}
+        </span>
+      );
+    },
 
     forma_de_pago_solicitada: ({ value }) => (
       <span className="font-semibold">
@@ -600,6 +795,13 @@ function App() {
               </button>
             );
           })}
+
+          <div className="flex justify-end">
+            <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">
+              Agregar factura
+            </button>
+          </div>
+
         </div>
 
         <div>
@@ -610,6 +812,7 @@ function App() {
               registros={registrosVisibles as any}
               renderers={renderers}
               defaultSort={defaultSort}
+              getRowClassName={(row) => getFechaPagoRowClass(row.fecha_de_pago)}
               leyenda={`Mostrando ${registrosVisibles.length
                 } registros (${categoria === "all"
                   ? "todas las categorías"
@@ -637,7 +840,64 @@ function App() {
           )}
         </div>
       </div>
+      {editModal.open && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30">
+          <div className="bg-white rounded-lg shadow-lg p-4 w-full max-w-sm">
+            <h3 className="text-sm font-semibold text-gray-900 mb-2">
+              Editar{" "}
+              {editModal.field === "costo_proveedor"
+                ? "costo proveedor"
+                : editModal.field === "razon_social"
+                  ? "razón social"
+                  : editModal.field === "rfc"
+                    ? "RFC"
+                    : ""}
+            </h3>
+
+            <p className="text-xs text-gray-500 mb-3">
+              Ingresa el nuevo valor y guarda los cambios.
+            </p>
+
+            <input
+              type="text"
+              className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              value={editModal.value}
+              onChange={(e) => {
+                setEditError(null);
+                setEditModal((prev) => ({
+                  ...prev,
+                  value: e.target.value,
+                }));
+              }}
+            />
+
+            {editError && (
+              <p className="text-xs text-red-600 mt-1">{editError}</p>
+            )}
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                className="px-3 py-1.5 text-xs rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100"
+                onClick={closeEditModal}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="px-3 py-1.5 text-xs rounded-md bg-blue-600 text-white hover:bg-blue-700"
+                onClick={handleConfirmEdit}
+              >
+                Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
+
+
   );
 }
 
