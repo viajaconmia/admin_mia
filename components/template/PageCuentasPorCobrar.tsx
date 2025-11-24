@@ -449,6 +449,30 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     }
   };
 
+  const getWalletRowClass = (
+    credito: number | boolean,
+    activo: number | boolean
+  ): string => {
+    const isActivo = activo === 1 || activo === true;
+    const isWalletCredito = credito === 1 || credito === true;
+
+    // Inactivo -> rojo
+    if (!isActivo) {
+      console.log(activo, "fila inactiva -> rojo");
+      return "bg-red-200";
+    }
+
+    // Activo y es wallet_credito -> amarillo
+    if (isWalletCredito) {
+      console.log(credito, "wallet crédito -> amarillo");
+      return "bg-yellow-200";
+    }
+
+    // Activo normal -> verde
+    console.log("activo normal -> verde");
+    return "bg-green-200";
+  };
+
   // 1. Función centralizada para actualizar el saldo
   const updateAgentWallet = async () => {
     try {
@@ -642,9 +666,11 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       fecha_De_Pago: saldo.fecha_pago ? new Date(saldo.fecha_pago) : null,
       aplicable: saldo.is_descuento ? "Si" : "No",
       comentario: saldo.notas || saldo.comentario || null,
+      wallet_credito: saldo.is_wallet_credito,
       facturable: saldo.is_facturable ? "Si" : "No",
       comprobante: saldo.comprobante || null,
       is_cancelado: saldo.is_cancelado,
+      activo: saldo.activo,
       acciones: { row: saldo },
       item: saldo,
     }));
@@ -1605,6 +1631,11 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
           ) : (
             <Table5
               registros={filteredData}
+              getRowClassName={(row) => {
+                console.log(row, "row para clase")
+                return getWalletRowClass(row.wallet_credito, row.activo)
+              }
+              }
               renderers={tableRenderers}
               customColumns={[
                 "saldo",

@@ -23,11 +23,13 @@ interface TableProps<T> {
   children?: React.ReactNode;
   maxHeight?: string;
   customColumns?: string[];
+  getRowClassName?: (row: Registro, index: number) => string;
 
   /** Activa el split de strings por espacio a múltiples líneas */
   splitStringsBySpace?: boolean;
   /** Restringe el split a estas columnas (keys exactos del objeto) */
   splitColumns?: string[];
+
 }
 
 export const Table5 = <T,>({
@@ -39,7 +41,7 @@ export const Table5 = <T,>({
   children,
   maxHeight = "28rem",
   customColumns,
-
+  getRowClassName,
   splitStringsBySpace = false,
   splitColumns,
 }: TableProps<T>) => {
@@ -116,6 +118,7 @@ export const Table5 = <T,>({
     }, 0);
   };
 
+  console.log("informacion", registros, renderers, customColumns)
 
   /** --- NUEVO: reglas forzadas para nombre/cliente --- */
   const FORCE_SPLIT_COLS = new Set(["nombre", "cliente"]);
@@ -227,7 +230,9 @@ export const Table5 = <T,>({
           </div>
         </div>
       )}
+
       {loading && <Loader />}
+
       {displayData.length > 0 && !loading ? (
         <div
           className="overflow-y-auto relative border border-gray-200 rounded-sm w-full h-fit"
@@ -261,37 +266,55 @@ export const Table5 = <T,>({
                   ))}
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {displayData.map((item, index) => (
-                <tr
-                  key={item.id !== undefined ? item.id : index}
-                  className={`${index % 2 === 0 ? "bg-white" : "bg-gray-50"
-                    } cursor-pointer hover:bg-blue-50 transition-colors`}
-                >
-                  {columnKeys
-                    .filter((key) => visibleColumns.has(key))
-                    .map((colKey) => {
-                      const Renderer = renderers[colKey];
-                      const value = item[colKey];
 
-                      return (
-                        <td
-                          key={`${item.id !== undefined ? item.id : index}-${colKey}`}
-                          className="px-6 py-2 whitespace-nowrap text-xs text-gray-900"
-                        >
-                          {Renderer ? (
-                            // Si usas un Renderer custom, tú controlas el formato.
-                            <Renderer value={value} item={item.item} index={index} />
-                          ) : (
-                            <div className="whitespace-pre-line break-words">
-                              {renderValue(colKey, value)}
-                            </div>
-                          )}
-                        </td>
-                      );
-                    })}
-                </tr>
-              ))}
+            <tbody className="bg-white divide-y divide-gray-200">
+              {displayData.map((item, index) => {
+                console.log(item, "informacion")
+                const zebraClass = index % 2 === 0 ? "bg-white" : "bg-gray-50";
+
+                const rowExtraClass = getRowClassName
+                  ? getRowClassName(item, index)
+                  : "";
+
+                const baseBgClass =
+                  rowExtraClass && rowExtraClass.includes("bg-")
+                    ? rowExtraClass
+                    : zebraClass + (rowExtraClass ? ` ${rowExtraClass}` : "");
+
+                return (
+                  <tr
+                    key={item.id !== undefined ? item.id : index}
+                    className={`${baseBgClass} cursor-pointer hover:bg-blue-50 transition-colors`}
+                  >
+                    {columnKeys
+                      .filter((key) => visibleColumns.has(key))
+                      .map((colKey) => {
+                        const Renderer = renderers[colKey];
+                        const value = item[colKey];
+
+                        return (
+                          <td
+                            key={`${item.id !== undefined ? item.id : index
+                              }-${colKey}`}
+                            className="px-6 py-2 whitespace-nowrap text-xs text-gray-900"
+                          >
+                            {Renderer ? (
+                              <Renderer
+                                value={value}
+                                item={item.item}
+                                index={index}
+                              />
+                            ) : (
+                              <div className="whitespace-pre-line break-words">
+                                {renderValue(colKey, value)}
+                              </div>
+                            )}
+                          </td>
+                        );
+                      })}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -304,4 +327,5 @@ export const Table5 = <T,>({
       )}
     </div>
   );
+
 };
