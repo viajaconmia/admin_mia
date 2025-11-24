@@ -116,7 +116,6 @@ export const Table5 = <T,>({
     }, 0);
   };
 
-  console.log("informacion", registros, renderers, customColumns)
 
   /** --- NUEVO: reglas forzadas para nombre/cliente --- */
   const FORCE_SPLIT_COLS = new Set(["nombre", "cliente"]);
