@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { CreditCard, Send, Pencil } from "lucide-react";
+import { CreditCard, Send } from "lucide-react";
 import Filters from "@/components/Filters";
 import {
   calcularNoches,
+  formatDate,
   formatRoom,
   getPaymentBadge,
   getStageBadge,
@@ -16,15 +17,14 @@ import { TypeFilters, SolicitudProveedor } from "@/types";
 import { Loader } from "@/components/atom/Loader";
 import { currentDate } from "@/lib/utils";
 import { fetchGetSolicitudesProveedores } from "@/services/pago_proveedor";
+import { useResponsiveColumns } from "@/hooks/useResponsiveColumns";
 import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
 
-// ---------- HELPERS GENERALES ----------
-
+// --- helpers locales ---
 const parseNum = (v: any) => (v == null ? 0 : Number(v));
+// --- helpers de estatus y agrupación ---
 const norm = (s?: string | null) => (s ?? "").trim().toLowerCase();
-
-// ---------- CATEGORÍAS ----------
 
 type CategoriaEstatus =
   | "spei_solicitado"
@@ -33,48 +33,25 @@ type CategoriaEstatus =
   | "pagada"
   | "otros";
 
-type RowConCamposCategoria = {
-  estado_pago?: string | null;
-  estatus_pagos?: string | null;
-  forma_de_pago_solicitada?: string | null;
-  filtro_pago?: string | null; // 👈 viene del back
-};
+function mapEstatusToCategoria(estatus?: string | null): CategoriaEstatus {
+  const v = norm(estatus);
 
-// 🔥 AHORA usamos filtro_pago como fuente de verdad
-function mapRegistroToCategoria(r: RowConCamposCategoria): CategoriaEstatus {
-  const f = norm(r.filtro_pago);
-
-  if (f === "spei_solicitado") return "spei_solicitado";
-  if (f === "pago_tdc") return "pagotdc"; // back manda "pago_tdc"
-  if (f === "cupon_enviado") return "cupon_enviado";
-  if (f === "pagada") return "pagada";
-
-  // Fallback por si algún registro viniera sin filtro_pago
-  const estadoPago = norm(r.estado_pago);
-  const estatusGlobal = norm(r.estatus_pagos);
-  const forma = norm(r.forma_de_pago_solicitada);
-
-  if (
-    estadoPago === "pagado" ||
-    estatusGlobal === "pagado" ||
-    estatusGlobal === "pagada"
-  ) {
-    return "pagada";
-  }
-  if (forma === "transfer" || forma === "transferencia" || forma.includes("spei")) {
-    return "spei_solicitado";
-  }
-  if (forma === "card" || forma.includes("tarjeta")) return "pagotdc";
-  if (forma === "cupon" || forma === "cupón" || forma.includes("link"))
+  // matches exactos o cercanos
+  if (v === "spei_solicitado" || v.includes("spei")) return "spei_solicitado";
+  if (v === "pagotdc" || v.includes("tdc") || v.includes("tarjeta"))
+    return "pagotdc";
+  if (v === "cupon_enviado" || v.includes("cupon") || v.includes("cupón"))
     return "cupon_enviado";
-
+  if (v === "pagada" || v === "pagado") return "pagada";
   return "otros";
 }
 
-function agruparPorCategoria<T extends RowConCamposCategoria>(registros: T[]) {
+function agruparPorCategoria<T extends { estatus_pagos?: string | null }>(
+  registros: T[]
+) {
   return registros.reduce(
     (acc, r) => {
-      const cat = mapRegistroToCategoria(r);
+      const cat = mapEstatusToCategoria(r.estatus_pagos);
       acc[cat].push(r);
       return acc;
     },
@@ -87,65 +64,6 @@ function agruparPorCategoria<T extends RowConCamposCategoria>(registros: T[]) {
     }
   );
 }
-
-// -----helper para asignar color en fechas ----
-const getFechaPagoColor = (dateStr?: string | Date | null) => {
-  if (!dateStr) return "";
-
-  const pagoDate = new Date(dateStr);
-  if (isNaN(pagoDate.getTime())) return "";
-
-  // Normalizamos ambas fechas a inicio del día para comparar sin horas
-  const hoy = new Date();
-  const hoySinHora = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
-  const pagoSinHora = new Date(
-    pagoDate.getFullYear(),
-    pagoDate.getMonth(),
-    pagoDate.getDate()
-  );
-
-  const diffMs = pagoSinHora.getTime() - hoySinHora.getTime();
-  const diffDays = diffMs / (1000 * 60 * 60 * 24);
-
-  // 🔴 Ya pasó la fecha
-  if (diffDays < 0) return "bg-red-100 text-red-800 border-red-300";
-
-  // 🟡 Hoy o en los próximos 2 días
-  if (diffDays <= 2) return "bg-yellow-100 text-yellow-800 border-yellow-300";
-
-  // 🟢 Faltan más de 2 días
-  return "bg-green-100 text-green-800 border-green-300";
-};
-
-const getFechaPagoRowClass = (dateStr?: string | Date | null) => {
-  if (!dateStr) return "";
-
-  const pagoDate = new Date(dateStr);
-  if (isNaN(pagoDate.getTime())) return "";
-
-  const hoy = new Date();
-  const hoySinHora = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
-  const pagoSinHora = new Date(
-    pagoDate.getFullYear(),
-    pagoDate.getMonth(),
-    pagoDate.getDate()
-  );
-
-  const diffMs = pagoSinHora.getTime() - hoySinHora.getTime();
-  const diffDays = diffMs / (1000 * 60 * 60 * 24);
-
-  // 🔴 Ya pasó la fecha
-  if (diffDays < 0) return "bg-red-200";
-
-  // 🟡 Hoy o en los próximos 2 días
-  if (diffDays <= 2) return "bg-yellow-200";
-
-  // 🟢 Faltan más de 2 días
-  return "bg-green-200";
-};
-
-
-// ---------- TIPOS DE ITEM ----------
 
 type ItemSolicitud = SolicitudProveedor & {
   pagos?: Array<{
@@ -161,10 +79,7 @@ type ItemSolicitud = SolicitudProveedor & {
     estado_factura?: "emitida" | "pendiente" | string;
   }>;
   estatus_pagos?: string | null;
-  filtro_pago?: string | null; // 👈 también lo ponemos aquí
 };
-
-// ---------- INFO DE PAGOS / FACTURAS ----------
 
 function getPagoInfo(item: ItemSolicitud) {
   const pagos = (item?.pagos || []).slice().sort((a, b) => {
@@ -227,30 +142,6 @@ function getFacturaInfo(item: ItemSolicitud) {
   return { estado, totalFacturado, fechaUltimaFactura, uuid };
 }
 
-
-
-const handleEdit = (
-  item: ItemSolicitud,
-  field: "razon_social" | "rfc" | "costo_proveedor",
-  newValue: string
-) => {
-  // Por ahora solo mostramos que se está editando
-  console.log("editando", {
-    field,
-    newValue,
-    id_solicitud: (item as any).id_solicitud,
-    id: (item as any).id,
-  });
-
-  // Aquí después podrás hacer:
-  // - actualizar un estado local de edición
-  // - llamar a un servicio para guardar en el back, etc.
-};
-
-
-
-// ---------- UI HELPERS ----------
-
 const Pill = ({
   text,
   tone = "gray",
@@ -291,18 +182,6 @@ const facturaTone = (estado: string) =>
         ? "red"
         : "gray";
 
-const formatDateSimple = (date: string | Date) => {
-  if (!date) return "—";
-  const localDate = new Date(date);
-  return localDate.toLocaleDateString("es-MX", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-};
-
-// ---------- COMPONENTE PRINCIPAL ----------
-
 function App() {
   const [solicitudesPago, setSolicitudesPago] = useState<SolicitudProveedor[]>(
     []
@@ -312,71 +191,39 @@ function App() {
   const [filters, setFilters] = useState<TypeFilters>(
     defaultFiltersSolicitudes
   );
-  const [activeFilter, setActiveFilter] = useState<string>("all");
-  const [categoria, setCategoria] = useState<CategoriaEstatus | "all">("all");
-
-  // 🔹 NUEVO: estado para solicitudes seleccionadas
-  const [solicitud, setSolicitud] = useState<SolicitudProveedor[]>([]);
-
-  // 🔹 NUEVO: objeto (map) de seleccionados
-  type SelectedSolicitudesMap = Record<string, SolicitudProveedor>;
-  const [selectedSolicitudesMap, setSelectedSolicitudesMap] =
-    useState<SelectedSolicitudesMap>({});
-
+  const [activeFilter, setActiveFilter] = useState<string>("all"); // "all" | "creditCard" | "sentToPayments"
   const { hasAccess } = usePermiso();
-
-  const [editModal, setEditModal] = useState<{
-    open: boolean;
-    item: ItemSolicitud | null;
-    field: "razon_social" | "rfc" | "costo_proveedor" | null;
-    value: string;
-  }>({
-    open: false,
-    item: null,
-    field: null,
-    value: "",
-  });
-
-  const [editError, setEditError] = useState<string | null>(null);
-
-  const closeEditModal = () => {
-    setEditModal({
-      open: false,
-      item: null,
-      field: null,
-      value: "",
-    });
-    setEditError(null);
-  };
-
-  const handleConfirmEdit = () => {
-    if (!editModal.item || !editModal.field) return;
-
-    const cleaned = editModal.value.replace(",", ".").trim();
-    if (cleaned === "" || isNaN(Number(cleaned))) {
-      setEditError("Valor no válido. Usa solo números (puedes usar punto decimal).");
-      return;
-    }
-
-    // 🔥 Llamamos a tu handleEdit real
-    handleEdit(editModal.item, editModal.field, cleaned);
-
-    closeEditModal();
-  };
 
   hasAccess(PERMISOS.VISTAS.PROVEEDOR_PAGOS);
 
-  const cleanedSolicitudes = (solicitudesPago || []) as ItemSolicitud[];
+  // categoría visible en la tabla
+  const [categoria, setCategoria] = useState<CategoriaEstatus | "all">("all");
+  const norm = (s?: string | null) => (s ?? "").trim().toLowerCase();
 
-  const filteredSolicitudes = cleanedSolicitudes.filter((item) => {
-    if (activeFilter === "creditCard") {
-      return !!item.tarjeta?.ultimos_4;
-    } else if (activeFilter === "enviado_a_pago") {
-      return item.estatus_pagos?.toLowerCase() === "enviado_a_pago";
-    }
+  const formatDateSimple = (date: string | Date) => {
+    if (!date) return "—"; // Si no hay fecha, mostramos un guion
+    const localDate = new Date(date);
+    return localDate.toLocaleDateString("es-MX", {
+      // Aquí usamos el formato mexicano (es-MX)
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  };
+
+  // 1) Aplica tu filtro extra (credit card / enviado_a_pago) si aún lo quieres.
+  //    Si ya no lo necesitas, puedes quitar activeFilter y dejar solo la categoría.
+  const filteredSolicitudes = solicitudesPago.filter((item) => {
+    if (activeFilter === "creditCard") return !!item.tarjeta?.ultimos_4;
+    if (activeFilter === "enviado_a_pago")
+      return (
+        (item as ItemSolicitud).estatus_pagos?.toLowerCase() ===
+        "enviado_a_pago"
+      );
     return true;
   });
 
+  // 2) Búsqueda y mapeo a tu estructura de tabla
   const formatedSolicitudes = filteredSolicitudes
     .filter((item) => {
       const q = (searchTerm || "").toUpperCase();
@@ -394,15 +241,11 @@ function App() {
       const facInfo = getFacturaInfo(item);
 
       return {
-        // 🔹 NUEVO: campo al inicio para seleccionar (primera columna)
-        seleccionar: "",
-
-        // 🟦 INFORMACIÓN DE LA RESERVA
-        codigo_hotel: item.codigo_reservacion_hotel,
+        id_cliente: item.id_agente,
+        cliente: (item?.razon_social || "").toUpperCase(),
         creado: item.created_at,
         hotel: item.hotel.toUpperCase(),
-        razon_social: item.proveedor?.razon_social,
-        rfc: item.proveedor?.rfc,
+        codigo_hotel: item.codigo_reservacion_hotel,
         viajero: (
           item.nombre_viajero_completo ||
           item.nombre_viajero ||
@@ -419,166 +262,70 @@ function App() {
           100,
         precio_de_venta: parseFloat(item.total),
         metodo_de_pago: item.id_credito ? "credito" : "contado",
+        reservante: item.id_usuario_generador ? "Cliente" : "Operaciones",
         etapa_reservacion: item.estado_reserva,
         estado: item.status,
-        reservante: item.id_usuario_generador ? "Cliente" : "Operaciones",
-        // 🟩 INFORMACIÓN DEL CLIENTE
-        id_cliente: item.id_agente,
-        cliente: (item.nombre_agente_completo || "").toUpperCase(),
-        // 🟨 INFORMACIÓN DEL PROVEEDOR
-        // 🟧 INFORMACIÓN DE LA SOLICITUD / PAGOS / FACTURACIÓN
-        fecha_de_pago: item.solicitud_proveedor?.fecha_solicitud,
+
+        // Pagos / Factura
+        estado_pago: pagoInfo.estado_pago,
+        monto_pagado_proveedor: pagoInfo.totalPagado,
+        fecha_real_cobro: pagoInfo.fechaUltimoPago,
+
+        estado_factura_proveedor: facInfo.estado,
+        costo_facturado: facInfo.totalFacturado,
+        fecha_facturacion: facInfo.fechaUltimaFactura,
+        UUID: facInfo.uuid,
+
+        fecha_solicitud: item.solicitud_proveedor?.fecha_solicitud,
+        razon_social: item.proveedor?.razon_social,
+        rfc: item.proveedor?.rfc,
         forma_de_pago_solicitada:
           item.solicitud_proveedor?.forma_pago_solicitada,
         digitos_tajeta: item.tarjeta?.ultimos_4,
         banco: item.tarjeta?.banco_emisor,
         tipo_tarjeta: item.tarjeta?.tipo_tarjeta,
-        // 🟥 PAGO AL PROVEEDOR
-        estado_pago: pagoInfo.estado_pago,
-        monto_pagado_proveedor: pagoInfo.totalPagado,
-        fecha_real_pago: pagoInfo.fechaUltimoPago,
-        // 🟪 FACTURACIÓN
-        estado_factura_proveedor: facInfo.estado,
-        total_facturado: facInfo.totalFacturado,
-        fecha_facturacion: facInfo.fechaUltimaFactura,
-        UUID: facInfo.uuid,
+
+        // Estatus original (lo usaremos para categorizar)
         estatus_pagos: item.estatus_pagos ?? "",
-        // Objeto completo original por si se requiere
+
         item: raw,
       };
     });
 
+  // 3) Agrupa por categoría
   const grupos = agruparPorCategoria(formatedSolicitudes);
 
+  // 4) Decide qué lista mostrar según la categoría seleccionada
   const registrosVisibles =
     categoria === "all" ? formatedSolicitudes : grupos[categoria];
 
-  // ---------- HANDLERS NUEVOS ----------
-
-  const handleLayout = () => {
-    console.log("hola");
-  };
-
-  const handleCsv = () => {
-    console.log("hola");
-  };
-
   const renderers: Record<
     string,
-    React.FC<{ value: any; item: any; index: number }>
+    React.FC<{ value: any; item: ItemSolicitud; index: number }>
   > = {
-    // 🔹 Renderer de selección (checkbox)
-    seleccionar: ({ item }) => {
-      // 👉 aquí item YA es la SolicitudProveedor original
-      const raw: SolicitudProveedor | undefined = item;
-      if (!raw) return null;
-
-      // 🔑 Definimos una llave única para el mapa
-      const key =
-        (raw as any).id_solicitud ||
-        (raw as any).id ||
-        (raw as any).codigo_reservacion_hotel;
-
-      const isSelected = key ? !!selectedSolicitudesMap[key] : false;
-
-      return (
-        <input
-          type="checkbox"
-          checked={isSelected}
-          onChange={(e) => {
-            if (!key) return;
-
-            // 🧠 1) Actualizamos el objeto (mapa)
-            setSelectedSolicitudesMap((prev) => {
-              const next = { ...prev };
-              if (e.target.checked) {
-                next[key] = raw;
-              } else {
-                delete next[key];
-              }
-              return next;
-            });
-
-            // 📚 2) Mantenemos también el arreglo `solicitud`
-            setSolicitud((prev) => {
-              if (e.target.checked) {
-                const exists = prev.some(
-                  (s) =>
-                    (s as any).id_solicitud === (raw as any).id_solicitud ||
-                    (s as any).id === (raw as any).id
-                );
-                return exists ? prev : [...prev, raw];
-              } else {
-                return prev.filter(
-                  (s) =>
-                    (s as any).id_solicitud !== (raw as any).id_solicitud &&
-                    (s as any).id !== (raw as any).id
-                );
-              }
-            });
-          }}
-        />
-      );
-    },
-
     id_cliente: ({ value }) => (
       <span className="font-semibold text-sm">
         {value ? String(value).slice(0, 11).toUpperCase() : ""}
       </span>
     ),
-
     creado: ({ value }) => <span title={value}>{formatDateSimple(value)}</span>,
-
+    hotel: ({ value }) => (
+      <span className="font-medium" title={value}>
+        {value ? value.toUpperCase() : ""}
+      </span>
+    ),
     codigo_hotel: ({ value }) => (
       <span className="font-semibold">{value ? value.toUpperCase() : ""}</span>
     ),
-
     check_in: ({ value }) => (
       <span title={value}>{formatDateSimple(value)}</span>
     ),
-
     check_out: ({ value }) => (
       <span title={value}>{formatDateSimple(value)}</span>
     ),
-
-    costo_proveedor: ({ value, item }) => {
-      const raw = item as ItemSolicitud;
-      const monto = Number(value || 0);
-
-      return (
-        <div className="flex items-center gap-2">
-          {/* Pill del monto */}
-          <span
-            title={String(value)}
-            className="inline-flex items-center px-2 py-1 rounded-full bg-gray-100 text-xs font-medium text-gray-800 border border-gray-200"
-          >
-            ${monto.toFixed(2)}
-          </span>
-
-          {/* Botón editar amigable que abre el mini modal */}
-          <button
-            type="button"
-            className="inline-flex items-center px-2 py-1 rounded-full border border-blue-200 bg-blue-50 text-[11px] font-medium text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition"
-            onClick={() => {
-              const actual = isNaN(monto) ? "" : monto.toString();
-              setEditError(null);
-              setEditModal({
-                open: true,
-                item: raw,
-                field: "costo_proveedor",
-                value: actual,
-              });
-            }}
-          >
-            <Pencil className="w-3 h-3 mr-1" />
-            Editar
-          </button>
-        </div>
-      );
-    },
-
-
-
+    costo_proveedor: ({ value }) => (
+      <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>
+    ),
     markup: ({ value }) => (
       <span
         className={`font-semibold border p-2 rounded-full ${value == "Infinity"
@@ -591,54 +338,39 @@ function App() {
         {value == "Infinity" ? "0%" : `${Number(value).toFixed(2)}%`}
       </span>
     ),
-
     precio_de_venta: ({ value }) => (
       <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>
     ),
-
     metodo_de_pago: ({ value }) => getPaymentBadge(value),
     reservante: ({ value }) => getWhoCreateBadge(value),
     etapa_reservacion: ({ value }) => getStageBadge(value),
     estado: ({ value }) => getStatusBadge(value),
 
-    // ----------- PAGO -----------
     estado_pago: ({ value }) => (
       <Pill
-        text={(value ?? "—")
-          .replace("pagado", "Pagado")
-          .replace("enviado_a_pago", "Enviado a Pago")
-          .toUpperCase()}
+        text={(value ?? "—").toUpperCase()}
         tone={pagoTone3(value) as any}
       />
     ),
-
     monto_pagado_proveedor: ({ value }) => (
       <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>
     ),
-
-    fecha_real_pago: ({ value }) =>
+    fecha_real_cobro: ({ value }) =>
       value ? (
         <span title={value}>{formatDateSimple(value)}</span>
       ) : (
         <span className="text-gray-400">—</span>
       ),
 
-    // ----------- FACTURA -----------
     estado_factura_proveedor: ({ value }) => (
       <Pill
-        text={(value || "—")
-          .replace("facturado", "Facturado")
-          .replace("parcial", "Parcial")
-          .replace("pendiente", "Pendiente")
-          .toUpperCase()}
+        text={(value || "—").toUpperCase()}
         tone={facturaTone((value || "").toLowerCase()) as any}
       />
     ),
-
     costo_facturado: ({ value }) => (
       <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>
     ),
-
     fecha_facturacion: ({ value }) =>
       value ? (
         <span title={value}>{formatDateSimple(value)}</span>
@@ -648,110 +380,27 @@ function App() {
 
     UUID: ({ value }) => (
       <span className="font-mono text-xs" title={value}>
-        {value ? "CFDI: " + String(value).slice(0, 8) + "…" : "—"}
+        {value ? String(value).slice(0, 8) + "…" : "—"}
       </span>
     ),
-
-    // ----------- SOLICITUD -----------
-    fecha_de_pago: ({ value }) => {
-      if (!value) {
-        return <span className="text-gray-400">—</span>;
-      }
-
-      const colorClasses = getFechaPagoColor(value);
-
-      return (
-        <span
-          title={value}
-          className={`px-2 py-1 rounded-full text-xs font-semibold border ${colorClasses}`}
-        >
-          {formatDateSimple(value)}
-        </span>
-      );
-    },
-
+    fecha_solicitud: ({ value }) =>
+      value ? (
+        <span title={value}>{formatDateSimple(value)}</span>
+      ) : (
+        <span className="text-gray-400">—</span>
+      ),
     forma_de_pago_solicitada: ({ value }) => (
-      <span className="font-semibold">
-        {value
-          ? value
-            .replace("transfer", "Transferencia")
-            .replace("card", "Tarjeta")
-            .replace("cupon", "Cupón")
-            .toUpperCase()
-          : ""}
-      </span>
+      <span className="font-semibold">{value ? value.toUpperCase() : ""}</span>
     ),
-
     estatus_pagos: ({ value }) => (
       <Pill text={value ? value.toUpperCase() : "—"} tone="blue" />
     ),
   };
 
-  // ---------- MULTIPANTALLA ----------
-  // const cols = useResponsiveColumns({
-  //   xs: [
-  //     "creado",
-  //     "hotel",
-  //     "viajero",
-  //     "estado_pago",
-  //     "estado_factura_proveedor",
-  //     "monto_pagado_proveedor",
-  //   ],
-  //   md: [
-  //     "creado",
-  //     "hotel",
-  //     "viajero",
-  //     "check_in",
-  //     "check_out",
-  //     "monto_pagado_proveedor",
-  //     "fecha_real_cobro",
-  //     "metodo_de_pago",
-  //     "estado_pago",
-  //     "estado_factura_proveedor",
-  //     "precio_de_venta",
-  //   ],
-  //   lg: [
-  //     "creado",
-  //     "cliente",
-  //     "hotel",
-  //     "codigo_hotel",
-  //     "viajero",
-  //     "habitacion",
-  //     "check_in",
-  //     "check_out",
-  //     "noches",
-  //     "costo_proveedor",
-  //     "markup",
-  //     "precio_de_venta",
-  //     "metodo_de_pago",
-  //     "reservante",
-  //     "etapa_reservacion",
-  //     "estado",
-  //     "estado_pago",
-  //     "monto_pagado_proveedor",
-  //     "fecha_real_cobro",
-  //     "estado_factura_proveedor",
-  //     "costo_facturado",
-  //     "fecha_facturacion",
-  //     "UUID",
-  //     "banco",
-  //     "digitos_tajeta",
-  //     "tipo_tarjeta",
-  //   ],
-  // });
-
   const handleFetchSolicitudesPago = () => {
     setLoading(true);
-    fetchGetSolicitudesProveedores((resp) => {
-      const payload = resp.data;
-
-      const lista = Array.isArray(payload)
-        ? payload
-        : Array.isArray(payload?.todos)
-          ? payload.todos
-          : [];
-
-      setSolicitudesPago(lista as any);
+    fetchGetSolicitudesProveedores((data) => {
+      setSolicitudesPago(data.data);
       setLoading(false);
     });
   };
@@ -774,15 +423,12 @@ function App() {
           setSearchTerm={setSearchTerm}
         />
 
-        {/* Tabs de categorías */}
+        {/* Categorías por estatus_pagos */}
+        {/* Categorías por estatus_pagos */}
         <div className="flex flex-wrap gap-2 mb-4 border-b border-gray-300 pb-2">
           {(
             [
-              {
-                key: "all",
-                label: "Todos",
-                count: formatedSolicitudes.length,
-              },
+              { key: "all", label: "Todos", count: formatedSolicitudes.length },
               {
                 key: "spei_solicitado",
                 label: "SPEI solicitado",
@@ -798,11 +444,7 @@ function App() {
                 label: "Cupón enviado",
                 count: grupos.cupon_enviado.length,
               },
-              {
-                key: "pagada",
-                label: "Pagada",
-                count: grupos.pagada.length,
-              },
+              { key: "pagada", label: "Pagada", count: grupos.pagada.length },
             ] as Array<{
               key: CategoriaEstatus | "all";
               label: string;
@@ -830,19 +472,13 @@ function App() {
                   {btn.count}
                 </span>
 
+                {/* efecto carpeta */}
                 {isActive && (
                   <span className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-white"></span>
                 )}
               </button>
             );
           })}
-
-          <div className="flex justify-end">
-            <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">
-              Agregar factura
-            </button>
-          </div>
-
         </div>
 
         <div>
@@ -850,7 +486,7 @@ function App() {
             <Loader />
           ) : (
             <Table5<ItemSolicitud>
-              registros={registrosVisibles as any}
+              registros={registrosVisibles}
               renderers={renderers}
               defaultSort={defaultSort}
               leyenda={`Mostrando ${registrosVisibles.length} registros (${categoria === "all"
@@ -861,64 +497,7 @@ function App() {
           )}
         </div>
       </div>
-      {editModal.open && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30">
-          <div className="bg-white rounded-lg shadow-lg p-4 w-full max-w-sm">
-            <h3 className="text-sm font-semibold text-gray-900 mb-2">
-              Editar{" "}
-              {editModal.field === "costo_proveedor"
-                ? "costo proveedor"
-                : editModal.field === "razon_social"
-                  ? "razón social"
-                  : editModal.field === "rfc"
-                    ? "RFC"
-                    : ""}
-            </h3>
-
-            <p className="text-xs text-gray-500 mb-3">
-              Ingresa el nuevo valor y guarda los cambios.
-            </p>
-
-            <input
-              type="text"
-              className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-              value={editModal.value}
-              onChange={(e) => {
-                setEditError(null);
-                setEditModal((prev) => ({
-                  ...prev,
-                  value: e.target.value,
-                }));
-              }}
-            />
-
-            {editError && (
-              <p className="text-xs text-red-600 mt-1">{editError}</p>
-            )}
-
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                className="px-3 py-1.5 text-xs rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100"
-                onClick={closeEditModal}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                className="px-3 py-1.5 text-xs rounded-md bg-blue-600 text-white hover:bg-blue-700"
-                onClick={handleConfirmEdit}
-              >
-                Guardar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
     </div>
-
-
   );
 }
 
