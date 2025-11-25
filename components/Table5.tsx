@@ -268,40 +268,52 @@ export const Table5 = <T,>({
             </thead>
 
             <tbody className="bg-white divide-y divide-gray-200">
-              {displayData.map((item, index) => (
-                <tr
-                  key={item.id !== undefined ? item.id : index}
-                  className={`${index % 2 === 0 ? "bg-white" : "bg-gray-50"
-                    } cursor-pointer hover:bg-blue-50 transition-colors`}
-                >
-                  {columnKeys
-                    .filter((key) => visibleColumns.has(key))
-                    .map((colKey) => {
-                      const Renderer = renderers[colKey];
-                      const value = item[colKey];
+              {displayData.map((item, index) => {
+                console.log(item, "informacion")
+                const zebraClass = index % 2 === 0 ? "bg-white" : "bg-gray-50";
 
-                      return (
-                        <td
-                          key={`${item.id !== undefined ? item.id : index
-                            }-${colKey}`}
-                          className="px-6 py-2 whitespace-nowrap text-xs text-gray-900"
-                        >
-                          {Renderer ? (
-                            <Renderer
-                              value={value}
-                              item={item.item}
-                              index={index}
-                            />
-                          ) : (
-                            <div className="whitespace-pre-line break-words">
-                              {renderValue(colKey, value)}
-                            </div>
-                          )}
-                        </td>
-                      );
-                    })}
-                </tr>
-              );
+                const rowExtraClass = getRowClassName
+                  ? getRowClassName(item, index)
+                  : "";
+
+                const baseBgClass =
+                  rowExtraClass && rowExtraClass.includes("bg-")
+                    ? rowExtraClass
+                    : zebraClass + (rowExtraClass ? ` ${rowExtraClass}` : "");
+
+                return (
+                  <tr
+                    key={item.id !== undefined ? item.id : index}
+                    className={`${baseBgClass} cursor-pointer hover:bg-blue-50 transition-colors`}
+                  >
+                    {columnKeys
+                      .filter((key) => visibleColumns.has(key))
+                      .map((colKey) => {
+                        const Renderer = renderers[colKey];
+                        const value = item[colKey];
+
+                        return (
+                          <td
+                            key={`${item.id !== undefined ? item.id : index
+                              }-${colKey}`}
+                            className="px-6 py-2 whitespace-nowrap text-xs text-gray-900"
+                          >
+                            {Renderer ? (
+                              <Renderer
+                                value={value}
+                                item={item.item}
+                                index={index}
+                              />
+                            ) : (
+                              <div className="whitespace-pre-line break-words">
+                                {renderValue(colKey, value)}
+                              </div>
+                            )}
+                          </td>
+                        );
+                      })}
+                  </tr>
+                );
               })}
             </tbody>
           </table>
