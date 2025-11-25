@@ -191,18 +191,18 @@ const base64ToFile = (base64String: string, fileName: string, mimeType: string):
   try {
     // Remover el prefijo data: si existe
     const base64Data = base64String.replace(/^data:[^;]+;base64,/, '');
-    
+
     // Decodificar base64
     const byteCharacters = atob(base64Data);
     const byteNumbers = new Array(byteCharacters.length);
-    
+
     for (let i = 0; i < byteCharacters.length; i++) {
       byteNumbers[i] = byteCharacters.charCodeAt(i);
     }
-    
+
     const byteArray = new Uint8Array(byteNumbers);
     const blob = new Blob([byteArray], { type: mimeType });
-    
+
     return new File([blob], fileName, { type: mimeType });
   } catch (error) {
     console.error('Error al convertir base64 a archivo:', error);
@@ -214,21 +214,21 @@ const base64ToFile = (base64String: string, fileName: string, mimeType: string):
 const subirArchivoAS3Seguro = async (file: File, bucket: string = "comprobantes") => {
   try {
     console.log(`Iniciando subida de ${file.name} (${file.type})`);
-    
+
     // Obtener URL pre-firmada
     const { url: presignedUrl, publicUrl } = await obtenerPresignedUrl(
       file.name,
       file.type,
       bucket
     );
-    
+
     console.log(`URL pre-firmada obtenida para ${file.name}`);
-    
+
     // Subir archivo
     await subirArchivoAS3(file, presignedUrl);
-    
+
     console.log(`✅ Archivo ${file.name} subido exitosamente a S3: ${publicUrl}`);
-    
+
     return publicUrl;
   } catch (error) {
     console.error(`❌ Error al subir ${file.name} a S3:`, error);
@@ -240,7 +240,7 @@ const subirArchivoAS3Seguro = async (file: File, bucket: string = "comprobantes"
 const asignarURLS_factura = async (id_factura: string, url_pdf: string, url_xml: string) => {
   try {
     console.log('Asignando URLs a factura:', { id_factura, url_pdf, url_xml });
-    
+
     const resp = await fetch(
       `${URL}/mia/factura/asignarURLS_factura?id_factura=${encodeURIComponent(id_factura)}&url_pdf=${encodeURIComponent(url_pdf)}&url_xml=${encodeURIComponent(url_xml)}`,
       {
@@ -251,12 +251,12 @@ const asignarURLS_factura = async (id_factura: string, url_pdf: string, url_xml:
         },
       }
     );
-    
+
     if (!resp.ok) {
       const errorData = await resp.json();
       throw new Error(errorData?.message || "Error al asignar URLs de factura");
     }
-    
+
     const data = await resp.json();
     console.log('✅ URLs asignadas correctamente en BD:', data);
     return data;
@@ -315,8 +315,8 @@ export const BillingPage: React.FC<BillingPageProps> = ({
     CfdiType: "",
     NameId: "",
     Observations: "",
-    ExpeditionPlace: "11570",
-    // ExpeditionPlace: "42501", //Codigo Postal DE PRUEBA
+    //ExpeditionPlace: "11570",
+    ExpeditionPlace: "42501", //Codigo Postal DE PRUEBA
 
     Serie: null,
     Folio: Number((Math.random() * 9999999).toFixed(0)),
@@ -707,7 +707,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
                 `factura_${data.facturama.Id}.pdf`,
                 "application/pdf"
               );
-              
+
               pdfUrl = await subirArchivoAS3Seguro(pdfFile, "comprobantes");
               console.log("✅ PDF subido exitosamente:", pdfUrl);
             } catch (pdfError) {
@@ -722,7 +722,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
           if (xmlResponse?.Content) {
             try {
               console.log("📄 Procesando XML...");
-              
+
               // Verificar que el contenido XML es válido
               if (typeof xmlResponse.Content === 'string' && xmlResponse.Content.trim()) {
                 const xmlFile = base64ToFile(
@@ -730,7 +730,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
                   `factura_${data.facturama.Id}.xml`,
                   "application/xml"
                 );
-                
+
                 xmlUrl = await subirArchivoAS3Seguro(xmlFile, "comprobantes");
                 console.log("✅ XML subido exitosamente:", xmlUrl);
               } else {
@@ -751,7 +751,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
               console.log({ id_factura: data.id_factura, pdfUrl, xmlUrl });
               await asignarURLS_factura(data.id_factura, pdfUrl, xmlUrl);
               console.log("✅ URLs asignadas correctamente en BD");
-              
+
               // Notificar al usuario si algún archivo no se pudo subir
               if (!pdfUrl && !xmlUrl) {
                 alert("Factura generada, pero no se pudieron subir los archivos a S3");
@@ -762,7 +762,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
               } else {
                 alert("Factura generada y archivos subidos correctamente a S3");
               }
-              
+
             } catch (assignError) {
               console.error("❌ Error al asignar URLs en BD:", assignError);
               alert("Factura generada y archivos subidos, pero error al registrar URLs en BD");
@@ -796,7 +796,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
 
       // Guardamos el objeto para mostrar botones de descarga
       setIsInvoiceGenerated(data.facturama);
-      
+
       console.log("=== PROCESO COMPLETADO ===");
 
     } catch (error: any) {

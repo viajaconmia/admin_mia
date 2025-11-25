@@ -570,7 +570,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
           forma_De_Pago: formatFormaPago(saldo.metodo_pago),
           tipo_tarjeta: saldo.tipo_tarjeta || "",
           monto_pagado: Number(saldo.monto),
-          saldo: Number(saldo.saldo) || 0,
+          saldo: facturaData ? Number(saldo.monto_por_facturar) : Number(saldo.saldo),
           seleccionado: saldo,
           saldo_restante:
             itemsSaldo[`saldo-${saldo.id_saldos}`] !== undefined
