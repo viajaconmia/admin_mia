@@ -100,7 +100,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
   onSubmit,
   open = true,
   reservaData = null,
-  facturaData = [0],
+  facturaData = null,
 }) => {
   console.log("reservaData recibida:", reservaData);
   console.log("facturas recibida:", facturaData);
@@ -135,7 +135,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
   let totalMonto = 0;
   let totalSaldo = 0;
 
-  if (facturaData[0] != 0) {
+  if (facturaData != null) {
     montos = obtenerMontosFacturas(facturaData);
     saldos = obtenerSaldosFacturas(facturaData);
     console.log("Total :", saldos);
@@ -143,8 +143,8 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
     totalMonto = sumarMontos(montos);
     totalSaldo = sumarMontos(saldos);
 
-    console.log("Total sumado Monto:", totalMonto);
-    console.log("Total sumado Saldo:", totalSaldo);
+    console.log("Total sumado:", totalMonto);
+    console.log("Total sumado:", totalSaldo);
   }
   const id_agente =
     reservaData?.id_agente || facturaData?.id_agente || "desconocido";
@@ -208,17 +208,11 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
   }, [effectiveSaldoData.id_agente, reservaData]);
 
   useEffect(() => {
-    console.log(reservas)
-
-  }, [reservas])
-
-  useEffect(() => {
-    if (facturaData[0] != 0) {
+    if (facturaData) {
       // Si recibimos facturaData, seguimos el flujo similar a reservaData
       fetchSaldoFavorData();
     }
   }, [effectiveSaldoData.id_agente, facturaData]);
-
 
   // Función para obtener datos del nuevo flujo (SaldoFavor)
   const fetchSaldoFavorData = async () => {
@@ -245,8 +239,8 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
       // Adaptar según la estructura real de los datos de SaldoFavor
       response.data?.forEach((saldo: any) => {
         // Para el nuevo flujo, usamos el saldo completo como "item"
-        const idItem = reservaData ? `saldo-${saldo.id_saldos}` : `saldo - ${saldo.id_saldos}`;
-        const saldoValor = reservaData ? Number(saldo.saldo) || 0 : Number(saldo.monto_por_facturar);
+        const idItem = `saldo-${saldo.id_saldos}`;
+        const saldoValor = Number(saldo.saldo) || 0;
 
         initialOriginalSaldo[idItem] = saldoValor;
         initialSaldo[idItem] = saldoValor;
@@ -287,10 +281,6 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
       }
       const data = await response.json();
       setReservas(data.data || []);
-      console.log(data.data, "knvjirfnbuirbiurnbiurniubnri")
-      console.log(reservas, "knvjirfnbuirbiurnbiurniubnri")
-
-
 
       const initialOriginalSaldo: Record<string, number> = {};
       const initialSaldo: Record<string, number> = {};
@@ -311,8 +301,6 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
       setLoading(false);
     }
   };
-
-
 
   const handleItemSelection = (id_item: string, saldoOriginal: number) => {
     setSelectedItems((prev) => {
@@ -406,8 +394,6 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
 
     let payload;
     let endpoint;
-    let methodo;
-    let id;
 
     if (reservaData && isZeroMoney(montorestante)) {
       payload = {
@@ -524,15 +510,13 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
         }),
       };
       endpoint = "/mia/pagos/aplicarpagoPorSaldoAFavor";
-      methodo = "POST";
-      id = payload.SaldoAFavor.id_saldos;
     }
 
     console.log("Payload:", payload);
 
     try {
       const response = await fetch(`${URL}${endpoint}`, {
-        method: `${methodo}`,
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
           "x-api-key": API_KEY,
@@ -563,7 +547,6 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
     } catch (error) {
       console.error("Error en la petición:", error);
     }
-
   };
   const tableData =
     reservaData || facturaData
@@ -877,8 +860,9 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
     : "💰 Información del Saldo";
 
   if (reservaData) {
-    console.log(montorestante, "esto resta");
-    if (montorestante == 0 && uno == 1) {
+    const restanteRedondeado = toMoney(montorestante);
+    console.log(montorestante, restanteRedondeado, "esto resta");
+    if (isZeroMoney(restanteRedondeado) && uno === 1) {
       handleSubmit({ preventDefault() { } } as unknown as React.FormEvent);
       setUno(0);
     }
