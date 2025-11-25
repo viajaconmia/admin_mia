@@ -553,6 +553,14 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
       ? // Datos del nuevo flujo (SaldoFavor)
       saldoFavorData
         .filter((saldo) => saldo.activo !== 0)
+        .filter((saldo) => {
+          const rawSaldo = facturaData
+            ? Number(saldo.monto_por_facturar)
+            : Number(saldo.saldo);
+
+          // usa tu helper con tolerancia
+          return !isZeroMoney(rawSaldo);
+        })
         .map((saldo) => ({
           creado: saldo.fecha_creacion
             ? new Date(saldo.fecha_creacion)
@@ -610,7 +618,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
             onChange={() =>
               handleItemSelection(
                 `saldo-${value.id_saldos}`,
-                Number(value.saldo)
+                Number(facturaData ? value.monto_por_facturar : value.saldo)
               )
             }
             className={`h-4 w-4 focus:ring-blue-500 border-gray-300 rounded`}
