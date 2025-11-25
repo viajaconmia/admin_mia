@@ -683,19 +683,62 @@ function App() {
     ),
 
     estatus_pagos: ({ value }) => (
-      <Pill
-        text={
-          value
-            ? value
-              .replace("enviado_a_pago", "Enviado a Pago")
-              .replace("pagado", "Pagado")
-              .toUpperCase()
-            : "—"
-        }
-        tone="blue"
-      />
+      <Pill text={value ? value.toUpperCase() : "—"} tone="blue" />
     ),
   };
+
+  // ---------- MULTIPANTALLA ----------
+  // const cols = useResponsiveColumns({
+  //   xs: [
+  //     "creado",
+  //     "hotel",
+  //     "viajero",
+  //     "estado_pago",
+  //     "estado_factura_proveedor",
+  //     "monto_pagado_proveedor",
+  //   ],
+  //   md: [
+  //     "creado",
+  //     "hotel",
+  //     "viajero",
+  //     "check_in",
+  //     "check_out",
+  //     "monto_pagado_proveedor",
+  //     "fecha_real_cobro",
+  //     "metodo_de_pago",
+  //     "estado_pago",
+  //     "estado_factura_proveedor",
+  //     "precio_de_venta",
+  //   ],
+  //   lg: [
+  //     "creado",
+  //     "cliente",
+  //     "hotel",
+  //     "codigo_hotel",
+  //     "viajero",
+  //     "habitacion",
+  //     "check_in",
+  //     "check_out",
+  //     "noches",
+  //     "costo_proveedor",
+  //     "markup",
+  //     "precio_de_venta",
+  //     "metodo_de_pago",
+  //     "reservante",
+  //     "etapa_reservacion",
+  //     "estado",
+  //     "estado_pago",
+  //     "monto_pagado_proveedor",
+  //     "fecha_real_cobro",
+  //     "estado_factura_proveedor",
+  //     "costo_facturado",
+  //     "fecha_facturacion",
+  //     "UUID",
+  //     "banco",
+  //     "digitos_tajeta",
+  //     "tipo_tarjeta",
+  //   ],
+  // });
 
   const handleFetchSolicitudesPago = () => {
     setLoading(true);
@@ -781,9 +824,7 @@ function App() {
               >
                 <span>{btn.label}</span>
                 <span
-                  className={`ml-2 text-xs px-2 py-0.5 rounded-full ${isActive
-                    ? "bg-blue-100 text-blue-700"
-                    : "bg-white border"
+                  className={`ml-2 text-xs px-2 py-0.5 rounded-full ${isActive ? "bg-blue-100 text-blue-700" : "bg-white border"
                     }`}
                 >
                   {btn.count}
@@ -812,31 +853,11 @@ function App() {
               registros={registrosVisibles as any}
               renderers={renderers}
               defaultSort={defaultSort}
-              getRowClassName={(row) => getFechaPagoRowClass(row.fecha_de_pago)}
-              leyenda={`Mostrando ${registrosVisibles.length
-                } registros (${categoria === "all"
-                  ? "todas las categorías"
-                  : `categoría: ${categoria}`
+              leyenda={`Mostrando ${registrosVisibles.length} registros (${categoria === "all"
+                ? "todas las categorías"
+                : `categoría: ${categoria}`
                 })`}
-            >
-              {/* 🔹 Botones para subir CSV y layout */}
-              <div className="flex gap-2 mb-3">
-                <button
-                  type="button"
-                  onClick={handleCsv}
-                  className="px-3 py-2 rounded-md text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 transition"
-                >
-                  Subir CSV
-                </button>
-                <button
-                  type="button"
-                  onClick={handleLayout}
-                  className="px-3 py-2 rounded-md text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition"
-                >
-                  Subir layout
-                </button>
-              </div>
-            </Table5>
+            />
           )}
         </div>
       </div>
