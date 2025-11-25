@@ -318,9 +318,6 @@ function App() {
       };
     });
 
-  // 3) Agrupa por categoría
-  const grupos = agruparPorCategoria(formatedSolicitudes);
-
   const registrosVisibles = formatedSolicitudes;
 
   const renderers: Record<
@@ -458,7 +455,6 @@ function App() {
           setSearchTerm={setSearchTerm}
         />
 
-        {/* Categorías por estatus_pagos */}
         {/* Categorías por estatus_pagos */}
         <div className="flex flex-wrap gap-2 mb-4 border-b border-gray-300 pb-2">
           {(
