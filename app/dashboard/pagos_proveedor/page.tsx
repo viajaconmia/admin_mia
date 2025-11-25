@@ -28,18 +28,28 @@ const norm = (s?: string | null) => (s ?? "").trim().toLowerCase();
 
 type CategoriaEstatus =
   | "spei_solicitado"
-  | "pagotdc"
+  | "pago_tdc"
   | "cupon_enviado"
   | "pagada"
   | "otros";
+
+
+type SolicitudesPorFiltro = {
+  todos: SolicitudProveedor[];
+  spei_solicitado: SolicitudProveedor[];
+  pago_tdc: SolicitudProveedor[];
+  cupon_enviado: SolicitudProveedor[];
+  pagada: SolicitudProveedor[];
+};
+
 
 function mapEstatusToCategoria(estatus?: string | null): CategoriaEstatus {
   const v = norm(estatus);
 
   // matches exactos o cercanos
   if (v === "spei_solicitado" || v.includes("spei")) return "spei_solicitado";
-  if (v === "pagotdc" || v.includes("tdc") || v.includes("tarjeta"))
-    return "pagotdc";
+  if (v === "pago_tdc" || v.includes("tdc") || v.includes("tarjeta"))
+    return "pago_tdc";
   if (v === "cupon_enviado" || v.includes("cupon") || v.includes("cupón"))
     return "cupon_enviado";
   if (v === "pagada" || v === "pagado") return "pagada";
@@ -183,9 +193,13 @@ const facturaTone = (estado: string) =>
         : "gray";
 
 function App() {
-  const [solicitudesPago, setSolicitudesPago] = useState<SolicitudProveedor[]>(
-    []
-  );
+  const [solicitudesPago, setSolicitudesPago] = useState<SolicitudesPorFiltro>({
+    todos: [],
+    spei_solicitado: [],
+    pago_tdc: [],
+    cupon_enviado: [],
+    pagada: [],
+  });
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState<TypeFilters>(
@@ -211,9 +225,20 @@ function App() {
     });
   };
 
+  const baseList: SolicitudProveedor[] =
+    categoria === "all"
+      ? solicitudesPago.todos
+      : categoria === "spei_solicitado"
+        ? solicitudesPago.spei_solicitado
+        : categoria === "pago_tdc"
+          ? solicitudesPago.pago_tdc
+          : categoria === "cupon_enviado"
+            ? solicitudesPago.cupon_enviado
+            : solicitudesPago.pagada;
+
   // 1) Aplica tu filtro extra (credit card / enviado_a_pago) si aún lo quieres.
   //    Si ya no lo necesitas, puedes quitar activeFilter y dejar solo la categoría.
-  const filteredSolicitudes = solicitudesPago.filter((item) => {
+  const filteredSolicitudes = baseList.filter((item) => {
     if (activeFilter === "creditCard") return !!item.tarjeta?.ultimos_4;
     if (activeFilter === "enviado_a_pago")
       return (
@@ -222,6 +247,7 @@ function App() {
       );
     return true;
   });
+
 
   // 2) Búsqueda y mapeo a tu estructura de tabla
   const formatedSolicitudes = filteredSolicitudes
@@ -295,9 +321,7 @@ function App() {
   // 3) Agrupa por categoría
   const grupos = agruparPorCategoria(formatedSolicitudes);
 
-  // 4) Decide qué lista mostrar según la categoría seleccionada
-  const registrosVisibles =
-    categoria === "all" ? formatedSolicitudes : grupos[categoria];
+  const registrosVisibles = formatedSolicitudes;
 
   const renderers: Record<
     string,
@@ -400,10 +424,21 @@ function App() {
   const handleFetchSolicitudesPago = () => {
     setLoading(true);
     fetchGetSolicitudesProveedores((data) => {
-      setSolicitudesPago(data.data);
+      const d = data?.data || {};
+      console.log("solicitudes pago", d);
+
+      setSolicitudesPago({
+        todos: d.todos || [],
+        spei_solicitado: d.spei_solicitado || [],
+        pago_tdc: d.pago_tdc || [],
+        cupon_enviado: d.cupon_enviado || [],
+        pagada: d.pagada || [],
+      });
+
       setLoading(false);
     });
   };
+
 
   useEffect(() => {
     handleFetchSolicitudesPago();
@@ -428,23 +463,31 @@ function App() {
         <div className="flex flex-wrap gap-2 mb-4 border-b border-gray-300 pb-2">
           {(
             [
-              { key: "all", label: "Todos", count: formatedSolicitudes.length },
+              {
+                key: "all",
+                label: "Todos",
+                count: solicitudesPago.todos.length,
+              },
               {
                 key: "spei_solicitado",
                 label: "SPEI solicitado",
-                count: grupos.spei_solicitado.length,
+                count: solicitudesPago.spei_solicitado.length,
               },
               {
-                key: "pagotdc",
+                key: "pago_tdc",
                 label: "Pago TDC",
-                count: grupos.pagotdc.length,
+                count: solicitudesPago.pago_tdc.length,
               },
               {
                 key: "cupon_enviado",
                 label: "Cupón enviado",
-                count: grupos.cupon_enviado.length,
+                count: solicitudesPago.cupon_enviado.length,
               },
-              { key: "pagada", label: "Pagada", count: grupos.pagada.length },
+              {
+                key: "pagada",
+                label: "Pagada",
+                count: solicitudesPago.pagada.length,
+              },
             ] as Array<{
               key: CategoriaEstatus | "all";
               label: string;
@@ -472,7 +515,6 @@ function App() {
                   {btn.count}
                 </span>
 
-                {/* efecto carpeta */}
                 {isActive && (
                   <span className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-white"></span>
                 )}

@@ -156,8 +156,6 @@ const CuentasPorCobrar = () => {
   // Filtros y búsqueda sobre facturas crudas (igual que antes)
   useEffect(() => {
     let result = [...facturas];
-
-    // Aplicar búsqueda
     if (searchTerm) {
       const q = searchTerm.toLowerCase();
       result = result.filter(
@@ -315,9 +313,6 @@ const CuentasPorCobrar = () => {
       (a.nombre_agente || "").localeCompare(b.nombre_agente || "")
     );
   }, [filteredFacturas]);
-
-
-  console.log(rows, "cambios de data")
 
   // ============ RENDERERS ============
   const renderers = {
