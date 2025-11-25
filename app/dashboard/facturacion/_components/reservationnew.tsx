@@ -523,7 +523,6 @@ const ReservationsWithTable4: React.FC = () => {
 
 
     setSelectedItems((prev) => {
-      console.log(reservation, "reservaas ❤️❤️❤️❤️❤️❤️ ")
 
       const currentSelected = prev[reservationId] || [];
       let nextSelected: SelectedMap;
@@ -564,7 +563,6 @@ const ReservationsWithTable4: React.FC = () => {
     const reservation = reservations.find(
       (r) => r.id_servicio === reservationId
     );
-    console.log(reservation, "reservaas ❤️❤️❤️❤️❤️❤️ ")
     const item = reservation?.items?.find((i) => i.id_item === itemId);
     if (item?.id_factura != null) return; // item ya facturado
 
@@ -751,8 +749,6 @@ const ReservationsWithTable4: React.FC = () => {
         .filter(Boolean) // quitar null/undefined
     );
 
-    console.log("Total de id_hospedaje únicos:", idsUnicos.size);
-    console.log("Lista de ids únicos:", Array.from(idsUnicos));
   }, [rows]);
 
 
@@ -885,8 +881,6 @@ const ReservationsWithTable4: React.FC = () => {
     "mark_up",
     "precio_de_venta",
   ];
-
-  console.log(rows, "cambios")
 
   return (
     <div className="bg-white rounded-lg p-4 w-full shadow-sm">
