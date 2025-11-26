@@ -598,6 +598,7 @@ export type FacturaProveedor = {
 // Estos son los campos de la tabla `solicitudes_pago_proveedor` que vienen en el nivel principal
 // junto con los campos de tu tipo 'Solicitud' original.
 export type SolicitudProveedorCore = {
+  id_solicitud: any;
   id_solicitud_proveedor: number;
   fecha_solicitud: string; // TIMESTAMP -> string (ISO 8601)
   monto_solicitado: string; // DECIMAL(12,2) -> string
