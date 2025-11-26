@@ -436,7 +436,6 @@ function App() {
     });
   };
 
-
   useEffect(() => {
     handleFetchSolicitudesPago();
   }, [filters]);
@@ -454,7 +453,6 @@ function App() {
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
         />
-
         {/* Categorías por estatus_pagos */}
         <div className="flex flex-wrap gap-2 mb-4 border-b border-gray-300 pb-2">
           {(

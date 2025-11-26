@@ -28,39 +28,53 @@ const norm = (s?: string | null) => (s ?? "").trim().toLowerCase();
 
 type CategoriaEstatus =
   | "spei_solicitado"
-  | "pago_tdc"
+  | "pagotdc"
   | "cupon_enviado"
   | "pagada"
   | "otros";
 
-
-type SolicitudesPorFiltro = {
-  todos: SolicitudProveedor[];
-  spei_solicitado: SolicitudProveedor[];
-  pago_tdc: SolicitudProveedor[];
-  cupon_enviado: SolicitudProveedor[];
-  pagada: SolicitudProveedor[];
+type RowConCamposCategoria = {
+  estado_pago?: string | null;
+  estatus_pagos?: string | null;
+  forma_de_pago_solicitada?: string | null;
+  filtro_pago?: string | null; // 👈 viene del back
 };
 
-function mapEstatusToCategoria(estatus?: string | null): CategoriaEstatus {
-  const v = norm(estatus);
+// 🔥 AHORA usamos filtro_pago como fuente de verdad
+function mapRegistroToCategoria(r: RowConCamposCategoria): CategoriaEstatus {
+  const f = norm(r.filtro_pago);
 
-  // matches exactos o cercanos
-  if (v === "spei_solicitado" || v.includes("spei")) return "spei_solicitado";
-  if (v === "pago_tdc" || v.includes("tdc") || v.includes("tarjeta"))
-    return "pago_tdc";
-  if (v === "cupon_enviado" || v.includes("cupon") || v.includes("cupón"))
+  if (f === "spei_solicitado") return "spei_solicitado";
+  if (f === "pago_tdc") return "pagotdc"; // back manda "pago_tdc"
+  if (f === "cupon_enviado") return "cupon_enviado";
+  if (f === "pagada") return "pagada";
+
+  // Fallback por si algún registro viniera sin filtro_pago
+  const estadoPago = norm(r.estado_pago);
+  const estatusGlobal = norm(r.estatus_pagos);
+  const forma = norm(r.forma_de_pago_solicitada);
+
+  if (
+    estadoPago === "pagado" ||
+    estatusGlobal === "pagado" ||
+    estatusGlobal === "pagada"
+  ) {
+    return "pagada";
+  }
+  if (forma === "transfer" || forma === "transferencia" || forma.includes("spei")) {
+    return "spei_solicitado";
+  }
+  if (forma === "card" || forma.includes("tarjeta")) return "pagotdc";
+  if (forma === "cupon" || forma === "cupón" || forma.includes("link"))
     return "cupon_enviado";
-  if (v === "pagada" || v === "pagado") return "pagada";
+
   return "otros";
 }
 
-function agruparPorCategoria<T extends { estatus_pagos?: string | null }>(
-  registros: T[]
-) {
+function agruparPorCategoria<T extends RowConCamposCategoria>(registros: T[]) {
   return registros.reduce(
     (acc, r) => {
-      const cat = mapEstatusToCategoria(r.estatus_pagos);
+      const cat = mapRegistroToCategoria(r);
       acc[cat].push(r);
       return acc;
     },
@@ -213,6 +227,8 @@ function getFacturaInfo(item: ItemSolicitud) {
   return { estado, totalFacturado, fechaUltimaFactura, uuid };
 }
 
+
+
 const handleEdit = (
   item: ItemSolicitud,
   field: "razon_social" | "rfc" | "costo_proveedor",
@@ -288,13 +304,9 @@ const formatDateSimple = (date: string | Date) => {
 // ---------- COMPONENTE PRINCIPAL ----------
 
 function App() {
-  const [solicitudesPago, setSolicitudesPago] = useState<SolicitudesPorFiltro>({
-    todos: [],
-    spei_solicitado: [],
-    pago_tdc: [],
-    cupon_enviado: [],
-    pagada: [],
-  });
+  const [solicitudesPago, setSolicitudesPago] = useState<SolicitudProveedor[]>(
+    []
+  );
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState<TypeFilters>(
@@ -356,31 +368,15 @@ function App() {
 
   const cleanedSolicitudes = (solicitudesPago || []) as ItemSolicitud[];
 
-  const baseList: SolicitudProveedor[] =
-    categoria === "all"
-      ? solicitudesPago.todos
-      : categoria === "spei_solicitado"
-        ? solicitudesPago.spei_solicitado
-        : categoria === "pago_tdc"
-          ? solicitudesPago.pago_tdc
-          : categoria === "cupon_enviado"
-            ? solicitudesPago.cupon_enviado
-            : solicitudesPago.pagada;
-
-  // 1) Aplica tu filtro extra (credit card / enviado_a_pago) si aún lo quieres.
-  //    Si ya no lo necesitas, puedes quitar activeFilter y dejar solo la categoría.
-  const filteredSolicitudes = baseList.filter((item) => {
-    if (activeFilter === "creditCard") return !!item.tarjeta?.ultimos_4;
-    if (activeFilter === "enviado_a_pago")
-      return (
-        (item as ItemSolicitud).estatus_pagos?.toLowerCase() ===
-        "enviado_a_pago"
-      );
+  const filteredSolicitudes = cleanedSolicitudes.filter((item) => {
+    if (activeFilter === "creditCard") {
+      return !!item.tarjeta?.ultimos_4;
+    } else if (activeFilter === "enviado_a_pago") {
+      return item.estatus_pagos?.toLowerCase() === "enviado_a_pago";
+    }
     return true;
   });
 
-
-  // 2) Búsqueda y mapeo a tu estructura de tabla
   const formatedSolicitudes = filteredSolicitudes
     .filter((item) => {
       const q = (searchTerm || "").toUpperCase();
@@ -452,7 +448,10 @@ function App() {
       };
     });
 
-  const registrosVisibles = formatedSolicitudes;
+  const grupos = agruparPorCategoria(formatedSolicitudes);
+
+  const registrosVisibles =
+    categoria === "all" ? formatedSolicitudes : grupos[categoria];
 
   // ---------- HANDLERS NUEVOS ----------
 
@@ -700,18 +699,16 @@ function App() {
 
   const handleFetchSolicitudesPago = () => {
     setLoading(true);
-    fetchGetSolicitudesProveedores((data) => {
-      const d = data?.data || {};
-      console.log("solicitudes pago", d);
+    fetchGetSolicitudesProveedores((resp) => {
+      const payload = resp.data;
 
-      setSolicitudesPago({
-        todos: d.todos || [],
-        spei_solicitado: d.spei_solicitado || [],
-        pago_tdc: d.pago_tdc || [],
-        cupon_enviado: d.cupon_enviado || [],
-        pagada: d.pagada || [],
-      });
+      const lista = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.todos)
+          ? payload.todos
+          : [];
 
+      setSolicitudesPago(lista as any);
       setLoading(false);
     });
   };
@@ -735,34 +732,33 @@ function App() {
         />
 
         {/* Tabs de categorías */}
-        {/* Categorías por estatus_pagos */}
         <div className="flex flex-wrap gap-2 mb-4 border-b border-gray-300 pb-2">
           {(
             [
               {
                 key: "all",
                 label: "Todos",
-                count: solicitudesPago.todos.length,
+                count: formatedSolicitudes.length,
               },
               {
                 key: "spei_solicitado",
                 label: "SPEI solicitado",
-                count: solicitudesPago.spei_solicitado.length,
+                count: grupos.spei_solicitado.length,
               },
               {
-                key: "pago_tdc",
+                key: "pagotdc",
                 label: "Pago TDC",
-                count: solicitudesPago.pago_tdc.length,
+                count: grupos.pagotdc.length,
               },
               {
                 key: "cupon_enviado",
                 label: "Cupón enviado",
-                count: solicitudesPago.cupon_enviado.length,
+                count: grupos.cupon_enviado.length,
               },
               {
                 key: "pagada",
                 label: "Pagada",
-                count: solicitudesPago.pagada.length,
+                count: grupos.pagada.length,
               },
             ] as Array<{
               key: CategoriaEstatus | "all";
@@ -785,7 +781,9 @@ function App() {
               >
                 <span>{btn.label}</span>
                 <span
-                  className={`ml-2 text-xs px-2 py-0.5 rounded-full ${isActive ? "bg-blue-100 text-blue-700" : "bg-white border"
+                  className={`ml-2 text-xs px-2 py-0.5 rounded-full ${isActive
+                    ? "bg-blue-100 text-blue-700"
+                    : "bg-white border"
                     }`}
                 >
                   {btn.count}
@@ -797,6 +795,13 @@ function App() {
               </button>
             );
           })}
+
+          <div className="flex justify-end">
+            <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition">
+              Agregar factura
+            </button>
+          </div>
+
         </div>
 
         <div>
