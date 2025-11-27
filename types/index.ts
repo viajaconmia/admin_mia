@@ -599,6 +599,7 @@ export type FacturaProveedor = {
 // junto con los campos de tu tipo 'Solicitud' original.
 export type SolicitudProveedorCore = {
   id_solicitud: any;
+  codigo_dispersion: string | null;
   id_solicitud_proveedor: number;
   fecha_solicitud: string; // TIMESTAMP -> string (ISO 8601)
   monto_solicitado: string; // DECIMAL(12,2) -> string
@@ -633,4 +634,5 @@ export type SolicitudProveedor = Solicitud & {
   proveedor: ProveedorInfo;
   pagos: PagoProveedor[];
   facturas: FacturaProveedor[];
+  codigo_dispersion?: string | null;
 };

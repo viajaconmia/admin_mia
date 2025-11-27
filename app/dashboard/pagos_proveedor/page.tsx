@@ -18,6 +18,8 @@ import { currentDate } from "@/lib/utils";
 import { fetchGetSolicitudesProveedores } from "@/services/pago_proveedor";
 import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
+import { DispersionModal } from "./Components/dispersion";
+import { SolicitudProveedorRaw } from "./Components/dispersion";
 
 // ---------- HELPERS GENERALES ----------
 
@@ -148,6 +150,16 @@ type ItemSolicitud = SolicitudProveedor & {
   }>;
   estatus_pagos?: string | null;
   filtro_pago?: string | null; // 👈 también lo ponemos aquí
+};
+
+type DatosDispersion = {
+  codigo_reservacion_hotel: string | null;
+  costo_proveedor: number;
+  id_solicitud: string | number | null;
+  id_solicitud_proveedor: string | number | null;
+  monto_solicitado: number;
+  razon_social: string | null;
+  rfc: string | null;
 };
 
 // ---------- INFO DE PAGOS / FACTURAS ----------
@@ -295,6 +307,11 @@ function App() {
     cupon_enviado: [],
     pagada: [],
   });
+  // Modal de dispersión
+  const [showDispersionModal, setShowDispersionModal] = useState(false);
+  const [solicitudesSeleccionadasModal, setSolicitudesSeleccionadasModal] = useState<
+    SolicitudProveedorRaw[]
+  >([]);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState<TypeFilters>(
@@ -302,6 +319,7 @@ function App() {
   );
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [categoria, setCategoria] = useState<CategoriaEstatus | "all">("all");
+  const [datosDispersion, setDatosDispersion] = useState<DatosDispersion[]>([]);
 
   // 🔹 NUEVO: estado para solicitudes seleccionadas
   const [solicitud, setSolicitud] = useState<SolicitudProveedor[]>([]);
@@ -459,8 +477,63 @@ function App() {
   // ---------- HANDLERS NUEVOS ----------
 
   const handleDispersion = () => {
-    console.log("hola");
+    // usamos el arreglo `solicitud` que ya tienes con las solicitudes seleccionadas
+    if (!solicitud.length) {
+      console.log("No hay solicitudes seleccionadas para dispersión");
+      return;
+    }
+
+    // Mapeamos a la forma que espera el modal (SolicitudProveedorRaw)
+    const seleccion = solicitud.map((s) => {
+      const anyS = s as any;
+
+      return {
+        // ✅ id_solicitud
+        id_solicitud: anyS.id_solicitud ?? anyS.id ?? "",
+
+        // opcional
+        id_pago: anyS.id_pago ?? null,
+
+        // ✅ hotel (por si quieres mostrarlo en el modal)
+        hotel: s.hotel ?? null,
+
+        // ✅ codigo_reservacion_hotel
+        codigo_reservacion_hotel: s.codigo_reservacion_hotel ?? null,
+
+        // ✅ costo_proveedor → aquí lo mandamos como string porque el modal lo convierte a número
+        //   usamos primero costo_total, si no, monto_solicitado de la solicitud
+        costo_total:
+          s.costo_total ??
+          s.solicitud_proveedor?.monto_solicitado ??
+          "0",
+
+        // fecha alternativa por si no tiene fecha_solicitud
+        check_out: s.check_out ?? null,
+
+        // por si acaso
+        codigo_dispersion: anyS.codigo_dispersion ?? null,
+
+        // ✅ id_solicitud_proveedor y monto_solicitado
+        solicitud_proveedor: s.solicitud_proveedor
+          ? {
+            id_solicitud_proveedor:
+              s.solicitud_proveedor.id_solicitud_proveedor,
+            fecha_solicitud: s.solicitud_proveedor.fecha_solicitud ?? null,
+            monto_solicitado:
+              s.solicitud_proveedor.monto_solicitado ?? null,
+          }
+          : null,
+
+        // ✅ proveedor.razon_social y proveedor.rfc
+        razon_social: s.proveedor?.razon_social ?? null,
+        rfc: s.proveedor?.rfc ?? null,
+      } as SolicitudProveedorRaw;
+    });
+
+    setSolicitudesSeleccionadasModal(seleccion);
+    setShowDispersionModal(true);
   };
+
 
   const handleCsv = () => {
     console.log("hola");
@@ -476,12 +549,28 @@ function App() {
       const raw: SolicitudProveedor | undefined = item;
       if (!raw) return null;
 
-      // 🔑 Definimos una llave única para el mapa
-      const key =
-        raw.solicitud_proveedor?.id_solicitud_proveedor;
+      // 🔍 Detectar si ya tiene código de dispersión
+      const tieneDispersion =
+        !!(raw as any).codigo_dispersion ||
+        !!raw.solicitud_proveedor?.codigo_dispersion;
 
+      // 🔑 Llave única para el mapa
+      const key = raw.solicitud_proveedor?.id_solicitud_proveedor;
       const isSelected = key ? !!selectedSolicitudesMap[key] : false;
 
+      // ⛔ Si ya tiene dispersión, no permitimos seleccionar
+      if (tieneDispersion) {
+        return (
+          <input
+            type="checkbox"
+            checked={false}
+            disabled
+            title="Esta solicitud ya tiene código de dispersión"
+          />
+        );
+      }
+
+      // ✅ Si NO tiene dispersión, checkbox normal
       return (
         <input
           type="checkbox"
@@ -489,7 +578,7 @@ function App() {
           onChange={(e) => {
             if (!key) return;
 
-            // 🧠 1) Actualizamos el objeto (mapa)
+            // 🧠 1) Actualizamos el objeto (mapa) para saber qué está seleccionado
             setSelectedSolicitudesMap((prev) => {
               const next = { ...prev };
               if (e.target.checked) {
@@ -500,7 +589,7 @@ function App() {
               return next;
             });
 
-            // 📚 2) Mantenemos también el arreglo `solicitud`
+            // 📚 2) Mantenemos también el arreglo `solicitud` con la solicitud completa
             setSolicitud((prev) => {
               if (e.target.checked) {
                 const exists = prev.some(
@@ -514,6 +603,37 @@ function App() {
                   (s) =>
                     (s as any).id_solicitud !== (raw as any).id_solicitud &&
                     (s as any).id !== (raw as any).id
+                );
+              }
+            });
+
+            // 💾 3) Guardamos SOLO los campos necesarios para dispersión
+            setDatosDispersion((prev) => {
+              const idSolProv = raw.solicitud_proveedor?.id_solicitud_proveedor ?? null;
+
+              if (e.target.checked) {
+                const nuevo: DatosDispersion = {
+                  codigo_reservacion_hotel: raw.codigo_reservacion_hotel ?? null,
+                  costo_proveedor: Number(raw.costo_total) || 0,
+                  id_solicitud:
+                    (raw as any).id_solicitud ?? (raw as any).id ?? null,
+                  id_solicitud_proveedor: idSolProv,
+                  monto_solicitado: Number(
+                    raw.solicitud_proveedor?.monto_solicitado
+                  ) || 0,
+                  razon_social: raw.proveedor?.razon_social ?? null,
+                  rfc: raw.proveedor?.rfc ?? null,
+                };
+
+                // Evitar duplicados por id_solicitud_proveedor
+                const exists = prev.some(
+                  (d) => d.id_solicitud_proveedor === idSolProv
+                );
+                return exists ? prev : [...prev, nuevo];
+              } else {
+                // Si desmarcan, lo quitamos del arreglo
+                return prev.filter(
+                  (d) => d.id_solicitud_proveedor !== idSolProv
                 );
               }
             });
@@ -887,6 +1007,28 @@ function App() {
           </div>
         </div>
       )}
+
+      {showDispersionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <DispersionModal
+            solicitudesSeleccionadas={solicitudesSeleccionadasModal}
+            onClose={() => setShowDispersionModal(false)}
+            onSubmit={async (payload) => {
+              // Aquí ya recibes:
+              // payload.id_dispersion
+              // payload.solicitudes = [{ id_solicitud, id_solicitud_proveedor, id_pago, costo_proveedor, codigo_hotel, fecha_pago }]
+              console.log("Payload de dispersión listo para API:", payload);
+
+              // TODO: aquí llamas a tu endpoint para guardar la dispersión
+              // await apiCrearDispersion(payload);
+
+              // si todo va bien, puedes cerrar:
+              setShowDispersionModal(false);
+            }}
+          />
+        </div>
+      )}
+
 
     </div>
 
