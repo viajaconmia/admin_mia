@@ -1,7 +1,7 @@
+import React, { useState, useEffect, useMemo } from "react";
 import { exportToCSV } from "@/helpers/utils";
 import { ArrowDown, FileDown, Columns } from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
-import { Loader } from "@/components/atom/Loader"
+import { Loader } from "@/components/atom/Loader";
 
 type Registro = {
   [key: string]: any;
@@ -29,7 +29,6 @@ interface TableProps<T> {
   splitStringsBySpace?: boolean;
   /** Restringe el split a estas columnas (keys exactos del objeto) */
   splitColumns?: string[];
-
 }
 
 export const Table5 = <T,>({
@@ -61,6 +60,18 @@ export const Table5 = <T,>({
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(new Set());
   const [showColumnSelector, setShowColumnSelector] = useState(false);
 
+  const columnKeys = useMemo(() => {
+    if (
+      registros &&
+      registros.length > 0 &&
+      typeof registros[0] === "object" &&
+      registros[0] !== null
+    ) {
+      return Object.keys(registros[0]).filter((key) => key !== "item");
+    }
+    return [];
+  }, [registros]);
+
   const showAllColumns = () => {
     setVisibleColumns(new Set(columnKeys));
   };
@@ -74,22 +85,12 @@ export const Table5 = <T,>({
     if (customColumns && customColumns.length > 0) {
       setVisibleColumns(new Set(customColumns));
     } else if (registros && registros.length > 0) {
-      const allColumns = Object.keys(registros[0]).filter((key) => key !== "item");
+      const allColumns = Object.keys(registros[0]).filter(
+        (key) => key !== "item"
+      );
       setVisibleColumns(new Set(allColumns));
     }
   }, [registros, customColumns]);
-
-  const columnKeys = useMemo(() => {
-    if (
-      registros &&
-      registros.length > 0 &&
-      typeof registros[0] === "object" &&
-      registros[0] !== null
-    ) {
-      return Object.keys(registros[0]).filter((key) => key !== "item");
-    }
-    return [];
-  }, [registros]);
 
   const toggleColumn = (key: string) => {
     setVisibleColumns((prev) => {
@@ -109,8 +110,12 @@ export const Table5 = <T,>({
       const updateSort = { key, sort: !currentSort.sort };
       const sortedData = [...displayData].sort((a, b) =>
         currentSort.sort
-          ? (a[key] < b[key] ? 1 : -1)
-          : (a[key] > b[key] ? 1 : -1)
+          ? a[key] < b[key]
+            ? 1
+            : -1
+          : a[key] > b[key]
+            ? 1
+            : -1
       );
       setDisplayData(sortedData);
       setCurrentSort(updateSort);
@@ -118,10 +123,11 @@ export const Table5 = <T,>({
     }, 0);
   };
 
-  console.log("informacion", registros, renderers, customColumns)
+  console.log("informacion", registros, renderers, customColumns);
 
-  /** --- NUEVO: reglas forzadas para nombre/cliente --- */
-  const FORCE_SPLIT_COLS = new Set(["nombre", "cliente"]);
+  /** --- Reglas forzadas para columnas tipo nombre/cliente/proveedor --- */
+  const NAME_COL_KEYWORDS = ["nombre", "cliente", "proveedor"];
+
   const toUpperNoAccents = (s: string) =>
     s
       .normalize("NFD")
@@ -133,23 +139,29 @@ export const Table5 = <T,>({
     splitStringsBySpace &&
     (Array.isArray(splitColumns) ? splitColumns.includes(colKey) : true);
 
-  /** Render genérico con reglas específicas para nombre/cliente */
-  const renderValue = (colKey: string, value: unknown) => {
+  /** Render genérico con reglas específicas para columnas que contengan nombre/cliente/proveedor */
+  const renderValue = (colKey: string, value: unknown): React.ReactNode => {
     const lc = colKey.toLowerCase();
-    const isForcedNameCol = FORCE_SPLIT_COLS.has(lc);
+
+    // Cualquier columna cuyo nombre contenga nombre / cliente / proveedor
+    const isForcedNameCol = NAME_COL_KEYWORDS.some((kw) => lc.includes(kw));
 
     if (typeof value === "string") {
-      // Para "nombre" / "cliente": forzar MAYÚSCULAS + sin acentos
+      // Para columnas de "nombre/cliente/proveedor": forzar MAYÚSCULAS + sin acentos
       const base = isForcedNameCol ? toUpperNoAccents(value) : value;
 
       // Split por espacios si (a) es columna forzada o (b) el split global/por columna aplica
       const mustSplit = isForcedNameCol || shouldSplitCol(colKey);
       if (mustSplit) {
         const withNewLines = base.trim().split(/\s+/).join("\n");
-        return <span className="whitespace-pre-line break-words">{withNewLines}</span>;
+        return (
+          <span className="whitespace-pre-line break-words">
+            {withNewLines}
+          </span>
+        );
       }
 
-      // Si no se hace split, al menos respeta el upper/sin acento para nombre/cliente
+      // Si no se hace split, al menos respeta el upper/sin acento para estas columnas
       if (isForcedNameCol) {
         return <span className="break-words">{base}</span>;
       }
@@ -201,6 +213,15 @@ export const Table5 = <T,>({
                         className="text-xs px-2 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200"
                       >
                         Mostrar todas
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          hideAllColumns();
+                        }}
+                        className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
+                      >
+                        Ocultar todas
                       </button>
                     </div>
                     {columnKeys.map((key) => (
@@ -269,8 +290,9 @@ export const Table5 = <T,>({
 
             <tbody className="bg-white divide-y divide-gray-200">
               {displayData.map((item, index) => {
-                console.log(item, "informacion")
-                const zebraClass = index % 2 === 0 ? "bg-white" : "bg-gray-50";
+                console.log(item, "informacion");
+                const zebraClass =
+                  index % 2 === 0 ? "bg-white" : "bg-gray-50";
 
                 const rowExtraClass = getRowClassName
                   ? getRowClassName(item, index)
@@ -327,5 +349,4 @@ export const Table5 = <T,>({
       )}
     </div>
   );
-
 };
