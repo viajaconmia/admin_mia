@@ -112,7 +112,7 @@ export const DispersionModal: React.FC<DispersionModalProps> = ({
   };
 
   return (
-    <div className="h-fit w-[95vw] max-w-xl relative">
+    <div className="h-fit w-[95vw] max-w-xl relative bg-white">
       <div className="max-w-2xl mx-auto">
         {/* Banner de info / error */}
         <div className="sticky top-0 z-10">
@@ -156,7 +156,7 @@ export const DispersionModal: React.FC<DispersionModalProps> = ({
             </div>
 
             <div className="max-h-64 overflow-y-auto space-y-3 pr-1">
-              {solicitudesSeleccionadas.map((s) => {
+              {solicitudesSeleccionadas.map((s, idx) => {
                 const costoProveedor =
                   s.costo_total ??
                   s.solicitud_proveedor?.monto_solicitado ??
@@ -166,7 +166,7 @@ export const DispersionModal: React.FC<DispersionModalProps> = ({
 
                 return (
                   <div
-                    key={s.id_solicitud}
+                    key={`${s.id_solicitud}-${idx}`}  // 🔥 clave única
                     className="border border-slate-200 bg-white rounded-lg px-3 py-2 shadow-sm"
                   >
                     <div className="flex justify-between items-center gap-4">
@@ -183,8 +183,7 @@ export const DispersionModal: React.FC<DispersionModalProps> = ({
                         <p className="text-[11px] text-slate-500">
                           ID solicitud proveedor:{" "}
                           <span className="font-mono">
-                            {s.solicitud_proveedor?.id_solicitud_proveedor ??
-                              "-"}
+                            {s.solicitud_proveedor?.id_solicitud_proveedor ?? "-"}
                           </span>
                         </p>
                       </div>

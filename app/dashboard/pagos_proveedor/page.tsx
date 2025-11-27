@@ -483,6 +483,8 @@ function App() {
       return;
     }
 
+    console.log("informacion de la dolicitud", solicitud)
+
     // Mapeamos a la forma que espera el modal (SolicitudProveedorRaw)
     const seleccion = solicitud.map((s) => {
       const anyS = s as any;
@@ -544,21 +546,29 @@ function App() {
     React.FC<{ value: any; item: any; index: number }>
   > = {
     // 🔹 Renderer de selección (checkbox)
-    seleccionar: ({ item }) => {
-      // 👉 aquí item YA es la SolicitudProveedor original
-      const raw: SolicitudProveedor | undefined = item;
+    seleccionar: ({ item, index }) => {
+      const row = item as any;
+
+      // Objeto original
+      const raw: SolicitudProveedor | undefined =
+        (row.item as SolicitudProveedor) || row;
+
       if (!raw) return null;
 
-      // 🔍 Detectar si ya tiene código de dispersión
       const tieneDispersion =
         !!(raw as any).codigo_dispersion ||
         !!raw.solicitud_proveedor?.codigo_dispersion;
 
-      // 🔑 Llave única para el mapa
-      const key = raw.solicitud_proveedor?.id_solicitud_proveedor;
-      const isSelected = key ? !!selectedSolicitudesMap[key] : false;
+      // 🔑 Llave única (usa id_solicitud / id y si no hay, el index)
+      const key = String(
+        (raw as any).id_solicitud ??
+        (raw as any).id ??
+        raw.solicitud_proveedor?.id_solicitud_proveedor ??
+        index
+      );
 
-      // ⛔ Si ya tiene dispersión, no permitimos seleccionar
+      const isSelected = !!selectedSolicitudesMap[key];
+
       if (tieneDispersion) {
         return (
           <input
@@ -570,15 +580,12 @@ function App() {
         );
       }
 
-      // ✅ Si NO tiene dispersión, checkbox normal
       return (
         <input
           type="checkbox"
           checked={isSelected}
           onChange={(e) => {
-            if (!key) return;
-
-            // 🧠 1) Actualizamos el objeto (mapa) para saber qué está seleccionado
+            // 1) Mapa de seleccionados
             setSelectedSolicitudesMap((prev) => {
               const next = { ...prev };
               if (e.target.checked) {
@@ -589,27 +596,26 @@ function App() {
               return next;
             });
 
-            // 📚 2) Mantenemos también el arreglo `solicitud` con la solicitud completa
+            // 2) Arreglo `solicitud` SIN usar exists
             setSolicitud((prev) => {
               if (e.target.checked) {
-                const exists = prev.some(
-                  (s) =>
-                    (s as any).id_solicitud === (raw as any).id_solicitud ||
-                    (s as any).id === (raw as any).id
-                );
-                return exists ? prev : [...prev, raw];
+                // Aquí sabemos que antes no estaba seleccionado,
+                // así que podemos agregarlo directo
+                return [...prev, raw];
               } else {
+                // Lo quitamos por id (o referencia si no hubiera)
                 return prev.filter(
                   (s) =>
-                    (s as any).id_solicitud !== (raw as any).id_solicitud &&
-                    (s as any).id !== (raw as any).id
+                    ((s as any).id_solicitud ?? (s as any).id) !==
+                    ((raw as any).id_solicitud ?? (raw as any).id)
                 );
               }
             });
 
-            // 💾 3) Guardamos SOLO los campos necesarios para dispersión
+            // 3) Datos para dispersión (si los sigues usando)
             setDatosDispersion((prev) => {
-              const idSolProv = raw.solicitud_proveedor?.id_solicitud_proveedor ?? null;
+              const idSolProv =
+                raw.solicitud_proveedor?.id_solicitud_proveedor ?? null;
 
               if (e.target.checked) {
                 const nuevo: DatosDispersion = {
@@ -618,22 +624,21 @@ function App() {
                   id_solicitud:
                     (raw as any).id_solicitud ?? (raw as any).id ?? null,
                   id_solicitud_proveedor: idSolProv,
-                  monto_solicitado: Number(
-                    raw.solicitud_proveedor?.monto_solicitado
-                  ) || 0,
+                  monto_solicitado:
+                    Number(raw.solicitud_proveedor?.monto_solicitado) || 0,
                   razon_social: raw.proveedor?.razon_social ?? null,
                   rfc: raw.proveedor?.rfc ?? null,
                 };
 
-                // Evitar duplicados por id_solicitud_proveedor
                 const exists = prev.some(
-                  (d) => d.id_solicitud_proveedor === idSolProv
+                  (d) => d.id_solicitud === nuevo.id_solicitud
                 );
                 return exists ? prev : [...prev, nuevo];
               } else {
-                // Si desmarcan, lo quitamos del arreglo
                 return prev.filter(
-                  (d) => d.id_solicitud_proveedor !== idSolProv
+                  (d) =>
+                    d.id_solicitud !==
+                    ((raw as any).id_solicitud ?? (raw as any).id ?? null)
                 );
               }
             });
