@@ -458,7 +458,7 @@ function App() {
 
   // ---------- HANDLERS NUEVOS ----------
 
-  const handleLayout = () => {
+  const handleDispersion = () => {
     console.log("hola");
   };
 
@@ -823,10 +823,10 @@ function App() {
                 </button>
                 <button
                   type="button"
-                  onClick={handleLayout}
+                  onClick={handleDispersion}
                   className="px-3 py-2 rounded-md text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition"
                 >
-                  Subir layout
+                  Generar dispersion
                 </button>
               </div>
             </Table5>
