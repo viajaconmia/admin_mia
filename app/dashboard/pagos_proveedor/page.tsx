@@ -1,11 +1,10 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { CreditCard, Send } from "lucide-react";
+import { CreditCard, Send, Pencil } from "lucide-react";
 import Filters from "@/components/Filters";
 import {
   calcularNoches,
-  formatDate,
   formatRoom,
   getPaymentBadge,
   getStageBadge,
@@ -17,29 +16,41 @@ import { TypeFilters, SolicitudProveedor } from "@/types";
 import { Loader } from "@/components/atom/Loader";
 import { currentDate } from "@/lib/utils";
 import { fetchGetSolicitudesProveedores } from "@/services/pago_proveedor";
-import { useResponsiveColumns } from "@/hooks/useResponsiveColumns";
 import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
+import { DispersionModal } from "./Components/dispersion";
+import { SolicitudProveedorRaw } from "./Components/dispersion";
 
-// --- helpers locales ---
+// ---------- HELPERS GENERALES ----------
+
 const parseNum = (v: any) => (v == null ? 0 : Number(v));
-// --- helpers de estatus y agrupación ---
 const norm = (s?: string | null) => (s ?? "").trim().toLowerCase();
+
+// ---------- CATEGORÍAS ----------
 
 type CategoriaEstatus =
   | "spei_solicitado"
-  | "pagotdc"
+  | "pago_tdc"
   | "cupon_enviado"
   | "pagada"
   | "otros";
+
+
+type SolicitudesPorFiltro = {
+  todos: SolicitudProveedor[];
+  spei_solicitado: SolicitudProveedor[];
+  pago_tdc: SolicitudProveedor[];
+  cupon_enviado: SolicitudProveedor[];
+  pagada: SolicitudProveedor[];
+};
 
 function mapEstatusToCategoria(estatus?: string | null): CategoriaEstatus {
   const v = norm(estatus);
 
   // matches exactos o cercanos
   if (v === "spei_solicitado" || v.includes("spei")) return "spei_solicitado";
-  if (v === "pagotdc" || v.includes("tdc") || v.includes("tarjeta"))
-    return "pagotdc";
+  if (v === "pago_tdc" || v.includes("tdc") || v.includes("tarjeta"))
+    return "pago_tdc";
   if (v === "cupon_enviado" || v.includes("cupon") || v.includes("cupón"))
     return "cupon_enviado";
   if (v === "pagada" || v === "pagado") return "pagada";
@@ -65,6 +76,65 @@ function agruparPorCategoria<T extends { estatus_pagos?: string | null }>(
   );
 }
 
+// -----helper para asignar color en fechas ----
+const getFechaPagoColor = (dateStr?: string | Date | null) => {
+  if (!dateStr) return "";
+
+  const pagoDate = new Date(dateStr);
+  if (isNaN(pagoDate.getTime())) return "";
+
+  // Normalizamos ambas fechas a inicio del día para comparar sin horas
+  const hoy = new Date();
+  const hoySinHora = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+  const pagoSinHora = new Date(
+    pagoDate.getFullYear(),
+    pagoDate.getMonth(),
+    pagoDate.getDate()
+  );
+
+  const diffMs = pagoSinHora.getTime() - hoySinHora.getTime();
+  const diffDays = diffMs / (1000 * 60 * 60 * 24);
+
+  // 🔴 Ya pasó la fecha
+  if (diffDays < 0) return "bg-red-100 text-red-800 border-red-300";
+
+  // 🟡 Hoy o en los próximos 2 días
+  if (diffDays <= 2) return "bg-yellow-100 text-yellow-800 border-yellow-300";
+
+  // 🟢 Faltan más de 2 días
+  return "bg-green-100 text-green-800 border-green-300";
+};
+
+const getFechaPagoRowClass = (dateStr?: string | Date | null) => {
+  if (!dateStr) return "";
+
+  const pagoDate = new Date(dateStr);
+  if (isNaN(pagoDate.getTime())) return "";
+
+  const hoy = new Date();
+  const hoySinHora = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+  const pagoSinHora = new Date(
+    pagoDate.getFullYear(),
+    pagoDate.getMonth(),
+    pagoDate.getDate()
+  );
+
+  const diffMs = pagoSinHora.getTime() - hoySinHora.getTime();
+  const diffDays = diffMs / (1000 * 60 * 60 * 24);
+
+  // 🔴 Ya pasó la fecha
+  if (diffDays < 0) return "bg-red-200";
+
+  // 🟡 Hoy o en los próximos 2 días
+  if (diffDays <= 2) return "bg-yellow-200";
+
+  // 🟢 Faltan más de 2 días
+  return "bg-green-200";
+};
+
+
+// ---------- TIPOS DE ITEM ----------
+
 type ItemSolicitud = SolicitudProveedor & {
   pagos?: Array<{
     monto_pagado?: string;
@@ -79,7 +149,20 @@ type ItemSolicitud = SolicitudProveedor & {
     estado_factura?: "emitida" | "pendiente" | string;
   }>;
   estatus_pagos?: string | null;
+  filtro_pago?: string | null; // 👈 también lo ponemos aquí
 };
+
+type DatosDispersion = {
+  codigo_reservacion_hotel: string | null;
+  costo_proveedor: number;
+  id_solicitud: string | number | null;
+  id_solicitud_proveedor: string | number | null;
+  monto_solicitado: number;
+  razon_social: string | null;
+  rfc: string | null;
+};
+
+// ---------- INFO DE PAGOS / FACTURAS ----------
 
 function getPagoInfo(item: ItemSolicitud) {
   const pagos = (item?.pagos || []).slice().sort((a, b) => {
@@ -142,6 +225,28 @@ function getFacturaInfo(item: ItemSolicitud) {
   return { estado, totalFacturado, fechaUltimaFactura, uuid };
 }
 
+const handleEdit = (
+  item: ItemSolicitud,
+  field: "razon_social" | "rfc" | "costo_proveedor",
+  newValue: string
+) => {
+  // Por ahora solo mostramos que se está editando
+  console.log("editando", {
+    field,
+    newValue,
+    id_solicitud: (item as any).id_solicitud,
+    id: (item as any).id,
+  });
+
+  // Aquí después podrás hacer:
+  // - actualizar un estado local de edición
+  // - llamar a un servicio para guardar en el back, etc.
+};
+
+
+
+// ---------- UI HELPERS ----------
+
 const Pill = ({
   text,
   tone = "gray",
@@ -182,38 +287,109 @@ const facturaTone = (estado: string) =>
         ? "red"
         : "gray";
 
+const formatDateSimple = (date: string | Date) => {
+  if (!date) return "—";
+  const localDate = new Date(date);
+  return localDate.toLocaleDateString("es-MX", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+};
+
+// ---------- COMPONENTE PRINCIPAL ----------
+
 function App() {
-  const [solicitudesPago, setSolicitudesPago] = useState<SolicitudProveedor[]>(
-    []
-  );
+  const [solicitudesPago, setSolicitudesPago] = useState<SolicitudesPorFiltro>({
+    todos: [],
+    spei_solicitado: [],
+    pago_tdc: [],
+    cupon_enviado: [],
+    pagada: [],
+  });
+  // Modal de dispersión
+  const [showDispersionModal, setShowDispersionModal] = useState(false);
+  const [solicitudesSeleccionadasModal, setSolicitudesSeleccionadasModal] = useState<
+    SolicitudProveedorRaw[]
+  >([]);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState<TypeFilters>(
     defaultFiltersSolicitudes
   );
-  const [activeFilter, setActiveFilter] = useState<string>("all"); // "all" | "creditCard" | "sentToPayments"
+  const [activeFilter, setActiveFilter] = useState<string>("all");
+  const [categoria, setCategoria] = useState<CategoriaEstatus | "all">("all");
+  const [datosDispersion, setDatosDispersion] = useState<DatosDispersion[]>([]);
+
+  // 🔹 NUEVO: estado para solicitudes seleccionadas
+  const [solicitud, setSolicitud] = useState<SolicitudProveedor[]>([]);
+
+  // 🔹 NUEVO: objeto (map) de seleccionados
+  type SelectedSolicitudesMap = Record<string, SolicitudProveedor>;
+  const [selectedSolicitudesMap, setSelectedSolicitudesMap] =
+    useState<SelectedSolicitudesMap>({});
+
+  const selectedCount = solicitud.length;
+
   const { hasAccess } = usePermiso();
+
+  const [editModal, setEditModal] = useState<{
+    open: boolean;
+    item: ItemSolicitud | null;
+    field: "razon_social" | "rfc" | "costo_proveedor" | null;
+    value: string;
+  }>({
+    open: false,
+    item: null,
+    field: null,
+    value: "",
+  });
+
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const closeEditModal = () => {
+    setEditModal({
+      open: false,
+      item: null,
+      field: null,
+      value: "",
+    });
+    setEditError(null);
+  };
+
+  const handleConfirmEdit = () => {
+    if (!editModal.item || !editModal.field) return;
+
+    const cleaned = editModal.value.replace(",", ".").trim();
+    if (cleaned === "" || isNaN(Number(cleaned))) {
+      setEditError("Valor no válido. Usa solo números (puedes usar punto decimal).");
+      return;
+    }
+
+    // 🔥 Llamamos a tu handleEdit real
+    handleEdit(editModal.item, editModal.field, cleaned);
+
+    closeEditModal();
+  };
 
   hasAccess(PERMISOS.VISTAS.PROVEEDOR_PAGOS);
 
-  // categoría visible en la tabla
-  const [categoria, setCategoria] = useState<CategoriaEstatus | "all">("all");
-  const norm = (s?: string | null) => (s ?? "").trim().toLowerCase();
+  const cleanedSolicitudes = (solicitudesPago || []) as ItemSolicitud[];
 
-  const formatDateSimple = (date: string | Date) => {
-    if (!date) return "—"; // Si no hay fecha, mostramos un guion
-    const localDate = new Date(date);
-    return localDate.toLocaleDateString("es-MX", {
-      // Aquí usamos el formato mexicano (es-MX)
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    });
-  };
+  const baseList: SolicitudProveedor[] =
+    categoria === "all"
+      ? solicitudesPago.todos
+      : categoria === "spei_solicitado"
+        ? solicitudesPago.spei_solicitado
+        : categoria === "pago_tdc"
+          ? solicitudesPago.pago_tdc
+          : categoria === "cupon_enviado"
+            ? solicitudesPago.cupon_enviado
+            : solicitudesPago.pagada;
 
   // 1) Aplica tu filtro extra (credit card / enviado_a_pago) si aún lo quieres.
   //    Si ya no lo necesitas, puedes quitar activeFilter y dejar solo la categoría.
-  const filteredSolicitudes = solicitudesPago.filter((item) => {
+  const filteredSolicitudes = baseList.filter((item) => {
     if (activeFilter === "creditCard") return !!item.tarjeta?.ultimos_4;
     if (activeFilter === "enviado_a_pago")
       return (
@@ -222,6 +398,7 @@ function App() {
       );
     return true;
   });
+
 
   // 2) Búsqueda y mapeo a tu estructura de tabla
   const formatedSolicitudes = filteredSolicitudes
@@ -241,11 +418,15 @@ function App() {
       const facInfo = getFacturaInfo(item);
 
       return {
-        id_cliente: item.id_agente,
-        cliente: (item?.razon_social || "").toUpperCase(),
+        // 🔹 NUEVO: campo al inicio para seleccionar (primera columna)
+        seleccionar: "",
+
+        // 🟦 INFORMACIÓN DE LA RESERVA
+        codigo_hotel: item.codigo_reservacion_hotel,
         creado: item.created_at,
         hotel: item.hotel.toUpperCase(),
-        codigo_hotel: item.codigo_reservacion_hotel,
+        razon_social: item.proveedor?.razon_social,
+        rfc: item.proveedor?.rfc,
         viajero: (
           item.nombre_viajero_completo ||
           item.nombre_viajero ||
@@ -262,115 +443,326 @@ function App() {
           100,
         precio_de_venta: parseFloat(item.total),
         metodo_de_pago: item.id_credito ? "credito" : "contado",
-        reservante: item.id_usuario_generador ? "Cliente" : "Operaciones",
         etapa_reservacion: item.estado_reserva,
         estado: item.status,
-
-        // Pagos / Factura
-        estado_pago: pagoInfo.estado_pago,
-        monto_pagado_proveedor: pagoInfo.totalPagado,
-        fecha_real_cobro: pagoInfo.fechaUltimoPago,
-
-        estado_factura_proveedor: facInfo.estado,
-        costo_facturado: facInfo.totalFacturado,
-        fecha_facturacion: facInfo.fechaUltimaFactura,
-        UUID: facInfo.uuid,
-
-        fecha_solicitud: item.solicitud_proveedor?.fecha_solicitud,
-        razon_social: item.proveedor?.razon_social,
-        rfc: item.proveedor?.rfc,
+        reservante: item.id_usuario_generador ? "Cliente" : "Operaciones",
+        // 🟩 INFORMACIÓN DEL CLIENTE
+        id_cliente: item.id_agente,
+        cliente: (item.nombre_agente_completo || "").toUpperCase(),
+        // 🟨 INFORMACIÓN DEL PROVEEDOR
+        // 🟧 INFORMACIÓN DE LA SOLICITUD / PAGOS / FACTURACIÓN
+        fecha_de_pago: item.solicitud_proveedor?.fecha_solicitud,
         forma_de_pago_solicitada:
           item.solicitud_proveedor?.forma_pago_solicitada,
         digitos_tajeta: item.tarjeta?.ultimos_4,
         banco: item.tarjeta?.banco_emisor,
         tipo_tarjeta: item.tarjeta?.tipo_tarjeta,
-
-        // Estatus original (lo usaremos para categorizar)
+        // 🟥 PAGO AL PROVEEDOR
+        estado_pago: pagoInfo.estado_pago,
+        monto_pagado_proveedor: pagoInfo.totalPagado,
+        fecha_real_pago: pagoInfo.fechaUltimoPago,
+        // 🟪 FACTURACIÓN
+        estado_factura_proveedor: facInfo.estado,
+        total_facturado: facInfo.totalFacturado,
+        fecha_facturacion: facInfo.fechaUltimaFactura,
+        UUID: facInfo.uuid,
         estatus_pagos: item.estatus_pagos ?? "",
-
+        // Objeto completo original por si se requiere
         item: raw,
       };
     });
 
-  // 3) Agrupa por categoría
-  const grupos = agruparPorCategoria(formatedSolicitudes);
+  const registrosVisibles = formatedSolicitudes;
 
-  // 4) Decide qué lista mostrar según la categoría seleccionada
-  const registrosVisibles =
-    categoria === "all" ? formatedSolicitudes : grupos[categoria];
+  // ---------- HANDLERS NUEVOS ----------
+
+  const handleDispersion = () => {
+    // usamos el arreglo `solicitud` que ya tienes con las solicitudes seleccionadas
+    if (!solicitud.length) {
+      console.log("No hay solicitudes seleccionadas para dispersión");
+      return;
+    }
+
+    console.log("informacion de la dolicitud", solicitud)
+
+    // Mapeamos a la forma que espera el modal (SolicitudProveedorRaw)
+    const seleccion = solicitud.map((s) => {
+      const anyS = s as any;
+
+      return {
+        // ✅ id_solicitud
+        id_solicitud: anyS.id_solicitud ?? anyS.id ?? "",
+
+        // opcional
+        id_pago: anyS.id_pago ?? null,
+
+        // ✅ hotel (por si quieres mostrarlo en el modal)
+        hotel: s.hotel ?? null,
+
+        // ✅ codigo_reservacion_hotel
+        codigo_reservacion_hotel: s.codigo_reservacion_hotel ?? null,
+
+        // ✅ costo_proveedor → aquí lo mandamos como string porque el modal lo convierte a número
+        //   usamos primero costo_total, si no, monto_solicitado de la solicitud
+        costo_total:
+          s.costo_total ??
+          s.solicitud_proveedor?.monto_solicitado ??
+          "0",
+
+        // fecha alternativa por si no tiene fecha_solicitud
+        check_out: s.check_out ?? null,
+
+        // por si acaso
+        codigo_dispersion: anyS.codigo_dispersion ?? null,
+
+        // ✅ id_solicitud_proveedor y monto_solicitado
+        solicitud_proveedor: s.solicitud_proveedor
+          ? {
+            id_solicitud_proveedor:
+              s.solicitud_proveedor.id_solicitud_proveedor,
+            fecha_solicitud: s.solicitud_proveedor.fecha_solicitud ?? null,
+            monto_solicitado:
+              s.solicitud_proveedor.monto_solicitado ?? null,
+          }
+          : null,
+
+        // ✅ proveedor.razon_social y proveedor.rfc
+        razon_social: s.proveedor?.razon_social ?? null,
+        rfc: s.proveedor?.rfc ?? null,
+      } as SolicitudProveedorRaw;
+    });
+
+    setSolicitudesSeleccionadasModal(seleccion);
+    setShowDispersionModal(true);
+  };
+
+
+  const handleCsv = () => {
+    console.log("hola");
+  };
 
   const renderers: Record<
     string,
-    React.FC<{ value: any; item: ItemSolicitud; index: number }>
+    React.FC<{ value: any; item: any; index: number }>
   > = {
+    // 🔹 Renderer de selección (checkbox)
+    seleccionar: ({ item, index }) => {
+      const row = item as any;
+
+      // Objeto original
+      const raw: SolicitudProveedor | undefined =
+        (row.item as SolicitudProveedor) || row;
+
+      if (!raw) return null;
+
+      const tieneDispersion =
+        !!(raw as any).codigo_dispersion ||
+        !!raw.solicitud_proveedor?.codigo_dispersion;
+
+      // 🔑 Llave única (usa id_solicitud / id y si no hay, el index)
+      const key = String(
+        (raw as any).id_solicitud ??
+        (raw as any).id ??
+        raw.solicitud_proveedor?.id_solicitud_proveedor ??
+        index
+      );
+
+      const isSelected = !!selectedSolicitudesMap[key];
+
+      if (tieneDispersion) {
+        return (
+          <input
+            type="checkbox"
+            checked={false}
+            disabled
+            title="Esta solicitud ya tiene código de dispersión"
+          />
+        );
+      }
+
+      return (
+        <input
+          type="checkbox"
+          checked={isSelected}
+          onChange={(e) => {
+            // 1) Mapa de seleccionados
+            setSelectedSolicitudesMap((prev) => {
+              const next = { ...prev };
+              if (e.target.checked) {
+                next[key] = raw;
+              } else {
+                delete next[key];
+              }
+              return next;
+            });
+
+            // 2) Arreglo `solicitud` SIN usar exists
+            setSolicitud((prev) => {
+              if (e.target.checked) {
+                // Aquí sabemos que antes no estaba seleccionado,
+                // así que podemos agregarlo directo
+                return [...prev, raw];
+              } else {
+                // Lo quitamos por id (o referencia si no hubiera)
+                return prev.filter(
+                  (s) =>
+                    ((s as any).id_solicitud ?? (s as any).id) !==
+                    ((raw as any).id_solicitud ?? (raw as any).id)
+                );
+              }
+            });
+
+            // 3) Datos para dispersión (si los sigues usando)
+            setDatosDispersion((prev) => {
+              const idSolProv =
+                raw.solicitud_proveedor?.id_solicitud_proveedor ?? null;
+
+              if (e.target.checked) {
+                const nuevo: DatosDispersion = {
+                  codigo_reservacion_hotel: raw.codigo_reservacion_hotel ?? null,
+                  costo_proveedor: Number(raw.costo_total) || 0,
+                  id_solicitud:
+                    (raw as any).id_solicitud ?? (raw as any).id ?? null,
+                  id_solicitud_proveedor: idSolProv,
+                  monto_solicitado:
+                    Number(raw.solicitud_proveedor?.monto_solicitado) || 0,
+                  razon_social: raw.proveedor?.razon_social ?? null,
+                  rfc: raw.proveedor?.rfc ?? null,
+                };
+
+                const exists = prev.some(
+                  (d) => d.id_solicitud === nuevo.id_solicitud
+                );
+                return exists ? prev : [...prev, nuevo];
+              } else {
+                return prev.filter(
+                  (d) =>
+                    d.id_solicitud !==
+                    ((raw as any).id_solicitud ?? (raw as any).id ?? null)
+                );
+              }
+            });
+          }}
+        />
+      );
+    },
+
     id_cliente: ({ value }) => (
       <span className="font-semibold text-sm">
         {value ? String(value).slice(0, 11).toUpperCase() : ""}
       </span>
     ),
+
     creado: ({ value }) => <span title={value}>{formatDateSimple(value)}</span>,
-    hotel: ({ value }) => (
-      <span className="font-medium" title={value}>
-        {value ? value.toUpperCase() : ""}
-      </span>
-    ),
+
     codigo_hotel: ({ value }) => (
       <span className="font-semibold">{value ? value.toUpperCase() : ""}</span>
     ),
+
     check_in: ({ value }) => (
       <span title={value}>{formatDateSimple(value)}</span>
     ),
+
     check_out: ({ value }) => (
       <span title={value}>{formatDateSimple(value)}</span>
     ),
-    costo_proveedor: ({ value }) => (
-      <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>
-    ),
+
+    costo_proveedor: ({ value, item }) => {
+      const raw = item as ItemSolicitud;
+      const monto = Number(value || 0);
+
+      return (
+        <div className="flex items-center gap-2">
+          {/* Pill del monto */}
+          <span
+            title={String(value)}
+            className="inline-flex items-center px-2 py-1 rounded-full bg-gray-100 text-xs font-medium text-gray-800 border border-gray-200"
+          >
+            ${monto.toFixed(2)}
+          </span>
+
+          {/* Botón editar amigable que abre el mini modal */}
+          <button
+            type="button"
+            className="inline-flex items-center px-2 py-1 rounded-full border border-blue-200 bg-blue-50 text-[11px] font-medium text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition"
+            onClick={() => {
+              const actual = isNaN(monto) ? "" : monto.toString();
+              setEditError(null);
+              setEditModal({
+                open: true,
+                item: raw,
+                field: "costo_proveedor",
+                value: actual,
+              });
+            }}
+          >
+            <Pencil className="w-3 h-3 mr-1" />
+            Editar
+          </button>
+        </div>
+      );
+    },
+
     markup: ({ value }) => (
       <span
         className={`font-semibold border p-2 rounded-full ${value == "Infinity"
-            ? "text-gray-700 bg-gray-100 border-gray-300 "
-            : value > 0
-              ? "text-green-600 bg-green-100 border-green-300"
-              : "text-red-600 bg-red-100 border-red-300"
+          ? "text-gray-700 bg-gray-100 border-gray-300 "
+          : value > 0
+            ? "text-green-600 bg-green-100 border-green-300"
+            : "text-red-600 bg-red-100 border-red-300"
           }`}
       >
         {value == "Infinity" ? "0%" : `${Number(value).toFixed(2)}%`}
       </span>
     ),
+
     precio_de_venta: ({ value }) => (
       <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>
     ),
+
     metodo_de_pago: ({ value }) => getPaymentBadge(value),
     reservante: ({ value }) => getWhoCreateBadge(value),
     etapa_reservacion: ({ value }) => getStageBadge(value),
     estado: ({ value }) => getStatusBadge(value),
 
+    // ----------- PAGO -----------
     estado_pago: ({ value }) => (
       <Pill
-        text={(value ?? "—").toUpperCase()}
+        text={(value ?? "—")
+          .replace("pagado", "Pagado")
+          .replace("enviado_a_pago", "Enviado a Pago")
+          .toUpperCase()}
         tone={pagoTone3(value) as any}
       />
     ),
+
     monto_pagado_proveedor: ({ value }) => (
       <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>
     ),
-    fecha_real_cobro: ({ value }) =>
+
+    fecha_real_pago: ({ value }) =>
       value ? (
         <span title={value}>{formatDateSimple(value)}</span>
       ) : (
         <span className="text-gray-400">—</span>
       ),
 
+    // ----------- FACTURA -----------
     estado_factura_proveedor: ({ value }) => (
       <Pill
-        text={(value || "—").toUpperCase()}
+        text={(value || "—")
+          .replace("facturado", "Facturado")
+          .replace("parcial", "Parcial")
+          .replace("pendiente", "Pendiente")
+          .toUpperCase()}
         tone={facturaTone((value || "").toLowerCase()) as any}
       />
     ),
+
     costo_facturado: ({ value }) => (
       <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>
     ),
+
     fecha_facturacion: ({ value }) =>
       value ? (
         <span title={value}>{formatDateSimple(value)}</span>
@@ -380,27 +772,69 @@ function App() {
 
     UUID: ({ value }) => (
       <span className="font-mono text-xs" title={value}>
-        {value ? String(value).slice(0, 8) + "…" : "—"}
+        {value ? "CFDI: " + String(value).slice(0, 8) + "…" : "—"}
       </span>
     ),
-    fecha_solicitud: ({ value }) =>
-      value ? (
-        <span title={value}>{formatDateSimple(value)}</span>
-      ) : (
-        <span className="text-gray-400">—</span>
-      ),
+
+    // ----------- SOLICITUD -----------
+    fecha_de_pago: ({ value }) => {
+      if (!value) {
+        return <span className="text-gray-400">—</span>;
+      }
+
+      const colorClasses = getFechaPagoColor(value);
+
+      return (
+        <span
+          title={value}
+          className={`px-2 py-1 rounded-full text-xs font-semibold border ${colorClasses}`}
+        >
+          {formatDateSimple(value)}
+        </span>
+      );
+    },
+
     forma_de_pago_solicitada: ({ value }) => (
-      <span className="font-semibold">{value ? value.toUpperCase() : ""}</span>
+      <span className="font-semibold">
+        {value
+          ? value
+            .replace("transfer", "Transferencia")
+            .replace("card", "Tarjeta")
+            .replace("cupon", "Cupón")
+            .toUpperCase()
+          : ""}
+      </span>
     ),
+
     estatus_pagos: ({ value }) => (
-      <Pill text={value ? value.toUpperCase() : "—"} tone="blue" />
+      <Pill
+        text={
+          value
+            ? value
+              .replace("enviado_a_pago", "Enviado a Pago")
+              .replace("pagado", "Pagado")
+              .toUpperCase()
+            : "—"
+        }
+        tone="blue"
+      />
     ),
   };
 
   const handleFetchSolicitudesPago = () => {
     setLoading(true);
     fetchGetSolicitudesProveedores((data) => {
-      setSolicitudesPago(data.data);
+      const d: any = data?.data || {};
+      console.log("solicitudes pago", d);
+
+      setSolicitudesPago({
+        todos: d.todos || [],
+        spei_solicitado: d.spei_solicitado || [],
+        pago_tdc: d.pago_tdc || [],
+        cupon_enviado: d.cupon_enviado || [],
+        pagada: d.pagada || [],
+      });
+
       setLoading(false);
     });
   };
@@ -423,28 +857,36 @@ function App() {
           setSearchTerm={setSearchTerm}
         />
 
-        {/* Categorías por estatus_pagos */}
+        {/* Tabs de categorías */}
         {/* Categorías por estatus_pagos */}
         <div className="flex flex-wrap gap-2 mb-4 border-b border-gray-300 pb-2">
           {(
             [
-              { key: "all", label: "Todos", count: formatedSolicitudes.length },
+              {
+                key: "all",
+                label: "Todos",
+                count: solicitudesPago.todos.length,
+              },
               {
                 key: "spei_solicitado",
                 label: "SPEI solicitado",
-                count: grupos.spei_solicitado.length,
+                count: solicitudesPago.spei_solicitado.length,
               },
               {
-                key: "pagotdc",
+                key: "pago_tdc",
                 label: "Pago TDC",
-                count: grupos.pagotdc.length,
+                count: solicitudesPago.pago_tdc.length,
               },
               {
                 key: "cupon_enviado",
                 label: "Cupón enviado",
-                count: grupos.cupon_enviado.length,
+                count: solicitudesPago.cupon_enviado.length,
               },
-              { key: "pagada", label: "Pagada", count: grupos.pagada.length },
+              {
+                key: "pagada",
+                label: "Pagada",
+                count: solicitudesPago.pagada.length,
+              },
             ] as Array<{
               key: CategoriaEstatus | "all";
               label: string;
@@ -472,7 +914,6 @@ function App() {
                   {btn.count}
                 </span>
 
-                {/* efecto carpeta */}
                 {isActive && (
                   <span className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-white"></span>
                 )}
@@ -486,18 +927,117 @@ function App() {
             <Loader />
           ) : (
             <Table5<ItemSolicitud>
-              registros={registrosVisibles}
+              registros={registrosVisibles as any}
               renderers={renderers}
               defaultSort={defaultSort}
-              leyenda={`Mostrando ${registrosVisibles.length} registros (${categoria === "all"
+              getRowClassName={(row) => getFechaPagoRowClass(row.fecha_de_pago)}
+              leyenda={`Mostrando ${registrosVisibles.length
+                } registros (${categoria === "all"
                   ? "todas las categorías"
                   : `categoría: ${categoria}`
                 })`}
-            />
+            >
+              {/* 🔹 Botones para subir CSV y layout */}
+              <div className="flex gap-2 mb-3">
+                <button
+                  type="button"
+                  onClick={handleCsv}
+                  className="px-3 py-2 rounded-md text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 transition"
+                >
+                  Subir CSV
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDispersion}
+                  className="px-3 py-2 rounded-md text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition"
+                >
+                  Generar dispersion
+                </button>
+              </div>
+            </Table5>
           )}
         </div>
       </div>
+      {editModal.open && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/30">
+          <div className="bg-white rounded-lg shadow-lg p-4 w-full max-w-sm">
+            <h3 className="text-sm font-semibold text-gray-900 mb-2">
+              Editar{" "}
+              {editModal.field === "costo_proveedor"
+                ? "costo proveedor"
+                : editModal.field === "razon_social"
+                  ? "razón social"
+                  : editModal.field === "rfc"
+                    ? "RFC"
+                    : ""}
+            </h3>
+
+            <p className="text-xs text-gray-500 mb-3">
+              Ingresa el nuevo valor y guarda los cambios.
+            </p>
+
+            <input
+              type="text"
+              className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              value={editModal.value}
+              onChange={(e) => {
+                setEditError(null);
+                setEditModal((prev) => ({
+                  ...prev,
+                  value: e.target.value,
+                }));
+              }}
+            />
+
+            {editError && (
+              <p className="text-xs text-red-600 mt-1">{editError}</p>
+            )}
+
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                className="px-3 py-1.5 text-xs rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100"
+                onClick={closeEditModal}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="px-3 py-1.5 text-xs rounded-md bg-blue-600 text-white hover:bg-blue-700"
+                onClick={handleConfirmEdit}
+              >
+                Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDispersionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <DispersionModal
+            solicitudesSeleccionadas={solicitudesSeleccionadasModal}
+            onClose={() => setShowDispersionModal(false)}
+            onSubmit={async (payload) => {
+              // Aquí ya recibes:
+              // payload.id_dispersion
+              // payload.solicitudes = [{ id_solicitud, id_solicitud_proveedor, id_pago, costo_proveedor, codigo_hotel, fecha_pago }]
+              console.log("Payload de dispersión listo para API:", payload);
+
+              // TODO: aquí llamas a tu endpoint para guardar la dispersión
+              // await apiCrearDispersion(payload);
+
+              // si todo va bien, puedes cerrar:
+              setShowDispersionModal(false);
+            }}
+          />
+        </div>
+      )}
+
+
     </div>
+
+
   );
 }
 

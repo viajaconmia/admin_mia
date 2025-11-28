@@ -295,7 +295,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   const [customAmount, setCustomAmount] = useState(saldoMonto);
   console.log("custom", customAmount);
   console.log("custom", saldoMonto);
-
+  console.log("pago data", pagoData)
   console.log("pagos", pagoData);
 
   // Helper seguro para números
@@ -303,6 +303,8 @@ export const BillingPage: React.FC<BillingPageProps> = ({
     const n = Number(v);
     return Number.isFinite(n) ? n : fallback;
   };
+
+
 
   const [cfdi, setCfdi] = useState({
     Receiver: {

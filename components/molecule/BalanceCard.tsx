@@ -55,9 +55,8 @@ export const BalanceCard: React.FC<BalanceCardProps> = ({
             <div className="flex justify-between items-center">
               <span className="text-gray-600">Saldo restante</span>
               <span
-                className={`font-semibold ${
-                  saldoRestante >= 0 ? "text-green-600" : "text-red-600"
-                }`}
+                className={`font-semibold ${saldoRestante >= 0 ? "text-green-600" : "text-red-600"
+                  }`}
               >
                 ${formatNumberWithCommas(saldoRestante)}
               </span>

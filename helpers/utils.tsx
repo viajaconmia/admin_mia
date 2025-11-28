@@ -53,6 +53,11 @@ export function copyToClipboard(text) {
 }
 
 export const formatDate = (dateString: string) => {
+
+  if (!dateString || typeof dateString !== "string") {
+    console.error("dateString inválido:", dateString);
+    return ""
+  }
   if (typeof dateString != "string") return "";
   const [year, month, day] = dateString.split("T")[0].split("-");
   const date = new Date(+year, +month - 1, +day);
@@ -67,8 +72,9 @@ export const formatRoom = (room: string) => {
   let response = room;
   if (typeof room !== "string") return "";
   if (response.toUpperCase() == "SINGLE") {
+
     response = "SENCILLO";
-  } else if (response.toUpperCase() == "DOUBLE") {
+  } else if ((response || "").toUpperCase() == "DOUBLE") {
     response = "DOBLE";
   }
   return response;
@@ -427,6 +433,7 @@ export async function subirArchivoAS3(
     console.error("Error al subir archivo a S3:", error);
   }
 }
+
 export const subirArchivosAS3Luis = async (
   archivo: File,
   folder: string
