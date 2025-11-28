@@ -492,7 +492,6 @@ const CuentasPorCobrar = () => {
       "detalles",
       "nombre_agente",
       "id_agente",
-      "Total_facturado",
       "Total_adeudo",
       "Vigente",
       "Atrasado",
