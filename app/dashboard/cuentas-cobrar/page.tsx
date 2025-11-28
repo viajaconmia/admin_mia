@@ -397,13 +397,13 @@ const CuentasPorCobrar = () => {
                             type="checkbox"
                             checked={isChecked}
                             onChange={() =>
-                              handleSelectFactura(r.id_factura, r.id_agente)
+                              handleSelectFactura(r.uuid_factura, r.id_agente)
                             }
                           />
                         </td>
                         <td className="px-3 py-2">
                           <span className="font-mono bg-gray-100 px-2 py-1 rounded text-xs">
-                            {r.id_factura}
+                            {r.uuid_factura}
                           </span>
                         </td>
                         <td className="px-3 py-2 text-gray-600">
