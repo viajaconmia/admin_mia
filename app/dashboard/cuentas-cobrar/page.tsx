@@ -391,7 +391,7 @@ const CuentasPorCobrar = () => {
                           : "text-green-600";
 
                     return (
-                      <tr key={r.id_factura} className="border-t">
+                      <tr key={r.uuid_factura} className="border-t">
                         <td className="px-3 py-2">
                           <input
                             type="checkbox"
