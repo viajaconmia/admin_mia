@@ -273,10 +273,10 @@ const CuentasPorCobrar = () => {
   type GrupoAgente = {
     id_agente: string;
     nombre_agente: string;
-    total_sum: number;
-    saldo_sum: number;
-    pendiente_sum: number; // saldo con fecha no vencida (>= 0 días)
-    atrasado_sum: number; // saldo con fecha vencida  (< 0 días)
+    Total_facturado: number;
+    Total_adeudo: number;
+    Vigente: number; // saldo con fecha no vencida (>= 0 días)
+    Atrasado: number; // saldo con fecha vencida  (< 0 días)
     facturas: any[];
   };
 
@@ -287,10 +287,10 @@ const CuentasPorCobrar = () => {
       const g = map.get(id) ?? {
         id_agente: id,
         nombre_agente: f.nombre_agente || "Sin nombre",
-        total_sum: 0,
-        saldo_sum: 0,
-        pendiente_sum: 0,
-        atrasado_sum: 0,
+        Total_facturado: 0,
+        Total_adeudo: 0,
+        Vigente: 0,
+        Atrasado: 0,
         facturas: [],
       };
 
@@ -299,11 +299,11 @@ const CuentasPorCobrar = () => {
       const diff = daysDiffFromToday(f.fecha_vencimiento);
       const isVencida = diff !== null ? diff < 0 : false;
 
-      g.total_sum += total;
-      g.saldo_sum += isFinite(saldo) ? saldo : 0;
+      g.Total_facturado += total;
+      g.Total_adeudo += isFinite(saldo) ? saldo : 0;
       if (isFinite(saldo)) {
-        if (isVencida) g.atrasado_sum += saldo;
-        else g.pendiente_sum += saldo;
+        if (isVencida) g.Vigente += saldo;
+        else g.Atrasado += saldo;
       }
       g.facturas.push(f);
       map.set(id, g);
@@ -324,10 +324,10 @@ const CuentasPorCobrar = () => {
         {value}
       </span>
     ),
-    total_sum: ({ value }: { value: number }) => (
+    Total_facturado: ({ value }: { value: number }) => (
       <span className="font-bold text-blue-600">{money(value)}</span>
     ),
-    saldo_sum: ({ value }: { value: number }) => (
+    Total_adeudo: ({ value }: { value: number }) => (
       <span
         className={`font-bold ${value >= 0 ? "text-green-600" : "text-red-600"
           }`}
@@ -335,10 +335,10 @@ const CuentasPorCobrar = () => {
         {money(value)}
       </span>
     ),
-    pendiente_sum: ({ value }: { value: number }) => (
+    Vigente: ({ value }: { value: number }) => (
       <span className="font-semibold text-amber-700">{money(value)}</span>
     ),
-    atrasado_sum: ({ value }: { value: number }) => (
+    Atrasado: ({ value }: { value: number }) => (
       <span className="font-semibold text-red-600">{money(value)}</span>
     ),
     // NUEVO: columna con botón para desplegar detalle por agente
@@ -479,10 +479,10 @@ const CuentasPorCobrar = () => {
       detalles: { grupo: g }, // renderer "detalles" muestra el desplegable
       nombre_agente: g.nombre_agente,
       id_agente: g.id_agente,
-      total_sum: g.total_sum,
-      saldo_sum: g.saldo_sum,
-      pendiente_sum: g.pendiente_sum,
-      atrasado_sum: g.atrasado_sum,
+      Total_facturado: g.Total_facturado,
+      Total_adeudo: g.Total_adeudo,
+      Vigente: g.Vigente,
+      Atrasado: g.Atrasado,
     }));
   }, [grupos, expandedAgents, selectedFacturas]);
 
@@ -492,10 +492,9 @@ const CuentasPorCobrar = () => {
       "detalles",
       "nombre_agente",
       "id_agente",
-      "total_sum",
-      "saldo_sum",
-      "pendiente_sum",
-      "atrasado_sum",
+      "Total_adeudo",
+      "Vigente",
+      "Atrasado",
     ];
   }, []);
 
