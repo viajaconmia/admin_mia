@@ -19,7 +19,10 @@ import { fetchGetSolicitudesProveedores } from "@/services/pago_proveedor";
 import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
 import { DispersionModal } from "./Components/dispersion";
+import { ComprobanteModal } from "./Components/comprobantes";
 import { SolicitudProveedorRaw } from "./Components/dispersion";
+import { useNotification } from "@/context/useNotificacion";
+
 
 // ---------- HELPERS GENERALES ----------
 
@@ -149,7 +152,8 @@ type ItemSolicitud = SolicitudProveedor & {
     estado_factura?: "emitida" | "pendiente" | string;
   }>;
   estatus_pagos?: string | null;
-  filtro_pago?: string | null; // 👈 también lo ponemos aquí
+  filtro_pago?: string | null;
+  cuenta_de_deposito?: string | null;
 };
 
 type DatosDispersion = {
@@ -159,6 +163,7 @@ type DatosDispersion = {
   id_solicitud_proveedor: string | number | null;
   monto_solicitado: number;
   razon_social: string | null;
+  cuenta_banco: string | null;
   rfc: string | null;
 };
 
@@ -309,6 +314,9 @@ function App() {
   });
   // Modal de dispersión
   const [showDispersionModal, setShowDispersionModal] = useState(false);
+  const [showComprobanteModal, setShowComprobanteModal] = useState(false);
+  const { showNotification } = useNotification();
+
   const [solicitudesSeleccionadasModal, setSolicitudesSeleccionadasModal] = useState<
     SolicitudProveedorRaw[]
   >([]);
@@ -479,7 +487,7 @@ function App() {
   const handleDispersion = () => {
     // usamos el arreglo `solicitud` que ya tienes con las solicitudes seleccionadas
     if (!solicitud.length) {
-      console.log("No hay solicitudes seleccionadas para dispersión");
+      showNotification("info", "No hay solicitudes seleccionadas para dispersión");
       return;
     }
 
@@ -514,6 +522,7 @@ function App() {
 
         // por si acaso
         codigo_dispersion: anyS.codigo_dispersion ?? null,
+        cuenta_de_deposito: s.cuenta_de_deposito ?? null,
 
         // ✅ id_solicitud_proveedor y monto_solicitado
         solicitud_proveedor: s.solicitud_proveedor
@@ -538,7 +547,7 @@ function App() {
 
 
   const handleCsv = () => {
-    console.log("hola");
+    setShowComprobanteModal(true);
   };
 
   const renderers: Record<
@@ -628,6 +637,7 @@ function App() {
                     Number(raw.solicitud_proveedor?.monto_solicitado) || 0,
                   razon_social: raw.proveedor?.razon_social ?? null,
                   rfc: raw.proveedor?.rfc ?? null,
+                  cuenta_banco: raw.cuenta_de_deposito ?? null
                 };
 
                 const exists = prev.some(
@@ -937,14 +947,14 @@ function App() {
                   : `categoría: ${categoria}`
                 })`}
             >
-              {/* 🔹 Botones para subir CSV y layout */}
+              {/* 🔹 Botones para subir Comprobante y layout */}
               <div className="flex gap-2 mb-3">
                 <button
                   type="button"
                   onClick={handleCsv}
                   className="px-3 py-2 rounded-md text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 transition"
                 >
-                  Subir CSV
+                  Subir Comprobante
                 </button>
                 <button
                   type="button"
@@ -1033,7 +1043,25 @@ function App() {
           />
         </div>
       )}
+      {showComprobanteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <ComprobanteModal
+            onClose={() => setShowComprobanteModal(false)}
+            onSubmit={async (payload) => {
+              // Aquí ya recibes:
+              // payload.id_dispersion
+              // payload.solicitudes = [{ id_solicitud, id_solicitud_proveedor, id_pago, costo_proveedor, codigo_hotel, fecha_pago }]
+              console.log("Payload de dispersión listo para API:", payload);
 
+              // TODO: aquí llamas a tu endpoint para guardar la dispersión
+              // await apiCrearDispersion(payload);
+
+              // si todo va bien, puedes cerrar:
+              setShowComprobanteModal(false);
+            }}
+          />
+        </div>
+      )}
 
     </div>
 

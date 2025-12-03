@@ -635,4 +635,5 @@ export type SolicitudProveedor = Solicitud & {
   pagos: PagoProveedor[];
   facturas: FacturaProveedor[];
   codigo_dispersion?: string | null;
+  cuenta_de_deposito?: string | null;
 };

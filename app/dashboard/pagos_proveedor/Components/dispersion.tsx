@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Send, X, Info } from "lucide-react";
 import { URL as API_URL, API_KEY } from "@/lib/constants/index";
+import { es } from "date-fns/locale";
 
 export type SolicitudProveedorRaw = {
   id_solicitud: string;
@@ -24,6 +25,8 @@ export type SolicitudProveedorRaw = {
   tipo_cuenta?: string | null;
   moneda?: string | null;
   texto_libre?: string | null;
+  cuenta_de_deposito?: string | null;
+
 };
 
 type DispersionModalProps = {
@@ -54,6 +57,11 @@ export const DispersionModal: React.FC<DispersionModalProps> = ({
   const [motivoPago, setMotivoPago] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  const cleanInput = (input: string | undefined): string => {
+    return (input ?? "")
+      .replace(/\s/g, ''); // Elimina todos los espacios
+  };
 
   const formatDate = (value?: string | null) => {
     if (!value) return "-";
@@ -86,15 +94,26 @@ export const DispersionModal: React.FC<DispersionModalProps> = ({
     return s;
   };
 
+  console.log(solicitudesSeleccionadas, "🐨🐨🐨🐨🐨🐨🐨🐨")
+
+
   // Esta función solo genera y descarga el CSV
-  const generarCSV = () => {
+  const generarCSV = (idPago) => {
     if (solicitudesSeleccionadas.length === 0) {
       setFormError("No hay solicitudes seleccionadas para generar el archivo.");
       return null;
     }
 
+    // Asegúrate de que idPago esté disponible
+    if (!idPago || idPago.length === 0) {
+      setFormError("No se ha recibido idPago del backend.");
+      return null;
+    }
+
     // Encabezado (si el banco NO lo quiere, puedes quitarlo)
     const header = [
+      "Id_Solicitud",
+      "Codigo_Dispersion",
       "TIPO_OPERACION",
       "FECHA_PAGO",
       "CUENTA_CARGO",
@@ -109,15 +128,17 @@ export const DispersionModal: React.FC<DispersionModalProps> = ({
       .map(escapeCsv)
       .join(",");
 
-    const csvLines = solicitudesSeleccionadas.map((solicitud) => {
+    const csvLines = solicitudesSeleccionadas.map((solicitud, idx) => {
       const tipoOperacion = solicitud.tipo_operacion || "SPEI";
       const fechaPago = formatDateForCSV(
         solicitud.solicitud_proveedor?.fecha_solicitud || ""
       );
-      const cuentaCargo = solicitud.cuenta_cargo || "0012345678";
+
+      const id_pago = idPago[idx]; // Usamos idPago por índice
+      const cuentaCargo = solicitud.cuenta_cargo;
       const claveProveedor =
-        solicitud.clave_proveedor || solicitud.rfc || "PROV001";
-      const tipoCuenta = solicitud.tipo_cuenta || "Cta Clabe";
+        solicitud.clave_proveedor;
+      const tipoCuenta = solicitud.cuenta_de_deposito || "Cta Clabe";
       const moneda = solicitud.moneda || "Pesos";
       const importe = parseFloat(
         solicitud.solicitud_proveedor?.monto_solicitado || "0"
@@ -126,6 +147,8 @@ export const DispersionModal: React.FC<DispersionModalProps> = ({
         solicitud.texto_libre || solicitud.razon_social || solicitud.hotel || "";
 
       return [
+        escapeCsv(id_pago),
+        escapeCsv(idDispersion),
         escapeCsv(tipoOperacion),
         escapeCsv(fechaPago),
         escapeCsv(cuentaCargo),
@@ -140,12 +163,12 @@ export const DispersionModal: React.FC<DispersionModalProps> = ({
     });
 
     const csvContent = [header, ...csvLines].join("\n");
-
+    const cleanedIdDispersion = cleanInput(idDispersion);
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `dispersion_${idDispersion || "sin_id"}_${new Date().toISOString().split("T")[0]
+    a.download = `dispersion_${cleanedIdDispersion || "sin_id"}_${new Date().toISOString().split("T")[0]
       }.csv`;
     document.body.appendChild(a);
     a.click();
@@ -159,7 +182,12 @@ export const DispersionModal: React.FC<DispersionModalProps> = ({
     e.preventDefault();
     setFormError(null);
 
-    if (!idDispersion.trim()) {
+    const cleanedIdDispersion = cleanInput(idDispersion);
+    console.log(cleanedIdDispersion, "dispersion");
+    const cleanedReferenciaNumerica = cleanInput(referenciaNumerica);
+    const cleanedMotivoPago = cleanInput(motivoPago);
+
+    if (!cleanedIdDispersion) {
       setFormError("El ID de dispersión es obligatorio.");
       return;
     }
@@ -169,20 +197,11 @@ export const DispersionModal: React.FC<DispersionModalProps> = ({
       return;
     }
 
-    // 1) Generar y descargar el CSV (layout)
-    const csvContent = generarCSV();
-    if (!csvContent) {
-      // Si hubo error al generar el archivo, no seguimos
-      return;
-    }
-
-    // 2) Armar payload
+    // Armar payload
     const payload = {
-      id_dispersion: idDispersion,
+      id_dispersion: cleanedIdDispersion,
       referencia_numerica: referenciaNumerica,
       motivo_pago: motivoPago,
-      // Si quisieras guardar el layout en backend, podrías mandarlo aquí codificado
-      // layoutContent: csvContent,
       layoutUrl: "example-url-to-layout-file.txt",
       solicitudes: solicitudesSeleccionadas.map((s) => {
         return {
@@ -203,11 +222,8 @@ export const DispersionModal: React.FC<DispersionModalProps> = ({
     try {
       setIsSubmitting(true);
 
-      // 3) Callback al front padre
-      await onSubmit(payload);
-
-      // 4) Llamada al backend
-      await fetch(`${API_URL}/mia/pago_proveedor/dispersion`, {
+      // Llamada al backend
+      const response = await fetch(`${API_URL}/mia/pago_proveedor/dispersion`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -216,15 +232,32 @@ export const DispersionModal: React.FC<DispersionModalProps> = ({
         body: JSON.stringify(payload),
       });
 
-      setIsSubmitting(false);
-      onClose();
+      const data = await response.json(); // Recibe la respuesta en formato JSON
+
+      if (response.ok) {
+        // Si la respuesta es exitosa, actualizamos el estado de idPago
+        console.log("Respuesta del backend:", data);
+        // Generar el CSV después de que se haya recibido la respuesta
+        generarCSV(data.data.id_pagos);
+
+        setIsSubmitting(false);
+
+      } else {
+        // Si no es exitosa, maneja el error
+        console.error("Error al guardar la dispersión:", data.message);
+        setIsSubmitting(false);
+        setFormError(
+          "Ocurrió un error al guardar la dispersión. Intenta nuevamente."
+        );
+      }
     } catch (err) {
-      console.error(err);
+      console.error("Error inesperado:", err);
       setIsSubmitting(false);
       setFormError(
         "Ocurrió un error al guardar la dispersión. Intenta nuevamente."
       );
     }
+    onClose();
   };
 
   return (
