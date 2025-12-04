@@ -43,6 +43,7 @@ type DispersionModalProps = {
       costo_proveedor: number;
       codigo_hotel: string | null;
       fecha_pago: string | null;
+      saldo: String | null;
     }>;
   }) => Promise<void> | void;
 };
@@ -94,7 +95,6 @@ export const DispersionModal: React.FC<DispersionModalProps> = ({
     return s;
   };
 
-  console.log(solicitudesSeleccionadas, "🐨🐨🐨🐨🐨🐨🐨🐨")
 
 
   // Esta función solo genera y descarga el CSV
@@ -104,6 +104,7 @@ export const DispersionModal: React.FC<DispersionModalProps> = ({
       return null;
     }
 
+    console.log(idPago, "🐨🐨🐨🐨🐨🐨🐨🐨")
     // Asegúrate de que idPago esté disponible
     if (!idPago || idPago.length === 0) {
       setFormError("No se ha recibido idPago del backend.");
@@ -197,6 +198,7 @@ export const DispersionModal: React.FC<DispersionModalProps> = ({
       return;
     }
 
+    console.log("seleccionadas", solicitudesSeleccionadas)
     // Armar payload
     const payload = {
       id_dispersion: cleanedIdDispersion,
@@ -210,7 +212,7 @@ export const DispersionModal: React.FC<DispersionModalProps> = ({
             s.solicitud_proveedor?.id_solicitud_proveedor ?? null,
           id_pago: s.id_pago ?? null,
           costo_proveedor: parseFloat(
-            s.costo_total || s.solicitud_proveedor?.monto_solicitado || "0"
+            s.solicitud_proveedor?.saldo || "0"
           ),
           codigo_hotel: s.codigo_reservacion_hotel ?? null,
           fecha_pago:

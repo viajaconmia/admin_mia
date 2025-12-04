@@ -1,11 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { Send, X, Info, Upload } from "lucide-react";
 import { URL as API_URL, API_KEY } from "@/lib/constants/index";
+import { useAuth } from "@/context/AuthContext";
 
 type Comprobante = {
   onClose: () => void;
   onSubmit: (payload: any) => Promise<void> | void;
 };
+
+// Interface para datos del CSV
+interface CSVData {
+  [key: string]: string;
+}
 
 // Helper para validar archivos PDF
 const validatePDFFiles = (files: FileList): { isValid: boolean; error?: string; validFiles?: File[] } => {
@@ -14,7 +20,6 @@ const validatePDFFiles = (files: FileList): { isValid: boolean; error?: string; 
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
 
-    // Verificar tipo MIME
     if (file.type !== "application/pdf") {
       return {
         isValid: false,
@@ -22,7 +27,6 @@ const validatePDFFiles = (files: FileList): { isValid: boolean; error?: string; 
       };
     }
 
-    // Verificar extensión por seguridad
     const fileName = file.name.toLowerCase();
     if (!fileName.endsWith('.pdf')) {
       return {
@@ -42,15 +46,6 @@ const validatePDFFiles = (files: FileList): { isValid: boolean; error?: string; 
 
 // Helper para validar archivos CSV
 const validateCSVFile = (file: File): { isValid: boolean; error?: string } => {
-  // Verificar tipo MIME (puede variar según navegador)
-  const validMimeTypes = [
-    'text/csv',
-    'application/csv',
-    'text/comma-separated-values',
-    'application/vnd.ms-excel' // Algunos CSV se detectan como Excel
-  ];
-
-  // Verificar extensión
   const fileName = file.name.toLowerCase();
 
   if (!fileName.endsWith('.csv')) {
@@ -60,8 +55,7 @@ const validateCSVFile = (file: File): { isValid: boolean; error?: string } => {
     };
   }
 
-  // Verificar tamaño (opcional, máximo 10MB)
-  const maxSize = 10 * 1024 * 1024; // 10MB en bytes
+  const maxSize = 10 * 1024 * 1024;
   if (file.size > maxSize) {
     return {
       isValid: false,
@@ -74,36 +68,83 @@ const validateCSVFile = (file: File): { isValid: boolean; error?: string } => {
   };
 };
 
+// Función para parsear CSV
+const parseCSV = (csvText: string): string[][] => {
+  const lines = csvText.split("\n");
+  const result: string[][] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (line) {
+      const regex = /(?:,|\n|^)(?:"([^"]*(?:""[^"]*)*)"|([^",\n]*))/g;
+      const row: string[] = [];
+      let match;
+
+      while ((match = regex.exec(line + ',')) !== null) {
+        const value = match[1] !== undefined ? match[1].replace(/""/g, '"') : match[2];
+        row.push(value || '');
+      }
+
+      result.push(row);
+    }
+  }
+
+  return result;
+};
+
+// Función para procesar CSV a array de objetos
+const procesarTodosLosDatosCSV = (parsedData: string[][]): CSVData[] => {
+  if (parsedData.length < 2) return [];
+
+  const result: CSVData[] = [];
+  const headers = parsedData[0];
+  const dataRows = parsedData.slice(1); // Excluir encabezados
+
+  for (const row of dataRows) {
+    if (row.length === 0 || row.every(cell => cell.trim() === '')) continue;
+
+    const csvData: CSVData = {};
+
+    // Mapear todas las columnas del CSV
+    headers.forEach((header, index) => {
+      const columnName = header.trim();
+      const value = row[index] || '';
+      csvData[columnName] = value;
+    });
+
+    result.push(csvData);
+  }
+
+  return result;
+};
+
 export const ComprobanteModal: React.FC<Comprobante> = ({
   onClose,
   onSubmit,
 }) => {
-  const [isMasivo, setIsMasivo] = useState(false); // Switch para modo masivo
-  const [pdfFiles, setPdfFiles] = useState<File[]>([]); // Archivos PDF
-  const [csvFile, setCsvFile] = useState<File | null>(null); // Archivo CSV
-  const [codigoDispersion, setCodigoDispersion] = useState<string[]>([]); // Array de títulos
-  const [codigoDispersionMultiple, setCodigoDispersionMultiple] = useState<string>(""); // Código para múltiples PDFs
-  const [montos, setMontos] = useState<{ [key: string]: string }>({}); // Montos para modo individual
+  const [isMasivo, setIsMasivo] = useState(false);
+  const [pdfFiles, setPdfFiles] = useState<File[]>([]);
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [codigoDispersionMultiple, setCodigoDispersionMultiple] = useState<string>("");
+  const [montos, setMontos] = useState<{ [key: string]: string }>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [csvLoading, setCsvLoading] = useState(false);
 
-  // Efecto para establecer el código de dispersión cuando hay un solo PDF
+  const user = useAuth().user;
+
   useEffect(() => {
     if (!isMasivo && pdfFiles.length === 1) {
-      // Si es un solo PDF, establecer el nombre del archivo como código por defecto
       const fileName = pdfFiles[0].name;
-      // Remover la extensión .pdf para un código más limpio
       const cleanFileName = fileName.replace(/\.pdf$/i, '');
       setCodigoDispersionMultiple(cleanFileName);
     } else if (!isMasivo && pdfFiles.length > 1 && codigoDispersionMultiple) {
-      // Si se cambia de un PDF a múltiples PDFs, limpiar el campo
-      // Solo si el valor actual es el nombre del archivo anterior
       const firstFileName = pdfFiles[0]?.name?.replace(/\.pdf$/i, '');
       if (codigoDispersionMultiple === firstFileName) {
         setCodigoDispersionMultiple("");
       }
     }
-  }, []);
+  }, [pdfFiles, isMasivo]);
 
   const handlePdfChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setFileError(null);
@@ -113,7 +154,6 @@ export const ComprobanteModal: React.FC<Comprobante> = ({
 
       if (!validation.isValid) {
         setFileError(validation.error || "Error al validar archivos PDF");
-        // Limpiar el input
         event.target.value = '';
         return;
       }
@@ -121,7 +161,6 @@ export const ComprobanteModal: React.FC<Comprobante> = ({
       const files = validation.validFiles || [];
       setPdfFiles(files);
 
-      // Inicializar montos vacíos para cada archivo (solo en modo individual)
       if (!isMasivo) {
         const nuevosMontos: { [key: string]: string } = {};
         const titles = files.map(file => file.name);
@@ -136,7 +175,6 @@ export const ComprobanteModal: React.FC<Comprobante> = ({
   };
 
   const handleMontoChange = (titulo: string, valor: string) => {
-    // Validar que solo se ingresen números y un punto decimal
     const regex = /^\d*\.?\d*$/;
     if (regex.test(valor) || valor === "") {
       setMontos(prev => ({
@@ -148,6 +186,7 @@ export const ComprobanteModal: React.FC<Comprobante> = ({
 
   const handleCsvChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setFileError(null);
+    setCsvFile(null);
 
     if (event.target.files && event.target.files[0]) {
       const file = event.target.files[0];
@@ -155,39 +194,43 @@ export const ComprobanteModal: React.FC<Comprobante> = ({
 
       if (!validation.isValid) {
         setFileError(validation.error || "Error al validar archivo CSV");
-        // Limpiar el input
         event.target.value = '';
         return;
       }
 
       setCsvFile(file);
+      setCsvLoading(true);
 
-      // Leer el archivo CSV y extraer las columnas necesarias
       const reader = new FileReader();
       reader.onload = function (e: ProgressEvent<FileReader>) {
         const csvData = e.target?.result;
         if (typeof csvData === "string") {
           try {
-            const lines = csvData.split("\n");
-            if (lines.length > 0) {
-              const headers = lines[0].split(",");
-              console.log("Columnas del CSV:", headers);
+            const parsedData = parseCSV(csvData);
 
-              // Validar que el CSV tenga contenido
-              if (lines.length < 2) {
-                setFileError("El archivo CSV está vacío o no tiene datos");
-                setCsvFile(null);
-                event.target.value = '';
-              }
+            if (parsedData.length >= 2) {
+              console.log(`CSV procesado: ${parsedData.length - 1} filas de datos`);
+            } else {
+              setFileError("El archivo CSV está vacío o no tiene datos");
+              setCsvFile(null);
+              event.target.value = '';
             }
           } catch (error) {
+            console.error("Error al parsear CSV:", error);
             setFileError("Error al leer el archivo CSV. Verifica el formato.");
             setCsvFile(null);
             event.target.value = '';
           }
         }
+        setCsvLoading(false);
       };
-      reader.readAsText(file);
+      reader.onerror = () => {
+        setFileError("Error al leer el archivo CSV");
+        setCsvFile(null);
+        setCsvLoading(false);
+        event.target.value = '';
+      };
+      reader.readAsText(file, 'UTF-8');
     }
   };
 
@@ -217,52 +260,114 @@ export const ComprobanteModal: React.FC<Comprobante> = ({
         return;
       }
 
-      // Validar código de dispersión en modo individual
       if (!codigoDispersionMultiple.trim()) {
         setFormError("Por favor, ingresa un código de dispersión.");
         return;
       }
     }
 
-    // Preparar el array de códigos de dispersión
-    let finalCodigoDispersion: string[];
-
-    if (!isMasivo) {
-      if (pdfFiles.length === 1) {
-        // Si es un solo PDF, usar el código ingresado
-        finalCodigoDispersion = [codigoDispersionMultiple.trim()];
-      } else {
-        // Si son múltiples PDFs, usar el código ingresado para todos
-        finalCodigoDispersion = Array(pdfFiles.length).fill(codigoDispersionMultiple.trim());
-      }
-    } else {
-      // En modo masivo, usar los nombres de los archivos
-      finalCodigoDispersion = pdfFiles.map(file => file.name);
-    }
-
-    // Preparar payload
-    const payload = {
-      codigo_dispersion: finalCodigoDispersion,
-      archivos: pdfFiles,
-      csv_file: csvFile,
-      montos: !isMasivo ? montos : undefined,
-      codigo_dispersion_individual: !isMasivo ? codigoDispersionMultiple : undefined,
-    };
-
     try {
-      // Llamar a la función onSubmit pasada como prop
-      await onSubmit(payload);
-      onClose();
+      // Preparar datos del frontend
+      const frontendData = {
+        // Datos del usuario/creación
+        user_created: user?.email || 'system',
+        user_update: user?.email || 'system',
+
+        // Datos generales
+        concepto: "Pago a proveedor",
+        descripcion: "Pago generado desde sistema",
+        fecha_emision: new Date().toISOString(),
+
+        // Otros datos
+        id_solicitud_proveedor: null,
+        url_pdf: null,
+      };
+
+      // Preparar datos del CSV (si es modo masivo)
+      let csvDataArray: CSVData[] = [];
+      if (isMasivo && csvFile) {
+        // Leer el archivo CSV para procesar todos los datos
+        const csvText = await readFileAsText(csvFile);
+        const parsedData = parseCSV(csvText);
+        csvDataArray = procesarTodosLosDatosCSV(parsedData);
+
+        if (csvDataArray.length === 0) {
+          setFormError("No se pudieron procesar los datos del CSV o el archivo está vacío.");
+          return;
+        }
+
+        console.log(`Procesadas ${csvDataArray.length} filas del CSV`);
+      }
+
+      // Preparar payload para enviar al backend - SOLO DATOS
+      const payload = {
+        // Datos del frontend
+        frontendData: frontendData,
+
+        // Datos del CSV como array (si es modo masivo)
+        csvData: isMasivo ? csvDataArray : null,
+
+        // Información de montos (modo individual)
+        montos: !isMasivo ? montos : null,
+
+        // Código de dispersión
+        codigo_dispersion: !isMasivo ? codigoDispersionMultiple : null,
+
+        // Modo de operación
+        isMasivo: isMasivo,
+
+        // Metadata
+        user: user?.id || null
+      };
+
+      console.log("Payload a enviar:", payload);
+      console.log(`Número de elementos CSV: ${csvDataArray.length}`);
+
+      const response = await fetch(`${API_URL}/mia/pago_proveedor/pago`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": API_KEY,
+        },
+        body: JSON.stringify(payload), // Enviar como JSON puro
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        console.log("Respuesta del backend:", data);
+
+        // Si necesitas llamar a onSubmit
+        if (onSubmit) {
+          await onSubmit(payload);
+        }
+
+        onClose();
+      } else {
+        console.error("Error al guardar la dispersión:", data.message || data.error);
+        setFormError(
+          data.details || "Ocurrió un error al guardar la dispersión. Intenta nuevamente."
+        );
+      }
     } catch (err) {
       console.error("Error inesperado:", err);
-      setFormError("Ocurrió un error al guardar la dispersión.");
+      setFormError("Ocurrió un error al procesar la solicitud.");
     }
+  };
+
+  // Función para leer archivo como texto
+  const readFileAsText = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target?.result as string);
+      reader.onerror = reject;
+      reader.readAsText(file, 'UTF-8');
+    });
   };
 
   // Función para limpiar archivos PDF
   const clearPdfFiles = () => {
     setPdfFiles([]);
-    setCodigoDispersion([]);
     setCodigoDispersionMultiple("");
     if (!isMasivo) {
       setMontos({});
@@ -301,7 +406,7 @@ export const ComprobanteModal: React.FC<Comprobante> = ({
           )}
           {fileError && (
             <div className="bg-red-50 border-b border-red-200 p-4 flex gap-3 items-start">
-              <X className="w-5 h-5 text-red-600 mt-0.5" />
+              <X className="w-5 h-5 text-red-600 mt=0.5" />
               <div>
                 <h3 className="text-sm font-semibold text-red-800">Error en archivo</h3>
                 <p className="text-xs text-red-700">{fileError}</p>
@@ -314,13 +419,11 @@ export const ComprobanteModal: React.FC<Comprobante> = ({
         <div className="px-6 pt-4">
           <div className="flex items-center justify-center">
             <div className="relative flex items-center bg-gray-100 rounded-full p-1 w-64">
-              {/* Botón deslizante */}
               <div
                 className={`absolute top-1 h-7 w-32 rounded-full bg-white border border-gray-200 shadow-sm transform transition-all duration-200 ease-in-out ${isMasivo ? 'translate-x-32' : 'translate-x-0'
                   }`}
               />
 
-              {/* Opción 1 Solicitud */}
               <button
                 type="button"
                 onClick={() => setIsMasivo(false)}
@@ -332,7 +435,6 @@ export const ComprobanteModal: React.FC<Comprobante> = ({
                 1 Solicitud
               </button>
 
-              {/* Opción Masivo */}
               <button
                 type="button"
                 onClick={() => setIsMasivo(true)}
@@ -348,7 +450,7 @@ export const ComprobanteModal: React.FC<Comprobante> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="p-4 space-y-6">
-          {/* Campo para subir PDFs (siempre visible) */}
+          {/* Campo para subir PDFs */}
           <div className="space-y-4">
             <div>
               <label htmlFor="pdf-file" className="block text-sm font-medium text-gray-700 mb-1">
@@ -413,7 +515,6 @@ export const ComprobanteModal: React.FC<Comprobante> = ({
                           </div>
                         </div>
 
-                        {/* Campo de monto solo en modo individual */}
                         {!isMasivo && (
                           <div className="w-32">
                             <div className="relative">
@@ -433,7 +534,7 @@ export const ComprobanteModal: React.FC<Comprobante> = ({
                   </div>
                 </div>
 
-                {/* Campo para código de dispersión (siempre visible en modo individual) */}
+                {/* Campo para código de dispersión */}
                 {!isMasivo && pdfFiles.length > 0 && (
                   <div className="border border-gray-200 rounded-lg p-4 bg-blue-50">
                     <div className="space-y-3">
@@ -522,17 +623,26 @@ export const ComprobanteModal: React.FC<Comprobante> = ({
                     </button>
                   )}
                 </div>
+
+                {/* Vista del archivo CSV */}
                 {csvFile && (
-                  <div className="mt-2 p-3 bg-blue-50 rounded border border-blue-100">
-                    <div className="flex justify-between items-center">
+                  <div className="mt-4 p-4 bg-green-50 rounded border border-green-200">
+                    <div className="flex justify-between items-center mb-2">
                       <div>
-                        <p className="text-xs text-blue-700 font-medium">Archivo CSV cargado:</p>
-                        <p className="text-xs text-blue-600 truncate">{csvFile.name}</p>
-                        <p className="text-xs text-blue-500 mt-1">
+                        <p className="text-sm font-medium text-green-700">Archivo CSV cargado:</p>
+                        <p className="text-sm text-green-600 truncate">{csvFile.name}</p>
+                        <p className="text-xs text-green-500 mt-1">
                           Tamaño: {(csvFile.size / 1024).toFixed(1)} KB
                         </p>
                       </div>
                     </div>
+                    {csvLoading ? (
+                      <p className="text-xs text-gray-600">Procesando CSV...</p>
+                    ) : (
+                      <p className="text-xs text-green-600">
+                        Listo para procesar. El CSV se enviará con todos sus datos al backend.
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
