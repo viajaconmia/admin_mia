@@ -80,8 +80,8 @@ function agruparPorCategoria<T extends { estatus_pagos?: string | null }>(
 }
 
 // -----helper para asignar color en fechas ----
-const getFechaPagoColor = (dateStr?: string | Date | null) => {
-  if (!dateStr) return "";
+const getFechaPagoColor = (dateStr?: string | Date | null | number) => {
+  if (!dateStr || dateStr == 0.00) return "";
 
   const pagoDate = new Date(dateStr);
   if (isNaN(pagoDate.getTime())) return "";
@@ -176,10 +176,15 @@ function getPagoInfo(item: ItemSolicitud) {
     return db - da;
   });
   const ultimoPago = pagos[0];
-  const totalPagado = pagos.reduce(
-    (acc, p) => acc + parseNum(p.monto_pagado),
-    0
-  );
+  const pendientePago = Number(item.solicitud_proveedor.saldo);
+  const totalPagado = pagos
+    .flat()
+    .reduce(
+      (acc, p) => acc + parseNum(p.monto_pagado ?? 0),
+      0
+    );
+
+
   const fechas = pagos
     .map((p) => p.fecha_pago || p.creado_en)
     .filter(Boolean)
@@ -187,8 +192,17 @@ function getPagoInfo(item: ItemSolicitud) {
   const fechaUltimoPago = fechas.length
     ? new Date(Math.max(...fechas.map((d) => d.getTime()))).toISOString()
     : "";
-  const estado_pago = (ultimoPago?.estado_pago as string | null) ?? null;
-  return { estado_pago, totalPagado, fechaUltimoPago };
+  let estado_pago = "";
+
+  if (pendientePago == 0.00) {
+    estado_pago = "Pagado";
+  } else if (pendientePago != 0.00 && pendientePago != Number(item.solicitud_proveedor.monto_solicitado)) {
+    estado_pago = "Parcial"
+  } else {
+    estado_pago = "Pendiente"
+  }
+
+  return { estado_pago, totalPagado, fechaUltimoPago, pendientePago };
 }
 
 function getFacturaInfo(item: ItemSolicitud) {
@@ -355,6 +369,7 @@ function App() {
 
   const [editError, setEditError] = useState<string | null>(null);
 
+
   const closeEditModal = () => {
     setEditModal({
       open: false,
@@ -467,8 +482,9 @@ function App() {
         tipo_tarjeta: item.tarjeta?.tipo_tarjeta,
         // 🟥 PAGO AL PROVEEDOR
         estado_pago: pagoInfo.estado_pago,
+        pendiente_a_pagar: pagoInfo.pendientePago,
         monto_pagado_proveedor: pagoInfo.totalPagado,
-        fecha_real_pago: pagoInfo.fechaUltimoPago,
+        fecha_pagado: pagoInfo.fechaUltimoPago,
         // 🟪 FACTURACIÓN
         estado_factura_proveedor: facInfo.estado,
         total_facturado: facInfo.totalFacturado,
@@ -563,10 +579,9 @@ function App() {
         (row.item as SolicitudProveedor) || row;
 
       if (!raw) return null;
-
       const tieneDispersion =
         !!(raw as any).codigo_dispersion ||
-        !!raw.solicitud_proveedor?.codigo_dispersion;
+        !!raw.solicitud_proveedor?.codigo_dispersion || Number(raw.solicitud_proveedor?.saldo) <= 0;
 
       // 🔑 Llave única (usa id_solicitud / id y si no hay, el index)
       const key = String(
@@ -746,9 +761,11 @@ function App() {
       />
     ),
 
-    monto_pagado_proveedor: ({ value }) => (
-      <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>
-    ),
+    monto_pagado_proveedor: ({ value }) => {
+      return (
+        <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>
+      )
+    },
 
     fecha_real_pago: ({ value }) =>
       value ? (
@@ -802,6 +819,13 @@ function App() {
           {formatDateSimple(value)}
         </span>
       );
+    },
+
+    pendiente_a_pagar: ({ value }) => {
+
+      return (
+        <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>
+      )
     },
 
     forma_de_pago_solicitada: ({ value }) => (
@@ -940,7 +964,11 @@ function App() {
               registros={registrosVisibles as any}
               renderers={renderers}
               defaultSort={defaultSort}
-              getRowClassName={(row) => getFechaPagoRowClass(row.fecha_de_pago)}
+              getRowClassName={(row) =>
+                getFechaPagoRowClass(
+                  row.pendiente_a_pagar <= 0 ? "" : row.fecha_de_pago
+                )
+              }
               leyenda={`Mostrando ${registrosVisibles.length
                 } registros (${categoria === "all"
                   ? "todas las categorías"
