@@ -120,7 +120,7 @@ export const Table5 = <T,>({
 
 
   /** --- NUEVO: reglas forzadas para nombre/cliente --- */
-  const FORCE_SPLIT_COLS = new Set(["nombre", "cliente"]);
+  const FORCE_SPLIT_COLS = new Set(["nombre", "cliente","nombre_cliente"]);
   const toUpperNoAccents = (s: string) =>
     s
       .normalize("NFD")
