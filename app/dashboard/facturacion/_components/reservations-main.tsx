@@ -745,6 +745,8 @@ export const FacturacionModal: React.FC<{
 
     return true;
   };
+
+
   const handleConfirm = async () => {
 
     if (!selectedFiscalData) {
@@ -880,6 +882,7 @@ export const FacturacionModal: React.FC<{
           },
           items_facturados: itemsFacturados,
         },
+        items_facturados: itemsFacturados,
       };
 
       // Crear factura

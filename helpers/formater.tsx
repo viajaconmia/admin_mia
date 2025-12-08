@@ -65,16 +65,13 @@ export function formatNumberWithCommas(
     .reverse()
     .join("");
 
-  // Armar el número completo
-  const formatted =
-    decimalPart !== undefined
-      ? `${formattedInteger}.${
-          decimalPart.length == 2 ? decimalPart : `${decimalPart}0`
-        }`
-      : `${formattedInteger}.00`;
-
-  // Volver a agregar el signo negativo si era negativo
-  return isNegative ? `-${formatted}` : formatted;
+  // 3. Unir la parte entera formateada con la parte decimal (si existe)
+  if (decimalPart !== undefined) {
+    return `${formattedInteger}.${decimalPart.length == 2 ? decimalPart : `${decimalPart}0`
+      }`;
+  } else {
+    return formattedInteger + ".00";
+  }
 }
 
 export const formatDate = (dateString: string) => {

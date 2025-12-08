@@ -299,6 +299,7 @@ const ReservationsWithTable4: React.FC = () => {
   const [selectHospedaje, setSelectHospedaje] = useState<SelectedMap>({});
   // filas expandibles
   const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({});
+
   // modal
 
   const [showFacturacionModal, setShowFacturacionModal] = useState(false);

@@ -118,7 +118,6 @@ export const Table5 = <T,>({
     }, 0);
   };
 
-  console.log("informacion", registros, renderers, customColumns)
 
   /** --- NUEVO: reglas forzadas para nombre/cliente --- */
   const FORCE_SPLIT_COLS = new Set(["nombre", "cliente"]);
@@ -269,7 +268,6 @@ export const Table5 = <T,>({
 
             <tbody className="bg-white divide-y divide-gray-200">
               {displayData.map((item, index) => {
-                console.log(item, "informacion")
                 const zebraClass = index % 2 === 0 ? "bg-white" : "bg-gray-50";
 
                 const rowExtraClass = getRowClassName
