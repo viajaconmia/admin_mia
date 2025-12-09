@@ -1,5 +1,5 @@
 import { exportToCSV } from "@/helpers/utils";
-import { ArrowDown, FileDown, Columns } from "lucide-react";
+import { ArrowDown, FileDown, Columns, ChevronRight, ChevronDown } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { Loader } from "@/components/atom/Loader"
 
@@ -29,7 +29,9 @@ interface TableProps<T> {
   splitStringsBySpace?: boolean;
   /** Restringe el split a estas columnas (keys exactos del objeto) */
   splitColumns?: string[];
-
+  
+  /** NUEVA PROPIEDAD: Columnas que contienen arrays y pueden expandirse */
+  expandableColumns?: string[];
 }
 
 export const Table5 = <T,>({
@@ -44,6 +46,7 @@ export const Table5 = <T,>({
   getRowClassName,
   splitStringsBySpace = false,
   splitColumns,
+  expandableColumns = [], // Nueva prop
 }: TableProps<T>) => {
   const [displayData, setDisplayData] = useState<Registro[]>(registros);
   const [loading, setLoading] = useState<boolean>(false);
@@ -60,6 +63,8 @@ export const Table5 = <T,>({
   );
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(new Set());
   const [showColumnSelector, setShowColumnSelector] = useState(false);
+  // Estado para las filas expandidas
+  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
 
   const showAllColumns = () => {
     setVisibleColumns(new Set(columnKeys));
@@ -77,19 +82,21 @@ export const Table5 = <T,>({
       const allColumns = Object.keys(registros[0]).filter((key) => key !== "item");
       setVisibleColumns(new Set(allColumns));
     }
+    // Resetear expansiones cuando cambian los datos
+    setExpandedRows(new Set());
   }, [registros, customColumns]);
 
-  const columnKeys = useMemo(() => {
-    if (
-      registros &&
-      registros.length > 0 &&
-      typeof registros[0] === "object" &&
-      registros[0] !== null
-    ) {
-      return Object.keys(registros[0]).filter((key) => key !== "item");
-    }
-    return [];
-  }, [registros]);
+const columnKeys = useMemo(() => {
+  if (
+    registros &&
+    registros.length > 0 &&
+    typeof registros[0] === "object" &&
+    registros[0] !== null
+  ) {
+    return Object.keys(registros[0]).filter((key) => key !== "item");
+  }
+  return [];
+}, [registros]);
 
   const toggleColumn = (key: string) => {
     setVisibleColumns((prev) => {
@@ -118,44 +125,224 @@ export const Table5 = <T,>({
     }, 0);
   };
 
+  // Función para alternar expansión de fila
+  const toggleRowExpansion = (index: number) => {
+    setExpandedRows(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(index)) {
+        newSet.delete(index);
+      } else {
+        newSet.add(index);
+      }
+      return newSet;
+    });
+  };
 
-  /** --- NUEVO: reglas forzadas para nombre/cliente --- */
-  const FORCE_SPLIT_COLS = new Set(["nombre", "cliente","nombre_cliente"]);
+  // Verificar si una columna es expandible para una fila específica
+  const isColumnExpandable = (colKey: string, value: any) => {
+    // Verificar si la columna está en la lista de expandibleColumns
+    const isInExpandableList = expandableColumns.includes(colKey);
+    
+    // Verificar si el valor es un array con más de un elemento
+    const hasMultipleItems = Array.isArray(value) && value.length > 1;
+    
+    // Verificar si es un string que podría contener múltiples valores separados
+    const isStringWithSeparators = typeof value === 'string' && 
+      (value.includes(',') || value.includes(';') || value.includes('|'));
+    
+    return isInExpandableList && (hasMultipleItems || isStringWithSeparators);
+  };
+
+  // Formatear el valor de una columna expandible
+  const renderExpandableValue = (
+  colKey: string,
+  value: any,
+  rowIndex: number,
+  isExpanded: boolean
+) => {
+  let items: string[] = [];
+
+  if (Array.isArray(value)) {
+    items = value.map((item) => String(item));
+  } else if (typeof value === "string") {
+    // Dividir por comas, punto y coma o pipes
+    items = value.split(/[,;|]/).map((item) => item.trim());
+  } else if (value != null) {
+    items = [String(value)];
+  }
+
+  const hasMultipleItems = items.length > 1;
+
+  // Vista colapsada: solo el primero + "N más"
+  if (!isExpanded) {
+    return (
+      <div className="flex items-center justify-between w-full">
+        <div className="flex-1 min-w-0">
+          <div className="truncate">
+            {items[0] ?? ""}
+            {hasMultipleItems && (
+              <span className="ml-1 text-xs text-gray-500">
+                +{items.length - 1} más
+              </span>
+            )}
+          </div>
+        </div>
+
+        {hasMultipleItems && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleRowExpansion(rowIndex);
+            }}
+            className="ml-2 p-1 hover:bg-gray-200 rounded transition-colors"
+            title="Expandir"
+          >
+            <ChevronRight className="w-4 h-4 text-gray-600" />
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // Vista expandida: separar en columnas internas que se desplazan a la derecha
+  const chunkSize = 6; // cuántos elementos por columna
+  const columns: string[][] = [];
+  for (let i = 0; i < items.length; i += chunkSize) {
+    columns.push(items.slice(i, i + chunkSize));
+  }
+
+  return (
+    <div className="flex items-start justify-between w-full">
+      <div className="flex-1 min-w-0 overflow-x-auto">
+        <div className="flex gap-6">
+          {columns.map((colItems, colIndex) => (
+            <div
+              key={colIndex}
+              className="min-w-[10rem] space-y-1"
+            >
+              {colItems.map((item, idx) => (
+                <div
+                  key={idx}
+                  className="text-xs text-gray-700"
+                >
+                  • {item}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {hasMultipleItems && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleRowExpansion(rowIndex);
+          }}
+          className="ml-2 p-1 hover:bg-gray-200 rounded transition-colors"
+          title="Contraer"
+        >
+            <ChevronDown className="w-4 h-4 text-gray-600" />
+        </button>
+      )}
+    </div>
+  );
+};
+
+  const formatColumnTitle = (key: string) => {
+    const text = key
+      .replace(/_/g, " ")
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .toUpperCase();
+    
+    const words = text.trim().split(/\s+/);
+    
+    if (words.length === 1) {
+      return words[0];
+    }
+    
+    if (words.length % 2 !== 0) {
+      const firstLineWords = Math.ceil(words.length / 2);
+      const firstLine = words.slice(0, firstLineWords).join(" ");
+      const secondLine = words.slice(firstLineWords).join(" ");
+      return `${firstLine}\n${secondLine}`;
+    }
+    
+    const half = words.length / 2;
+    const firstLine = words.slice(0, half).join(" ");
+    const secondLine = words.slice(half).join(" ");
+    return `${firstLine}\n${secondLine}`;
+  };
+
+const FORCE_SPLIT_COLS = new Set(["nombre", "cliente", "nombre_cliente"]);
+ 
   const toUpperNoAccents = (s: string) =>
     s
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
       .toUpperCase();
 
-  /** ¿Debemos hacer split en esta columna por config general? */
   const shouldSplitCol = (colKey: string) =>
     splitStringsBySpace &&
     (Array.isArray(splitColumns) ? splitColumns.includes(colKey) : true);
 
-  /** Render genérico con reglas específicas para nombre/cliente */
-  const renderValue = (colKey: string, value: unknown) => {
-    const lc = colKey.toLowerCase();
-    const isForcedNameCol = FORCE_SPLIT_COLS.has(lc);
+  const renderValue = (colKey: string, value: unknown, rowIndex: number) => {
+  // Primero verificar si es una columna expandible
+  if (isColumnExpandable(colKey, value)) {
+    return renderExpandableValue(colKey, value, rowIndex, expandedRows.has(rowIndex));
+  }
 
-    if (typeof value === "string") {
-      // Para "nombre" / "cliente": forzar MAYÚSCULAS + sin acentos
-      const base = isForcedNameCol ? toUpperNoAccents(value) : value;
+  const lc = colKey.toLowerCase();
+  const isForcedNameCol = FORCE_SPLIT_COLS.has(lc);
 
-      // Split por espacios si (a) es columna forzada o (b) el split global/por columna aplica
-      const mustSplit = isForcedNameCol || shouldSplitCol(colKey);
-      if (mustSplit) {
-        const withNewLines = base.trim().split(/\s+/).join("\n");
-        return <span className="whitespace-pre-line break-words">{withNewLines}</span>;
-      }
+  if (typeof value === "string") {
+    const base = toUpperNoAccents(value);
 
-      // Si no se hace split, al menos respeta el upper/sin acento para nombre/cliente
-      if (isForcedNameCol) {
-        return <span className="break-words">{base}</span>;
-      }
+    if (isForcedNameCol) {
+  const words = base.trim().split(/\s+/);
+
+  if (words.length <= 1) {
+    return (
+      <span className="block break-words text-center text-[11px] leading-tight">
+        {base}
+      </span>
+    );
+  }
+
+  // pares: mitad y mitad
+  // nones: una palabra más abajo que arriba
+  const firstLineWords =
+    words.length % 2 === 0
+      ? words.length / 2
+      : Math.floor(words.length / 2);
+
+  const firstLine = words.slice(0, firstLineWords).join(" ");
+  const secondLine = words.slice(firstLineWords).join(" ");
+
+  return (
+    <span className="block whitespace-pre-line break-words text-center text-[11px] leading-tight">
+      {firstLine + "\n" + secondLine}
+    </span>
+  );
+}
+
+
+    // resto de columnas que sí usan splitStringsBySpace normal
+    const mustSplit = shouldSplitCol(colKey);
+    if (mustSplit) {
+      const withNewLines = value.trim().split(/\s+/).join("\n");
+      return (
+        <span className="whitespace-pre-line break-words">
+          {withNewLines}
+        </span>
+      );
     }
 
-    return String(value ?? "");
-  };
+    return <span className="break-words">{value}</span>;
+  }
+
+  return String(value ?? "");
+};
 
   return (
     <div className="relative w-full">
@@ -219,6 +406,9 @@ export const Table5 = <T,>({
                           className="ml-2 text-sm text-gray-700"
                         >
                           {key.replace(/_/g, " ").toUpperCase()}
+                          {expandableColumns.includes(key) && (
+                            <span className="ml-1 text-xs text-blue-600">[expandible]</span>
+                          )}
                         </label>
                       </div>
                     ))}
@@ -250,16 +440,23 @@ export const Table5 = <T,>({
                         setLoading(true);
                         handleSort(key);
                       }}
-                      className="px-6 min-w-fit whitespace-nowrap py-3 text-left cursor-pointer text-xs font-medium text-gray-600 uppercase tracking-wider"
+className="px-3 min-w-fit whitespace-nowrap py-2 text-left cursor-pointer text-[11px] font-medium text-gray-600 uppercase tracking-wider"
                     >
-                      <span className="flex gap-2">
+                      <span className="flex flex-col items-start gap-1">
                         {key === (currentSort.key || "") && (
                           <ArrowDown
-                            className={`w-4 h-4 transition-transform ${!currentSort.sort ? "" : "rotate-180"
+                            className={`w-3 h-3 transition-transform self-center ${!currentSort.sort ? "" : "rotate-180"
                               }`}
                           />
                         )}
-                        {key.replace(/_/g, " ").toUpperCase()}
+                        <div className="whitespace-pre-line text-center w-full leading-tight">
+                          {formatColumnTitle(key)}
+                          {expandableColumns.includes(key) && (
+                            <div className="text-xs font-normal text-blue-600 mt-1">
+                              (Expandible)
+                            </div>
+                          )}
+                        </div>
                       </span>
                     </th>
                   ))}
@@ -267,52 +464,51 @@ export const Table5 = <T,>({
             </thead>
 
             <tbody className="bg-white divide-y divide-gray-200">
-              {displayData.map((item, index) => {
-                const zebraClass = index % 2 === 0 ? "bg-white" : "bg-gray-50";
+{displayData.map((item, index) => {
+  const zebraClass = index % 2 === 0 ? "bg-white" : "bg-gray-50";
+  const rowExtraClass = getRowClassName
+    ? getRowClassName(item, index)
+    : "";
+  const baseBgClass =
+    rowExtraClass && rowExtraClass.includes("bg-")
+      ? rowExtraClass
+      : zebraClass + (rowExtraClass ? ` ${rowExtraClass}` : "");
+  const isExpanded = expandedRows.has(index);
 
-                const rowExtraClass = getRowClassName
-                  ? getRowClassName(item, index)
-                  : "";
+  return (
+    <tr
+      key={`row-${item.id !== undefined ? item.id : index}`}
+      className={`${baseBgClass} cursor-pointer hover:bg-blue-50 transition-colors`}
+    >
+      {columnKeys
+        .filter((key) => visibleColumns.has(key))
+        .map((colKey) => {
+          const Renderer = renderers[colKey];
+          const value = item[colKey];
 
-                const baseBgClass =
-                  rowExtraClass && rowExtraClass.includes("bg-")
-                    ? rowExtraClass
-                    : zebraClass + (rowExtraClass ? ` ${rowExtraClass}` : "");
+          return (
+            <td
+  key={`${item.id !== undefined ? item.id : index}-${colKey}`}
+  className={`px-2 py-1 text-[11px] text-gray-900 align-middle ${
+    expandableColumns.includes(colKey) ? "align-top w-72" : ""
+  }`}
+>
 
-                return (
-                  <tr
-                    key={item.id !== undefined ? item.id : index}
-                    className={`${baseBgClass} cursor-pointer hover:bg-blue-50 transition-colors`}
-                  >
-                    {columnKeys
-                      .filter((key) => visibleColumns.has(key))
-                      .map((colKey) => {
-                        const Renderer = renderers[colKey];
-                        const value = item[colKey];
+  {Renderer ? (
+    <Renderer value={value} item={item.item} index={index} />
+  ) : (
+    <div className="whitespace-pre-line break-words">
+      {renderValue(colKey, value, index)}
+    </div>
+  )}
+</td>
+          );
+        })}
+    </tr>
+  );
+})}
 
-                        return (
-                          <td
-                            key={`${item.id !== undefined ? item.id : index
-                              }-${colKey}`}
-                            className="px-6 py-2 whitespace-nowrap text-xs text-gray-900"
-                          >
-                            {Renderer ? (
-                              <Renderer
-                                value={value}
-                                item={item.item}
-                                index={index}
-                              />
-                            ) : (
-                              <div className="whitespace-pre-line break-words">
-                                {renderValue(colKey, value)}
-                              </div>
-                            )}
-                          </td>
-                        );
-                      })}
-                  </tr>
-                );
-              })}
+
             </tbody>
           </table>
         </div>
@@ -325,5 +521,4 @@ export const Table5 = <T,>({
       )}
     </div>
   );
-
 };

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { API_KEY, URL } from "@/lib/constants";
-import { Eye } from 'lucide-react';
+import { Eye, Factory } from 'lucide-react';
 import { Table5 } from "@/components/Table5";
 import { formatNumberWithCommas } from "@/helpers/utils";
 import DetallesFacturas from "./components/facturas";
@@ -50,6 +50,67 @@ const getDiasVencida = (
   return diff;
 };
 
+// Convierte "2025-11-11 13:38:19.000000" o "2025-11-11" a Date UTC (solo fecha)
+export const parseToUtcDate = (value?: string | null): Date | null => {
+  if (!value) return null;
+
+  const [datePart] = value.trim().split(" "); // nos quedamos con "YYYY-MM-DD"
+  const [y, m, d] = datePart.split("-").map(Number);
+
+  if (!y || !m || !d) return null;
+
+  return new Date(Date.UTC(y, m - 1, d)); // mes base 0
+};
+
+// Diferencia en días: end - start (puede ser negativo si end < start)
+export const diffInDays = (
+  start: string | null | undefined,
+  end: string | null | undefined
+): number | null => {
+  const d1 = parseToUtcDate(start || "");
+  const d2 = parseToUtcDate(end || "");
+
+  if (!d1 || !d2) return null;
+
+  const msPerDay = 1000 * 60 * 60 * 24;
+  const diffMs = d2.getTime() - d1.getTime();
+
+  return Math.floor(diffMs / msPerDay);
+};
+
+
+const getDatosFac = (factura: any) => {
+  // Días de crédito: vencimiento - creación
+  const diasCreditoRaw = diffInDays(
+    factura.created_at,
+    factura.fecha_vencimiento
+  );
+
+  const diasCredito =
+    diasCreditoRaw != null ? Math.max(diasCreditoRaw, 0) : null;
+
+  // Hoy en formato "YYYY-MM-DD"
+  const hoyStr = new Date().toISOString().slice(0, 10);
+
+  // Días restantes: vencimiento - hoy
+  const diasRestantesRaw = diffInDays(
+    hoyStr,
+    factura.fecha_vencimiento
+  );
+
+  // Si ya está vencida, lo dejamos en 0 (no números negativos)
+  const diasRestantes =
+    diasRestantesRaw != null ? Math.max(diasRestantesRaw, 0) : null;
+
+  console.log({ diasCredito, diasRestantes, facturaId: factura.id_factura });
+
+  return {
+    diasRestantes,
+    diasCredito,
+  };
+};
+
+
 // Estructura de cada agente con buckets de días
 type GrupoAgente = {
   id_cliente: string | null;
@@ -64,6 +125,9 @@ type GrupoAgente = {
   mas_30: number;     // >30
   adeudo_total: number;
   facturas: any[];
+  facturas_credito: any;
+  adeudo_vigente?: number;
+  adeudo_vencido?: number;
 };
 
 export default function ResumenAgentesPage() {
@@ -75,6 +139,7 @@ export default function ResumenAgentesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [agenteSeleccionado, setAgenteSeleccionado] =
     useState<GrupoAgente | null>(null);
+
 
   // Fetch de datos
   useEffect(() => {
@@ -108,6 +173,7 @@ export default function ResumenAgentesPage() {
                 id_cliente: agenteData.id_agente,
                 nombre_cliente: getAgentName(agenteData.nombre_agente),
                 total_facturas: facturas.length,
+                facturas_credito:[],
                 vigentes: 0,
                 dia_7: 0,
                 dia_15: 0,
@@ -116,23 +182,28 @@ export default function ResumenAgentesPage() {
                 mas_30: 0,
                 adeudo_total: 0,
                 facturas,
+                adeudo_vencido : 0,
+                adeudo_vigente : 0,
               };
 
               facturas.forEach((factura: any) => {
                 const saldo = parseFloat(factura.saldo) || 0;
                 grupo.adeudo_total += saldo;
+                grupo.adeudo_vencido += getDiasVencida(factura.fecha_vencimiento)! > 0 ? saldo : 0;
+                grupo.adeudo_vigente += getDiasVencida(factura.fecha_vencimiento)! <= 0 ? saldo : 0;
 
                 const dias = getDiasVencida(factura.fecha_vencimiento);
-
+                
                 if (dias === null) {
                   // si no hay fecha de vencimiento, la podemos tratar como vigente
                   grupo.vigentes++;
                   return;
                 }
-
                 if (dias <= 0) {
                   // aún no llega o justo hoy
+                  console.log("factura",factura)
                   grupo.vigentes++;
+                  grupo.facturas_credito.push(getDatosFac(factura));
                 } else if (dias <= 7) {
                   grupo.dia_7++;
                 } else if (dias <= 15) {
@@ -165,6 +236,7 @@ export default function ResumenAgentesPage() {
     fetchDatosAgentes();
   }, []);
 
+
   // Abrir modal
   const handleVerFacturas = (agente: GrupoAgente) => {
     setAgenteSeleccionado(agente);
@@ -184,9 +256,10 @@ export default function ResumenAgentesPage() {
         id_cliente: getAgentId(agente.id_cliente),
         nombre_cliente: agente.nombre_cliente,
         total_facturas: agente.total_facturas,
-
         // Lo importante para la “línea de tiempo”:
         vigentes: agente.vigentes,
+        vencidas:agente.total_facturas-agente.vigentes,
+        //credito expandible
         dia_7: agente.dia_7,
         dia_15: agente.dia_15,
         dia_20: agente.dia_20,
@@ -200,72 +273,95 @@ export default function ResumenAgentesPage() {
   }, [datosAgentes]);
 
   // Renderers personalizados
-  const renderers = {
-    acciones: ({ value }) => (
-  <button
-    onClick={value.onClick}
-    className="flex items-center gap-2 text-xs px-3 py-1 rounded bg-gray-100 hover:bg-gray-200 transition-colors"
-  >
-    <Eye size={14} /> 
-    <span>({value.totalFacturas})</span>
-  </button>
-),
-    // nombre_cliente: ({ value }: { value: string }) => (
-    //   <span
-    //     className 
-    //     = "font-bold"
-    //   >
-    //     {value}
-    //   </span>
-    // ),
-    id_cliente: ({ value }: { value: string }) => (
-      <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
+const renderers = {
+  acciones: ({ value }) => (
+    <button
+      onClick={value.onClick}
+      className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded bg-gray-100 hover:bg-gray-200 transition-colors"
+    >
+      <Eye size={12} />
+      <span>({value.totalFacturas})</span>
+    </button>
+  ),
+
+  id_cliente: ({ value }: { value: string }) => (
+    <div className="flex justify-center">
+      <span className="font-mono text-[11px] bg-gray-100 px-2 py-0.5 rounded">
         {value === "N/A" ? "N/A" : `${value.substring(0, 8)}...`}
       </span>
-    ),
-    total_facturas: ({ value }: { value: number }) => (
-      <span className="font-bold text-blue-600 text-center block">
-        {value}
-      </span>
-    ),
+    </div>
+  ),
 
-    // Aquí ya solo mostramos números claros, para que se entienda:
-    vigentes: ({ value }: { value: number }) => (
-      <span className="font-semibold text-emerald-600 text-center block">
+  total_facturas: ({ value }: { value: number }) => (
+    <div className="flex justify-center">
+      <span className="font-bold text-blue-600 text-xs">
         {value}
       </span>
-    ),
-    dia_7: ({ value }: { value: number }) => (
-      <span className="font-semibold text-green-600 text-center block">
-        {value}
-      </span>
-    ),
-    dia_15: ({ value }: { value: number }) => (
-      <span className="font-semibold text-lime-600 text-center block">
-        {value}
-      </span>
-    ),
-    dia_20: ({ value }: { value: number }) => (
-      <span className="font-semibold text-yellow-500 text-center block">
-        {value}
-      </span>
-    ),
-    dias_30: ({ value }: { value: number }) => (
-      <span className="font-semibold text-orange-500 text-center block">
-        {value}
-      </span>
-    ),
-    mas_30: ({ value }: { value: number }) => (
-      <span className="font-semibold text-red-600 text-center block">
-        {value}
-      </span>
-    ),
+    </div>
+  ),
 
-    adeudo_total: ({ value }: { value: number }) => (
-      <span className="font-bold text-purple-600">{money(value)}</span>
-    ),
-  
-  };
+  vigentes: ({ value }: { value: number }) => (
+    <div className="flex justify-center">
+      <span className="font-semibold text-emerald-600 text-xs">
+        {value}
+      </span>
+    </div>
+  ),
+vencidas: ({ value }: { value: number }) => (
+    <div className="flex justify-center">
+      <span className="font-semibold text-red-600 text-xs">
+        {value}
+      </span>
+    </div>
+  ),
+  dia_7: ({ value }: { value: number }) => (
+    <div className="flex justify-center">
+      <span className="font-semibold text-green-600 text-xs">
+        {value}
+      </span>
+    </div>
+  ),
+
+  dia_15: ({ value }: { value: number }) => (
+    <div className="flex justify-center">
+      <span className="font-semibold text-lime-600 text-xs">
+        {value}
+      </span>
+    </div>
+  ),
+
+  dia_20: ({ value }: { value: number }) => (
+    <div className="flex justify-center">
+      <span className="font-semibold text-yellow-500 text-xs">
+        {value}
+      </span>
+    </div>
+  ),
+
+  dias_30: ({ value }: { value: number }) => (
+    <div className="flex justify-center">
+      <span className="font-semibold text-orange-500 text-xs">
+        {value}
+      </span>
+    </div>
+  ),
+
+  mas_30: ({ value }: { value: number }) => (
+    <div className="flex justify-center">
+      <span className="font-semibold text-red-600 text-xs">
+        {value}
+      </span>
+    </div>
+  ),
+
+  adeudo_total: ({ value }: { value: number }) => (
+    <div className="flex justify-end">
+      <span className="font-bold text-purple-600 text-xs">
+        {money(value)}
+      </span>
+    </div>
+  ),
+};
 
   // Columnas que se muestran en Table5
   const customColumns = [
@@ -276,12 +372,13 @@ export default function ResumenAgentesPage() {
 
     // “Línea de tiempo” por días (lo que quieres que se entienda visualmente)
     "vigentes",
+    "vencidas",
     "dia_7",
     "dia_15",
     "dia_20",
     "dias_30",
     "mas_30",
-
+    "credito",
     "adeudo_total",
   ];
 
@@ -297,7 +394,13 @@ export default function ResumenAgentesPage() {
         (sum, agente) => sum + agente.adeudo_total,
         0
       ),
-      totalVigentes: datosAgentes.reduce(
+      totalVigente:datosAgentes.reduce(
+        (sum,agente)=>sum + agente.adeudo_vigente,0
+      ),
+      totalVencido:datosAgentes.reduce(
+        (sum,agente)=>sum + agente.adeudo_vencido,0
+      ),
+      totalFacVigentes: datosAgentes.reduce(
         (sum, agente) => sum + agente.vigentes,
         0
       ),
@@ -357,16 +460,12 @@ export default function ResumenAgentesPage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-6 bg-slate-50 rounded-md">
       <header className="mb-6 border-b pb-4">
         <h1 className="text-2xl font-bold text-gray-800">
-          Resumen de Cuentas por Cobrar por Agente
+          Resumen de Cuentas por Cobrar por Cliente
         </h1>
-        <p className="text-sm text-gray-600">
-          Vista resumida de facturas pendientes agrupadas por agente
-        </p>
       </header>
-
       {datosAgentes.length === 0 ? (
         <div className="text-center py-10 border rounded-lg bg-gray-50">
           <p className="text-gray-500">
@@ -376,32 +475,37 @@ export default function ResumenAgentesPage() {
       ) : (
         <div className="space-y-6">
           {/* Estadísticas generales */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-              <h3 className="text-sm font-semibold text-blue-800 mb-1">
-                Total Agentes
-              </h3>
-              <p className="text-2xl font-bold text-blue-600">
-                {totales.totalAgentes}
-              </p>
-            </div>
-            <div className="bg-green-50 p-4 rounded-lg border border-green-100">
-              <h3 className="text-sm font-semibold text-green-800 mb-1">
-                Total Facturas
-              </h3>
-              <p className="text-2xl font-bold text-green-600">
-                {totales.totalFacturas}
-              </p>
-            </div>
-            <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
-              <h3 className="text-sm font-semibold text-purple-800 mb-1">
-                Adeudo Total
-              </h3>
-              <p className="text-2xl font-bold text-purple-600">
-                {money(totales.totalAdeudo)}
-              </p>
-            </div>
-          </div>
+          <div className="flex flex-nowrap overflow-x-auto gap-3 pb-2">
+    <div className="min-w-[180px] bg-orange-50 p-4 rounded-lg border border-orange-100 flex-shrink-0">
+      <h3 className="text-sm font-semibold text-orange-800 mb-1">Total Clientes</h3>
+      <p className="text-2xl font-bold text-orange-600">{totales.totalAgentes}</p>
+    </div>
+    <div className="min-w-[180px] bg-blue-50 p-4 rounded-lg border border-blue-100 flex-shrink-0">
+      <h3 className="text-sm font-semibold text-blue-800 mb-1">Total Facturas</h3>
+      <p className="text-2xl font-bold text-blue-600">{totales.totalFacturas}</p>
+    </div>
+    <div className="min-w-[180px] bg-green-50 p-4 rounded-lg border border-green-100 flex-shrink-0">
+      <h3 className="text-sm font-semibold text-green-800 mb-1">Facturas Vigentes</h3>
+      <p className="text-2xl font-bold text-green-600">{totales.totalFacVigentes}</p>
+    </div>
+    <div className="min-w-[180px] bg-red-50 p-4 rounded-lg border border-red-100 flex-shrink-0">
+      <h3 className="text-sm font-semibold text-red-800 mb-1">Facturas Vencidas</h3>
+      <p className="text-2xl font-bold text-red-600">{totales.totalFacturas - totales.totalFacVigentes}</p>
+    </div>
+    <div className="min-w-[180px] bg-purple-50 p-4 rounded-lg border border-purple-100 flex-shrink-0">
+      <h3 className="text-sm font-semibold text-purple-800 mb-1">Adeudo Total</h3>
+      <p className="text-2xl font-bold text-purple-600">{money(totales.totalAdeudo)}</p>
+    </div>
+    <div className="min-w-[180px] bg-purple-50 p-4 rounded-lg border border-purple-100 flex-shrink-0">
+      <h3 className="text-sm font-semibold text-purple-800 mb-1">Total Vigente</h3>
+      <p className="text-2xl font-bold text-purple-600">{money(totales.totalVigente)}</p>
+    </div>
+    <div className="min-w-[180px] bg-purple-50 p-4 rounded-lg border border-purple-100 flex-shrink-0">
+      <h3 className="text-sm font-semibold text-purple-800 mb-1">Total Vencido</h3>
+      <p className="text-2xl font-bold text-purple-600">{money(totales.totalVencido)}</p>
+    </div>
+  </div>
+
 
           {/* Resumen tipo “línea de tiempo” global */}
           <div className="bg-white border rounded-lg p-4">
@@ -411,7 +515,7 @@ export default function ResumenAgentesPage() {
             <div className="grid grid-cols-2 md:grid-cols-6 gap-3 text-center text-xs">
               <div>
                 <div className="text-lg font-bold text-emerald-600">
-                  {totales.totalVigentes}
+                  {totales.totalFacVigentes}
                 </div>
                 <div className="text-gray-600">Vigentes</div>
               </div>
@@ -454,8 +558,8 @@ export default function ResumenAgentesPage() {
               registros={registros}
               renderers={renderers}
               customColumns={customColumns}
+              expandableColumns={["credito"]}
               exportButton={true}
-              leyenda={`Mostrando ${datosAgentes.length} agente(s) - ${totales.totalFacturas} facturas`}
               maxHeight="calc(100vh - 400px)"
             />
           </div>
@@ -464,13 +568,19 @@ export default function ResumenAgentesPage() {
 
       {/* Modal de detalles de facturas */}
       <DetallesFacturas
-        open={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        agente={agenteSeleccionado}
-        facturas={agenteSeleccionado?.facturas || []}
-        formatDate={formatDate}
-        money={money}
-      />
+  open={isModalOpen}
+  onClose={() => setIsModalOpen(false)}
+  agente={agenteSeleccionado}
+  facturas={
+    (agenteSeleccionado?.facturas || []).map((factura) => ({
+      ...factura,
+      ...getDatosFac(factura),
+    }))
+  }
+  formatDate={formatDate}
+  money={money}
+/>
+
     </div>
   );
 }

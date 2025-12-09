@@ -1,6 +1,8 @@
 "use client";
 
 import React from "react";
+// 🔹 Ajusta la ruta según tu proyecto
+import { Table5 } from "@/components/Table5";
 
 interface DetallesFacturasProps {
   open: boolean;
@@ -24,6 +26,102 @@ const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
   money,
 }) => {
   if (!open) return null;
+
+  // Adaptamos facturas al formato que le gusta a Table5 (le agregamos item por si usas ese patrón)
+  console.log("facturas",facturas)
+  const registros = facturas.map((f) => ({
+    uuid:f.uuid_factura,
+    rfc:f.rfc,
+    total:f.total,
+    saldo:f.saldo,
+    dias_a_credito:f.diasCredito,
+    dias_restantes:f.diasRestantes,
+    id_factura: f.id_factura,
+    fecha_emision:f.fecha_emision,
+    item: f,
+  }));
+
+  // Renderers específicos para columnas de facturas
+  const renderers: {
+    [key: string]: React.FC<{ value: any; item: any; index: number }>;
+  } = {
+    id_factura: ({ value }) => (
+      <span
+        className="font-mono text-[10px] md:text-xs"
+        title={value}
+      >
+        {value ? `${String(value).substring(0, 12)}...` : "—"}
+      </span>
+    ),
+
+    uuid_factura: ({ value }) => (
+      <span
+        className="font-mono bg-gray-100 px-2 py-1 rounded text-[10px] md:text-xs"
+        title={value}
+      >
+        {value ? `${String(value).substring(0, 8)}...` : "—"}
+      </span>
+    ),
+
+    fecha_emision: ({ value }) => (
+      <span className="text-gray-600">
+        {formatDate(value ?? null)}
+      </span>
+    ),
+
+    total: ({ value }) => (
+      <span className="font-bold text-blue-600">
+        {money(parseFloat(value) || 0)}
+      </span>
+    ),
+
+    saldo: ({ value, item }) => {
+      const saldo = parseFloat(value) || 0;
+      const total = parseFloat(item.total) || 0;
+      let vencido = false;
+      const porcentajePagado =
+        total > 0 ? ((total - saldo) / total) * 100 : 0;
+      console.log("slado0",item)
+      if (item.diasRestantes <= 0) {
+        vencido = true;
+        console.log(vencido,"entro")
+      }
+      return (
+        <div className="flex flex-col gap-1">
+          <span
+            className={`font-bold ${
+              vencido != true ? "text-green-600" : "text-red-500"
+            }`}
+          >
+            {money(saldo)}
+          </span>
+          {vencido != true ? (
+            <div className="w-full bg-gray-200 rounded-full h-1.5">
+            <div
+              className="bg-green-600 h-1.5 rounded-full"
+              style={{
+                width: `${100 - porcentajePagado}%`,
+              }}
+            />
+          </div>
+          ):
+(<div className="w-full bg-gray-200 rounded-full h-1.5">
+            <div
+              className="bg-red-600 h-1.5 rounded-full"
+              style={{
+                width: `${100 - porcentajePagado}%`,
+              }}
+            />
+          </div>)
+          }
+        </div>
+      );
+    },
+
+    rfc: ({ value }) => (
+      <span className="text-gray-700">{value || "—"}</span>
+    ),
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
@@ -64,121 +162,24 @@ const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
             </p>
           ) : (
             <div className="border rounded-lg overflow-hidden">
-              <div className="max-h-[60vh] overflow-auto">
-                <table className="min-w-full text-xs md:text-sm">
-                  <thead className="bg-gray-50 sticky top-0 z-10">
-                    <tr className="text-left">
-                      <th className="px-3 py-2 font-medium text-gray-700">
-                        ID Factura
-                      </th>
-                      <th className="px-3 py-2 font-medium text-gray-700">
-                        RFC
-                      </th>
-                      <th className="px-3 py-2 font-medium text-gray-700">
-                        UUID
-                      </th>
-                      <th className="px-3 py-2 font-medium text-gray-700">
-                        Emisión
-                      </th>
-                      <th className="px-3 py-2 font-medium text-gray-700">
-                        Total
-                      </th>
-                      <th className="px-3 py-2 font-medium text-gray-700">
-                        Saldo
-                      </th>
-                      <th className="px-3 py-2 font-medium text-gray-700">
-                        Subtotal
-                      </th>
-                      <th className="px-3 py-2 font-medium text-gray-700">
-                        Impuestos
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {facturas.map((factura, idx) => {
-                      const saldo = parseFloat(factura.saldo) || 0;
-                      const total = parseFloat(factura.total) || 0;
-                      const porcentajePagado =
-                        total > 0
-                          ? ((total - saldo) / total) * 100
-                          : 0;
-
-                      return (
-                        <tr
-                          key={factura.id_factura || idx}
-                          className="border-t hover:bg-gray-50"
-                        >
-                          <td className="px-3 py-2">
-                            <span
-                              className="font-mono text-[10px] md:text-xs"
-                              title={factura.id_factura}
-                            >
-                              {factura.id_factura
-                                ? `${String(
-                                    factura.id_factura
-                                  ).substring(0, 12)}...`
-                                : "—"}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2 text-gray-700">
-                            {factura.rfc || "—"}
-                          </td>
-                          <td className="px-3 py-2">
-                            <span
-                              className="font-mono bg-gray-100 px-2 py-1 rounded text-[10px] md:text-xs"
-                              title={factura.uuid_factura}
-                            >
-                              {factura.uuid_factura
-                                ? `${String(
-                                    factura.uuid_factura
-                                  ).substring(0, 8)}...`
-                                : "—"}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2 text-gray-600">
-                            {formatDate(factura.fecha_emision)}
-                          </td>
-                          <td className="px-3 py-2 font-bold text-blue-600">
-                            {money(total)}
-                          </td>
-                          <td
-                            className={`px-3 py-2 font-bold ${
-                              saldo > 0
-                                ? "text-green-600"
-                                : "text-gray-500"
-                            }`}
-                          >
-                            <div className="flex flex-col gap-1">
-                              <span>{money(saldo)}</span>
-                              <div className="w-full bg-gray-200 rounded-full h-1.5">
-                                <div
-                                  className="bg-green-600 h-1.5 rounded-full"
-                                  style={{
-                                    width: `${100 - porcentajePagado}%`,
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-3 py-2 text-gray-700">
-                            {money(
-                              parseFloat(factura.subtotal) || 0
-                            )}
-                          </td>
-                          <td className="px-3 py-2 text-gray-700">
-                            {money(
-                              parseFloat(factura.impuestos) || 0
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="bg-gray-50 px-3 py-2 border-t text-xs text-gray-600">
-                <span>Mostrando {facturas.length} factura(s)</span>
+              <div className="p-2">
+                <Table5<any>
+                  registros={registros}
+                  renderers={renderers}
+                  exportButton={false} // si quieres evitar botón CSV dentro del modal
+                  leyenda={`Mostrando ${facturas.length} factura(s)`}
+                  maxHeight="60vh"
+                  customColumns={[
+                    "id_factura",
+                    "rfc",
+                    "uuid_factura",
+                    "fecha_emision",
+                    "total",
+                    "saldo",
+                    "dias_a_credito",
+                    "dias_restantes",
+                  ]}
+                />
               </div>
             </div>
           )}
