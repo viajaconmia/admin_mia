@@ -283,6 +283,13 @@ const renderers = {
       <span>({value.totalFacturas})</span>
     </button>
   ),
+    nombre_cliente: ({ value }: { value: string }) => (
+    <div className="flex justify-center">
+      <span className="font-semibold text-xs text-gray-800">
+        {value}
+      </span>
+    </div>
+  ),
 
   id_cliente: ({ value }: { value: string }) => (
     <div className="flex justify-center">
