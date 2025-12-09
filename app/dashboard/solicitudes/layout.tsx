@@ -4,16 +4,16 @@ import { WraperContainer } from "@/components/atom/WraperContainer";
 import { Tab, TabsList } from "@/components/molecule/TabsList";
 import { PERMISOS } from "@/constant/permisos";
 import { usePermiso } from "@/hooks/usePermission";
-import { ShieldCheck, Users2 } from "lucide-react";
+import { Building2, CheckCircle } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 
-export default function AdministracionLayout({ children }) {
+export default function App({ children }) {
   const pathname = usePathname();
   const router = useRouter();
   const { hasAccess } = usePermiso();
   let selected = pathname.split("/").filter((item) => Boolean(item))[2] || "";
 
-  hasAccess(PERMISOS.VISTAS.ADMIN);
+  hasAccess(PERMISOS.VISTAS.SOLICITUDES);
 
   return (
     <WraperContainer>
@@ -23,7 +23,7 @@ export default function AdministracionLayout({ children }) {
             tabs={tabRouterAdministracion}
             activeTab={selected}
             onChange={(value) => {
-              router.push(`/dashboard/admin/${value}`);
+              router.push(`/dashboard/solicitudes/${value}`);
             }}
           />
         </div>
@@ -34,14 +34,6 @@ export default function AdministracionLayout({ children }) {
 }
 
 const tabRouterAdministracion: Tab[] = [
-  {
-    tab: "usuarios",
-    label: "Usuarios",
-    icon: Users2,
-  },
-  {
-    tab: "roles",
-    label: "Roles",
-    icon: ShieldCheck,
-  },
+  { label: "hoteles", icon: Building2, tab: "hoteles" },
+  { label: "cotizaciones", icon: CheckCircle, tab: "cotizaciones" },
 ];

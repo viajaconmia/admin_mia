@@ -4,6 +4,7 @@ export class BookingsService extends ApiService {
   private ENDPOINTS = {
     GET: {
       ITEMS: "/items",
+      COTIZACIONES: "/cotizaciones",
     },
     PUT: {
       ITEMS: "/items",
@@ -20,6 +21,11 @@ export class BookingsService extends ApiService {
     return this.get<Item[]>({
       path: this.formatPath(this.ENDPOINTS.GET.ITEMS),
       params: { id_hospedaje },
+    });
+  };
+  public obtenerCotizaciones = async (): Promise<ApiResponse<any>> => {
+    return this.get({
+      path: this.formatPath(this.ENDPOINTS.GET.COTIZACIONES),
     });
   };
   public actualizarItems = async (items: (Item & { edit: boolean })[]) => {
