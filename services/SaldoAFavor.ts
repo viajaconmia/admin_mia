@@ -111,7 +111,6 @@ export class SaldoFavor {
     idAgente: string,
     incluirCreditoWallet: boolean = false
   ) {
-    console.log(idAgente);
     return this.request<{ message: string; data: Saldo[] }>(
       `/${idAgente}${incluirCreditoWallet ? "?incluir=true" : ""}`,
       {

@@ -448,30 +448,59 @@ export const CarRentalPage = ({ agente }: { agente: Agente }) => {
 
         <div className="py-6 px-4 rounded-t-lg bg-sky-50 flex flex-col space-y-4">
           <div className="grid grid-cols-7 gap-2 w-full">
+            <TextAreaInput
+              rows={1}
+              label="Comentarios"
+              value={state.comentarios || ""}
+              className="col-span-3"
+              onChange={(value: string) => {
+                handleUpdateCarRental("comentarios", value);
+              }}
+            />
+            <ComboBox2
+              label="Intermediario"
+              className="col-span-3"
+              value={
+                state.intermediario
+                  ? {
+                      name: state.intermediario.nombre,
+                      content: state.intermediario,
+                    }
+                  : null
+              }
+              onChange={(value: ComboBoxOption2<Proveedor>) => {
+                handleUpdateCarRental("intermediario", value.content);
+              }}
+              options={proveedores.map((intermediario) => ({
+                name: intermediario.nombre,
+                content: intermediario,
+              }))}
+            />
+            <Button
+              icon={Plus}
+              className="self-end"
+              type="button"
+              onClick={() => {
+                setSave("renta_carro");
+              }}
+            >
+              Agregar
+            </Button>
             <NumberInput
               label="Costo proveedor"
               value={state.costo}
-              className="col-span-2"
+              className="col-span-3"
               onChange={(value: string) =>
                 handleUpdateCarRental("costo", Number(value))
               }
             />
             <NumberInput
               label="Precio a cliente"
-              className="col-span-2"
+              className="col-span-3"
               value={state.precio}
               onChange={(value: string) =>
                 handleUpdateCarRental("precio", Number(value))
               }
-            />
-            <TextAreaInput
-              rows={1}
-              label="Comentarios"
-              value={state.comentarios || ""}
-              className="col-span-2"
-              onChange={(value: string) => {
-                handleUpdateCarRental("comentarios", value);
-              }}
             />
 
             <div className="pt-6">
@@ -496,6 +525,7 @@ export type CarRental = {
   check_in: string | null;
   check_out: string | null;
   proveedor: Proveedor | null;
+  intermediario: Proveedor | null;
   auto_descripcion: string | null;
   max_pasajeros: number | null;
   tipo_vehiculo: string | null;
@@ -515,6 +545,7 @@ const initialState: CarRental = {
   check_in: null,
   check_out: null,
   proveedor: null,
+  intermediario: null,
   auto_descripcion: null,
   max_pasajeros: null,
   tipo_vehiculo: null,
