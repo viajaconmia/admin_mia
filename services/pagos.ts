@@ -68,7 +68,7 @@ export const fetchPagosPrepagobalance = async (
   });
   
   const response = await fetch(
-    `${URL}/mia/pagos/getAllPagosPrepago?${queryParams.toString()}`,
+    `${URL}/mia/pagos/FacturasPendientesPrepago?${queryParams.toString()}`,
     {
       headers: {
         "x-api-key": API_KEY,
@@ -85,6 +85,7 @@ export const fetchPagosPrepagobalance = async (
   }
 
   const json = await response.json();
+  console.log("balance",json)
 
   // Verificamos la estructura de la respuesta
   if (!json || !("balance" in json) || !Array.isArray(json.balance) ){
@@ -98,6 +99,7 @@ export const fetchPagosPrepagobalance = async (
     montototal: balanceData.total_pagos || "0",
     montofacturado: balanceData.total_facturado || "0",
     restante: balanceData.restante || "0",
-    total_reservas_confirmadas:balanceData.total_reservas_confirmadas||"0"
+    total_reservas_confirmadas:balanceData.total_reservas_confirmadas||"0",
+    respuesta:json.data
   };
 };

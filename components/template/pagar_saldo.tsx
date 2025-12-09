@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { DollarSign, X, Moon } from 'lucide-react';
+import React, { useEffect, useState, useRef } from "react";
+import { DollarSign, X, Moon } from "lucide-react";
 import { URL, API_KEY } from "@/lib/constants/index";
 import { Table3 } from "@/components/organism/Table3";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { SaldoFavor } from "@/services/SaldoAFavor";
+import Modal from "../organism/Modal";
 
 interface TableRow {
   id_item: string;
@@ -85,8 +86,11 @@ interface PagarModalProps {
     // otros campos que pueda tener reservaData
   } | null;
   facturaData?: {
-    id_factura: string, nombre_agente: string, id_agente: string, monto: number,
-  } | null
+    id_factura: string;
+    nombre_agente: string;
+    id_agente: string;
+    monto: number;
+  } | null;
 }
 
 export const PagarModalComponent: React.FC<PagarModalProps> = ({
@@ -96,18 +100,30 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
   onSubmit,
   open = true,
   reservaData = null,
-  facturaData = [0],
+  facturaData = null,
 }) => {
   console.log("reservaData recibida:", reservaData);
   console.log("facturas recibida:", facturaData);
 
+  // Helper global para dinero
+  const toMoney = (v: any): number => {
+    const n = Number(v) || 0;
+    return Number(n.toFixed(2));
+  };
+
+  // Comparar si “es cero” con tolerancia
+  const isZeroMoney = (v: number): boolean => {
+    return Math.abs(toMoney(v)) < 0.01; // menos de 1 centavo lo tratamos como 0
+  };
+
+
   // Funciones para manejar las facturas
   function obtenerMontosFacturas(facturas_Data) {
-    return facturas_Data.map(factura => factura.monto);
+    return facturas_Data.map((factura) => factura.monto);
   }
 
   function obtenerSaldosFacturas(facturas_Data) {
-    return facturas_Data.map(factura => factura.saldo);
+    return facturas_Data.map((factura) => factura.saldo);
   }
 
   function sumarMontos(montosArray) {
@@ -119,7 +135,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
   let totalMonto = 0;
   let totalSaldo = 0;
 
-  if (facturaData[0] != 0) {
+  if (facturaData != null) {
     montos = obtenerMontosFacturas(facturaData);
     saldos = obtenerSaldosFacturas(facturaData);
     console.log("Total :", saldos);
@@ -127,42 +143,58 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
     totalMonto = sumarMontos(montos);
     totalSaldo = sumarMontos(saldos);
 
-    console.log("Total sumado Monto:", totalMonto);
-    console.log("Total sumado Saldo:", totalSaldo);
+    console.log("Total sumado:", totalMonto);
+    console.log("Total sumado:", totalSaldo);
   }
-  const id_agente = reservaData?.id_agente || facturaData[0]?.id_agente || "desconocido";
+  const id_agente =
+    reservaData?.id_agente || facturaData?.id_agente || "desconocido";
   // Si no hay saldoData pero hay reservaData, crear un saldoData básico
-  const effectiveSaldoData = saldoData || (reservaData || facturaData ? {
-    id_saldos: 'temporal',
-    id_agente: id_agente,
-    nombre: reservaData?.solicitud.agente.nombre || facturaData[0]?.agente || 'Agente',
-    monto: reservaData?.Total || totalMonto || 0,
-    saldo: Number(reservaData?.Total || totalSaldo || 0),
-  } : {
-    id_saldos: '',
-    id_agente: '',
-    nombre: '',
-    monto: 0,
-    saldo: 0,
-  });
+  const effectiveSaldoData =
+    saldoData ||
+    (reservaData || facturaData
+      ? {
+        id_saldos: "temporal",
+        id_agente: id_agente,
+        nombre:
+          reservaData?.solicitud.agente.nombre ||
+          facturaData?.nombre_agente ||
+          "Agente",
+        monto: reservaData?.Total || montos || 0,
+        saldo: reservaData?.Total || saldos || 0,
+      }
+      : {
+        id_saldos: "",
+        id_agente: "",
+        nombre: "",
+        monto: 0,
+        saldo: 0,
+      });
 
-  console.log("inicion", effectiveSaldoData)
+  console.log(effectiveSaldoData);
 
   const [formData, setFormData] = useState({
     montoPago: effectiveSaldoData.saldo,
-    metodoPago: effectiveSaldoData.metodo_pago || 'transferencia',
-    referencia: effectiveSaldoData.referencia || '',
-    fechaPago: effectiveSaldoData.fecha_pago || new Date().toISOString().split('T')[0]
+    metodoPago: effectiveSaldoData.metodo_pago || "transferencia",
+    referencia: effectiveSaldoData.referencia || "",
+    fechaPago:
+      effectiveSaldoData.fecha_pago || new Date().toISOString().split("T")[0],
   });
 
-  const [montoSeleccionado, setMontoSeleccionado] = useState<number>(0);
-  const [montorestante, setMontoRestante] = useState<number>(effectiveSaldoData.saldo);
+  const [montoSeleccionado, setMontoSeleccionado] = useState<number>(toMoney(0));
+  const [uno, setUno] = useState<number>(1);
+  const [montorestante, setMontoRestante] = useState<number>(
+    toMoney(effectiveSaldoData.saldo)
+  );
+
+  const autoPayTriggered = useRef(false);
   const [reservas, setReservas] = useState<ReservaConItems[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
   const [itemsSaldo, setItemsSaldo] = useState<Record<string, number>>({});
-  const [originalSaldoItems, setOriginalSaldoItems] = useState<Record<string, number>>({});
+  const [originalSaldoItems, setOriginalSaldoItems] = useState<
+    Record<string, number>
+  >({});
   const [saldoFavorData, setSaldoFavorData] = useState<any[]>([]);
 
   useEffect(() => {
@@ -176,17 +208,11 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
   }, [effectiveSaldoData.id_agente, reservaData]);
 
   useEffect(() => {
-    console.log(reservas)
-
-  }, [reservas])
-
-  useEffect(() => {
-    if (facturaData[0] != 0) {
+    if (facturaData) {
       // Si recibimos facturaData, seguimos el flujo similar a reservaData
       fetchSaldoFavorData();
     }
   }, [effectiveSaldoData.id_agente, facturaData]);
-
 
   // Función para obtener datos del nuevo flujo (SaldoFavor)
   const fetchSaldoFavorData = async () => {
@@ -194,11 +220,13 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
       setLoading(true);
       setError(null);
 
-      const agente = reservaData?.id_agente || facturaData[0]?.id_agente
+      const agente = reservaData?.id_agente || facturaData[0]?.id_agente;
       if (!agente) {
-        throw new Error('ID de agente no disponible en reservaData ni facturaData');
+        throw new Error(
+          "ID de agente no disponible en reservaData ni facturaData"
+        );
       }
-      console.log("euuuuuuuuuuuuuuuuuuuuubbbuuuuuuufe", agente)
+      console.log("euuuuuuuuuuuuuuuuuuuuubbbuuuuuuufe", agente);
 
       const response = await SaldoFavor.getPagos(agente);
       console.log("Datos de SaldoFavor:", response.data);
@@ -211,8 +239,8 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
       // Adaptar según la estructura real de los datos de SaldoFavor
       response.data?.forEach((saldo: any) => {
         // Para el nuevo flujo, usamos el saldo completo como "item"
-        const idItem = reservaData ? `saldo-${saldo.id_saldos}` : `saldo - ${saldo.id_saldos}`;
-        const saldoValor = reservaData ? Number(saldo.saldo) || 0 : Number(saldo.monto_por_facturar);
+        const idItem = `saldo-${saldo.id_saldos}`;
+        const saldoValor = Number(saldo.saldo) || 0;
 
         initialOriginalSaldo[idItem] = saldoValor;
         initialSaldo[idItem] = saldoValor;
@@ -220,10 +248,12 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
 
       setOriginalSaldoItems(initialOriginalSaldo);
       setItemsSaldo(initialSaldo);
-
+      if (reservaData) {
+        seleccionarSaldosEnOrdenYAutoPagar(response.data || []);
+      }
     } catch (err) {
       console.error("Error fetching SaldoFavor data:", err);
-      setError(err.message || 'Error al cargar los datos de saldo a favor');
+      setError(err.message || "Error al cargar los datos de saldo a favor");
     } finally {
       setLoading(false);
     }
@@ -247,20 +277,16 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
       );
 
       if (!response.ok) {
-        throw new Error('Error al obtener las reservas');
+        throw new Error("Error al obtener las reservas");
       }
       const data = await response.json();
       setReservas(data.data || []);
-      console.log(data.data, "knvjirfnbuirbiurnbiurniubnri")
-      console.log(reservas, "knvjirfnbuirbiurnbiurniubnri")
-
-
 
       const initialOriginalSaldo: Record<string, number> = {};
       const initialSaldo: Record<string, number> = {};
 
       data.data?.forEach((reserva: ReservaConItems) => {
-        reserva.items_info?.items?.forEach(item => {
+        reserva.items_info?.items?.forEach((item) => {
           initialOriginalSaldo[item.id_item] = item.saldo;
           initialSaldo[item.id_item] = item.saldo;
         });
@@ -268,32 +294,31 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
 
       setOriginalSaldoItems(initialOriginalSaldo);
       setItemsSaldo(initialSaldo);
-
     } catch (err) {
       console.error("Error fetching reservations:", err);
-      setError(err.message || 'Error al cargar las reservas');
+      setError(err.message || "Error al cargar las reservas");
     } finally {
       setLoading(false);
     }
   };
 
-
-
   const handleItemSelection = (id_item: string, saldoOriginal: number) => {
-    setSelectedItems(prev => {
-      const isCurrentlySelected = prev.some(item => item.id_item === id_item);
-      const currentSaldo = itemsSaldo[id_item] ?? saldoOriginal;
+    setSelectedItems((prev) => {
+      const isCurrentlySelected = prev.some((item) => item.id_item === id_item);
+      const currentSaldo = toMoney(itemsSaldo[id_item] ?? saldoOriginal);
 
       if (isCurrentlySelected) {
         // Deseleccionar item - restaurar el saldo original
-        const newSelection = prev.filter(item => item.id_item !== id_item);
-        const newTotal = newSelection.reduce((sum, item) => sum + item.saldo, 0);
-        const restante = effectiveSaldoData.saldo - newTotal;
+        const newSelection = prev.filter((item) => item.id_item !== id_item);
+        const newTotal = toMoney(
+          newSelection.reduce((sum, item) => sum + item.saldo, 0)
+        );
+        const restante = toMoney(effectiveSaldoData.saldo - newTotal);
 
         // Restaurar el saldo original del item
-        setItemsSaldo(prevSaldo => ({
+        setItemsSaldo((prevSaldo) => ({
           ...prevSaldo,
-          [id_item]: saldoOriginal
+          [id_item]: toMoney(saldoOriginal),
         }));
 
         setMontoRestante(restante);
@@ -301,26 +326,31 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
         return newSelection;
       } else {
         // Verificar si ya se ha alcanzado el límite
-        const currentTotal = prev.reduce((sum, item) => sum + item.saldo, 0);
-        const mensaje = reservaData ? "Ya has pagado la reserva completa" : 'Ya has utilizado todo tu saldo disponible';
-        if (currentTotal >= effectiveSaldoData.saldo) {
+        const currentTotal = toMoney(
+          prev.reduce((sum, item) => sum + item.saldo, 0)
+        );
+        const mensaje = reservaData
+          ? "Ya has pagado la reserva completa"
+          : "Ya has utilizado todo tu saldo disponible";
+
+        if (currentTotal >= toMoney(effectiveSaldoData.saldo)) {
           alert(mensaje);
           return prev;
         }
 
         // Calcular cuánto podemos aplicar de este ítem
-        const saldoDisponible = effectiveSaldoData.saldo - currentTotal;
-        const montoAAplicar = Math.min(currentSaldo, saldoDisponible);
+        const saldoDisponible = toMoney(effectiveSaldoData.saldo - currentTotal);
+        const montoAAplicar = toMoney(Math.min(currentSaldo, saldoDisponible));
 
-        // Actualizar el saldo del ítem (lo que queda por payar)
-        const nuevoSaldoItem = currentSaldo - montoAAplicar;
-        setItemsSaldo(prevSaldo => ({
+        // Actualizar el saldo del ítem (lo que queda por pagar)
+        const nuevoSaldoItem = toMoney(currentSaldo - montoAAplicar);
+        setItemsSaldo((prevSaldo) => ({
           ...prevSaldo,
-          [id_item]: nuevoSaldoItem
+          [id_item]: nuevoSaldoItem,
         }));
 
-        const newTotal = currentTotal + montoAAplicar;
-        const restante = effectiveSaldoData.saldo - newTotal;
+        const newTotal = toMoney(currentTotal + montoAAplicar);
+        const restante = toMoney(effectiveSaldoData.saldo - newTotal);
 
         const newSelection = [...prev, { id_item, saldo: montoAAplicar }];
         setMontoRestante(restante);
@@ -330,12 +360,13 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
     });
   };
 
+
   const isItemSelected = (id_item: string): boolean => {
-    return selectedItems.some(item => item.id_item === id_item);
+    return selectedItems.some((item) => item.id_item === id_item);
   };
 
   const formatIdItem = (id: string): string => {
-    if (!id) return '';
+    if (!id) return "";
     return id.length > 4 ? `...${id.slice(-4)}` : id;
   };
 
@@ -363,105 +394,92 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
 
     let payload;
     let endpoint;
-    let methodo;
-    let id;
 
-    if (reservaData && montorestante == 0) {
+    if (reservaData && isZeroMoney(montorestante)) {
       payload = {
         bandera: 1, // Siempre 1
         hotel: reservaData.hotel || null, // Corregido: Usa el objeto 'hotel' completo
-        habitacion: reservaData.habitacion || '',
-        check_in: reservaData.check_in || '',
-        check_out: reservaData.check_out || '',
-        codigo_reservacion_hotel: reservaData.codigo_reservacion_hotel || '',
+        habitacion: reservaData.habitacion || "",
+        check_in: reservaData.check_in || "",
+        check_out: reservaData.check_out || "",
+        codigo_reservacion_hotel: reservaData.codigo_reservacion_hotel || "",
         viajero: reservaData.viajero || {},
         noches: reservaData.Noches || 0,
         venta: reservaData.venta || {},
-        estado_reserva: reservaData.estado_reserva || '',
-        comments: reservaData.comments || '',
+        estado_reserva: reservaData.estado_reserva || "",
+        comments: reservaData.comments || "",
         proveedor: reservaData.proveedor || {},
         impuestos: reservaData.impuestos || {},
         items: reservaData.items || [],
         solicitud: reservaData.solicitud || {},
         nuevo_incluye_desayuno: reservaData.nuevo_incluye_desayuno || null,
         acompanantes: reservaData.acompanantes || [],
-        ejemplo_saldos: selectedItems.map(item => {
-          const originalItem = saldoFavorData.find(sf => `saldo-${sf.id_saldos}` === item.id_item);
-          const appliedAmount = originalSaldoItems[item.id_item] - (itemsSaldo[item.id_item] || 0);
+        ejemplo_saldos: selectedItems.map((item) => {
+          const originalItem = saldoFavorData.find(
+            (sf) => `saldo-${sf.id_saldos}` === item.id_item
+          );
+          const appliedAmount =
+            originalSaldoItems[item.id_item] - (itemsSaldo[item.id_item] || 0);
 
           return {
-            id_saldo: originalItem?.id_saldos || '',
-            saldo_original: (originalItem?.saldo || 0),
-            saldo_actual: (itemsSaldo[item.id_item] || 0),
-            aplicado: (appliedAmount),
+            id_saldo: originalItem?.id_saldos || "",
+            saldo_original: originalItem?.saldo || 0,
+            saldo_actual: itemsSaldo[item.id_item] || 0,
+            aplicado: appliedAmount,
             id_agente: effectiveSaldoData.id_agente,
-            metodo_de_pago: originalItem?.metodo_pago || 'wallet',
-            fecha_pago: originalItem?.fecha_pago || '',
+            metodo_de_pago: originalItem?.metodo_pago || "wallet",
+            fecha_pago: originalItem?.fecha_pago || "",
             concepto: originalItem?.concepto || null,
             referencia: originalItem?.referencia || null,
-            currency: 'mxn',
+            currency: "mxn",
             tipo_de_tarjeta: originalItem?.tipo_tarjeta || null,
             link_pago: null,
-            last_digits: null
+            last_digits: null,
           };
         }),
       };
       endpoint = "/mia/reservas/operaciones";
-      methodo = "POST";
-      id = payload.ejemplo_saldos
-
-    } else if (reservaData && montorestante > 0) {
+    } else if (reservaData && !isZeroMoney(montorestante)) {
+      console.log("montoRestante", montorestante);
       alert("Para registrar el pago, debes cubrir el total de la reserva.");
       return;
+    } else if (facturaData) {
+      console.log(
+        selectedItems.map((item) => {
+          const originalItem = saldoFavorData.find(
+            (sf) => `saldo-${sf.id_saldos}` === item.id_item
+          );
+          const appliedAmount =
+            originalSaldoItems[item.id_item] - (itemsSaldo[item.id_item] || 0);
 
-    }
-    else if (facturaData[0] != 0) {
-      // Construimos el arreglo ejemplo_saldos igual que en reservaData
-      const ejemplo_saldos = selectedItems.map(item => {
-        const originalItem = saldoFavorData.find(sf => `saldo-${sf.id_saldos}` === item.id_item);
-        const aplicado = (originalSaldoItems[item.id_item] ?? 0) - (itemsSaldo[item.id_item] ?? 0);
-
-        return {
-          id_saldo: originalItem?.id_saldos || '',
-          saldo_original: Number(originalItem?.saldo || 0),
-          saldo_actual: Number(itemsSaldo[item.id_item] ?? 0),
-          aplicado: Number(aplicado),
-          id_agente: effectiveSaldoData.id_agente,
-          metodo_de_pago: originalItem?.metodo_pago || 'wallet',
-          fecha_pago: originalItem?.fecha_pago || '',
-          concepto: originalItem?.concepto || null,
-          referencia: originalItem?.referencia || null,
-          currency: 'mxn',
-          tipo_de_tarjeta: originalItem?.tipo_tarjeta || null,
-          link_pago: null,
-          last_digits: null
-        };
-      });
-
-      // Armamos el payload para facturas
-      const ids_facturas = facturaData.map(f => f.facturaSeleccionada.id_factura);
-      console.log(ids_facturas);
-
-
-      payload = {
-        // Incluye el identificador de la factura y el agente
-        id_factura: ids_facturas,
-        id_agente: effectiveSaldoData.id_agente,
-        // Arreglo de saldos aplicados (igual estructura que en reservaData)
-        ejemplo_saldos
-      };
-
-      endpoint = "/mia/factura/AsignarFacturaPagos";
-      methodo = "PATCH"
-
+          return {
+            id_saldo: originalItem?.id_saldos || "",
+            saldo_original: originalItem?.saldo || 0,
+            saldo_actual: itemsSaldo[item.id_item] || 0,
+            aplicado: appliedAmount,
+            id_agente: effectiveSaldoData.id_agente,
+            metodo_de_pago: originalItem?.metodo_pago || "wallet",
+            fecha_pago: originalItem?.fecha_pago || "",
+            concepto: originalItem?.concepto || null,
+            referencia: originalItem?.referencia || null,
+            currency: "mxn",
+            tipo_de_tarjeta: originalItem?.tipo_tarjeta || null,
+            link_pago: null,
+            last_digits: null,
+          };
+        })
+      );
     } else {
       // Payload existente para el flujo de saldoData
-      const tableDataToUse = reservas.flatMap(reserva =>
-        (reserva.items_info?.items || []).map(item => ({
+      const tableDataToUse = reservas.flatMap((reserva) =>
+        (reserva.items_info?.items || []).map((item) => ({
           id_item: item.id_item,
           id_servicio: item.servicio,
           total: item.total,
-          saldo: itemsSaldo[item.id_item] !== undefined ? itemsSaldo[item.id_item] : item.saldo,
+          saldo:
+            itemsSaldo[item.id_item] !== undefined
+              ? itemsSaldo[item.id_item]
+              : item.saldo,
         }))
       );
 
@@ -470,13 +488,16 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
           ...rowData,
           saldo: formatToTwoDecimals(montorestante),
         },
-        items_seleccionados: selectedItems.map(item => {
-          const itemData = tableDataToUse.find(td => td.id_item === item.id_item);
+        items_seleccionados: selectedItems.map((item) => {
+          const itemData = tableDataToUse.find(
+            (td) => td.id_item === item.id_item
+          );
           const saldoItem = itemsSaldo[item.id_item] || 0;
           const totalItem = itemData?.total || 0;
-          const servicioItem = itemData?.id_servicio || '';
+          const servicioItem = itemData?.id_servicio || "";
           const saldoOriginal = originalSaldoItems[item.id_item] || 0;
-          const fraccionado = saldoItem === 0 ? 0 : formatToTwoDecimals(totalItem - saldoItem);
+          const fraccionado =
+            saldoItem === 0 ? 0 : formatToTwoDecimals(totalItem - saldoItem);
 
           return {
             total: formatToTwoDecimals(totalItem),
@@ -486,23 +507,21 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
             fraccion: fraccionado,
             id_servicio: servicioItem,
           };
-        })
+        }),
       };
       endpoint = "/mia/pagos/aplicarpagoPorSaldoAFavor";
-      methodo = "POST";
-      id = payload.SaldoAFavor.id_saldos;
     }
 
-    console.log('Payload:', payload, id);
-
+    console.log("Payload:", payload);
 
     try {
       const response = await fetch(`${URL}${endpoint}`, {
-        method: `${methodo}`,
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
           "x-api-key": API_KEY,
         },
+        credentials: "include",
         body: JSON.stringify(payload),
       });
 
@@ -519,7 +538,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
           ...formData,
           id_saldos: effectiveSaldoData.id_saldos,
           id_agente: effectiveSaldoData.id_agente,
-          itemsAsignados: selectedItems
+          itemsAsignados: selectedItems,
         });
       }
 
@@ -528,180 +547,342 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
     } catch (error) {
       console.error("Error en la petición:", error);
     }
-
   };
+  const tableData =
+    reservaData || facturaData
+      ? // Datos del nuevo flujo (SaldoFavor)
+      saldoFavorData
+        .filter((saldo) => saldo.activo !== 0)
+        .filter((saldo) => {
+          const rawSaldo = facturaData
+            ? Number(saldo.monto_por_facturar)
+            : Number(saldo.saldo);
 
-  const tableData = reservaData || facturaData[0] != 0 ?
-    // Datos del nuevo flujo (SaldoFavor)
-    saldoFavorData
-      .filter(saldo => saldo.activo !== 0 && saldo.saldo != 0)
-      .map(saldo => {
-
-        const saldorestante1 = reservaData ? itemsSaldo[`saldo-${saldo.id_saldos}`] !== undefined ?
-          itemsSaldo[`saldo-${saldo.id_saldos}`] :
-          (Number(saldo.saldo) || 0) :
-          itemsSaldo[`monto_por_facturar - ${saldo.id_saldos}`] !== undefined ?
-            itemsSaldo[`monto_por_facturar - ${saldo.id_saldos}`] :
-            (Number(saldo.monto_por_facturar) || 0)
-
-        return {
-          creado: saldo.fecha_creacion ? new Date(saldo.fecha_creacion) : null,
-          id_item: `${saldo.id_saldos}`,
-          id_servicio: '',
-          codigo_reservacion: saldo.referencia || '',
-          hotel: '',
-          viajero: '',
+          // usa tu helper con tolerancia
+          return !isZeroMoney(rawSaldo);
+        })
+        .map((saldo) => ({
+          creado: saldo.fecha_creacion
+            ? new Date(saldo.fecha_creacion)
+            : null,
+          id_item: `saldo-${saldo.id_saldos}`,
+          id_servicio: "",
+          codigo_reservacion: saldo.referencia || "",
+          hotel: "",
+          viajero: "",
           activo: saldo.activo,
-          fecha_uso: saldo.fecha_creacion || '',
+          fecha_uso: saldo.fecha_creacion || "",
           total: Number(saldo.monto) || 0,
           item: saldo,
           // Campos adicionales para el nuevo flujo
           forma_De_Pago: formatFormaPago(saldo.metodo_pago),
           tipo_tarjeta: saldo.tipo_tarjeta || "",
           monto_pagado: Number(saldo.monto),
-          saldo: facturaData[0] != 0 ? Number(saldo.monto_por_facturar) : Number(saldo.saldo),
+          saldo: facturaData ? Number(saldo.monto_por_facturar) : Number(saldo.saldo),
           seleccionado: saldo,
-          saldo_restante: saldorestante1
-        }
-      }) :
-    // Datos del flujo existente
-    reservas.flatMap(reserva =>
-      (reserva.items_info?.items || []).map(item => ({
-        id_item: item.id_item,
-        id_servicio: item.servicio,
-        codigo_reservacion: reserva.codigo_reservacion_hotel,
-        hotel: reserva.nombre_hotel,
-        viajero: reserva.viajero,
-        fecha_uso: reserva.check_in,
-        total: item.total,
-        saldo: itemsSaldo[item.id_item] !== undefined ? itemsSaldo[item.id_item] : item.saldo,
-        seleccionado: item,
-        item: item
-      }))
-    );
+          saldo_restante: facturaData ? itemsSaldo[`saldo-${saldo.id_saldos}`] !== undefined
+            ? itemsSaldo[`saldo-${saldo.id_saldos}`]
+            : Number(saldo.monto_por_facturar) || 0 :
+            itemsSaldo[`saldo-${saldo.id_saldos}`] !== undefined
+              ? itemsSaldo[`saldo-${saldo.id_saldos}`]
+              : Number(saldo.saldo) || 0,
+        }))
+      : // Datos del flujo existente
+      reservas.flatMap((reserva) =>
+        (reserva.items_info?.items || []).map((item) => ({
+          id_item: item.id_item,
+          id_servicio: item.servicio,
+          codigo_reservacion: reserva.codigo_reservacion_hotel,
+          hotel: reserva.nombre_hotel,
+          viajero: reserva.viajero,
+          fecha_uso: reserva.check_in,
+          total: item.total,
+          saldo:
+            itemsSaldo[item.id_item] !== undefined
+              ? itemsSaldo[item.id_item]
+              : item.saldo,
+          seleccionado: item,
+          item: item,
+        }))
+      );
 
   // Renderers para la tabla - diferentes según el flujo
-  const renderers = reservaData || facturaData[0] != 0 ? {
-    // Renderers para el nuevo flujo (SaldoFavor)
-    seleccionado: ({ value }: { value: any }) => (
-      <input
-        type="checkbox"
-        checked={isItemSelected(`saldo-${value.id_saldos}`)}
-        onChange={() => handleItemSelection(`saldo-${value.id_saldos}`, Number(value.saldo))}
-        className={`h-4 w-4 focus:ring-blue-500 border-gray-300 rounded`}
-      />
-    ),
-    creado: ({ value }: { value: Date | null }) => {
-      if (!value) return <div className="text-gray-400 italic">Sin fecha</div>;
-      return (
-        <div className="whitespace-nowrap text-sm text-blue-900">
-          {format(value, "dd 'de' MMMM yyyy", { locale: es })}
-        </div>
-      );
-    },
-    monto_pagado: ({ value }: { value: number }) => (
-      <span className="font-medium text-sm px-2 py-1 rounded flex items-center justify-center bg-blue-50 text-blue-600">
-        ${value.toFixed(2)}
-      </span>
-    ),
+  const renderers =
+    reservaData || facturaData
+      ? {
+        // Renderers para el nuevo flujo (SaldoFavor)
+        seleccionado: ({ value }: { value: any }) => (
+          <input
+            type="checkbox"
+            checked={isItemSelected(`saldo-${value.id_saldos}`)}
+            onChange={() =>
+              handleItemSelection(
+                `saldo-${value.id_saldos}`,
+                Number(facturaData ? value.monto_por_facturar : value.saldo)
+              )
+            }
+            className={`h-4 w-4 focus:ring-blue-500 border-gray-300 rounded`}
+          />
+        ),
+        creado: ({ value }: { value: Date | null }) => {
+          if (!value)
+            return <div className="text-gray-400 italic">Sin fecha</div>;
+          return (
+            <div className="whitespace-nowrap text-sm text-blue-900">
+              {format(value, "dd 'de' MMMM yyyy", { locale: es })}
+            </div>
+          );
+        },
+        monto_pagado: ({ value }: { value: number }) => (
+          <span className="font-medium text-sm px-2 py-1 rounded flex items-center justify-center bg-blue-50 text-blue-600">
+            ${value.toFixed(2)}
+          </span>
+        ),
 
-    saldo: ({ value }: { value: number }) => (
-      <span className={`font-medium text-sm px-2 py-1 rounded flex items-center justify-center ${value <= 0 ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
-        ${Number(value).toFixed(2)}
-      </span>
-    ),
-    saldo_restante: ({ value }: { value: number }) => (
-      <span className={`font-medium text-sm px-2 py-1 rounded flex items-center justify-center ${value > 0 ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
-        ${Number(value).toFixed(2)}
-      </span>
-    ),
-    forma_De_Pago: ({ value }: { value: string }) => (
-      <span className="font-medium text-gray-800">
-        {value}
-      </span>
-    ),
-    tipo_tarjeta: ({ value }: { value: string }) => (
-      <span className="font-mono bg-gray-100 px-2 py-1 rounded text-sm">
-        {value || "N/A"}
-      </span>
-    ),
-  } : {
-    // Renderers para el flujo existente
-    id_item: ({ value }: { value: string }) => (
-      <span className="font-mono bg-gray-100 px-2 py-1 rounded text-sm">
-        {formatIdItem(value)}
-      </span>
-    ),
-    id_servicio: ({ value }: { value: string }) => (
-      <span className="font-mono bg-gray-100 px-2 py-1 rounded text-sm">
-        {formatIdItem(value)}
-      </span>
-    ),
-    seleccionado: ({ value }: { value: TableRow }) => (
-      <input
-        type="checkbox"
-        checked={isItemSelected(value.id_item)}
-        onChange={() => handleItemSelection(value.id_item, value.saldo)}
-        className={`h-4 w-4 focus:ring-blue-500 border-gray-300 rounded`}
-      />
-    ),
-    total: ({ value }: { value: number }) => (
-      <span className="font-medium text-sm px-2 py-1 rounded flex items-center justify-center bg-blue-50 text-blue-600">
-        ${value}
-      </span>
-    ),
-    fecha_uso: ({ value }: { value: string | null }) => {
-      if (!value) return <div className="text-gray-400 italic">Sin fecha</div>;
+        saldo: ({ value }: { value: number }) => (
+          <span
+            className={`font-medium text-sm px-2 py-1 rounded flex items-center justify-center ${value <= 0
+              ? "bg-red-50 text-red-600"
+              : "bg-green-50 text-green-600"
+              }`}
+          >
+            ${Number(value).toFixed(2)}
+          </span>
+        ),
+        saldo_restante: ({ value }: { value: number }) => (
+          <span
+            className={`font-medium text-sm px-2 py-1 rounded flex items-center justify-center ${value > 0
+              ? "bg-red-50 text-red-600"
+              : "bg-green-50 text-green-600"
+              }`}
+          >
+            ${Number(value).toFixed(2)}
+          </span>
+        ),
+        forma_De_Pago: ({ value }: { value: string }) => (
+          <span className="font-medium text-gray-800">{value}</span>
+        ),
+        tipo_tarjeta: ({ value }: { value: string }) => (
+          <span className="font-mono bg-gray-100 px-2 py-1 rounded text-sm">
+            {value || "N/A"}
+          </span>
+        ),
+      }
+      : {
+        // Renderers para el flujo existente
+        id_item: ({ value }: { value: string }) => (
+          <span className="font-mono bg-gray-100 px-2 py-1 rounded text-sm">
+            {formatIdItem(value)}
+          </span>
+        ),
+        id_servicio: ({ value }: { value: string }) => (
+          <span className="font-mono bg-gray-100 px-2 py-1 rounded text-sm">
+            {formatIdItem(value)}
+          </span>
+        ),
+        seleccionado: ({ value }: { value: TableRow }) => (
+          <input
+            type="checkbox"
+            checked={isItemSelected(value.id_item)}
+            onChange={() => handleItemSelection(value.id_item, value.saldo)}
+            className={`h-4 w-4 focus:ring-blue-500 border-gray-300 rounded`}
+          />
+        ),
+        total: ({ value }: { value: number }) => (
+          <span className="font-medium text-sm px-2 py-1 rounded flex items-center justify-center bg-blue-50 text-blue-600">
+            ${value}
+          </span>
+        ),
+        fecha_uso: ({ value }: { value: string | null }) => {
+          if (!value)
+            return <div className="text-gray-400 italic">Sin fecha</div>;
 
-      return (
-        <div className="whitespace-nowrap text-sm text-blue-900">
-          {format(new Date(value), "dd 'de' MMMM yyyy", { locale: es })}
-        </div>
-      );
-    },
-    checkout: ({ value }: { value: string | null }) => {
-      if (!value) return <div className="text-gray-400 italic">Sin fecha</div>;
-      return (
-        <div className="whitespace-nowrap text-sm text-blue-900">
-          {format(new Date(value), "dd 'de' MMMM yyyy", { locale: es })}
-        </div>
-      );
-    },
-    hotel: ({ value }: { value: string }) => (
-      <span className="font-medium text-gray-800">
-        {value}
-      </span>
-    ),
-    codigo_reservacion: ({ value }: { value: string }) => (
-      <span className="font-mono bg-yellow-50 px-2 py-1 rounded text-sm border border-yellow-100">
-        {value}
-      </span>
-    ),
-    saldo: ({ value }: { value: number }) => (
-      <span className={`font-medium text-sm px-2 py-1 rounded flex items-center justify-center ${value > 0 ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
-        ${Number(value).toFixed(2)}
-      </span>
-    ),
-  };
+          return (
+            <div className="whitespace-nowrap text-sm text-blue-900">
+              {format(new Date(value), "dd 'de' MMMM yyyy", { locale: es })}
+            </div>
+          );
+        },
+        checkout: ({ value }: { value: string | null }) => {
+          if (!value)
+            return <div className="text-gray-400 italic">Sin fecha</div>;
+          return (
+            <div className="whitespace-nowrap text-sm text-blue-900">
+              {format(new Date(value), "dd 'de' MMMM yyyy", { locale: es })}
+            </div>
+          );
+        },
+        hotel: ({ value }: { value: string }) => (
+          <span className="font-medium text-gray-800">{value}</span>
+        ),
+        codigo_reservacion: ({ value }: { value: string }) => (
+          <span className="font-mono bg-yellow-50 px-2 py-1 rounded text-sm border border-yellow-100">
+            {value}
+          </span>
+        ),
+        saldo: ({ value }: { value: number }) => (
+          <span
+            className={`font-medium text-sm px-2 py-1 rounded flex items-center justify-center ${value > 0
+              ? "bg-red-50 text-red-600"
+              : "bg-green-50 text-green-600"
+              }`}
+          >
+            ${Number(value).toFixed(2)}
+          </span>
+        ),
+      };
 
   // Columnas personalizadas según el flujo
-  const customColumns = reservaData || facturaData[0] != 0 ?
-    ['seleccionado', 'creado', 'monto_pagado', 'saldo', 'forma_De_Pago', 'tipo_tarjeta', "saldo_restante"] :
-    ['seleccionado', 'codigo_reservacion', 'hotel', 'fecha_uso', 'total', 'saldo'];
+  const customColumns =
+    reservaData || facturaData
+      ? [
+        "seleccionado",
+        "creado",
+        "monto_pagado",
+        "saldo",
+        "forma_De_Pago",
+        "tipo_tarjeta",
+        "saldo_restante",
+      ]
+      : [
+        "seleccionado",
+        "codigo_reservacion",
+        "hotel",
+        "fecha_uso",
+        "total",
+        "saldo",
+      ];
 
   // Si el modal no está abierto, no renderizar nada
   if (!open) return null;
 
-  const titulo = reservaData ?
-    "Informacion del pago de la reserva" :
-    "💰 Información del Saldo";
+  // Selecciona saldos en orden y auto-llama handleSubmit cuando cubre el total
+  const seleccionarSaldosEnOrdenYAutoPagar = (saldosCrudos: any[]) => {
+    // Solo aplica con reservaData y una sola vez
+    if (!reservaData || autoPayTriggered.current) return;
+
+    // Orden FIFO por fecha_creacion (nulos van al final)
+    const saldosOrdenados = [...(saldosCrudos || [])]
+      .filter((s) => s?.activo !== 0)
+      .sort((a, b) => {
+        const ta = a?.fecha_creacion
+          ? new Date(a.fecha_creacion).getTime()
+          : Number.MAX_SAFE_INTEGER;
+        const tb = b?.fecha_creacion
+          ? new Date(b.fecha_creacion).getTime()
+          : Number.MAX_SAFE_INTEGER;
+        return ta - tb;
+      });
+
+    // Copias temporales para actualizar estados de manera atómica
+    const tmpItemsSaldo: Record<string, number> = { ...itemsSaldo };
+    const tmpOriginal: Record<string, number> = { ...originalSaldoItems };
+    const nuevaSeleccion: SelectedItem[] = [];
+
+    // Objetivo a cubrir: total de la reserva (ya redondeado)
+    let restante = toMoney(reservaData?.Total || 0);
+    let aplicadoTotal = toMoney(0);
+
+    for (const s of saldosOrdenados) {
+      if (isZeroMoney(restante) || restante < 0) break;
+
+      const idItem = `saldo-${s.id_saldos}`;
+      const disponibleActual = toMoney(
+        typeof tmpItemsSaldo[idItem] === "number"
+          ? tmpItemsSaldo[idItem]
+          : s?.saldo || 0
+      );
+
+      // Asegura valores iniciales en los mapas (por si vienen vacíos)
+      if (tmpOriginal[idItem] === undefined)
+        tmpOriginal[idItem] = toMoney(s?.saldo || 0);
+      if (tmpItemsSaldo[idItem] === undefined)
+        tmpItemsSaldo[idItem] = toMoney(s?.saldo || 0);
+
+      if (disponibleActual <= 0) continue;
+
+      const aplicarRaw = Math.min(disponibleActual, restante);
+      const aplicar = toMoney(aplicarRaw);
+      if (aplicar <= 0) continue;
+
+      // Descuenta del saldo del ítem y agrega a la selección
+      tmpItemsSaldo[idItem] = toMoney(disponibleActual - aplicar);
+      nuevaSeleccion.push({ id_item: idItem, saldo: aplicar });
+
+      aplicadoTotal = toMoney(aplicadoTotal + aplicar);
+      restante = toMoney(restante - aplicar);
+    }
+
+    // Logs detallados de lo seleccionado
+    const resumenSeleccion = nuevaSeleccion.map((sel) => {
+      const original = toMoney(tmpOriginal[sel.id_item] ?? 0);
+      const final = toMoney(tmpItemsSaldo[sel.id_item] ?? 0);
+      const aplicado = toMoney(original - final);
+      return {
+        id_item: sel.id_item,
+        aplicado,
+        saldo_inicial: original,
+        saldo_final: final,
+      };
+    });
+
+    console.log("=== Saldos seleccionados (FIFO) ===");
+    resumenSeleccion.forEach((r, idx) => {
+      console.log(
+        `#${idx + 1} ${r.id_item} | aplicado: $${r.aplicado.toFixed(2)} | ` +
+        `inicial: $${r.saldo_inicial.toFixed(
+          2
+        )} -> final: $${r.saldo_final.toFixed(2)}`
+      );
+    });
+
+    // Actualiza estados coherentemente
+    setItemsSaldo(tmpItemsSaldo);
+    setOriginalSaldoItems(tmpOriginal);
+    setSelectedItems(nuevaSeleccion);
+    setMontoSeleccionado(aplicadoTotal);
+
+    // En flujo de reserva, el "saldo disponible" (effectiveSaldoData.saldo) es el Total
+    const saldoDisponible = toMoney(effectiveSaldoData?.saldo || 0);
+    const nuevoRestante = toMoney(saldoDisponible - aplicadoTotal);
+    setMontoRestante(nuevoRestante);
+
+    console.log(`Monto seleccionado total: $${aplicadoTotal.toFixed(2)}`);
+    console.log(`Monto restante total (calculado): $${nuevoRestante.toFixed(2)}`);
+
+    // marca que ya se hizo el autopay una vez
+    autoPayTriggered.current = true;
+  };
+
+
+  const titulo = reservaData
+    ? "Informacion del pago de la reserva"
+    : "💰 Información del Saldo";
+
+  if (reservaData) {
+    const restanteRedondeado = toMoney(montorestante);
+    console.log(montorestante, restanteRedondeado, "esto resta");
+    if (isZeroMoney(restanteRedondeado) && uno === 1) {
+      handleSubmit({ preventDefault() { } } as unknown as React.FormEvent);
+      setUno(0);
+    }
+    return (
+      <Modal
+        onClose={() => { onClose() }}
+      >
+        Cargando...
+      </Modal>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-auto">
       <div className="bg-white rounded-2xl shadow-xl border border-blue-100 w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="bg-blue-50 rounded-t-2xl px-6 py-4 border-b border-blue-100 flex justify-between items-center">
-          <h2 className="text-xl font-semibold text-blue-800">Aplicar Pago con Saldo a Favor</h2>
+          <h2 className="text-xl font-semibold text-blue-800">
+            Aplicar Pago con Saldo a Favor
+          </h2>
           <button
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700 transition-colors"
@@ -719,15 +900,23 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
             </div>
             <div className="px-6 py-4 space-y-2">
               <p className="text-sm text-gray-700">
-                <span className="font-semibold text-gray-900">Nombre del Agente:</span> {effectiveSaldoData.nombre}
+                <span className="font-semibold text-gray-900">
+                  Nombre del Agente:
+                </span>{" "}
+                {effectiveSaldoData.nombre}
               </p>
 
               {/* Mostrar Total y Noches cuando hay reservaData */}
               {reservaData && (
                 <>
                   <p className="text-sm text-gray-700">
-                    <span className="font-semibold text-gray-900">Total de la Reserva:</span>
-                    <span className="text-green-600 font-bold"> ${reservaData.Total?.toFixed(2) || '0.00'}</span>
+                    <span className="font-semibold text-gray-900">
+                      Total de la Reserva:
+                    </span>
+                    <span className="text-green-600 font-bold">
+                      {" "}
+                      ${reservaData.Total?.toFixed(2) || "0.00"}
+                    </span>
                   </p>
                   <p className="text-sm text-gray-700 flex items-center">
                     <span className="font-semibold text-gray-900">Noches:</span>
@@ -740,21 +929,33 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
               )}
 
               <p className="text-sm text-gray-700">
-                <span className="font-semibold text-gray-900">Monto Total Disponible:</span>
-                <span className="text-green-600 font-bold"> ${Number(effectiveSaldoData.monto).toFixed(2)}</span>
+                <span className="font-semibold text-gray-900">
+                  Monto Total Disponible:
+                </span>
+                <span className="text-green-600 font-bold">
+                  {" "}
+                  ${Number(effectiveSaldoData.monto).toFixed(2)}
+                </span>
               </p>
 
               <div className="mt-4 pt-4 border-t border-blue-100">
                 <div className="flex justify-between">
                   <div>
                     <p className="text-sm text-gray-600">Monto seleccionado:</p>
-                    <p className={`text-lg font-semibold ${Number(montoSeleccionado) > effectiveSaldoData.saldo ? 'text-red-600' : 'text-blue-600'}`}>
+                    <p
+                      className={`text-lg font-semibold ${Number(montoSeleccionado) > effectiveSaldoData.saldo
+                        ? "text-red-600"
+                        : "text-blue-600"
+                        }`}
+                    >
                       ${Number(montoSeleccionado).toFixed(2)}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">Monto restante:</p>
-                    <p className="text-lg text-green-600 font-semibold">${(montorestante || 0)}</p>
+                    <p className="text-lg text-green-600 font-semibold">
+                      ${Number(montorestante).toFixed(2)}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -765,15 +966,15 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
           <div className="mb-6">
             {loading ? (
               <div className="text-center py-8">
-                <p>Cargando {reservaData ? 'datos de saldo' : 'reservas'}...</p>
+                <p>Cargando {reservaData ? "datos de saldo" : "reservas"}...</p>
               </div>
             ) : error ? (
-              <div className="text-red-500 p-4 bg-red-50 rounded">
-                {error}
-              </div>
+              <div className="text-red-500 p-4 bg-red-50 rounded">{error}</div>
             ) : tableData.length === 0 ? (
               <div className="text-gray-500 p-4 bg-gray-50 rounded">
-                No hay {reservaData ? 'saldos disponibles' : 'reservas con items'} pendientes
+                No hay{" "}
+                {reservaData ? "saldos disponibles" : "reservas con items"}{" "}
+                pendientes
               </div>
             ) : (
               <div className="min-h-[300px] max-h-[400px] overflow-auto">
@@ -810,5 +1011,4 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
       </div>
     </div>
   );
-
 };

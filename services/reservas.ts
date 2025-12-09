@@ -1,6 +1,42 @@
 import { EdicionForm, ReservaForm, Viajero } from "@/types";
 import { URL, API_KEY } from "@/lib/constants";
 
+export async function new_edit(
+  reserva: EdicionForm & {
+    nuevo_incluye_desayuno: boolean | null;
+    acompanantes: Viajero[];
+  },
+  id_booking: string,
+  callback?: (data: any) => void
+) {
+  try {
+    const response = await fetch(`${URL}/mia/reservas/nuevo-editar-reserva`, {
+      method: "PUT",
+      headers: {
+        "x-api-key": API_KEY || "",
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        ...reserva,
+        id_booking,
+      }),
+      cache: "no-store",
+    }).then((res) => res.json());
+    if (callback) {
+      callback(response);
+    }
+    console.log(response);
+    if (response.error) {
+      throw new Error("Error al cargar los datos en reservas");
+    }
+    return response;
+  } catch (error) {
+    console.log(error);
+    throw error;
+  }
+}
+
 export async function updateReserva(
   reserva: EdicionForm & {
     nuevo_incluye_desayuno: boolean | null;
@@ -46,6 +82,7 @@ export async function fetchCreateReservaOperaciones(
         "Cache-Control": "no-cache, no-store, must-revalidate",
         "Content-Type": "application/json",
       },
+      credentials: "include",
       body: JSON.stringify(reserva),
       cache: "no-store",
     }).then((res) => res.json());
@@ -53,7 +90,9 @@ export async function fetchCreateReservaOperaciones(
     console.log(response);
 
     if (response.error) {
-      throw new Error(response.message || "Error al cargar los datos en reservas");
+      throw new Error(
+        response.message || "Error al cargar los datos en reservas"
+      );
     }
     if (callback) {
       callback(response);
@@ -61,7 +100,7 @@ export async function fetchCreateReservaOperaciones(
 
     return response;
   } catch (error) {
-    console.log("mostrando error",error);
+    console.log("mostrando error", error);
     throw error;
   }
 }
@@ -74,6 +113,7 @@ export async function fetchCreateReserva(reserva) {
         "Cache-Control": "no-cache, no-store, must-revalidate",
         "Content-Type": "application/json",
       },
+      credentials: "include",
       body: JSON.stringify(reserva),
       cache: "no-store",
     }).then((res) => res.json());
@@ -168,7 +208,7 @@ export const fetchReservationsAll = async (callback) => {
       },
       cache: "no-store",
     }).then((res) => res.json());
-    console.log(data,"esto trae");
+    console.log(data, "esto trae");
     callback(data);
   } catch (error) {
     throw error;
@@ -183,11 +223,11 @@ const getReservasByAgente = async (id_agente) => {
       {
         method: "GET",
         headers: {
-        "x-api-key": API_KEY || "",
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-        "Content-Type": "application/json",
-      },
-      cache: "no-store",
+          "x-api-key": API_KEY || "",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "Content-Type": "application/json",
+        },
+        cache: "no-store",
       }
     );
 
@@ -203,8 +243,6 @@ const getReservasByAgente = async (id_agente) => {
     return null;
   }
 };
-
-
 
 export const fetchReservationsFacturacion = async (callback) => {
   try {

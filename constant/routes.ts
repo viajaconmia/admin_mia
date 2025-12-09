@@ -8,4 +8,7 @@ export const ROUTES = {
   BOOKING: {
     ID_SOLICITUD: (id: string) => `${MIA_DOMAIN}/bookings/${btoa(id)}`,
   },
+  DASHBOARD: {
+    UNAUTHORIZED: "/dashboard/unauthorized",
+  },
 };

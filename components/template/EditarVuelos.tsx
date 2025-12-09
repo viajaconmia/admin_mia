@@ -21,6 +21,7 @@ import { Saldo } from "@/services/SaldoAFavor";
 import { ViajeAereo, VuelosServices } from "@/services/VuelosServices";
 import { ForSave, GuardadoRapido } from "./GuardadoRapido";
 import { Vuelo } from "./PageVuelos";
+import { verificar } from "@/lib/utils";
 
 export const EditarVuelos = ({
   vuelo,
@@ -72,33 +73,6 @@ export const EditarVuelos = ({
     });
   };
 
-  const verificar = (key: string, current: any, before: any) => {
-    if (typeof current !== typeof before) return { [key]: { current, before } };
-    if (
-      typeof current === "object" &&
-      !Array.isArray(current) &&
-      current !== null
-    ) {
-      let data = {};
-      let cambio = false;
-      Object.entries(current).forEach(([key2, value2]) => {
-        let propiedades = verificar(key2, value2, before[key2]);
-        if (propiedades) cambio = true;
-        data = { ...data, ...propiedades };
-      });
-      return cambio ? { [key]: { current: data, before } } : undefined;
-    }
-    if (Array.isArray(current)) {
-      let isCambio = current.map((current, index) =>
-        verificar(String(index), current, before[index])
-      );
-      isCambio = isCambio.some((item) => !!item);
-      return isCambio ? { [key]: { current, before } } : undefined;
-    }
-    if (current !== before) return { [key]: { current, before } };
-    return undefined;
-  };
-
   const onPagar = () => {
     try {
       if (state.precio <= 0) throw new Error("El precio debe ser mayor a 0");
@@ -119,6 +93,8 @@ export const EditarVuelos = ({
     setAerolineas(aerolineas);
     setSave(null);
   };
+
+
   const handleGuardarAeropuerto = (aeropuertos: Aeropuerto[]) => {
     setAeropuertos(aeropuertos);
     setSave(null);
@@ -245,9 +221,8 @@ export const EditarVuelos = ({
             setSave(null);
           }}
           title={`Agregar ${save == "vuelo" ? "aerolinea" : "aeropuerto"}`}
-          subtitle={`Agrega los valores de la nueva ${
-            save == "vuelo" ? "aerolinea" : "aeropuerto"
-          } para agregarla`}
+          subtitle={`Agrega los valores de la nueva ${save == "vuelo" ? "aerolinea" : "aeropuerto"
+            } para agregarla`}
         >
           <GuardadoRapido
             onSaveProveedor={handleGuardarAerolinea}
@@ -262,9 +237,9 @@ export const EditarVuelos = ({
             value={
               state.viajero
                 ? {
-                    name: state.viajero.nombre_completo,
-                    content: state.viajero,
-                  }
+                  name: state.viajero.nombre_completo,
+                  content: state.viajero,
+                }
                 : null
             }
             label="Viajero"
@@ -327,9 +302,9 @@ export const EditarVuelos = ({
                       value={
                         vuelo.aerolinea
                           ? {
-                              name: vuelo.aerolinea.nombre,
-                              content: vuelo.aerolinea,
-                            }
+                            name: vuelo.aerolinea.nombre,
+                            content: vuelo.aerolinea,
+                          }
                           : null
                       }
                       className="col-span-2"
@@ -357,9 +332,9 @@ export const EditarVuelos = ({
                     value={
                       vuelo.origen
                         ? {
-                            name: vuelo.origen.nombre,
-                            content: vuelo.origen,
-                          }
+                          name: vuelo.origen.nombre,
+                          content: vuelo.origen,
+                        }
                         : null
                     }
                     className="col-span-3"
@@ -376,9 +351,9 @@ export const EditarVuelos = ({
                     value={
                       vuelo.destino
                         ? {
-                            name: vuelo.destino.nombre,
-                            content: vuelo.destino,
-                          }
+                          name: vuelo.destino.nombre,
+                          content: vuelo.destino,
+                        }
                         : null
                     }
                     className="col-span-3"
@@ -537,12 +512,12 @@ type Action<K extends keyof ViajeAereoDetails> =
   | { type: "DELETE_VUELO"; payload: number }
   | { type: "LOAD_VUELO"; payload: ViajeAereoDetails }
   | {
-      type: "UPDATE_VUELO";
-      payload: {
-        field: K;
-        value: ViajeAereoDetails[K];
-      };
+    type: "UPDATE_VUELO";
+    payload: {
+      field: K;
+      value: ViajeAereoDetails[K];
     };
+  };
 
 const vuelosReducer = (
   state: ViajeAereoDetails,

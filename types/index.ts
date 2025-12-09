@@ -10,6 +10,7 @@ export interface TypeFilters {
   nombre_agente?: string | null;
   startDate?: string | null;
   endDate?: string | null;
+  cliente?: string | null;
   recordCount?: string | null;
   empresa?: string | null;
   hasDiscount?: string | null;
@@ -17,16 +18,16 @@ export interface TypeFilters {
   origen_pago?: string | null;
   nombre_cliente?: string | null;
   estatus_pagos?: string | null;
-  link_pago?:string|null ,
+  link_pago?: string | null;
   status?: "Confirmada" | "Pendiente" | "Cancelada" | "Todos" | null;
   reservationStage?: "Reservado" | "In house" | "Check-out" | null;
   paymentMethod?:
-  | "Credito"
+    | "Credito"
     | "Tarjeta"
     | "Contado"
     | "Wallet"
-  | "Tranferencia"
-  |""
+    | "Tranferencia"
+    | ""
     | null;
   filterType?:
     | "Check-in"
@@ -36,10 +37,7 @@ export interface TypeFilters {
     | "Actualizacion"
     | null;
   active?: "Activo" | "Inactivo" | null;
-  metodo?:
-    | "Credito"
-    | "Contado"
-    | null;
+  metodo?: "Credito" | "Contado" | null;
   hay_convenio?: "SI" | "NO";
   tipo_negociacion?: string | null;
   estado?: string | null;
@@ -63,7 +61,7 @@ export interface TypeFilters {
   tipo_hospedaje?: string | null;
   correo?: string | null;
   infoCompleta?: string | null;
-  activo?: boolean | "ACTIVO" | "INACTIVO" |1|0| null;
+  activo?: boolean | "ACTIVO" | "INACTIVO" | 1 | 0 | null;
   pais?: string | null;
   reservante?: "Operaciones" | "Cliente";
   markUp?: number;
@@ -81,20 +79,25 @@ export interface TypeFilters {
   endCantidad?: number | null;
   id_stripe?: string | null;
   facturable?: boolean | null;
-  comprobante?: boolean | null; 
+  comprobante?: boolean | null;
   paydate?: string | null;
-    fecha_creacion?: string | null;
-
+  fecha_creacion?: string | null;
+  uuid?: string | null;
   fecha_pago?: string | null;
-  estatusFactura ?: "Confirmada" |"Cancelada" |"En proceso"| "Sin Asignar" | null;
-  id_factura ?: string | null;
+  estatusFactura?:
+    | "Confirmada"
+    | "Cancelada"
+    | "En proceso"
+    | "Sin Asignar"
+    | null;
+  id_factura?: string | null;
 }
 
 export interface EmpresaFromAgent {
-  id?: string|null;
+  id?: string | null;
   razon_social?: string | null;
   rfc?: string | null;
-    [key: string]: any; // Para propiedades adicionales
+  [key: string]: any; // Para propiedades adicionales
 }
 
 export interface Agente {
@@ -174,52 +177,53 @@ export type Solicitud = {
 };
 //TEMPORAL
 
-  export interface Solicitud2 {
-    id_agente: string;
-    id_servicio: string;
-    id_solicitud: string;
-    id_hospedaje: string;
-    id_hotel_solicitud: string;
-    id_hotel_reserva: string;
-    id_viajero_solicitud: string;
-    id_viajero_reserva: string;
-    id_booking: string;
-    id_pago: string | null;
-    id_credito: string | null;
-    id_factura: string | null;
-    id_facturama: string | null;
-    status_solicitud: string;
-    status_reserva: string;
-    etapa_reservacion: string;
-    created_at_solicitud: string;
-    created_at_reserva: string;
-    hotel_solicitud: string;
-    hotel_reserva: string;
-    check_in: string;
-    check_out: string;
-    
-    room: string;
-    tipo_cuarto: string;
-    total: string;
-    quien_reservó: string;
-    nombre_viajero_solicitud: string;
-    nombre_viajero_reservacion: string;
-    updated_at: string;
-    costo_total: string;
-    comments: string;
-    confirmation_code: string;
-    codigo_reservacion_hotel: string;
-    metodo_pago_dinamico: "Credito" | "Contado";
-    nombre_cliente: string;
-    correo: string;
-    telefono: string;
-    rfc: string | null;
-    tipo_persona: string;
-    viajeros_acompañantes: string[] | null;
-    items_reserva: string[];
-    items_de_la_reserva: string[];
-    origen: string;
-  }
+export interface Solicitud2 {
+  id_hotel: string | null;
+  id_agente: string;
+  id_servicio: string;
+  id_solicitud: string;
+  id_hospedaje: string;
+  id_hotel_solicitud: string;
+  id_hotel_reserva: string;
+  id_viajero_solicitud: string;
+  id_viajero_reserva: string;
+  id_booking: string;
+  id_pago: string | null;
+  id_credito: string | null;
+  id_factura: string | null;
+  id_facturama: string | null;
+  status_solicitud: string;
+  status_reserva: string;
+  etapa_reservacion: string;
+  created_at_solicitud: string;
+  created_at_reserva: string;
+  hotel_solicitud: string;
+  hotel_reserva: string;
+  check_in: string;
+  check_out: string;
+
+  room: string;
+  tipo_cuarto: string;
+  total: string;
+  quien_reservó: string;
+  nombre_viajero_solicitud: string;
+  nombre_viajero_reservacion: string;
+  updated_at: string;
+  costo_total: string;
+  comments: string;
+  confirmation_code: string;
+  codigo_reservacion_hotel: string;
+  metodo_pago_dinamico: "Credito" | "Contado";
+  nombre_cliente: string;
+  correo: string;
+  telefono: string;
+  rfc: string | null;
+  tipo_persona: string;
+  viajeros_acompañantes: string[] | null;
+  items_reserva: string[];
+  items_de_la_reserva: string[];
+  origen: string;
+}
 
 export interface Tax {
   id_impuesto: number;
@@ -314,6 +318,7 @@ export type Viajero = {
   nacionalidad?: string | null;
   numero_pasaporte?: string | null;
   numero_empleado?: string | null;
+  is_user: 1 | 0;
 };
 
 // Interfaz para los impuestos dentro de cada item de ReservaForm.items
@@ -593,6 +598,8 @@ export type FacturaProveedor = {
 // Estos son los campos de la tabla `solicitudes_pago_proveedor` que vienen en el nivel principal
 // junto con los campos de tu tipo 'Solicitud' original.
 export type SolicitudProveedorCore = {
+  id_solicitud: any;
+  codigo_dispersion: string | null;
   id_solicitud_proveedor: number;
   fecha_solicitud: string; // TIMESTAMP -> string (ISO 8601)
   monto_solicitado: string; // DECIMAL(12,2) -> string
@@ -627,4 +634,5 @@ export type SolicitudProveedor = Solicitud & {
   proveedor: ProveedorInfo;
   pagos: PagoProveedor[];
   facturas: FacturaProveedor[];
+  codigo_dispersion?: string | null;
 };

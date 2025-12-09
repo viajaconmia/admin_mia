@@ -5,21 +5,22 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/AuthContext";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useNotification } from "@/context/useNotificacion";
 
 export default function LoginPage() {
   const { login, isAuthenticated } = useAuth();
   const [email, setEmail] = useState("");
   const router = useRouter();
   const [password, setPassword] = useState("");
+  const { showNotification } = useNotification();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (email === "demo@example.com" && password === "demo1234") {
-      const fakeToken = "un-token-jwt-simulado-12345";
-      login(fakeToken);
-    } else {
-      alert("Credenciales incorrectas");
+    try {
+      login(email, password);
+    } catch (error) {
+      console.log(error);
+      showNotification("error", error.message || "Error al iniciar sesión");
     }
   };
 

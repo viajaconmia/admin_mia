@@ -1,7 +1,14 @@
 "use client";
 
 import { useNotification } from "@/context/useNotificacion";
-import { Copy, UserCheck, UserX } from "lucide-react";
+import {
+  ArrowDown,
+  ChevronDown,
+  ChevronRight,
+  Copy,
+  UserCheck,
+  UserX,
+} from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import React from "react";
 import Button from "../atom/Button";
@@ -12,7 +19,7 @@ import {
 } from "@/helpers/formater";
 import { copyToClipboard } from "@/helpers/utils";
 import { Loader } from "../atom/Loader";
-// import { UserProfileImage } from "../atom/UserProfileImage";
+import { UserProfileImage } from "../atom/UserProfileImage";
 import { CheckboxInput } from "../atom/Input";
 
 type ComponentPropsMap<T> = {
@@ -33,9 +40,9 @@ type ComponentPropsMap<T> = {
     value: string;
     variant?: "primary" | "secondary" | "ghost" | "warning";
   };
-  // profile_image: {
-  //   value: string;
-  // };
+  profile_image: {
+    value: string;
+  };
   checkbox: {
     value: boolean;
     onChange: (value: boolean, item: T) => void;
@@ -172,7 +179,7 @@ export const TableFromMia = <T extends Record<string, any>>({
         </div>
       ),
 
-      // profile_image: ({ value }) => <UserProfileImage name={value} />,
+      profile_image: ({ value }) => <UserProfileImage name={value} />,
       titles: ({ value, subtitle, item }) => (
         <div className="flex flex-col items-start">
           <h1 className="text-base font-semibold">{capitalizarTexto(value)}</h1>

@@ -15,6 +15,8 @@ import {
 import {
   CheckboxInput,
   ComboBox,
+  ComboBox2,
+  ComboBoxOption2,
   DateInput,
   Dropdown,
   DropdownValues,
@@ -146,6 +148,7 @@ export function ReservationForm({
   const [loading, setLoading] = useState(false);
   const [travelers, setTravelers] = useState<Viajero[]>([]);
   const [activeTab, setActiveTab] = useState("cliente");
+  const [usuarioCreador, setUsuarioCreador] = useState(null);
   const [isCostoManual, setIsCostoManual] = useState(
     () =>
       Number(solicitud.costo_total) !==
@@ -216,6 +219,10 @@ export function ReservationForm({
       setTravelers([]);
     }
   }, []);
+
+  useEffect(() => {
+    console.log(travelers);
+  }, [travelers]);
 
   useEffect(() => {
     if (
@@ -566,27 +573,13 @@ export function ReservationForm({
   const handleProcessRequest = async () => {
     setLoading(true);
     try {
-      if (edicion) {
-        updateReserva(
-          { ...edicionForm, nuevo_incluye_desayuno, acompanantes },
-          solicitud.id_booking,
-          (data) => {
-            if (data.error) {
-              alert("Error al actualizar la reserva");
-              setLoading(false);
-              return;
-            }
-            alert("Reserva actualizada correctamente");
-            setLoading(false);
-            onClose();
-          }
-        );
-      } else if (create) {
+      if (create) {
         await fetchCreateReservaOperaciones({
           ...form,
           nuevo_incluye_desayuno,
           acompanantes,
           bandera: 0,
+          usuarioCreador,
         })
           .then((data) => {
             alert("Se creo correctamente la reservación");
@@ -866,6 +859,26 @@ export function ReservationForm({
                     }}
                     value={form.comments}
                   ></Textarea>
+                  <ComboBox2
+                    label="Asignar creación a:"
+                    value={
+                      usuarioCreador
+                        ? {
+                          name: usuarioCreador.nombre_completo,
+                          content: usuarioCreador,
+                        }
+                        : { name: "", content: null }
+                    }
+                    onChange={(opcion) => {
+                      console.log(opcion);
+                    }}
+                    options={travelers
+                      .filter((tr) => Boolean(tr.is_user))
+                      .map((traveler) => ({
+                        name: traveler.nombre_completo,
+                        content: traveler,
+                      }))}
+                  />
                 </div>
               </div>
 
@@ -967,6 +980,67 @@ export function ReservationForm({
                       content: item,
                     }))}
                 />
+                <div className="space-y-2">
+                  {acompanantes.map((acompanante, index) => {
+                    return (
+                      <ComboBox
+                        key={index}
+                        label={`Acompañante - ${index + 1}`}
+                        onDelete={() => {
+                          const newAcompanantes = [...acompanantes].toSpliced(
+                            index,
+                            1
+                          );
+                          console.log(newAcompanantes);
+                          setAcompanantes(newAcompanantes);
+                        }}
+                        onChange={(value) => {
+                          const newAcompanantesList = [...acompanantes];
+                          newAcompanantesList[index] = value.content as Viajero;
+                          setAcompanantes(newAcompanantesList);
+                        }}
+                        value={{
+                          name: acompanante.nombre_completo || "",
+                          content: acompanante || null,
+                        }}
+                        options={[...travelers]
+                          .filter(
+                            (traveler) =>
+                              (!acompanantes
+                                .map((item) => item.id_viajero)
+                                .includes(traveler.id_viajero) &&
+                                traveler.id_viajero !=
+                                form.viajero.id_viajero) ||
+                              traveler.id_viajero == acompanante.id_viajero
+                          )
+                          .map((item) => ({
+                            name: item.nombre_completo,
+                            content: item,
+                          }))}
+                      />
+                    );
+                  })}
+                  {travelers.length > acompanantes.length + 1 && (
+                    <>
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          const filtrados = [...travelers].filter(
+                            (traveler) =>
+                              !acompanantes
+                                .map((item) => item.id_viajero)
+                                .includes(traveler.id_viajero) &&
+                              traveler.id_viajero != form.viajero.id_viajero
+                          );
+                          const nuevoArray = [...acompanantes, filtrados[0]];
+                          setAcompanantes(nuevoArray);
+                        }}
+                      >
+                        Agregar acompañante
+                      </Button>
+                    </>
+                  )}
+                </div>
                 <div className="flex justify-between border-t pt-2 mt-2 font-medium text-lg text-blue-700 bg-blue-50 p-2 rounded-md">
                   <NumberInput
                     label="Precio de reserva"
@@ -1080,67 +1154,6 @@ export function ReservationForm({
                     }}
                   ></NumberInput>
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                {acompanantes.map((acompanante, index) => {
-                  return (
-                    <ComboBox
-                      key={index}
-                      label={`Acompañante - ${index + 1}`}
-                      onDelete={() => {
-                        const newAcompanantes = [...acompanantes].toSpliced(
-                          index,
-                          1
-                        );
-                        console.log(newAcompanantes);
-                        setAcompanantes(newAcompanantes);
-                      }}
-                      onChange={(value) => {
-                        const newAcompanantesList = [...acompanantes];
-                        newAcompanantesList[index] = value.content as Viajero;
-                        setAcompanantes(newAcompanantesList);
-                      }}
-                      value={{
-                        name: acompanante.nombre_completo || "",
-                        content: acompanante || null,
-                      }}
-                      options={[...travelers]
-                        .filter(
-                          (traveler) =>
-                            (!acompanantes
-                              .map((item) => item.id_viajero)
-                              .includes(traveler.id_viajero) &&
-                              traveler.id_viajero != form.viajero.id_viajero) ||
-                            traveler.id_viajero == acompanante.id_viajero
-                        )
-                        .map((item) => ({
-                          name: item.nombre_completo,
-                          content: item,
-                        }))}
-                    />
-                  );
-                })}
-                {travelers.length > acompanantes.length + 1 && (
-                  <>
-                    <Button
-                      type="button"
-                      onClick={() => {
-                        const filtrados = [...travelers].filter(
-                          (traveler) =>
-                            !acompanantes
-                              .map((item) => item.id_viajero)
-                              .includes(traveler.id_viajero) &&
-                            traveler.id_viajero != form.viajero.id_viajero
-                        );
-                        const nuevoArray = [...acompanantes, filtrados[0]];
-                        setAcompanantes(nuevoArray);
-                      }}
-                    >
-                      Agregar acompañante
-                    </Button>
-                  </>
-                )}
               </div>
             </div>
             <div className="grid md:grid-cols-3">

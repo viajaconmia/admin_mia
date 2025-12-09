@@ -9,7 +9,7 @@ interface VistaPreviaProps {
   pagoData: any;
   itemsTotal?: number;
   onClose: () => void;
-  onConfirm: (url: any) => void; // Ahora recibe el payload completo
+  onConfirm: (data: { url?: string | null; fecha_vencimiento?: string; payload?: any }) => void;
   isLoading?: boolean;
 }
 
@@ -27,6 +27,7 @@ export default function VistaPreviaModal({
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [validationMessage, setValidationMessage] = useState<string | null>(null);
   const [facturar, setFacturar] = useState<number>(0);
+  const [fechaVencimiento, setFechaVencimiento] = useState<string>("");
 
   useEffect(() => {
     // Validación del monto cuando tenemos ambos datos
@@ -41,6 +42,17 @@ export default function VistaPreviaModal({
       setValidationMessage(null);
     }
   }, [pagoData, facturaData]);
+
+  useEffect(() => {
+    if (facturaData?.comprobante?.fecha) {
+      const d = new Date(facturaData.comprobante.fecha);
+      // default +30 días
+      d.setDate(d.getDate() + 30);
+      // formatea a YYYY-MM-DD para input type="date"
+      const iso = d.toISOString().split("T")[0];
+      setFechaVencimiento(iso);
+    }
+  }, [facturaData]);
 
   useEffect(() => {
     async function generarYSubirPDF() {
@@ -101,6 +113,7 @@ export default function VistaPreviaModal({
         return; // bloquea avance
       }
     }
+    console.log("fecha de vencimiento", fechaVencimiento)
     const payload = {
       fecha_emision: facturaData.comprobante.fecha.split("T")[0],
       estado: "Confirmada",
@@ -122,7 +135,8 @@ export default function VistaPreviaModal({
         saldo_pago: pagoData.saldo,
         pago: pagoData.pago,
         raw_id: pagoData.raw_id
-      })
+      }),
+      fecha_vencimiento: fechaVencimiento || null,
     };
 
     if (pagoData && facturaData) {
@@ -137,7 +151,7 @@ export default function VistaPreviaModal({
     }
 
     // Flujo normal - pasar el payload a onConfirm
-    onConfirm(pdfUrl);
+    onConfirm(pdfUrl, fechaVencimiento);
   };
 
   const formatCurrency = (value: string) => {
@@ -279,6 +293,23 @@ export default function VistaPreviaModal({
           />
         )}
 
+        {/* Fecha de vencimiento */}
+        <div className="mt-6 p-4 bg-gray-50 rounded border">
+          <label className="block text-sm font-semibold mb-2" htmlFor="fecha-venc">
+            Fecha de vencimiento
+          </label>
+          <input
+            id="fecha-venc"
+            type="date"
+            className="border rounded p-2"
+            value={fechaVencimiento}
+            onChange={(e) => setFechaVencimiento(e.target.value)}
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Define la fecha límite de pago para esta factura.
+          </p>
+        </div>
+
         <div className="flex justify-end gap-2 mt-6">
           <button
             className="px-4 py-2 rounded bg-red-500 text-white hover:bg-red-600 disabled:opacity-50"
@@ -291,7 +322,7 @@ export default function VistaPreviaModal({
             className="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
             onClick={handleConfirm}
 
-            disabled={isLoading || uploadingPdf || !pdfUrl || !ok}
+            disabled={isLoading || uploadingPdf || !pdfUrl || !ok || !fechaVencimiento}
           >
             {(isLoading || uploadingPdf) ? "Procesando..." : "Aceptar y Continuar"}
           </button>
@@ -373,4 +404,5 @@ const FacturaEstructurada = ({ facturaData, formatCurrency, formatDate }: any) =
       <p>Fecha de timbrado: {formatDate(facturaData.timbreFiscal.fechaTimbrado)}</p>
     </div>
   </div>
+
 );
