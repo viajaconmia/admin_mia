@@ -23,7 +23,6 @@ import { ComprobanteModal } from "./Components/comprobantes";
 import { SolicitudProveedorRaw } from "./Components/dispersion";
 import { useNotification } from "@/context/useNotificacion";
 
-
 // ---------- HELPERS GENERALES ----------
 
 const parseNum = (v: any) => (v == null ? 0 : Number(v));

@@ -13,6 +13,17 @@ interface CSVData {
   [key: string]: string;
 }
 
+const extractCodigoDispersion = (referencia?: string): string | null => {
+  if (!referencia) return null;
+
+  const regex = /wx"?(.+?)"?(?:xw|wx)/; // toma lo que está entre wx y xw / wx
+  const match = referencia.match(regex);
+
+  if (!match || !match[1]) return null;
+
+  return match[1].trim();
+};
+
 // Helper para validar archivos PDF
 const validatePDFFiles = (files: FileList): { isValid: boolean; error?: string; validFiles?: File[] } => {
   const validFiles: File[] = [];
@@ -93,30 +104,63 @@ const parseCSV = (csvText: string): string[][] => {
 };
 
 // Función para procesar CSV a array de objetos
+// Función para procesar CSV a array de objetos
 const procesarTodosLosDatosCSV = (parsedData: string[][]): CSVData[] => {
   if (parsedData.length < 2) return [];
 
   const result: CSVData[] = [];
-  const headers = parsedData[0];
-  const dataRows = parsedData.slice(1); // Excluir encabezados
 
+  // 1) Detectar la fila de encabezados real
+  //    (la que contiene "Referencia" o "Referencia Ampliada")
+  let headerIndex = 0;
+
+  for (let i = 0; i < parsedData.length; i++) {
+    const rowLower = parsedData[i].map((cell) => cell.trim().toLowerCase());
+
+    if (
+      rowLower.includes("referencia ampliada") ||
+      rowLower.includes("referencia")
+    ) {
+      headerIndex = i;
+      break;
+    }
+  }
+
+  // 2) Encabezados y filas de datos
+  const headers = parsedData[headerIndex].map((h) => h.trim());
+  const dataRows = parsedData.slice(headerIndex + 1); // lo que sigue son datos
+
+  // 3) Recorrer todas las filas de datos
   for (const row of dataRows) {
-    if (row.length === 0 || row.every(cell => cell.trim() === '')) continue;
+    if (row.length === 0 || row.every((cell) => cell.trim() === "")) continue;
 
     const csvData: CSVData = {};
 
     // Mapear todas las columnas del CSV
     headers.forEach((header, index) => {
-      const columnName = header.trim();
-      const value = row[index] || '';
-      csvData[columnName] = value;
+      const value = row[index] || "";
+      csvData[header] = value;
     });
+
+    // 4) Buscar el código de dispersión en "Referencia Ampliada" o "Referencia"
+    const referenciaAmpliada = csvData["Referencia Ampliada"];
+    const referenciaSimple = csvData["Referencia"];
+
+    const codigo =
+      extractCodigoDispersion(referenciaAmpliada) ||
+      extractCodigoDispersion(referenciaSimple);
+
+    // Si encontramos código de dispersión, lo guardamos en la fila
+    if (codigo) {
+      csvData["codigo_dispersion"] = codigo;
+    }
 
     result.push(csvData);
   }
 
   return result;
 };
+
 
 export const ComprobanteModal: React.FC<Comprobante> = ({
   onClose,
@@ -675,7 +719,7 @@ export const ComprobanteModal: React.FC<Comprobante> = ({
                 }`}
             >
               <Send className="w-4 h-4" />
-              Generar dispersión
+              Subir comprobantes
             </button>
           </div>
         </form>
