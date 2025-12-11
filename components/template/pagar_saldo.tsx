@@ -102,8 +102,8 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
   reservaData = null,
   facturaData = null,
 }) => {
-  console.log("reservaData recibida:", reservaData);
-  console.log("facturas recibida:", facturaData);
+  // console.log("reservaData recibida:", reservaData);
+  // console.log("facturas recibida:", facturaData);
 
   // Helper global para dinero
   const toMoney = (v: any): number => {
@@ -144,10 +144,10 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
     totalSaldo = sumarMontos(saldos);
 
     console.log("Total sumado:", totalMonto);
-    console.log("Total sumado:", totalSaldo);
+    console.log("Total sumad do:", totalSaldo);
   }
   const id_agente =
-    reservaData?.id_agente || facturaData?.id_agente || "desconocido";
+    reservaData?.id_agente || facturaData[0]?.id_agente || "desconocido";
   // Si no hay saldoData pero hay reservaData, crear un saldoData básico
   const effectiveSaldoData =
     saldoData ||
@@ -159,8 +159,13 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
           reservaData?.solicitud.agente.nombre ||
           facturaData?.nombre_agente ||
           "Agente",
-        monto: reservaData?.Total || montos || 0,
-        saldo: reservaData?.Total || saldos || 0,
+        monto:
+    reservaData?.Total || // Si existe, úsalo (máxima prioridad)
+    (Array.isArray(montos) && montos.length > 1 ? totalMonto : montos), // Si hay más de 1 en el array, usa totalMonto. Si no, usa el array 'montos'.
+
+  saldo:
+    reservaData?.Total || // Si existe, úsalo (máxima prioridad)
+    (Array.isArray(saldos) && saldos.length > 1 ? totalSaldo : saldos),
       }
       : {
         id_saldos: "",
@@ -170,7 +175,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
         saldo: 0,
       });
 
-  console.log(effectiveSaldoData);
+  console.log(effectiveSaldoData,"paornvr iv to");
 
   const [formData, setFormData] = useState({
     montoPago: effectiveSaldoData.saldo,
@@ -198,21 +203,15 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
   const [saldoFavorData, setSaldoFavorData] = useState<any[]>([]);
 
   useEffect(() => {
-    if (reservaData) {
+    if (reservaData || facturaData) {
+      console.log("ENTRANDO A FACTURA")
       // Nuevo flujo: usar SaldoFavor cuando tenemos reservaData
       fetchSaldoFavorData();
     } else if (effectiveSaldoData.id_agente) {
       // Flujo existente
       fetchReservasConItems();
     }
-  }, [effectiveSaldoData.id_agente, reservaData]);
-
-  useEffect(() => {
-    if (facturaData) {
-      // Si recibimos facturaData, seguimos el flujo similar a reservaData
-      fetchSaldoFavorData();
-    }
-  }, [effectiveSaldoData.id_agente, facturaData]);
+  }, [effectiveSaldoData.id_agente, reservaData, facturaData]);
 
   // Función para obtener datos del nuevo flujo (SaldoFavor)
   const fetchSaldoFavorData = async () => {
@@ -240,7 +239,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
       response.data?.forEach((saldo: any) => {
         // Para el nuevo flujo, usamos el saldo completo como "item"
         const idItem = `saldo-${saldo.id_saldos}`;
-        const saldoValor = Number(saldo.saldo) || 0;
+        const saldoValor = facturaData? Number(saldo.monto_por_facturar) : Number(saldo.saldo) ;
 
         initialOriginalSaldo[idItem] = saldoValor;
         initialSaldo[idItem] = saldoValor;
@@ -304,8 +303,12 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
 
   const handleItemSelection = (id_item: string, saldoOriginal: number) => {
     setSelectedItems((prev) => {
+      console.log(id_item,"1️⃣1️⃣1️⃣1️⃣1️⃣1️⃣",saldoOriginal)
       const isCurrentlySelected = prev.some((item) => item.id_item === id_item);
+              console.log("nvfnvif🤬🤬🤬🤬",itemsSaldo)
+
       const currentSaldo = toMoney(itemsSaldo[id_item] ?? saldoOriginal);
+              console.log(currentSaldo,"🚓🚓🚓🚓🚓🚓🚓🚓")
 
       if (isCurrentlySelected) {
         // Deseleccionar item - restaurar el saldo original
@@ -313,7 +316,10 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
         const newTotal = toMoney(
           newSelection.reduce((sum, item) => sum + item.saldo, 0)
         );
+              console.log(newTotal,"😢😢😢😢😢😢😢",newSelection)
+
         const restante = toMoney(effectiveSaldoData.saldo - newTotal);
+              console.log(restante,"🚓🚓🚓🚓🚓🚓🚓🚓")
 
         // Restaurar el saldo original del item
         setItemsSaldo((prevSaldo) => ({
@@ -341,6 +347,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
         // Calcular cuánto podemos aplicar de este ítem
         const saldoDisponible = toMoney(effectiveSaldoData.saldo - currentTotal);
         const montoAAplicar = toMoney(Math.min(currentSaldo, saldoDisponible));
+        console.log("nvfnvif🤬🤬🤬🤬",currentSaldo)
 
         // Actualizar el saldo del ítem (lo que queda por pagar)
         const nuevoSaldoItem = toMoney(currentSaldo - montoAAplicar);
@@ -353,6 +360,9 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
         const restante = toMoney(effectiveSaldoData.saldo - newTotal);
 
         const newSelection = [...prev, { id_item, saldo: montoAAplicar }];
+                      console.log(newTotal,"😢😢😢😢😢😢😢",newSelection)
+              console.log(restante,"🚓🚓🚓🚓🚓🚓🚓🚓")
+
         setMontoRestante(restante);
         setMontoSeleccionado(newTotal);
         return newSelection;

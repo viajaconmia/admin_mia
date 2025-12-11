@@ -1,6 +1,6 @@
 import { exportToCSV } from "@/helpers/utils";
 import { ArrowDown, FileDown, Columns, ChevronRight, ChevronDown } from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Loader } from "@/components/atom/Loader"
 
 type Registro = {
@@ -65,6 +65,8 @@ export const Table5 = <T,>({
   const [showColumnSelector, setShowColumnSelector] = useState(false);
   // Estado para las filas expandidas
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+  const columnSelectorRef = useRef<HTMLDivElement | null>(null);
+
 
   const showAllColumns = () => {
     setVisibleColumns(new Set(columnKeys));
@@ -248,6 +250,23 @@ const columnKeys = useMemo(() => {
     </div>
   );
 };
+useEffect(() => {
+  if (!showColumnSelector) return;
+
+  const handleClickOutside = (event: MouseEvent) => {
+    if (
+      columnSelectorRef.current &&
+      !columnSelectorRef.current.contains(event.target as Node)
+    ) {
+      setShowColumnSelector(false);
+    }
+  };
+
+  document.addEventListener("mousedown", handleClickOutside);
+  return () => {
+    document.removeEventListener("mousedown", handleClickOutside);
+  };
+}, [showColumnSelector]);
 
   const formatColumnTitle = (key: string) => {
     const text = key
@@ -367,16 +386,16 @@ const FORCE_SPLIT_COLS = new Set(["nombre", "cliente", "nombre_cliente"]);
               <FileDown className="w-4 h-4 mr-2" />
               Exportar CSV
             </button>
-            <div className="relative">
-              <button
-                className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2"
-                onClick={() => setShowColumnSelector(!showColumnSelector)}
-              >
-                <Columns className="w-4 h-4 mr-2" />
-                Columnas
-              </button>
-              {showColumnSelector && (
-                <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-md shadow-lg z-30 border border-gray-200 max-h-72 overflow-y-auto">
+<div className="relative" ref={columnSelectorRef}>
+  <button
+    className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2"
+    onClick={() => setShowColumnSelector(!showColumnSelector)}
+  >
+    <Columns className="w-4 h-4 mr-2" />
+    Columnas
+  </button>
+  {showColumnSelector && (
+    <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-md shadow-lg z-30 border border-gray-200 max-h-72 overflow-y-auto">
                   <div className="p-2">
                     <div className="flex gap-2 mb-2">
                       <button
