@@ -454,31 +454,44 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
       alert("Para registrar el pago, debes cubrir el total de la reserva.");
       return;
     } else if (facturaData) {
-      console.log(
-        selectedItems.map((item) => {
-          const originalItem = saldoFavorData.find(
-            (sf) => `saldo-${sf.id_saldos}` === item.id_item
-          );
-          const appliedAmount =
-            originalSaldoItems[item.id_item] - (itemsSaldo[item.id_item] || 0);
+      const ejemplo_saldos = selectedItems.map(item => {
+        const originalItem = saldoFavorData.find(sf => `saldo-${sf.id_saldos}` === item.id_item);
+        const aplicado = (originalSaldoItems[item.id_item] ?? 0) - (itemsSaldo[item.id_item] ?? 0);
+        console.log("informacion",saldoFavorData,"original saldo",aplicado)
+        return {
+          id_saldo: originalItem?.id_saldos || '',
+          saldo_original: Number(originalItem?.monto_por_facturar || 0),
+          saldo_actual: Number(itemsSaldo[item.id_item] ?? 0),
+          aplicado: Number(aplicado),
+          id_agente: effectiveSaldoData.id_agente,
+          metodo_de_pago: originalItem?.metodo_pago || 'wallet',
+          fecha_pago: originalItem?.fecha_pago || '',
+          concepto: originalItem?.concepto || null,
+          referencia: originalItem?.referencia || null,
+          currency: 'mxn',
+          tipo_de_tarjeta: originalItem?.tipo_tarjeta || null,
+          link_pago: null,
+          last_digits: null
+        };
+      });
 
-          return {
-            id_saldo: originalItem?.id_saldos || "",
-            saldo_original: originalItem?.saldo || 0,
-            saldo_actual: itemsSaldo[item.id_item] || 0,
-            aplicado: appliedAmount,
-            id_agente: effectiveSaldoData.id_agente,
-            metodo_de_pago: originalItem?.metodo_pago || "wallet",
-            fecha_pago: originalItem?.fecha_pago || "",
-            concepto: originalItem?.concepto || null,
-            referencia: originalItem?.referencia || null,
-            currency: "mxn",
-            tipo_de_tarjeta: originalItem?.tipo_tarjeta || null,
-            link_pago: null,
-            last_digits: null,
-          };
-        })
-      );
+      // Armamos el payload para facturas
+      console.log(facturaData,"fnvonvorv")
+      const ids_facturas = facturaData.map(f => f.facturaSeleccionada.id_factura);
+      console.log(ids_facturas);
+
+
+      payload = {
+        // Incluye el identificador de la factura y el agente
+        id_factura: ids_facturas,
+        id_agente: effectiveSaldoData.id_agente,
+        // Arreglo de saldos aplicados (igual estructura que en reservaData)
+        ejemplo_saldos
+      };
+
+      endpoint = "/mia/factura/AsignarFacturaPagos";
+      // endpoint = "/mia/factura/AsignarFacgos";
+
     } else {
       // Payload existente para el flujo de saldoData
       const tableDataToUse = reservas.flatMap((reserva) =>
@@ -522,11 +535,13 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
       endpoint = "/mia/pagos/aplicarpagoPorSaldoAFavor";
     }
 
-    console.log("Payload:", payload);
+    console.log("endpoint:",URL, endpoint);
+    console.log("payload",endpoint)
 
+    const method = facturaData? "PATCH" : "POST";
     try {
       const response = await fetch(`${URL}${endpoint}`, {
-        method: "POST",
+        method: method,
         headers: {
           "Content-Type": "application/json",
           "x-api-key": API_KEY,
@@ -562,15 +577,24 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
     reservaData || facturaData
       ? // Datos del nuevo flujo (SaldoFavor)
       saldoFavorData
-        .filter((saldo) => saldo.activo !== 0)
-        .filter((saldo) => {
-          const rawSaldo = facturaData
-            ? Number(saldo.monto_por_facturar)
-            : Number(saldo.saldo);
+  .filter((saldo) => saldo.is_cancelado !== 1)
+  .filter((saldo) => {
+    if (facturaData) {
+      // MODO FACTURA: mostrar solo si tiene algo por facturar
+      return Number(saldo.monto_por_facturar ?? 0) > 0;
+    }
 
-          // usa tu helper con tolerancia
-          return !isZeroMoney(rawSaldo);
-        })
+    // MODO RESERVA: no mostrar los que tengan activo = 0
+    return saldo.activo !== 0; // o !!saldo.activo
+  })
+  .filter((saldo) => {
+    const rawSaldo = facturaData
+      ? Number(saldo.monto_por_facturar)
+      : Number(saldo.saldo);
+
+    // usa tu helper con tolerancia
+    return !isZeroMoney(rawSaldo);
+  })
         .map((saldo) => ({
           creado: saldo.fecha_creacion
             ? new Date(saldo.fecha_creacion)
