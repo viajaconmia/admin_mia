@@ -4,6 +4,7 @@ export class BookingsService extends ApiService {
   private ENDPOINTS = {
     GET: {
       ITEMS: "/items",
+      RERESVAS: "/services",
     },
     PUT: {
       ITEMS: "/items",
@@ -22,12 +23,18 @@ export class BookingsService extends ApiService {
       params: { id_hospedaje },
     });
   };
+
   public actualizarItems = async (items: (Item & { edit: boolean })[]) => {
     return this.put({
       path: this.formatPath(this.ENDPOINTS.PUT.ITEMS),
       body: { items },
     });
   };
+
+  public obtenerReservas = async () =>
+    this.get<BookingAll[]>({
+      path: this.formatPath(this.ENDPOINTS.GET.RERESVAS),
+    });
 }
 
 export type Item = {
@@ -47,4 +54,41 @@ export type Item = {
   costo_impuestos: string;
   saldo: string;
   costo_iva: string;
+};
+
+export type BookingAll = {
+  id_viajero: string;
+  viajero: string;
+
+  id_solicitud: string;
+  id_hospedaje: string | null;
+  id_renta_autos: string | null;
+  id_viaje_aereo: string | null;
+  id_booking: string;
+  id_servicio: string;
+  id_agente: string;
+
+  correo_cliente: string;
+  telefono_cliente: string;
+
+  status_reserva: string;
+  total_booking: string;
+
+  check_in: string;
+  check_out: string;
+  created_at: string;
+
+  horario_salida: string | null;
+  horario_llegada: string | null;
+  origen: string | null;
+  destino: string | null;
+
+  proveedor: string;
+  agente: string;
+  type: string;
+  tipo_cuarto_vuelo: string;
+
+  comments: string;
+  nuevo_incluye_desayuno: boolean | null;
+  codigo_confirmacion: string;
 };

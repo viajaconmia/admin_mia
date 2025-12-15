@@ -7,6 +7,7 @@ import {
   TextInput,
 } from "@/components/atom/Input";
 import { TypeFilters } from "@/types";
+import { useFilters } from "@/context/Filters";
 
 const Filters: React.FC<{
   onFilter: (filters: TypeFilters) => void;
@@ -21,50 +22,57 @@ const Filters: React.FC<{
   searchTerm,
   setSearchTerm,
 }) => {
-    const [isOpen, setIsOpen] = useState(defaultOpen);
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  const { search, setSearch } = useFilters();
 
-    const toggleModal = () => {
-      setIsOpen(!isOpen);
-    };
-    return (
-      <div className="overflow-hidden max-w-full mx-auto relative flex flex-col md:flex-row md:items-center md:flex-wrap justify-between gap-4">
-        <div className="relative flex-1 pt-2">
-          <div className="absolute inset-y-0 left-0 pl-3 pt-2 flex items-center pointer-events-none">
-            <Search className="h-5 w-5 text-gray-400" />
-          </div>
-          <input
-            type="text"
-            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-            placeholder="Buscar por código, ID, cliente..."
-            value={searchTerm || ""}
-            onChange={(e) => {
-              const v = e.target.value
-                ?.normalize("NFD")
-                .replace(/[\u0300-\u036f]/g, "")
-                ?.toUpperCase();
-              if (typeof setSearchTerm === "function") setSearchTerm(v);
-            }} />
+  const toggleModal = () => {
+    setIsOpen(!isOpen);
+  };
+
+  const handleSearch = (value) => {
+    setSearchTerm(value);
+    setSearch(value);
+  };
+  return (
+    <div className="overflow-hidden max-w-full mx-auto relative flex flex-col md:flex-row md:items-center md:flex-wrap justify-between gap-4">
+      <div className="relative flex-1 pt-2">
+        <div className="absolute inset-y-0 left-0 pl-3 pt-2 flex items-center pointer-events-none">
+          <Search className="h-5 w-5 text-gray-400" />
         </div>
-        <div className="flex justify-between items-center gap-4">
-          <button
-            onClick={toggleModal}
-            type="button"
-            className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            <Filter className="h-4 w-4 mr-2" />
-            Filtros
-          </button>
-        </div>
-        <FiltersModal
-          onClose={toggleModal}
-          isOpen={isOpen}
-          onFilter={onFilter}
-          defaultFilter={defaultFilters}
-          setSearchTerm={setSearchTerm}
+        <input
+          type="text"
+          className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+          placeholder="Buscar por código, ID, cliente..."
+          value={searchTerm || search || ""}
+          onChange={(e) => {
+            const v = e.target.value
+              ?.normalize("NFD")
+              .replace(/[\u0300-\u036f]/g, "")
+              ?.toUpperCase();
+            if (typeof setSearchTerm === "function") handleSearch(v);
+          }}
         />
       </div>
-    );
-  };
+      <div className="flex justify-between items-center gap-4">
+        <button
+          onClick={toggleModal}
+          type="button"
+          className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+        >
+          <Filter className="h-4 w-4 mr-2" />
+          Filtros
+        </button>
+      </div>
+      <FiltersModal
+        onClose={toggleModal}
+        isOpen={isOpen}
+        onFilter={onFilter}
+        defaultFilter={defaultFilters}
+        setSearchTerm={setSearchTerm}
+      />
+    </div>
+  );
+};
 
 const FiltersModal: React.FC<{
   onClose: () => void;
@@ -257,11 +265,18 @@ const FiltersModal: React.FC<{
               {"is_facturado" in filters && (
                 <Dropdown
                   label="¿Facturado?"
-                  value={filters.is_facturado === 1 ? "SI" : filters.is_facturado === 0 ? "NO" : ""}
+                  value={
+                    filters.is_facturado === 1
+                      ? "SI"
+                      : filters.is_facturado === 0
+                      ? "NO"
+                      : ""
+                  }
                   onChange={(value) =>
                     setFilters((prev) => ({
                       ...prev,
-                      is_facturado: value === "SI" ? 1 : value === "NO" ? 0 : null,
+                      is_facturado:
+                        value === "SI" ? 1 : value === "NO" ? 0 : null,
                     }))
                   }
                   options={["SI", "NO"]}
@@ -287,7 +302,6 @@ const FiltersModal: React.FC<{
                 />
               )}
 
-
               {"origen_pago" in filters && (
                 <TextInput
                   label="Origen del Pago"
@@ -297,7 +311,6 @@ const FiltersModal: React.FC<{
                   }
                 />
               )}
-
 
               {"endDate" in filters && (
                 <DateInput
@@ -356,8 +369,8 @@ const FiltersModal: React.FC<{
                     filters.facturable === true
                       ? "SI"
                       : filters.facturable === false
-                        ? "NO"
-                        : ""
+                      ? "NO"
+                      : ""
                   }
                   onChange={(value) =>
                     setFilters((prev) => ({
@@ -377,8 +390,8 @@ const FiltersModal: React.FC<{
                     filters.comprobante === true
                       ? "SI"
                       : filters.comprobante === false
-                        ? "NO"
-                        : ""
+                      ? "NO"
+                      : ""
                   }
                   onChange={(value) =>
                     setFilters((prev) => ({
@@ -597,18 +610,10 @@ const FiltersModal: React.FC<{
                   onChange={(value) =>
                     setFilters((prev) => ({
                       ...prev,
-                      paymentMethod: value as
-
-                        | "Credito"
-                        | "Contado"
-                        | ""
+                      paymentMethod: value as "Credito" | "Contado" | "",
                     }))
                   }
-                  options={[
-                    "Credito",
-                    "Contado",
-
-                  ]}
+                  options={["Credito", "Contado"]}
                 />
               )}
 
@@ -791,8 +796,8 @@ const FiltersModal: React.FC<{
                     filters.incluye_desayuno === true
                       ? "SI"
                       : filters.incluye_desayuno === false
-                        ? "NO"
-                        : ""
+                      ? "NO"
+                      : ""
                   }
                   onChange={(value) =>
                     setFilters((prev) => ({
@@ -916,13 +921,18 @@ const FiltersModal: React.FC<{
                     filters.activo === true || filters.activo === 1
                       ? "ACTIVO"
                       : filters.activo === false || filters.activo === 0
-                        ? "INACTIVO"
-                        : ""
+                      ? "INACTIVO"
+                      : ""
                   }
                   onChange={(value) =>
                     setFilters((prev) => ({
                       ...prev,
-                      activo: value === "ACTIVO" ? true : value === "INACTIVO" ? false : null,
+                      activo:
+                        value === "ACTIVO"
+                          ? true
+                          : value === "INACTIVO"
+                          ? false
+                          : null,
                     }))
                   }
                   options={["ACTIVO", "INACTIVO"]}
@@ -970,10 +980,20 @@ const FiltersModal: React.FC<{
                   onChange={(value) =>
                     setFilters((prev) => ({
                       ...prev,
-                      estatusFactura: value as "Confirmada" | "Cancelada" | "En proceso" | "Sin Asignar" | null,
+                      estatusFactura: value as
+                        | "Confirmada"
+                        | "Cancelada"
+                        | "En proceso"
+                        | "Sin Asignar"
+                        | null,
                     }))
                   }
-                  options={["Confirmada", "Cancelada", "En proceso", "Sin Asignar"]}
+                  options={[
+                    "Confirmada",
+                    "Cancelada",
+                    "En proceso",
+                    "Sin Asignar",
+                  ]}
                 />
               )}
               {"id_factura" in filters && (
@@ -1029,10 +1049,10 @@ const FiltersModal: React.FC<{
               {typeof value === "string"
                 ? value.toLowerCase()
                 : typeof value === "boolean"
-                  ? value
-                    ? "SI"
-                    : "NO"
-                  : value.toString()}
+                ? value
+                  ? "SI"
+                  : "NO"
+                : value.toString()}
 
               <X
                 onClick={() => handleDeleteFilter(key)}

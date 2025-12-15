@@ -188,12 +188,13 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
     ),
     markup: ({ value }) => (
       <span
-        className={`font-semibold border p-2 rounded-full ${value == "Infinity"
-          ? "text-gray-700 bg-gray-100 border-gray-300 "
-          : value > 0
+        className={`font-semibold border p-2 rounded-full ${
+          value == "Infinity"
+            ? "text-gray-700 bg-gray-100 border-gray-300 "
+            : value > 0
             ? "text-green-600 bg-green-100 border-green-300"
             : "text-red-600 bg-red-100 border-red-300"
-          }`}
+        }`}
       >
         {value == "Infinity" ? "0%" : `${Number(value).toFixed(2)}%`}
       </span>
@@ -273,10 +274,6 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
   console.log("cambios", selectedItem);
   return (
     <div className="h-fit">
-      <h1 className="text-3xl font-bold tracking-tight text-sky-950 my-4">
-        Reservas
-      </h1>
-
       <div className="w-full mx-auto bg-white p-4 rounded-lg shadow">
         <Filters
           defaultFilters={filters}
