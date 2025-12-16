@@ -19,6 +19,7 @@ import { useParams } from "next/navigation";
 import { fetchCompaniesAgent } from "@/hooks/useFetch";
 import { createNewViajero, updateViajero } from "@/hooks/useDatabase";
 import { deleteTraveler } from "@/hooks/useDatabase";
+import { formatDate } from "@/helpers/formater";
 
 // Types
 interface Company {
@@ -400,21 +401,23 @@ export function UsersClient({ agente }: { agente: Agente }) {
               <thead className="bg-gray-50">
                 <tr>
                   {[
-                    "Nombre",
-                    "Correo",
-                    "Nacionalidad",
-                    "Empresas",
+                    "nombre completo",
+                    "correo",
+                    "telefono",
+                    "fecha nacimiento",
+                    "nacionalidad",
                     "Acciones",
                   ].map((header, index) => (
                     <th
                       key={header}
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                       onClick={() => {
-                        const columns: (keyof Traveler)[] = [
-                          "primer_nombre",
+                        const columns: string[] = [
+                          "nombre_completo",
                           "correo",
+                          "telefono",
+                          "fecha_nacimiento",
                           "nacionalidad",
-                          "empresas",
                         ];
                         if (index < columns.length) handleSort(columns[index]);
                       }}
@@ -424,10 +427,11 @@ export function UsersClient({ agente }: { agente: Agente }) {
                         {index < 4 &&
                           sort.column ===
                             [
-                              "primer_nombre",
+                              "nombre_completo",
                               "correo",
+                              "telefono",
+                              "fecha_nacimiento",
                               "nacionalidad",
-                              "empresas",
                             ][index] &&
                           (sort.direction === "asc" ? (
                             <ChevronUp className="h-4 w-4" />
@@ -447,15 +451,25 @@ export function UsersClient({ agente }: { agente: Agente }) {
                         <div className="text-sm font-medium text-gray-900">
                           {`${traveler.primer_nombre} ${
                             traveler.segundo_nombre || ""
-                          } ${traveler.apellido_paterno}`}
+                          } ${traveler.apellido_paterno} ${
+                            traveler.apellido_materno
+                          }`}
                         </div>
                         <div className="text-sm text-gray-500">
-                          {traveler.numero_empleado || "—"}
+                          {traveler.numero_empleado || ""}
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {traveler.correo || "—"}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {traveler.telefono || "—"}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {!!traveler.fecha_nacimiento
+                        ? formatDate(traveler.fecha_nacimiento)
+                        : ""}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
@@ -466,18 +480,6 @@ export function UsersClient({ agente }: { agente: Agente }) {
                       >
                         {traveler.nacionalidad || "—"}
                       </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <div className="flex flex-wrap gap-1">
-                        {traveler.empresas.map((empresa) => (
-                          <span
-                            key={empresa.id_empresa}
-                            className="inline-flex items-center px-2 py-0.5 rounded bg-gray-100 text-gray-800 text-xs"
-                          >
-                            {empresa.razon_social}
-                          </span>
-                        ))}
-                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       <div className="flex space-x-2">

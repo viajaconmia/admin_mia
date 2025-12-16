@@ -370,7 +370,6 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
     });
   };
 
-
   const isItemSelected = (id_item: string): boolean => {
     return selectedItems.some((item) => item.id_item === id_item);
   };
@@ -791,102 +790,154 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
   if (!open) return null;
 
   // Selecciona saldos en orden y auto-llama handleSubmit cuando cubre el total
-  const seleccionarSaldosEnOrdenYAutoPagar = (saldosCrudos: any[]) => {
-    // Solo aplica con reservaData y una sola vez
-    if (!reservaData || autoPayTriggered.current) return;
+// Selecciona saldos en orden FIFO y deja todo redondeado a 2 decimales
 
-    // Orden FIFO por fecha_creacion (nulos van al final)
-    const saldosOrdenados = [...(saldosCrudos || [])]
-      .filter((s) => s?.activo !== 0)
-      .sort((a, b) => {
-        const ta = a?.fecha_creacion
-          ? new Date(a.fecha_creacion).getTime()
-          : Number.MAX_SAFE_INTEGER;
-        const tb = b?.fecha_creacion
-          ? new Date(b.fecha_creacion).getTime()
-          : Number.MAX_SAFE_INTEGER;
-        return ta - tb;
-      });
+const seleccionarSaldosEnOrdenYAutoPagar = (saldosCrudos: any[]) => {
+  // Solo aplica con reservaData y una sola vez
+  if (!reservaData || autoPayTriggered.current) return;
 
-    // Copias temporales para actualizar estados de manera atómica
-    const tmpItemsSaldo: Record<string, number> = { ...itemsSaldo };
-    const tmpOriginal: Record<string, number> = { ...originalSaldoItems };
-    const nuevaSeleccion: SelectedItem[] = [];
+  // Objetivo a cubrir: total de la reserva (ya redondeado)
+  const totalReserva = toMoney(reservaData?.Total || 0);
 
-    // Objetivo a cubrir: total de la reserva (ya redondeado)
-    let restante = toMoney(reservaData?.Total || 0);
-    let aplicadoTotal = toMoney(0);
+  console.group("=== AUTOPAY RESERVA (FIFO) ===");
+  console.log("Total de la reserva (objetivo):", totalReserva.toFixed(2));
 
-    for (const s of saldosOrdenados) {
-      if (isZeroMoney(restante) || restante < 0) break;
+  // Orden FIFO por fecha_creacion (nulos van al final)
+  const saldosOrdenados = [...(saldosCrudos || [])]
+    .filter((s) => s?.activo !== 0)
+    .sort((a, b) => {
+      const ta = a?.fecha_creacion
+        ? new Date(a.fecha_creacion).getTime()
+        : Number.MAX_SAFE_INTEGER;
+      const tb = b?.fecha_creacion
+        ? new Date(b.fecha_creacion).getTime()
+        : Number.MAX_SAFE_INTEGER;
+      return ta - tb;
+    });
 
-      const idItem = `saldo-${s.id_saldos}`;
-      const disponibleActual = toMoney(
-        typeof tmpItemsSaldo[idItem] === "number"
-          ? tmpItemsSaldo[idItem]
-          : s?.saldo || 0
-      );
+  console.log("Saldos ordenados por fecha_creacion:");
+  console.table(
+    saldosOrdenados.map((s) => ({
+      id_saldos: s.id_saldos,
+      fecha_creacion: s.fecha_creacion,
+      saldo: Number(s.saldo || 0).toFixed(2),
+    }))
+  );
 
-      // Asegura valores iniciales en los mapas (por si vienen vacíos)
-      if (tmpOriginal[idItem] === undefined)
-        tmpOriginal[idItem] = toMoney(s?.saldo || 0);
-      if (tmpItemsSaldo[idItem] === undefined)
-        tmpItemsSaldo[idItem] = toMoney(s?.saldo || 0);
+  // Copias temporales para actualizar estados de manera atómica
+  const tmpItemsSaldo: Record<string, number> = { ...itemsSaldo };
+  const tmpOriginal: Record<string, number> = { ...originalSaldoItems };
+  const nuevaSeleccion: SelectedItem[] = [];
 
-      if (disponibleActual <= 0) continue;
+  let restante = totalReserva;
+  let aplicadoTotal = toMoney(0);
 
-      const aplicarRaw = Math.min(disponibleActual, restante);
-      const aplicar = toMoney(aplicarRaw);
-      if (aplicar <= 0) continue;
+  for (const s of saldosOrdenados) {
+    if (isZeroMoney(restante) || restante < 0) break;
 
-      // Descuenta del saldo del ítem y agrega a la selección
-      tmpItemsSaldo[idItem] = toMoney(disponibleActual - aplicar);
-      nuevaSeleccion.push({ id_item: idItem, saldo: aplicar });
+    const idItem = `saldo-${s.id_saldos}`;
 
-      aplicadoTotal = toMoney(aplicadoTotal + aplicar);
-      restante = toMoney(restante - aplicar);
+    // Valor disponible actual, siempre pasando por toMoney
+    let disponibleActual = toMoney(
+      typeof tmpItemsSaldo[idItem] === "number"
+        ? tmpItemsSaldo[idItem]
+        : s?.saldo || 0
+    );
+
+    // Asegura valores iniciales en los mapas (por si vienen vacíos)
+    if (tmpOriginal[idItem] === undefined) {
+      tmpOriginal[idItem] = disponibleActual;
+    }
+    if (tmpItemsSaldo[idItem] === undefined) {
+      tmpItemsSaldo[idItem] = disponibleActual;
     }
 
-    // Logs detallados de lo seleccionado
-    const resumenSeleccion = nuevaSeleccion.map((sel) => {
-      const original = toMoney(tmpOriginal[sel.id_item] ?? 0);
-      const final = toMoney(tmpItemsSaldo[sel.id_item] ?? 0);
-      const aplicado = toMoney(original - final);
-      return {
-        id_item: sel.id_item,
-        aplicado,
-        saldo_inicial: original,
-        saldo_final: final,
-      };
-    });
+    if (disponibleActual <= 0 || isZeroMoney(disponibleActual)) continue;
 
-    console.log("=== Saldos seleccionados (FIFO) ===");
-    resumenSeleccion.forEach((r, idx) => {
-      console.log(
-        `#${idx + 1} ${r.id_item} | aplicado: $${r.aplicado.toFixed(2)} | ` +
-        `inicial: $${r.saldo_inicial.toFixed(
+    const restanteAntes = restante;
+    const aplicarRaw = Math.min(disponibleActual, restante);
+    const aplicar = toMoney(aplicarRaw);
+
+    if (aplicar <= 0 || isZeroMoney(aplicar)) continue;
+
+    // Descuenta del saldo del ítem y agrega a la selección
+    const nuevoSaldoItem = toMoney(disponibleActual - aplicar);
+    tmpItemsSaldo[idItem] = nuevoSaldoItem;
+    nuevaSeleccion.push({ id_item: idItem, saldo: aplicar });
+
+    aplicadoTotal = toMoney(aplicadoTotal + aplicar);
+    restante = toMoney(restante - aplicar);
+
+    // Log detallado de esta iteración
+    console.log(
+      `[ITER] ${idItem} | disp=${disponibleActual.toFixed(
+        2
+      )} | aplicar=${aplicar.toFixed(2)} | ` +
+        `restante_antes=${restanteAntes.toFixed(
           2
-        )} -> final: $${r.saldo_final.toFixed(2)}`
-      );
-    });
+        )} -> restante_despues=${restante.toFixed(2)} | ` +
+        `nuevo_saldo_item=${nuevoSaldoItem.toFixed(2)}`
+    );
+  }
 
-    // Actualiza estados coherentemente
-    setItemsSaldo(tmpItemsSaldo);
-    setOriginalSaldoItems(tmpOriginal);
-    setSelectedItems(nuevaSeleccion);
-    setMontoSeleccionado(aplicadoTotal);
+  // Logs detallados de lo seleccionado
+  const resumenSeleccion = nuevaSeleccion.map((sel) => {
+    const original = toMoney(tmpOriginal[sel.id_item] ?? 0);
+    const final = toMoney(tmpItemsSaldo[sel.id_item] ?? 0);
+    const aplicado = toMoney(original - final);
+    return {
+      id_item: sel.id_item,
+      aplicado,
+      saldo_inicial: original,
+      saldo_final: final,
+    };
+  });
 
-    // En flujo de reserva, el "saldo disponible" (effectiveSaldoData.saldo) es el Total
-    const saldoDisponible = toMoney(effectiveSaldoData?.saldo || 0);
-    const nuevoRestante = toMoney(saldoDisponible - aplicadoTotal);
-    setMontoRestante(nuevoRestante);
+  console.log("=== Resumen de selección (por item) ===");
+  console.table(
+    resumenSeleccion.map((r) => ({
+      id_item: r.id_item,
+      aplicado: r.aplicado.toFixed(2),
+      saldo_inicial: r.saldo_inicial.toFixed(2),
+      saldo_final: r.saldo_final.toFixed(2),
+    }))
+  );
 
-    console.log(`Monto seleccionado total: $${aplicadoTotal.toFixed(2)}`);
-    console.log(`Monto restante total (calculado): $${nuevoRestante.toFixed(2)}`);
+  // Check general de totales
+  const sumaAplicadaDesdeSeleccion = toMoney(
+    resumenSeleccion.reduce((acc, r) => acc + r.aplicado, 0)
+  );
 
-    // marca que ya se hizo el autopay una vez
-    autoPayTriggered.current = true;
-  };
+  console.log("=== Check de consistencia ===");
+  console.log("Total aplicado (acumulado):", aplicadoTotal.toFixed(2));
+  console.log(
+    "Total aplicado (sumado de resumen):",
+    sumaAplicadaDesdeSeleccion.toFixed(2)
+  );
+  console.log(
+    "Diferencia entre ambos:",
+    toMoney(aplicadoTotal - sumaAplicadaDesdeSeleccion).toFixed(2)
+  );
+  console.log("Restante después de aplicar:", restante.toFixed(2));
+
+  // Actualiza estados coherentemente
+  setItemsSaldo(tmpItemsSaldo);
+  setOriginalSaldoItems(tmpOriginal);
+  setSelectedItems(nuevaSeleccion);
+  setMontoSeleccionado(aplicadoTotal);
+
+  // En flujo de reserva, el "saldo disponible" es el total de la reserva
+  const saldoDisponible = totalReserva;
+  const nuevoRestante = toMoney(saldoDisponible - aplicadoTotal);
+  setMontoRestante(nuevoRestante);
+
+  console.log(`Monto seleccionado total: $${aplicadoTotal.toFixed(2)}`);
+  console.log(`Monto restante total (calculado): $${nuevoRestante.toFixed(2)}`);
+  console.groupEnd();
+
+  // marca que ya se hizo el autopay una vez
+  autoPayTriggered.current = true;
+};
 
 
   const titulo = reservaData

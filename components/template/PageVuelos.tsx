@@ -63,6 +63,7 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
 
   const onPagar = () => {
     try {
+      console.log(state);
       if (details.precio <= 0) throw new Error("El precio debe ser mayor a 0");
       const res = state
         .map((vuelo) => isSomeNull(vuelo, ["comentarios"]))
@@ -236,11 +237,10 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
                 <h1 className="w-full border-b text-gray-800 p-2 text-base font-semibold">
                   Vuelo {index + 1}
                 </h1>
-                <div className="grid md:grid-cols-7 gap-4">
+                <div className="grid md:grid-cols-2 gap-4">
                   <Dropdown
                     label="Tipo"
                     value={vuelo.tipo}
-                    className="col-span-2"
                     onChange={(value: string) => {
                       handleUpdateVuelo(index, "tipo", value as Vuelo["tipo"]);
                     }}
@@ -248,14 +248,22 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
                   />
                   <TextInput
                     value={vuelo.folio}
-                    className="col-span-2"
                     onChange={(value: string) => {
                       handleUpdateVuelo(index, "folio", value);
                     }}
                     label="Numero de vuelo"
                   />
-                  <div className="grid grid-cols-3 gap-4 col-span-3">
+                  <TextInput
+                    label="Tipo de tarifa"
+                    value={vuelo.tipo_tarifa}
+                    onChange={(value: string) => {
+                      handleUpdateVuelo(index, "tipo_tarifa", value);
+                    }}
+                  />
+                  {/* ************************************************************************************************************* */}
+                  <div className="grid grid-cols-3 gap-4 w-full">
                     <ComboBox2
+                      className="col-span-2"
                       value={
                         vuelo.aerolinea
                           ? {
@@ -264,7 +272,6 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
                             }
                           : null
                       }
-                      className="col-span-2"
                       label="Aerolinea"
                       onChange={(value: ComboBoxOption2<Proveedor>) => {
                         handleUpdateVuelo(index, "aerolinea", value.content);
@@ -283,6 +290,7 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
                       Agregar
                     </Button>
                   </div>
+                  {/* ************************************************************************************************************* */}
                 </div>
                 <div className="grid  md:grid-cols-7 gap-4">
                   <ComboBox2<Aeropuerto>
@@ -348,43 +356,65 @@ export const PageVuelos = ({ agente }: { agente: Agente }) => {
                     }}
                   />
                 </div>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <TextInput
-                      label="Asientos"
-                      value={vuelo.asiento}
-                      onChange={(value: string) => {
-                        handleUpdateVuelo(index, "asiento", value);
-                      }}
-                    />
-                    <Dropdown
-                      label="Ubicación del asiento"
-                      value={vuelo.ubicacion_asiento}
-                      onChange={(value: string) => {
+                <div className="grid md:grid-cols-5 gap-4">
+                  <TextInput
+                    label="Asientos"
+                    value={vuelo.asiento}
+                    onChange={(value: string) => {
+                      handleUpdateVuelo(index, "asiento", value);
+                    }}
+                  />
+                  <Dropdown
+                    label="Ubicación del asiento"
+                    value={vuelo.ubicacion_asiento}
+                    onChange={(value: string) => {
+                      handleUpdateVuelo(
+                        index,
+                        "ubicacion_asiento",
+                        value as Vuelo["ubicacion_asiento"]
+                      );
+                    }}
+                    options={["Ventana", "En medio", "Pasillo"]}
+                  />
+                  <TextAreaInput
+                    label="Comentarios"
+                    value={vuelo.comentarios}
+                    onChange={(value: string) => {
+                      handleUpdateVuelo(index, "comentarios", value);
+                    }}
+                  />
+                  <div className="grid grid-cols-3 gap-4 w-full col-span-2">
+                    <ComboBox2
+                      className="col-span-2"
+                      value={
+                        vuelo.intermediario
+                          ? {
+                              name: vuelo.intermediario.nombre,
+                              content: vuelo.intermediario,
+                            }
+                          : null
+                      }
+                      label="Intermediario"
+                      onChange={(value: ComboBoxOption2<Proveedor>) => {
                         handleUpdateVuelo(
                           index,
-                          "ubicacion_asiento",
-                          value as Vuelo["ubicacion_asiento"]
+                          "intermediario",
+                          value.content
                         );
                       }}
-                      options={["Ventana", "En medio", "Pasillo"]}
+                      options={aerolineas.map((intermediario) => ({
+                        name: intermediario.nombre,
+                        content: intermediario,
+                      }))}
                     />
-                  </div>
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <TextInput
-                      label="Tipo de tarifa"
-                      value={vuelo.tipo_tarifa}
-                      onChange={(value: string) => {
-                        handleUpdateVuelo(index, "tipo_tarifa", value);
-                      }}
-                    />
-                    <TextAreaInput
-                      label="Comentarios"
-                      value={vuelo.comentarios}
-                      onChange={(value: string) => {
-                        handleUpdateVuelo(index, "comentarios", value);
-                      }}
-                    />
+                    <Button
+                      icon={Plus}
+                      size="md"
+                      className="mt-6 h-fit"
+                      onClick={() => setSave("vuelo")}
+                    >
+                      Agregar
+                    </Button>
                   </div>
                 </div>
                 {index != 0 && (
@@ -439,6 +469,7 @@ export type Vuelo = {
   check_in: string | null;
   check_out: string | null;
   aerolinea: Proveedor | null;
+  intermediario: Proveedor | null;
   asiento: string | null;
   comentarios: string | null;
   ubicacion_asiento: string | null;
@@ -455,6 +486,7 @@ const initialState: Vuelo[] = [
     check_in: null,
     check_out: null,
     aerolinea: null,
+    intermediario: null,
     asiento: null,
     comentarios: "",
     ubicacion_asiento: null,
