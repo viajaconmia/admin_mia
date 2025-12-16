@@ -1,7 +1,7 @@
 import Button from "@/components/atom/Button";
 import { useNotification } from "@/context/useNotificacion";
 import { copyToClipboard } from "@/helpers/utils";
-import { Copy } from "lucide-react";
+import { Building2, Car, Copy, HelpCircle, Plane } from "lucide-react";
 import { useState } from "react";
 
 export const ButtonCopiar = ({
@@ -87,3 +87,27 @@ export const Tooltip = ({ content, children, position = "top" }) => {
     </div>
   );
 };
+
+export type ServiceType = "flyght" | "car_rental" | "hotel";
+
+const ICON_MAP: Record<ServiceType, React.ElementType> = {
+  flyght: Plane,
+  car_rental: Car,
+  hotel: Building2,
+};
+
+interface ServiceIconProps {
+  type: ServiceType | string;
+  size?: number;
+  className?: string;
+}
+
+export default function ServiceIcon({
+  type,
+  size = 18,
+  className,
+}: ServiceIconProps) {
+  const Icon = ICON_MAP[type as ServiceType] ?? HelpCircle;
+
+  return <Icon size={size} className={className} />;
+}

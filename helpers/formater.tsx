@@ -67,8 +67,9 @@ export function formatNumberWithCommas(
 
   // 3. Unir la parte entera formateada con la parte decimal (si existe)
   if (decimalPart !== undefined) {
-    return `${formattedInteger}.${decimalPart.length == 2 ? decimalPart : `${decimalPart}0`
-      }`;
+    return `${formattedInteger}.${
+      decimalPart.length == 2 ? decimalPart : `${decimalPart}0`
+    }`;
   } else {
     return formattedInteger + ".00";
   }
@@ -119,3 +120,22 @@ export const withCommas = (value: number | string) => {
 };
 
 export const redondear = (number: number) => Number(number.toFixed(2));
+
+export function formatTime(time?: string | null): string {
+  if (!time) return "";
+
+  // limpia espacios, tabs, saltos de línea, corchetes, etc.
+  const clean = time.trim().replace(/[\[\]]/g, "");
+
+  // HH:mm:ss → HH:mm
+  if (/^\d{2}:\d{2}:\d{2}$/.test(clean)) {
+    return clean.slice(0, 5);
+  }
+
+  // HH:mm → HH:mm
+  if (/^\d{2}:\d{2}$/.test(clean)) {
+    return clean;
+  }
+
+  return "";
+}
