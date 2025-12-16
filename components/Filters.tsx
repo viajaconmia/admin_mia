@@ -8,6 +8,7 @@ import {
 } from "@/components/atom/Input";
 import { TypeFilters } from "@/types";
 import { useFilters } from "@/context/Filters";
+import Button from "./atom/Button";
 
 const Filters: React.FC<{
   onFilter: (filters: TypeFilters) => void;
@@ -23,7 +24,6 @@ const Filters: React.FC<{
   setSearchTerm,
 }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
-  const { search, setSearch } = useFilters();
 
   const toggleModal = () => {
     setIsOpen(!isOpen);
@@ -31,37 +31,38 @@ const Filters: React.FC<{
 
   const handleSearch = (value) => {
     setSearchTerm(value);
-    setSearch(value);
   };
   return (
     <div className="overflow-hidden max-w-full mx-auto relative flex flex-col md:flex-row md:items-center md:flex-wrap justify-between gap-4">
-      <div className="relative flex-1 pt-2">
-        <div className="absolute inset-y-0 left-0 pl-3 pt-2 flex items-center pointer-events-none">
-          <Search className="h-5 w-5 text-gray-400" />
+      {searchTerm && (
+        <div className="relative flex-1 pt-2">
+          <div className="absolute inset-y-0 left-0 pl-3 pt-2 flex items-center pointer-events-none">
+            <Search className="h-5 w-5 text-gray-400" />
+          </div>
+          <input
+            type="text"
+            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+            placeholder="Buscar por código, ID, cliente..."
+            value={searchTerm || ""}
+            onChange={(e) => {
+              const v = e.target.value
+                ?.normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                ?.toUpperCase();
+              if (typeof setSearchTerm === "function") handleSearch(v);
+            }}
+          />
         </div>
-        <input
-          type="text"
-          className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-          placeholder="Buscar por código, ID, cliente..."
-          value={searchTerm || search || ""}
-          onChange={(e) => {
-            const v = e.target.value
-              ?.normalize("NFD")
-              .replace(/[\u0300-\u036f]/g, "")
-              ?.toUpperCase();
-            if (typeof setSearchTerm === "function") handleSearch(v);
-          }}
-        />
-      </div>
+      )}
       <div className="flex justify-between items-center gap-4">
-        <button
+        <Button
           onClick={toggleModal}
           type="button"
-          className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          icon={Filter}
+          variant="secondary"
         >
-          <Filter className="h-4 w-4 mr-2" />
           Filtros
-        </button>
+        </Button>
       </div>
       <FiltersModal
         onClose={toggleModal}

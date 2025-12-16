@@ -1,8 +1,9 @@
 // src/components/PaymentModal/ReservationDetails.tsx
+import { BookingAll } from "@/services/BookingService";
 import type { Solicitud, Solicitud2 } from "@/types";
 
 interface Props {
-  reservation: Solicitud2;
+  reservation: BookingAll;
   // Puedes pasarle otros datos calculados si es necesario
 }
 
@@ -20,7 +21,7 @@ export default function ReservationDetails({ reservation }: Props) {
           <div>
             <p className="text-xs text-slate-500">Reserva</p>
             <p className="font-medium text-slate-800 break-all">
-              #{reservation.codigo_reservacion_hotel || ""}
+              #{reservation.codigo_confirmacion || ""}
             </p>
           </div>
 
@@ -28,7 +29,7 @@ export default function ReservationDetails({ reservation }: Props) {
           <div>
             <p className="text-xs text-slate-500">Hotel</p>
             <p className="font-medium text-slate-800">
-              {reservation.hotel_reserva || ""}
+              {reservation.proveedor || ""}
             </p>
           </div>
 
@@ -36,7 +37,7 @@ export default function ReservationDetails({ reservation }: Props) {
           <div>
             <p className="text-xs text-slate-500">Viajero</p>
             <p className="font-medium text-slate-800">
-              {reservation.nombre_viajero_reservacion || ""}
+              {reservation.viajero || ""}
             </p>
           </div>
 
@@ -54,9 +55,9 @@ export default function ReservationDetails({ reservation }: Props) {
             <p className="font-semibold text-emerald-600">
               %
               {(
-                ((Number(reservation.total || 0) -
+                ((Number(reservation.total_booking || 0) -
                   Number(reservation.costo_total || 0)) /
-                  Number(reservation.total || 1)) *
+                  Number(reservation.total_booking || 1)) *
                 100
               ).toFixed(2)}
             </p>

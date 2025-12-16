@@ -102,12 +102,29 @@ interface ServiceIconProps {
   className?: string;
 }
 
-export default function ServiceIcon({
-  type,
-  size = 18,
-  className,
-}: ServiceIconProps) {
+export function ServiceIcon({ type, size = 18, className }: ServiceIconProps) {
   const Icon = ICON_MAP[type as ServiceType] ?? HelpCircle;
 
   return <Icon size={size} className={className} />;
 }
+
+export const LinkCopiar = ({ link }: { link: string }) => (
+  <span className="font-semibold text-sm flex items-center gap-2 w-full">
+    <a
+      href={link}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-blue-600 hover:underline"
+    >
+      Ver
+    </a>
+    <Button
+      onClick={() => {
+        copyToClipboard(link);
+      }}
+      size="sm"
+    >
+      Copiar
+    </Button>
+  </span>
+);

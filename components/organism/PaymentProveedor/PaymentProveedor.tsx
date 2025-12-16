@@ -33,6 +33,7 @@ import { paymentReducer, getInitialState } from "./reducer";
 import { Card } from "@/components/ui/card";
 import { fetchCreateSolicitud } from "@/services/pago_proveedor";
 import { Reserva, type ReservaHandle } from "./cupon";
+import { BookingAll } from "@/services/BookingService";
 
 type PaymentStatus =
   | "pagada"
@@ -46,7 +47,8 @@ function computePaymentStatus(opts: {
   paymentType: "prepaid" | "credit";
   paymentMethod?: "transfer" | "card" | "link";
   useQR?: "qr" | "code"; // en tu UI: "Con QR" => "qr", "En archivo" => "code"
-}): PaymentStatus {
+}) {
+  // todos los return
   const { paymentType, paymentMethod, useQR } = opts;
 
   // Crédito -> cupón enviado
@@ -66,8 +68,11 @@ function computePaymentStatus(opts: {
   return "pendiente";
 }
 
-export const PaymentModal = ({ reservation }: { reservation: Solicitud2 | null; }) => {
-
+export const PaymentModal = ({
+  reservation,
+}: {
+  reservation: BookingAll | null;
+}) => {
   const reservaRef = useRef<ReservaHandle>(null);
   const { data, fetchData } = useFetchCards();
   const [isReservaOpen, setIsReservaOpen] = useState(false);
@@ -91,9 +96,7 @@ export const PaymentModal = ({ reservation }: { reservation: Solicitud2 | null; 
     emails,
     cargo,
     document,
-    paymentStatus, // 'pagado' | 'enviado' (string)
   } = state;
-
 
   if (!reservation) return null;
 
@@ -103,10 +106,10 @@ export const PaymentModal = ({ reservation }: { reservation: Solicitud2 | null; 
 
   const creditCards = Array.isArray(data)
     ? data.map((card) => ({
-      ...card,
-      name: `${card.alias} -**** **** **** ${card.ultimos_4}`,
-      type: card.banco_emisor,
-    }))
+        ...card,
+        name: `${card.alias} -**** **** **** ${card.ultimos_4}`,
+        type: card.banco_emisor,
+      }))
     : [];
 
   const currentSelectedCard = creditCards.find(
@@ -214,9 +217,22 @@ export const PaymentModal = ({ reservation }: { reservation: Solicitud2 | null; 
       // ⬇️ arma el payload como tu backend lo necesite
       const fd = new FormData();
       fd.append("emails", JSON.stringify(list));
-      fd.append("subject", `Cupón de reservación ${mappedReservation?.codigo_confirmacion ?? ""}`);
-      fd.append("message", comments || "Adjuntamos su cupón de reservación en PDF.");
-      fd.append("file", new File([blob], `cupon-${mappedReservation?.codigo_confirmacion ?? "reserva"}.pdf`, { type: "application/pdf" }));
+      fd.append(
+        "subject",
+        `Cupón de reservación ${mappedReservation?.codigo_confirmacion ?? ""}`
+      );
+      fd.append(
+        "message",
+        comments || "Adjuntamos su cupón de reservación en PDF."
+      );
+      fd.append(
+        "file",
+        new File(
+          [blob],
+          `cupon-${mappedReservation?.codigo_confirmacion ?? "reserva"}.pdf`,
+          { type: "application/pdf" }
+        ) // este
+      );
 
       // TODO: cambia la URL a tu endpoint real
       const resp = await fetch("/api/send-coupon", {
@@ -240,7 +256,7 @@ export const PaymentModal = ({ reservation }: { reservation: Solicitud2 | null; 
     try {
       // Derivamos el status según lo elegido
       const derivedStatus: PaymentStatus = computePaymentStatus({
-        paymentType,
+        paymentType, // los tres
         paymentMethod,
         useQR,
       });
@@ -248,7 +264,7 @@ export const PaymentModal = ({ reservation }: { reservation: Solicitud2 | null; 
       // (Opcional) reflejar en el estado para que el UI muestre el status actual
       dispatch({
         type: "SET_FIELD",
-        field: "paymentStatus",
+        field: "paymentStatus", //este
         payload: derivedStatus,
       });
 
@@ -291,9 +307,9 @@ export const PaymentModal = ({ reservation }: { reservation: Solicitud2 | null; 
               paymentType,
               monto_a_pagar,
               id_hospedaje: reservation.id_hospedaje,
-              paymentStatus: derivedStatus,
+              paymentStatus: derivedStatus, // este
             },
-            (response) => { }
+            (response) => {}
           );
 
           if (paymentMethod === "card" && useQR === "qr") {
@@ -331,7 +347,7 @@ export const PaymentModal = ({ reservation }: { reservation: Solicitud2 | null; 
       throw new Error("Falta seleccionar el documento que aparecera");
     }
     const secureToken = generateSecureToken(
-      reservation.codigo_reservacion_hotel.replaceAll("-", "."),
+      reservation.codigo_confirmacion.replaceAll("-", "."),
       monto_a_pagar,
       currentSelectedCard.id,
       isSecureCode
@@ -361,10 +377,10 @@ export const PaymentModal = ({ reservation }: { reservation: Solicitud2 | null; 
         {
           checkIn: reservation.check_in.split("T")[0],
           checkOut: reservation.check_out.split("T")[0],
-          reservacionId: reservation.codigo_reservacion_hotel,
+          reservacionId: reservation.codigo_confirmacion,
           monto: Number(reservation.costo_total),
-          nombre: reservation.nombre_viajero_reservacion,
-          tipoHabitacion: updateRoom(reservation.tipo_cuarto),
+          nombre: reservation.viajero,
+          tipoHabitacion: updateRoom(reservation.tipo_cuarto_vuelo),
         },
       ],
       codigoDocumento: "xxxx",
@@ -373,7 +389,7 @@ export const PaymentModal = ({ reservation }: { reservation: Solicitud2 | null; 
 
     try {
       const pdf = await generateSecureQRPaymentPDF(qrData);
-      pdf.save(`pago-proveedor-${reservation.codigo_reservacion_hotel}.pdf`);
+      pdf.save(`pago-proveedor-${reservation.codigo_confirmacion}.pdf`);
     } catch (error) {
       console.error("Error generating QR PDF:", error);
     }
@@ -383,31 +399,34 @@ export const PaymentModal = ({ reservation }: { reservation: Solicitud2 | null; 
     if (!reservation) return null;
     return {
       // Campos que usa tu UI de Reserva:
-      codigo_confirmacion: reservation.codigo_reservacion_hotel ?? "SIN-CODIGO",
-      huesped: reservation.nombre_viajero_reservacion ?? "",
-      hotel: reservation.hotel ?? reservation.nombre_hotel ?? "",
-      direccion: reservation.direccion ?? "",
-      acompañantes: reservation.acompanantes ?? reservation.acompañantes ?? "",
-      incluye_desayuno: reservation.incluye_desayuno ?? 0,
+      codigo_confirmacion: reservation.codigo_confirmacion ?? "SIN-CODIGO",
+      huesped: reservation.viajero ?? "",
+      hotel: reservation.proveedor ?? "",
+      //direccion: reservation.direccion ?? "",
+      direccion: "",
+      acompañantes: "",
+      //acompañantes: reservation.acompanantes ?? reservation.acompañantes ?? "",
+      incluye_desayuno: 0,
+      //incluye_desayuno: reservation.incluye_desayuno ?? 0,
       check_in: reservation.check_in ?? "",
       check_out: reservation.check_out ?? "",
-      room: reservation.tipo_cuarto ?? "",
-      comentarios: reservation.comentarios ?? "",
+      room: reservation.tipo_cuarto_vuelo ?? "",
+      comentarios: reservation.comments ?? "",
       // Si tienes más campos visuales en Reserva, añádelos aquí.
     };
   }, [reservation]);
 
-  console.log("reservas que trae", reservation)
-  console.log("mqpeado que trae", mappedReservation)
-
+  console.log("reservas que trae", reservation);
+  console.log("mqpeado que trae", mappedReservation);
 
   return (
     <div className="max-w-[85vw] w-screen p-2 pt-0 max-h-[90vh] grid grid-cols-2">
       <div
-        className={`top-0 col-span-2 z-10 p-4 rounded-md border border-red-300 bg-red-50 text-red-700 shadow-md flex items-start gap-3 transform transition-all duration-300 ease-out ${error
-          ? "opacity-100 scale-100 sticky"
-          : "opacity-0 scale-10 pointer-events-none absolute"
-          }`}
+        className={`top-0 col-span-2 z-10 p-4 rounded-md border border-red-300 bg-red-50 text-red-700 shadow-md flex items-start gap-3 transform transition-all duration-300 ease-out ${
+          error
+            ? "opacity-100 scale-100 sticky"
+            : "opacity-0 scale-10 pointer-events-none absolute"
+        }`}
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -613,6 +632,7 @@ export const PaymentModal = ({ reservation }: { reservation: Solicitud2 | null; 
                   onChange={(
                     value: { value: string; label: string; item: any } | null
                   ) => {
+                    console.log(value);
                     dispatch({
                       type: "SET_FIELD",
                       field: "document",
@@ -706,7 +726,11 @@ export const PaymentModal = ({ reservation }: { reservation: Solicitud2 | null; 
                 onClick={() => setIsReservaOpen(true)}
                 disabled={!mappedReservation}
                 className="w-full bg-emerald-600 hover:bg-emerald-700"
-                title={!mappedReservation ? "No hay datos de reservación aún" : "Abrir cupón / resumen"}
+                title={
+                  !mappedReservation
+                    ? "No hay datos de reservación aún"
+                    : "Abrir cupón / resumen"
+                }
               >
                 <Ticket className="mr-2 h-4 w-4" />
                 Ver Cupón / Resumen
@@ -735,7 +759,7 @@ export const PaymentModal = ({ reservation }: { reservation: Solicitud2 | null; 
             <Reserva
               isOpen={isReservaOpen}
               onClose={() => setIsReservaOpen(false)}
-              reservation={mappedReservation}  // <-- aquí va el objeto directo
+              reservation={mappedReservation} // <-- aquí va el objeto directo
             />
           </div>
         )}
@@ -745,12 +769,10 @@ export const PaymentModal = ({ reservation }: { reservation: Solicitud2 | null; 
       <Reserva
         ref={reservaRef}
         isOpen={false}
-        onClose={() => { }}
+        onClose={() => {}}
         reservation={mappedReservation}
         mountHidden
       />
     </div>
-
   );
-
 };

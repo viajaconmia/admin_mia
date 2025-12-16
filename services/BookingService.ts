@@ -87,6 +87,7 @@ export type BookingAll = {
   agente: string;
   type: string;
   tipo_cuarto_vuelo: string;
+  costo_total: string;
 
   comments: string;
   nuevo_incluye_desayuno: boolean | null;

@@ -1,18 +1,31 @@
 "use client";
 
-import ServiceIcon, { ButtonCopiar, Tooltip } from "@/component/atom/ItemTable";
+import {
+  ServiceIcon,
+  ButtonCopiar,
+  LinkCopiar,
+  Tooltip,
+} from "@/component/atom/ItemTable";
 import { Table } from "@/component/molecule/Table";
+import Button from "@/components/atom/Button";
 import { Loader } from "@/components/atom/Loader";
-import { ToolTip } from "@/components/atom/ToolTip";
 import Filters from "@/components/Filters";
+import Modal from "@/components/organism/Modal";
+import { PaymentModal } from "@/components/organism/PaymentProveedor/PaymentProveedor";
+import { ROUTES } from "@/constant/routes";
 import { useFilters } from "@/context/Filters";
-import { formatDate, formatTime } from "@/helpers/formater";
+import {
+  formatDate,
+  formatNumberWithCommas,
+  formatTime,
+} from "@/helpers/formater";
 import { currentDate } from "@/lib/utils";
 import { BookingAll, BookingsService } from "@/services/BookingService";
 import { TypeFilters } from "@/types";
+import { DollarSign, Pencil, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-const App = ({ agente }: { agente?: Agente }) => {
+const PageReservas = ({ agente }: { agente?: Agente }) => {
   const { search } = useFilters();
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(0);
@@ -20,6 +33,7 @@ const App = ({ agente }: { agente?: Agente }) => {
   const [filters, setFilters] = useState<TypeFilters>(
     defaultFiltersSolicitudes
   );
+  const [selectedItem, setSelectedItem] = useState<BookingAll>(null);
 
   const handleFetchSolicitudes = async () => {
     setLoading(true);
@@ -61,6 +75,46 @@ const App = ({ agente }: { agente?: Agente }) => {
     check_in: ({ value }) => <>{formatDate(value)}</>,
     horario_salida: ({ value }) => <>{value ? formatTime(value) : ""}</>,
     check_out: ({ value }) => <>{formatDate(value)}</>,
+    horario_llegada: ({ value }) => <>{value ? formatTime(value) : ""}</>,
+    precio_de_venta: ({ value }) => (
+      <>{value ? "$" + formatNumberWithCommas(value) : ""}</>
+    ),
+    detalles_cliente: ({ value }) => (
+      <LinkCopiar link={ROUTES.BOOKING.ID_SOLICITUD(value) || ""} />
+    ),
+    editar: ({ value }: { value: string }) => {
+      if (value.includes("sol-"))
+        return (
+          <Button icon={Pencil} variant="ghost" size="sm">
+            Editar
+          </Button>
+        );
+      return (
+        <Button icon={Trash2} size="sm" variant="warning">
+          Cancelar
+        </Button>
+      );
+    },
+    pagar: ({ value }) => (
+      <>
+        {value ? (
+          <Button
+            onClick={() =>
+              setSelectedItem(
+                reservas.filter((book) => book.id_solicitud == value)[0]
+              )
+            }
+            icon={DollarSign}
+            size="sm"
+            variant="ghost"
+          >
+            Pagar
+          </Button>
+        ) : (
+          <span className="text-gray-400 text-xs">no hay</span>
+        )}
+      </>
+    ),
   };
 
   const inputSearch = search.toUpperCase();
@@ -83,8 +137,20 @@ const App = ({ agente }: { agente?: Agente }) => {
       check_out: reserva.check_out,
       horario_llegada: reserva.horario_llegada,
       tipo: reserva.tipo_cuarto_vuelo,
-      reserv: reserva.status_reserva,
-      resrv: reserva.total_booking,
+      costo_proveedor: "falta agregar",
+      markup: "falta agregar",
+      precio_de_venta: reserva.total_booking,
+      metodo_de_pago: "falta agregar",
+      reservante: "falta agregar",
+      etapa_reservacion: "falta agregar",
+      estado: reserva.status_reserva,
+      detalles_cliente: reserva.id_solicitud,
+      editar:
+        reserva.type == "hotel"
+          ? reserva.id_solicitud
+          : reserva.id_renta_autos || reserva.id_viaje_aereo,
+      pagar:
+        reserva.status_reserva == "Confirmada" ? reserva.id_solicitud : null,
     }));
 
   useEffect(() => {
@@ -108,6 +174,16 @@ const App = ({ agente }: { agente?: Agente }) => {
           ></Table>
         )}
       </div>
+      {selectedItem && (
+        <Modal
+          onClose={() => {
+            setSelectedItem(null);
+          }}
+          title="Pagar reserva al proveedor"
+        >
+          <PaymentModal reservation={selectedItem} />
+        </Modal>
+      )}
     </>
   );
 };
@@ -139,4 +215,4 @@ const defaultFiltersSolicitudes: TypeFilters = {
   markup_start: null,
 };
 
-export default App;
+export default PageReservas;
