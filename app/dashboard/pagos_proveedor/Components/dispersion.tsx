@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Send, X, Info } from "lucide-react";
 import { URL as API_URL, API_KEY } from "@/lib/constants/index";
 import { es } from "date-fns/locale";
@@ -96,9 +96,23 @@ export const DispersionModal: React.FC<DispersionModalProps> = ({
   };
 
 
+const generateDispersionId = () => {
+  let n;
+
+  if (typeof window !== "undefined" && window.crypto?.getRandomValues) {
+    const arr = new Uint32Array(1);
+    window.crypto.getRandomValues(arr);
+    n = arr[0];
+  } else {
+    n = Math.floor(Math.random() * 0xffffffff);
+  }
+
+  // "D" + 6 chars base36
+  return "D" + (n % (36 ** 8)).toString(36).padStart(6, "0").toUpperCase();
+};
 
   // Esta función solo genera y descarga el CSV
-  const generarCSV = (idPago) => {
+const generarCSV = (idPago, dispersionId: string) => {
     if (solicitudesSeleccionadas.length === 0) {
       setFormError("No hay solicitudes seleccionadas para generar el archivo.");
       return null;
@@ -146,10 +160,11 @@ export const DispersionModal: React.FC<DispersionModalProps> = ({
       ).toFixed(2);
       const textoLibre =
         solicitud.texto_libre || solicitud.razon_social || solicitud.hotel || "";
-
+      const referencia = referenciaNumerica + " "+`wx${dispersionId}${id_pago}xw`
+      console.log("fefef",referencia)
       return [
         escapeCsv(id_pago),
-        escapeCsv(idDispersion),
+        escapeCsv(dispersionId),
         escapeCsv(tipoOperacion),
         escapeCsv(fechaPago),
         escapeCsv(cuentaCargo),
@@ -158,32 +173,43 @@ export const DispersionModal: React.FC<DispersionModalProps> = ({
         escapeCsv(moneda),
         escapeCsv(importe),
         escapeCsv(motivoPago || "Pago servicios"),
-        escapeCsv(referenciaNumerica || `REF${solicitud.id_solicitud}`),
+        escapeCsv(referencia || `REF${solicitud.id_solicitud}`),
         escapeCsv(textoLibre),
       ].join(",");
     });
 
     const csvContent = [header, ...csvLines].join("\n");
-    const cleanedIdDispersion = cleanInput(idDispersion);
+const cleanedIdDispersion = cleanInput(dispersionId);
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `dispersion_${cleanedIdDispersion || "sin_id"}_${new Date().toISOString().split("T")[0]
-      }.csv`;
+    a.download = `dispersion_${cleanedIdDispersion || "sin_id"}_${new Date().toISOString().split("T")[0]}.csv`;
     document.body.appendChild(a);
-    a.click();
+    a.click();  
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 
     return csvContent;
   };
 
+  const initRef = useRef(false);
+
+useEffect(() => {
+  if (initRef.current) return;
+  initRef.current = true;
+
+  const autoId = generateDispersionId();
+  setIdDispersion(autoId);
+}, []);
+
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
+    
 
-    const cleanedIdDispersion = cleanInput(idDispersion);
+    const cleanedIdDispersion = cleanInput(idDispersion) || generateDispersionId();
     console.log(cleanedIdDispersion, "dispersion");
     const cleanedReferenciaNumerica = cleanInput(referenciaNumerica);
     const cleanedMotivoPago = cleanInput(motivoPago);
@@ -240,7 +266,7 @@ export const DispersionModal: React.FC<DispersionModalProps> = ({
         // Si la respuesta es exitosa, actualizamos el estado de idPago
         console.log("Respuesta del backend:", data);
         // Generar el CSV después de que se haya recibido la respuesta
-        generarCSV(data.data.id_pagos);
+        generarCSV(data.data.id_pagos, cleanedIdDispersion);
 
         setIsSubmitting(false);
 
@@ -357,24 +383,6 @@ export const DispersionModal: React.FC<DispersionModalProps> = ({
 
             {/* Campos del formulario */}
             <div className="space-y-4 px-4 pb-4">
-              <div>
-                <label
-                  htmlFor="id-dispersion"
-                  className="block text-sm font-medium text-slate-700 mb-1"
-                >
-                  ID de dispersión *
-                </label>
-                <input
-                  id="id-dispersion"
-                  type="text"
-                  value={idDispersion}
-                  onChange={(e) => setIdDispersion(e.target.value)}
-                  placeholder="Ingresa el ID de dispersión"
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-slate-50 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  required
-                />
-              </div>
-
               <div>
                 <label
                   htmlFor="referencia-numerica"

@@ -13,16 +13,28 @@ interface CSVData {
   [key: string]: string;
 }
 
-const extractCodigoDispersion = (referencia?: string): string | null => {
+type DispersionInfo = {
+  codigo_dispersion: string; // 9 chars
+  id_dispersion: string;     // numeric (lo que quede)
+};
+
+const extractDispersionInfo = (referencia?: string): DispersionInfo | null => {
   if (!referencia) return null;
 
-  const regex = /wx"?(.+?)"?(?:xw|wx)/; // toma lo que está entre wx y xw / wx
+  const regex = /wx"?([A-Za-z0-9]{8})(\d+)"?xw/i;
   const match = referencia.match(regex);
 
-  if (!match || !match[1]) return null;
+  if (!match) return null;
 
-  return match[1].trim();
+  const info = {
+    codigo_dispersion: match[1].trim(),
+    id_dispersion: match[2].trim(),
+  };
+
+  console.log("🧩 extractDispersionInfo:", info);
+  return info;
 };
+
 
 // Helper para validar archivos PDF
 const validatePDFFiles = (files: FileList): { isValid: boolean; error?: string; validFiles?: File[] } => {
@@ -146,14 +158,23 @@ const procesarTodosLosDatosCSV = (parsedData: string[][]): CSVData[] => {
     const referenciaAmpliada = csvData["Referencia Ampliada"];
     const referenciaSimple = csvData["Referencia"];
 
-    const codigo =
-      extractCodigoDispersion(referenciaAmpliada) ||
-      extractCodigoDispersion(referenciaSimple);
+const info =
+  extractDispersionInfo(referenciaAmpliada) ||
+  extractDispersionInfo(referenciaSimple);
 
-    // Si encontramos código de dispersión, lo guardamos en la fila
-    if (codigo) {
-      csvData["codigo_dispersion"] = codigo;
-    }
+if (info) {
+  console.log("✅ DISPERSIÓN ENCONTRADA:", {
+    codigo_dispersion: info.codigo_dispersion,
+    id_dispersion: info.id_dispersion,
+    referencia: referenciaAmpliada || referenciaSimple,
+  });
+
+  csvData["codigo_dispersion"] = info.codigo_dispersion;
+  csvData["id_dispersion"] = info.id_dispersion;
+} else {
+  console.log("⚠️ NO SE ENCONTRÓ DISPERSIÓN EN:", referenciaAmpliada || referenciaSimple);
+}
+
 
     result.push(csvData);
   }
@@ -723,7 +744,7 @@ export const ComprobanteModal: React.FC<Comprobante> = ({
             </button>
           </div>
         </form>
-      </div>
+      </div> 
     </div>
   );
 };
