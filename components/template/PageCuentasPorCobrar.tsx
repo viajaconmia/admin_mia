@@ -21,6 +21,7 @@ import {
   Eye,
   Pencil,
   Trash2,
+  File,
   Wallet,
 } from "lucide-react";
 
@@ -1324,6 +1325,11 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         setDetalles(true);
       };
 
+      const handlePagoFacturas = async ()=> {
+        console.log(item, "pago elegido");
+
+      };
+
       return (
         <div className="flex gap-2">
           {/* Botón Editar */}
@@ -1368,6 +1374,14 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
           >
             {" "}
             <Eye className="w-4 h-4" />
+          </button>
+          <button
+            className="p-1.5 rounded-md bg-amber-50 text-amber-600 hover:bg-amber-100 transition-colors"
+            onClick={handlePagoFacturas}
+            title="pagar facturas Pendientes"
+          >
+            {" "}
+            <File className="w-4 h-4" />
           </button>
 
           {/* Modal de Edición */}

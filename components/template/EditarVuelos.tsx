@@ -115,13 +115,13 @@ export const EditarVuelos = ({
         throw new Error(
           "Parece que ya pagaste todo con saldo a favor, ya no queda nada para pagar a credito"
         );
-      let data = {};
+      let logs = {};
       Object.entries(state).forEach(([key, value]) => {
         let propiedades = verificar(key, value, before[key]);
         if (!propiedades) return;
-        data = { ...data, ...propiedades };
+        logs = { ...logs, ...propiedades };
       });
-      const cambios = { logs: data, keys: Object.keys(data) };
+      const cambios = { logs, keys: Object.keys(logs) };
       if (cambios.keys.length == 0)
         throw new Error("No se detectaron cambios a realizar");
 
@@ -134,10 +134,9 @@ export const EditarVuelos = ({
         viaje_aereo: vuelo,
       };
 
-      console.log(body);
-      const { message } = await VuelosServices.getInstance().editarViajeAereo(
-        body
-      );
+      const { message, data } =
+        await VuelosServices.getInstance().editarViajeAereo(body);
+      console.log(data);
 
       // const { message, data } = await VuelosServices.getInstance().createVuelo(
       //   faltante,
@@ -150,8 +149,8 @@ export const EditarVuelos = ({
 
       // dispatch({ type: "RESET", payload: null });
       showNotification("success", message);
-      setOpen(false);
-      onSubmit();
+      // setOpen(false);
+      // onSubmit();
     } catch (error) {
       console.log(error);
       showNotification("error", error.message);
