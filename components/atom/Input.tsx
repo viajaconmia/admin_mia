@@ -208,7 +208,7 @@ export const TextAreaInput = ({
   label,
   value,
   onChange,
-  rows = 2,
+  rows = 1,
   placeholder = "",
   className = "",
 }: {

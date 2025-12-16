@@ -1270,6 +1270,8 @@ const DataFiscalModalWithCompanies: React.FC<DataFiscalModalProps> = ({
         )}
       </div>
     </div>
+
+    
   );
 };
 
