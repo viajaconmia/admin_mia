@@ -1145,6 +1145,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       const [isEditModalOpen, setIsEditModalOpen] = useState(false);
       const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
       const [isPagarModalOpen, setIsPagarModalOpen] = useState(false);
+      const montoPorFacturar = Number(item?.monto_por_facturar ?? 0);
 
       const wallet_credito = item?.is_wallet_credito === 1;
 
@@ -1158,6 +1159,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       const showDeleteButtons = isActive && !isDifferent;
       const showEditbuttosn = isActive && !isDifferent && !hasLink;
       const showPagarButton = isActive && hasBalance && !wallet_credito;
+const showFacturasButton = isActive && montoPorFacturar > 0; // (ajusta si quieres otras reglas)
 
       if (item.saldo !== item.monto_pagado) {
         editar = false;
@@ -1375,14 +1377,15 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
             {" "}
             <Eye className="w-4 h-4" />
           </button>
-          <button
-            className="p-1.5 rounded-md bg-amber-50 text-amber-600 hover:bg-amber-100 transition-colors"
-            onClick={handlePagoFacturas}
-            title="pagar facturas Pendientes"
-          >
-            {" "}
-            <File className="w-4 h-4" />
-          </button>
+          {showFacturasButton && (
+  <button
+    className="p-1.5 rounded-md bg-amber-50 text-amber-600 hover:bg-amber-100 transition-colors"
+    onClick={handlePagoFacturas}
+    title="Pagar facturas Pendientes"
+  >
+    <File className="w-4 h-4" />
+  </button>
+)}
 
           {/* Modal de Edición */}
           {isEditModalOpen && (
@@ -1466,6 +1469,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
               </div>
             </div>
           )}
+          
           {/* Nuevo Modal Pagar con saldo */}
           {isPagarModalOpen && (
             <PagarModalComponent
