@@ -66,8 +66,11 @@ function computePaymentStatus(opts: {
   return "pendiente";
 }
 
-export const PaymentModal = ({ reservation }: { reservation: Solicitud2 | null; }) => {
-
+export const PaymentModal = ({
+  reservation,
+}: {
+  reservation: Solicitud2 | null;
+}) => {
   const reservaRef = useRef<ReservaHandle>(null);
   const { data, fetchData } = useFetchCards();
   const [isReservaOpen, setIsReservaOpen] = useState(false);
@@ -94,7 +97,6 @@ export const PaymentModal = ({ reservation }: { reservation: Solicitud2 | null; 
     paymentStatus, // 'pagado' | 'enviado' (string)
   } = state;
 
-
   if (!reservation) return null;
 
   const reservationTotal = Number(reservation.costo_total) || 0;
@@ -103,17 +105,17 @@ export const PaymentModal = ({ reservation }: { reservation: Solicitud2 | null; 
 
   const creditCards = Array.isArray(data)
     ? data.map((card) => ({
-      ...card,
-      name: `${card.alias} -**** **** **** ${card.ultimos_4}`,
-      type: card.banco_emisor,
-    }))
+        ...card,
+        name: `${card.alias} -**** **** **** ${card.ultimos_4}`,
+        type: card.banco_emisor,
+      }))
     : [];
 
   const currentSelectedCard = creditCards.find(
     (card) => card.id === selectedCard
   );
   const selectFiles = creditCards.map((card) => ({
-    label: card.nombre_titular,
+    label: card.alias,
     value: card.url_identificacion,
     item: card,
   }));
@@ -214,9 +216,22 @@ export const PaymentModal = ({ reservation }: { reservation: Solicitud2 | null; 
       // ⬇️ arma el payload como tu backend lo necesite
       const fd = new FormData();
       fd.append("emails", JSON.stringify(list));
-      fd.append("subject", `Cupón de reservación ${mappedReservation?.codigo_confirmacion ?? ""}`);
-      fd.append("message", comments || "Adjuntamos su cupón de reservación en PDF.");
-      fd.append("file", new File([blob], `cupon-${mappedReservation?.codigo_confirmacion ?? "reserva"}.pdf`, { type: "application/pdf" }));
+      fd.append(
+        "subject",
+        `Cupón de reservación ${mappedReservation?.codigo_confirmacion ?? ""}`
+      );
+      fd.append(
+        "message",
+        comments || "Adjuntamos su cupón de reservación en PDF."
+      );
+      fd.append(
+        "file",
+        new File(
+          [blob],
+          `cupon-${mappedReservation?.codigo_confirmacion ?? "reserva"}.pdf`,
+          { type: "application/pdf" }
+        )
+      );
 
       // TODO: cambia la URL a tu endpoint real
       const resp = await fetch("/api/send-coupon", {
@@ -237,7 +252,21 @@ export const PaymentModal = ({ reservation }: { reservation: Solicitud2 | null; 
   };
 
   const handlePayment = async () => {
+    console.log("➡️ handlePayment: START");
+
     try {
+      console.log("📥 Input state:", {
+        paymentType,
+        paymentMethod,
+        useQR,
+        date,
+        monto_a_pagar,
+        comments,
+        reservation,
+        currentSelectedCard,
+        selectedCard,
+      });
+
       // Derivamos el status según lo elegido
       const derivedStatus: PaymentStatus = computePaymentStatus({
         paymentType,
@@ -245,62 +274,91 @@ export const PaymentModal = ({ reservation }: { reservation: Solicitud2 | null; 
         useQR,
       });
 
-      // (Opcional) reflejar en el estado para que el UI muestre el status actual
+      console.log("🧮 Derived paymentStatus:", derivedStatus);
+
+      // Reflejar en el estado para el UI
       dispatch({
         type: "SET_FIELD",
         field: "paymentStatus",
         payload: derivedStatus,
       });
 
+      console.log("🖥️ Dispatched paymentStatus to state");
+
       // ----- Crédito -----
       if (paymentType === "credit") {
-        console.log({
+        console.log("💳 Flow: CREDIT");
+
+        const creditPayload = {
           date,
           paymentType,
           monto_a_pagar,
           comments,
-          id_hospedaje: reservation.id_hospedaje,
-          paymentStatus: derivedStatus, // "cupon enviado"
-        });
-        // Aquí podrías disparar tu lógica de cupón (descargar/enviar)
+          id_hospedaje: reservation?.id_hospedaje,
+          paymentStatus: derivedStatus,
+        };
+
+        console.log("📤 Credit payload:", creditPayload);
+
+        // Aquí iría lógica de cupón
+        console.log("⛔ End flow (credit)");
         return;
       }
 
       // ----- Prepago -----
       if (paymentType === "prepaid") {
+        console.log("💰 Flow: PREPAID");
+
         // Validaciones
-        if (
+        const hasValidationError =
           !reservation ||
           ((paymentMethod === "card" || paymentMethod === "link") &&
             !currentSelectedCard) ||
-          (paymentMethod === "card" && !useQR)
-        ) {
+          (paymentMethod === "card" && !useQR);
+
+        console.log("🔍 Validation check:", {
+          hasReservation: !!reservation,
+          paymentMethod,
+          hasCurrentSelectedCard: !!currentSelectedCard,
+          useQR,
+          hasValidationError,
+        });
+
+        if (hasValidationError) {
+          console.error("❌ Validation failed");
           throw new Error(
             "Hay un error en la reservación, en la tarjeta o en la forma de mandar los datos, verifica que los datos esten completos"
           );
         }
 
         if (paymentMethod === "link" || paymentMethod === "card") {
-          // Enviamos paymentStatus ya derivado
-          fetchCreateSolicitud(
-            {
-              selectedCard,
-              date,
-              comments,
-              paymentMethod,
-              paymentType,
-              monto_a_pagar,
-              id_hospedaje: reservation.id_hospedaje,
-              paymentStatus: derivedStatus,
-            },
-            (response) => { }
-          );
+          console.log("🔗 Flow: CARD or LINK");
 
-          if (paymentMethod === "card" && useQR === "qr") {
-            // Solo generamos QR si fue "Con QR"
+          const payload = {
+            selectedCard,
+            date,
+            comments,
+            paymentMethod,
+            paymentType,
+            monto_a_pagar,
+            id_hospedaje: reservation.id_hospedaje,
+            paymentStatus: derivedStatus,
+          };
+
+          console.log("📤 fetchCreateSolicitud payload:", payload);
+
+          fetchCreateSolicitud(payload, (response) => {
+            console.log("✅ fetchCreateSolicitud response:", response);
+          });
+
+          if (paymentMethod === "card") {
+            console.log("📄 Generating QR Payment PDF...");
             await generateQRPaymentPDF();
+            console.log("📄 QR Payment PDF generated");
           }
         } else if (paymentMethod === "transfer") {
+          console.log("🏦 Flow: TRANSFER");
+
           const obj = {
             date,
             comments,
@@ -308,21 +366,33 @@ export const PaymentModal = ({ reservation }: { reservation: Solicitud2 | null; 
             paymentType,
             monto_a_pagar,
             id_hospedaje: reservation.id_hospedaje,
-            paymentStatus: derivedStatus, // "spei solicitado"
+            paymentStatus: derivedStatus,
           };
+
+          console.log("📤 fetchCreateSolicitud payload (transfer):", obj);
+
           fetchCreateSolicitud(obj, (response) => {
+            console.log(
+              "✅ fetchCreateSolicitud response (transfer):",
+              response
+            );
             alert(response.message);
           });
         }
       }
 
       dispatch({ type: "SET_FIELD", field: "error", payload: "" });
+      console.log("✅ handlePayment: SUCCESS");
     } catch (error: any) {
+      console.error("🔥 handlePayment ERROR:", error);
+
       dispatch({
         type: "SET_FIELD",
         field: "error",
         payload: error.message,
       });
+    } finally {
+      console.log("⬅️ handlePayment: END");
     }
   };
 
@@ -397,17 +467,17 @@ export const PaymentModal = ({ reservation }: { reservation: Solicitud2 | null; 
     };
   }, [reservation]);
 
-  console.log("reservas que trae", reservation)
-  console.log("mqpeado que trae", mappedReservation)
-
+  console.log("reservas que trae", reservation);
+  console.log("mqpeado que trae", mappedReservation);
 
   return (
     <div className="max-w-[85vw] w-screen p-2 pt-0 max-h-[90vh] grid grid-cols-2">
       <div
-        className={`top-0 col-span-2 z-10 p-4 rounded-md border border-red-300 bg-red-50 text-red-700 shadow-md flex items-start gap-3 transform transition-all duration-300 ease-out ${error
-          ? "opacity-100 scale-100 sticky"
-          : "opacity-0 scale-10 pointer-events-none absolute"
-          }`}
+        className={`top-0 col-span-2 z-10 p-4 rounded-md border border-red-300 bg-red-50 text-red-700 shadow-md flex items-start gap-3 transform transition-all duration-300 ease-out ${
+          error
+            ? "opacity-100 scale-100 sticky"
+            : "opacity-0 scale-10 pointer-events-none absolute"
+        }`}
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -706,7 +776,11 @@ export const PaymentModal = ({ reservation }: { reservation: Solicitud2 | null; 
                 onClick={() => setIsReservaOpen(true)}
                 disabled={!mappedReservation}
                 className="w-full bg-emerald-600 hover:bg-emerald-700"
-                title={!mappedReservation ? "No hay datos de reservación aún" : "Abrir cupón / resumen"}
+                title={
+                  !mappedReservation
+                    ? "No hay datos de reservación aún"
+                    : "Abrir cupón / resumen"
+                }
               >
                 <Ticket className="mr-2 h-4 w-4" />
                 Ver Cupón / Resumen
@@ -735,7 +809,7 @@ export const PaymentModal = ({ reservation }: { reservation: Solicitud2 | null; 
             <Reserva
               isOpen={isReservaOpen}
               onClose={() => setIsReservaOpen(false)}
-              reservation={mappedReservation}  // <-- aquí va el objeto directo
+              reservation={mappedReservation} // <-- aquí va el objeto directo
             />
           </div>
         )}
@@ -745,12 +819,10 @@ export const PaymentModal = ({ reservation }: { reservation: Solicitud2 | null; 
       <Reserva
         ref={reservaRef}
         isOpen={false}
-        onClose={() => { }}
+        onClose={() => {}}
         reservation={mappedReservation}
         mountHidden
       />
     </div>
-
   );
-
 };
