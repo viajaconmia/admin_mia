@@ -533,8 +533,8 @@ export const FacturacionModal: React.FC<{
     CfdiType: "I",
     NameId: "1",
     Observations: "",
-    //ExpeditionPlace: "11570",
-    ExpeditionPlace: "42501",
+    ExpeditionPlace: "11570",
+    //ExpeditionPlace: "42501",
     Serie: null,
 
     Folio: Math.round(Math.random() * 999999999),
