@@ -96,18 +96,26 @@ export default function SubirFactura({
   const [asignacionPayload, setAsignacionPayload] = useState<any>(null);
 
   //calcular total items
-  const getItemsTotal = useCallback((): number => {
-    // @ts-ignore: prop puede venir o no (TS ya sabe por la interface)
+const getItemsTotal = useCallback((): number => {
+    // @ts-ignore
     const itemsTotalProp = (typeof initialItemsTotal === 'number') ? initialItemsTotal : undefined;
-    if (typeof itemsTotalProp === 'number') return itemsTotalProp;
+    
+    let total = 0;
 
-    // Sumar montos si initialItems es array de objetos con "monto"
-    if (Array.isArray(initialItems)) {
-      return initialItems.reduce((acc, it: any) => acc + Number(it?.monto || 0), 0);
+    if (typeof itemsTotalProp === 'number') {
+      total = itemsTotalProp;
+    } else if (Array.isArray(initialItems)) {
+      // Sumar montos si initialItems es array de objetos con "monto"
+      total = initialItems.reduce((acc, it: any) => acc + Number(it?.monto || 0), 0);
     }
-    return 0;
-  }, [initialItems /*, initialItemsTotal*/]);
 
+    /**
+     * Aplicamos redondeo a 2 decimales para evitar errores de precisión 
+     * (ejemplo: 0.1 + 0.2 = 0.30000000000000004)
+     */
+    return Math.round((total + Number.EPSILON) * 100) / 100;
+    
+  }, [initialItems, initialItemsTotal]);
   // Al inicio del componente:
   const hasItems = Array.isArray(initialItems) && initialItems.length > 0;
   console.log("hasitems", hasItems)

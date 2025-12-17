@@ -95,8 +95,13 @@ const links = [
     icon: CreditCard,
   },
   {
-    title: "Cuentas por cobrar", //
+    title: "Resumen Cuentas por cobrar", //
     href: "/dashboard/cuentas-cobrar",
+    icon: FileText,
+  },
+  {
+    title: "Detallado Cuentas por cobrar", //
+    href: "/dashboard/concentrado_cxc",
     icon: FileText,
   },
   {
