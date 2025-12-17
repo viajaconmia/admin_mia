@@ -1,6 +1,12 @@
 "use client";
 
-import { createContext, useState, useContext, ReactNode } from "react";
+import {
+  createContext,
+  useState,
+  useContext,
+  ReactNode,
+  useEffect,
+} from "react";
 import { useNotification } from "./useNotificacion";
 import { fetchHoteles, newFetchHoteles } from "@/services/hoteles";
 
@@ -26,7 +32,6 @@ export function HotelProvider({ children }: HotelProviderProps) {
     try {
       if (hoteles) return;
       const response = await newFetchHoteles();
-      console.log(response[0]);
       setHoteles(response);
     } catch (error) {
       setHoteles(null);
@@ -37,6 +42,10 @@ export function HotelProvider({ children }: HotelProviderProps) {
       );
     }
   };
+
+  useEffect(() => {
+    actualizarHoteles();
+  }, []);
 
   const value: HotelContextType = {
     hoteles,

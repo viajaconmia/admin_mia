@@ -31,24 +31,27 @@ import { redondear } from "@/helpers/formater";
 import { useNotification } from "@/context/useNotificacion";
 import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
+import { Loader } from "../atom/Loader";
+import { fetchSolicitudes2 } from "@/services/solicitudes";
+import { useHoteles } from "@/context/Hoteles";
 
 interface ReservationFormProps {
   solicitud?: Solicitud2 & { nuevo_incluye_desayuno?: boolean | null };
-  hotels: Hotel[];
   onClose: () => void;
   edicion?: boolean;
+  hoteles: Hotel[];
 }
 
 export function ReservationForm2({
-  solicitud,
-  hotels,
+  hoteles,
   onClose,
   edicion = false,
+  solicitud,
 }: ReservationFormProps) {
   let currentNoches = 0;
   let currentHotel;
   if (solicitud.check_in && solicitud.check_out) {
-    currentHotel = hotels.filter(
+    currentHotel = hoteles.filter(
       (item) => item.id_hotel == solicitud?.id_hotel
     )[0];
     currentNoches = differenceInDays(
@@ -573,7 +576,7 @@ export function ReservationForm2({
                   name: form.hotel.name,
                   content: form.hotel.content as Hotel,
                 }}
-                options={hotels.map((item) => ({
+                options={hoteles.map((item) => ({
                   name: item.nombre_hotel,
                   content: item,
                 }))}
@@ -1088,3 +1091,25 @@ export function ReservationForm2({
     </form>
   );
 }
+
+const ReservationEditContainer = () => {
+  const { hoteles } = useHoteles();
+  const [solicitud, setSolicitud] = useState<
+    (Solicitud2 & { nuevo_incluye_desayuno?: boolean | null }) | null
+  >(null);
+  const handleFetchSolicitudes = () => {
+    fetchSolicitudes2({ id_solicitud }, {}, (data) => {
+      setSolicitud(data[0]);
+    });
+  };
+
+  useEffect(() => {
+    handleFetchSolicitudes();
+  }, []);
+
+  return (
+    <div className="w-full h-96 flex justify-center items-center">
+      <Loader></Loader>
+    </div>
+  );
+};

@@ -10,6 +10,7 @@ import { Table } from "@/component/molecule/Table";
 import Button from "@/components/atom/Button";
 import { Loader } from "@/components/atom/Loader";
 import Filters from "@/components/Filters";
+import { ReservationForm2 } from "@/components/organism/FormReservation2";
 import Modal from "@/components/organism/Modal";
 import { PaymentModal } from "@/components/organism/PaymentProveedor/PaymentProveedor";
 import { ROUTES } from "@/constant/routes";
@@ -34,6 +35,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     defaultFiltersSolicitudes
   );
   const [selectedItem, setSelectedItem] = useState<BookingAll>(null);
+  const [selectedEdit, setSelectedEdit] = useState<string>(null);
 
   const handleFetchSolicitudes = async () => {
     setLoading(true);
@@ -85,7 +87,14 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     editar: ({ value }: { value: string }) => {
       if (value.includes("sol-"))
         return (
-          <Button icon={Pencil} variant="ghost" size="sm">
+          <Button
+            icon={Pencil}
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setSelectedEdit(value);
+            }}
+          >
             Editar
           </Button>
         );
@@ -182,6 +191,24 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
           title="Pagar reserva al proveedor"
         >
           <PaymentModal reservation={selectedItem} />
+        </Modal>
+      )}
+      {selectedEdit && (
+        <Modal
+          onClose={() => {
+            setSelectedEdit(null);
+          }}
+          title="Editar reserva"
+          subtitle="Modifica los detalles de una reservación anteriormente procesada."
+        >
+          <ReservationForm2
+            id_solicitud={selectedEdit}
+            onClose={() => {
+              setSelectedItem(null);
+              handleFetchSolicitudes();
+            }}
+            edicion={true}
+          />
         </Modal>
       )}
     </>

@@ -5,6 +5,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { useState } from "react";
 import { NotificationProvider } from "./useNotificacion";
 import { Notification } from "@/components/molecule/Notification";
+import { HotelProvider } from "./Hoteles";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -22,8 +23,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <NotificationProvider>
-        <Notification></Notification>
-        <AuthProvider>{children}</AuthProvider>
+        <HotelProvider>
+          <Notification></Notification>
+          <AuthProvider>{children}</AuthProvider>
+        </HotelProvider>
       </NotificationProvider>
     </QueryClientProvider>
   );
