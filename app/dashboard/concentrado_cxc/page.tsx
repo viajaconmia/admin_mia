@@ -118,7 +118,6 @@ type GrupoAgente = {
   mas_30: number;
   mas_30_saldo: number; // más de 30
   facturas_mas_30_dias: any[]; // facturas de >30 días
-
   adeudo_total: number;
   facturas: any[];
   facturas_credito: any;
@@ -493,11 +492,17 @@ export default function ResumenAgentesPage() {
       );
     },
 
-    adeudo_total: ({ value }: { value: number }) => (
+    adeudo_total: ({ value, item }: { value: number; item: any }) => (
       <div className="flex justify-end">
-        <span className="font-bold text-purple-600 text-xs">
-          {money(Number(value) || 0)}
-        </span>
+        <button
+          onClick={() => handleVerFacturas(item)}
+          className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded bg-gray-100 hover:bg-gray-200 transition-colors"
+          title="Ver detalle de facturas"
+        >
+          <span className="font-bold text-purple-600 text-xs">
+            {money(Number(value) || 0)}
+          </span>
+        </button>
       </div>
     ),
   };
@@ -520,50 +525,56 @@ export default function ResumenAgentesPage() {
     "total_vigente",
   ];
 
+  const openFacturasGlobal = (facturas: any[], label: string) => {
+  setAgenteSeleccionado(label); // o null si no quieres mostrar algo
+  const mapped = (facturas || []).map((factura: any) => ({
+    ...factura,
+    ...getDatosFac(factura),
+  }));
+  setFacturasModal(mapped);
+  setIsModalOpen(true);
+};
+
   // Totales generales para los cuadros de arriba
-  const totales = useMemo(() => {
-    return {
-      totalAgentes: datosAgentes.length,
-      totalFacturas: datosAgentes.reduce(
-        (sum, agente) => sum + agente.total_facturas,
-        0
-      ),
-      totalAdeudo: datosAgentes.reduce(
-        (sum, agente) => sum + agente.adeudo_total,
-        0
-      ),
-      totalVigente: datosAgentes.reduce(
-        (sum, agente) => sum + (agente.adeudo_vigente || 0),
-        0
-      ),
-      totalVencido: datosAgentes.reduce(
-        (sum, agente) => sum + (agente.adeudo_vencido || 0),
-        0
-      ),
-      totalFacVigentes: datosAgentes.reduce(
-        (sum, agente) => sum + agente.vigentes,
-        0
-      ),
-      total1a7: datosAgentes.reduce((sum, agente) => sum + agente.dia_7, 0),
-      total_7:datosAgentes.reduce((sum,agente)=> sum + agente.dia_7_saldo,0),
-      total8a15: datosAgentes.reduce((sum, agente) => sum + agente.dia_15, 0),
-      total_15:datosAgentes.reduce((sum,agente)=> sum + agente.dia_15_saldo,0),      
-      total_20:datosAgentes.reduce((sum,agente)=> sum + agente.dia_20_saldo,0),
-      total16a20: datosAgentes.reduce((sum, agente) => sum + agente.dia_20, 0),
-      total21a30: datosAgentes.reduce(
-        (sum, agente) => sum + agente.dias_30,
-        0
-      ),
-      total_30:datosAgentes.reduce((sum,agente)=> sum + agente.dia_30_saldo,0),
+const totales = useMemo(() => {
+  return {
+    totalAgentes: datosAgentes.length,
+    totalFacturas: datosAgentes.reduce(
+      (sum, agente) => sum + agente.total_facturas,
+      0
+    ),
+    totalAdeudo: datosAgentes.reduce((sum, agente) => sum + agente.adeudo_total, 0),
+    totalVigente: datosAgentes.reduce((sum, agente) => sum + (agente.adeudo_vigente || 0), 0),
+    totalVencido: datosAgentes.reduce((sum, agente) => sum + (agente.adeudo_vencido || 0), 0),
 
-      totalMas30: datosAgentes.reduce(
-        (sum, agente) => sum + agente.mas_30,
-        0
-      ),
-      total_mas_30:datosAgentes.reduce((sum,agente)=> sum + agente.mas_30_saldo,0),
+    totalFacVigentes: datosAgentes.reduce((sum, agente) => sum + agente.vigentes, 0),
 
-    };
-  }, [datosAgentes]);
+    total1a7: datosAgentes.reduce((sum, agente) => sum + agente.dia_7, 0),
+    total_7: datosAgentes.reduce((sum, agente) => sum + agente.dia_7_saldo, 0),
+
+    total8a15: datosAgentes.reduce((sum, agente) => sum + agente.dia_15, 0),
+    total_15: datosAgentes.reduce((sum, agente) => sum + agente.dia_15_saldo, 0),
+
+    total16a20: datosAgentes.reduce((sum, agente) => sum + agente.dia_20, 0),
+    total_20: datosAgentes.reduce((sum, agente) => sum + agente.dia_20_saldo, 0),
+
+    total21a30: datosAgentes.reduce((sum, agente) => sum + agente.dias_30, 0),
+    total_30: datosAgentes.reduce((sum, agente) => sum + agente.dia_30_saldo, 0),
+
+    totalMas30: datosAgentes.reduce((sum, agente) => sum + agente.mas_30, 0),
+    total_mas_30: datosAgentes.reduce((sum, agente) => sum + agente.mas_30_saldo, 0),
+
+    // ✅ NUEVO: arrays globales de facturas por bucket
+    facturas_total_7: datosAgentes.flatMap((a) => a.facturas_7_dias || []),
+    facturas_total_15: datosAgentes.flatMap((a) => a.facturas_15_dias || []),
+    facturas_total_20: datosAgentes.flatMap((a) => a.facturas_20_dias || []),
+    facturas_total_30: datosAgentes.flatMap((a) => a.facturas_30_dias || []),
+    facturas_total_mas_30: datosAgentes.flatMap((a) => a.facturas_mas_30_dias || []),
+    facturas_total_vigentes: datosAgentes.flatMap((a) => a.facturas_vig || []),
+
+  };
+}, [datosAgentes]);
+
 
   if (loading) {
     return (
@@ -599,7 +610,7 @@ export default function ResumenAgentesPage() {
     <div className="p-6 bg-slate-50 rounded-md">
       <header className="mb-6 border-b pb-4">
         <h1 className="text-2xl font-bold text-gray-800">
-          Resumen de Cuentas por Cobrar por Cliente
+          Detalle de Cuentas por Cobrar por Cliente
         </h1>
       </header>
       {datosAgentes.length === 0 ? (
@@ -608,128 +619,170 @@ export default function ResumenAgentesPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          {/* Estadísticas generales */}
-          <div className="flex flex-nowrap overflow-x-auto gap-3 pb-2">
-            <div className="min-w-[180px] bg-orange-50 p-4 rounded-lg border border-orange-100 flex-shrink-0">
-              <h3 className="text-sm font-semibold text-orange-800 mb-1">
+          {/* Estadísticas generales (responsive, sin scroll horizontal) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-3">
+            <div className="bg-orange-50 p-3 sm:p-4 rounded-lg border border-orange-100">
+              <h3 className="text-[11px] sm:text-sm font-semibold text-orange-800 mb-1 leading-tight">
                 Total Clientes
               </h3>
-              <p className="text-2xl font-bold text-orange-600">
+              <p className="text-lg sm:text-2xl font-bold text-orange-600 leading-tight whitespace-nowrap">
                 {totales.totalAgentes}
               </p>
             </div>
-            <div className="min-w-[180px] bg-blue-50 p-4 rounded-lg border border-blue-100 flex-shrink-0">
-              <h3 className="text-sm font-semibold text-blue-800 mb-1">
+
+            <div className="bg-blue-50 p-3 sm:p-4 rounded-lg border border-blue-100">
+              <h3 className="text-[11px] sm:text-sm font-semibold text-blue-800 mb-1 leading-tight">
                 Total Facturas
               </h3>
-              <p className="text-2xl font-bold text-blue-600">
+              <p className="text-lg sm:text-2xl font-bold text-blue-600 leading-tight whitespace-nowrap">
                 {totales.totalFacturas}
               </p>
             </div>
-            <div className="min-w-[180px] bg-green-50 p-4 rounded-lg border border-green-100 flex-shrink-0">
-              <h3 className="text-sm font-semibold text-green-800 mb-1">
+
+            <div className="bg-green-50 p-3 sm:p-4 rounded-lg border border-green-100">
+              <h3 className="text-[11px] sm:text-sm font-semibold text-green-800 mb-1 leading-tight">
                 Facturas Vigentes
               </h3>
-              <p className="text-2xl font-bold text-green-600">
+              <p className="text-lg sm:text-2xl font-bold text-green-600 leading-tight whitespace-nowrap">
                 {totales.totalFacVigentes}
               </p>
             </div>
-            <div className="min-w-[180px] bg-red-50 p-4 rounded-lg border border-red-100 flex-shrink-0">
-              <h3 className="text-sm font-semibold text-red-800 mb-1">
+
+            <div className="bg-red-50 p-3 sm:p-4 rounded-lg border border-red-100">
+              <h3 className="text-[11px] sm:text-sm font-semibold text-red-800 mb-1 leading-tight">
                 Facturas Vencidas
               </h3>
-              <p className="text-2xl font-bold text-red-600">
+              <p className="text-lg sm:text-2xl font-bold text-red-600 leading-tight whitespace-nowrap">
                 {totales.totalFacturas - totales.totalFacVigentes}
               </p>
             </div>
-            <div className="min-w-[180px] bg-purple-50 p-4 rounded-lg border border-purple-100 flex-shrink-0">
-              <h3 className="text-sm font-semibold text-purple-800 mb-1">
+
+            <div className="bg-purple-50 p-3 sm:p-4 rounded-lg border border-purple-100">
+              <h3 className="text-[11px] sm:text-sm font-semibold text-purple-800 mb-1 leading-tight">
                 Adeudo Total
               </h3>
-              <p className="text-2xl font-bold text-purple-600">
+              <p className="text-base sm:text-2xl font-bold text-purple-600 leading-tight whitespace-nowrap">
                 {money(totales.totalAdeudo)}
               </p>
             </div>
-            <div className="min-w-[180px] bg-purple-50 p-4 rounded-lg border border-purple-100 flex-shrink-0">
-              <h3 className="text-sm font-semibold text-purple-800 mb-1">
+
+            <div className="bg-purple-50 p-3 sm:p-4 rounded-lg border border-purple-100">
+              <h3 className="text-[11px] sm:text-sm font-semibold text-purple-800 mb-1 leading-tight">
                 Total Vigente
               </h3>
-              <p className="text-2xl font-bold text-purple-600">
+              <p className="text-base sm:text-2xl font-bold text-purple-600 leading-tight whitespace-nowrap">
                 {money(totales.totalVigente)}
               </p>
             </div>
-            <div className="min-w-[180px] bg-purple-50 p-4 rounded-lg border border-purple-100 flex-shrink-0">
-              <h3 className="text-sm font-semibold text-purple-800 mb-1">
+
+            <div className="bg-purple-50 p-3 sm:p-4 rounded-lg border border-purple-100">
+              <h3 className="text-[11px] sm:text-sm font-semibold text-purple-800 mb-1 leading-tight">
                 Total Vencido
               </h3>
-              <p className="text-2xl font-bold text-purple-600">
+              <p className="text-base sm:text-2xl font-bold text-purple-600 leading-tight whitespace-nowrap">
                 {money(totales.totalVencido)}
               </p>
             </div>
           </div>
-
           {/* Resumen tipo “línea de tiempo” global */}
-          <div className="bg-white border rounded-lg p-4">
-            <h3 className="font-semibold text-gray-800 mb-3">
-              Estado de facturas por días de atraso
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-6 gap-3 text-center text-xs">
-              <div>
-                <div className="text-lg font-bold text-emerald-600">
-                  {totales.totalFacVigentes}
-                </div>
-                <div className="text-gray-600">Vigentes</div>
-                <div className="text-lg font-bold text-emerald-600">
-                {money(totales.totalVigente)}
-              </div>
-              </div>
-              <div>
-                <div className="text-lg font-bold text-yellow-400">
-                  {totales.total1a7}
-                </div>
-                <div className="text-gray-600">1–7 días</div>
-                <div className="text-lg font-bold text-yellow-400">
-                  {money(totales.total_7)}
-                </div>
-              </div>
-              <div>
-                <div className="text-lg font-bold text-yellow-600">
-                  {totales.total8a15}
-                </div>
-                <div className="text-gray-600">8–15 días</div>
-                <div className="text-lg font-bold text-yellow-600">
-                  {money(totales.total_15)}
-                </div>
-              </div>
-              <div>
-                <div className="text-lg font-bold text-orange-400">
-                  {totales.total16a20}
-                </div>
-                <div className="text-gray-600">16–20 días</div>
-                <div className="text-lg font-bold text-orange-400">
-                  {money(totales.total_20)}
-                </div>
-              </div>
-              <div>
-                <div className="text-lg font-bold text-orange-600">
-                  {totales.total21a30}
-                </div>
-                <div className="text-gray-600">21–30 días</div>
-                <div className="text-lg font-bold text-orange-600">
-                  {money(totales.total_30)}
-                </div>
-              </div>
-              <div>
-                <div className="text-lg font-bold text-red-600">
-                  {totales.totalMas30}
-                </div>
-                <div className="text-gray-600">&gt; 30 días</div>
-                <div className="text-lg font-bold text-red-600">
-                  {money(totales.total_mas_30)}
-                </div>
-              </div>
-            </div>
-          </div>
+<div className="bg-white border rounded-lg p-4">
+  <h3 className="font-semibold text-gray-800 mb-3">
+    Estado de facturas por días de atraso
+  </h3>
+
+  <div className="grid grid-cols-2 md:grid-cols-6 gap-3 text-center text-xs">
+    {/* Vigentes */}
+    <div>
+      <div className="text-lg font-bold text-emerald-600">
+        {totales.totalFacVigentes}
+      </div>
+      <div className="text-gray-600">Vigentes</div>
+
+      <button
+        onClick={() =>
+          openFacturasGlobal(totales.facturas_total_vigentes || [], "Vigentes")
+        }
+        className="text-lg font-bold text-emerald-600 underline hover:opacity-80"
+        type="button"
+      >
+        {money(totales.totalVigente)}
+      </button>
+    </div>
+
+    {/* 1–7 */}
+    <div>
+      <div className="text-lg font-bold text-yellow-400">{totales.total1a7}</div>
+      <div className="text-gray-600">1–7 días</div>
+
+      <button
+        onClick={() => openFacturasGlobal(totales.facturas_total_7, "1–7 días")}
+        className="text-lg font-bold text-yellow-400 underline hover:opacity-80"
+        type="button"
+      >
+        {money(totales.total_7)}
+      </button>
+    </div>
+
+    {/* 8–15 */}
+    <div>
+      <div className="text-lg font-bold text-yellow-600">{totales.total8a15}</div>
+      <div className="text-gray-600">8–15 días</div>
+
+      <button
+        onClick={() => openFacturasGlobal(totales.facturas_total_15, "8–15 días")}
+        className="text-lg font-bold text-yellow-600 underline hover:opacity-80"
+        type="button"
+      >
+        {money(totales.total_15)}
+      </button>
+    </div>
+
+    {/* 16–20 */}
+    <div>
+      <div className="text-lg font-bold text-orange-400">{totales.total16a20}</div>
+      <div className="text-gray-600">16–20 días</div>
+
+      <button
+        onClick={() => openFacturasGlobal(totales.facturas_total_20, "16–20 días")}
+        className="text-lg font-bold text-orange-400 underline hover:opacity-80"
+        type="button"
+      >
+        {money(totales.total_20)}
+      </button>
+    </div>
+
+    {/* 21–30 */}
+    <div>
+      <div className="text-lg font-bold text-orange-600">{totales.total21a30}</div>
+      <div className="text-gray-600">21–30 días</div>
+
+      <button
+        onClick={() => openFacturasGlobal(totales.facturas_total_30, "21–30 días")}
+        className="text-lg font-bold text-orange-600 underline hover:opacity-80"
+        type="button"
+      >
+        {money(totales.total_30)}
+      </button>
+    </div>
+
+    {/* >30 */}
+    <div>
+      <div className="text-lg font-bold text-red-600">{totales.totalMas30}</div>
+      <div className="text-gray-600">&gt; 30 días</div>
+
+      <button
+        onClick={() =>
+          openFacturasGlobal(totales.facturas_total_mas_30, "> 30 días")
+        }
+        className="text-lg font-bold text-red-600 underline hover:opacity-80"
+        type="button"
+      >
+        {money(totales.total_mas_30)}
+      </button>
+    </div>
+  </div>
+</div>
+
 
           {/* Tabla de resumen */}
           <div className="bg-white border rounded-lg overflow-hidden">
