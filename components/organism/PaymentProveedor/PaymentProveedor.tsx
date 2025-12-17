@@ -423,9 +423,9 @@ export const PaymentModal = ({
       },
       bancoEmisor: currentSelectedCard.banco_emisor,
       fechaExpiracion: currentSelectedCard.fecha_vencimiento,
-      nombreTarjeta: currentSelectedCard.nombre_titular,
+      nombreTarjeta: document.nombre_titular,
       numeroTarjeta: currentSelectedCard.numero_completo,
-      documento: document,
+      documento: document.url_identificacion,
       cvv: currentSelectedCard.cvv,
       reservations: [
         {
@@ -679,14 +679,14 @@ export const PaymentModal = ({
                 />
                 <DropdownValues
                   label="Documento"
-                  value={document}
+                  value={document.url_identificacion}
                   onChange={(
                     value: { value: string; label: string; item: any } | null
                   ) => {
                     dispatch({
                       type: "SET_FIELD",
                       field: "document",
-                      payload: value.value,
+                      payload: value.item,
                     });
                   }}
                   options={selectFiles}

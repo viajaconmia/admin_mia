@@ -15,7 +15,7 @@ export type PaymentState = {
   comments: string;
   emails: string;
   cargo: string;
-  document: string;
+  document: any;
 };
 
 // Exportamos la acción para mantener consistencia
