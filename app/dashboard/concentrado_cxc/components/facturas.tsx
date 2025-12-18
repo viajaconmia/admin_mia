@@ -5,6 +5,7 @@ import { Table5 } from "@/components/Table5";
 import { DetalleFacturaModal } from "./detalles_modal";
 import { formatDate } from "@/helpers/utils";
 import { PagarModalComponent } from "@/components/template/pagar_saldo";
+import { URL, API_KEY } from "@/lib/constants/index";
 
 /* ─────────────────────────────
    Tipos reutilizables
@@ -47,6 +48,7 @@ export interface DetallesFacturasProps {
   } | null;
   facturas: Factura[];
   money: (n: number) => string;
+  pagoData?:any;
 
   /** Abre el modal de detalle de factura */
   onOpenFacturaDetalle?: (factura: Factura) => void;
@@ -63,6 +65,7 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
   onClose,
   agente,
   facturas,
+  pagoData,
   money,
   onOpenFacturaDetalle,
   // Estas props son opcionales y se pasan al modal de detalle
@@ -163,9 +166,44 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
         id_agente: f.id_agente,
         agente: f.nombre_agente, // viene por [key: string]: any;
       }));
+      const payload = datosFacturas, pagoData;
 
       setFacturaData(datosFacturas);   // 👈 aquí se crea y guarda facturaData
-      setShowPagarModal(true);         // 👈 aquí se "llama" el modal de pago
+      if (pagoData) {
+            try {
+      const response = await fetch(`${URL}/mia/pagos/aplicarpagoPorSaldoAFavor`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": API_KEY,
+        },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        throw new Error("Error al aplicar el pago por saldo a favor");
+      }
+
+      const data = await response.json();
+      console.log("Respuesta del servidor:", data);
+
+      // Llamar a onSubmit si está definido
+      if (onSubmit) {
+        onSubmit({
+          ...pagoData,
+          facturasAsignados: selectedItems,
+        });
+      }
+
+      // Cerrar el modal después de enviar
+      onClose();
+    } catch (error) {
+      console.error("Error en la petición:", error);
+    }
+      }else{
+        setShowPagarModal(true);  
+      }       // 👈 aquí se "llama" el modal de pago
     }
   };
 

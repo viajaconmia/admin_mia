@@ -1378,14 +1378,14 @@ const showFacturasButton = isActive && montoPorFacturar > 0; // (ajusta si quier
             <Eye className="w-4 h-4" />
           </button>
           {showFacturasButton && (
-  <button
-    className="p-1.5 rounded-md bg-amber-50 text-amber-600 hover:bg-amber-100 transition-colors"
-    onClick={handlePagoFacturas}
-    title="Pagar facturas Pendientes"
-  >
-    <File className="w-4 h-4" />
-  </button>
-)}
+          <button
+            className="p-1.5 rounded-md bg-amber-50 text-amber-600 hover:bg-amber-100 transition-colors"
+            onClick={handlePagoFacturas}
+            title="Pagar facturas Pendientes"
+          >
+            <File className="w-4 h-4" />
+          </button>
+        )}
 
           {/* Modal de Edición */}
           {isEditModalOpen && (
