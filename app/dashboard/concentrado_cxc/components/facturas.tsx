@@ -216,72 +216,131 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
   ───────────────── */
 
   const handlePagos = async () => {
-    const facturasSeleccionadas = facturas.filter((f) =>
-      selectedFacturas.has(f.id_factura)
-    );
+  const facturasSeleccionadas = facturas.filter((f) =>
+    selectedFacturas.has(f.id_factura)
+  );
 
-    if (facturasSeleccionadas.length === 0) return;
+  if (facturasSeleccionadas.length === 0) return;
 
-    // Esto es lo que usa tu modal (flujo normal)
+  // ✅ Si NO hay pagoData -> abre modal normal
+  if (!pagoData) {
     const datosFacturas = facturasSeleccionadas.map((f) => ({
       monto: Number(f.total ?? 0),
       saldo: Number(f.saldo ?? 0),
       facturaSeleccionada: f,
       id_agente: f.id_agente,
-      agente: f.nombre_agente || f.nombre || "Sin nombre", // viene por [key: string]: any
+      agente: f.nombre_agente || f.nombre || "Sin nombre",
     }));
 
     setFacturaData(datosFacturas);
+    setShowPagarModal(true);
+    return;
+  }
 
-    // ✅ Si NO hay pagoData -> abre modal normal
-    if (!pagoData) {
-      setShowPagarModal(true);
-      return;
+  // ✅ Si hay pagoData -> aplica por saldo a favor
+  const idsFacturasSeleccionadas = facturasSeleccionadas.map(factura => factura.id_factura);
+  
+  // Calcular total del saldo pendiente de las facturas seleccionadas
+  const totalSaldoFacturasSeleccionadas = facturasSeleccionadas.reduce(
+    (total, factura) => total + Number(factura.saldo || 0),
+    0
+  );
+
+  // Obtener el monto total del saldo a favor desde pagoData
+  const montoSaldoFavor = Number(pagoData.monto || 0);
+  const montoAplicable = Math.min(montoSaldoFavor, totalSaldoFacturasSeleccionadas);
+  
+  // Calcular cuánto se aplica a cada factura (proporcionalmente)
+  const aplicacionesPorFactura = facturasSeleccionadas.map((factura, index, array) => {
+    const saldoFactura = Number(factura.saldo || 0);
+    
+    // Para la última factura, aplicar el restante
+    if (index === array.length - 1) {
+      return {
+        id_factura: factura.id_factura,
+        monto_aplicado: montoAplicable,
+        saldo_restante_factura: Math.max(0, saldoFactura - montoAplicable)
+      };
     }
-    const idsFacturasSeleccionadas = facturasSeleccionadas.map(factura => factura.id_factura);
-    console.log("Facturas seleccion😍😍😍😍adas para pago:", facturasSeleccionadas);
-    console.log("Facturas seleccionadas para pago:", idsFacturasSeleccionadas);
-
-    // ✅ Si hay pagoData -> aplica por saldo a favor (fetch)
-    const payload = {
-      ejemplo_saldos: pagoData,
-      id_agente:id_agente,
-      id_factura: idsFacturasSeleccionadas,
+    
+    // Para las demás, aplicar proporcional al saldo
+    const proporcion = saldoFactura / totalSaldoFacturasSeleccionadas;
+    const montoAplicado = montoAplicable * proporcion;
+    
+    return {
+      id_factura: factura.id_factura,
+      monto_aplicado: montoAplicado,
+      saldo_restante_factura: Math.max(0, saldoFactura - montoAplicado)
     };
+  });
 
-    try {
-      setIsApplying(true);
-
-      const response = await fetch(
-        `${URL}/mia/factura/AsignarFacturaPagos`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": API_KEY,
-          },
-          credentials: "include",
-          body: JSON.stringify(payload),
-        }
-      );
-
-      if (!response.ok) {
-        const errText = await response.text().catch(() => "");
-        throw new Error(errText || "Error al aplicar el pago por saldo a favor");
+  // Crear el payload en la estructura requerida
+  const payload = {
+    ejemplo_saldos: [
+      {
+        id_saldo: pagoData.id_saldos,
+        saldo_original: montoSaldoFavor,
+        saldo_actual: montoSaldoFavor - montoAplicable, // Lo que queda después de aplicar
+        aplicado: montoAplicable, // Total aplicado a todas las facturas
+        id_agente: id_agente,
+        metodo_de_pago: pagoData.metodo_pago?.toLowerCase() || 'wallet',
+        fecha_pago: pagoData.fecha_pago,
+        concepto: pagoData.concepto,
+        referencia: pagoData.referencia,
+        currency: (pagoData.currency || 'MXN').toLowerCase(),
+        tipo_de_tarjeta: pagoData.tipo_tarjeta,
+        link_pago: pagoData.link_stripe,
+        last_digits: pagoData.ult_digits
       }
-
-      const data = await response.json().catch(() => null);
-      console.log("Respuesta del servidor:", data);
-
-      // Limpia selección y cierra
-      handleDeseleccionarPagos();
-      onClose();
-    } catch (error) {
-      console.error("Error en la petición:", error);
-    } finally {
-      setIsApplying(false);
-    }
+    ],
+    id_agente: id_agente,
+    id_factura: idsFacturasSeleccionadas,
+    detalle_aplicacion: aplicacionesPorFactura // Opcional: para llevar control detallado
   };
+
+  console.log("Payload a enviar:", payload);
+
+  try {
+    setIsApplying(true);
+
+    const response = await fetch(
+      `${URL}/mia/factura/AsignarFacturaPagos`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": API_KEY,
+        },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      }
+    );
+
+    if (!response.ok) {
+      const errText = await response.text().catch(() => "");
+      throw new Error(errText || "Error al aplicar el pago por saldo a favor");
+    }
+
+    const data = await response.json().catch(() => null);
+    console.log("Respuesta del servidor:", data);
+
+    // Mostrar mensaje de éxito
+    alert(`Saldo a favor aplicado exitosamente:\nMonto aplicado: ${money ? money(montoAplicable) : `$${montoAplicable}`}\nSaldo restante: ${money ? money(montoSaldoFavor - montoAplicable) : `$${montoSaldoFavor - montoAplicable}`}`);
+
+    // Limpia selección y cierra
+    handleDeseleccionarPagos();
+    onClose();
+    
+    // Opcional: refrescar datos
+    fetchDatosAgentes();
+    
+  } catch (error) {
+    console.error("Error en la petición:", error);
+    alert("Error al aplicar el saldo a favor. Por favor, intente nuevamente.");
+  } finally {
+    setIsApplying(false);
+  }
+};
 
   /* ────────────────
      Registros para Table5 - DEPENDE DE SI HAY PAGODATA O NO
