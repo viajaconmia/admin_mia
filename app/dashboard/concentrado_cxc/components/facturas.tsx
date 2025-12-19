@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Table5 } from "@/components/Table5";
 import { DetalleFacturaModal } from "./detalles_modal";
 import { formatDate } from "@/helpers/utils";
 import { PagarModalComponent } from "@/components/template/pagar_saldo";
+import { URL, API_KEY } from "@/lib/constants/index";
 
 /* ─────────────────────────────
    Tipos reutilizables
@@ -45,8 +46,9 @@ export interface DetallesFacturasProps {
   agente: {
     id_agente: string | null;
   } | null;
-  facturas: Factura[];
-  money: (n: number) => string;
+  facturas?: Factura[];
+  money?: (n: number) => string;
+  pagoData?: any;
 
   /** Abre el modal de detalle de factura */
   onOpenFacturaDetalle?: (factura: Factura) => void;
@@ -57,12 +59,14 @@ export interface DetallesFacturasProps {
   downloadFile?: (url: string, filename: string) => void;
 }
 
+const normalizeAgent = (a: any) => String(a ?? "");
 
 export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
   open,
   onClose,
   agente,
-  facturas,
+  facturas: propFacturas,
+  pagoData,
   money,
   onOpenFacturaDetalle,
   // Estas props son opcionales y se pasan al modal de detalle
@@ -79,7 +83,75 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
   const [facturaData, setFacturaData] = useState<any[] | null>(null);
   const [showPagarModal, setShowPagarModal] = useState(false);
   const [detalleAbierto, setDetalleAbierto] = useState(false);
+  const [isApplying, setIsApplying] = useState(false); // State para loading
+  const [datosAgentes, setDatosAgentes] = useState<any[]>([]); // Datos de los agentes
+  const [isLoading, setIsLoading] = useState(false);
 
+  /* ────────────────
+     Fetch de datos cuando hay pagoData
+  ───────────────── */
+  const id_agente = agente?.id_agente || null;
+  console.log("pagodata",id_agente,pagoData)
+  const fetchDatosAgentes = async () => {
+    if (!agente) return;
+    
+    const endpoint = `${URL}/mia/factura/getfacturasPagoPendienteByAgente`;
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "x-api-key": API_KEY || "",
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+        },
+        body: JSON.stringify({ id_agente }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error HTTP: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log("Respuesta POST recibida:", data);
+
+      // Extraer las facturas del array facturas_json
+      if (Array.isArray(data)) {
+        const facturasExtraidas: Factura[] = [];
+        data.forEach((item: any) => {
+          if (item.facturas_json && Array.isArray(item.facturas_json)) {
+            facturasExtraidas.push(...item.facturas_json.map((factura: any) => ({
+              ...factura,
+              diasRestantes: factura.diasRestantes || 0,
+              diasCredito: factura.diasCredito || 0,
+              nombre_agente: item.nombre_agente || item.nombre || "Sin nombre"
+            })));
+          }
+        });
+        setDatosAgentes(facturasExtraidas);
+      } else {
+        throw new Error("Formato de respuesta inválido");
+      }
+    } catch (err: any) {
+      console.error("Error en la consulta:", err);
+      setDatosAgentes([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (pagoData && agente && open) {
+      fetchDatosAgentes();
+    }
+  }, [pagoData, agente, open]);
+
+  // Determinar qué facturas usar
+  const facturas = pagoData ? datosAgentes : (propFacturas || []);
+  const mostrarFacturas = pagoData ? datosAgentes : propFacturas;
+
+  // MOVER ESTO DESPUÉS DE TODOS LOS HOOKS
   if (!open) return null;
 
   /* ────────────────
@@ -114,22 +186,17 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
       const newSelected = new Set(prevSelected);
       const wasSelected = newSelected.has(id);
 
-      if (wasSelected) {
-        newSelected.delete(id);
-      } else {
-        newSelected.add(id);
-      }
+      if (wasSelected) newSelected.delete(id);
+      else newSelected.add(id);
 
-      // Validar que todas las seleccionadas sean del mismo agente
-      const seleccionadas = facturas.filter((f) =>
-        newSelected.has(f.id_factura)
-      );
+      const seleccionadas = facturas.filter((f) => newSelected.has(f.id_factura));
+      const agentKey = normalizeAgent(idAgente);
+
       const allSameAgent = seleccionadas.every(
-        (f) => f.id_agente === idAgente
+        (f) => normalizeAgent(f.id_agente) === agentKey
       );
 
       if (!allSameAgent) {
-        // Revertimos esta última selección si mezcla agentes
         if (!wasSelected) newSelected.delete(id);
         return new Set(newSelected);
       }
@@ -148,44 +215,164 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
      Crear facturaData y abrir modal de pago
   ───────────────── */
 
-  const handlePagos = () => {
-    console.log(facturas,"facturads elegidas")
-    const facturasSeleccionadas = facturas.filter((f) =>
-      selectedFacturas.has(f.id_factura)
-    );
+  const handlePagos = async () => {
+  const facturasSeleccionadas = facturas.filter((f) =>
+    selectedFacturas.has(f.id_factura)
+  );
 
+  if (facturasSeleccionadas.length === 0) return;
 
-    if (facturasSeleccionadas.length > 0) {
-      const datosFacturas = facturasSeleccionadas.map((f) => ({
-        monto: f.total,
-        saldo: f.saldo,
-        facturaSeleccionada: f,
-        id_agente: f.id_agente,
-        agente: f.nombre_agente, // viene por [key: string]: any;
-      }));
+  // ✅ Si NO hay pagoData -> abre modal normal
+  if (!pagoData) {
+    const datosFacturas = facturasSeleccionadas.map((f) => ({
+      monto: Number(f.total ?? 0),
+      saldo: Number(f.saldo ?? 0),
+      facturaSeleccionada: f,
+      id_agente: f.id_agente,
+      agente: f.nombre_agente || f.nombre || "Sin nombre",
+    }));
 
-      setFacturaData(datosFacturas);   // 👈 aquí se crea y guarda facturaData
-      setShowPagarModal(true);         // 👈 aquí se "llama" el modal de pago
+    setFacturaData(datosFacturas);
+    setShowPagarModal(true);
+    return;
+  }
+
+  // ✅ Si hay pagoData -> aplica por saldo a favor
+  const idsFacturasSeleccionadas = facturasSeleccionadas.map(factura => factura.id_factura);
+  
+  // Calcular total del saldo pendiente de las facturas seleccionadas
+  const totalSaldoFacturasSeleccionadas = facturasSeleccionadas.reduce(
+    (total, factura) => total + Number(factura.saldo || 0),
+    0
+  );
+
+  // Obtener el monto total del saldo a favor desde pagoData
+  const montoSaldoFavor = Number(pagoData.monto || 0);
+  const montoAplicable = Math.min(montoSaldoFavor, totalSaldoFacturasSeleccionadas);
+  
+  // Calcular cuánto se aplica a cada factura (proporcionalmente)
+  const aplicacionesPorFactura = facturasSeleccionadas.map((factura, index, array) => {
+    const saldoFactura = Number(factura.saldo || 0);
+    
+    // Para la última factura, aplicar el restante
+    if (index === array.length - 1) {
+      return {
+        id_factura: factura.id_factura,
+        monto_aplicado: montoAplicable,
+        saldo_restante_factura: Math.max(0, saldoFactura - montoAplicable)
+      };
     }
+    
+    // Para las demás, aplicar proporcional al saldo
+    const proporcion = saldoFactura / totalSaldoFacturasSeleccionadas;
+    const montoAplicado = montoAplicable * proporcion;
+    
+    return {
+      id_factura: factura.id_factura,
+      monto_aplicado: montoAplicado,
+      saldo_restante_factura: Math.max(0, saldoFactura - montoAplicado)
+    };
+  });
+
+  // Crear el payload en la estructura requerida
+  const payload = {
+    ejemplo_saldos: [
+      {
+        id_saldo: pagoData.id_saldos,
+        saldo_original: montoSaldoFavor,
+        saldo_actual: montoSaldoFavor - montoAplicable, // Lo que queda después de aplicar
+        aplicado: montoAplicable, // Total aplicado a todas las facturas
+        id_agente: id_agente,
+        metodo_de_pago: pagoData.metodo_pago?.toLowerCase() || 'wallet',
+        fecha_pago: pagoData.fecha_pago,
+        concepto: pagoData.concepto,
+        referencia: pagoData.referencia,
+        currency: (pagoData.currency || 'MXN').toLowerCase(),
+        tipo_de_tarjeta: pagoData.tipo_tarjeta,
+        link_pago: pagoData.link_stripe,
+        last_digits: pagoData.ult_digits
+      }
+    ],
+    id_agente: id_agente,
+    id_factura: idsFacturasSeleccionadas,
+    detalle_aplicacion: aplicacionesPorFactura // Opcional: para llevar control detallado
   };
 
+  console.log("Payload a enviar:", payload);
+
+  try {
+    setIsApplying(true);
+
+    const response = await fetch(
+      `${URL}/mia/factura/AsignarFacturaPagos`,
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": API_KEY,
+        },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      }
+    );
+
+    if (!response.ok) {
+      const errText = await response.text().catch(() => "");
+      throw new Error(errText || "Error al aplicar el pago por saldo a favor");
+    }
+
+    const data = await response.json().catch(() => null);
+    console.log("Respuesta del servidor:", data);
+
+    // Mostrar mensaje de éxito
+    alert(`Saldo a favor aplicado exitosamente:\nMonto aplicado: ${money ? money(montoAplicable) : `$${montoAplicable}`}\nSaldo restante: ${money ? money(montoSaldoFavor - montoAplicable) : `$${montoSaldoFavor - montoAplicable}`}`);
+
+    // Limpia selección y cierra
+    handleDeseleccionarPagos();
+    onClose();
+    
+    // Opcional: refrescar datos
+    fetchDatosAgentes();
+    
+  } catch (error) {
+    console.error("Error en la petición:", error);
+    alert("Error al aplicar el saldo a favor. Por favor, intente nuevamente.");
+  } finally {
+    setIsApplying(false);
+  }
+};
+
   /* ────────────────
-     Registros para Table5
+     Registros para Table5 - DEPENDE DE SI HAY PAGODATA O NO
   ───────────────── */
 
-  const registros = facturas.map((f) => ({
-    id_factura: f.id_factura, // usado internamente, no se muestra
-    uuid_factura: f.uuid_factura,
-    fecha_emision: f.fecha_emision,
-    fecha_vencimiento: f.fecha_vencimiento,
-    rfc: f.rfc,
-    total: f.total,
-    saldo: f.saldo,
-    dias_a_credito: f.diasCredito,
-    dias_restantes: f.diasRestantes,
-    seleccionar:f,
-    item: f,
-  }));
+  const registros = pagoData 
+    ? datosAgentes.map((f) => ({
+        id_factura: f.id_factura,
+        uuid_factura: f.uuid_factura,
+        fecha_emision: f.fecha_emision,
+        fecha_vencimiento: f.fecha_vencimiento,
+        rfc: f.rfc,
+        total: f.total,
+        saldo: f.saldo,
+        dias_a_credito: f.diasCredito || f.diasCredito || 0,
+        dias_restantes: f.diasRestantes || f.diasRestantes || 0,
+        seleccionar: f,
+        item: f,
+      }))
+    : (propFacturas || []).map((f) => ({
+        id_factura: f.id_factura,
+        uuid_factura: f.uuid_factura,
+        fecha_emision: f.fecha_emision,
+        fecha_vencimiento: f.fecha_vencimiento,
+        rfc: f.rfc,
+        total: f.total,
+        saldo: f.saldo,
+        dias_a_credito: f.diasCredito,
+        dias_restantes: f.diasRestantes,
+        seleccionar: f,
+        item: f,
+      }));
 
   /* ────────────────
      Renderers de columnas
@@ -247,7 +434,7 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
     total: ({ value }) => (
       <div className="flex justify-end">
         <span className="font-bold text-blue-600">
-          {money(parseFloat(value) || 0)}
+          {money ? money(parseFloat(value) || 0) : `$${parseFloat(value) || 0}`}
         </span>
       </div>
     ),
@@ -256,7 +443,7 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
       const saldo = parseFloat(value) || 0;
       const total = parseFloat(item.total) || 0;
       const porcentajePagado = total > 0 ? ((total - saldo) / total) * 100 : 0;
-      const vencido = (item.diasRestantes ?? 0) <= 0;
+      const vencido = (item.dias_restantes ?? item.diasRestantes ?? 0) <= 0;
 
       return (
         <div className="flex flex-col items-end gap-1">
@@ -265,7 +452,7 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
               !vencido ? "text-green-600" : "text-red-500"
             }`}
           >
-            {money(saldo)}
+            {money ? money(saldo) : `$${saldo}`}
           </span>
           <div className="w-full bg-gray-200 rounded-full h-1.5">
             <div
@@ -302,7 +489,7 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
           </span>
         </div>
       );
-    },
+    },  
   };
 
   return (
@@ -321,6 +508,11 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
                   <span className="font-semibold">
                     {agente.id_agente ?? ""}
                   </span>
+                  {pagoData && (
+                    <span className="ml-2 text-blue-600">
+                      (Aplicando saldo a favor)
+                    </span>
+                  )}
                 </p>
               )}
             </div>
@@ -335,9 +527,18 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
 
           {/* Body */}
           <div className="p-4 flex-1 overflow-auto">
-            {facturas.length === 0 ? (
+            {isLoading ? (
+              <div className="flex justify-center items-center h-40">
+                <div className="text-center">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <p className="mt-2 text-sm text-gray-600">Cargando facturas...</p>
+                </div>
+              </div>
+            ) : !mostrarFacturas || mostrarFacturas.length === 0 ? (
               <p className="text-sm text-gray-500">
-                Este agente no tiene facturas pendientes.
+                {pagoData 
+                  ? "No hay facturas pendientes para aplicar saldo a favor." 
+                  : "Este agente no tiene facturas pendientes."}
               </p>
             ) : (
               <div className="border rounded-lg overflow-hidden">
@@ -346,7 +547,7 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
                     registros={registros}
                     renderers={renderers}
                     exportButton={true}
-                    leyenda={`Mostrando ${facturas.length} factura(s)`}
+                    leyenda={`Mostrando ${registros.length} factura(s)`}
                     maxHeight="60vh"
                     customColumns={[
                       "seleccionar", // 👈 botón Seleccionar
@@ -363,9 +564,13 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
                     <button
                       className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
                       onClick={handlePagos}
-                      disabled={selectedFacturas.size === 0}
+                      disabled={selectedFacturas.size === 0 || isApplying}
                     >
-                      Asignar Pago
+                      {isApplying 
+                        ? "Aplicando..." 
+                        : pagoData 
+                          ? "Aplicar Saldo a Favor" 
+                          : "Asignar Pago"}
                     </button>
                     <button
                       className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
@@ -395,12 +600,12 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
 
       {/* Modal de pago usando facturaData */}
       {showPagarModal && facturaData && (
-              <PagarModalComponent
-                onClose={() => setShowPagarModal(false)}
-                facturaData={facturaData}
-                open={showPagarModal}
-              />
-            )}
+        <PagarModalComponent
+          onClose={() => setShowPagarModal(false)}
+          facturaData={facturaData}
+          open={showPagarModal}
+        />
+      )}
     </>
   );
 };

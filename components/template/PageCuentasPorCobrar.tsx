@@ -36,6 +36,7 @@ import { API_KEY, URL } from "@/lib/constants/index";
 import { formatDate } from "@/helpers/utils";
 import { PagarModalComponent } from "./pagar_saldo";
 import ModalDetallePago from "@/app/dashboard/payments/_components/detalles_pago";
+import DetallesFacturas from "@/app/dashboard/concentrado_cxc/components/facturas";
 
 import { format } from "date-fns";
 import { es, se } from "date-fns/locale";
@@ -379,6 +380,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
     pagos: true,
   });
   const [pagoDetallado, setPagoDetallado] = useState<any>(null);
+  const [pagoParaFacturar,setPagoParaFacturar] = useState<any>(null)
   const [localWalletAmount, setLocalWalletAmount] = useState(walletAmount);
 
   const [filters, setFilters] = useState<TypeFilters>({
@@ -395,6 +397,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   const [saldoAFavor, setSaldoAFavor] = useState<number>(0);
   const [lloading, setloading] = useState(false);
   const [saldos, setSaldos] = useState<Saldo[]>([]);
+  const [showPagarFactura, setShowPagarFactura] = useState(false);
 
   interface SortConfig {
     key: string;
@@ -1160,7 +1163,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       const showEditbuttosn = isActive && !isDifferent && !hasLink;
       const showPagarButton = isActive && hasBalance && !wallet_credito;
 const showFacturasButton = isActive && montoPorFacturar > 0; // (ajusta si quieres otras reglas)
-
       if (item.saldo !== item.monto_pagado) {
         editar = false;
       }
@@ -1327,9 +1329,11 @@ const showFacturasButton = isActive && montoPorFacturar > 0; // (ajusta si quier
         setDetalles(true);
       };
 
-      const handlePagoFacturas = async ()=> {
+      const handlePagoFacturas = async () => {
         console.log(item, "pago elegido");
-
+        setPagoParaFacturar(item)
+        setShowPagarFactura(true); 
+// Cambiar el estado a true para abrir el modal
       };
 
       return (
@@ -1378,14 +1382,14 @@ const showFacturasButton = isActive && montoPorFacturar > 0; // (ajusta si quier
             <Eye className="w-4 h-4" />
           </button>
           {showFacturasButton && (
-  <button
-    className="p-1.5 rounded-md bg-amber-50 text-amber-600 hover:bg-amber-100 transition-colors"
-    onClick={handlePagoFacturas}
-    title="Pagar facturas Pendientes"
-  >
-    <File className="w-4 h-4" />
-  </button>
-)}
+          <button
+            className="p-1.5 rounded-md bg-amber-50 text-amber-600 hover:bg-amber-100 transition-colors"
+            onClick={handlePagoFacturas}
+            title="Pagar facturas Pendientes"
+          >
+            <File className="w-4 h-4" />
+          </button>
+        )}
 
           {/* Modal de Edición */}
           {isEditModalOpen && (
@@ -1518,6 +1522,7 @@ const showFacturasButton = isActive && montoPorFacturar > 0; // (ajusta si quier
               }}
             />
           )}
+          
         </div>
       );
     },
@@ -1666,28 +1671,6 @@ const showFacturasButton = isActive && montoPorFacturar > 0; // (ajusta si quier
                 "link_stripe",
                 "facturable",
               ]}
-              //resto de columnas
-              //     id_Cliente:saldo.id_agente,
-              //   id_saldo: saldo.id_saldos,
-              // cliente: (saldo.nombre || '').toUpperCase(),
-              // creado: saldo.fecha_creacion ? new Date(saldo.fecha_creacion) : null,
-              // monto_pagado: Number(saldo.monto),
-              // saldo: saldo.saldo,
-              // forma_De_Pago: saldo.metodo_pago === 'transferencia'
-              // ? 'Transferencia Bancaria'
-              // : saldo.metodo_pago === 'tarjeta credito'
-              // ? 'Tarjeta de Crédito'
-              // : saldo.metodo_pago === 'tarjeta debito'
-              // ? 'Tarjeta de Débito'
-              // : saldo.metodo_pago || '',
-              // tipo_tarjeta: saldo.tipo_tarjeta || '',
-              // referencia: saldo.referencia || '',
-              // link_stripe: saldo.link_stripe || null,
-              // fecha_De_Pago: saldo.fecha_pago ? new Date(saldo.fecha_pago) : null,
-              // aplicable: saldo.is_descuento ? 'Si' : 'No',
-              // comentario: saldo.notas || saldo.comentario || null,
-              // facturable: saldo.is_facturable ? 'Si' : 'No',
-              // comprobante: saldo.comprobante || null,
               defaultSort={{
                 key: "creado", // Default sort column
                 sort: false, // Default sort direction
@@ -1722,6 +1705,14 @@ const showFacturasButton = isActive && montoPorFacturar > 0; // (ajusta si quier
           pago={pagoDetallado}
         />
       )}
+{showPagarFactura && (
+  <DetallesFacturas
+    open={showPagarFactura} // Estado que controla si el modal está abierto
+    onClose={() => setShowPagarFactura(false)} // Función para cerrar el modal
+    agente={agente} // El agente que contiene la propiedad id_agente
+    pagoData={pagoParaFacturar} // Asegúrate de pasar la data correspondiente
+  />
+)}
     </div>
   );
 };
