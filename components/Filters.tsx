@@ -34,7 +34,7 @@ const Filters: React.FC<{
   };
   return (
     <div className="overflow-hidden max-w-full mx-auto relative flex flex-col md:flex-row md:items-center md:flex-wrap justify-between gap-4">
-      {searchTerm && (
+      {setSearchTerm && (
         <div className="relative flex-1 pt-2">
           <div className="absolute inset-y-0 left-0 pl-3 pt-2 flex items-center pointer-events-none">
             <Search className="h-5 w-5 text-gray-400" />
@@ -54,7 +54,7 @@ const Filters: React.FC<{
           />
         </div>
       )}
-      <div className="flex justify-between items-center gap-4">
+      <div className="w-full justify-between items-center gap-4 grid grid-cols-2">
         <Button
           onClick={toggleModal}
           type="button"
@@ -63,14 +63,14 @@ const Filters: React.FC<{
         >
           Filtros
         </Button>
+        <FiltersModal
+          onClose={toggleModal}
+          isOpen={isOpen}
+          onFilter={onFilter}
+          defaultFilter={defaultFilters}
+          setSearchTerm={setSearchTerm}
+        />
       </div>
-      <FiltersModal
-        onClose={toggleModal}
-        isOpen={isOpen}
-        onFilter={onFilter}
-        defaultFilter={defaultFilters}
-        setSearchTerm={setSearchTerm}
-      />
     </div>
   );
 };
@@ -120,15 +120,9 @@ const FiltersModal: React.FC<{
   }, [defaultFilter]);
   return (
     <>
-      <div>
-        <button
-          onClick={handleResetFilters}
-          className="inline-flex sm:w-full items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-        >
-          <X className="h-4 w-4 mr-2" />
-          Limpiar
-        </button>
-      </div>
+      <Button onClick={handleResetFilters} icon={X} variant="ghost">
+        Limpiar
+      </Button>
       {isOpen && (
         <div
           className="fixed top-0 left-0 w-screen h-screen bg-black bg-opacity-50 flex items-center justify-center z-50"
@@ -1024,7 +1018,7 @@ const FiltersModal: React.FC<{
           </div>
         </div>
       )}
-      <div className="w-full">
+      <div className="w-full col-span-2">
         {Object.entries(filters).map(([key, value]) => {
           if (!value && value !== false) return null;
           return (

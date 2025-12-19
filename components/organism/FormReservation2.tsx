@@ -45,7 +45,7 @@ interface ReservationFormProps {
 export function ReservationForm2({
   hoteles,
   onClose,
-  edicion = false,
+  edicion = true,
   solicitud,
 }: ReservationFormProps) {
   let currentNoches = 0;
@@ -1092,7 +1092,13 @@ export function ReservationForm2({
   );
 }
 
-const ReservationEditContainer = () => {
+export const ReservationEditContainer = ({
+  id_solicitud,
+  onClose,
+}: {
+  id_solicitud: string;
+  onClose: () => void;
+}) => {
   const { hoteles } = useHoteles();
   const [solicitud, setSolicitud] = useState<
     (Solicitud2 & { nuevo_incluye_desayuno?: boolean | null }) | null
@@ -1106,10 +1112,20 @@ const ReservationEditContainer = () => {
   useEffect(() => {
     handleFetchSolicitudes();
   }, []);
+  if (!solicitud)
+    return (
+      <div className="w-full h-96 flex justify-center items-center">
+        <Loader></Loader>
+      </div>
+    );
 
   return (
-    <div className="w-full h-96 flex justify-center items-center">
-      <Loader></Loader>
-    </div>
+    <>
+      <ReservationForm2
+        onClose={onClose}
+        hoteles={hoteles || []}
+        solicitud={solicitud}
+      />
+    </>
   );
 };

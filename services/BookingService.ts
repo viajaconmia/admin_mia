@@ -8,6 +8,7 @@ export class BookingsService extends ApiService {
     },
     PUT: {
       ITEMS: "/items",
+      CANCELAR: "/cancelar",
     },
   };
 
@@ -31,9 +32,16 @@ export class BookingsService extends ApiService {
     });
   };
 
-  public obtenerReservas = async () =>
+  public obtenerReservas = async (page, length) =>
     this.get<BookingAll[]>({
       path: this.formatPath(this.ENDPOINTS.GET.RERESVAS),
+      params: { page, length },
+    });
+
+  public cancelarBooking = async (id_booking) =>
+    this.put<{}>({
+      path: this.formatPath(this.ENDPOINTS.PUT.CANCELAR),
+      body: { id_booking },
     });
 }
 
@@ -68,11 +76,13 @@ export type BookingAll = {
   id_servicio: string;
   id_agente: string;
 
+  reservante: string;
   correo_cliente: string;
   telefono_cliente: string;
 
   status_reserva: string;
   total_booking: string;
+  etapa_reservacion: string;
 
   check_in: string;
   check_out: string;
@@ -88,6 +98,7 @@ export type BookingAll = {
   type: string;
   tipo_cuarto_vuelo: string;
   costo_total: string;
+  metodo_pago: string;
 
   comments: string;
   nuevo_incluye_desayuno: boolean | null;
