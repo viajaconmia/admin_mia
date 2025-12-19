@@ -448,11 +448,13 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
         }),
       };
       endpoint = "/mia/reservas/operaciones";
+
     } else if (reservaData && !isZeroMoney(montorestante)) {
       console.log("montoRestante", montorestante);
       alert("Para registrar el pago, debes cubrir el total de la reserva.");
       return;
     } else if (facturaData) {
+      
       const ejemplo_saldos = selectedItems.map(item => {
         const originalItem = saldoFavorData.find(sf => `saldo-${sf.id_saldos}` === item.id_item);
         const aplicado = (originalSaldoItems[item.id_item] ?? 0) - (itemsSaldo[item.id_item] ?? 0);
