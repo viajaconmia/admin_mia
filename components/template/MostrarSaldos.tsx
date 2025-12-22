@@ -32,8 +32,6 @@ export const MostrarSaldos: React.FC<PagarModalProps> = ({
   >([]);
   const { showNotification } = useNotification();
 
-  console.log("reserva_data", reserva_Data)
-
   useEffect(() => {
     fetchSaldos();
   }, []);
@@ -41,7 +39,8 @@ export const MostrarSaldos: React.FC<PagarModalProps> = ({
   const fetchSaldos = async () => {
     try {
       if (precio <= 0) return;
-      if (!agente.id_agente) {
+      if (!id_agente) {
+        console.log(id_agente);
         throw new Error("ID de agente no disponible");
       }
       const { data } = await SaldoFavor.getPagos(id_agente);
@@ -94,7 +93,7 @@ export const MostrarSaldos: React.FC<PagarModalProps> = ({
         )
       );
       if (reserva_Data) {
-        console.log
+        console.log;
       }
     } catch (error) {
       showNotification("error", error.message || "Error al seleccionar saldo");

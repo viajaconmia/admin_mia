@@ -12,3 +12,9 @@ export const ROUTES = {
     UNAUTHORIZED: "/dashboard/unauthorized",
   },
 };
+
+export const PAGES = {
+  BOOKINGS: {
+    CREAR_RESERVA: "/dashboard/reservas/create",
+  },
+};

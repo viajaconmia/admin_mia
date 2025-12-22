@@ -380,7 +380,6 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
                 id_agente: id_agente,
                 agente: agente,
               }}
-              hotels={hoteles}
               onClose={() => {
                 handleFetchSolicitudes();
                 setCreateReserva(false);

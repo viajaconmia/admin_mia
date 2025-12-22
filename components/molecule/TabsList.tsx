@@ -20,10 +20,12 @@ export const TabsList = ({ onChange, tabs, activeTab }: TabsListProps) => {
           <div key={tab} className=" w-full">
             <Button
               variant="ghost"
-              size="md"
+              size="sm"
               onClick={() => onChange(tab)}
               icon={icon}
-              className={`w-full ${activeTab !== tab && "text-gray-500"}  ${
+              className={`w-full ${
+                activeTab !== tab && "text-gray-500"
+              } py-4   ${
                 tabs.length < 3
                   ? "text-xs flex-col justify-center items-center gap-[2px] px-0"
                   : ""

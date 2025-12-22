@@ -4,10 +4,12 @@ export class BookingsService extends ApiService {
   private ENDPOINTS = {
     GET: {
       ITEMS: "/items",
+      RERESVAS: "/services",
       COTIZACIONES: "/cotizaciones",
     },
     PUT: {
       ITEMS: "/items",
+      CANCELAR: "/cancelar",
     },
   };
 
@@ -34,6 +36,18 @@ export class BookingsService extends ApiService {
       body: { items },
     });
   };
+
+  public obtenerReservas = async (page, length) =>
+    this.get<BookingAll[]>({
+      path: this.formatPath(this.ENDPOINTS.GET.RERESVAS),
+      params: { page, length },
+    });
+
+  public cancelarBooking = async (id_booking) =>
+    this.put<{}>({
+      path: this.formatPath(this.ENDPOINTS.PUT.CANCELAR),
+      body: { id_booking },
+    });
 }
 
 export type Item = {
@@ -53,4 +67,45 @@ export type Item = {
   costo_impuestos: string;
   saldo: string;
   costo_iva: string;
+};
+
+export type BookingAll = {
+  id_viajero: string;
+  viajero: string;
+
+  id_solicitud: string;
+  id_hospedaje: string | null;
+  id_renta_autos: string | null;
+  id_viaje_aereo: string | null;
+  id_booking: string;
+  id_servicio: string;
+  id_agente: string;
+
+  reservante: string;
+  correo_cliente: string;
+  telefono_cliente: string;
+
+  status_reserva: string;
+  total_booking: string;
+  etapa_reservacion: string;
+
+  check_in: string;
+  check_out: string;
+  created_at: string;
+
+  horario_salida: string | null;
+  horario_llegada: string | null;
+  origen: string | null;
+  destino: string | null;
+
+  proveedor: string;
+  agente: string;
+  type: string;
+  tipo_cuarto_vuelo: string;
+  costo_total: string;
+  metodo_pago: string;
+
+  comments: string;
+  nuevo_incluye_desayuno: boolean | null;
+  codigo_confirmacion: string;
 };

@@ -1,10 +1,12 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { fetchEmpresasDatosFiscales } from "@/hooks/useFetch";
 import {
-  fetchEmpresasDatosFiscales,
-} from "@/hooks/useFetch";
-import { formatDate, subirArchivoAS3, obtenerPresignedUrl } from "@/helpers/utils";
+  formatDate,
+  subirArchivoAS3,
+  obtenerPresignedUrl,
+} from "@/helpers/utils";
 import { URL, API_KEY } from "@/lib/constants/index";
 import useApi from "@/hooks/useApi";
 import { DescargaFactura, Root } from "@/types/billing";
@@ -16,12 +18,18 @@ import { Console } from "console";
 const normalizeBase64 = (b64?: string | null) => {
   if (!b64) return "";
   // Soportar "data:...;base64," y variantes URL-safe (-, _)
-  const clean = b64.split("base64,").pop()!.replace(/[\r\n\s]/g, "");
+  const clean = b64
+    .split("base64,")
+    .pop()!
+    .replace(/[\r\n\s]/g, "");
   return clean.replace(/-/g, "+").replace(/_/g, "/");
 };
 
 // --- Subida segura a S3 con URL pre-firmada ---
-const subirArchivoAS3Seguro = async (file: File, bucket: string = "comprobantes") => {
+const subirArchivoAS3Seguro = async (
+  file: File,
+  bucket: string = "comprobantes"
+) => {
   try {
     console.log(`Iniciando subida de ${file.name} (${file.type})`);
 
@@ -37,7 +45,9 @@ const subirArchivoAS3Seguro = async (file: File, bucket: string = "comprobantes"
     // 2) Subir archivo
     await subirArchivoAS3(file, presignedUrl);
 
-    console.log(`✅ Archivo ${file.name} subido exitosamente a S3: ${publicUrl}`);
+    console.log(
+      `✅ Archivo ${file.name} subido exitosamente a S3: ${publicUrl}`
+    );
 
     return publicUrl;
   } catch (error: any) {
@@ -53,12 +63,12 @@ const base64ToFile = (b64: string, mime: string, filename: string) =>
 // Detecta si viene como URL http(s)
 const isHttpUrl = (s?: string | null) => !!s && /^https?:\/\//i.test(s);
 
-
 const base64ToBlob = (b64: string, mime: string) => {
   const clean = normalizeBase64(b64);
   const byteChars = atob(clean);
   const byteNumbers = new Array(byteChars.length);
-  for (let i = 0; i < byteChars.length; i++) byteNumbers[i] = byteChars.charCodeAt(i);
+  for (let i = 0; i < byteChars.length; i++)
+    byteNumbers[i] = byteChars.charCodeAt(i);
   const byteArray = new Uint8Array(byteNumbers);
   return new Blob([byteArray], { type: mime });
 };
@@ -82,11 +92,23 @@ const downloadBase64File = (b64: string, mime: string, filename: string) => {
 };
 
 // Permite distintas formas de respuesta del backend
-const getPdfBase64 = (d: any) => d?.PdfBase64 ?? d?.pdfBase64 ?? d?.pdf ?? (d?.FileExtension === "pdf" ? d?.Content : null);
-const getXmlBase64 = (d: any) => d?.XmlBase64 ?? d?.xmlBase64 ?? d?.xml ?? (d?.FileExtension === "xml" ? d?.Content : null);
+const getPdfBase64 = (d: any) =>
+  d?.PdfBase64 ??
+  d?.pdfBase64 ??
+  d?.pdf ??
+  (d?.FileExtension === "pdf" ? d?.Content : null);
+const getXmlBase64 = (d: any) =>
+  d?.XmlBase64 ??
+  d?.xmlBase64 ??
+  d?.xml ??
+  (d?.FileExtension === "xml" ? d?.Content : null);
 
 // Si alguna API te devuelve URLs directas ya firmadas:
-const maybeDownloadByUrl = (urlOrBase64: string, fallbackMime: string, filename: string) => {
+const maybeDownloadByUrl = (
+  urlOrBase64: string,
+  fallbackMime: string,
+  filename: string
+) => {
   if (/^https?:\/\//i.test(urlOrBase64)) {
     const a = document.createElement("a");
     a.href = urlOrBase64;
@@ -98,7 +120,6 @@ const maybeDownloadByUrl = (urlOrBase64: string, fallbackMime: string, filename:
   }
   return false;
 };
-
 
 // Opciones y tipos...
 const cfdiUseOptions = [
@@ -314,7 +335,12 @@ interface ReservationWithItems extends Reservation {
   nightsCount?: number;
 }
 
-type ReservationStatus = | "pending" | "confirmed" | "completed" | "cancelled" | "all";
+type ReservationStatus =
+  | "pending"
+  | "confirmed"
+  | "completed"
+  | "cancelled"
+  | "all";
 
 interface FilterOptions {
   searchTerm: string;
@@ -331,12 +357,20 @@ interface FilterOptions {
 }
 
 // ✅ Nuevo: asignar URLs a la factura en tu backend
-const asignarURLS_factura = async (id_factura: string, url_pdf: string, url_xml: string) => {
+const asignarURLS_factura = async (
+  id_factura: string,
+  url_pdf: string,
+  url_xml: string
+) => {
   try {
-    console.log('Asignando URLs a factura:', { id_factura, url_pdf, url_xml });
+    console.log("Asignando URLs a factura:", { id_factura, url_pdf, url_xml });
 
     const resp = await fetch(
-      `${URL}/mia/factura/asignarURLS_factura?id_factura=${encodeURIComponent(id_factura)}&url_pdf=${encodeURIComponent(url_pdf)}&url_xml=${encodeURIComponent(url_xml)}`,
+      `${URL}/mia/factura/asignarURLS_factura?id_factura=${encodeURIComponent(
+        id_factura
+      )}&url_pdf=${encodeURIComponent(url_pdf)}&url_xml=${encodeURIComponent(
+        url_xml
+      )}`,
       {
         method: "POST",
         headers: {
@@ -352,7 +386,7 @@ const asignarURLS_factura = async (id_factura: string, url_pdf: string, url_xml:
     }
 
     const data = await resp.json();
-    console.log('✅ URLs asignadas correctamente en BD:', data);
+    console.log("✅ URLs asignadas correctamente en BD:", data);
     return data;
   } catch (error) {
     console.error("❌ Error al asignar URLs de factura:", error);
@@ -414,7 +448,13 @@ export const FacturacionModal: React.FC<{
   reservationsInit: Reservation[];
   onClose: () => void;
   onConfirm: (fiscalData: FiscalData, isConsolidated: boolean) => void;
-}> = ({ selectedItems, selectedHospedaje, reservationsInit, onClose, onConfirm }) => {
+}> = ({
+  selectedItems,
+  selectedHospedaje,
+  reservationsInit,
+  onClose,
+  onConfirm,
+}) => {
   // console.log("reservationInit", reservationsInit);
   console.log("selectedItems", selectedItems);
   console.log("selecthospedaj", selectedHospedaje);
@@ -454,8 +494,9 @@ export const FacturacionModal: React.FC<{
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("PUE");
   const { crearCfdi, descargarFactura, mandarCorreo } = useApi();
   const [descarga, setDescarga] = useState<DescargaFactura | null>(null);
-  const [isInvoiceGenerated, setIsInvoiceGenerated] = useState<Root | null>(null);
-
+  const [isInvoiceGenerated, setIsInvoiceGenerated] = useState<Root | null>(
+    null
+  );
 
   const [isConsolidated, setIsConsolidated] = useState(true);
   const [reservationsWithSelectedItems, setReservationsWithSelectedItems] =
@@ -503,8 +544,8 @@ export const FacturacionModal: React.FC<{
     Items: [] as any[],
   });
   useEffect(() => {
-    console.log("SELECTEDPAYMENTMETHOD", selectedPaymentMethod)
-  }, [selectedPaymentMethod])
+    console.log("SELECTEDPAYMENTMETHOD", selectedPaymentMethod);
+  }, [selectedPaymentMethod]);
   // Preparar los datos de las reservaciones con sus items seleccionados
   useEffect(() => {
     if (reservations.length > 0 && Object.keys(selectedItems).length > 0) {
@@ -514,8 +555,8 @@ export const FacturacionModal: React.FC<{
           const selectedItemIds = selectedItems[reserva.id_servicio] || [];
           const items = Array.isArray(reserva.items)
             ? reserva.items.filter((item) =>
-              selectedItemIds.includes(item.id_item)
-            )
+                selectedItemIds.includes(item.id_item)
+              )
             : [];
 
           return {
@@ -531,7 +572,6 @@ export const FacturacionModal: React.FC<{
       console.log("preparedReservations: ", preparedReservations);
 
       setReservationsWithSelectedItems(preparedReservations);
-
 
       // Cargar datos fiscales si no están cargados
       if (
@@ -561,8 +601,7 @@ export const FacturacionModal: React.FC<{
     }
   }, [selectedItems, reservations]);
 
-
-  console.log("fiacla", fiscalDataList)
+  console.log("fiacla", fiscalDataList);
   const [customDescription, setCustomDescription] = useState("");
 
   // Actualizar CFDI cuando cambian los datos
@@ -589,7 +628,7 @@ export const FacturacionModal: React.FC<{
         },
         0
       );
-      console.log("reserva", reservationsWithSelectedItems)
+      console.log("reserva", reservationsWithSelectedItems);
 
       if (isConsolidated) {
         // Factura consolidada - un solo concepto
@@ -632,7 +671,6 @@ export const FacturacionModal: React.FC<{
           ],
           Observations: descriptionToUse,
         }));
-
       } else {
         // Factura detallada - un concepto por reservación con suma EXACTA de items seleccionados
         setCfdi((prev) => ({
@@ -746,9 +784,7 @@ export const FacturacionModal: React.FC<{
     return true;
   };
 
-
   const handleConfirm = async () => {
-
     if (!selectedFiscalData) {
       setError("Debes seleccionar unos datos fiscales");
       return;
@@ -763,25 +799,27 @@ export const FacturacionModal: React.FC<{
       const formattedDate = now.toISOString().split(".")[0];
 
       // Distribuir montos por item seleccionado
-      const itemsFacturados = reservationsWithSelectedItems.flatMap((reserva) => {
-        const id_servicio = reserva.id_servicio;
+      const itemsFacturados = reservationsWithSelectedItems.flatMap(
+        (reserva) => {
+          const id_servicio = reserva.id_servicio;
 
-        // Tomamos el primer hospedaje asociado a ese servicio
-        const id_hospedaje = selectedHospedaje[id_servicio]?.[0] ?? null;
+          // Tomamos el primer hospedaje asociado a ese servicio
+          const id_hospedaje = selectedHospedaje[id_servicio]?.[0] ?? null;
 
-        return reserva.items
-          .filter((item) =>
-            selectedItems[id_servicio]?.includes(item.id_item)
-          )
-          .map((item) => ({
-            id_item: item.id_item,
-            monto: parseFloat(item.total),
-            id_servicio,          // 👈 lo agregas aquí
-            id_hospedaje,         // 👈 y también el hospedaje si lo necesitas
-          }));
-      });
+          return reserva.items
+            .filter((item) =>
+              selectedItems[id_servicio]?.includes(item.id_item)
+            )
+            .map((item) => ({
+              id_item: item.id_item,
+              monto: parseFloat(item.total),
+              id_servicio, // 👈 lo agregas aquí
+              id_hospedaje, // 👈 y también el hospedaje si lo necesitas
+            }));
+        }
+      );
 
-      console.log("items con id_hospedaje", itemsFacturados)
+      console.log("items con id_hospedaje", itemsFacturados);
 
       // Calcular totales
       const totalFacturado = itemsFacturados.reduce(
@@ -804,70 +842,70 @@ export const FacturacionModal: React.FC<{
           Currency: "MXN",
           Date: formattedDate,
           OrderNumber: Math.round(Math.random() * 999999999).toString(),
-          Observations: descriptionToUse,      // <— SOBRESCRIBE AQUÍ
+          Observations: descriptionToUse, // <— SOBRESCRIBE AQUÍ
           Items: isConsolidated
             ? [
-              {
-                Quantity: "1",
-                ProductCode: "90121500",
-                UnitCode: "E48",
-                Unit: "Unidad de servicio",
-                Description: `Servicio de administración y Gestión de Reservas`,
-                UnitPrice: subtotal.toFixed(2),
-                Subtotal: subtotal.toFixed(2),
-                TaxObject: "02",
-                Taxes: [
-                  {
-                    Name: "IVA",
-                    Rate: "0.16",
-                    Total: iva.toFixed(2),
-                    Base: subtotal.toFixed(2),
-                    IsRetention: "false",
-                    IsFederalTax: "true",
-                  },
-                ],
-                Total: totalFacturado.toFixed(2),
-              },
-            ]
+                {
+                  Quantity: "1",
+                  ProductCode: "90121500",
+                  UnitCode: "E48",
+                  Unit: "Unidad de servicio",
+                  Description: `Servicio de administración y Gestión de Reservas`,
+                  UnitPrice: subtotal.toFixed(2),
+                  Subtotal: subtotal.toFixed(2),
+                  TaxObject: "02",
+                  Taxes: [
+                    {
+                      Name: "IVA",
+                      Rate: "0.16",
+                      Total: iva.toFixed(2),
+                      Base: subtotal.toFixed(2),
+                      IsRetention: "false",
+                      IsFederalTax: "true",
+                    },
+                  ],
+                  Total: totalFacturado.toFixed(2),
+                },
+              ]
             : reservationsWithSelectedItems.map((reserva) => {
-              const itemsSeleccionados = reserva.items.filter((item) =>
-                selectedItems[reserva.id_servicio]?.includes(item.id_item)
-              );
-              const subtotalReserva = itemsSeleccionados.reduce(
-                (sum, item) => sum + parseFloat(item.total) / 1.16,
-                0
-              );
-              const ivaReserva = itemsSeleccionados.reduce(
-                (sum, item) =>
-                  sum +
-                  (parseFloat(item.total) - parseFloat(item.total) / 1.16),
-                0
-              );
-              const totalReserva = subtotalReserva + ivaReserva;
+                const itemsSeleccionados = reserva.items.filter((item) =>
+                  selectedItems[reserva.id_servicio]?.includes(item.id_item)
+                );
+                const subtotalReserva = itemsSeleccionados.reduce(
+                  (sum, item) => sum + parseFloat(item.total) / 1.16,
+                  0
+                );
+                const ivaReserva = itemsSeleccionados.reduce(
+                  (sum, item) =>
+                    sum +
+                    (parseFloat(item.total) - parseFloat(item.total) / 1.16),
+                  0
+                );
+                const totalReserva = subtotalReserva + ivaReserva;
 
-              return {
-                Quantity: "1",
-                ProductCode: "90121500",
-                UnitCode: "E48",
-                Unit: "Unidad de servicio",
-                Description: `Servicio de administración y Gestión de Reservas`,
-                UnitPrice: subtotalReserva.toFixed(2),
-                Observations: descriptionToUse,      // <— SOBRESCRIBE AQUÍ
-                Subtotal: subtotalReserva.toFixed(2),
-                TaxObject: "02",
-                Taxes: [
-                  {
-                    Name: "IVA",
-                    Rate: "0.16",
-                    Total: ivaReserva.toFixed(2),
-                    Base: subtotalReserva.toFixed(2),
-                    IsRetention: "false",
-                    IsFederalTax: "true",
-                  },
-                ],
-                Total: totalReserva.toFixed(2),
-              };
-            }),
+                return {
+                  Quantity: "1",
+                  ProductCode: "90121500",
+                  UnitCode: "E48",
+                  Unit: "Unidad de servicio",
+                  Description: `Servicio de administración y Gestión de Reservas`,
+                  UnitPrice: subtotalReserva.toFixed(2),
+                  Observations: descriptionToUse, // <— SOBRESCRIBE AQUÍ
+                  Subtotal: subtotalReserva.toFixed(2),
+                  TaxObject: "02",
+                  Taxes: [
+                    {
+                      Name: "IVA",
+                      Rate: "0.16",
+                      Total: ivaReserva.toFixed(2),
+                      Base: subtotalReserva.toFixed(2),
+                      IsRetention: "false",
+                      IsFederalTax: "true",
+                    },
+                  ],
+                  Total: totalReserva.toFixed(2),
+                };
+              }),
         },
         info_user: {
           fecha_vencimiento: dueDate,
@@ -898,10 +936,11 @@ export const FacturacionModal: React.FC<{
       const fileBase = `factura_${response?.Folio ?? cfdi?.Folio ?? "archivo"}`;
 
       // --- Obtener representaciones PDF y XML ---
-      const pdfRaw = getPdfBase64(factura) ?? (typeof factura === "string" ? factura : null);
+      const pdfRaw =
+        getPdfBase64(factura) ?? (typeof factura === "string" ? factura : null);
       const xmlRaw = getXmlBase64(factura);
 
-      console.log("url", pdfRaw, xmlRaw)
+      console.log("url", pdfRaw, xmlRaw);
 
       // Intentaremos producir URLs finales (si ya vienen como URL, las usamos; si vienen en base64, subimos a S3)
       let finalPdfUrl: string | null = null;
@@ -914,7 +953,11 @@ export const FacturacionModal: React.FC<{
           finalPdfUrl = pdfRaw;
         } else {
           // Es base64 -> subimos a S3
-          const pdfFile = base64ToFile(pdfRaw, "application/pdf", `${fileBase}.pdf`);
+          const pdfFile = base64ToFile(
+            pdfRaw,
+            "application/pdf",
+            `${fileBase}.pdf`
+          );
           finalPdfUrl = await subirArchivoAS3Seguro(pdfFile, "comprobantes");
         }
 
@@ -930,7 +973,9 @@ export const FacturacionModal: React.FC<{
           downloadBase64File(pdfRaw, "application/pdf", `${fileBase}.pdf`);
         }
       } else {
-        console.warn("No se encontró contenido PDF en la respuesta de descarga.");
+        console.warn(
+          "No se encontró contenido PDF en la respuesta de descarga."
+        );
       }
 
       // 2) XML
@@ -938,7 +983,11 @@ export const FacturacionModal: React.FC<{
         if (isHttpUrl(xmlRaw)) {
           finalXmlUrl = xmlRaw;
         } else {
-          const xmlFile = base64ToFile(xmlRaw, "application/xml", `${fileBase}.xml`);
+          const xmlFile = base64ToFile(
+            xmlRaw,
+            "application/xml",
+            `${fileBase}.xml`
+          );
           finalXmlUrl = await subirArchivoAS3Seguro(xmlFile, "comprobantes");
         }
 
@@ -954,14 +1003,16 @@ export const FacturacionModal: React.FC<{
           downloadBase64File(xmlRaw, "application/xml", `${fileBase}.xml`);
         }
       } else {
-        console.warn("No se encontró contenido XML en la respuesta de descarga.");
+        console.warn(
+          "No se encontró contenido XML en la respuesta de descarga."
+        );
       }
 
       // 3) Registrar URLs en tu backend (si tenemos al menos el PDF)
       try {
         await asignarURLS_factura(
-          response.Id,               // cambia si tu endpoint espera otro id
-          finalPdfUrl ?? "",         // envía "" si no se obtuvo
+          response.Id, // cambia si tu endpoint espera otro id
+          finalPdfUrl ?? "", // envía "" si no se obtuvo
           finalXmlUrl ?? ""
         );
         console.log("✅ URLs de factura registradas en BD.");
@@ -980,7 +1031,9 @@ export const FacturacionModal: React.FC<{
       setIsInvoiceGenerated(response);
     } catch (error) {
       console.error(error);
-      alert("Ocurrió un error al generar la factura: " + (error as Error).message);
+      alert(
+        "Ocurrió un error al generar la factura: " + (error as Error).message
+      );
     } finally {
       setLoading(false);
     }
@@ -1003,19 +1056,19 @@ export const FacturacionModal: React.FC<{
 
       return `${reserva.hotel} - ${formatDate(
         reserva.check_in
-      )} AL ${formatDate(
-        reserva.check_out
-      )} - ${nochesReales} NOCHES(S) - ${reserva.nombre_viajero
-        }`;
+      )} AL ${formatDate(reserva.check_out)} - ${nochesReales} NOCHES(S) - ${
+        reserva.nombre_viajero
+      }`;
     })
     .join(" | ")}`;
 
-  const isCustomValid = customDescription && /[a-zA-Z0-9\S]/.test(customDescription.trim());
-  const descriptionToUse = isCustomValid ? customDescription : defaultDescription;
+  const isCustomValid =
+    customDescription && /[a-zA-Z0-9\S]/.test(customDescription.trim());
+  const descriptionToUse = isCustomValid
+    ? customDescription
+    : defaultDescription;
 
-  console.log("descrip", customDescription)
-
-
+  console.log("descrip", customDescription);
 
   const totalAmount = reservationsWithSelectedItems.reduce(
     (sum, reserva) =>
@@ -1110,7 +1163,8 @@ export const FacturacionModal: React.FC<{
                             <p className="text-gray-600">
                               Traslados:
                               <br />
-                              IVA: 002, Base: ${withCommas(totalAmount.toFixed(2))}, Tasa:
+                              IVA: 002, Base: $
+                              {withCommas(totalAmount.toFixed(2))}, Tasa:
                               0.160000, Importe: $
                               {withCommas((totalAmount * 0.16).toFixed(2))}
                             </p>
@@ -1129,7 +1183,11 @@ export const FacturacionModal: React.FC<{
                     reservationsWithSelectedItems
                       .slice(0, 2)
                       .map((reserva, index) => (
-                        <tr key={`preview-${reserva.id_solicitud}-${Math.round(Math.random() * 9999999)}`}>
+                        <tr
+                          key={`preview-${reserva.id_solicitud}-${Math.round(
+                            Math.random() * 9999999
+                          )}`}
+                        >
                           <td className="px-3 py-2 text-sm border-b">
                             90121500
                           </td>
@@ -1244,12 +1302,15 @@ export const FacturacionModal: React.FC<{
               <div className="space-y-4">
                 {fiscalDataList.map((data) => (
                   <div
-                    key={`${Math.round(Math.random() * 9999999)}-data.id_datos_fiscales`}
-                    className={`border rounded-md p-4 cursor-pointer ${selectedFiscalData?.id_datos_fiscales ===
+                    key={`${Math.round(
+                      Math.random() * 9999999
+                    )}-data.id_datos_fiscales`}
+                    className={`border rounded-md p-4 cursor-pointer ${
+                      selectedFiscalData?.id_datos_fiscales ===
                       data.id_datos_fiscales
-                      ? "border-blue-500 bg-blue-50"
-                      : "border-gray-200"
-                      }`}
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-gray-200"
+                    }`}
                     onClick={() => setSelectedFiscalData(data)}
                   >
                     <div className="flex justify-between">
@@ -1264,8 +1325,8 @@ export const FacturacionModal: React.FC<{
                       Regimen Fiscal: {data.regimen_fiscal}
                     </p>
                     <p className="text-sm text-gray-600 mt-1">
-                      {data.codigo_postal_fiscal},{data.estado}, {data.municipio}, {data.colonia}{" "}
-                      , {data.calle}
+                      {data.codigo_postal_fiscal},{data.estado},{" "}
+                      {data.municipio}, {data.colonia} , {data.calle}
                     </p>
                   </div>
                 ))}
@@ -1284,7 +1345,10 @@ export const FacturacionModal: React.FC<{
                 className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               >
                 {cfdiUseOptions.map((option) => (
-                  <option key={`option.value-${Math.round(Math.random() * 9999999)}`} value={option.value}>
+                  <option
+                    key={`option.value-${Math.round(Math.random() * 9999999)}`}
+                    value={option.value}
+                  >
                     {option.label}
                   </option>
                 ))}
@@ -1301,7 +1365,10 @@ export const FacturacionModal: React.FC<{
                 className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               >
                 {paymentFormOptions.map((option) => (
-                  <option key={`option.value-${Math.round(Math.random() * 9999999)}`} value={option.value}>
+                  <option
+                    key={`option.value-${Math.round(Math.random() * 9999999)}`}
+                    value={option.value}
+                  >
                     {option.label}
                   </option>
                 ))}
@@ -1317,7 +1384,10 @@ export const FacturacionModal: React.FC<{
                 className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               >
                 {paymentMethodOptions.map((option) => (
-                  <option key={`option.value-${Math.round(Math.random() * 9999999)}`} value={option.value}>
+                  <option
+                    key={`option.value-${Math.round(Math.random() * 9999999)}`}
+                    value={option.value}
+                  >
                     {option.label}
                   </option>
                 ))}
@@ -1350,7 +1420,8 @@ export const FacturacionModal: React.FC<{
                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  Deja vacío para usar la descripción por defecto: "{defaultDescription}"
+                  Deja vacío para usar la descripción por defecto: "
+                  {defaultDescription}"
                 </p>
               </div>
             </div>
@@ -1395,7 +1466,16 @@ export const FacturacionModal: React.FC<{
                     (typeof descarga === "string" ? descarga : null);
 
                   // Si el backend te regresó una URL ya lista:
-                  if (typeof pdf === "string" && maybeDownloadByUrl(pdf, "application/pdf", `factura_${isInvoiceGenerated?.Folio ?? cfdi?.Folio ?? "archivo"}.pdf`)) {
+                  if (
+                    typeof pdf === "string" &&
+                    maybeDownloadByUrl(
+                      pdf,
+                      "application/pdf",
+                      `factura_${
+                        isInvoiceGenerated?.Folio ?? cfdi?.Folio ?? "archivo"
+                      }.pdf`
+                    )
+                  ) {
                     return;
                   }
 
@@ -1406,7 +1486,9 @@ export const FacturacionModal: React.FC<{
                   downloadBase64File(
                     pdf,
                     "application/pdf",
-                    `factura_${isInvoiceGenerated?.Folio ?? cfdi?.Folio ?? "archivo"}.pdf`
+                    `factura_${
+                      isInvoiceGenerated?.Folio ?? cfdi?.Folio ?? "archivo"
+                    }.pdf`
                   );
                 }}
                 className="px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors border border-blue-200 flex items-center gap-2"
@@ -1424,7 +1506,16 @@ export const FacturacionModal: React.FC<{
                     (typeof descarga === "string" ? null : null);
 
                   // Si el backend te regresó una URL ya lista:
-                  if (typeof xml === "string" && maybeDownloadByUrl(xml, "application/xml", `factura_${isInvoiceGenerated?.Folio ?? cfdi?.Folio ?? "archivo"}.xml`)) {
+                  if (
+                    typeof xml === "string" &&
+                    maybeDownloadByUrl(
+                      xml,
+                      "application/xml",
+                      `factura_${
+                        isInvoiceGenerated?.Folio ?? cfdi?.Folio ?? "archivo"
+                      }.xml`
+                    )
+                  ) {
                     return;
                   }
 
@@ -1435,7 +1526,9 @@ export const FacturacionModal: React.FC<{
                   downloadBase64File(
                     xml,
                     "application/xml",
-                    `factura_${isInvoiceGenerated?.Folio ?? cfdi?.Folio ?? "archivo"}.xml`
+                    `factura_${
+                      isInvoiceGenerated?.Folio ?? cfdi?.Folio ?? "archivo"
+                    }.xml`
                   );
                 }}
                 className="px-4 py-2 bg-white text-green-600 rounded-lg hover:bg-green-50 transition-colors border border-green-200 flex items-center gap-2"
@@ -1453,12 +1546,13 @@ export const FacturacionModal: React.FC<{
                 loading ||
                 reservationsWithSelectedItems.length === 0
               }
-              className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${!selectedFiscalData ||
+              className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
+                !selectedFiscalData ||
                 loading ||
                 reservationsWithSelectedItems.length === 0
-                ? "bg-blue-400 cursor-not-allowed"
-                : "bg-blue-600 hover:bg-blue-700"
-                } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
+                  ? "bg-blue-400 cursor-not-allowed"
+                  : "bg-blue-600 hover:bg-blue-700"
+              } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
             >
               {loading
                 ? "Generando factura..."

@@ -14,7 +14,7 @@ interface CommonInteractiveElementProps {
   /**
    * Contenido del elemento (texto, otros elementos, etc.).
    */
-  children: React.ReactNode;
+  children?: React.ReactNode;
   /**
    * Un elemento React (como un componente de icono SVG) para mostrar junto al texto.
    */
@@ -132,7 +132,9 @@ const InteractiveElement: React.FC<InteractiveElementProps> = ({
   const content = (
     <>
       {rest.icon && (
-        <span className="mr-2">{<rest.icon className="w-4 h-4" />}</span>
+        <span className={`${rest.icon && children && "mr-2"}`}>
+          {<rest.icon className="w-4 h-4" />}
+        </span>
       )}
       {children}
     </>

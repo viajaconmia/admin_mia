@@ -24,6 +24,27 @@ export const fetchHoteles = async (callback: (data) => void = (data) => {}) => {
     throw new Error("Error al cargar los datos de los hoteles");
   }
 };
+export const newFetchHoteles = async () => {
+  try {
+    const response = await fetch(`${URL}/mia/hoteles`, {
+      headers: {
+        "x-api-key": API_KEY || "",
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        Pragma: "no-cache",
+        Expires: "0",
+      },
+      cache: "no-store",
+    }).then((res) => res.json());
+    if (response.error) {
+      console.log("Error en la respuesta de hoteles: ", response.error);
+      throw new Error("Error al cargar los datos de los hoteles");
+    }
+    return response;
+  } catch (error) {
+    console.log(error);
+    throw new Error("Error al cargar los datos de los hoteles");
+  }
+};
 
 export const fetchHotelesFiltro_Avanzado = async (
   filters: TypeFilters,

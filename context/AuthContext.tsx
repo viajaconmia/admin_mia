@@ -87,10 +87,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  useEffect(() => {
-    console.log(user);
-  }, [user]);
-
   const value: AuthContextType = {
     user,
     login,
