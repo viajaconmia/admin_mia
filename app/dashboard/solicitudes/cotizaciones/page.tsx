@@ -9,8 +9,16 @@ import { formatDate } from "@/helpers/formater";
 import Modal from "@/components/organism/Modal";
 import { Tabs, TabsTrigger, TabsContent, TabsList } from "@/components/ui/tabs";
 import { HotelCard } from "./_pages_to_proccess/Hotel";
-import { VueloCard } from "./_pages_to_proccess/Vuelo";
-import { RentalCartCard } from "./_pages_to_proccess/RentaCarro";
+import { VueloCard as VueloCardRaw } from "./_pages_to_proccess/Vuelo";
+import { RentalCartCard as RentalCartCardRaw } from "./_pages_to_proccess/RentaCarro";
+
+const VueloCard = VueloCardRaw as unknown as React.ComponentType<{
+  vuelo: any;
+}>;
+const RentalCartCard = RentalCartCardRaw as unknown as React.ComponentType<{
+  cart: any;
+}>;
+import Button from "@/components/atom/Button";
 
 type ServiceGroup = {
   types: Record<"flight" | "rental_car" | "hotel", number>;
@@ -47,18 +55,21 @@ function App() {
     [];
 
   return (
-    <>
-      <button
-        onClick={() => {
-          console.log(hoteles);
-          console.log(servicios);
-        }}
-      >
-        aqui
-      </button>
+    <div className="bg-white flex flex-col gap-2 p-4 rounded-b-lg shadow-lg">
+      <div className="">
+        <Button
+          size="sm"
+          onClick={() => {
+            console.log(hoteles);
+            console.log(servicios);
+          }}
+        >
+          aqui
+        </Button>
+      </div>
       <div>
-        <div className="mx-auto bg-white p-4 rounded-b-lg shadow">
-          <div className="overflow-hidden0">
+        <div className="mx-auto">
+          <div className="overflow-hidden">
             {loading ? (
               <Loader></Loader>
             ) : (
@@ -191,7 +202,7 @@ function App() {
           </Tabs>
         </Modal>
       )}
-    </>
+    </div>
   );
 }
 

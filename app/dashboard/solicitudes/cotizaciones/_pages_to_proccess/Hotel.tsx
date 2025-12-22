@@ -117,106 +117,268 @@ const UserIcon = () => (
 // 4. COMPONENTE CARD (UI LAYER)
 // ==========================================
 
-export const HotelCard = ({ hotel }) => {
-  // 1. Usamos el adaptador
-  const request = normalizeRequest(hotel);
+import { MapPin, User, Bed, Sparkles, Database, Hash } from "lucide-react";
 
-  // 2. Leemos la bandera para decidir estilos
-  const isAI = request.sourceType === SOURCE_FLAGS.GEMINI;
+export const HotelCard = ({ hotel }) => {
+  hotel = normalizeRequest(hotel);
+  const isAI = hotel.sourceType === "AI_PROCESSED";
+  const hasConfirmation = !!hotel.confirmationCode;
 
   return (
-    <div className="w-full max-w-sm bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-shadow duration-300 flex flex-col">
-      {/* HEADER: Imagen y Badge de Bandera */}
-      <div className="h-40 bg-gray-200 relative group">
+    <div className="max-w-md bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden hover:shadow-lg transition-all duration-300 my-4 font-sans">
+      {/* Media Section */}
+      <div className="relative h-44">
         <img
-          src={request.image}
-          alt={request.hotelName}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+          src={hotel.image}
+          alt={hotel.hotelName}
+          className="w-full h-full object-cover"
         />
 
-        <div
-          className={`absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-bold text-white flex items-center gap-2 shadow-sm ${
-            isAI ? "bg-blue-400" : "bg-green-600"
-          }`}
-        >
-          {isAI ? <SparklesIcon /> : <UserIcon />}
-          <span>{isAI ? "Propuesta MIA" : "Solicitud Manual"}</span>
+        {/* Source Badge */}
+        <div className="absolute top-3 left-3 flex flex-col gap-2">
+          {isAI ? (
+            <div className="flex items-center gap-1.5 bg-indigo-600/90 backdrop-blur-sm text-white px-2.5 py-1 rounded-full text-[10px] font-bold shadow-xl border border-white/20 uppercase tracking-wider">
+              <Sparkles size={12} />
+              AI Enriched
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 bg-slate-800/90 backdrop-blur-sm text-white px-2.5 py-1 rounded-full text-[10px] font-bold shadow-xl border border-white/20 uppercase tracking-wider">
+              <Database size={12} />
+              Standard DB
+            </div>
+          )}
         </div>
 
         {/* Status Badge */}
-        <div className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-md text-xs font-semibold text-gray-700 shadow-sm uppercase">
-          {request.status}
+        <div
+          className={`absolute top-3 right-3 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-md ${
+            hotel.status === "pending"
+              ? "bg-amber-400 text-amber-950"
+              : "bg-emerald-500 text-white"
+          }`}
+        >
+          {hotel.status}
         </div>
       </div>
 
-      {/* BODY */}
-      <div className="p-5 flex flex-col flex-grow">
+      <div className="p-5">
+        {/* Hotel Identity */}
         <div className="mb-4">
-          <h2
-            className="text-lg font-bold text-gray-900 leading-tight mb-1 line-clamp-2"
-            title={request.hotelName}
-          >
-            {request.hotelName}
-          </h2>
-          <p className="text-sm text-gray-500 flex items-center gap-1">
-            📍 {request.location}
-          </p>
-        </div>
-
-        {/* Info Grid */}
-        <div className="grid gap-y-3 gap-x-2 text-sm text-gray-600 mb-4 bg-gray-50 p-3 rounded-lg border border-gray-100">
-          <div>
-            <span className="block text-xs text-gray-400 uppercase font-semibold">
-              Check-in
-            </span>
-            <span className="font-medium text-gray-800">{request.checkIn}</span>
-          </div>
-
-          <div>
-            <span className="block text-xs text-gray-400 uppercase font-semibold">
-              Check-out
-            </span>
-            <span className="font-medium text-gray-800">
-              {request.checkOut}
-            </span>
-          </div>
-
-          <div className="lg:col-span-2 pt-1 border-t border-gray-200 mt-1">
-            <span className="block text-xs text-gray-400 uppercase font-semibold">
-              Habitación
-            </span>
-            <span
-              className="font-medium text-gray-800 truncate block"
-              title={request.roomType}
+          <h3 className="text-xl font-black text-slate-800 leading-tight uppercase tracking-tight">
+            {hotel.hotelName}
+          </h3>
+          <div className="flex items-center gap-1 mt-1.5">
+            <MapPin
+              size={14}
+              className={
+                hotel.location.includes("confirmar")
+                  ? "text-amber-500"
+                  : "text-slate-400"
+              }
+            />
+            <p
+              className={`text-xs font-medium ${
+                hotel.location.includes("confirmar")
+                  ? "text-amber-600 italic"
+                  : "text-slate-500"
+              }`}
             >
-              {request.roomType}
-            </span>
-          </div>
-        </div>
-
-        <div className="mt-auto pt-4 border-t border-gray-100 flex items-center justify-between">
-          <div>
-            <p className="text-xs text-gray-400 mb-0.5">Total</p>
-            <p className="text-xl font-bold text-gray-900">
-              {request.totalPrice}
+              {hotel.location}
             </p>
           </div>
+        </div>
 
-          {/* Botón dinámico según Bandera */}
-          <button
-            className={`px-4 py-2 rounded-lg text-white text-sm font-medium transition-colors shadow-sm ${
-              isAI
-                ? "bg-purple-600 hover:bg-purple-700"
-                : "bg-indigo-600 hover:bg-indigo-700"
-            }`}
-          >
-            {isAI ? "Validar" : "Ver Detalle"}
-          </button>
+        {/* Dates Box */}
+        <div className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100 mb-5">
+          <div className="space-y-0.5 text-center flex-1">
+            <span className="text-[9px] font-bold text-slate-400 uppercase">
+              Check In
+            </span>
+            <p className="text-sm font-bold text-slate-700">{hotel.checkIn}</p>
+          </div>
+          <div className="h-8 w-px bg-slate-200 mx-2"></div>
+          <div className="space-y-0.5 text-center flex-1">
+            <span className="text-[9px] font-bold text-slate-400 uppercase">
+              Check Out
+            </span>
+            <p className="text-sm font-bold text-slate-700">{hotel.checkOut}</p>
+          </div>
+        </div>
+
+        {/* Guest & Room Details */}
+        <div className="space-y-3 mb-6">
+          <div className="flex items-center gap-3 p-2.5 hover:bg-slate-50 rounded-xl transition-colors">
+            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+              <User size={16} />
+            </div>
+            <div className="overflow-hidden">
+              <p className="text-[10px] font-bold text-slate-400 uppercase leading-none mb-1">
+                Huésped
+              </p>
+              <p className="text-sm font-bold text-slate-700 truncate">
+                {hotel.guestName}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 p-2.5 hover:bg-slate-50 rounded-xl transition-colors">
+            <div className="p-2 bg-orange-50 text-orange-600 rounded-lg">
+              <Bed size={16} />
+            </div>
+            <div className="overflow-hidden">
+              <p className="text-[10px] font-bold text-slate-400 uppercase leading-none mb-1">
+                Tipo de Cuarto
+              </p>
+              <p className="text-xs font-semibold text-slate-600 truncate uppercase">
+                {hotel.roomType}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Confirmation Code Section */}
+        {hasConfirmation && (
+          <div className="flex items-center justify-between p-3 bg-emerald-50 border border-emerald-100 rounded-xl mb-5 group cursor-default">
+            <div className="flex items-center gap-2">
+              <Hash size={14} className="text-emerald-600" />
+              <span className="text-[10px] font-bold text-emerald-700 uppercase">
+                Confirmación
+              </span>
+            </div>
+            <span className="text-sm font-mono font-black text-emerald-800 tracking-wider">
+              {hotel.confirmationCode}
+            </span>
+          </div>
+        )}
+
+        {/* Price & Footer */}
+        <div className="pt-4 border-t border-slate-100 flex items-end justify-between">
+          <div>
+            <p className="text-[10px] text-slate-400 font-bold uppercase leading-none mb-1.5">
+              Monto Total
+            </p>
+            <p
+              className={`text-2xl font-black leading-none ${
+                isAI ? "text-indigo-600" : "text-slate-900"
+              }`}
+            >
+              {hotel.totalPrice}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">
+              Reservó
+            </p>
+            <p className="text-[10px] text-slate-500 font-medium truncate w-24">
+              {hotel.creator}
+            </p>
+          </div>
         </div>
       </div>
     </div>
   );
 };
+// export const HotelCard = ({ hotel }) => {
+//   // 1. Usamos el adaptador
+//   const request = normalizeRequest(hotel);
+//   console.log(request);
+
+//   // 2. Leemos la bandera para decidir estilos
+//   const isAI = request.sourceType === SOURCE_FLAGS.GEMINI;
+
+//   return (
+//     <div className="w-full max-w-sm bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-shadow duration-300 flex flex-col">
+//       {/* HEADER: Imagen y Badge de Bandera */}
+//       <div className="h-40 bg-gray-200 relative group">
+//         <img
+//           src={request.image}
+//           alt={request.hotelName}
+//           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+//         />
+
+//         <div
+//           className={`absolute top-3 left-3 px-3 py-1 rounded-full text-xs font-bold text-white flex items-center gap-2 shadow-sm ${
+//             isAI ? "bg-blue-400" : "bg-green-600"
+//           }`}
+//         >
+//           {isAI ? <SparklesIcon /> : <UserIcon />}
+//           <span>{isAI ? "Propuesta MIA" : "Solicitud Manual"}</span>
+//         </div>
+
+//         {/* Status Badge */}
+//         <div className="absolute bottom-3 right-3 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-md text-xs font-semibold text-gray-700 shadow-sm uppercase">
+//           {request.status}
+//         </div>
+//       </div>
+
+//       {/* BODY */}
+//       <div className="p-5 flex flex-col flex-grow">
+//         <div className="mb-4">
+//           <h2
+//             className="text-lg font-bold text-gray-900 leading-tight mb-1 line-clamp-2"
+//             title={request.hotelName}
+//           >
+//             {request.hotelName}
+//           </h2>
+//           <p className="text-sm text-gray-500 flex items-center gap-1">
+//             📍 {request.location}
+//           </p>
+//         </div>
+
+//         {/* Info Grid */}
+//         <div className="grid gap-y-3 gap-x-2 text-sm text-gray-600 mb-4 bg-gray-50 p-3 rounded-lg border border-gray-100">
+//           <div>
+//             <span className="block text-xs text-gray-400 uppercase font-semibold">
+//               Check-in
+//             </span>
+//             <span className="font-medium text-gray-800">{request.checkIn}</span>
+//           </div>
+
+//           <div>
+//             <span className="block text-xs text-gray-400 uppercase font-semibold">
+//               Check-out
+//             </span>
+//             <span className="font-medium text-gray-800">
+//               {request.checkOut}
+//             </span>
+//           </div>
+
+//           <div className="lg:col-span-2 pt-1 border-t border-gray-200 mt-1">
+//             <span className="block text-xs text-gray-400 uppercase font-semibold">
+//               Habitación
+//             </span>
+//             <span
+//               className="font-medium text-gray-800 truncate block"
+//               title={request.roomType}
+//             >
+//               {request.roomType}
+//             </span>
+//           </div>
+//         </div>
+
+//         <div className="mt-auto pt-4 border-t border-gray-100 flex items-center justify-between">
+//           <div>
+//             <p className="text-xs text-gray-400 mb-0.5">Total</p>
+//             <p className="text-xl font-bold text-gray-900">
+//               {request.totalPrice}
+//             </p>
+//           </div>
+
+//           {/* Botón dinámico según Bandera */}
+//           <button
+//             className={`px-4 py-2 rounded-lg text-white text-sm font-medium transition-colors shadow-sm ${
+//               isAI
+//                 ? "bg-purple-600 hover:bg-purple-700"
+//                 : "bg-indigo-600 hover:bg-indigo-700"
+//             }`}
+//           >
+//             {isAI ? "Validar" : "Ver Detalle"}
+//           </button>
+//         </div>
+//       </div>
+//     </div>
+//   );
+// };
 
 // ==========================================
 // 5. DATOS MOCK Y VISTA PRINCIPAL
