@@ -216,7 +216,7 @@ export const fetchReservationsAll = async (callback) => {
 };
 
 export // Ejemplo de fetch desde el frontend
-const getReservasByAgente = async (id_agente) => {
+const getReservasByAgente = async (id_agente) => { 
   try {
     const response = await fetch(
       `${URL}/mia/reservasClient/get_reservasClient_by_id_agente?user_id=${id_agente}`,
