@@ -11,25 +11,52 @@ import { Tabs, TabsTrigger, TabsContent, TabsList } from "@/components/ui/tabs";
 import { HotelCard } from "./_pages_to_proccess/Hotel";
 import { VueloCard as VueloCardRaw } from "./_pages_to_proccess/Vuelo";
 import { RentalCartCard as RentalCartCardRaw } from "./_pages_to_proccess/RentaCarro";
+import { CarRentalModal } from "@/components/pages/CarRental";
+import Button from "@/components/atom/Button";
+import { VuelosModal } from "@/components/template/PageVuelos";
+
+type ServiceGroup = {
+  // OJO: lo ajusté a car_rental para ser consistente con tu filtro y tu types map
+  types: Record<"flight" | "car_rental" | "hotel", number>;
+  data: any[];
+};
 
 const VueloCard = VueloCardRaw as unknown as React.ComponentType<{
   vuelo: any;
+  onCrearReserva?: (vuelo: any) => void;
 }>;
+
 const RentalCartCard = RentalCartCardRaw as unknown as React.ComponentType<{
   cart: any;
+  data_inicio?: any;
+  onCrearReserva?: (cart: any) => void;
 }>;
-import Button from "@/components/atom/Button";
-
-type ServiceGroup = {
-  types: Record<"flight" | "rental_car" | "hotel", number>;
-  data: any[];
-};
 
 function App() {
   const [servicios, setServicios] = useState<ServiceGroup[] | null>(null);
   const [selected, setSelected] = useState<ServiceGroup | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("hotel");
+
+  // Modal de renta (vive en el padre)
+  const [openCarRental, setOpenCarRental] = useState(false);
+  const [carRentalCart, setCarRentalCart] = useState<any>(null);
+
+  // Modal de vuelo (vive en el padre)
+  const [openVuelo, setOpenVuelo] = useState(false);
+  const [vueloCart, setVueloCart] = useState<any>(null);
+
+  const handleOpenVuelo = (fly: any) => {
+    setSelected(null); // cierra modal padre
+    setVueloCart(fly); // guarda data_inicio
+    setTimeout(() => setOpenVuelo(true), 150); // abre modal
+  };
+
+  const handleOpenCarRental = (cart: any) => {
+    setSelected(null);
+    setCarRentalCart(cart);
+    setTimeout(() => setOpenCarRental(true), 150);
+  };
 
   useEffect(() => {
     const booking = new BookingsService();
@@ -44,19 +71,48 @@ function App() {
 
   const hoteles =
     selected?.data?.filter(
-      (obj) => !obj.objeto_gemini || obj.objeto_gemini.type == "hotel"
+      (obj) => !obj.objeto_gemini || obj.objeto_gemini.type === "hotel"
     ) || [];
 
   const vuelo =
-    selected?.data?.filter((obj) => obj.objeto_gemini.type == "flight") || [];
+    selected?.data?.filter((obj) => obj.objeto_gemini.type === "flight") || [];
 
   const car_rental =
-    selected?.data?.filter((obj) => obj.objeto_gemini.type == "car_rental") ||
+    selected?.data?.filter((obj) => obj.objeto_gemini.type === "car_rental") ||
     [];
 
+  console.log("informacion cambios, vuelos", vueloCart);
   return (
     <div className="bg-white flex flex-col gap-2 p-4 rounded-b-lg shadow-lg">
-      <div className="">
+      {/* MODAL NUEVO (renta) MONTADO EN EL PADRE */}
+      <CarRentalModal
+        open={openCarRental}
+        onClose={() => {
+          setOpenCarRental(false);
+          setCarRentalCart(null);
+        }}
+        agente={carRentalCart?.id_agente ?? null}
+        data_inicio={{ ...carRentalCart, codigo: "" }} // si tienes un data_inicio global, pásalo aquí
+        onSuccess={() => {
+          setOpenCarRental(false);
+          setCarRentalCart(null);
+        }}
+      />
+      <VuelosModal
+        open={openVuelo}
+        onClose={() => {
+          setOpenVuelo(false);
+          setVueloCart(null);
+        }}
+        agente={vueloCart?.id_agente ?? null} // o { id_agente: vueloCart?.id_agente }
+        data_inicio={{ ...vueloCart }} // 👈 data inicial completa
+        onSuccess={() => {
+          setOpenVuelo(false);
+          setVueloCart(null);
+        }}
+      />
+
+      <div>
         <Button
           size="sm"
           onClick={() => {
@@ -67,11 +123,12 @@ function App() {
           aqui
         </Button>
       </div>
+
       <div>
         <div className="mx-auto">
           <div className="overflow-hidden">
             {loading ? (
-              <Loader></Loader>
+              <Loader />
             ) : (
               <TableFromMia
                 data={servicios}
@@ -112,7 +169,7 @@ function App() {
                     header: "Cliente",
                     key: null,
                     componentProps: {
-                      component: ({ item }) => (
+                      component: ({ item }: { item: ServiceGroup }) => (
                         <span>
                           {(item.data[0].nombre_cliente || "").toUpperCase()}
                         </span>
@@ -124,7 +181,7 @@ function App() {
                     header: "Creado el",
                     key: null,
                     componentProps: {
-                      component: ({ item }) => (
+                      component: ({ item }: { item: ServiceGroup }) => (
                         <span>{formatDate(item.data[0].created_at)}</span>
                       ),
                     },
@@ -134,8 +191,9 @@ function App() {
                     header: "Procesar",
                     key: null,
                     componentProps: {
-                      onClick: (value) => {
+                      onClick: (value: any) => {
                         setSelected(value.item);
+                        setActiveTab("hotel");
                       },
                       label: "Procesar",
                     },
@@ -146,6 +204,7 @@ function App() {
           </div>
         </div>
       </div>
+
       {selected && (
         <Modal
           onClose={() => {
@@ -176,17 +235,22 @@ function App() {
             {hoteles.length > 0 && (
               <TabsContent value="hotel" className="p-4 space-y-4">
                 {hoteles.map((hotel) => (
-                  <HotelCard key={hotel.id_solicitud} hotel={hotel}></HotelCard>
+                  <HotelCard key={hotel.id_solicitud} hotel={hotel} />
                 ))}
               </TabsContent>
             )}
-
             {vuelo.length > 0 && (
-              <TabsContent value="vuelo" className="space-y-4">
+              <>
+              <TabsContent value="vuelo" className="p-4 space-y-4">
                 {vuelo.map((fly) => (
-                  <VueloCard key={fly.id_solicitud} vuelo={fly}></VueloCard>
+                  <VueloCard
+                  key={fly.id_solicitud}
+                  vuelo={fly}
+                  onCrearReserva={handleOpenVuelo}
+                  />
                 ))}
-              </TabsContent>
+                </TabsContent>
+              </>
             )}
 
             {car_rental.length > 0 && (
@@ -195,7 +259,9 @@ function App() {
                   <RentalCartCard
                     key={car.id_solicitud}
                     cart={car}
-                  ></RentalCartCard>
+                    data_inicio={carRentalCart}
+                    onCrearReserva={handleOpenCarRental}
+                  />
                 ))}
               </TabsContent>
             )}
@@ -211,6 +277,7 @@ const types: Record<"flight" | "car_rental" | "hotel", React.ElementType> = {
   hotel: Building2,
   car_rental: Car,
 };
+
 const types_color: Record<"flight" | "car_rental" | "hotel", string> = {
   flight: "green",
   hotel: "blue",

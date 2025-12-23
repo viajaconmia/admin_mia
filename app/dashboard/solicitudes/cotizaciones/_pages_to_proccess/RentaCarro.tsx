@@ -1,29 +1,35 @@
-import React from "react";
-import {
-  Car,
-  Calendar,
-  User,
-  MapPin,
-  Gauge,
-  ShieldCheck,
-  CreditCard,
-} from "lucide-react";
+"use client";
 
-export const RentalCartCard = ({ cart }) => {
-  // Extraemos la información del objeto anidado para facilitar el acceso
+import React from "react";
+import { Car, User, MapPin, Gauge, ShieldCheck, CreditCard } from "lucide-react";
+
+export const RentalCartCard = ({
+  cart,
+  data_inicio = null,
+  onCrearReserva,
+}: {
+  cart: any;
+  data_inicio?: any;
+  onCrearReserva?: (cart: any) => void;
+}) => {
   const rental = cart.objeto_gemini?.item?.item || {};
   const extra = cart.objeto_gemini?.item?.extra?.principal || {};
   const status = cart.estado_solicitud || "pending";
 
-  // Formateador de moneda
   const formatter = new Intl.NumberFormat("es-MX", {
     style: "currency",
     currency: "MXN",
   });
 
+  const handleCrearReserva = () => {
+    // Ya no cierres nada aquí: el PADRE se encarga de cerrar el modal y abrir CarRentalModal
+    onCrearReserva?.(cart);
+  };
+
+
   return (
     <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden my-4 font-sans">
-      {/* Header: Estatus y ID */}
+      {/* Header */}
       <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
         <div>
           <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block">
@@ -33,6 +39,7 @@ export const RentalCartCard = ({ cart }) => {
             {cart.id_solicitud}
           </span>
         </div>
+
         <div
           className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
             status === "pending"
@@ -45,8 +52,19 @@ export const RentalCartCard = ({ cart }) => {
       </div>
 
       <div className="p-6">
+        {/* BOTÓN Crear reserva */}
+        <div className="mb-6 flex justify-end">
+          <button
+            type="button"
+            onClick={handleCrearReserva}
+            className="px-4 py-2 rounded-xl bg-slate-900 text-white text-sm font-bold hover:bg-slate-800"
+          >
+            Crear reserva
+          </button>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Columna 1: Info del Vehículo */}
+          {/* Columna 1 */}
           <div className="md:col-span-2 space-y-6">
             <div className="flex items-start gap-4">
               <div className="p-3 bg-blue-50 rounded-xl text-blue-600">
@@ -65,7 +83,6 @@ export const RentalCartCard = ({ cart }) => {
               </div>
             </div>
 
-            {/* Detalles de Recogida y Entrega */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gray-50 rounded-xl p-4 border border-gray-100">
               <div>
                 <div className="flex items-center gap-2 text-blue-600 mb-1">
@@ -81,9 +98,11 @@ export const RentalCartCard = ({ cart }) => {
                   {rental.rentalPeriod?.pickupLocation?.address}
                 </p>
                 <p className="text-xs font-mono mt-1 text-blue-700">
-                  {new Date(
-                    rental.rentalPeriod?.pickupLocation?.dateTime
-                  ).toLocaleString()}
+                  {rental.rentalPeriod?.pickupLocation?.dateTime
+                    ? new Date(
+                        rental.rentalPeriod.pickupLocation.dateTime
+                      ).toLocaleString()
+                    : ""}
                 </p>
               </div>
 
@@ -101,14 +120,15 @@ export const RentalCartCard = ({ cart }) => {
                   {rental.rentalPeriod?.returnLocation?.address}
                 </p>
                 <p className="text-xs font-mono mt-1 text-indigo-700">
-                  {new Date(
-                    rental.rentalPeriod?.returnLocation?.dateTime
-                  ).toLocaleString()}
+                  {rental.rentalPeriod?.returnLocation?.dateTime
+                    ? new Date(
+                        rental.rentalPeriod.returnLocation.dateTime
+                      ).toLocaleString()
+                    : ""}
                 </p>
               </div>
             </div>
 
-            {/* Características Incluidas */}
             <div className="flex flex-wrap gap-3">
               <div className="flex items-center gap-1.5 text-xs bg-green-50 text-green-700 px-2 py-1 rounded-md border border-green-100">
                 <Gauge size={14} /> Kilometraje Ilimitado
@@ -119,9 +139,8 @@ export const RentalCartCard = ({ cart }) => {
             </div>
           </div>
 
-          {/* Columna 2: Resumen de Pago y Viajero */}
+          {/* Columna 2 */}
           <div className="space-y-6">
-            {/* Tarjeta de Precio */}
             <div className="bg-slate-900 rounded-2xl p-5 text-white shadow-md">
               <div className="flex justify-between items-center mb-2">
                 <CreditCard size={20} className="text-slate-400" />
@@ -137,7 +156,6 @@ export const RentalCartCard = ({ cart }) => {
               </p>
             </div>
 
-            {/* Info del Conductor */}
             <div className="border border-gray-100 rounded-2xl p-4 bg-white shadow-sm">
               <div className="flex items-center gap-2 mb-3">
                 <User size={16} className="text-gray-400" />
