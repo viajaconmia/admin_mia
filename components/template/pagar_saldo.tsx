@@ -143,11 +143,11 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
     totalMonto = sumarMontos(montos);
     totalSaldo = sumarMontos(saldos);
 
-    console.log("Total sumado:", totalMonto);
+    console.log("Total sum😢😢😢😢😢ado:", saldoData);
     console.log("Total sumad do:", totalSaldo);
   }
   const id_agente =
-    reservaData?.id_agente || facturaData[0]?.id_agente || "desconocido";
+    reservaData?.id_agente || saldoData.id_agente||facturaData[0]?.id_agente || "desconocido";
   // Si no hay saldoData pero hay reservaData, crear un saldoData básico
   const effectiveSaldoData =
     saldoData ||
