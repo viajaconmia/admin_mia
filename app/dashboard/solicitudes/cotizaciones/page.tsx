@@ -104,7 +104,7 @@ function App() {
           setOpenVuelo(false);
           setVueloCart(null);
         }}
-        agente={vueloCart?.id_agente ?? null} // o { id_agente: vueloCart?.id_agente }
+        agente={vueloCart?.raw?.id_agente ?? null} // o { id_agente: vueloCart?.id_agente }
         data_inicio={{ ...vueloCart }} // 👈 data inicial completa
         onSuccess={() => {
           setOpenVuelo(false);

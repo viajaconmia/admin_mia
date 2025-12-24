@@ -145,10 +145,10 @@ const findProveedorByName = (proveedores: Proveedor[], name?: string | null) => 
 
 const findAeropuertoByNameOrCode = (aeropuertos: Aeropuerto[], q?: string | null) => {
   if (!q) return null;
-  const needle = q.toLowerCase().trim();
+  const needle = q.trim();
   // Ajusta si tu Aeropuerto tiene "iata", "codigo", etc.
   return (
-    aeropuertos.find((a: any) => (a?.nombre ?? "").toLowerCase().includes(needle)) ??
+    aeropuertos.find((a: any) => (a?.nombre ?? "").includes(needle)) ??
     aeropuertos.find((a: any) => (a?.codigo ?? "").toLowerCase() === needle) ??
     aeropuertos.find((a: any) => (a?.iata ?? "").toLowerCase() === needle) ??
     null
@@ -162,108 +162,195 @@ const findViajeroById = (viajeros: ViajeroService[], id_viajero?: string | null)
 
 // Extrae un "array de segmentos" desde data_inicio en rutas comunes
 const getSegmentsFromRaw = (raw: any): any[] => {
-  const gem = raw?.objeto_gemini ?? {};
-  const item = gem?.item ?? {};
+  if (!raw) return [];
 
-  // Rutas posibles (ajusta si tu gemini difiere)
+  // Caso NUEVO: payload normalizado
+  if (Array.isArray(raw?.vuelos) && raw.vuelos.length) return raw.vuelos;
+
+  // Caso mixto: payload trae "raw" con objeto_gemini
+  const base = raw?.raw ?? raw;
+
   const segs =
-    item?.segments ??
-    item?.itineraries?.[0]?.segments ??
-    item?.flights ??
-    item?.items ??
-    gem?.segments ??
+    base?.objeto_gemini?.item?.item?.segments?.segment ??
+    base?.objeto_gemini?.item?.segments ??
+    base?.objeto_gemini?.segments ??
+    base?.segments ??
     [];
 
   if (Array.isArray(segs)) return segs;
-
-  // Si viene un objeto único
   if (segs && typeof segs === "object") return [segs];
-
   return [];
 };
 
 const buildDetailsPatchFromDataInicio = (raw: any): Partial<Details> => {
-  const gem = raw?.objeto_gemini ?? {};
-  const item = gem?.item ?? {};
+  const base = raw?.raw ?? raw;
 
+  // total
   const total =
-    gem?.total ??
-    item?.price?.total ??
-    item?.total ??
     raw?.total_solicitud ??
-    raw?.total ??
+    base?.objeto_gemini?.total ??
+    base?.objeto_gemini?.item?.item?.price?.total ??
+    base?.total_solicitud ??
+    base?.total ??
     null;
 
+  // codigo (si viene)
   const codigo =
-    raw?.confirmation_code ??
     raw?.codigo_confirmacion ??
-    gem?.codigo ??
-    item?.bookingCode ??
-    item?.pnr ??
+    raw?.confirmation_code ??
+    base?.confirmation_code ??
+    base?.codigo_confirmacion ??
+    base?.objeto_gemini?.item?.item?.pnr ??
+    base?.objeto_gemini?.item?.item?.bookingCode ??
     null;
 
-  const status = normalizeStatus(gem?.status ?? raw?.estado_solicitud ?? raw?.status);
-
-  const idViajero = gem?.id_viajero ?? raw?.id_viajero ?? item?.travelerId ?? null;
+  // status
+  const status = normalizeStatus(
+    raw?.estado_solicitud ?? base?.estado_solicitud ?? base?.objeto_gemini?.status ?? base?.status
+  );
 
   return {
     codigo: codigo ? String(codigo) : null,
     precio: toNumber(total),
     status: status,
-    // viajero se completa con match al catálogo en otro useEffect
-    viajero: null,
-  } as Partial<Details> & { __idViajero?: string };
+    viajero: null, // se resuelve luego con catálogo
+  };
 };
+
 
 // Construye drafts de Vuelo[] (SIN resolver Aeropuerto/Proveedor aún)
 const buildVueloDraftsFromDataInicio = (raw: any): Array<Partial<Vuelo> & { __meta?: any }> => {
-  const gem = raw?.objeto_gemini ?? {};
-  const item = gem?.item ?? {};
+  const base = raw?.raw ?? raw;
 
   const segments = getSegmentsFromRaw(raw);
 
-  // Si no hay segments, intenta fallback con check_in/out + origen/destino básicos
+  const itineraryType =
+    raw?.itineraryType ??
+    base?.objeto_gemini?.item?.item?.itineraryType ??
+    base?.objeto_gemini?.type ??
+    null;
+
+  // Si no hay segments, fallback básico
   if (!segments.length) {
     return [
       {
         tipo: "ida",
-        folio: item?.flightNumber ?? item?.folio ?? null,
-        check_in: toDT(gem?.check_in ?? raw?.check_in ?? null),
-        check_out: toDT(gem?.check_out ?? raw?.check_out ?? null),
-        tipo_tarifa: item?.fareType ?? item?.tipo_tarifa ?? null,
+        folio:
+          base?.objeto_gemini?.item?.item?.flightNumber ??
+          base?.objeto_gemini?.item?.item?.folio ??
+          null,
+        check_in: toDT(base?.objeto_gemini?.check_in ?? base?.check_in ?? null),
+        check_out: toDT(base?.objeto_gemini?.check_out ?? base?.check_out ?? null),
+        tipo_tarifa:
+          base?.objeto_gemini?.item?.item?.fareType ??
+          base?.objeto_gemini?.item?.item?.tipo_tarifa ??
+          null,
         __meta: {
-          airlineName: item?.airline?.name ?? item?.carrier?.name ?? item?.airline ?? gem?.proveedor ?? null,
-          originQ: item?.origin?.code ?? item?.origin ?? null,
-          destQ: item?.destination?.code ?? item?.destination ?? null,
+          airlineName:
+            base?.objeto_gemini?.item?.item?.airline?.name ??
+            base?.objeto_gemini?.proveedor ??
+            null,
+          originQ: null,
+          destQ: null,
         },
       },
     ];
   }
 
-  // Map segmentos a drafts
-  return segments.map((seg: any, idx: number) => {
-    const dep = seg?.departure ?? seg?.from ?? {};
-    const arr = seg?.arrival ?? seg?.to ?? {};
-    const airline = seg?.carrier ?? seg?.airline ?? {};
-    const flightNo = seg?.flightNumber ?? seg?.number ?? seg?.folio ?? null;
+  // Para round_trip, separa ida/vuelta por mitad si aplica
+  const isRoundTrip = String(itineraryType).toLowerCase().includes("round_trip");
+  const mid = isRoundTrip ? Math.floor(segments.length / 2) : 0;
 
-    // Determina tipo: el primero "ida", el resto "ida escala" por defecto
-    const tipo: Vuelo["tipo"] = idx === 0 ? "ida" : "ida escala";
+  return segments.map((seg: any, idx: number) => {
+    // Soporta 2 formatos:
+    // A) payload normalizado: originAirportCode / destinationAirportCode / departureTime / arrivalTime
+    // B) gemini: origin.airportCode / destination.airportCode / departureTime / arrivalTime
+    const originCode =
+      seg?.originAirportCode ??
+      seg?.origin?.airportCode ??
+      seg?.departure?.airportCode ??
+      seg?.from?.airportCode ??
+      seg?.from?.iata ??
+      seg?.origin?.iata ??
+      null;
+
+    const destCode =
+      seg?.destinationAirportCode ??
+      seg?.destination?.airportCode ??
+      seg?.arrival?.airportCode ??
+      seg?.to?.airportCode ??
+      seg?.to?.iata ??
+      seg?.destination?.iata ??
+      null;
+
+    const originCity =
+      seg?.originCity ??
+      seg?.origin?.city ??
+      seg?.departure?.city ??
+      seg?.from?.city ??
+      null;
+
+    const destCity =
+      seg?.destinationCity ??
+      seg?.destination?.city ??
+      seg?.arrival?.city ??
+      seg?.to?.city ??
+      null;
+
+    const airlineName =
+      seg?.airline ??
+      seg?.carrier?.name ??
+      seg?.airline?.name ??
+      seg?.carrierName ??
+      null;
+
+    const flightNo =
+      seg?.flightNumber ??
+      seg?.number ??
+      seg?.folio ??
+      null;
+
+    const depTime =
+      seg?.departureTime ??
+      seg?.departure?.dateTime ??
+      seg?.departure?.time ??
+      seg?.from?.dateTime ??
+      null;
+
+    const arrTime =
+      seg?.arrivalTime ??
+      seg?.arrival?.dateTime ??
+      seg?.arrival?.time ??
+      seg?.to?.dateTime ??
+      null;
+
+    // tipo: ida/ida escala/vuelta/vuelta escala
+    let tipo: Vuelo["tipo"] = "ida";
+    if (isRoundTrip && segments.length >= 2) {
+      if (idx < mid) tipo = idx === 0 ? "ida" : "ida escala";
+      else tipo = idx === mid ? "vuelta" : "vuelta escala";
+    } else {
+      tipo = idx === 0 ? "ida" : "ida escala";
+    }
 
     return {
       tipo,
       folio: flightNo ? String(flightNo) : null,
-      check_in: toDT(dep?.dateTime ?? dep?.time ?? seg?.departureTime ?? null),
-      check_out: toDT(arr?.dateTime ?? arr?.time ?? seg?.arrivalTime ?? null),
-      tipo_tarifa: seg?.fareType ?? item?.fareType ?? null,
+      check_in: toDT(depTime),
+      check_out: toDT(arrTime),
+      tipo_tarifa:
+        seg?.fareType ??
+        base?.objeto_gemini?.item?.item?.fareType ??
+        null,
       __meta: {
-        airlineName: airline?.name ?? airline?.carrierName ?? airline ?? null,
-        originQ: dep?.airportCode ?? dep?.iata ?? dep?.code ?? dep?.airport ?? null,
-        destQ: arr?.airportCode ?? arr?.iata ?? arr?.code ?? arr?.airport ?? null,
+        airlineName,
+        originQ: originCode ?? originCity ?? null,
+        destQ: destCode ?? destCity ?? null,
       },
     };
   });
 };
+
 
 const moneyMXN = (v: any) => {
   const n = Number(v);
@@ -346,6 +433,8 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
   const [aeropuertos, setAeropuertos] = useState<Aeropuerto[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
 
+  console.log("agente y data inicio",agente,data_inicio)
+
   // Modal interno: pagar
   const [openPago, setOpenPago] = useState<boolean>(false);
 
@@ -364,9 +453,10 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
   /* ---------------------------------
      1) Carga catálogos
   ---------------------------------- */
+  const id_agente = agente.id_agente || agente;
   useEffect(() => {
     ViajerosService.getInstance()
-      .obtenerViajerosPorAgente(agente.id_agente)
+      .obtenerViajerosPorAgente(id_agente)
       .then((res) => setViajeros(res.data || []))
       .catch((error: any) => showNotification("error", error?.message || "Error al obtener viajeros"));
 
@@ -438,6 +528,8 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
     // solo intentamos completar si aún está null
     state.forEach((vuelo, idx) => {
       const meta = draftsMeta[idx]?.__meta ?? {};
+      
+      console.log("envio de informacion de vuelo",vuelo)
 
       // aerolínea
       if (!vuelo.aerolinea && aerolineas.length) {
@@ -447,6 +539,7 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
 
       // origen/destino
       if (!vuelo.origen && aeropuertos.length) {
+        console.log("QQQQQQQQQQQQQ",meta?.originQ)
         const a = findAeropuertoByNameOrCode(aeropuertos, meta?.originQ ?? null);
         if (a) handleUpdateVuelo(idx, "origen", a);
       }
@@ -828,7 +921,7 @@ export const VuelosModal: React.FC<VuelosModalProps> = ({
       title={title ?? (data_inicio ? "Editar vuelo" : "Nuevo vuelo")}
       subtitle={subtitle ?? "Completa la información y continúa a pagar"}
     >
-      <div className="w-[90vw] max-w-6xl max-h-[85vh] overflow-y-auto">
+      <div className="w-[90vw] max-w-6xl max-h-[85vh] ">
         {/* Aquí puedes mostrar el summary en el wrapper o dentro del form */}
         {data_inicio ? <VuelosDataInicioSummary data_inicio={data_inicio} /> : null}
 
