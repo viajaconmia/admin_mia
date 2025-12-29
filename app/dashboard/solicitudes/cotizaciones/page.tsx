@@ -14,9 +14,9 @@ import { RentalCartCard as RentalCartCardRaw } from "./_pages_to_proccess/RentaC
 import { CarRentalModal } from "@/components/pages/CarRental";
 import Button from "@/components/atom/Button";
 import { VuelosModal } from "@/components/template/PageVuelos";
+import { useLocation, useParams, useRouter, useSearchParams } from "wouter";
 
 type ServiceGroup = {
-  // OJO: lo ajusté a car_rental para ser consistente con tu filtro y tu types map
   types: Record<"flight" | "car_rental" | "hotel", number>;
   data: any[];
 };
@@ -46,6 +46,9 @@ function App() {
   const [openVuelo, setOpenVuelo] = useState(false);
   const [vueloCart, setVueloCart] = useState<any>(null);
 
+  //Esto es donde jalo los datos
+  const [searchParams] = useSearchParams();
+
   const handleOpenVuelo = (fly: any) => {
     setSelected(null); // cierra modal padre
     setVueloCart(fly); // guarda data_inicio
@@ -61,7 +64,7 @@ function App() {
   useEffect(() => {
     const booking = new BookingsService();
     booking
-      .obtenerCotizaciones()
+      .obtenerCotizaciones(searchParams.get("service") || null)
       .then(({ data }) => {
         setServicios(data as unknown as ServiceGroup[]);
         setLoading(false);
@@ -81,7 +84,6 @@ function App() {
     selected?.data?.filter((obj) => obj.objeto_gemini.type === "car_rental") ||
     [];
 
-  console.log("informacion cambios, vuelos", vueloCart);
   return (
     <div className="bg-white flex flex-col gap-2 p-4 rounded-b-lg shadow-lg">
       {/* MODAL NUEVO (renta) MONTADO EN EL PADRE */}
@@ -241,14 +243,14 @@ function App() {
             )}
             {vuelo.length > 0 && (
               <>
-              <TabsContent value="vuelo" className="p-4 space-y-4">
-                {vuelo.map((fly) => (
-                  <VueloCard
-                  key={fly.id_solicitud}
-                  vuelo={fly}
-                  onCrearReserva={handleOpenVuelo}
-                  />
-                ))}
+                <TabsContent value="vuelo" className="p-4 space-y-4">
+                  {vuelo.map((fly) => (
+                    <VueloCard
+                      key={fly.id_solicitud}
+                      vuelo={fly}
+                      onCrearReserva={handleOpenVuelo}
+                    />
+                  ))}
                 </TabsContent>
               </>
             )}

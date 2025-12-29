@@ -25,9 +25,12 @@ export class BookingsService extends ApiService {
       params: { id_hospedaje },
     });
   };
-  public obtenerCotizaciones = async (): Promise<ApiResponse<any>> => {
+  public obtenerCotizaciones = async (
+    servicio: string | null
+  ): Promise<ApiResponse<any>> => {
     return this.get({
       path: this.formatPath(this.ENDPOINTS.GET.COTIZACIONES),
+      params: servicio ? { servicio } : {},
     });
   };
   public actualizarItems = async (items: (Item & { edit: boolean })[]) => {
