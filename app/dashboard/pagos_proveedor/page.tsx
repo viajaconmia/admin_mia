@@ -19,7 +19,9 @@ import { fetchGetSolicitudesProveedores } from "@/services/pago_proveedor";
 import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
 import { DispersionModal } from "./Components/dispersion";
+import { ComprobanteModal } from "./Components/comprobantes";
 import { SolicitudProveedorRaw } from "./Components/dispersion";
+import { useNotification } from "@/context/useNotificacion";
 
 // ---------- HELPERS GENERALES ----------
 
@@ -77,8 +79,8 @@ function agruparPorCategoria<T extends { estatus_pagos?: string | null }>(
 }
 
 // -----helper para asignar color en fechas ----
-const getFechaPagoColor = (dateStr?: string | Date | null) => {
-  if (!dateStr) return "";
+const getFechaPagoColor = (dateStr?: string | Date | null | number) => {
+  if (!dateStr || dateStr == 0.00) return "";
 
   const pagoDate = new Date(dateStr);
   if (isNaN(pagoDate.getTime())) return "";
@@ -149,7 +151,8 @@ type ItemSolicitud = SolicitudProveedor & {
     estado_factura?: "emitida" | "pendiente" | string;
   }>;
   estatus_pagos?: string | null;
-  filtro_pago?: string | null; // 👈 también lo ponemos aquí
+  filtro_pago?: string | null;
+  cuenta_de_deposito?: string | null;
 };
 
 type DatosDispersion = {
@@ -159,6 +162,7 @@ type DatosDispersion = {
   id_solicitud_proveedor: string | number | null;
   monto_solicitado: number;
   razon_social: string | null;
+  cuenta_banco: string | null;
   rfc: string | null;
 };
 
@@ -171,10 +175,15 @@ function getPagoInfo(item: ItemSolicitud) {
     return db - da;
   });
   const ultimoPago = pagos[0];
-  const totalPagado = pagos.reduce(
-    (acc, p) => acc + parseNum(p.monto_pagado),
-    0
-  );
+  const pendientePago = Number(item.solicitud_proveedor.saldo);
+  const totalPagado = pagos
+    .flat()
+    .reduce(
+      (acc, p) => acc + parseNum(p.monto_pagado ?? 0),
+      0
+    );
+
+
   const fechas = pagos
     .map((p) => p.fecha_pago || p.creado_en)
     .filter(Boolean)
@@ -182,8 +191,17 @@ function getPagoInfo(item: ItemSolicitud) {
   const fechaUltimoPago = fechas.length
     ? new Date(Math.max(...fechas.map((d) => d.getTime()))).toISOString()
     : "";
-  const estado_pago = (ultimoPago?.estado_pago as string | null) ?? null;
-  return { estado_pago, totalPagado, fechaUltimoPago };
+  let estado_pago = "";
+
+  if (pendientePago == 0.00) {
+    estado_pago = "Pagado";
+  } else if (pendientePago != 0.00 && pendientePago != Number(item.solicitud_proveedor.monto_solicitado)) {
+    estado_pago = "Parcial"
+  } else {
+    estado_pago = "Pendiente"
+  }
+
+  return { estado_pago, totalPagado, fechaUltimoPago, pendientePago };
 }
 
 function getFacturaInfo(item: ItemSolicitud) {
@@ -309,6 +327,9 @@ function App() {
   });
   // Modal de dispersión
   const [showDispersionModal, setShowDispersionModal] = useState(false);
+  const [showComprobanteModal, setShowComprobanteModal] = useState(false);
+  const { showNotification } = useNotification();
+
   const [solicitudesSeleccionadasModal, setSolicitudesSeleccionadasModal] = useState<
     SolicitudProveedorRaw[]
   >([]);
@@ -346,6 +367,7 @@ function App() {
   });
 
   const [editError, setEditError] = useState<string | null>(null);
+
 
   const closeEditModal = () => {
     setEditModal({
@@ -459,8 +481,9 @@ function App() {
         tipo_tarjeta: item.tarjeta?.tipo_tarjeta,
         // 🟥 PAGO AL PROVEEDOR
         estado_pago: pagoInfo.estado_pago,
+        pendiente_a_pagar: pagoInfo.pendientePago,
         monto_pagado_proveedor: pagoInfo.totalPagado,
-        fecha_real_pago: pagoInfo.fechaUltimoPago,
+        fecha_pagado: pagoInfo.fechaUltimoPago,
         // 🟪 FACTURACIÓN
         estado_factura_proveedor: facInfo.estado,
         total_facturado: facInfo.totalFacturado,
@@ -479,7 +502,7 @@ function App() {
   const handleDispersion = () => {
     // usamos el arreglo `solicitud` que ya tienes con las solicitudes seleccionadas
     if (!solicitud.length) {
-      console.log("No hay solicitudes seleccionadas para dispersión");
+      showNotification("info", "No hay solicitudes seleccionadas para dispersión");
       return;
     }
 
@@ -514,6 +537,7 @@ function App() {
 
         // por si acaso
         codigo_dispersion: anyS.codigo_dispersion ?? null,
+        cuenta_de_deposito: s.cuenta_de_deposito ?? null,
 
         // ✅ id_solicitud_proveedor y monto_solicitado
         solicitud_proveedor: s.solicitud_proveedor
@@ -538,7 +562,7 @@ function App() {
 
 
   const handleCsv = () => {
-    console.log("hola");
+    setShowComprobanteModal(true);
   };
 
   const renderers: Record<
@@ -554,10 +578,9 @@ function App() {
         (row.item as SolicitudProveedor) || row;
 
       if (!raw) return null;
-
       const tieneDispersion =
         !!(raw as any).codigo_dispersion ||
-        !!raw.solicitud_proveedor?.codigo_dispersion;
+        !!raw.solicitud_proveedor?.codigo_dispersion || Number(raw.solicitud_proveedor?.saldo) <= 0;
 
       // 🔑 Llave única (usa id_solicitud / id y si no hay, el index)
       const key = String(
@@ -628,6 +651,7 @@ function App() {
                     Number(raw.solicitud_proveedor?.monto_solicitado) || 0,
                   razon_social: raw.proveedor?.razon_social ?? null,
                   rfc: raw.proveedor?.rfc ?? null,
+                  cuenta_banco: raw.cuenta_de_deposito ?? null
                 };
 
                 const exists = prev.some(
@@ -736,9 +760,11 @@ function App() {
       />
     ),
 
-    monto_pagado_proveedor: ({ value }) => (
-      <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>
-    ),
+    monto_pagado_proveedor: ({ value }) => {
+      return (
+        <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>
+      )
+    },
 
     fecha_real_pago: ({ value }) =>
       value ? (
@@ -792,6 +818,13 @@ function App() {
           {formatDateSimple(value)}
         </span>
       );
+    },
+
+    pendiente_a_pagar: ({ value }) => {
+
+      return (
+        <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>
+      )
     },
 
     forma_de_pago_solicitada: ({ value }) => (
@@ -930,21 +963,25 @@ function App() {
               registros={registrosVisibles as any}
               renderers={renderers}
               defaultSort={defaultSort}
-              getRowClassName={(row) => getFechaPagoRowClass(row.fecha_de_pago)}
+              getRowClassName={(row) =>
+                getFechaPagoRowClass(
+                  row.pendiente_a_pagar <= 0 ? "" : row.fecha_de_pago
+                )
+              }
               leyenda={`Mostrando ${registrosVisibles.length
                 } registros (${categoria === "all"
                   ? "todas las categorías"
                   : `categoría: ${categoria}`
                 })`}
             >
-              {/* 🔹 Botones para subir CSV y layout */}
+              {/* 🔹 Botones para subir Comprobante y layout */}
               <div className="flex gap-2 mb-3">
                 <button
                   type="button"
                   onClick={handleCsv}
                   className="px-3 py-2 rounded-md text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 transition"
                 >
-                  Subir CSV
+                  Subir Comprobante
                 </button>
                 <button
                   type="button"
@@ -1033,7 +1070,25 @@ function App() {
           />
         </div>
       )}
+      {showComprobanteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <ComprobanteModal
+            onClose={() => setShowComprobanteModal(false)}
+            onSubmit={async (payload) => {
+              // Aquí ya recibes:
+              // payload.id_dispersion
+              // payload.solicitudes = [{ id_solicitud, id_solicitud_proveedor, id_pago, costo_proveedor, codigo_hotel, fecha_pago }]
+              console.log("Payload de dispersión listo para API:", payload);
 
+              // TODO: aquí llamas a tu endpoint para guardar la dispersión
+              // await apiCrearDispersion(payload);
+
+              // si todo va bien, puedes cerrar:
+              setShowComprobanteModal(false);
+            }}
+          />
+        </div>
+      )}
 
     </div>
 

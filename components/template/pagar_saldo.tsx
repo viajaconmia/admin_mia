@@ -102,8 +102,8 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
   reservaData = null,
   facturaData = null,
 }) => {
-  console.log("reservaData recibida:", reservaData);
-  console.log("facturas recibida:", facturaData);
+  // console.log("reservaData recibida:", reservaData);
+  // console.log("facturas recibida:", facturaData);
 
   // Helper global para dinero
   const toMoney = (v: any): number => {
@@ -144,10 +144,10 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
     totalSaldo = sumarMontos(saldos);
 
     console.log("Total sumado:", totalMonto);
-    console.log("Total sumado:", totalSaldo);
+    console.log("Total sumad do:", totalSaldo);
   }
   const id_agente =
-    reservaData?.id_agente || facturaData?.id_agente || "desconocido";
+    reservaData?.id_agente || facturaData[0]?.id_agente || "desconocido";
   // Si no hay saldoData pero hay reservaData, crear un saldoData básico
   const effectiveSaldoData =
     saldoData ||
@@ -159,8 +159,13 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
           reservaData?.solicitud.agente.nombre ||
           facturaData?.nombre_agente ||
           "Agente",
-        monto: reservaData?.Total || montos || 0,
-        saldo: reservaData?.Total || saldos || 0,
+        monto:
+    reservaData?.Total || // Si existe, úsalo (máxima prioridad)
+    (Array.isArray(montos) && montos.length > 1 ? totalMonto : montos), // Si hay más de 1 en el array, usa totalMonto. Si no, usa el array 'montos'.
+
+  saldo:
+    reservaData?.Total || // Si existe, úsalo (máxima prioridad)
+    (Array.isArray(saldos) && saldos.length > 1 ? totalSaldo : saldos),
       }
       : {
         id_saldos: "",
@@ -170,7 +175,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
         saldo: 0,
       });
 
-  console.log(effectiveSaldoData);
+  console.log(effectiveSaldoData,"paornvr iv to");
 
   const [formData, setFormData] = useState({
     montoPago: effectiveSaldoData.saldo,
@@ -198,21 +203,15 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
   const [saldoFavorData, setSaldoFavorData] = useState<any[]>([]);
 
   useEffect(() => {
-    if (reservaData) {
+    if (reservaData || facturaData) {
+      console.log("ENTRANDO A FACTURA")
       // Nuevo flujo: usar SaldoFavor cuando tenemos reservaData
       fetchSaldoFavorData();
     } else if (effectiveSaldoData.id_agente) {
       // Flujo existente
       fetchReservasConItems();
     }
-  }, [effectiveSaldoData.id_agente, reservaData]);
-
-  useEffect(() => {
-    if (facturaData) {
-      // Si recibimos facturaData, seguimos el flujo similar a reservaData
-      fetchSaldoFavorData();
-    }
-  }, [effectiveSaldoData.id_agente, facturaData]);
+  }, [effectiveSaldoData.id_agente, reservaData, facturaData]);
 
   // Función para obtener datos del nuevo flujo (SaldoFavor)
   const fetchSaldoFavorData = async () => {
@@ -240,7 +239,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
       response.data?.forEach((saldo: any) => {
         // Para el nuevo flujo, usamos el saldo completo como "item"
         const idItem = `saldo-${saldo.id_saldos}`;
-        const saldoValor = Number(saldo.saldo) || 0;
+        const saldoValor = facturaData? Number(saldo.monto_por_facturar) : Number(saldo.saldo) ;
 
         initialOriginalSaldo[idItem] = saldoValor;
         initialSaldo[idItem] = saldoValor;
@@ -304,8 +303,12 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
 
   const handleItemSelection = (id_item: string, saldoOriginal: number) => {
     setSelectedItems((prev) => {
+      console.log(id_item,"1️⃣1️⃣1️⃣1️⃣1️⃣1️⃣",saldoOriginal)
       const isCurrentlySelected = prev.some((item) => item.id_item === id_item);
+              console.log("nvfnvif🤬🤬🤬🤬",itemsSaldo)
+
       const currentSaldo = toMoney(itemsSaldo[id_item] ?? saldoOriginal);
+              console.log(currentSaldo,"🚓🚓🚓🚓🚓🚓🚓🚓")
 
       if (isCurrentlySelected) {
         // Deseleccionar item - restaurar el saldo original
@@ -313,7 +316,10 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
         const newTotal = toMoney(
           newSelection.reduce((sum, item) => sum + item.saldo, 0)
         );
+              console.log(newTotal,"😢😢😢😢😢😢😢",newSelection)
+
         const restante = toMoney(effectiveSaldoData.saldo - newTotal);
+              console.log(restante,"🚓🚓🚓🚓🚓🚓🚓🚓")
 
         // Restaurar el saldo original del item
         setItemsSaldo((prevSaldo) => ({
@@ -341,6 +347,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
         // Calcular cuánto podemos aplicar de este ítem
         const saldoDisponible = toMoney(effectiveSaldoData.saldo - currentTotal);
         const montoAAplicar = toMoney(Math.min(currentSaldo, saldoDisponible));
+        console.log("nvfnvif🤬🤬🤬🤬",currentSaldo)
 
         // Actualizar el saldo del ítem (lo que queda por pagar)
         const nuevoSaldoItem = toMoney(currentSaldo - montoAAplicar);
@@ -353,13 +360,15 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
         const restante = toMoney(effectiveSaldoData.saldo - newTotal);
 
         const newSelection = [...prev, { id_item, saldo: montoAAplicar }];
+                      console.log(newTotal,"😢😢😢😢😢😢😢",newSelection)
+              console.log(restante,"🚓🚓🚓🚓🚓🚓🚓🚓")
+
         setMontoRestante(restante);
         setMontoSeleccionado(newTotal);
         return newSelection;
       }
     });
   };
-
 
   const isItemSelected = (id_item: string): boolean => {
     return selectedItems.some((item) => item.id_item === id_item);
@@ -439,36 +448,51 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
         }),
       };
       endpoint = "/mia/reservas/operaciones";
+
     } else if (reservaData && !isZeroMoney(montorestante)) {
       console.log("montoRestante", montorestante);
       alert("Para registrar el pago, debes cubrir el total de la reserva.");
       return;
     } else if (facturaData) {
-      console.log(
-        selectedItems.map((item) => {
-          const originalItem = saldoFavorData.find(
-            (sf) => `saldo-${sf.id_saldos}` === item.id_item
-          );
-          const appliedAmount =
-            originalSaldoItems[item.id_item] - (itemsSaldo[item.id_item] || 0);
+      
+      const ejemplo_saldos = selectedItems.map(item => {
+        const originalItem = saldoFavorData.find(sf => `saldo-${sf.id_saldos}` === item.id_item);
+        const aplicado = (originalSaldoItems[item.id_item] ?? 0) - (itemsSaldo[item.id_item] ?? 0);
+        console.log("informacion",saldoFavorData,"original saldo",aplicado)
+        return {
+          id_saldo: originalItem?.id_saldos || '',
+          saldo_original: Number(originalItem?.monto_por_facturar || 0),
+          saldo_actual: Number(itemsSaldo[item.id_item] ?? 0),
+          aplicado: Number(aplicado),
+          id_agente: effectiveSaldoData.id_agente,
+          metodo_de_pago: originalItem?.metodo_pago || 'wallet',
+          fecha_pago: originalItem?.fecha_pago || '',
+          concepto: originalItem?.concepto || null,
+          referencia: originalItem?.referencia || null,
+          currency: 'mxn',
+          tipo_de_tarjeta: originalItem?.tipo_tarjeta || null,
+          link_pago: null,
+          last_digits: null
+        };
+      });
 
-          return {
-            id_saldo: originalItem?.id_saldos || "",
-            saldo_original: originalItem?.saldo || 0,
-            saldo_actual: itemsSaldo[item.id_item] || 0,
-            aplicado: appliedAmount,
-            id_agente: effectiveSaldoData.id_agente,
-            metodo_de_pago: originalItem?.metodo_pago || "wallet",
-            fecha_pago: originalItem?.fecha_pago || "",
-            concepto: originalItem?.concepto || null,
-            referencia: originalItem?.referencia || null,
-            currency: "mxn",
-            tipo_de_tarjeta: originalItem?.tipo_tarjeta || null,
-            link_pago: null,
-            last_digits: null,
-          };
-        })
-      );
+      // Armamos el payload para facturas
+      console.log(facturaData,"fnvonvorv")
+      const ids_facturas = facturaData.map(f => f.facturaSeleccionada.id_factura);
+      console.log(ids_facturas);
+
+
+      payload = {
+        // Incluye el identificador de la factura y el agente
+        id_factura: ids_facturas,
+        id_agente: effectiveSaldoData.id_agente,
+        // Arreglo de saldos aplicados (igual estructura que en reservaData)
+        ejemplo_saldos
+      };
+
+      endpoint = "/mia/factura/AsignarFacturaPagos";
+      // endpoint = "/mia/factura/AsignarFacgos";
+
     } else {
       // Payload existente para el flujo de saldoData
       const tableDataToUse = reservas.flatMap((reserva) =>
@@ -512,11 +536,13 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
       endpoint = "/mia/pagos/aplicarpagoPorSaldoAFavor";
     }
 
-    console.log("Payload:", payload);
+    console.log("endpoint:",URL, endpoint);
+    console.log("payload",endpoint)
 
+    const method = facturaData? "PATCH" : "POST";
     try {
       const response = await fetch(`${URL}${endpoint}`, {
-        method: "POST",
+        method: method,
         headers: {
           "Content-Type": "application/json",
           "x-api-key": API_KEY,
@@ -552,15 +578,24 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
     reservaData || facturaData
       ? // Datos del nuevo flujo (SaldoFavor)
       saldoFavorData
-        .filter((saldo) => saldo.activo !== 0)
-        .filter((saldo) => {
-          const rawSaldo = facturaData
-            ? Number(saldo.monto_por_facturar)
-            : Number(saldo.saldo);
+  .filter((saldo) => saldo.is_cancelado !== 1)
+  .filter((saldo) => {
+    if (facturaData) {
+      // MODO FACTURA: mostrar solo si tiene algo por facturar
+      return Number(saldo.monto_por_facturar ?? 0) > 0;
+    }
 
-          // usa tu helper con tolerancia
-          return !isZeroMoney(rawSaldo);
-        })
+    // MODO RESERVA: no mostrar los que tengan activo = 0
+    return saldo.activo !== 0; // o !!saldo.activo
+  })
+  .filter((saldo) => {
+    const rawSaldo = facturaData
+      ? Number(saldo.monto_por_facturar)
+      : Number(saldo.saldo);
+
+    // usa tu helper con tolerancia
+    return !isZeroMoney(rawSaldo);
+  })
         .map((saldo) => ({
           creado: saldo.fecha_creacion
             ? new Date(saldo.fecha_creacion)
@@ -757,102 +792,154 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
   if (!open) return null;
 
   // Selecciona saldos en orden y auto-llama handleSubmit cuando cubre el total
-  const seleccionarSaldosEnOrdenYAutoPagar = (saldosCrudos: any[]) => {
-    // Solo aplica con reservaData y una sola vez
-    if (!reservaData || autoPayTriggered.current) return;
+// Selecciona saldos en orden FIFO y deja todo redondeado a 2 decimales
 
-    // Orden FIFO por fecha_creacion (nulos van al final)
-    const saldosOrdenados = [...(saldosCrudos || [])]
-      .filter((s) => s?.activo !== 0)
-      .sort((a, b) => {
-        const ta = a?.fecha_creacion
-          ? new Date(a.fecha_creacion).getTime()
-          : Number.MAX_SAFE_INTEGER;
-        const tb = b?.fecha_creacion
-          ? new Date(b.fecha_creacion).getTime()
-          : Number.MAX_SAFE_INTEGER;
-        return ta - tb;
-      });
+const seleccionarSaldosEnOrdenYAutoPagar = (saldosCrudos: any[]) => {
+  // Solo aplica con reservaData y una sola vez
+  if (!reservaData || autoPayTriggered.current) return;
 
-    // Copias temporales para actualizar estados de manera atómica
-    const tmpItemsSaldo: Record<string, number> = { ...itemsSaldo };
-    const tmpOriginal: Record<string, number> = { ...originalSaldoItems };
-    const nuevaSeleccion: SelectedItem[] = [];
+  // Objetivo a cubrir: total de la reserva (ya redondeado)
+  const totalReserva = toMoney(reservaData?.Total || 0);
 
-    // Objetivo a cubrir: total de la reserva (ya redondeado)
-    let restante = toMoney(reservaData?.Total || 0);
-    let aplicadoTotal = toMoney(0);
+  console.group("=== AUTOPAY RESERVA (FIFO) ===");
+  console.log("Total de la reserva (objetivo):", totalReserva.toFixed(2));
 
-    for (const s of saldosOrdenados) {
-      if (isZeroMoney(restante) || restante < 0) break;
+  // Orden FIFO por fecha_creacion (nulos van al final)
+  const saldosOrdenados = [...(saldosCrudos || [])]
+    .filter((s) => s?.activo !== 0)
+    .sort((a, b) => {
+      const ta = a?.fecha_creacion
+        ? new Date(a.fecha_creacion).getTime()
+        : Number.MAX_SAFE_INTEGER;
+      const tb = b?.fecha_creacion
+        ? new Date(b.fecha_creacion).getTime()
+        : Number.MAX_SAFE_INTEGER;
+      return ta - tb;
+    });
 
-      const idItem = `saldo-${s.id_saldos}`;
-      const disponibleActual = toMoney(
-        typeof tmpItemsSaldo[idItem] === "number"
-          ? tmpItemsSaldo[idItem]
-          : s?.saldo || 0
-      );
+  console.log("Saldos ordenados por fecha_creacion:");
+  console.table(
+    saldosOrdenados.map((s) => ({
+      id_saldos: s.id_saldos,
+      fecha_creacion: s.fecha_creacion,
+      saldo: Number(s.saldo || 0).toFixed(2),
+    }))
+  );
 
-      // Asegura valores iniciales en los mapas (por si vienen vacíos)
-      if (tmpOriginal[idItem] === undefined)
-        tmpOriginal[idItem] = toMoney(s?.saldo || 0);
-      if (tmpItemsSaldo[idItem] === undefined)
-        tmpItemsSaldo[idItem] = toMoney(s?.saldo || 0);
+  // Copias temporales para actualizar estados de manera atómica
+  const tmpItemsSaldo: Record<string, number> = { ...itemsSaldo };
+  const tmpOriginal: Record<string, number> = { ...originalSaldoItems };
+  const nuevaSeleccion: SelectedItem[] = [];
 
-      if (disponibleActual <= 0) continue;
+  let restante = totalReserva;
+  let aplicadoTotal = toMoney(0);
 
-      const aplicarRaw = Math.min(disponibleActual, restante);
-      const aplicar = toMoney(aplicarRaw);
-      if (aplicar <= 0) continue;
+  for (const s of saldosOrdenados) {
+    if (isZeroMoney(restante) || restante < 0) break;
 
-      // Descuenta del saldo del ítem y agrega a la selección
-      tmpItemsSaldo[idItem] = toMoney(disponibleActual - aplicar);
-      nuevaSeleccion.push({ id_item: idItem, saldo: aplicar });
+    const idItem = `saldo-${s.id_saldos}`;
 
-      aplicadoTotal = toMoney(aplicadoTotal + aplicar);
-      restante = toMoney(restante - aplicar);
+    // Valor disponible actual, siempre pasando por toMoney
+    let disponibleActual = toMoney(
+      typeof tmpItemsSaldo[idItem] === "number"
+        ? tmpItemsSaldo[idItem]
+        : s?.saldo || 0
+    );
+
+    // Asegura valores iniciales en los mapas (por si vienen vacíos)
+    if (tmpOriginal[idItem] === undefined) {
+      tmpOriginal[idItem] = disponibleActual;
+    }
+    if (tmpItemsSaldo[idItem] === undefined) {
+      tmpItemsSaldo[idItem] = disponibleActual;
     }
 
-    // Logs detallados de lo seleccionado
-    const resumenSeleccion = nuevaSeleccion.map((sel) => {
-      const original = toMoney(tmpOriginal[sel.id_item] ?? 0);
-      const final = toMoney(tmpItemsSaldo[sel.id_item] ?? 0);
-      const aplicado = toMoney(original - final);
-      return {
-        id_item: sel.id_item,
-        aplicado,
-        saldo_inicial: original,
-        saldo_final: final,
-      };
-    });
+    if (disponibleActual <= 0 || isZeroMoney(disponibleActual)) continue;
 
-    console.log("=== Saldos seleccionados (FIFO) ===");
-    resumenSeleccion.forEach((r, idx) => {
-      console.log(
-        `#${idx + 1} ${r.id_item} | aplicado: $${r.aplicado.toFixed(2)} | ` +
-        `inicial: $${r.saldo_inicial.toFixed(
+    const restanteAntes = restante;
+    const aplicarRaw = Math.min(disponibleActual, restante);
+    const aplicar = toMoney(aplicarRaw);
+
+    if (aplicar <= 0 || isZeroMoney(aplicar)) continue;
+
+    // Descuenta del saldo del ítem y agrega a la selección
+    const nuevoSaldoItem = toMoney(disponibleActual - aplicar);
+    tmpItemsSaldo[idItem] = nuevoSaldoItem;
+    nuevaSeleccion.push({ id_item: idItem, saldo: aplicar });
+
+    aplicadoTotal = toMoney(aplicadoTotal + aplicar);
+    restante = toMoney(restante - aplicar);
+
+    // Log detallado de esta iteración
+    console.log(
+      `[ITER] ${idItem} | disp=${disponibleActual.toFixed(
+        2
+      )} | aplicar=${aplicar.toFixed(2)} | ` +
+        `restante_antes=${restanteAntes.toFixed(
           2
-        )} -> final: $${r.saldo_final.toFixed(2)}`
-      );
-    });
+        )} -> restante_despues=${restante.toFixed(2)} | ` +
+        `nuevo_saldo_item=${nuevoSaldoItem.toFixed(2)}`
+    );
+  }
 
-    // Actualiza estados coherentemente
-    setItemsSaldo(tmpItemsSaldo);
-    setOriginalSaldoItems(tmpOriginal);
-    setSelectedItems(nuevaSeleccion);
-    setMontoSeleccionado(aplicadoTotal);
+  // Logs detallados de lo seleccionado
+  const resumenSeleccion = nuevaSeleccion.map((sel) => {
+    const original = toMoney(tmpOriginal[sel.id_item] ?? 0);
+    const final = toMoney(tmpItemsSaldo[sel.id_item] ?? 0);
+    const aplicado = toMoney(original - final);
+    return {
+      id_item: sel.id_item,
+      aplicado,
+      saldo_inicial: original,
+      saldo_final: final,
+    };
+  });
 
-    // En flujo de reserva, el "saldo disponible" (effectiveSaldoData.saldo) es el Total
-    const saldoDisponible = toMoney(effectiveSaldoData?.saldo || 0);
-    const nuevoRestante = toMoney(saldoDisponible - aplicadoTotal);
-    setMontoRestante(nuevoRestante);
+  console.log("=== Resumen de selección (por item) ===");
+  console.table(
+    resumenSeleccion.map((r) => ({
+      id_item: r.id_item,
+      aplicado: r.aplicado.toFixed(2),
+      saldo_inicial: r.saldo_inicial.toFixed(2),
+      saldo_final: r.saldo_final.toFixed(2),
+    }))
+  );
 
-    console.log(`Monto seleccionado total: $${aplicadoTotal.toFixed(2)}`);
-    console.log(`Monto restante total (calculado): $${nuevoRestante.toFixed(2)}`);
+  // Check general de totales
+  const sumaAplicadaDesdeSeleccion = toMoney(
+    resumenSeleccion.reduce((acc, r) => acc + r.aplicado, 0)
+  );
 
-    // marca que ya se hizo el autopay una vez
-    autoPayTriggered.current = true;
-  };
+  console.log("=== Check de consistencia ===");
+  console.log("Total aplicado (acumulado):", aplicadoTotal.toFixed(2));
+  console.log(
+    "Total aplicado (sumado de resumen):",
+    sumaAplicadaDesdeSeleccion.toFixed(2)
+  );
+  console.log(
+    "Diferencia entre ambos:",
+    toMoney(aplicadoTotal - sumaAplicadaDesdeSeleccion).toFixed(2)
+  );
+  console.log("Restante después de aplicar:", restante.toFixed(2));
+
+  // Actualiza estados coherentemente
+  setItemsSaldo(tmpItemsSaldo);
+  setOriginalSaldoItems(tmpOriginal);
+  setSelectedItems(nuevaSeleccion);
+  setMontoSeleccionado(aplicadoTotal);
+
+  // En flujo de reserva, el "saldo disponible" es el total de la reserva
+  const saldoDisponible = totalReserva;
+  const nuevoRestante = toMoney(saldoDisponible - aplicadoTotal);
+  setMontoRestante(nuevoRestante);
+
+  console.log(`Monto seleccionado total: $${aplicadoTotal.toFixed(2)}`);
+  console.log(`Monto restante total (calculado): $${nuevoRestante.toFixed(2)}`);
+  console.groupEnd();
+
+  // marca que ya se hizo el autopay una vez
+  autoPayTriggered.current = true;
+};
 
 
   const titulo = reservaData
