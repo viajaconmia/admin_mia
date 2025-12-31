@@ -326,14 +326,7 @@ export default function TarjetasCrudTable5() {
   return (
     <>
       <div className="bg-white rounded-lg shadow border">
-        <div className="px-4 py-3 border-b flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-800">Tarjetas</h2>
-            <p className="text-xs text-gray-600">
-              Endpoint base: <span className="font-mono">{BASE_ENDPOINT}</span>
-            </p>
-          </div>
-
+        <div className="px-4 py-3 border-b ">
           <div className="flex gap-2">
             <button
               onClick={fetchTarjetas}

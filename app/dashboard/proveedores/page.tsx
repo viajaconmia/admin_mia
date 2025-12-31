@@ -25,8 +25,14 @@ export default function ProveedoresPage() {
   const id_agente = null as string | null;
 
   const fetchProveedores = async () => {
+<<<<<<< HEAD
+=======
+    // ✅ MISMO fetch (endpoint/headers/body pattern)
+    const endpoint = `${URL}/mia/proveedores/`;
+>>>>>>> e7fca31 (cambios+)
     setIsLoading(true);
     try {
+<<<<<<< HEAD
       const response = await ProveedoresService.getInstance()
         .getProveedores()
         .then((res) => res.data.map((item) => mapProveedor(item)))
@@ -39,6 +45,25 @@ export default function ProveedoresPage() {
         });
 
       setProveedores(response);
+=======
+      const response = await fetch(endpoint, {
+        method: "GET",
+        headers: {
+          "x-api-key": API_KEY || "",
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+        },
+      });
+
+      if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
+
+      const data = await response.json();
+      console.log("Respuesta recibida:", data.data);
+
+      const list = extractProveedores(data.data
+      );
+      setProveedores(list);
+>>>>>>> e7fca31 (cambios+)
     } catch (err) {
       console.error("Error en la consulta:", err);
       setProveedores([]);
