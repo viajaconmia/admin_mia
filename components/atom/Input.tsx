@@ -128,7 +128,7 @@ export const NumberInput = ({
   className = "",
 }: {
   label?: string;
-  value: number;
+  value: number | null;
   onChange: (value: string) => void;
   placeholder?: string;
   disabled?: boolean;
@@ -184,11 +184,13 @@ export const EmailInput = ({
   value,
   onChange,
   placeholder = "",
+  disabled = false,
 }: {
   label?: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  disabled?: boolean;
 }) => (
   <div className="flex flex-col space-y-1">
     {label && (
@@ -197,6 +199,7 @@ export const EmailInput = ({
     <input
       type="email"
       value={value || ""}
+      disabled={disabled}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
@@ -554,7 +557,7 @@ export const CheckboxInput = ({
               }
             }}
             className={`
-              ml-3 text-sm font-medium select-none
+              ml-1 text-sm font-medium select-none
               ${
                 disabled
                   ? "text-gray-400 cursor-not-allowed"

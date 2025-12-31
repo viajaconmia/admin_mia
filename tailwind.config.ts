@@ -66,6 +66,16 @@ const config: Config = {
         },
       },
       keyframes: {
+        "wobble-bounce": {
+          "0%": { transform: "translateX(0)" },
+          "15%": { transform: "translateX(-6px)" },
+          "30%": { transform: "translateX(6px)" },
+          "45%": { transform: "translateX(-4px)" },
+          "60%": { transform: "translateX(4px)" },
+          "75%": { transform: "translateX(0)" },
+          "85%": { transform: "translateY(-6px)" },
+          "100%": { transform: "translateY(0)" },
+        },
         "accordion-down": {
           from: {
             height: "0",
@@ -86,6 +96,7 @@ const config: Config = {
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "wobble-bounce": "wobble-bounce 1s ease-in-out infinite",
       },
     },
   },

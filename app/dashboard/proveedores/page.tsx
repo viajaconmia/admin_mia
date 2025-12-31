@@ -1,95 +1,21 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useReducer, useState } from "react";
 import { Table5 } from "@/components/Table5";
 import { formatDate } from "@/helpers/utils";
 import { URL, API_KEY } from "@/lib/constants/index";
-
-/* ─────────────────────────────
-   Tipos (según columnas de la BD)
-────────────────────────────── */
-
-export type ProveedorType = "vuelo" | "renta_carro";
-
-export interface Proveedor {
-  id: number;
-  nombre: string;
-  pais: string | null;
-  telefono: string | null;
-  email: string | null;
-  sitio_web: string | null;
-  type: ProveedorType;
-  creado_en: string; // timestamp
-  tarifas: string | null;
-  cobertura: string | null;
-  bilingue: number; // tinyint 0/1
-  extranjero: number; // tinyint 0/1
-  credito: number; // tinyint 0/1
-  nombre_contacto: string | null;
-
-  [key: string]: any;
-}
-
-/* ─────────────────────────────
-   Helpers de normalización
-────────────────────────────── */
-
-const toInt01 = (v: any) => (Number(v) ? 1 : 0);
-
-const mapProveedor = (p: any): Proveedor => ({
-  id: Number(p.id ?? 0),
-  nombre: String(p.nombre ?? ""),
-  pais: p.pais ?? null,
-  telefono: p.telefono ?? null,
-  email: p.email ?? null,
-  sitio_web: p.sitio_web ?? null,
-  type: (p.type ?? "vuelo") as ProveedorType,
-  creado_en: String(p.creado_en ?? p.created_at ?? ""),
-  tarifas: p.tarifas ?? null,
-  cobertura: p.cobertura ?? null,
-  bilingue: toInt01(p.bilingue),
-  extranjero: toInt01(p.extranjero),
-  credito: toInt01(p.credito),
-  nombre_contacto: p.nombre_contacto ?? null,
-  ...p,
-});
-
-/**
- * Extractor tolerante:
- * - Por ahora el endpoint es el mismo que usas en facturas.
- * - Cuando ya tengas endpoint real, ajustas aquí para leer la clave correcta.
- */
-const extractProveedores = (data: any): Proveedor[] => {
-  if (!Array.isArray(data)) return [];
-
-  // Caso: array directo
-  if (data.length && (data[0]?.id !== undefined || data[0]?.nombre !== undefined)) {
-    return data.map(mapProveedor);
-  }
-
-  // Caso: wrappers
-  const out: Proveedor[] = [];
-  for (const item of data) {
-    const arr =
-      item?.proveedores_json ||
-      item?.proveedores ||
-      item?.data ||
-      item?.items ||
-      item?.facturas_json || // (para que no truene con tu endpoint actual)
-      null;
-
-    if (Array.isArray(arr)) out.push(...arr.map(mapProveedor));
-  }
-  return out;
-};
-
-/* ─────────────────────────────
-   Vista completa
-────────────────────────────── */
+import {
+  Proveedor,
+  ProveedoresService,
+  ProveedorType,
+  mapProveedor,
+} from "@/services/ProveedoresService";
+import { useNotification } from "@/context/useNotificacion";
 
 export default function ProveedoresPage() {
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const { showNotification } = useNotification();
 
   // Filtros
   const [tipoFiltro, setTipoFiltro] = useState<"" | ProveedorType>("");
@@ -99,28 +25,20 @@ export default function ProveedoresPage() {
   const id_agente = null as string | null;
 
   const fetchProveedores = async () => {
-    // ✅ MISMO fetch (endpoint/headers/body pattern)
-    const endpoint = `${URL}/mia/factura/getfacturasPagoPendienteByAgente`;
     setIsLoading(true);
-
     try {
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "x-api-key": API_KEY || "",
-          "Content-Type": "application/json",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-        },
-        body: JSON.stringify({ id_agente }),
-      });
+      const response = await ProveedoresService.getInstance()
+        .getProveedores()
+        .then((res) => res.data.map((item) => mapProveedor(item)))
+        .catch((err) => {
+          showNotification(
+            "error",
+            err.message || "Error al obtener los proveedores"
+          );
+          return [];
+        });
 
-      if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
-
-      const data = await response.json();
-      console.log("Respuesta recibida:", data);
-
-      const list = extractProveedores(data);
-      setProveedores(list);
+      setProveedores(response);
     } catch (err) {
       console.error("Error en la consulta:", err);
       setProveedores([]);
@@ -147,7 +65,6 @@ export default function ProveedoresPage() {
             p.telefono,
             p.nombre_contacto,
             p.sitio_web,
-            p.tarifas,
             p.cobertura,
           ]
             .filter(Boolean)
@@ -166,7 +83,6 @@ export default function ProveedoresPage() {
     telefono: p.telefono,
     email: p.email,
     sitio_web: p.sitio_web,
-    tarifas: p.tarifas,
     cobertura: p.cobertura,
     bilingue: p.bilingue,
     extranjero: p.extranjero,
@@ -205,7 +121,11 @@ export default function ProveedoresPage() {
 
     bilingue: ({ value }) => (
       <div className="flex justify-center">
-        <span className={`text-xs font-semibold ${Number(value) ? "text-emerald-700" : "text-gray-500"}`}>
+        <span
+          className={`text-xs font-semibold ${
+            Number(value) ? "text-emerald-700" : "text-gray-500"
+          }`}
+        >
           {Number(value) ? "Sí" : "No"}
         </span>
       </div>
@@ -213,7 +133,11 @@ export default function ProveedoresPage() {
 
     extranjero: ({ value }) => (
       <div className="flex justify-center">
-        <span className={`text-xs font-semibold ${Number(value) ? "text-emerald-700" : "text-gray-500"}`}>
+        <span
+          className={`text-xs font-semibold ${
+            Number(value) ? "text-emerald-700" : "text-gray-500"
+          }`}
+        >
           {Number(value) ? "Sí" : "No"}
         </span>
       </div>
@@ -221,7 +145,11 @@ export default function ProveedoresPage() {
 
     credito: ({ value }) => (
       <div className="flex justify-center">
-        <span className={`text-xs font-semibold ${Number(value) ? "text-emerald-700" : "text-gray-500"}`}>
+        <span
+          className={`text-xs font-semibold ${
+            Number(value) ? "text-emerald-700" : "text-gray-500"
+          }`}
+        >
           {Number(value) ? "Sí" : "No"}
         </span>
       </div>
@@ -312,12 +240,15 @@ export default function ProveedoresPage() {
             <div className="flex justify-center items-center h-56">
               <div className="text-center">
                 <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
-                <p className="mt-2 text-sm text-gray-600">Cargando proveedores...</p>
+                <p className="mt-2 text-sm text-gray-600">
+                  Cargando proveedores...
+                </p>
               </div>
             </div>
           ) : registros.length === 0 ? (
             <p className="text-sm text-gray-500 p-3">
-              No hay proveedores para mostrar (o el endpoint actual aún no retorna este catálogo).
+              No hay proveedores para mostrar (o el endpoint actual aún no
+              retorna este catálogo).
             </p>
           ) : (
             <Table5<any>
