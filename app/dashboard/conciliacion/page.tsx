@@ -1,236 +1,337 @@
+// app/conciliacion/page.tsx
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Table5 } from "@/components/Table5";
-import { formatDate } from "@/helpers/utils";
 import { URL, API_KEY } from "@/lib/constants/index";
+import { Filter, X, Search, Maximize2 } from "lucide-react";
 
-/* ─────────────────────────────
-  Tipos base (ajusta keys según tu API real)
-────────────────────────────── */
+type AnyRow = Record<string, any>;
 
-type CanalReservacion = "directo" | "intermediario" | "";
-type TipoReserva = "prepago" | "credito" | "";
-type TipoPago = "transferencia" | "tarjeta" | "link" | "cupon" | "";
-type EstatusPago =
-  | "carta_enviada"
-  | "pagado_tarjeta"
-  | "transferencia_solicitada"
-  | "pagado_transferencia"
-  | "pagado_link"
-  | "cupon_enviado"
-  | "";
+function formatDateSimple(dateStr?: string) {
+  if (!dateStr) return "—";
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("es-MX", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
 
-type EstatusFactura = "pendiente" | "parcial" | "completo" | "";
+function formatMoney(n: any) {
+  const num = Number(n);
+  if (Number.isNaN(num)) return "—";
+  return `$${num.toFixed(2)}`;
+}
 
-type FacturaInfo = {
-  uuid_factura: string | null;
-  total_factura: number | null;
-  total_aplicable: number | null;
-  impuestos: number | null;
-  subtotal: number | null;
-  razon_social: string | null;
-  rfc: string | null;
-};
+function safeArray(source: any): any[] {
+  if (!source) return [];
+  if (Array.isArray(source)) return source;
+  if (Array.isArray(source.todos)) return source.todos;
+  if (Array.isArray(source.items)) return source.items;
+  if (Array.isArray(source.data)) return source.data;
+  return [];
+}
 
-export type ReservaRow = {
-  // CONTROL: siempre por ID de reserva
-  id_reserva: string; // <- clave principal del menú
-  folio_reserva: string | null;
-
-  estado_reserva: string | null; // "confirmada" etc.
-
-  creado_en: string | null; // o fecha_ultima_carta
-  fecha_ultima_carta: string | null;
-
-  hotel: string | null;
-  codigo_hotel: string | null;
-  viajero: string | null;
-
-  check_in: string | null;
-  check_out: string | null;
-  noches: number | null;
-
-  tipo_cuarto: string | null;
-
-  costo_proveedor: number | null;
-  markup_pct: number | null; // ej 7.55 (porcentaje)
-  precio_venta: number | null;
-
-  canal_reservacion: CanalReservacion;
-  nombre_intermediario: string | null;
-
-  tipo_reserva: TipoReserva;
-  tipo_pago: TipoPago;
-
-  tarjeta_ultimos5: string | null; // 5 últimos dígitos
-  id_enviado: string | null; // 1er nombre titular
-
-  comentarios_ops: string | null;
-  comentarios_cxp: string | null;
-
-  estatus_pago: EstatusPago;
-  estatus_factura: EstatusFactura;
-
-  total_facturado: number | null; // sumatoria facturada
-  factura: FacturaInfo;
-
-  // Para validación cuando es DIRECTO
-  proveedor_razon_social: string | null;
-  proveedor_rfc: string | null;
-
-  raw?: any; // por si quieres inspección
-};
-
-/* ─────────────────────────────
-  Helpers
-────────────────────────────── */
-
-const n = (v: any): number | null => {
-  if (v === null || v === undefined || v === "") return null;
-  const num = Number(v);
-  return Number.isFinite(num) ? num : null;
-};
-
-const s = (v: any): string | null => {
-  if (v === null || v === undefined) return null;
-  const str = String(v).trim();
-  return str.length ? str : null;
-};
-
-const last5 = (v: any): string | null => {
-  const str = s(v);
-  if (!str) return null;
-  const digits = str.replace(/\D/g, "");
-  if (!digits) return null;
-  return digits.slice(-5);
-};
-
-const formatMoney = (v: any) => {
-  const num = Number(v);
-  if (!Number.isFinite(num)) return "—";
-  return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(num);
-};
-
-// Solo confirmadas (robusto a variaciones)
-const isConfirmed = (r: ReservaRow) => {
-  const st = (r.estado_reserva || "").toLowerCase();
-  return st.includes("confirm") || st === "ok" || st === "paid_confirmed"; // ajusta si aplica
-};
+function getRowId(raw: any, index: number) {
+  return String(
+    raw?.id_reserva ??
+      raw?.id_solicitud ??
+      raw?.id ??
+      raw?.codigo_reservacion_hotel ??
+      raw?.codigo_hotel ??
+      index
+  );
+}
 
 /**
- * Mapper tolerante: ajusta a tu payload real.
- * La idea es que NO truene si vienen wrappers o nombres distintos.
- */
-const mapReserva = (x: any): ReservaRow => {
-  const facturaSrc = x?.factura ?? x?.factura_info ?? x?.invoice ?? {};
-  const markupRaw = n(x?.markup_pct ?? x?.markup ?? x?.porcentaje_markup);
+ helper 
+  **/ 
 
-  const costo = n(x?.costo_proveedor ?? x?.costo ?? x?.neto_proveedor);
-  const precioVenta =
-    n(x?.precio_venta ?? x?.venta ?? x?.total_venta) ??
-    (costo !== null && markupRaw !== null ? costo * (1 + markupRaw / 100) : null);
+ function flattenPagos(raw: any): any[] {
+  const pagos = raw?.pagos;
+  if (!Array.isArray(pagos)) return [];
+
+  // En tu payload viene como [ [ {...}, {...} ], [] ]
+  // Pero lo aplanamos por si algún día llega más anidado
+  const lvl1 = pagos.flatMap((x: any) => (Array.isArray(x) ? x : [x]));
+  const lvl2 = lvl1.flatMap((x: any) => (Array.isArray(x) ? x : [x]));
+  return lvl2.filter(Boolean);
+}
+
+function getPagoStats(raw: any) {
+  const pagos = flattenPagos(raw);
+
+  let solicitado = 0;
+  let pagado = 0;
+  let conFecha = 0;
+
+  for (const p of pagos) {
+    solicitado += Number(p?.monto_solicitado ?? 0) || 0;
+    pagado += Number(p?.monto_pagado ?? 0) || 0;
+    if (p?.fecha_pago) conFecha += 1;
+  }
 
   return {
-    id_reserva: String(x?.id_reserva ?? x?.id_reservation ?? x?.id ?? ""),
-    folio_reserva: s(x?.folio_reserva ?? x?.folio ?? x?.codigo_reserva ?? x?.booking_code),
-
-    estado_reserva: s(x?.estado_reserva ?? x?.status_reserva ?? x?.estado),
-
-    creado_en: s(x?.creado_en ?? x?.created_at ?? x?.fecha_creacion),
-    fecha_ultima_carta: s(x?.fecha_ultima_carta ?? x?.last_letter_at ?? x?.fecha_carta),
-
-    hotel: s(x?.hotel ?? x?.hotel_nombre ?? x?.nombre_hotel),
-    codigo_hotel: s(x?.codigo_hotel ?? x?.hotel_code ?? x?.codigo),
-
-    viajero: s(x?.viajero ?? x?.cliente ?? x?.titular ?? x?.guest_name),
-
-    check_in: s(x?.check_in ?? x?.fecha_check_in),
-    check_out: s(x?.check_out ?? x?.fecha_check_out),
-    noches: n(x?.noches ?? x?.nights),
-
-    tipo_cuarto: s(x?.tipo_cuarto ?? x?.room_type),
-
-    costo_proveedor: costo,
-    markup_pct: markupRaw,
-    precio_venta: precioVenta,
-
-    canal_reservacion: (s(x?.canal_reservacion ?? x?.canal) as any) ?? "",
-    nombre_intermediario: s(x?.nombre_intermediario ?? x?.intermediario ?? x?.agencia),
-
-    tipo_reserva: (s(x?.tipo_reserva) as any) ?? "",
-    tipo_pago: (s(x?.tipo_pago) as any) ?? "",
-
-    tarjeta_ultimos5: s(x?.tarjeta_ultimos5 ?? x?.tarjeta) ?? last5(x?.tarjeta_numero),
-    id_enviado: s(x?.id_enviado ?? x?.titular_tarjeta_nombre ?? x?.cardholder_firstname),
-
-    comentarios_ops: s(x?.comentarios_ops ?? x?.comentarios_operaciones),
-    comentarios_cxp: s(x?.comentarios_cxp ?? x?.comentarios_cuentas_por_pagar),
-
-    estatus_pago: (s(x?.estatus_pago ?? x?.payment_status) as any) ?? "",
-    estatus_factura: (s(x?.estatus_factura ?? x?.invoice_status) as any) ?? "",
-
-    total_facturado: n(x?.total_facturado ?? x?.facturado_total ?? x?.invoice_total_sum),
-
-    factura: {
-      uuid_factura: s(facturaSrc?.uuid_factura ?? facturaSrc?.uuid),
-      total_factura: n(facturaSrc?.total_factura ?? facturaSrc?.total),
-      total_aplicable: n(facturaSrc?.total_aplicable),
-      impuestos: n(facturaSrc?.impuestos ?? facturaSrc?.taxes),
-      subtotal: n(facturaSrc?.subtotal),
-      razon_social: s(facturaSrc?.razon_social),
-      rfc: s(facturaSrc?.rfc),
-    },
-
-    proveedor_razon_social: s(x?.proveedor_razon_social ?? x?.razon_social_proveedor),
-    proveedor_rfc: s(x?.proveedor_rfc ?? x?.rfc_proveedor),
-
-    raw: x,
+    count: pagos.length,
+    solicitado,
+    pagado,
+    conFecha,
   };
-};
+}
 
-const extractReservas = (payload: any): ReservaRow[] => {
-  const data = payload?.data ?? payload?.items ?? payload ?? [];
-  if (Array.isArray(data)) return data.map(mapReserva);
+/**
+ * Prioridad "como payload":
+ * 1) raw.estatus_pagos (si viene)
+ * 2) raw.solicitud_proveedor.estado_solicitud (si viene)
+ * 3) fallback calculado con pagos (por si ambos vienen vacíos)
+ *
+ * Además conserva filtro_pago para tooltip.
+ */
+function getEstatusPagoPayload(raw: any) {
+  const estatusPayload = raw?.estatus_pagos ?? raw?.estatus_pago ?? "";
+  const estadoSolicitud = raw?.solicitud_proveedor?.estado_solicitud ?? "";
+  const filtroPago = raw?.filtro_pago ?? "";
 
-  // wrappers comunes
-  const arr =
-    payload?.data?.reservas ??
-    payload?.data?.reservas_json ??
-    payload?.reservas ??
-    payload?.reservas_json ??
-    null;
+  const stats = getPagoStats(raw);
 
-  return Array.isArray(arr) ? arr.map(mapReserva) : [];
-};
+  let computed = "";
+  if (stats.solicitado > 0) {
+    if (stats.pagado >= stats.solicitado) computed = "PAGADO";
+    else if (stats.pagado > 0) computed = "PARCIAL";
+    else computed = "PENDIENTE";
+  }
 
-/* ─────────────────────────────
-  Página
-────────────────────────────── */
+  const label = (estatusPayload || estadoSolicitud || computed || "").toString();
 
-export default function ReservasConfirmadasFacturacionPage() {
-  const [rows, setRows] = useState<ReservaRow[]>([]);
+  return {
+    label,
+    estatusPayload,
+    estadoSolicitud,
+    filtroPago,
+    ...stats,
+  };
+}
+ const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function calcNoches(checkIn?: string | null, checkOut?: string | null): number {
+  if (!checkIn || !checkOut) return 0;
+
+  const inD = new Date(checkIn);
+  const outD = new Date(checkOut);
+  if (Number.isNaN(inD.getTime()) || Number.isNaN(outD.getTime())) return 0;
+
+  // Normaliza a "fecha" en UTC para evitar desfases por hora/zona
+  const startUTC = Date.UTC(inD.getUTCFullYear(), inD.getUTCMonth(), inD.getUTCDate());
+  const endUTC = Date.UTC(outD.getUTCFullYear(), outD.getUTCMonth(), outD.getUTCDate());
+
+  const diffDays = Math.round((endUTC - startUTC) / MS_PER_DAY);
+  return diffDays > 0 ? diffDays : 0;
+}
+
+function getTipoPago(raw: any): string {
+  const detalles = Array.isArray(raw?.detalles_pagos) ? raw.detalles_pagos : [];
+  const first = detalles?.[0] ?? null;
+
+  return (
+    first?.tipo_de_pago ??
+    first?.metodo_de_pago ??
+    raw?.solicitud_proveedor?.forma_pago_solicitada ??
+    ""
+  );
+}
+
+type TipoReservaInferida = "HOTEL" | "RENTA AUTO" | "FACTURA" | "";
+
+function inferTipoReserva(raw: any): TipoReservaInferida {
+  // Heurística: ajusta conforme tengas claves definitivas
+  const isHotel = !!(raw?.id_hospedaje || raw?.hotel || raw?.room || raw?.codigo_reservacion_hotel);
+  if (isHotel) return "HOTEL";
+
+  const isRentaAuto = !!(
+    raw?.id_renta_auto ||
+    raw?.id_car_rental ||
+    raw?.renta_auto ||
+    raw?.car_rental ||
+    raw?.vehiculo
+  );
+  if (isRentaAuto) return "RENTA AUTO";
+
+  // Si no parece hotel ni renta, lo tratamos como factura (por ahora)
+  return "FACTURA";
+}
+
+type EstatusFacturaInferido = "FACTURADO" | "PARCIAL" | "SIN FACTURAR";
+
+function getEstatusFacturas(raw: any): EstatusFacturaInferido {
+  const facturas = Array.isArray(raw?.facturas) ? raw.facturas : [];
+  if (facturas.length === 0) return "SIN FACTURAR";
+
+  // pendiente_facturar puede venir en raíz o dentro de una factura (ajusta keys si difieren)
+  const pendienteRoot =
+    Number(raw?.pendiente_facturar ?? raw?.pendiente_por_facturar ?? raw?.pendiente ?? 0) || 0;
+
+  const pendienteEnFacturas = facturas.reduce((acc: number, f: any) => {
+    const p =
+      Number(f?.pendiente_facturar ?? f?.pendiente_por_facturar ?? f?.pendiente ?? 0) || 0;
+    return Math.max(acc, p);
+  }, 0);
+
+  const pendiente = Math.max(pendienteRoot, pendienteEnFacturas);
+
+  return pendiente > 0 ? "PARCIAL" : "FACTURADO";
+}
+
+
+/**
+ * Mapea tu raw -> row para Table5 (solo estructura).
+ * Ajusta keys si tu API difiere, pero ya deja todas las columnas pedidas.
+ */
+function toConciliacionRow(raw: any, index: number): AnyRow {
+  const row_id = getRowId(raw, index);
+
+  const hotel = (raw?.hotel ?? "").toString();
+  const viajero = (
+    raw?.nombre_viajero_completo ??
+    raw?.nombre_viajero ??
+    ""
+  ).toString();
+
+  const costo_proveedor = Number(raw?.costo_total ?? raw?.costo_proveedor ?? 0) || 0;
+  const precio_de_venta = Number(raw?.total ?? raw?.precio_de_venta ?? 0) || 0;
+  const markup = precio_de_venta > 0 ? ((precio_de_venta - costo_proveedor) / precio_de_venta) * 100 : 0;
+
+  // ✅ NUEVO: noches calculadas desde fechas
+  const nochesCalc = calcNoches(raw?.check_in, raw?.check_out);
+
+  // ✅ NUEVO: tipo de pago desde detalles_pagos[0]
+  const tipoPago = getTipoPago(raw);
+
+  // ✅ NUEVO: tipo de reserva inferido
+  const tipoReserva = inferTipoReserva(raw);
+
+  // ✅ NUEVO: comentarios_ops desde comments
+  const comentariosOps = raw?.comments ?? raw?.comentarios_ops ?? "";
+
+  // ✅ NUEVO: estatus facturas (facturas[])
+  const estatusFacturas = getEstatusFacturas(raw);
+
+  // Factura / conciliación (igual que ya lo tenías)
+  const uuid_factura = raw?.uuid_factura ?? raw?.UUID ?? raw?.uuid ?? null;
+  const total_factura = Number(raw?.total_factura ?? 0) || 0;
+  const total_facturado = Number(raw?.total_facturado ?? raw?.costo_facturado ?? 0) || 0;
+
+  const total_aplicable = raw?.total_aplicable ?? raw?.totalAplicable ?? "";
+  const impuestos = raw?.impuestos ?? "";
+  const subtotal = raw?.subtotal ?? "";
+
+  const baseFactura =
+    Number(total_aplicable) ||
+    Number(total_facturado) ||
+    Number(total_factura) ||
+    0;
+
+    const estatusPagoObj = getEstatusPagoPayload(raw);
+
+  const diferencia = Number(costo_proveedor) - Number(baseFactura);
+
+  const tarjeta =
+    raw?.tarjeta?.ultimos_4 ??
+    raw?.digitos_tajeta ??
+    raw?.ultimos_4 ??
+    raw?.tarjeta ??
+    "";
+
+  const id_enviado = raw?.id_enviado ?? raw?.titular_tarjeta ?? "";
+
+  const razon_social =
+    raw?.proveedor?.razon_social ?? raw?.razon_social ?? "";
+  const rfc = raw?.proveedor?.rfc ?? raw?.rfc ?? "";
+
+  return {
+    row_id,
+
+    creado: raw?.created_at ?? raw?.creado ?? null,
+    hotel: hotel ? hotel.toUpperCase() : "",
+    codigo_hotel: raw?.codigo_reservacion_hotel ?? raw?.codigo_hotel ?? "",
+    viajero: viajero ? viajero.toUpperCase() : "",
+    check_in: raw?.check_in ?? null,
+    check_out: raw?.check_out ?? null,
+
+    // ✅ aquí reemplaza tu noches anterior
+    noches: nochesCalc,
+
+    tipo_cuarto: raw?.room ?? raw?.tipo_cuarto ?? "",
+
+    costo_proveedor,
+    markup,
+    precio_de_venta,
+
+    canal_de_reservacion:
+      raw?.canal_de_reservacion ?? raw?.canal_reservacion ?? "",
+    nombre_intermediario: raw?.nombre_intermediario ?? "",
+
+    // ✅ aquí reemplaza tipo_de_reserva y tipo_de_pago anteriores
+    tipo_de_reserva: tipoReserva,
+    tipo_de_pago: tipoPago,
+
+    tarjeta,
+    id_enviado,
+
+    // ✅ aquí reemplaza comentarios_ops anterior
+    comentarios_ops: comentariosOps,
+    conmentarios_cxp: raw?.comentarios_cxp ?? raw?.conmentarios_cxp ?? "",
+    estatus_pago: estatusPagoObj.label ? estatusPagoObj.label.toUpperCase() : "",
+__estatus_pago: estatusPagoObj,
+
+    detalles: "",
+    subir_factura: "",
+
+    // ✅ aquí reemplaza estatus_facturas anterior
+    estatus_facturas: estatusFacturas,
+
+
+    total_facturado,
+    diferencia_costo_proveedor_vs_factura: diferencia,
+
+    uuid_factura,
+    total_factura,
+    total_aplicable,
+    impuestos,
+    subtotal,
+
+    razon_social,
+    rfc,
+
+    __raw: raw,
+  };
+}
+
+
+export default function ConciliacionPage() {
   const [isLoading, setIsLoading] = useState(false);
+  const [rows, setRows] = useState<any[]>([]);
 
-  // Placeholder (sin componente de filtros)
-  const [q, setQ] = useState("");
+  // UI (solo layout)
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
-  // Modal detalles
-  const [openDetalles, setOpenDetalles] = useState(false);
-  const [selected, setSelected] = useState<ReservaRow | null>(null);
+  // Draft UI para que se refleje lo editado (tu lógica real vendrá después)
+  const [draftEdits, setDraftEdits] = useState<Record<string, Partial<AnyRow>>>(
+    {}
+  );
 
-  const fetchReservas = async () => {
-    /**
-     * IMPORTANTE:
-     * - Mantengo el MISMO patrón de fetch que tu componente original (headers, GET, etc.).
-     * - Ajusta el endpoint a tu ruta real de “reservas confirmadas”.
-     */
-    const endpoint = `${URL}/mia/pago_proveedor/solicitud`; // <- AJUSTA AQUÍ
+  const endpoint = `${URL}/mia/pago_proveedor/solicitud`;
+
+  const load = useCallback(async () => {
+    const controller = new AbortController();
     setIsLoading(true);
 
     try {
       const response = await fetch(endpoint, {
         method: "GET",
+        signal: controller.signal,
         headers: {
           "x-api-key": API_KEY || "",
           "Content-Type": "application/json",
@@ -241,7 +342,10 @@ export default function ReservasConfirmadasFacturacionPage() {
       if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
 
       const json = await response.json();
-      const list = extractReservas(json);
+      const source = json?.data?.todos ?? json?.data ?? json;
+      const list = safeArray(source);
+
+      console.log("envio de informacion", list);
       setRows(list);
     } catch (err) {
       console.error("Error cargando reservas:", err);
@@ -249,666 +353,492 @@ export default function ReservasConfirmadasFacturacionPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+
+    return () => controller.abort();
+  }, [endpoint]);
 
   useEffect(() => {
-    fetchReservas();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    load();
+  }, [load]);
 
-  // Solo confirmadas + búsqueda simple (placeholder)
-  const reservas = useMemo(() => {
-    const term = q.trim().toLowerCase();
+  const handleEdit = useCallback(
+    (rowId: string, field: string, value: any) => {
+      // ✅ Solo imprime cambio (tú conectas lógica después)
+      console.log("cambio", { rowId, field, value });
 
-    return rows
-      .filter(isConfirmed) // REGLA: SOLO CONFIRMADAS
-      .filter((r) => {
-        if (!term) return true;
-        return [
-          r.id_reserva,
-          r.folio_reserva,
-          r.hotel,
-          r.codigo_hotel,
-          r.viajero,
-          r.proveedor_razon_social,
-          r.factura?.uuid_factura,
-        ]
-          .filter(Boolean)
-          .some((x) => String(x).toLowerCase().includes(term));
-      });
-  }, [rows, q]);
+      // Para que se vea el cambio en UI (opcional)
+      setDraftEdits((prev) => ({
+        ...prev,
+        [rowId]: { ...(prev[rowId] || {}), [field]: value },
+      }));
+    },
+    []
+  );
+  type CommentField = "comentarios_ops" | "conmentarios_cxp";
 
-  // Update local (NO persiste a BD: tú lo conectas después)
-  const patchRow = (id_reserva: string, patch: Partial<ReservaRow>) => {
-    setRows((prev) => prev.map((r) => (r.id_reserva === id_reserva ? { ...r, ...patch } : r)));
-  };
+type CommentModalState = {
+  open: boolean;
+  rowId: string;
+  field: CommentField;
+  value: string;
+};
 
-  const patchFactura = (id_reserva: string, patch: Partial<FacturaInfo>) => {
-    setRows((prev) =>
-      prev.map((r) =>
-        r.id_reserva === id_reserva
-          ? { ...r, factura: { ...r.factura, ...patch } }
-          : r
-      )
-    );
-  };
+const [commentModal, setCommentModal] = useState<CommentModalState>({
+  open: false,
+  rowId: "",
+  field: "comentarios_ops",
+  value: "",
+});
 
-  const registros = reservas.map((r) => {
-    const totalFacturado = r.total_facturado ?? r.factura?.total_factura ?? 0;
-    const costo = r.costo_proveedor ?? 0;
-    const diff = totalFacturado - costo;
-
-    return {
-      id_reserva: r.id_reserva,
-      creado: r.fecha_ultima_carta ?? r.creado_en,
-      hotel: r.hotel,
-      codigo_hotel: r.codigo_hotel,
-      viajero: r.viajero,
-      check_in: r.check_in,
-      check_out: r.check_out,
-      noches: r.noches,
-      tipo_cuarto: r.tipo_cuarto,
-      costo_proveedor: r.costo_proveedor,
-      markup: r.markup_pct,
-      precio_venta: r.precio_venta,
-      canal_reservacion: r.canal_reservacion,
-      nombre_intermediario: r.nombre_intermediario,
-      tipo_reserva: r.tipo_reserva,
-      tipo_pago: r.tipo_pago,
-
-      tarjeta: r.tarjeta_ultimos5,
-      id_enviado: r.id_enviado,
-      comentarios_ops: r.comentarios_ops,
-      comentarios_cxp: r.comentarios_cxp,
-      estatus_pago: r.estatus_pago,
-      detalles: "Detalles",
-      estatus_factura: r.estatus_factura,
-      total_facturado: totalFacturado,
-      diferencia_costo_vs_factura: diff,
-
-      subir_factura: "Subir factura",
-      todos_detalles: false,
-
-      item: r, // Table5 pasa item a renderers
-    };
+const openCommentModal = useCallback((rowId: string, field: CommentField, value: any) => {
+  setCommentModal({
+    open: true,
+    rowId,
+    field,
+    value: String(value ?? ""),
   });
+}, []);
 
-  const renderers: { [key: string]: React.FC<{ value: any; item: any; index: number }> } = {
-    id_reserva: ({ value }) => (
-      <div className="flex justify-start">
-        <span className="font-semibold text-gray-900">{value || "—"}</span>
-      </div>
-    ),
+const closeCommentModal = useCallback(() => {
+  setCommentModal((s) => ({ ...s, open: false }));
+}, []);
 
-    creado: ({ value, item }) => (
-      <div className="flex justify-start">
-        <div className="flex flex-col">
-          <span className="text-gray-800">{formatDate(value ?? null)}</span>
-          <span className="text-[11px] text-gray-500">
-            {/* Solo texto guía como en la imagen */}
-            Última carta (descargada/enviada)
-          </span>
-          <span className="text-[11px] text-gray-400">
-            Folio: {item?.item?.folio_reserva || item?.item?.folio || "—"}
-          </span>
-        </div>
-      </div>
-    ),
+const saveCommentModal = useCallback(() => {
+  if (!commentModal.rowId) return;
+  handleEdit(commentModal.rowId, commentModal.field, commentModal.value);
+  closeCommentModal();
+}, [commentModal, handleEdit, closeCommentModal]);
 
-    hotel: ({ value }) => (
-      <div className="flex justify-start">
-        <span className="text-gray-800 font-semibold">{value || "—"}</span>
-      </div>
-    ),
 
-    codigo_hotel: ({ value }) => (
-      <div className="flex justify-start">
-        <span className="text-gray-700">{value || "—"}</span>
-      </div>
-    ),
+  const registrosVisibles = useMemo(() => {
+    const mapped = rows.map((r, i) => toConciliacionRow(r, i));
 
-    viajero: ({ value }) => (
-      <div className="flex justify-start">
-        <span className="text-gray-700">{value || "—"}</span>
-      </div>
-    ),
+    const q = (searchTerm || "").toUpperCase().trim();
+    if (!q) return mapped;
 
-    check_in: ({ value }) => <span className="text-gray-700">{formatDate(value ?? null)}</span>,
-    check_out: ({ value }) => <span className="text-gray-700">{formatDate(value ?? null)}</span>,
-
-    noches: ({ value }) => (
-      <div className="flex justify-center">
-        <span className="text-gray-700">{value ?? "—"}</span>
-      </div>
-    ),
-
-    tipo_cuarto: ({ value }) => (
-      <div className="flex justify-center">
-        <span className="text-xs px-2 py-1 rounded border bg-gray-50 text-gray-700">
-          {value || "—"}
-        </span>
-      </div>
-    ),
-
-    costo_proveedor: ({ value }) => (
-      <div className="flex justify-end">
-        <span className="font-semibold text-gray-900">{formatMoney(value)}</span>
-      </div>
-    ),
-
-    markup: ({ value }) => {
-      const pct = Number(value);
-      const label = Number.isFinite(pct) ? `${pct.toFixed(2)}%` : "—";
+    return mapped.filter((r) => {
       return (
-        <div className="flex justify-center">
-          <span className="text-xs font-semibold px-2 py-1 rounded-full border bg-emerald-50 text-emerald-700">
-            {label}
-          </span>
-        </div>
+        (r.hotel || "").toUpperCase().includes(q) ||
+        (r.codigo_hotel || "").toUpperCase().includes(q) ||
+        (r.viajero || "").toUpperCase().includes(q)
       );
-    },
+    });
+  }, [rows, searchTerm]);
 
-    precio_venta: ({ value }) => (
-      <div className="flex justify-end">
-        <span className="font-semibold text-gray-900">{formatMoney(value)}</span>
-      </div>
-    ),
+  const customColumns = useMemo(
+    () => [
+      "creado",
+      "hotel",
+      "codigo_hotel",
+      "viajero",
+      "check_in",
+      "check_out",
+      "noches",
+      "tipo_cuarto",
+      "costo_proveedor",
+      "markup",
+      "precio_de_venta",
+      "canal_de_reservacion",
+      "nombre_intermediario",
+      "tipo_de_reserva",
+      "tipo_de_pago",
+      "tarjeta",
+      "id_enviado",
+      "comentarios_ops",
+      "conmentarios_cxp",
+      "detalles",
+      "estatus_facturas",
+      "estatus_pago",   
+      "total_facturado",
+      "diferencia_costo_proveedor_vs_factura",
+      "subir_factura",
+      "uuid_factura",
+      "total_factura",
+      "total_aplicable",
+      "impuestos",
+      "subtotal",
+      "razon_social",
+      "rfc",
+    ],
+    []
+  );
 
-    canal_reservacion: ({ item }) => {
-      const r: ReservaRow = item.item;
-      return (
-        <div className="flex justify-center">
-          <select
-            value={r.canal_reservacion || ""}
-            onChange={(e) =>
-              patchRow(r.id_reserva, { canal_reservacion: e.target.value as CanalReservacion })
-            }
-            className="border rounded px-2 py-1 text-xs bg-white"
+  const renderers = useMemo<
+    Record<string, React.FC<{ value: any; item: any; index: number }>>
+  >(
+    () => ({
+      creado: ({ value }) => <span title={value}>{formatDateSimple(value)}</span>,
+      check_in: ({ value }) => <span title={value}>{formatDateSimple(value)}</span>,
+      check_out: ({ value }) => <span title={value}>{formatDateSimple(value)}</span>,
+
+      codigo_hotel: ({ value }) => (
+        <span className="font-semibold">{value ? String(value).toUpperCase() : ""}</span>
+      ),
+
+      costo_proveedor: ({ value }) => <span title={String(value)}>{formatMoney(value)}</span>,
+      precio_de_venta: ({ value }) => <span title={String(value)}>{formatMoney(value)}</span>,
+
+      markup: ({ value }) => {
+        const n = Number(value || 0);
+        return (
+          <span
+            className={[
+              "font-semibold border px-2 py-1 rounded-full text-xs",
+              n >= 0
+                ? "text-green-700 bg-green-50 border-green-200"
+                : "text-red-700 bg-red-50 border-red-200",
+            ].join(" ")}
+            title={`${n.toFixed(2)}%`}
           >
-            <option value="">(editable al elegir)</option>
-            <option value="directo">DIRECTO</option>
-            <option value="intermediario">INTERMEDIARIO</option>
-          </select>
-        </div>
-      );
-    },
+            {n.toFixed(2)}%
+          </span>
+        );
+      },
 
-    nombre_intermediario: ({ item }) => {
-      const r: ReservaRow = item.item;
-      return (
-        <div className="flex flex-col gap-1">
+
+      
+      // ------- EDITABLES -------
+      canal_de_reservacion: ({ value, item }) => {
+        const rowId = String(item?.row_id ?? "");
+        const v = draftEdits[rowId]?.canal_de_reservacion ?? value ?? "";
+        return (
+          <select
+            className="w-full border border-gray-200 rounded-md px-2 py-1 text-xs bg-white"
+            value={String(v)}
+            onChange={(e) => handleEdit(rowId, "canal_de_reservacion", e.target.value)}
+          >
+            <option value="">—</option>
+            <option value="DIRECTO">DIRECTO</option>
+            <option value="INTERMEDIARIO">INTERMEDIARIO</option>
+          </select>
+        );
+      },
+
+      nombre_intermediario: ({ value, item }) => {
+        const rowId = String(item?.row_id ?? "");
+        const v = draftEdits[rowId]?.nombre_intermediario ?? value ?? "";
+        return (
           <input
-            value={r.nombre_intermediario || ""}
-            onChange={(e) => patchRow(r.id_reserva, { nombre_intermediario: e.target.value })}
-            placeholder="(editable)"
-            className="border rounded px-2 py-1 text-xs"
+            className="w-full border border-gray-200 rounded-md px-2 py-1 text-xs"
+            value={String(v)}
+            onChange={(e) => handleEdit(rowId, "nombre_intermediario", e.target.value)}
+            placeholder="Editable..."
           />
-          <span className="text-[11px] text-gray-400">Solo si es intermediario</span>
-        </div>
-      );
-    },
+        );
+      },
 
-    tipo_reserva: ({ item }) => {
-      const r: ReservaRow = item.item;
-      return (
-        <div className="flex justify-center">
-          <select
-            value={r.tipo_reserva || ""}
-            onChange={(e) => patchRow(r.id_reserva, { tipo_reserva: e.target.value as TipoReserva })}
-            className="border rounded px-2 py-1 text-xs bg-white"
-          >
-            <option value="">—</option>
-            <option value="prepago">PREPAGO</option>
-            <option value="credito">CRÉDITO</option>
-          </select>
-        </div>
-      );
-    },
-
-    tipo_pago: ({ item }) => {
-      const r: ReservaRow = item.item;
-      return (
-        <div className="flex justify-center">
-          <select
-            value={r.tipo_pago || ""}
-            onChange={(e) => patchRow(r.id_reserva, { tipo_pago: e.target.value as TipoPago })}
-            className="border rounded px-2 py-1 text-xs bg-white"
-          >
-            <option value="">—</option>
-            <option value="transferencia">TRANSFERENCIA</option>
-            <option value="tarjeta">TARJETA</option>
-            <option value="link">LINK</option>
-            <option value="cupon">CUPÓN</option>
-          </select>
-        </div>
-      );
-    },
-
-    tarjeta: ({ value }) => (
-      <div className="flex justify-center">
-        <span className="text-gray-800 font-semibold">{value ? `••••• ${value}` : "—"}</span>
-      </div>
-    ),
-
-    id_enviado: ({ value }) => (
-      <div className="flex justify-start">
-        <span className="text-gray-700">{value || "—"}</span>
-      </div>
-    ),
-
-    comentarios_ops: ({ item }) => {
-      const r: ReservaRow = item.item;
-      return (
-        <textarea
-          value={r.comentarios_ops || ""}
-          onChange={(e) => patchRow(r.id_reserva, { comentarios_ops: e.target.value })}
-          placeholder="(editable)"
-          className="border rounded px-2 py-1 text-xs w-full min-w-[240px]"
-          rows={2}
-        />
-      );
-    },
-
-    comentarios_cxp: ({ item }) => {
-      const r: ReservaRow = item.item;
-      return (
-        <textarea
-          value={r.comentarios_cxp || ""}
-          onChange={(e) => patchRow(r.id_reserva, { comentarios_cxp: e.target.value })}
-          placeholder="(editable)"
-          className="border rounded px-2 py-1 text-xs w-full min-w-[240px]"
-          rows={2}
-        />
-      );
-    },
-
-    estatus_pago: ({ item }) => {
-      const r: ReservaRow = item.item;
-      return (
-        <div className="flex justify-center">
-          <select
-            value={r.estatus_pago || ""}
-            onChange={(e) => patchRow(r.id_reserva, { estatus_pago: e.target.value as EstatusPago })}
-            className="border rounded px-2 py-1 text-xs bg-white"
-          >
-            <option value="">—</option>
-            <option value="carta_enviada">CARTA ENVIADA</option>
-            <option value="pagado_tarjeta">PAGADO TARJETA</option>
-            <option value="transferencia_solicitada">TRANSFERENCIA SOLICITADA</option>
-            <option value="pagado_transferencia">PAGADO TRANSFERENCIA</option>
-            <option value="pagado_link">PAGADO LINK</option>
-            <option value="cupon_enviado">CUPÓN ENVIADO</option>
-          </select>
-        </div>
-      );
-    },
-
-    detalles: ({ item }) => {
-      const r: ReservaRow = item.item;
-      return (
-        <button
-          onClick={() => {
-            setSelected(r);
-            setOpenDetalles(true);
-          }}
-          className="text-xs px-3 py-1 rounded border bg-gray-50 hover:bg-gray-100"
-        >
-          Detalles
-        </button>
-      );
-    },
-
-    estatus_factura: ({ item }) => {
-      const r: ReservaRow = item.item;
-      return (
-        <div className="flex justify-center">
-          <select
-            value={r.estatus_factura || ""}
-            onChange={(e) =>
-              patchRow(r.id_reserva, { estatus_factura: e.target.value as EstatusFactura })
-            }
-            className="border rounded px-2 py-1 text-xs bg-white"
-          >
-            <option value="">—</option>
-            <option value="pendiente">PENDIENTE: SIN FACTURA</option>
-            <option value="parcial">PARCIAL (±$20)</option>
-            <option value="completo">COMPLETO</option>
-          </select>
-        </div>
-      );
-    },
-
-    total_facturado: ({ value }) => (
-      <div className="flex justify-end">
-        <span className="font-semibold text-gray-900">{formatMoney(value)}</span>
-      </div>
-    ),
-
-    diferencia_costo_vs_factura: ({ value }) => {
-      const num = Number(value);
-      const ok = Number.isFinite(num) && Math.abs(num) <= 20;
-      return (
-        <div className="flex justify-end">
-          <span className={`font-semibold ${ok ? "text-emerald-700" : "text-rose-700"}`}>
-            {Number.isFinite(num) ? formatMoney(num) : "—"}
-          </span>
-        </div>
-      );
-    },
-
-    subir_factura: ({ item }) => {
-      const r: ReservaRow = item.item;
-      return (
-        <button
-          onClick={() => {
-            // TODO: aquí conectas tu flujo real de subida (por id_reserva)
-            alert(`Subir factura (id_reserva: ${r.id_reserva})`);
-          }}
-          className="text-xs px-3 py-1 rounded bg-emerald-600 text-white hover:bg-emerald-700"
-        >
-          Subir factura
-        </button>
-      );
-    },
-
-    todos_detalles: () => (
-      <div className="flex justify-center">
-        {/* Placeholder: tú harás el comportamiento real */}
-        <input type="checkbox" className="h-4 w-4" />
-      </div>
-    ),
-  };
+      comentarios_ops: ({ value, item }) => {
+  const rowId = String(item?.row_id ?? "");
+  const v = draftEdits[rowId]?.comentarios_ops ?? value ?? "";
 
   return (
-    <div className="p-4 md:p-6">
-      {/* Header / Search (sin componente de filtros) */}
-      <div className="bg-white border rounded-lg shadow-sm p-4 md:p-5">
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-            <div>
-              <h1 className="text-xl font-semibold text-gray-900">
-                Reservas confirmadas (Facturación / Pagos)
-              </h1>
-              <p className="text-sm text-gray-600 mt-1">
-                Control por <span className="font-semibold">ID de reserva</span>. Solo se listan reservas{" "}
-                <span className="font-semibold">confirmadas</span>.
-              </p>
+    <div className="flex items-center gap-2">
+      <input
+        className="w-full border border-gray-200 rounded-md px-2 py-1 text-xs"
+        value={String(v)}
+        onChange={(e) => handleEdit(rowId, "comentarios_ops", e.target.value)}
+        onDoubleClick={() => openCommentModal(rowId, "comentarios_ops", v)}
+        placeholder="Editable..."
+      />
+      <button
+        type="button"
+        className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 bg-white hover:bg-gray-50"
+        title="Ver comentario completo"
+        onClick={() => openCommentModal(rowId, "comentarios_ops", v)}
+      >
+        <Maximize2 className="w-4 h-4 text-gray-600" />
+      </button>
+    </div>
+  );
+},
+
+conmentarios_cxp: ({ value, item }) => {
+  const rowId = String(item?.row_id ?? "");
+  const v = draftEdits[rowId]?.conmentarios_cxp ?? value ?? "";
+
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        className="w-full border border-gray-200 rounded-md px-2 py-1 text-xs"
+        value={String(v)}
+        onChange={(e) => handleEdit(rowId, "conmentarios_cxp", e.target.value)}
+        onDoubleClick={() => openCommentModal(rowId, "conmentarios_cxp", v)}
+        placeholder="Editable..."
+      />
+      <button
+        type="button"
+        className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 bg-white hover:bg-gray-50"
+        title="Ver comentario completo"
+        onClick={() => openCommentModal(rowId, "conmentarios_cxp", v)}
+      >
+        <Maximize2 className="w-4 h-4 text-gray-600" />
+      </button>
+    </div>
+  );
+},
+
+
+      total_aplicable: ({ value, item }) => {
+        const rowId = String(item?.row_id ?? "");
+        const v = draftEdits[rowId]?.total_aplicable ?? value ?? "";
+        return (
+          <input
+            type="number"
+            className="w-full border border-gray-200 rounded-md px-2 py-1 text-xs"
+            value={String(v)}
+            onChange={(e) => handleEdit(rowId, "total_aplicable", e.target.value)}
+            placeholder="0.00"
+          />
+        );
+      },
+
+      impuestos: ({ value, item }) => {
+        const rowId = String(item?.row_id ?? "");
+        const v = draftEdits[rowId]?.impuestos ?? value ?? "";
+        return (
+          <input
+            type="number"
+            className="w-full border border-gray-200 rounded-md px-2 py-1 text-xs"
+            value={String(v)}
+            onChange={(e) => handleEdit(rowId, "impuestos", e.target.value)}
+            placeholder="0.00"
+          />
+        );
+      },
+
+      subtotal: ({ value, item }) => {
+        const rowId = String(item?.row_id ?? "");
+        const v = draftEdits[rowId]?.subtotal ?? value ?? "";
+        return (
+          <input
+            type="number"
+            className="w-full border border-gray-200 rounded-md px-2 py-1 text-xs"
+            value={String(v)}
+            onChange={(e) => handleEdit(rowId, "subtotal", e.target.value)}
+            placeholder="0.00"
+          />
+        );
+      },
+
+      // ------- BOTONES / SELECT -------
+      detalles: ({ item }) => {
+        const rowId = String(item?.row_id ?? "");
+        return (
+          <button
+            type="button"
+            className="px-2 py-1 rounded-md text-xs border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+            onClick={() => console.log("detalles", { rowId })}
+          >
+            Detalles
+          </button>
+        );
+      },
+
+      subir_factura: ({ item }) => {
+        const rowId = String(item?.row_id ?? "");
+        return (
+          <button
+            type="button"
+            className="px-2 py-1 rounded-md text-xs border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+            onClick={() => console.log("subir_factura", { rowId })}
+          >
+            Subir
+          </button>
+        );
+      },
+
+      // ------- DISPLAY EXTRA -------
+      total_facturado: ({ value }) => <span title={String(value)}>{formatMoney(value)}</span>,
+
+      diferencia_costo_proveedor_vs_factura: ({ value }) => {
+        const n = Number(value || 0);
+        return (
+          <span
+            className={n === 0 ? "text-gray-700" : n > 0 ? "text-amber-700 font-semibold" : "text-red-700 font-semibold"}
+            title={String(value)}
+          >
+            {formatMoney(n)}
+          </span>
+        );
+      },
+
+      uuid_factura: ({ value }) => (
+        <span className="font-mono text-xs" title={value || ""}>
+          {value ? String(value).slice(0, 8) + "…" : "—"}
+        </span>
+      ),
+
+      total_factura: ({ value }) => <span title={String(value)}>{formatMoney(value)}</span>,
+    }),
+    [draftEdits, handleEdit,openCommentModal]
+  );
+
+  const defaultSort = useMemo(() => ({ key: "creado", sort: false }), []);
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-[1400px] mx-auto px-4 py-4 space-y-4">
+        {/* Barra de búsqueda + botones */}
+        <div className="bg-white border border-gray-200 rounded-lg p-3">
+          <div className="flex flex-col md:flex-row md:items-center gap-3">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Buscar por código, ID, cliente..."
+                  className="w-full border border-gray-200 rounded-lg pl-9 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
+                />
+              </div>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex items-center justify-end gap-2">
               <button
-                onClick={fetchReservas}
-                disabled={isLoading}
-                className="text-sm px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-400"
+                type="button"
+                onClick={() => setFiltersOpen((s) => !s)}
+                className="inline-flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white hover:bg-gray-50"
               >
-                {isLoading ? "Cargando..." : "Refrescar"}
+                <Filter className="w-4 h-4" />
+                Filtros
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSearchTerm("")}
+                className="inline-flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white hover:bg-gray-50"
+              >
+                <X className="w-4 h-4" />
+                Limpiar
               </button>
             </div>
           </div>
 
-          <div className="flex flex-col md:flex-row gap-2 md:items-center">
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Buscar por código, ID, cliente..."
-              className="w-full md:w-[520px] border rounded px-3 py-2 text-sm"
-            />
+          {/* Panel de filtros (solo espaciado / sin lógica) */}
+          {filtersOpen && (
+            <div className="mt-4 border-t border-gray-100 pt-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Folio / ID reserva
+                  </label>
+                  <input
+                    placeholder="Ej. 302081977..."
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                  />
+                </div>
 
-            {/* Placeholder: tú harás tu componente de filtros después */}
-            <button
-              onClick={() => alert("Pendiente: componente de filtros")}
-              className="text-sm px-3 py-2 rounded border bg-white hover:bg-gray-50"
-            >
-              Filtros
-            </button>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Cliente
+                  </label>
+                  <input
+                    placeholder="Buscar cliente..."
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                  />
+                </div>
 
-            <button
-              onClick={() => setQ("")}
-              className="text-sm px-3 py-2 rounded border bg-white hover:bg-gray-50"
-            >
-              Limpiar
-            </button>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Viajero
+                  </label>
+                  <input
+                    placeholder="Buscar viajero..."
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                  />
+                </div>
 
-            <div className="md:ml-auto text-xs text-gray-600">
-              Mostrando <span className="font-semibold">{registros.length}</span> reserva(s)
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Tabla */}
-      <div className="mt-4 bg-white border rounded-lg shadow-sm overflow-hidden">
-        <div className="p-3">
-          {isLoading ? (
-            <div className="flex justify-center items-center h-56">
-              <div className="text-center">
-                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
-                <p className="mt-2 text-sm text-gray-600">Cargando reservas...</p>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Rango de fechas
+                  </label>
+                  <input
+                    placeholder="Check-in / Check-out"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                  />
+                </div>
               </div>
             </div>
-          ) : registros.length === 0 ? (
-            <p className="text-sm text-gray-500 p-3">
-              No hay reservas confirmadas para mostrar (o ajusta el endpoint/mapeo).
-            </p>
-          ) : (
-            <Table5<any>
-              registros={registros}
-              renderers={renderers}
-              exportButton={true}
-              leyenda={`Mostrando ${registros.length} reserva(s) confirmada(s)`}
-              maxHeight="70vh"
-              customColumns={[
-                // Parte superior (como en la imagen)
-                "id_reserva",
-                "creado",
-                "hotel",
-                "codigo_hotel",
-                "viajero",
-                "check_in",
-                "check_out",
-                "noches",
-                "tipo_cuarto",
-                "costo_proveedor",
-                "markup",
-                "precio_venta",
-                "canal_reservacion",
-                "nombre_intermediario",
-                "tipo_reserva",
-                "tipo_pago",
-
-                // Parte inferior (como en la imagen)
-                "tarjeta",
-                "id_enviado",
-                "comentarios_ops",
-                "comentarios_cxp",
-                "estatus_pago",
-                "detalles",
-                "estatus_factura",
-                "total_facturado",
-                "diferencia_costo_vs_factura",
-                "subir_factura",
-                "todos_detalles",
-              ]}
-            />
           )}
         </div>
+
+        {/* Tabla principal */}
+<div className="bg-white border border-gray-200 rounded-lg p-3 flex flex-col">
+  <Table5<any>
+    registros={registrosVisibles as any}
+    renderers={renderers}
+    defaultSort={defaultSort as any}
+    leyenda={`Mostrando ${registrosVisibles.length} registros`}
+    customColumns={customColumns}
+    fillHeight
+    maxHeight="calc(100vh - 220px)"
+  />
+</div>
+{commentModal.open && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center">
+    {/* overlay */}
+    <div
+      className="absolute inset-0 bg-black/40"
+      onClick={closeCommentModal}
+    />
+
+    {/* modal */}
+    <div className="relative w-[min(720px,92vw)] bg-white rounded-xl shadow-lg border border-gray-200">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+        <div>
+          <p className="text-sm font-semibold text-gray-900">
+            {commentModal.field === "comentarios_ops"
+              ? "Comentario OPS"
+              : "Comentario CXP"}
+          </p>
+          <p className="text-xs text-gray-500">
+            ID: {commentModal.rowId}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          className="inline-flex items-center justify-center w-9 h-9 rounded-md border border-gray-200 bg-white hover:bg-gray-50"
+          onClick={closeCommentModal}
+          title="Cerrar"
+        >
+          <X className="w-4 h-4 text-gray-700" />
+        </button>
       </div>
 
-      {/* Modal Detalles (Factura) */}
-      {openDetalles && selected && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-3xl bg-white rounded-lg shadow-lg border">
-            <div className="p-4 border-b flex items-start justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">Detalles de factura</h2>
-                <p className="text-xs text-gray-600 mt-1">
-                  Reserva: <span className="font-semibold">{selected.id_reserva}</span> •{" "}
-                  {selected.hotel || "—"} • {selected.viajero || "—"}
-                </p>
-              </div>
+      <div className="p-4">
+        <textarea
+          className="w-full min-h-[180px] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
+          value={commentModal.value}
+          onChange={(e) =>
+            setCommentModal((s) => ({ ...s, value: e.target.value }))
+          }
+          placeholder="Escribe el comentario completo..."
+        />
 
-              <button
-                onClick={() => {
-                  setOpenDetalles(false);
-                  setSelected(null);
-                }}
-                className="text-sm px-3 py-2 rounded border bg-white hover:bg-gray-50"
-              >
-                Cerrar
-              </button>
-            </div>
-
-            <div className="p-4">
-              {/* Validación “DIRECTO” vs razón social proveedor */}
-              {String(selected.canal_reservacion).toLowerCase() === "directo" && (
-                <div className="mb-3 rounded border bg-amber-50 p-3 text-sm text-amber-900">
-                  <span className="font-semibold">Regla:</span> Si el canal es{" "}
-                  <span className="font-semibold">DIRECTO</span>, la{" "}
-                  <span className="font-semibold">Razón Social</span> de la factura debe cuadrar con la
-                  registrada en proveedor.
-                  <div className="mt-2 text-xs text-amber-900/80">
-                    Proveedor (registrado):{" "}
-                    <span className="font-semibold">{selected.proveedor_razon_social || "—"}</span>
-                  </div>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div>
-                  <label className="text-xs text-gray-600">UUID de la factura</label>
-                  <input
-                    value={selected.factura.uuid_factura || ""}
-                    onChange={(e) => {
-                      patchFactura(selected.id_reserva, { uuid_factura: e.target.value });
-                      setSelected((p) =>
-                        p ? { ...p, factura: { ...p.factura, uuid_factura: e.target.value } } : p
-                      );
-                    }}
-                    className="w-full border rounded px-2 py-2 text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs text-gray-600">Total factura</label>
-                  <input
-                    value={selected.factura.total_factura ?? ""}
-                    onChange={(e) => {
-                      const v = n(e.target.value);
-                      patchFactura(selected.id_reserva, { total_factura: v });
-                      setSelected((p) =>
-                        p ? { ...p, factura: { ...p.factura, total_factura: v } } : p
-                      );
-                    }}
-                    className="w-full border rounded px-2 py-2 text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs text-gray-600">Total aplicable (editable)</label>
-                  <input
-                    value={selected.factura.total_aplicable ?? ""}
-                    onChange={(e) => {
-                      const v = n(e.target.value);
-                      patchFactura(selected.id_reserva, { total_aplicable: v });
-                      setSelected((p) =>
-                        p ? { ...p, factura: { ...p.factura, total_aplicable: v } } : p
-                      );
-                    }}
-                    className="w-full border rounded px-2 py-2 text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs text-gray-600">Impuestos (editable)</label>
-                  <input
-                    value={selected.factura.impuestos ?? ""}
-                    onChange={(e) => {
-                      const v = n(e.target.value);
-                      patchFactura(selected.id_reserva, { impuestos: v });
-                      setSelected((p) =>
-                        p ? { ...p, factura: { ...p.factura, impuestos: v } } : p
-                      );
-                    }}
-                    className="w-full border rounded px-2 py-2 text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs text-gray-600">Subtotal (editable)</label>
-                  <input
-                    value={selected.factura.subtotal ?? ""}
-                    onChange={(e) => {
-                      const v = n(e.target.value);
-                      patchFactura(selected.id_reserva, { subtotal: v });
-                      setSelected((p) =>
-                        p ? { ...p, factura: { ...p.factura, subtotal: v } } : p
-                      );
-                    }}
-                    className="w-full border rounded px-2 py-2 text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs text-gray-600">RFC</label>
-                  <input
-                    value={selected.factura.rfc || ""}
-                    onChange={(e) => {
-                      patchFactura(selected.id_reserva, { rfc: e.target.value });
-                      setSelected((p) =>
-                        p ? { ...p, factura: { ...p.factura, rfc: e.target.value } } : p
-                      );
-                    }}
-                    className="w-full border rounded px-2 py-2 text-sm"
-                  />
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="text-xs text-gray-600">Razón social</label>
-                  <input
-                    value={selected.factura.razon_social || ""}
-                    onChange={(e) => {
-                      patchFactura(selected.id_reserva, { razon_social: e.target.value });
-                      setSelected((p) =>
-                        p ? { ...p, factura: { ...p.factura, razon_social: e.target.value } } : p
-                      );
-                    }}
-                    className="w-full border rounded px-2 py-2 text-sm"
-                  />
-
-                  {String(selected.canal_reservacion).toLowerCase() === "directo" &&
-                    selected.proveedor_razon_social &&
-                    selected.factura.razon_social &&
-                    selected.proveedor_razon_social.trim().toLowerCase() !==
-                      selected.factura.razon_social.trim().toLowerCase() && (
-                      <p className="mt-2 text-xs text-rose-700">
-                        La razón social de la factura no coincide con la registrada del proveedor.
-                      </p>
-                    )}
-                </div>
-
-                <div>
-                  <label className="text-xs text-gray-600">Costo proveedor</label>
-                  <div className="mt-2 text-sm font-semibold text-gray-900">
-                    {formatMoney(selected.costo_proveedor)}
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 flex justify-end gap-2">
-                <button
-                  onClick={() => {
-                    // TODO: aquí conectas tu PUT/PATCH por id_reserva
-                    alert(`Guardar cambios (id_reserva: ${selected.id_reserva})`);
-                  }}
-                  className="text-sm px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
-                >
-                  Guardar (pendiente backend)
-                </button>
-              </div>
-            </div>
-          </div>
+        <div className="mt-3 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            className="px-3 py-2 rounded-lg text-sm border border-gray-200 bg-white hover:bg-gray-50"
+            onClick={closeCommentModal}
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            className="px-3 py-2 rounded-lg text-sm border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+            onClick={saveCommentModal}
+          >
+            Guardar
+          </button>
         </div>
-      )}
+      </div>
+    </div>
+  </div>
+)}
+
+      </div>
+
     </div>
   );
 }

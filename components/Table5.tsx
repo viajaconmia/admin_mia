@@ -23,6 +23,7 @@ interface TableProps<T> {
   children?: React.ReactNode;
   maxHeight?: string;
   customColumns?: string[];
+  fillHeight?: boolean;
   getRowClassName?: (row: Registro, index: number) => string;
 
   /** Activa el split de strings por espacio a múltiples líneas */
@@ -42,6 +43,7 @@ export const Table5 = <T,>({
   leyenda = "",
   children,
   maxHeight = "28rem",
+  fillHeight = false,
   customColumns,
   getRowClassName,
   splitStringsBySpace = false,
@@ -364,7 +366,11 @@ const FORCE_SPLIT_COLS = new Set(["nombre", "cliente", "nombre_cliente"]);
 };
 
   return (
-    <div className="relative w-full">
+
+  <div
+    className="relative w-full flex flex-col"
+    style={fillHeight ? { height: maxHeight } : undefined}
+  >
       {exportButton && (
         <div className="flex w-full justify-between mb-2">
           <div className="flex flex-col justify-end">
@@ -442,10 +448,11 @@ const FORCE_SPLIT_COLS = new Set(["nombre", "cliente", "nombre_cliente"]);
       {loading && <Loader />}
 
       {displayData.length > 0 && !loading ? (
-        <div
-          className="overflow-y-auto relative border border-gray-200 rounded-sm w-full h-fit"
-          style={{ maxHeight: maxHeight }}
-        >
+       <div
+  className="flex-1 min-h-0 overflow-y-auto relative border border-gray-200 rounded-sm w-full"
+  style={!fillHeight ? { maxHeight } : undefined}
+>
+
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="sticky z-10 bg-gray-50 top-0">
               <tr>
