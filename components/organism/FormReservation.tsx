@@ -97,14 +97,14 @@ export function ReservationForm({
         solicitud.costo_total != null
           ? Number(solicitud.costo_total)
           : // ② Si no, cae al cálculo automático de antes
-          Number(
             Number(
-              currentHotel?.tipos_cuartos.find(
-                (item) =>
-                  item.nombre_tipo_cuarto == updateRoom(solicitud.room)
-              )?.costo ?? 0
-            ) * currentNoches
-          ) || 0,
+              Number(
+                currentHotel?.tipos_cuartos.find(
+                  (item) =>
+                    item.nombre_tipo_cuarto == updateRoom(solicitud.room)
+                )?.costo ?? 0
+              ) * currentNoches
+            ) || 0,
       subtotal: 0,
       impuestos: 0,
     },
@@ -302,10 +302,10 @@ export function ReservationForm({
       const autoTotal = isCostoManual
         ? form.proveedor.total
         : Number(
-          form.hotel.content.tipos_cuartos.find(
-            (item) => item.nombre_tipo_cuarto == form.habitacion
-          )?.costo ?? 0
-        ) * nights;
+            form.hotel.content.tipos_cuartos.find(
+              (item) => item.nombre_tipo_cuarto == form.habitacion
+            )?.costo ?? 0
+          ) * nights;
 
       const items = calculateItems(autoTotal);
 
@@ -418,8 +418,7 @@ export function ReservationForm({
   };
 
   const handleClosePagarModal = () => {
-    setShowPagarModal(false);
-    onClose();
+    // onClose();
   };
 
   function getAutoCostoTotal(
@@ -864,9 +863,9 @@ export function ReservationForm({
                     value={
                       usuarioCreador
                         ? {
-                          name: usuarioCreador.nombre_completo,
-                          content: usuarioCreador,
-                        }
+                            name: usuarioCreador.nombre_completo,
+                            content: usuarioCreador,
+                          }
                         : { name: "", content: null }
                     }
                     onChange={(opcion) => {
@@ -1010,7 +1009,7 @@ export function ReservationForm({
                                 .map((item) => item.id_viajero)
                                 .includes(traveler.id_viajero) &&
                                 traveler.id_viajero !=
-                                form.viajero.id_viajero) ||
+                                  form.viajero.id_viajero) ||
                               traveler.id_viajero == acompanante.id_viajero
                           )
                           .map((item) => ({
@@ -1067,7 +1066,7 @@ export function ReservationForm({
                           (acc, key) => {
                             const value =
                               form.impuestos[
-                              key as keyof ReservaForm["impuestos"]
+                                key as keyof ReservaForm["impuestos"]
                               ];
                             if (key == "otros_impuestos") {
                               return acc;
@@ -1107,7 +1106,7 @@ export function ReservationForm({
                             .map((key) => {
                               const value = Number(
                                 form.impuestos[
-                                key as keyof ReservaForm["impuestos"]
+                                  key as keyof ReservaForm["impuestos"]
                                 ]
                               );
                               if (value <= 0) return null;
@@ -1198,7 +1197,7 @@ export function ReservationForm({
                           (acc, key) => {
                             const value =
                               form.impuestos[
-                              key as keyof ReservaForm["impuestos"]
+                                key as keyof ReservaForm["impuestos"]
                               ];
                             if (key == "otros_impuestos") {
                               return acc;
@@ -1238,7 +1237,7 @@ export function ReservationForm({
                             .map((key) => {
                               const value = Number(
                                 form.impuestos[
-                                key as keyof ReservaForm["impuestos"]
+                                  key as keyof ReservaForm["impuestos"]
                                 ]
                               );
                               if (value <= 0) return null;
@@ -1342,8 +1341,8 @@ export function ReservationForm({
                         {!props.value
                           ? ""
                           : formatNumberWithCommas(
-                            (props.value || 0)?.toFixed(2) || ""
-                          )}
+                              (props.value || 0)?.toFixed(2) || ""
+                            )}
                       </span>
                     ),
                     costo: (props: any) => (
@@ -1352,8 +1351,8 @@ export function ReservationForm({
                         {!props.value
                           ? ""
                           : formatNumberWithCommas(
-                            (props.value || 0)?.toFixed(2) || ""
-                          )}
+                              (props.value || 0)?.toFixed(2) || ""
+                            )}
                       </span>
                     ),
                     venta: (props: any) => (
@@ -1362,8 +1361,8 @@ export function ReservationForm({
                         {!props.value
                           ? ""
                           : formatNumberWithCommas(
-                            (props.value || 0)?.toFixed(2) || ""
-                          )}
+                              (props.value || 0)?.toFixed(2) || ""
+                            )}
                       </span>
                     ),
                     iva: (props: any) => (
@@ -1372,8 +1371,8 @@ export function ReservationForm({
                         {!props.value
                           ? ""
                           : formatNumberWithCommas(
-                            (props.value || 0)?.toFixed(2) || ""
-                          )}
+                              (props.value || 0)?.toFixed(2) || ""
+                            )}
                       </span>
                     ),
                     ish: (props: any) => (
@@ -1382,8 +1381,8 @@ export function ReservationForm({
                         {!props.value
                           ? ""
                           : formatNumberWithCommas(
-                            (props.value || 0)?.toFixed(2) || ""
-                          )}
+                              (props.value || 0)?.toFixed(2) || ""
+                            )}
                       </span>
                     ),
                     otros_impuestos: (props: any) => (
@@ -1491,7 +1490,11 @@ export function ReservationForm({
 
       {showPagarModal && reservaData && (
         <PagarModalComponent
-          onClose={handleClosePagarModal}
+          onClose={() => setShowPagarModal(false)}
+          onEnd={() => {
+            setShowPagarModal(false);
+            onClose();
+          }}
           reservaData={reservaData}
           open={showPagarModal}
         />
