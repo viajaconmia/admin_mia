@@ -20,6 +20,7 @@ interface SubirFacturaProps {
   autoOpen?: boolean;          // abre el modal de inmediato
   onCloseExternal?: () => void; // permite cerrar desde el padre (opcional)
   initialItemsTotal?: number; // <--- NUEVO: total de ítems opcional
+  proveedores_data:any
 }
 
 interface Pago {
@@ -90,6 +91,7 @@ export default function SubirFactura({
   initialItemsTotal = 0,
   itemsJson = '',
   autoOpen = false,
+  proveedores_data,
   onCloseExternal,
 }: SubirFacturaProps) {
 
@@ -525,6 +527,10 @@ const getItemsTotal = useCallback((): number => {
       setSubiendoArchivos(false);
     }
   };
+
+  const handleProveedores =async ({ payload, url, fecha_vencimiento }: { payload?: any, url?: string, fecha_vencimiento?: string }) =>{
+    
+  }
 
   const handleEnviar = async () => {
     // Validar antes de proceder

@@ -5,6 +5,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Table5 } from "@/components/Table5";
 import { URL, API_KEY } from "@/lib/constants/index";
 import { Filter, X, Search, Maximize2 } from "lucide-react";
+import SubirFactura from "@/app/dashboard/facturacion/subirfacturas/SubirFactura";
 
 type AnyRow = Record<string, any>;
 
@@ -313,6 +314,8 @@ __estatus_pago: estatusPagoObj,
 
 export default function ConciliacionPage() {
   const [isLoading, setIsLoading] = useState(false);
+    const [showBatchSubirFactura, setShowBatchSubirFactura] = useState(false);
+  const [showSubirFactura, setShowSubirFactura] = useState(false);
   const [rows, setRows] = useState<any[]>([]);
 
   // UI (solo layout)
@@ -704,7 +707,10 @@ conmentarios_cxp: ({ value, item }) => {
           <button
             type="button"
             className="px-2 py-1 rounded-md text-xs border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-            onClick={() => console.log("subir_factura", { rowId })}
+            onClick={() => {
+                console.log("subir_factura", { rowId }),
+                setShowSubirFactura(true)
+        }}
           >
             Subir
           </button>
@@ -838,6 +844,8 @@ conmentarios_cxp: ({ value, item }) => {
     maxHeight="calc(100vh - 220px)"
   />
 </div>
+
+
 {commentModal.open && (
   <div className="fixed inset-0 z-50 flex items-center justify-center">
     {/* overlay */}
@@ -900,6 +908,30 @@ conmentarios_cxp: ({ value, item }) => {
     </div>
   </div>
 )}
+
+      {showSubirFactura && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-800"></h2>
+              <button
+                onClick={() => setShowSubirFactura(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-6">
+              <SubirFactura
+                onSuccess={() => {
+                  setShowSubirFactura(false);
+                  // Aquí puedes añadir lógica adicional después de subir la factura
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       </div>
 
