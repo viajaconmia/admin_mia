@@ -1041,7 +1041,7 @@ export function ReservationForm2({
                   <div className="flex justify-between">
                     <span className="font-medium">Total venta:</span>
                     <span className="text-gray-900 font-semibold">
-                      ${formatNumberWithCommas(form.venta.total.toFixed(2))}
+                      ${formatNumberWithCommas(precio.toFixed(2))}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -1053,7 +1053,14 @@ export function ReservationForm2({
                   <div className="flex justify-between border-t pt-2 mt-2 font-medium text-gray-700">
                     <span>Markup:</span>
                     <span className="text-gray-900">
-                      {form.venta.markup.toFixed(2)}%
+                      {precio &&
+                        form.proveedor.total &&
+                        (
+                          ((Number(precio) - Number(form.proveedor.total)) /
+                            Number(precio)) *
+                          100
+                        ).toFixed(2)}
+                      %
                     </span>
                   </div>
                 </div>

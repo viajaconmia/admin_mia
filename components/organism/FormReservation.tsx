@@ -30,14 +30,13 @@ import { formatNumberWithCommas, getEstatus } from "@/helpers/utils";
 import { updateRoom } from "@/lib/utils";
 import { useNotification } from "@/context/useNotificacion";
 import { CreditCard, Wallet } from "lucide-react";
-import { useHoteles } from "@/context/Hoteles";
-import { Loader } from "../atom/Loader";
 
 interface ReservationFormProps {
   solicitud?: Solicitud & {
     nuevo_incluye_desayuno?: boolean | null;
     agente?: any;
   };
+  hotels: Hotel[];
   onClose: () => void;
   edicion?: boolean;
   create?: boolean;
@@ -45,23 +44,16 @@ interface ReservationFormProps {
 
 export function ReservationForm({
   solicitud,
+  hotels,
   onClose,
   edicion = false,
-  create = true,
+  create = false,
 }: ReservationFormProps) {
-  const { hoteles } = useHoteles();
-
-  if (!hoteles)
-    return (
-      <div className="w-full h-96 flex justify-center items-center">
-        <Loader></Loader>
-      </div>
-    );
   let currentNoches = 0;
   let currentHotel;
 
   if (solicitud.check_in && solicitud.check_out) {
-    currentHotel = hoteles.filter(
+    currentHotel = hotels.filter(
       (item) => item.nombre_hotel == solicitud?.hotel
     )[0];
     currentNoches = differenceInDays(
@@ -426,8 +418,7 @@ export function ReservationForm({
   };
 
   const handleClosePagarModal = () => {
-    setShowPagarModal(false);
-    onClose();
+    // onClose();
   };
 
   function getAutoCostoTotal(
@@ -717,7 +708,7 @@ export function ReservationForm({
                     name: form.hotel.name,
                     content: form.hotel.content as Hotel,
                   }}
-                  options={hoteles.map((item) => ({
+                  options={hotels.map((item) => ({
                     name: item.nombre_hotel,
                     content: item,
                   }))}
@@ -1499,7 +1490,11 @@ export function ReservationForm({
 
       {showPagarModal && reservaData && (
         <PagarModalComponent
-          onClose={handleClosePagarModal}
+          onClose={() => setShowPagarModal(false)}
+          onEnd={() => {
+            setShowPagarModal(false);
+            onClose();
+          }}
           reservaData={reservaData}
           open={showPagarModal}
         />

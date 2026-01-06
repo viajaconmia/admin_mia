@@ -305,6 +305,8 @@ __estatus_pago: estatusPagoObj,
     rfc,
 
     __raw: raw,
+      id_solicitud_proveedor: raw?.solicitud_proveedor?.id_solicitud_proveedor ?? null,
+
   };
 }
 
@@ -361,26 +363,78 @@ export default function ConciliacionPage() {
     load();
   }, [load]);
 
-  const handleEdit = useCallback(
-    (rowId: string, field: string, value: any) => {
-      // ✅ Solo imprime cambio (tú conectas lógica después)
-      console.log("cambio", { rowId, field, value });
 
-      // Para que se vea el cambio en UI (opcional)
-      setDraftEdits((prev) => ({
-        ...prev,
-        [rowId]: { ...(prev[rowId] || {}), [field]: value },
-      }));
-    },
-    []
-  );
+
+  const editEndpoint = `${URL}/mia/pago_proveedor/edit`;
   type CommentField = "comentarios_ops" | "conmentarios_cxp";
+const editTimers = React.useRef<Record<string, ReturnType<typeof setTimeout> | null>>({});
+
+  const handleEdit = useCallback(
+    
+  (rowId: string, field: string, value: any, idSolicitudProveedor?: number | null) => {
+    // 1) UI optimistic
+    setDraftEdits((prev) => ({
+      ...prev,
+      [rowId]: { ...(prev[rowId] || {}), [field]: value },
+    }));
+
+    // 2) resolver id_solicitud_proveedor (prioriza el que viene del renderer)
+    const id_sp = Number(idSolicitudProveedor ?? 0) || null;
+
+    if (!id_sp) {
+      console.warn("Sin id_solicitud_proveedor para editar", { rowId, field, value });
+      return;
+    }
+
+    // 3) debounce para no pegar por cada tecla
+    const key = `${rowId}:${field}`;
+    if (editTimers.current[key]) clearTimeout(editTimers.current[key]!);
+
+    editTimers.current[key] = setTimeout(async () => {
+      const apiField = FIELD_TO_API[field] ?? field;
+
+      const payload = {
+        id_solicitud_proveedor: id_sp,
+        field: apiField,
+        value,
+        row_id: rowId, // opcional (debug)
+      };
+
+      try {
+        const resp = await fetch(editEndpoint, {
+          method: "PATCH", // cambia a POST/PUT si tu backend lo requiere
+          headers: {
+            "x-api-key": API_KEY || "",
+            "Content-Type": "application/json",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+          },
+          body: JSON.stringify(payload),
+        });
+
+        const json = await resp.json().catch(() => null);
+        if (!resp.ok) {
+          throw new Error(json?.message || `Error HTTP: ${resp.status}`);
+        }
+
+        console.log("✅ edit ok", payload);
+      } catch (err) {
+        console.error("❌ edit fail", err);
+
+        // (Opcional) aquí podrías revertir el draft si quieres
+        // setDraftEdits((prev) => { ... });
+      }
+    }, 450);
+  },
+  [editEndpoint]
+);
+
 
 type CommentModalState = {
   open: boolean;
   rowId: string;
   field: CommentField;
   value: string;
+    idSolicitudProveedor: number | null;
 };
 
 const [commentModal, setCommentModal] = useState<CommentModalState>({
@@ -388,14 +442,17 @@ const [commentModal, setCommentModal] = useState<CommentModalState>({
   rowId: "",
   field: "comentarios_ops",
   value: "",
+    idSolicitudProveedor: null,
 });
 
-const openCommentModal = useCallback((rowId: string, field: CommentField, value: any) => {
+const openCommentModal = useCallback((rowId: string, field: CommentField, value: any,idSolicitudProveedor: any) => {
   setCommentModal({
     open: true,
     rowId,
     field,
     value: String(value ?? ""),
+    idSolicitudProveedor: Number(idSolicitudProveedor ?? 0) || null,
+
   });
 }, []);
 
@@ -405,7 +462,7 @@ const closeCommentModal = useCallback(() => {
 
 const saveCommentModal = useCallback(() => {
   if (!commentModal.rowId) return;
-  handleEdit(commentModal.rowId, commentModal.field, commentModal.value);
+  handleEdit(commentModal.rowId, commentModal.field, commentModal.value,commentModal.idSolicitudProveedor);
   closeCommentModal();
 }, [commentModal, handleEdit, closeCommentModal]);
 
@@ -499,20 +556,24 @@ const saveCommentModal = useCallback(() => {
       
       // ------- EDITABLES -------
       canal_de_reservacion: ({ value, item }) => {
-        const rowId = String(item?.row_id ?? "");
-        const v = draftEdits[rowId]?.canal_de_reservacion ?? value ?? "";
-        return (
-          <select
-            className="w-full border border-gray-200 rounded-md px-2 py-1 text-xs bg-white"
-            value={String(v)}
-            onChange={(e) => handleEdit(rowId, "canal_de_reservacion", e.target.value)}
-          >
-            <option value="">—</option>
-            <option value="DIRECTO">DIRECTO</option>
-            <option value="INTERMEDIARIO">INTERMEDIARIO</option>
-          </select>
-        );
-      },
+  const rowId = String(item?.row_id ?? "");
+  const solicitudId = Number(item?.id_solicitud_proveedor ?? 0) || null;
+
+  const v = draftEdits[rowId]?.canal_de_reservacion ?? value ?? "";
+
+  return (
+    <select
+      className="w-full border border-gray-200 rounded-md px-2 py-1 text-xs bg-white"
+      value={String(v)}
+      onChange={(e) => handleEdit(rowId, "canal_de_reservacion", e.target.value, solicitudId)}
+    >
+      <option value="">—</option>
+      <option value="DIRECTO">DIRECTO</option>
+      <option value="INTERMEDIARIO">INTERMEDIARIO</option>
+    </select>
+  );
+},
+
 
       nombre_intermediario: ({ value, item }) => {
         const rowId = String(item?.row_id ?? "");
@@ -527,8 +588,10 @@ const saveCommentModal = useCallback(() => {
         );
       },
 
-      comentarios_ops: ({ value, item }) => {
+comentarios_ops: ({ value, item }) => {
   const rowId = String(item?.row_id ?? "");
+  const solicitudId = Number(item?.id_solicitud_proveedor ?? 0) || null;
+
   const v = draftEdits[rowId]?.comentarios_ops ?? value ?? "";
 
   return (
@@ -536,21 +599,22 @@ const saveCommentModal = useCallback(() => {
       <input
         className="w-full border border-gray-200 rounded-md px-2 py-1 text-xs"
         value={String(v)}
-        onChange={(e) => handleEdit(rowId, "comentarios_ops", e.target.value)}
-        onDoubleClick={() => openCommentModal(rowId, "comentarios_ops", v)}
+        onChange={(e) => handleEdit(rowId, "comentarios_ops", e.target.value, solicitudId)}
+        onDoubleClick={() => openCommentModal(rowId, "comentarios_ops", v,solicitudId)}
         placeholder="Editable..."
       />
       <button
         type="button"
         className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 bg-white hover:bg-gray-50"
         title="Ver comentario completo"
-        onClick={() => openCommentModal(rowId, "comentarios_ops", v)}
+        onClick={() => openCommentModal(rowId, "comentarios_ops", v,solicitudId)}
       >
         <Maximize2 className="w-4 h-4 text-gray-600" />
       </button>
     </div>
   );
 },
+
 
 conmentarios_cxp: ({ value, item }) => {
   const rowId = String(item?.row_id ?? "");
@@ -562,7 +626,7 @@ conmentarios_cxp: ({ value, item }) => {
         className="w-full border border-gray-200 rounded-md px-2 py-1 text-xs"
         value={String(v)}
         onChange={(e) => handleEdit(rowId, "conmentarios_cxp", e.target.value)}
-        onDoubleClick={() => openCommentModal(rowId, "conmentarios_cxp", v)}
+        onDoubleClick={() => openCommentModal(rowId, "conmentarios_cxp", v,)}
         placeholder="Editable..."
       />
       <button

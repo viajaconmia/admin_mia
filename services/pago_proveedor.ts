@@ -38,7 +38,8 @@ export const fetchCreateSolicitud = async (
     if (!response.ok) {
       console.log(response);
       throw new Error(
-        "Hubo un error: " + (response as ErrorResponse).details.message
+        "Hubo un error: " + (response as ErrorResponse).details.message ||
+          "no se"
       );
     }
 
@@ -76,8 +77,7 @@ export const fetchGetSolicitudesProveedores = async (
 
     // 3) valida contrato de app
     if (!json.ok) {
-      throw new Error(
-      );
+      throw new Error();
     }
 
     // 4) log idéntico al body que viste en Network → Response

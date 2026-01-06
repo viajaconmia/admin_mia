@@ -63,6 +63,7 @@ export class SaldoFavor {
         "Cache-Control": "no-cache",
         "Content-Type": "application/json",
       },
+      credentials: "include",
       ...options,
     });
 
