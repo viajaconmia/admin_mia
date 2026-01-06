@@ -8,6 +8,10 @@ export class ProveedoresService extends ApiService {
     },
     PUT: {
       PROVEEDOR: "/",
+      DATOS_FISCALES: "/datos_fiscales",
+    },
+    POST: {
+      DATOS_FISCALES: "/datos_fiscales",
     },
   };
   static instancia: ProveedoresService = null;
@@ -34,29 +38,63 @@ export class ProveedoresService extends ApiService {
       params: body,
     });
 
-  public getDatosFiscales = async (id_proveedor): Promise<ApiResponse<{}[]>> =>
-    this.get<{}[]>({
+  public getDatosFiscales = async (
+    id_proveedor
+  ): Promise<ApiResponse<DatosFiscales[]>> =>
+    this.get<DatosFiscales[]>({
       path: this.formatPath(this.ENDPOINTS.GET.DATOS_FISCALES),
       params: { id_proveedor },
     });
 
   public updateProveedor = async (body: Partial<Proveedor> & { id: number }) =>
     this.put({ path: this.formatPath(this.ENDPOINTS.PUT.PROVEEDOR), body });
+
+  public crearFiscalData = async (
+    body: NuevoDatoFiscal
+  ): Promise<ApiResponse<DatosFiscales[]>> =>
+    this.post<DatosFiscales[]>({
+      path: this.formatPath(this.ENDPOINTS.POST.DATOS_FISCALES),
+      body: keysToLower(body),
+    });
+
+  public editarFiscalData = async (
+    body: DatosFiscales
+  ): Promise<ApiResponse<DatosFiscales[]>> =>
+    this.put<DatosFiscales[]>({
+      path: this.formatPath(this.ENDPOINTS.PUT.DATOS_FISCALES),
+      body: keysToLower(body),
+    });
 }
+
+const keysToLower = (obj) => {
+  return Object.fromEntries(
+    Object.entries(obj).map(([key, value]) => [key.toLowerCase(), value])
+  );
+};
 
 /**
  *
  * FIN DE CLASE
  *
  */
+export interface DatosFiscales {
+  ID: number;
+  RFC: string;
+  TITULAR: string | null;
+  ALIAS: string | null;
+  ID_PROVEEDOR: number;
+  CUENTA: string;
+  BANCO: string | null;
+}
+
+// Para la creación, omitimos el ID que es auto-incremental
+export type NuevoDatoFiscal = Omit<DatosFiscales, "id">;
 
 export interface ProveedorRaw {
   id: number;
-
   proveedor: string;
   type: "vuelo" | "renta_carro" | null;
   created_at: string;
-
   imagen: string | null;
   convenio: 0 | 1;
   negociacion: string | null;
@@ -67,7 +105,6 @@ export interface ProveedorRaw {
   bilingue: 0 | 1;
   notas_bilingue: string | null;
   notas_proveedor: string | null;
-
   estado: string | null;
   ciudad: string | null;
   codigo_postal: string | null;
@@ -76,85 +113,32 @@ export interface ProveedorRaw {
   numero: string | null;
   colonia: string | null;
   municipio: string | null;
-
   contactos_convenio: string | null;
   formas_solicitar_disponibilidad: string | null;
   formas_reservar: string | null;
-
   notas_pagos: string | null;
   notas_tipo_pago: string | null;
   tipo_pago: "credito" | "prepago" | null;
 }
 
-export interface Proveedor {
-  id: number;
-
-  proveedor: string;
-  type: "vuelo" | "renta_carro" | null;
-  createdAt: string;
-
-  imagen: string | null;
+// Ahora Proveedor es idéntico en nombres a Raw, pero con tipos de JS (boolean)
+export interface Proveedor
+  extends Omit<
+    ProveedorRaw,
+    "convenio" | "estatus" | "internacional" | "bilingue"
+  > {
   convenio: boolean;
-  negociacion: string | null;
-  vigenciaConvenio: string | null;
   estatus: boolean;
   internacional: boolean;
-  notasInternacional: string | null;
   bilingue: boolean;
-  notasBilingue: string | null;
-  notasProveedor: string | null;
-
-  estado: string | null;
-  ciudad: string | null;
-  codigoPostal: string | null;
-  pais: string | null;
-  calle: string | null;
-  numero: string | null;
-  colonia: string | null;
-  municipio: string | null;
-
-  contactosConvenio: string | null;
-  formasSolicitarDisponibilidad: string | null;
-  formasReservar: string | null;
-
-  notasPagos: string | null;
-  notasTipoPago: string | null;
-  tipoPago: "credito" | "prepago" | null;
 }
+
 const toBoolean = (v: 0 | 1 | null): boolean => v === 1;
 
 export const mapProveedor = (raw: ProveedorRaw): Proveedor => ({
-  id: raw.id,
-
-  proveedor: raw.proveedor,
-  type: raw.type,
-  createdAt: raw.created_at,
-
-  imagen: raw.imagen,
+  ...raw, // Copiamos todo lo que es igual (strings, nulls, id)
   convenio: toBoolean(raw.convenio),
-  negociacion: raw.negociacion,
-  vigenciaConvenio: raw.vigencia_convenio,
   estatus: toBoolean(raw.estatus),
   internacional: toBoolean(raw.internacional),
-  notasInternacional: raw.notas_internacional,
   bilingue: toBoolean(raw.bilingue),
-  notasBilingue: raw.notas_bilingue,
-  notasProveedor: raw.notas_proveedor,
-
-  estado: raw.estado,
-  ciudad: raw.ciudad,
-  codigoPostal: raw.codigo_postal,
-  pais: raw.pais,
-  calle: raw.calle,
-  numero: raw.numero,
-  colonia: raw.colonia,
-  municipio: raw.municipio,
-
-  contactosConvenio: raw.contactos_convenio,
-  formasSolicitarDisponibilidad: raw.formas_solicitar_disponibilidad,
-  formasReservar: raw.formas_reservar,
-
-  notasPagos: raw.notas_pagos,
-  notasTipoPago: raw.notas_tipo_pago,
-  tipoPago: raw.tipo_pago,
 });

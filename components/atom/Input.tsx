@@ -214,6 +214,7 @@ export const TextAreaInput = ({
   rows = 1,
   placeholder = "",
   className = "",
+  disabled = false,
 }: {
   label?: string;
   value: string;
@@ -221,6 +222,7 @@ export const TextAreaInput = ({
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  disabled?: boolean;
 }) => (
   <div className={`flex flex-col space-y-1 ${className}`}>
     {label && (
@@ -228,6 +230,7 @@ export const TextAreaInput = ({
     )}
     <textarea
       value={value || ""}
+      disabled={disabled}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       rows={rows}
