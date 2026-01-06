@@ -37,6 +37,47 @@ export async function new_edit(
   }
 }
 
+export async function codigo_reserva(
+  codigo: string | null | undefined,
+  callback?: (data: any) => void
+) {
+  try {
+    const clean = (codigo ?? "").toString().trim();
+
+    if (!clean) {
+      const resp = { error: true, message: "Falta codigo_reserva" };
+      callback?.(resp);
+      return resp;
+    }
+
+    const response = await fetch(`${URL}/mia/reservas/validacion_codigo`, {
+      method: "PUT",
+      headers: {
+        "x-api-key": API_KEY || "",
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        codigo_reservacion_hotel: clean,
+      }),
+      cache: "no-store",
+    }).then((res) => res.json());
+
+    callback?.(response);
+
+    if (response?.error) {
+      throw new Error(response?.message || "Error al validar código");
+    }
+
+    return response;
+  } catch (error) {
+    console.log(error);
+    throw error;
+  }
+}
+
+
+
 export async function updateReserva(
   reserva: EdicionForm & {
     nuevo_incluye_desayuno: boolean | null;
