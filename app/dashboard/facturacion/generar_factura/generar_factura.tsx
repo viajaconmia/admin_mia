@@ -25,6 +25,7 @@ import {
   obtenerPresignedUrl,
   subirArchivoAS3,
 } from "@/helpers/utils";
+import { TextAreaInput } from "@/components/atom/Input";
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat("es-MX", {
@@ -187,10 +188,14 @@ interface FiscalDataModalProps {
 }
 
 // Función para convertir base64 a archivo
-const base64ToFile = (base64String: string, fileName: string, mimeType: string): File => {
+const base64ToFile = (
+  base64String: string,
+  fileName: string,
+  mimeType: string
+): File => {
   try {
     // Remover el prefijo data: si existe
-    const base64Data = base64String.replace(/^data:[^;]+;base64,/, '');
+    const base64Data = base64String.replace(/^data:[^;]+;base64,/, "");
 
     // Decodificar base64
     const byteCharacters = atob(base64Data);
@@ -205,13 +210,16 @@ const base64ToFile = (base64String: string, fileName: string, mimeType: string):
 
     return new File([blob], fileName, { type: mimeType });
   } catch (error) {
-    console.error('Error al convertir base64 a archivo:', error);
-    throw new Error('Error al procesar el archivo');
+    console.error("Error al convertir base64 a archivo:", error);
+    throw new Error("Error al procesar el archivo");
   }
 };
 
 // Función para subir archivo a S3
-const subirArchivoAS3Seguro = async (file: File, bucket: string = "comprobantes") => {
+const subirArchivoAS3Seguro = async (
+  file: File,
+  bucket: string = "comprobantes"
+) => {
   try {
     console.log(`Iniciando subida de ${file.name} (${file.type})`);
 
@@ -227,7 +235,9 @@ const subirArchivoAS3Seguro = async (file: File, bucket: string = "comprobantes"
     // Subir archivo
     await subirArchivoAS3(file, presignedUrl);
 
-    console.log(`✅ Archivo ${file.name} subido exitosamente a S3: ${publicUrl}`);
+    console.log(
+      `✅ Archivo ${file.name} subido exitosamente a S3: ${publicUrl}`
+    );
 
     return publicUrl;
   } catch (error) {
@@ -237,12 +247,20 @@ const subirArchivoAS3Seguro = async (file: File, bucket: string = "comprobantes"
 };
 
 // Función para asignar URLs de factura
-const asignarURLS_factura = async (id_factura: string, url_pdf: string, url_xml: string) => {
+const asignarURLS_factura = async (
+  id_factura: string,
+  url_pdf: string,
+  url_xml: string
+) => {
   try {
-    console.log('Asignando URLs a factura:', { id_factura, url_pdf, url_xml });
+    console.log("Asignando URLs a factura:", { id_factura, url_pdf, url_xml });
 
     const resp = await fetch(
-      `${URL}/mia/factura/asignarURLS_factura?id_factura=${encodeURIComponent(id_factura)}&url_pdf=${encodeURIComponent(url_pdf)}&url_xml=${encodeURIComponent(url_xml)}`,
+      `${URL}/mia/factura/asignarURLS_factura?id_factura=${encodeURIComponent(
+        id_factura
+      )}&url_pdf=${encodeURIComponent(url_pdf)}&url_xml=${encodeURIComponent(
+        url_xml
+      )}`,
       {
         method: "POST",
         headers: {
@@ -258,7 +276,7 @@ const asignarURLS_factura = async (id_factura: string, url_pdf: string, url_xml:
     }
 
     const data = await resp.json();
-    console.log('✅ URLs asignadas correctamente en BD:', data);
+    console.log("✅ URLs asignadas correctamente en BD:", data);
     return data;
   } catch (error) {
     console.error("❌ Error al asignar URLs de factura:", error);
@@ -292,10 +310,11 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   );
   const { descargarFactura, mandarCorreo, descargarFacturaXML } = useApi();
   const [minAmount, setMinAmount] = useState(0);
+  const [observations, setObservations] = useState("");
   const [customAmount, setCustomAmount] = useState(saldoMonto);
   console.log("custom", customAmount);
   console.log("custom", saldoMonto);
-  console.log("pago data", pagoData)
+  console.log("pago data", pagoData);
   console.log("pagos", pagoData);
 
   // Helper seguro para números
@@ -303,8 +322,6 @@ export const BillingPage: React.FC<BillingPageProps> = ({
     const n = Number(v);
     return Number.isFinite(n) ? n : fallback;
   };
-
-
 
   const [cfdi, setCfdi] = useState({
     Receiver: {
@@ -528,16 +545,16 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       } else {
         console.log("hola 🐨🐨🐨");
         for (let i = 0; i < raw_Ids.length; i++) {
-          console.log("restante", restante)
+          console.log("restante", restante);
           if (restante <= 0) break;
 
           const montoAsignar = Math.min(restante, saldos2[i]);
-          console.log("asignar", montoAsignar)
+          console.log("asignar", montoAsignar);
           pagosAsociados.push({
             raw_id: raw_Ids[i],
             monto: montoAsignar,
           });
-          console.log("pagoasociados", pagosAsociados)
+          console.log("pagoasociados", pagosAsociados);
 
           restante -= montoAsignar;
         }
@@ -569,6 +586,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
             ...cfdi.Receiver,
             CfdiUse: selectedCfdiUse,
           },
+          Observations: observations,
           PaymentForm: selectedPaymentForm,
           PaymentMethod: selectedPaymentMethod,
           Currency: "MXN",
@@ -714,7 +732,9 @@ export const BillingPage: React.FC<BillingPageProps> = ({
               console.log("✅ PDF subido exitosamente:", pdfUrl);
             } catch (pdfError) {
               console.error("❌ Error al procesar/subir PDF:", pdfError);
-              alert("Error al subir PDF a S3, pero la factura se generó correctamente");
+              alert(
+                "Error al subir PDF a S3, pero la factura se generó correctamente"
+              );
             }
           } else {
             console.warn("⚠️ No hay contenido PDF para subir");
@@ -726,7 +746,10 @@ export const BillingPage: React.FC<BillingPageProps> = ({
               console.log("📄 Procesando XML...");
 
               // Verificar que el contenido XML es válido
-              if (typeof xmlResponse.Content === 'string' && xmlResponse.Content.trim()) {
+              if (
+                typeof xmlResponse.Content === "string" &&
+                xmlResponse.Content.trim()
+              ) {
                 const xmlFile = base64ToFile(
                   xmlResponse.Content,
                   `factura_${data.facturama.Id}.xml`,
@@ -740,7 +763,9 @@ export const BillingPage: React.FC<BillingPageProps> = ({
               }
             } catch (xmlError) {
               console.error("❌ Error al procesar/subir XML:", xmlError);
-              alert("Error al subir XML a S3, pero la factura se generó correctamente");
+              alert(
+                "Error al subir XML a S3, pero la factura se generó correctamente"
+              );
             }
           } else {
             console.warn("⚠️ No hay contenido XML para subir");
@@ -756,22 +781,33 @@ export const BillingPage: React.FC<BillingPageProps> = ({
 
               // Notificar al usuario si algún archivo no se pudo subir
               if (!pdfUrl && !xmlUrl) {
-                alert("Factura generada, pero no se pudieron subir los archivos a S3");
+                alert(
+                  "Factura generada, pero no se pudieron subir los archivos a S3"
+                );
               } else if (!pdfUrl) {
-                alert("Factura generada. XML subido correctamente, pero hubo un error con el PDF");
+                alert(
+                  "Factura generada. XML subido correctamente, pero hubo un error con el PDF"
+                );
               } else if (!xmlUrl) {
-                alert("Factura generada. PDF subido correctamente, pero hubo un error con el XML");
+                alert(
+                  "Factura generada. PDF subido correctamente, pero hubo un error con el XML"
+                );
               } else {
                 alert("Factura generada y archivos subidos correctamente a S3");
               }
-
             } catch (assignError) {
               console.error("❌ Error al asignar URLs en BD:", assignError);
-              alert("Factura generada y archivos subidos, pero error al registrar URLs en BD");
+              alert(
+                "Factura generada y archivos subidos, pero error al registrar URLs en BD"
+              );
             }
           } else {
-            console.warn("⚠️ No se pudieron subir ninguno de los archivos a S3");
-            alert("Factura generada, pero no se pudieron subir los archivos a S3");
+            console.warn(
+              "⚠️ No se pudieron subir ninguno de los archivos a S3"
+            );
+            alert(
+              "Factura generada, pero no se pudieron subir los archivos a S3"
+            );
           }
         }
       } catch (downloadError) {
@@ -800,7 +836,6 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       setIsInvoiceGenerated(data.facturama);
 
       console.log("=== PROCESO COMPLETADO ===");
-
     } catch (error: any) {
       console.error("Error:", error);
       alert(error?.message || "Ocurrió un error al generar la(s) factura(s)");
@@ -989,6 +1024,14 @@ export const BillingPage: React.FC<BillingPageProps> = ({
                     )}
                   </div>
                 </div>
+                <TextAreaInput
+                  label="Comentarios"
+                  className="my-2"
+                  value={observations}
+                  onChange={function (value: string): void {
+                    setObservations(value);
+                  }}
+                ></TextAreaInput>
               </div>
 
               <div className="space-y-2">
@@ -1156,8 +1199,8 @@ const DataFiscalModalWithCompanies: React.FC<DataFiscalModalProps> = ({
           const empresasValidas = Array.isArray(data)
             ? data.filter((empresa) => empresa.rfc) // Solo empresas con RFC
             : (data?.data || data?.empresas || []).filter(
-              (empresa) => empresa.rfc
-            );
+                (empresa) => empresa.rfc
+              );
 
           setEmpresas(empresasValidas);
 
@@ -1270,8 +1313,6 @@ const DataFiscalModalWithCompanies: React.FC<DataFiscalModalProps> = ({
         )}
       </div>
     </div>
-
-    
   );
 };
 
