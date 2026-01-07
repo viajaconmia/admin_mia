@@ -349,6 +349,42 @@ export const fetchAgentes = async (
   return data;
 };
 
+export const fecthProveedores = async(
+
+  filters: TypeFilters,
+  defaultFilters: TypeFilters,
+  callback: (data: Agente[]) => void
+) => {
+  const queryParams = new URLSearchParams();
+
+  Object.entries({ ...filters, ...defaultFilters }).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      queryParams.append(key, value.toString());
+    }
+  });
+
+  const response = await fetch(
+    `${URL}/mia/proveedores/`,
+    {
+      headers: {
+        "x-api-key": API_KEY,
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        Pragma: "no-cache",
+        Expires: "0",
+      },
+      credentials: "include",
+      cache: "no-store",
+    }
+  );
+  if (!response.ok) {
+    throw new Error("Error al cargar los datos");
+  }
+  const data = await response.json();
+  callback(data);
+  return data;
+
+}
+
 export const fetchAgenteById = async (id: string) => {
   // Limpiar el ID de posibles parámetros de consulta
   const cleanId = id.split("?")[0];

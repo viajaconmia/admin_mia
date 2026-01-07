@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { parsearXML } from './parseXmlCliente';
 import VistaPreviaModal from './VistaPreviaModal';
 import ConfirmacionModal from './confirmacion';
-import { fetchAgentes, fetchEmpresasAgentesDataFiscal } from "@/services/agentes";
+import { fetchAgentes, fetchEmpresasAgentesDataFiscal,fecthProveedores } from "@/services/agentes";
 import { TypeFilters, EmpresaFromAgent } from "@/types";
 import AsignarFacturaModal from './AsignarFactura';
 import { obtenerPresignedUrl, subirArchivoAS3 } from "@/helpers/utils";
@@ -215,11 +215,11 @@ const getItemsTotal = useCallback((): number => {
   const handleBuscarCliente = (e: React.ChangeEvent<HTMLInputElement>) => {
     const valor = e.target.value.toLowerCase();
     setCliente(e.target.value);
-
+    console.log(clientes,"informacion")
     if (valor.length > 2) {
       const filtrados = clientes.filter(cliente => {
         // Verificar que las propiedades existan antes de llamar toLowerCase()
-        const nombre = cliente.nombre_agente_completo?.toLowerCase() || '';
+        const nombre = cliente.nombre_agente_completo?.toLowerCase()|| '';
         const correo = cliente.correo?.toLowerCase() || '';
         const rfc = cliente.rfc?.toLowerCase() || '';
         const id_cliente = cliente.id_agente?.toLowerCase() || '';
@@ -251,13 +251,25 @@ const getItemsTotal = useCallback((): number => {
       });
   }, []);
 
+    const handleFetchProveedores = useCallback(() => {
+    setLoading(true);
+    fecthProveedores({}, {} as TypeFilters, (data) => {
+      setClientes(data);
+      setLoading(false);
+    })
+      .catch(error => {
+        console.error("Error fetching agents:", error);
+        setLoading(false);
+      });
+  }, []);
+
 
   //auto seleccionar al cliente
 
   useEffect(() => {
     if (!clientes.length) return;
 
-    const targetId = pagoData?.id_agente || agentId;
+    const targetId = pagoData?.id_agente ||proveedores_data?.id_proveedor|| agentId;
     if (!targetId) return;
 
     const matching = clientes.find(c => String(c.id_agente) === String(targetId));
@@ -290,9 +302,17 @@ const getItemsTotal = useCallback((): number => {
     handleFetchClients();
   }, [resetearCampos, handleFetchClients]);
 
+  const abrirModalProv = useCallback(() => {
+    resetearCampos();
+    setMostrarModal(true);
+    handleFetchProveedores();
+  }, [resetearCampos, handleFetchProveedores]);
+
   useEffect(() => {
-    if (autoOpen) {
-      abrirModal();
+    if (autoOpen && proveedores_data) {
+      abrirModalProv();
+    }else if(autoOpen && !proveedores_data){
+      abrirModal
     }
   }, [autoOpen]);
 

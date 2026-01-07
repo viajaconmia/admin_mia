@@ -923,6 +923,7 @@ conmentarios_cxp: ({ value, item }) => {
             </div>
             <div className="p-6">
               <SubirFactura
+                proveedores_data={true}
                 onSuccess={() => {
                   setShowSubirFactura(false);
                   // Aquí puedes añadir lógica adicional después de subir la factura
