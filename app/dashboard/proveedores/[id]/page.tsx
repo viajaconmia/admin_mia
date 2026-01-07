@@ -2,27 +2,79 @@
 import Button from "@/components/atom/Button";
 import {
   CheckboxInput,
+  DateInput,
   EmailInput,
   NumberInput,
+  TextAreaInput,
   TextInput,
 } from "@/components/atom/Input";
 import { Loader } from "@/components/atom/Loader";
 import { SectionForm } from "@/components/atom/SectionForm";
 import { useNotification } from "@/context/useNotificacion";
 import {
+  DatosFiscales,
   mapProveedor,
+  NuevoDatoFiscal,
   Proveedor,
   ProveedoresService,
 } from "@/services/ProveedoresService";
-import { Building, Pencil, Save, User2 } from "lucide-react";
+import {
+  Building,
+  Pencil,
+  Save,
+  User2,
+  MapPin,
+  FileText,
+  CreditCard,
+  Globe,
+} from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEffect, useReducer, useState } from "react";
 
 const App = () => {
   const [loading, setLoading] = useState(true);
   const { showNotification } = useNotification();
-  const [proveedor, setProveedor] = useState(null);
-  const [datosFiscales, setDatosFiscales] = useState(null);
+  const [proveedor, setProveedor] = useState<Proveedor | null>(null);
+  const [datosFiscales, setDatosFiscales] = useState<DatosFiscales[]>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedFiscal, setSelectedFiscal] = useState<DatosFiscales | null>(
+    null
+  );
+
+  const handleEditClick = (fiscal: DatosFiscales) => {
+    setSelectedFiscal(fiscal); // Guardamos el registro a editar
+    setIsModalOpen(true); // Abrimos el mismo modal
+  };
+
+  const handleAddNewClick = () => {
+    setSelectedFiscal(null); // Limpiamos para que sea un registro nuevo
+    setIsModalOpen(true);
+  };
+
+  const handleSave = async (datos: NuevoDatoFiscal) => {
+    try {
+      let response: ApiResponse<DatosFiscales[]>;
+      if (selectedFiscal) {
+        response = await ProveedoresService.getInstance().editarFiscalData(
+          datos
+        );
+      } else {
+        response = await ProveedoresService.getInstance().crearFiscalData(
+          datos
+        );
+      }
+      setDatosFiscales(response.data);
+      showNotification("success", response.message);
+    } catch (error) {
+      showNotification(
+        "error",
+        error.message || "Error al isModalOpen datos fiscales"
+      );
+    } finally {
+      setSelectedFiscal(null);
+      setIsModalOpen(false);
+    }
+  };
 
   const { id } = useParams();
 
@@ -30,20 +82,19 @@ const App = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-
         const proveedorId = Array.isArray(id) ? id[0] : id;
         const service = ProveedoresService.getInstance();
 
-        const [proveedor, datosFiscales] = await Promise.all([
+        const [proveedorRes, datosFiscalesRes] = await Promise.all([
           service.getProveedores({ id: proveedorId }),
           service.getDatosFiscales(proveedorId),
         ]);
 
-        if (!proveedor.data.length) {
+        if (!proveedorRes.data.length) {
           throw new Error("No hay proveedor");
         }
-        setProveedor(mapProveedor(proveedor.data[0]));
-        setDatosFiscales(datosFiscales.data);
+        setProveedor(mapProveedor(proveedorRes.data[0]));
+        setDatosFiscales(datosFiscalesRes.data);
       } catch (err: any) {
         showNotification(
           "error",
@@ -54,21 +105,62 @@ const App = () => {
       }
     };
 
-    if (id) {
-      fetchData();
-    }
+    if (id) fetchData();
   }, [id]);
 
-  if (loading)
+  if (loading || !proveedor)
     return (
       <div className="w-full h-full bg-white rounded-md p-4 flex justify-center items-center">
-        <Loader></Loader>
+        <Loader />
       </div>
     );
+
   return (
-    <div className="w-full h-full bg-white rounded-md flex flex-col overflow-scroll">
-      <ProveedorCard proveedor={proveedor} />
-    </div>
+    <>
+      <div className="w-full h-full bg-white rounded-md flex flex-col overflow-y-auto">
+        <ProveedorCard proveedor={proveedor} />
+        <div className="flex justify-end p-4">
+          <Button
+            onClick={() => {
+              handleAddNewClick();
+            }}
+            icon={Plus}
+          >
+            Crear Datos Fiscales
+          </Button>
+        </div>
+        <div className="p-4">
+          <Table
+            registros={datosFiscales.map(({ ID_PROVEEDOR, ...rest }) => ({
+              ...rest,
+              edit: { ID_PROVEEDOR, ...rest },
+            }))}
+            renderers={{
+              edit: ({ value }: { value: DatosFiscales }) => (
+                <Button
+                  icon={Pencil}
+                  size="sm"
+                  onClick={() => handleEditClick(value)}
+                >
+                  Editar
+                </Button>
+              ),
+            }}
+            back={false}
+            next={false}
+          ></Table>
+        </div>
+      </div>
+      <ModalCrearDatosFiscales
+        isOpen={isModalOpen}
+        onClose={function (): void {
+          setIsModalOpen(false);
+        }}
+        selectedFiscal={selectedFiscal}
+        onSave={handleSave}
+        id_proveedor={Number(Array.isArray(id) ? id[0] : id)}
+      />
+    </>
   );
 };
 
@@ -88,17 +180,18 @@ function ProveedorCard({ proveedor }: { proveedor: Proveedor }) {
   };
 
   return (
-    <div>
-      <div className="bg-white rounded-xl p-6 space-y-4">
-        <div className="flex gap-2 w-full justify-end">
-          <Button
-            disabled={!hasChanges || !editar}
-            onClick={onSave}
-            icon={Save}
-            size="sm"
-          >
-            Guardar cambios
-          </Button>
+    <div className="p-6 space-y-8 max-w-7xl mx-auto w-full">
+      {/* Header de acciones */}
+      <div className="flex justify-between items-center border-b pb-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">
+            {draft.proveedor || "Detalle de Proveedor"}
+          </h1>
+          <p className="text-sm text-gray-500">
+            ID: {draft.id} • Tipo: {draft.type || "N/A"}
+          </p>
+        </div>
+        <div className="flex gap-2">
           <Button
             size="sm"
             variant="secondary"
@@ -107,85 +200,203 @@ function ProveedorCard({ proveedor }: { proveedor: Proveedor }) {
           >
             {!editar ? "Editar" : "Cancelar"}
           </Button>
+          <Button
+            disabled={!hasChanges || !editar}
+            onClick={onSave}
+            icon={Save}
+            size="sm"
+          >
+            Guardar cambios
+          </Button>
         </div>
-        <SectionForm legend={draft.proveedor || ""} icon={User2}>
-          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
+      </div>
+
+      <div className="grid grid-cols-1 gap-8">
+        {/* SECCIÓN 1: INFORMACIÓN GENERAL */}
+        <SectionForm legend="Información General" icon={User2}>
+          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
             <TextInput
-              label="Nombre"
+              label="Nombre del Proveedor"
               value={draft.proveedor || ""}
               onChange={(e) => update("proveedor", e)}
               disabled={!editar}
             />
-
             <TextInput
-              value={draft.nombre_contacto ?? ""}
-              onChange={(e) => update("nombre_contacto", e || null)}
-              label="Contacto"
+              label="Imagen (URL)"
+              value={draft.imagen || ""}
+              onChange={(e) => update("imagen", e)}
               disabled={!editar}
             />
+            <div className="flex items-end h-full pb-3">
+              <CheckboxInput
+                label="Estatus Activo"
+                checked={draft.estatus}
+                onChange={(v) => update("estatus", v)}
+                disabled={!editar}
+              />
+            </div>
+            <TextAreaInput
+              label="Notas del Proveedor"
+              value={draft.notas_proveedor || ""}
+              onChange={(e) => update("notas_proveedor", e)}
+              disabled={!editar}
+              className="col-span-full"
+            />
+          </div>
+        </SectionForm>
 
+        {/* SECCIÓN 2: UBICACIÓN Y CONTACTO */}
+        <SectionForm legend="Ubicación y Dirección" icon={MapPin}>
+          <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-4 mt-4">
             <TextInput
-              value={draft.sitio_web ?? ""}
-              onChange={(e) => update("sitio_web", e || null)}
-              label="Sitio web"
+              label="País"
+              value={draft.pais || ""}
+              onChange={(e) => update("pais", e)}
               disabled={!editar}
             />
-
             <TextInput
-              value={draft.cobertura ?? ""}
-              onChange={(e) => update("cobertura", e || null)}
-              label="Cobertura"
+              label="Estado"
+              value={draft.estado || ""}
+              onChange={(e) => update("estado", e)}
               disabled={!editar}
             />
-
             <TextInput
-              value={draft.pais ?? ""}
-              onChange={(e) => update("pais", e || null)}
-              label="Pais"
+              label="Ciudad"
+              value={draft.ciudad || ""}
+              onChange={(e) => update("ciudad", e)}
               disabled={!editar}
             />
-
-            <NumberInput
-              value={Number(draft.telefono) || null}
-              onChange={(e) => update("telefono", e || null)}
-              label="Telefono"
+            <TextInput
+              label="Municipio"
+              value={draft.municipio || ""}
+              onChange={(e) => update("municipio", e)}
               disabled={!editar}
             />
-
-            <EmailInput
-              label="Email"
-              value={draft.email ?? ""}
-              onChange={(e) => update("email", e || null)}
+            <TextInput
+              label="Colonia"
+              value={draft.colonia || ""}
+              onChange={(e) => update("colonia", e)}
+              disabled={!editar}
+            />
+            <TextInput
+              label="Calle"
+              value={draft.calle || ""}
+              onChange={(e) => update("calle", e)}
+              disabled={!editar}
+            />
+            <TextInput
+              label="Número"
+              value={draft.numero || ""}
+              onChange={(e) => update("numero", e)}
+              disabled={!editar}
+            />
+            <TextInput
+              label="Código Postal"
+              value={draft.codigo_postal || ""}
+              onChange={(e) => update("codigo_postal", e)}
               disabled={!editar}
             />
           </div>
         </SectionForm>
-        <SectionForm legend={"Caracteristicas"} icon={Building}>
-          <div className="flex flex-wrap justify-between gap-3 gap-x-10">
-            <CheckboxInput
-              label={"Bilingüe"}
-              checked={draft.bilingue}
-              onChange={(v) => update("bilingue", v)}
+
+        {/* SECCIÓN 3: CONVENIO Y NEGOCIACIÓN */}
+        <SectionForm legend="Convenio y Operación" icon={FileText}>
+          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
+            <div className="flex flex-col gap-4">
+              <CheckboxInput
+                label="¿Tiene Convenio?"
+                checked={draft.convenio}
+                onChange={(v) => update("convenio", v)}
+                disabled={!editar}
+              />
+              <DateInput
+                label="Vigencia"
+                value={draft.vigencia_convenio || ""}
+                onChange={(e) => update("vigencia_convenio", e)}
+                disabled={!editar}
+              />
+            </div>
+            <TextAreaInput
+              label="Negociación"
+              value={draft.negociacion || ""}
+              onChange={(e) => update("negociacion", e)}
               disabled={!editar}
+              className="md:col-span-2"
             />
-            <CheckboxInput
-              label={"Extranjero"}
-              checked={draft.extranjero}
-              onChange={(v) => update("extranjero", v)}
+            <TextAreaInput
+              label="Contactos de Convenio"
+              value={draft.contactos_convenio || ""}
+              onChange={(e) => update("contactos_convenio", e)}
               disabled={!editar}
-            />
-            <CheckboxInput
-              label={"Acepta a credito"}
-              checked={draft.credito}
-              onChange={(v) => update("credito", v)}
-              disabled={!editar}
+              className="md:col-span-3"
             />
           </div>
         </SectionForm>
+
+        {/* SECCIÓN 4: CARACTERÍSTICAS Y PAGOS */}
+        <div className="grid md:grid-cols-2 gap-8">
+          <SectionForm legend="Características" icon={Globe}>
+            <div className="space-y-4 mt-4">
+              <div className="flex justify-between p-2 bg-gray-50 rounded">
+                <CheckboxInput
+                  label="Bilingüe"
+                  checked={draft.bilingue}
+                  onChange={(v) => update("bilingue", v)}
+                  disabled={!editar}
+                />
+                <CheckboxInput
+                  label="Internacional"
+                  checked={draft.internacional}
+                  onChange={(v) => update("internacional", v)}
+                  disabled={!editar}
+                />
+              </div>
+              <TextAreaInput
+                label="Notas Bilingüe"
+                value={draft.notas_bilingue || ""}
+                onChange={(e) => update("notas_bilingue", e)}
+                disabled={!editar}
+              />
+              <TextAreaInput
+                label="Notas Internacional"
+                value={draft.notas_internacional || ""}
+                onChange={(e) => update("notas_internacional", e)}
+                disabled={!editar}
+              />
+            </div>
+          </SectionForm>
+
+          <SectionForm legend="Pagos y Reservas" icon={CreditCard}>
+            <div className="space-y-4 mt-4">
+              <div className="flex gap-4">
+                <TextInput
+                  label="Tipo de Pago (crédito/prepago)"
+                  value={draft.tipo_pago || ""}
+                  onChange={(e) => update("tipo_pago", e)}
+                  disabled={!editar}
+                />
+              </div>
+              <TextAreaInput
+                label="Formas de Reservar"
+                value={draft.formas_reservar || ""}
+                onChange={(e) => update("formas_reservar", e)}
+                disabled={!editar}
+              />
+              <TextAreaInput
+                label="Notas de Pago"
+                value={draft.notas_pagos || ""}
+                onChange={(e) => update("notas_pagos", e)}
+                disabled={!editar}
+              />
+            </div>
+          </SectionForm>
+        </div>
       </div>
     </div>
   );
 }
+
+// --- LÓGICA DE REDUCER Y HOOK (Sin cambios, solo tipos actualizados) ---
 
 type ProveedorState = {
   original: Proveedor;
@@ -226,20 +437,15 @@ function proveedorReducer(
         editar: !state.editar,
         ...(state.editar ? { draft: state.original, hasChanges: false } : {}),
       };
-
     case "UPDATE_FIELD": {
       const draft = { ...state.draft, [action.field]: action.value };
-
       const hasChanges = (Object.keys(draft) as (keyof Proveedor)[]).some(
         (key) => draft[key] !== state.original[key]
       );
-
       return { ...state, draft, hasChanges };
     }
-
     case "RESET":
       return { ...state, draft: state.original, hasChanges: false };
-
     default:
       return state;
   }
@@ -259,26 +465,22 @@ function useProveedorEditor(proveedor: Proveedor) {
 
   const update = (field: keyof Proveedor, value: any) =>
     dispatch({ type: "UPDATE_FIELD", field, value });
+
   const onSave = () => dispatch({ type: "SAVE" });
 
   const getChanges = () => {
     const changes: any = {};
     (Object.keys(state.draft) as (keyof Proveedor)[]).forEach((key) => {
       if (state.draft[key] !== state.original[key]) {
-        changes[key] = state.draft[key] as Partial<Proveedor>;
+        changes[key] = state.draft[key];
       }
     });
-
     return changes;
-  };
-
-  const toggleEdit = () => {
-    dispatch({ type: "TOGGLE_EDIT" });
   };
 
   return {
     editar: state.editar,
-    toggleEdit,
+    toggleEdit: () => dispatch({ type: "TOGGLE_EDIT" }),
     draft: state.draft,
     hasChanges: state.hasChanges,
     update,
@@ -287,3 +489,144 @@ function useProveedorEditor(proveedor: Proveedor) {
     getChanges,
   };
 }
+
+import { Plus, X, ReceiptText } from "lucide-react";
+import { Table } from "@/component/molecule/Table";
+import { ApiResponse } from "@/services/ApiService";
+
+interface ModalCrearDatosFiscalesProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (datos: NuevoDatoFiscal) => void;
+  id_proveedor: number;
+  selectedFiscal: DatosFiscales | null;
+}
+
+const ModalCrearDatosFiscales = ({
+  isOpen,
+  onClose,
+  onSave,
+  id_proveedor,
+  selectedFiscal,
+}: ModalCrearDatosFiscalesProps) => {
+  const [formData, setFormData] = useState<Partial<NuevoDatoFiscal>>({
+    RFC: "",
+    TITULAR: "",
+    ALIAS: "",
+    CUENTA: "",
+    BANCO: "",
+    ID_PROVEEDOR: id_proveedor,
+  });
+
+  const handleChange = (field: keyof NuevoDatoFiscal, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleConfirm = () => {
+    if (!formData.RFC || !formData.CUENTA) {
+      alert("RFC y Cuenta son campos obligatorios");
+      return;
+    }
+    onSave(formData as NuevoDatoFiscal);
+  };
+
+  useEffect(() => {
+    if (selectedFiscal) {
+      console.log(selectedFiscal);
+      setFormData(selectedFiscal); // Si recibimos datos, los ponemos en el form
+    } else {
+      setFormData({
+        RFC: "",
+        TITULAR: "",
+        ALIAS: "",
+        CUENTA: "",
+        BANCO: "",
+        ID_PROVEEDOR: id_proveedor,
+      });
+    }
+  }, [selectedFiscal, isOpen]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
+        {/* Header con estilo más limpio */}
+        <div className="p-5 border-b flex justify-between items-center bg-white">
+          <div className="flex items-center gap-2">
+            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+              <ReceiptText size={20} />
+            </div>
+            <h2 className="text-lg font-bold text-gray-800">
+              Nueva Información Fiscal
+            </h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <X size={24} />
+          </button>
+        </div>
+
+        {/* Cuerpo del Formulario */}
+        <div className="p-6 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-1">
+              <TextInput
+                label="RFC *"
+                value={formData.RFC || ""}
+                onChange={(v) => handleChange("RFC", v)}
+                placeholder="XAXX010101000"
+              />
+            </div>
+            <div className="col-span-1">
+              <TextInput
+                label="Alias del registro"
+                value={formData.ALIAS || ""}
+                onChange={(v) => handleChange("ALIAS", v)}
+                placeholder="Ej: Cuenta Principal"
+              />
+            </div>
+          </div>
+
+          <TextInput
+            label="Titular de la CUENTA"
+            value={formData.TITULAR || ""}
+            onChange={(v) => handleChange("TITULAR", v)}
+          />
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-1">
+              <TextInput
+                label="Banco"
+                value={formData.BANCO || ""}
+                onChange={(v) => handleChange("BANCO", v)}
+              />
+            </div>
+            <div className="col-span-1">
+              <TextInput
+                label="Número de Cuenta *"
+                value={formData.CUENTA || ""}
+                onChange={(v) => handleChange("CUENTA", v)}
+              />
+            </div>
+          </div>
+          <p className="text-[10px] text-gray-400 italic">
+            * Campos obligatorios
+          </p>
+        </div>
+
+        {/* Footer */}
+        <div className="p-5 border-t bg-gray-50 flex justify-end gap-3">
+          <Button variant="secondary" onClick={onClose} size="sm">
+            Cancelar
+          </Button>
+          <Button onClick={handleConfirm} icon={Plus} size="sm">
+            Guardar Información
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};

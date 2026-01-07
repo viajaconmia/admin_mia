@@ -129,9 +129,11 @@ export const Table = ({
                 disabled={loading}
               />
             )}
-            <span className="font-semibold text-sm text-gray-700 rounded-full w-10 h-10 flex justify-center items-center bg-blue-300">
-              {page}
-            </span>
+            {(back || next) && (
+              <span className="font-semibold text-sm text-gray-700 rounded-full w-10 h-10 flex justify-center items-center bg-blue-300">
+                {page}
+              </span>
+            )}
             {next && (
               <Button
                 icon={ArrowBigRight}
