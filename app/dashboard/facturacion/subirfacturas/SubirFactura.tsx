@@ -20,7 +20,7 @@ interface SubirFacturaProps {
   autoOpen?: boolean;          // abre el modal de inmediato
   onCloseExternal?: () => void; // permite cerrar desde el padre (opcional)
   initialItemsTotal?: number; // <--- NUEVO: total de ítems opcional
-  proveedores_data:any
+  proveedores_data?:any
 }
 
 interface Pago {
