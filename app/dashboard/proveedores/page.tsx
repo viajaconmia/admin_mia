@@ -3,14 +3,16 @@
 import React, { useEffect, useMemo, useReducer, useState } from "react";
 import { Table5 } from "@/components/Table5";
 import { formatDate } from "@/helpers/utils";
-import { URL, API_KEY } from "@/lib/constants/index";
 import {
   Proveedor,
   ProveedoresService,
-  ProveedorType,
   mapProveedor,
 } from "@/services/ProveedoresService";
 import { useNotification } from "@/context/useNotificacion";
+import Button from "@/components/atom/Button";
+import { useRouter } from "wouter";
+import Link from "next/link";
+import { ExternalLink } from "lucide-react";
 
 export default function ProveedoresPage() {
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
@@ -18,8 +20,12 @@ export default function ProveedoresPage() {
   const { showNotification } = useNotification();
 
   // Filtros
-  const [tipoFiltro, setTipoFiltro] = useState<"" | ProveedorType>("");
+  const [tipoFiltro, setTipoFiltro] = useState<"" | Pick<Proveedor, "type">>(
+    ""
+  );
   const [q, setQ] = useState("");
+  const router = useRouter();
+  console.log(router);
 
   // Si luego necesitas filtrar por agente, déjalo listo:
   const id_agente = null as string | null;
@@ -58,15 +64,7 @@ export default function ProveedoresPage() {
       const matchTipo = tipoFiltro ? p.type === tipoFiltro : true;
 
       const matchQ = term
-        ? [
-            p.nombre,
-            p.pais,
-            p.email,
-            p.telefono,
-            p.nombre_contacto,
-            p.sitio_web,
-            p.cobertura,
-          ]
+        ? [p.proveedor, p.pais]
             .filter(Boolean)
             .some((x) => String(x).toLowerCase().includes(term))
         : true;
@@ -77,19 +75,13 @@ export default function ProveedoresPage() {
 
   const registros = proveedoresFiltrados.map((p) => ({
     id: p.id,
-    nombre: p.nombre,
+    proveedor: p.proveedor,
     type: p.type,
     pais: p.pais,
-    telefono: p.telefono,
-    email: p.email,
-    sitio_web: p.sitio_web,
-    cobertura: p.cobertura,
     bilingue: p.bilingue,
-    extranjero: p.extranjero,
-    credito: p.credito,
-    nombre_contacto: p.nombre_contacto,
-    creado_en: p.creado_en,
+    creado_en: p.created_at,
     item: p,
+    detalles: p.id,
   }));
 
   const renderers: {
@@ -171,6 +163,15 @@ export default function ProveedoresPage() {
       <div className="flex justify-start">
         <span className="text-gray-700">{value || "—"}</span>
       </div>
+    ),
+    detalles: ({ value }) => (
+      <Link
+        href={`/dashboard/proveedores/${value}`}
+        className="p-2 border bg-gray-50 rounded-xl shadow-sm hover:shadow-none flex gap-2 justify-center"
+      >
+        <ExternalLink className="w-4 h-4"></ExternalLink>
+        Ver mas
+      </Link>
     ),
   };
 
@@ -272,6 +273,7 @@ export default function ProveedoresPage() {
                 "credito",
                 "nombre_contacto",
                 "creado_en",
+                "detalles",
               ]}
             />
           )}

@@ -119,7 +119,7 @@ const App = () => {
     <>
       <div className="w-full h-full bg-white rounded-md flex flex-col overflow-y-auto">
         <ProveedorCard proveedor={proveedor} />
-        <div className="flex justify-end p-4">
+        <div className="flex justify-end p-4 pt-0 max-w-7xl mx-auto w-full">
           <Button
             onClick={() => {
               handleAddNewClick();
@@ -129,7 +129,7 @@ const App = () => {
             Crear Datos Fiscales
           </Button>
         </div>
-        <div className="p-4">
+        <div className="px-4 max-w-7xl mx-auto w-full">
           <Table
             registros={datosFiscales.map(({ ID_PROVEEDOR, ...rest }) => ({
               ...rest,
@@ -169,14 +169,24 @@ export default App;
 function ProveedorCard({ proveedor }: { proveedor: Proveedor }) {
   const { draft, update, hasChanges, getChanges, editar, toggleEdit, save } =
     useProveedorEditor(proveedor);
+  const { showNotification } = useNotification();
+  const [activeTab, setActiveTab] = useState("datos");
 
-  const onSave = () => {
-    const changes = getChanges();
-    ProveedoresService.getInstance().updateProveedor({
-      id: proveedor.id,
-      ...changes,
-    });
-    save();
+  const onSave = async () => {
+    try {
+      const changes = getChanges();
+      const response = await ProveedoresService.getInstance().updateProveedor({
+        id: proveedor.id,
+        ...changes,
+      });
+      save();
+      showNotification("success", response.message || "bien actualizado");
+    } catch (error) {
+      showNotification(
+        "error",
+        error.message || "error al actualizar proveedor"
+      );
+    }
   };
 
   return (
@@ -211,30 +221,67 @@ function ProveedorCard({ proveedor }: { proveedor: Proveedor }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-8">
-        {/* SECCIÓN 1: INFORMACIÓN GENERAL */}
-        <SectionForm legend="Información General" icon={User2}>
-          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-[80vw]">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="datos">DATOS BASICOS</TabsTrigger>
+          <TabsTrigger value="tarifas">TARIFAS Y SERVICIOS</TabsTrigger>
+          <TabsTrigger value="pagos">INFORMACION DE PAGOS</TabsTrigger>
+          <TabsTrigger value="extra">INFORMACIÓN ADICIONAL</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="datos" className="space-y-4">
+          <div className="grid sm:grid-cols-2 gap-4 mt-4">
             <TextInput
               label="Nombre del Proveedor"
               value={draft.proveedor || ""}
               onChange={(e) => update("proveedor", e)}
               disabled={!editar}
             />
+            <TextAreaInput
+              label="Tipo de negociación"
+              value={draft.negociacion || ""}
+              onChange={(e) => update("negociacion", e)}
+              disabled={!editar}
+            />
+            <CheckboxInput
+              label="¿Tiene Convenio?"
+              checked={draft.convenio}
+              onChange={(v) => update("convenio", v)}
+              disabled={!editar}
+            />
+            <DateInput
+              label="Vigencia"
+              value={draft.vigencia_convenio || ""}
+              onChange={(e) => update("vigencia_convenio", e)}
+              disabled={!editar}
+            />
+            <CheckboxInput
+              label="Estatus"
+              checked={draft.estatus}
+              onChange={(v) => update("estatus", v)}
+              disabled={!editar}
+            />
+            <CheckboxInput
+              label="Es internacional"
+              checked={draft.internacional}
+              onChange={(v) => update("internacional", v)}
+              disabled={!editar}
+            />
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      <div className="grid grid-cols-1 gap-8">
+        {/* SECCIÓN 2: UBICACIÓN Y CONTACTO */}
+        <SectionForm legend="Ubicación y Dirección" icon={MapPin}>
+          <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-4 mt-4">
             <TextInput
               label="Imagen (URL)"
               value={draft.imagen || ""}
               onChange={(e) => update("imagen", e)}
               disabled={!editar}
             />
-            <div className="flex items-end h-full pb-3">
-              <CheckboxInput
-                label="Estatus Activo"
-                checked={draft.estatus}
-                onChange={(v) => update("estatus", v)}
-                disabled={!editar}
-              />
-            </div>
+            <div className="flex items-end h-full pb-3"></div>
             <TextAreaInput
               label="Notas del Proveedor"
               value={draft.notas_proveedor || ""}
@@ -242,12 +289,6 @@ function ProveedorCard({ proveedor }: { proveedor: Proveedor }) {
               disabled={!editar}
               className="col-span-full"
             />
-          </div>
-        </SectionForm>
-
-        {/* SECCIÓN 2: UBICACIÓN Y CONTACTO */}
-        <SectionForm legend="Ubicación y Dirección" icon={MapPin}>
-          <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-4 mt-4">
             <TextInput
               label="País"
               value={draft.pais || ""}
@@ -302,27 +343,6 @@ function ProveedorCard({ proveedor }: { proveedor: Proveedor }) {
         {/* SECCIÓN 3: CONVENIO Y NEGOCIACIÓN */}
         <SectionForm legend="Convenio y Operación" icon={FileText}>
           <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
-            <div className="flex flex-col gap-4">
-              <CheckboxInput
-                label="¿Tiene Convenio?"
-                checked={draft.convenio}
-                onChange={(v) => update("convenio", v)}
-                disabled={!editar}
-              />
-              <DateInput
-                label="Vigencia"
-                value={draft.vigencia_convenio || ""}
-                onChange={(e) => update("vigencia_convenio", e)}
-                disabled={!editar}
-              />
-            </div>
-            <TextAreaInput
-              label="Negociación"
-              value={draft.negociacion || ""}
-              onChange={(e) => update("negociacion", e)}
-              disabled={!editar}
-              className="md:col-span-2"
-            />
             <TextAreaInput
               label="Contactos de Convenio"
               value={draft.contactos_convenio || ""}
@@ -342,12 +362,6 @@ function ProveedorCard({ proveedor }: { proveedor: Proveedor }) {
                   label="Bilingüe"
                   checked={draft.bilingue}
                   onChange={(v) => update("bilingue", v)}
-                  disabled={!editar}
-                />
-                <CheckboxInput
-                  label="Internacional"
-                  checked={draft.internacional}
-                  onChange={(v) => update("internacional", v)}
                   disabled={!editar}
                 />
               </div>
@@ -493,6 +507,7 @@ function useProveedorEditor(proveedor: Proveedor) {
 import { Plus, X, ReceiptText } from "lucide-react";
 import { Table } from "@/component/molecule/Table";
 import { ApiResponse } from "@/services/ApiService";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface ModalCrearDatosFiscalesProps {
   isOpen: boolean;
