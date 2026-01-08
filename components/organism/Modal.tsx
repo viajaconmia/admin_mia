@@ -55,7 +55,7 @@ const Modal: React.FC<ModalProps> = ({
         >
           ×
         </button>
-        <div className="p-4 space-y-2">
+        <div className="p-4 space-y-2 mr-4">
           <div className="border-b border-gray-200 pb-4">
             {title && (
               <h3 className="text-lg leading-6 font-medium text-gray-900">

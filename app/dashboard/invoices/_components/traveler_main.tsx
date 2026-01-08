@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import Filters from "@/components/Filters";
 import { Balance } from "@/app/dashboard/facturas-pendientes/balance";
 import { Table5 } from "@/components/Table5";
@@ -19,6 +18,7 @@ import {
   Link as LinkIcon,
   FileDown,
   FilePlus,
+  Pencil,
 } from "lucide-react";
 import { fetchPagosPrepagobalance } from "@/services/pagos";
 import BalanceSummary from "@/app/dashboard/facturas-pendientes/balance";
@@ -35,6 +35,10 @@ import { fetchFacturas as fetchFacturasSvc } from "@/services/facturas";
 import type { Factura } from "@/types/_types";
 import type { TypeFilters } from "@/types";
 import Link from "next/link";
+import { InputToS3 } from "@/components/atom/SendToS3";
+import { FacturaService } from "@/services/FacturasService";
+import { useNotification } from "@/context/useNotificacion";
+import { Button } from "@/components/ui/button";
 
 /* ===================== Helpers ===================== */
 
@@ -299,6 +303,8 @@ export function TravelersPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [facturas, setFacturas] = useState<Factura[]>([]);
   const firstLoad = useRef(true);
+  const [id, setId] = useState<string | null>(null);
+  const { Can, hasPermission } = usePermiso();
 
   // Modales/acciones
   const [isModalOpen, setIsModalOpen] = useState<string>("");
@@ -403,9 +409,9 @@ export function TravelersPage() {
         url_xml: f?.url_xml || null,
         id_agente: f?.id_agente || null,
         id_empresa: f?.id_empresa || null,
+        actualizar: String(f?.id_factura || ""),
         acciones: { fila: f },
         item: f,
-        actualizar: null,
       };
     });
   }, [facturasFiltradas]);
@@ -473,12 +479,15 @@ export function TravelersPage() {
       value === 1 ? "Cliente" : "Operaciones",
     actualizar: ({ item }: { item: Factura }) => {
       return (
-        <Link
-          href={`/dashboard/invoices/${item.id_factura}`}
-          className="bg-gray-50 p-2 rounded-xl border"
-        >
-          Editar PDF
-        </Link>
+        <Can permiso={PERMISOS.COMPONENTES.BOTON.ACTUALIZAR_PDF_FACTURA}>
+          <Button
+            onClick={() => setId(item.id_factura)}
+            size="sm"
+            // icon={Pencil}
+          >
+            Editar PDF
+          </Button>
+        </Can>
       );
     },
 
@@ -616,6 +625,7 @@ export function TravelersPage() {
     "fecha_vencimiento",
     "prepagada",
     "origen",
+    "actualizar",
     "acciones",
   ];
 
@@ -632,12 +642,40 @@ export function TravelersPage() {
   };
 
   console.log(balance, "cambios");
+  const { showNotification } = useNotification();
 
   return (
     <div className="space-y-8">
       <h1 className="text-3xl font-bold tracking-tight text-sky-950 my-4">
         Facturas
       </h1>
+      {id && (
+        <Modal onClose={() => setId(null)} title="Sube el archivo PDF">
+          <div className="p-8">
+            <InputToS3
+              setUrl={async (url: string | null) => {
+                try {
+                  if (!url) throw new Error("No existe archivo");
+
+                  await FacturaService.getInstance().actualizarDocumentosFacturas(
+                    { id, url }
+                  );
+                  showNotification(
+                    "success",
+                    "Se actualizo el archivo correctamente"
+                  );
+                  setId(null);
+                } catch (error) {
+                  showNotification(
+                    "error",
+                    error.message || "Error al subir archivo"
+                  );
+                }
+              }}
+            ></InputToS3>
+          </div>
+        </Modal>
+      )}
       {balance && (
         <BalanceSummary
           balance={balance}

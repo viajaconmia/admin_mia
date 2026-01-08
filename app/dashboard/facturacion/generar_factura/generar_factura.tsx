@@ -285,8 +285,6 @@ const asignarURLS_factura = async (
 };
 
 export const BillingPage: React.FC<BillingPageProps> = ({
-  onBack,
-  invoiceData,
   userId,
   saldoMonto = 0, // Valor por defecto 0
   rawIds = [], // Valor por defecto array vacío
