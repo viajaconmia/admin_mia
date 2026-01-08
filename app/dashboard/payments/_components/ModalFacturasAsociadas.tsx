@@ -51,7 +51,7 @@ const ModalFacturasAsociadas: React.FC<ModalFacturasAsociadasProps> = ({
 
   React.useEffect(() => {
     const fetchDetalles = async () => {
-      if (!id_agente || !raw_id) {
+      if (!raw_id) {
         setError("Faltan parámetros para consultar (id_agente/raw_id).");
         return;
       }
@@ -59,7 +59,7 @@ const ModalFacturasAsociadas: React.FC<ModalFacturasAsociadasProps> = ({
         setLoading(true);
         setError(null);
 
-        const url = `${URL}/mia/pagos/getDetallesConexion?id_agente=${encodeURIComponent(id_agente)}&id_raw=${encodeURIComponent(raw_id)}`;
+        const url = `${URL}/mia/pagos/detalles_pagos?id_raw=${encodeURIComponent(raw_id)}`;
         const resp = await fetch(url, { method: 'GET', headers: HEADERS_API });
         if (!resp.ok) throw new Error(`Error ${resp.status}: ${resp.statusText}`);
 
