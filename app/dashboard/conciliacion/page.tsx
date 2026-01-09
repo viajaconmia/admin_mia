@@ -1,7 +1,7 @@
 // app/conciliacion/page.tsx
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Table5 } from "@/components/Table5";
 import { URL, API_KEY } from "@/lib/constants/index";
 import { Filter, X, Search, Maximize2 } from "lucide-react";
@@ -46,16 +46,11 @@ function getRowId(raw: any, index: number) {
   );
 }
 
-/**
- helper 
-  **/ 
-
- function flattenPagos(raw: any): any[] {
+/** helpers **/
+function flattenPagos(raw: any): any[] {
   const pagos = raw?.pagos;
   if (!Array.isArray(pagos)) return [];
 
-  // En tu payload viene como [ [ {...}, {...} ], [] ]
-  // Pero lo aplanamos por si algún día llega más anidado
   const lvl1 = pagos.flatMap((x: any) => (Array.isArray(x) ? x : [x]));
   const lvl2 = lvl1.flatMap((x: any) => (Array.isArray(x) ? x : [x]));
   return lvl2.filter(Boolean);
@@ -87,8 +82,6 @@ function getPagoStats(raw: any) {
  * 1) raw.estatus_pagos (si viene)
  * 2) raw.solicitud_proveedor.estado_solicitud (si viene)
  * 3) fallback calculado con pagos (por si ambos vienen vacíos)
- *
- * Además conserva filtro_pago para tooltip.
  */
 function getEstatusPagoPayload(raw: any) {
   const estatusPayload = raw?.estatus_pagos ?? raw?.estatus_pago ?? "";
@@ -114,7 +107,8 @@ function getEstatusPagoPayload(raw: any) {
     ...stats,
   };
 }
- const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 function calcNoches(checkIn?: string | null, checkOut?: string | null): number {
   if (!checkIn || !checkOut) return 0;
@@ -123,7 +117,6 @@ function calcNoches(checkIn?: string | null, checkOut?: string | null): number {
   const outD = new Date(checkOut);
   if (Number.isNaN(inD.getTime()) || Number.isNaN(outD.getTime())) return 0;
 
-  // Normaliza a "fecha" en UTC para evitar desfases por hora/zona
   const startUTC = Date.UTC(inD.getUTCFullYear(), inD.getUTCMonth(), inD.getUTCDate());
   const endUTC = Date.UTC(outD.getUTCFullYear(), outD.getUTCMonth(), outD.getUTCDate());
 
@@ -146,7 +139,6 @@ function getTipoPago(raw: any): string {
 type TipoReservaInferida = "HOTEL" | "RENTA AUTO" | "FACTURA" | "";
 
 function inferTipoReserva(raw: any): TipoReservaInferida {
-  // Heurística: ajusta conforme tengas claves definitivas
   const isHotel = !!(raw?.id_hospedaje || raw?.hotel || raw?.room || raw?.codigo_reservacion_hotel);
   if (isHotel) return "HOTEL";
 
@@ -159,7 +151,6 @@ function inferTipoReserva(raw: any): TipoReservaInferida {
   );
   if (isRentaAuto) return "RENTA AUTO";
 
-  // Si no parece hotel ni renta, lo tratamos como factura (por ahora)
   return "FACTURA";
 }
 
@@ -169,56 +160,45 @@ function getEstatusFacturas(raw: any): EstatusFacturaInferido {
   const facturas = Array.isArray(raw?.facturas) ? raw.facturas : [];
   if (facturas.length === 0) return "SIN FACTURAR";
 
-  // pendiente_facturar puede venir en raíz o dentro de una factura (ajusta keys si difieren)
   const pendienteRoot =
     Number(raw?.pendiente_facturar ?? raw?.pendiente_por_facturar ?? raw?.pendiente ?? 0) || 0;
 
   const pendienteEnFacturas = facturas.reduce((acc: number, f: any) => {
-    const p =
-      Number(f?.pendiente_facturar ?? f?.pendiente_por_facturar ?? f?.pendiente ?? 0) || 0;
+    const p = Number(f?.pendiente_facturar ?? f?.pendiente_por_facturar ?? f?.pendiente ?? 0) || 0;
     return Math.max(acc, p);
   }, 0);
 
   const pendiente = Math.max(pendienteRoot, pendienteEnFacturas);
-
   return pendiente > 0 ? "PARCIAL" : "FACTURADO";
 }
 
+function truncateText(v: any, max = 28) {
+  const s = String(v ?? "").trim();
+  if (!s) return "—";
+  return s.length > max ? s.slice(0, max) + "…" : s;
+}
 
 /**
- * Mapea tu raw -> row para Table5 (solo estructura).
- * Ajusta keys si tu API difiere, pero ya deja todas las columnas pedidas.
+ * Mapea raw -> row para Table5
+ * IMPORTANTE: agrega id_servicio para editar (backend actualiza por id_servicio)
  */
 function toConciliacionRow(raw: any, index: number): AnyRow {
   const row_id = getRowId(raw, index);
 
   const hotel = (raw?.hotel ?? "").toString();
-  const viajero = (
-    raw?.nombre_viajero_completo ??
-    raw?.nombre_viajero ??
-    ""
-  ).toString();
+  const viajero = (raw?.nombre_viajero_completo ?? raw?.nombre_viajero ?? "").toString();
 
   const costo_proveedor = Number(raw?.costo_total ?? raw?.costo_proveedor ?? 0) || 0;
   const precio_de_venta = Number(raw?.total ?? raw?.precio_de_venta ?? 0) || 0;
-  const markup = precio_de_venta > 0 ? ((precio_de_venta - costo_proveedor) / precio_de_venta) * 100 : 0;
+  const markup =
+    precio_de_venta > 0 ? ((precio_de_venta - costo_proveedor) / precio_de_venta) * 100 : 0;
 
-  // ✅ NUEVO: noches calculadas desde fechas
   const nochesCalc = calcNoches(raw?.check_in, raw?.check_out);
-
-  // ✅ NUEVO: tipo de pago desde detalles_pagos[0]
   const tipoPago = getTipoPago(raw);
-
-  // ✅ NUEVO: tipo de reserva inferido
   const tipoReserva = inferTipoReserva(raw);
-
-  // ✅ NUEVO: comentarios_ops desde comments
   const comentariosOps = raw?.comments ?? raw?.comentarios_ops ?? "";
-
-  // ✅ NUEVO: estatus facturas (facturas[])
   const estatusFacturas = getEstatusFacturas(raw);
 
-  // Factura / conciliación (igual que ya lo tenías)
   const uuid_factura = raw?.uuid_factura ?? raw?.UUID ?? raw?.uuid ?? null;
   const total_factura = Number(raw?.total_factura ?? 0) || 0;
   const total_facturado = Number(raw?.total_facturado ?? raw?.costo_facturado ?? 0) || 0;
@@ -227,31 +207,30 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
   const impuestos = raw?.impuestos ?? "";
   const subtotal = raw?.subtotal ?? "";
 
-  const baseFactura =
-    Number(total_aplicable) ||
-    Number(total_facturado) ||
-    Number(total_factura) ||
-    0;
-
-    const estatusPagoObj = getEstatusPagoPayload(raw);
-
+  const baseFactura = Number(total_aplicable) || Number(total_facturado) || Number(total_factura) || 0;
+  const estatusPagoObj = getEstatusPagoPayload(raw);
   const diferencia = Number(costo_proveedor) - Number(baseFactura);
 
   const tarjeta =
-    raw?.tarjeta?.ultimos_4 ??
-    raw?.digitos_tajeta ??
-    raw?.ultimos_4 ??
-    raw?.tarjeta ??
-    "";
+    raw?.tarjeta?.ultimos_4 ?? raw?.digitos_tajeta ?? raw?.ultimos_4 ?? raw?.tarjeta ?? "";
 
   const id_enviado = raw?.id_enviado ?? raw?.titular_tarjeta ?? "";
 
-  const razon_social =
-    raw?.proveedor?.razon_social ?? raw?.razon_social ?? "";
+  const razon_social = raw?.proveedor?.razon_social ?? raw?.razon_social ?? "";
   const rfc = raw?.proveedor?.rfc ?? raw?.rfc ?? "";
+
+  // ✅ CLAVE PARA EDITAR: id_servicio (ajusta fallback si tu payload difiere)
+  const id_servicio =
+    raw?.id_servicio ??
+    raw?.solicitud_proveedor?.id_servicio ??
+    raw?.servicio?.id_servicio ??
+    null;
 
   return {
     row_id,
+
+    // para edición por backend
+    id_servicio,
 
     creado: raw?.created_at ?? raw?.creado ?? null,
     hotel: hotel ? hotel.toUpperCase() : "",
@@ -260,38 +239,31 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
     check_in: raw?.check_in ?? null,
     check_out: raw?.check_out ?? null,
 
-    // ✅ aquí reemplaza tu noches anterior
     noches: nochesCalc,
-
     tipo_cuarto: raw?.room ?? raw?.tipo_cuarto ?? "",
 
     costo_proveedor,
     markup,
     precio_de_venta,
 
-    canal_de_reservacion:
-      raw?.canal_de_reservacion ?? raw?.canal_reservacion ?? "",
+    canal_de_reservacion: raw?.canal_de_reservacion ?? raw?.canal_reservacion ?? "",
     nombre_intermediario: raw?.nombre_intermediario ?? "",
 
-    // ✅ aquí reemplaza tipo_de_reserva y tipo_de_pago anteriores
     tipo_de_reserva: tipoReserva,
     tipo_de_pago: tipoPago,
 
     tarjeta,
     id_enviado,
 
-    // ✅ aquí reemplaza comentarios_ops anterior
     comentarios_ops: comentariosOps,
     conmentarios_cxp: raw?.comentarios_cxp ?? raw?.conmentarios_cxp ?? "",
     estatus_pago: estatusPagoObj.label ? estatusPagoObj.label.toUpperCase() : "",
-__estatus_pago: estatusPagoObj,
+    __estatus_pago: estatusPagoObj,
 
     detalles: "",
     subir_factura: "",
 
-    // ✅ aquí reemplaza estatus_facturas anterior
     estatus_facturas: estatusFacturas,
-
 
     total_facturado,
     diferencia_costo_proveedor_vs_factura: diferencia,
@@ -306,28 +278,54 @@ __estatus_pago: estatusPagoObj,
     rfc,
 
     __raw: raw,
-      id_solicitud_proveedor: raw?.solicitud_proveedor?.id_solicitud_proveedor ?? null,
-
+    id_solicitud_proveedor: raw?.solicitud_proveedor?.id_solicitud_proveedor ?? null,
   };
 }
 
+type EditableField =
+  | "canal_de_reservacion"
+  | "nombre_intermediario"
+  | "comentarios_ops"
+  | "conmentarios_cxp"
+  | "total_aplicable"
+  | "impuestos"
+  | "subtotal";
+
+const MONEY_FIELDS: EditableField[] = ["total_aplicable", "impuestos", "subtotal"];
+
+// Si tu backend usa nombres diferentes a los de UI, mapea aquí
+const FIELD_TO_API: Record<string, string> = {
+  canal_de_reservacion: "canal_de_reservacion",
+  nombre_intermediario: "nombre_intermediario",
+  comentarios_ops: "comentarios_ops",
+  conmentarios_cxp: "conmentarios_cxp",
+  total_aplicable: "total_aplicable",
+  impuestos: "impuestos",
+  subtotal: "subtotal",
+};
+
+type EditModalState = {
+  open: boolean;
+  rowId: string;
+  idServicio: string | number | null;
+  field: EditableField;
+  value: string; // siempre string en UI
+};
 
 export default function ConciliacionPage() {
   const [isLoading, setIsLoading] = useState(false);
-    const [showBatchSubirFactura, setShowBatchSubirFactura] = useState(false);
   const [showSubirFactura, setShowSubirFactura] = useState(false);
   const [rows, setRows] = useState<any[]>([]);
 
-  // UI (solo layout)
+  // UI
   const [searchTerm, setSearchTerm] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  // Draft UI para que se refleje lo editado (tu lógica real vendrá después)
-  const [draftEdits, setDraftEdits] = useState<Record<string, Partial<AnyRow>>>(
-    {}
-  );
+  // Draft UI para reflejar cambios ya guardados/pendientes
+  const [draftEdits, setDraftEdits] = useState<Record<string, Partial<AnyRow>>>({});
 
   const endpoint = `${URL}/mia/pago_proveedor/solicitud`;
+  const editEndpoint = `${URL}/mia/pago_proveedor/edit`;
 
   const load = useCallback(async () => {
     const controller = new AbortController();
@@ -366,46 +364,36 @@ export default function ConciliacionPage() {
     load();
   }, [load]);
 
-
-
-  const editEndpoint = `${URL}/mia/pago_proveedor/edit`;
-  type CommentField = "comentarios_ops" | "conmentarios_cxp";
-const editTimers = React.useRef<Record<string, ReturnType<typeof setTimeout> | null>>({});
-
+  /**
+   * ✅ handleEdit ahora edita por id_servicio (requisito del backend)
+   * Se dispara desde el botón "Cambiar" del modal expansivo.
+   */
   const handleEdit = useCallback(
-    
-  (rowId: string, field: string, value: any, idSolicitudProveedor?: number | null) => {
-    // 1) UI optimistic
-    setDraftEdits((prev) => ({
-      ...prev,
-      [rowId]: { ...(prev[rowId] || {}), [field]: value },
-    }));
+    async (rowId: string, field: EditableField, value: any, idServicio?: string | number | null) => {
+      // 1) UI optimistic
+      setDraftEdits((prev) => ({
+        ...prev,
+        [rowId]: { ...(prev[rowId] || {}), [field]: value },
+      }));
 
-    // 2) resolver id_solicitud_proveedor (prioriza el que viene del renderer)
-    const id_sp = Number(idSolicitudProveedor ?? 0) || null;
+      const id_servicio = (idServicio ?? null) as any;
+      if (!id_servicio) {
+        console.warn("Sin id_servicio para editar", { rowId, field, value });
+        return;
+      }
 
-    if (!id_sp) {
-      console.warn("Sin id_solicitud_proveedor para editar", { rowId, field, value });
-      return;
-    }
-
-    // 3) debounce para no pegar por cada tecla
-    const key = `${rowId}:${field}`;
-    if (editTimers.current[key]) clearTimeout(editTimers.current[key]!);
-
-    editTimers.current[key] = setTimeout(async () => {
       const apiField = FIELD_TO_API[field] ?? field;
 
       const payload = {
-        id_solicitud_proveedor: id_sp,
+        id_servicio, // ✅ clave de selección
         field: apiField,
         value,
-        row_id: rowId, // opcional (debug)
+        row_id: rowId, // opcional debug
       };
 
       try {
         const resp = await fetch(editEndpoint, {
-          method: "PATCH", // cambia a POST/PUT si tu backend lo requiere
+          method: "PATCH",
           headers: {
             "x-api-key": API_KEY || "",
             "Content-Type": "application/json",
@@ -415,60 +403,52 @@ const editTimers = React.useRef<Record<string, ReturnType<typeof setTimeout> | n
         });
 
         const json = await resp.json().catch(() => null);
-        if (!resp.ok) {
-          throw new Error(json?.message || `Error HTTP: ${resp.status}`);
-        }
+        if (!resp.ok) throw new Error(json?.message || `Error HTTP: ${resp.status}`);
 
         console.log("✅ edit ok", payload);
       } catch (err) {
         console.error("❌ edit fail", err);
-
-        // (Opcional) aquí podrías revertir el draft si quieres
-        // setDraftEdits((prev) => { ... });
       }
-    }, 450);
-  },
-  [editEndpoint]
-);
+    },
+    [editEndpoint]
+  );
 
-
-type CommentModalState = {
-  open: boolean;
-  rowId: string;
-  field: CommentField;
-  value: string;
-    idSolicitudProveedor: number | null;
-};
-
-const [commentModal, setCommentModal] = useState<CommentModalState>({
-  open: false,
-  rowId: "",
-  field: "comentarios_ops",
-  value: "",
-    idSolicitudProveedor: null,
-});
-
-const openCommentModal = useCallback((rowId: string, field: CommentField, value: any,idSolicitudProveedor: any) => {
-  setCommentModal({
-    open: true,
-    rowId,
-    field,
-    value: String(value ?? ""),
-    idSolicitudProveedor: Number(idSolicitudProveedor ?? 0) || null,
-
+  // ---- Modal expansivo genérico para TODOS los editables ----
+  const [editModal, setEditModal] = useState<EditModalState>({
+    open: false,
+    rowId: "",
+    idServicio: null,
+    field: "comentarios_ops",
+    value: "",
   });
-}, []);
 
-const closeCommentModal = useCallback(() => {
-  setCommentModal((s) => ({ ...s, open: false }));
-}, []);
+  const openEditModal = useCallback(
+    (rowId: string, idServicio: any, field: EditableField, currentValue: any) => {
+      setEditModal({
+        open: true,
+        rowId,
+        idServicio: idServicio ? idServicio : null,
+        field,
+        value: String(currentValue ?? ""),
+      });
+    },
+    []
+  );
 
-const saveCommentModal = useCallback(() => {
-  if (!commentModal.rowId) return;
-  handleEdit(commentModal.rowId, commentModal.field, commentModal.value,commentModal.idSolicitudProveedor);
-  closeCommentModal();
-}, [commentModal, handleEdit, closeCommentModal]);
+  const closeEditModal = useCallback(() => {
+    setEditModal((s) => ({ ...s, open: false }));
+  }, []);
 
+  const saveEditModal = useCallback(async () => {
+    const { rowId, field, value, idServicio } = editModal;
+    if (!rowId) return;
+
+    const normalizedValue =
+      MONEY_FIELDS.includes(field) ? (value.trim() === "" ? null : Number(value)) : value;
+
+    await handleEdit(rowId, field, normalizedValue, idServicio);
+    closeEditModal();
+  }, [editModal, handleEdit, closeEditModal]);
 
   const registrosVisibles = useMemo(() => {
     const mapped = rows.map((r, i) => toConciliacionRow(r, i));
@@ -508,7 +488,7 @@ const saveCommentModal = useCallback(() => {
       "conmentarios_cxp",
       "detalles",
       "estatus_facturas",
-      "estatus_pago",   
+      "estatus_pago",
       "total_facturado",
       "diferencia_costo_proveedor_vs_factura",
       "subir_factura",
@@ -555,135 +535,163 @@ const saveCommentModal = useCallback(() => {
         );
       },
 
-
-      
-      // ------- EDITABLES -------
+      // ---------- EDITABLES (AHORA IGUALES A LOS DEMÁS + EXPANSIVO) ----------
       canal_de_reservacion: ({ value, item }) => {
-  const rowId = String(item?.row_id ?? "");
-  const solicitudId = Number(item?.id_solicitud_proveedor ?? 0) || null;
-
-  const v = draftEdits[rowId]?.canal_de_reservacion ?? value ?? "";
-
-  return (
-    <select
-      className="w-full border border-gray-200 rounded-md px-2 py-1 text-xs bg-white"
-      value={String(v)}
-      onChange={(e) => handleEdit(rowId, "canal_de_reservacion", e.target.value, solicitudId)}
-    >
-      <option value="">—</option>
-      <option value="DIRECTO">DIRECTO</option>
-      <option value="INTERMEDIARIO">INTERMEDIARIO</option>
-    </select>
-  );
-},
-
-
-      nombre_intermediario: ({ value, item }) => {
         const rowId = String(item?.row_id ?? "");
-        const v = draftEdits[rowId]?.nombre_intermediario ?? value ?? "";
+        const idServicio = item?.id_servicio ?? item?.__raw?.id_servicio ?? null;
+
+        const v = draftEdits[rowId]?.canal_de_reservacion ?? value ?? "";
+
         return (
-          <input
-            className="w-full border border-gray-200 rounded-md px-2 py-1 text-xs"
-            value={String(v)}
-            onChange={(e) => handleEdit(rowId, "nombre_intermediario", e.target.value)}
-            placeholder="Editable..."
-          />
+          <div className="flex items-center gap-2">
+            <span className="text-xs">{String(v || "—").toUpperCase()}</span>
+            <button
+              type="button"
+              className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 bg-white hover:bg-gray-50"
+              title="Editar"
+              onClick={() => openEditModal(rowId, idServicio, "canal_de_reservacion", v)}
+            >
+              <Maximize2 className="w-4 h-4 text-gray-600" />
+            </button>
+          </div>
         );
       },
 
-comentarios_ops: ({ value, item }) => {
-  const rowId = String(item?.row_id ?? "");
-  const solicitudId = Number(item?.id_solicitud_proveedor ?? 0) || null;
+      nombre_intermediario: ({ value, item }) => {
+        const rowId = String(item?.row_id ?? "");
+        const idServicio = item?.id_servicio ?? item?.__raw?.id_servicio ?? null;
 
-  const v = draftEdits[rowId]?.comentarios_ops ?? value ?? "";
+        const v = draftEdits[rowId]?.nombre_intermediario ?? value ?? "";
 
-  return (
-    <div className="flex items-center gap-2">
-      <input
-        className="w-full border border-gray-200 rounded-md px-2 py-1 text-xs"
-        value={String(v)}
-        onChange={(e) => handleEdit(rowId, "comentarios_ops", e.target.value, solicitudId)}
-        onDoubleClick={() => openCommentModal(rowId, "comentarios_ops", v,solicitudId)}
-        placeholder="Editable..."
-      />
-      <button
-        type="button"
-        className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 bg-white hover:bg-gray-50"
-        title="Ver comentario completo"
-        onClick={() => openCommentModal(rowId, "comentarios_ops", v,solicitudId)}
-      >
-        <Maximize2 className="w-4 h-4 text-gray-600" />
-      </button>
-    </div>
-  );
-},
+        return (
+          <div className="flex items-center gap-2">
+            <span className="text-xs" title={String(v ?? "")}>
+              {truncateText(v, 30)}
+            </span>
+            <button
+              type="button"
+              className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 bg-white hover:bg-gray-50"
+              title="Editar"
+              onClick={() => openEditModal(rowId, idServicio, "nombre_intermediario", v)}
+            >
+              <Maximize2 className="w-4 h-4 text-gray-600" />
+            </button>
+          </div>
+        );
+      },
 
+      comentarios_ops: ({ value, item }) => {
+        const rowId = String(item?.row_id ?? "");
+        const idServicio = item?.id_servicio ?? item?.__raw?.id_servicio ?? null;
 
-conmentarios_cxp: ({ value, item }) => {
-  const rowId = String(item?.row_id ?? "");
-  const v = draftEdits[rowId]?.conmentarios_cxp ?? value ?? "";
+        const v = draftEdits[rowId]?.comentarios_ops ?? value ?? "";
 
-  return (
-    <div className="flex items-center gap-2">
-      <input
-        className="w-full border border-gray-200 rounded-md px-2 py-1 text-xs"
-        value={String(v)}
-        onChange={(e) => handleEdit(rowId, "conmentarios_cxp", e.target.value)}
-        onDoubleClick={() => openCommentModal(rowId, "conmentarios_cxp", v,)}
-        placeholder="Editable..."
-      />
-      <button
-        type="button"
-        className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 bg-white hover:bg-gray-50"
-        title="Ver comentario completo"
-        onClick={() => openCommentModal(rowId, "conmentarios_cxp", v)}
-      >
-        <Maximize2 className="w-4 h-4 text-gray-600" />
-      </button>
-    </div>
-  );
-},
+        return (
+          <div className="flex items-center gap-2">
+            <span className="text-xs" title={String(v ?? "")}>
+              {truncateText(v, 26)}
+            </span>
+            <button
+              type="button"
+              className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 bg-white hover:bg-gray-50"
+              title="Editar"
+              onClick={() => openEditModal(rowId, idServicio, "comentarios_ops", v)}
+            >
+              <Maximize2 className="w-4 h-4 text-gray-600" />
+            </button>
+          </div>
+        );
+      },
 
+      conmentarios_cxp: ({ value, item }) => {
+        const rowId = String(item?.row_id ?? "");
+        const idServicio = item?.id_servicio ?? item?.__raw?.id_servicio ?? null;
+
+        const v = draftEdits[rowId]?.conmentarios_cxp ?? value ?? "";
+
+        return (
+          <div className="flex items-center gap-2">
+            <span className="text-xs" title={String(v ?? "")}>
+              {truncateText(v, 26)}
+            </span>
+            <button
+              type="button"
+              className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 bg-white hover:bg-gray-50"
+              title="Editar"
+              onClick={() => openEditModal(rowId, idServicio, "conmentarios_cxp", v)}
+            >
+              <Maximize2 className="w-4 h-4 text-gray-600" />
+            </button>
+          </div>
+        );
+      },
 
       total_aplicable: ({ value, item }) => {
         const rowId = String(item?.row_id ?? "");
+        const idServicio = item?.id_servicio ?? item?.__raw?.id_servicio ?? null;
+
         const v = draftEdits[rowId]?.total_aplicable ?? value ?? "";
+
         return (
-          <input
-            type="number"
-            className="w-full border border-gray-200 rounded-md px-2 py-1 text-xs"
-            value={String(v)}
-            onChange={(e) => handleEdit(rowId, "total_aplicable", e.target.value)}
-            placeholder="0.00"
-          />
+          <div className="flex items-center gap-2">
+            <span className="text-xs" title={String(v ?? "")}>
+              {v === "" || v === null || typeof v === "undefined" ? "—" : formatMoney(v)}
+            </span>
+            <button
+              type="button"
+              className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 bg-white hover:bg-gray-50"
+              title="Editar"
+              onClick={() => openEditModal(rowId, idServicio, "total_aplicable", v)}
+            >
+              <Maximize2 className="w-4 h-4 text-gray-600" />
+            </button>
+          </div>
         );
       },
 
       impuestos: ({ value, item }) => {
         const rowId = String(item?.row_id ?? "");
+        const idServicio = item?.id_servicio ?? item?.__raw?.id_servicio ?? null;
+
         const v = draftEdits[rowId]?.impuestos ?? value ?? "";
+
         return (
-          <input
-            type="number"
-            className="w-full border border-gray-200 rounded-md px-2 py-1 text-xs"
-            value={String(v)}
-            onChange={(e) => handleEdit(rowId, "impuestos", e.target.value)}
-            placeholder="0.00"
-          />
+          <div className="flex items-center gap-2">
+            <span className="text-xs" title={String(v ?? "")}>
+              {v === "" || v === null || typeof v === "undefined" ? "—" : formatMoney(v)}
+            </span>
+            <button
+              type="button"
+              className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 bg-white hover:bg-gray-50"
+              title="Editar"
+              onClick={() => openEditModal(rowId, idServicio, "impuestos", v)}
+            >
+              <Maximize2 className="w-4 h-4 text-gray-600" />
+            </button>
+          </div>
         );
       },
 
       subtotal: ({ value, item }) => {
         const rowId = String(item?.row_id ?? "");
+        const idServicio = item?.id_servicio ?? item?.__raw?.id_servicio ?? null;
+
         const v = draftEdits[rowId]?.subtotal ?? value ?? "";
+
         return (
-          <input
-            type="number"
-            className="w-full border border-gray-200 rounded-md px-2 py-1 text-xs"
-            value={String(v)}
-            onChange={(e) => handleEdit(rowId, "subtotal", e.target.value)}
-            placeholder="0.00"
-          />
+          <div className="flex items-center gap-2">
+            <span className="text-xs" title={String(v ?? "")}>
+              {v === "" || v === null || typeof v === "undefined" ? "—" : formatMoney(v)}
+            </span>
+            <button
+              type="button"
+              className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 bg-white hover:bg-gray-50"
+              title="Editar"
+              onClick={() => openEditModal(rowId, idServicio, "subtotal", v)}
+            >
+              <Maximize2 className="w-4 h-4 text-gray-600" />
+            </button>
+          </div>
         );
       },
 
@@ -708,9 +716,9 @@ conmentarios_cxp: ({ value, item }) => {
             type="button"
             className="px-2 py-1 rounded-md text-xs border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
             onClick={() => {
-                console.log("subir_factura", { rowId }),
-                setShowSubirFactura(true)
-        }}
+              console.log("subir_factura", { rowId });
+              setShowSubirFactura(true);
+            }}
           >
             Subir
           </button>
@@ -724,7 +732,13 @@ conmentarios_cxp: ({ value, item }) => {
         const n = Number(value || 0);
         return (
           <span
-            className={n === 0 ? "text-gray-700" : n > 0 ? "text-amber-700 font-semibold" : "text-red-700 font-semibold"}
+            className={
+              n === 0
+                ? "text-gray-700"
+                : n > 0
+                ? "text-amber-700 font-semibold"
+                : "text-red-700 font-semibold"
+            }
             title={String(value)}
           >
             {formatMoney(n)}
@@ -740,7 +754,7 @@ conmentarios_cxp: ({ value, item }) => {
 
       total_factura: ({ value }) => <span title={String(value)}>{formatMoney(value)}</span>,
     }),
-    [draftEdits, handleEdit,openCommentModal]
+    [draftEdits, openEditModal]
   );
 
   const defaultSort = useMemo(() => ({ key: "creado", sort: false }), []);
@@ -833,109 +847,132 @@ conmentarios_cxp: ({ value, item }) => {
         </div>
 
         {/* Tabla principal */}
-<div className="bg-white border border-gray-200 rounded-lg p-3 flex flex-col">
-  <Table5<any>
-    registros={registrosVisibles as any}
-    renderers={renderers}
-    defaultSort={defaultSort as any}
-    leyenda={`Mostrando ${registrosVisibles.length} registros`}
-    customColumns={customColumns}
-    fillHeight
-    maxHeight="calc(100vh - 220px)"
-  />
-</div>
-
-
-{commentModal.open && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center">
-    {/* overlay */}
-    <div
-      className="absolute inset-0 bg-black/40"
-      onClick={closeCommentModal}
-    />
-
-    {/* modal */}
-    <div className="relative w-[min(720px,92vw)] bg-white rounded-xl shadow-lg border border-gray-200">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-        <div>
-          <p className="text-sm font-semibold text-gray-900">
-            {commentModal.field === "comentarios_ops"
-              ? "Comentario OPS"
-              : "Comentario CXP"}
-          </p>
-          <p className="text-xs text-gray-500">
-            ID: {commentModal.rowId}
-          </p>
+        <div className="bg-white border border-gray-200 rounded-lg p-3 flex flex-col">
+          <Table5<any>
+            registros={registrosVisibles as any}
+            renderers={renderers}
+            defaultSort={defaultSort as any}
+            leyenda={`Mostrando ${registrosVisibles.length} registros`}
+            customColumns={customColumns}
+            fillHeight
+            maxHeight="calc(100vh - 220px)"
+          />
         </div>
 
-        <button
-          type="button"
-          className="inline-flex items-center justify-center w-9 h-9 rounded-md border border-gray-200 bg-white hover:bg-gray-50"
-          onClick={closeCommentModal}
-          title="Cerrar"
-        >
-          <X className="w-4 h-4 text-gray-700" />
-        </button>
-      </div>
+        {/* MODAL EXPANSIVO PARA EDITABLES */}
+        {editModal.open && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            {/* overlay */}
+            <div className="absolute inset-0 bg-black/40" onClick={closeEditModal} />
 
-      <div className="p-4">
-        <textarea
-          className="w-full min-h-[180px] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
-          value={commentModal.value}
-          onChange={(e) =>
-            setCommentModal((s) => ({ ...s, value: e.target.value }))
-          }
-          placeholder="Escribe el comentario completo..."
-        />
+            {/* modal */}
+            <div className="relative w-[min(720px,92vw)] bg-white rounded-xl shadow-lg border border-gray-200">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">Editar campo</p>
+                  <p className="text-xs text-gray-500">
+                    Row: {editModal.rowId} • id_servicio: {String(editModal.idServicio ?? "—")}
+                  </p>
+                  <p className="text-xs text-gray-500">Campo: {editModal.field}</p>
+                </div>
 
-        <div className="mt-3 flex items-center justify-end gap-2">
-          <button
-            type="button"
-            className="px-3 py-2 rounded-lg text-sm border border-gray-200 bg-white hover:bg-gray-50"
-            onClick={closeCommentModal}
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            className="px-3 py-2 rounded-lg text-sm border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
-            onClick={saveCommentModal}
-          >
-            Guardar
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-)}
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center w-9 h-9 rounded-md border border-gray-200 bg-white hover:bg-gray-50"
+                  onClick={closeEditModal}
+                  title="Cerrar"
+                >
+                  <X className="w-4 h-4 text-gray-700" />
+                </button>
+              </div>
 
-      {showSubirFactura && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-gray-800"></h2>
-              <button
-                onClick={() => setShowSubirFactura(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-            <div className="p-6">
-              <SubirFactura
-                proveedores_data={true}
-                onSuccess={() => {
-                  setShowSubirFactura(false);
-                  // Aquí puedes añadir lógica adicional después de subir la factura
-                }}
-              />
+              <div className="p-4">
+                {/* Render del input según field */}
+                {editModal.field === "canal_de_reservacion" ? (
+                  <select
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
+                    value={editModal.value}
+                    onChange={(e) => setEditModal((s) => ({ ...s, value: e.target.value }))}
+                  >
+                    <option value="">—</option>
+                    <option value="DIRECTO">DIRECTO</option>
+                    <option value="INTERMEDIARIO">INTERMEDIARIO</option>
+                  </select>
+                ) : editModal.field === "comentarios_ops" || editModal.field === "conmentarios_cxp" ? (
+                  <textarea
+                    className="w-full min-h-[180px] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
+                    value={editModal.value}
+                    onChange={(e) => setEditModal((s) => ({ ...s, value: e.target.value }))}
+                    placeholder="Escribe el texto completo..."
+                  />
+                ) : editModal.field === "total_aplicable" ||
+                  editModal.field === "impuestos" ||
+                  editModal.field === "subtotal" ? (
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
+                    value={editModal.value}
+                    onChange={(e) => setEditModal((s) => ({ ...s, value: e.target.value }))}
+                    placeholder="0.00"
+                  />
+                ) : (
+                  <input
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
+                    value={editModal.value}
+                    onChange={(e) => setEditModal((s) => ({ ...s, value: e.target.value }))}
+                    placeholder="Escribe..."
+                  />
+                )}
+
+                <div className="mt-3 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    className="px-3 py-2 rounded-lg text-sm border border-gray-200 bg-white hover:bg-gray-50"
+                    onClick={closeEditModal}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    className="px-3 py-2 rounded-lg text-sm border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                    onClick={saveEditModal}
+                  >
+                    Cambiar
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
+        {/* MODAL SUBIR FACTURA */}
+        {showSubirFactura && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+              <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
+                <h2 className="text-xl font-bold text-gray-800"></h2>
+                <button
+                  onClick={() => setShowSubirFactura(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              <div className="p-6">
+                <SubirFactura
+                  proveedores_data={true}
+                  onSuccess={() => {
+                    setShowSubirFactura(false);
+                    // Opcional: load() para refrescar tabla
+                    // load();
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-
     </div>
   );
 }

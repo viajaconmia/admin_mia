@@ -130,6 +130,7 @@ const getItemsTotal = useCallback((): number => {
     archivoPDF: null,
     archivoXML: null,
     empresasAgente: [],
+    proveedores_data:null,
     empresaSeleccionada: null,
     facturaPagada: pagoData ? true : (!hasItems ? true : false),
   };
@@ -500,9 +501,13 @@ const getItemsTotal = useCallback((): number => {
       };
 
       console.log("Payload completo para API:", basePayload);
+      const ENDPOINT = proveedores_data? `${URL}/mia/factura/CrearFacturaDesdeCarga`
+       `${URL}/mia/pago_proveedores/subir_factura`;
+
+
 
       if (basePayload.items != "1") {
-        const response = await fetch(`${URL}/mia/factura/CrearFacturaDesdeCarga`, {
+        const response = await fetch(ENDPOINT, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -547,10 +552,6 @@ const getItemsTotal = useCallback((): number => {
       setSubiendoArchivos(false);
     }
   };
-
-  const handleProveedores =async ({ payload, url, fecha_vencimiento }: { payload?: any, url?: string, fecha_vencimiento?: string }) =>{
-    
-  }
 
   const handleEnviar = async () => {
     // Validar antes de proceder
@@ -805,7 +806,7 @@ const getItemsTotal = useCallback((): number => {
             setFacturaPagada(true);
             if (pagoData && facturaData) {
               handlePagos({ url: pdfUrl, fecha_vencimiento: fecha_vencimiento }); // paga contra saldos/raw_ids
-            } else {
+            }else {
               // Sin pagoData: guardar como pagada con saldo=0 (ver cambio en handleConfirmarFactura)
               handleConfirmarFactura({ url: pdfUrl, fecha_vencimiento: fecha_vencimiento });
             }
