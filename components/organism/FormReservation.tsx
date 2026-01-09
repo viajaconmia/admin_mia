@@ -10,7 +10,7 @@ import { fetchAgenteById, fetchPagosByAgente } from "@/services/agentes";
 import {
   fetchCreateReservaFromSolicitud,
   fetchCreateReservaOperaciones,
-  updateReserva,
+  updateReserva,codigo_reserva,
 } from "@/services/reservas";
 import {
   CheckboxInput,
@@ -455,8 +455,29 @@ export function ReservationForm({
     }
   };
 
-  const handleWalletPayment = async () => {
-    setLoading(true);
+const handleWalletPayment = async () => {
+  setLoading(true);
+
+  try {
+    const validateReservation = await codigo_reserva(form.codigo_reservacion_hotel);
+    console.log("validacion", validateReservation);
+
+    // 1) Si falta código (tu fetch regresa { error: true, message: "Falta codigo_reserva" })
+    if (validateReservation?.error) {
+      showNotification("error", validateReservation.message || "Falta código de reservación");
+      setLoading(false);
+      return;
+    }
+
+    // 2) Solo bloquear cuando venga EXACTAMENTE duplicado:
+    // {"ok":false,"exists":true,"message":"Ya existe"}
+    if (validateReservation?.ok === false && validateReservation?.exists === true) {
+      showNotification("error", validateReservation.message || "Ya existe codigo de reservacion");
+      setLoading(false);
+      return;
+    }
+
+    // 3) Continuar flujo normal
     const saldo = await updateAgentWallet();
 
     if (saldo < form.venta.total) {
@@ -465,29 +486,26 @@ export function ReservationForm({
       return;
     }
 
-    try {
-      const reservaConAgente = {
-        ...form,
-        id_agente: solicitud.id_agente,
-        Total: form.venta.total,
-        Noches: form.noches,
-        metodoPago: "wallet",
-        nuevo_incluye_desayuno,
-        acompanantes,
-        solicitud,
-      };
-      setReservaData(reservaConAgente);
-      setShowPagarModal(true);
-      setLoading(false);
-    } catch (error) {
-      console.error("Error en la reserva:", error);
-      showNotification(
-        "error",
-        error.message || "Ocurrió un error inesperado."
-      );
-      setLoading(false);
-    }
-  };
+    const reservaConAgente = {
+      ...form,
+      id_agente: solicitud.id_agente,
+      Total: form.venta.total,
+      Noches: form.noches,
+      metodoPago: "wallet",
+      nuevo_incluye_desayuno,
+      acompanantes,
+      solicitud,
+    };
+
+    setReservaData(reservaConAgente);
+    setShowPagarModal(true);
+    setLoading(false);
+  } catch (error: any) {
+    console.error("Error en la reserva:", error);
+    showNotification("error", error?.message || "Ocurrió un error inesperado.");
+    setLoading(false);
+  }
+};
 
   const handleprocesar = async () => {
     fetchCreateReservaFromSolicitud(

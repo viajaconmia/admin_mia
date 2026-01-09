@@ -1,13 +1,12 @@
-'use client';
+"use client";
 
-import React from 'react';
+import React from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { X, Copy, Check, FileText, ExternalLink } from 'lucide-react';
+import { X, Copy, Check, FileText, ExternalLink } from "lucide-react";
 import { URL, HEADERS_API } from "@/lib/constants/index";
 import { formatNumberWithCommas } from "@/helpers/utils";
 import { Table4 } from "@/components/organism/Table4";
-import { formatDate } from '@/helpers/formater';
 
 type ReservaAPI = {
   id_solicitud?: string;
@@ -29,14 +28,17 @@ const buildReservasRows = (reservas: ReservaAPI[] = []) => {
     id: r.id_solicitud || `row-${idx}`,
     id_solicitud: r.id_solicitud || "N/A",
     id_booking: r.id_booking || "N/A",
-    viajero: r.viajero ||r.nombre_viajero_solicitud|| "N/A",
+    viajero: r.viajero || r.nombre_viajero_solicitud || "N/A",
     viajeros_adicionales:
-      r.viajeros_adicionales_reserva || r.nombre_acompanantes_reserva ||r.nombres_viajeros_acompañantes|| "Ninguno",
+      r.viajeros_adicionales_reserva ||
+      r.nombre_acompanantes_reserva ||
+      r.nombres_viajeros_acompañantes ||
+      "Ninguno",
     tipo_cuarto: r.tipo_cuarto || "N/A",
-    hotel: r.nombre_hotel ||r.hotel|| "N/A",
+    hotel: r.nombre_hotel || r.hotel || "N/A",
     check_in: r.check_in || "N/A",
     check_out: r.check_out || "N/A",
-    total_booking: r.total_booking ||r.total ||0,
+    total_booking: r.total_booking || r.total || 0,
     confirmation_code: r.codigo_reservacion_hotel || "N/A",
     item: r,
   }));
@@ -86,20 +88,29 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
   const [detallesAdicionales, setDetallesAdicionales] = React.useState<any>(null);
   const [loadingDetalles, setLoadingDetalles] = React.useState(false);
 
+  // ✅ Nuevo: indica si ya hubo respuesta (éxito o fallback por error)
+  const hasFetchedDetalles = detallesAdicionales !== null;
+
+  // ✅ Nuevo: soporta ambos shapes: { data: { facturas, reservas } } o { facturas, reservas }
+  const detalles = React.useMemo(() => {
+    if (!detallesAdicionales) return null;
+    return detallesAdicionales?.data ?? detallesAdicionales;
+  }, [detallesAdicionales]);
+
   const handleCopy = async (text: string, idx?: number) => {
     try {
       await navigator.clipboard.writeText(text);
-      if (typeof idx === 'number') {
+      if (typeof idx === "number") {
         setCopiedFacturaIdx(idx);
         setTimeout(() => setCopiedFacturaIdx(null), 1500);
       }
     } catch (e) {
-      console.error('No se pudo copiar:', e);
+      console.error("No se pudo copiar:", e);
     }
   };
 
   const CurrencyCell: React.FC<{ value: any }> = ({ value }) => {
-    const numValue = typeof value === "string" ? parseFloat(value) : (value || 0);
+    const numValue = typeof value === "string" ? parseFloat(value) : value || 0;
     return (
       <span className="font-semibold">
         {new Intl.NumberFormat("es-MX", {
@@ -122,60 +133,58 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
   };
 
   const formatCurrency = (value: number | string | undefined): string => {
-    const numValue = typeof value === 'string' ? parseFloat(value) : value || 0;
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: pago?.currency || 'MXN',
+    const numValue = typeof value === "string" ? parseFloat(value) : value || 0;
+    return new Intl.NumberFormat("es-MX", {
+      style: "currency",
+      currency: pago?.currency || "MXN",
       minimumFractionDigits: 2,
-      maximumFractionDigits: 2
+      maximumFractionDigits: 2,
     }).format(numValue);
   };
 
   const formatIdItem = (id: string | undefined): string => {
-    if (!id) return 'N/A';
+    if (!id) return "N/A";
     return id.length > 4 ? `...${id.slice(-4)}` : id;
   };
 
 
 
   const getMetodoPago = (): string => {
-    const metodo = pago.metodo || pago.tipo_pago || pago.metodo_pago || '';
-    switch ((metodo || '').toLowerCase()) {
-      case 'tarjeta':
-      case 'tarjeta_de_credito':
-      case 'tarjeta de crédito':
-        return 'Tarjeta de crédito/débito';
-      case 'spei':
-        return 'Transferencia SPEI';
-      case 'efectivo':
-        return 'Efectivo';
-      case 'wallet':
-        return 'Wallet';
+    const metodo = pago.metodo || pago.tipo_pago || pago.metodo_pago || "";
+    switch ((metodo || "").toLowerCase()) {
+      case "tarjeta":
+      case "tarjeta_de_credito":
+      case "tarjeta de crédito":
+        return "Tarjeta de crédito/débito";
+      case "spei":
+        return "Transferencia SPEI";
+      case "efectivo":
+        return "Efectivo";
+      case "wallet":
+        return "Wallet";
       default:
-        return metodo || 'N/A';
+        return metodo || "N/A";
     }
   };
 
   const getTipoTarjeta = (): string => {
     const tipo = pago.tipo;
-    if (!tipo) return 'N/A';
-    switch ((tipo || '').toLowerCase()) {
-      case 'visa': return 'Visa';
-      case 'mastercard': return 'Mastercard';
-      case 'amex': return 'American Express';
-      case 'credito': return 'Crédito';
-      case 'debito': return 'Débito';
-      default: return tipo;
+    if (!tipo) return "N/A";
+    switch ((tipo || "").toLowerCase()) {
+      case "visa":
+        return "Visa";
+      case "mastercard":
+        return "Mastercard";
+      case "amex":
+        return "American Express";
+      case "credito":
+        return "Crédito";
+      case "debito":
+        return "Débito";
+      default:
+        return tipo;
     }
   };
-
-  const reservasRows = React.useMemo(() => {
-    const reservas: ReservaAPI[] =
-      detallesAdicionales?.data?.reservas && Array.isArray(detallesAdicionales.data.reservas)
-        ? detallesAdicionales.data.reservas
-        : [];
-    return buildReservasRows(reservas);
-  }, [detallesAdicionales]);
 
   const reservaRenderers = React.useMemo(() => {
     return {
@@ -187,19 +196,24 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
 
   const extractFacturaIds = (facturasData: any): string[] => {
     if (!facturasData) return [];
-    if (Array.isArray(facturasData) && facturasData.every(id => typeof id === 'string' && id.startsWith('fac-'))) {
+    if (
+      Array.isArray(facturasData) &&
+      facturasData.every((id) => typeof id === "string" && id.startsWith("fac-"))
+    ) {
       return facturasData;
     }
-    if (typeof facturasData === 'string') {
-      const combined = facturasData.split('||').map((s: string) => s.trim());
-      return combined.map(item => {
-        const match = item.match(/Id factura: (fac-[a-f0-9-]+)/i);
-        return match ? match[1] : null;
-      }).filter(Boolean) as string[];
+    if (typeof facturasData === "string") {
+      const combined = facturasData.split("||").map((s: string) => s.trim());
+      return combined
+        .map((item) => {
+          const match = item.match(/Id factura: (fac-[a-f0-9-]+)/i);
+          return match ? match[1] : null;
+        })
+        .filter(Boolean) as string[];
     }
     if (Array.isArray(facturasData)) {
-      return facturasData.flatMap(item => {
-        if (typeof item === 'string') {
+      return facturasData.flatMap((item) => {
+        if (typeof item === "string") {
           const match = item.match(/Id factura: (fac-[a-f0-9-]+)/i);
           return match ? [match[1]] : [];
         }
@@ -216,10 +230,10 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
 
   React.useEffect(() => {
     const fetchDetalles = async () => {
-      if (!id_buscar || !pago?.id_agente) return;
+      if (!id_buscar) return;
       setLoadingDetalles(true);
       try {
-        const url = `${URL}/mia/pagos/DetallesConexion?id_agente=${pago.id_agente}&id_raw=${id_buscar}`;
+        const url = `${URL}/mia/pagos/detalles_pagos?id_raw=${id_buscar}`;
         const response = await fetch(url, {
           method: "GET",
           headers: HEADERS_API,
@@ -231,20 +245,30 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
         setDetallesAdicionales(data);
       } catch (error) {
         console.error("Error fetching detalles:", error);
+        // ✅ Evita "cargando" infinito y permite mostrar "No se encontró información"
+        setDetallesAdicionales({ facturas: [], reservas: [] });
       } finally {
         setLoadingDetalles(false);
       }
     };
-    fetchDetalles();
-  }, [pago, id_buscar]);
 
+    fetchDetalles();
+  }, [id_buscar]);
+
+  // ✅ Ahora toma reservas desde `detalles` (soporta ambos shapes)
+  const reservasRows = React.useMemo(() => {
+    const reservas: ReservaAPI[] = Array.isArray(detalles?.reservas) ? detalles.reservas : [];
+    return buildReservasRows(reservas);
+  }, [detalles]);
+
+  // ✅ Ahora toma facturas desde `detalles` (soporta ambos shapes)
   const facturas = React.useMemo(() => {
-    const arr = detallesAdicionales?.data?.facturas;
+    const arr = detalles?.facturas;
     return Array.isArray(arr) ? arr : [];
-  }, [detallesAdicionales]);
+  }, [detalles]);
 
   const formatDateShort = (dateString: string | null | undefined): string => {
-    if (!dateString || dateString === "0000-00-00") return 'N/A';
+    if (!dateString || dateString === "0000-00-00") return "N/A";
     try {
       const date = new Date(dateString);
       return format(date, "dd MMM yyyy", { locale: es });
@@ -282,6 +306,7 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
                   <button
                     onClick={() => handleCopy(pago.id_agente || "")}
                     className="text-blue-600 text-xs border border-blue-100 bg-blue-50 hover:bg-blue-100 rounded px-2 py-1"
+                    type="button"
                   >
                     Copiar
                   </button>
@@ -297,6 +322,7 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
                   <button
                     onClick={() => handleCopy(id_buscar || "")}
                     className="text-blue-600 text-xs border border-blue-100 bg-blue-50 hover:bg-blue-100 rounded px-2 py-1"
+                    type="button"
                   >
                     Copiar
                   </button>
@@ -347,7 +373,9 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
                   }
 
                   return (
-                    <p className={`mt-1 text-xs px-2 py-1 rounded-full font-semibold inline-block border ${className}`}>
+                    <p
+                      className={`mt-1 text-xs px-2 py-1 rounded-full font-semibold inline-block border ${className}`}
+                    >
                       {texto}
                     </p>
                   );
@@ -437,7 +465,9 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
 
                 <div className="bg-purple-50 border border-purple-100 p-4 rounded-lg shadow-sm">
                   <h4 className="text-sm font-medium text-purple-700">Autorización</h4>
-                  <p className="mt-1 text-sm font-mono text-purple-900">{formatIdItem(pago.autorizacion)}</p>
+                  <p className="mt-1 text-sm font-mono text-purple-900">
+                    {formatIdItem(pago.autorizacion)}
+                  </p>
                   <button
                     onClick={() => handleCopy(pago.autorizacion || "")}
                     className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 active:scale-[.99]"
@@ -460,7 +490,9 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-lg shadow-sm">
                   <h4 className="text-sm font-medium text-indigo-700">Referencia SPEI</h4>
-                  <p className="mt-1 text-sm font-semibold text-indigo-900">{pago.referencia || "N/A"}</p>
+                  <p className="mt-1 text-sm font-semibold text-indigo-900">
+                    {pago.referencia || "N/A"}
+                  </p>
                 </div>
 
                 <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-lg shadow-sm">
@@ -471,10 +503,13 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
             </div>
           )}
 
-          {/* Detalles reservas */}
-          {!loadingDetalles && reservasRows.length > 0 && (
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold mb-4 text-green-800">Reservas Asociadas</h3>
+          {/* ✅ Reservas asociadas: Cargando / Tabla / No info */}
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold mb-4 text-green-800">Reservas Asociadas</h3>
+
+            {!hasFetchedDetalles || loadingDetalles ? (
+              <p className="text-sm text-gray-500">Cargando...</p>
+            ) : reservasRows.length > 0 ? (
               <Table4
                 registros={reservasRows}
                 renderers={reservaRenderers as any}
@@ -495,28 +530,34 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
                 expandedRenderer={(row) => (
                   <div className="p-3 text-xs text-gray-700">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                      <div><b>ID Solicitud:</b> {row.id_solicitud}</div>
-                      <div><b>ID Booking:</b> {row.id_booking}</div>
-                      <div><b>Conf. Code:</b> {row.confirmation_code}</div>
+                      <div>
+                        <b>ID Solicitud:</b> {row.id_solicitud}
+                      </div>
+                      <div>
+                        <b>ID Booking:</b> {row.id_booking}
+                      </div>
+                      <div>
+                        <b>Conf. Code:</b> {row.confirmation_code}
+                      </div>
                     </div>
                   </div>
                 )}
               />
-            </div>
-          )}
+            ) : (
+              <div className="border border-gray-200 bg-gray-50 rounded-lg p-4">
+                <p className="text-sm text-gray-700 font-semibold">No se encontró información</p>
+                <p className="text-xs text-gray-500 mt-1">Este pago no tiene reservas asociadas.</p>
+              </div>
+            )}
+          </div>
 
-          {!loadingDetalles && reservasRows.length === 0 && (
-            <div className="mb-6">
-              <h3 className="text-lg font-semibold mb-2 text-gray-600">Reservas Asociadas</h3>
-              <p className="text-sm text-gray-500">Cargando...</p>
-            </div>
-          )}
-
-          {/* Facturas asociadas */}
+          {/* ✅ Facturas asociadas: Cards / IDs / No info */}
           <div className="mt-8">
             <h3 className="text-lg font-semibold mb-4">Facturas Asociadas</h3>
 
-            {facturas.length > 0 ? (
+            {!hasFetchedDetalles || loadingDetalles ? (
+              <p className="mt-1 text-sm text-gray-500">Cargando ...</p>
+            ) : facturas.length > 0 ? (
               <div className="space-y-4">
                 {facturas.map((f: any, idx: number) => {
                   const id = f.id_factura || `fac-${idx}`;
@@ -534,15 +575,17 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
                         <div>
                           <div className="flex items-center gap-2">
                             <FileText className="w-5 h-5 text-gray-600" />
-                            <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">{id}</span>
+                            <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded">
+                              {id}
+                            </span>
                             <span
                               className={
                                 "ml-2 text-xs px-2 py-1 rounded-full border " +
                                 (estado === "Confirmada"
                                   ? "bg-green-100 text-green-800 border-green-300"
                                   : estado === "Cancelada"
-                                    ? "bg-red-100 text-red-800 border-red-300"
-                                    : "bg-yellow-100 text-yellow-800 border-yellow-300")
+                                  ? "bg-red-100 text-red-800 border-red-300"
+                                  : "bg-yellow-100 text-yellow-800 border-yellow-300")
                               }
                             >
                               {estado}
@@ -626,10 +669,18 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
                               <div className="text-xs text-gray-700">
                                 {f.pagos_asociados.map((p: any, i: number) => (
                                   <div key={i} className="flex flex-wrap gap-4">
-                                    <div><b>ID Pago:</b> {p.id_pago ?? "N/A"}</div>
-                                    <div><b>Monto:</b> {formatCurrency(p.monto ?? 0)}</div>
-                                    <div><b>Facturado:</b> {formatCurrency(p.monto_facturado ?? 0)}</div>
-                                    <div><b>Por facturar:</b> {formatCurrency(p.monto_por_facturar ?? 0)}</div>
+                                    <div>
+                                      <b>ID Pago:</b> {p.id_pago ?? "N/A"}
+                                    </div>
+                                    <div>
+                                      <b>Monto:</b> {formatCurrency(p.monto ?? 0)}
+                                    </div>
+                                    <div>
+                                      <b>Facturado:</b> {formatCurrency(p.monto_facturado ?? 0)}
+                                    </div>
+                                    <div>
+                                      <b>Por facturar:</b> {formatCurrency(p.monto_por_facturar ?? 0)}
+                                    </div>
                                   </div>
                                 ))}
                               </div>
@@ -672,34 +723,44 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
                   );
                 })}
               </div>
-            ) : (
+            ) : facturaIds.length > 0 ? (
               <div className="space-y-2">
-                {facturaIds.length > 0 ? (
-                  facturaIds.map((facturaId, idx) => {
-                    const isCopied = copiedFacturaIdx === idx;
-                    return (
-                      <div
-                        key={`${facturaId}-${idx}`}
-                        className="flex items-center justify-between gap-3 border border-gray-200 rounded-md px-3 py-2"
+                <div className="border border-gray-200 bg-gray-50 rounded-lg p-4">
+                  <p className="text-sm text-gray-700 font-semibold">No se encontró información</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    No hay detalle de facturas, pero existen IDs asociados:
+                  </p>
+                </div>
+
+                {facturaIds.map((facturaId, idx) => {
+                  const isCopied = copiedFacturaIdx === idx;
+                  return (
+                    <div
+                      key={`${facturaId}-${idx}`}
+                      className="flex items-center justify-between gap-3 border border-gray-200 rounded-md px-3 py-2"
+                    >
+                      <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded break-all">
+                        {facturaId}
+                      </span>
+                      <button
+                        onClick={() => handleCopy(facturaId, idx)}
+                        className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 active:scale-[.99]"
+                        title="Copiar ID de factura"
+                        type="button"
                       >
-                        <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded break-all">
-                          {facturaId}
-                        </span>
-                        <button
-                          onClick={() => handleCopy(facturaId, idx)}
-                          className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 active:scale-[.99]"
-                          title="Copiar ID de factura"
-                          type="button"
-                        >
-                          {isCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                          {isCopied ? "Copiado" : "Copiar"}
-                        </button>
-                      </div>
-                    );
-                  })
-                ) : (
-                  <p className="mt-1 text-sm text-gray-500">Cargando ...</p>
-                )}
+                        {isCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                        {isCopied ? "Copiado" : "Copiar"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="border border-gray-200 bg-gray-50 rounded-lg p-4">
+                <p className="text-sm text-gray-700 font-semibold">No se encontró información</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Este pago no tiene facturas asociadas.
+                </p>
               </div>
             )}
           </div>
@@ -710,6 +771,7 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
           <button
             onClick={onClose}
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            type="button"
           >
             Cerrar
           </button>
