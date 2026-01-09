@@ -7,6 +7,7 @@ import { X, Copy, Check, FileText, ExternalLink } from 'lucide-react';
 import { URL, HEADERS_API } from "@/lib/constants/index";
 import { formatNumberWithCommas } from "@/helpers/utils";
 import { Table4 } from "@/components/organism/Table4";
+import { formatDate } from '@/helpers/formater';
 
 type ReservaAPI = {
   id_solicitud?: string;
@@ -133,17 +134,6 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
   const formatIdItem = (id: string | undefined): string => {
     if (!id) return 'N/A';
     return id.length > 4 ? `...${id.slice(-4)}` : id;
-  };
-
-  const formatDate = (dateString: string | null | undefined): string => {
-    if (!dateString || dateString === "0000-00-00") return 'N/A';
-    try {
-      const date = new Date(dateString);
-      return format(date, "dd 'de' MMMM yyyy", { locale: es });
-    } catch (e) {
-      console.error("Error formatting date:", e);
-      return dateString as string;
-    }
   };
 
   const getMetodoPago = (): string => {

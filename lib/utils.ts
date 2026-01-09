@@ -1,3 +1,4 @@
+import { obtenerPresignedUrl, subirArchivoAS3 } from "@/helpers/utils";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -17,33 +18,32 @@ export function currentDate() {
   return `${año}-${mes}-${dia}`;
 }
 
-export  const verificar = (key: string, current: any, before: any) => {
-    if (typeof current !== typeof before) return { [key]: { current, before } };
-    if (
-      typeof current === "object" &&
-      !Array.isArray(current) &&
-      current !== null
-    ) {
-      let data = {};
-      let cambio = false;
-      Object.entries(current).forEach(([key2, value2]) => {
-        let propiedades = verificar(key2, value2, before[key2]);
-        if (propiedades) cambio = true;
-        data = { ...data, ...propiedades };
-      });
-      return cambio ? { [key]: { current: data, before } } : undefined;
-    }
-    if (Array.isArray(current)) {
-      let isCambio = current.map((current, index) =>
-        verificar(String(index), current, before[index])
-      );
-      isCambio = isCambio.some((item) => !!item);
-      return isCambio ? { [key]: { current, before } } : undefined;
-    }
-    if (current !== before) return { [key]: { current, before } };
-    return undefined;
-  };
-
+export const verificar = (key: string, current: any, before: any) => {
+  if (typeof current !== typeof before) return { [key]: { current, before } };
+  if (
+    typeof current === "object" &&
+    !Array.isArray(current) &&
+    current !== null
+  ) {
+    let data = {};
+    let cambio = false;
+    Object.entries(current).forEach(([key2, value2]) => {
+      let propiedades = verificar(key2, value2, before[key2]);
+      if (propiedades) cambio = true;
+      data = { ...data, ...propiedades };
+    });
+    return cambio ? { [key]: { current: data, before } } : undefined;
+  }
+  if (Array.isArray(current)) {
+    let isCambio = current.map((current, index) =>
+      verificar(String(index), current, before[index])
+    );
+    isCambio = isCambio.some((item) => !!item);
+    return isCambio ? { [key]: { current, before } } : undefined;
+  }
+  if (current !== before) return { [key]: { current, before } };
+  return undefined;
+};
 
 export function updateRoom(room: string) {
   let updated;
@@ -93,4 +93,24 @@ export const getDatePlusFiveYears = () => {
   date.setFullYear(date.getFullYear() + 5);
   date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
   return date.toISOString().slice(0, 16);
+};
+// Función para subir archivo a S3
+export const subirArchivoAS3Seguro = async (
+  file: File,
+  bucket: string = "comprobantes"
+) => {
+  try {
+    const { url: presignedUrl, publicUrl } = await obtenerPresignedUrl(
+      file.name,
+      file.type,
+      bucket
+    );
+
+    await subirArchivoAS3(file, presignedUrl);
+
+    return publicUrl;
+  } catch (error) {
+    console.error(`❌ Error al subir ${file.name} a S3:`, error);
+    throw new Error(`Error al subir ${file.name} a S3: ${error.message}`);
+  }
 };

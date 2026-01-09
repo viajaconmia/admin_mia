@@ -22,6 +22,7 @@ export const PERMISOS = {
       PAGAR_PROVEEDOR: "button.pagar-proveedor-reserva",
       CREAR_RESERVA: "button.crear-reserva",
       EDITAR_PRECIO_RESERVA: "button.edit-price-booking",
+      ACTUALIZAR_PDF_FACTURA: "button.actualizar_factura_pdf",
     },
   },
   VERSION: {
