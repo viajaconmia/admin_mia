@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import Filters from "@/components/Filters";
 import { Balance } from "@/app/dashboard/facturas-pendientes/balance";
 import { Table5 } from "@/components/Table5";
+import { formatDate } from "@/helpers/formater";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -77,8 +78,19 @@ const fmtMoney = (n: any) =>
   }).format(Number(n ?? 0));
 
 // Fecha corta
-const fmtDate = (v?: string | null) =>
-  v ? new Date(v).toLocaleDateString("es-MX") : "N/A";
+const fmtDate = (v?: string | null) => {
+  if (!v) return "N/A";
+
+  const isoDate = v.split("T")[0]; // "2026-01-07"
+  const [year, month, day] = isoDate.split("-").map(Number);
+  if (!year || !month || !day) return "N/A";
+
+  return new Date(year, month - 1, day).toLocaleDateString("es-MX", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+};
 
 /* ===================== Modal de Detalle ===================== */
 function FacturaDetails({
