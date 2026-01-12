@@ -4,14 +4,16 @@ import { useState, useEffect, useCallback } from 'react';
 import { parsearXML } from './parseXmlCliente';
 import VistaPreviaModal from './VistaPreviaModal';
 import ConfirmacionModal from './confirmacion';
-import { fetchAgentes, fetchEmpresasAgentesDataFiscal,fecthProveedores } from "@/services/agentes";
+import { fetchAgentes, fetchEmpresasAgentesDataFiscal,fetchProveedoresDataFiscal } from "@/services/agentes";
 import { TypeFilters, EmpresaFromAgent } from "@/types";
 import AsignarFacturaModal from './AsignarFactura';
 import { obtenerPresignedUrl, subirArchivoAS3 } from "@/helpers/utils";
 
 interface SubirFacturaProps {
   pagoId?: string;            //id del saldo tomado
+  id_proveedor?:string;
   pagoData?: Pago | null;    //datos del pago
+  proveedoresData?: any|null;
   isBatch?: boolean;
   onSuccess: () => void;       //callback al subir factura
   agentId?: string;            // id del agente a precargar
@@ -20,9 +22,17 @@ interface SubirFacturaProps {
   autoOpen?: boolean;          // abre el modal de inmediato
   onCloseExternal?: () => void; // permite cerrar desde el padre (opcional)
   initialItemsTotal?: number; // <--- NUEVO: total de ítems opcional
-  proveedores_data?:any
+  id_servicio?:string;
 }
-
+interface Proveedores{
+  id_proveedor:string;
+  id_solicitud:string;
+  monto_solicitado:string;
+  total: number;
+  subtotal: number | null;
+  impuestos: number | null; 
+  fecha_pago: string;
+}
 interface Pago {
   id_agente: string;
   raw_id: string;
@@ -85,13 +95,15 @@ export interface Agente {
 export default function SubirFactura({
   pagoId,
   pagoData,
+  id_proveedor,
+  id_servicio,
+  proveedoresData,
   onSuccess,
   agentId,
   initialItems = [],
   initialItemsTotal = 0,
   itemsJson = '',
   autoOpen = false,
-  proveedores_data,
   onCloseExternal,
 }: SubirFacturaProps) {
 
@@ -124,13 +136,14 @@ const getItemsTotal = useCallback((): number => {
 
   // Estados iniciales
   const initialStates = {
+    proveedoresData:null,
+    id_proveedor:null,
     facturaData: null,
     cliente: pagoData?.id_agente || agentId || '',  // Prellenar con datos del pago si existen
     clienteSeleccionado: null,
     archivoPDF: null,
     archivoXML: null,
     empresasAgente: [],
-    proveedores_data:null,
     empresaSeleccionada: null,
     facturaPagada: pagoData ? true : (!hasItems ? true : false),
   };
@@ -158,6 +171,8 @@ const getItemsTotal = useCallback((): number => {
   const [facturaPagada, setFacturaPagada] = useState(false);
   const [mostrarAsignarFactura, setMostrarAsignarFactura] = useState(false);
   const isClienteBloqueado = !!agentId || !!pagoData?.id_agente;
+
+  console.log("informacion de proveedor",id_proveedor,proveedoresData,id_servicio)
 
   // Autoabrir el modal si hay pagoData
   useEffect(() => {
@@ -216,11 +231,11 @@ const getItemsTotal = useCallback((): number => {
   const handleBuscarCliente = (e: React.ChangeEvent<HTMLInputElement>) => {
     const valor = e.target.value.toLowerCase();
     setCliente(e.target.value);
-    console.log(clientes,"informacion")
+
     if (valor.length > 2) {
       const filtrados = clientes.filter(cliente => {
         // Verificar que las propiedades existan antes de llamar toLowerCase()
-        const nombre = cliente.nombre_agente_completo?.toLowerCase()|| '';
+        const nombre = cliente.nombre_agente_completo?.toLowerCase() || '';
         const correo = cliente.correo?.toLowerCase() || '';
         const rfc = cliente.rfc?.toLowerCase() || '';
         const id_cliente = cliente.id_agente?.toLowerCase() || '';
@@ -252,28 +267,17 @@ const getItemsTotal = useCallback((): number => {
       });
   }, []);
 
-    const handleFetchProveedores = useCallback(() => {
-    setLoading(true);
-    fecthProveedores({}, {} as TypeFilters, (data) => {
-      setClientes(data);
-      setLoading(false);
-    })
-      .catch(error => {
-        console.error("Error fetching agents:", error);
-        setLoading(false);
-      });
-  }, []);
-
 
   //auto seleccionar al cliente
 
   useEffect(() => {
     if (!clientes.length) return;
 
-    const targetId = pagoData?.id_agente ||proveedores_data?.id_proveedor|| agentId;
+    const targetId = pagoData?.id_agente || agentId||id_proveedor;
     if (!targetId) return;
 
     const matching = clientes.find(c => String(c.id_agente) === String(targetId));
+    
     console.log('[SubirFactura] auto-select cliente', { targetId, found: !!matching });
     console.log("22222", matching)
     if (matching) {
@@ -303,17 +307,9 @@ const getItemsTotal = useCallback((): number => {
     handleFetchClients();
   }, [resetearCampos, handleFetchClients]);
 
-  const abrirModalProv = useCallback(() => {
-    resetearCampos();
-    setMostrarModal(true);
-    handleFetchProveedores();
-  }, [resetearCampos, handleFetchProveedores]);
-
   useEffect(() => {
-    if (autoOpen && proveedores_data) {
-      abrirModalProv();
-    }else if(autoOpen && !proveedores_data){
-      abrirModal
+    if (autoOpen) {
+      abrirModal();
     }
   }, [autoOpen]);
 
@@ -501,13 +497,9 @@ const getItemsTotal = useCallback((): number => {
       };
 
       console.log("Payload completo para API:", basePayload);
-      const ENDPOINT = proveedores_data? `${URL}/mia/factura/CrearFacturaDesdeCarga`
-       `${URL}/mia/pago_proveedores/subir_factura`;
-
-
 
       if (basePayload.items != "1") {
-        const response = await fetch(ENDPOINT, {
+        const response = await fetch(`${URL}/mia/factura/CrearFacturaDesdeCarga`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -624,7 +616,7 @@ const getItemsTotal = useCallback((): number => {
     setEmpresaSeleccionada(null); // Resetear selección al cargar nuevas empresas
 
     try {
-      const empresas = await fetchEmpresasAgentesDataFiscal(agenteId);
+      const empresas = proveedoresData? await fetchProveedoresDataFiscal(id_proveedor):await fetchEmpresasAgentesDataFiscal(agenteId);
       console.log("Empresas recibidas:", empresas);
       setEmpresasAgente(empresas || []);
     } catch (error) {
@@ -806,7 +798,7 @@ const getItemsTotal = useCallback((): number => {
             setFacturaPagada(true);
             if (pagoData && facturaData) {
               handlePagos({ url: pdfUrl, fecha_vencimiento: fecha_vencimiento }); // paga contra saldos/raw_ids
-            }else {
+            } else {
               // Sin pagoData: guardar como pagada con saldo=0 (ver cambio en handleConfirmarFactura)
               handleConfirmarFactura({ url: pdfUrl, fecha_vencimiento: fecha_vencimiento });
             }
