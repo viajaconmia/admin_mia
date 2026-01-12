@@ -6,6 +6,7 @@ import { useState } from "react";
 import { NotificationProvider } from "./useNotificacion";
 import { Notification } from "@/components/molecule/Notification";
 import { HotelProvider } from "./Hoteles";
+import { ProveedorProvider } from "./Proveedores";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -24,8 +25,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <NotificationProvider>
         <HotelProvider>
-          <Notification></Notification>
-          <AuthProvider>{children}</AuthProvider>
+          <ProveedorProvider>
+            <Notification></Notification>
+            <AuthProvider>{children}</AuthProvider>
+          </ProveedorProvider>
         </HotelProvider>
       </NotificationProvider>
     </QueryClientProvider>
