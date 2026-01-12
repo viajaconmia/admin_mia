@@ -543,10 +543,9 @@ const handleWalletPayment = async () => {
         );
       } else if (create) {
         const validateReservation = await codigo_reserva(form.codigo_reservacion_hotel);
-        if (validateReservation?.ok === false && validateReservation?.exists === true) {
-      showNotification("error", validateReservation.message || "Ya existe codigo de reservacion");
-      setLoading(false);
-      return;
+        if ((validateReservation?.ok === false  || validateReservation?.exists === true)||validateReservation.error) {
+          setLoading(false);
+      throw new Error(validateReservation.message || "Ya existe codigo de reservacion");
     }
         await fetchCreateReservaOperaciones({
           ...form,
