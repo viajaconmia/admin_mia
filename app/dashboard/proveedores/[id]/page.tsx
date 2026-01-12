@@ -117,39 +117,13 @@ const App = () => {
 
   return (
     <>
-      <div className="w-full h-full bg-white rounded-md flex flex-col overflow-y-auto">
-        <ProveedorCard proveedor={proveedor} />
-        <div className="flex justify-end p-4">
-          <Button
-            onClick={() => {
-              handleAddNewClick();
-            }}
-            icon={Plus}
-          >
-            Crear Datos Fiscales
-          </Button>
-        </div>
-        <div className="p-4">
-          <Table
-            registros={datosFiscales.map(({ ID_PROVEEDOR, ...rest }) => ({
-              ...rest,
-              edit: { ID_PROVEEDOR, ...rest },
-            }))}
-            renderers={{
-              edit: ({ value }: { value: DatosFiscales }) => (
-                <Button
-                  icon={Pencil}
-                  size="sm"
-                  onClick={() => handleEditClick(value)}
-                >
-                  Editar
-                </Button>
-              ),
-            }}
-            back={false}
-            next={false}
-          ></Table>
-        </div>
+      <div className="w-full max-w-5xl h-full bg-gray-50 rounded-md flex flex-col overflow-y-auto m-auto">
+        <ProveedorCard
+          proveedor={proveedor}
+          datosFiscales={datosFiscales}
+          handleAddNewClick={handleAddNewClick}
+          handleEditClick={handleEditClick}
+        />
       </div>
       <ModalCrearDatosFiscales
         isOpen={isModalOpen}
@@ -166,23 +140,43 @@ const App = () => {
 
 export default App;
 
-function ProveedorCard({ proveedor }: { proveedor: Proveedor }) {
+function ProveedorCard({
+  proveedor,
+  handleAddNewClick,
+  handleEditClick,
+  datosFiscales,
+}: {
+  proveedor: Proveedor;
+  handleAddNewClick: () => void;
+  handleEditClick: (value: DatosFiscales) => void;
+  datosFiscales: DatosFiscales[];
+}) {
   const { draft, update, hasChanges, getChanges, editar, toggleEdit, save } =
     useProveedorEditor(proveedor);
+  const { showNotification } = useNotification();
+  const [activeTab, setActiveTab] = useState("datos");
 
-  const onSave = () => {
-    const changes = getChanges();
-    ProveedoresService.getInstance().updateProveedor({
-      id: proveedor.id,
-      ...changes,
-    });
-    save();
+  const onSave = async () => {
+    try {
+      const changes = getChanges();
+      const response = await ProveedoresService.getInstance().updateProveedor({
+        id: proveedor.id,
+        ...changes,
+      });
+      save();
+      showNotification("success", response.message || "bien actualizado");
+    } catch (error) {
+      showNotification(
+        "error",
+        error.message || "error al actualizar proveedor"
+      );
+    }
   };
 
   return (
-    <div className="p-6 space-y-8 max-w-7xl mx-auto w-full">
+    <div className="p-6 space-y-4 max-w-7xl mx-auto w-full">
       {/* Header de acciones */}
-      <div className="flex justify-between items-center border-b pb-4">
+      <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">
             {draft.proveedor || "Detalle de Proveedor"}
@@ -211,10 +205,20 @@ function ProveedorCard({ proveedor }: { proveedor: Proveedor }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-8">
-        {/* SECCIÓN 1: INFORMACIÓN GENERAL */}
-        <SectionForm legend="Información General" icon={User2}>
-          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
+      <Tabs
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="w-full bg-white p-4 rounded-md border border-gray-300"
+      >
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="datos">DATOS BASICOS</TabsTrigger>
+          {/* <TabsTrigger value="tarifas">TARIFAS Y SERVICIOS</TabsTrigger> */}
+          <TabsTrigger value="pagos">INFORMACION DE PAGOS</TabsTrigger>
+          <TabsTrigger value="extra">INFORMACIÓN ADICIONAL</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="datos" className="space-y-4 p-4">
+          <div className="grid sm:grid-cols-2 gap-4 mt-4  items-center border-b pb-4">
             <TextInput
               label="Nombre del Proveedor"
               value={draft.proveedor || ""}
@@ -222,38 +226,37 @@ function ProveedorCard({ proveedor }: { proveedor: Proveedor }) {
               disabled={!editar}
             />
             <TextInput
-              label="Imagen (URL)"
-              value={draft.imagen || ""}
-              onChange={(e) => update("imagen", e)}
+              label="Tipo de negociación"
+              value={draft.negociacion || ""}
+              onChange={(e) => update("negociacion", e)}
               disabled={!editar}
             />
-            <div className="flex items-end h-full pb-3">
-              <CheckboxInput
-                label="Estatus Activo"
-                checked={draft.estatus}
-                onChange={(v) => update("estatus", v)}
-                disabled={!editar}
-              />
-            </div>
-            <TextAreaInput
-              label="Notas del Proveedor"
-              value={draft.notas_proveedor || ""}
-              onChange={(e) => update("notas_proveedor", e)}
+            <CheckboxInput
+              label="¿Tiene Convenio?"
+              checked={draft.convenio}
+              onChange={(v) => update("convenio", v)}
               disabled={!editar}
-              className="col-span-full"
+            />
+            <DateInput
+              label="Vigencia del convenio"
+              value={draft.vigencia_convenio || ""}
+              onChange={(e) => update("vigencia_convenio", e)}
+              disabled={!editar}
+            />
+            <CheckboxInput
+              label="Estatus"
+              checked={draft.estatus}
+              onChange={(v) => update("estatus", v)}
+              disabled={!editar}
+            />
+            <CheckboxInput
+              label="Es internacional"
+              checked={draft.internacional}
+              onChange={(v) => update("internacional", v)}
+              disabled={!editar}
             />
           </div>
-        </SectionForm>
-
-        {/* SECCIÓN 2: UBICACIÓN Y CONTACTO */}
-        <SectionForm legend="Ubicación y Dirección" icon={MapPin}>
-          <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-            <TextInput
-              label="País"
-              value={draft.pais || ""}
-              onChange={(e) => update("pais", e)}
-              disabled={!editar}
-            />
+          <div className="grid sm:grid-cols-2 gap-4 mt-4  items-center border-b pb-4">
             <TextInput
               label="Estado"
               value={draft.estado || ""}
@@ -266,16 +269,11 @@ function ProveedorCard({ proveedor }: { proveedor: Proveedor }) {
               onChange={(e) => update("ciudad", e)}
               disabled={!editar}
             />
+            <div className="w-full h-6 bg-gray-100/50 border border-gray-300/50 rounded-lg"></div>
             <TextInput
-              label="Municipio"
-              value={draft.municipio || ""}
-              onChange={(e) => update("municipio", e)}
-              disabled={!editar}
-            />
-            <TextInput
-              label="Colonia"
-              value={draft.colonia || ""}
-              onChange={(e) => update("colonia", e)}
+              label="Código Postal"
+              value={draft.codigo_postal || ""}
+              onChange={(e) => update("codigo_postal", e)}
               disabled={!editar}
             />
             <TextInput
@@ -291,107 +289,105 @@ function ProveedorCard({ proveedor }: { proveedor: Proveedor }) {
               disabled={!editar}
             />
             <TextInput
-              label="Código Postal"
-              value={draft.codigo_postal || ""}
-              onChange={(e) => update("codigo_postal", e)}
+              label="Colonia"
+              value={draft.colonia || ""}
+              onChange={(e) => update("colonia", e)}
+              disabled={!editar}
+            />
+            <TextInput
+              label="Municipio"
+              value={draft.municipio || ""}
+              onChange={(e) => update("municipio", e)}
               disabled={!editar}
             />
           </div>
-        </SectionForm>
-
-        {/* SECCIÓN 3: CONVENIO Y NEGOCIACIÓN */}
-        <SectionForm legend="Convenio y Operación" icon={FileText}>
-          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
-            <div className="flex flex-col gap-4">
-              <CheckboxInput
-                label="¿Tiene Convenio?"
-                checked={draft.convenio}
-                onChange={(v) => update("convenio", v)}
-                disabled={!editar}
-              />
-              <DateInput
-                label="Vigencia"
-                value={draft.vigencia_convenio || ""}
-                onChange={(e) => update("vigencia_convenio", e)}
-                disabled={!editar}
-              />
-            </div>
+          <div className="grid sm:grid-cols-2 gap-4 mt-4  items-center border-b pb-4">
             <TextAreaInput
-              label="Negociación"
-              value={draft.negociacion || ""}
-              onChange={(e) => update("negociacion", e)}
+              label="Formas de reservar"
+              value={draft.formas_reservar || ""}
+              onChange={(e) => update("formas_reservar", e)}
               disabled={!editar}
-              className="md:col-span-2"
             />
             <TextAreaInput
               label="Contactos de Convenio"
               value={draft.contactos_convenio || ""}
               onChange={(e) => update("contactos_convenio", e)}
               disabled={!editar}
-              className="md:col-span-3"
+            />
+            <TextAreaInput
+              label="Formas de solicitar disponibilidad"
+              value={draft.formas_solicitar_disponibilidad || ""}
+              onChange={(e) => update("formas_solicitar_disponibilidad", e)}
+              disabled={!editar}
+            />
+            <TextInput
+              label="Imagen (URL)"
+              value={draft.imagen || ""}
+              onChange={(e) => update("imagen", e)}
+              disabled={!editar}
             />
           </div>
-        </SectionForm>
-
-        {/* SECCIÓN 4: CARACTERÍSTICAS Y PAGOS */}
-        <div className="grid md:grid-cols-2 gap-8">
-          <SectionForm legend="Características" icon={Globe}>
-            <div className="space-y-4 mt-4">
-              <div className="flex justify-between p-2 bg-gray-50 rounded">
-                <CheckboxInput
-                  label="Bilingüe"
-                  checked={draft.bilingue}
-                  onChange={(v) => update("bilingue", v)}
-                  disabled={!editar}
-                />
-                <CheckboxInput
-                  label="Internacional"
-                  checked={draft.internacional}
-                  onChange={(v) => update("internacional", v)}
-                  disabled={!editar}
-                />
-              </div>
-              <TextAreaInput
-                label="Notas Bilingüe"
-                value={draft.notas_bilingue || ""}
-                onChange={(e) => update("notas_bilingue", e)}
-                disabled={!editar}
-              />
-              <TextAreaInput
-                label="Notas Internacional"
-                value={draft.notas_internacional || ""}
-                onChange={(e) => update("notas_internacional", e)}
-                disabled={!editar}
-              />
+          <TextAreaInput
+            label="Notas del Proveedor"
+            value={draft.notas_proveedor || ""}
+            onChange={(e) => update("notas_proveedor", e)}
+            disabled={!editar}
+            className="col-span-full"
+          />
+        </TabsContent>
+        <TabsContent value="pagos" className="space-y-4 p-4">
+          <div className="grid sm:grid-cols-2 gap-4 mt-4  items-center">
+            <TextInput
+              label="Tipo de Pago (crédito/prepago)"
+              value={draft.tipo_pago || ""}
+              onChange={(e) => update("tipo_pago", e)}
+              disabled={!editar}
+            />
+            <TextAreaInput
+              label="Notas tipo de pago"
+              value={draft.notas_tipo_pago || ""}
+              onChange={(e) => update("notas_tipo_pago", e)}
+              disabled={!editar}
+            />
+            <TextAreaInput
+              label="Notas información de Pagos"
+              value={draft.notas_pagos || ""}
+              onChange={(e) => update("notas_pagos", e)}
+              disabled={!editar}
+            />
+            <div className="flex flex-col gap-2 justify-end items-end h-full max-w-7xl mx-auto w-full col-span-2">
+              <Button
+                onClick={() => {
+                  handleAddNewClick();
+                }}
+                size="sm"
+                icon={Plus}
+              >
+                Crear Datos Fiscales
+              </Button>
+              <Table
+                registros={datosFiscales.map(({ ID_PROVEEDOR, ...rest }) => ({
+                  ...rest,
+                  edit: { ID_PROVEEDOR, ...rest },
+                }))}
+                renderers={{
+                  edit: ({ value }: { value: DatosFiscales }) => (
+                    <Button
+                      icon={Pencil}
+                      size="sm"
+                      onClick={() => handleEditClick(value)}
+                    >
+                      Editar
+                    </Button>
+                  ),
+                }}
+                back={false}
+                next={false}
+              ></Table>
             </div>
-          </SectionForm>
-
-          <SectionForm legend="Pagos y Reservas" icon={CreditCard}>
-            <div className="space-y-4 mt-4">
-              <div className="flex gap-4">
-                <TextInput
-                  label="Tipo de Pago (crédito/prepago)"
-                  value={draft.tipo_pago || ""}
-                  onChange={(e) => update("tipo_pago", e)}
-                  disabled={!editar}
-                />
-              </div>
-              <TextAreaInput
-                label="Formas de Reservar"
-                value={draft.formas_reservar || ""}
-                onChange={(e) => update("formas_reservar", e)}
-                disabled={!editar}
-              />
-              <TextAreaInput
-                label="Notas de Pago"
-                value={draft.notas_pagos || ""}
-                onChange={(e) => update("notas_pagos", e)}
-                disabled={!editar}
-              />
-            </div>
-          </SectionForm>
-        </div>
-      </div>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
@@ -493,6 +489,7 @@ function useProveedorEditor(proveedor: Proveedor) {
 import { Plus, X, ReceiptText } from "lucide-react";
 import { Table } from "@/component/molecule/Table";
 import { ApiResponse } from "@/services/ApiService";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface ModalCrearDatosFiscalesProps {
   isOpen: boolean;

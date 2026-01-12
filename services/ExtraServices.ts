@@ -70,11 +70,11 @@ export class ExtraService extends ApiService {
     type,
   }: {
     nombre: string;
-    pais: string;
-    rfc: string;
-    telefono: string;
-    email: string;
-    sitio_web: string;
+    pais?: string;
+    rfc?: string;
+    telefono?: string;
+    email?: string;
+    sitio_web?: string;
     type: string;
   }): Promise<ApiResponse<Proveedor[]>> =>
     this.post<Proveedor[]>({

@@ -3,26 +3,32 @@
 import React, { useEffect, useMemo, useReducer, useState } from "react";
 import { Table5 } from "@/components/Table5";
 import { formatDate } from "@/helpers/utils";
-import { URL, API_KEY } from "@/lib/constants/index";
 import {
   Proveedor,
   ProveedoresService,
-  ProveedorType,
   mapProveedor,
 } from "@/services/ProveedoresService";
 import { useNotification } from "@/context/useNotificacion";
+import Button from "@/components/atom/Button";
+import Link from "next/link";
+import { ExternalLink, Plus } from "lucide-react";
+import Modal from "@/components/organism/Modal";
+import { ComboBox2, ComboBoxOption2, TextInput } from "@/components/atom/Input";
+import { ExtraService } from "@/services/ExtraServices";
 
 export default function ProveedoresPage() {
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
+  const [nuevo, setNuevo] = useState<string>("");
+  const [newType, setNewType] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(false);
   const { showNotification } = useNotification();
 
   // Filtros
-  const [tipoFiltro, setTipoFiltro] = useState<"" | ProveedorType>("");
+  const [tipoFiltro, setTipoFiltro] = useState<"" | Pick<Proveedor, "type">>(
+    ""
+  );
   const [q, setQ] = useState("");
-
-  // Si luego necesitas filtrar por agente, déjalo listo:
-  const id_agente = null as string | null;
 
   const fetchProveedores = async () => {
     setIsLoading(true);
@@ -58,15 +64,7 @@ export default function ProveedoresPage() {
       const matchTipo = tipoFiltro ? p.type === tipoFiltro : true;
 
       const matchQ = term
-        ? [
-            p.nombre,
-            p.pais,
-            p.email,
-            p.telefono,
-            p.nombre_contacto,
-            p.sitio_web,
-            p.cobertura,
-          ]
+        ? [p.proveedor, p.pais]
             .filter(Boolean)
             .some((x) => String(x).toLowerCase().includes(term))
         : true;
@@ -77,19 +75,13 @@ export default function ProveedoresPage() {
 
   const registros = proveedoresFiltrados.map((p) => ({
     id: p.id,
-    nombre: p.nombre,
+    proveedor: p.proveedor,
     type: p.type,
     pais: p.pais,
-    telefono: p.telefono,
-    email: p.email,
-    sitio_web: p.sitio_web,
-    cobertura: p.cobertura,
     bilingue: p.bilingue,
-    extranjero: p.extranjero,
-    credito: p.credito,
-    nombre_contacto: p.nombre_contacto,
-    creado_en: p.creado_en,
+    creado_en: p.created_at,
     item: p,
+    detalles: p.id,
   }));
 
   const renderers: {
@@ -172,111 +164,187 @@ export default function ProveedoresPage() {
         <span className="text-gray-700">{value || "—"}</span>
       </div>
     ),
+    detalles: ({ value }) => (
+      <Link
+        href={`/dashboard/proveedores/${value}`}
+        className="p-2 border bg-gray-50 rounded-xl shadow-sm hover:shadow-none flex gap-2 justify-center"
+      >
+        <ExternalLink className="w-4 h-4"></ExternalLink>
+        Ver mas
+      </Link>
+    ),
   };
 
   return (
-    <div className="p-4 md:p-6">
-      {/* Header */}
-      <div className="bg-white border rounded-lg shadow-sm p-4 md:p-5">
-        <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
-          <div>
-            <h1 className="text-xl font-semibold text-gray-900">Proveedores</h1>
-            <p className="text-sm text-gray-600 mt-1">
-              Catálogo de proveedores (vuelo / renta de carro)
-            </p>
-          </div>
-
-          <div className="flex gap-2">
-            <button
-              onClick={fetchProveedores}
-              className="text-sm px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-400"
-              disabled={isLoading}
-            >
-              {isLoading ? "Cargando..." : "Refrescar"}
-            </button>
-
-            {/* Placeholder para creación */}
-            <button
-              onClick={() => alert("Pendiente: crear proveedor")}
-              className="text-sm px-3 py-2 rounded bg-emerald-600 text-white hover:bg-emerald-700"
-            >
-              Nuevo
-            </button>
-          </div>
-        </div>
-
-        {/* Filtros */}
-        <div className="mt-4 flex flex-col md:flex-row gap-2 md:items-center md:justify-between">
-          <div className="flex flex-col md:flex-row gap-2 w-full">
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Buscar por nombre, país, email, contacto..."
-              className="w-full md:w-96 border rounded px-3 py-2 text-sm"
-            />
-
-            <select
-              value={tipoFiltro}
-              onChange={(e) => setTipoFiltro(e.target.value as any)}
-              className="border rounded px-3 py-2 text-sm md:w-52"
-            >
-              <option value="">Todos</option>
-              <option value="vuelo">Vuelo</option>
-              <option value="renta_carro">Renta carro</option>
-            </select>
-          </div>
-
-          <div className="text-xs text-gray-600">
-            Mostrando <span className="font-semibold">{registros.length}</span>{" "}
-            proveedor(es)
-          </div>
-        </div>
-      </div>
-
-      {/* Tabla */}
-      <div className="mt-4 bg-white border rounded-lg shadow-sm overflow-hidden">
-        <div className="p-3">
-          {isLoading ? (
-            <div className="flex justify-center items-center h-56">
-              <div className="text-center">
-                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
-                <p className="mt-2 text-sm text-gray-600">
-                  Cargando proveedores...
-                </p>
-              </div>
+    <>
+      <div className="p-4 md:p-6">
+        {/* Header */}
+        <div className="bg-white border rounded-lg shadow-sm p-4 md:p-5">
+          <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
+            <div>
+              <h1 className="text-xl font-semibold text-gray-900">
+                Proveedores
+              </h1>
+              <p className="text-sm text-gray-600 mt-1">
+                Catálogo de proveedores (vuelo / renta de carro)
+              </p>
             </div>
-          ) : registros.length === 0 ? (
-            <p className="text-sm text-gray-500 p-3">
-              No hay proveedores para mostrar (o el endpoint actual aún no
-              retorna este catálogo).
-            </p>
-          ) : (
-            <Table5<any>
-              registros={registros}
-              renderers={renderers}
-              exportButton={true}
-              leyenda={`Mostrando ${registros.length} proveedor(es)`}
-              maxHeight="65vh"
-              customColumns={[
-                "id",
-                "nombre",
-                "type",
-                "pais",
-                "telefono",
-                "email",
-                "sitio_web",
-                "tarifas",
-                "cobertura",
-                "bilingue",
-                "extranjero",
-                "credito",
-                "nombre_contacto",
-                "creado_en",
-              ]}
-            />
-          )}
+
+            <div className="flex gap-2">
+              <button
+                onClick={fetchProveedores}
+                className="text-sm px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-400"
+                disabled={isLoading}
+              >
+                {isLoading ? "Cargando..." : "Refrescar"}
+              </button>
+
+              {/* Placeholder para creación */}
+              <button
+                onClick={() => {
+                  setShowModal(true);
+                }}
+                className="text-sm px-3 py-2 rounded bg-emerald-600 text-white hover:bg-emerald-700"
+              >
+                Nuevo
+              </button>
+            </div>
+          </div>
+
+          {/* Filtros */}
+          <div className="mt-4 flex flex-col md:flex-row gap-2 md:items-center md:justify-between">
+            <div className="flex flex-col md:flex-row gap-2 w-full">
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Buscar por nombre, país, email, contacto..."
+                className="w-full md:w-96 border rounded px-3 py-2 text-sm"
+              />
+
+              <select
+                value={tipoFiltro}
+                onChange={(e) => setTipoFiltro(e.target.value as any)}
+                className="border rounded px-3 py-2 text-sm md:w-52"
+              >
+                <option value="">Todos</option>
+                <option value="vuelo">Vuelo</option>
+                <option value="renta_carro">Renta carro</option>
+              </select>
+            </div>
+
+            <div className="text-xs text-gray-600">
+              Mostrando{" "}
+              <span className="font-semibold">{registros.length}</span>{" "}
+              proveedor(es)
+            </div>
+          </div>
+        </div>
+
+        {/* Tabla */}
+        <div className="mt-4 bg-white border rounded-lg shadow-sm overflow-hidden">
+          <div className="p-3">
+            {isLoading ? (
+              <div className="flex justify-center items-center h-56">
+                <div className="text-center">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+                  <p className="mt-2 text-sm text-gray-600">
+                    Cargando proveedores...
+                  </p>
+                </div>
+              </div>
+            ) : registros.length === 0 ? (
+              <p className="text-sm text-gray-500 p-3">
+                No hay proveedores para mostrar (o el endpoint actual aún no
+                retorna este catálogo).
+              </p>
+            ) : (
+              <Table5<any>
+                registros={registros}
+                renderers={renderers}
+                exportButton={true}
+                leyenda={`Mostrando ${registros.length} proveedor(es)`}
+                maxHeight="65vh"
+                customColumns={[
+                  "id",
+                  "proveedor",
+                  "type",
+                  "bilingue",
+                  "extranjero",
+                  "credito",
+                  "creado_en",
+                  "detalles",
+                ]}
+              />
+            )}
+          </div>
         </div>
       </div>
-    </div>
+      {showModal && (
+        <Modal
+          onClose={() => {
+            setNuevo("");
+            setShowModal(false);
+          }}
+          title="Agrega un nuevo proveedor"
+          subtitle="Podras cambiar los datos del proveedor una ves que los agregues"
+        >
+          <form
+            className="gap-4 justify-center items-end p-6 grid grid-cols-2"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (isLoading) return;
+              setIsLoading(true);
+              try {
+                const response =
+                  await ExtraService.getInstance().createProveedor({
+                    nombre: nuevo,
+                    type: newType,
+                  });
+                showNotification("success", response.message);
+                setIsLoading(false);
+                fetchProveedores();
+                setShowModal(false);
+              } catch (error) {
+                showNotification(
+                  "error",
+                  error.message || "error al crear proveedor"
+                );
+              }
+            }}
+          >
+            <TextInput
+              value={nuevo}
+              onChange={function (value: string): void {
+                setNuevo(value);
+              }}
+              label="Proveedor"
+              placeholder="Nombre del proveedor..."
+            />
+            <ComboBox2
+              label="Tipo de proveedor"
+              value={{
+                name: newType,
+                content: newType,
+              }}
+              onChange={function (value: ComboBoxOption2<string>): void {
+                setNewType(value.content);
+              }}
+              options={["vuelo", "renta_carro"].map((type) => ({
+                name: type.replace("_", " "),
+                content: type,
+              }))}
+            ></ComboBox2>
+            <Button
+              icon={Plus}
+              onClick={() => {}}
+              className="col-span-2"
+              type="submit"
+            >
+              Agregar
+            </Button>
+          </form>
+        </Modal>
+      )}
+    </>
   );
 }

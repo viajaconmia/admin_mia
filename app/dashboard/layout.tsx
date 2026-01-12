@@ -11,6 +11,9 @@ import {
   BadgeDollarSign,
   DoorOpen,
   Settings2,
+  User2,
+  User2Icon,
+  Truck,
 } from "lucide-react";
 import NavContainer from "@/components/organism/NavContainer";
 import { useAuth } from "@/context/AuthContext";
@@ -73,6 +76,11 @@ const links = [
     title: "Reservas", //
     href: "/dashboard/reservas",
     icon: BookOpen,
+  },
+  {
+    title: "Proveedores", //
+    href: "/dashboard/proveedores",
+    icon: Truck,
   },
   {
     title: "Clientes", //

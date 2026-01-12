@@ -211,7 +211,7 @@ export const TextAreaInput = ({
   label,
   value,
   onChange,
-  rows = 1,
+  rows = 2,
   placeholder = "",
   className = "",
   disabled = false,
