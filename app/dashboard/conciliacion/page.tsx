@@ -221,11 +221,9 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
 
   // ✅ CLAVE PARA EDITAR: id_servicio (ajusta fallback si tu payload difiere)
   const id_servicio =
-    raw?.id_servicio ??
-    raw?.solicitud_proveedor?.id_servicio ??
-    raw?.servicio?.id_servicio ??
-    null;
+    raw?.solicitud_proveedor?.id_servicio 
 
+  console.log("informacion",raw)
   return {
     row_id,
 
@@ -260,8 +258,8 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
     estatus_pago: estatusPagoObj.label ? estatusPagoObj.label.toUpperCase() : "",
     __estatus_pago: estatusPagoObj,
 
-    detalles: "",
-    subir_factura: "",
+    detalles: raw,
+    subir_factura: raw,
 
     estatus_facturas: estatusFacturas,
 
@@ -315,6 +313,7 @@ type EditModalState = {
 export default function ConciliacionPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showSubirFactura, setShowSubirFactura] = useState(false);
+  const [selectedForFactura, setSelectedForFactura] = useState<AnyRow | null>(null);
   const [rows, setRows] = useState<any[]>([]);
 
   // UI
@@ -326,6 +325,16 @@ export default function ConciliacionPage() {
 
   const endpoint = `${URL}/mia/pago_proveedor/solicitud`;
   const editEndpoint = `${URL}/mia/pago_proveedor/edit`;
+
+  const openSubirFactura = useCallback((item: AnyRow) => {
+    setSelectedForFactura(item); // item incluye __raw
+    setShowSubirFactura(true);
+  }, []);
+
+  const closeSubirFactura = useCallback(() => {
+    setShowSubirFactura(false);
+    setSelectedForFactura(null);
+  }, []);
 
   const load = useCallback(async () => {
     const controller = new AbortController();
@@ -370,26 +379,32 @@ export default function ConciliacionPage() {
    */
   const handleEdit = useCallback(
     async (rowId: string, field: EditableField, value: any, idServicio?: string | number | null) => {
+      console.log("🟦 handleEdit() called", { rowId, field, value, idServicio });
+
       // 1) UI optimistic
       setDraftEdits((prev) => ({
         ...prev,
         [rowId]: { ...(prev[rowId] || {}), [field]: value },
       }));
 
-      const id_servicio = (idServicio ?? null) as any;
-      if (!id_servicio) {
-        console.warn("Sin id_servicio para editar", { rowId, field, value });
+      const id_servicio = idServicio ?? null;
+
+      // ✅ valida null/undefined/"" (pero NO mates 0)
+      if (id_servicio === null || typeof id_servicio === "undefined" || id_servicio === "") {
+        console.warn("🟨 Sin id_servicio para editar", { rowId, field, value, idServicio });
         return;
       }
 
       const apiField = FIELD_TO_API[field] ?? field;
 
       const payload = {
-        id_servicio, // ✅ clave de selección
+        id_servicio,
         field: apiField,
         value,
-        row_id: rowId, // opcional debug
+        row_id: rowId,
       };
+
+      console.log("🟦 PATCH payload", payload);
 
       try {
         const resp = await fetch(editEndpoint, {
@@ -405,13 +420,14 @@ export default function ConciliacionPage() {
         const json = await resp.json().catch(() => null);
         if (!resp.ok) throw new Error(json?.message || `Error HTTP: ${resp.status}`);
 
-        console.log("✅ edit ok", payload);
+        console.log("✅ edit ok", json ?? payload);
       } catch (err) {
         console.error("❌ edit fail", err);
       }
     },
     [editEndpoint]
   );
+
 
   // ---- Modal expansivo genérico para TODOS los editables ----
   const [editModal, setEditModal] = useState<EditModalState>({
@@ -426,10 +442,10 @@ export default function ConciliacionPage() {
     (rowId: string, idServicio: any, field: EditableField, currentValue: any) => {
       setEditModal({
         open: true,
-        rowId,
-        idServicio: idServicio ? idServicio : null,
+        rowId: String(rowId),
+        idServicio: idServicio ?? null, // ✅ NO lo mates por falsy
         field,
-        value: String(currentValue ?? ""),
+        value: currentValue == null ? "" : String(currentValue),
       });
     },
     []
@@ -440,15 +456,19 @@ export default function ConciliacionPage() {
   }, []);
 
   const saveEditModal = useCallback(async () => {
-    const { rowId, field, value, idServicio } = editModal;
-    if (!rowId) return;
+  const { rowId, field, value, idServicio } = editModal;
 
-    const normalizedValue =
-      MONEY_FIELDS.includes(field) ? (value.trim() === "" ? null : Number(value)) : value;
+  console.log("🟩 saveEditModal() click", { rowId, field, value, idServicio });
 
-    await handleEdit(rowId, field, normalizedValue, idServicio);
-    closeEditModal();
+  if (!rowId) return;
+
+  const normalizedValue =
+    MONEY_FIELDS.includes(field) ? (String(value).trim() === "" ? null : Number(value)) : value;
+
+  await handleEdit(rowId, field, normalizedValue, idServicio);
+  closeEditModal();
   }, [editModal, handleEdit, closeEditModal]);
+
 
   const registrosVisibles = useMemo(() => {
     const mapped = rows.map((r, i) => toConciliacionRow(r, i));
@@ -709,21 +729,37 @@ export default function ConciliacionPage() {
         );
       },
 
-      subir_factura: ({ item }) => {
-        const rowId = String(item?.row_id ?? "");
+      subir_factura: (value: any) => {
+        // 2) Encuentra el row real (Table5 puede llamarlo distinto)
+        const row =
+          value?.item ??
+          value?.row ??
+          value?.registro ??
+          value?.record ??
+          value?.original ??
+          null;
+
+        // 3) El raw original (tu objeto grande)
+        const raw = row?.__raw ?? row;
+
+        // 4) Usa row_id (del mapeo) y/o id_solicitud_proveedor desde raw
+        const rowId = String(row?.row_id ?? "");
+        const idSolicitudProveedor = value.value?.solicitud_proveedor?.id_solicitud_proveedor ?? null;
+
         return (
           <button
             type="button"
             className="px-2 py-1 rounded-md text-xs border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
             onClick={() => {
-              console.log("subir_factura", { rowId });
-              setShowSubirFactura(true);
+              console.log("🟢 click subir_factura", { rowId, idSolicitudProveedor, row, raw });
+              openSubirFactura(value.value); // ✅ pasa el row mapeado (incluye __raw)
             }}
           >
             Subir
           </button>
         );
       },
+
 
       // ------- DISPLAY EXTRA -------
       total_facturado: ({ value }) => <span title={String(value)}>{formatMoney(value)}</span>,
@@ -863,11 +899,13 @@ export default function ConciliacionPage() {
         {editModal.open && (
           <div className="fixed inset-0 z-50 flex items-center justify-center">
             {/* overlay */}
-            <div className="absolute inset-0 bg-black/40" onClick={closeEditModal} />
+            <div className="absolute inset-0 bg-black/40 z-0" onClick={closeEditModal} />
 
             {/* modal */}
-            <div className="relative w-[min(720px,92vw)] bg-white rounded-xl shadow-lg border border-gray-200">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+            <div
+                className="relative z-10 w-[min(720px,92vw)] bg-white rounded-xl shadow-lg border border-gray-200"
+                onClick={(e) => e.stopPropagation()} // ✅ evita propagación
+              >              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                 <div>
                   <p className="text-sm font-semibold text-gray-900">Editar campo</p>
                   <p className="text-xs text-gray-500">
@@ -936,7 +974,7 @@ export default function ConciliacionPage() {
                   <button
                     type="button"
                     className="px-3 py-2 rounded-lg text-sm border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
-                    onClick={saveEditModal}
+                    onClick={() => void saveEditModal()} // ✅ llama explícito
                   >
                     Cambiar
                   </button>
@@ -953,17 +991,22 @@ export default function ConciliacionPage() {
               <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
                 <h2 className="text-xl font-bold text-gray-800"></h2>
                 <button
-                  onClick={() => setShowSubirFactura(false)}
+                  onClick={closeSubirFactura}
                   className="text-gray-500 hover:text-gray-700"
                 >
                   <X className="w-6 h-6" />
                 </button>
               </div>
+
               <div className="p-6">
                 <SubirFactura
-                  proveedores_data={true}
+                  // ✅ NUEVO: mandar el objeto completo
+                  proveedoresData={selectedForFactura}     // row mapeado (incluye id_servicio, etc.)
+                  id_servicio={selectedForFactura?.id_servicio} // raw original
+                  //id_proveedor={selectedForFactura.id_proveedor? selectedForFactura.id_proveedor :selectedForFactura.proveedor.rfc}
+                  id_proveedor={selectedForFactura.id_proveedor ?? selectedForFactura.proveedor.rfc}
                   onSuccess={() => {
-                    setShowSubirFactura(false);
+                    closeSubirFactura();
                     // Opcional: load() para refrescar tabla
                     // load();
                   }}

@@ -15,7 +15,9 @@ import { obtenerPresignedUrl, subirArchivoAS3 } from "@/helpers/utils";
 
 interface SubirFacturaProps {
   pagoId?: string; //id del saldo tomado
+  id_proveedor?: string;
   pagoData?: Pago | null; //datos del pago
+  proveedoresData?: any | null;
   isBatch?: boolean;
   onSuccess: () => void; //callback al subir factura
   agentId?: string; // id del agente a precargar
@@ -24,9 +26,18 @@ interface SubirFacturaProps {
   autoOpen?: boolean; // abre el modal de inmediato
   onCloseExternal?: () => void; // permite cerrar desde el padre (opcional)
   initialItemsTotal?: number; // <--- NUEVO: total de ítems opcional
+  id_servicio?: string;
+}
+interface Proveedores {
+  id_proveedor: string;
+  id_solicitud: string;
+  monto_solicitado: string;
+  total: number;
+  subtotal: number | null;
+  impuestos: number | null;
+  fecha_pago: string;
   proveedores_data?: any;
 }
-
 interface Pago {
   id_agente: string;
   raw_id: string;
@@ -91,13 +102,15 @@ export interface Agente {
 export default function SubirFactura({
   pagoId,
   pagoData,
+  id_proveedor,
+  id_servicio,
+  proveedoresData,
   onSuccess,
   agentId,
   initialItems = [],
   initialItemsTotal = 0,
   itemsJson = "",
   autoOpen = false,
-  proveedores_data,
   onCloseExternal,
 }: SubirFacturaProps) {
   const [asignacionPayload, setAsignacionPayload] = useState<any>(null);
@@ -132,6 +145,8 @@ export default function SubirFactura({
 
   // Estados iniciales
   const initialStates = {
+    proveedoresData: null,
+    id_proveedor: null,
     facturaData: null,
     cliente: pagoData?.id_agente || agentId || "", // Prellenar con datos del pago si existen
     clienteSeleccionado: null,
@@ -173,6 +188,13 @@ export default function SubirFactura({
   const [facturaPagada, setFacturaPagada] = useState(false);
   const [mostrarAsignarFactura, setMostrarAsignarFactura] = useState(false);
   const isClienteBloqueado = !!agentId || !!pagoData?.id_agente;
+
+  console.log(
+    "informacion de proveedor",
+    id_proveedor,
+    proveedoresData,
+    id_servicio
+  );
 
   // Autoabrir el modal si hay pagoData
   useEffect(() => {
@@ -277,13 +299,13 @@ export default function SubirFactura({
   useEffect(() => {
     if (!clientes.length) return;
 
-    const targetId =
-      pagoData?.id_agente || proveedores_data?.id_proveedor || agentId;
+    const targetId = pagoData?.id_agente || agentId || id_proveedor;
     if (!targetId) return;
 
     const matching = clientes.find(
       (c) => String(c.id_agente) === String(targetId)
     );
+
     console.log("[SubirFactura] auto-select cliente", {
       targetId,
       found: !!matching,
@@ -315,12 +337,6 @@ export default function SubirFactura({
     setMostrarModal(true);
     handleFetchClients();
   }, [resetearCampos, handleFetchClients]);
-
-  const abrirModalProv = useCallback(() => {
-    resetearCampos();
-    setMostrarModal(true);
-    handleFetchProveedores();
-  }, [resetearCampos, handleFetchProveedores]);
 
   useEffect(() => {
     if (autoOpen && proveedores_data) {
@@ -538,14 +554,17 @@ export default function SubirFactura({
         : `${URL}/mia/pago_proveedores/subir_factura`;
 
       if (basePayload.items != "1") {
-        const response = await fetch(ENDPOINT, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": API_KEY,
-          },
-          body: JSON.stringify(basePayload),
-        });
+        const response = await fetch(
+          `${URL}/mia/factura/CrearFacturaDesdeCarga`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-key": API_KEY,
+            },
+            body: JSON.stringify(basePayload),
+          }
+        );
 
         if (!response.ok) {
           throw new Error("Error al asignar la factura");
@@ -651,7 +670,9 @@ export default function SubirFactura({
     setEmpresaSeleccionada(null); // Resetear selección al cargar nuevas empresas
 
     try {
-      const empresas = await fetchEmpresasAgentesDataFiscal(agenteId);
+      const empresas = proveedoresData
+        ? await fetchProveedoresDataFiscal(id_proveedor)
+        : await fetchEmpresasAgentesDataFiscal(agenteId);
       console.log("Empresas recibidas:", empresas);
       setEmpresasAgente(empresas || []);
     } catch (error) {

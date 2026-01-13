@@ -118,8 +118,8 @@ const parseCSV = (csvText: string): string[][] => {
 // Función para procesar CSV a array de objetos
 // Función para procesar CSV a array de objetos
 const procesarTodosLosDatosCSV = (parsedData: string[][]): CSVData[] => {
-  if (parsedData.length < 2) return [];
-
+  if (parsedData.length < 1) return [];
+  console.log("no entre")
   const result: CSVData[] = [];
 
   // 1) Detectar la fila de encabezados real
