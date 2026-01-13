@@ -162,7 +162,8 @@ export function ReservationForm2({
   const handleSaldosSubmit = async (saldos, restante, usado) => {
     try {
       const validateReservation = await codigo_reserva(
-        form.codigo_reservacion_hotel
+        form.codigo_reservacion_hotel,
+        solicitud.id_booking
       );
       console.log("validacion", validateReservation);
 
