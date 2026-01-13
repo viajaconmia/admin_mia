@@ -548,7 +548,8 @@ export const FacturacionModal: React.FC<{
   useEffect(() => {
     if (
       fiscalDataList.some(
-        (empresa) => empresa.id_agente == "11e1a5c7-1d44-485e-99a2-7fdf674058f3"
+        (empresa) =>
+          empresa?.id_agente == "11e1a5c7-1d44-485e-99a2-7fdf674058f3"
       )
     ) {
       alert("Se detecto al cliente amparo, cambiaremos el servicio");
