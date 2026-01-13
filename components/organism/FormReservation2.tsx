@@ -232,7 +232,7 @@ export function ReservationForm2({
 
   useEffect(() => {
     try {
-      fetchViajerosFromAgent(solicitud.id_agente, (data) => {
+      fetchViajerosFromAgent(solicitud.id_agente, ({ data }) => {
         const viajeroFiltrado = data.filter(
           (viajero) => viajero.id_viajero == solicitud.id_viajero_reserva
         );

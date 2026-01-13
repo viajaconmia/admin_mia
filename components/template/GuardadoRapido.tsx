@@ -63,22 +63,13 @@ const GuardadoProveedor = ({
   type: ForSave;
 }) => {
   const [nombre, setNombre] = useState<string>("");
-  const [pais, setPais] = useState<string>(null);
-  const [rfc, setRfc] = useState<string>(null);
-  const [telefono, setTelefono] = useState<string>(null);
-  const [email, setEmail] = useState<string>(null);
-  const [sitio_web, setSitio_web] = useState<string>(null);
   const { showNotification } = useNotification();
 
   const handleSubmit = () => {
     ExtraService.getInstance()
       .createProveedor({
         nombre: nombre,
-        pais: pais,
-        rfc: rfc,
-        telefono: telefono,
-        email: email,
-        sitio_web: sitio_web,
+
         type: type,
       })
       .then((res) => {
@@ -92,36 +83,11 @@ const GuardadoProveedor = ({
 
   return (
     <div className={`grid gap-4 items-end`}>
-      <div className={`grid md:grid-cols-2 gap-4 items-end`}>
+      <div className={`grid p-8 py-0 gap-4 items-end`}>
         <TextInput
           value={nombre}
           label="Nombre"
           onChange={(value: string) => setNombre(value)}
-        />
-        <TextInput
-          value={pais}
-          label="Pais"
-          onChange={(value: string) => setPais(value)}
-        />
-        <TextInput
-          value={rfc}
-          label="RFC"
-          onChange={(value: string) => setRfc(value)}
-        />
-        <TextInput
-          value={telefono}
-          label="Teléfono"
-          onChange={(value: string) => setTelefono(value)}
-        />
-        <TextInput
-          value={email}
-          label="Email"
-          onChange={(value: string) => setEmail(value)}
-        />
-        <TextInput
-          value={sitio_web}
-          label="Sitio Web"
-          onChange={(value: string) => setSitio_web(value)}
         />
       </div>
       <Button onClick={handleSubmit}>Guardar</Button>
