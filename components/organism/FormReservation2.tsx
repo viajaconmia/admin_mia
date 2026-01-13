@@ -161,8 +161,17 @@ export function ReservationForm2({
 
   const handleSaldosSubmit = async (saldos, restante, usado) => {
     try {
+      const validateReservation = await codigo_reserva(form.codigo_reservacion_hotel);
           console.log("validacion", validateReservation);
               
+          // 1) Si falta código (tu fetch regresa { error: true, message: "Falta codigo_reserva" })
+          if (validateReservation?.error||validateReservation.exists) {
+            showNotification("error", validateReservation.message || "Falta código de reservación");
+            setLoading(false);
+            return;
+          }
+          console.log("validacion", validateReservation);
+
           // 1) Si falta código (tu fetch regresa { error: true, message: "Falta codigo_reserva" })
           if (validateReservation?.error||validateReservation.exists) {
             showNotification("error", validateReservation.message || "Falta código de reservación");
