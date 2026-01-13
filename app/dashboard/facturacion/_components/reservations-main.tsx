@@ -455,10 +455,6 @@ export const FacturacionModal: React.FC<{
   onClose,
   onConfirm,
 }) => {
-  // console.log("reservationInit", reservationsInit);
-  console.log("selectedItems", selectedItems);
-  console.log("selecthospedaj", selectedHospedaje);
-
   // console.log(reservationsInit.map((reserva) => reserva.items));
 
   // const reservations = reservationsInit;
@@ -488,6 +484,7 @@ export const FacturacionModal: React.FC<{
       }))
   );
   const [fiscalDataList, setFiscalDataList] = useState<FiscalData[]>([]);
+  console.log("FISCAL DATA", fiscalDataList);
   const [selectedFiscalData, setSelectedFiscalData] =
     useState<FiscalData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -546,9 +543,18 @@ export const FacturacionModal: React.FC<{
     Exportation: "01",
     Items: [] as any[],
   });
+
+  //ESTE USEEFFECT SE CREO PARA HARDCODEAR AL CLIENTE AMPARO, NO SE QUITA O SI SE MUEVE DEBEMOS ACTUALIZARLO Y AVISAR A FINANZAS (QUE PIDE CAMBIOS HARDCODEADOS, SOLO PA DAR EL GUSTO UN RATO, POR MI AUMENTOOOO)
   useEffect(() => {
-    console.log("SELECTEDPAYMENTMETHOD", selectedPaymentMethod);
-  }, [selectedPaymentMethod]);
+    if (
+      fiscalDataList.some(
+        (empresa) => empresa.id_agente == "11e1a5c7-1d44-485e-99a2-7fdf674058f3"
+      )
+    ) {
+      alert("Se detecto al cliente amparo, cambiaremos el servicio");
+      setSelectedDescription(paymentDescriptions[1]);
+    }
+  }, [fiscalDataList]);
   // Preparar los datos de las reservaciones con sus items seleccionados
   useEffect(() => {
     if (reservations.length > 0 && Object.keys(selectedItems).length > 0) {
@@ -572,8 +578,6 @@ export const FacturacionModal: React.FC<{
           };
         });
 
-      console.log("preparedReservations: ", preparedReservations);
-
       setReservationsWithSelectedItems(preparedReservations);
 
       // Cargar datos fiscales si no están cargados
@@ -587,7 +591,6 @@ export const FacturacionModal: React.FC<{
             const data = await fetchEmpresasDatosFiscales(
               preparedReservations[0].id_usuario_generador
             );
-            console.log("😊😊😊rrrrrrrrrrrrrrrrr", data);
             setFiscalDataList(data);
             if (data.length > 0) {
               setSelectedFiscalData(data[0]);
@@ -604,7 +607,6 @@ export const FacturacionModal: React.FC<{
     }
   }, [selectedItems, reservations]);
 
-  console.log("fiacla", fiscalDataList);
   const [customDescription, setCustomDescription] = useState("");
 
   // Actualizar CFDI cuando cambian los datos
@@ -765,7 +767,6 @@ export const FacturacionModal: React.FC<{
     isConsolidated,
   ]);
 
-  console.log(cfdi, "feeeeeeeeeeeeeeeeeeeee");
   const validateInvoiceData = () => {
     if (reservationsWithSelectedItems.length === 0) {
       alert("No hay items seleccionados para facturar");
@@ -821,8 +822,6 @@ export const FacturacionModal: React.FC<{
             }));
         }
       );
-
-      console.log("items con id_hospedaje", itemsFacturados);
 
       // Calcular totales
       const totalFacturado = itemsFacturados.reduce(
@@ -1070,8 +1069,6 @@ export const FacturacionModal: React.FC<{
   const descriptionToUse = isCustomValid
     ? customDescription
     : defaultDescription;
-
-  console.log("descrip", customDescription);
 
   const totalAmount = reservationsWithSelectedItems.reduce(
     (sum, reserva) =>
