@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { parsearXML } from './parseXmlCliente';
 import VistaPreviaModal from './VistaPreviaModal';
 import ConfirmacionModal from './confirmacion';
-import { fetchAgentes, fetchEmpresasAgentesDataFiscal,fetchProveedoresDataFiscal } from "@/services/agentes";
+import { fetchAgentes, fetchEmpresasAgentesDataFiscal,fetchProveedoresDataFiscal,fecthProveedores } from "@/services/agentes";
 import { TypeFilters, EmpresaFromAgent } from "@/types";
 import AsignarFacturaModal from './AsignarFactura';
 import { obtenerPresignedUrl, subirArchivoAS3 } from "@/helpers/utils";
@@ -228,32 +228,42 @@ const getItemsTotal = useCallback((): number => {
   };
 
   // Función para buscar clientes por nombre, email, RFC o id_cliente
-  const handleBuscarCliente = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const valor = e.target.value.toLowerCase();
-    setCliente(e.target.value);
+const handleBuscarCliente = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const raw = e.target.value;
+  const valor = raw.toLowerCase();
+  setCliente(raw);
 
-    if (valor.length > 2) {
-      const filtrados = clientes.filter(cliente => {
-        // Verificar que las propiedades existan antes de llamar toLowerCase()
-        const nombre = cliente.nombre_agente_completo?.toLowerCase() || '';
-        const correo = cliente.correo?.toLowerCase() || '';
-        const rfc = cliente.rfc?.toLowerCase() || '';
-        const id_cliente = cliente.id_agente?.toLowerCase() || '';
+  console.log("nombre🔽🔽🔽🔽🔽🔽", clientes);
 
-        return (
-          nombre.includes(valor) ||
-          correo.includes(valor) ||
-          rfc.includes(valor) ||
-          id_cliente.includes(valor)
-        );
-      });
-      setClientesFiltrados(filtrados);
-      setMostrarSugerencias(true);
-    } else {
-      setClientesFiltrados([]);
-      setMostrarSugerencias(false);
-    }
-  };
+  const source = Array.isArray(clientes)
+    ? clientes
+    : Array.isArray((clientes as any)?.data)
+      ? (clientes as any).data
+      : [];
+
+  if (valor.length > 2) {
+    const filtrados = source.filter((cliente: any) => {
+      const nombre = (cliente?.nombre_agente_completo ?? "").toLowerCase();
+      const correo = (cliente?.correo ?? "").toLowerCase();
+      const rfc = (cliente?.rfc ?? "").toLowerCase();
+      const id_cliente = String(cliente?.id_agente ?? "").toLowerCase();
+
+      return (
+        nombre.includes(valor) ||
+        correo.includes(valor) ||
+        rfc.includes(valor) ||
+        id_cliente.includes(valor)
+      );
+    });
+
+    setClientesFiltrados(filtrados);
+    setMostrarSugerencias(true);
+  } else {
+    setClientesFiltrados([]);
+    setMostrarSugerencias(false);
+  }
+};
+
   // Función para cargar los clientes al abrir el modal
   const handleFetchClients = useCallback(() => {
     setLoading(true);
@@ -267,17 +277,29 @@ const getItemsTotal = useCallback((): number => {
       });
   }, []);
 
+  //funcion para cargar los proveedores al cargar el modal
+    const handlefecthProveedores = useCallback(() => {
+    setLoading(true);
+    fecthProveedores({}, {} as TypeFilters, (data) => {
+      setClientes(data);
+      setLoading(false);
+    })
+      .catch(error => {
+        console.error("Error fetching agents:", error);
+        setLoading(false);
+      });
+  }, []);
 
   //auto seleccionar al cliente
-
   useEffect(() => {
     if (!clientes.length) return;
 
-    const targetId = pagoData?.id_agente || agentId||id_proveedor;
+    const targetId =id_proveedor|| pagoData?.id_agente || agentId;
+    console.log(targetId,"mayormente informacion de id✅✅✅✅✅✅✅✅✅✅")
     if (!targetId) return;
 
     const matching = clientes.find(c => String(c.id_agente) === String(targetId));
-    
+    console.log(clientes,"mayormente")
     console.log('[SubirFactura] auto-select cliente', { targetId, found: !!matching });
     console.log("22222", matching)
     if (matching) {
@@ -304,8 +326,14 @@ const getItemsTotal = useCallback((): number => {
   const abrirModal = useCallback(() => {
     resetearCampos();
     setMostrarModal(true);
-    handleFetchClients();
-  }, [resetearCampos, handleFetchClients]);
+    if (!proveedoresData) {
+      handleFetchClients();
+      console.log("entre al fetch de clientes")
+    }else{
+      handlefecthProveedores();
+      console.log("entre al fetch de proveedores");
+    }
+  }, [resetearCampos, handleFetchClients,handlefecthProveedores]);
 
   useEffect(() => {
     if (autoOpen) {
