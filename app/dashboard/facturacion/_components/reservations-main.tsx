@@ -472,6 +472,9 @@ export const FacturacionModal: React.FC<{
   //        impuestos: (item.total - Number(item.total) / 1.16).toFixed(2),
   //      })),
   //    }));
+  const [selectedDescription, setSelectedDescription] = useState<string>(
+    paymentDescriptions[0]
+  );
   const [reservations, setReservations] = useState(
     reservationsInit
       .filter((reserva) => reserva.items != null)
@@ -651,7 +654,7 @@ export const FacturacionModal: React.FC<{
               ProductCode: "90111500",
               UnitCode: "E48",
               Unit: "Unidad de servicio",
-              Description: "Servicio de administración y Gestión de Reservas",
+              Description: selectedDescription, //AQUI CAMBIO
               //IdentificationNumber: "HSP",
               UnitPrice: subtotalConsolidado.toFixed(2),
               Subtotal: subtotalConsolidado.toFixed(2),
@@ -730,7 +733,7 @@ export const FacturacionModal: React.FC<{
                 ProductCode: "90121500",
                 UnitCode: "E48",
                 Unit: "Unidad de servicio",
-                Description: `Servicio de administración y Gestión de Reservas`,
+                Description: selectedDescription, //AQUI CAMBIO
                 //IdentificationNumber: `HSP-${reserva.id_servicio}`,
                 UnitPrice: subtotalSelected.toFixed(2),
                 Subtotal: subtotalSelected.toFixed(2),
@@ -850,7 +853,7 @@ export const FacturacionModal: React.FC<{
                   ProductCode: "90121500",
                   UnitCode: "E48",
                   Unit: "Unidad de servicio",
-                  Description: `Servicio de administración y Gestión de Reservas`,
+                  Description: selectedDescription, //AQUI CAMBIO
                   UnitPrice: subtotal.toFixed(2),
                   Subtotal: subtotal.toFixed(2),
                   TaxObject: "02",
@@ -888,7 +891,7 @@ export const FacturacionModal: React.FC<{
                   ProductCode: "90121500",
                   UnitCode: "E48",
                   Unit: "Unidad de servicio",
-                  Description: `Servicio de administración y Gestión de Reservas`,
+                  Description: selectedDescription, //AQUI CAMBIO
                   UnitPrice: subtotalReserva.toFixed(2),
                   Observations: descriptionToUse, // <— SOBRESCRIBE AQUÍ
                   Subtotal: subtotalReserva.toFixed(2),
@@ -1425,6 +1428,29 @@ export const FacturacionModal: React.FC<{
                 </p>
               </div>
             </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Descripción
+              </label>
+              <select
+                value={selectedDescription}
+                onChange={(e) => {
+                  setSelectedDescription(e.target.value);
+                  console.log(e.target.value);
+                  console.log(selectedDescription);
+                }}
+                className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              >
+                {paymentDescriptions.map((option) => (
+                  <option
+                    key={`option.value-${Math.round(Math.random() * 9999999)}`}
+                    value={option}
+                  >
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="mt-4 p-4 bg-gray-50 rounded-md">
@@ -1564,3 +1590,8 @@ export const FacturacionModal: React.FC<{
     </div>
   );
 };
+
+const paymentDescriptions = [
+  "Servicio de administración y gestión de Reservas",
+  "Servicio y Gestión de viajes",
+];
