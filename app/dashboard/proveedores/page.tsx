@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useReducer, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Table5 } from "@/components/Table5";
 import { formatDate } from "@/helpers/utils";
 import {
@@ -11,10 +11,11 @@ import {
 import { useNotification } from "@/context/useNotificacion";
 import Button from "@/components/atom/Button";
 import Link from "next/link";
-import { ExternalLink, Plus } from "lucide-react";
+import { ExternalLink, Plus, RefreshCwIcon } from "lucide-react";
 import Modal from "@/components/organism/Modal";
 import { ComboBox2, ComboBoxOption2, TextInput } from "@/components/atom/Input";
 import { ExtraService } from "@/services/ExtraServices";
+import { Table } from "@/component/molecule/Table";
 
 export default function ProveedoresPage() {
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
@@ -55,7 +56,6 @@ export default function ProveedoresPage() {
 
   useEffect(() => {
     fetchProveedores();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const proveedoresFiltrados = useMemo(() => {
@@ -80,7 +80,6 @@ export default function ProveedoresPage() {
     pais: p.pais,
     bilingue: p.bilingue,
     creado_en: p.created_at,
-    item: p,
     detalles: p.id,
   }));
 
@@ -189,26 +188,6 @@ export default function ProveedoresPage() {
                 Catálogo de proveedores (vuelo / renta de carro)
               </p>
             </div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={fetchProveedores}
-                className="text-sm px-3 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-400"
-                disabled={isLoading}
-              >
-                {isLoading ? "Cargando..." : "Refrescar"}
-              </button>
-
-              {/* Placeholder para creación */}
-              <button
-                onClick={() => {
-                  setShowModal(true);
-                }}
-                className="text-sm px-3 py-2 rounded bg-emerald-600 text-white hover:bg-emerald-700"
-              >
-                Nuevo
-              </button>
-            </div>
           </div>
 
           {/* Filtros */}
@@ -242,6 +221,28 @@ export default function ProveedoresPage() {
 
         {/* Tabla */}
         <div className="mt-4 bg-white border rounded-lg shadow-sm overflow-hidden">
+          <div className="flex gap-2">
+            <Button
+              onClick={fetchProveedores}
+              disabled={isLoading}
+              size="sm"
+              icon={RefreshCwIcon}
+            >
+              {isLoading ? "Cargando..." : "Refrescar"}
+            </Button>
+
+            {/* Placeholder para creación */}
+            <Button
+              size="sm"
+              variant="ghost"
+              icon={Plus}
+              onClick={() => {
+                setShowModal(true);
+              }}
+            >
+              Nuevo
+            </Button>
+          </div>
           <div className="p-3">
             {isLoading ? (
               <div className="flex justify-center items-center h-56">
@@ -252,29 +253,10 @@ export default function ProveedoresPage() {
                   </p>
                 </div>
               </div>
-            ) : registros.length === 0 ? (
-              <p className="text-sm text-gray-500 p-3">
-                No hay proveedores para mostrar (o el endpoint actual aún no
-                retorna este catálogo).
-              </p>
             ) : (
-              <Table5<any>
-                registros={registros}
-                renderers={renderers}
-                exportButton={true}
-                leyenda={`Mostrando ${registros.length} proveedor(es)`}
-                maxHeight="65vh"
-                customColumns={[
-                  "id",
-                  "proveedor",
-                  "type",
-                  "bilingue",
-                  "extranjero",
-                  "credito",
-                  "creado_en",
-                  "detalles",
-                ]}
-              />
+              <>
+                <Table registros={registros} renderers={renderers} />
+              </>
             )}
           </div>
         </div>

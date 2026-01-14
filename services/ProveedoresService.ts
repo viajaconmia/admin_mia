@@ -5,6 +5,7 @@ export class ProveedoresService extends ApiService {
     GET: {
       PROVEEDORES: "/",
       DATOS_FISCALES: "/detalles",
+      DATA_FISCAL_ALL: "/fiscal",
     },
     PUT: {
       PROVEEDOR: "/",
@@ -38,6 +39,14 @@ export class ProveedoresService extends ApiService {
       params: body,
     });
 
+  public get_data_fiscal = async (
+    id: number
+  ): Promise<ApiResponse<DatosFiscales>> =>
+    this.get({
+      path: this.formatPath(this.ENDPOINTS.GET.DATA_FISCAL_ALL),
+      params: { id },
+    });
+
   public getDatosFiscales = async (
     id_proveedor
   ): Promise<ApiResponse<DatosFiscales[]>> =>
@@ -50,7 +59,7 @@ export class ProveedoresService extends ApiService {
     this.put({ path: this.formatPath(this.ENDPOINTS.PUT.PROVEEDOR), body });
 
   public crearFiscalData = async (
-    body: DatosFiscales
+    body: Omit<DatosFiscales, "cuentas" | "id"> & { id_proveedor: number }
   ): Promise<ApiResponse<DatosFiscales[]>> =>
     this.post<DatosFiscales[]>({
       path: this.formatPath(this.ENDPOINTS.POST.DATOS_FISCALES),
@@ -58,7 +67,7 @@ export class ProveedoresService extends ApiService {
     });
 
   public editarFiscalData = async (
-    body: DatosFiscales
+    body: DatosFiscales & { id_proveedor: number }
   ): Promise<ApiResponse<DatosFiscales[]>> =>
     this.put<DatosFiscales[]>({
       path: this.formatPath(this.ENDPOINTS.PUT.DATOS_FISCALES),
@@ -81,9 +90,9 @@ export interface DatosFiscales {
   id: number;
   rfc: string;
   alias: string | null;
-  id_proveedor: number;
-  id_datos_fiscales: number;
   razon_social: string;
+  numero_cuentas?: number;
+  cuentas?: {}[];
 }
 
 export interface ProveedorRaw {

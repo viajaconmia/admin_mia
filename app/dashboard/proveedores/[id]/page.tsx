@@ -14,13 +14,21 @@ import {
   Proveedor,
   ProveedoresService,
 } from "@/services/ProveedoresService";
-import { Pencil, Save } from "lucide-react";
+import { ExternalLink, Pencil, Save } from "lucide-react";
 import { useParams } from "next/navigation";
-import { useEffect, useReducer, useState } from "react";
+import {
+  Dispatch,
+  SetStateAction,
+  useEffect,
+  useReducer,
+  useState,
+} from "react";
 import { Plus, X, ReceiptText } from "lucide-react";
 import { Table } from "@/component/molecule/Table";
 import { ApiResponse } from "@/services/ApiService";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { formatNumber } from "@/helpers/formater";
+import Modal from "@/components/organism/Modal";
 
 const App = () => {
   const [loading, setLoading] = useState(true);
@@ -28,6 +36,7 @@ const App = () => {
   const [proveedor, setProveedor] = useState<Proveedor | null>(null);
   const [datosFiscales, setDatosFiscales] = useState<DatosFiscales[]>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [idFiscal, setIdFiscal] = useState<number | null>(null);
   const [selectedFiscal, setSelectedFiscal] = useState<DatosFiscales | null>(
     null
   );
@@ -42,7 +51,9 @@ const App = () => {
     setIsModalOpen(true);
   };
 
-  const handleSave = async (datos: DatosFiscales) => {
+  const handleSave = async (
+    datos: DatosFiscales & { id_proveedor: number }
+  ) => {
     try {
       let response: ApiResponse<DatosFiscales[]>;
       if (selectedFiscal) {
@@ -114,6 +125,7 @@ const App = () => {
           datosFiscales={datosFiscales}
           handleAddNewClick={handleAddNewClick}
           handleEditClick={handleEditClick}
+          handleModalCuentas={setIdFiscal}
         />
       </div>
       <ModalCrearDatosFiscales
@@ -125,6 +137,17 @@ const App = () => {
         onSave={handleSave}
         id_proveedor={Number(Array.isArray(id) ? id[0] : id)}
       />
+      {idFiscal != null && (
+        <Modal
+          onClose={() => {
+            setIdFiscal(null);
+          }}
+          title={`Datos fiscales y cuentas`}
+          subtitle={`ID: ${idFiscal}`}
+        >
+          <ModalDataFiscal id={idFiscal}></ModalDataFiscal>
+        </Modal>
+      )}
     </>
   );
 };
@@ -135,10 +158,12 @@ function ProveedorCard({
   proveedor,
   handleAddNewClick,
   handleEditClick,
+  handleModalCuentas,
   datosFiscales,
 }: {
   proveedor: Proveedor;
   handleAddNewClick: () => void;
+  handleModalCuentas: Dispatch<SetStateAction<number>>;
   handleEditClick: (value: DatosFiscales) => void;
   datosFiscales: DatosFiscales[];
 }) {
@@ -357,22 +382,33 @@ function ProveedorCard({
                 Crear Datos Fiscales
               </Button>
               <Table
-                registros={datosFiscales.map(
-                  ({ id_datos_fiscales, id, id_proveedor, ...rest }) => ({
-                    id_datos_fiscales,
-                    ...rest,
-                    edit: { ...rest, id: id_datos_fiscales, id_proveedor },
-                  })
-                )}
+                registros={datosFiscales.map(({ ...rest }) => ({
+                  ...rest,
+                  edit: { ...rest, id_proveedor: proveedor.id },
+                  ver_cuentas: rest.id,
+                }))}
                 renderers={{
                   edit: ({ value }: { value: DatosFiscales }) => (
                     <Button
                       icon={Pencil}
                       size="sm"
+                      variant="ghost"
                       onClick={() => handleEditClick(value)}
                     >
                       Editar
                     </Button>
+                  ),
+                  ver_cuentas: ({ value }) => (
+                    <Button
+                      icon={ExternalLink}
+                      size="sm"
+                      onClick={() => handleModalCuentas(value)}
+                    >
+                      Ver cuentas
+                    </Button>
+                  ),
+                  cuentas: ({ value }) => (
+                    <span className="font-semibold">{formatNumber(value)}</span>
                   ),
                 }}
                 back={false}
@@ -498,7 +534,7 @@ const ModalCrearDatosFiscales = ({
   const [formData, setFormData] = useState<Partial<DatosFiscales>>({
     rfc: "",
     alias: "",
-    id_proveedor,
+    razon_social: "",
   });
 
   const handleChange = (field: keyof DatosFiscales, value: string) => {
@@ -510,7 +546,7 @@ const ModalCrearDatosFiscales = ({
       alert("rfc y razon social es obligatorio");
       return;
     }
-    onSave(formData as DatosFiscales);
+    onSave({ ...formData, id_proveedor } as DatosFiscales);
   };
 
   useEffect(() => {
@@ -520,7 +556,7 @@ const ModalCrearDatosFiscales = ({
       setFormData({
         rfc: "",
         alias: "",
-        id_proveedor,
+        razon_social: "",
       });
     }
   }, [selectedFiscal, isOpen]);
@@ -589,4 +625,34 @@ const ModalCrearDatosFiscales = ({
       </div>
     </div>
   );
+};
+
+const ModalDataFiscal = ({ id }: { id: number }) => {
+  const [data, setData] = useState<DatosFiscales | null>(null);
+  const { showNotification } = useNotification();
+
+  useEffect(() => {
+    ProveedoresService.getInstance()
+      .get_data_fiscal(id)
+      .then((value) => setData(value.data))
+      .catch((error) =>
+        showNotification(
+          "error",
+          error.message || "Error al obtener datos fiscales"
+        )
+      );
+  }, []);
+
+  useEffect(() => {
+    console.log(data);
+  }, [data]);
+
+  if (!data)
+    return (
+      <div className="h-96 w-96 flex justify-center items-center">
+        <Loader></Loader>
+      </div>
+    );
+
+  return <div>hola</div>;
 };

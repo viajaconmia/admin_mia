@@ -167,8 +167,8 @@ interface TableProps {
   renderers?: RendererMap;
   maxHeight?: string;
   setPage?: Dispatch<React.SetStateAction<number>>;
-  back: boolean;
-  next: boolean;
+  back?: boolean;
+  next?: boolean;
   page?: number;
   loading?: boolean;
 }
