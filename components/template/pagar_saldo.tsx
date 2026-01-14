@@ -435,6 +435,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
           solicitud: reservaData.solicitud || {},
           nuevo_incluye_desayuno: reservaData.nuevo_incluye_desayuno || null,
           acompanantes: reservaData.acompanantes || [],
+          intermediario: reservaData.intermediario || null,
           ejemplo_saldos: selectedItems.map((item) => {
             const originalItem = saldoFavorData.find(
               (sf) => `saldo-${sf.id_saldos}` === item.id_item
@@ -592,6 +593,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
       onClose();
     } catch (error) {
       console.error("Error en la petición:", error);
+      showNotification("error", error.message || "Fallo el pago");
     } finally {
       setLoading(false);
       onEnd();

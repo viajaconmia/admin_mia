@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { CheckCircle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { codigo_reserva, new_edit } from "@/services/reservas";
+import { new_edit } from "@/services/reservas";
 import { MostrarSaldos } from "@/components/template/MostrarSaldos";
 import { isValid } from "date-fns";
 import {
@@ -164,14 +164,6 @@ export function ReservationForm2({
 
   const handleSaldosSubmit = async (saldos, restante, usado) => {
     try {
-          console.log("validacion", validateReservation);
-      
-          // 1) Si falta código (tu fetch regresa { error: true, message: "Falta codigo_reserva" })
-          if (validateReservation?.error||validateReservation.exists) {
-            showNotification("error", validateReservation.message || "Falta código de reservación");
-            setLoading(false);
-            return;
-          }
       setLoading(true);
       console.log(
         Number(solicitud.total).toFixed(2) != Number(precio).toFixed(2),
@@ -240,8 +232,7 @@ export function ReservationForm2({
 
   useEffect(() => {
     try {
-
-      fetchViajerosFromAgent(solicitud.id_agente, (data) => {
+      fetchViajerosFromAgent(solicitud.id_agente, ({ data }) => {
         const viajeroFiltrado = data.filter(
           (viajero) => viajero.id_viajero == solicitud.id_viajero_reserva
         );

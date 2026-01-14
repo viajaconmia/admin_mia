@@ -3,33 +3,24 @@ import Button from "@/components/atom/Button";
 import {
   CheckboxInput,
   DateInput,
-  EmailInput,
-  NumberInput,
   TextAreaInput,
   TextInput,
 } from "@/components/atom/Input";
 import { Loader } from "@/components/atom/Loader";
-import { SectionForm } from "@/components/atom/SectionForm";
 import { useNotification } from "@/context/useNotificacion";
 import {
   DatosFiscales,
   mapProveedor,
-  NuevoDatoFiscal,
   Proveedor,
   ProveedoresService,
 } from "@/services/ProveedoresService";
-import {
-  Building,
-  Pencil,
-  Save,
-  User2,
-  MapPin,
-  FileText,
-  CreditCard,
-  Globe,
-} from "lucide-react";
+import { Pencil, Save } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useEffect, useReducer, useState } from "react";
+import { Plus, X, ReceiptText } from "lucide-react";
+import { Table } from "@/component/molecule/Table";
+import { ApiResponse } from "@/services/ApiService";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const App = () => {
   const [loading, setLoading] = useState(true);
@@ -51,7 +42,7 @@ const App = () => {
     setIsModalOpen(true);
   };
 
-  const handleSave = async (datos: NuevoDatoFiscal) => {
+  const handleSave = async (datos: DatosFiscales) => {
     try {
       let response: ApiResponse<DatosFiscales[]>;
       if (selectedFiscal) {
@@ -366,10 +357,13 @@ function ProveedorCard({
                 Crear Datos Fiscales
               </Button>
               <Table
-                registros={datosFiscales.map(({ ID_PROVEEDOR, ...rest }) => ({
-                  ...rest,
-                  edit: { ID_PROVEEDOR, ...rest },
-                }))}
+                registros={datosFiscales.map(
+                  ({ id_datos_fiscales, id, id_proveedor, ...rest }) => ({
+                    id_datos_fiscales,
+                    ...rest,
+                    edit: { ...rest, id: id_datos_fiscales, id_proveedor },
+                  })
+                )}
                 renderers={{
                   edit: ({ value }: { value: DatosFiscales }) => (
                     <Button
@@ -486,15 +480,10 @@ function useProveedorEditor(proveedor: Proveedor) {
   };
 }
 
-import { Plus, X, ReceiptText } from "lucide-react";
-import { Table } from "@/component/molecule/Table";
-import { ApiResponse } from "@/services/ApiService";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
 interface ModalCrearDatosFiscalesProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (datos: NuevoDatoFiscal) => void;
+  onSave: (datos: DatosFiscales) => void;
   id_proveedor: number;
   selectedFiscal: DatosFiscales | null;
 }
@@ -506,39 +495,32 @@ const ModalCrearDatosFiscales = ({
   id_proveedor,
   selectedFiscal,
 }: ModalCrearDatosFiscalesProps) => {
-  const [formData, setFormData] = useState<Partial<NuevoDatoFiscal>>({
-    RFC: "",
-    TITULAR: "",
-    ALIAS: "",
-    CUENTA: "",
-    BANCO: "",
-    ID_PROVEEDOR: id_proveedor,
+  const [formData, setFormData] = useState<Partial<DatosFiscales>>({
+    rfc: "",
+    alias: "",
+    id_proveedor,
   });
 
-  const handleChange = (field: keyof NuevoDatoFiscal, value: string) => {
+  const handleChange = (field: keyof DatosFiscales, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const handleConfirm = () => {
-    if (!formData.RFC || !formData.CUENTA) {
-      alert("RFC y Cuenta son campos obligatorios");
+    if (!formData.rfc || !formData.razon_social) {
+      alert("rfc y razon social es obligatorio");
       return;
     }
-    onSave(formData as NuevoDatoFiscal);
+    onSave(formData as DatosFiscales);
   };
 
   useEffect(() => {
     if (selectedFiscal) {
-      console.log(selectedFiscal);
       setFormData(selectedFiscal); // Si recibimos datos, los ponemos en el form
     } else {
       setFormData({
-        RFC: "",
-        TITULAR: "",
-        ALIAS: "",
-        CUENTA: "",
-        BANCO: "",
-        ID_PROVEEDOR: id_proveedor,
+        rfc: "",
+        alias: "",
+        id_proveedor,
       });
     }
   }, [selectedFiscal, isOpen]);
@@ -569,51 +551,32 @@ const ModalCrearDatosFiscales = ({
         {/* Cuerpo del Formulario */}
         <div className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2">
+              <TextInput
+                label="Razon social"
+                value={formData.razon_social || ""}
+                onChange={(v) => handleChange("razon_social", v)}
+                placeholder="Ej: NOKTOS SA de CV"
+              />
+            </div>
             <div className="col-span-1">
               <TextInput
-                label="RFC *"
-                value={formData.RFC || ""}
-                onChange={(v) => handleChange("RFC", v)}
+                label="rfc *"
+                value={formData.rfc || ""}
+                onChange={(v) => handleChange("rfc", v)}
                 placeholder="XAXX010101000"
               />
             </div>
             <div className="col-span-1">
               <TextInput
                 label="Alias del registro"
-                value={formData.ALIAS || ""}
-                onChange={(v) => handleChange("ALIAS", v)}
+                value={formData.alias || ""}
+                onChange={(v) => handleChange("alias", v)}
                 placeholder="Ej: Cuenta Principal"
               />
             </div>
           </div>
-
-          <TextInput
-            label="Titular de la CUENTA"
-            value={formData.TITULAR || ""}
-            onChange={(v) => handleChange("TITULAR", v)}
-          />
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-1">
-              <TextInput
-                label="Banco"
-                value={formData.BANCO || ""}
-                onChange={(v) => handleChange("BANCO", v)}
-              />
-            </div>
-            <div className="col-span-1">
-              <TextInput
-                label="Número de Cuenta *"
-                value={formData.CUENTA || ""}
-                onChange={(v) => handleChange("CUENTA", v)}
-              />
-            </div>
-          </div>
-          <p className="text-[10px] text-gray-400 italic">
-            * Campos obligatorios
-          </p>
         </div>
-
         {/* Footer */}
         <div className="p-5 border-t bg-gray-50 flex justify-end gap-3">
           <Button variant="secondary" onClick={onClose} size="sm">

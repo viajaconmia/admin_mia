@@ -1005,6 +1005,7 @@ export default function ConciliacionPage() {
                   id_servicio={selectedForFactura?.id_servicio} // raw original
                   //id_proveedor={selectedForFactura.id_proveedor? selectedForFactura.id_proveedor :selectedForFactura.proveedor.rfc}
                   id_proveedor={selectedForFactura.id_proveedor ?? selectedForFactura.proveedor.rfc}
+                  autoOpen={true}
                   onSuccess={() => {
                     closeSubirFactura();
                     // Opcional: load() para refrescar tabla

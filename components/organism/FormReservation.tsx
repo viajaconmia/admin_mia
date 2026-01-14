@@ -167,14 +167,9 @@ export function ReservationForm({
         currentNoches
       )
   );
-  console.log(solicitud, "fevr");
 
   const [walletAmount, setWalletAmount] = useState<number>(0);
   const [loadingWallet, setLoadingWallet] = useState(false);
-
-  useEffect(() => {
-    console.log("form ", form);
-  }, [form]);
 
   useEffect(() => {
     if (!proveedores) {
@@ -186,7 +181,6 @@ export function ReservationForm({
   useEffect(() => {
     try {
       fetchViajerosFromAgent(solicitud.id_agente, ({ data }) => {
-        console.log("data viajeros", data);
         const viajeroFiltrado = data.filter(
           (viajero) => viajero.id_viajero == solicitud.id_viajero
         );
@@ -207,6 +201,7 @@ export function ReservationForm({
 
   useEffect(() => {
     try {
+      updateAgentWallet();
       fetchViajerosFromAgent(solicitud.id_agente, ({ data }) => {
         const viajeroFiltrado = data.filter(
           (viajero) => viajero.id_viajero == solicitud.id_viajero_reserva
@@ -235,10 +230,6 @@ export function ReservationForm({
       setTravelers([]);
     }
   }, []);
-
-  useEffect(() => {
-    console.log(travelers);
-  }, [travelers]);
 
   useEffect(() => {
     if (
@@ -352,59 +343,6 @@ export function ReservationForm({
         items: autoTotal > 0 ? items : [],
         noches: Number(nights),
       }));
-
-      // Lógica para edición
-      // if (edicion) {
-      //   setEdicionForm((prev) => ({
-      //     ...prev,
-      //     proveedor: {
-      //       before: {
-      //         ...form.proveedor,
-      //         subtotal: form.proveedor.subtotal,
-      //         impuestos: form.proveedor.impuestos,
-      //       },
-      //       current: {
-      //         ...form.proveedor,
-      //         total: autoTotal,
-      //         subtotal: Number(
-      //           (autoTotal - form.impuestos.otros_impuestos * nights).toFixed(2)
-      //         ),
-      //         impuestos: Number(
-      //           (form.impuestos.otros_impuestos * nights).toFixed(2)
-      //         ),
-      //       },
-      //     },
-      //     venta: {
-      //       before: {
-      //         ...form.venta,
-      //         total: form.venta.total,
-      //         subtotal: form.venta.subtotal,
-      //         impuestos: form.venta.impuestos,
-      //         markup: form.venta.markup,
-      //       },
-      //       current: {
-      //         ...form.venta,
-      //         total: Number((roomPrice * nights).toFixed(2) || 0),
-      //         subtotal: Number((roomPrice * nights * 0.84).toFixed(2) || 0),
-      //         impuestos: Number((roomPrice * nights * 0.16).toFixed(2) || 0),
-      //         markup: Number(
-      //           (
-      //             ((roomPrice * nights - autoTotal) / (roomPrice * nights)) *
-      //             100
-      //           ).toFixed(2)
-      //         ),
-      //       },
-      //     },
-      //     items: {
-      //       before: form.items,
-      //       current: autoTotal > 0 ? items : [],
-      //     },
-      //     noches: {
-      //       before: form.noches,
-      //       current: Number(nights),
-      //     },
-      //   }));
-      // }
     }
   }, [form.check_in, form.check_out, form.habitacion, form.hotel]);
 
@@ -422,6 +360,7 @@ export function ReservationForm({
   // Modificar el handleSubmit para que no guarde automáticamente
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    console.log("estoy corriendo?");
 
     if (isFormPrepopulated) {
       // Lógica para formulario prellenado (edición/creación)
@@ -431,10 +370,6 @@ export function ReservationForm({
       setLoading(true);
       setLoading(false);
     }
-  };
-
-  const handleClosePagarModal = () => {
-    // onClose();
   };
 
   function getAutoCostoTotal(
@@ -478,7 +413,6 @@ export function ReservationForm({
       const validateReservation = await codigo_reserva(
         form.codigo_reservacion_hotel
       );
-      console.log("validacion", validateReservation);
 
       // 1) Si falta código (tu fetch regresa { error: true, message: "Falta codigo_reserva" })
       if (validateReservation?.error) {
@@ -522,6 +456,7 @@ export function ReservationForm({
         nuevo_incluye_desayuno,
         acompanantes,
         solicitud,
+        intermediario,
       };
 
       setReservaData(reservaConAgente);
@@ -556,61 +491,40 @@ export function ReservationForm({
   const handleCreditPayment = async () => {
     setLoading(true);
     try {
-      if (edicion) {
-        updateReserva(
-          { ...edicionForm, nuevo_incluye_desayuno, acompanantes },
-          solicitud.id_booking,
-          (data) => {
-            if (data.error) {
-              alert("Error al actualizar la reserva");
-              setLoading(false);
-              return;
-            }
-            alert("Reserva actualizada correctamente");
-            setLoading(false);
-            onClose();
-          }
+      const validateReservation = await codigo_reserva(
+        form.codigo_reservacion_hotel
+      );
+      if (
+        validateReservation?.ok === false &&
+        validateReservation?.exists === true
+      ) {
+        showNotification(
+          "error",
+          validateReservation.message || "Ya existe codigo de reservacion"
         );
-      } else if (create) {
-        const validateReservation = await codigo_reserva(form.codigo_reservacion_hotel);
-        if ((validateReservation?.ok === false  || validateReservation?.exists === true)||validateReservation.error) {
-          setLoading(false);
-      throw new Error(validateReservation.message || "Ya existe codigo de reservacion");
-    }
-        await fetchCreateReservaOperaciones({
-          ...form,
-          nuevo_incluye_desayuno,
-          acompanantes,
-          bandera: 0,
-        })
-          .then((data) => {
-            alert("Se creo correctamente la reservación");
-            setLoading(false);
-            onClose();
-          })
-          .catch((error) => {
-            console.error("Error al crear la reserva:", error);
-            showNotification(
-              "error",
-              error.message || "Error al crear la reserva"
-            );
-            setLoading(false);
-          });
-      } else {
-        fetchCreateReservaFromSolicitud(
-          { ...form, nuevo_incluye_desayuno, acompanantes },
-          (data) => {
-            if (data.error) {
-              alert("Error al crear la reserva");
-              setLoading(false);
-              return;
-            }
-            alert("Reserva creada correctamente");
-            setLoading(false);
-            onClose();
-          }
-        );
+        setLoading(false);
+        return;
       }
+      await fetchCreateReservaOperaciones({
+        ...form,
+        nuevo_incluye_desayuno,
+        acompanantes,
+        bandera: 0,
+        intermediario,
+      })
+        .then((data) => {
+          alert("Se creo correctamente la reservación");
+          setLoading(false);
+          onClose();
+        })
+        .catch((error) => {
+          console.error("Error al crear la reserva:", error);
+          showNotification(
+            "error",
+            error.message || "Error al crear la reserva"
+          );
+          setLoading(false);
+        });
     } catch (error) {
       console.error("Error en la reserva:", error);
       showNotification(
@@ -625,28 +539,27 @@ export function ReservationForm({
   const handleProcessRequest = async () => {
     setLoading(true);
     try {
-      if (create) {
-        await fetchCreateReservaOperaciones({
-          ...form,
-          nuevo_incluye_desayuno,
-          acompanantes,
-          bandera: 0,
-          usuarioCreador,
+      await fetchCreateReservaOperaciones({
+        ...form,
+        nuevo_incluye_desayuno,
+        acompanantes,
+        bandera: 0,
+        usuarioCreador,
+        intermediario,
+      })
+        .then((data) => {
+          alert("Se creo correctamente la reservación");
+          setLoading(false);
+          onClose();
         })
-          .then((data) => {
-            alert("Se creo correctamente la reservación");
-            setLoading(false);
-            onClose();
-          })
-          .catch((error) => {
-            console.error("Error al crear la reserva:", error);
-            showNotification(
-              "error",
-              error.message || "Error al crear la reserva"
-            );
-            setLoading(false);
-          });
-      }
+        .catch((error) => {
+          console.error("Error al crear la reserva:", error);
+          showNotification(
+            "error",
+            error.message || "Error al crear la reserva"
+          );
+          setLoading(false);
+        });
     } catch (error) {
       console.error("Error en la reserva:", error);
       showNotification(
@@ -656,13 +569,6 @@ export function ReservationForm({
       setLoading(false);
     }
   };
-
-  console.log(solicitud, "feeffffffffffffff");
-  console.log(form.venta.total, "total", walletAmount, "walllet");
-
-  useEffect(() => {
-    updateAgentWallet();
-  }, []);
 
   return (
     <>
@@ -1224,36 +1130,53 @@ export function ReservationForm({
           <TabsContent value="proveedor" className="space-y-4">
             <div className="grid gap-4">
               <div className="grid gap-2 md:grid-cols-3">
-                <CheckboxInput
-                  label={"Tiene intermediario?"}
-                  checked={intermediario.exists}
-                  onChange={function (checked: boolean): void {
-                    setIntermediario((prev) => ({ ...prev, exists: checked }));
-                  }}
-                />
-                <div>
-                  {intermediario.exists && (
-                    <ComboBox2
-                      value={{
-                        name: "",
-                        content: undefined,
-                      }}
-                      label="Intermediario"
-                      onChange={function (
-                        value: ComboBoxOption2<unknown>
-                      ): void {
-                        throw new Error("Function not implemented.");
-                      }}
-                    />
-                  )}
-                </div>
                 <TextInput
                   value={""}
                   label="Comentarios internos noktos"
                   onChange={function (value: string): void {
+                    console.log(intermediario);
                     alert("Function not implemented.");
                   }}
                 ></TextInput>
+                <div className="flex p-2 items-end h-full w-full">
+                  <CheckboxInput
+                    label={"Tiene intermediario?"}
+                    checked={intermediario.exists}
+                    onChange={function (checked: boolean): void {
+                      setIntermediario((prev) => ({
+                        ...prev,
+                        exists: checked,
+                      }));
+                    }}
+                  />
+                </div>
+                <div>
+                  {intermediario.exists && (
+                    <ComboBox2
+                      value={
+                        intermediario.proveedor
+                          ? {
+                              name: intermediario.proveedor.proveedor,
+                              content: intermediario.proveedor,
+                            }
+                          : null
+                      }
+                      label="Intermediario"
+                      options={proveedores.map((p) => ({
+                        name: p.proveedor,
+                        content: p,
+                      }))}
+                      onChange={function (
+                        value: ComboBoxOption2<Proveedor>
+                      ): void {
+                        setIntermediario((prev) => ({
+                          ...prev,
+                          proveedor: value.content,
+                        }));
+                      }}
+                    />
+                  )}
+                </div>
               </div>
               <div className="grid grid-cols-4 gap-4">
                 <div className="col-span-4">

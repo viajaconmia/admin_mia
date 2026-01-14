@@ -50,7 +50,7 @@ export class ProveedoresService extends ApiService {
     this.put({ path: this.formatPath(this.ENDPOINTS.PUT.PROVEEDOR), body });
 
   public crearFiscalData = async (
-    body: NuevoDatoFiscal
+    body: DatosFiscales
   ): Promise<ApiResponse<DatosFiscales[]>> =>
     this.post<DatosFiscales[]>({
       path: this.formatPath(this.ENDPOINTS.POST.DATOS_FISCALES),
@@ -78,17 +78,13 @@ const keysToLower = (obj) => {
  *
  */
 export interface DatosFiscales {
-  ID: number;
-  RFC: string;
-  TITULAR: string | null;
-  ALIAS: string | null;
-  ID_PROVEEDOR: number;
-  CUENTA: string;
-  BANCO: string | null;
+  id: number;
+  rfc: string;
+  alias: string | null;
+  id_proveedor: number;
+  id_datos_fiscales: number;
+  razon_social: string;
 }
-
-// Para la creación, omitimos el ID que es auto-incremental
-export type NuevoDatoFiscal = Omit<DatosFiscales, "id">;
 
 export interface ProveedorRaw {
   id: number;
