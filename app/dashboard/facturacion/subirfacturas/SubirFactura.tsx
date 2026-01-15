@@ -8,6 +8,7 @@ import {
   fetchAgentes,
   fetchEmpresasAgentesDataFiscal,
   fecthProveedores,
+  fetchProveedoresDataFiscal
 } from "@/services/agentes";
 import { TypeFilters, EmpresaFromAgent } from "@/types";
 import AsignarFacturaModal from "./AsignarFactura";
@@ -102,9 +103,9 @@ export interface Agente {
 export default function SubirFactura({
   pagoId,
   pagoData,
-  id_proveedor,
+  id_proveedor=null,
   id_servicio,
-  proveedoresData,
+  proveedoresData =  null,
   onSuccess,
   agentId,
   initialItems = [],
@@ -245,78 +246,152 @@ export default function SubirFactura({
   };
 
   // Función para buscar clientes por nombre, email, RFC o id_cliente
-  const handleBuscarCliente = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const valor = e.target.value.toLowerCase();
-    setCliente(e.target.value);
-    console.log(clientes, "informacion");
-    if (valor.length > 2) {
-      const filtrados = clientes.filter((cliente) => {
-        // Verificar que las propiedades existan antes de llamar toLowerCase()
-        const nombre = cliente.nombre_agente_completo?.toLowerCase() || "";
-        const correo = cliente.correo?.toLowerCase() || "";
-        const rfc = cliente.rfc?.toLowerCase() || "";
-        const id_cliente = cliente.id_agente?.toLowerCase() || "";
+const handleBuscarCliente = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const raw = e.target.value;
+  const valor = raw.toLowerCase();
+  setCliente(raw);
 
-        return (
-          nombre.includes(valor) ||
-          correo.includes(valor) ||
-          rfc.includes(valor) ||
-          id_cliente.includes(valor)
-        );
-      });
-      setClientesFiltrados(filtrados);
-      setMostrarSugerencias(true);
-    } else {
-      setClientesFiltrados([]);
-      setMostrarSugerencias(false);
-    }
-  };
-  // Función para cargar los clientes al abrir el modal
-  const handleFetchClients = useCallback(() => {
-    setLoading(true);
-    fetchAgentes({}, {} as TypeFilters, (data) => {
-      setClientes(data);
-      setLoading(false);
-    }).catch((error) => {
+  const source = Array.isArray(clientes) ? clientes : [];
+
+  if (valor.length > 2) {
+    const filtrados = source.filter((c: any) => {
+      const nombre = (c?.nombre_agente_completo ?? "").toLowerCase();
+      const correo = (c?.correo ?? "").toLowerCase();
+      const rfc = (c?.rfc ?? "").toLowerCase();
+      const id = String(c?.id_agente ?? "").toLowerCase();
+
+      if (isProveedorMode) {
+        // modo proveedor: buscar en "proveedor" (ya mapeado a nombre_agente_completo)
+        return nombre.includes(valor) || id.includes(valor) || correo.includes(valor);
+      }
+
+      // modo agente (actual)
+      return (
+        nombre.includes(valor) ||
+        correo.includes(valor) ||
+        rfc.includes(valor) ||
+        id.includes(valor)
+      );
+    });
+
+    setClientesFiltrados(filtrados);
+    setMostrarSugerencias(true);
+  } else {
+    setClientesFiltrados([]);
+    setMostrarSugerencias(false);
+  }
+};
+
+const isProveedorMode = !!proveedoresData;
+
+// Toma siempre un array (venga como [] o como { data: [] })
+const toArray = (res: any): any[] => {
+  if (Array.isArray(res)) return res;
+  if (Array.isArray(res?.data)) return res.data;
+  return [];
+};
+
+const extractFirstEmail = (text?: string): string => {
+  if (!text) return "";
+  const m = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  return m?.[0] ?? "";
+};
+
+// Normaliza proveedores a la interfaz Agente para reutilizar tu UI/búsqueda
+const normalizeProveedoresAsAgentes = (res: any): Agente[] => {
+  const arr = toArray(res);
+  return arr
+    .map((p: any) => ({
+      // id del proveedor -> lo metemos en id_agente para reusar lógica
+      id_agente: String(p?.id_proveedor ?? p?.id ?? ""),
+      // nombre del proveedor
+      nombre_agente_completo: String(p?.proveedor ?? ""),
+      // si quieres mostrar algo, intentamos sacar un email del bloque de contactos
+      correo: String(p?.correo ?? extractFirstEmail(p?.contactos_convenio) ?? ""),
+      rfc: p?.rfc,
+      razon_social: p?.razon_social,
+    }))
+    .filter((x) => x.id_agente && x.nombre_agente_completo);
+};
+
+
+const handleFetchClients = useCallback(() => {
+  setLoading(true);
+  fetchAgentes({}, {} as TypeFilters, (data) => {
+    const normalized = toArray(data) as Agente[]; // si tu fetch ya devuelve Agente[] directo
+    setClientes(normalized);
+    setLoading(false);
+  })
+    .catch((error) => {
       console.error("Error fetching agents:", error);
       setLoading(false);
     });
-  }, []);
+}, []);
 
-  const handleFetchProveedores = useCallback(() => {
-    setLoading(true);
-    fecthProveedores({}, {} as TypeFilters, (data) => {
-      setClientes(data);
-      setLoading(false);
-    }).catch((error) => {
-      console.error("Error fetching agents:", error);
+const handlefecthProveedores = useCallback(() => {
+  setLoading(true);
+  fecthProveedores({}, {} as TypeFilters, (data) => {
+    const normalized = normalizeProveedoresAsAgentes(data);
+    setClientes(normalized);
+    setLoading(false);
+  })
+    .catch((error) => {
+      console.error("Error fetching proveedores:", error);
       setLoading(false);
     });
-  }, []);
+}, []);
+
 
   //auto seleccionar al cliente
+useEffect(() => {
+  if (!Array.isArray(clientes) || clientes.length === 0) return;
 
-  useEffect(() => {
-    if (!clientes.length) return;
+  // MODO PROVEEDOR
+  if (isProveedorMode) {
+    // 1) Prioridad: id_proveedor (numérico/string)
+    const targetId = id_proveedor ? String(id_proveedor) : "";
 
-    const targetId = pagoData?.id_agente || agentId || id_proveedor;
-    if (!targetId) return;
+    let matching: Agente | undefined =
+      targetId
+        ? clientes.find((c) => String(c.id_agente) === targetId)
+        : undefined;
 
-    const matching = clientes.find(
-      (c) => String(c.id_agente) === String(targetId)
-    );
+    // 2) Si no hay match por id, intenta por nombre: proveedoresData.hotel
+    //    (si tu objeto trae otro campo, agrégalo aquí)
+    if (!matching) {
+      const targetNameRaw =
+        (typeof (proveedoresData as any)?.hotel === "string" ? (proveedoresData as any)?.hotel : "") ||
+        (typeof (proveedoresData as any)?.proveedor === "string" ? (proveedoresData as any)?.proveedor : "");
 
-    console.log("[SubirFactura] auto-select cliente", {
-      targetId,
-      found: !!matching,
-    });
-    console.log("22222", matching);
+      const targetName = String(targetNameRaw).trim().toLowerCase();
+
+      if (targetName) {
+        matching = clientes.find(
+          (c) => String(c.nombre_agente_completo ?? "").trim().toLowerCase() === targetName
+        );
+      }
+    }
+
     if (matching) {
       setCliente(matching.nombre_agente_completo);
       setClienteSeleccionado(matching);
-      cargarEmpresasAgente(matching.id_agente);
+      cargarEmpresasAgente(matching.id_agente); // aquí id_agente es id_proveedor normalizado
     }
-  }, [clientes, agentId, pagoData?.id_agente]);
+
+    return;
+  }
+
+  // MODO AGENTE (actual)
+  const targetId = pagoData?.id_agente || agentId;
+  if (!targetId) return;
+
+  const matching = clientes.find((c) => String(c.id_agente) === String(targetId));
+  if (matching) {
+    setCliente(matching.nombre_agente_completo);
+    setClienteSeleccionado(matching);
+    cargarEmpresasAgente(matching.id_agente);
+  }
+}, [clientes, agentId, pagoData?.id_agente, id_proveedor, proveedoresData, isProveedorMode]);
 
   // Estados iniciales para resetear campos
   const resetearCampos = useCallback(() => {
@@ -336,13 +411,26 @@ export default function SubirFactura({
     resetearCampos();
     setMostrarModal(true);
     handleFetchClients();
-  }, [resetearCampos, handleFetchClients]);
+    console.log("entre al fetch de clientes")
+    
+  }, [resetearCampos, handleFetchClients,]);
+
+    const abrirModalProv = useCallback(() => {
+    resetearCampos();
+    setMostrarModal(true);
+ 
+      handlefecthProveedores();
+      console.log("entre al fetch de proveedores");
+    
+  }, [resetearCampos,handlefecthProveedores]);
 
   useEffect(() => {
-    if (autoOpen && proveedores_data) {
+    console.log("envio de informacion",proveedoresData , autoOpen)
+    if (autoOpen && proveedoresData) {
       abrirModalProv();
-    } else if (autoOpen && !proveedores_data) {
-      abrirModal;
+    } else if (autoOpen && !proveedoresData) {
+      console.log("entre para clientes")
+      abrirModal();
     }
   }, [autoOpen]);
 
@@ -511,6 +599,8 @@ export default function SubirFactura({
     try {
       console.log("🔄 Iniciando handleConfirmarFactura");
       console.log("Payload recibido:", fecha_vencimiento);
+      console.log("Payload proveedores:", proveedoresData);
+
       setSubiendoArchivos(true);
 
       // Upload files only when confirming
@@ -531,7 +621,7 @@ export default function SubirFactura({
         fecha_emision: facturaData.comprobante.fecha.split("T")[0], // solo la fecha
         estado: "Confirmada",
         usuario_creador: clienteSeleccionado.id_agente,
-        id_agente: clienteSeleccionado.id_agente,
+        id_agente: id_proveedor|| clienteSeleccionado.id_agente,
         total: parseFloat(facturaData.comprobante.total),
         subtotal: parseFloat(facturaData.comprobante.subtotal),
         impuestos: parseFloat(
@@ -546,25 +636,33 @@ export default function SubirFactura({
         url_xml: xmlUrl || null,
         items: items,
         fecha_vencimiento: fecha_vencimiento || null, // <-- NUEVO
+          ...(proveedoresData != null ? { proveedoresData } : {}),
       };
 
       console.log("Payload completo para API:", basePayload);
-      const ENDPOINT = proveedores_data
+
+      const ENDPOINT = !proveedoresData
         ? `${URL}/mia/factura/CrearFacturaDesdeCarga`
-        : `${URL}/mia/pago_proveedores/subir_factura`;
+        : `${URL}/mia/pago_proveedor/subir_factura`;
 
       if (basePayload.items != "1") {
-        const response = await fetch(
-          `${URL}/mia/factura/CrearFacturaDesdeCarga`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "x-api-key": API_KEY,
-            },
-            body: JSON.stringify(basePayload),
-          }
-        );
+        const response = !proveedoresData ? await fetch(ENDPOINT, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": API_KEY,
+          },
+          body: JSON.stringify(basePayload),
+
+        }):await fetch(ENDPOINT, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": API_KEY,
+          },
+          body: JSON.stringify(basePayload),
+
+        });
 
         if (!response.ok) {
           throw new Error("Error al asignar la factura");
@@ -660,28 +758,28 @@ export default function SubirFactura({
   };
 
   // Función para abrir el listado de empresas
-  const cargarEmpresasAgente = async (agenteId: string) => {
-    if (!agenteId) {
-      console.error("ID de agente no proporcionado");
-      return;
-    }
+const cargarEmpresasAgente = async (id: string) => {
+  if (!id) {
+    console.error("ID no proporcionado");
+    return;
+  }
 
-    setLoadingEmpresas(true);
-    setEmpresaSeleccionada(null); // Resetear selección al cargar nuevas empresas
+  setLoadingEmpresas(true);
+  setEmpresaSeleccionada(null);
 
-    try {
-      const empresas = proveedoresData
-        ? await fetchProveedoresDataFiscal(id_proveedor)
-        : await fetchEmpresasAgentesDataFiscal(agenteId);
-      console.log("Empresas recibidas:", empresas);
-      setEmpresasAgente(empresas || []);
-    } catch (error) {
-      console.error("Error al cargar empresas:", error);
-      setEmpresasAgente([]);
-    } finally {
-      setLoadingEmpresas(false);
-    }
-  };
+  try {
+    const empresas = isProveedorMode
+      ? await fetchProveedoresDataFiscal(id)          // <--- usa el id recibido (proveedor)
+      : await fetchEmpresasAgentesDataFiscal(id);     // <--- usa el id recibido (agente)
+
+    setEmpresasAgente(empresas || []);
+  } catch (error) {
+    console.error("Error al cargar empresas:", error);
+    setEmpresasAgente([]);
+  } finally {
+    setLoadingEmpresas(false);
+  }
+};
 
   console.log("items", initialItems, "total", initialItemsTotal);
 

@@ -160,7 +160,7 @@ const generarCSV = (idPago, dispersionId: string) => {
       ).toFixed(2);
       const textoLibre =
         solicitud.texto_libre || solicitud.razon_social || solicitud.hotel || "";
-      const referencia = referenciaNumerica + " "+`wx${dispersionId}${id_pago}xw`
+      const referencia = referenciaNumerica + " "+`wx${dispersionId}xw${id_pago}`
       console.log("fefef",referencia)
       return [
         escapeCsv(id_pago),

@@ -39,6 +39,7 @@ export async function new_edit(
 
 export async function codigo_reserva(
   codigo: string | null | undefined,
+  id_booking?:string,
   callback?: (data: any) => void
 ) {
   try {
@@ -59,7 +60,9 @@ export async function codigo_reserva(
       },
       body: JSON.stringify({
         codigo_reservacion_hotel: clean,
+        id_hospedaje: id_booking || null,
       }),
+
       cache: "no-store",
     }).then((res) => res.json());
 
