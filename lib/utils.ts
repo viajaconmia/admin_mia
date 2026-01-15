@@ -114,3 +114,10 @@ export const subirArchivoAS3Seguro = async (
     throw new Error(`Error al subir ${file.name} a S3: ${error.message}`);
   }
 };
+export const separarByEspacios = (str: string, n: number) => {
+  let result = [];
+  for (let i = 0; i < str.length; i += n) {
+    result.push(str.replaceAll(" ", "").slice(i, i + n));
+  }
+  return result.join(" ").trim();
+};

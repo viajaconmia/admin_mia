@@ -6,13 +6,16 @@ export class ProveedoresService extends ApiService {
       PROVEEDORES: "/",
       DATOS_FISCALES: "/detalles",
       DATA_FISCAL_ALL: "/fiscal",
+      CUENTAS: "/cuentas",
     },
     PUT: {
       PROVEEDOR: "/",
       DATOS_FISCALES: "/datos_fiscales",
+      CUENTAS: "/cuentas",
     },
     POST: {
       DATOS_FISCALES: "/datos_fiscales",
+      CUENTAS: "/cuentas",
     },
   };
   static instancia: ProveedoresService = null;
@@ -31,7 +34,9 @@ export class ProveedoresService extends ApiService {
   public getProveedores = async (
     body: {
       type?: string;
-      id?: string;
+      id?: number;
+      page?: number;
+      size?: number;
     } = {}
   ): Promise<ApiResponse<ProveedorRaw[]>> =>
     this.get<ProveedorRaw[]>({
@@ -73,13 +78,26 @@ export class ProveedoresService extends ApiService {
       path: this.formatPath(this.ENDPOINTS.PUT.DATOS_FISCALES),
       body: keysToLower(body),
     });
-}
 
-const keysToLower = (obj) => {
-  return Object.fromEntries(
-    Object.entries(obj).map(([key, value]) => [key.toLowerCase(), value])
-  );
-};
+  //CUENTAS
+  public getCuentasByProveedor = async (
+    id_proveedor: number
+  ): Promise<ApiResponse<ProveedorCuenta[]>> =>
+    this.get<ProveedorCuenta[]>({
+      path: this.formatPath(this.ENDPOINTS.GET.CUENTAS),
+      params: { id_proveedor },
+    });
+
+  public updateCuentasProveedor = async (
+    body: ProveedorCuenta
+  ): Promise<ApiResponse<ProveedorCuenta[]>> =>
+    this.put({ path: this.formatPath(this.ENDPOINTS.PUT.CUENTAS), body });
+
+  public createCuentasProveedor = async (
+    body: Partial<ProveedorCuenta>
+  ): Promise<ApiResponse<ProveedorCuenta[]>> =>
+    this.post({ path: this.formatPath(this.ENDPOINTS.POST.CUENTAS), body });
+}
 
 /**
  *
@@ -147,3 +165,19 @@ export const mapProveedor = (raw: ProveedorRaw): Proveedor => ({
   internacional: toBoolean(raw.internacional),
   bilingue: toBoolean(raw.bilingue),
 });
+
+export interface ProveedorCuenta {
+  id: number;
+  id_proveedor: number;
+  cuenta: string;
+  banco: string | null;
+  titular: string | null;
+  comentarios: string | null;
+  alias: string | null;
+}
+
+const keysToLower = (obj) => {
+  return Object.fromEntries(
+    Object.entries(obj).map(([key, value]) => [key.toLowerCase(), value])
+  );
+};

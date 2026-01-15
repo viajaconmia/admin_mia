@@ -853,3 +853,177 @@ export function InputGoogle({
     />
   );
 }
+
+/**
+ *
+ *
+ *
+ *
+ *
+ */
+
+type DropDownType<T> = {
+  label?: string;
+  sublabel?: string;
+  value: string | null;
+  onChange: (value: string | null) => void;
+  options?: string[];
+  placeholderOption?: string;
+  disabled?: boolean;
+  className?: string;
+  onDelete?: () => void;
+  unstyled?: boolean;
+};
+
+export const ComboBoxValue2 = <T,>({
+  label,
+  sublabel,
+  value,
+  onChange,
+  options = [],
+  placeholderOption = "Selecciona una opción",
+  disabled = false,
+  className,
+  onDelete,
+  unstyled = false,
+}: DropDownType<T>) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const [inputValue, setInputValue] = useState(value || "");
+  const [isOpen, setIsOpen] = useState(false);
+  const [focus, setFocus] = useState<number | null>(null);
+
+  // Memoizar opciones filtradas según inputValue
+  const filteredOptions = useMemo(() => {
+    const lower = inputValue.toLowerCase();
+    return options.filter((o) => o?.toLowerCase().includes(lower));
+  }, [inputValue, options]);
+
+  const handleMoveFocus = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (isOpen && filteredOptions.length > 0) {
+      if (event.key === "ArrowDown") {
+        setFocus((prev) =>
+          prev === filteredOptions.length - 1 ? 0 : (prev ?? 0) + 1
+        );
+        event.preventDefault();
+      }
+      if (event.key === "ArrowUp") {
+        setFocus((prev) =>
+          prev === 0 ? filteredOptions.length - 1 : (prev ?? 0) - 1
+        );
+        event.preventDefault();
+      }
+      if (event.key === "Enter") {
+        handleSelectByEnter();
+        event.preventDefault();
+      }
+    }
+  };
+
+  const handleSelectByEnter = () => {
+    setFocus((f) => {
+      const option = filteredOptions[f ?? 0];
+      if (option && option !== inputValue) {
+        // posponer la llamada al padre
+        queueMicrotask(() => onChange(option));
+        setInputValue(option);
+      }
+      setIsOpen(false);
+      return null;
+    });
+  };
+
+  // Cerrar dropdown al hacer click fuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+        setFocus(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (value) setInputValue(value);
+    if (value == null) setInputValue("");
+  }, [value]);
+
+  const handleSelect = (option: string) => {
+    if (option !== inputValue) {
+      onChange(option);
+      setInputValue(option);
+    }
+    setIsOpen(false);
+    setFocus(null);
+  };
+
+  return (
+    <div className={`flex flex-col space-y-1 ${className}`} ref={containerRef}>
+      {label && (
+        <label className="text-sm text-gray-900 font-medium line-clamp-1">
+          {label}
+          {sublabel && (
+            <span className="text-gray-500 text-xs">{` - ${sublabel.toLowerCase()}`}</span>
+          )}
+        </label>
+      )}
+      <div className="relative flex gap-2">
+        <div className="flex-1 relative">
+          <input
+            type="text"
+            disabled={disabled}
+            value={inputValue}
+            placeholder={placeholderOption}
+            onFocus={() => {
+              setIsOpen(true);
+              setFocus(0);
+            }}
+            onKeyDown={handleMoveFocus}
+            onChange={(e) => {
+              setInputValue(e.target.value);
+              setIsOpen(true);
+              setFocus(0);
+            }}
+            className={`flex w-full rounded-md px-3 py-2 text-sm shadow-sm transition-colors border border-input bg-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
+              value == null && inputValue ? "border-red-600" : ""
+            }`}
+          />
+          {!unstyled && (
+            <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+              <ChevronDown size={18} className="text-gray-500" />
+            </div>
+          )}
+          {isOpen && filteredOptions.length > 0 && (
+            <ul className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow max-h-60 overflow-y-auto text-sm">
+              {filteredOptions.map((option, index) => (
+                <li
+                  key={option + index}
+                  onClick={() => handleSelect(option)}
+                  className={`px-3 py-2 cursor-pointer hover:bg-blue-100 ${
+                    focus == index ? "bg-blue-100" : ""
+                  }`}
+                >
+                  {option}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        {onDelete && (
+          <button
+            onClick={onDelete}
+            type="button"
+            className="bg-gray-100 rounded-sm border border-gray-300 shadow-sm w-9 flex justify-center items-center"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
