@@ -3,6 +3,7 @@ import Button from "@/components/atom/Button";
 import {
   CheckboxInput,
   DateInput,
+  NumberInput,
   TextAreaInput,
   TextInput,
 } from "@/components/atom/Input";
@@ -11,6 +12,7 @@ import { useNotification } from "@/context/useNotificacion";
 import {
   DatosFiscales,
   mapProveedor,
+  mapProveedorRentaCarro,
   Proveedor,
   ProveedorCuenta,
   ProveedoresService,
@@ -22,7 +24,8 @@ import { Plus } from "lucide-react";
 import { Table } from "@/component/molecule/Table";
 import { ApiResponse } from "@/services/ApiService";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ModalCrearDatosFiscales, ModalCuentasCRUD } from "./_modales";
+import { ModalCrearDatosFiscales, ModalCuentasCRUD } from "./_components";
+import { InformacionAdicionalProveedor } from "./_components/info_adicional";
 
 const App = () => {
   const [loading, setLoading] = useState(true);
@@ -125,7 +128,14 @@ const App = () => {
         if (!proveedorRes.data.length) {
           throw new Error("No hay proveedor");
         }
-        setProveedor(mapProveedor(proveedorRes.data[0]));
+
+        const type = await service.getProveedorType(proveedorRes.data[0]);
+        console.log(type);
+
+        setProveedor({
+          ...mapProveedor(proveedorRes.data[0]),
+          ...mapProveedorRentaCarro(type.data),
+        });
         setDatosFiscales(datosFiscalesRes.data);
         setCuentas(cuentasRes.data);
       } catch (err: any) {
@@ -231,9 +241,17 @@ function ProveedorCard({
           <h1 className="text-2xl font-bold text-gray-800">
             {draft.proveedor || "Detalle de Proveedor"}
           </h1>
-          <p className="text-sm text-gray-500">
-            ID: {draft.id} • Tipo: {draft.type || "N/A"}
-          </p>
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-gray-500">
+              ID: {draft.id} • Tipo: {draft.type || "N/A"}
+            </p>
+            <CheckboxInput
+              disabled={!editar}
+              label="Es intermediario?"
+              checked={draft.intermediario}
+              onChange={(v) => update("intermediario", v)}
+            />
+          </div>
         </div>
         <div className="flex gap-2">
           <Button
@@ -260,13 +278,54 @@ function ProveedorCard({
         onValueChange={setActiveTab}
         className="w-full bg-white p-4 rounded-md border border-gray-300"
       >
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="datos">DATOS BASICOS</TabsTrigger>
-          {/* <TabsTrigger value="tarifas">TARIFAS Y SERVICIOS</TabsTrigger> */}
+          <TabsTrigger value="tarifas">TARIFAS Y SERVICIOS</TabsTrigger>
           <TabsTrigger value="pagos">INFORMACION DE PAGOS</TabsTrigger>
           <TabsTrigger value="extra">INFORMACIÓN ADICIONAL</TabsTrigger>
         </TabsList>
 
+        <TabsContent value="tarifas" className="space-y-4 p-4">
+          <div className="grid gap-4">
+            <NumberInput
+              value={draft.iva}
+              label="IVA"
+              onChange={(v) => update("iva", v)}
+              disabled={!editar}
+            />
+            {proveedor.type == "hotel" && (
+              <NumberInput
+                value={draft.ish}
+                label="ISH"
+                onChange={(v) => update("ish", v)}
+                disabled={!editar}
+              />
+            )}
+            {proveedor.type == "vuelo" && (
+              <NumberInput
+                label="TUA"
+                value={draft.tua}
+                onChange={(v) => update("tua", v)}
+                disabled={!editar}
+              />
+            )}
+            {proveedor.type == "hotel" && (
+              <NumberInput
+                label="Saneamiento"
+                value={draft.saneamiento}
+                disabled={!editar}
+                onChange={(v) => update("saneamiento", v)}
+              />
+            )}
+            <TextAreaInput
+              disabled={!editar}
+              label="Notas de tarifas e impuestos"
+              value={draft.notas_tarifas_impuestos}
+              className="md:col-span-3"
+              onChange={(v) => update("notas_tarifas_impuestos", v)}
+            ></TextAreaInput>
+          </div>
+        </TabsContent>
         <TabsContent value="datos" className="space-y-4 p-4">
           <div className="grid sm:grid-cols-2 gap-4 mt-4  items-center border-b pb-4">
             <TextInput
@@ -486,12 +545,21 @@ function ProveedorCard({
             </Tabs>
           </div>
         </TabsContent>
+        <TabsContent value="extra" className="space-y-4 p-4 w-full">
+          <h1 className="font-semibold text-gray-700 w-full border-b pb-2">
+            Tipo de proveedor: {proveedor.type.replaceAll("_", " ")}
+          </h1>
+          <InformacionAdicionalProveedor
+            type={proveedor.type}
+            editar={editar}
+            update={update}
+            draft={draft}
+          />
+        </TabsContent>
       </Tabs>
     </div>
   );
 }
-
-// --- LÓGICA DE REDUCER Y HOOK (Sin cambios, solo tipos actualizados) ---
 
 type ProveedorState = {
   original: Proveedor;

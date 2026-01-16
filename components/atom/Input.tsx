@@ -999,7 +999,7 @@ export const ComboBoxValue2 = <T,>({
             </div>
           )}
           {isOpen && filteredOptions.length > 0 && (
-            <ul className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow max-h-60 overflow-y-auto text-sm">
+            <ul className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded shadow max-h-60 overflow-y-auto text-sm">
               {filteredOptions.map((option, index) => (
                 <li
                   key={option + index}
