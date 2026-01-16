@@ -5,6 +5,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { X, Copy, Check, FileText, ExternalLink } from "lucide-react";
 import { URL, HEADERS_API } from "@/lib/constants/index";
+import { formatDate } from "@/helpers/utils";
 import { formatNumberWithCommas } from "@/helpers/utils";
 import { Table4 } from "@/components/organism/Table4";
 

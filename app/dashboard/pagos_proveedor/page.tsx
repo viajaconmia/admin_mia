@@ -46,6 +46,19 @@ type SolicitudesPorFiltro = {
   pagada: SolicitudProveedor[];
 };
 
+type PagoFacturaProveedor = {
+  created_at?: string | null;
+  updated_at?: string | null;
+  id_factura?: string | null;
+  monto_facturado?: string | number | null;
+  monto_pago?: string | number | null;
+  id_pago_proveedor?: string | number | null;
+
+  // por si algún día llega CFDI real
+  uuid_cfdi?: string | null;
+  estado_factura?: string | null;
+};
+
 function mapEstatusToCategoria(estatus?: string | null): CategoriaEstatus {
   const v = norm(estatus);
 

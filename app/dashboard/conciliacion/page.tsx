@@ -1,7 +1,7 @@
 // app/conciliacion/page.tsx
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Table5 } from "@/components/Table5";
 import { URL, API_KEY } from "@/lib/constants/index";
 import { Filter, X, Search, Maximize2 } from "lucide-react";
@@ -26,27 +26,41 @@ function formatMoney(n: any) {
   return `$${num.toFixed(2)}`;
 }
 
-function safeArray(source: any): any[] {
-  if (!source) return [];
-  if (Array.isArray(source)) return source;
-  if (Array.isArray(source.todos)) return source.todos;
-  if (Array.isArray(source.items)) return source.items;
-  if (Array.isArray(source.data)) return source.data;
-  return [];
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function calcNoches(checkIn?: string | null, checkOut?: string | null): number {
+  if (!checkIn || !checkOut) return 0;
+
+  const inD = new Date(checkIn);
+  const outD = new Date(checkOut);
+  if (Number.isNaN(inD.getTime()) || Number.isNaN(outD.getTime())) return 0;
+
+  const startUTC = Date.UTC(inD.getUTCFullYear(), inD.getUTCMonth(), inD.getUTCDate());
+  const endUTC = Date.UTC(outD.getUTCFullYear(), outD.getUTCMonth(), outD.getUTCDate());
+
+  const diffDays = Math.round((endUTC - startUTC) / MS_PER_DAY);
+  return diffDays > 0 ? diffDays : 0;
 }
 
+function truncateText(v: any, max = 28) {
+  const s = String(v ?? "").trim();
+  if (!s) return "—";
+  return s.length > max ? s.slice(0, max) + "…" : s;
+}
+
+/**
+ * ✅ RowId SIEMPRE = id_solicitud_proveedor
+ */
 function getRowId(raw: any, index: number) {
-  return String(
-    raw?.id_reserva ??
-      raw?.id_solicitud ??
-      raw?.id ??
-      raw?.codigo_reservacion_hotel ??
-      raw?.codigo_hotel ??
-      index
-  );
+  const id =
+    raw?.solicitud_proveedor?.id_solicitud_proveedor ??
+    raw?.id_solicitud_proveedor ??
+    raw?.row_id ??
+    null;
+
+  return id != null ? String(id) : String(index);
 }
 
-/** helpers **/
 function flattenPagos(raw: any): any[] {
   const pagos = raw?.pagos;
   if (!Array.isArray(pagos)) return [];
@@ -77,12 +91,6 @@ function getPagoStats(raw: any) {
   };
 }
 
-/**
- * Prioridad "como payload":
- * 1) raw.estatus_pagos (si viene)
- * 2) raw.solicitud_proveedor.estado_solicitud (si viene)
- * 3) fallback calculado con pagos (por si ambos vienen vacíos)
- */
 function getEstatusPagoPayload(raw: any) {
   const estatusPayload = raw?.estatus_pagos ?? raw?.estatus_pago ?? "";
   const estadoSolicitud = raw?.solicitud_proveedor?.estado_solicitud ?? "";
@@ -108,22 +116,6 @@ function getEstatusPagoPayload(raw: any) {
   };
 }
 
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
-
-function calcNoches(checkIn?: string | null, checkOut?: string | null): number {
-  if (!checkIn || !checkOut) return 0;
-
-  const inD = new Date(checkIn);
-  const outD = new Date(checkOut);
-  if (Number.isNaN(inD.getTime()) || Number.isNaN(outD.getTime())) return 0;
-
-  const startUTC = Date.UTC(inD.getUTCFullYear(), inD.getUTCMonth(), inD.getUTCDate());
-  const endUTC = Date.UTC(outD.getUTCFullYear(), outD.getUTCMonth(), outD.getUTCDate());
-
-  const diffDays = Math.round((endUTC - startUTC) / MS_PER_DAY);
-  return diffDays > 0 ? diffDays : 0;
-}
-
 function getTipoPago(raw: any): string {
   const detalles = Array.isArray(raw?.detalles_pagos) ? raw.detalles_pagos : [];
   const first = detalles?.[0] ?? null;
@@ -142,13 +134,7 @@ function inferTipoReserva(raw: any): TipoReservaInferida {
   const isHotel = !!(raw?.id_hospedaje || raw?.hotel || raw?.room || raw?.codigo_reservacion_hotel);
   if (isHotel) return "HOTEL";
 
-  const isRentaAuto = !!(
-    raw?.id_renta_auto ||
-    raw?.id_car_rental ||
-    raw?.renta_auto ||
-    raw?.car_rental ||
-    raw?.vehiculo
-  );
+  const isRentaAuto = !!(raw?.id_renta_auto || raw?.id_car_rental || raw?.renta_auto || raw?.car_rental || raw?.vehiculo);
   if (isRentaAuto) return "RENTA AUTO";
 
   return "FACTURA";
@@ -172,102 +158,117 @@ function getEstatusFacturas(raw: any): EstatusFacturaInferido {
   return pendiente > 0 ? "PARCIAL" : "FACTURADO";
 }
 
-function truncateText(v: any, max = 28) {
-  const s = String(v ?? "").trim();
-  if (!s) return "—";
-  return s.length > max ? s.slice(0, max) + "…" : s;
-}
-
 /**
- * Mapea raw -> row para Table5
- * IMPORTANTE: agrega id_servicio para editar (backend actualiza por id_servicio)
+ * ✅ TRANSFORMACIÓN: raw -> row final
  */
 function toConciliacionRow(raw: any, index: number): AnyRow {
   const row_id = getRowId(raw, index);
 
+  const id_solicitud_proveedor =
+    raw?.solicitud_proveedor?.id_solicitud_proveedor ??
+    raw?.id_solicitud_proveedor ??
+    null;
+
+  const id_proveedor =
+    raw?.id_proveedor ??
+    raw?.solicitud_proveedor?.id_proveedor ??
+    raw?.proveedor?.id_proveedor ??
+    null;
+
   const hotel = (raw?.hotel ?? "").toString();
   const viajero = (raw?.nombre_viajero_completo ?? raw?.nombre_viajero ?? "").toString();
 
-  const costo_proveedor = Number(raw?.costo_total ?? raw?.costo_proveedor ?? 0) || 0;
-  const precio_de_venta = Number(raw?.total ?? raw?.precio_de_venta ?? 0) || 0;
+  const costo_proveedor = Number(raw?.costo_total ?? 0) || 0;
+  const precio_de_venta = Number(raw?.total ?? 0) || 0;
+
   const markup =
-    precio_de_venta > 0 ? ((precio_de_venta - costo_proveedor) / precio_de_venta) * 100 : 0;
+    precio_de_venta > 0
+      ? ((precio_de_venta - costo_proveedor) / precio_de_venta) * 100
+      : 0;
 
   const nochesCalc = calcNoches(raw?.check_in, raw?.check_out);
   const tipoPago = getTipoPago(raw);
   const tipoReserva = inferTipoReserva(raw);
-  const comentariosOps = raw?.comments ?? raw?.comentarios_ops ?? "";
+
+  const comentariosOps =
+    raw?.solicitud_proveedor?.comentarios ?? raw?.comentarios_ops ?? "";
+
   const estatusFacturas = getEstatusFacturas(raw);
+  const estatusPagoObj = getEstatusPagoPayload(raw);
 
-  const uuid_factura = raw?.uuid_factura ?? raw?.UUID ?? raw?.uuid ?? null;
-  const total_factura = Number(raw?.total_factura ?? 0) || 0;
-  const total_facturado = Number(raw?.total_facturado ?? raw?.costo_facturado ?? 0) || 0;
+  const total_facturado =
+    Number(raw?.total_facturado_en_pfp ?? raw?.total_facturado ?? 0) || 0;
 
-  const total_aplicable = raw?.total_aplicable ?? raw?.totalAplicable ?? "";
+  const total_factura = Number(raw?.monto_facturado ?? 0) || 0;
+
+  const total_aplicable = raw?.total_aplicable ?? "";
   const impuestos = raw?.impuestos ?? "";
   const subtotal = raw?.subtotal ?? "";
 
-  const baseFactura = Number(total_aplicable) || Number(total_facturado) || Number(total_factura) || 0;
-  const estatusPagoObj = getEstatusPagoPayload(raw);
-  const diferencia = Number(costo_proveedor) - Number(baseFactura);
+  const baseFactura =
+    Number(total_aplicable) || total_facturado || total_factura || 0;
 
-  const tarjeta =
-    raw?.tarjeta?.ultimos_4 ?? raw?.digitos_tajeta ?? raw?.ultimos_4 ?? raw?.tarjeta ?? "";
+  const diferencia = costo_proveedor - baseFactura;
 
-  const id_enviado = raw?.id_enviado ?? raw?.titular_tarjeta ?? "";
+  const tarjeta = raw?.tarjeta?.ultimos_4 ?? raw?.ultimos_4 ?? "";
 
-  const razon_social = raw?.proveedor?.razon_social ?? raw?.razon_social ?? "";
-  const rfc = raw?.proveedor?.rfc ?? raw?.rfc ?? "";
+  const razon_social =
+    raw?.proveedor?.razon_social ??
+    raw?.razon_social_hotel ??
+    raw?.razon_social ??
+    "";
 
-  // ✅ CLAVE PARA EDITAR: id_servicio (ajusta fallback si tu payload difiere)
-  const id_servicio =
-    raw?.solicitud_proveedor?.id_servicio 
+  const rfc = raw?.rfc_hotel ?? raw?.proveedor?.rfc ?? raw?.rfc ?? "";
 
-  console.log("informacion",raw)
+  const id_servicio = raw?.id_servicio ?? null;
+
   return {
     row_id,
+    seleccionar: row_id, // ✅ solo para que exista la columna
 
-    // para edición por backend
+    id_solicitud_proveedor,
+    id_proveedor,
     id_servicio,
 
-    creado: raw?.created_at ?? raw?.creado ?? null,
+    creado: raw?.created_at ?? null,
     hotel: hotel ? hotel.toUpperCase() : "",
-    codigo_hotel: raw?.codigo_reservacion_hotel ?? raw?.codigo_hotel ?? "",
+    codigo_hotel: raw?.codigo_reservacion_hotel ?? "",
     viajero: viajero ? viajero.toUpperCase() : "",
     check_in: raw?.check_in ?? null,
     check_out: raw?.check_out ?? null,
 
     noches: nochesCalc,
-    tipo_cuarto: raw?.room ?? raw?.tipo_cuarto ?? "",
+    tipo_cuarto: raw?.room ?? "",
 
     costo_proveedor,
     markup,
     precio_de_venta,
 
-    canal_de_reservacion: raw?.canal_de_reservacion ?? raw?.canal_reservacion ?? "",
+    canal_de_reservacion: raw?.canal_de_reservacion ?? "",
     nombre_intermediario: raw?.nombre_intermediario ?? "",
 
     tipo_de_reserva: tipoReserva,
     tipo_de_pago: tipoPago,
 
     tarjeta,
-    id_enviado,
+    id_enviado: raw?.titular_tarjeta ?? "",
 
     comentarios_ops: comentariosOps,
-    conmentarios_cxp: raw?.comentarios_cxp ?? raw?.conmentarios_cxp ?? "",
-    estatus_pago: estatusPagoObj.label ? estatusPagoObj.label.toUpperCase() : "",
-    __estatus_pago: estatusPagoObj,
-
-    detalles: raw,
-    subir_factura: raw,
+    comentarios_cxp: raw?.comentario_CXP ?? raw?.comentarios_cxp ?? "",
 
     estatus_facturas: estatusFacturas,
+    estatus_pago: estatusPagoObj.label ? estatusPagoObj.label.toUpperCase() : "",
+    __estatus_pago: estatusPagoObj,
 
     total_facturado,
     diferencia_costo_proveedor_vs_factura: diferencia,
 
-    uuid_factura,
+    uuid_factura: raw?.uuid_factura ?? null,
     total_factura,
+
+    detalles: raw,
+    subir_factura: raw,
+
     total_aplicable,
     impuestos,
     subtotal,
@@ -276,7 +277,6 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
     rfc,
 
     __raw: raw,
-    id_solicitud_proveedor: raw?.solicitud_proveedor?.id_solicitud_proveedor ?? null,
   };
 }
 
@@ -284,19 +284,18 @@ type EditableField =
   | "canal_de_reservacion"
   | "nombre_intermediario"
   | "comentarios_ops"
-  | "conmentarios_cxp"
+  | "comentarios_cxp"
   | "total_aplicable"
   | "impuestos"
   | "subtotal";
 
 const MONEY_FIELDS: EditableField[] = ["total_aplicable", "impuestos", "subtotal"];
 
-// Si tu backend usa nombres diferentes a los de UI, mapea aquí
 const FIELD_TO_API: Record<string, string> = {
   canal_de_reservacion: "canal_de_reservacion",
   nombre_intermediario: "nombre_intermediario",
   comentarios_ops: "comentarios_ops",
-  conmentarios_cxp: "conmentarios_cxp",
+  comentarios_cxp: "comentarios_cxp",
   total_aplicable: "total_aplicable",
   impuestos: "impuestos",
   subtotal: "subtotal",
@@ -307,35 +306,37 @@ type EditModalState = {
   rowId: string;
   idServicio: string | number | null;
   field: EditableField;
-  value: string; // siempre string en UI
+  value: string;
+};
+
+type ProveedorSeleccionado = {
+  id_solicitud: string;
+  id_proveedor: string;
 };
 
 export default function ConciliacionPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showSubirFactura, setShowSubirFactura] = useState(false);
-  const [selectedForFactura, setSelectedForFactura] = useState<AnyRow | null>(null);
-  const [rows, setRows] = useState<any[]>([]);
+
+  const [todos, setTodos] = useState<any[]>([]);
 
   // UI
   const [searchTerm, setSearchTerm] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  // Draft UI para reflejar cambios ya guardados/pendientes
+  // Draft edits
   const [draftEdits, setDraftEdits] = useState<Record<string, Partial<AnyRow>>>({});
+  const [selectedForFactura, setSelectedForFactura] = useState<ProveedorSeleccionado[]>([]);
 
   const endpoint = `${URL}/mia/pago_proveedor/solicitud`;
   const editEndpoint = `${URL}/mia/pago_proveedor/edit`;
 
-  const openSubirFactura = useCallback((item: AnyRow) => {
-    setSelectedForFactura(item); // item incluye __raw
-    setShowSubirFactura(true);
-  }, []);
-
   const closeSubirFactura = useCallback(() => {
     setShowSubirFactura(false);
-    setSelectedForFactura(null);
+    setSelectedForFactura([]);
   }, []);
 
+  // ✅ FETCH
   const load = useCallback(async () => {
     const controller = new AbortController();
     setIsLoading(true);
@@ -354,14 +355,11 @@ export default function ConciliacionPage() {
       if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
 
       const json = await response.json();
-      const source = json?.data?.todos ?? json?.data ?? json;
-      const list = safeArray(source);
-
-      console.log("envio de informacion", list);
-      setRows(list);
+      const list = Array.isArray(json?.data?.todos) ? json.data.todos : [];
+      setTodos(list);
     } catch (err) {
-      console.error("Error cargando reservas:", err);
-      setRows([]);
+      console.error("Error cargando conciliación:", err);
+      setTodos([]);
     } finally {
       setIsLoading(false);
     }
@@ -374,37 +372,81 @@ export default function ConciliacionPage() {
   }, [load]);
 
   /**
-   * ✅ handleEdit ahora edita por id_servicio (requisito del backend)
-   * Se dispara desde el botón "Cambiar" del modal expansivo.
+   * ✅ KEY estable para selección/edición
    */
-  const handleEdit = useCallback(
-    async (rowId: string, field: EditableField, value: any, idServicio?: string | number | null) => {
-      console.log("🟦 handleEdit() called", { rowId, field, value, idServicio });
+const getSelectionKey = (rowOrValue: any, index?: number) => {
+  // ✅ si Table5 manda directamente el string id en value
+  if (typeof rowOrValue === "string" || typeof rowOrValue === "number") {
+    const s = String(rowOrValue).trim();
+    if (s !== "" && s !== "undefined" && s !== "null") return s;
+  }
 
-      // 1) UI optimistic
+  // ✅ si Table5 manda el row completo (objeto)
+  const row = rowOrValue && typeof rowOrValue === "object" ? rowOrValue : null;
+
+  const id =
+    row?.id_solicitud_proveedor ??
+    row?.row_id ??
+    row?.__raw?.solicitud_proveedor?.id_solicitud_proveedor ??
+    null;
+
+  const clean = id != null ? String(id).trim() : "";
+
+  if (clean !== "" && clean !== "undefined" && clean !== "null") return clean;
+
+  // ✅ fallback: index (para que NUNCA quede vacío)
+  return String(index ?? "");
+};
+
+
+  // ---- Modal de edición ----
+  const [editModal, setEditModal] = useState<EditModalState>({
+    open: false,
+    rowId: "",
+    idServicio: null,
+    field: "comentarios_ops",
+    value: "",
+  });
+
+  const openEditModal = useCallback(
+    (rowIdSolicitudProveedor: string, idServicio: any, field: EditableField, currentValue: any) => {
+      setEditModal({
+        open: true,
+        rowId: String(rowIdSolicitudProveedor),
+        idServicio: idServicio ?? null,
+        field,
+        value: currentValue == null ? "" : String(currentValue),
+      });
+    },
+    []
+  );
+
+  const closeEditModal = useCallback(() => {
+    setEditModal((s) => ({ ...s, open: false }));
+  }, []);
+
+  const handleEdit = useCallback(
+    async (rowIdSolicitudProveedor: string, field: EditableField, value: any) => {
       setDraftEdits((prev) => ({
         ...prev,
-        [rowId]: { ...(prev[rowId] || {}), [field]: value },
+        [rowIdSolicitudProveedor]: {
+          ...(prev[rowIdSolicitudProveedor] || {}),
+          [field]: value,
+        },
       }));
 
-      const id_servicio = idServicio ?? null;
-
-      // ✅ valida null/undefined/"" (pero NO mates 0)
-      if (id_servicio === null || typeof id_servicio === "undefined" || id_servicio === "") {
-        console.warn("🟨 Sin id_servicio para editar", { rowId, field, value, idServicio });
-        return;
-      }
+      const normalizedValue = MONEY_FIELDS.includes(field)
+        ? String(value).trim() === ""
+          ? null
+          : Number(value)
+        : value;
 
       const apiField = FIELD_TO_API[field] ?? field;
 
       const payload = {
-        id_servicio,
-        field: apiField,
-        value,
-        row_id: rowId,
+        id_solicitud_proveedor: rowIdSolicitudProveedor,
+        [apiField]: normalizedValue,
       };
-
-      console.log("🟦 PATCH payload", payload);
 
       try {
         const resp = await fetch(editEndpoint, {
@@ -418,9 +460,10 @@ export default function ConciliacionPage() {
         });
 
         const json = await resp.json().catch(() => null);
-        if (!resp.ok) throw new Error(json?.message || `Error HTTP: ${resp.status}`);
 
-        console.log("✅ edit ok", json ?? payload);
+        if (!resp.ok) {
+          throw new Error(json?.message || `Error HTTP: ${resp.status}`);
+        }
       } catch (err) {
         console.error("❌ edit fail", err);
       }
@@ -428,65 +471,40 @@ export default function ConciliacionPage() {
     [editEndpoint]
   );
 
-
-  // ---- Modal expansivo genérico para TODOS los editables ----
-  const [editModal, setEditModal] = useState<EditModalState>({
-    open: false,
-    rowId: "",
-    idServicio: null,
-    field: "comentarios_ops",
-    value: "",
-  });
-
-  const openEditModal = useCallback(
-    (rowId: string, idServicio: any, field: EditableField, currentValue: any) => {
-      setEditModal({
-        open: true,
-        rowId: String(rowId),
-        idServicio: idServicio ?? null, // ✅ NO lo mates por falsy
-        field,
-        value: currentValue == null ? "" : String(currentValue),
-      });
-    },
-    []
-  );
-
-  const closeEditModal = useCallback(() => {
-    setEditModal((s) => ({ ...s, open: false }));
-  }, []);
-
   const saveEditModal = useCallback(async () => {
-  const { rowId, field, value, idServicio } = editModal;
-
-  console.log("🟩 saveEditModal() click", { rowId, field, value, idServicio });
-
-  if (!rowId) return;
-
-  const normalizedValue =
-    MONEY_FIELDS.includes(field) ? (String(value).trim() === "" ? null : Number(value)) : value;
-
-  await handleEdit(rowId, field, normalizedValue, idServicio);
-  closeEditModal();
+    const { rowId, field, value } = editModal;
+    if (!rowId) return;
+    await handleEdit(rowId, field, value);
+    closeEditModal();
   }, [editModal, handleEdit, closeEditModal]);
 
-
-  const registrosVisibles = useMemo(() => {
-    const mapped = rows.map((r, i) => toConciliacionRow(r, i));
-
+  /**
+   * ✅ filteredData
+   */
+  const filteredData = useMemo(() => {
     const q = (searchTerm || "").toUpperCase().trim();
-    if (!q) return mapped;
 
-    return mapped.filter((r) => {
+    const filteredItems = todos.filter((raw) => {
+      if (!q) return true;
+
+      const hotel = String(raw?.hotel ?? "").toUpperCase();
+      const codigo = String(raw?.codigo_reservacion_hotel ?? "").toUpperCase();
+      const viajero = String(raw?.nombre_viajero_completo ?? raw?.nombre_viajero ?? "").toUpperCase();
+
       return (
-        (r.hotel || "").toUpperCase().includes(q) ||
-        (r.codigo_hotel || "").toUpperCase().includes(q) ||
-        (r.viajero || "").toUpperCase().includes(q)
+        hotel.includes(q) ||
+        codigo.includes(q) ||
+        viajero.includes(q) ||
+        String(raw?.id_servicio ?? "").toUpperCase().includes(q)
       );
     });
-  }, [rows, searchTerm]);
+
+    return filteredItems.map((raw, i) => toConciliacionRow(raw, i));
+  }, [todos, searchTerm]);
 
   const customColumns = useMemo(
     () => [
+      "seleccionar",
       "creado",
       "hotel",
       "codigo_hotel",
@@ -505,7 +523,7 @@ export default function ConciliacionPage() {
       "tarjeta",
       "id_enviado",
       "comentarios_ops",
-      "conmentarios_cxp",
+      "comentarios_cxp",
       "detalles",
       "estatus_facturas",
       "estatus_pago",
@@ -523,7 +541,65 @@ export default function ConciliacionPage() {
     []
   );
 
-  const renderers = useMemo<
+  // ✅ MAP de seleccion
+  const [selectedMap, setSelectedMap] = useState<Record<string, boolean>>({});
+
+  const selectedIds = useMemo(() => {
+    return Object.keys(selectedMap).filter((k) => selectedMap[k]);
+  }, [selectedMap]);
+
+  const selectedRows = useMemo(() => {
+    return filteredData.filter((r: AnyRow) => {
+      const key = getSelectionKey(r);
+      return key ? !!selectedMap[key] : false;
+    });
+  }, [filteredData, selectedMap]);
+
+  const clearSelection = useCallback(() => {
+    setSelectedMap({});
+  }, []);
+
+  const selectAllFiltered = useCallback(() => {
+    setSelectedMap((prev) => {
+      const next = { ...prev };
+      filteredData.forEach((r: AnyRow) => {
+        const key = getSelectionKey(r);
+        if (key) next[key] = true;
+      });
+
+      console.log("✅ SELECT ALL FILTERED -> selectedMap:", next);
+      return next;
+    });
+  }, [filteredData]);
+
+  const selectedProveedorData = useMemo(() => {
+    const arr = selectedRows
+      .map((r: AnyRow) => ({
+        id_solicitud: String(r?.id_solicitud_proveedor ?? "").trim(),
+        id_proveedor: String(r?.id_proveedor ?? "").trim(),
+      }))
+      .filter(
+        (x) =>
+          x.id_solicitud !== "" &&
+          x.id_solicitud !== "null" &&
+          x.id_solicitud !== "undefined" &&
+          x.id_proveedor !== "" &&
+          x.id_proveedor !== "null" &&
+          x.id_proveedor !== "undefined"
+      );
+
+    return arr;
+  }, [selectedRows]);
+
+  // ✅ LOGS AUTOMÁTICOS cuando cambia selección
+  useEffect(() => {
+    console.log("📌 selectedIds:", selectedIds);
+    console.log("📌 selectedRows:", selectedRows);
+    console.log("📌 selectedProveedorData:", selectedProveedorData);
+  }, [selectedIds, selectedRows, selectedProveedorData]);
+
+  // ✅ renderers
+  const tableRenderers = useMemo<
     Record<string, React.FC<{ value: any; item: any; index: number }>>
   >(
     () => ({
@@ -555,11 +631,8 @@ export default function ConciliacionPage() {
         );
       },
 
-      // ---------- EDITABLES (AHORA IGUALES A LOS DEMÁS + EXPANSIVO) ----------
       canal_de_reservacion: ({ value, item }) => {
-        const rowId = String(item?.row_id ?? "");
-        const idServicio = item?.id_servicio ?? item?.__raw?.id_servicio ?? null;
-
+        const rowId = getSelectionKey(item); // ✅ FIX
         const v = draftEdits[rowId]?.canal_de_reservacion ?? value ?? "";
 
         return (
@@ -569,7 +642,7 @@ export default function ConciliacionPage() {
               type="button"
               className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 bg-white hover:bg-gray-50"
               title="Editar"
-              onClick={() => openEditModal(rowId, idServicio, "canal_de_reservacion", v)}
+              onClick={() => openEditModal(rowId, item?.id_servicio, "canal_de_reservacion", v)}
             >
               <Maximize2 className="w-4 h-4 text-gray-600" />
             </button>
@@ -578,9 +651,7 @@ export default function ConciliacionPage() {
       },
 
       nombre_intermediario: ({ value, item }) => {
-        const rowId = String(item?.row_id ?? "");
-        const idServicio = item?.id_servicio ?? item?.__raw?.id_servicio ?? null;
-
+        const rowId = getSelectionKey(item); // ✅ FIX
         const v = draftEdits[rowId]?.nombre_intermediario ?? value ?? "";
 
         return (
@@ -592,7 +663,7 @@ export default function ConciliacionPage() {
               type="button"
               className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 bg-white hover:bg-gray-50"
               title="Editar"
-              onClick={() => openEditModal(rowId, idServicio, "nombre_intermediario", v)}
+              onClick={() => openEditModal(rowId, item?.id_servicio, "nombre_intermediario", v)}
             >
               <Maximize2 className="w-4 h-4 text-gray-600" />
             </button>
@@ -601,9 +672,7 @@ export default function ConciliacionPage() {
       },
 
       comentarios_ops: ({ value, item }) => {
-        const rowId = String(item?.row_id ?? "");
-        const idServicio = item?.id_servicio ?? item?.__raw?.id_servicio ?? null;
-
+        const rowId = getSelectionKey(item); // ✅ FIX
         const v = draftEdits[rowId]?.comentarios_ops ?? value ?? "";
 
         return (
@@ -615,7 +684,7 @@ export default function ConciliacionPage() {
               type="button"
               className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 bg-white hover:bg-gray-50"
               title="Editar"
-              onClick={() => openEditModal(rowId, idServicio, "comentarios_ops", v)}
+              onClick={() => openEditModal(rowId, item?.id_servicio, "comentarios_ops", v)}
             >
               <Maximize2 className="w-4 h-4 text-gray-600" />
             </button>
@@ -623,11 +692,9 @@ export default function ConciliacionPage() {
         );
       },
 
-      conmentarios_cxp: ({ value, item }) => {
-        const rowId = String(item?.row_id ?? "");
-        const idServicio = item?.id_servicio ?? item?.__raw?.id_servicio ?? null;
-
-        const v = draftEdits[rowId]?.conmentarios_cxp ?? value ?? "";
+      comentarios_cxp: ({ value, item }) => {
+        const rowId = getSelectionKey(item); // ✅ FIX
+        const v = draftEdits[rowId]?.comentarios_cxp ?? value ?? "";
 
         return (
           <div className="flex items-center gap-2">
@@ -638,7 +705,7 @@ export default function ConciliacionPage() {
               type="button"
               className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 bg-white hover:bg-gray-50"
               title="Editar"
-              onClick={() => openEditModal(rowId, idServicio, "conmentarios_cxp", v)}
+              onClick={() => openEditModal(rowId, item?.id_servicio, "comentarios_cxp", v)}
             >
               <Maximize2 className="w-4 h-4 text-gray-600" />
             </button>
@@ -646,10 +713,50 @@ export default function ConciliacionPage() {
         );
       },
 
-      total_aplicable: ({ value, item }) => {
-        const rowId = String(item?.row_id ?? "");
-        const idServicio = item?.id_servicio ?? item?.__raw?.id_servicio ?? null;
+      // ✅ SELECCIÓN CORRECTA (NO MARCA TODOS)
+      seleccionar: ({ value, item, index }) => {
+  // ✅ Table5 puede mandar row completo en item o solo value
+  const key = getSelectionKey(
+    item && typeof item === "object" ? item : value,
+    index
+  );
 
+  const checked = !!selectedMap[key];
+
+  return (
+    <div className="flex items-center justify-center">
+      <input
+        type="checkbox"
+        className="w-4 h-4"
+        checked={checked}
+        onChange={(e) => {
+          const isChecked = e.target.checked;
+
+          setSelectedMap((prev) => {
+            const next = { ...prev };
+
+            if (isChecked) next[key] = true;
+            else delete next[key];
+
+            console.log("✅ CHECKBOX TOGGLE:", {
+              isChecked,
+              key,
+              value,
+              item,
+              selectedMapNext: next,
+            });
+
+            return next;
+          });
+        }}
+      />
+    </div>
+  );
+},
+
+
+      total_aplicable: ({ value, item }) => {
+        const rowId = getSelectionKey(item); // ✅ FIX
         const v = draftEdits[rowId]?.total_aplicable ?? value ?? "";
 
         return (
@@ -661,7 +768,7 @@ export default function ConciliacionPage() {
               type="button"
               className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 bg-white hover:bg-gray-50"
               title="Editar"
-              onClick={() => openEditModal(rowId, idServicio, "total_aplicable", v)}
+              onClick={() => openEditModal(rowId, item?.id_servicio, "total_aplicable", v)}
             >
               <Maximize2 className="w-4 h-4 text-gray-600" />
             </button>
@@ -670,9 +777,7 @@ export default function ConciliacionPage() {
       },
 
       impuestos: ({ value, item }) => {
-        const rowId = String(item?.row_id ?? "");
-        const idServicio = item?.id_servicio ?? item?.__raw?.id_servicio ?? null;
-
+        const rowId = getSelectionKey(item); // ✅ FIX
         const v = draftEdits[rowId]?.impuestos ?? value ?? "";
 
         return (
@@ -684,7 +789,7 @@ export default function ConciliacionPage() {
               type="button"
               className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 bg-white hover:bg-gray-50"
               title="Editar"
-              onClick={() => openEditModal(rowId, idServicio, "impuestos", v)}
+              onClick={() => openEditModal(rowId, item?.id_servicio, "impuestos", v)}
             >
               <Maximize2 className="w-4 h-4 text-gray-600" />
             </button>
@@ -693,9 +798,7 @@ export default function ConciliacionPage() {
       },
 
       subtotal: ({ value, item }) => {
-        const rowId = String(item?.row_id ?? "");
-        const idServicio = item?.id_servicio ?? item?.__raw?.id_servicio ?? null;
-
+        const rowId = getSelectionKey(item); // ✅ FIX
         const v = draftEdits[rowId]?.subtotal ?? value ?? "";
 
         return (
@@ -707,7 +810,7 @@ export default function ConciliacionPage() {
               type="button"
               className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 bg-white hover:bg-gray-50"
               title="Editar"
-              onClick={() => openEditModal(rowId, idServicio, "subtotal", v)}
+              onClick={() => openEditModal(rowId, item?.id_servicio, "subtotal", v)}
             >
               <Maximize2 className="w-4 h-4 text-gray-600" />
             </button>
@@ -715,44 +818,44 @@ export default function ConciliacionPage() {
         );
       },
 
-      // ------- BOTONES / SELECT -------
       detalles: ({ item }) => {
-        const rowId = String(item?.row_id ?? "");
         return (
           <button
             type="button"
             className="px-2 py-1 rounded-md text-xs border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
-            onClick={() => console.log("detalles", { rowId })}
+            onClick={() => console.log("detalles raw:", item?.__raw)}
           >
             Detalles
           </button>
         );
       },
 
-      subir_factura: (value: any) => {
-        // 2) Encuentra el row real (Table5 puede llamarlo distinto)
-        const row =
-          value?.item ??
-          value?.row ??
-          value?.registro ??
-          value?.record ??
-          value?.original ??
-          null;
-
-        // 3) El raw original (tu objeto grande)
-        const raw = row?.__raw ?? row;
-
-        // 4) Usa row_id (del mapeo) y/o id_solicitud_proveedor desde raw
-        const rowId = String(row?.row_id ?? "");
-        const idSolicitudProveedor = value.value?.solicitud_proveedor?.id_solicitud_proveedor ?? null;
-
+      // ✅ Subir 1 fila
+      subir_factura: ({ value }) => {
         return (
           <button
             type="button"
             className="px-2 py-1 rounded-md text-xs border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
             onClick={() => {
-              console.log("🟢 click subir_factura", { rowId, idSolicitudProveedor, row, raw });
-              openSubirFactura(value.value); // ✅ pasa el row mapeado (incluye __raw)
+              const payload = [
+                {
+                  id_solicitud: String(value?.id_solicitud_proveedor ?? "").trim(),
+                  id_proveedor: String(value?.id_proveedor ?? "").trim(),
+                },
+              ].filter(
+                (x) =>
+                  x.id_solicitud &&
+                  x.id_solicitud !== "null" &&
+                  x.id_solicitud !== "undefined" &&
+                  x.id_proveedor &&
+                  x.id_proveedor !== "null" &&
+                  x.id_proveedor !== "undefined"
+              );
+
+              console.log("🚀 ABRIENDO MODAL SUBIR FACTURA (1 ROW):", payload);
+
+              setSelectedForFactura(value);
+              setShowSubirFactura(true);
             }}
           >
             Subir
@@ -760,8 +863,6 @@ export default function ConciliacionPage() {
         );
       },
 
-
-      // ------- DISPLAY EXTRA -------
       total_facturado: ({ value }) => <span title={String(value)}>{formatMoney(value)}</span>,
 
       diferencia_costo_proveedor_vs_factura: ({ value }) => {
@@ -769,11 +870,7 @@ export default function ConciliacionPage() {
         return (
           <span
             className={
-              n === 0
-                ? "text-gray-700"
-                : n > 0
-                ? "text-amber-700 font-semibold"
-                : "text-red-700 font-semibold"
+              n === 0 ? "text-gray-700" : n > 0 ? "text-amber-700 font-semibold" : "text-red-700 font-semibold"
             }
             title={String(value)}
           >
@@ -790,7 +887,7 @@ export default function ConciliacionPage() {
 
       total_factura: ({ value }) => <span title={String(value)}>{formatMoney(value)}</span>,
     }),
-    [draftEdits, openEditModal]
+    [draftEdits, openEditModal, selectedMap]
   );
 
   const defaultSort = useMemo(() => ({ key: "creado", sort: false }), []);
@@ -807,7 +904,7 @@ export default function ConciliacionPage() {
                 <input
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Buscar por código, ID, cliente..."
+                  placeholder="Buscar por código, hotel, viajero..."
                   className="w-full border border-gray-200 rounded-lg pl-9 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
                 />
               </div>
@@ -834,7 +931,6 @@ export default function ConciliacionPage() {
             </div>
           </div>
 
-          {/* Panel de filtros (solo espaciado / sin lógica) */}
           {filtersOpen && (
             <div className="mt-4 border-t border-gray-100 pt-4">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
@@ -843,7 +939,7 @@ export default function ConciliacionPage() {
                     Folio / ID reserva
                   </label>
                   <input
-                    placeholder="Ej. 302081977..."
+                    placeholder="Ej. ser-e36b2f32..."
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
                   />
                 </div>
@@ -882,13 +978,56 @@ export default function ConciliacionPage() {
           )}
         </div>
 
+        {/* Barra de selección masiva */}
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <div className="text-xs text-gray-600">
+            Seleccionados: <span className="font-semibold">{selectedIds.length}</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={selectAllFiltered}
+              className="px-3 py-2 rounded-lg text-sm border border-gray-200 bg-white hover:bg-gray-50"
+            >
+              Seleccionar filtrados ({filteredData.length})
+            </button>
+
+            <button
+              type="button"
+              onClick={clearSelection}
+              className="px-3 py-2 rounded-lg text-sm border border-gray-200 bg-white hover:bg-gray-50"
+            >
+              Limpiar selección
+            </button>
+
+            <button
+              type="button"
+              disabled={selectedRows.length === 0}
+              onClick={() => {
+                console.log("🚀 ABRIENDO MODAL SUBIR FACTURA (BULK):", selectedRows);
+                setSelectedForFactura(selectedProveedorData);
+                setShowSubirFactura(true);
+              }}
+              className={[
+                "px-3 py-2 rounded-lg text-sm border",
+                selectedRows.length === 0
+                  ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+                  : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
+              ].join(" ")}
+            >
+              Subir factura ({selectedRows.length})
+            </button>
+          </div>
+        </div>
+
         {/* Tabla principal */}
         <div className="bg-white border border-gray-200 rounded-lg p-3 flex flex-col">
           <Table5<any>
-            registros={registrosVisibles as any}
-            renderers={renderers}
+            registros={filteredData as any}
+            renderers={tableRenderers}
             defaultSort={defaultSort as any}
-            leyenda={`Mostrando ${registrosVisibles.length} registros`}
+            leyenda={`Mostrando ${filteredData.length} registros`}
             customColumns={customColumns}
             fillHeight
             maxHeight="calc(100vh - 220px)"
@@ -898,18 +1037,18 @@ export default function ConciliacionPage() {
         {/* MODAL EXPANSIVO PARA EDITABLES */}
         {editModal.open && (
           <div className="fixed inset-0 z-50 flex items-center justify-center">
-            {/* overlay */}
             <div className="absolute inset-0 bg-black/40 z-0" onClick={closeEditModal} />
 
-            {/* modal */}
             <div
-                className="relative z-10 w-[min(720px,92vw)] bg-white rounded-xl shadow-lg border border-gray-200"
-                onClick={(e) => e.stopPropagation()} // ✅ evita propagación
-              >              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+              className="relative z-10 w-[min(720px,92vw)] bg-white rounded-xl shadow-lg border border-gray-200"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                 <div>
                   <p className="text-sm font-semibold text-gray-900">Editar campo</p>
                   <p className="text-xs text-gray-500">
-                    Row: {editModal.rowId} • id_servicio: {String(editModal.idServicio ?? "—")}
+                    Row (id_solicitud_proveedor): {editModal.rowId}{" "}
+                    {String(editModal.idServicio ?? "—")}
                   </p>
                   <p className="text-xs text-gray-500">Campo: {editModal.field}</p>
                 </div>
@@ -925,7 +1064,6 @@ export default function ConciliacionPage() {
               </div>
 
               <div className="p-4">
-                {/* Render del input según field */}
                 {editModal.field === "canal_de_reservacion" ? (
                   <select
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
@@ -936,7 +1074,8 @@ export default function ConciliacionPage() {
                     <option value="DIRECTO">DIRECTO</option>
                     <option value="INTERMEDIARIO">INTERMEDIARIO</option>
                   </select>
-                ) : editModal.field === "comentarios_ops" || editModal.field === "conmentarios_cxp" ? (
+                ) : editModal.field === "comentarios_ops" ||
+                  editModal.field === "comentarios_cxp" ? (
                   <textarea
                     className="w-full min-h-[180px] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
                     value={editModal.value}
@@ -971,10 +1110,11 @@ export default function ConciliacionPage() {
                   >
                     Cancelar
                   </button>
+
                   <button
                     type="button"
                     className="px-3 py-2 rounded-lg text-sm border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
-                    onClick={() => void saveEditModal()} // ✅ llama explícito
+                    onClick={() => void saveEditModal()}
                   >
                     Cambiar
                   </button>
@@ -990,31 +1130,28 @@ export default function ConciliacionPage() {
             <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
               <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
                 <h2 className="text-xl font-bold text-gray-800"></h2>
-                <button
-                  onClick={closeSubirFactura}
-                  className="text-gray-500 hover:text-gray-700"
-                >
+                <button onClick={closeSubirFactura} className="text-gray-500 hover:text-gray-700">
                   <X className="w-6 h-6" />
                 </button>
               </div>
 
               <div className="p-6">
                 <SubirFactura
-                  // ✅ NUEVO: mandar el objeto completo
-                  proveedoresData={selectedForFactura}     // row mapeado (incluye id_servicio, etc.)
-                  id_servicio={selectedForFactura?.id_servicio} // raw original
-                  //id_proveedor={selectedForFactura.id_proveedor? selectedForFactura.id_proveedor :selectedForFactura.proveedor.rfc}
-                  id_proveedor={selectedForFactura.id_proveedor ?? selectedForFactura.proveedor.rfc}
+                  proveedoresData={selectedRows.length==0? selectedForFactura:selectedRows} // ✅ array [{id_solicitud,id_proveedor}]
+                  id_proveedor={selectedRows.length === 1 ? selectedRows[0]?.id_proveedor : undefined}
                   autoOpen={true}
                   onSuccess={() => {
                     closeSubirFactura();
-                    // Opcional: load() para refrescar tabla
                     // load();
                   }}
                 />
               </div>
             </div>
           </div>
+        )}
+
+        {isLoading && (
+          <div className="text-sm text-gray-500 px-2">Cargando información...</div>
         )}
       </div>
     </div>
