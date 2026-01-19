@@ -607,7 +607,6 @@ export const getCompaniesAgentViajeros = async (agent_id: string) => {
 
 export const getEmpresasDatosFiscales = async (agent_id: string) => {
   try {
-    console.log("En proceso de obtener viajeros");
     const response = await fetch(
       `${URL}/mia/agentes/empresas-con-datos-fiscales?id_agente=${encodeURIComponent(
         agent_id
@@ -622,7 +621,6 @@ export const getEmpresasDatosFiscales = async (agent_id: string) => {
       }
     );
     const json = await response.json();
-    console.log(json, "dfddddddddddddddddddddddd");
     return json;
   } catch (error) {
     throw error;
@@ -695,9 +693,7 @@ export const getPagosAgente = async (agent_id: string) => {
   try {
     console.log("En proceso de obtener metodos de pago");
     const response = await fetch(
-      `${URL}/mia/pagos/pagosAgente?id_agente=${encodeURIComponent(
-        agent_id
-      )}`,
+      `${URL}/mia/pagos/pagosAgente?id_agente=${encodeURIComponent(agent_id)}`,
       {
         method: "GET",
         headers: {
