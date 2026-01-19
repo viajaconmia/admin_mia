@@ -26,6 +26,8 @@ import { ApiResponse } from "@/services/ApiService";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ModalCrearDatosFiscales, ModalCuentasCRUD } from "./_components";
 import { InformacionAdicionalProveedor } from "./_components/info_adicional";
+import { usePermiso } from "@/hooks/usePermission";
+import { PERMISOS } from "@/constant/permisos";
 
 const App = () => {
   const [loading, setLoading] = useState(true);
@@ -214,7 +216,8 @@ function ProveedorCard({
     useProveedorEditor(proveedor);
   const { showNotification } = useNotification();
   const [activeTab, setActiveTab] = useState("datos");
-  const [activeTable, setActiveTable] = useState("cuentas");
+  const [activeTable, setActiveTable] = useState("datos_fiscales");
+  const { Can, hasPermission } = usePermiso();
 
   const onSave = async () => {
     try {
@@ -254,22 +257,24 @@ function ProveedorCard({
           </div>
         </div>
         <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={toggleEdit}
-            icon={Pencil}
-          >
-            {!editar ? "Editar" : "Cancelar"}
-          </Button>
-          <Button
-            disabled={!hasChanges || !editar}
-            onClick={onSave}
-            icon={Save}
-            size="sm"
-          >
-            Guardar cambios
-          </Button>
+          <Can permiso={PERMISOS.COMPONENTES.GROUP.PROVEEDORES_EDICIONES}>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={toggleEdit}
+              icon={Pencil}
+            >
+              {!editar ? "Editar" : "Cancelar"}
+            </Button>
+            <Button
+              disabled={!hasChanges || !editar}
+              onClick={onSave}
+              icon={Save}
+              size="sm"
+            >
+              Guardar cambios
+            </Button>
+          </Can>
         </div>
       </div>
 
@@ -448,8 +453,8 @@ function ProveedorCard({
           <div className="grid sm:grid-cols-2 gap-4 mt-4  items-center">
             <TextInput
               label="Tipo de Pago (crédito/prepago)"
-              value={draft.tipo_pago || ""}
               onChange={(e) => update("tipo_pago", e)}
+              value={draft.tipo_pago || ""}
               disabled={!editar}
             />
             <TextAreaInput
@@ -471,8 +476,16 @@ function ProveedorCard({
               onValueChange={setActiveTable}
               className="w-full bg-white p-4 rounded-md col-span-2 flex flex-col items-center"
             >
-              <TabsList className="grid max-w-3xl w-full grid-cols-2">
-                <TabsTrigger value="cuentas">CUENTAS</TabsTrigger>
+              <TabsList
+                className={`grid max-w-3xl w-full ${
+                  hasPermission(PERMISOS.VERSION.PROVEEDORES_FINANZAS)
+                    ? "grid-cols-2"
+                    : "grid-cols-1"
+                }`}
+              >
+                <Can permiso={PERMISOS.VERSION.PROVEEDORES_FINANZAS}>
+                  <TabsTrigger value="cuentas">CUENTAS</TabsTrigger>
+                </Can>
                 <TabsTrigger value="datos_fiscales">DATOS FISCALES</TabsTrigger>
               </TabsList>
 
@@ -481,15 +494,21 @@ function ProveedorCard({
                 className="space-y-4 p-4 w-full"
               >
                 <div className="flex flex-col gap-2 justify-end items-end h-full max-w-7xl mx-auto w-full col-span-2">
-                  <Button
-                    onClick={() => {
-                      handleAddNewClick();
-                    }}
-                    size="sm"
-                    icon={Plus}
+                  <Can
+                    permiso={
+                      PERMISOS.COMPONENTES.GROUP.PROVEEDORES_EDICIONES_FINANZAS
+                    }
                   >
-                    Crear Datos Fiscales
-                  </Button>
+                    <Button
+                      onClick={() => {
+                        handleAddNewClick();
+                      }}
+                      size="sm"
+                      icon={Plus}
+                    >
+                      Crear Datos Fiscales
+                    </Button>
+                  </Can>
                   <Table
                     registros={datosFiscales.map(({ ...rest }) => ({
                       ...rest,
@@ -497,14 +516,21 @@ function ProveedorCard({
                     }))}
                     renderers={{
                       edit: ({ value }: { value: DatosFiscales }) => (
-                        <Button
-                          icon={Pencil}
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleEditClick(value)}
+                        <Can
+                          permiso={
+                            PERMISOS.COMPONENTES.GROUP
+                              .PROVEEDORES_EDICIONES_FINANZAS
+                          }
                         >
-                          Editar
-                        </Button>
+                          <Button
+                            icon={Pencil}
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleEditClick(value)}
+                          >
+                            Editar
+                          </Button>
+                        </Can>
                       ),
                     }}
                   ></Table>
@@ -512,15 +538,21 @@ function ProveedorCard({
               </TabsContent>
               <TabsContent value="cuentas" className="space-y-4 p-4 w-full">
                 <div className="flex flex-col gap-2 justify-end items-end h-full max-w-7xl mx-auto w-full col-span-2">
-                  <Button
-                    onClick={() => {
-                      handleAddNewClickCuenta();
-                    }}
-                    size="sm"
-                    icon={Plus}
+                  <Can
+                    permiso={
+                      PERMISOS.COMPONENTES.GROUP.PROVEEDORES_EDICIONES_FINANZAS
+                    }
                   >
-                    Crear Cuenta
-                  </Button>
+                    <Button
+                      onClick={() => {
+                        handleAddNewClickCuenta();
+                      }}
+                      size="sm"
+                      icon={Plus}
+                    >
+                      Crear Cuenta
+                    </Button>
+                  </Can>
                   <Table
                     registros={cuentas.map(({ id_proveedor, id, ...rest }) => ({
                       alias: rest.alias,
@@ -529,14 +561,21 @@ function ProveedorCard({
                     }))}
                     renderers={{
                       edit: ({ value }: { value: ProveedorCuenta }) => (
-                        <Button
-                          icon={Pencil}
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleEditClickCuenta(value)}
+                        <Can
+                          permiso={
+                            PERMISOS.COMPONENTES.GROUP
+                              .PROVEEDORES_EDICIONES_FINANZAS
+                          }
                         >
-                          Editar
-                        </Button>
+                          <Button
+                            icon={Pencil}
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleEditClickCuenta(value)}
+                          >
+                            Editar
+                          </Button>
+                        </Can>
                       ),
                     }}
                   ></Table>

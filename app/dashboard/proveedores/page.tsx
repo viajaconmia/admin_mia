@@ -17,6 +17,8 @@ import { ExtraService } from "@/services/ExtraServices";
 import { Table } from "@/component/molecule/Table";
 import { Loader } from "@/components/atom/Loader";
 import { FilterInput } from "@/component/atom/FilterInput";
+import { usePermiso } from "@/hooks/usePermission";
+import { PERMISOS } from "@/constant/permisos";
 
 interface TrackingPage {
   total: number;
@@ -42,10 +44,18 @@ export default function ProveedoresPage() {
     total_pages: 1,
   });
   const { showNotification } = useNotification();
+  const { Can } = usePermiso();
 
   useEffect(() => {
     setPageTraking((prev) => ({ ...prev, page: 1 }));
   }, [filtros]);
+
+  useEffect(() => {
+    showNotification(
+      "info",
+      "Debes seleccionar primero un filtro y despues presionar el boton de buscar resultados"
+    );
+  }, []);
 
   const fetchProveedores = async (page = pageTracking.page) => {
     setIsLoading(true);
@@ -158,16 +168,18 @@ export default function ProveedoresPage() {
             </Button>
 
             {/* Placeholder para creación */}
-            <Button
-              size="sm"
-              variant="ghost"
-              icon={Plus}
-              onClick={() => {
-                setProveedor({});
-              }}
-            >
-              Nuevo
-            </Button>
+            <Can permiso={PERMISOS.COMPONENTES.GROUP.PROVEEDORES_EDICIONES}>
+              <Button
+                size="sm"
+                variant="ghost"
+                icon={Plus}
+                onClick={() => {
+                  setProveedor({});
+                }}
+              >
+                Nuevo
+              </Button>
+            </Can>
           </div>
           <div className="pt-4">
             {isLoading ? (
