@@ -9,7 +9,7 @@ interface CommonInteractiveElementProps {
    * 'secondary': Elemento secundario con un fondo gris claro.
    * 'ghost': Elemento transparente con texto blue-700 y borde transparente.
    */
-  variant?: "primary" | "secondary" | "ghost" | "warning";
+  variant?: "primary" | "secondary" | "ghost" | "warning" | "warning ghost";
   size?: "sm" | "md" | "lg" | "full";
   /**
    * Contenido del elemento (texto, otros elementos, etc.).
@@ -121,6 +121,15 @@ const InteractiveElement: React.FC<InteractiveElementProps> = ({
       border border-transparent
       active:bg-red-800
       active:text-gray-50
+    `,
+    "warning ghost": `
+      bg-transparent text-gray-700
+      hover:bg-transparent
+      focus:bg-transparent
+      focus:outline-none focus:ring-0 focus:ring-offset-0
+      border border-transparent
+      active:bg-transparent
+      active:text-gray-700
     `,
   };
 

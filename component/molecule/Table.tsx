@@ -146,7 +146,7 @@ export const Table = ({
           </div>
         </>
       ) : (
-        <div className="px-6 py-4 w-full text-center text-sm text-gray-500 border rounded-sm">
+        <div className="px-6 py-4 w-full text-center text-sm text-gray-500 border rounded-sm bg-white">
           No se encontraron registros
         </div>
       )}

@@ -9,6 +9,7 @@ export interface ApiResponse<T> {
     message?: string;
     details?: any;
   };
+  metadata?: any;
 }
 
 // Clase para errores específicos de la API, encapsulando la respuesta de error

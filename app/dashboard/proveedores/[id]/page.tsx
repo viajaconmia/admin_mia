@@ -3,6 +3,7 @@ import Button from "@/components/atom/Button";
 import {
   CheckboxInput,
   DateInput,
+  NumberInput,
   TextAreaInput,
   TextInput,
 } from "@/components/atom/Input";
@@ -11,24 +12,20 @@ import { useNotification } from "@/context/useNotificacion";
 import {
   DatosFiscales,
   mapProveedor,
+  mapProveedorRentaCarro,
   Proveedor,
+  ProveedorCuenta,
   ProveedoresService,
 } from "@/services/ProveedoresService";
-import { ExternalLink, Pencil, Save } from "lucide-react";
+import { Pencil, Save } from "lucide-react";
 import { useParams } from "next/navigation";
-import {
-  Dispatch,
-  SetStateAction,
-  useEffect,
-  useReducer,
-  useState,
-} from "react";
-import { Plus, X, ReceiptText } from "lucide-react";
+import { useEffect, useReducer, useState } from "react";
+import { Plus } from "lucide-react";
 import { Table } from "@/component/molecule/Table";
 import { ApiResponse } from "@/services/ApiService";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { formatNumber } from "@/helpers/formater";
-import Modal from "@/components/organism/Modal";
+import { ModalCrearDatosFiscales, ModalCuentasCRUD } from "./_components";
+import { InformacionAdicionalProveedor } from "./_components/info_adicional";
 
 const App = () => {
   const [loading, setLoading] = useState(true);
@@ -36,10 +33,45 @@ const App = () => {
   const [proveedor, setProveedor] = useState<Proveedor | null>(null);
   const [datosFiscales, setDatosFiscales] = useState<DatosFiscales[]>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [idFiscal, setIdFiscal] = useState<number | null>(null);
   const [selectedFiscal, setSelectedFiscal] = useState<DatosFiscales | null>(
     null
   );
+  const [cuentas, setCuentas] = useState<ProveedorCuenta[]>([]);
+  const [isCuentaOpen, setIsCuentaOpen] = useState(false);
+  const [selectedCuenta, setSelectedCuenta] = useState<ProveedorCuenta>(null);
+
+  const handleEditClickCuenta = (cuenta: ProveedorCuenta) => {
+    setSelectedCuenta(cuenta); // Guardamos el registro a editar
+    setIsCuentaOpen(true); // Abrimos el mismo modal
+  };
+
+  const handleAddNewClickCuenta = () => {
+    setSelectedCuenta(null); // Limpiamos para que sea un registro nuevo
+    setIsCuentaOpen(true);
+  };
+
+  const handleSaveCuenta = async (datos: ProveedorCuenta) => {
+    try {
+      let response: ApiResponse<ProveedorCuenta[]>;
+      if (selectedCuenta) {
+        response =
+          await ProveedoresService.getInstance().updateCuentasProveedor(datos);
+      } else {
+        response =
+          await ProveedoresService.getInstance().createCuentasProveedor(datos);
+      }
+      setCuentas(response.data);
+      showNotification("success", response.message);
+    } catch (error) {
+      showNotification(
+        "error",
+        error.message || "Error al isModalOpen datos fiscales"
+      );
+    } finally {
+      setSelectedCuenta(null);
+      setIsCuentaOpen(false);
+    }
+  };
 
   const handleEditClick = (fiscal: DatosFiscales) => {
     setSelectedFiscal(fiscal); // Guardamos el registro a editar
@@ -84,19 +116,28 @@ const App = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const proveedorId = Array.isArray(id) ? id[0] : id;
+        const proveedorId = Number(Array.isArray(id) ? id[0] : id);
         const service = ProveedoresService.getInstance();
 
-        const [proveedorRes, datosFiscalesRes] = await Promise.all([
-          service.getProveedores({ id: proveedorId }),
+        const [proveedorRes, datosFiscalesRes, cuentasRes] = await Promise.all([
+          service.getProveedores({ id: Number(proveedorId) }),
           service.getDatosFiscales(proveedorId),
+          service.getCuentasByProveedor(proveedorId),
         ]);
 
         if (!proveedorRes.data.length) {
           throw new Error("No hay proveedor");
         }
-        setProveedor(mapProveedor(proveedorRes.data[0]));
+
+        const type = await service.getProveedorType(proveedorRes.data[0]);
+        console.log(type);
+
+        setProveedor({
+          ...mapProveedor(proveedorRes.data[0]),
+          ...mapProveedorRentaCarro(type.data),
+        });
         setDatosFiscales(datosFiscalesRes.data);
+        setCuentas(cuentasRes.data);
       } catch (err: any) {
         showNotification(
           "error",
@@ -123,9 +164,11 @@ const App = () => {
         <ProveedorCard
           proveedor={proveedor}
           datosFiscales={datosFiscales}
+          cuentas={cuentas}
           handleAddNewClick={handleAddNewClick}
           handleEditClick={handleEditClick}
-          handleModalCuentas={setIdFiscal}
+          handleAddNewClickCuenta={handleAddNewClickCuenta}
+          handleEditClickCuenta={handleEditClickCuenta}
         />
       </div>
       <ModalCrearDatosFiscales
@@ -137,17 +180,13 @@ const App = () => {
         onSave={handleSave}
         id_proveedor={Number(Array.isArray(id) ? id[0] : id)}
       />
-      {idFiscal != null && (
-        <Modal
-          onClose={() => {
-            setIdFiscal(null);
-          }}
-          title={`Datos fiscales y cuentas`}
-          subtitle={`ID: ${idFiscal}`}
-        >
-          <ModalDataFiscal id={idFiscal}></ModalDataFiscal>
-        </Modal>
-      )}
+      <ModalCuentasCRUD
+        isOpen={isCuentaOpen}
+        onClose={() => setIsCuentaOpen(false)}
+        onSave={handleSaveCuenta}
+        id_proveedor={Number(Array.isArray(id) ? id[0] : id)}
+        selectedCuenta={selectedCuenta}
+      ></ModalCuentasCRUD>
     </>
   );
 };
@@ -156,21 +195,26 @@ export default App;
 
 function ProveedorCard({
   proveedor,
+  cuentas,
   handleAddNewClick,
   handleEditClick,
-  handleModalCuentas,
+  handleAddNewClickCuenta,
+  handleEditClickCuenta,
   datosFiscales,
 }: {
   proveedor: Proveedor;
+  cuentas: ProveedorCuenta[];
   handleAddNewClick: () => void;
-  handleModalCuentas: Dispatch<SetStateAction<number>>;
   handleEditClick: (value: DatosFiscales) => void;
+  handleAddNewClickCuenta: () => void;
+  handleEditClickCuenta: (value: ProveedorCuenta) => void;
   datosFiscales: DatosFiscales[];
 }) {
   const { draft, update, hasChanges, getChanges, editar, toggleEdit, save } =
     useProveedorEditor(proveedor);
   const { showNotification } = useNotification();
   const [activeTab, setActiveTab] = useState("datos");
+  const [activeTable, setActiveTable] = useState("cuentas");
 
   const onSave = async () => {
     try {
@@ -197,9 +241,17 @@ function ProveedorCard({
           <h1 className="text-2xl font-bold text-gray-800">
             {draft.proveedor || "Detalle de Proveedor"}
           </h1>
-          <p className="text-sm text-gray-500">
-            ID: {draft.id} • Tipo: {draft.type || "N/A"}
-          </p>
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-gray-500">
+              ID: {draft.id} • Tipo: {draft.type || "N/A"}
+            </p>
+            <CheckboxInput
+              disabled={!editar}
+              label="Es intermediario?"
+              checked={draft.intermediario}
+              onChange={(v) => update("intermediario", v)}
+            />
+          </div>
         </div>
         <div className="flex gap-2">
           <Button
@@ -226,13 +278,54 @@ function ProveedorCard({
         onValueChange={setActiveTab}
         className="w-full bg-white p-4 rounded-md border border-gray-300"
       >
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="datos">DATOS BASICOS</TabsTrigger>
-          {/* <TabsTrigger value="tarifas">TARIFAS Y SERVICIOS</TabsTrigger> */}
+          <TabsTrigger value="tarifas">TARIFAS Y SERVICIOS</TabsTrigger>
           <TabsTrigger value="pagos">INFORMACION DE PAGOS</TabsTrigger>
           <TabsTrigger value="extra">INFORMACIÓN ADICIONAL</TabsTrigger>
         </TabsList>
 
+        <TabsContent value="tarifas" className="space-y-4 p-4">
+          <div className="grid gap-4">
+            <NumberInput
+              value={draft.iva}
+              label="IVA"
+              onChange={(v) => update("iva", v)}
+              disabled={!editar}
+            />
+            {proveedor.type == "hotel" && (
+              <NumberInput
+                value={draft.ish}
+                label="ISH"
+                onChange={(v) => update("ish", v)}
+                disabled={!editar}
+              />
+            )}
+            {proveedor.type == "vuelo" && (
+              <NumberInput
+                label="TUA"
+                value={draft.tua}
+                onChange={(v) => update("tua", v)}
+                disabled={!editar}
+              />
+            )}
+            {proveedor.type == "hotel" && (
+              <NumberInput
+                label="Saneamiento"
+                value={draft.saneamiento}
+                disabled={!editar}
+                onChange={(v) => update("saneamiento", v)}
+              />
+            )}
+            <TextAreaInput
+              disabled={!editar}
+              label="Notas de tarifas e impuestos"
+              value={draft.notas_tarifas_impuestos}
+              className="md:col-span-3"
+              onChange={(v) => update("notas_tarifas_impuestos", v)}
+            ></TextAreaInput>
+          </div>
+        </TabsContent>
         <TabsContent value="datos" className="space-y-4 p-4">
           <div className="grid sm:grid-cols-2 gap-4 mt-4  items-center border-b pb-4">
             <TextInput
@@ -370,59 +463,103 @@ function ProveedorCard({
               value={draft.notas_pagos || ""}
               onChange={(e) => update("notas_pagos", e)}
               disabled={!editar}
+              className="col-span-2"
             />
-            <div className="flex flex-col gap-2 justify-end items-end h-full max-w-7xl mx-auto w-full col-span-2">
-              <Button
-                onClick={() => {
-                  handleAddNewClick();
-                }}
-                size="sm"
-                icon={Plus}
+
+            <Tabs
+              value={activeTable}
+              onValueChange={setActiveTable}
+              className="w-full bg-white p-4 rounded-md col-span-2 flex flex-col items-center"
+            >
+              <TabsList className="grid max-w-3xl w-full grid-cols-2">
+                <TabsTrigger value="cuentas">CUENTAS</TabsTrigger>
+                <TabsTrigger value="datos_fiscales">DATOS FISCALES</TabsTrigger>
+              </TabsList>
+
+              <TabsContent
+                value="datos_fiscales"
+                className="space-y-4 p-4 w-full"
               >
-                Crear Datos Fiscales
-              </Button>
-              <Table
-                registros={datosFiscales.map(({ ...rest }) => ({
-                  ...rest,
-                  edit: { ...rest, id_proveedor: proveedor.id },
-                  ver_cuentas: rest.id,
-                }))}
-                renderers={{
-                  edit: ({ value }: { value: DatosFiscales }) => (
-                    <Button
-                      icon={Pencil}
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleEditClick(value)}
-                    >
-                      Editar
-                    </Button>
-                  ),
-                  ver_cuentas: ({ value }) => (
-                    <Button
-                      icon={ExternalLink}
-                      size="sm"
-                      onClick={() => handleModalCuentas(value)}
-                    >
-                      Ver cuentas
-                    </Button>
-                  ),
-                  cuentas: ({ value }) => (
-                    <span className="font-semibold">{formatNumber(value)}</span>
-                  ),
-                }}
-                back={false}
-                next={false}
-              ></Table>
-            </div>
+                <div className="flex flex-col gap-2 justify-end items-end h-full max-w-7xl mx-auto w-full col-span-2">
+                  <Button
+                    onClick={() => {
+                      handleAddNewClick();
+                    }}
+                    size="sm"
+                    icon={Plus}
+                  >
+                    Crear Datos Fiscales
+                  </Button>
+                  <Table
+                    registros={datosFiscales.map(({ ...rest }) => ({
+                      ...rest,
+                      edit: { ...rest, id_proveedor: proveedor.id },
+                    }))}
+                    renderers={{
+                      edit: ({ value }: { value: DatosFiscales }) => (
+                        <Button
+                          icon={Pencil}
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleEditClick(value)}
+                        >
+                          Editar
+                        </Button>
+                      ),
+                    }}
+                  ></Table>
+                </div>
+              </TabsContent>
+              <TabsContent value="cuentas" className="space-y-4 p-4 w-full">
+                <div className="flex flex-col gap-2 justify-end items-end h-full max-w-7xl mx-auto w-full col-span-2">
+                  <Button
+                    onClick={() => {
+                      handleAddNewClickCuenta();
+                    }}
+                    size="sm"
+                    icon={Plus}
+                  >
+                    Crear Cuenta
+                  </Button>
+                  <Table
+                    registros={cuentas.map(({ id_proveedor, id, ...rest }) => ({
+                      alias: rest.alias,
+                      ...rest,
+                      edit: { ...rest, id_proveedor, id },
+                    }))}
+                    renderers={{
+                      edit: ({ value }: { value: ProveedorCuenta }) => (
+                        <Button
+                          icon={Pencil}
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleEditClickCuenta(value)}
+                        >
+                          Editar
+                        </Button>
+                      ),
+                    }}
+                  ></Table>
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
+        </TabsContent>
+        <TabsContent value="extra" className="space-y-4 p-4 w-full">
+          <h1 className="font-semibold text-gray-700 w-full border-b pb-2">
+            Tipo de proveedor: {proveedor.type.replaceAll("_", " ")}
+          </h1>
+          <InformacionAdicionalProveedor
+            type={proveedor.type}
+            editar={editar}
+            update={update}
+            draft={draft}
+          />
         </TabsContent>
       </Tabs>
     </div>
   );
 }
-
-// --- LÓGICA DE REDUCER Y HOOK (Sin cambios, solo tipos actualizados) ---
 
 type ProveedorState = {
   original: Proveedor;
@@ -515,144 +652,3 @@ function useProveedorEditor(proveedor: Proveedor) {
     getChanges,
   };
 }
-
-interface ModalCrearDatosFiscalesProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSave: (datos: DatosFiscales) => void;
-  id_proveedor: number;
-  selectedFiscal: DatosFiscales | null;
-}
-
-const ModalCrearDatosFiscales = ({
-  isOpen,
-  onClose,
-  onSave,
-  id_proveedor,
-  selectedFiscal,
-}: ModalCrearDatosFiscalesProps) => {
-  const [formData, setFormData] = useState<Partial<DatosFiscales>>({
-    rfc: "",
-    alias: "",
-    razon_social: "",
-  });
-
-  const handleChange = (field: keyof DatosFiscales, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handleConfirm = () => {
-    if (!formData.rfc || !formData.razon_social) {
-      alert("rfc y razon social es obligatorio");
-      return;
-    }
-    onSave({ ...formData, id_proveedor } as DatosFiscales);
-  };
-
-  useEffect(() => {
-    if (selectedFiscal) {
-      setFormData(selectedFiscal); // Si recibimos datos, los ponemos en el form
-    } else {
-      setFormData({
-        rfc: "",
-        alias: "",
-        razon_social: "",
-      });
-    }
-  }, [selectedFiscal, isOpen]);
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
-        {/* Header con estilo más limpio */}
-        <div className="p-5 border-b flex justify-between items-center bg-white">
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
-              <ReceiptText size={20} />
-            </div>
-            <h2 className="text-lg font-bold text-gray-800">
-              Nueva Información Fiscal
-            </h2>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <X size={24} />
-          </button>
-        </div>
-
-        {/* Cuerpo del Formulario */}
-        <div className="p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2">
-              <TextInput
-                label="Razon social"
-                value={formData.razon_social || ""}
-                onChange={(v) => handleChange("razon_social", v)}
-                placeholder="Ej: NOKTOS SA de CV"
-              />
-            </div>
-            <div className="col-span-1">
-              <TextInput
-                label="rfc *"
-                value={formData.rfc || ""}
-                onChange={(v) => handleChange("rfc", v)}
-                placeholder="XAXX010101000"
-              />
-            </div>
-            <div className="col-span-1">
-              <TextInput
-                label="Alias del registro"
-                value={formData.alias || ""}
-                onChange={(v) => handleChange("alias", v)}
-                placeholder="Ej: Cuenta Principal"
-              />
-            </div>
-          </div>
-        </div>
-        {/* Footer */}
-        <div className="p-5 border-t bg-gray-50 flex justify-end gap-3">
-          <Button variant="secondary" onClick={onClose} size="sm">
-            Cancelar
-          </Button>
-          <Button onClick={handleConfirm} icon={Plus} size="sm">
-            Guardar Información
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const ModalDataFiscal = ({ id }: { id: number }) => {
-  const [data, setData] = useState<DatosFiscales | null>(null);
-  const { showNotification } = useNotification();
-
-  useEffect(() => {
-    ProveedoresService.getInstance()
-      .get_data_fiscal(id)
-      .then((value) => setData(value.data))
-      .catch((error) =>
-        showNotification(
-          "error",
-          error.message || "Error al obtener datos fiscales"
-        )
-      );
-  }, []);
-
-  useEffect(() => {
-    console.log(data);
-  }, [data]);
-
-  if (!data)
-    return (
-      <div className="h-96 w-96 flex justify-center items-center">
-        <Loader></Loader>
-      </div>
-    );
-
-  return <div>hola</div>;
-};
