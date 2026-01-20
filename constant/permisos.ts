@@ -16,6 +16,7 @@ export const PERMISOS = {
     VIAJEROS: "view.viajeros",
     APLICACION_DE_SALDO: "view.apli-sald",
     CUENTAS_POR_COBRAR: "view.cuenta-cobr",
+    PROVEEDORES: "view.proveedores",
   },
   COMPONENTES: {
     BOTON: {
@@ -24,9 +25,14 @@ export const PERMISOS = {
       EDITAR_PRECIO_RESERVA: "button.edit-price-booking",
       ACTUALIZAR_PDF_FACTURA: "button.actualizar_factura_pdf",
     },
+    GROUP: {
+      PROVEEDORES_EDICIONES: "button.proveedores.edicion",
+      PROVEEDORES_EDICIONES_FINANZAS: "button.proveedores.fiscal",
+    },
   },
   VERSION: {
     AGREGAR_WALLET_OPERACIONES: "modal.operaciones-agregar-wallet",
     AGREGAR_WALLET_FINANZAS: "modal.finanzas-agregar-wallet",
+    PROVEEDORES_FINANZAS: "view.finanzas.proveedores",
   },
 } as const;

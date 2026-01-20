@@ -13,6 +13,7 @@ export class ProveedoresService extends ApiService {
       PROVEEDOR: "/",
       DATOS_FISCALES: "/datos_fiscales",
       CUENTAS: "/cuentas",
+      VUELO: "/vuelo",
     },
     POST: {
       DATOS_FISCALES: "/datos_fiscales",
@@ -107,6 +108,17 @@ export class ProveedoresService extends ApiService {
       path: this.formatPath(this.ENDPOINTS.GET.TYPE),
       params,
     });
+
+  //VUELO
+  public updateProveedorVuelo = async (
+    body: ProveedorVuelo
+  ): Promise<ApiResponse<ProveedorVuelo[]>> =>
+    this.put({ path: this.formatPath(this.ENDPOINTS.PUT.VUELO), body });
+
+  public createProveedorVuelo = async (
+    body: Omit<ProveedorVuelo, "id" | "created_at" | "updated_at">
+  ): Promise<ApiResponse<ProveedorVuelo[]>> =>
+    this.post({ path: this.formatPath(this.ENDPOINTS.PUT.VUELO), body });
 }
 
 //DATOS FISCALES
@@ -157,6 +169,7 @@ export interface ProveedorRaw {
   tipo_pago: "credito" | "prepago" | null;
   auto?: ProveedorRentaCarro;
   vuelo?: ProveedorVuelo[];
+  hotel?: ProveedorHotel;
 }
 
 export interface Proveedor
@@ -232,6 +245,16 @@ export type ProveedorVuelo = {
   equipaje_mano_o_carry_on: string | null;
   equipaje_documentado: string | null;
   servicios_adicionales: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+//HOTEL
+export type ProveedorHotel = {
+  comentarios: string;
+  salones: string;
+  mascotas: string;
+  transportacion: string;
 };
 
 //GENERAL
