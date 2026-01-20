@@ -117,45 +117,50 @@ function getEstatusPagoPayload(raw: any) {
 }
 
 function getTipoPago(raw: any): string {
-  const detalles = Array.isArray(raw?.detalles_pagos) ? raw.detalles_pagos : [];
-  const first = detalles?.[0] ?? null;
-
+  const forma_pag = raw?.solicitud_proveedor?.forma_pago_solicitada ;
+  let final;
+  switch (forma_pag) {
+    case "card":
+      final = "TARJETA"
+      break;
+      case "link":
+      final = "LINK_PAGO"
+      break;
+      case "transfer":
+        final = "TRANSFERENCIA"
+      
+      break;
+  
+    default:
+      break;
+  }
   return (
-    first?.tipo_de_pago ??
-    first?.metodo_de_pago ??
-    raw?.solicitud_proveedor?.forma_pago_solicitada ??
-    ""
+    final
   );
 }
 
-type TipoReservaInferida = "HOTEL" | "RENTA AUTO" | "FACTURA" | "";
+type TipoReservaInferida = "PREPAGO" | "CREDITO" | "";
 
 function inferTipoReserva(raw: any): TipoReservaInferida {
-  const isHotel = !!(raw?.id_hospedaje || raw?.hotel || raw?.room || raw?.codigo_reservacion_hotel);
-  if (isHotel) return "HOTEL";
 
-  const isRentaAuto = !!(raw?.id_renta_auto || raw?.id_car_rental || raw?.renta_auto || raw?.car_rental || raw?.vehiculo);
-  if (isRentaAuto) return "RENTA AUTO";
+  const isRentaAuto = (raw?.is_credito);
+  if (!isRentaAuto) {return "PREPAGO"
+  }
+  else{
+      return "CREDITO"
+    }
+  };
 
-  return "FACTURA";
-}
 
 type EstatusFacturaInferido = "FACTURADO" | "PARCIAL" | "SIN FACTURAR";
 
-function getEstatusFacturas(raw: any): EstatusFacturaInferido {
-  const facturas = Array.isArray(raw?.facturas) ? raw.facturas : [];
-  if (facturas.length === 0) return "SIN FACTURAR";
+function getEstatusFacturas(diferencia: any,costo_proveedor:any,baseFactura:any): EstatusFacturaInferido {
+  if (diferencia == 0)return "FACTURADO"; 
 
-  const pendienteRoot =
-    Number(raw?.pendiente_facturar ?? raw?.pendiente_por_facturar ?? raw?.pendiente ?? 0) || 0;
+  if (diferencia == costo_proveedor) return "SIN FACTURAR";
 
-  const pendienteEnFacturas = facturas.reduce((acc: number, f: any) => {
-    const p = Number(f?.pendiente_facturar ?? f?.pendiente_por_facturar ?? f?.pendiente ?? 0) || 0;
-    return Math.max(acc, p);
-  }, 0);
-
-  const pendiente = Math.max(pendienteRoot, pendienteEnFacturas);
-  return pendiente > 0 ? "PARCIAL" : "FACTURADO";
+  if (diferencia !=costo_proveedor)return "PARCIAL";
+  
 }
 
 /**
@@ -163,17 +168,19 @@ function getEstatusFacturas(raw: any): EstatusFacturaInferido {
  */
 function toConciliacionRow(raw: any, index: number): AnyRow {
   const row_id = getRowId(raw, index);
-
+  
   const id_solicitud_proveedor =
-    raw?.solicitud_proveedor?.id_solicitud_proveedor ??
-    raw?.id_solicitud_proveedor ??
-    null;
-
+  raw?.solicitud_proveedor?.id_solicitud_proveedor ??
+  raw?.id_solicitud_proveedor ??
+  null;
+  
   const id_proveedor =
-    raw?.id_proveedor ??
-    raw?.solicitud_proveedor?.id_proveedor ??
-    raw?.proveedor?.id_proveedor ??
-    null;
+  raw?.id_proveedor_resuelto ??
+  raw?.solicitud_proveedor?.id_proveedor ??
+  raw?.proveedor?.id_proveedor ??
+  null;
+  
+
 
   const hotel = (raw?.hotel ?? "").toString();
   const viajero = (raw?.nombre_viajero_completo ?? raw?.nombre_viajero ?? "").toString();
@@ -193,22 +200,23 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
   const comentariosOps =
     raw?.solicitud_proveedor?.comentarios ?? raw?.comentarios_ops ?? "";
 
-  const estatusFacturas = getEstatusFacturas(raw);
-  const estatusPagoObj = getEstatusPagoPayload(raw);
-
-  const total_facturado =
+    const estatusPagoObj = getEstatusPagoPayload(raw);
+    
+    const total_facturado =
     Number(raw?.total_facturado_en_pfp ?? raw?.total_facturado ?? 0) || 0;
-
-  const total_factura = Number(raw?.monto_facturado ?? 0) || 0;
-
-  const total_aplicable = raw?.total_aplicable ?? "";
-  const impuestos = raw?.impuestos ?? "";
-  const subtotal = raw?.subtotal ?? "";
-
-  const baseFactura =
+    
+    const total_factura = Number(raw?.monto_facturado ?? 0) || 0;
+    
+    const total_aplicable = raw?.total_aplicable ?? "";
+    const impuestos = raw?.impuestos ?? "";
+    const subtotal = raw?.subtotal ?? "";
+    
+    const baseFactura =
     Number(total_aplicable) || total_facturado || total_factura || 0;
-
-  const diferencia = costo_proveedor - baseFactura;
+    
+    const diferencia = Number((costo_proveedor - baseFactura).toFixed(2));
+    
+    const estatusFacturas = getEstatusFacturas(diferencia,costo_proveedor,baseFactura);
 
   const tarjeta = raw?.tarjeta?.ultimos_4 ?? raw?.ultimos_4 ?? "";
 
@@ -218,7 +226,7 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
     raw?.razon_social ??
     "";
 
-  const rfc = raw?.rfc_hotel ?? raw?.proveedor?.rfc ?? raw?.rfc ?? "";
+  const rfc = raw.rfc_proveedor;
 
   const id_servicio = raw?.id_servicio ?? null;
 
@@ -274,8 +282,10 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
     subtotal,
 
     razon_social,
-    rfc,
 
+    rfc:rfc,
+
+    item:{id_solicitud_proveedor,diferencia_costo_proveedor_vs_factura:diferencia},
     __raw: raw,
   };
 }
@@ -315,6 +325,9 @@ type ProveedorSeleccionado = {
 };
 
 export default function ConciliacionPage() {
+  const EPS = 0.01;
+  const isZero = (n: any) => Math.abs(Number(n) || 0) < EPS;
+
   const [isLoading, setIsLoading] = useState(false);
   const [showSubirFactura, setShowSubirFactura] = useState(false);
 
@@ -330,6 +343,9 @@ export default function ConciliacionPage() {
 
   const endpoint = `${URL}/mia/pago_proveedor/solicitud`;
   const editEndpoint = `${URL}/mia/pago_proveedor/edit`;
+
+  const [selectedRfc, setSelectedRfc] = useState<string>("");
+
 
   const closeSubirFactura = useCallback(() => {
     setShowSubirFactura(false);
@@ -380,6 +396,7 @@ const getSelectionKey = (rowOrValue: any, index?: number) => {
     const s = String(rowOrValue).trim();
     if (s !== "" && s !== "undefined" && s !== "null") return s;
   }
+
 
   // ✅ si Table5 manda el row completo (objeto)
   const row = rowOrValue && typeof rowOrValue === "object" ? rowOrValue : null;
@@ -501,7 +518,43 @@ const getSelectionKey = (rowOrValue: any, index?: number) => {
 
     return filteredItems.map((raw, i) => toConciliacionRow(raw, i));
   }, [todos, searchTerm]);
+  
+  // ---------------- RFC VALIDATION ----------------
+const normRfc = (v: any) => String(v ?? "").trim().toUpperCase();
 
+
+
+// Mapa rápido: selectionKey -> RFC
+const rfcByKey = useMemo(() => {
+  const m = new Map<string, string>();
+  (filteredData || []).forEach((row: AnyRow, index: number) => {
+    const key = getSelectionKey(row, index);
+    const rfc = normRfc(row?.rfc ?? row?.__raw?.rfc_proveedor ?? "");
+    m.set(key, rfc);
+  });
+  return m;
+}, [filteredData]);
+
+const getSelectedRfcInfo = useCallback(
+  (map: Record<string, boolean>) => {
+    const set = new Set<string>();
+
+    for (const [key, isSelected] of Object.entries(map)) {
+      if (!isSelected) continue;
+      const rfc = normRfc(rfcByKey.get(key) ?? "");
+      if (rfc) set.add(rfc);
+      if (set.size > 1) break;
+    }
+
+    const list = Array.from(set);
+    return {
+      ok: list.length <= 1,
+      rfc: list[0] ?? "",
+      rfcs: list,
+    };
+  },
+  [rfcByKey]
+);
   const customColumns = useMemo(
     () => [
       "seleccionar",
@@ -530,11 +583,7 @@ const getSelectionKey = (rowOrValue: any, index?: number) => {
       "total_facturado",
       "diferencia_costo_proveedor_vs_factura",
       "subir_factura",
-      "uuid_factura",
       "total_factura",
-      "total_aplicable",
-      "impuestos",
-      "subtotal",
       "razon_social",
       "rfc",
     ],
@@ -548,29 +597,56 @@ const getSelectionKey = (rowOrValue: any, index?: number) => {
     return Object.keys(selectedMap).filter((k) => selectedMap[k]);
   }, [selectedMap]);
 
-  const selectedRows = useMemo(() => {
-    return filteredData.filter((r: AnyRow) => {
-      const key = getSelectionKey(r);
-      return key ? !!selectedMap[key] : false;
-    });
-  }, [filteredData, selectedMap]);
+const selectedRows = useMemo(() => {
+  return filteredData.filter((r: AnyRow, index: number) => {
+    const key = getSelectionKey(r, index);
+    if (!key) return false;
+
+    const diff = Number(r?.diferencia_costo_proveedor_vs_factura ?? 0) || 0;
+    if (isZero(diff)) return false; // ✅ NO seleccionables
+
+    return !!selectedMap[key];
+  });
+}, [filteredData, selectedMap]);
 
   const clearSelection = useCallback(() => {
     setSelectedMap({});
   }, []);
 
-  const selectAllFiltered = useCallback(() => {
-    setSelectedMap((prev) => {
-      const next = { ...prev };
-      filteredData.forEach((r: AnyRow) => {
-        const key = getSelectionKey(r);
-        if (key) next[key] = true;
-      });
+const selectAllFiltered = useCallback(() => {
+  setSelectedMap((prev) => {
+    const next = { ...prev };
 
-      console.log("✅ SELECT ALL FILTERED -> selectedMap:", next);
-      return next;
+    const current = getSelectedRfcInfo(prev);
+    let baseRfc = current.rfc;
+
+    // Si no hay selección aún, tomamos el primer RFC válido del filtro
+    if (!baseRfc) {
+      const firstWithRfc = filteredData.find((r: AnyRow) => normRfc(r?.rfc));
+      baseRfc = normRfc(firstWithRfc?.rfc ?? "");
+    }
+
+    // Si aún no hay RFC (todo vacío), solo selecciona los que también estén vacíos
+    filteredData.forEach((r: AnyRow, index: number) => {
+  const diff = Number(r?.diferencia_costo_proveedor_vs_factura ?? 0) || 0;
+  if (isZero(diff)) return; // ✅ saltar fila si diff = 0
+
+  const key = getSelectionKey(r, index);
+  const rowRfc = normRfc(r?.rfc ?? "");
+
+  const ok =
+    baseRfc
+      ? rowRfc === baseRfc
+      : !rowRfc;
+
+  if (ok) next[key] = true;
     });
-  }, [filteredData]);
+
+
+    return next;
+  });
+}, [filteredData, getSelectedRfcInfo]);
+
 
   const selectedProveedorData = useMemo(() => {
     const arr = selectedRows
@@ -590,13 +666,6 @@ const getSelectionKey = (rowOrValue: any, index?: number) => {
 
     return arr;
   }, [selectedRows]);
-
-  // ✅ LOGS AUTOMÁTICOS cuando cambia selección
-  useEffect(() => {
-    console.log("📌 selectedIds:", selectedIds);
-    console.log("📌 selectedRows:", selectedRows);
-    console.log("📌 selectedProveedorData:", selectedProveedorData);
-  }, [selectedIds, selectedRows, selectedProveedorData]);
 
   // ✅ renderers
   const tableRenderers = useMemo<
@@ -715,45 +784,65 @@ const getSelectionKey = (rowOrValue: any, index?: number) => {
 
       // ✅ SELECCIÓN CORRECTA (NO MARCA TODOS)
       seleccionar: ({ value, item, index }) => {
-  // ✅ Table5 puede mandar row completo en item o solo value
-  const key = getSelectionKey(
-    item && typeof item === "object" ? item : value,
-    index
-  );
+        const diff = Number(item?.diferencia_costo_proveedor_vs_factura ?? 0) || 0;
 
-  const checked = !!selectedMap[key];
+        // ✅ si ya está conciliado, no permitimos selección
+        if (isZero(diff)) {
+          return <div className="w-4 h-4" />; // (espacio vacío)
+        }
 
-  return (
-    <div className="flex items-center justify-center">
-      <input
-        type="checkbox"
-        className="w-4 h-4"
-        checked={checked}
-        onChange={(e) => {
-          const isChecked = e.target.checked;
+        const key = getSelectionKey(
+          item && typeof item === "object" ? item : value,
+          index
+        );
 
-          setSelectedMap((prev) => {
-            const next = { ...prev };
+        const checked = !!selectedMap[key];
 
-            if (isChecked) next[key] = true;
-            else delete next[key];
+        return (
+          <div className="flex items-center justify-center">
+            <input
+              type="checkbox"
+              className="w-4 h-4"
+              checked={checked}
+              onChange={(e) => {
+                const isChecked = e.target.checked;
 
-            console.log("✅ CHECKBOX TOGGLE:", {
-              isChecked,
-              key,
-              value,
-              item,
-              selectedMapNext: next,
-            });
+                setSelectedMap((prev) => {
+                  const next = { ...prev };
 
-            return next;
-          });
-        }}
-      />
-    </div>
-  );
-},
+                  if (!isChecked) {
+                    delete next[key];
+                    return next;
+                  }
 
+                  const current = getSelectedRfcInfo(prev);
+                  const candidateRfc = normRfc(rfcByKey.get(key) ?? "");
+
+                  if (current.rfc && !candidateRfc) {
+                    alert(`No puedes mezclar seleccionados sin RFC.\nRFC seleccionado: ${current.rfc}`);
+                    return prev;
+                  }
+
+                  if (current.rfc && candidateRfc && candidateRfc !== current.rfc) {
+                    alert(
+                      `No puedes seleccionar filas con RFC diferente.\nRFC seleccionado: ${current.rfc}\nRFC nuevo: ${candidateRfc}`
+                    );
+                    return prev;
+                  }
+
+                  if (!current.ok) {
+                    alert(`Tienes seleccionados con RFC mezclado: ${current.rfcs.join(", ")}`);
+                    return prev;
+                  }
+
+                  next[key] = true;
+                  return next;
+                });
+              }}
+            />
+          </div>
+        );
+      },
 
       total_aplicable: ({ value, item }) => {
         const rowId = getSelectionKey(item); // ✅ FIX
@@ -831,36 +920,45 @@ const getSelectionKey = (rowOrValue: any, index?: number) => {
       },
 
       // ✅ Subir 1 fila
-      subir_factura: ({ value }) => {
-        return (
-          <button
-            type="button"
-            className="px-2 py-1 rounded-md text-xs border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-            onClick={() => {
-              const payload = [
-                {
-                  id_solicitud: String(value?.id_solicitud_proveedor ?? "").trim(),
-                  id_proveedor: String(value?.id_proveedor ?? "").trim(),
-                },
-              ].filter(
-                (x) =>
-                  x.id_solicitud &&
-                  x.id_solicitud !== "null" &&
-                  x.id_solicitud !== "undefined" &&
-                  x.id_proveedor &&
-                  x.id_proveedor !== "null" &&
-                  x.id_proveedor !== "undefined"
-              );
+      subir_factura: ({ item }) => {
+  const diff = Number(item?.diferencia_costo_proveedor_vs_factura ?? 0) || 0;
 
-              console.log("🚀 ABRIENDO MODAL SUBIR FACTURA (1 ROW):", payload);
+  // ✅ si no hay diferencia, no se sube factura
+  if (isZero(diff)) {
+    return <span className="text-xs text-gray-300">—</span>;
+  }
 
-              setSelectedForFactura(value);
-              setShowSubirFactura(true);
-            }}
-          >
-            Subir
-          </button>
+  return (
+    <button
+      type="button"
+      className="px-2 py-1 rounded-md text-xs border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+      onClick={() => {
+        const payload = [
+          {
+            id_solicitud: String(item?.id_solicitud_proveedor ?? "").trim(),
+            id_proveedor: String(item?.id_proveedor ?? "").trim(),
+          },
+        ].filter(
+          (x) =>
+            x.id_solicitud &&
+            x.id_solicitud !== "null" &&
+            x.id_solicitud !== "undefined" &&
+            x.id_proveedor &&
+            x.id_proveedor !== "null" &&
+            x.id_proveedor !== "undefined"
         );
+
+        console.log("🚀 ABRIENDO MODAL SUBIR FACTURA (1 ROW):", payload);
+
+        // ✅ fuerza modo single-row
+        clearSelection();
+        setSelectedForFactura(payload);
+        setShowSubirFactura(true);
+      }}
+    >
+      Subir
+    </button>
+  );
       },
 
       total_facturado: ({ value }) => <span title={String(value)}>{formatMoney(value)}</span>,
@@ -891,6 +989,12 @@ const getSelectionKey = (rowOrValue: any, index?: number) => {
   );
 
   const defaultSort = useMemo(() => ({ key: "creado", sort: false }), []);
+
+  useEffect(() => {
+  const info = getSelectedRfcInfo(selectedMap);
+  setSelectedRfc(info.rfc || "");
+}, [selectedMap, getSelectedRfcInfo]);
+
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -1004,11 +1108,25 @@ const getSelectionKey = (rowOrValue: any, index?: number) => {
             <button
               type="button"
               disabled={selectedRows.length === 0}
-              onClick={() => {
-                console.log("🚀 ABRIENDO MODAL SUBIR FACTURA (BULK):", selectedRows);
-                setSelectedForFactura(selectedProveedorData);
-                setShowSubirFactura(true);
-              }}
+onClick={() => {
+  const rfcs = Array.from(
+    new Set(
+      selectedRows
+        .map((r: AnyRow) => normRfc(r?.rfc))
+        .filter(Boolean)
+    )
+  );
+
+  if (rfcs.length > 1) {
+    alert(`No puedes subir facturas con RFC diferente.\nRFCs: ${rfcs.join(", ")}`);
+    return;
+  }
+
+  console.log("🚀 ABRIENDO MODAL SUBIR FACTURA (BULK):", selectedRows);
+  setSelectedForFactura(selectedProveedorData);
+  setShowSubirFactura(true);
+}}
+
               className={[
                 "px-3 py-2 rounded-lg text-sm border",
                 selectedRows.length === 0
@@ -1139,6 +1257,7 @@ const getSelectionKey = (rowOrValue: any, index?: number) => {
                 <SubirFactura
                   proveedoresData={selectedRows.length==0? selectedForFactura:selectedRows} // ✅ array [{id_solicitud,id_proveedor}]
                   id_proveedor={selectedRows.length === 1 ? selectedRows[0]?.id_proveedor : undefined}
+                  proveedoresRfc={selectedRfc}
                   autoOpen={true}
                   onSuccess={() => {
                     closeSubirFactura();

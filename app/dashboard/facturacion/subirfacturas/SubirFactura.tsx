@@ -15,6 +15,7 @@ import AsignarFacturaModal from "./AsignarFactura";
 import { obtenerPresignedUrl, subirArchivoAS3 } from "@/helpers/utils";
 
 interface SubirFacturaProps {
+  proveedoresRfc:String;
   pagoId?: string; // id del saldo tomado
   id_proveedor?: string;
   pagoData?: Pago | null; // datos del pago
@@ -150,9 +151,11 @@ const safeNumStr = (raw: string) => {
 
 const getIdSolicitudFromRow = (row: any): string => {
   // tolerante a campos variantes
+  console.log(row.id_solicitud_proveedor,"000000000🔽🔽🔽🔽")
   return String(
-    row?.id_solicitud ??
       row?.id_solicitud_proveedor ??
+      row?.row_id??
+      row?.id_solicitud ??
       row?.id_solicitud_pago_proveedor ??
       row?.id_solicitud_prov ??
       row?.id_solicitud_pp ??
@@ -161,13 +164,19 @@ const getIdSolicitudFromRow = (row: any): string => {
 };
 
 const getIdProveedorFromRow = (row: any): string => {
+  console.log(row,"🤬🤬🤬,informacion de hote")
   return String(row?.id_proveedor ?? row?.proveedor_id ?? row?.id ?? "");
+};
+const getCodigoHotelFromRow = (row: any): string => {
+  console.log(row,"🤬🤬🤬,informacion de hote")
+  return String(row?.codigo_hotel ?? row?.proveedor_id ?? row?.id ?? "");
 };
 
 export default function SubirFactura({
   pagoId,
   pagoData,
   id_proveedor = null,
+  proveedoresRfc=null,
   id_servicio,
   proveedoresData = null,
   onSuccess,
@@ -208,7 +217,7 @@ export default function SubirFactura({
       .map((row: any) => {
         const id_solicitud = getIdSolicitudFromRow(row);
         const id_proveedor = getIdProveedorFromRow(row);
-        const codigo_hotel = getIdProveedorFromRow(row);
+        const codigo_hotel = getCodigoHotelFromRow(row);
 
         console.log(id_solicitud,"🤬🤬🤬🤬",id_proveedor,"cam",row)
 
@@ -220,10 +229,9 @@ export default function SubirFactura({
           raw: row,
         };
       })
-      .filter((x) => x.id_solicitud && x.id_proveedor);
-
+      .filter((x) => x.id_solicitud);
+      console.log(normalized,"informacion",arr)
     setBatchAsociaciones(normalized);
-    console.log("enviados de array",arr,"nose",normalized)
 
   }, [isProveedorBatch, proveedoresData]);
 
@@ -745,10 +753,13 @@ export default function SubirFactura({
           return;
         }
 
+        console.log("informacion",batchAsociaciones)
+
         proveedoresPayloadFinal = batchAsociaciones.map((x) => ({
           id_solicitud: x.id_solicitud,
           id_proveedor: x.id_proveedor,
           monto_asociar: Number(x.monto_asociar || 0),
+          monto_solicitado:x.raw.costo_proveedor,
         }));
       } else if (isProveedorMode) {
         // proveedor single: mantenemos tu objeto original y agregamos monto
@@ -826,7 +837,7 @@ export default function SubirFactura({
         setFacturaCreada(facturaResponse);
       }
 
-      if (payload) {
+      if (payload ||proveedoresData) {
         alert("Factura asignada exitosamente");
         cerrarVistaPrevia();
       } else if (facturaPagada) {
@@ -876,11 +887,29 @@ export default function SubirFactura({
       // 1) Parsear XML
       const data = await parsearXML(archivoXML);
 
+      console.log("🚓🚓🚓🚓🚓informacion de xml",data)
+      console.log("informacion🔽🔽🔽🔽🔽",data.emisor.rfc)
+
       // ==========================
       // NUEVO: Batch NO usa selección de cliente ni empresas aquí
       // El back se encargará del automatch + datos fiscales.
       // ==========================
       if (isProveedorBatch) {
+        // const coincidencia = await fetchProveedoresDataFiscal()
+        console.log(proveedoresData,"klf vknriorv 😒😒😒😒😒😒😒",data.emisor.rfc,"cambios",proveedoresRfc)
+        
+
+        if ((data.emisor.rfc !== proveedoresRfc)) {
+          confirm(
+          `No hubo coincidencia con el RFC de la factura y de las solicitudes`
+        );
+        return;
+        }else if (data.comprobante.total < batchTotalAsociar) {
+confirm(
+          `No pueden ser esos montos`
+        );
+                return;
+        }
         setFacturaData(data);
         setMostrarModal(false);
         setMostrarVistaPrevia(true);
@@ -893,7 +922,7 @@ export default function SubirFactura({
       }
 
       // 3) Buscar empresa por RFC del receptor
-      const rfcReceptor = data.receptor.rfc;
+      const rfcReceptor = !proveedoresData ? data.receptor.rfc:data.emisor.rfc;
       const empresaCoincidente = empresasAgente.find(
         (emp) => emp.rfc === rfcReceptor
       );
