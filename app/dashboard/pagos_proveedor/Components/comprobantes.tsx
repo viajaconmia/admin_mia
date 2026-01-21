@@ -4,6 +4,8 @@ import React, { useState } from "react";
 import { Send, X, Info, Upload } from "lucide-react";
 import { URL as API_URL, API_KEY } from "@/lib/constants/index";
 import { useAuth } from "@/context/AuthContext";
+import { subirArchivoAS3Seguro } from "@/lib/utils";
+
 
 type Comprobante = {
   onClose: () => void;
@@ -231,6 +233,10 @@ export const ComprobanteModal: React.FC<Comprobante> = ({ onClose, onSubmit }) =
 
   const [pdfFiles, setPdfFiles] = useState<File[]>([]);
   const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [pdfUploading, setPdfUploading] = useState(false);
+  const [pdfUploadProgress, setPdfUploadProgress] = useState<{ done: number; total: number } | null>(
+  null
+  );
 
   const [formError, setFormError] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
@@ -324,144 +330,200 @@ export const ComprobanteModal: React.FC<Comprobante> = ({ onClose, onSubmit }) =
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormError(null);
-    setFileError(null);
+  e.preventDefault();
+  setFormError(null);
+  setFileError(null);
 
-    // Validaciones (masivo siempre)
-    if (!csvFile) {
-      setFormError("Por favor, sube el archivo CSV.");
+  if (!csvFile) {
+    setFormError("Por favor, sube el archivo CSV.");
+    return;
+  }
+
+  if (pdfFiles.length === 0) {
+    setFormError("Por favor, sube al menos un comprobante PDF.");
+    return;
+  }
+
+  if (csvLoading) {
+    setFormError("El CSV se está procesando. Intenta nuevamente en unos segundos.");
+    return;
+  }
+
+  try {
+    // ==========================
+    // 1) Procesar CSV completo
+    // ==========================
+    const csvText = await readFileAsText(csvFile);
+    const parsed = parseCSV(csvText);
+    const csvDataArray = procesarTodosLosDatosCSV(parsed);
+
+    if (csvDataArray.length === 0) {
+      setFormError("No se pudieron procesar los datos del CSV o el archivo está vacío.");
       return;
     }
 
-    if (pdfFiles.length === 0) {
-      setFormError("Por favor, sube al menos un comprobante PDF.");
+    // ==========================
+    // 2) Validar filas
+    // ==========================
+    const invalidRows = csvDataArray
+      .map((r, idx) => ({ r, idx }))
+      .filter(({ r }) => !r["codigo_dispersion"] || !r["id_dispersion"] || !r["cargo"]);
+
+    if (invalidRows.length > 0) {
+      const sample = invalidRows.slice(0, 3).map(({ idx }) => idx + 1).join(", ");
+      setFormError(
+        `Hay filas sin "codigo_dispersion", "id_dispersion" o "Cargo". Filas (1-based) ejemplo: ${sample}.`
+      );
       return;
     }
 
-    if (csvLoading) {
-      setFormError("El CSV se está procesando. Intenta nuevamente en unos segundos.");
+    // ==========================
+    // 3) Construir pagos + total cargo
+    // ==========================
+    const pagos = csvDataArray.map((r) => ({
+      codigo_dispersion: r["codigo_dispersion"],
+      id_dispersion: r["id_dispersion"],
+      cargo: Number(r["cargo"]),
+      referencia: r["Referencia Ampliada"] || r["Referencia"] || "",
+      fecha_operacion: r["Fecha Operación"] || "",
+      concepto: r["Concepto"] || "",
+    }));
+
+    const totalCargo = pagos.reduce(
+      (acc, p) => acc + (Number.isFinite(p.cargo) ? p.cargo : 0),
+      0
+    );
+
+    // ==========================
+    // 4) Código global único
+    // ==========================
+    const uniqueCodes = Array.from(
+      new Set(pagos.map((p) => p.codigo_dispersion).filter(Boolean))
+    );
+
+    if (uniqueCodes.length !== 1) {
+      setFormError(
+        `El CSV contiene múltiples códigos de dispersión (${uniqueCodes.join(
+          ", "
+        )}). Debe venir 1 solo código por carga masiva.`
+      );
       return;
     }
 
-    try {
-      // 1) Procesar CSV completo
-      const csvText = await readFileAsText(csvFile);
-      const parsed = parseCSV(csvText);
-      const csvDataArray = procesarTodosLosDatosCSV(parsed);
+    const codigoDispersionGlobal = uniqueCodes[0];
 
-      if (csvDataArray.length === 0) {
-        setFormError("No se pudieron procesar los datos del CSV o el archivo está vacío.");
-        return;
-      }
+    // ==========================
+    // 5) Montos por key (codigo+id)
+    // ==========================
+    const montosByDispersionKey: Record<string, string> = {};
+    for (const p of pagos) {
+      const key = `${p.codigo_dispersion}${p.id_dispersion}`;
+      montosByDispersionKey[key] = Number(p.cargo).toFixed(2);
+    }
 
-      // 2) Validar que cada fila tenga codigo/id/cargo
-      const invalidRows = csvDataArray
-        .map((r, idx) => ({ r, idx }))
-        .filter(({ r }) => !r["codigo_dispersion"] || !r["id_dispersion"] || !r["cargo"]);
+    // ==========================
+    // 6) SUBIR PDFs A S3 ✅✅✅
+    // ==========================
+    setPdfUploading(true);
+    setPdfUploadProgress({ done: 0, total: pdfFiles.length });
 
-      if (invalidRows.length > 0) {
-        const sample = invalidRows.slice(0, 3).map(({ idx }) => idx + 1).join(", ");
-        setFormError(
-          `Hay filas sin "codigo_dispersion", "id_dispersion" o "Cargo". Filas (1-based) ejemplo: ${sample}.`
-        );
-        return;
-      }
+    const pdfsSubidos: Array<{
+      name: string;
+      size: number;
+      type: string;
+      url: string;
+    }> = [];
 
-      // 3) Calcular montos por fila y total (cargo)
-      const pagos = csvDataArray.map((r) => ({
-        codigo_dispersion: r["codigo_dispersion"],
-        id_dispersion: r["id_dispersion"],
-        cargo: Number(r["cargo"]), // number
-        referencia: r["Referencia Ampliada"] || r["Referencia"] || "",
-        fecha_operacion: r["Fecha Operación"] || "",
-        concepto: r["Concepto"] || "",
-      }));
-
-      const totalCargo = pagos.reduce((acc, p) => acc + (Number.isFinite(p.cargo) ? p.cargo : 0), 0);
-
-      // 4) Obtener codigo_dispersion "global" si es único (si tu backend lo espera)
-      const uniqueCodes = Array.from(new Set(pagos.map((p) => p.codigo_dispersion).filter(Boolean)));
-      if (uniqueCodes.length !== 1) {
-        setFormError(
-          `El CSV contiene múltiples códigos de dispersión (${uniqueCodes.join(", ")}). Debe venir 1 solo código por carga masiva.`
-        );
-        return;
-      }
-      const codigoDispersionGlobal = uniqueCodes[0];
-
-      // 5) Construir objeto montos (por clave codigo+id) para que NO llegue null
-      //    Ej: { "DZQIH7C107": "720.00" }
-      const montosByDispersionKey: Record<string, string> = {};
-      for (const p of pagos) {
-        const key = `${p.codigo_dispersion}${p.id_dispersion}`;
-        montosByDispersionKey[key] = Number(p.cargo).toFixed(2);
-      }
-
-      // 6) Frontend data
-      const frontendData = {
-        user_created: user?.email || "system",
-        user_update: user?.email || "system",
-        concepto: "Pago a proveedor",
-        descripcion: "Pago generado desde sistema",
-        fecha_emision: new Date().toISOString(),
-        id_solicitud_proveedor: null,
-        url_pdf: null,
-      };
-
-      // 7) Payload final (masivo)
-      const payload = {
-        frontendData,
-        isMasivo: true,
-
-        // lo que ya mandabas
-        csvData: csvDataArray,
-
-        // NUEVO: estructura explícita lista para calcular / insertar en backend
-        pagos,
-        total_cargo: Number(totalCargo.toFixed(2)),
-
-        // para evitar nulls y por compatibilidad
-        codigo_dispersion: codigoDispersionGlobal,
-        montos: montosByDispersionKey,
-
-        // metadata
-        user: user?.id || null,
-
-        // opcional: metadata de PDFs (no sube el archivo, solo describe)
-        pdfs: pdfFiles.map((f) => ({ name: f.name, size: f.size, type: f.type })),
-      };
-
-      console.log("📦 Payload a enviar:", payload);
-
-      const response = await fetch(`${API_URL}/mia/pago_proveedor/pago`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": API_KEY,
-        },
-        body: JSON.stringify(payload),
+    for (const file of pdfFiles) {
+      const url = await subirArchivoAS3Seguro(file); // 👈 devuelve tu URL
+      pdfsSubidos.push({
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        url,
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        console.log("✅ Respuesta del backend:", data);
-
-        if (onSubmit) {
-          await onSubmit(payload);
-        }
-
-        onClose();
-      } else {
-        console.error("❌ Error backend:", data?.message || data?.error || data);
-        setFormError(data?.details || "Ocurrió un error al guardar la dispersión. Intenta nuevamente.");
-      }
-    } catch (err) {
-      console.error("Error inesperado:", err);
-      setFormError("Ocurrió un error al procesar la solicitud.");
+      setPdfUploadProgress((prev) => {
+        if (!prev) return { done: 1, total: pdfFiles.length };
+        return { ...prev, done: prev.done + 1 };
+      });
     }
+
+    setPdfUploading(false);
+
+    // ==========================
+    // 7) Frontend data
+    // ==========================
+    const frontendData = {
+      user_created: user?.email || "system",
+      user_update: user?.email || "system",
+      concepto: "Pago a proveedor",
+      descripcion: "Pago generado desde sistema",
+      fecha_emision: new Date().toISOString(),
+      id_solicitud_proveedor: null,
+
+      // si tu backend espera un url_pdf "single", manda el primero
+      url_pdf: pdfsSubidos[0]?.url || null,
+    };
+
+    // ==========================
+    // 8) Payload final (masivo)
+    // ==========================
+    const payload = {
+      frontendData,
+      isMasivo: true,
+
+      csvData: csvDataArray,
+
+      pagos,
+      total_cargo: Number(totalCargo.toFixed(2)),
+
+      codigo_dispersion: codigoDispersionGlobal,
+      montos: montosByDispersionKey,
+
+      user: user?.id || null,
+
+      // ✅ ahora sí va con URL real
+      pdfs: pdfsSubidos,
+
+      // opcional por si tu backend quiere todas juntas
+      url_pdf: pdfsSubidos[0].url,
+    };
+
+    console.log("📦 Payload a enviar:", payload);
+
+    const response = await fetch(`${API_URL}/mia/pago_proveedor/pago`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": API_KEY,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      console.log("✅ Respuesta del backend:", data);
+
+      if (onSubmit) {
+        await onSubmit(payload);
+      }
+
+      onClose();
+    } else {
+      console.error("❌ Error backend:", data?.message || data?.error || data);
+      setFormError(data?.details || "Ocurrió un error al guardar la dispersión. Intenta nuevamente.");
+    }
+  } catch (err) {
+    console.error("Error inesperado:", err);
+    setFormError("Ocurrió un error al procesar la solicitud.");
+  } finally {
+    setPdfUploading(false);
+    setPdfUploadProgress(null);
+  }
   };
+
 
   return (
     <div className="h-fit w-[95vw] max-w-xl relative bg-white rounded-lg shadow-lg">
@@ -627,15 +689,17 @@ export const ComprobanteModal: React.FC<Comprobante> = ({ onClose, onSubmit }) =
 
             <button
               type="submit"
-              disabled={!isMasivo || !csvFile || csvLoading || pdfFiles.length === 0}
+              disabled={!isMasivo || !csvFile || csvLoading || pdfFiles.length === 0 || pdfUploading}
               className={`flex-1 px-6 py-2.5 rounded-xl font-semibold text-white text-sm transition-all duration-200 flex items-center justify-center gap-2 ${
-                !csvFile || csvLoading || pdfFiles.length === 0
+                !csvFile || csvLoading || pdfFiles.length === 0 || pdfUploading
                   ? "bg-gray-400 cursor-not-allowed"
                   : "bg-blue-600 hover:bg-blue-700 shadow-sm"
               }`}
-            >
+              >
               <Send className="w-4 h-4" />
-              Subir comprobantes
+              {pdfUploading
+                ? `Subiendo PDFs... (${pdfUploadProgress?.done ?? 0}/${pdfUploadProgress?.total ?? 0})`
+                : "Subir comprobantes"}
             </button>
           </div>
         </form>
