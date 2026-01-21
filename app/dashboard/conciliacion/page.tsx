@@ -6,6 +6,7 @@ import { Table5 } from "@/components/Table5";
 import { URL, API_KEY } from "@/lib/constants/index";
 import { Filter, X, Search, Maximize2 } from "lucide-react";
 import SubirFactura from "@/app/dashboard/facturacion/subirfacturas/SubirFactura";
+import ModalDetalle from "@/app/dashboard/conciliacion/detalles"
 
 type AnyRow = Record<string, any>;
 
@@ -151,6 +152,35 @@ function inferTipoReserva(raw: any): TipoReservaInferida {
     }
   };
 
+  function extractFacturasYPagosFromPFP(raw: any) {
+  const v = raw?.pagos_facturas_proveedores_json;
+
+  // Soporta array directo o string JSON
+  const arr: any[] = Array.isArray(v)
+    ? v
+    : typeof v === "string"
+    ? JSON.parse(v)
+    : [];
+
+  const id_facturas = Array.from(
+    new Set(
+      arr
+        .map((x) => String(x?.id_factura ?? "").trim())
+        .filter(Boolean)
+    )
+  );
+
+  const id_pagos = Array.from(
+    new Set(
+      arr
+        .map((x) => String(x?.id_pago_proveedor ?? x?.id_pago ?? "").trim())
+        .filter(Boolean)
+    )
+  );
+
+  return { id_facturas, id_pagos };
+}
+
 
 type EstatusFacturaInferido = "FACTURADO" | "PARCIAL" | "SIN FACTURAR";
 
@@ -230,6 +260,8 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
 
   const id_servicio = raw?.id_servicio ?? null;
 
+  const asociaciones = extractFacturasYPagosFromPFP(raw)
+
   return {
     row_id,
     seleccionar: row_id, // ✅ solo para que exista la columna
@@ -285,7 +317,7 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
 
     rfc:rfc,
 
-    item:{id_solicitud_proveedor,diferencia_costo_proveedor_vs_factura:diferencia},
+    item:{id_solicitud_proveedor,diferencia_costo_proveedor_vs_factura:diferencia,asociaciones,informacion_completa:raw,id_proveedor},
     __raw: raw,
   };
 }
@@ -345,6 +377,18 @@ export default function ConciliacionPage() {
   const editEndpoint = `${URL}/mia/pago_proveedor/edit`;
 
   const [selectedRfc, setSelectedRfc] = useState<string>("");
+  const [detalleOpen, setDetalleOpen] = useState(false);
+  const [detalleSolicitud, setDetalleSolicitud] = useState<any | null>(null);
+
+  const openDetalle = useCallback((row: any) => {
+    setDetalleSolicitud(row);
+    setDetalleOpen(true);
+  }, []);
+
+  const closeDetalle = useCallback(() => {
+    setDetalleOpen(false);
+    setDetalleSolicitud(null);
+  }, []);
 
 
   const closeSubirFactura = useCallback(() => {
@@ -912,12 +956,13 @@ const selectAllFiltered = useCallback(() => {
           <button
             type="button"
             className="px-2 py-1 rounded-md text-xs border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
-            onClick={() => console.log("detalles raw:", item?.__raw)}
+            onClick={() => openDetalle(item)} // ✅ abrimos modal
           >
             Detalles
           </button>
         );
       },
+
 
       // ✅ Subir 1 fila
       subir_factura: ({ item }) => {
@@ -935,7 +980,7 @@ const selectAllFiltered = useCallback(() => {
       onClick={() => {
         const payload = [
           {
-            id_solicitud: String(item?.id_solicitud_proveedor ?? "").trim(),
+            id_solicitud: String(item?.id_solicitud_proveedor).trim(),
             id_proveedor: String(item?.id_proveedor ?? "").trim(),
           },
         ].filter(
@@ -947,7 +992,6 @@ const selectAllFiltered = useCallback(() => {
             x.id_proveedor !== "null" &&
             x.id_proveedor !== "undefined"
         );
-
         console.log("🚀 ABRIENDO MODAL SUBIR FACTURA (1 ROW):", payload);
 
         // ✅ fuerza modo single-row
@@ -985,7 +1029,7 @@ const selectAllFiltered = useCallback(() => {
 
       total_factura: ({ value }) => <span title={String(value)}>{formatMoney(value)}</span>,
     }),
-    [draftEdits, openEditModal, selectedMap]
+    [draftEdits, openEditModal, selectedMap,openDetalle ]
   );
 
   const defaultSort = useMemo(() => ({ key: "creado", sort: false }), []);
@@ -1268,6 +1312,10 @@ onClick={() => {
             </div>
           </div>
         )}
+        {detalleOpen && (
+          <ModalDetalle solicitud={detalleSolicitud} onClose={closeDetalle} />
+        )}
+
 
         {isLoading && (
           <div className="text-sm text-gray-500 px-2">Cargando información...</div>

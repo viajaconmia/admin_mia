@@ -353,7 +353,7 @@ function ProveedorCard({
             />
             <DateInput
               label="Vigencia del convenio"
-              value={draft.vigencia_convenio || ""}
+              value={(draft.vigencia_convenio || "").split("T")[0]}
               onChange={(e) => update("vigencia_convenio", e)}
               disabled={!editar}
             />
@@ -660,6 +660,7 @@ function useProveedorEditor(proveedor: Proveedor) {
     hasChanges: false,
     editar: false,
   });
+  const { showNotification } = useNotification();
 
   useEffect(() => {
     dispatch({ type: "INIT", payload: proveedor });
@@ -680,9 +681,20 @@ function useProveedorEditor(proveedor: Proveedor) {
     return changes;
   };
 
+  const toggleEdit = () => {
+    if (proveedor.type == "hotel") {
+      showNotification(
+        "info",
+        "Los hoteles solo se pueden editar en la parte de hoteles, aqui solo puedes agregar cuentas y datos fiscales del hotel"
+      );
+      return;
+    }
+    dispatch({ type: "TOGGLE_EDIT" });
+  };
+
   return {
     editar: state.editar,
-    toggleEdit: () => dispatch({ type: "TOGGLE_EDIT" }),
+    toggleEdit,
     draft: state.draft,
     hasChanges: state.hasChanges,
     update,

@@ -455,10 +455,6 @@ export const FacturacionModal: React.FC<{
   onClose,
   onConfirm,
 }) => {
-  // console.log("reservationInit", reservationsInit);
-  console.log("selectedItems", selectedItems);
-  console.log("selecthospedaj", selectedHospedaje);
-
   // console.log(reservationsInit.map((reserva) => reserva.items));
 
   // const reservations = reservationsInit;
@@ -472,6 +468,9 @@ export const FacturacionModal: React.FC<{
   //        impuestos: (item.total - Number(item.total) / 1.16).toFixed(2),
   //      })),
   //    }));
+  const [selectedDescription, setSelectedDescription] = useState<string>(
+    paymentDescriptions[0]
+  );
   const [reservations, setReservations] = useState(
     reservationsInit
       .filter((reserva) => reserva.items != null)
@@ -485,6 +484,7 @@ export const FacturacionModal: React.FC<{
       }))
   );
   const [fiscalDataList, setFiscalDataList] = useState<FiscalData[]>([]);
+  console.log("FISCAL DATA", fiscalDataList);
   const [selectedFiscalData, setSelectedFiscalData] =
     useState<FiscalData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -543,9 +543,19 @@ export const FacturacionModal: React.FC<{
     Exportation: "01",
     Items: [] as any[],
   });
+
+  //ESTE USEEFFECT SE CREO PARA HARDCODEAR AL CLIENTE AMPARO, NO SE QUITA O SI SE MUEVE DEBEMOS ACTUALIZARLO Y AVISAR A FINANZAS (QUE PIDE CAMBIOS HARDCODEADOS, SOLO PA DAR EL GUSTO UN RATO, POR MI AUMENTOOOO)
   useEffect(() => {
-    console.log("SELECTEDPAYMENTMETHOD", selectedPaymentMethod);
-  }, [selectedPaymentMethod]);
+    if (
+      fiscalDataList.some(
+        (empresa) =>
+          empresa?.id_agente == "11e1a5c7-1d44-485e-99a2-7fdf674058f3"
+      )
+    ) {
+      alert("Se detecto al cliente amparo, cambiaremos el servicio");
+      setSelectedDescription(paymentDescriptions[1]);
+    }
+  }, [fiscalDataList]);
   // Preparar los datos de las reservaciones con sus items seleccionados
   useEffect(() => {
     if (reservations.length > 0 && Object.keys(selectedItems).length > 0) {
@@ -569,8 +579,6 @@ export const FacturacionModal: React.FC<{
           };
         });
 
-      console.log("preparedReservations: ", preparedReservations);
-
       setReservationsWithSelectedItems(preparedReservations);
 
       // Cargar datos fiscales si no están cargados
@@ -584,7 +592,6 @@ export const FacturacionModal: React.FC<{
             const data = await fetchEmpresasDatosFiscales(
               preparedReservations[0].id_usuario_generador
             );
-            console.log("😊😊😊rrrrrrrrrrrrrrrrr", data);
             setFiscalDataList(data);
             if (data.length > 0) {
               setSelectedFiscalData(data[0]);
@@ -601,7 +608,6 @@ export const FacturacionModal: React.FC<{
     }
   }, [selectedItems, reservations]);
 
-  console.log("fiacla", fiscalDataList);
   const [customDescription, setCustomDescription] = useState("");
 
   // Actualizar CFDI cuando cambian los datos
@@ -651,7 +657,7 @@ export const FacturacionModal: React.FC<{
               ProductCode: "90111500",
               UnitCode: "E48",
               Unit: "Unidad de servicio",
-              Description: "Servicio de administración y Gestión de Reservas",
+              Description: selectedDescription, //AQUI CAMBIO
               //IdentificationNumber: "HSP",
               UnitPrice: subtotalConsolidado.toFixed(2),
               Subtotal: subtotalConsolidado.toFixed(2),
@@ -730,7 +736,7 @@ export const FacturacionModal: React.FC<{
                 ProductCode: "90121500",
                 UnitCode: "E48",
                 Unit: "Unidad de servicio",
-                Description: `Servicio de administración y Gestión de Reservas`,
+                Description: selectedDescription, //AQUI CAMBIO
                 //IdentificationNumber: `HSP-${reserva.id_servicio}`,
                 UnitPrice: subtotalSelected.toFixed(2),
                 Subtotal: subtotalSelected.toFixed(2),
@@ -762,7 +768,6 @@ export const FacturacionModal: React.FC<{
     isConsolidated,
   ]);
 
-  console.log(cfdi, "feeeeeeeeeeeeeeeeeeeee");
   const validateInvoiceData = () => {
     if (reservationsWithSelectedItems.length === 0) {
       alert("No hay items seleccionados para facturar");
@@ -819,8 +824,6 @@ export const FacturacionModal: React.FC<{
         }
       );
 
-      console.log("items con id_hospedaje", itemsFacturados);
-
       // Calcular totales
       const totalFacturado = itemsFacturados.reduce(
         (sum, item) => sum + item.monto,
@@ -850,7 +853,7 @@ export const FacturacionModal: React.FC<{
                   ProductCode: "90121500",
                   UnitCode: "E48",
                   Unit: "Unidad de servicio",
-                  Description: `Servicio de administración y Gestión de Reservas`,
+                  Description: selectedDescription, //AQUI CAMBIO
                   UnitPrice: subtotal.toFixed(2),
                   Subtotal: subtotal.toFixed(2),
                   TaxObject: "02",
@@ -888,7 +891,7 @@ export const FacturacionModal: React.FC<{
                   ProductCode: "90121500",
                   UnitCode: "E48",
                   Unit: "Unidad de servicio",
-                  Description: `Servicio de administración y Gestión de Reservas`,
+                  Description: selectedDescription, //AQUI CAMBIO
                   UnitPrice: subtotalReserva.toFixed(2),
                   Observations: descriptionToUse, // <— SOBRESCRIBE AQUÍ
                   Subtotal: subtotalReserva.toFixed(2),
@@ -1067,8 +1070,6 @@ export const FacturacionModal: React.FC<{
   const descriptionToUse = isCustomValid
     ? customDescription
     : defaultDescription;
-
-  console.log("descrip", customDescription);
 
   const totalAmount = reservationsWithSelectedItems.reduce(
     (sum, reserva) =>
@@ -1425,6 +1426,29 @@ export const FacturacionModal: React.FC<{
                 </p>
               </div>
             </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Descripción
+              </label>
+              <select
+                value={selectedDescription}
+                onChange={(e) => {
+                  setSelectedDescription(e.target.value);
+                  console.log(e.target.value);
+                  console.log(selectedDescription);
+                }}
+                className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              >
+                {paymentDescriptions.map((option) => (
+                  <option
+                    key={`option.value-${Math.round(Math.random() * 9999999)}`}
+                    value={option}
+                  >
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="mt-4 p-4 bg-gray-50 rounded-md">
@@ -1564,3 +1588,8 @@ export const FacturacionModal: React.FC<{
     </div>
   );
 };
+
+const paymentDescriptions = [
+  "Servicio de administración y gestión de Reservas",
+  "Servicio y Gestión de viajes",
+];

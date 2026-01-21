@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { CheckCircle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { new_edit } from "@/services/reservas";
+import { codigo_reserva, new_edit } from "@/services/reservas";
 import { MostrarSaldos } from "@/components/template/MostrarSaldos";
 import { isValid } from "date-fns";
 import {
@@ -43,11 +43,11 @@ interface ReservationFormProps {
 }
 
 export function ReservationForm2({
-  hoteles,
   onClose,
   edicion = true,
   solicitud,
 }: ReservationFormProps) {
+  const { hoteles } = useHoteles();
   let currentNoches = 0;
   let currentHotel;
   if (solicitud.check_in && solicitud.check_out) {
@@ -164,6 +164,21 @@ export function ReservationForm2({
 
   const handleSaldosSubmit = async (saldos, restante, usado) => {
     try {
+      const validateReservation = await codigo_reserva(
+        form.codigo_reservacion_hotel,
+        solicitud.id_booking
+      );
+      console.log("validacion", validateReservation);
+
+      // 1) Si falta código (tu fetch regresa { error: true, message: "Falta codigo_reserva" })
+      if (validateReservation?.error || validateReservation.exists) {
+        showNotification(
+          "error",
+          validateReservation.message || "Falta código de reservación"
+        );
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       console.log(
         Number(solicitud.total).toFixed(2) != Number(precio).toFixed(2),
@@ -232,7 +247,10 @@ export function ReservationForm2({
 
   useEffect(() => {
     try {
-      fetchViajerosFromAgent(solicitud.id_agente, ({ data }) => {
+      fetchViajerosFromAgent(solicitud.id_agente, (response) => {
+        const data: Viajero[] = (
+          "data" in response ? response.data : response
+        ) as Viajero[];
         const viajeroFiltrado = data.filter(
           (viajero) => viajero.id_viajero == solicitud.id_viajero_reserva
         );
