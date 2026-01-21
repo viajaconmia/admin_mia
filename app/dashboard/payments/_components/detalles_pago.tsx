@@ -5,7 +5,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { X, Copy, Check, FileText, ExternalLink } from "lucide-react";
 import { URL, HEADERS_API } from "@/lib/constants/index";
-import { formatNumberWithCommas } from "@/helpers/utils";
+import { formatDate, formatNumberWithCommas } from "@/helpers/utils";
 import { Table4 } from "@/components/organism/Table4";
 
 type ReservaAPI = {
@@ -79,13 +79,19 @@ interface ModalDetallePagoProps {
   onClose: () => void;
 }
 
-const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) => {
+const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({
+  pago,
+  onClose,
+}) => {
   if (!pago) return null;
 
   const id_buscar = (pago?.raw_id ?? pago?.id_saldos)?.toString();
 
-  const [copiedFacturaIdx, setCopiedFacturaIdx] = React.useState<number | null>(null);
-  const [detallesAdicionales, setDetallesAdicionales] = React.useState<any>(null);
+  const [copiedFacturaIdx, setCopiedFacturaIdx] = React.useState<number | null>(
+    null
+  );
+  const [detallesAdicionales, setDetallesAdicionales] =
+    React.useState<any>(null);
   const [loadingDetalles, setLoadingDetalles] = React.useState(false);
 
   // ✅ Nuevo: indica si ya hubo respuesta (éxito o fallback por error)
@@ -123,7 +129,8 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
   };
 
   const DateShortCell: React.FC<{ value: any }> = ({ value }) => {
-    if (!value || value === "N/A" || value === "0000-00-00") return <span>N/A</span>;
+    if (!value || value === "N/A" || value === "0000-00-00")
+      return <span>N/A</span>;
     try {
       const d = new Date(value);
       return <span>{format(d, "dd MMM yyyy", { locale: es })}</span>;
@@ -146,8 +153,6 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
     if (!id) return "N/A";
     return id.length > 4 ? `...${id.slice(-4)}` : id;
   };
-
-
 
   const getMetodoPago = (): string => {
     const metodo = pago.metodo || pago.tipo_pago || pago.metodo_pago || "";
@@ -198,7 +203,9 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
     if (!facturasData) return [];
     if (
       Array.isArray(facturasData) &&
-      facturasData.every((id) => typeof id === "string" && id.startsWith("fac-"))
+      facturasData.every(
+        (id) => typeof id === "string" && id.startsWith("fac-")
+      )
     ) {
       return facturasData;
     }
@@ -257,7 +264,9 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
 
   // ✅ Ahora toma reservas desde `detalles` (soporta ambos shapes)
   const reservasRows = React.useMemo(() => {
-    const reservas: ReservaAPI[] = Array.isArray(detalles?.reservas) ? detalles.reservas : [];
+    const reservas: ReservaAPI[] = Array.isArray(detalles?.reservas)
+      ? detalles.reservas
+      : [];
     return buildReservasRows(reservas);
   }, [detalles]);
 
@@ -284,10 +293,17 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
         {/* Header */}
         <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
           <div className="flex items-baseline gap-2">
-            <h2 className="text-xl font-bold text-gray-800">Detalles del Pago de</h2>
-            <p className="text-gray-700 font-medium">{pago.nombre_agente || "N/A"}</p>
+            <h2 className="text-xl font-bold text-gray-800">
+              Detalles del Pago de
+            </h2>
+            <p className="text-gray-700 font-medium">
+              {pago.nombre_agente || "N/A"}
+            </p>
           </div>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700"
+          >
             <X className="w-6 h-6" />
           </button>
         </div>
@@ -298,7 +314,9 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <div className="space-y-4">
               <div>
-                <h3 className="text-sm font-medium text-gray-500">ID del agente</h3>
+                <h3 className="text-sm font-medium text-gray-500">
+                  ID del agente
+                </h3>
                 <div className="mt-1 flex items-center gap-2">
                   <p className="text-sm font-mono bg-gray-100 px-3 py-1 rounded">
                     {formatIdItem(pago.id_agente)}
@@ -314,7 +332,9 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
               </div>
 
               <div>
-                <h3 className="text-sm font-medium text-gray-500">ID de Movimiento</h3>
+                <h3 className="text-sm font-medium text-gray-500">
+                  ID de Movimiento
+                </h3>
                 <div className="mt-1 flex items-center gap-2">
                   <p className="text-sm font-mono bg-gray-100 px-3 py-1 rounded">
                     {formatIdItem(id_buscar)}
@@ -331,28 +351,44 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
 
               <div>
                 <h3 className="text-sm font-medium text-gray-500">Concepto</h3>
-                <p className="mt-1 text-sm text-gray-800 font-medium">{pago.concepto || "N/A"}</p>
+                <p className="mt-1 text-sm text-gray-800 font-medium">
+                  {pago.concepto || "N/A"}
+                </p>
               </div>
 
               <div>
-                <h3 className="text-sm font-medium text-gray-500">Referencia</h3>
-                <p className="mt-1 text-sm text-gray-800">{pago.referencia || "N/A"}</p>
+                <h3 className="text-sm font-medium text-gray-500">
+                  Referencia
+                </h3>
+                <p className="mt-1 text-sm text-gray-800">
+                  {pago.referencia || "N/A"}
+                </p>
               </div>
 
               <div>
-                <h3 className="text-sm font-medium text-gray-500">Fecha de Pago</h3>
-                <p className="mt-1 text-sm text-gray-800">{formatDate(pago.fecha_pago)}</p>
+                <h3 className="text-sm font-medium text-gray-500">
+                  Fecha de Pago
+                </h3>
+                <p className="mt-1 text-sm text-gray-800">
+                  {formatDate(pago.fecha_pago)}
+                </p>
               </div>
             </div>
 
             <div className="space-y-4">
               <div>
-                <h3 className="text-sm font-medium text-gray-500">Método de Pago</h3>
-                <p className="mt-1 text-sm capitalize text-gray-800">{getMetodoPago()}</p>
+                <h3 className="text-sm font-medium text-gray-500">
+                  Método de Pago
+                </h3>
+                <p className="mt-1 text-sm capitalize text-gray-800">
+                  {getMetodoPago()}
+                </p>
               </div>
 
               <div>
-                <h3 className="text-sm font-medium text-gray-500">Estado de Facturación</h3>
+                <h3 className="text-sm font-medium text-gray-500">
+                  Estado de Facturación
+                </h3>
                 {(() => {
                   const isFacturado = pago.is_facturado === 1;
                   const saldoPorFacturar = Number(pago.monto_por_facturar) || 0;
@@ -368,7 +404,8 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
                     className = "bg-gray-100 text-gray-800 border-gray-300";
                     texto = "No facturado";
                   } else {
-                    className = "bg-yellow-100 text-yellow-800 border-yellow-300";
+                    className =
+                      "bg-yellow-100 text-yellow-800 border-yellow-300";
                     texto = "Parcial";
                   }
 
@@ -383,30 +420,44 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
               </div>
 
               <div>
-                <h3 className="text-sm font-medium text-gray-500">Fecha de Creación</h3>
-                <p className="mt-1 text-sm text-gray-800">{formatDate(pago.fecha_creacion)}</p>
+                <h3 className="text-sm font-medium text-gray-500">
+                  Fecha de Creación
+                </h3>
+                <p className="mt-1 text-sm text-gray-800">
+                  {formatDate(pago.fecha_creacion)}
+                </p>
               </div>
 
               <div>
-                <h3 className="text-sm font-medium text-gray-500">Origen del Pago</h3>
-                <p className="mt-1 text-sm text-gray-800">{pago.origen_pago || "Wallet"}</p>
+                <h3 className="text-sm font-medium text-gray-500">
+                  Origen del Pago
+                </h3>
+                <p className="mt-1 text-sm text-gray-800">
+                  {pago.origen_pago || "Wallet"}
+                </p>
               </div>
             </div>
           </div>
 
           {/* Montos */}
           <div className="border-t border-b border-gray-200 py-6 mb-6">
-            <h3 className="text-lg font-semibold mb-4 text-blue-800">Resumen de Montos</h3>
+            <h3 className="text-lg font-semibold mb-4 text-blue-800">
+              Resumen de Montos
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-blue-50 p-4 rounded-lg shadow-sm border border-blue-100">
-                <h4 className="text-sm font-semibold text-blue-700">Total de pago</h4>
+                <h4 className="text-sm font-semibold text-blue-700">
+                  Total de pago
+                </h4>
                 <p className="text-2xl font-bold text-blue-800">
                   {formatNumberWithCommas(pago.monto)}
                 </p>
               </div>
 
               <div className="bg-blue-50 p-4 rounded-lg shadow-sm border border-blue-100">
-                <h4 className="text-sm font-semibold text-blue-700">Monto por facturar</h4>
+                <h4 className="text-sm font-semibold text-blue-700">
+                  Monto por facturar
+                </h4>
                 <p className="text-2xl font-bold text-blue-800">
                   {formatNumberWithCommas(pago.monto_por_facturar)}
                 </p>
@@ -414,24 +465,32 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
 
               <div className="bg-gray-50 p-4 rounded-lg shadow-sm border border-gray-200">
                 <h4 className="text-sm font-medium text-gray-500">Moneda</h4>
-                <p className="text-xl font-semibold text-gray-700">{pago.currency || "MXN"}</p>
+                <p className="text-xl font-semibold text-gray-700">
+                  {pago.currency || "MXN"}
+                </p>
               </div>
             </div>
           </div>
 
           {/* Info agente */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-purple-800 mb-4">Información del Agente</h3>
+            <h3 className="text-lg font-semibold text-purple-800 mb-4">
+              Información del Agente
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-purple-50 border border-purple-100 p-4 rounded-lg shadow-sm">
-                <h4 className="text-sm font-medium text-purple-700">ID Agente</h4>
+                <h4 className="text-sm font-medium text-purple-700">
+                  ID Agente
+                </h4>
                 <p className="mt-1 text-sm font-mono text-purple-900">
                   {formatIdItem(pago.id_agente || pago.ig_agente)}
                 </p>
               </div>
 
               <div className="bg-purple-50 border border-purple-100 p-4 rounded-lg shadow-sm">
-                <h4 className="text-sm font-medium text-purple-700">Nombre del Agente</h4>
+                <h4 className="text-sm font-medium text-purple-700">
+                  Nombre del Agente
+                </h4>
                 <p className="mt-1 text-sm font-semibold text-purple-900">
                   {pago.nombre_agente || "N/A"}
                 </p>
@@ -440,12 +499,17 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
           </div>
 
           {/* Info tarjeta */}
-          {(pago.metodo?.includes("tarjeta") || pago.tipo_pago?.includes("tarjeta")) && (
+          {(pago.metodo?.includes("tarjeta") ||
+            pago.tipo_pago?.includes("tarjeta")) && (
             <div className="mb-6">
-              <h3 className="text-lg font-semibold text-purple-800 mb-4">Información de Tarjeta</h3>
+              <h3 className="text-lg font-semibold text-purple-800 mb-4">
+                Información de Tarjeta
+              </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-purple-50 border border-purple-100 p-4 rounded-lg shadow-sm">
-                  <h4 className="text-sm font-medium text-purple-700">Tipo de Tarjeta</h4>
+                  <h4 className="text-sm font-medium text-purple-700">
+                    Tipo de Tarjeta
+                  </h4>
                   <p className="mt-1 text-sm font-semibold capitalize text-purple-900">
                     {getTipoTarjeta()}
                   </p>
@@ -453,18 +517,24 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
 
                 <div className="bg-purple-50 border border-purple-100 p-4 rounded-lg shadow-sm">
                   <h4 className="text-sm font-medium text-purple-700">Banco</h4>
-                  <p className="mt-1 text-sm font-semibold text-purple-900">{pago.banco || "N/A"}</p>
+                  <p className="mt-1 text-sm font-semibold text-purple-900">
+                    {pago.banco || "N/A"}
+                  </p>
                 </div>
 
                 <div className="bg-purple-50 border border-purple-100 p-4 rounded-lg shadow-sm">
-                  <h4 className="text-sm font-medium text-purple-700">Últimos Dígitos</h4>
+                  <h4 className="text-sm font-medium text-purple-700">
+                    Últimos Dígitos
+                  </h4>
                   <p className="mt-1 text-sm font-mono text-purple-900 bg-white px-2 py-1 rounded border border-purple-200 w-fit">
                     {pago.last_digits || "N/A"}
                   </p>
                 </div>
 
                 <div className="bg-purple-50 border border-purple-100 p-4 rounded-lg shadow-sm">
-                  <h4 className="text-sm font-medium text-purple-700">Autorización</h4>
+                  <h4 className="text-sm font-medium text-purple-700">
+                    Autorización
+                  </h4>
                   <p className="mt-1 text-sm font-mono text-purple-900">
                     {formatIdItem(pago.autorizacion)}
                   </p>
@@ -489,7 +559,9 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-lg shadow-sm">
-                  <h4 className="text-sm font-medium text-indigo-700">Referencia SPEI</h4>
+                  <h4 className="text-sm font-medium text-indigo-700">
+                    Referencia SPEI
+                  </h4>
                   <p className="mt-1 text-sm font-semibold text-indigo-900">
                     {pago.referencia || "N/A"}
                   </p>
@@ -497,7 +569,9 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
 
                 <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-lg shadow-sm">
                   <h4 className="text-sm font-medium text-indigo-700">Banco</h4>
-                  <p className="mt-1 text-sm font-semibold text-indigo-900">{pago.banco || "N/A"}</p>
+                  <p className="mt-1 text-sm font-semibold text-indigo-900">
+                    {pago.banco || "N/A"}
+                  </p>
                 </div>
               </div>
             </div>
@@ -505,7 +579,9 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
 
           {/* ✅ Reservas asociadas: Cargando / Tabla / No info */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold mb-4 text-green-800">Reservas Asociadas</h3>
+            <h3 className="text-lg font-semibold mb-4 text-green-800">
+              Reservas Asociadas
+            </h3>
 
             {!hasFetchedDetalles || loadingDetalles ? (
               <p className="text-sm text-gray-500">Cargando...</p>
@@ -545,8 +621,12 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
               />
             ) : (
               <div className="border border-gray-200 bg-gray-50 rounded-lg p-4">
-                <p className="text-sm text-gray-700 font-semibold">No se encontró información</p>
-                <p className="text-xs text-gray-500 mt-1">Este pago no tiene reservas asociadas.</p>
+                <p className="text-sm text-gray-700 font-semibold">
+                  No se encontró información
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Este pago no tiene reservas asociadas.
+                </p>
               </div>
             )}
           </div>
@@ -570,7 +650,10 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
                   const fechaVenc = formatDateShort(f.fecha_vencimiento);
 
                   return (
-                    <div key={id} className="border border-gray-200 rounded-lg p-4 shadow-sm bg-white">
+                    <div
+                      key={id}
+                      className="border border-gray-200 rounded-lg p-4 shadow-sm bg-white"
+                    >
                       <div className="flex items-start justify-between gap-4">
                         <div>
                           <div className="flex items-center gap-2">
@@ -594,52 +677,84 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
 
                           <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
                             <div className="bg-blue-50 border border-blue-100 rounded p-3">
-                              <div className="text-xs text-blue-700 font-semibold">Total</div>
-                              <div className="text-lg font-bold text-blue-900">{total}</div>
+                              <div className="text-xs text-blue-700 font-semibold">
+                                Total
+                              </div>
+                              <div className="text-lg font-bold text-blue-900">
+                                {total}
+                              </div>
                             </div>
                             <div className="bg-gray-50 border border-gray-200 rounded p-3">
-                              <div className="text-xs text-gray-600 font-semibold">Subtotal</div>
-                              <div className="text-base font-semibold text-gray-800">{subtotal}</div>
+                              <div className="text-xs text-gray-600 font-semibold">
+                                Subtotal
+                              </div>
+                              <div className="text-base font-semibold text-gray-800">
+                                {subtotal}
+                              </div>
                             </div>
                             <div className="bg-gray-50 border border-gray-200 rounded p-3">
-                              <div className="text-xs text-gray-600 font-semibold">Impuestos</div>
-                              <div className="text-base font-semibold text-gray-800">{impuestos}</div>
+                              <div className="text-xs text-gray-600 font-semibold">
+                                Impuestos
+                              </div>
+                              <div className="text-base font-semibold text-gray-800">
+                                {impuestos}
+                              </div>
                             </div>
                           </div>
 
                           <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
                             <div>
-                              <div className="text-xs text-gray-500 font-medium">Saldo</div>
-                              <div className="text-sm font-semibold">{saldo}</div>
+                              <div className="text-xs text-gray-500 font-medium">
+                                Saldo
+                              </div>
+                              <div className="text-sm font-semibold">
+                                {saldo}
+                              </div>
                             </div>
                             <div>
-                              <div className="text-xs text-gray-500 font-medium">Emisión</div>
+                              <div className="text-xs text-gray-500 font-medium">
+                                Emisión
+                              </div>
                               <div className="text-sm">{fechaEmision}</div>
                             </div>
                             <div>
-                              <div className="text-xs text-gray-500 font-medium">Vencimiento</div>
+                              <div className="text-xs text-gray-500 font-medium">
+                                Vencimiento
+                              </div>
                               <div className="text-sm">{fechaVenc}</div>
                             </div>
                           </div>
 
                           <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
                             <div>
-                              <div className="text-xs text-gray-500 font-medium">RFC Receptor</div>
-                              <div className="text-sm font-mono">{f.rfc || "N/A"}</div>
+                              <div className="text-xs text-gray-500 font-medium">
+                                RFC Receptor
+                              </div>
+                              <div className="text-sm font-mono">
+                                {f.rfc || "N/A"}
+                              </div>
                             </div>
                             <div>
-                              <div className="text-xs text-gray-500 font-medium">RFC Emisor</div>
-                              <div className="text-sm font-mono">{f.rfc_emisor || "N/A"}</div>
+                              <div className="text-xs text-gray-500 font-medium">
+                                RFC Emisor
+                              </div>
+                              <div className="text-sm font-mono">
+                                {f.rfc_emisor || "N/A"}
+                              </div>
                             </div>
                             <div className="md:col-span-2">
-                              <div className="text-xs text-gray-500 font-medium">UUID</div>
+                              <div className="text-xs text-gray-500 font-medium">
+                                UUID
+                              </div>
                               <div className="flex items-center gap-2 mt-1">
                                 <span className="text-sm font-mono bg-gray-100 px-2 py-1 rounded break-all">
                                   {f.uuid_factura || "N/A"}
                                 </span>
                                 {f.uuid_factura && (
                                   <button
-                                    onClick={() => handleCopy(f.uuid_factura, idx)}
+                                    onClick={() =>
+                                      handleCopy(f.uuid_factura, idx)
+                                    }
                                     className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
                                     title="Copiar UUID"
                                     type="button"
@@ -661,31 +776,44 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
                             </div>
                           </div>
 
-                          {Array.isArray(f.pagos_asociados) && f.pagos_asociados.length > 0 && (
-                            <div className="mt-3">
-                              <div className="text-xs text-gray-500 font-medium mb-1">
-                                Pagos asociados (resumen)
+                          {Array.isArray(f.pagos_asociados) &&
+                            f.pagos_asociados.length > 0 && (
+                              <div className="mt-3">
+                                <div className="text-xs text-gray-500 font-medium mb-1">
+                                  Pagos asociados (resumen)
+                                </div>
+                                <div className="text-xs text-gray-700">
+                                  {f.pagos_asociados.map(
+                                    (p: any, i: number) => (
+                                      <div
+                                        key={i}
+                                        className="flex flex-wrap gap-4"
+                                      >
+                                        <div>
+                                          <b>ID Pago:</b> {p.id_pago ?? "N/A"}
+                                        </div>
+                                        <div>
+                                          <b>Monto:</b>{" "}
+                                          {formatCurrency(p.monto ?? 0)}
+                                        </div>
+                                        <div>
+                                          <b>Facturado:</b>{" "}
+                                          {formatCurrency(
+                                            p.monto_facturado ?? 0
+                                          )}
+                                        </div>
+                                        <div>
+                                          <b>Por facturar:</b>{" "}
+                                          {formatCurrency(
+                                            p.monto_por_facturar ?? 0
+                                          )}
+                                        </div>
+                                      </div>
+                                    )
+                                  )}
+                                </div>
                               </div>
-                              <div className="text-xs text-gray-700">
-                                {f.pagos_asociados.map((p: any, i: number) => (
-                                  <div key={i} className="flex flex-wrap gap-4">
-                                    <div>
-                                      <b>ID Pago:</b> {p.id_pago ?? "N/A"}
-                                    </div>
-                                    <div>
-                                      <b>Monto:</b> {formatCurrency(p.monto ?? 0)}
-                                    </div>
-                                    <div>
-                                      <b>Facturado:</b> {formatCurrency(p.monto_facturado ?? 0)}
-                                    </div>
-                                    <div>
-                                      <b>Por facturar:</b> {formatCurrency(p.monto_por_facturar ?? 0)}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
+                            )}
                         </div>
 
                         {/* Acciones (PDF / XML) */}
@@ -701,7 +829,9 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
                               Abrir PDF
                             </a>
                           ) : (
-                            <span className="text-xs text-gray-400">Sin PDF</span>
+                            <span className="text-xs text-gray-400">
+                              Sin PDF
+                            </span>
                           )}
 
                           {f.url_xml ? (
@@ -715,7 +845,9 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
                               Abrir XML
                             </a>
                           ) : (
-                            <span className="text-xs text-gray-400">Sin XML</span>
+                            <span className="text-xs text-gray-400">
+                              Sin XML
+                            </span>
                           )}
                         </div>
                       </div>
@@ -726,7 +858,9 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
             ) : facturaIds.length > 0 ? (
               <div className="space-y-2">
                 <div className="border border-gray-200 bg-gray-50 rounded-lg p-4">
-                  <p className="text-sm text-gray-700 font-semibold">No se encontró información</p>
+                  <p className="text-sm text-gray-700 font-semibold">
+                    No se encontró información
+                  </p>
                   <p className="text-xs text-gray-500 mt-1">
                     No hay detalle de facturas, pero existen IDs asociados:
                   </p>
@@ -748,7 +882,11 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
                         title="Copiar ID de factura"
                         type="button"
                       >
-                        {isCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                        {isCopied ? (
+                          <Check className="w-4 h-4" />
+                        ) : (
+                          <Copy className="w-4 h-4" />
+                        )}
                         {isCopied ? "Copiado" : "Copiar"}
                       </button>
                     </div>
@@ -757,7 +895,9 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({ pago, onClose }) =>
               </div>
             ) : (
               <div className="border border-gray-200 bg-gray-50 rounded-lg p-4">
-                <p className="text-sm text-gray-700 font-semibold">No se encontró información</p>
+                <p className="text-sm text-gray-700 font-semibold">
+                  No se encontró información
+                </p>
                 <p className="text-xs text-gray-500 mt-1">
                   Este pago no tiene facturas asociadas.
                 </p>
