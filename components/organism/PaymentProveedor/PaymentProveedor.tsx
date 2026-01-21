@@ -25,14 +25,13 @@ import {
   TextAreaInput,
   TextInput,
 } from "../../atom/Input";
-import { Solicitud, Solicitud2 } from "@/types";
-import { updateRoom } from "@/lib/utils";
 import ReservationDetails from "./ReservationDetails";
 import { useFetchCards } from "@/hooks/useFetchCard";
 import { paymentReducer, getInitialState } from "./reducer";
-import { Card } from "@/components/ui/card";
 import { fetchCreateSolicitud } from "@/services/pago_proveedor";
 import { Reserva, type ReservaHandle } from "./cupon";
+import { BookingAll } from "@/services/BookingService";
+import { updateRoom } from "@/lib/utils";
 
 type PaymentStatus =
   | "pagada"
@@ -45,35 +44,49 @@ type PaymentStatus =
 function computePaymentStatus(opts: {
   paymentType: "prepaid" | "credit";
   paymentMethod?: "transfer" | "card" | "link";
-  useQR?: "qr" | "code"; // en tu UI: "Con QR" => "qr", "En archivo" => "code"
+  useQR?: "qr" | "code";
 }): PaymentStatus {
   const { paymentType, paymentMethod, useQR } = opts;
 
-  // Crédito -> cupón enviado
-  if (paymentType === "credit") return "cupon enviado";
+  if (paymentType === "credit") return "cupon_enviado";
 
-  // Prepago:
   if (paymentMethod === "link") return "pagada";
-  if (paymentMethod === "transfer") return "spei solicitado";
+  if (paymentMethod === "transfer") return "spei_solicitado";
   if (paymentMethod === "card") {
-    // Con QR -> enviada para cobro
-    if (useQR === "qr") return "enviada para cobro";
-    // Pago con tarjeta (sin QR / en archivo) -> pago tdc
-    return "pago tdc";
+    if (useQR === "qr") return "enviada_para_cobro";
+    return "pago_tdc";
   }
 
-  // Fallback seguro
   return "pendiente";
+}
+
+/** ===== Calendario de pagos ===== */
+type PaymentScheduleRow = {
+  id: string;
+  date: string; // YYYY-MM-DD
+  amount: number | ""; // permite vacío mientras escriben
+};
+
+function safeUUID() {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `row_${Math.random().toString(16).slice(2)}_${Date.now()}`;
+}
+
+function to2(n: number) {
+  return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 
 export const PaymentModal = ({
   reservation,
 }: {
-  reservation: Solicitud2 | null;
+  reservation: BookingAll | null;
 }) => {
   const reservaRef = useRef<ReservaHandle>(null);
   const { data, fetchData } = useFetchCards();
   const [isReservaOpen, setIsReservaOpen] = useState(false);
+
   const [state, dispatch] = useReducer(
     paymentReducer,
     reservation,
@@ -94,15 +107,125 @@ export const PaymentModal = ({
     emails,
     cargo,
     document,
-    paymentStatus, // 'pagado' | 'enviado' (string)
   } = state;
+
+  // NUEVO: Comentarios CXP (local para no tocar tu reducer)
+  const [commentsCxp, setCommentsCxp] = useState<string>("");
 
   if (!reservation) return null;
 
   const reservationTotal = Number(reservation.costo_total) || 0;
-  const balanceToApply = parseFloat(favorBalance) || 0;
-  const monto_a_pagar = reservationTotal - balanceToApply || 0;
+  const balanceToApply = parseFloat(String(favorBalance ?? "")) || 0;
+  const monto_a_pagar = to2(reservationTotal - balanceToApply);
 
+  const todayISO = useMemo(() => {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  }, []);
+
+  /** ====== Calendario (solo card/link) ====== */
+  const [paymentSchedule, setPaymentSchedule] = useState<PaymentScheduleRow[]>(
+    () => [
+      {
+        id: safeUUID(),
+        date: (date as string) || todayISO,
+        amount: monto_a_pagar || 0,
+      },
+    ]
+  );
+
+  // Si cambia el monto (saldo a favor, etc) y el schedule tiene 1 fila, lo sincronizamos
+  useEffect(() => {
+    setPaymentSchedule((rows) => {
+      if (rows.length !== 1) return rows;
+      return [
+        {
+          ...rows[0],
+          date: rows[0].date || (date as string) || todayISO,
+          amount: monto_a_pagar,
+        },
+      ];
+    });
+  }, [monto_a_pagar, date, todayISO]);
+
+  const scheduleTotal = useMemo(() => {
+    return to2(
+      paymentSchedule.reduce((acc, r) => {
+        const n = r.amount === "" ? 0 : Number(r.amount);
+        return acc + (Number.isFinite(n) ? n : 0);
+      }, 0)
+    );
+  }, [paymentSchedule]);
+
+  const shouldShowSchedule =
+    paymentType === "prepaid" &&
+    (paymentMethod === "card" || paymentMethod === "link");
+
+  const addScheduleRow = () => {
+    setPaymentSchedule((rows) => [
+      ...rows,
+      { id: safeUUID(), date: "", amount: "" },
+    ]);
+  };
+
+  const removeScheduleRow = (id: string) => {
+    setPaymentSchedule((rows) =>
+      rows.length <= 1 ? rows : rows.filter((r) => r.id !== id)
+    );
+  };
+
+  const updateScheduleRow = (
+    id: string,
+    patch: Partial<PaymentScheduleRow>,
+    rowIndex?: number
+  ) => {
+    setPaymentSchedule((rows) =>
+      rows.map((r, idx) => {
+        if (r.id !== id) return r;
+        const next = { ...r, ...patch };
+        // compat: si cambian la 1a fecha, reflejamos date del reducer
+        if (rowIndex === 0 && typeof patch.date === "string") {
+          dispatch({ type: "SET_FIELD", field: "date", payload: patch.date });
+        }
+        return next;
+      })
+    );
+  };
+
+  const validateAndBuildSchedulePayload = () => {
+    // Solo para card/link
+    const normalized = paymentSchedule.map((r) => ({
+      fecha_pago: (r.date || "").trim(),
+      monto: r.amount === "" ? NaN : Number(r.amount),
+    }));
+
+    if (normalized.some((r) => !r.fecha_pago)) {
+      throw new Error(
+        "Falta capturar la fecha en una o más filas del calendario de pagos."
+      );
+    }
+    if (normalized.some((r) => !Number.isFinite(r.monto) || r.monto <= 0)) {
+      throw new Error(
+        "Todos los montos del calendario de pagos deben ser mayores a 0."
+      );
+    }
+
+    const sum = to2(normalized.reduce((acc, r) => acc + (r.monto || 0), 0));
+    if (Math.abs(sum - monto_a_pagar) > 0.01) {
+      throw new Error(
+        `La suma del calendario de pagos (${sum.toFixed(
+          2
+        )}) debe ser igual al monto a pagar (${monto_a_pagar.toFixed(2)}).`
+      );
+    }
+
+    return normalized;
+  };
+
+  /** ===== Tarjetas ===== */
   const creditCards = Array.isArray(data)
     ? data.map((card) => ({
         ...card,
@@ -114,8 +237,9 @@ export const PaymentModal = ({
   const currentSelectedCard = creditCards.find(
     (card) => card.id === selectedCard
   );
+
   const selectFiles = creditCards.map((card) => ({
-    label: card.alias,
+    label: card.nombre_titular,
     value: card.url_identificacion,
     item: card,
   }));
@@ -124,77 +248,21 @@ export const PaymentModal = ({
     fetchData();
   }, []);
 
-  // const handlePayment = async () => {
-  //   try {
-  //     //Crea el de credito
-  //     if (paymentType === "credit") {
-  //       console.log({
-  //         date,
-  //         paymentType,
-  //         monto_a_pagar,
-  //         comments,
-  //         id_hospedaje: reservation.id_hospedaje,
-  //       });
-  //     }
-  //     //Maneja los de prepago
-  //     if (paymentType === "prepaid") {
-  //       //Maneja los errores
-  //       if (
-  //         !reservation ||
-  //         ((paymentMethod == "card" || paymentMethod == "link") &&
-  //           !currentSelectedCard) ||
-  //         (paymentMethod == "card" && !useQR)
-  //       ) {
-  //         throw new Error(
-  //           "Hay un error en la reservación, en la tarjeta o en la forma de mandar los datos, verifica que los datos esten completos"
-  //         );
-  //       }
-
-  //       if (paymentMethod == "link" || paymentMethod == "card") {
-  //         // 👇 Incluimos paymentStatus en el payload
-  //         fetchCreateSolicitud(
-  //           {
-  //             selectedCard,
-  //             date,
-  //             comments,
-  //             paymentMethod,
-  //             paymentType,
-  //             monto_a_pagar,
-  //             id_hospedaje: reservation.id_hospedaje,
-  //             paymentStatus,
-  //           },
-  //           (response) => { }
-  //         );
-  //         if (paymentMethod == "card") {
-  //           await generateQRPaymentPDF();
-  //         }
-  //       } else if (paymentMethod == "transfer") {
-  //         const obj = {
-  //           date,
-  //           comments,
-  //           paymentMethod,
-  //           paymentType,
-  //           monto_a_pagar,
-  //           id_hospedaje: reservation.id_hospedaje,
-  //           paymentStatus, // <-- opcional también en transferencia
-  //         };
-  //         fetchCreateSolicitud(obj, (response) => {
-  //           alert(response.message);
-  //         });
-  //       }
-  //     }
-
-  //     dispatch({ type: "SET_FIELD", field: "error", payload: "" });
-  //   } catch (error: any) {
-  //     dispatch({
-  //       type: "SET_FIELD",
-  //       field: "error",
-  //       payload: error.message,
-  //     });
-  //   }
-  // };
-
-  // ====== Descargar cupón desde botón externo ======
+  const mappedReservation = useMemo(() => {
+    if (!reservation) return null;
+    return {
+      codigo_confirmacion: reservation.codigo_confirmacion ?? "SIN-CODIGO",
+      huesped: reservation.viajero ?? "",
+      hotel: reservation.proveedor ?? "",
+      direccion: "",
+      acompañantes: "",
+      incluye_desayuno: 0,
+      check_in: reservation.check_in ?? "",
+      check_out: reservation.check_out ?? "",
+      room: reservation.tipo_cuarto_vuelo ?? "",
+      comentarios: reservation.comments ?? "",
+    };
+  }, [reservation]);
 
   const handleDownloadCoupon = async () => {
     await reservaRef.current?.download();
@@ -213,7 +281,6 @@ export const PaymentModal = ({
       const blob = await reservaRef.current?.getPdfBlob();
       if (!blob) throw new Error("No se pudo generar el PDF.");
 
-      // ⬇️ arma el payload como tu backend lo necesite
       const fd = new FormData();
       fd.append("emails", JSON.stringify(list));
       fd.append(
@@ -233,7 +300,6 @@ export const PaymentModal = ({
         )
       );
 
-      // TODO: cambia la URL a tu endpoint real
       const resp = await fetch("/api/send-coupon", {
         method: "POST",
         body: fd,
@@ -252,156 +318,126 @@ export const PaymentModal = ({
   };
 
   const handlePayment = async () => {
-    console.log("➡️ handlePayment: START");
-
     try {
-      console.log("📥 Input state:", {
-        paymentType,
-        paymentMethod,
-        useQR,
-        date,
-        monto_a_pagar,
-        comments,
-        reservation,
-        currentSelectedCard,
-        selectedCard,
-      });
-
-      // Derivamos el status según lo elegido
+      // status derivado
       const derivedStatus: PaymentStatus = computePaymentStatus({
         paymentType,
         paymentMethod,
         useQR,
       });
 
-      console.log("🧮 Derived paymentStatus:", derivedStatus);
-
-      // Reflejar en el estado para el UI
       dispatch({
         type: "SET_FIELD",
         field: "paymentStatus",
         payload: derivedStatus,
       });
 
-      console.log("🖥️ Dispatched paymentStatus to state");
+      // Armar paymentSchedule según método:
+      // - card/link: tabla
+      // - transfer: 1 fila con date + monto
+      let paymentSchedulePayload:
+        | Array<{ fecha_pago: string; monto: number }>
+        | undefined;
+
+      let effectiveDate = (date as string) || todayISO;
+
+      if (paymentType === "prepaid") {
+        if (paymentMethod === "card" || paymentMethod === "link") {
+          paymentSchedulePayload = validateAndBuildSchedulePayload();
+          effectiveDate = paymentSchedulePayload[0]?.fecha_pago || effectiveDate;
+        } else if (paymentMethod === "transfer") {
+          if (!effectiveDate) {
+            throw new Error("Selecciona la fecha de pago.");
+          }
+          paymentSchedulePayload = [
+            { fecha_pago: effectiveDate, monto: monto_a_pagar },
+          ];
+        }
+      }
 
       // ----- Crédito -----
       if (paymentType === "credit") {
-        console.log("💳 Flow: CREDIT");
-
-        const creditPayload = {
-          date,
+        console.log({
+          date: effectiveDate,
           paymentType,
           monto_a_pagar,
           comments,
-          id_hospedaje: reservation?.id_hospedaje,
+          comments_cxp: commentsCxp,
+          id_hospedaje: reservation.id_hospedaje,
           paymentStatus: derivedStatus,
-        };
-
-        console.log("📤 Credit payload:", creditPayload);
-
-        // Aquí iría lógica de cupón
-        console.log("⛔ End flow (credit)");
+        });
         return;
       }
 
       // ----- Prepago -----
       if (paymentType === "prepaid") {
-        console.log("💰 Flow: PREPAID");
-
-        // Validaciones
-        const hasValidationError =
+        if (
           !reservation ||
           ((paymentMethod === "card" || paymentMethod === "link") &&
             !currentSelectedCard) ||
-          (paymentMethod === "card" && !useQR);
-
-        console.log("🔍 Validation check:", {
-          hasReservation: !!reservation,
-          paymentMethod,
-          hasCurrentSelectedCard: !!currentSelectedCard,
-          useQR,
-          hasValidationError,
-        });
-
-        if (hasValidationError) {
-          console.error("❌ Validation failed");
+          (paymentMethod === "card" && !useQR)
+        ) {
           throw new Error(
-            "Hay un error en la reservación, en la tarjeta o en la forma de mandar los datos, verifica que los datos esten completos"
+            "Hay un error en la reservación, en la tarjeta o en la forma de mandar los datos, verifica que los datos estén completos."
           );
         }
 
         if (paymentMethod === "link" || paymentMethod === "card") {
-          console.log("🔗 Flow: CARD or LINK");
+          fetchCreateSolicitud(
+            {
+              selectedCard,
+              date: effectiveDate, // compatibilidad
+              comments,
+              comments_cxp: commentsCxp, // NUEVO
+              paymentMethod,
+              paymentType,
+              monto_a_pagar,
+              id_hospedaje: reservation.id_hospedaje,
+              paymentStatus: derivedStatus,
+              paymentSchedule: paymentSchedulePayload, // NUEVO
+            },
+            (response) => {}
+          );
 
-          const payload = {
-            selectedCard,
-            date,
-            comments,
-            paymentMethod,
-            paymentType,
-            monto_a_pagar,
-            id_hospedaje: reservation.id_hospedaje,
-            paymentStatus: derivedStatus,
-          };
-
-          console.log("📤 fetchCreateSolicitud payload:", payload);
-
-          fetchCreateSolicitud(payload, (response) => {
-            console.log("✅ fetchCreateSolicitud response:", response);
-          });
-
-          if (paymentMethod === "card") {
-            console.log("📄 Generating QR Payment PDF...");
+          if (paymentMethod === "card" && useQR === "qr") {
             await generateQRPaymentPDF();
-            console.log("📄 QR Payment PDF generated");
           }
         } else if (paymentMethod === "transfer") {
-          console.log("🏦 Flow: TRANSFER");
-
-          const obj = {
-            date,
-            comments,
-            paymentMethod,
-            paymentType,
-            monto_a_pagar,
-            id_hospedaje: reservation.id_hospedaje,
-            paymentStatus: derivedStatus,
-          };
-
-          console.log("📤 fetchCreateSolicitud payload (transfer):", obj);
-
-          fetchCreateSolicitud(obj, (response) => {
-            console.log(
-              "✅ fetchCreateSolicitud response (transfer):",
-              response
-            );
-            alert(response.message);
-          });
+          fetchCreateSolicitud(
+            {
+              date: effectiveDate,
+              comments,
+              comments_cxp: commentsCxp, // NUEVO
+              paymentMethod,
+              paymentType,
+              monto_a_pagar,
+              id_hospedaje: reservation.id_hospedaje,
+              paymentStatus: derivedStatus,
+              paymentSchedule: paymentSchedulePayload, // NUEVO (1 fila)
+            },
+            (response) => {
+              alert(response.message);
+            }
+          );
         }
       }
 
       dispatch({ type: "SET_FIELD", field: "error", payload: "" });
-      console.log("✅ handlePayment: SUCCESS");
     } catch (error: any) {
-      console.error("🔥 handlePayment ERROR:", error);
-
       dispatch({
         type: "SET_FIELD",
         field: "error",
         payload: error.message,
       });
-    } finally {
-      console.log("⬅️ handlePayment: END");
     }
   };
 
   const generateQRPaymentPDF = async () => {
-    if (!document) {
-      throw new Error("Falta seleccionar el documento que aparecera");
-    }
+    if (!document) throw new Error("Falta seleccionar el documento que aparecerá");
+    if (!currentSelectedCard) throw new Error("Falta seleccionar tarjeta");
+
     const secureToken = generateSecureToken(
-      reservation.codigo_reservacion_hotel.replaceAll("-", "."),
+      reservation.codigo_confirmacion.replaceAll("-", "."),
       monto_a_pagar,
       currentSelectedCard.id,
       isSecureCode
@@ -411,7 +447,7 @@ export const PaymentModal = ({
       isSecureCode,
       cargo,
       type: useQR,
-      secureToken: secureToken,
+      secureToken,
       logoUrl: "https://luiscastaneda-tos.github.io/log/files/nokt.png",
       empresa: {
         codigoPostal: "11570",
@@ -423,18 +459,18 @@ export const PaymentModal = ({
       },
       bancoEmisor: currentSelectedCard.banco_emisor,
       fechaExpiracion: currentSelectedCard.fecha_vencimiento,
-      nombreTarjeta: document.nombre_titular,
+      nombreTarjeta: currentSelectedCard.nombre_titular,
       numeroTarjeta: currentSelectedCard.numero_completo,
-      documento: document.url_identificacion,
+      documento,
       cvv: currentSelectedCard.cvv,
       reservations: [
         {
           checkIn: reservation.check_in.split("T")[0],
           checkOut: reservation.check_out.split("T")[0],
-          reservacionId: reservation.codigo_reservacion_hotel,
+          reservacionId: reservation.codigo_confirmacion,
           monto: Number(reservation.costo_total),
-          nombre: reservation.nombre_viajero_reservacion,
-          tipoHabitacion: updateRoom(reservation.tipo_cuarto),
+          nombre: reservation.viajero,
+          tipoHabitacion: updateRoom(reservation.tipo_cuarto_vuelo),
         },
       ],
       codigoDocumento: "xxxx",
@@ -443,32 +479,11 @@ export const PaymentModal = ({
 
     try {
       const pdf = await generateSecureQRPaymentPDF(qrData);
-      pdf.save(`pago-proveedor-${reservation.codigo_reservacion_hotel}.pdf`);
-    } catch (error) {
-      console.error("Error generating QR PDF:", error);
+      pdf.save(`pago-proveedor-${reservation.codigo_confirmacion}.pdf`);
+    } catch (err) {
+      console.error("Error generating QR PDF:", err);
     }
   };
-
-  const mappedReservation = useMemo(() => {
-    if (!reservation) return null;
-    return {
-      // Campos que usa tu UI de Reserva:
-      codigo_confirmacion: reservation.codigo_reservacion_hotel ?? "SIN-CODIGO",
-      huesped: reservation.nombre_viajero_reservacion ?? "",
-      hotel: reservation.hotel ?? reservation.nombre_hotel ?? "",
-      direccion: reservation.direccion ?? "",
-      acompañantes: reservation.acompanantes ?? reservation.acompañantes ?? "",
-      incluye_desayuno: reservation.incluye_desayuno ?? 0,
-      check_in: reservation.check_in ?? "",
-      check_out: reservation.check_out ?? "",
-      room: reservation.tipo_cuarto ?? "",
-      comentarios: reservation.comentarios ?? "",
-      // Si tienes más campos visuales en Reserva, añádelos aquí.
-    };
-  }, [reservation]);
-
-  console.log("reservas que trae", reservation);
-  console.log("mqpeado que trae", mappedReservation);
 
   return (
     <div className="max-w-[85vw] w-screen p-2 pt-0 max-h-[90vh] grid grid-cols-2">
@@ -496,62 +511,185 @@ export const PaymentModal = ({
         <p className="text-sm font-medium">{error}</p>
       </div>
 
+      {/* ===== LEFT ===== */}
       <div className="px-4 border-r">
         <ReservationDetails reservation={reservation} />
 
-        {/* Saldo a Favor */}
         <div className="space-y-2">
-          <CheckboxInput
-            checked={hasFavorBalance}
-            onChange={(checked) =>
+  {/* Saldo a Favor + Fechas SOLO en PREPAGO */}
+  {paymentType === "prepaid" && (
+    <>
+      <CheckboxInput
+        checked={hasFavorBalance}
+        onChange={(checked) =>
+          dispatch({
+            type: "SET_FIELD",
+            field: "hasFavorBalance",
+            payload: checked === true,
+          })
+        }
+        label="Tiene saldo a favor"
+      />
+
+      {hasFavorBalance && (
+        <>
+          <NumberInput
+            onChange={(value) =>
               dispatch({
                 type: "SET_FIELD",
-                field: "hasFavorBalance",
-                payload: checked === true,
+                field: "favorBalance",
+                payload: value,
               })
             }
-            label="Tiene saldo a favor"
+            value={Number(favorBalance) || null}
+            label="Monto Saldo a Favor a Aplicar"
+            placeholder="0.00"
           />
+          <div className="p-4 bg-green-50 border rounded-md border-green-200">
+            <div className="flex justify-between items-center">
+              <span className="text-slate-700 text-sm">
+                Monto a Pagar al Proveedor:
+              </span>
+              <span className="text-xl font-bold text-green-700">
+                ${monto_a_pagar.toFixed(2)}
+              </span>
+            </div>
+          </div>
+        </>
+      )}
 
-          {hasFavorBalance && (
-            <>
-              <NumberInput
-                onChange={(value) =>
-                  dispatch({
-                    type: "SET_FIELD",
-                    field: "favorBalance",
-                    payload: value,
-                  })
+      {/* === SOLO TRANSFER: Fecha simple === */}
+      {paymentMethod === "transfer" && (
+        <DateInput
+          label="Fecha estimada"
+          value={date}
+          onChange={(value) =>
+            dispatch({ type: "SET_FIELD", field: "date", payload: value })
+          }
+        />
+      )}
+
+      {/* === SOLO CARD/LINK: Tabla schedule === */}
+      {shouldShowSchedule && (
+        <div className="mt-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold">Calendario de pagos</h3>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setPaymentSchedule([
+                    {
+                      id: safeUUID(),
+                      date: (date as string) || todayISO,
+                      amount: monto_a_pagar,
+                    },
+                  ])
                 }
-                value={Number(favorBalance) || null}
-                label="Monto Saldo a Favor a Aplicar"
-                placeholder="0.00"
-              />
-              <div className="p-4 bg-green-50 border rounded-md border-green-200">
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-700 text-sm">
-                    Monto a Pagar al Proveedor:
-                  </span>
-                  <span className="text-xl font-bold text-green-700">
-                    ${monto_a_pagar.toFixed(2)}
-                  </span>
-                </div>
-              </div>
-            </>
+                title="Reiniciar a un solo pago con el total"
+              >
+                Reset
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addScheduleRow}
+              >
+                Agregar pago
+              </Button>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto border rounded-md">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="text-left font-semibold p-2">Fecha de pago</th>
+                  <th className="text-left font-semibold p-2">Monto</th>
+                  <th className="text-right font-semibold p-2">Acción</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paymentSchedule.map((row, idx) => (
+                  <tr key={row.id} className="border-t">
+                    <td className="p-2">
+                      <input
+                        type="date"
+                        className="w-full border rounded-md px-2 py-1"
+                        value={row.date}
+                        onChange={(e) =>
+                          updateScheduleRow(
+                            row.id,
+                            { date: e.target.value },
+                            idx
+                          )
+                        }
+                      />
+                    </td>
+                    <td className="p-2">
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        className="w-full border rounded-md px-2 py-1"
+                        value={row.amount === "" ? "" : String(row.amount)}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          updateScheduleRow(row.id, {
+                            amount: raw === "" ? "" : to2(Number(raw || 0)),
+                          });
+                        }}
+                        placeholder="0.00"
+                      />
+                    </td>
+                    <td className="p-2 text-right">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeScheduleRow(row.id)}
+                        disabled={paymentSchedule.length <= 1}
+                        title={
+                          paymentSchedule.length <= 1
+                            ? "Debe existir al menos una fila"
+                            : "Eliminar fila"
+                        }
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-slate-600">Total programado:</span>
+            <span className="font-semibold">${scheduleTotal.toFixed(2)}</span>
+          </div>
+
+          {Math.abs(scheduleTotal - monto_a_pagar) > 0.01 && (
+            <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2">
+              El total programado debe ser igual al monto a pagar:{" "}
+              <span className="font-semibold">${monto_a_pagar.toFixed(2)}</span>
+            </div>
           )}
-          <DateInput
-            label="Fecha de pago"
-            value={date}
-            onChange={(value) =>
-              dispatch({ type: "SET_FIELD", field: "date", payload: value })
-            }
-          />
         </div>
+      )}
+    </>
+  )}
+</div>
+
       </div>
 
+      {/* ===== RIGHT ===== */}
       <div className="space-y-2 p-4">
-        {/* Forma de Pago */}
         <h2 className="text-lg font-semibold">Forma de Pago</h2>
+
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <Button
@@ -568,6 +706,7 @@ export const PaymentModal = ({
               <CreditCard className="mr-2 h-5 w-5" />
               Prepago
             </Button>
+
             <Button
               variant={paymentType === "credit" ? "default" : "outline"}
               onClick={() =>
@@ -585,10 +724,11 @@ export const PaymentModal = ({
           </div>
         </div>
 
-        {/* Prepago */}
+        {/* ===== PREPAGO ===== */}
         {paymentType === "prepaid" && (
           <div className="space-y-4">
             <h5 className="text-sm font-semibold">Método de Pago</h5>
+
             <div className="grid grid-cols-3 gap-4">
               <Button
                 variant={paymentMethod === "transfer" ? "default" : "outline"}
@@ -603,6 +743,7 @@ export const PaymentModal = ({
                 <ArrowLeftRight className="w-3 h-3 mr-2" />
                 Transferencia
               </Button>
+
               <Button
                 variant={paymentMethod === "card" ? "default" : "outline"}
                 onClick={() =>
@@ -613,9 +754,10 @@ export const PaymentModal = ({
                   })
                 }
               >
-                <CreditCard className="w-3 h-3 mr-2"></CreditCard>
+                <CreditCard className="w-3 h-3 mr-2" />
                 Tarjeta
               </Button>
+
               <Button
                 variant={paymentMethod === "link" ? "default" : "outline"}
                 onClick={() =>
@@ -626,7 +768,7 @@ export const PaymentModal = ({
                   })
                 }
               >
-                <Link className="w-3 h-3 mr-2"></Link>
+                <Link className="w-3 h-3 mr-2" />
                 Link
               </Button>
             </div>
@@ -650,6 +792,7 @@ export const PaymentModal = ({
                       <QrCode className="mr-2 h-4 w-4" />
                       Con QR
                     </Button>
+
                     <Button
                       variant={useQR === "code" ? "default" : "outline"}
                       onClick={() =>
@@ -666,6 +809,7 @@ export const PaymentModal = ({
                     </Button>
                   </div>
                 </div>
+
                 <CheckboxInput
                   label={"Mostrar cvv"}
                   checked={isSecureCode}
@@ -677,20 +821,21 @@ export const PaymentModal = ({
                     })
                   }
                 />
+
                 <DropdownValues
                   label="Documento"
-                  value={document.url_identificacion}
-                  onChange={(
-                    value: { value: string; label: string; item: any } | null
-                  ) => {
+                  value={document}
+                  onChange={(value: { value: string; label: string; item: any } | null) => {
+                    if (!value) return;
                     dispatch({
                       type: "SET_FIELD",
                       field: "document",
-                      payload: value.item,
+                      payload: value.value,
                     });
                   }}
                   options={selectFiles}
                 />
+
                 <TextInput
                   onChange={(value) =>
                     dispatch({
@@ -705,30 +850,29 @@ export const PaymentModal = ({
                 />
               </>
             )}
+
             {(paymentMethod === "card" || paymentMethod === "link") && (
               <div className="space-y-4">
-                <div>
-                  <DropdownValues
-                    onChange={(value) => {
-                      // Al seleccionar una tarjeta, guardamos solo el ID
-                      dispatch({
-                        type: "SET_FIELD",
-                        field: "selectedCard",
-                        payload: value.item.id,
-                      });
-                    }}
-                    value={selectedCard || ""} // Usamos el ID para el valor
-                    options={creditCards.map((item) => ({
-                      value: item.id,
-                      label: item.name,
-                      item: item,
-                    }))}
-                    label="Seleccionar tarjeta"
-                  />
-                </div>
+                <DropdownValues
+                  onChange={(value) => {
+                    dispatch({
+                      type: "SET_FIELD",
+                      field: "selectedCard",
+                      payload: value.item.id,
+                    });
+                  }}
+                  value={selectedCard || ""}
+                  options={creditCards.map((item) => ({
+                    value: item.id,
+                    label: item.name,
+                    item,
+                  }))}
+                  label="Seleccionar tarjeta"
+                />
               </div>
             )}
 
+            {/* Comentarios (1) */}
             <TextAreaInput
               onChange={(value) =>
                 dispatch({
@@ -742,6 +886,14 @@ export const PaymentModal = ({
               label="Comentarios"
             />
 
+            {/* Comentarios CXP (2) */}
+            <TextAreaInput
+              onChange={(value) => setCommentsCxp(value)}
+              placeholder="Agregar comentarios para CXP..."
+              value={commentsCxp}
+              label="Comentarios CXP"
+            />
+
             <Button
               onClick={handlePayment}
               className="w-full bg-blue-600 hover:bg-blue-700"
@@ -751,10 +903,11 @@ export const PaymentModal = ({
           </div>
         )}
 
-        {/* Crédito */}
+        {/* ===== CRÉDITO ===== */}
         {paymentType === "credit" && (
           <div className="space-y-2">
             <TextAreaInput
+          
               onChange={(value) =>
                 dispatch({ type: "SET_FIELD", field: "emails", payload: value })
               }
@@ -772,6 +925,7 @@ export const PaymentModal = ({
                 <Download className="mr-2 h-4 w-4" />
                 Descargar Cupón
               </Button>
+
               <Button
                 onClick={() => setIsReservaOpen(true)}
                 disabled={!mappedReservation}
@@ -785,6 +939,7 @@ export const PaymentModal = ({
                 <Ticket className="mr-2 h-4 w-4" />
                 Ver Cupón / Resumen
               </Button>
+
               <Button
                 onClick={handleSendCoupon}
                 className="bg-blue-600 hover:bg-blue-700"
@@ -794,6 +949,7 @@ export const PaymentModal = ({
               </Button>
             </div>
 
+            {/* Comentarios (1) */}
             <TextAreaInput
               onChange={(value) =>
                 dispatch({
@@ -806,10 +962,19 @@ export const PaymentModal = ({
               value={comments || ""}
               label="Comentarios"
             />
+
+            {/* Comentarios CXP (2) */}
+            <TextAreaInput
+              onChange={(value) => setCommentsCxp(value)}
+              placeholder="Comentarios para CXP..."
+              value={commentsCxp}
+              label="Comentarios CXP"
+            />
+
             <Reserva
               isOpen={isReservaOpen}
               onClose={() => setIsReservaOpen(false)}
-              reservation={mappedReservation} // <-- aquí va el objeto directo
+              reservation={mappedReservation}
             />
           </div>
         )}

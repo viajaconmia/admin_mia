@@ -16,7 +16,7 @@ export const Notification = () => {
             ? "bg-emerald-500"
             : notification.type === "error"
             ? "bg-red-500"
-            : "bg-blue-500"
+            : "bg-yellow-500"
         }`}
       >
         <div className="flex items-center justify-center gap-2 w-full">

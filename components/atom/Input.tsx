@@ -34,7 +34,7 @@ export const Dropdown = ({
         value={value || ""}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
-        className="flex w-full appearance-none rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex w-full appearance-none rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-90"
       >
         <option value="">Selecciona una opción</option>
         {options.length > 0 ? (
@@ -81,7 +81,7 @@ export const DateInput = ({
         value={value || ""}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
-        className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-90"
       />
     </div>
   </div>
@@ -112,7 +112,7 @@ export const DateTimeInput = ({
         value={value || ""}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
-        className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+        className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-90"
       />
     </div>
   </div>
@@ -128,7 +128,7 @@ export const NumberInput = ({
   className = "",
 }: {
   label?: string;
-  value: number;
+  value: number | null;
   onChange: (value: string) => void;
   placeholder?: string;
   disabled?: boolean;
@@ -144,7 +144,7 @@ export const NumberInput = ({
       value={value || ""}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
-      className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground placeholder:text-gray-400 focus-visible:outline-1 focus-visible:outline-gray-950 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+      className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground placeholder:text-gray-400 focus-visible:outline-1 focus-visible:outline-gray-950 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-90"
     />
   </div>
 );
@@ -174,7 +174,7 @@ export const TextInput = ({
       onChange={(e) => onChange(e.target.value)}
       disabled={disabled}
       placeholder={placeholder}
-      className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:text-black"
+      className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-90 disabled:text-black"
     />
   </div>
 );
@@ -184,11 +184,13 @@ export const EmailInput = ({
   value,
   onChange,
   placeholder = "",
+  disabled = false,
 }: {
   label?: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  disabled?: boolean;
 }) => (
   <div className="flex flex-col space-y-1">
     {label && (
@@ -197,9 +199,10 @@ export const EmailInput = ({
     <input
       type="email"
       value={value || ""}
+      disabled={disabled}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+      className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-90"
     />
   </div>
 );
@@ -208,9 +211,10 @@ export const TextAreaInput = ({
   label,
   value,
   onChange,
-  rows = 1,
+  rows = 2,
   placeholder = "",
   className = "",
+  disabled = false,
 }: {
   label?: string;
   value: string;
@@ -218,6 +222,7 @@ export const TextAreaInput = ({
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  disabled?: boolean;
 }) => (
   <div className={`flex flex-col space-y-1 ${className}`}>
     {label && (
@@ -225,10 +230,11 @@ export const TextAreaInput = ({
     )}
     <textarea
       value={value || ""}
+      disabled={disabled}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       rows={rows}
-      className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+      className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-90"
     />
   </div>
 );
@@ -319,7 +325,7 @@ export const ComboBox = <T extends any>({
               setInputValue(e.target.value);
               setIsOpen(true);
             }}
-            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-90"
           />
           <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
             <ChevronDown size={18} className="text-gray-500" />
@@ -387,7 +393,7 @@ export const DropdownValues = ({
             onChange(selectedOption || null);
           }}
           disabled={disabled}
-          className="flex w-full rounded-md border appearance-none border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex w-full rounded-md border appearance-none border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-90"
         >
           <option value="">Selecciona una opción</option>
           {options.map((option) => (
@@ -507,7 +513,7 @@ export const CheckboxInput = ({
           className={`
             relative inline-flex items-center w-10 h-6 rounded-full cursor-pointer select-none
             transition-colors duration-200 ease-in-out
-            ${disabled ? "opacity-50 cursor-not-allowed" : ""}
+            ${disabled ? "opacity-90 cursor-not-allowed" : ""}
             ${checked ? "bg-green-500" : "bg-gray-300"} 
             /* Estilo de foco para el riel cuando el input interno está enfocado */
             focus-within:ring-2 focus-within:ring-offset-2 
@@ -554,10 +560,10 @@ export const CheckboxInput = ({
               }
             }}
             className={`
-              ml-3 text-sm font-medium select-none
+              ml-1 text-sm font-medium select-none
               ${
                 disabled
-                  ? "text-gray-400 cursor-not-allowed"
+                  ? "text-gray-700 cursor-not-allowed"
                   : "text-gray-900 dark:text-gray-100 cursor-pointer"
               }
             `}
@@ -708,7 +714,7 @@ export const ComboBox2 = <T,>({
               setIsOpen(true);
               setFocus(0);
             }}
-            className={`flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${
+            className={`flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-90 ${
               value == null && inputValue ? "border-red-600" : ""
             }`}
           />
@@ -847,3 +853,177 @@ export function InputGoogle({
     />
   );
 }
+
+/**
+ *
+ *
+ *
+ *
+ *
+ */
+
+type DropDownType<T> = {
+  label?: string;
+  sublabel?: string;
+  value: string | null;
+  onChange: (value: string | null) => void;
+  options?: string[];
+  placeholderOption?: string;
+  disabled?: boolean;
+  className?: string;
+  onDelete?: () => void;
+  unstyled?: boolean;
+};
+
+export const ComboBoxValue2 = <T,>({
+  label,
+  sublabel,
+  value,
+  onChange,
+  options = [],
+  placeholderOption = "Selecciona una opción",
+  disabled = false,
+  className,
+  onDelete,
+  unstyled = false,
+}: DropDownType<T>) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const [inputValue, setInputValue] = useState(value || "");
+  const [isOpen, setIsOpen] = useState(false);
+  const [focus, setFocus] = useState<number | null>(null);
+
+  // Memoizar opciones filtradas según inputValue
+  const filteredOptions = useMemo(() => {
+    const lower = inputValue.toLowerCase();
+    return options.filter((o) => o?.toLowerCase().includes(lower));
+  }, [inputValue, options]);
+
+  const handleMoveFocus = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (isOpen && filteredOptions.length > 0) {
+      if (event.key === "ArrowDown") {
+        setFocus((prev) =>
+          prev === filteredOptions.length - 1 ? 0 : (prev ?? 0) + 1
+        );
+        event.preventDefault();
+      }
+      if (event.key === "ArrowUp") {
+        setFocus((prev) =>
+          prev === 0 ? filteredOptions.length - 1 : (prev ?? 0) - 1
+        );
+        event.preventDefault();
+      }
+      if (event.key === "Enter") {
+        handleSelectByEnter();
+        event.preventDefault();
+      }
+    }
+  };
+
+  const handleSelectByEnter = () => {
+    setFocus((f) => {
+      const option = filteredOptions[f ?? 0];
+      if (option && option !== inputValue) {
+        // posponer la llamada al padre
+        queueMicrotask(() => onChange(option));
+        setInputValue(option);
+      }
+      setIsOpen(false);
+      return null;
+    });
+  };
+
+  // Cerrar dropdown al hacer click fuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+        setFocus(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (value) setInputValue(value);
+    if (value == null) setInputValue("");
+  }, [value]);
+
+  const handleSelect = (option: string) => {
+    if (option !== inputValue) {
+      onChange(option);
+      setInputValue(option);
+    }
+    setIsOpen(false);
+    setFocus(null);
+  };
+
+  return (
+    <div className={`flex flex-col space-y-1 ${className}`} ref={containerRef}>
+      {label && (
+        <label className="text-sm text-gray-900 font-medium line-clamp-1">
+          {label}
+          {sublabel && (
+            <span className="text-gray-500 text-xs">{` - ${sublabel.toLowerCase()}`}</span>
+          )}
+        </label>
+      )}
+      <div className="relative flex gap-2">
+        <div className="flex-1 relative">
+          <input
+            type="text"
+            disabled={disabled}
+            value={inputValue}
+            placeholder={placeholderOption}
+            onFocus={() => {
+              setIsOpen(true);
+              setFocus(0);
+            }}
+            onKeyDown={handleMoveFocus}
+            onChange={(e) => {
+              setInputValue(e.target.value);
+              setIsOpen(true);
+              setFocus(0);
+            }}
+            className={`flex w-full rounded-md px-3 py-2 text-sm shadow-sm transition-colors border border-input bg-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-90 ${
+              value == null && inputValue ? "border-red-600" : ""
+            }`}
+          />
+          {!unstyled && (
+            <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+              <ChevronDown size={18} className="text-gray-500" />
+            </div>
+          )}
+          {isOpen && filteredOptions.length > 0 && (
+            <ul className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded shadow max-h-60 overflow-y-auto text-sm">
+              {filteredOptions.map((option, index) => (
+                <li
+                  key={option + index}
+                  onClick={() => handleSelect(option)}
+                  className={`px-3 py-2 cursor-pointer hover:bg-blue-100 ${
+                    focus == index ? "bg-blue-100" : ""
+                  }`}
+                >
+                  {option}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        {onDelete && (
+          <button
+            onClick={onDelete}
+            type="button"
+            className="bg-gray-100 rounded-sm border border-gray-300 shadow-sm w-9 flex justify-center items-center"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};

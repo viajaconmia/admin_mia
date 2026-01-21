@@ -10,7 +10,8 @@ import { fetchAgenteById, fetchPagosByAgente } from "@/services/agentes";
 import {
   fetchCreateReservaFromSolicitud,
   fetchCreateReservaOperaciones,
-  updateReserva,codigo_reserva,
+  updateReserva,
+  codigo_reserva,
 } from "@/services/reservas";
 import {
   CheckboxInput,
@@ -21,6 +22,7 @@ import {
   Dropdown,
   DropdownValues,
   NumberInput,
+  TextAreaInput,
   TextInput,
 } from "@/components/atom/Input";
 import { fetchViajerosFromAgent } from "@/services/viajeros";
@@ -30,13 +32,15 @@ import { formatNumberWithCommas, getEstatus } from "@/helpers/utils";
 import { updateRoom } from "@/lib/utils";
 import { useNotification } from "@/context/useNotificacion";
 import { CreditCard, Wallet } from "lucide-react";
+import { useHoteles } from "@/context/Hoteles";
+import { Proveedor } from "@/services/ProveedoresService";
+import { useProveedor } from "@/context/Proveedores";
 
 interface ReservationFormProps {
   solicitud?: Solicitud & {
     nuevo_incluye_desayuno?: boolean | null;
     agente?: any;
   };
-  hotels: Hotel[];
   onClose: () => void;
   edicion?: boolean;
   create?: boolean;
@@ -44,13 +48,13 @@ interface ReservationFormProps {
 
 export function ReservationForm({
   solicitud,
-  hotels,
   onClose,
   edicion = false,
   create = false,
 }: ReservationFormProps) {
   let currentNoches = 0;
   let currentHotel;
+  const { hoteles: hotels } = useHoteles();
 
   if (solicitud.check_in && solicitud.check_out) {
     currentHotel = hotels.filter(
@@ -61,10 +65,15 @@ export function ReservationForm({
       parseISO(solicitud.check_in)
     );
   }
+  const [intermediario, setIntermediario] = useState<{
+    exists: boolean;
+    proveedor: Proveedor | null;
+  }>({ exists: false, proveedor: null });
   const [nuevo_incluye_desayuno, setNuevoIncluyeDesayuno] = useState<
     boolean | null
   >(solicitud.nuevo_incluye_desayuno || null);
   const { showNotification } = useNotification();
+  const { getProveedores, proveedores } = useProveedor();
   const [acompanantes, setAcompanantes] = useState<Viajero[]>([]);
   const [defaultViajero, setDefaultViajero] = useState<Viajero | null>(null);
   const [form, setForm] = useState<ReservaForm>({
@@ -158,19 +167,20 @@ export function ReservationForm({
         currentNoches
       )
   );
-  console.log(solicitud, "fevr");
 
   const [walletAmount, setWalletAmount] = useState<number>(0);
   const [loadingWallet, setLoadingWallet] = useState(false);
 
   useEffect(() => {
-    console.log("form ", form);
-  }, [form]);
+    if (!proveedores) {
+      setLoading(true);
+      getProveedores().finally(() => setLoading(false));
+    }
+  }, []);
 
   useEffect(() => {
     try {
-      fetchViajerosFromAgent(solicitud.id_agente, (data) => {
-        console.log("data viajeros", data);
+      fetchViajerosFromAgent(solicitud.id_agente, ({ data }) => {
         const viajeroFiltrado = data.filter(
           (viajero) => viajero.id_viajero == solicitud.id_viajero
         );
@@ -191,7 +201,8 @@ export function ReservationForm({
 
   useEffect(() => {
     try {
-      fetchViajerosFromAgent(solicitud.id_agente, (data) => {
+      updateAgentWallet();
+      fetchViajerosFromAgent(solicitud.id_agente, ({ data }) => {
         const viajeroFiltrado = data.filter(
           (viajero) => viajero.id_viajero == solicitud.id_viajero_reserva
         );
@@ -219,10 +230,6 @@ export function ReservationForm({
       setTravelers([]);
     }
   }, []);
-
-  useEffect(() => {
-    console.log(travelers);
-  }, [travelers]);
 
   useEffect(() => {
     if (
@@ -336,59 +343,6 @@ export function ReservationForm({
         items: autoTotal > 0 ? items : [],
         noches: Number(nights),
       }));
-
-      // Lógica para edición
-      // if (edicion) {
-      //   setEdicionForm((prev) => ({
-      //     ...prev,
-      //     proveedor: {
-      //       before: {
-      //         ...form.proveedor,
-      //         subtotal: form.proveedor.subtotal,
-      //         impuestos: form.proveedor.impuestos,
-      //       },
-      //       current: {
-      //         ...form.proveedor,
-      //         total: autoTotal,
-      //         subtotal: Number(
-      //           (autoTotal - form.impuestos.otros_impuestos * nights).toFixed(2)
-      //         ),
-      //         impuestos: Number(
-      //           (form.impuestos.otros_impuestos * nights).toFixed(2)
-      //         ),
-      //       },
-      //     },
-      //     venta: {
-      //       before: {
-      //         ...form.venta,
-      //         total: form.venta.total,
-      //         subtotal: form.venta.subtotal,
-      //         impuestos: form.venta.impuestos,
-      //         markup: form.venta.markup,
-      //       },
-      //       current: {
-      //         ...form.venta,
-      //         total: Number((roomPrice * nights).toFixed(2) || 0),
-      //         subtotal: Number((roomPrice * nights * 0.84).toFixed(2) || 0),
-      //         impuestos: Number((roomPrice * nights * 0.16).toFixed(2) || 0),
-      //         markup: Number(
-      //           (
-      //             ((roomPrice * nights - autoTotal) / (roomPrice * nights)) *
-      //             100
-      //           ).toFixed(2)
-      //         ),
-      //       },
-      //     },
-      //     items: {
-      //       before: form.items,
-      //       current: autoTotal > 0 ? items : [],
-      //     },
-      //     noches: {
-      //       before: form.noches,
-      //       current: Number(nights),
-      //     },
-      //   }));
-      // }
     }
   }, [form.check_in, form.check_out, form.habitacion, form.hotel]);
 
@@ -406,6 +360,7 @@ export function ReservationForm({
   // Modificar el handleSubmit para que no guarde automáticamente
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    console.log("estoy corriendo?");
 
     if (isFormPrepopulated) {
       // Lógica para formulario prellenado (edición/creación)
@@ -415,10 +370,6 @@ export function ReservationForm({
       setLoading(true);
       setLoading(false);
     }
-  };
-
-  const handleClosePagarModal = () => {
-    // onClose();
   };
 
   function getAutoCostoTotal(
@@ -455,57 +406,71 @@ export function ReservationForm({
     }
   };
 
-const handleWalletPayment = async () => {
-  setLoading(true);
+  const handleWalletPayment = async () => {
+    setLoading(true);
 
-  try {
-    const validateReservation = await codigo_reserva(form.codigo_reservacion_hotel);
-    console.log("validacion", validateReservation);
+    try {
+      const validateReservation = await codigo_reserva(
+        form.codigo_reservacion_hotel
+      );
 
-    // 1) Si falta código (tu fetch regresa { error: true, message: "Falta codigo_reserva" })
-    if (validateReservation?.error) {
-      showNotification("error", validateReservation.message || "Falta código de reservación");
+      // 1) Si falta código (tu fetch regresa { error: true, message: "Falta codigo_reserva" })
+      if (validateReservation?.error) {
+        showNotification(
+          "error",
+          validateReservation.message || "Falta código de reservación"
+        );
+        setLoading(false);
+        return;
+      }
+
+      // 2) Solo bloquear cuando venga EXACTAMENTE duplicado:
+      // {"ok":false,"exists":true,"message":"Ya existe"}
+      if (
+        validateReservation?.ok === false &&
+        validateReservation?.exists === true
+      ) {
+        showNotification(
+          "error",
+          validateReservation.message || "Ya existe codigo de reservacion"
+        );
+        setLoading(false);
+        return;
+      }
+
+      // 3) Continuar flujo normal
+      const saldo = await updateAgentWallet();
+
+      if (saldo < form.venta.total) {
+        showNotification("error", "Saldo insuficiente en la wallet");
+        setLoading(false);
+        return;
+      }
+
+      const reservaConAgente = {
+        ...form,
+        id_agente: solicitud.id_agente,
+        Total: form.venta.total,
+        Noches: form.noches,
+        metodoPago: "wallet",
+        nuevo_incluye_desayuno,
+        acompanantes,
+        solicitud,
+        intermediario,
+      };
+
+      setReservaData(reservaConAgente);
+      setShowPagarModal(true);
       setLoading(false);
-      return;
-    }
-
-    // 2) Solo bloquear cuando venga EXACTAMENTE duplicado:
-    // {"ok":false,"exists":true,"message":"Ya existe"}
-    if (validateReservation?.ok === false && validateReservation?.exists === true) {
-      showNotification("error", validateReservation.message || "Ya existe codigo de reservacion");
+    } catch (error: any) {
+      console.error("Error en la reserva:", error);
+      showNotification(
+        "error",
+        error?.message || "Ocurrió un error inesperado."
+      );
       setLoading(false);
-      return;
     }
-
-    // 3) Continuar flujo normal
-    const saldo = await updateAgentWallet();
-
-    if (saldo < form.venta.total) {
-      showNotification("error", "Saldo insuficiente en la wallet");
-      setLoading(false);
-      return;
-    }
-
-    const reservaConAgente = {
-      ...form,
-      id_agente: solicitud.id_agente,
-      Total: form.venta.total,
-      Noches: form.noches,
-      metodoPago: "wallet",
-      nuevo_incluye_desayuno,
-      acompanantes,
-      solicitud,
-    };
-
-    setReservaData(reservaConAgente);
-    setShowPagarModal(true);
-    setLoading(false);
-  } catch (error: any) {
-    console.error("Error en la reserva:", error);
-    showNotification("error", error?.message || "Ocurrió un error inesperado.");
-    setLoading(false);
-  }
-};
+  };
 
   const handleprocesar = async () => {
     fetchCreateReservaFromSolicitud(
@@ -526,61 +491,40 @@ const handleWalletPayment = async () => {
   const handleCreditPayment = async () => {
     setLoading(true);
     try {
-      if (edicion) {
-        updateReserva(
-          { ...edicionForm, nuevo_incluye_desayuno, acompanantes },
-          solicitud.id_booking,
-          (data) => {
-            if (data.error) {
-              alert("Error al actualizar la reserva");
-              setLoading(false);
-              return;
-            }
-            alert("Reserva actualizada correctamente");
-            setLoading(false);
-            onClose();
-          }
+      const validateReservation = await codigo_reserva(
+        form.codigo_reservacion_hotel
+      );
+      if (
+        validateReservation?.ok === false &&
+        validateReservation?.exists === true
+      ) {
+        showNotification(
+          "error",
+          validateReservation.message || "Ya existe codigo de reservacion"
         );
-      } else if (create) {
-        const validateReservation = await codigo_reserva(form.codigo_reservacion_hotel);
-        if ((validateReservation?.ok === false  || validateReservation?.exists === true)||validateReservation.error) {
-          setLoading(false);
-      throw new Error(validateReservation.message || "Ya existe codigo de reservacion");
-    }
-        await fetchCreateReservaOperaciones({
-          ...form,
-          nuevo_incluye_desayuno,
-          acompanantes,
-          bandera: 0,
-        })
-          .then((data) => {
-            alert("Se creo correctamente la reservación");
-            setLoading(false);
-            onClose();
-          })
-          .catch((error) => {
-            console.error("Error al crear la reserva:", error);
-            showNotification(
-              "error",
-              error.message || "Error al crear la reserva"
-            );
-            setLoading(false);
-          });
-      } else {
-        fetchCreateReservaFromSolicitud(
-          { ...form, nuevo_incluye_desayuno, acompanantes },
-          (data) => {
-            if (data.error) {
-              alert("Error al crear la reserva");
-              setLoading(false);
-              return;
-            }
-            alert("Reserva creada correctamente");
-            setLoading(false);
-            onClose();
-          }
-        );
+        setLoading(false);
+        return;
       }
+      await fetchCreateReservaOperaciones({
+        ...form,
+        nuevo_incluye_desayuno,
+        acompanantes,
+        bandera: 0,
+        intermediario,
+      })
+        .then((data) => {
+          alert("Se creo correctamente la reservación");
+          setLoading(false);
+          onClose();
+        })
+        .catch((error) => {
+          console.error("Error al crear la reserva:", error);
+          showNotification(
+            "error",
+            error.message || "Error al crear la reserva"
+          );
+          setLoading(false);
+        });
     } catch (error) {
       console.error("Error en la reserva:", error);
       showNotification(
@@ -595,28 +539,27 @@ const handleWalletPayment = async () => {
   const handleProcessRequest = async () => {
     setLoading(true);
     try {
-      if (create) {
-        await fetchCreateReservaOperaciones({
-          ...form,
-          nuevo_incluye_desayuno,
-          acompanantes,
-          bandera: 0,
-          usuarioCreador,
+      await fetchCreateReservaOperaciones({
+        ...form,
+        nuevo_incluye_desayuno,
+        acompanantes,
+        bandera: 0,
+        usuarioCreador,
+        intermediario,
+      })
+        .then((data) => {
+          alert("Se creo correctamente la reservación");
+          setLoading(false);
+          onClose();
         })
-          .then((data) => {
-            alert("Se creo correctamente la reservación");
-            setLoading(false);
-            onClose();
-          })
-          .catch((error) => {
-            console.error("Error al crear la reserva:", error);
-            showNotification(
-              "error",
-              error.message || "Error al crear la reserva"
-            );
-            setLoading(false);
-          });
-      }
+        .catch((error) => {
+          console.error("Error al crear la reserva:", error);
+          showNotification(
+            "error",
+            error.message || "Error al crear la reserva"
+          );
+          setLoading(false);
+        });
     } catch (error) {
       console.error("Error en la reserva:", error);
       showNotification(
@@ -626,13 +569,6 @@ const handleWalletPayment = async () => {
       setLoading(false);
     }
   };
-
-  console.log(solicitud, "feeffffffffffffff");
-  console.log(form.venta.total, "total", walletAmount, "walllet");
-
-  useEffect(() => {
-    updateAgentWallet();
-  }, []);
 
   return (
     <>
@@ -1193,6 +1129,55 @@ const handleWalletPayment = async () => {
 
           <TabsContent value="proveedor" className="space-y-4">
             <div className="grid gap-4">
+              <div className="grid gap-2 md:grid-cols-3">
+                <TextInput
+                  value={""}
+                  label="Comentarios internos noktos"
+                  onChange={function (value: string): void {
+                    console.log(intermediario);
+                    alert("Function not implemented.");
+                  }}
+                ></TextInput>
+                <div className="flex p-2 items-end h-full w-full">
+                  <CheckboxInput
+                    label={"Tiene intermediario?"}
+                    checked={intermediario.exists}
+                    onChange={function (checked: boolean): void {
+                      setIntermediario((prev) => ({
+                        ...prev,
+                        exists: checked,
+                      }));
+                    }}
+                  />
+                </div>
+                <div>
+                  {intermediario.exists && (
+                    <ComboBox2
+                      value={
+                        intermediario.proveedor
+                          ? {
+                              name: intermediario.proveedor.proveedor,
+                              content: intermediario.proveedor,
+                            }
+                          : null
+                      }
+                      label="Intermediario"
+                      options={proveedores.map((p) => ({
+                        name: p.proveedor,
+                        content: p,
+                      }))}
+                      onChange={function (
+                        value: ComboBoxOption2<Proveedor>
+                      ): void {
+                        setIntermediario((prev) => ({
+                          ...prev,
+                          proveedor: value.content,
+                        }));
+                      }}
+                    />
+                  )}
+                </div>
+              </div>
               <div className="grid grid-cols-4 gap-4">
                 <div className="col-span-4">
                   <NumberInput

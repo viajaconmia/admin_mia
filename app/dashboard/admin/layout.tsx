@@ -1,13 +1,11 @@
 "use client";
 
-import { TextInput } from "@/components/atom/Input";
 import { WraperContainer } from "@/components/atom/WraperContainer";
 import { Tab, TabsList } from "@/components/molecule/TabsList";
 import { PERMISOS } from "@/constant/permisos";
 import { usePermiso } from "@/hooks/usePermission";
 import { ShieldCheck, Users2 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { useSearchParams } from "wouter";
 
 export default function AdministracionLayout({ children }) {
   const pathname = usePathname();
@@ -29,19 +27,6 @@ export default function AdministracionLayout({ children }) {
             }}
           />
         </div>
-        {/* <div className="px-4">
-          <TextInput
-            value={searchParams.get("search")}
-            onChange={(value) => {
-              setSearchParams((prev) => {
-                const params = new URLSearchParams(prev);
-                params.set("search", value);
-                return params;
-              });
-            }}
-            placeholder="Buscar"
-          />
-        </div> */}
         {children}
       </div>
     </WraperContainer>

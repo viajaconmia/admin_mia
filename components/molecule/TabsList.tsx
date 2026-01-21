@@ -11,15 +11,6 @@ interface TabsListProps {
   onChange: (tab: string) => void;
   activeTab: string;
 }
-const medidas = [
-  "@xs:flex-row @xs:text-sm",
-  "@sm:flex-row @sm:text-sm",
-  "@md:flex-row @md:text-sm",
-  "@lg:flex-row @lg:text-sm",
-  "@xl:flex-row @xl:text-sm",
-  "@2xl:flex-row @2xl:text-sm",
-  "@3xl:flex-row @3xl:text-sm",
-];
 
 export const TabsList = ({ onChange, tabs, activeTab }: TabsListProps) => {
   return (
@@ -29,14 +20,15 @@ export const TabsList = ({ onChange, tabs, activeTab }: TabsListProps) => {
           <div key={tab} className=" w-full">
             <Button
               variant="ghost"
-              size="full"
+              size="sm"
               onClick={() => onChange(tab)}
               icon={icon}
-              className={`${activeTab !== tab && "text-gray-500"} py-4   ${
+              className={`w-full ${
+                activeTab !== tab && "text-gray-500"
+              } py-4   ${
                 tabs.length < 3
                   ? "text-xs flex-col justify-center items-center gap-[2px] px-0"
-                  : // : medidas[tabs.length - 1]
-                    ""
+                  : ""
               }`}
             >
               {label.slice(0, 1).toUpperCase() + label.slice(1)}

@@ -315,6 +315,86 @@ export const fetchEmpresasAgentesDataFiscal = async (
   }
 };
 
+export const fetchProveedoresDataFiscal = async (
+  id_proveedor: string,
+  callback?: (data: EmpresaFromAgent[]) => void
+): Promise<EmpresaFromAgent[]> => {
+  try {
+    console.log(`Solicitando empresas para agente: ${id_proveedor}`);
+    const response = await fetch(
+      `${URL}/mia/pago_proveedor/datosFiscales?id_proveedor=${id_proveedor}`,
+      {
+        headers: {
+          "x-api-key": API_KEY,
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+        cache: "no-store",
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Error ${response.status}: ${errorText}`);
+    }
+
+    const data = await response.json();
+    console.log("Respuesta cruda de la API:", data);
+
+    // Caso 1: Respuesta vacía o nula
+    if (!data) {
+      console.warn("La API devolvió una respuesta vacía");
+      if (callback) callback([]);
+      return [];
+    }
+
+    // Caso 2: Es un array (ya sea vacío o con datos)
+    if (Array.isArray(data)) {
+      // Validar estructura de cada elemento si es necesario
+      const isValid = data.every(
+        (item) => item.id && item.razon_social && item.rfc
+      );
+      if (!isValid) {
+        console.warn(
+          "Algunos elementos del array no tienen la estructura esperada"
+        );
+      }
+      if (callback) callback(data);
+      return data;
+    }
+
+    // Caso 3: Es un objeto individual con estructura de empresa
+    if (data.id && data.razon_social && data.rfc) {
+      const arrayData = [data];
+      if (callback) callback(arrayData);
+      return arrayData;
+    }
+
+    // Caso 4: Es un objeto con propiedad 'data' que contiene el array
+    if (data.data && Array.isArray(data.data)) {
+      if (callback) callback(data.data);
+      return data.data;
+    }
+
+    // Caso 5: Es un objeto con propiedad 'empresas' que contiene el array
+    if (data.empresas && Array.isArray(data.empresas)) {
+      if (callback) callback(data.empresas);
+      return data.empresas;
+    }
+
+    // Si no coincide con ningún formato conocido
+    console.error("Formato de respuesta no reconocido:", data);
+    throw new Error(
+      `Formato de respuesta no reconocido. Tipo recibido: ${typeof data}`
+    );
+  } catch (error) {
+    console.error("Error en fetchEmpresasAgentesDataFiscal:", error);
+    // Retornar array vacío en caso de error para que la UI no se rompa
+    return [];
+  }
+};
+
 export const fetchAgentes = async (
   filters: TypeFilters,
   defaultFilters: TypeFilters,
@@ -348,6 +428,42 @@ export const fetchAgentes = async (
   callback(data);
   return data;
 };
+
+export const fecthProveedores = async(
+
+  filters: TypeFilters,
+  defaultFilters: TypeFilters,
+  callback: (data: Agente[]) => void
+) => {
+  const queryParams = new URLSearchParams();
+
+  Object.entries({ ...filters, ...defaultFilters }).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      queryParams.append(key, value.toString());
+    }
+  });
+
+  const response = await fetch(
+    `${URL}/mia/proveedores/`,
+    {
+      headers: {
+        "x-api-key": API_KEY,
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        Pragma: "no-cache",
+        Expires: "0",
+      },
+      credentials: "include",
+      cache: "no-store",
+    }
+  );
+  if (!response.ok) {
+    throw new Error("Error al cargar los datos");
+  }
+  const data = await response.json();
+  callback(data);
+  return data;
+
+}
 
 export const fetchAgenteById = async (id: string) => {
   // Limpiar el ID de posibles parámetros de consulta

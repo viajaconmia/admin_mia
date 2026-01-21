@@ -1,4 +1,5 @@
 // src/components/PaymentModal/paymentReducer.ts
+import { BookingAll } from "@/services/BookingService";
 import type { Solicitud, Solicitud2 } from "@/types";
 
 // Exportamos el tipo del estado para usarlo en las props de los componentes hijos
@@ -26,7 +27,7 @@ export type Action = {
 };
 
 // Exportamos la función que genera el estado inicial
-export const getInitialState = (reservation: Solicitud2): PaymentState => ({
+export const getInitialState = (reservation: BookingAll): PaymentState => ({
   hasFavorBalance: false,
   error: "",
   isSecureCode: false,
