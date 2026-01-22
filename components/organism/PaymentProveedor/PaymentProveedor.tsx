@@ -463,7 +463,7 @@ export const PaymentModal = ({
       fechaExpiracion: currentSelectedCard.fecha_vencimiento,
       nombreTarjeta: currentSelectedCard.nombre_titular,
       numeroTarjeta: currentSelectedCard.numero_completo,
-      documento,
+      documento: document,
       cvv: currentSelectedCard.cvv,
       reservations: [
         {

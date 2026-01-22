@@ -363,6 +363,10 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
               reservation={{
                 ...selectedItem,
                 codigo_confirmacion: selectedItem.codigo_reservacion_hotel,
+                viajero: selectedItem.nombre_viajero_reservacion,
+                proveedor: selectedItem.hotel_reserva,
+                tipo_cuarto_vuelo:
+                  selectedItem.tipo_cuarto || selectedItem.room,
               }}
             />
           </Modal>
