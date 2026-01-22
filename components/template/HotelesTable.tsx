@@ -71,7 +71,7 @@ export const HotelesTable = ({
       const total = parseNum(item.total);
       const sumaPagos = (item.pagos_asociados || []).reduce(
         (sum, p) => sum + parseNum(p.monto),
-        0
+        0,
       );
       const faltaPagar = total - sumaPagos;
 
@@ -153,7 +153,7 @@ export const HotelesTable = ({
         <button
           onClick={() => {
             copyToClipboard(
-              `https://www.viajaconmia.com/bookings/${item.id_solicitud}`
+              `https://www.viajaconmia.com/bookings/${item.id_solicitud}`,
             );
           }}
           className="px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition"
@@ -173,8 +173,8 @@ export const HotelesTable = ({
           value == "Infinity"
             ? "text-gray-700 bg-gray-100 border-gray-300 "
             : value > 0
-            ? "text-green-600 bg-green-100 border-green-300"
-            : "text-red-600 bg-red-100 border-red-300"
+              ? "text-green-600 bg-green-100 border-green-300"
+              : "text-red-600 bg-red-100 border-red-300"
         }`}
       >
         {value == "Infinity" ? "0%" : `${Number(value).toFixed(2)}%`}
@@ -226,7 +226,7 @@ export const HotelesTable = ({
     setLoading(true);
     const payload = Object.entries(filters)
       .filter(
-        ([, value]) => value !== undefined && value !== null && value !== ""
+        ([, value]) => value !== undefined && value !== null && value !== "",
       )
       .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {} as any);
 
@@ -301,7 +301,12 @@ export const HotelesTable = ({
           }}
           title="Pagar reserva al proveedor"
         >
-          <PaymentModal reservation={selectedItem} />
+          <PaymentModal
+            reservation={{
+              ...selectedItem,
+              codigo_confirmacion: selectedItem.codigo_reservacion_hotel,
+            }}
+          />
         </Modal>
       )}
 

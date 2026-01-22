@@ -234,7 +234,12 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
           }}
           title="Pagar reserva al proveedor"
         >
-          <PaymentModal reservation={selectedItem} />
+          <PaymentModal
+            reservation={{
+              ...selectedItem,
+              codigo_confirmacion: selectedItem.codigo_confirmacion || "",
+            }}
+          />
         </Modal>
       )}
       {selectedEdit && (
