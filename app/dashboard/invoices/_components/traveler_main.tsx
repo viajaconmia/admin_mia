@@ -310,11 +310,10 @@ export function TravelersPage() {
 
   // Estados
   const [searchTerm, setSearchTerm] = useState("");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  // const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [activeFilters, setActiveFilters] = useState(defaultFiltersFacturas);
   const [isLoading, setIsLoading] = useState(false);
   const [facturas, setFacturas] = useState<Factura[]>([]);
-  const firstLoad = useRef(true);
   const [id, setId] = useState<string | null>(null);
   const { Can, hasPermission } = usePermiso();
 
@@ -340,12 +339,12 @@ export function TravelersPage() {
   };
 
   // Inicial
-  useEffect(() => {
-    if (firstLoad.current) {
-      firstLoad.current = false;
-      cargarFacturas(defaultFiltersFacturas);
-    }
-  }, []);
+  // useEffect(() => {
+  //   // if (firstLoad.current) {
+  //   //   firstLoad.current = false;
+  //   //   cargarFacturas(defaultFiltersFacturas);
+  //   // }
+  // }, []);
 
   // Handlers de filtros
   const handleFilter = (filters: any) => {
@@ -725,7 +724,7 @@ export function TravelersPage() {
             setFacturaDataSel(null);
             setFacturaEmpresa(null);
             // refresco tras asignación
-            cargarFacturas(activeFilters);
+            // cargarFacturas(activeFilters);
           }}
           id_factura={facturaAsignando}
           clienteSeleccionado={facturaAgente as any}

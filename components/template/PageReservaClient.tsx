@@ -54,7 +54,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
   const [pagar, setPagar] = useState(false);
   const [createReserva, setCreateReserva] = useState(false);
   const [filters, setFilters] = useState<TypeFilters>(
-    defaultFiltersSolicitudes
+    defaultFiltersSolicitudes,
   );
   const { hasAccess, Can } = usePermiso();
 
@@ -95,7 +95,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
       const total = parseNum(item.total);
       const sumaPagos = (item.pagos_asociados || []).reduce(
         (sum, p) => sum + parseNum(p.monto),
-        0
+        0,
       );
       const faltaPagar = total - sumaPagos;
 
@@ -192,8 +192,8 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
           value == "Infinity"
             ? "text-gray-700 bg-gray-100 border-gray-300 "
             : value > 0
-            ? "text-green-600 bg-green-100 border-green-300"
-            : "text-red-600 bg-red-100 border-red-300"
+              ? "text-green-600 bg-green-100 border-green-300"
+              : "text-red-600 bg-red-100 border-red-300"
         }`}
       >
         {value == "Infinity" ? "0%" : `${Number(value).toFixed(2)}%`}
@@ -248,7 +248,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
     setLoading(true);
     const payload = Object.entries(filters)
       .filter(
-        ([, value]) => value !== undefined && value !== null && value !== ""
+        ([, value]) => value !== undefined && value !== null && value !== "",
       )
       .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {} as any);
 
@@ -359,7 +359,16 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
             }}
             title="Pagar reserva al proveedor"
           >
-            <PaymentModal reservation={selectedItem} />
+            <PaymentModal
+              reservation={{
+                ...selectedItem,
+                codigo_confirmacion: selectedItem.codigo_reservacion_hotel,
+                viajero: selectedItem.nombre_viajero_reservacion,
+                proveedor: selectedItem.hotel_reserva,
+                tipo_cuarto_vuelo:
+                  selectedItem.tipo_cuarto || selectedItem.room,
+              }}
+            />
           </Modal>
         )}
 
