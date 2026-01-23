@@ -54,7 +54,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
   const [pagar, setPagar] = useState(false);
   const [createReserva, setCreateReserva] = useState(false);
   const [filters, setFilters] = useState<TypeFilters>(
-    defaultFiltersSolicitudes
+    defaultFiltersSolicitudes,
   );
   const { hasAccess, Can } = usePermiso();
 
@@ -95,7 +95,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
       const total = parseNum(item.total);
       const sumaPagos = (item.pagos_asociados || []).reduce(
         (sum, p) => sum + parseNum(p.monto),
-        0
+        0,
       );
       const faltaPagar = total - sumaPagos;
 
@@ -192,8 +192,8 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
           value == "Infinity"
             ? "text-gray-700 bg-gray-100 border-gray-300 "
             : value > 0
-            ? "text-green-600 bg-green-100 border-green-300"
-            : "text-red-600 bg-red-100 border-red-300"
+              ? "text-green-600 bg-green-100 border-green-300"
+              : "text-red-600 bg-red-100 border-red-300"
         }`}
       >
         {value == "Infinity" ? "0%" : `${Number(value).toFixed(2)}%`}
@@ -203,17 +203,20 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
       <TextTransform value={value} />
     ),
 
-    editar: ({ item }) => (
-      <Can permiso="button.edit-booking">
-        <button
-          onClick={() => handleEdit(item)}
-          className="text-blue-600 hover:text-blue-900 transition duration-150 ease-in-out flex gap-2 items-center"
-        >
-          <Pencil className="w-4 h-4" />
-          Editar
-        </button>
-      </Can>
-    ),
+    editar: ({ item }) =>
+      item.status_reserva === "Confirmada" ? (
+        <Can permiso="button.edit-booking">
+          <button
+            onClick={() => handleEdit(item)}
+            className="text-blue-600 hover:text-blue-900 transition duration-150 ease-in-out flex gap-2 items-center"
+          >
+            <Pencil className="w-4 h-4" />
+            Editar
+          </button>
+        </Can>
+      ) : (
+        <></>
+      ),
     pagar: ({ item }) =>
       item.status_reserva === "Confirmada" ? (
         <Can permiso={PERMISOS.COMPONENTES.BOTON.PAGAR_PROVEEDOR}>
@@ -248,7 +251,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
     setLoading(true);
     const payload = Object.entries(filters)
       .filter(
-        ([, value]) => value !== undefined && value !== null && value !== ""
+        ([, value]) => value !== undefined && value !== null && value !== "",
       )
       .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {} as any);
 
