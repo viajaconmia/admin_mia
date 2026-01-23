@@ -318,6 +318,7 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
     rfc:rfc,
 
     item:{id_solicitud_proveedor,diferencia_costo_proveedor_vs_factura:diferencia,asociaciones,informacion_completa:raw,id_proveedor},
+    
     __raw: raw,
   };
 }

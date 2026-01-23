@@ -90,7 +90,7 @@ export const PaymentModal = ({
   const [state, dispatch] = useReducer(
     paymentReducer,
     reservation,
-    getInitialState
+    getInitialState,
   );
 
   const {
@@ -134,7 +134,7 @@ export const PaymentModal = ({
         date: (date as string) || todayISO,
         amount: monto_a_pagar || 0,
       },
-    ]
+    ],
   );
 
   // Si cambia el monto (saldo a favor, etc) y el schedule tiene 1 fila, lo sincronizamos
@@ -156,7 +156,7 @@ export const PaymentModal = ({
       paymentSchedule.reduce((acc, r) => {
         const n = r.amount === "" ? 0 : Number(r.amount);
         return acc + (Number.isFinite(n) ? n : 0);
-      }, 0)
+      }, 0),
     );
   }, [paymentSchedule]);
 
@@ -173,14 +173,14 @@ export const PaymentModal = ({
 
   const removeScheduleRow = (id: string) => {
     setPaymentSchedule((rows) =>
-      rows.length <= 1 ? rows : rows.filter((r) => r.id !== id)
+      rows.length <= 1 ? rows : rows.filter((r) => r.id !== id),
     );
   };
 
   const updateScheduleRow = (
     id: string,
     patch: Partial<PaymentScheduleRow>,
-    rowIndex?: number
+    rowIndex?: number,
   ) => {
     setPaymentSchedule((rows) =>
       rows.map((r, idx) => {
@@ -191,7 +191,7 @@ export const PaymentModal = ({
           dispatch({ type: "SET_FIELD", field: "date", payload: patch.date });
         }
         return next;
-      })
+      }),
     );
   };
 
@@ -204,12 +204,12 @@ export const PaymentModal = ({
 
     if (normalized.some((r) => !r.fecha_pago)) {
       throw new Error(
-        "Falta capturar la fecha en una o más filas del calendario de pagos."
+        "Falta capturar la fecha en una o más filas del calendario de pagos.",
       );
     }
     if (normalized.some((r) => !Number.isFinite(r.monto) || r.monto <= 0)) {
       throw new Error(
-        "Todos los montos del calendario de pagos deben ser mayores a 0."
+        "Todos los montos del calendario de pagos deben ser mayores a 0.",
       );
     }
 
@@ -217,8 +217,8 @@ export const PaymentModal = ({
     if (Math.abs(sum - monto_a_pagar) > 0.01) {
       throw new Error(
         `La suma del calendario de pagos (${sum.toFixed(
-          2
-        )}) debe ser igual al monto a pagar (${monto_a_pagar.toFixed(2)}).`
+          2,
+        )}) debe ser igual al monto a pagar (${monto_a_pagar.toFixed(2)}).`,
       );
     }
 
@@ -235,7 +235,7 @@ export const PaymentModal = ({
     : [];
 
   const currentSelectedCard = creditCards.find(
-    (card) => card.id === selectedCard
+    (card) => card.id === selectedCard,
   );
 
   const selectFiles = creditCards.map((card) => ({
@@ -285,19 +285,19 @@ export const PaymentModal = ({
       fd.append("emails", JSON.stringify(list));
       fd.append(
         "subject",
-        `Cupón de reservación ${mappedReservation?.codigo_confirmacion ?? ""}`
+        `Cupón de reservación ${mappedReservation?.codigo_confirmacion ?? ""}`,
       );
       fd.append(
         "message",
-        comments || "Adjuntamos su cupón de reservación en PDF."
+        comments || "Adjuntamos su cupón de reservación en PDF.",
       );
       fd.append(
         "file",
         new File(
           [blob],
           `cupon-${mappedReservation?.codigo_confirmacion ?? "reserva"}.pdf`,
-          { type: "application/pdf" }
-        )
+          { type: "application/pdf" },
+        ),
       );
 
       const resp = await fetch("/api/send-coupon", {
@@ -344,7 +344,8 @@ export const PaymentModal = ({
       if (paymentType === "prepaid") {
         if (paymentMethod === "card" || paymentMethod === "link") {
           paymentSchedulePayload = validateAndBuildSchedulePayload();
-          effectiveDate = paymentSchedulePayload[0]?.fecha_pago || effectiveDate;
+          effectiveDate =
+            paymentSchedulePayload[0]?.fecha_pago || effectiveDate;
         } else if (paymentMethod === "transfer") {
           if (!effectiveDate) {
             throw new Error("Selecciona la fecha de pago.");
@@ -378,7 +379,7 @@ export const PaymentModal = ({
           (paymentMethod === "card" && !useQR)
         ) {
           throw new Error(
-            "Hay un error en la reservación, en la tarjeta o en la forma de mandar los datos, verifica que los datos estén completos."
+            "Hay un error en la reservación, en la tarjeta o en la forma de mandar los datos, verifica que los datos estén completos.",
           );
         }
 
@@ -396,7 +397,7 @@ export const PaymentModal = ({
               paymentStatus: derivedStatus,
               paymentSchedule: paymentSchedulePayload, // NUEVO
             },
-            (response) => {}
+            (response) => {},
           );
 
           if (paymentMethod === "card" && useQR === "qr") {
@@ -417,7 +418,7 @@ export const PaymentModal = ({
             },
             (response) => {
               alert(response.message);
-            }
+            },
           );
         }
       }
@@ -433,14 +434,15 @@ export const PaymentModal = ({
   };
 
   const generateQRPaymentPDF = async () => {
-    if (!document) throw new Error("Falta seleccionar el documento que aparecerá");
+    if (!document)
+      throw new Error("Falta seleccionar el documento que aparecerá");
     if (!currentSelectedCard) throw new Error("Falta seleccionar tarjeta");
 
     const secureToken = generateSecureToken(
       reservation.codigo_confirmacion.replaceAll("-", "."),
       monto_a_pagar,
       currentSelectedCard.id,
-      isSecureCode
+      isSecureCode,
     );
 
     const qrData: QRPaymentData = {
@@ -461,7 +463,7 @@ export const PaymentModal = ({
       fechaExpiracion: currentSelectedCard.fecha_vencimiento,
       nombreTarjeta: currentSelectedCard.nombre_titular,
       numeroTarjeta: currentSelectedCard.numero_completo,
-      documento,
+      documento: document,
       cvv: currentSelectedCard.cvv,
       reservations: [
         {
@@ -516,174 +518,190 @@ export const PaymentModal = ({
         <ReservationDetails reservation={reservation} />
 
         <div className="space-y-2">
-  {/* Saldo a Favor + Fechas SOLO en PREPAGO */}
-  {paymentType === "prepaid" && (
-    <>
-      <CheckboxInput
-        checked={hasFavorBalance}
-        onChange={(checked) =>
-          dispatch({
-            type: "SET_FIELD",
-            field: "hasFavorBalance",
-            payload: checked === true,
-          })
-        }
-        label="Tiene saldo a favor"
-      />
-
-      {hasFavorBalance && (
-        <>
-          <NumberInput
-            onChange={(value) =>
-              dispatch({
-                type: "SET_FIELD",
-                field: "favorBalance",
-                payload: value,
-              })
-            }
-            value={Number(favorBalance) || null}
-            label="Monto Saldo a Favor a Aplicar"
-            placeholder="0.00"
-          />
-          <div className="p-4 bg-green-50 border rounded-md border-green-200">
-            <div className="flex justify-between items-center">
-              <span className="text-slate-700 text-sm">
-                Monto a Pagar al Proveedor:
-              </span>
-              <span className="text-xl font-bold text-green-700">
-                ${monto_a_pagar.toFixed(2)}
-              </span>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* === SOLO TRANSFER: Fecha simple === */}
-      {paymentMethod === "transfer" && (
-        <DateInput
-          label="Fecha estimada"
-          value={date}
-          onChange={(value) =>
-            dispatch({ type: "SET_FIELD", field: "date", payload: value })
-          }
-        />
-      )}
-
-      {/* === SOLO CARD/LINK: Tabla schedule === */}
-      {shouldShowSchedule && (
-        <div className="mt-3 space-y-2">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold">Calendario de pagos</h3>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  setPaymentSchedule([
-                    {
-                      id: safeUUID(),
-                      date: (date as string) || todayISO,
-                      amount: monto_a_pagar,
-                    },
-                  ])
+          {/* Saldo a Favor + Fechas SOLO en PREPAGO */}
+          {paymentType === "prepaid" && (
+            <>
+              <CheckboxInput
+                checked={hasFavorBalance}
+                onChange={(checked) =>
+                  dispatch({
+                    type: "SET_FIELD",
+                    field: "hasFavorBalance",
+                    payload: checked === true,
+                  })
                 }
-                title="Reiniciar a un solo pago con el total"
-              >
-                Reset
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={addScheduleRow}
-              >
-                Agregar pago
-              </Button>
-            </div>
-          </div>
+                label="Tiene saldo a favor"
+              />
 
-          <div className="overflow-x-auto border rounded-md">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50">
-                <tr>
-                  <th className="text-left font-semibold p-2">Fecha de pago</th>
-                  <th className="text-left font-semibold p-2">Monto</th>
-                  <th className="text-right font-semibold p-2">Acción</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paymentSchedule.map((row, idx) => (
-                  <tr key={row.id} className="border-t">
-                    <td className="p-2">
-                      <input
-                        type="date"
-                        className="w-full border rounded-md px-2 py-1"
-                        value={row.date}
-                        onChange={(e) =>
-                          updateScheduleRow(
-                            row.id,
-                            { date: e.target.value },
-                            idx
-                          )
-                        }
-                      />
-                    </td>
-                    <td className="p-2">
-                      <input
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        className="w-full border rounded-md px-2 py-1"
-                        value={row.amount === "" ? "" : String(row.amount)}
-                        onChange={(e) => {
-                          const raw = e.target.value;
-                          updateScheduleRow(row.id, {
-                            amount: raw === "" ? "" : to2(Number(raw || 0)),
-                          });
-                        }}
-                        placeholder="0.00"
-                      />
-                    </td>
-                    <td className="p-2 text-right">
+              {hasFavorBalance && (
+                <>
+                  <NumberInput
+                    onChange={(value) =>
+                      dispatch({
+                        type: "SET_FIELD",
+                        field: "favorBalance",
+                        payload: value,
+                      })
+                    }
+                    value={Number(favorBalance) || null}
+                    label="Monto Saldo a Favor a Aplicar"
+                    placeholder="0.00"
+                  />
+                  <div className="p-4 bg-green-50 border rounded-md border-green-200">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-700 text-sm">
+                        Monto a Pagar al Proveedor:
+                      </span>
+                      <span className="text-xl font-bold text-green-700">
+                        ${monto_a_pagar.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* === SOLO TRANSFER: Fecha simple === */}
+              {paymentMethod === "transfer" && (
+                <DateInput
+                  label="Fecha estimada"
+                  value={date}
+                  onChange={(value) =>
+                    dispatch({
+                      type: "SET_FIELD",
+                      field: "date",
+                      payload: value,
+                    })
+                  }
+                />
+              )}
+
+              {/* === SOLO CARD/LINK: Tabla schedule === */}
+              {shouldShowSchedule && (
+                <div className="mt-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold">
+                      Calendario de pagos
+                    </h3>
+                    <div className="flex gap-2">
                       <Button
                         type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeScheduleRow(row.id)}
-                        disabled={paymentSchedule.length <= 1}
-                        title={
-                          paymentSchedule.length <= 1
-                            ? "Debe existir al menos una fila"
-                            : "Eliminar fila"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setPaymentSchedule([
+                            {
+                              id: safeUUID(),
+                              date: (date as string) || todayISO,
+                              amount: monto_a_pagar,
+                            },
+                          ])
                         }
+                        title="Reiniciar a un solo pago con el total"
                       >
-                        <X className="h-4 w-4" />
+                        Reset
                       </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={addScheduleRow}
+                      >
+                        Agregar pago
+                      </Button>
+                    </div>
+                  </div>
 
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-slate-600">Total programado:</span>
-            <span className="font-semibold">${scheduleTotal.toFixed(2)}</span>
-          </div>
+                  <div className="overflow-x-auto border rounded-md">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          <th className="text-left font-semibold p-2">
+                            Fecha de pago
+                          </th>
+                          <th className="text-left font-semibold p-2">Monto</th>
+                          <th className="text-right font-semibold p-2">
+                            Acción
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {paymentSchedule.map((row, idx) => (
+                          <tr key={row.id} className="border-t">
+                            <td className="p-2">
+                              <input
+                                type="date"
+                                className="w-full border rounded-md px-2 py-1"
+                                value={row.date}
+                                onChange={(e) =>
+                                  updateScheduleRow(
+                                    row.id,
+                                    { date: e.target.value },
+                                    idx,
+                                  )
+                                }
+                              />
+                            </td>
+                            <td className="p-2">
+                              <input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                className="w-full border rounded-md px-2 py-1"
+                                value={
+                                  row.amount === "" ? "" : String(row.amount)
+                                }
+                                onChange={(e) => {
+                                  const raw = e.target.value;
+                                  updateScheduleRow(row.id, {
+                                    amount:
+                                      raw === "" ? "" : to2(Number(raw || 0)),
+                                  });
+                                }}
+                                placeholder="0.00"
+                              />
+                            </td>
+                            <td className="p-2 text-right">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => removeScheduleRow(row.id)}
+                                disabled={paymentSchedule.length <= 1}
+                                title={
+                                  paymentSchedule.length <= 1
+                                    ? "Debe existir al menos una fila"
+                                    : "Eliminar fila"
+                                }
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
 
-          {Math.abs(scheduleTotal - monto_a_pagar) > 0.01 && (
-            <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2">
-              El total programado debe ser igual al monto a pagar:{" "}
-              <span className="font-semibold">${monto_a_pagar.toFixed(2)}</span>
-            </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-600">Total programado:</span>
+                    <span className="font-semibold">
+                      ${scheduleTotal.toFixed(2)}
+                    </span>
+                  </div>
+
+                  {Math.abs(scheduleTotal - monto_a_pagar) > 0.01 && (
+                    <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2">
+                      El total programado debe ser igual al monto a pagar:{" "}
+                      <span className="font-semibold">
+                        ${monto_a_pagar.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </div>
-      )}
-    </>
-  )}
-</div>
-
       </div>
 
       {/* ===== RIGHT ===== */}
@@ -825,7 +843,9 @@ export const PaymentModal = ({
                 <DropdownValues
                   label="Documento"
                   value={document}
-                  onChange={(value: { value: string; label: string; item: any } | null) => {
+                  onChange={(
+                    value: { value: string; label: string; item: any } | null,
+                  ) => {
                     if (!value) return;
                     dispatch({
                       type: "SET_FIELD",
@@ -907,7 +927,6 @@ export const PaymentModal = ({
         {paymentType === "credit" && (
           <div className="space-y-2">
             <TextAreaInput
-          
               onChange={(value) =>
                 dispatch({ type: "SET_FIELD", field: "emails", payload: value })
               }
