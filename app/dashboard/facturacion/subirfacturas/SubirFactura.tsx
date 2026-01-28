@@ -167,10 +167,13 @@ const getIdProveedorFromRow = (row: any): string => {
   console.log(row,"🤬🤬🤬,informacion de hote")
   return String(row?.id_proveedor ?? row?.proveedor_id ?? row?.id ?? "");
 };
+
 const getCodigoHotelFromRow = (row: any): string => {
   console.log(row,"🤬🤬🤬,informacion de hote")
   return String(row?.codigo_hotel ?? row?.proveedor_id ?? row?.id ?? "");
 };
+
+
 
 export default function SubirFactura({
   pagoId,

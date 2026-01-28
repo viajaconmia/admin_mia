@@ -11,16 +11,18 @@
     getStatusBadge,
     getWhoCreateBadge,
   } from "@/helpers/utils";
+  
   import { Table5 } from "@/components/Table5";
   import { TypeFilters, SolicitudProveedor } from "@/types";
   import { Loader } from "@/components/atom/Loader";
   import { currentDate } from "@/lib/utils";
-  import { fetchGetSolicitudesProveedores } from "@/services/pago_proveedor";
+  import { fetchGetSolicitudesProveedores1 } from "@/services/pago_proveedor";
   import { usePermiso } from "@/hooks/usePermission";
   import { PERMISOS } from "@/constant/permisos";
   import { DispersionModal } from "./Components/dispersion";
   import { ComprobanteModal } from "./Components/comprobantes";
   import { SolicitudProveedorRaw } from "./Components/dispersion";
+  import { URL, API_KEY } from "@/lib/constants/index";
   import { useNotification } from "@/context/useNotificacion";
 
   // ---------- HELPERS GENERALES ----------
@@ -39,12 +41,14 @@
 
 
   type SolicitudesPorFiltro = {
-    todos: SolicitudProveedor[];
-    spei_solicitado: SolicitudProveedor[];
-    pago_tdc: SolicitudProveedor[];
-    cupon_enviado: SolicitudProveedor[];
-    pagada: SolicitudProveedor[];
+  spei_solicitado: SolicitudProveedor[];
+  pago_tdc: SolicitudProveedor[];
+  cupon_enviado: SolicitudProveedor[];
+  pagada: SolicitudProveedor[];
+  todos?: SolicitudProveedor[]; // <-- ya no viene del back; lo armamos aquí
   };
+
+
 
   type PagoFacturaProveedor = {
     created_at?: string | null;
@@ -179,6 +183,9 @@
     rfc: string | null;
   };
 
+const EDIT_ENDPOINT = `${URL}/mia/pago_proveedor/edit`;
+
+
   // ---------- INFO DE PAGOS / FACTURAS ----------
 
   function getPagoInfo(item: ItemSolicitud) {
@@ -254,25 +261,7 @@
     const uuid = facturas[0]?.uuid_cfdi || "";
 
     return { estado, totalFacturado, fechaUltimaFactura, uuid };
-  }
-
-  const handleEdit = (
-    item: ItemSolicitud,
-    field: "razon_social" | "rfc" | "costo_proveedor",
-    newValue: string
-  ) => {
-    // Por ahora solo mostramos que se está editando
-    console.log("editando", {
-      field,
-      newValue,
-      id_solicitud: (item as any).id_solicitud,
-      id: (item as any).id,
-    });
-
-    // Aquí después podrás hacer:
-    // - actualizar un estado local de edición
-    // - llamar a un servicio para guardar en el back, etc.
-  };
+  }  
 
 
 
@@ -370,7 +359,7 @@
     const [editModal, setEditModal] = useState<{
       open: boolean;
       item: ItemSolicitud | null;
-      field: "razon_social" | "rfc" | "costo_proveedor" | null;
+      field: "razon_social" | "rfc" | "costo_proveedor" | "comentarios_cxp" | null;
       value: string;
     }>({
       open: false,
@@ -392,20 +381,25 @@
       setEditError(null);
     };
 
-    const handleConfirmEdit = () => {
-      if (!editModal.item || !editModal.field) return;
+    const handleConfirmEdit = async () => {
+  if (!editModal.item || !editModal.field) return;
 
-      const cleaned = editModal.value.replace(",", ".").trim();
-      if (cleaned === "" || isNaN(Number(cleaned))) {
-        setEditError("Valor no válido. Usa solo números (puedes usar punto decimal).");
-        return;
-      }
+  if (editModal.field === "comentarios_cxp") {
+    const cleanedText = (editModal.value ?? "").trim();
+    await handleEdit(editModal.item, editModal.field, cleanedText);
+    closeEditModal();
+    return;
+  }
 
-      // 🔥 Llamamos a tu handleEdit real
-      handleEdit(editModal.item, editModal.field, cleaned);
+  // Si no soportas aún costo_proveedor en el back, mejor avisa:
+  if (editModal.field === "costo_proveedor") {
+    showNotification("info", "costo_proveedor aún no está conectado a un endpoint de edición.");
+    return;
+  }
 
-      closeEditModal();
-    };
+  closeEditModal();
+};
+
 
     hasAccess(PERMISOS.VISTAS.PROVEEDOR_PAGOS);
 
@@ -413,7 +407,7 @@
 
     const baseList: SolicitudProveedor[] =
       categoria === "all"
-        ? solicitudesPago.todos
+        ? (solicitudesPago.todos ?? [])
         : categoria === "spei_solicitado"
           ? solicitudesPago.spei_solicitado
           : categoria === "pago_tdc"
@@ -421,6 +415,7 @@
             : categoria === "cupon_enviado"
               ? solicitudesPago.cupon_enviado
               : solicitudesPago.pagada;
+
 
     // 1) Aplica tu filtro extra (credit card / enviado_a_pago) si aún lo quieres.
     //    Si ya no lo necesitas, puedes quitar activeFilter y dejar solo la categoría.
@@ -451,10 +446,13 @@
         const item = raw as ItemSolicitud;
         const pagoInfo = getPagoInfo(item);
         const facInfo = getFacturaInfo(item);
+        
 
         return {
           // 🔹 NUEVO: campo al inicio para seleccionar (primera columna)
           seleccionar: "",
+            filtro_pago: (item as any).filtro_pago ?? "", // ✅ agrega esto
+
 
           // 🟦 INFORMACIÓN DE LA RESERVA
           codigo_hotel: item.codigo_reservacion_hotel,
@@ -492,6 +490,7 @@
           digitos_tajeta: item.tarjeta?.ultimos_4,
           banco: item.tarjeta?.banco_emisor,
           tipo_tarjeta: item.tarjeta?.tipo_tarjeta,
+          comentarios_cxp: (item as any).comentario_CXP ?? (item as any).comments_cxp ?? "",
           // 🟥 PAGO AL PROVEEDOR
           estado_pago: pagoInfo.estado_pago,
           pendiente_a_pagar: pagoInfo.pendientePago,
@@ -578,22 +577,49 @@
       setShowComprobanteModal(true);
     };
 
+    const mergeAll = (d: Partial<SolicitudesPorFiltro>) => {
+  const arr = [
+    ...(d.spei_solicitado ?? []),
+    ...(d.pago_tdc ?? []),
+    ...(d.cupon_enviado ?? []),
+    ...(d.pagada ?? []),
+  ];
+
+  // ✅ dedupe por id_solicitud o id o id_solicitud_proveedor
+  const map = new Map<string, SolicitudProveedor>();
+  for (const it of arr) {
+    const key =
+      String((it as any).id_solicitud ?? (it as any).id ?? it.solicitud_proveedor?.id_solicitud_proveedor ?? "");
+    if (!key) continue;
+    if (!map.has(key)) map.set(key, it);
+  }
+  return Array.from(map.values());
+};
+
+
     const renderers: Record<
       string,
       React.FC<{ value: any; item: any; index: number }>
     > = {
       // 🔹 Renderer de selección (checkbox)
       seleccionar: ({ item, index }) => {
-        const row = item as any;
+          const row = item as any;
+           const raw: SolicitudProveedor | undefined = (row.item as SolicitudProveedor) || row;
+          if (!raw) return null;
 
-        // Objeto original
-        const raw: SolicitudProveedor | undefined =
-          (row.item as SolicitudProveedor) || row;
+        const isPaidRow =
+            categoria === "pagada" || // ✅ si estás en tab pagada, todas sin checkbox
+            (row.filtro_pago === "pagada") || // ✅ si viene marcada del back
+            (raw as any).filtro_pago === "pagada"; // ✅ por si llega en raw
 
-        if (!raw) return null;
-        const tieneDispersion =
-          !!(raw as any).codigo_dispersion ||
-          !!raw.solicitud_proveedor?.codigo_dispersion || Number(raw.solicitud_proveedor?.saldo) <= 0;
+          if (isPaidRow) {
+            return <span className="text-gray-300">—</span>; // o `return null;`
+          }
+
+          const tieneDispersion =
+            !!(raw as any).codigo_dispersion ||
+            !!raw.solicitud_proveedor?.codigo_dispersion ||
+            Number(raw.solicitud_proveedor?.saldo) <= 0;
 
         // 🔑 Llave única (usa id_solicitud / id y si no hay, el index)
         const key = String(
@@ -705,40 +731,70 @@
       ),
 
       costo_proveedor: ({ value, item }) => {
-        const raw = item as ItemSolicitud;
-        const monto = Number(value || 0);
+  const row = item as any;
+  const original: ItemSolicitud = (row?.item as ItemSolicitud) || (row as ItemSolicitud);
 
-        return (
-          <div className="flex items-center gap-2">
-            {/* Pill del monto */}
-            <span
-              title={String(value)}
-              className="inline-flex items-center px-2 py-1 rounded-full bg-gray-100 text-xs font-medium text-gray-800 border border-gray-200"
-            >
-              ${monto.toFixed(2)}
-            </span>
+  const monto = Number(value || 0);
 
-            {/* Botón editar amigable que abre el mini modal */}
-            <button
-              type="button"
-              className="inline-flex items-center px-2 py-1 rounded-full border border-blue-200 bg-blue-50 text-[11px] font-medium text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition"
-              onClick={() => {
-                const actual = isNaN(monto) ? "" : monto.toString();
-                setEditError(null);
-                setEditModal({
-                  open: true,
-                  item: raw,
-                  field: "costo_proveedor",
-                  value: actual,
-                });
-              }}
-            >
-              <Pencil className="w-3 h-3 mr-1" />
-              Editar
-            </button>
-          </div>
-        );
-      },
+  return (
+    <div className="flex items-center gap-2">
+      <span className="inline-flex items-center px-2 py-1 rounded-full bg-gray-100 text-xs font-medium text-gray-800 border border-gray-200">
+        ${monto.toFixed(2)}
+      </span>
+
+      <button
+        type="button"
+        className="inline-flex items-center px-2 py-1 rounded-full border border-blue-200 bg-blue-50 text-[11px] font-medium text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition"
+        onClick={() => {
+          const actual = isNaN(monto) ? "" : monto.toString();
+          setEditError(null);
+          setEditModal({
+            open: true,
+            item: original, // ✅ IMPORTANTE: raw real
+            field: "costo_proveedor",
+            value: actual,
+          });
+        }}
+      >
+        <Pencil className="w-3 h-3 mr-1" />
+        Editar
+      </button>
+    </div>
+  );
+},
+
+comentarios_cxp: ({ value, item }) => {
+  const row = item as any;
+  const original: ItemSolicitud = (row?.item as ItemSolicitud) || (row as ItemSolicitud);
+
+  const texto = String(value ?? "").trim();
+  const preview = texto.length > 30 ? texto.slice(0, 30) + "…" : texto;
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-xs text-gray-800" title={texto || "—"}>
+        {texto ? preview : <span className="text-gray-400">—</span>}
+      </span>
+
+      <button
+        type="button"
+        className="inline-flex items-center px-2 py-1 rounded-full border border-blue-200 bg-blue-50 text-[11px] font-medium text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition"
+        onClick={() => {
+          setEditError(null);
+          setEditModal({
+            open: true,
+            item: original, // ✅ raw real
+            field: "comentarios_cxp",
+            value: texto,
+          });
+        }}
+      >
+        <Pencil className="w-3 h-3 mr-1" />
+        Editar
+      </button>
+    </div>
+  );
+},
 
       markup: ({ value }) => (
         <span
@@ -867,20 +923,34 @@
       ),
     };
 
+    useEffect(() => {
+      if (categoria === "pagada") {
+        setSelectedSolicitudesMap({});
+        setSolicitud([]);
+        setDatosDispersion([]);
+      }
+    }, [categoria]);
+
     const handleFetchSolicitudesPago = () => {
       setLoading(true);
-      fetchGetSolicitudesProveedores((data) => {
+      fetchGetSolicitudesProveedores1((data) => {
         const d: any = data?.data || {};
         console.log("solicitudes pago", d);
 
-        setSolicitudesPago({
-          todos: d.todos || [],
-          spei_solicitado: d.spei_solicitado || [],
-          pago_tdc: d.pago_tdc || [],
-          cupon_enviado: d.cupon_enviado || [],
-          pagada: d.pagada || [],
-        });
+        const spei_solicitado = d.spei_solicitado || [];
+        const pago_tdc = d.pago_tdc || [];
+        const cupon_enviado = d.cupon_enviado || [];
+        const pagada = d.pagada || [];
 
+        const todos = mergeAll({ spei_solicitado, pago_tdc, cupon_enviado, pagada });
+
+        setSolicitudesPago({
+          spei_solicitado,
+          pago_tdc,
+          cupon_enviado,
+          pagada,
+          todos, // ahora se arma aquí
+        });
         setLoading(false);
       });
     };
@@ -888,6 +958,68 @@
     useEffect(() => {
       handleFetchSolicitudesPago();
     }, [filters]);
+
+      const handleEdit = async (
+  item: ItemSolicitud,
+  field: "razon_social" | "rfc" | "costo_proveedor" | "comentarios_cxp" | null,
+  newValue: string
+) => {
+  try {
+    if (!field) return;
+
+    // ✅ ID que tu back exige
+    const id_solicitud_proveedor = item?.solicitud_proveedor?.id_solicitud_proveedor;
+
+    if (!id_solicitud_proveedor) {
+      console.error("[EDIT] falta id_solicitud_proveedor", item);
+      showNotification("error", "No se encontró id_solicitud_proveedor en esta fila.");
+      return;
+    }
+
+    // ✅ Solo campos soportados por tu EditCampos
+    const payload: any = { id_solicitud_proveedor };
+
+    if (field === "comentarios_cxp") {
+      payload.comentarios_cxp = newValue;
+    } else {
+      // Estos NO los soporta EditCampos (por whitelist / tabla)
+      showNotification(
+        "info",
+        `Ese campo (${field}) no se edita con /edit (solo comentarios_cxp por ahora).`
+      );
+      return;
+    }
+
+    console.log("[EDIT] PATCH =>", EDIT_ENDPOINT, payload);
+
+    const resp = await fetch(EDIT_ENDPOINT, {
+      method: "PATCH",
+      headers: {
+        "x-api-key": API_KEY || "",
+        "Content-Type": "application/json",
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const json = await resp.json().catch(() => null);
+    console.log("[EDIT] response", resp.status, json);
+
+    if (!resp.ok) {
+      const msg = json?.error || json?.message || `Error HTTP: ${resp.status}`;
+      showNotification("error", msg);
+      return;
+    }
+
+    showNotification("success", "Actualizado correctamente ✅");
+
+    // ✅ Refresca lista
+    handleFetchSolicitudesPago();
+  } catch (err: any) {
+    console.error("❌ edit fail", err);
+    showNotification("error", err?.message || "Error al editar");
+  }
+};
 
     return (
       <div className="h-fit">
@@ -911,7 +1043,7 @@
                 {
                   key: "all",
                   label: "Todos",
-                  count: solicitudesPago.todos.length,
+                  count: (solicitudesPago.todos ?? []).length,
                 },
                 {
                   key: "spei_solicitado",
@@ -976,11 +1108,11 @@
                 registros={registrosVisibles as any}
                 renderers={renderers}
                 defaultSort={defaultSort}
-                getRowClassName={(row) =>
-                  getFechaPagoRowClass(
-                    row.pendiente_a_pagar <= 0 ? "" : row.fecha_de_pago
-                  )
-                }
+                getRowClassName={(row) => {
+                  if (categoria === "pagada") return "";
+                  if ((row as any).filtro_pago === "pagada") return "";
+                  return getFechaPagoRowClass(row.pendiente_a_pagar <= 0 ? "" : row.fecha_de_pago);
+                }}
                 leyenda={`Mostrando ${registrosVisibles.length
                   } registros (${categoria === "all"
                     ? "todas las categorías"
@@ -1069,9 +1201,7 @@
               solicitudesSeleccionadas={solicitudesSeleccionadasModal}
               onClose={() => setShowDispersionModal(false)}
               onSubmit={async (payload) => {
-                // Aquí ya recibes:
-                // payload.id_dispersion
-                // payload.solicitudes = [{ id_solicitud, id_solicitud_proveedor, id_pago, costo_proveedor, codigo_hotel, fecha_pago }]
+                
                 console.log("Payload de dispersión listo para API:", payload);
 
                 // TODO: aquí llamas a tu endpoint para guardar la dispersión

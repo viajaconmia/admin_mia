@@ -26,6 +26,7 @@ export const fetchCreateSolicitud = async (
         },
         body: JSON.stringify({ solicitud }),
         cache: "no-store",
+        credentials:"include"
       }
     )
       .then((res) => res.json())
@@ -89,4 +90,17 @@ export const fetchGetSolicitudesProveedores = async (
     console.error(error);
     throw error;
   }
+};
+
+export const fetchGetSolicitudesProveedores1 = async (cb: (data: any) => void) => {
+  const res = await fetch(`${URL}/mia/pago_proveedor/solicitud?bandera=1`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" ,
+      "x-api-key": API_KEY,
+    },
+    cache: "no-store",
+  });
+
+  const data = await res.json();
+  cb(data);
 };

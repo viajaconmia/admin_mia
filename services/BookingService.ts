@@ -108,4 +108,5 @@ export type BookingAll = {
   comments: string;
   nuevo_incluye_desayuno: boolean | null;
   codigo_confirmacion: string;
+  usuario_creador:string;
 };

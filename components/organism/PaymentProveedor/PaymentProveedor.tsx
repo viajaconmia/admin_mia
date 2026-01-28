@@ -26,7 +26,7 @@ import {
   TextInput,
 } from "../../atom/Input";
 import ReservationDetails from "./ReservationDetails";
-import { useFetchCards } from "@/hooks/useFetchCard";
+import { useFetchCards, useFetchTitulares } from "@/hooks/useFetchCard";
 import { paymentReducer, getInitialState } from "./reducer";
 import { fetchCreateSolicitud } from "@/services/pago_proveedor";
 import { Reserva, type ReservaHandle } from "./cupon";
@@ -84,13 +84,18 @@ export const PaymentModal = ({
   reservation: BookingAll | null;
 }) => {
   const reservaRef = useRef<ReservaHandle>(null);
+
   const { data, fetchData } = useFetchCards();
+
+  // ✅ NUEVO: titulares
+  const { data: titularesData, fetchTitulares } = useFetchTitulares();
+
   const [isReservaOpen, setIsReservaOpen] = useState(false);
 
   const [state, dispatch] = useReducer(
     paymentReducer,
     reservation,
-    getInitialState,
+    getInitialState
   );
 
   const {
@@ -111,6 +116,9 @@ export const PaymentModal = ({
 
   // NUEVO: Comentarios CXP (local para no tocar tu reducer)
   const [commentsCxp, setCommentsCxp] = useState<string>("");
+
+  // ✅ NUEVO: titular seleccionado (local)
+  const [selectedTitularId, setSelectedTitularId] = useState<string>("");
 
   if (!reservation) return null;
 
@@ -134,8 +142,10 @@ export const PaymentModal = ({
         date: (date as string) || todayISO,
         amount: monto_a_pagar || 0,
       },
-    ],
+    ]
   );
+
+ console.log("reservagion",reservation)
 
   // Si cambia el monto (saldo a favor, etc) y el schedule tiene 1 fila, lo sincronizamos
   useEffect(() => {
@@ -156,7 +166,7 @@ export const PaymentModal = ({
       paymentSchedule.reduce((acc, r) => {
         const n = r.amount === "" ? 0 : Number(r.amount);
         return acc + (Number.isFinite(n) ? n : 0);
-      }, 0),
+      }, 0)
     );
   }, [paymentSchedule]);
 
@@ -173,14 +183,14 @@ export const PaymentModal = ({
 
   const removeScheduleRow = (id: string) => {
     setPaymentSchedule((rows) =>
-      rows.length <= 1 ? rows : rows.filter((r) => r.id !== id),
+      rows.length <= 1 ? rows : rows.filter((r) => r.id !== id)
     );
   };
 
   const updateScheduleRow = (
     id: string,
     patch: Partial<PaymentScheduleRow>,
-    rowIndex?: number,
+    rowIndex?: number
   ) => {
     setPaymentSchedule((rows) =>
       rows.map((r, idx) => {
@@ -191,7 +201,7 @@ export const PaymentModal = ({
           dispatch({ type: "SET_FIELD", field: "date", payload: patch.date });
         }
         return next;
-      }),
+      })
     );
   };
 
@@ -204,12 +214,12 @@ export const PaymentModal = ({
 
     if (normalized.some((r) => !r.fecha_pago)) {
       throw new Error(
-        "Falta capturar la fecha en una o más filas del calendario de pagos.",
+        "Falta capturar la fecha en una o más filas del calendario de pagos."
       );
     }
     if (normalized.some((r) => !Number.isFinite(r.monto) || r.monto <= 0)) {
       throw new Error(
-        "Todos los montos del calendario de pagos deben ser mayores a 0.",
+        "Todos los montos del calendario de pagos deben ser mayores a 0."
       );
     }
 
@@ -217,8 +227,8 @@ export const PaymentModal = ({
     if (Math.abs(sum - monto_a_pagar) > 0.01) {
       throw new Error(
         `La suma del calendario de pagos (${sum.toFixed(
-          2,
-        )}) debe ser igual al monto a pagar (${monto_a_pagar.toFixed(2)}).`,
+          2
+        )}) debe ser igual al monto a pagar (${monto_a_pagar.toFixed(2)}).`
       );
     }
 
@@ -227,7 +237,7 @@ export const PaymentModal = ({
 
   /** ===== Tarjetas ===== */
   const creditCards = Array.isArray(data)
-    ? data.map((card) => ({
+    ? data.map((card: any) => ({
         ...card,
         name: `${card.alias} -**** **** **** ${card.ultimos_4}`,
         type: card.banco_emisor,
@@ -235,18 +245,27 @@ export const PaymentModal = ({
     : [];
 
   const currentSelectedCard = creditCards.find(
-    (card) => card.id === selectedCard,
+    (card: any) => String(card.id) === String(selectedCard)
   );
 
-  const selectFiles = creditCards.map((card) => ({
+  const selectFiles = creditCards.map((card: any) => ({
     label: card.nombre_titular,
     value: card.url_identificacion,
     item: card,
   }));
 
+  // ✅ traer tarjetas y titulares
   useEffect(() => {
     fetchData();
-  }, []);
+    fetchTitulares();
+  }, [fetchData, fetchTitulares]);
+
+  /** ===== Titulares ===== */
+  const currentTitular = Array.isArray(titularesData)
+    ? titularesData.find(
+        (t: any) => String(t.idTitular) === String(selectedTitularId)
+      )
+    : null;
 
   const mappedReservation = useMemo(() => {
     if (!reservation) return null;
@@ -285,19 +304,19 @@ export const PaymentModal = ({
       fd.append("emails", JSON.stringify(list));
       fd.append(
         "subject",
-        `Cupón de reservación ${mappedReservation?.codigo_confirmacion ?? ""}`,
+        `Cupón de reservación ${mappedReservation?.codigo_confirmacion ?? ""}`
       );
       fd.append(
         "message",
-        comments || "Adjuntamos su cupón de reservación en PDF.",
+        comments || "Adjuntamos su cupón de reservación en PDF."
       );
       fd.append(
         "file",
         new File(
           [blob],
           `cupon-${mappedReservation?.codigo_confirmacion ?? "reserva"}.pdf`,
-          { type: "application/pdf" },
-        ),
+          { type: "application/pdf" }
+        )
       );
 
       const resp = await fetch("/api/send-coupon", {
@@ -366,6 +385,7 @@ export const PaymentModal = ({
           comments_cxp: commentsCxp,
           id_hospedaje: reservation.id_hospedaje,
           paymentStatus: derivedStatus,
+          usuario_creador:reservation.usuario_creador
         });
         return;
       }
@@ -379,8 +399,13 @@ export const PaymentModal = ({
           (paymentMethod === "card" && !useQR)
         ) {
           throw new Error(
-            "Hay un error en la reservación, en la tarjeta o en la forma de mandar los datos, verifica que los datos estén completos.",
+            "Hay un error en la reservación, en la tarjeta o en la forma de mandar los datos, verifica que los datos estén completos."
           );
+        }
+
+        // ✅ VALIDACIÓN EXTRA PARA LINK
+        if (paymentMethod === "link" && !selectedTitularId) {
+          throw new Error("Selecciona el titular para generar el link.");
         }
 
         if (paymentMethod === "link" || paymentMethod === "card") {
@@ -389,15 +414,26 @@ export const PaymentModal = ({
               selectedCard,
               date: effectiveDate, // compatibilidad
               comments,
-              comments_cxp: commentsCxp, // NUEVO
+              comments_cxp: commentsCxp,
               paymentMethod,
               paymentType,
               monto_a_pagar,
               id_hospedaje: reservation.id_hospedaje,
               paymentStatus: derivedStatus,
-              paymentSchedule: paymentSchedulePayload, // NUEVO
+              paymentSchedule: paymentSchedulePayload,
+              usuario_creador:reservation.usuario_creador,
+
+              // ✅ SOLO LINK: titular al payload
+              idTitular:
+                paymentMethod === "link" ? Number(selectedTitularId) : null,
+              titular:
+                paymentMethod === "link" ? currentTitular?.Titular ?? "" : "",
+              identificacion:
+                paymentMethod === "link"
+                  ? currentTitular?.identificacion ?? ""
+                  : "",
             },
-            (response) => {},
+            (response: any) => {}
           );
 
           if (paymentMethod === "card" && useQR === "qr") {
@@ -408,17 +444,18 @@ export const PaymentModal = ({
             {
               date: effectiveDate,
               comments,
-              comments_cxp: commentsCxp, // NUEVO
+              comments_cxp: commentsCxp,
               paymentMethod,
               paymentType,
               monto_a_pagar,
               id_hospedaje: reservation.id_hospedaje,
               paymentStatus: derivedStatus,
-              paymentSchedule: paymentSchedulePayload, // NUEVO (1 fila)
+              paymentSchedule: paymentSchedulePayload,
+              usuario_creador:reservation.usuario_creador
             },
-            (response) => {
+            (response: any) => {
               alert(response.message);
-            },
+            }
           );
         }
       }
@@ -442,7 +479,7 @@ export const PaymentModal = ({
       reservation.codigo_confirmacion.replaceAll("-", "."),
       monto_a_pagar,
       currentSelectedCard.id,
-      isSecureCode,
+      isSecureCode
     );
 
     const qrData: QRPaymentData = {
@@ -618,7 +655,9 @@ export const PaymentModal = ({
                           <th className="text-left font-semibold p-2">
                             Fecha de pago
                           </th>
-                          <th className="text-left font-semibold p-2">Monto</th>
+                          <th className="text-left font-semibold p-2">
+                            Monto
+                          </th>
                           <th className="text-right font-semibold p-2">
                             Acción
                           </th>
@@ -636,7 +675,7 @@ export const PaymentModal = ({
                                   updateScheduleRow(
                                     row.id,
                                     { date: e.target.value },
-                                    idx,
+                                    idx
                                   )
                                 }
                               />
@@ -750,13 +789,14 @@ export const PaymentModal = ({
             <div className="grid grid-cols-3 gap-4">
               <Button
                 variant={paymentMethod === "transfer" ? "default" : "outline"}
-                onClick={() =>
+                onClick={() => {
                   dispatch({
                     type: "SET_FIELD",
                     field: "paymentMethod",
                     payload: "transfer",
-                  })
-                }
+                  });
+                  setSelectedTitularId(""); // ✅ reset
+                }}
               >
                 <ArrowLeftRight className="w-3 h-3 mr-2" />
                 Transferencia
@@ -764,13 +804,14 @@ export const PaymentModal = ({
 
               <Button
                 variant={paymentMethod === "card" ? "default" : "outline"}
-                onClick={() =>
+                onClick={() => {
                   dispatch({
                     type: "SET_FIELD",
                     field: "paymentMethod",
                     payload: "card",
-                  })
-                }
+                  });
+                  setSelectedTitularId(""); // ✅ reset
+                }}
               >
                 <CreditCard className="w-3 h-3 mr-2" />
                 Tarjeta
@@ -778,13 +819,14 @@ export const PaymentModal = ({
 
               <Button
                 variant={paymentMethod === "link" ? "default" : "outline"}
-                onClick={() =>
+                onClick={() => {
                   dispatch({
                     type: "SET_FIELD",
                     field: "paymentMethod",
                     payload: "link",
-                  })
-                }
+                  });
+                  setSelectedTitularId(""); // ✅ reset para forzar elección
+                }}
               >
                 <Link className="w-3 h-3 mr-2" />
                 Link
@@ -844,7 +886,7 @@ export const PaymentModal = ({
                   label="Documento"
                   value={document}
                   onChange={(
-                    value: { value: string; label: string; item: any } | null,
+                    value: { value: string; label: string; item: any } | null
                   ) => {
                     if (!value) return;
                     dispatch({
@@ -874,21 +916,56 @@ export const PaymentModal = ({
             {(paymentMethod === "card" || paymentMethod === "link") && (
               <div className="space-y-4">
                 <DropdownValues
-                  onChange={(value) => {
+                  onChange={(value: any) => {
                     dispatch({
                       type: "SET_FIELD",
                       field: "selectedCard",
-                      payload: value.item.id,
+                      payload: value?.item?.id ?? "",
                     });
                   }}
                   value={selectedCard || ""}
-                  options={creditCards.map((item) => ({
+                  options={creditCards.map((item: any) => ({
                     value: item.id,
                     label: item.name,
                     item,
                   }))}
                   label="Seleccionar tarjeta"
                 />
+              </div>
+            )}
+
+            {/* ✅ SELECT NATIVO TITULAR (SOLO LINK) */}
+            {paymentMethod === "link" && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">
+                  Seleccionar titular
+                </label>
+
+                <select
+                  className="w-full h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={selectedTitularId}
+                  onChange={(e) => setSelectedTitularId(e.target.value)}
+                >
+                  <option value="">-- Selecciona un titular --</option>
+
+                  {Array.isArray(titularesData) &&
+                    titularesData.map((t: any) => (
+                      <option key={t.idTitular} value={String(t.idTitular)}>
+                        {t.Titular}
+                      </option>
+                    ))}
+                </select>
+
+                {currentTitular?.identificacion && (
+                  <a
+                    href={currentTitular.identificacion}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-blue-600 underline"
+                  >
+                    Ver identificación del titular
+                  </a>
+                )}
               </div>
             )}
 

@@ -32,6 +32,7 @@ import { generateCuponForOperaciones } from "@/lib/qr-generator";
 import { ROUTES } from "@/constant/routes";
 import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
+import { useAuth } from "@/context/AuthContext";
 
 type Vista = "reservas" | "pagadas" | "pendientes";
 
@@ -57,8 +58,10 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
     defaultFiltersSolicitudes,
   );
   const { hasAccess, Can } = usePermiso();
+  const { user } = useAuth();
 
   hasAccess(PERMISOS.VISTAS.RESERVAS);
+  console.log("solicitud de pago",PERMISOS,user)
 
   const handleEdit = (item: Solicitud2) => {
     setSelectedItem(item);
@@ -370,6 +373,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
                 proveedor: selectedItem.hotel_reserva,
                 tipo_cuarto_vuelo:
                   selectedItem.tipo_cuarto || selectedItem.room,
+                usuario_creador:user.id,
               }}
             />
           </Modal>
