@@ -69,7 +69,7 @@ const links = [
   },
   {
     title: "Solicitudes", //
-    href: "/dashboard/solicitudes",
+    href: "/dashboard/solicitudes/hoteles",
     icon: FileText,
   },
   {
