@@ -58,11 +58,11 @@ export function ReservationForm({
 
   if (solicitud.check_in && solicitud.check_out) {
     currentHotel = hotels.filter(
-      (item) => item.nombre_hotel == solicitud?.hotel
+      (item) => item.nombre_hotel == solicitud?.hotel,
     )[0];
     currentNoches = differenceInDays(
       parseISO(solicitud.check_out),
-      parseISO(solicitud.check_in)
+      parseISO(solicitud.check_in),
     );
   }
   const [intermediario, setIntermediario] = useState<{
@@ -110,9 +110,9 @@ export function ReservationForm({
               Number(
                 currentHotel?.tipos_cuartos.find(
                   (item) =>
-                    item.nombre_tipo_cuarto == updateRoom(solicitud.room)
-                )?.costo ?? 0
-              ) * currentNoches
+                    item.nombre_tipo_cuarto == updateRoom(solicitud.room),
+                )?.costo ?? 0,
+              ) * currentNoches,
             ) || 0,
       subtotal: 0,
       impuestos: 0,
@@ -120,22 +120,24 @@ export function ReservationForm({
     impuestos: {
       iva:
         Number(
-          currentHotel?.impuestos.find((item) => item.name == "iva")?.porcentaje
+          currentHotel?.impuestos.find((item) => item.name == "iva")
+            ?.porcentaje,
         ) || 0,
       ish:
         Number(
-          currentHotel?.impuestos.find((item) => item.name == "ish")?.porcentaje
+          currentHotel?.impuestos.find((item) => item.name == "ish")
+            ?.porcentaje,
         ) || 0,
       otros_impuestos:
         Number(
           currentHotel?.impuestos.find((item) => item.name == "otros_impuestos")
-            ?.monto
+            ?.monto,
         ) || 0,
       otros_impuestos_porcentaje:
         Number(
           currentHotel?.impuestos.find(
-            (item) => item.name == "otros_impuestos_porcentaje"
-          )?.porcentaje
+            (item) => item.name == "otros_impuestos_porcentaje",
+          )?.porcentaje,
         ) || 0,
     },
     items: [],
@@ -145,7 +147,7 @@ export function ReservationForm({
     },
   });
   const [habitaciones, setHabitaciones] = useState(
-    currentHotel?.tipos_cuartos || []
+    currentHotel?.tipos_cuartos || [],
   );
   const [edicionForm, setEdicionForm] = useState<EdicionForm>({
     estado_reserva: {
@@ -164,8 +166,8 @@ export function ReservationForm({
       getAutoCostoTotal(
         currentHotel as Hotel,
         updateRoom(solicitud.room),
-        currentNoches
-      )
+        currentNoches,
+      ),
   );
 
   const [walletAmount, setWalletAmount] = useState<number>(0);
@@ -182,7 +184,7 @@ export function ReservationForm({
     try {
       fetchViajerosFromAgent(solicitud.id_agente, ({ data }) => {
         const viajeroFiltrado = data.filter(
-          (viajero) => viajero.id_viajero == solicitud.id_viajero
+          (viajero) => viajero.id_viajero == solicitud.id_viajero,
         );
         if (viajeroFiltrado.length > 0) {
           setForm((prev) => ({ ...prev, viajero: viajeroFiltrado[0] }));
@@ -193,7 +195,7 @@ export function ReservationForm({
       console.log("MANEJANDO ERROR", error);
       showNotification(
         "error",
-        error.message || "Error al cargar los viajeros"
+        error.message || "Error al cargar los viajeros",
       );
       setTravelers([]);
     }
@@ -204,7 +206,7 @@ export function ReservationForm({
       updateAgentWallet();
       fetchViajerosFromAgent(solicitud.id_agente, ({ data }) => {
         const viajeroFiltrado = data.filter(
-          (viajero) => viajero.id_viajero == solicitud.id_viajero_reserva
+          (viajero) => viajero.id_viajero == solicitud.id_viajero_reserva,
         );
 
         // guarda el fallback
@@ -220,7 +222,7 @@ export function ReservationForm({
           solicitud.viajeros_adicionales_reserva || ""
         ).split(",");
         const acompanantesFiltrados = data.filter((viajero) =>
-          id_acompanantes.includes(viajero.id_viajero)
+          id_acompanantes.includes(viajero.id_viajero),
         );
         setAcompanantes(acompanantesFiltrados);
         setTravelers(data);
@@ -240,13 +242,13 @@ export function ReservationForm({
     ) {
       const nights = differenceInDays(
         parseISO(form.check_out),
-        parseISO(form.check_in)
+        parseISO(form.check_in),
       );
 
       const roomPrice = Number(
         form.hotel.content.tipos_cuartos.find(
-          (item) => item.nombre_tipo_cuarto == form.habitacion
-        )?.precio
+          (item) => item.nombre_tipo_cuarto == form.habitacion,
+        )?.precio,
       );
 
       // Función para calcular items basados en el costo total
@@ -264,7 +266,7 @@ export function ReservationForm({
               };
             }
           },
-          { subtotal: costoBase || 0, impuestos: 0 }
+          { subtotal: costoBase || 0, impuestos: 0 },
         );
 
         return Array.from({ length: nights }, (_, index) => ({
@@ -282,11 +284,11 @@ export function ReservationForm({
           impuestos: Object.keys(form.impuestos)
             .map((key) => {
               const value = Number(
-                form.impuestos[key as keyof ReservaForm["impuestos"]]
+                form.impuestos[key as keyof ReservaForm["impuestos"]],
               );
               if (value <= 0) return null;
               const base = Number(
-                (total / nights - form.impuestos.otros_impuestos).toFixed(2)
+                (total / nights - form.impuestos.otros_impuestos).toFixed(2),
               );
               const totalTax =
                 key !== "otros_impuestos"
@@ -310,8 +312,8 @@ export function ReservationForm({
         ? form.proveedor.total
         : Number(
             form.hotel.content.tipos_cuartos.find(
-              (item) => item.nombre_tipo_cuarto == form.habitacion
-            )?.costo ?? 0
+              (item) => item.nombre_tipo_cuarto == form.habitacion,
+            )?.costo ?? 0,
           ) * nights;
 
       const items = calculateItems(autoTotal);
@@ -323,10 +325,10 @@ export function ReservationForm({
           ...prev.proveedor,
           total: autoTotal,
           subtotal: Number(
-            (autoTotal - form.impuestos.otros_impuestos * nights).toFixed(2)
+            (autoTotal - form.impuestos.otros_impuestos * nights).toFixed(2),
           ),
           impuestos: Number(
-            (form.impuestos.otros_impuestos * nights).toFixed(2)
+            (form.impuestos.otros_impuestos * nights).toFixed(2),
           ),
         },
         venta: {
@@ -337,7 +339,7 @@ export function ReservationForm({
             (
               ((roomPrice * nights - autoTotal) / (roomPrice * nights)) *
               100
-            ).toFixed(2)
+            ).toFixed(2),
           ),
         },
         items: autoTotal > 0 ? items : [],
@@ -375,14 +377,14 @@ export function ReservationForm({
   function getAutoCostoTotal(
     hotel: Hotel | null,
     habitacion: string,
-    noches: number
+    noches: number,
   ) {
     if (!hotel) return 0;
     return (
       Number(
         hotel.tipos_cuartos.find(
-          (item) => item.nombre_tipo_cuarto === habitacion
-        )?.costo ?? 0
+          (item) => item.nombre_tipo_cuarto === habitacion,
+        )?.costo ?? 0,
       ) * noches
     );
   }
@@ -411,14 +413,14 @@ export function ReservationForm({
 
     try {
       const validateReservation = await codigo_reserva(
-        form.codigo_reservacion_hotel
+        form.codigo_reservacion_hotel,
       );
 
       // 1) Si falta código (tu fetch regresa { error: true, message: "Falta codigo_reserva" })
       if (validateReservation?.error) {
         showNotification(
           "error",
-          validateReservation.message || "Falta código de reservación"
+          validateReservation.message || "Falta código de reservación",
         );
         setLoading(false);
         return;
@@ -432,7 +434,7 @@ export function ReservationForm({
       ) {
         showNotification(
           "error",
-          validateReservation.message || "Ya existe codigo de reservacion"
+          validateReservation.message || "Ya existe codigo de reservacion",
         );
         setLoading(false);
         return;
@@ -466,7 +468,7 @@ export function ReservationForm({
       console.error("Error en la reserva:", error);
       showNotification(
         "error",
-        error?.message || "Ocurrió un error inesperado."
+        error?.message || "Ocurrió un error inesperado.",
       );
       setLoading(false);
     }
@@ -484,7 +486,7 @@ export function ReservationForm({
         alert("Reserva creada correctamente");
         setLoading(false);
         onClose();
-      }
+      },
     );
   };
 
@@ -492,7 +494,7 @@ export function ReservationForm({
     setLoading(true);
     try {
       const validateReservation = await codigo_reserva(
-        form.codigo_reservacion_hotel
+        form.codigo_reservacion_hotel,
       );
       if (
         validateReservation?.ok === false &&
@@ -500,7 +502,7 @@ export function ReservationForm({
       ) {
         showNotification(
           "error",
-          validateReservation.message || "Ya existe codigo de reservacion"
+          validateReservation.message || "Ya existe codigo de reservacion",
         );
         setLoading(false);
         return;
@@ -521,7 +523,7 @@ export function ReservationForm({
           console.error("Error al crear la reserva:", error);
           showNotification(
             "error",
-            error.message || "Error al crear la reserva"
+            error.message || "Error al crear la reserva",
           );
           setLoading(false);
         });
@@ -529,7 +531,7 @@ export function ReservationForm({
       console.error("Error en la reserva:", error);
       showNotification(
         "error",
-        error.message || "Ocurrió un error inesperado."
+        error.message || "Ocurrió un error inesperado.",
       );
       setLoading(false);
     }
@@ -556,7 +558,7 @@ export function ReservationForm({
           console.error("Error al crear la reserva:", error);
           showNotification(
             "error",
-            error.message || "Error al crear la reserva"
+            error.message || "Error al crear la reserva",
           );
           setLoading(false);
         });
@@ -564,7 +566,7 @@ export function ReservationForm({
       console.error("Error en la reserva:", error);
       showNotification(
         "error",
-        error.message || "Ocurrió un error inesperado."
+        error.message || "Ocurrió un error inesperado.",
       );
       setLoading(false);
     }
@@ -619,27 +621,27 @@ export function ReservationForm({
                         iva:
                           Number(
                             hotelContent.impuestos.find(
-                              (item) => item.name === "iva"
-                            )?.porcentaje
+                              (item) => item.name === "iva",
+                            )?.porcentaje,
                           ) || 0,
                         ish:
                           Number(
                             hotelContent.impuestos.find(
-                              (item) => item.name === "ish"
-                            )?.porcentaje
+                              (item) => item.name === "ish",
+                            )?.porcentaje,
                           ) || 0,
                         otros_impuestos:
                           Number(
                             hotelContent.impuestos.find(
-                              (item) => item.name === "otros_impuestos"
-                            )?.monto
+                              (item) => item.name === "otros_impuestos",
+                            )?.monto,
                           ) || 0,
                         otros_impuestos_porcentaje:
                           Number(
                             hotelContent.impuestos.find(
                               (item) =>
-                                item.name === "otros_impuestos_porcentaje"
-                            )?.porcentaje
+                                item.name === "otros_impuestos_porcentaje",
+                            )?.porcentaje,
                           ) || 0,
                       };
                       return {
@@ -655,8 +657,8 @@ export function ReservationForm({
                               hotelContent.tipos_cuartos.find(
                                 (item) =>
                                   item.nombre_tipo_cuarto ==
-                                  updateRoom(prev.habitacion)
-                              )?.costo ?? 0
+                                  updateRoom(prev.habitacion),
+                              )?.costo ?? 0,
                             ) * prev.noches || 0,
                         },
                         impuestos: impuestosObj,
@@ -848,8 +850,8 @@ export function ReservationForm({
                         {Boolean(
                           form.hotel.content?.tipos_cuartos.find(
                             (item) =>
-                              item.nombre_tipo_cuarto === form.habitacion
-                          )?.incluye_desayuno
+                              item.nombre_tipo_cuarto === form.habitacion,
+                          )?.incluye_desayuno,
                         ) ? (
                           <p className="text-green-800 p-1  px-3 rounded-full bg-green-200 w-fit border border-green-300">
                             Incluye desayuno
@@ -871,8 +873,8 @@ export function ReservationForm({
                             setNuevoIncluyeDesayuno(
                               !form.hotel.content?.tipos_cuartos.find(
                                 (item) =>
-                                  item.nombre_tipo_cuarto === form.habitacion
-                              )?.incluye_desayuno
+                                  item.nombre_tipo_cuarto === form.habitacion,
+                              )?.incluye_desayuno,
                             );
                           }}
                         />
@@ -931,7 +933,7 @@ export function ReservationForm({
                       (traveler) =>
                         !acompanantes
                           .map((item) => item.id_viajero)
-                          .includes(traveler.id_viajero)
+                          .includes(traveler.id_viajero),
                     )
                     .map((item) => ({
                       name: item.nombre_completo,
@@ -947,7 +949,7 @@ export function ReservationForm({
                         onDelete={() => {
                           const newAcompanantes = [...acompanantes].toSpliced(
                             index,
-                            1
+                            1,
                           );
                           console.log(newAcompanantes);
                           setAcompanantes(newAcompanantes);
@@ -969,7 +971,7 @@ export function ReservationForm({
                                 .includes(traveler.id_viajero) &&
                                 traveler.id_viajero !=
                                   form.viajero.id_viajero) ||
-                              traveler.id_viajero == acompanante.id_viajero
+                              traveler.id_viajero == acompanante.id_viajero,
                           )
                           .map((item) => ({
                             name: item.nombre_completo,
@@ -988,7 +990,7 @@ export function ReservationForm({
                               !acompanantes
                                 .map((item) => item.id_viajero)
                                 .includes(traveler.id_viajero) &&
-                              traveler.id_viajero != form.viajero.id_viajero
+                              traveler.id_viajero != form.viajero.id_viajero,
                           );
                           const nuevoArray = [...acompanantes, filtrados[0]];
                           setAcompanantes(nuevoArray);
@@ -1006,11 +1008,11 @@ export function ReservationForm({
                     onChange={(value) => {
                       const nights = differenceInDays(
                         parseISO(form.check_out),
-                        parseISO(form.check_in)
+                        parseISO(form.check_in),
                       );
 
                       const roomPrice = Number(
-                        (Number(value) / nights).toFixed(2)
+                        (Number(value) / nights).toFixed(2),
                       );
 
                       const costo_total = form.proveedor.total;
@@ -1020,7 +1022,7 @@ export function ReservationForm({
                         const costoBase =
                           costo_total - form.impuestos.otros_impuestos * nights;
                         const { subtotal, impuestos } = Object.keys(
-                          form.impuestos
+                          form.impuestos,
                         ).reduce(
                           (acc, key) => {
                             const value =
@@ -1038,27 +1040,27 @@ export function ReservationForm({
                               };
                             }
                           },
-                          { subtotal: costoBase || 0, impuestos: 0 }
+                          { subtotal: costoBase || 0, impuestos: 0 },
                         );
 
                         return Array.from({ length: nights }, (_, index) => ({
                           noche: index + 1,
                           costo: {
                             total: Number(
-                              (costo_total / nights || 0).toFixed(2)
+                              (costo_total / nights || 0).toFixed(2),
                             ),
                             subtotal: Number(
-                              (subtotal / nights || 0).toFixed(2)
+                              (subtotal / nights || 0).toFixed(2),
                             ),
                             impuestos: Number(
-                              (impuestos / nights || 0).toFixed(2)
+                              (impuestos / nights || 0).toFixed(2),
                             ),
                           },
                           venta: {
                             total: Number(roomPrice),
                             subtotal: Number((roomPrice / 1.16).toFixed(2)),
                             impuestos: Number(
-                              (roomPrice - roomPrice / 1.16).toFixed(2)
+                              (roomPrice - roomPrice / 1.16).toFixed(2),
                             ),
                           },
                           impuestos: Object.keys(form.impuestos)
@@ -1066,14 +1068,14 @@ export function ReservationForm({
                               const value = Number(
                                 form.impuestos[
                                   key as keyof ReservaForm["impuestos"]
-                                ]
+                                ],
                               );
                               if (value <= 0) return null;
                               const base = Number(
                                 (
                                   total / nights -
                                   form.impuestos.otros_impuestos
-                                ).toFixed(2)
+                                ).toFixed(2),
                               );
                               const totalTax =
                                 key !== "otros_impuestos"
@@ -1104,7 +1106,7 @@ export function ReservationForm({
                           total: Number(value),
                           subtotal: Number((Number(value) / 1.16).toFixed(2)),
                           impuestos: Number(
-                            (Number(value) - Number(value) / 1.16).toFixed(2)
+                            (Number(value) - Number(value) / 1.16).toFixed(2),
                           ),
                         },
                         items,
@@ -1167,7 +1169,7 @@ export function ReservationForm({
                         content: p,
                       }))}
                       onChange={function (
-                        value: ComboBoxOption2<Proveedor>
+                        value: ComboBoxOption2<Proveedor>,
                       ): void {
                         setIntermediario((prev) => ({
                           ...prev,
@@ -1186,11 +1188,11 @@ export function ReservationForm({
                       setIsCostoManual(true); // El usuario editó manualmente
                       const nights = differenceInDays(
                         parseISO(form.check_out),
-                        parseISO(form.check_in)
+                        parseISO(form.check_in),
                       );
 
                       const roomPrice = Number(
-                        (Number(form.venta.total) / nights).toFixed(2)
+                        (Number(form.venta.total) / nights).toFixed(2),
                       );
 
                       const costo_total = Number(value);
@@ -1200,7 +1202,7 @@ export function ReservationForm({
                         const costoBase =
                           costo_total - form.impuestos.otros_impuestos * nights;
                         const { subtotal, impuestos } = Object.keys(
-                          form.impuestos
+                          form.impuestos,
                         ).reduce(
                           (acc, key) => {
                             const value =
@@ -1218,27 +1220,27 @@ export function ReservationForm({
                               };
                             }
                           },
-                          { subtotal: costoBase || 0, impuestos: 0 }
+                          { subtotal: costoBase || 0, impuestos: 0 },
                         );
 
                         return Array.from({ length: nights }, (_, index) => ({
                           noche: index + 1,
                           costo: {
                             total: Number(
-                              (costo_total / nights || 0).toFixed(2)
+                              (costo_total / nights || 0).toFixed(2),
                             ),
                             subtotal: Number(
-                              (subtotal / nights || 0).toFixed(2)
+                              (subtotal / nights || 0).toFixed(2),
                             ),
                             impuestos: Number(
-                              (impuestos / nights || 0).toFixed(2)
+                              (impuestos / nights || 0).toFixed(2),
                             ),
                           },
                           venta: {
                             total: Number(roomPrice),
                             subtotal: Number((roomPrice / 1.16).toFixed(2)),
                             impuestos: Number(
-                              (roomPrice - roomPrice / 1.16).toFixed(2)
+                              (roomPrice - roomPrice / 1.16).toFixed(2),
                             ),
                           },
                           impuestos: Object.keys(form.impuestos)
@@ -1246,14 +1248,14 @@ export function ReservationForm({
                               const value = Number(
                                 form.impuestos[
                                   key as keyof ReservaForm["impuestos"]
-                                ]
+                                ],
                               );
                               if (value <= 0) return null;
                               const base = Number(
                                 (
                                   total / nights -
                                   form.impuestos.otros_impuestos
-                                ).toFixed(2)
+                                ).toFixed(2),
                               );
                               const totalTax =
                                 key !== "otros_impuestos"
@@ -1284,7 +1286,7 @@ export function ReservationForm({
                           total: Number(value),
                           subtotal: Number((Number(value) / 1.16).toFixed(2)),
                           impuestos: Number(
-                            (Number(value) - Number(value) / 1.16).toFixed(2)
+                            (Number(value) - Number(value) / 1.16).toFixed(2),
                           ),
                         },
                         items,
@@ -1349,7 +1351,7 @@ export function ReservationForm({
                         {!props.value
                           ? ""
                           : formatNumberWithCommas(
-                              (props.value || 0)?.toFixed(2) || ""
+                              (props.value || 0)?.toFixed(2) || "",
                             )}
                       </span>
                     ),
@@ -1359,7 +1361,7 @@ export function ReservationForm({
                         {!props.value
                           ? ""
                           : formatNumberWithCommas(
-                              (props.value || 0)?.toFixed(2) || ""
+                              (props.value || 0)?.toFixed(2) || "",
                             )}
                       </span>
                     ),
@@ -1369,7 +1371,7 @@ export function ReservationForm({
                         {!props.value
                           ? ""
                           : formatNumberWithCommas(
-                              (props.value || 0)?.toFixed(2) || ""
+                              (props.value || 0)?.toFixed(2) || "",
                             )}
                       </span>
                     ),
@@ -1379,7 +1381,7 @@ export function ReservationForm({
                         {!props.value
                           ? ""
                           : formatNumberWithCommas(
-                              (props.value || 0)?.toFixed(2) || ""
+                              (props.value || 0)?.toFixed(2) || "",
                             )}
                       </span>
                     ),
@@ -1389,7 +1391,7 @@ export function ReservationForm({
                         {!props.value
                           ? ""
                           : formatNumberWithCommas(
-                              (props.value || 0)?.toFixed(2) || ""
+                              (props.value || 0)?.toFixed(2) || "",
                             )}
                       </span>
                     ),
@@ -1427,7 +1429,7 @@ export function ReservationForm({
                       <span className="text-gray-900 font-semibold">
                         $
                         {formatNumberWithCommas(
-                          form.proveedor.total.toFixed(2)
+                          form.proveedor.total.toFixed(2),
                         )}
                       </span>
                     </div>
@@ -1445,7 +1447,7 @@ export function ReservationForm({
               {isFormPrepopulated ? (
                 // Botón para formulario prellenado (edición/creación)
                 <Button
-                  type="submit"
+                  type="button"
                   disabled={loading}
                   onClick={handleprocesar}
                   className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors"
