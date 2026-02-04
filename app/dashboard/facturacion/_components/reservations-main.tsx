@@ -811,6 +811,46 @@ export const FacturacionModal: React.FC<{
     return true;
   };
 
+
+  type ItemFull = {
+  id_item: string;
+  id_servicio: string;
+  id_hospedaje: string | null;
+  total: number;
+  fecha_uso?: string;
+  reserva?: {
+    hotel?: string;
+    check_in?: string;
+    check_out?: string;
+    nombre_viajero?: string | null;
+  };
+};
+
+const groupByHospedaje = (items: ItemFull[]) => {
+  const map = new Map<string, ItemFull[]>();
+
+  for (const it of items) {
+    // ✅ si no hay id_hospedaje, NO mezcles todo en un solo grupo:
+    // agrupa por servicio para evitar juntar cosas distintas.
+    const key = it.id_hospedaje ?? `servicio:${it.id_servicio}`;
+
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(it);
+  }
+
+  return Array.from(map.entries()).map(([key, arr]) => ({
+    key,
+    id_hospedaje: arr[0]?.id_hospedaje ?? null,
+    items: arr,
+    total: arr.reduce((s, x) => s + Number(x.total || 0), 0),
+    // metadatos útiles para descripción
+    hotel: arr.find(x => x.reserva?.hotel)?.reserva?.hotel ?? "",
+    check_in: arr.find(x => x.reserva?.check_in)?.reserva?.check_in ?? "",
+    check_out: arr.find(x => x.reserva?.check_out)?.reserva?.check_out ?? "",
+  }));
+};
+
+
 // Devuelve un arreglo de items seleccionados con contexto de su reserva
 const getSelectedItemsFull = (
   reservationsWithSelectedItems: ReservationWithItems[],
@@ -916,89 +956,85 @@ const handleConfirm = async (mode: InvoiceMode) => {
     }));
 
     // 3) CFDI Items
-    const cfdiItems = modeIsConsolidated
-      ? (() => {
-          const totalFacturado = itemsFacturadosFull.reduce(
-            (s, it) => s + Number(it.total),
-            0
-          );
-          const { subtotal, iva, total } = splitIva16(totalFacturado);
-          const qty = Math.max(itemsFacturadosFull.length, 1);
+const cfdiItems = modeIsConsolidated
+  ? (() => {
+      // ✅ CONSOLIDADA: se queda como ya la tienes
+      const totalFacturado = itemsFacturadosFull.reduce(
+        (s, it) => s + Number(it.total),
+        0
+      );
+      const { subtotal, iva, total } = splitIva16(totalFacturado);
+      const qty = Math.max(itemsFacturadosFull.length, 1);
 
-          return [
+      return [
+        {
+          Quantity: String(qty),
+          ProductCode: "90121500",
+          UnitCode: "E48",
+          Unit: "Unidad de servicio",
+          Description: selectedDescription,
+          UnitPrice: round2(subtotal / qty).toFixed(2),
+          Subtotal: subtotal.toFixed(2),
+          TaxObject: "02",
+          Taxes: [
             {
-              Quantity: String(qty), // ✅ cantidad real seleccionada
-              ProductCode: "90121500",
-              UnitCode: "E48",
-              Unit: "Unidad de servicio",
-              Description: selectedDescription,
-              UnitPrice: round2(subtotal / qty).toFixed(2),
-              Subtotal: subtotal.toFixed(2),
-              TaxObject: "02",
-              Taxes: [
-                {
-                  Name: "IVA",
-                  Rate: "0.16",
-                  Total: iva.toFixed(2),
-                  Base: subtotal.toFixed(2),
-                  IsRetention: "false",
-                  IsFederalTax: "true",
-                },
-              ],
-              Total: total.toFixed(2),
+              Name: "IVA",
+              Rate: "0.16",
+              Total: iva.toFixed(2),
+              Base: subtotal.toFixed(2),
+              IsRetention: "false",
+              IsFederalTax: "true",
             },
-          ];
-        })()
-      : (() => {
-          // ✅ DETALLADA: 1 concepto POR CADA ITEM seleccionado
-          return itemsFacturadosFull.map((it: any) => {
-            const total = Number(it.total);
-            const { subtotal, iva } = splitIva16(total);
+          ],
+          Total: total.toFixed(2),
+        },
+      ];
+    })()
+  : (() => {
+      // ✅ DETALLADA POR HOSPEDAJE: 1 concepto por id_hospedaje
+      const groups = groupByHospedaje(itemsFacturadosFull as any);
 
-            const descRaw = [
-  selectedDescription,
-  `HOTEL: ${it.reserva?.hotel ?? ""}`,
-  `CHECK-IN: ${formatDate(it.reserva?.check_in ?? "")}`,
-  `CHECK-OUT: ${formatDate(it.reserva?.check_out ?? "")}`,
-  `FECHA USO: ${it.fecha_uso ?? ""}`,
-  it.reserva?.nombre_viajero ? `VIAJERO: ${it.reserva.nombre_viajero}` : "",
-].filter(Boolean).join(" - ");
+      return groups.map((g) => {
+        console.log("informacion😎😎😎😎😎😎crfrfr",g)
+        const { subtotal, iva, total } = splitIva16(g.total);
+        const qty = Math.max(g.items.length, 1);
 
-const descMultiline = [
-  `${selectedDescription}"\n"
-  ${it.reserva?.hotel ?? ""}"\n"
-  ${formatDate(it.reserva?.check_in ?? "")} - ${formatDate(it.reserva?.check_out ?? "")}"\n"
-  ${it.reserva?.nombre_viajero ? ` - ${it.reserva.nombre_viajero}` : ""}`
-].filter(Boolean).join("\n");
+        const descRaw = [
+          selectedDescription,
+          g.hotel ? `${g.hotel}` : "",
+          g.check_in && g.check_out
+            ? `${formatDate(g.check_in)} - ${formatDate(g.check_out)}`
+            : "",
+          g.items[0].reserva.nombre_viajero
+        ]
+          .filter(Boolean)
+          .join(" - ");
 
+        const desc = sanitizeFacturamaText(descRaw, 1000);
 
-// const desc = sanitizeFacturamaText(descRaw);
-const desc = sanitizeFacturamaText(descMultiline);
-
-
-            return {
-              Quantity: "1",
-              ProductCode: "90121500",
-              UnitCode: "E48",
-              Unit: "Unidad de servicio",
-              Description: desc,
-              UnitPrice: subtotal.toFixed(2),
-              Subtotal: subtotal.toFixed(2),
-              TaxObject: "02",
-              Taxes: [
-                {
-                  Name: "IVA",
-                  Rate: "0.16",
-                  Total: iva.toFixed(2),
-                  Base: subtotal.toFixed(2),
-                  IsRetention: "false",
-                  IsFederalTax: "true",
-                },
-              ],
-              Total: round2(total).toFixed(2),
-            };
-          });
-        })();
+        return {
+          Quantity: String(qty),                 // ✅ noches/items del hospedaje
+          ProductCode: "90121500",
+          UnitCode: "E48",
+          Unit: "Unidad de servicio",
+          Description: desc,
+          UnitPrice: round2(subtotal / qty).toFixed(2), // ✅ coherente con Quantity
+          Subtotal: subtotal.toFixed(2),
+          TaxObject: "02",
+          Taxes: [
+            {
+              Name: "IVA",
+              Rate: "0.16",
+              Total: iva.toFixed(2),
+              Base: subtotal.toFixed(2),
+              IsRetention: "false",
+              IsFederalTax: "true",
+            },
+          ],
+          Total: total.toFixed(2),
+        };
+      });
+    })();
 
     // 4) payloadCFDI
     const payloadCFDI = {

@@ -30,7 +30,7 @@ export default function DashboardLayout({
   if (!user) return;
 
   return (
-    <div className="backdrop-blur-3xl h-screen">
+    <div className="backdrop-blur-3xl h-screen"> 
       <NavContainer title="Admin" links={links}>
         <div className="h-full bg-transparent overflow-y-auto">
           {/* ESTO DEBERIA IR EN UN COMPONENTE APARTE, LUEGO LO MANEJO */}

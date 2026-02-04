@@ -37,6 +37,7 @@ export default function VuelosPage() {
       nombre_completo: "HECTOR RENE CONTRERAS HERNANDEZ",
       correo: null,
       apellido_paterno: "CONTRERAS",
+      apellido_materno:"HERNANDEZ",
 
       seat_number: "6C",
       seat_location: null,
@@ -63,6 +64,7 @@ export default function VuelosPage() {
       nombre_completo: "HECTOR RENE CONTRERAS HERNANDEZ",
       correo: null,
       apellido_paterno: "CONTRERAS",
+      apellido_materno:"HERNANDEZ",
 
       seat_number: "6D",
       seat_location: null,
@@ -97,7 +99,7 @@ export default function VuelosPage() {
     originIata: v.originIata,
     destinationIata: v.destinationIata,
     confirmationCode: v.confirmationCode,
-    passengerLastName: v.passengerLastName,
+    passengerLastName: (v.passengerLastName || "").trim() || null,
   }),
 });
 
