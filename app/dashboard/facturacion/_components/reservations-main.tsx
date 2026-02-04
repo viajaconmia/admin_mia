@@ -1678,7 +1678,7 @@ const buildAddenda = () => {
               disabled={!selectedFiscalData || loading || reservationsWithSelectedItems.length === 0}
               className="px-4 py-2 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 disabled:cursor-not-allowed"
             >
-              {loading ? "Generando..." : "Facturar Detallada (por ítem)"}
+              {loading ? "Generando..." : "Facturar Detallada (por hospedaje)"}
             </button>
             </>
           )}
