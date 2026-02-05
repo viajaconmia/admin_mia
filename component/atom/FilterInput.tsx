@@ -1,5 +1,5 @@
 import Button from "@/components/atom/Button";
-import { ComboBoxValue2, TextInput } from "@/components/atom/Input";
+import { ComboBoxValue2, DateInput, TextInput } from "@/components/atom/Input";
 import { X } from "lucide-react";
 
 type BaseProps = {
@@ -20,7 +20,12 @@ type SelectInputProps = BaseProps & {
   options: string[];
 };
 
-type FilterInputProps = TextInputProps | SelectInputProps;
+type DateInputProps = BaseProps & {
+  type: "date";
+  options?: string[];
+};
+
+type FilterInputProps = TextInputProps | SelectInputProps | DateInputProps;
 
 export const FilterInput = ({
   type,
@@ -56,6 +61,15 @@ export const FilterInput = ({
             options={options}
             className="flex-1"
             unstyled={true}
+          />
+        ) : type == "date" ? (
+          <DateInput
+            value={(value || "").split("T")[0]}
+            onChange={(value: string | null) => {
+              onChange(value, propiedad);
+            }}
+            disabled={disabled}
+            className="flex-1"
           />
         ) : (
           <h1>Falta el type o no se encontro</h1>
