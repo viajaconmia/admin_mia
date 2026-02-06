@@ -71,7 +71,33 @@ export default function VuelosPage() {
       seat_location: null,
     };
 
-    const mapped = [mapVueloRowToComprado(rowIda), mapVueloRowToComprado(rowRegreso)];
+      const rowRegreso1: VueloDbRow = {
+      id_vuelo: "pdf-regreso-y4-1143",
+      airline: "VIVAAEROBUS",
+      airline_code: "VB",
+      flight_number: "1143",
+
+      departure_airport: "SJD Los Cabos International Airport San Jose del Cabo Baja California Sur MX",
+      arrival_airport: "GDL Don Miguel Hidalgo Y Costilla International Airport Guadalajara Jalisco MX",
+      departure_date: "2026-01-30",
+      departure_time: "15:36:00",
+      arrival_date: "2026-01-30",
+      arrival_time: "18:07:00",
+
+      departure_city: "San Jose del Cabo, BCS",
+      arrival_city: "Guadalajara, Jalisco",
+
+      codigo_confirmacion: "IB226P",
+      nombre_completo: "Juan Carlos Martinez Gonzalez",
+      correo: null,
+      apellido_paterno: "MARTINEZ",
+      apellido_materno:"GONZALEZ",
+
+      seat_number: "6D",
+      seat_location: null,
+    };
+
+    const mapped = [mapVueloRowToComprado(rowIda), mapVueloRowToComprado(rowRegreso),mapVueloRowToComprado(rowRegreso1)];
     setVuelos(mapped);
 
     const init: Record<string, RowState> = {};
