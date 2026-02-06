@@ -13,7 +13,7 @@ import { DescargaFactura, Root } from "@/types/billing";
 import { ChevronDownIcon, ChevronUpIcon, Download } from "lucide-react";
 import { formatNumber, formatMoneyMXN, withCommas } from "@/helpers/formater";
 import { Console } from "console";
-
+import { useNotification } from "@/context/useNotificacion";
 // --- Helpers de descarga robusta ---
 const normalizeBase64 = (b64?: string | null) => {
   if (!b64) return "";
@@ -446,6 +446,8 @@ const LoaderComponent: React.FC = () => (
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
+
+
 const splitIva16 = (total: number) => {
   const subtotal = round2(total / 1.16);
   const iva = round2(total - subtotal);
@@ -482,6 +484,7 @@ export const FacturacionModal: React.FC<{
   const [selectedDescription, setSelectedDescription] = useState<string>(
     paymentDescriptions[0]
   );
+  const [omitObservations, setOmitObservations] = useState(false);
 
   console.log("informacion",selectedItems)
   const [reservations, setReservations] = useState(
@@ -496,6 +499,36 @@ export const FacturacionModal: React.FC<{
         })),
       }))
   );
+  const { showNotification } = useNotification();
+  const handleCopyObservations = async () => {
+  const text = sanitizeFacturamaText(descriptionToUse, 1000);
+
+  
+
+
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      // Fallback viejo
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+    }
+
+    showNotification("success","Observación copiada ✅");
+  } catch (e) {
+    console.error("Error al copiar:", e);
+    showNotification("error","No se pudo copiar la observación ❌");
+  }
+};
+
   const [fiscalDataList, setFiscalDataList] = useState<FiscalData[]>([]);
   console.log("FISCAL DATA", fiscalDataList);
   const [selectedFiscalData, setSelectedFiscalData] =
@@ -565,7 +598,7 @@ export const FacturacionModal: React.FC<{
           empresa?.id_agente == "11e1a5c7-1d44-485e-99a2-7fdf674058f3"
       )
     ) {
-      alert("Se detecto al cliente amparo, cambiaremos el servicio");
+      showNotification("error","Se detecto al cliente amparo, cambiaremos el servicio");
       setSelectedDescription(paymentDescriptions[1]);
     }
   }, [fiscalDataList]);
@@ -697,7 +730,7 @@ export const FacturacionModal: React.FC<{
               Total: totalAmount.toFixed(2),
             },
           ],
-          Observations: sanitizeFacturamaText(descriptionToUse),
+          Observations: omitObservations ? "" : sanitizeFacturamaText(descriptionToUse),
         }));
       } else {
         // Factura detallada - un concepto por reservación con suma EXACTA de items seleccionados
@@ -788,11 +821,12 @@ export const FacturacionModal: React.FC<{
     selectedPaymentMethod,
     reservationsWithSelectedItems,
     isConsolidated,
+    omitObservations
   ]);
 
   const validateInvoiceData = () => {
     if (reservationsWithSelectedItems.length === 0) {
-      alert("No hay items seleccionados para facturar");
+      showNotification("error","No hay items seleccionados para facturar");
       return false;
     }
 
@@ -804,7 +838,7 @@ export const FacturacionModal: React.FC<{
     if (!selectedPaymentForm) missingFields.push("forma de pago");
 
     if (missingFields.length > 0) {
-      alert(`Faltan los siguientes campos: ${missingFields.join(", ")}`);
+      showNotification("error",`Faltan los siguientes campos: ${missingFields.join(", ")}`);
       return false;
     }
 
@@ -912,7 +946,10 @@ const getSelectedItemsFull = (
   });
 };
 
-  type InvoiceMode = "consolidada" | "detallada_por_item";
+type InvoiceMode =
+  | "consolidada"
+  | "detallada_por_hospedaje"
+  | "detallada_por_item";
 
 const handleConfirm = async (mode: InvoiceMode) => {
   if (!selectedFiscalData) {
@@ -943,7 +980,7 @@ const handleConfirm = async (mode: InvoiceMode) => {
     );
 
     if (itemsFacturadosFull.length === 0) {
-      alert("No hay items seleccionados para facturar");
+      showNotification("error","No hay items seleccionados para facturar");
       return;
     }
 
@@ -956,85 +993,132 @@ const handleConfirm = async (mode: InvoiceMode) => {
     }));
 
     // 3) CFDI Items
-const cfdiItems = modeIsConsolidated
-  ? (() => {
-      // ✅ CONSOLIDADA: se queda como ya la tienes
-      const totalFacturado = itemsFacturadosFull.reduce(
-        (s, it) => s + Number(it.total),
-        0
-      );
-      const { subtotal, iva, total } = splitIva16(totalFacturado);
-      const qty = Math.max(itemsFacturadosFull.length, 1);
+const cfdiItems = (() => {
+  // ✅ SIEMPRE Quantity = 1 en todos los conceptos
+  const QTY_ONE = "1";
 
-      return [
+  if (mode === "consolidada") {
+    // 1 solo concepto, suma total de todos los items seleccionados
+    const totalFacturado = itemsFacturadosFull.reduce(
+      (s, it) => s + Number(it.total),
+      0
+    );
+    const { subtotal, iva, total } = splitIva16(totalFacturado);
+
+    return [
+      {
+        Quantity: QTY_ONE,
+        ProductCode: "90121500",
+        UnitCode: "E48",
+        Unit: "Unidad de servicio",
+        Description: selectedDescription, // ✅ igual que antes
+        UnitPrice: subtotal.toFixed(2),   // ✅ QTY=1 => UnitPrice = Subtotal
+        Subtotal: subtotal.toFixed(2),
+        TaxObject: "02",
+        Taxes: [
+          {
+            Name: "IVA",
+            Rate: "0.16",
+            Total: iva.toFixed(2),
+            Base: subtotal.toFixed(2),
+            IsRetention: "false",
+            IsFederalTax: "true",
+          },
+        ],
+        Total: total.toFixed(2),
+      },
+    ];
+  }
+
+  if (mode === "detallada_por_hospedaje") {
+    // ✅ 1 concepto por id_hospedaje, PERO Quantity = 1
+    const groups = groupByHospedaje(itemsFacturadosFull as any);
+
+    return groups.map((g) => {
+      const { subtotal, iva, total } = splitIva16(g.total);
+
+      const descRaw = [
+        selectedDescription, // ✅ igual que antes
+        g.hotel ? `${g.hotel}` : "",
+        g.check_in && g.check_out
+          ? `${formatDate(g.check_in)} - ${formatDate(g.check_out)}`
+          : "",
+        // ojo: evita crashear si no existe
+        g.items?.[0]?.reserva?.nombre_viajero ?? "",
+      ]
+        .filter(Boolean)
+        .join(" - ");
+
+      const desc = sanitizeFacturamaText(descRaw, 1000);
+
+      return {
+        Quantity: QTY_ONE,
+        ProductCode: "90121500",
+        UnitCode: "E48",
+        Unit: "Unidad de servicio",
+        Description: desc,
+        UnitPrice: subtotal.toFixed(2), // ✅ QTY=1
+        Subtotal: subtotal.toFixed(2),
+        TaxObject: "02",
+        Taxes: [
+          {
+            Name: "IVA",
+            Rate: "0.16",
+            Total: iva.toFixed(2),
+            Base: subtotal.toFixed(2),
+            IsRetention: "false",
+            IsFederalTax: "true",
+          },
+        ],
+        Total: total.toFixed(2),
+      };
+    });
+  }
+
+  // mode === "detallada_por_item"
+  // ✅ 1 concepto por cada id_item, Quantity = 1
+  return (itemsFacturadosFull as any[]).map((it) => {
+    const { subtotal, iva, total } = splitIva16(Number(it.total));
+
+    // OJO: aquí NO cambio tu estilo de descripción: sigue usando selectedDescription
+    // (si quieres que agregue hotel/fechas/viajero como antes, me dices y lo armamos)
+    const descRaw = [
+      selectedDescription,
+      it?.reserva?.hotel ?? "",
+      it?.reserva?.check_in && it?.reserva?.check_out
+        ? `${formatDate(it.reserva.check_in)} - ${formatDate(it.reserva.check_out)}`
+        : "",
+      it?.reserva?.nombre_viajero ?? "",
+    ]
+      .filter(Boolean)
+      .join(" - ");
+
+    const desc = sanitizeFacturamaText(descRaw, 1000);
+
+    return {
+      Quantity: QTY_ONE,
+      ProductCode: "90121500",
+      UnitCode: "E48",
+      Unit: "Unidad de servicio",
+      Description: desc,
+      UnitPrice: subtotal.toFixed(2), // ✅ QTY=1
+      Subtotal: subtotal.toFixed(2),
+      TaxObject: "02",
+      Taxes: [
         {
-          Quantity: String(qty),
-          ProductCode: "90121500",
-          UnitCode: "E48",
-          Unit: "Unidad de servicio",
-          Description: selectedDescription,
-          UnitPrice: round2(subtotal / qty).toFixed(2),
-          Subtotal: subtotal.toFixed(2),
-          TaxObject: "02",
-          Taxes: [
-            {
-              Name: "IVA",
-              Rate: "0.16",
-              Total: iva.toFixed(2),
-              Base: subtotal.toFixed(2),
-              IsRetention: "false",
-              IsFederalTax: "true",
-            },
-          ],
-          Total: total.toFixed(2),
+          Name: "IVA",
+          Rate: "0.16",
+          Total: iva.toFixed(2),
+          Base: subtotal.toFixed(2),
+          IsRetention: "false",
+          IsFederalTax: "true",
         },
-      ];
-    })()
-  : (() => {
-      // ✅ DETALLADA POR HOSPEDAJE: 1 concepto por id_hospedaje
-      const groups = groupByHospedaje(itemsFacturadosFull as any);
+      ],
+      Total: total.toFixed(2),
+    };
+  });
+})();
 
-      return groups.map((g) => {
-        console.log("informacion😎😎😎😎😎😎crfrfr",g)
-        const { subtotal, iva, total } = splitIva16(g.total);
-        const qty = Math.max(g.items.length, 1);
-
-        const descRaw = [
-          selectedDescription,
-          g.hotel ? `${g.hotel}` : "",
-          g.check_in && g.check_out
-            ? `${formatDate(g.check_in)} - ${formatDate(g.check_out)}`
-            : "",
-          g.items[0].reserva.nombre_viajero
-        ]
-          .filter(Boolean)
-          .join(" - ");
-
-        const desc = sanitizeFacturamaText(descRaw, 1000);
-
-        return {
-          Quantity: String(qty),                 // ✅ noches/items del hospedaje
-          ProductCode: "90121500",
-          UnitCode: "E48",
-          Unit: "Unidad de servicio",
-          Description: desc,
-          UnitPrice: round2(subtotal / qty).toFixed(2), // ✅ coherente con Quantity
-          Subtotal: subtotal.toFixed(2),
-          TaxObject: "02",
-          Taxes: [
-            {
-              Name: "IVA",
-              Rate: "0.16",
-              Total: iva.toFixed(2),
-              Base: subtotal.toFixed(2),
-              IsRetention: "false",
-              IsFederalTax: "true",
-            },
-          ],
-          Total: total.toFixed(2),
-        };
-      });
-    })();
 
     // 4) payloadCFDI
     const payloadCFDI = {
@@ -1049,7 +1133,7 @@ const cfdiItems = modeIsConsolidated
         Currency: "MXN",
         Date: formattedDate,
         OrderNumber: Math.round(Math.random() * 999999999).toString(),
-        Observations: sanitizeFacturamaText(descriptionToUse),
+        Observations: omitObservations ? "" : sanitizeFacturamaText(descriptionToUse),
         Items: cfdiItems,
       },
       info_user: {
@@ -1080,12 +1164,12 @@ const cfdiItems = modeIsConsolidated
     const factura = await descargarFactura(response.Id);
     setDescarga(factura);
 
-    alert("Se ha generado con éxito la factura");
+    showNotification("success","Se ha generado con éxito la factura");
 
     onConfirm(selectedFiscalData, modeIsConsolidated);
   } catch (error) {
     console.error(error);
-    alert("Ocurrió un error al generar la factura: " + (error as Error).message);
+    showNotification("error","Ocurrió un error al generar la factura: " + (error as Error).message);
   } finally {
     setLoading(false);
   }
@@ -1100,7 +1184,7 @@ const cfdiItems = modeIsConsolidated
 
 
   // Generar descripción por defecto
-  const defaultDescription = `DETALLE DE RESERVACIONES: ${reservationsWithSelectedItems
+  const defaultDescription = `${reservationsWithSelectedItems
     .map((reserva) => {
       const selectedItemsForReserva = reserva.items.filter((item) =>
         selectedItems[reserva.id_servicio]?.includes(item.id_item)
@@ -1519,10 +1603,39 @@ const buildAddenda = () => {
                   rows={3}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm"
                 />
+                <div className="flex items-center gap-2 mt-2">
+  <button
+    type="button"
+    onClick={handleCopyObservations}
+    className="px-3 py-1.5 text-xs font-medium rounded-md border border-gray-300 bg-white hover:bg-gray-50"
+  >
+    Copiar
+  </button>
+
+  <button
+    type="button"
+    onClick={() => setOmitObservations((v) => !v)}
+    className={`px-3 py-1.5 text-xs font-medium rounded-md border ${
+      omitObservations
+        ? "border-red-300 bg-red-50 text-red-700 hover:bg-red-100"
+        : "border-gray-300 bg-white hover:bg-gray-50"
+    }`}
+  >
+    {omitObservations ? "Observación desactivada" : "No poner observación"}
+  </button>
+
+  {omitObservations && (
+    <span className="text-[11px] text-red-600">
+      No se enviará Observations a Facturama.
+    </span>
+  )}
+</div>
+
                 <p className="text-xs text-gray-500 mt-1">
-                  Deja vacío para usar la descripción por defecto: "
-                  {defaultDescription}"
-                </p>
+  {omitObservations
+    ? "Observación desactivada: Facturama recibirá Observations vacío."
+    : `Deja vacío para usar la descripción por defecto: "${defaultDescription}"`}
+</p>
               </div>
             </div>
             <div>
@@ -1604,7 +1717,7 @@ const buildAddenda = () => {
                   }
 
                   if (!pdf) {
-                    alert("No se encontró el PDF en la respuesta de descarga.");
+                    showNotification("error","No se encontró el PDF en la respuesta de descarga.");
                     return;
                   }
                   downloadBase64File(
@@ -1644,7 +1757,7 @@ const buildAddenda = () => {
                   }
 
                   if (!xml) {
-                    alert("No se encontró el XML en la respuesta de descarga.");
+                    showNotification("error","No se encontró el XML en la respuesta de descarga.");
                     return;
                   }
                   downloadBase64File(
@@ -1664,22 +1777,32 @@ const buildAddenda = () => {
           ) : (
             <>
             <button
-              type="button"
-              onClick={() => handleConfirm("consolidada")}
-              disabled={!selectedFiscalData || loading || reservationsWithSelectedItems.length === 0}
-              className="px-4 py-2 rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed"
-            >
-              {loading ? "Generando..." : "Facturar Consolidada"}
-            </button>
+  type="button"
+  onClick={() => handleConfirm("consolidada")}
+  disabled={!selectedFiscalData || loading || reservationsWithSelectedItems.length === 0}
+  className="px-4 py-2 rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed"
+>
+  {loading ? "Generando..." : "Facturar Consolidada"}
+</button>
 
-            <button
-              type="button"
-              onClick={() => handleConfirm("detallada_por_item")}
-              disabled={!selectedFiscalData || loading || reservationsWithSelectedItems.length === 0}
-              className="px-4 py-2 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 disabled:cursor-not-allowed"
-            >
-              {loading ? "Generando..." : "Facturar Detallada (por hospedaje)"}
-            </button>
+<button
+  type="button"
+  onClick={() => handleConfirm("detallada_por_hospedaje")}
+  disabled={!selectedFiscalData || loading || reservationsWithSelectedItems.length === 0}
+  className="px-4 py-2 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 disabled:cursor-not-allowed"
+>
+  {loading ? "Generando..." : "Facturar Detallada (por hospedaje)"}
+</button>
+
+<button
+  type="button"
+  onClick={() => handleConfirm("detallada_por_item")}
+  disabled={!selectedFiscalData || loading || reservationsWithSelectedItems.length === 0}
+  className="px-4 py-2 rounded-md text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 disabled:cursor-not-allowed"
+>
+  {loading ? "Generando..." : "Facturar Detallada (por ítem)"}
+</button>
+
             </>
           )}
         </div>

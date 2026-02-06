@@ -7,6 +7,7 @@ import type { VueloComprado, FlightStatusResponse } from "@/services/flights";
 import type { VueloDbRow } from "@/lib/flights";
 import { mapVueloRowToComprado } from "@/lib/flights";
 import { BoletoPdfDownload } from "./components/BoletoPdf";
+import { URL, API_KEY } from "@/lib/constants/index";
 
 type RowState = { loading: boolean; error: string | null; status: FlightStatusResponse | null };
 
@@ -89,17 +90,16 @@ export default function VuelosPage() {
     setRow(v.id, { loading: true, error: null });
 
     try {
-      const resp = await fetch("/dashboard/vuelos/status", {
+const resp = await fetch("./vuelos/status", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
     airlineCode: v.airlineCode,
-    flightNumber: v.flightNumberRaw,
-    departureDateISO: v.departureDateISO,
-    originIata: v.originIata,
-    destinationIata: v.destinationIata,
     confirmationCode: v.confirmationCode,
-    passengerLastName: (v.passengerLastName || "").trim() || null,
+    passengerLastName: (v.passengerLastName || "").trim(),
+    flightNumber: v.flightNumberRaw ?? null,
+    departureDateISO: v.departureDateISO ?? null,
+    debug: true,
   }),
 });
 

@@ -9,6 +9,13 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  serverExternalPackages: ['puppeteer-core', '@sparticuz/chromium-min'],
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.externals.push('@sparticuz/chromium-min');
+    }
+    return config;
+  }
 };
 
 module.exports = nextConfig;
