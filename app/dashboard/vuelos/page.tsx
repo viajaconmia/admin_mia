@@ -87,34 +87,34 @@ export default function VuelosPage() {
   };
 
   const consultarStatus = async (v: VueloComprado) => {
-    setRow(v.id, { loading: true, error: null });
+  setRow(v.id, { loading: true, error: null });
 
-    try {
+  try {
 const resp = await fetch("./vuelos/status", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    airlineCode: v.airlineCode,
-    confirmationCode: v.confirmationCode,
-    passengerLastName: (v.passengerLastName || "").trim(),
-    flightNumber: v.flightNumberRaw ?? null,
-    departureDateISO: v.departureDateISO ?? null,
-    debug: true,
-  }),
-});
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        airlineCode: "Y4",
+        confirmationCode: v.confirmationCode,
+        passengerLastName: (v.passengerLastName || "").trim(),
+        debug: true,
+      }),
+    });
 
+    const json = await resp.json();
+    console.log("LOOKUP:", json);
 
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({}));
-        throw new Error(err?.error || `HTTP ${resp.status}`);
-      }
-
-      const data: FlightStatusResponse = await resp.json();
-      setRow(v.id, { loading: false, status: data, error: null });
-    } catch (e: any) {
-      setRow(v.id, { loading: false, error: e?.message ?? "Error al consultar" });
+    if (!resp.ok || !json?.ok) {
+      throw new Error(json?.error || `HTTP ${resp.status}`);
     }
-  };
+
+    // OJO: tu API responde { ok:true, data:{...} }
+    setRow(v.id, { loading: false, status: json.data, error: null });
+  } catch (e: any) {
+    setRow(v.id, { loading: false, error: e?.message ?? "Error al consultar" });
+  }
+};
+
 
   const registros = useMemo(() => {
     return vuelos.map((v) => {
