@@ -18,7 +18,7 @@ export class BookingsService extends ApiService {
   }
 
   public obtenerItemsDeHospedaje = async (
-    id_hospedaje: string
+    id_hospedaje: string,
   ): Promise<ApiResponse<Item[]>> => {
     return this.get<Item[]>({
       path: this.formatPath(this.ENDPOINTS.GET.ITEMS),
@@ -85,8 +85,8 @@ export type BookingAll = {
   correo_cliente: string;
   telefono_cliente: string;
 
-  status_reserva: string;
-  total_booking: string;
+  estado: "Confirmada" | "En proceso" | "Cancelada";
+  total: string;
   etapa_reservacion: string;
 
   check_in: string;
@@ -108,5 +108,5 @@ export type BookingAll = {
   comments: string;
   nuevo_incluye_desayuno: boolean | null;
   codigo_confirmacion: string;
-  usuario_creador:string;
+  usuario_creador: string;
 };

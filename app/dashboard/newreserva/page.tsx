@@ -37,7 +37,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
   const [page, setPage] = useState(Number(parametros.get("page")) || 0);
   const [reservas, setReservas] = useState<BookingAll[]>([]);
   const [filters, setFilters] = useState<TypeFilters>(
-    defaultFiltersSolicitudes
+    defaultFiltersSolicitudes,
   );
   const [selectedItem, setSelectedItem] = useState<BookingAll>(null);
   const [selectedEdit, setSelectedEdit] = useState<string>(null);
@@ -137,7 +137,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
       console.log(value, reserva);
       return (
         <>
-          {reserva.status_reserva != "Cancelada" && (
+          {reserva.estado != "Cancelada" && (
             <Button
               icon={Trash2}
               size="sm"
@@ -156,7 +156,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
           <Button
             onClick={() =>
               setSelectedItem(
-                reservas.filter((book) => book.id_solicitud == value)[0]
+                reservas.filter((book) => book.id_solicitud == value)[0],
               )
             }
             icon={DollarSign}
@@ -185,17 +185,17 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     tipo: reserva.tipo_cuarto_vuelo,
     costo_proveedor: reserva.costo_total,
     markup:
-      ((Number(reserva.total_booking || 0) - Number(reserva.costo_total || 0)) /
-        Number(reserva.total_booking || 0)) *
+      ((Number(reserva.total || 0) - Number(reserva.costo_total || 0)) /
+        Number(reserva.total || 0)) *
       100,
-    precio_de_venta: reserva.total_booking,
+    precio_de_venta: reserva.total,
     metodo_de_pago: reserva.metodo_pago,
     reservante: reserva.reservante,
     etapa_reservacion: reserva.etapa_reservacion,
-    estado: reserva.status_reserva,
+    estado: reserva.estado,
     detalles_cliente: reserva.id_solicitud,
     editar: reserva.type == "hotel" ? reserva.id_solicitud : reserva.id_booking,
-    pagar: reserva.status_reserva == "Confirmada" ? reserva.id_solicitud : null,
+    pagar: reserva.estado == "Confirmada" ? reserva.id_solicitud : null,
   }));
 
   useEffect(() => {
@@ -268,7 +268,7 @@ const MAX_REGISTERS = 20;
 const formatFilters = (filters) =>
   Object.entries(filters)
     .filter(
-      ([, value]) => value !== undefined && value !== null && value !== ""
+      ([, value]) => value !== undefined && value !== null && value !== "",
     )
     .reduce((acc, [key, value]) => ({ ...acc, [key]: value }), {} as any);
 
