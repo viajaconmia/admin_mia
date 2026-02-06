@@ -1,5 +1,6 @@
 import { SucursalDetails } from "@/components/template/GuardadoRapido";
 import { ApiResponse, ApiService } from "./ApiService";
+import { Proveedor } from "./ProveedoresService";
 
 export class ExtraService extends ApiService {
   private ENDPOINTS = {
@@ -89,7 +90,7 @@ export class ExtraService extends ApiService {
 
   public createAeropuerto = (
     codigo: string,
-    ubicacion: string
+    ubicacion: string,
   ): Promise<ApiResponse<Aeropuerto[]>> =>
     this.post<Aeropuerto[]>({
       path: this.formatPath(this.ENDPOINTS.AEROPUERTO.POST.AEROPUERTO),
@@ -97,25 +98,13 @@ export class ExtraService extends ApiService {
     });
 
   public createSucursal = (
-    sucursal: SucursalDetails & { proveedor: Proveedor }
+    sucursal: SucursalDetails & { proveedor: Proveedor },
   ): Promise<ApiResponse<Sucursal[]>> =>
     this.post<Sucursal[]>({
       path: this.formatPath(this.ENDPOINTS.SUCURSAL.POST.SUCURSAL),
       body: sucursal,
     });
 }
-
-export type Proveedor = {
-  creado_en: string;
-  email: string | null;
-  id: number;
-  nombre: string;
-  pais: string | null;
-  rfc: string | null;
-  sitio_web: string | null;
-  telefono: string | null;
-  type: "vuelo" | "renta_carro";
-};
 
 export type Aeropuerto = {
   codigo: string;

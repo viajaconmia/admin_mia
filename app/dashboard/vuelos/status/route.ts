@@ -1,17 +1,17 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { volarisLookupBooking } from "@/lib/volaris";
 
 export const runtime = "nodejs";
 
 const Schema = z.object({
   airlineCode: z.enum(["AM", "Y4"]),
-  flightNumber: z.string().min(1).nullable().optional(),
+  flightNumber: z.string().nullable().optional(),
   departureDateISO: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   originIata: z.string().length(3).nullable().optional(),
   destinationIata: z.string().length(3).nullable().optional(),
-
-  confirmationCode: z.string().min(1).nullable().optional(),
-  passengerLastName: z.string().min(1).nullable().optional(),
+  confirmationCode: z.string().nullable().optional(),
+  passengerLastName: z.string().nullable().optional(),
 });
 
 export async function POST(req: Request) {
@@ -19,36 +19,82 @@ export async function POST(req: Request) {
     const body = await req.json();
     const parsed = Schema.safeParse(body);
     if (!parsed.success) {
-      return NextResponse.json({ error: "Bad request", details: parsed.error.flatten() }, { status: 400 });
+      return NextResponse.json(
+        { error: "Bad request", details: parsed.error.flatten() },
+        { status: 400 }
+      );
     }
+    const debugAllowed =
+  req.headers.get("x-debug-key") &&
+  process.env.INTERNAL_DEBUG_KEY &&
+  req.headers.get("x-debug-key") === process.env.INTERNAL_DEBUG_KEY;
+
 
     const p = parsed.data;
 
-    // ✅ aquí decides la estrategia real:
-    // 1) Si tienes flightNumber confiable -> consultar "flight status"
-    // 2) Si NO -> intentar por confirmationCode + lastName (manage booking)
-    // Por ahora mock:
-    const now = new Date().toISOString();
+    if (p.airlineCode !== "Y4") {
+      return NextResponse.json(
+        {
+          airlineCode: p.airlineCode,
+          fetchedAtISO: new Date().toISOString(),
+          source: "mock",
+          status: "UNKNOWN",
+          statusText: "Aún no implementado",
+        },
+        { status: 200 }
+      );
+    }
 
-    const resp = {
-      airlineCode: p.airlineCode,
-      fetchedAtISO: now,
-      source: "mock",
+    const conf = (p.confirmationCode ?? "").trim();
+    const last = (p.passengerLastName ?? "").trim();
+
+    if (!conf || !last) {
+      return NextResponse.json(
+        {
+          airlineCode: "Y4",
+          fetchedAtISO: new Date().toISOString(),
+          source: "scrape",
+          status: "UNKNOWN",
+          statusText: "Faltan confirmationCode o passengerLastName",
+        },
+        { status: 200 }
+      );
+    }
+
+    // ✅ LLAMADA REAL al API gateway (sin Playwright)
+    const r = await volarisLookupBooking({ confirmationCode: conf, lastName: last });
+
+    if (!r.ok) {
+  return NextResponse.json(
+    {
+      airlineCode: "Y4",
+      fetchedAtISO: new Date().toISOString(),
+      source: "scrape",
       status: "UNKNOWN",
-      statusText:
-        p.flightNumber
-          ? "Mock: status por número de vuelo"
-          : "Mock: status por código confirmación",
-      scheduledDeparture: undefined,
-      estimatedDeparture: undefined,
-      scheduledArrival: undefined,
-      estimatedArrival: undefined,
-      terminal: undefined,
-      gate: undefined,
-    };
+      statusText: r.error,
+      debug: debugAllowed ? r.debug : undefined,
+    },
+    { status: 200 }
+  );
+}
 
-    return NextResponse.json(resp, { status: 200 });
+return NextResponse.json(
+  {
+    airlineCode: "Y4",
+    fetchedAtISO: new Date().toISOString(),
+    source: "scrape",
+    status: "OK",
+    data: r.json,
+    debug: debugAllowed ? r.debug : undefined,
+  },
+  { status: 200 }
+);
+
+
   } catch (e: any) {
-    return NextResponse.json({ error: "Server error", details: e?.message ?? "Unknown" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Server error", details: e?.message ?? "Unknown" },
+      { status: 500 }
+    );
   }
 }

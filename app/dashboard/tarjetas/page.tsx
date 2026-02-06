@@ -1,9 +1,14 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+
 import { Table5 } from "@/components/Table5";
 import { URL, API_KEY } from "@/lib/constants/index";
 import { InputToS3 } from "@/components/atom/SendToS3";
+import { usePermiso } from "@/hooks/usePermission";
+import { PERMISOS } from "@/constant/permisos";
+import { ROUTES } from "@/constant/routes";
 
 export interface Tarjeta {
   id: string;
@@ -21,8 +26,8 @@ export interface Tarjeta {
 }
 
 export interface Titular {
-  idTitular: number;         // INT
-  Titular: string;           // VARCHAR(100)
+  idTitular: number; // INT
+  Titular: string; // VARCHAR(100)
   identificacion: string | null; // TEXT (URL)
 }
 
@@ -72,6 +77,9 @@ async function fetchJSON<T>(input: RequestInfo, init: RequestInit): Promise<T> {
 }
 
 export default function TarjetasCrudTable5() {
+  const router = useRouter();
+  const { hasPermission } = usePermiso();
+
   const [view, setView] = useState<ViewMode>("tarjetas");
 
   const [tarjetas, setTarjetas] = useState<Tarjeta[]>([]);
@@ -89,6 +97,42 @@ export default function TarjetasCrudTable5() {
 
   const [formTarjeta, setFormTarjeta] = useState<Partial<Tarjeta>>(emptyFormTarjeta());
   const [formTitular, setFormTitular] = useState<Partial<Titular>>(emptyFormTitular());
+
+  // ===== Permisos de VISTA =====
+  const canViewTarjetas = hasPermission(PERMISOS.VISTAS.MIA_TARJETAS);
+  const canViewTitulares = hasPermission(PERMISOS.VISTAS.MIA_TITULARES);
+
+  // ===== Permisos de ACCIONES (tarjetas) =====
+  const canCreateTarjeta = hasPermission(PERMISOS.COMPONENTES.BOTON.MIA_TARJETAS_CREAR);
+  const canEditTarjeta = hasPermission(PERMISOS.COMPONENTES.BOTON.MIA_TARJETAS_EDITAR);
+  const canDeleteTarjeta = hasPermission(PERMISOS.COMPONENTES.BOTON.MIA_TARJETAS_ELIMINAR);
+
+  // ===== Permisos de ACCIONES (titulares) =====
+  const canCreateTitular = hasPermission(PERMISOS.COMPONENTES.BOTON.MIA_TITULARES_CREAR);
+  const canEditTitular = hasPermission(PERMISOS.COMPONENTES.BOTON.MIA_TITULARES_EDITAR);
+  const canDeleteTitular = hasPermission(PERMISOS.COMPONENTES.BOTON.MIA_TITULARES_ELIMINAR);
+
+  const canSubmitCurrent =
+    view === "tarjetas"
+      ? mode === "create"
+        ? canCreateTarjeta
+        : canEditTarjeta
+      : mode === "create"
+      ? canCreateTitular
+      : canEditTitular;
+
+  // -------------------------
+  // Guardia de vista
+  // -------------------------
+  useEffect(() => {
+    if (!canViewTarjetas && !canViewTitulares) {
+      router.push(ROUTES.DASHBOARD.UNAUTHORIZED);
+      return;
+    }
+
+    if (view === "tarjetas" && !canViewTarjetas && canViewTitulares) setView("titulares");
+    if (view === "titulares" && !canViewTitulares && canViewTarjetas) setView("tarjetas");
+  }, [canViewTarjetas, canViewTitulares, view, router]);
 
   // -------------------------
   // Fetchers
@@ -127,7 +171,6 @@ export default function TarjetasCrudTable5() {
     setErrorMsg(null);
 
     try {
-      // Espera que exista GET /titulares en el back
       const data = await fetchJSON<Titular[]>(TITULAR_ENDPOINT, {
         method: "GET",
         headers: {
@@ -149,11 +192,15 @@ export default function TarjetasCrudTable5() {
   };
 
   useEffect(() => {
-    // carga inicial según vista
-    if (view === "tarjetas") fetchTarjetas();
-    else fetchTitulares();
+    if (view === "tarjetas") {
+      if (!canViewTarjetas) return;
+      fetchTarjetas();
+    } else {
+      if (!canViewTitulares) return;
+      fetchTitulares();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view]);
+  }, [view, canViewTarjetas, canViewTitulares]);
 
   // -------------------------
   // Modal helpers
@@ -168,6 +215,7 @@ export default function TarjetasCrudTable5() {
   // CRUD TARJETAS
   // -------------------------
   const openCreateTarjeta = () => {
+    if (!canCreateTarjeta) return;
     setMode("create");
     setEditingTarjetaId(null);
     setFormTarjeta(emptyFormTarjeta());
@@ -175,6 +223,7 @@ export default function TarjetasCrudTable5() {
   };
 
   const openEditTarjeta = (t: Tarjeta) => {
+    if (!canEditTarjeta) return;
     setMode("edit");
     setEditingTarjetaId(t.id);
     setFormTarjeta({
@@ -192,13 +241,14 @@ export default function TarjetasCrudTable5() {
   };
 
   const buildTarjetaPayload = () => {
-    // Solo campos del form (no incluimos nombre_titular/url_identificacion para no pisarlos si existen)
     const payload: any = {
       alias: formTarjeta.alias ?? null,
       numero_completo: formTarjeta.numero_completo ?? null,
       ultimos_4:
         (formTarjeta.ultimos_4 && String(formTarjeta.ultimos_4).slice(-4)) ||
-        (formTarjeta.numero_completo ? computeLast4(String(formTarjeta.numero_completo)) : null),
+        (formTarjeta.numero_completo
+          ? computeLast4(String(formTarjeta.numero_completo))
+          : null),
       banco_emisor: formTarjeta.banco_emisor ?? null,
       tipo_tarjeta: formTarjeta.tipo_tarjeta ?? null,
       fecha_vencimiento: formTarjeta.fecha_vencimiento ?? null,
@@ -213,8 +263,13 @@ export default function TarjetasCrudTable5() {
   };
 
   const handleDeleteTarjeta = async (t: Tarjeta) => {
+    if (!canDeleteTarjeta) return;
+
     const ok = confirm(
-      `¿Eliminar la tarjeta "${t.alias ?? "Sin alias"}" (${maskCard(t.numero_completo, t.ultimos_4)})?`
+      `¿Eliminar la tarjeta "${t.alias ?? "Sin alias"}" (${maskCard(
+        t.numero_completo,
+        t.ultimos_4
+      )})?`
     );
     if (!ok) return;
 
@@ -241,6 +296,9 @@ export default function TarjetasCrudTable5() {
   };
 
   const handleSubmitTarjeta = async () => {
+    if (mode === "create" && !canCreateTarjeta) return;
+    if (mode === "edit" && !canEditTarjeta) return;
+
     try {
       setSaving(true);
       setErrorMsg(null);
@@ -284,6 +342,7 @@ export default function TarjetasCrudTable5() {
   // CRUD TITULARES
   // -------------------------
   const openCreateTitular = () => {
+    if (!canCreateTitular) return;
     setMode("create");
     setEditingTitularId(null);
     setFormTitular(emptyFormTitular());
@@ -291,6 +350,7 @@ export default function TarjetasCrudTable5() {
   };
 
   const openEditTitular = (t: Titular) => {
+    if (!canEditTitular) return;
     setMode("edit");
     setEditingTitularId(t.idTitular);
     setFormTitular({
@@ -310,6 +370,8 @@ export default function TarjetasCrudTable5() {
   };
 
   const handleDeleteTitular = async (t: Titular) => {
+    if (!canDeleteTitular) return;
+
     const ok = confirm(`¿Eliminar el titular "${t.Titular}" (id: ${t.idTitular})?`);
     if (!ok) return;
 
@@ -336,6 +398,9 @@ export default function TarjetasCrudTable5() {
   };
 
   const handleSubmitTitular = async () => {
+    if (mode === "create" && !canCreateTitular) return;
+    if (mode === "edit" && !canEditTitular) return;
+
     try {
       setSaving(true);
       setErrorMsg(null);
@@ -403,139 +468,175 @@ export default function TarjetasCrudTable5() {
     }));
   }, [view, tarjetas, titulares]);
 
-const renderers: {
-  [key: string]: React.FC<{ value: any; item: any; index: number }>;
-} = useMemo(() => {
-  const Center: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-    <div className="flex items-center justify-center w-full h-full text-center">
-      {children}
-    </div>
-  );
+  const renderers: {
+    [key: string]: React.FC<{ value: any; item: any; index: number }>;
+  } = useMemo(() => {
+    const Center: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+      <div className="flex items-center justify-center w-full h-full text-center">
+        {children}
+      </div>
+    );
 
-  if (view === "tarjetas") {
-    return {
-      activa: ({ value }) => {
-        const ok = toBool(value);
-        return (
-          <div className="flex justify-center">
-            <span
-              className={`text-xs font-semibold px-2 py-1 rounded border ${
-                ok
-                  ? "bg-emerald-50 text-emerald-700 border-emerald-300"
-                  : "bg-gray-50 text-gray-600 border-gray-300"
-              }`}
+    if (view === "tarjetas") {
+      return {
+        activa: ({ value }) => {
+          const ok = toBool(value);
+          return (
+            <div className="flex justify-center">
+              <span
+                className={`text-xs font-semibold px-2 py-1 rounded border ${
+                  ok
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-300"
+                    : "bg-gray-50 text-gray-600 border-gray-300"
+                }`}
+              >
+                {ok ? "Activa" : "Inactiva"}
+              </span>
+            </div>
+          );
+        },
+
+        url_identificacion: ({ value }) => {
+          if (!value) return <span className="text-gray-500">—</span>;
+          return (
+            <a
+              className="text-blue-600 hover:underline text-xs"
+              href={String(value)}
+              target="_blank"
+              rel="noreferrer"
             >
-              {ok ? "Activa" : "Inactiva"}
-            </span>
-          </div>
-        );
-      },
+              Ver
+            </a>
+          );
+        },
 
-      url_identificacion: ({ value }) => {
-        if (!value) return <span className="text-gray-500">—</span>;
+        acciones: ({ value }) => {
+          const t: Tarjeta = value as Tarjeta;
+
+          if (!canEditTarjeta && !canDeleteTarjeta) {
+            return <span className="text-gray-400">—</span>;
+          }
+
+          return (
+            <div className="flex gap-2 justify-center">
+              {canEditTarjeta ? (
+                <button
+                  type="button"
+                  onClick={() => openEditTarjeta(t)}
+                  className="px-2 py-1 rounded text-xs border bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100"
+                  disabled={saving}
+                >
+                  Editar
+                </button>
+              ) : null}
+
+              {canDeleteTarjeta ? (
+                <button
+                  type="button"
+                  onClick={() => handleDeleteTarjeta(t)}
+                  className="px-2 py-1 rounded text-xs border bg-red-50 text-red-700 border-red-300 hover:bg-red-100"
+                  disabled={saving}
+                >
+                  Eliminar
+                </button>
+              ) : null}
+            </div>
+          );
+        },
+      };
+    }
+
+    // =========================
+    // TITULARES (TODO CENTRADO)
+    // =========================
+    return {
+      idTitular: ({ value }) => <Center>{value ?? "—"}</Center>,
+
+      Titular: ({ value }) => <Center>{value ?? "—"}</Center>,
+
+      identificacion: ({ value }) => {
+        if (!value)
+          return (
+            <Center>
+              <span className="text-gray-500">—</span>
+            </Center>
+          );
         return (
-          <a
-            className="text-blue-600 hover:underline text-xs"
-            href={String(value)}
-            target="_blank"
-            rel="noreferrer"
-          >
-            Ver
-          </a>
+          <Center>
+            <a
+              className="text-blue-600 hover:underline text-xs"
+              href={String(value)}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Ver
+            </a>
+          </Center>
         );
       },
 
       acciones: ({ value }) => {
-        const t: Tarjeta = value as Tarjeta;
+        const t: Titular = value as Titular;
+
+        if (!canEditTitular && !canDeleteTitular) {
+          return (
+            <Center>
+              <span className="text-gray-400">—</span>
+            </Center>
+          );
+        }
+
         return (
-          <div className="flex gap-2 justify-center">
-            <button
-              type="button"
-              onClick={() => openEditTarjeta(t)}
-              className="px-2 py-1 rounded text-xs border bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100"
-              disabled={saving}
-            >
-              Editar
-            </button>
-            <button
-              type="button"
-              onClick={() => handleDeleteTarjeta(t)}
-              className="px-2 py-1 rounded text-xs border bg-red-50 text-red-700 border-red-300 hover:bg-red-100"
-              disabled={saving}
-            >
-              Eliminar
-            </button>
-          </div>
+          <Center>
+            <div className="flex gap-2">
+              {canEditTitular ? (
+                <button
+                  type="button"
+                  onClick={() => openEditTitular(t)}
+                  className="px-2 py-1 rounded text-xs border bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100"
+                  disabled={saving}
+                >
+                  Editar
+                </button>
+              ) : null}
+
+              {canDeleteTitular ? (
+                <button
+                  type="button"
+                  onClick={() => handleDeleteTitular(t)}
+                  className="px-2 py-1 rounded text-xs border bg-red-50 text-red-700 border-red-300 hover:bg-red-100"
+                  disabled={saving}
+                >
+                  Eliminar
+                </button>
+              ) : null}
+            </div>
+          </Center>
         );
       },
     };
-  }
+  }, [
+    view,
+    saving,
+    canEditTarjeta,
+    canDeleteTarjeta,
+    canEditTitular,
+    canDeleteTitular,
+  ]);
 
-  // =========================
-  // TITULARES (TODO CENTRADO)
-  // =========================
-  return {
-    idTitular: ({ value }) => <Center>{value ?? "—"}</Center>,
-
-    Titular: ({ value }) => <Center>{value ?? "—"}</Center>,
-
-    identificacion: ({ value }) => {
-      if (!value) return <Center><span className="text-gray-500">—</span></Center>;
-      return (
-        <Center>
-          <a
-            className="text-blue-600 hover:underline text-xs"
-            href={String(value)}
-            target="_blank"
-            rel="noreferrer"
-          >
-            Ver
-          </a>
-        </Center>
-      );
-    },
-
-    acciones: ({ value }) => {
-      const t: Titular = value as Titular;
-      return (
-        <Center>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => openEditTitular(t)}
-              className="px-2 py-1 rounded text-xs border bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100"
-              disabled={saving}
-            >
-              Editar
-            </button>
-            <button
-              type="button"
-              onClick={() => handleDeleteTitular(t)}
-              className="px-2 py-1 rounded text-xs border bg-red-50 text-red-700 border-red-300 hover:bg-red-100"
-              disabled={saving}
-            >
-              Eliminar
-            </button>
-          </div>
-        </Center>
-      );
-    },
-  };
-}, [view, saving, tarjetas, titulares]);
-
-
-  const customColumns = view === "tarjetas"
-    ? [
-        "alias",
-        "nombre_titular",
-        "tarjeta",
-        "banco_emisor",
-        "tipo_tarjeta",
-        "fecha_vencimiento",
-        "activa",
-        "acciones",
-      ]
-    : ["idTitular", "Titular", "identificacion", "acciones"];
+  const customColumns =
+    view === "tarjetas"
+      ? [
+          "alias",
+          "nombre_titular",
+          "tarjeta",
+          "banco_emisor",
+          "tipo_tarjeta",
+          "fecha_vencimiento",
+          "activa",
+          "acciones",
+        ]
+      : ["idTitular", "Titular", "identificacion", "acciones"];
 
   const handleReload = () => (view === "tarjetas" ? fetchTarjetas() : fetchTitulares());
 
@@ -543,12 +644,22 @@ const renderers: {
 
   const handleSubmit = () => (view === "tarjetas" ? handleSubmitTarjeta() : handleSubmitTitular());
 
-  // Si cambias la vista, por seguridad cerramos modal (evita “editar tarjeta” mientras ya estás en titulares)
+  // Si cambias la vista, por seguridad cerramos modal
   const toggleView = (next: ViewMode) => {
     if (saving) return;
+
+    if (next === "tarjetas" && !canViewTarjetas) return;
+    if (next === "titulares" && !canViewTitulares) return;
+
     if (modalOpen) closeModal();
     setView(next);
   };
+
+  // Opcional: deshabilitar switch si solo tiene una vista
+  const canToggle = canViewTarjetas && canViewTitulares;
+
+  // Si no tiene ninguna vista, mientras redirige no renderizamos
+  if (!canViewTarjetas && !canViewTitulares) return null;
 
   return (
     <>
@@ -557,7 +668,11 @@ const renderers: {
           <div className="flex items-center justify-between gap-3 flex-wrap">
             {/* Switch Tarjetas / Titulares */}
             <div className="flex items-center gap-3">
-              <span className={`text-sm ${view === "tarjetas" ? "font-semibold text-gray-900" : "text-gray-500"}`}>
+              <span
+                className={`text-sm ${
+                  view === "tarjetas" ? "font-semibold text-gray-900" : "text-gray-500"
+                }`}
+              >
                 Tarjetas
               </span>
 
@@ -566,9 +681,9 @@ const renderers: {
                 onClick={() => toggleView(view === "tarjetas" ? "titulares" : "tarjetas")}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
                   view === "titulares" ? "bg-blue-600" : "bg-gray-300"
-                }`}
+                } ${!canToggle ? "opacity-50 cursor-not-allowed" : ""}`}
                 aria-label="Cambiar vista"
-                disabled={saving}
+                disabled={saving || !canToggle}
               >
                 <span
                   className={`inline-block h-5 w-5 transform rounded-full bg-white transition ${
@@ -577,7 +692,11 @@ const renderers: {
                 />
               </button>
 
-              <span className={`text-sm ${view === "titulares" ? "font-semibold text-gray-900" : "text-gray-500"}`}>
+              <span
+                className={`text-sm ${
+                  view === "titulares" ? "font-semibold text-gray-900" : "text-gray-500"
+                }`}
+              >
                 Titulares
               </span>
             </div>
@@ -592,15 +711,25 @@ const renderers: {
                 Recargar
               </button>
 
-              <button
-                onClick={handleCreate}
-                className={`text-sm px-3 py-1 rounded text-white ${
-                  view === "tarjetas" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-blue-600 hover:bg-blue-700"
-                }`}
-                disabled={saving}
-              >
-                {view === "tarjetas" ? "Crear tarjeta" : "Crear titular"}
-              </button>
+              {view === "tarjetas" ? (
+                canCreateTarjeta ? (
+                  <button
+                    onClick={handleCreate}
+                    className="text-sm px-3 py-1 rounded text-white bg-emerald-600 hover:bg-emerald-700"
+                    disabled={saving}
+                  >
+                    Crear tarjeta
+                  </button>
+                ) : null
+              ) : canCreateTitular ? (
+                <button
+                  onClick={handleCreate}
+                  className="text-sm px-3 py-1 rounded text-white bg-blue-600 hover:bg-blue-700"
+                  disabled={saving}
+                >
+                  Crear titular
+                </button>
+              ) : null}
             </div>
           </div>
         </div>
@@ -643,6 +772,7 @@ const renderers: {
                   ? "Crear titular"
                   : "Editar titular"}
               </h3>
+
               <button
                 onClick={closeModal}
                 className="text-sm px-3 py-1 rounded bg-gray-100 hover:bg-gray-200"
@@ -713,7 +843,9 @@ const renderers: {
                     <input
                       type="checkbox"
                       checked={toBool(formTarjeta.activa)}
-                      onChange={(e) => setFormTarjeta((p) => ({ ...p, activa: e.target.checked }))}
+                      onChange={(e) =>
+                        setFormTarjeta((p) => ({ ...p, activa: e.target.checked }))
+                      }
                       className="h-4 w-4"
                     />
                   </div>
@@ -725,49 +857,50 @@ const renderers: {
                     value={formTitular.Titular ?? ""}
                     onChange={(v) => setFormTitular((p) => ({ ...p, Titular: v }))}
                     placeholder="Nombre del titular"
-                  /><div className="flex flex-col gap-2">
-  <label className="text-sm text-gray-700">Identificación (PDF)</label>
+                  />
 
-  <InputToS3
-    setUrl={(url) => {
-      setFormTitular((p) => ({
-        ...p,
-        identificacion: url, // guarda la URL que regresa S3
-      }));
-    }}
-  />
+                  <div className="flex flex-col gap-2">
+                    <label className="text-sm text-gray-700">Identificación (PDF)</label>
 
-  <div className="flex items-center justify-between gap-2">
-    {formTitular.identificacion ? (
-      <a
-        className="text-blue-600 hover:underline text-xs"
-        href={String(formTitular.identificacion)}
-        target="_blank"
-        rel="noreferrer"
-      >
-        Ver archivo
-      </a>
-    ) : (
-      <span className="text-xs text-gray-500">Sin archivo</span>
-    )}
+                    <InputToS3
+                      setUrl={(url) => {
+                        setFormTitular((p) => ({
+                          ...p,
+                          identificacion: url,
+                        }));
+                      }}
+                    />
 
-    {formTitular.identificacion ? (
-      <button
-        type="button"
-        className="text-xs px-2 py-1 rounded border bg-gray-50 hover:bg-gray-100"
-        onClick={() => setFormTitular((p) => ({ ...p, identificacion: null }))}
-        disabled={saving}
-      >
-        Quitar
-      </button>
-    ) : null}
-  </div>
+                    <div className="flex items-center justify-between gap-2">
+                      {formTitular.identificacion ? (
+                        <a
+                          className="text-blue-600 hover:underline text-xs"
+                          href={String(formTitular.identificacion)}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Ver archivo
+                        </a>
+                      ) : (
+                        <span className="text-xs text-gray-500">Sin archivo</span>
+                      )}
 
-  <p className="text-xs text-gray-400">
-    Sube un PDF y se guardará su URL en el titular.
-  </p>
-</div>
+                      {formTitular.identificacion ? (
+                        <button
+                          type="button"
+                          className="text-xs px-2 py-1 rounded border bg-gray-50 hover:bg-gray-100"
+                          onClick={() => setFormTitular((p) => ({ ...p, identificacion: null }))}
+                          disabled={saving}
+                        >
+                          Quitar
+                        </button>
+                      ) : null}
+                    </div>
 
+                    <p className="text-xs text-gray-400">
+                      Sube un PDF y se guardará su URL en el titular.
+                    </p>
+                  </div>
                 </div>
               )}
 
@@ -779,10 +912,12 @@ const renderers: {
                 >
                   Cancelar
                 </button>
+
                 <button
                   onClick={handleSubmit}
                   className="text-sm px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-400"
-                  disabled={saving}
+                  disabled={saving || !canSubmitCurrent}
+                  title={!canSubmitCurrent ? "No tienes permiso para esta acción" : undefined}
                 >
                   {saving ? "Guardando..." : mode === "create" ? "Crear" : "Guardar cambios"}
                 </button>

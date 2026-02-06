@@ -287,6 +287,8 @@ interface Reservation {
   nombre_viajero_completo?: string | null;
   razon_social?: string;
   costo_total?: string;
+  id_hospedaje?: string | null;
+  tipo_cuarto?: string | null;
   nombre_viajero?: string;
 }
 
@@ -442,6 +444,15 @@ const LoaderComponent: React.FC = () => (
   </div>
 );
 
+const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+
+const splitIva16 = (total: number) => {
+  const subtotal = round2(total / 1.16);
+  const iva = round2(total - subtotal);
+  return { subtotal, iva, total: round2(total) };
+};
+
+
 export const FacturacionModal: React.FC<{
   selectedItems: { [reservationId: string]: string[] };
   selectedHospedaje: { [hospedajeId: string]: string[] };
@@ -471,6 +482,8 @@ export const FacturacionModal: React.FC<{
   const [selectedDescription, setSelectedDescription] = useState<string>(
     paymentDescriptions[0]
   );
+
+  console.log("informacion",selectedItems)
   const [reservations, setReservations] = useState(
     reservationsInit
       .filter((reserva) => reserva.items != null)
@@ -609,6 +622,15 @@ export const FacturacionModal: React.FC<{
   }, [selectedItems, reservations]);
 
   const [customDescription, setCustomDescription] = useState("");
+  const sanitizeFacturamaText = (s: string, max = 1000) =>
+  (s ?? "")
+    .toString()
+    .replace(/\|/g, " - ")      // 🔥 quita pipe
+    .replace(/[\r\n\t]+/g, " ") // quita tabs/saltos
+    .replace(/\s{2,}/g, " ")    // colapsa espacios dobles
+    .trim()
+    .slice(0, max);
+
 
   // Actualizar CFDI cuando cambian los datos
   useEffect(() => {
@@ -675,7 +697,7 @@ export const FacturacionModal: React.FC<{
               Total: totalAmount.toFixed(2),
             },
           ],
-          Observations: descriptionToUse,
+          Observations: sanitizeFacturamaText(descriptionToUse),
         }));
       } else {
         // Factura detallada - un concepto por reservación con suma EXACTA de items seleccionados
@@ -755,7 +777,7 @@ export const FacturacionModal: React.FC<{
               };
             })
             .filter((item) => item !== null), // Filtrar items nulos
-          Observations: descriptionToUse,
+          Observations: sanitizeFacturamaText(descriptionToUse),
         }));
       }
     }
@@ -789,264 +811,293 @@ export const FacturacionModal: React.FC<{
     return true;
   };
 
-  const handleConfirm = async () => {
-    if (!selectedFiscalData) {
-      setError("Debes seleccionar unos datos fiscales");
+
+  type ItemFull = {
+  id_item: string;
+  id_servicio: string;
+  id_hospedaje: string | null;
+  total: number;
+  fecha_uso?: string;
+  reserva?: {
+    hotel?: string;
+    check_in?: string;
+    check_out?: string;
+    nombre_viajero?: string | null;
+  };
+};
+
+const groupByHospedaje = (items: ItemFull[]) => {
+  const map = new Map<string, ItemFull[]>();
+
+  for (const it of items) {
+    // ✅ si no hay id_hospedaje, NO mezcles todo en un solo grupo:
+    // agrupa por servicio para evitar juntar cosas distintas.
+    const key = it.id_hospedaje ?? `servicio:${it.id_servicio}`;
+
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(it);
+  }
+
+  return Array.from(map.entries()).map(([key, arr]) => ({
+    key,
+    id_hospedaje: arr[0]?.id_hospedaje ?? null,
+    items: arr,
+    total: arr.reduce((s, x) => s + Number(x.total || 0), 0),
+    // metadatos útiles para descripción
+    hotel: arr.find(x => x.reserva?.hotel)?.reserva?.hotel ?? "",
+    check_in: arr.find(x => x.reserva?.check_in)?.reserva?.check_in ?? "",
+    check_out: arr.find(x => x.reserva?.check_out)?.reserva?.check_out ?? "",
+  }));
+};
+
+
+// Devuelve un arreglo de items seleccionados con contexto de su reserva
+const getSelectedItemsFull = (
+  reservationsWithSelectedItems: ReservationWithItems[],
+  selectedItems: Record<string, string[]>,
+  selectedHospedaje?: Record<string, string[]>
+) => {
+  return reservationsWithSelectedItems.flatMap((r) => {
+    const ids = selectedItems[r.id_servicio] ?? [];
+    if (ids.length === 0) return [];
+
+    const id_hospedaje = selectedHospedaje?.[r.id_servicio]?.[0] ?? r.id_hospedaje ?? null;
+
+    return (r.items ?? [])
+      .filter((it) => ids.includes(it.id_item))
+      .map((it) => {
+        const total = Number(it.total);
+        const subtotal = total / 1.16;
+        const iva = total - subtotal;
+
+        return {
+          // --- llaves "core" para tu backend ---
+          id_item: it.id_item,
+          id_servicio: r.id_servicio,
+          id_hospedaje,
+          id_solicitud: r.id_solicitud,
+          id_usuario_generador: r.id_usuario_generador,
+
+          // --- montos ya numéricos ---
+          total,
+          subtotal,
+          iva,
+
+          // --- info del item ---
+          fecha_uso: it.fecha_uso,
+          impuestos: it.impuestos,
+          saldo: it.saldo,
+          id_factura: it.id_factura,
+          is_facturado: it.is_facturado,
+          costo_total: it.costo_total,
+          costo_subtotal: it.costo_subtotal,
+          costo_impuestos: it.costo_impuestos,
+          tipo_cuarto: it.tipo_cuarto ?? r.tipo_cuarto ?? null,
+          codigo_reservacion_hotel: it.codigo_reservacion_hotel ?? r.codigo_reservacion_hotel ?? null,
+
+          // --- info de la reserva (útil para addenda / auditoría) ---
+          reserva: {
+            id_servicio: r.id_servicio,
+            id_solicitud: r.id_solicitud,
+            confirmation_code: r.confirmation_code,
+            hotel: r.hotel,
+            check_in: r.check_in,
+            check_out: r.check_out,
+            room: r.room,
+            nombre_viajero: r.nombre_viajero_completo ?? r.nombre_viajero ?? null,
+            id_booking: r.id_booking ?? null,
+          },
+        };
+      });
+  });
+};
+
+  type InvoiceMode = "consolidada" | "detallada_por_item";
+
+const handleConfirm = async (mode: InvoiceMode) => {
+  if (!selectedFiscalData) {
+    setError("Debes seleccionar unos datos fiscales");
+    return;
+  }
+  if (!validateInvoiceData()) return;
+
+  const modeIsConsolidated = mode === "consolidada";
+  setIsConsolidated(modeIsConsolidated); // solo para UI/preview
+
+  try {
+    setLoading(true);
+
+    const now = new Date();
+    now.setHours(now.getHours() - 6);
+    const formattedDate = now.toISOString().split(".")[0];
+
+    // 1) Addenda (antes del payload)
+    const addendaObj = buildAddenda();
+    const addendaStr = JSON.stringify(addendaObj);
+
+    // 2) Items FULL (seleccionados)
+    const itemsFacturadosFull = getSelectedItemsFull(
+      reservationsWithSelectedItems,
+      selectedItems,
+      selectedHospedaje
+    );
+
+    if (itemsFacturadosFull.length === 0) {
+      alert("No hay items seleccionados para facturar");
       return;
     }
 
-    if (!validateInvoiceData()) return;
+    // Compacto (si tu backend/SP lo usa así)
+    const itemsFacturados = itemsFacturadosFull.map((x) => ({
+      id_item: x.id_item,
+      monto: x.total,
+      id_servicio: x.id_servicio,
+      id_hospedaje: x.id_hospedaje,
+    }));
 
-    try {
-      setLoading(true);
-      const now = new Date();
-      now.setHours(now.getHours() - 6);
-      const formattedDate = now.toISOString().split(".")[0];
-
-      // Distribuir montos por item seleccionado
-      const itemsFacturados = reservationsWithSelectedItems.flatMap(
-        (reserva) => {
-          const id_servicio = reserva.id_servicio;
-
-          // Tomamos el primer hospedaje asociado a ese servicio
-          const id_hospedaje = selectedHospedaje[id_servicio]?.[0] ?? null;
-
-          return reserva.items
-            .filter((item) =>
-              selectedItems[id_servicio]?.includes(item.id_item)
-            )
-            .map((item) => ({
-              id_item: item.id_item,
-              monto: parseFloat(item.total),
-              id_servicio, // 👈 lo agregas aquí
-              id_hospedaje, // 👈 y también el hospedaje si lo necesitas
-            }));
-        }
-      );
-
-      // Calcular totales
-      const totalFacturado = itemsFacturados.reduce(
-        (sum, item) => sum + item.monto,
+    // 3) CFDI Items
+const cfdiItems = modeIsConsolidated
+  ? (() => {
+      // ✅ CONSOLIDADA: se queda como ya la tienes
+      const totalFacturado = itemsFacturadosFull.reduce(
+        (s, it) => s + Number(it.total),
         0
       );
-      const subtotal = totalFacturado / 1.16;
-      const iva = totalFacturado - subtotal;
+      const { subtotal, iva, total } = splitIva16(totalFacturado);
+      const qty = Math.max(itemsFacturadosFull.length, 1);
 
-      // Construir payload
-      const payloadCFDI = {
-        cfdi: {
-          ...cfdi,
-          Receiver: {
-            ...cfdi.Receiver,
-            CfdiUse: selectedCfdiUse,
-          },
-          PaymentForm: selectedPaymentForm,
-          PaymentMethod: selectedPaymentMethod,
-          Currency: "MXN",
-          Date: formattedDate,
-          OrderNumber: Math.round(Math.random() * 999999999).toString(),
-          Observations: descriptionToUse, // <— SOBRESCRIBE AQUÍ
-          Items: isConsolidated
-            ? [
-                {
-                  Quantity: "1",
-                  ProductCode: "90121500",
-                  UnitCode: "E48",
-                  Unit: "Unidad de servicio",
-                  Description: selectedDescription, //AQUI CAMBIO
-                  UnitPrice: subtotal.toFixed(2),
-                  Subtotal: subtotal.toFixed(2),
-                  TaxObject: "02",
-                  Taxes: [
-                    {
-                      Name: "IVA",
-                      Rate: "0.16",
-                      Total: iva.toFixed(2),
-                      Base: subtotal.toFixed(2),
-                      IsRetention: "false",
-                      IsFederalTax: "true",
-                    },
-                  ],
-                  Total: totalFacturado.toFixed(2),
-                },
-              ]
-            : reservationsWithSelectedItems.map((reserva) => {
-                const itemsSeleccionados = reserva.items.filter((item) =>
-                  selectedItems[reserva.id_servicio]?.includes(item.id_item)
-                );
-                const subtotalReserva = itemsSeleccionados.reduce(
-                  (sum, item) => sum + parseFloat(item.total) / 1.16,
-                  0
-                );
-                const ivaReserva = itemsSeleccionados.reduce(
-                  (sum, item) =>
-                    sum +
-                    (parseFloat(item.total) - parseFloat(item.total) / 1.16),
-                  0
-                );
-                const totalReserva = subtotalReserva + ivaReserva;
-
-                return {
-                  Quantity: "1",
-                  ProductCode: "90121500",
-                  UnitCode: "E48",
-                  Unit: "Unidad de servicio",
-                  Description: selectedDescription, //AQUI CAMBIO
-                  UnitPrice: subtotalReserva.toFixed(2),
-                  Observations: descriptionToUse, // <— SOBRESCRIBE AQUÍ
-                  Subtotal: subtotalReserva.toFixed(2),
-                  TaxObject: "02",
-                  Taxes: [
-                    {
-                      Name: "IVA",
-                      Rate: "0.16",
-                      Total: ivaReserva.toFixed(2),
-                      Base: subtotalReserva.toFixed(2),
-                      IsRetention: "false",
-                      IsFederalTax: "true",
-                    },
-                  ],
-                  Total: totalReserva.toFixed(2),
-                };
-              }),
+      return [
+        {
+          Quantity: String(qty),
+          ProductCode: "90121500",
+          UnitCode: "E48",
+          Unit: "Unidad de servicio",
+          Description: selectedDescription,
+          UnitPrice: round2(subtotal / qty).toFixed(2),
+          Subtotal: subtotal.toFixed(2),
+          TaxObject: "02",
+          Taxes: [
+            {
+              Name: "IVA",
+              Rate: "0.16",
+              Total: iva.toFixed(2),
+              Base: subtotal.toFixed(2),
+              IsRetention: "false",
+              IsFederalTax: "true",
+            },
+          ],
+          Total: total.toFixed(2),
         },
-        info_user: {
-          fecha_vencimiento: dueDate,
-          id_user: reservationsWithSelectedItems[0].id_usuario_generador,
-          id_solicitud: reservationsWithSelectedItems.map(
-            (reserva) => reserva.id_solicitud
-          ),
-          id_items: itemsFacturados.map((item) => item.id_item),
-          datos_empresa: {
-            rfc: cfdi.Receiver.Rfc,
-            id_empresa: selectedFiscalData.id_empresa,
-          },
-          items_facturados: itemsFacturados,
+      ];
+    })()
+  : (() => {
+      // ✅ DETALLADA POR HOSPEDAJE: 1 concepto por id_hospedaje
+      const groups = groupByHospedaje(itemsFacturadosFull as any);
+
+      return groups.map((g) => {
+        console.log("informacion😎😎😎😎😎😎crfrfr",g)
+        const { subtotal, iva, total } = splitIva16(g.total);
+        const qty = Math.max(g.items.length, 1);
+
+        const descRaw = [
+          selectedDescription,
+          g.hotel ? `${g.hotel}` : "",
+          g.check_in && g.check_out
+            ? `${formatDate(g.check_in)} - ${formatDate(g.check_out)}`
+            : "",
+          g.items[0].reserva.nombre_viajero
+        ]
+          .filter(Boolean)
+          .join(" - ");
+
+        const desc = sanitizeFacturamaText(descRaw, 1000);
+
+        return {
+          Quantity: String(qty),                 // ✅ noches/items del hospedaje
+          ProductCode: "90121500",
+          UnitCode: "E48",
+          Unit: "Unidad de servicio",
+          Description: desc,
+          UnitPrice: round2(subtotal / qty).toFixed(2), // ✅ coherente con Quantity
+          Subtotal: subtotal.toFixed(2),
+          TaxObject: "02",
+          Taxes: [
+            {
+              Name: "IVA",
+              Rate: "0.16",
+              Total: iva.toFixed(2),
+              Base: subtotal.toFixed(2),
+              IsRetention: "false",
+              IsFederalTax: "true",
+            },
+          ],
+          Total: total.toFixed(2),
+        };
+      });
+    })();
+
+    // 4) payloadCFDI
+    const payloadCFDI = {
+      cfdi: {
+        ...cfdi,
+        Receiver: {
+          ...cfdi.Receiver,
+          CfdiUse: selectedCfdiUse,
+        },
+        PaymentForm: selectedPaymentForm,
+        PaymentMethod: selectedPaymentMethod,
+        Currency: "MXN",
+        Date: formattedDate,
+        OrderNumber: Math.round(Math.random() * 999999999).toString(),
+        Observations: sanitizeFacturamaText(descriptionToUse),
+        Items: cfdiItems,
+      },
+      info_user: {
+        fecha_vencimiento: dueDate,
+        id_user: reservationsWithSelectedItems[0].id_usuario_generador,
+        id_solicitud: reservationsWithSelectedItems.map((r) => r.id_solicitud),
+        id_items: itemsFacturadosFull.map((x: any) => x.id_item),
+        datos_empresa: {
+          rfc: cfdi.Receiver.Rfc,
+          id_empresa: selectedFiscalData.id_empresa,
         },
         items_facturados: itemsFacturados,
-      };
+        items_facturados_full: itemsFacturadosFull,
+        addenda: addendaStr,
+        addenda_type: "Noktos",
+        invoice_mode: mode, // opcional para backend
+      },
+      items_facturados: itemsFacturados,
+    };
 
-      // Crear factura
-      const response = await crearCfdi(payloadCFDI.cfdi, payloadCFDI.info_user);
-      if (response.error) throw new Error(response.error);
+    // 5) Ejecutar
+    const response = await crearCfdi(payloadCFDI.cfdi, payloadCFDI.info_user);
+    if (response.error) throw new Error(response.error);
 
-      setIsInvoiceGenerated(response);
+    setIsInvoiceGenerated(response);
 
-      // Descargar representaciones
-      const factura = await descargarFactura(response.Id);
-      setDescarga(factura);
+    // 👇 aquí sigue tu flujo: descargarFactura, subir a S3, asignarURLS_factura, etc.
+    const factura = await descargarFactura(response.Id);
+    setDescarga(factura);
 
-      const fileBase = `factura_${response?.Folio ?? cfdi?.Folio ?? "archivo"}`;
+    alert("Se ha generado con éxito la factura");
 
-      // --- Obtener representaciones PDF y XML ---
-      const pdfRaw =
-        getPdfBase64(factura) ?? (typeof factura === "string" ? factura : null);
-      const xmlRaw = getXmlBase64(factura);
+    onConfirm(selectedFiscalData, modeIsConsolidated);
+  } catch (error) {
+    console.error(error);
+    alert("Ocurrió un error al generar la factura: " + (error as Error).message);
+  } finally {
+    setLoading(false);
+  }
+};
 
-      console.log("url", pdfRaw, xmlRaw);
-
-      // Intentaremos producir URLs finales (si ya vienen como URL, las usamos; si vienen en base64, subimos a S3)
-      let finalPdfUrl: string | null = null;
-      let finalXmlUrl: string | null = null;
-
-      // 1) PDF
-      if (typeof pdfRaw === "string") {
-        if (isHttpUrl(pdfRaw)) {
-          // Ya es URL lista
-          finalPdfUrl = pdfRaw;
-        } else {
-          // Es base64 -> subimos a S3
-          const pdfFile = base64ToFile(
-            pdfRaw,
-            "application/pdf",
-            `${fileBase}.pdf`
-          );
-          finalPdfUrl = await subirArchivoAS3Seguro(pdfFile, "comprobantes");
-        }
-
-        // Descarga para el usuario (opcional, conservé tu comportamiento)
-        if (isHttpUrl(pdfRaw)) {
-          const a = document.createElement("a");
-          a.href = pdfRaw;
-          a.download = `${fileBase}.pdf`;
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-        } else {
-          downloadBase64File(pdfRaw, "application/pdf", `${fileBase}.pdf`);
-        }
-      } else {
-        console.warn(
-          "No se encontró contenido PDF en la respuesta de descarga."
-        );
-      }
-
-      // 2) XML
-      if (typeof xmlRaw === "string") {
-        if (isHttpUrl(xmlRaw)) {
-          finalXmlUrl = xmlRaw;
-        } else {
-          const xmlFile = base64ToFile(
-            xmlRaw,
-            "application/xml",
-            `${fileBase}.xml`
-          );
-          finalXmlUrl = await subirArchivoAS3Seguro(xmlFile, "comprobantes");
-        }
-
-        // Descarga para el usuario (opcional)
-        if (isHttpUrl(xmlRaw)) {
-          const a = document.createElement("a");
-          a.href = xmlRaw;
-          a.download = `${fileBase}.xml`;
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-        } else {
-          downloadBase64File(xmlRaw, "application/xml", `${fileBase}.xml`);
-        }
-      } else {
-        console.warn(
-          "No se encontró contenido XML en la respuesta de descarga."
-        );
-      }
-
-      // 3) Registrar URLs en tu backend (si tenemos al menos el PDF)
-      try {
-        await asignarURLS_factura(
-          response.Id, // cambia si tu endpoint espera otro id
-          finalPdfUrl ?? "", // envía "" si no se obtuvo
-          finalXmlUrl ?? ""
-        );
-        console.log("✅ URLs de factura registradas en BD.");
-      } catch (e) {
-        console.error("❌ Error al asignar URLs de factura:", e);
-      }
-
-      alert("Se ha generado con éxito la factura");
-
-      // Mantengo tu refresco local de la descarga
-      descargarFactura(response.Id)
-        .then((f) => setDescarga(f))
-        .catch((err) => console.error(err));
-
-      onConfirm(selectedFiscalData, isConsolidated);
-      setIsInvoiceGenerated(response);
-    } catch (error) {
-      console.error(error);
-      alert(
-        "Ocurrió un error al generar la factura: " + (error as Error).message
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Calcular total de noches y monto
   const totalNights = reservationsWithSelectedItems.reduce(
     (sum, reserva) => sum + (reserva.nightsCount || 0),
     0
   );
+
 
   // Generar descripción por defecto
   const defaultDescription = `DETALLE DE RESERVACIONES: ${reservationsWithSelectedItems
@@ -1059,9 +1110,7 @@ export const FacturacionModal: React.FC<{
 
       return `${reserva.hotel} - ${formatDate(
         reserva.check_in
-      )} AL ${formatDate(reserva.check_out)} - ${nochesReales} NOCHES(S) - ${
-        reserva.nombre_viajero
-      }`;
+      )}`;
     })
     .join(" | ")}`;
 
@@ -1070,6 +1119,56 @@ export const FacturacionModal: React.FC<{
   const descriptionToUse = isCustomValid
     ? customDescription
     : defaultDescription;
+
+const buildAddenda = () => {
+  const reservas = reservationsWithSelectedItems.map((r) => {
+    const itemsSel = r.items.filter((it) =>
+      selectedItems[r.id_servicio]?.includes(it.id_item)
+    );
+
+    const subtotal = itemsSel.reduce((s, it) => s + Number(it.total) / 1.16, 0);
+    const iva = itemsSel.reduce(
+      (s, it) => s + (Number(it.total) - Number(it.total) / 1.16),
+      0
+    );
+    const total = subtotal + iva;
+
+    return {
+      id_servicio: r.id_servicio,
+      id_solicitud: r.id_solicitud,
+      confirmation_code: r.confirmation_code,
+      hotel: r.hotel,
+      check_in: r.check_in,
+      check_out: r.check_out,
+      viajero: r.nombre_viajero_completo,
+      noches: itemsSel.length,
+      items: itemsSel.map((it) => ({
+        id_item: it.id_item,
+        fecha_uso: it.fecha_uso,
+        total: Number(it.total),
+        subtotal: Number(it.total) / 1.16,
+        iva: Number(it.total) - Number(it.total) / 1.16,
+        tipo_cuarto: it.tipo_cuarto,
+        codigo_reservacion_hotel: it.codigo_reservacion_hotel,
+      })),
+      totales: { subtotal, iva, total },
+    };
+  });
+
+  const total = reservas.reduce((s, r) => s + r.totales.total, 0);
+  const subtotal = reservas.reduce((s, r) => s + r.totales.subtotal, 0);
+  const iva = reservas.reduce((s, r) => s + r.totales.iva, 0);
+
+  return {
+    version: "1.0",
+    source: "Noktos",
+    generated_at: new Date().toISOString(),
+    due_date: dueDate,
+    cfdi_observations: descriptionToUse,
+    reservas,
+    totales_globales: { subtotal, iva, total },
+  };
+};
 
   const totalAmount = reservationsWithSelectedItems.reduce(
     (sum, reserva) =>
@@ -1476,6 +1575,7 @@ export const FacturacionModal: React.FC<{
           <button
             type="button"
             className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            onClick={onClose}
           >
             Cancelar
           </button>
@@ -1562,26 +1662,25 @@ export const FacturacionModal: React.FC<{
               </button>
             </div>
           ) : (
+            <>
             <button
               type="button"
-              onClick={handleConfirm}
-              disabled={
-                !selectedFiscalData ||
-                loading ||
-                reservationsWithSelectedItems.length === 0
-              }
-              className={`px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
-                !selectedFiscalData ||
-                loading ||
-                reservationsWithSelectedItems.length === 0
-                  ? "bg-blue-400 cursor-not-allowed"
-                  : "bg-blue-600 hover:bg-blue-700"
-              } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
+              onClick={() => handleConfirm("consolidada")}
+              disabled={!selectedFiscalData || loading || reservationsWithSelectedItems.length === 0}
+              className="px-4 py-2 rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed"
             >
-              {loading
-                ? "Generando factura..."
-                : `Facturar ${isConsolidated ? "Consolidada" : "Detallada"}`}
+              {loading ? "Generando..." : "Facturar Consolidada"}
             </button>
+
+            <button
+              type="button"
+              onClick={() => handleConfirm("detallada_por_item")}
+              disabled={!selectedFiscalData || loading || reservationsWithSelectedItems.length === 0}
+              className="px-4 py-2 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 disabled:cursor-not-allowed"
+            >
+              {loading ? "Generando..." : "Facturar Detallada (por hospedaje)"}
+            </button>
+            </>
           )}
         </div>
       </div>

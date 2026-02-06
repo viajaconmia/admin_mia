@@ -460,7 +460,7 @@ export function ReservationForm({
         solicitud,
         intermediario,
       };
-
+      console.log("Ejecutando reserva con wallet");
       setReservaData(reservaConAgente);
       setShowPagarModal(true);
       setLoading(false);
@@ -541,6 +541,7 @@ export function ReservationForm({
   const handleProcessRequest = async () => {
     setLoading(true);
     try {
+      console.log("Ejecutando reserva con process request");
       await fetchCreateReservaOperaciones({
         ...form,
         nuevo_incluye_desayuno,

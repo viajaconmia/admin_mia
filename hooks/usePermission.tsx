@@ -8,11 +8,15 @@ export const usePermiso = () => {
   const { user } = useAuth();
   const router = useRouter();
 
+  const isDev = process.env.NODE_ENV !== "production";
+
   const hasPermission = (permiso: string) =>
-    user.permisos.includes(permiso) || !!environment;
+    (user?.permisos?.includes?.(permiso) ?? false) || (isDev && !!environment);
 
   const hasAccess = (permiso: string) => {
-    if (!hasPermission(permiso)) router.push(ROUTES.DASHBOARD.UNAUTHORIZED);
+    const ok = hasPermission(permiso);
+    if (!ok) router.push(ROUTES.DASHBOARD.UNAUTHORIZED);
+    return ok; // <- no rompe usos actuales; solo agrega retorno útil
   };
 
   const Can = ({

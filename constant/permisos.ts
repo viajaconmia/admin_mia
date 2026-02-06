@@ -17,6 +17,8 @@ export const PERMISOS = {
     APLICACION_DE_SALDO: "view.apli-sald",
     CUENTAS_POR_COBRAR: "view.cuenta-cobr",
     PROVEEDORES: "view.proveedores",
+    MIA_TARJETAS: "view.mia.tarjetas",
+    MIA_TITULARES: "view.mia.titulares",
   },
   COMPONENTES: {
     BOTON: {
@@ -24,6 +26,13 @@ export const PERMISOS = {
       CREAR_RESERVA: "button.crear-reserva",
       EDITAR_PRECIO_RESERVA: "button.edit-price-booking",
       ACTUALIZAR_PDF_FACTURA: "button.actualizar_factura_pdf",
+      MIA_TARJETAS_CREAR: "button.mia.tarjetas.crear",
+      MIA_TARJETAS_EDITAR: "button.mia.tarjetas.editar",
+      MIA_TARJETAS_ELIMINAR: "button.mia.tarjetas.eliminar",
+
+      MIA_TITULARES_CREAR: "button.mia.titulares.crear",
+      MIA_TITULARES_EDITAR: "button.mia.titulares.editar",
+      MIA_TITULARES_ELIMINAR: "button.mia.titulares.eliminar",
     },
     GROUP: {
       PROVEEDORES_EDICIONES: "button.proveedores.edicion",

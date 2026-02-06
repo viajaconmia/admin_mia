@@ -21,6 +21,7 @@ export type VueloDbRow = {
   nombre_completo: string | null;
   correo: string | null;
   apellido_paterno: string | null;
+  apellido_materno:string|null;
 
   seat_number: string | null;
   seat_location: string | null;
@@ -58,7 +59,20 @@ export function extractIata(airportText: string | null): string | null {
 
 
 export function mapVueloRowToComprado(r: VueloDbRow): VueloComprado {
+  
   const airlineCode = normalizeAirlineCode(r.airline, r.airline_code);
+
+  function normalizeLastNames(apPat?: string | null, apMat?: string | null) {
+  const parts = [apPat, apMat]
+    .map((s) => (s ?? "").trim())
+    .filter(Boolean);
+
+  if (parts.length === 0) return null;
+
+  // normaliza espacios múltiples, mayúsculas opcional
+  return parts.join(" ").replace(/\s+/g, " ");
+}
+
 
   return {
     id: String(r.id_vuelo),
@@ -80,7 +94,7 @@ export function mapVueloRowToComprado(r: VueloDbRow): VueloComprado {
     confirmationCode: r.codigo_confirmacion,
     passengerFullName: r.nombre_completo || "Sin nombre",
     passengerEmail: r.correo,
-    passengerLastName: r.apellido_paterno,
+    passengerLastName: normalizeLastNames(r.apellido_paterno, r.apellido_materno),
 
     seatNumber: r.seat_number,
     seatLocation: r.seat_location,
