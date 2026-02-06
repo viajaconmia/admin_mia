@@ -67,176 +67,68 @@ function makeAuthVariants(token: string) {
   return isBearer ? [t] : [t, `Bearer ${t}`];
 }
 
-export async function volarisLookupBooking(args: VolarisLookupArgs): Promise<VolarisLookupResult> {
-  const endpoint =
-    process.env.VOLARIS_ENDPOINT?.trim() ||
-    "https://apigw.volaris.com/prod/api/booking";
+// lib/volaris.ts
+export async function volarisLookupBooking(args: { confirmationCode: string; lastName: string }) {
+  const base =
+    process.env.VOLARIS_BOOKING_ENDPOINT?.trim() ||
+    "https://apigw.volaris.com/prod/api/v1/booking/getbookingbyrecordlocatorandlastname";
 
   const authEnv = process.env.VOLARIS_AUTHORIZATION;
   if (!authEnv) {
-    return { ok: false, status: 500, error: "Missing VOLARIS_AUTHORIZATION env var", debug: [] };
+    return { ok: false as const, status: 500, error: "Missing VOLARIS_AUTHORIZATION env var", debug: [] as any[] };
   }
 
   const code = args.confirmationCode.trim().toUpperCase();
-  const lastFull = normalizeLastName(args.lastName);
-  const lastPaterno = lastFull.split(" ")[0] || lastFull;
+  const last = args.lastName
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase();
+
+  const url = new URL(base);
+  // 👇 OJO: params exactos de tu captura
+  url.searchParams.set("recordlocator", code);
+  url.searchParams.set("lastname", last);
 
   const timeoutMs = Number(process.env.VOLARIS_TIMEOUT_MS || 12000);
-  const ua =
-    process.env.VOLARIS_UA ||
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36";
 
-  // 👇 OJO: aquí debes dejar SOLO los bodies que realmente sean plausibles.
-  // Cuando veas cuál funciona, te quedas con UNO.
-  const postBodies = [
-    { recordLocator: code, lastName: lastFull },
-    { recordLocator: code, lastName: lastPaterno },
-    { confirmationCode: code, lastName: lastFull }, // por si usan este nombre
-  ];
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), timeoutMs);
 
   const debug: any[] = [];
+  try {
+    const res = await fetch(url.toString(), {
+      method: "GET",
+      headers: {
+        accept: "application/json",
+        "accept-language": "es-MX,es;q=0.9,en;q=0.8",
+        // No metas cookies de analytics; normalmente no ayudan
+        authorization: authEnv.trim(), // si tu token requiere "Bearer", ponlo ya en el env
+        origin: "https://www.volaris.com",
+        referer: "https://www.volaris.com/",
+      },
+      cache: "no-store",
+      signal: controller.signal,
+    });
 
-  // Probamos con auth raw y Bearer
-  for (const auth of makeAuthVariants(authEnv)) {
-    const baseHeaders: Record<string, string> = {
-      accept: "application/json",
-      "content-type": "application/json",
-      "accept-language": "es-MX,es;q=0.9,en;q=0.8",
-      "user-agent": ua,
-      authorization: auth,
-      flow: process.env.VOLARIS_FLOW || "MBS",
-      frontend: process.env.VOLARIS_FRONTEND || "WEB",
-      origin: "https://www.volaris.com",
-      referer: "https://www.volaris.com/mytrips/home",
-    };
+    const raw = await res.text();
+    debug.push({ url: url.toString(), status: res.status, sample: raw.slice(0, 240) });
 
-    // 1) POST
-    for (const body of postBodies) {
-      const startedAt = Date.now();
-      try {
-        const res = await fetchWithTimeout(
-          endpoint,
-          {
-            method: "POST",
-            headers: baseHeaders,
-            body: JSON.stringify(body),
-            cache: "no-store",
-            redirect: "follow",
-          },
-          timeoutMs
-        );
-
-        const ct = res.headers.get("content-type") || "";
-        const raw = await res.text();
-
-        debug.push({
-          authMode: auth.startsWith("Bearer ") ? "bearer" : "raw",
-          method: "POST",
-          triedBody: body,
-          status: res.status,
-          ms: Date.now() - startedAt,
-          contentType: ct,
-          sample: truncate(raw),
-        });
-
-        // Si el endpoint no acepta POST, salimos a GET
-        if (res.status === 405) break;
-
-        // Auth mala: prueba siguiente auth variant
-        if (res.status === 401 || res.status === 403) break;
-
-        if (!res.ok) continue;
-
-        const json = safeJsonParse(raw);
-        if (looksLikeSuccessJson(json)) {
-          return { ok: true, status: res.status, json, debug };
-        }
-      } catch (e: any) {
-        debug.push({
-          authMode: auth.startsWith("Bearer ") ? "bearer" : "raw",
-          method: "POST",
-          triedBody: body,
-          status: "NETWORK_ERROR",
-          ms: Date.now() - startedAt,
-          error: e?.name === "AbortError" ? "TIMEOUT" : (e?.message ?? "Unknown"),
-        });
-      }
+    if (!res.ok) {
+      const hint = (res.status === 401 || res.status === 403)
+        ? "Unauthorized: token inválido/expirado o no permitido"
+        : `HTTP ${res.status}`;
+      return { ok: false as const, status: res.status, error: hint, debug };
     }
 
-    // 2) GET fallback (porque tu cURL NO trae body)
-    const getCombos = [
-      { code, last: lastFull },
-      { code, last: lastPaterno },
-    ];
-
-    for (const q of getCombos) {
-      const startedAt = Date.now();
-      try {
-        const url = new URL(endpoint);
-        // intenta params típicos
-        url.searchParams.set("recordLocator", q.code);
-        url.searchParams.set("lastName", q.last);
-
-        const res = await fetchWithTimeout(
-          url.toString(),
-          {
-            method: "GET",
-            headers: {
-              accept: "application/json",
-              "accept-language": "es-MX,es;q=0.9,en;q=0.8",
-              "user-agent": ua,
-              authorization: auth,
-              flow: baseHeaders.flow,
-              frontend: baseHeaders.frontend,
-              origin: baseHeaders.origin,
-              referer: baseHeaders.referer,
-            },
-            cache: "no-store",
-            redirect: "follow",
-          },
-          timeoutMs
-        );
-
-        const ct = res.headers.get("content-type") || "";
-        const raw = await res.text();
-
-        debug.push({
-          authMode: auth.startsWith("Bearer ") ? "bearer" : "raw",
-          method: "GET",
-          url: url.toString(),
-          status: res.status,
-          ms: Date.now() - startedAt,
-          contentType: ct,
-          sample: truncate(raw),
-        });
-
-        if (res.status === 401 || res.status === 403) break;
-        if (!res.ok) continue;
-
-        const json = safeJsonParse(raw);
-        if (looksLikeSuccessJson(json)) {
-          return { ok: true, status: res.status, json, debug };
-        }
-      } catch (e: any) {
-        debug.push({
-          authMode: auth.startsWith("Bearer ") ? "bearer" : "raw",
-          method: "GET",
-          status: "NETWORK_ERROR",
-          ms: Date.now() - startedAt,
-          error: e?.name === "AbortError" ? "TIMEOUT" : (e?.message ?? "Unknown"),
-        });
-      }
-    }
+    let json: any = null;
+    try { json = JSON.parse(raw); } catch {}
+    return { ok: true as const, status: res.status, json, debug };
+  } catch (e: any) {
+    debug.push({ status: "NETWORK_ERROR", error: e?.name === "AbortError" ? "TIMEOUT" : (e?.message ?? "Unknown") });
+    return { ok: false as const, status: 504, error: "Network error/timeout", debug };
+  } finally {
+    clearTimeout(t);
   }
-
-  // Diagnóstico final: mira debug[].status y debug[].sample
-  const last = debug[debug.length - 1];
-  const statusGuess = typeof last?.status === "number" ? last.status : 404;
-
-  let hint = "No match / blocked / payload keys mismatch";
-  if (debug.some((d) => d.status === 401 || d.status === 403)) hint = "Unauthorized (token inválido/expirado o bloqueado)";
-  if (debug.some((d) => d.status === 405)) hint = "Method not allowed (el endpoint no acepta POST; usa GET real)";
-  if (debug.some((d) => String(d.sample || "").toLowerCase().includes("captcha"))) hint = "Blocked (captcha/bot protection)";
-
-  return { ok: false, status: statusGuess, error: hint, debug };
 }
+

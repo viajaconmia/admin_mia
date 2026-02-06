@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-// import { Eye } from "lucide-react";
-// import { Table5 } from "@/components/Table5";
-// import type { VueloComprado, FlightStatusResponse } from "@/services/flights";
-// import type { VueloDbRow } from "@/lib/flights";
-// import { mapVueloRowToComprado } from "@/lib/flights";
-// import { BoletoPdfDownload } from "./components/BoletoPdf";
+import { Eye } from "lucide-react";
+import { Table5 } from "@/components/Table5";
+import type { VueloComprado, FlightStatusResponse } from "@/services/flights";
+import type { VueloDbRow } from "@/lib/flights";
+import { mapVueloRowToComprado } from "@/lib/flights";
+import { BoletoPdfDownload } from "./components/BoletoPdf";
+import { URL, API_KEY } from "@/lib/constants/index";
 
 // type RowState = { loading: boolean; error: string | null; status: FlightStatusResponse | null };
 
@@ -247,35 +248,65 @@ export default function VuelosCuponPage() {
   const fetchVuelos = async (page = pageTracking.page) => {
     setIsLoading(true);
     try {
-      const response = await VuelosServices.getInstance().getVuelosCupon({
-        ...filtros,
-        page,
+      const resp = await fetch("./vuelos/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          airlineCode: v.airlineCode,
+          confirmationCode: v.confirmationCode,
+          passengerLastName: (v.passengerLastName || "").trim(),
+          flightNumber: v.flightNumberRaw ?? null,
+          departureDateISO: v.departureDateISO ?? null,
+          debug: true,
+        }),
       });
-      console.log("response vuelos cupon:", response);
 
-      setVuelos(response.data);
-      setPageTraking((prev) => ({
-        ...prev,
-        total: response.metadata.total,
-        total_pages: response.metadata.totalPages,
-      }));
-    } catch (err) {
-      showNotification("error", err.message || "Error al obtener los vuelos");
-      setVuelos([]);
-    } finally {
-      setIsLoading(false);
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err?.error || `HTTP ${resp.status}`);
+      }
+
+      const data: FlightStatusResponse = await resp.json();
+      setRow(v.id, { loading: false, status: data, error: null });
+    } catch (e: any) {
+      setRow(v.id, {
+        loading: false,
+        error: e?.message ?? "Error al consultar",
+      });
     }
   };
 
-  const registros = (vuelos || []).map((p) => ({
-    aerolinea: p.vuelos[0].airline,
-    codigo: p.codigo_confirmacion,
-    type: p.trip_type,
-    origen: p.ciudad_origen,
-    destino: p.regreso_ciudad_destino ?? p.ciudad_destino,
-    creado_en: formatDate(p.created_at),
-    detalles: p.vuelos,
-  }));
+  const registros = useMemo(() => {
+    return vuelos.map((v) => {
+      const st = byId[v.id]?.status ?? null;
+      const loading = byId[v.id]?.loading ?? false;
+      const error = byId[v.id]?.error ?? null;
+
+      const flightPretty = v.flightNumberRaw
+        ? String(v.flightNumberRaw).toUpperCase().includes(v.airlineCode)
+          ? v.flightNumberRaw
+          : `${v.airlineCode} ${v.flightNumberRaw}`
+        : "—";
+
+      return {
+        acciones: {
+          vuelo: v,
+          loading,
+          error,
+          status: st,
+          onClick: () => consultarStatus(v),
+        },
+        airline: `${v.airlineName} (${v.airlineCode})`,
+        flight: flightPretty,
+        fecha: `${v.departureDateISO} ${v.departureTime ?? ""}`.trim(),
+        ruta: `${v.originIata ?? "—"} → ${v.destinationIata ?? "—"}`,
+        pasajero: v.passengerFullName,
+        confirmacion: v.confirmationCode ?? "—",
+        status: st?.status ?? "—",
+        item: v,
+      };
+    });
+  }, [vuelos, byId]);
 
   const renderers: {
     [key: string]: React.FC<{ value: any; item: any; index: number }>;
