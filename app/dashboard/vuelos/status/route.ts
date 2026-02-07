@@ -15,20 +15,21 @@ const Schema = z.object({
 });
 
 export async function POST(req: Request) {
+  const debugAllowed =
+    !!req.headers.get("x-debug-key") &&
+    !!process.env.INTERNAL_DEBUG_KEY &&
+    req.headers.get("x-debug-key") === process.env.INTERNAL_DEBUG_KEY;
+
   try {
     const body = await req.json();
     const parsed = Schema.safeParse(body);
+
     if (!parsed.success) {
       return NextResponse.json(
         { error: "Bad request", details: parsed.error.flatten() },
         { status: 400 }
       );
     }
-    const debugAllowed =
-  req.headers.get("x-debug-key") &&
-  process.env.INTERNAL_DEBUG_KEY &&
-  req.headers.get("x-debug-key") === process.env.INTERNAL_DEBUG_KEY;
-
 
     const p = parsed.data;
 
@@ -61,36 +62,38 @@ export async function POST(req: Request) {
       );
     }
 
-    // ✅ LLAMADA REAL al API gateway (sin Playwright)
-    const r = await volarisLookupBooking({ confirmationCode: conf, lastName: last });
+   const r = await volarisLookupBooking({
+    confirmationCode: conf,
+    lastName: last,
+      debug: debugAllowed, // ✅ clave
+  });
+
 
     if (!r.ok) {
-  return NextResponse.json(
-    {
-      airlineCode: "Y4",
-      fetchedAtISO: new Date().toISOString(),
-      source: "scrape",
-      status: "UNKNOWN",
-      statusText: r.error,
-      debug: debugAllowed ? r.debug : undefined,
-    },
-    { status: 200 }
-  );
-}
+      return NextResponse.json(
+        {
+          airlineCode: "Y4",
+          fetchedAtISO: new Date().toISOString(),
+          source: "scrape",
+          status: "UNKNOWN",
+          statusText: r.error,
+          debug: debugAllowed ? r.debug : undefined,
+        },
+        { status: 200 }
+      );
+    }
 
-return NextResponse.json(
-  {
-    airlineCode: "Y4",
-    fetchedAtISO: new Date().toISOString(),
-    source: "scrape",
-    status: "OK",
-    data: r.json,
-    debug: debugAllowed ? r.debug : undefined,
-  },
-  { status: 200 }
-);
-
-
+    return NextResponse.json(
+      {
+        airlineCode: "Y4",
+        fetchedAtISO: new Date().toISOString(),
+        source: "scrape",
+        status: "OK",
+        data: r.json,
+        debug: debugAllowed ? r.debug : undefined,
+      },
+      { status: 200 }
+    );
   } catch (e: any) {
     return NextResponse.json(
       { error: "Server error", details: e?.message ?? "Unknown" },

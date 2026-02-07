@@ -57,7 +57,6 @@ export function extractIata(airportText: string | null): string | null {
   return any?.[1]?.toUpperCase() ?? null;
 }
 
-
 export function mapVueloRowToComprado(r: VueloDbRow): VueloComprado {
   
   const airlineCode = normalizeAirlineCode(r.airline, r.airline_code);
