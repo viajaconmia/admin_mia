@@ -140,245 +140,68 @@ function parseExtraHeadersJson(): Record<string, string> {
   }
 }
 
-export async function volarisLookupBooking(args: VolarisLookupArgs): Promise<VolarisLookupResult> {
-  // Prioridad: LOOKUP_URL (tu gateway) > ENDPOINT > default
-  const endpoint =
-    process.env.VOLARIS_LOOKUP_URL?.trim() ||
-    process.env.VOLARIS_ENDPOINT?.trim() ||
-    "https://apigw.volaris.com/prod/api/booking";
+// lib/volaris.ts
+export async function volarisLookupBooking(args: { confirmationCode: string; lastName: string }) {
+  const base =
+    process.env.VOLARIS_BOOKING_ENDPOINT?.trim() ||
+    "https://apigw.volaris.com/prod/api/v1/booking/getbookingbyrecordlocatorandlastname";
 
-  const authEnv = process.env.VOLARIS_AUTHORIZATION?.trim(); // opcional
-  const authVariants = makeAuthVariants(authEnv);
+  const authEnv = process.env.VOLARIS_AUTHORIZATION;
+  if (!authEnv) {
+    return { ok: false as const, status: 500, error: "Missing VOLARIS_AUTHORIZATION env var", debug: [] as any[] };
+  }
 
   const code = args.confirmationCode.trim().toUpperCase();
-  const lasts = lastNameCandidates(args.lastName);
+  const last = args.lastName
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase();
+
+  const url = new URL(base);
+  // 👇 OJO: params exactos de tu captura
+  url.searchParams.set("recordlocator", code);
+  url.searchParams.set("lastname", last);
 
   const timeoutMs = Number(process.env.VOLARIS_TIMEOUT_MS || 12000);
-  const ua =
-    envHeader("VOLARIS_UA") ||
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122 Safari/537.36";
 
-  const flow = envHeader("VOLARIS_FLOW", "MBS");
-  const frontend = envHeader("VOLARIS_FRONTEND", "WEB");
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), timeoutMs);
 
-  const origin = envHeader("VOLARIS_ORIGIN", "https://www.volaris.com");
-  const referer = envHeader("VOLARIS_REFERER", "https://www.volaris.com/mytrips/home");
+  const debug: any[] = [];
+  try {
+    const res = await fetch(url.toString(), {
+      method: "GET",
+      headers: {
+        accept: "application/json",
+        "accept-language": "es-MX,es;q=0.9,en;q=0.8",
+        // No metas cookies de analytics; normalmente no ayudan
+        authorization: authEnv.trim(), // si tu token requiere "Bearer", ponlo ya en el env
+        origin: "https://www.volaris.com",
+        referer: "https://www.volaris.com/",
+      },
+      cache: "no-store",
+      signal: controller.signal,
+    });
 
-  const extraHeaders = parseExtraHeadersJson();
+    const raw = await res.text();
+    debug.push({ url: url.toString(), status: res.status, sample: raw.slice(0, 240) });
 
-  // Bodies plausibles: deja sólo los que realmente existan cuando ya sepas cuál funciona.
-  const buildPostBodies = (lastNameUsed: string) => [
-    { recordLocator: code, lastName: lastNameUsed },
-    { confirmationCode: code, lastName: lastNameUsed },
-  ];
-
-  const attempts: DebugAttempt[] = [];
-  let attemptNo = 0;
-
-  for (const auth of authVariants) {
-    // OJO: no metemos el token en debug, solo el modo.
-    const baseHeaders: Record<string, string> = {
-      accept: "application/json, text/plain, */*",
-      "content-type": "application/json",
-      "accept-language": "es-MX,es;q=0.9,en;q=0.8",
-      "user-agent": ua,
-      flow,
-      frontend,
-      origin,
-      referer,
-      ...extraHeaders,
-    };
-
-    if (auth.mode !== "none") {
-      baseHeaders.authorization = auth.value;
+    if (!res.ok) {
+      const hint = (res.status === 401 || res.status === 403)
+        ? "Unauthorized: token inválido/expirado o no permitido"
+        : `HTTP ${res.status}`;
+      return { ok: false as const, status: res.status, error: hint, debug };
     }
 
-    // 1) POST intentos
-    let postBrokeByMethod = false;
-    let postBrokeByAuth = false;
-
-    for (const lastNameUsed of lasts) {
-      const bodies = buildPostBodies(lastNameUsed);
-
-      for (const body of bodies) {
-        attemptNo += 1;
-        const startedAt = Date.now();
-
-        try {
-          const res = await fetchWithTimeout(
-            endpoint,
-            {
-              method: "POST",
-              headers: baseHeaders,
-              body: JSON.stringify(body),
-              cache: "no-store",
-              redirect: "follow",
-            },
-            timeoutMs
-          );
-
-          const ct = res.headers.get("content-type");
-          const raw = await res.text();
-
-          attempts.push({
-            attempt: attemptNo,
-            method: "POST",
-            url: endpoint,
-            lastNameUsed,
-            authMode: auth.mode,
-            requestBody: body,
-            httpStatus: res.status,
-            contentType: ct,
-            ms: Date.now() - startedAt,
-            bodySnippet: truncate(raw),
-          });
-
-          if (res.status === 405) {
-            postBrokeByMethod = true;
-            break;
-          }
-          if (res.status === 401 || res.status === 403) {
-            postBrokeByAuth = true;
-            break;
-          }
-          if (!res.ok) continue;
-
-          // Si te devuelve HTML/captcha aunque sea 200, no sirve
-          if (looksLikeBotChallenge(raw)) continue;
-          if (ct && ct.toLowerCase().includes("text/html")) continue;
-
-          const json = safeJsonParse(raw);
-          if (looksLikeSuccessJson(json)) {
-            return {
-              ok: true,
-              status: res.status,
-              json,
-              debug: args.debug ? { attempts } : undefined,
-            };
-          }
-        } catch (e: any) {
-          attempts.push({
-            attempt: attemptNo,
-            method: "POST",
-            url: endpoint,
-            lastNameUsed,
-            authMode: auth.mode,
-            requestBody: body,
-            httpStatus: "NETWORK_ERROR",
-            contentType: null,
-            ms: Date.now() - startedAt,
-            error: e?.name === "AbortError" ? "TIMEOUT" : (e?.message ?? "Unknown"),
-          });
-        }
-      }
-
-      if (postBrokeByMethod || postBrokeByAuth) break;
-    }
-
-    // Si POST no se puede por método o el endpoint real era GET
-    // o si el endpoint original (curl) iba sin body:
-    // 2) GET fallback
-    for (const lastNameUsed of lasts) {
-      attemptNo += 1;
-      const startedAt = Date.now();
-
-      try {
-        const url = new URL(endpoint);
-        // Query params típicos
-        url.searchParams.set("recordLocator", code);
-        url.searchParams.set("lastName", lastNameUsed);
-
-        const res = await fetchWithTimeout(
-          url.toString(),
-          {
-            method: "GET",
-            headers: {
-              accept: "application/json, text/plain, */*",
-              "accept-language": "es-MX,es;q=0.9,en;q=0.8",
-              "user-agent": ua,
-              ...(auth.mode !== "none" ? { authorization: auth.value } : {}),
-              flow,
-              frontend,
-              origin,
-              referer,
-              ...extraHeaders,
-            },
-            cache: "no-store",
-            redirect: "follow",
-          },
-          timeoutMs
-        );
-
-        const ct = res.headers.get("content-type");
-        const raw = await res.text();
-
-        attempts.push({
-          attempt: attemptNo,
-          method: "GET",
-          url: url.toString(),
-          lastNameUsed,
-          authMode: auth.mode,
-          httpStatus: res.status,
-          contentType: ct,
-          ms: Date.now() - startedAt,
-          bodySnippet: truncate(raw),
-        });
-
-        if (res.status === 401 || res.status === 403) break;
-        if (!res.ok) continue;
-
-        if (looksLikeBotChallenge(raw)) continue;
-        if (ct && ct.toLowerCase().includes("text/html")) continue;
-
-        const json = safeJsonParse(raw);
-        if (looksLikeSuccessJson(json)) {
-          return {
-            ok: true,
-            status: res.status,
-            json,
-            debug: args.debug ? { attempts } : undefined,
-          };
-        }
-      } catch (e: any) {
-        attempts.push({
-          attempt: attemptNo,
-          method: "GET",
-          url: endpoint,
-          lastNameUsed,
-          authMode: auth.mode,
-          httpStatus: "NETWORK_ERROR",
-          contentType: null,
-          ms: Date.now() - startedAt,
-          error: e?.name === "AbortError" ? "TIMEOUT" : (e?.message ?? "Unknown"),
-        });
-      }
-    }
+    let json: any = null;
+    try { json = JSON.parse(raw); } catch {}
+    return { ok: true as const, status: res.status, json, debug };
+  } catch (e: any) {
+    debug.push({ status: "NETWORK_ERROR", error: e?.name === "AbortError" ? "TIMEOUT" : (e?.message ?? "Unknown") });
+    return { ok: false as const, status: 504, error: "Network error/timeout", debug };
+  } finally {
+    clearTimeout(t);
   }
-
-  // Diagnóstico final
-  const numericStatuses = attempts
-    .map((a) => (typeof a.httpStatus === "number" ? a.httpStatus : null))
-    .filter((x): x is number => x !== null);
-
-  const statusGuess = numericStatuses.length ? numericStatuses[numericStatuses.length - 1] : 500;
-
-  let hint = "No se obtuvo JSON válido (endpoint/payload/headers) o fue bloqueado.";
-  if (attempts.some((d) => d.httpStatus === 401 || d.httpStatus === 403)) {
-    hint = "Unauthorized / Forbidden: token inválido/expirado o el endpoint requiere cookies/headers extra.";
-  } else if (attempts.some((d) => d.bodySnippet && looksLikeBotChallenge(d.bodySnippet))) {
-    hint = "Bloqueo anti-bot (captcha/WAF): la respuesta no es JSON utilizable.";
-  } else if (attempts.some((d) => d.contentType?.toLowerCase().includes("text/html"))) {
-    hint = "Respuesta HTML (no API): probablemente endpoint incorrecto o te sirvieron una página/challenge.";
-  } else if (attempts.some((d) => d.httpStatus === 405)) {
-    hint = "Method not allowed: el endpoint no acepta POST (o cambió).";
-  } else if (attempts.some((d) => d.httpStatus === "NETWORK_ERROR")) {
-    hint = "Network error/timeout: revisa conectividad, DNS, timeout y que el endpoint responda desde tu server.";
-  }
-
-  return {
-    ok: false,
-    status: statusGuess,
-    error: hint,
-    debug: args.debug ? { attempts } : undefined,
-  };
 }
+

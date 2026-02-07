@@ -7,6 +7,7 @@ import type { VueloComprado, FlightStatusResponse } from "@/services/flights";
 import type { VueloDbRow } from "@/lib/flights";
 import { mapVueloRowToComprado } from "@/lib/flights";
 import { BoletoPdfDownload } from "./components/BoletoPdf";
+import { URL, API_KEY } from "@/lib/constants/index";
 
 type RowState = { loading: boolean; error: string | null; status: FlightStatusResponse | null };
 
@@ -70,7 +71,33 @@ export default function VuelosPage() {
       seat_location: null,
     };
 
-    const mapped = [mapVueloRowToComprado(rowIda), mapVueloRowToComprado(rowRegreso)];
+      const rowRegreso1: VueloDbRow = {
+      id_vuelo: "pdf-regreso-y4-1143",
+      airline: "VIVAAEROBUS",
+      airline_code: "VB",
+      flight_number: "1143",
+
+      departure_airport: "SJD Los Cabos International Airport San Jose del Cabo Baja California Sur MX",
+      arrival_airport: "GDL Don Miguel Hidalgo Y Costilla International Airport Guadalajara Jalisco MX",
+      departure_date: "2026-01-30",
+      departure_time: "15:36:00",
+      arrival_date: "2026-01-30",
+      arrival_time: "18:07:00",
+
+      departure_city: "San Jose del Cabo, BCS",
+      arrival_city: "Guadalajara, Jalisco",
+
+      codigo_confirmacion: "IB226P",
+      nombre_completo: "Juan Carlos Martinez Gonzalez",
+      correo: null,
+      apellido_paterno: "MARTINEZ",
+      apellido_materno:"GONZALEZ",
+
+      seat_number: "6D",
+      seat_location: null,
+    };
+
+    const mapped = [mapVueloRowToComprado(rowIda), mapVueloRowToComprado(rowRegreso),mapVueloRowToComprado(rowRegreso1)];
     setVuelos(mapped);
 
     const init: Record<string, RowState> = {};
@@ -86,35 +113,34 @@ export default function VuelosPage() {
   };
 
   const consultarStatus = async (v: VueloComprado) => {
-    setRow(v.id, { loading: true, error: null });
+  setRow(v.id, { loading: true, error: null });
 
-    try {
-      const resp = await fetch("/dashboard/vuelos/status", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    airlineCode: v.airlineCode,
-    flightNumber: v.flightNumberRaw,
-    departureDateISO: v.departureDateISO,
-    originIata: v.originIata,
-    destinationIata: v.destinationIata,
-    confirmationCode: v.confirmationCode,
-    passengerLastName: (v.passengerLastName || "").trim() || null,
-  }),
-});
+  try {
+const resp = await fetch("./vuelos/status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        airlineCode: "Y4",
+        confirmationCode: v.confirmationCode,
+        passengerLastName: (v.passengerLastName || "").trim(),
+        debug: true,
+      }),
+    });
 
+    const json = await resp.json();
+    console.log("LOOKUP:", json);
 
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({}));
-        throw new Error(err?.error || `HTTP ${resp.status}`);
-      }
-
-      const data: FlightStatusResponse = await resp.json();
-      setRow(v.id, { loading: false, status: data, error: null });
-    } catch (e: any) {
-      setRow(v.id, { loading: false, error: e?.message ?? "Error al consultar" });
+    if (!resp.ok || !json?.ok) {
+      throw new Error(json?.error || `HTTP ${resp.status}`);
     }
-  };
+
+    // OJO: tu API responde { ok:true, data:{...} }
+    setRow(v.id, { loading: false, status: json.data, error: null });
+  } catch (e: any) {
+    setRow(v.id, { loading: false, error: e?.message ?? "Error al consultar" });
+  }
+};
+
 
   const registros = useMemo(() => {
     return vuelos.map((v) => {

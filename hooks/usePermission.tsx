@@ -11,7 +11,7 @@ export const usePermiso = () => {
   const isDev = process.env.NODE_ENV !== "production";
 
   const hasPermission = (permiso: string) =>
-    (user?.permisos?.includes?.(permiso) ?? false) //|| (isDev && !!environment);
+    (user?.permisos?.includes?.(permiso) ?? false) || (isDev && !!environment);
 
   const hasAccess = (permiso: string) => {
     const ok = hasPermission(permiso);
