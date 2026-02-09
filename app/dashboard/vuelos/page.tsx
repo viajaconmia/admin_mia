@@ -116,16 +116,18 @@ export default function VuelosPage() {
   setRow(v.id, { loading: true, error: null });
 
   try {
-const resp = await fetch("./vuelos/status", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        airlineCode: "Y4",
-        confirmationCode: v.confirmationCode,
-        passengerLastName: (v.passengerLastName || "").trim(),
-        debug: true,
-      }),
-    });
+const resp = await fetch("/dashboard/vuelos/status", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    airlineCode: v.airlineCode,
+    confirmationCode: v.confirmationCode,
+    passengerLastName: (v.passengerLastName || "").trim(),
+    debug: true,
+  }),
+});
+
+
 
     const json = await resp.json();
     console.log("LOOKUP:", json);
