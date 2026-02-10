@@ -8,13 +8,9 @@ import {
   ComboBoxOption2,
 } from "../atom/Input";
 import Button from "../atom/Button";
-import {
-  Aeropuerto,
-  ExtraService,
-  Proveedor,
-  Sucursal,
-} from "@/services/ExtraServices";
+import { Aeropuerto, ExtraService, Sucursal } from "@/services/ExtraServices";
 import { useNotification } from "@/context/useNotificacion";
+import { Proveedor } from "@/services/ProveedoresService";
 
 export type ForSave =
   | null
@@ -77,7 +73,10 @@ const GuardadoProveedor = ({
         showNotification("success", res.message);
       })
       .catch((error) =>
-        showNotification("error", error.message || "Error al agregar aerolinea")
+        showNotification(
+          "error",
+          error.message || "Error al agregar aerolinea",
+        ),
       );
   };
 
@@ -114,8 +113,8 @@ const GuardarAeropuerto = ({
       .catch((error) =>
         showNotification(
           "error",
-          error.message || "Error al agregar aeropuerto"
-        )
+          error.message || "Error al agregar aeropuerto",
+        ),
       );
   };
 
@@ -175,11 +174,11 @@ const initialPlaceDetails: SucursalDetails = {
 // Devuelve el long_name del componente de dirección que coincida con todos los tipos requeridos
 export function getAddressComponentLongName(
   place: PlaceMaps,
-  requiredTypes: AddressType[]
+  requiredTypes: AddressType[],
 ): string | null {
   const components = place.address_components ?? [];
   const match = components.find((component) =>
-    requiredTypes.every((type) => component.types.includes(type))
+    requiredTypes.every((type) => component.types.includes(type)),
   );
   return match?.long_name ?? null;
 }
@@ -230,8 +229,8 @@ export const GuardarSucursal = ({
       .catch((error) =>
         showNotification(
           "error",
-          error.message || "Error al agregar aeropuerto"
-        )
+          error.message || "Error al agregar aeropuerto",
+        ),
       );
   };
 
@@ -242,7 +241,7 @@ export const GuardarSucursal = ({
           <li key={index} className="text-sm text-gray-700">
             {text}
           </li>
-        )
+        ),
       ) || (
         <p className="text-sm text-gray-500">
           Busca una sucursal para ver sus horarios.
@@ -264,7 +263,7 @@ export const GuardarSucursal = ({
           value={
             proveedor
               ? {
-                  name: proveedor.nombre,
+                  name: proveedor.proveedor,
                   content: proveedor,
                 }
               : null
@@ -273,7 +272,7 @@ export const GuardarSucursal = ({
             setProveedor(value.content);
           }}
           options={proveedores.map((proveedor) => ({
-            name: proveedor.nombre,
+            name: proveedor.proveedor,
             content: proveedor,
           }))}
         />

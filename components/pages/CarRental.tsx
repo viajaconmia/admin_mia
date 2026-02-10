@@ -20,8 +20,9 @@ import { Saldo } from "@/services/SaldoAFavor";
 import { getDatePlusFiveYears, getTodayDateTime } from "@/lib/utils";
 import { SectionForm } from "../atom/SectionForm";
 import { ForSave, GuardadoRapido } from "../template/GuardadoRapido";
-import { ExtraService, Proveedor, Sucursal } from "@/services/ExtraServices";
+import { ExtraService, Sucursal } from "@/services/ExtraServices";
 import { CarRentalServices } from "@/services/RentaCarros";
+import { Proveedor } from "@/services/ProveedoresService";
 
 // Ajusta / elimina si ya tienes el type Agente global
 type Agente = { id_agente: string };
@@ -94,12 +95,15 @@ const carRentalReducer = (state: CarRental, action: Action): CarRental => {
   }
 };
 
-
-  const safe = (v: any) => (v === null || v === undefined || v === "" ? "—" : String(v));
+const safe = (v: any) =>
+  v === null || v === undefined || v === "" ? "—" : String(v);
 const moneyMXN = (v: any) => {
   const n = Number(v);
   if (!Number.isFinite(n)) return safe(v);
-  return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n);
+  return new Intl.NumberFormat("es-MX", {
+    style: "currency",
+    currency: "MXN",
+  }).format(n);
 };
 const pickSummaryFromDataInicio = (raw: any) => {
   const gem = raw?.objeto_gemini ?? {};
@@ -148,7 +152,9 @@ const DataInicioSummary = ({ data_inicio }: { data_inicio: any }) => {
     <div className="mb-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-slate-800">Información de la solicitud</h3>
+          <h3 className="text-sm font-semibold text-slate-800">
+            Información de la solicitud
+          </h3>
           <p className="text-xs text-slate-600">
             Se detectó data inicial; se usará para autorrellenar el formulario.
           </p>
@@ -176,10 +182,12 @@ const DataInicioSummary = ({ data_inicio }: { data_inicio: any }) => {
           <div className="text-slate-700">Proveedor: {safe(s.proveedor)}</div>
           <div className="text-slate-500">Rating: {safe(s.rating)}</div>
           <div className="text-slate-700">
-            Auto: {safe(s.car_make)} {safe(s.car_model)} ({safe(s.car_category)})
+            Auto: {safe(s.car_make)} {safe(s.car_model)} ({safe(s.car_category)}
+            )
           </div>
           <div className="text-slate-500">
-            Pasajeros: {safe(s.passengers)} · Transmisión: {safe(s.transmission)}
+            Pasajeros: {safe(s.passengers)} · Transmisión:{" "}
+            {safe(s.transmission)}
           </div>
         </div>
 
@@ -231,7 +239,7 @@ const toNumber = (v: any): number | null => {
 };
 
 const mapTransmissionToTipoVehiculo = (
-  t?: string | null
+  t?: string | null,
 ): CarRental["tipo_vehiculo"] => {
   if (!t) return null;
   const x = String(t).toLowerCase();
@@ -247,7 +255,9 @@ const mapStatus = (s?: string | null): CarRental["status"] => {
   return null;
 };
 
-const normalizeInitial = (data_inicio?: Partial<CarRental> | null): CarRental => {
+const normalizeInitial = (
+  data_inicio?: Partial<CarRental> | null,
+): CarRental => {
   const merged: CarRental = {
     ...emptyState,
     ...(data_inicio ?? {}),
@@ -294,7 +304,9 @@ const buildPatchFromDataInicio = (raw: any): Partial<CarRental> => {
     check_in: toDT(pickupDT),
     check_out: toDT(returnDT),
     max_pasajeros: toNumber(item?.carDetails?.passengers),
-    tipo_vehiculo: mapTransmissionToTipoVehiculo(item?.carDetails?.transmission),
+    tipo_vehiculo: mapTransmissionToTipoVehiculo(
+      item?.carDetails?.transmission,
+    ),
     auto_descripcion: autoDesc,
     seguro: item?.price?.includedFeatures ?? null,
     status: mapStatus(gem?.status ?? raw?.estado_solicitud),
@@ -313,15 +325,22 @@ const initFromAny = (data_inicio: any): CarRental => {
   return normalizeInitial(data_inicio as Partial<CarRental>);
 };
 
-const findProveedorByName = (proveedores: Proveedor[], name?: string | null) => {
+const findProveedorByName = (
+  proveedores: Proveedor[],
+  name?: string | null,
+) => {
   if (!name) return null;
   const n = name.toLowerCase().trim();
   return (
-    proveedores.find((p) => (p.nombre ?? "").toLowerCase().trim() === n) ?? null
+    proveedores.find((p) => (p.proveedor ?? "").toLowerCase().trim() === n) ??
+    null
   );
 };
 
-const findSucursalByAddress = (sucursales: Sucursal[], address?: string | null) => {
+const findSucursalByAddress = (
+  sucursales: Sucursal[],
+  address?: string | null,
+) => {
   if (!address) return null;
   const a = address.toLowerCase().trim();
   return (
@@ -331,10 +350,14 @@ const findSucursalByAddress = (sucursales: Sucursal[], address?: string | null) 
   );
 };
 
-const findViajeroById = (viajeros: ViajeroService[], id_viajero?: string | null) => {
+const findViajeroById = (
+  viajeros: ViajeroService[],
+  id_viajero?: string | null,
+) => {
   if (!id_viajero) return null;
   return (
-    viajeros.find((v: any) => String(v?.id_viajero) === String(id_viajero)) ?? null
+    viajeros.find((v: any) => String(v?.id_viajero) === String(id_viajero)) ??
+    null
   );
 };
 
@@ -343,7 +366,7 @@ const findViajeroById = (viajeros: ViajeroService[], id_viajero?: string | null)
 ========================= */
 
 type CarRentalFormProps = {
-  agente: Agente | null;          // <-- importante: permite null para no romper
+  agente: Agente | null; // <-- importante: permite null para no romper
   data_inicio?: any;
   onClose?: () => void;
   onSuccess?: () => void;
@@ -355,20 +378,18 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
   onClose,
   onSuccess,
 }) => {
-  const agenteId = agente?.id_agente ?? agente; // <-- evita crashes
-  console.log("envion de informacion",data_inicio)
+  const agenteId = agente?.id_agente;
+  console.log("envion de informacion", data_inicio);
   const [state, dispatch] = useReducer(
     carRentalReducer,
     data_inicio ?? null,
-    initFromAny
+    initFromAny,
   );
-  
 
   const [viajeros, setViajeros] = useState<ViajeroService[]>([]);
   const [loading, setLoading] = useState(false);
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
   const [sucursales, setSucursales] = useState<Sucursal[]>([]);
-
 
   const [openPago, setOpenPago] = useState(false);
   const [save, setSave] = useState<ForSave>(null);
@@ -377,7 +398,7 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
 
   const handleUpdateCarRental = <K extends keyof CarRental>(
     field: K,
-    value: CarRental[K]
+    value: CarRental[K],
   ) => {
     dispatch({ type: "UPDATE_CAR_RENTAL", payload: { field, value } });
   };
@@ -403,21 +424,30 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
       .obtenerViajerosPorAgente(agenteId)
       .then((res) => setViajeros(res.data || []))
       .catch((error: any) =>
-        showNotification("error", error?.message || "Error al obtener viajeros")
+        showNotification(
+          "error",
+          error?.message || "Error al obtener viajeros",
+        ),
       );
 
     ExtraService.getInstance()
       .getProveedoresCarros()
       .then((res) => setProveedores(res.data || []))
       .catch((error: any) =>
-        showNotification("error", error?.message || "Error al obtener proveedores")
+        showNotification(
+          "error",
+          error?.message || "Error al obtener proveedores",
+        ),
       );
 
     ExtraService.getInstance()
       .getSucursales()
       .then((res) => setSucursales(res.data || []))
       .catch((error: any) =>
-        showNotification("error", error?.message || "Error al obtener sucursales")
+        showNotification(
+          "error",
+          error?.message || "Error al obtener sucursales",
+        ),
       );
   }, [agenteId, showNotification]);
 
@@ -454,13 +484,23 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
       const v = findViajeroById(viajeros, idV);
       if (v) handleUpdateCarRental("conductores", [v]);
     }
-  }, [data_inicio, proveedores, sucursales, viajeros, state.proveedor, state.recogida_lugar, state.devuelta_lugar, state.conductores]);
+  }, [
+    data_inicio,
+    proveedores,
+    sucursales,
+    viajeros,
+    state.proveedor,
+    state.recogida_lugar,
+    state.devuelta_lugar,
+    state.conductores,
+  ]);
 
   const onPagar = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
-      if ((state.precio ?? 0) <= 0) throw new Error("El precio debe ser mayor a 0");
-      if (isSomeNull(state, ["comentarios"])) {
+      if ((state.precio ?? 0) <= 0)
+        throw new Error("El precio debe ser mayor a 0");
+      if (isSomeNull(state, ["comentarios", "intermediario"])) {
         throw new Error("Parece ser que dejaste algunos campos vacíos");
       }
       setOpenPago(true);
@@ -482,7 +522,7 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
   const handleSubmit = async (
     saldos: (Saldo & { restante: number; usado: boolean })[],
     faltante: number,
-    isPrimary: boolean
+    isPrimary: boolean,
   ) => {
     try {
       setLoading(true);
@@ -491,13 +531,13 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
 
       if (faltante !== 0 && isPrimary) {
         throw new Error(
-          "No puedes pagar con este, por favor si quieres pagar con crédito usa el otro botón"
+          "No puedes pagar con este, por favor si quieres pagar con crédito usa el otro botón",
         );
       }
 
       if (faltante === 0 && !isPrimary) {
         throw new Error(
-          "Parece que ya pagaste todo con saldo a favor, ya no queda nada para pagar a crédito"
+          "Parece que ya pagaste todo con saldo a favor, ya no queda nada para pagar a crédito",
         );
       }
 
@@ -561,16 +601,25 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
       )}
 
       {/* CLAVE: quita h-full para que no colapse dentro del Modal */}
-      <form className="w-full relative p-2 flex flex-col gap-2" onSubmit={onPagar}>
+      <form
+        className="w-full relative p-2 flex flex-col gap-2"
+        onSubmit={onPagar}
+      >
         <div className="w-full grid md:grid-cols-3 gap-2 rounded-md">
-          <SectionForm legend={"Detalles de renta"} icon={CarFront} className="col-span-2">
+          <SectionForm
+            legend={"Detalles de renta"}
+            icon={CarFront}
+            className="col-span-2"
+          >
             <div className="grid lg:grid-cols-2 gap-4">
               <TextInput
                 // value={String(new Date().getTime())}
                 value={state.codigo}
                 label="Código de reservación"
                 placeholder="HJK1243..."
-                onChange={(value: string) => handleUpdateCarRental("codigo", value)}
+                onChange={(value: string) =>
+                  handleUpdateCarRental("codigo", value)
+                }
               />
 
               <div className="flex gap-2">
@@ -579,14 +628,17 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
                   className="w-full"
                   value={
                     state.proveedor
-                      ? { name: state.proveedor.nombre, content: state.proveedor }
+                      ? {
+                          name: state.proveedor.proveedor,
+                          content: state.proveedor,
+                        }
                       : null
                   }
                   onChange={(value: ComboBoxOption2<Proveedor>) => {
                     handleUpdateCarRental("proveedor", value.content);
                   }}
                   options={proveedores.map((proveedor) => ({
-                    name: proveedor.nombre,
+                    name: proveedor.proveedor,
                     content: proveedor,
                   }))}
                 />
@@ -603,7 +655,9 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
               <Dropdown
                 label="Estado"
                 value={state.status}
-                onChange={(value: string) => handleUpdateCarRental("status", value)}
+                onChange={(value: string) =>
+                  handleUpdateCarRental("status", value)
+                }
                 options={["Pendiente", "Confirmada", "Cancelada"]}
               />
 
@@ -611,12 +665,16 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
                 value={state.seguro}
                 label="Seguro"
                 placeholder=""
-                onChange={(value: string) => handleUpdateCarRental("seguro", value)}
+                onChange={(value: string) =>
+                  handleUpdateCarRental("seguro", value)
+                }
               />
 
               <Dropdown
                 value={state.tipo_vehiculo}
-                onChange={(value: string) => handleUpdateCarRental("tipo_vehiculo", value)}
+                onChange={(value: string) =>
+                  handleUpdateCarRental("tipo_vehiculo", value)
+                }
                 label="Tipo de vehículo"
                 options={["AUTOMATICO", "ESTANDAR"]}
               />
@@ -648,7 +706,11 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
             </div>
           </SectionForm>
 
-          <SectionForm legend={"Conductores"} icon={User2} className="flex flex-col w-full">
+          <SectionForm
+            legend={"Conductores"}
+            icon={User2}
+            className="flex flex-col w-full"
+          >
             <div className="grid gap-2 h-full flex-1">
               {state.conductores.map((conductor, index) => (
                 <ComboBox2
@@ -662,7 +724,7 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
                   label={`Conductor #${index + 1}`}
                   onChange={(value: ComboBoxOption<ViajeroService>) => {
                     const newConductores = [...state.conductores].map((c, i) =>
-                      i === index ? value.content : c
+                      i === index ? value.content : c,
                     );
                     handleUpdateCarRental("conductores", newConductores);
                   }}
@@ -682,7 +744,7 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
                   onClick={() =>
                     handleUpdateCarRental(
                       "conductores",
-                      [...state.conductores].slice(0, -1)
+                      [...state.conductores].slice(0, -1),
                     )
                   }
                 >
@@ -692,7 +754,10 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
                   className="w-full"
                   type="button"
                   onClick={() =>
-                    handleUpdateCarRental("conductores", [...state.conductores, null])
+                    handleUpdateCarRental("conductores", [
+                      ...state.conductores,
+                      null,
+                    ])
                   }
                 >
                   Agregar conductor
@@ -742,7 +807,8 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
                 value={state.check_in}
                 onChange={(value: string) => {
                   handleUpdateCarRental("check_in", value);
-                  if (state.check_out == null) handleUpdateCarRental("check_out", value);
+                  if (state.check_out == null)
+                    handleUpdateCarRental("check_out", value);
                 }}
               />
             </div>
@@ -796,7 +862,9 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
                 max={getDatePlusFiveYears()}
                 label="Fecha de devolución"
                 value={state.check_out}
-                onChange={(value: string) => handleUpdateCarRental("check_out", value)}
+                onChange={(value: string) =>
+                  handleUpdateCarRental("check_out", value)
+                }
               />
             </div>
           </SectionForm>
@@ -809,7 +877,9 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
               label="Comentarios"
               value={state.comentarios || ""}
               className="col-span-3"
-              onChange={(value: string) => handleUpdateCarRental("comentarios", value)}
+              onChange={(value: string) =>
+                handleUpdateCarRental("comentarios", value)
+              }
             />
 
             <ComboBox2
@@ -817,13 +887,19 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
               className="col-span-3"
               value={
                 state.intermediario
-                  ? { name: state.intermediario.nombre, content: state.intermediario }
+                  ? {
+                      name: state.intermediario.proveedor,
+                      content: state.intermediario,
+                    }
                   : null
               }
               onChange={(value: ComboBoxOption2<Proveedor>) =>
                 handleUpdateCarRental("intermediario", value.content)
               }
-              options={proveedores.map((i) => ({ name: i.nombre, content: i }))}
+              options={proveedores.map((i) => ({
+                name: i.proveedor,
+                content: i,
+              }))}
             />
 
             <Button
@@ -839,14 +915,18 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
               label="Costo proveedor"
               value={state.costo}
               className="col-span-3"
-              onChange={(value: string) => handleUpdateCarRental("costo", Number(value))}
+              onChange={(value: string) =>
+                handleUpdateCarRental("costo", Number(value))
+              }
             />
 
             <NumberInput
               label="Precio a cliente"
               className="col-span-3"
               value={state.precio}
-              onChange={(value: string) => handleUpdateCarRental("precio", Number(value))}
+              onChange={(value: string) =>
+                handleUpdateCarRental("precio", Number(value))
+              }
             />
 
             <div className="pt-6">
@@ -866,7 +946,7 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
 ========================= */
 
 type CarRentalModalProps = {
-  agente: Agente | null;     // <-- permite null para no romper
+  agente: Agente | null; // <-- permite null para no romper
   open: boolean;
   onClose: () => void;
   data_inicio?: any;
@@ -885,19 +965,22 @@ export const CarRentalModal: React.FC<CarRentalModalProps> = ({
   subtitle,
 }) => {
   if (!open) return null;
-  console.log("envio de informacion", agente)
+  console.log("envio de informacion", agente);
 
   return (
     <Modal
       onClose={onClose}
-      title={title ?? (data_inicio ? "Editar renta de carro" : "Nueva renta de carro")}
+      title={
+        title ??
+        (data_inicio ? "Editar renta de carro" : "Nueva renta de carro")
+      }
       subtitle={subtitle ?? "Completa la información y continúa a pagar"}
     >
       {/* CLAVE: wrapper con scroll para que se vea completo */}
       <div className="w-[90vw] max-w-6xl max-h-[85vh]">
         {/* ✅ CUADRO SOLO SI VIENE DATA INICIAL */}
         {data_inicio ? <DataInicioSummary data_inicio={data_inicio} /> : null}
-        
+
         <CarRentalForm
           agente={agente}
           data_inicio={data_inicio}

@@ -20,7 +20,10 @@ import Modal from "../organism/Modal";
 import { Aeropuerto, ExtraService } from "@/services/ExtraServices";
 import { isSomeNull } from "@/helpers/validator";
 import { Saldo } from "@/services/SaldoAFavor";
-import { VuelosServices } from "@/services/VuelosServices";
+import {
+  VuelosServices,
+  type Vuelo as VueloService,
+} from "@/services/VuelosServices";
 import { ForSave, GuardadoRapido } from "./GuardadoRapido";
 import { Proveedor } from "@/services/ProveedoresService";
 
@@ -682,10 +685,21 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
           "Parece que ya pagaste todo con saldo a favor, ya no queda nada para pagar a crédito",
         );
 
+      const vuelosForService: VueloService[] = state
+        .flat()
+        .filter((item): item is Vuelo => !Array.isArray(item))
+        .map(
+          (vuelo) =>
+            ({
+              ...vuelo,
+              id_vuelo: vuelo.id,
+            }) as unknown as VueloService,
+        );
+
       const { message } = await VuelosServices.getInstance().createVuelo(
         faltante,
         saldos,
-        state.flat().filter((item): item is Vuelo => !Array.isArray(item)),
+        vuelosForService,
         details,
         agente,
       );
