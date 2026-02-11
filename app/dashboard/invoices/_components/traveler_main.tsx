@@ -40,35 +40,7 @@ import { InputToS3 } from "@/components/atom/SendToS3";
 import { FacturaService } from "@/services/FacturasService";
 import { useNotification } from "@/context/useNotificacion";
 import { Button } from "@/components/ui/button";
-import  ModalDetalleFactura  from "@/app/dashboard/invoices/_components/detalles";
-
-/* ===================== Helpers ===================== */
-
-// Soporta fetchFacturas con promesa o con callback: fetchFacturas(filters, cb)
-const fetchFacturasSafe = (filters: any): Promise<Factura[]> =>
-  new Promise((resolve, reject) => {
-    try {
-      if (fetchFacturasSvc.length >= 2) {
-        // firma con callback
-        (fetchFacturasSvc as any)(filters, (data: any) =>
-          resolve(
-            Array.isArray(data) ? data : data?.respuesta || data?.data || []
-          )
-        );
-      } else {
-        // firma tipo promesa
-        Promise.resolve((fetchFacturasSvc as any)(filters))
-          .then((data: any) =>
-            resolve(
-              Array.isArray(data) ? data : data?.respuesta || data?.data || []
-            )
-          )
-          .catch(reject);
-      }
-    } catch (e) {
-      reject(e);
-    }
-  });
+import ModalDetalleFactura from "@/app/dashboard/invoices/_components/detalles";
 
 // Formato moneda
 const fmtMoney = (n: any) =>
@@ -110,7 +82,7 @@ function FacturaDetails({
       setLoading(true);
       const resp = await fetch(
         `${URL}/mia/factura/detalles_facturas?id_factura=${encodeURIComponent(
-          id_factura
+          id_factura,
         )}`,
         {
           method: "GET",
@@ -120,7 +92,7 @@ function FacturaDetails({
             "Content-Type": "application/json",
           },
           cache: "no-store",
-        }
+        },
       );
       if (!resp.ok) throw new Error(`HTTP error! status: ${resp.status}`);
       const data = await resp.json();
@@ -251,8 +223,8 @@ function FacturaDetails({
                         s +
                         Number(it.subtotal || 0) *
                           Number(it.noches_facturadas || 0),
-                      0
-                    )
+                      0,
+                    ),
                   )}
                 </span>
               </div>
@@ -265,8 +237,8 @@ function FacturaDetails({
                         s +
                         Number(it.impuestos || 0) *
                           Number(it.noches_facturadas || 0),
-                      0
-                    )
+                      0,
+                    ),
                   )}
                 </span>
               </div>
@@ -279,8 +251,8 @@ function FacturaDetails({
                         s +
                         Number(it.total || 0) *
                           Number(it.noches_facturadas || 0),
-                      0
-                    )
+                      0,
+                    ),
                   )}
                 </span>
               </div>
@@ -316,7 +288,7 @@ export function TravelersPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [facturas, setFacturas] = useState<Factura[]>([]);
   const [id, setId] = useState<string | null>(null);
-  const { Can, hasPermission } = usePermiso();
+  const { Can } = usePermiso();
   const [removingId, setRemovingId] = useState<string | null>(null);
 
   // Modales/acciones
@@ -326,19 +298,19 @@ export function TravelersPage() {
   const [facturaDataSel, setFacturaDataSel] = useState<Factura | null>(null);
   const [facturaEmpresa, setFacturaEmpresa] = useState<string | null>(null);
 
-const [modalDetalleOpen, setModalDetalleOpen] = useState(false);
-const [detalleIdFactura, setDetalleIdFactura] = useState<string | null>(null);
+  const [modalDetalleOpen, setModalDetalleOpen] = useState(false);
+  const [detalleIdFactura, setDetalleIdFactura] = useState<string | null>(null);
 
-// opcional: guardarlo en el padre
-const [detalleFacturaData, setDetalleFacturaData] = useState<any>(null);
-
-
+  // opcional: guardarlo en el padre
+  // const [detalleFacturaData, setDetalleFacturaData] = useState<any>(null);
 
   // Llamada unificada
   const cargarFacturas = async (filters: any) => {
     setIsLoading(true);
     try {
-      const data = await fetchFacturasSafe(filters);
+      const response =
+        await FacturaService.getInstance().obtenerFacturas(filters);
+      const data = response.data || [];
       setFacturas(Array.isArray(data) ? data : []);
     } catch (e) {
       console.error("Error al obtener facturas:", e);
@@ -359,56 +331,56 @@ const [detalleFacturaData, setDetalleFacturaData] = useState<any>(null);
   // Handlers de filtros
 
   /*Eliminar relacion de facturas existentes*/
-const handleQuitarRelacion = async (id_factura: string) => {
-  if (!id_factura) return;
+  const handleQuitarRelacion = async (id_factura: string) => {
+    if (!id_factura) return;
 
-  const ok = window.confirm(
-    "¿Seguro que quieres eliminar la relación de esta factura? Esto quitará sus detalles/asignación."
-  );
-  if (!ok) return;
-
-  try {
-    setRemovingId(id_factura);
-
-    const resp = await fetch(
-      `${URL}/mia/factura/quitar_relacion?id_factura=${encodeURIComponent(
-        id_factura
-      )}`,
-      {
-        method: "DELETE", // <-- si tu backend usa GET/POST, cámbialo aquí
-        headers: {
-          "x-api-key": API_KEY || "",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          "Content-Type": "application/json",
-        },
-        cache: "no-store",
-      }
+    const ok = window.confirm(
+      "¿Seguro que quieres eliminar la relación de esta factura? Esto quitará sus detalles/asignación.",
     );
+    if (!ok) return;
 
-    let data: any = null;
     try {
-      data = await resp.json();
-    } catch {
-      // por si tu backend no regresa JSON
+      setRemovingId(id_factura);
+
+      const resp = await fetch(
+        `${URL}/mia/factura/quitar_relacion?id_factura=${encodeURIComponent(
+          id_factura,
+        )}`,
+        {
+          method: "DELETE", // <-- si tu backend usa GET/POST, cámbialo aquí
+          headers: {
+            "x-api-key": API_KEY || "",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Content-Type": "application/json",
+          },
+          cache: "no-store",
+        },
+      );
+
+      let data: any = null;
+      try {
+        data = await resp.json();
+      } catch {
+        // por si tu backend no regresa JSON
+      }
+
+      if (!resp.ok) {
+        throw new Error(data?.message || `HTTP error! status: ${resp.status}`);
+      }
+
+      showNotification("success", "Relación eliminada correctamente");
+
+      // refresca tabla
+      await cargarFacturas(activeFilters);
+    } catch (error: any) {
+      showNotification(
+        "error",
+        error?.message || "Error al eliminar la relación",
+      );
+    } finally {
+      setRemovingId(null);
     }
-
-    if (!resp.ok) {
-      throw new Error(data?.message || `HTTP error! status: ${resp.status}`);
-    }
-
-    showNotification("success", "Relación eliminada correctamente");
-
-    // refresca tabla
-    await cargarFacturas(activeFilters);
-  } catch (error: any) {
-    showNotification(
-      "error",
-      error?.message || "Error al eliminar la relación"
-    );
-  } finally {
-    setRemovingId(null);
-  }
-};
+  };
   const handleFilter = (filters: any) => {
     setActiveFilters(filters);
     cargarFacturas(filters);
@@ -471,7 +443,10 @@ const handleQuitarRelacion = async (id_factura: string) => {
         subtotal: toNum(f?.subtotal),
         iva: toNum(f?.impuestos),
         total: toNum(f?.total),
-        saldo: (f.saldo_x_aplicar_items!= 0) ? toNum(f?.saldo):toNum(f?.saldo_x_aplicar_items),
+        saldo:
+          f.saldo_x_aplicar_items != 0
+            ? toNum(f?.saldo)
+            : toNum(f?.saldo_x_aplicar_items),
         fecha_emision: f?.fecha_emision || null,
         fecha_vencimiento: f?.fecha_vencimiento || null,
         prepagada: f?.is_prepagada == null ? null : Number(f?.is_prepagada),
@@ -551,37 +526,36 @@ const handleQuitarRelacion = async (id_factura: string) => {
     origen: ({ value }: { value: number }) =>
       value === 1 ? "Cliente" : "Operaciones",
     actualizar: ({ item }: { item: Factura }) => {
-  const isRemoving = removingId === item.id_factura;
+      const isRemoving = removingId === item.id_factura;
 
-  return (
-    <div className="flex gap-2">
-      <Can permiso={PERMISOS.COMPONENTES.BOTON.ACTUALIZAR_PDF_FACTURA}>
-        <Button onClick={() => setId(item.id_factura)} size="sm">
-          Editar PDF
-        </Button>
-      </Can>
+      return (
+        <div className="flex gap-2">
+          <Can permiso={PERMISOS.COMPONENTES.BOTON.ACTUALIZAR_PDF_FACTURA}>
+            <Button onClick={() => setId(item.id_factura)} size="sm">
+              Editar PDF
+            </Button>
+          </Can>
 
-      <Button
-        size="sm"
-        variant="destructive"
-        disabled={isRemoving}
-        onClick={() => handleQuitarRelacion(item.id_factura)}
-      >
-        {isRemoving ? "Eliminando..." : "Eliminar relación"}
-      </Button>
-    </div>
-  );
-},
-
+          <Button
+            size="sm"
+            variant="destructive"
+            disabled={isRemoving}
+            onClick={() => handleQuitarRelacion(item.id_factura)}
+          >
+            {isRemoving ? "Eliminando..." : "Eliminar relación"}
+          </Button>
+        </div>
+      );
+    },
 
     acciones: ({ value }: { value: { fila: any } }) => {
       const f = value.fila as any;
-      const puedeAsignar = Number(f?.saldo ?? 0) > 0 && Number(f?.saldo_x_aplicar_items ?? 0) > 0;
-
+      const puedeAsignar =
+        Number(f?.saldo ?? 0) > 0 && Number(f?.saldo_x_aplicar_items ?? 0) > 0;
 
       const handleDescargarFactura = async (
         id: string,
-        tipo: "pdf" | "xml"
+        tipo: "pdf" | "xml",
       ) => {
         try {
           if (tipo === "pdf") {
@@ -615,16 +589,15 @@ const handleQuitarRelacion = async (id_factura: string) => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-<DropdownMenuItem
-  onClick={() => {
-    setDetalleIdFactura(f.id_factura);
-    setModalDetalleOpen(true);
-  }}
->
-  <Eye className="mr-2 h-4 w-4" />
-  Ver detalles
-</DropdownMenuItem>
-
+              <DropdownMenuItem
+                onClick={() => {
+                  setDetalleIdFactura(f.id_factura);
+                  setModalDetalleOpen(true);
+                }}
+              >
+                <Eye className="mr-2 h-4 w-4" />
+                Ver detalles
+              </DropdownMenuItem>
 
               {!!f?.id_facturama && (
                 <>
@@ -748,17 +721,17 @@ const handleQuitarRelacion = async (id_factura: string) => {
                   if (!url) throw new Error("No existe archivo");
 
                   await FacturaService.getInstance().actualizarDocumentosFacturas(
-                    { id, url }
+                    { id, url },
                   );
                   showNotification(
                     "success",
-                    "Se actualizo el archivo correctamente"
+                    "Se actualizo el archivo correctamente",
                   );
                   setId(null);
                 } catch (error) {
                   showNotification(
                     "error",
-                    error.message || "Error al subir archivo"
+                    error.message || "Error al subir archivo",
                   );
                 }
               }}
@@ -766,6 +739,7 @@ const handleQuitarRelacion = async (id_factura: string) => {
           </div>
         </Modal>
       )}
+
       {balance && (
         <BalanceSummary
           balance={balance}
@@ -782,7 +756,7 @@ const handleQuitarRelacion = async (id_factura: string) => {
             setSearchTerm={setSearchTerm}
           />
 
-          <Table5 
+          <Table5
             registros={registros}
             renderers={renderers as any}
             customColumns={customColumns}
@@ -819,20 +793,18 @@ const handleQuitarRelacion = async (id_factura: string) => {
         <FacturaDetails setModal={setIsModalOpen} id_factura={isModalOpen} />
       )}
 
-{modalDetalleOpen && (
-  <ModalDetalleFactura
-    open={modalDetalleOpen}
-    onClose={() => {
-      setModalDetalleOpen(false);
-      setDetalleIdFactura(null);
-    }}
-    id_factura={detalleIdFactura}
-    setDetalleFacturaData={setDetalleFacturaData} // ✅ aquí se manda
-    title="Detalles de factura"
-  />
-)}
-
-
+      {modalDetalleOpen && (
+        <ModalDetalleFactura
+          open={modalDetalleOpen}
+          onClose={() => {
+            setModalDetalleOpen(false);
+            setDetalleIdFactura(null);
+          }}
+          id_factura={detalleIdFactura}
+          setDetalleFacturaData={setDetalleFacturaData} // ✅ aquí se manda
+          title="Detalles de factura"
+        />
+      )}
 
       {/* Diálogo legacy si lo usas */}
       {/* <TravelerDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} /> */}

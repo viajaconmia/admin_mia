@@ -1,9 +1,14 @@
+import { Factura } from "@/types/_types";
 import { ApiResponse, ApiService } from "./ApiService";
+import { TypeFilters } from "@/types";
 
 export class FacturaService extends ApiService {
   private ENDPOINTS = {
     PUT: {
       PDF: "/documentos",
+    },
+    POST: {
+      obtener_facturas: "/filtrarFacturas",
     },
   };
   private static instance: FacturaService;
@@ -18,6 +23,14 @@ export class FacturaService extends ApiService {
     }
     return this.instance;
   }
+
+  public obtenerFacturas = async (
+    body: TypeFilters,
+  ): Promise<ApiResponse<Factura[]>> =>
+    this.post({
+      path: this.formatPath(this.ENDPOINTS.POST.obtener_facturas),
+      body,
+    });
 
   public actualizarDocumentosFacturas = async (body: {
     url: string;
