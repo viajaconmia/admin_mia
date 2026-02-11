@@ -37,10 +37,10 @@ export class BookingsService extends ApiService {
     });
   };
 
-  public obtenerReservas = async (page, length) =>
+  public obtenerReservas = async (params: { page: number; length: number }) =>
     this.get<BookingAll[]>({
       path: this.formatPath(this.ENDPOINTS.GET.RERESVAS),
-      params: { page, length },
+      params,
     });
 
   public cancelarBooking = async (id_booking) =>

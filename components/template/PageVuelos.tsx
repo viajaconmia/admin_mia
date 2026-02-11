@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import Button from "../atom/Button";
 import {
+  CheckboxInput,
   ComboBox2,
   ComboBoxOption,
   ComboBoxOption2,
@@ -45,6 +46,12 @@ export type Vuelo = {
   ubicacion_asiento: string | null;
   tipo_tarifa: string | null;
   id?: number;
+  is_eq_mano: boolean;
+  eq_mano: string;
+  is_eq_personal: boolean;
+  eq_personal: string;
+  is_eq_documentado: boolean;
+  eq_documentado: string;
 };
 
 type Details = {
@@ -68,6 +75,12 @@ const emptyVuelo: Vuelo = {
   comentarios: "",
   ubicacion_asiento: null,
   tipo_tarifa: null,
+  is_eq_mano: false,
+  eq_mano: "",
+  is_eq_personal: false,
+  eq_personal: "",
+  is_eq_documentado: false,
+  eq_documentado: "",
 };
 
 const initialDetails: Details = {
@@ -642,7 +655,7 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
         throw new Error("El precio debe ser mayor a 0");
 
       const res = state
-        .map((vuelo) => isSomeNull(vuelo, ["comentarios"]))
+        .map((vuelo) => isSomeNull(vuelo, ["comentarios", "intermediario"]))
         .some(Boolean);
 
       // OJO: aquí isSomeNull(details) te exige viajero/codigo/costo etc.
@@ -996,6 +1009,57 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
                     >
                       Agregar
                     </Button>
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-3 gap-4">
+                  <div className="flex flex-col gap-2">
+                    <CheckboxInput
+                      label="Equipaje de mano"
+                      checked={vuelo.is_eq_mano}
+                      onChange={(checked) =>
+                        handleUpdateVuelo(index, "is_eq_mano", checked)
+                      }
+                    />
+                    <TextInput
+                      value={vuelo.eq_mano}
+                      disabled={!vuelo.is_eq_mano}
+                      onChange={function (value: string): void {
+                        handleUpdateVuelo(index, "eq_mano", value);
+                      }}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <CheckboxInput
+                      label="Equipaje personal"
+                      checked={vuelo.is_eq_personal}
+                      onChange={(checked) =>
+                        handleUpdateVuelo(index, "is_eq_personal", checked)
+                      }
+                    />
+                    <TextInput
+                      value={vuelo.eq_personal}
+                      disabled={!vuelo.is_eq_personal}
+                      onChange={function (value: string): void {
+                        handleUpdateVuelo(index, "eq_personal", value);
+                      }}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <CheckboxInput
+                      label="Equipaje documentado"
+                      checked={vuelo.is_eq_documentado}
+                      onChange={(checked) =>
+                        handleUpdateVuelo(index, "is_eq_documentado", checked)
+                      }
+                    />
+                    <TextInput
+                      value={vuelo.eq_documentado}
+                      disabled={!vuelo.is_eq_documentado}
+                      onChange={function (value: string): void {
+                        handleUpdateVuelo(index, "eq_documentado", value);
+                      }}
+                    />
                   </div>
                 </div>
 

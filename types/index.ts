@@ -4,6 +4,7 @@ export interface TypeFilters {
   client?: string | null;
   id_movimiento?: number | null;
   raw_id?: string | null;
+  proveedor?: string | null;
   traveler?: string | null;
   hotel?: string | null;
   nombre?: string | null;

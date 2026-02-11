@@ -35,6 +35,7 @@ import { CreditCard, Wallet } from "lucide-react";
 import { useHoteles } from "@/context/Hoteles";
 import { Proveedor } from "@/services/ProveedoresService";
 import { useProveedor } from "@/context/Proveedores";
+import { Loader } from "../atom/Loader";
 
 interface ReservationFormProps {
   solicitud?: Solicitud & {
@@ -54,8 +55,12 @@ export function ReservationForm({
 }: ReservationFormProps) {
   let currentNoches = 0;
   let currentHotel;
-  const { hoteles: hotels } = useHoteles();
+  const { hoteles: hotels, actualizarHoteles } = useHoteles();
 
+  if (!hotels) {
+    actualizarHoteles();
+    return <Loader></Loader>;
+  }
   if (solicitud.check_in && solicitud.check_out) {
     currentHotel = hotels.filter(
       (item) => item.nombre_hotel == solicitud?.hotel,
