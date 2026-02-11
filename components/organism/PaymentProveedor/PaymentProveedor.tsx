@@ -383,7 +383,7 @@ export const PaymentModal = ({
           monto_a_pagar,
           comments,
           comments_cxp: commentsCxp,
-          id_hospedaje: reservation.id_hospedaje,
+          id_hospedaje: reservation.id_booking,
           paymentStatus: derivedStatus,
           usuario_creador:reservation.usuario_creador
         });
