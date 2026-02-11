@@ -346,8 +346,16 @@ export const FacturacionModal: React.FC<{
   const IVA_16 = 0.16 as const;
   const IVA_8 = 0.08 as const;
   type IvaRate = typeof IVA_16 | typeof IVA_8;
-
+  const EXPEDITION_PLACE_8P = "32460";
+const EXPEDITION_PLACE_16P = "11570";
   const [ivaRate, setIvaRate] = useState<IvaRate>(IVA_16);
+
+const expeditionPlace = useMemo(
+  () => (ivaRate === IVA_8 ? EXPEDITION_PLACE_8P : EXPEDITION_PLACE_16P),
+  [ivaRate]
+);
+
+
 const ivaFactor = useMemo(() => 1 + ivaRate, [ivaRate]);
 const ivaRateStr = useMemo(() => ivaRate.toFixed(6), [ivaRate]);
 
@@ -411,7 +419,8 @@ const splitIva = useCallback(
     CfdiType: "I",
     NameId: "1",
     Observations: "",
-    ExpeditionPlace: "42501",
+    //ExpeditionPlace: "42501",
+    ExpeditionPlace:EXPEDITION_PLACE_16P,
     Serie: null as any,
     Folio: Math.round(Math.random() * 999999999),
     PaymentForm: selectedPaymentForm,
@@ -552,6 +561,14 @@ const splitIva = useCallback(
     }
   }, [selectedItems, reservations, fiscalDataList.length]);
 
+  useEffect(() => {
+    setCfdi((prev) => ({
+      ...prev,
+      ExpeditionPlace: expeditionPlace,
+    }));
+  }, [expeditionPlace]);
+
+
   // Totales seleccionados (total con IVA incluido, porque viene de item.total)
   const totalAmount = reservationsWithSelectedItems.reduce(
     (sum, reserva) =>
@@ -611,6 +628,7 @@ const splitIva = useCallback(
     // Detallada preview por reserva (1 concepto por reserva con suma EXACTA de items seleccionados)
     setCfdi((prev) => ({
       ...prev,
+      ExpeditionPlace: expeditionPlace,
       Receiver: {
         Name: selectedFiscalData.razon_social_df,
         CfdiUse: selectedCfdiUse,
@@ -667,6 +685,7 @@ const splitIva = useCallback(
     totalAmount,
     selectedDescription,
     descriptionToUse,
+    expeditionPlace,
   ]);
 
   const validateInvoiceData = () => {
@@ -814,6 +833,9 @@ const splitIva = useCallback(
       totales_globales: { subtotal, iva, total },
     };
   };
+    useEffect(() => {
+      console.log("IVA:", ivaRateStr, "ExpeditionPlace:", expeditionPlace);
+    }, [ivaRateStr, expeditionPlace]);
 
   const handleConfirm = async (mode: InvoiceMode) => {
     if (!selectedFiscalData) {
@@ -980,6 +1002,7 @@ const splitIva = useCallback(
       const payloadCFDI = {
         cfdi: {
           ...cfdi,
+          ExpeditionPlace: expeditionPlace, // ✅ garantizado
           Receiver: {
             ...cfdi.Receiver,
             CfdiUse: selectedCfdiUse,
