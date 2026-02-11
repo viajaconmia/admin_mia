@@ -84,12 +84,20 @@ const links: NavGroup[] = [
     title: "Operación",
     icon: BookOpen,
     items: [
-      { title: "Solicitudes", href: "/dashboard/solicitudes/hoteles", icon: FileText },
+      {
+        title: "Solicitudes",
+        href: "/dashboard/solicitudes/hoteles",
+        icon: FileText,
+      },
       { title: "Reservas", href: "/dashboard/reservas", icon: BookOpen },
       { title: "Proveedores", href: "/dashboard/proveedores", icon: Truck },
       { title: "Clientes", href: "/dashboard/clients", icon: Users },
       { title: "Hoteles", href: "/dashboard/hoteles", icon: Building2 },
-      { title: "Código confirmación", href: "/dashboard/codigo-confirmacion", icon: Shield },
+      {
+        title: "Códigos",
+        href: "/dashboard/codigo-confirmacion",
+        icon: Shield,
+      },
     ],
   },
   {
@@ -101,19 +109,35 @@ const links: NavGroup[] = [
     ],
   },
   {
-    title: "Cuentas por pagar",
+    title: "CXP",
     icon: CreditCard,
     items: [
-      { title: "Pagos proveedor", href: "/dashboard/pagos_proveedor", icon: CreditCard },
-            { title: "Conciliación", href: "/dashboard/conciliacion", icon: CreditCard },
+      {
+        title: "Pagos proveedor",
+        href: "/dashboard/pagos_proveedor",
+        icon: CreditCard,
+      },
+      {
+        title: "Conciliación",
+        href: "/dashboard/conciliacion",
+        icon: CreditCard,
+      },
     ],
   },
   {
-    title: "Cuentas por cobrar",
+    title: "CXC",
     icon: FileText,
     items: [
-      { title: "Resumen Cuentas por cobrar", href: "/dashboard/cuentas-cobrar", icon: FileText },
-      { title: "Detallado Cuentas por cobrar", href: "/dashboard/concentrado_cxc", icon: FileText },
+      {
+        title: "Resumen",
+        href: "/dashboard/cuentas-cobrar",
+        icon: FileText,
+      },
+      {
+        title: "Detallado",
+        href: "/dashboard/concentrado_cxc",
+        icon: FileText,
+      },
     ],
   },
   {
@@ -121,8 +145,16 @@ const links: NavGroup[] = [
     icon: Receipt,
     items: [
       { title: "Facturas", href: "/dashboard/invoices", icon: Receipt },
-      { title: "Facturas Pendientes Prepago", href: "/dashboard/facturas-pendientes", icon: Receipt },
-      { title: "Facturas pendientes crédito", href: "/dashboard/facturacion", icon: BookOpen },
+      {
+        title: "Pend. Prepago",
+        href: "/dashboard/facturas-pendientes",
+        icon: Receipt,
+      },
+      {
+        title: "Pend. Crédito",
+        href: "/dashboard/facturacion",
+        icon: BookOpen,
+      },
     ],
   },
 ];
