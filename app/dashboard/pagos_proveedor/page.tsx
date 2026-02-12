@@ -14,7 +14,7 @@
   
   import { Table5 } from "@/components/Table5";
   import { TypeFilters, SolicitudProveedor } from "@/types";
-  import { Loader } from "@/components/atom/Loader";
+  import { Loader } from "@/components/atom/Loader"; 
   import { currentDate } from "@/lib/utils";
   import { fetchGetSolicitudesProveedores1 } from "@/services/pago_proveedor";
   import { usePermiso } from "@/hooks/usePermission";
