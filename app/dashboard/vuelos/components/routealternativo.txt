@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import makeFetchCookie from "fetch-cookie";
 import { CookieJar } from "tough-cookie";
-import puppeteer from 'puppeteer';
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -104,63 +103,8 @@ async function doFetch(
   };
 }
 
-async function getVolarisAuthToken(): Promise<string> {
-  const browser = await puppeteer.launch({
-    headless: 'new',
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  });
-  const page = await browser.newPage();
-  
-  // Navegar a la página que contiene el token
-  await page.goto('https://www.volaris.com/mytrips/home', { waitUntil: 'networkidle2' });
-  
-  // Puede que necesites interactuar con la página, por ejemplo, hacer clic en un botón o llenar un formulario.
-  // Si el token está disponible sin interacción, omite estos pasos.
-  
-  // Esperar a que un elemento específico aparezca, si es necesario
-  // await page.waitForSelector('selector');
-  
-  // Extraer el token del localStorage
-  const token = await page.evaluate(() => {
-    return localStorage.getItem('authToken') || '';
-  });
-  
-  // Si no está en localStorage, buscar en cookies
-  if (!token) {
-    const cookies = await page.cookies();
-    const authCookie = cookies.find(cookie => cookie.name === 'authToken');
-    if (authCookie) {
-      await browser.close();
-      return authCookie.value;
-    }
-  }
-  
-  // Si no está en localStorage ni en cookies, buscar en el HTML
-  if (!token) {
-    const metaToken = await page.evaluate(() => {
-      const meta = document.querySelector('meta[name="auth-token"]');
-      return meta ? meta.getAttribute('content') : '';
-    });
-    if (metaToken) {
-      await browser.close();
-      return metaToken;
-    }
-  }
-  
-  await browser.close();
-  
-  if (!token) {
-    throw new Error('No se pudo extraer el token de autorización');
-  }
-  
-  return token;
-}
-
 async function lookupVolaris(input: LookupInput): Promise<NormalizedBooking> {
-  // const auth = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJEb3RSZXoiLCJqdGkiOiIzMjNhMjQwOC00ZTY2LWE5ZTgtNWNmMi1iZjE3MGZmMTI0YmIiLCJpc3MiOiJkb3RSRVogQVBJIn0.dq9b5Jeymh0LNXoxr24Y2g0QkKeupsPwEO_18sAKi_s"; // <-- ponlo en Vercel
-
-  const auth = await getVolarisAuthToken();
-  
+  const auth = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJEb3RSZXoiLCJqdGkiOiIzMjNhMjQwOC00ZTY2LWE5ZTgtNWNmMi1iZjE3MGZmMTI0YmIiLCJpc3MiOiJkb3RSRVogQVBJIn0.dq9b5Jeymh0LNXoxr24Y2g0QkKeupsPwEO_18sAKi_s"; // <-- ponlo en Vercel
   if (!auth) {
     throw new Error("Falta VOLARIS_AUTHORIZATION en env vars (solo server).");
   }
@@ -284,80 +228,3 @@ export async function POST(req: Request) {
     );
   }
 }
-
-// // app/vuelos/status/route.ts  (o donde lo tengas)
-
-// import { NextResponse } from "next/server";
-// import { z } from "zod";
-// import { volarisLookup } from "@/app/dashboard/vuelos/components/session";
-
-// export const runtime = "nodejs";
-// export const dynamic = "force-dynamic";
-
-// // (Opcional) si tu plan lo permite, sube timeout de la función en Vercel
-// // export const maxDuration = 30;
-
-// const Schema = z.object({
-//   airlineCode: z.enum(["Y4", "VB"]), // deja VB para tu otro adapter
-//   confirmationCode: z.string().min(4).max(12),
-//   passengerLastName: z.string().min(2).max(60),
-//   debug: z.boolean().optional(),
-// });
-
-// function pickStatus(payload: any): string | null {
-//   return payload?.status ?? payload?.bookingStatus ?? payload?.booking?.status ?? payload?.data?.status ?? null;
-// }
-
-// export async function POST(req: Request) {
-//   try {
-//     const body = await req.json();
-//     const parsed = Schema.safeParse(body);
-//     if (!parsed.success) {
-//       return NextResponse.json(
-//         { ok: false, error: "Bad request", details: parsed.error.flatten() },
-//         { status: 400 }
-//       );
-//     }
-
-//     const { airlineCode, confirmationCode, passengerLastName, debug } = parsed.data;
-
-//     if (airlineCode === "Y4") {
-//       const r = await volarisLookup(confirmationCode, passengerLastName);
-
-//       return NextResponse.json(
-//         {
-//           ok: r.ok,
-//           data: {
-//             airlineCode: "Y4",
-//             confirmationCode,
-//             passengerLastName,
-//             status: r.payload ? pickStatus(r.payload) : null,
-//             raw: debug
-//               ? {
-//                   mode: r.mode,
-//                   httpStatus: r.httpStatus,
-//                   finalUrl: r.finalUrl,
-//                   contentType: r.contentType,
-//                   errorBodySample: r.errorBodySample,
-//                   // OJO: esto puede ser enorme — úsalo solo para debug real
-//                   volarisResponse: r.payload,
-//                 }
-//               : {
-//                   httpStatus: r.httpStatus,
-//                 },
-//           },
-//         },
-//         { status: r.ok ? 200 : 502 }
-//       );
-//     }
-
-//     // VB lo manejas con tu fetch a api.vivaaerobus.com (como ya lo tienes)
-//     return NextResponse.json({ ok: false, error: "VB adapter pendiente aquí" }, { status: 400 });
-//   } catch (e: any) {
-//   console.error("VUELOS/STATUS ERROR:", e);
-//   return NextResponse.json(
-//     { ok: false, error: e?.message || "Internal error" },
-//     { status: 500 }
-//   );
-// }
-// }
