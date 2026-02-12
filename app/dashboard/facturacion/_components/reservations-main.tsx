@@ -1,12 +1,8 @@
 "use client";
 
-import React, { useEffect, useState,useCallback, useMemo  } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { fetchEmpresasDatosFiscales } from "@/hooks/useFetch";
-import {
-  formatDate,
-  subirArchivoAS3,
-  obtenerPresignedUrl,
-} from "@/helpers/utils";
+import { formatDate, subirArchivoAS3, obtenerPresignedUrl } from "@/helpers/utils";
 import { URL, API_KEY } from "@/lib/constants/index";
 import useApi from "@/hooks/useApi";
 import { DescargaFactura, Root } from "@/types/billing";
@@ -22,10 +18,7 @@ const normalizeBase64 = (b64?: string | null) => {
 };
 
 // --- Subida segura a S3 con URL pre-firmada ---
-const subirArchivoAS3Seguro = async (
-  file: File,
-  bucket: string = "comprobantes"
-) => {
+const subirArchivoAS3Seguro = async (file: File, bucket: string = "comprobantes") => {
   try {
     console.log(`Iniciando subida de ${file.name} (${file.type})`);
 
@@ -76,16 +69,10 @@ const downloadBase64File = (b64: string, mime: string, filename: string) => {
 
 // Permite distintas formas de respuesta del backend
 const getPdfBase64 = (d: any) =>
-  d?.PdfBase64 ??
-  d?.pdfBase64 ??
-  d?.pdf ??
-  (d?.FileExtension === "pdf" ? d?.Content : null);
+  d?.PdfBase64 ?? d?.pdfBase64 ?? d?.pdf ?? (d?.FileExtension === "pdf" ? d?.Content : null);
 
 const getXmlBase64 = (d: any) =>
-  d?.XmlBase64 ??
-  d?.xmlBase64 ??
-  d?.xml ??
-  (d?.FileExtension === "xml" ? d?.Content : null);
+  d?.XmlBase64 ?? d?.xmlBase64 ?? d?.xml ?? (d?.FileExtension === "xml" ? d?.Content : null);
 
 const maybeDownloadByUrl = (urlOrBase64: string, _fallbackMime: string, filename: string) => {
   if (/^https?:\/\//i.test(urlOrBase64)) {
@@ -100,7 +87,7 @@ const maybeDownloadByUrl = (urlOrBase64: string, _fallbackMime: string, filename
   return false;
 };
 
-// Opciones (deja las tuyas completas si ya están)
+// Opciones
 const cfdiUseOptions = [
   { value: "G01", label: "G01 - Adquisición de mercancías" },
   { value: "G02", label: "G02 - Devoluciones, descuentos o bonificaciones" },
@@ -200,7 +187,7 @@ interface FiscalData {
   municipio: string;
   codigo_postal_fiscal: string;
   regimen_fiscal: string;
-  id_agente?: string; // por tu hardcode de amparo
+  id_agente?: string;
 }
 
 interface Item {
@@ -232,8 +219,6 @@ interface ReservationWithItems extends Reservation {
   items: Item[];
   nightsCount?: number;
 }
-
-type ReservationStatus = "pending" | "confirmed" | "completed" | "cancelled" | "all";
 
 // ✅ Nuevo: asignar URLs a la factura en tu backend
 const asignarURLS_factura = async (id_factura: string, url_pdf: string, url_xml: string) => {
@@ -346,30 +331,55 @@ export const FacturacionModal: React.FC<{
   const IVA_16 = 0.16 as const;
   const IVA_8 = 0.08 as const;
   type IvaRate = typeof IVA_16 | typeof IVA_8;
+
+//EXPEDITION_PLACE_16P 42501
+
   const EXPEDITION_PLACE_8P = "32460";
-const EXPEDITION_PLACE_16P = "11570";
+  const EXPEDITION_PLACE_16P = "11560";
+
   const [ivaRate, setIvaRate] = useState<IvaRate>(IVA_16);
 
-const expeditionPlace = useMemo(
-  () => (ivaRate === IVA_8 ? EXPEDITION_PLACE_8P : EXPEDITION_PLACE_16P),
-  [ivaRate]
-);
+  const expeditionPlace = useMemo(
+    () => (ivaRate === IVA_8 ? EXPEDITION_PLACE_8P : EXPEDITION_PLACE_16P),
+    [ivaRate]
+  );
 
+  // =========================
+  // Público en general (RFC genérico)
+  // =========================
+  const [isPublicGeneral, setIsPublicGeneral] = useState(false);
 
-const ivaFactor = useMemo(() => 1 + ivaRate, [ivaRate]);
-const ivaRateStr = useMemo(() => ivaRate.toFixed(6), [ivaRate]);
+  const publicGeneralFiscalData = useMemo<FiscalData>(
+    () => ({
+      id_empresa: "PUBLICO_GENERAL",
+      id_datos_fiscales: 0,
+      rfc: "XAXX010101000",
+      razon_social_df: "PUBLICO EN GENERAL",
+      regimen_fiscal: "616",
+      // Facturama/SAT: para público general CP receptor = lugar de expedición
+      codigo_postal_fiscal: expeditionPlace,
+      calle: "",
+      colonia: "",
+      estado: "",
+      municipio: "",
+    }),
+    [expeditionPlace]
+  );
 
-// Cambia la función splitIva para que use el ivaFactor correctamente
-const splitIva = useCallback(
-  (total: number) => {
-    const t = round2(Number(total) || 0);
-    const subtotal = round2(t / ivaFactor);
-    const iva = round2(t - subtotal);
-    return { subtotal, iva, total: t };
-  },
-  [ivaFactor]
-);
+  const ivaFactor = useMemo(() => 1 + ivaRate, [ivaRate]);
+  const ivaRateStr = useMemo(() => ivaRate.toFixed(6), [ivaRate]);
 
+  const splitIva = useCallback(
+    (total: number) => {
+      const t = round2(Number(total) || 0);
+      const subtotal = round2(t / ivaFactor);
+      const iva = round2(t - subtotal);
+      return { subtotal, iva, total: t };
+    },
+    [ivaFactor]
+  );
+
+  // Estado UI
   const [selectedDescription, setSelectedDescription] = useState<string>(paymentDescriptions[0]);
   const [omitObservations, setOmitObservations] = useState(false);
 
@@ -419,8 +429,7 @@ const splitIva = useCallback(
     CfdiType: "I",
     NameId: "1",
     Observations: "",
-    //ExpeditionPlace: "42501",
-    ExpeditionPlace:EXPEDITION_PLACE_16P,
+    ExpeditionPlace: EXPEDITION_PLACE_16P,
     Serie: null as any,
     Folio: Math.round(Math.random() * 999999999),
     PaymentForm: selectedPaymentForm,
@@ -507,10 +516,12 @@ const splitIva = useCallback(
         }))
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ivaRate, reservationsInit]);
+  }, [ivaRate, reservationsInit, splitIva]);
 
-  // HARD CODE AMPARO
+  // HARD CODE AMPARO (solo aplica si NO es público general)
   useEffect(() => {
+    if (isPublicGeneral) return;
+
     if (
       fiscalDataList.some(
         (empresa) => empresa?.id_agente == "11e1a5c7-1d44-485e-99a2-7fdf674058f3"
@@ -519,7 +530,20 @@ const splitIva = useCallback(
       showNotification("error", "Se detecto al cliente amparo, cambiaremos el servicio");
       setSelectedDescription(paymentDescriptions[1]);
     }
-  }, [fiscalDataList, showNotification]);
+  }, [fiscalDataList, showNotification, isPublicGeneral]);
+
+  // Si activas Público General: fija S01 + setSelectedFiscalData(genérico)
+  useEffect(() => {
+    if (!isPublicGeneral) return;
+    setSelectedCfdiUse("S01");
+    setSelectedFiscalData(publicGeneralFiscalData);
+  }, [isPublicGeneral, publicGeneralFiscalData]);
+
+  // Si cambia CP de expedición y estás en público general: reinjecta para que CP receptor = expedición
+  useEffect(() => {
+    if (!isPublicGeneral) return;
+    setSelectedFiscalData(publicGeneralFiscalData);
+  }, [expeditionPlace, isPublicGeneral, publicGeneralFiscalData]);
 
   // Preparar los datos seleccionados + cargar fiscales
   useEffect(() => {
@@ -541,13 +565,14 @@ const splitIva = useCallback(
 
       setReservationsWithSelectedItems(preparedReservations);
 
+      // ✅ si es público general, NO cargues lista de fiscales del cliente
+      if (isPublicGeneral) return;
+
       if (fiscalDataList.length === 0 && preparedReservations[0]?.id_usuario_generador) {
         (async () => {
           try {
             setLoading(true);
-            const data = await fetchEmpresasDatosFiscales(
-              preparedReservations[0].id_usuario_generador
-            );
+            const data = await fetchEmpresasDatosFiscales(preparedReservations[0].id_usuario_generador);
             setFiscalDataList(data);
             if (data.length > 0) setSelectedFiscalData(data[0]);
           } catch (err) {
@@ -559,7 +584,7 @@ const splitIva = useCallback(
         })();
       }
     }
-  }, [selectedItems, reservations, fiscalDataList.length]);
+  }, [selectedItems, reservations, fiscalDataList.length, isPublicGeneral]);
 
   useEffect(() => {
     setCfdi((prev) => ({
@@ -568,8 +593,7 @@ const splitIva = useCallback(
     }));
   }, [expeditionPlace]);
 
-
-  // Totales seleccionados (total con IVA incluido, porque viene de item.total)
+  // Totales seleccionados (total con IVA incluido)
   const totalAmount = reservationsWithSelectedItems.reduce(
     (sum, reserva) =>
       sum +
@@ -579,7 +603,7 @@ const splitIva = useCallback(
 
   const { subtotal: previewSubtotal, iva: previewIva, total: previewTotal } = splitIva(totalAmount);
 
-  // Actualizar CFDI preview (IMPORTANT: ya no hardcodea 1.16 / 0.16)
+  // Actualizar CFDI preview
   useEffect(() => {
     if (!selectedFiscalData || reservationsWithSelectedItems.length === 0) return;
 
@@ -625,7 +649,7 @@ const splitIva = useCallback(
       return;
     }
 
-    // Detallada preview por reserva (1 concepto por reserva con suma EXACTA de items seleccionados)
+    // Detallada preview por reserva
     setCfdi((prev) => ({
       ...prev,
       ExpeditionPlace: expeditionPlace,
@@ -680,17 +704,23 @@ const splitIva = useCallback(
     reservationsWithSelectedItems,
     isConsolidated,
     omitObservations,
-    ivaRate,
     ivaRateStr,
     totalAmount,
     selectedDescription,
     descriptionToUse,
     expeditionPlace,
+    selectedItems,
+    splitIva,
   ]);
 
   const validateInvoiceData = () => {
     if (reservationsWithSelectedItems.length === 0) {
       showNotification("error", "No hay items seleccionados para facturar");
+      return false;
+    }
+
+    if (!selectedFiscalData) {
+      showNotification("error", "Debes seleccionar datos fiscales o Público en General");
       return false;
     }
 
@@ -833,9 +863,10 @@ const splitIva = useCallback(
       totales_globales: { subtotal, iva, total },
     };
   };
-    useEffect(() => {
-      console.log("IVA:", ivaRateStr, "ExpeditionPlace:", expeditionPlace);
-    }, [ivaRateStr, expeditionPlace]);
+
+  useEffect(() => {
+    console.log("IVA:", ivaRateStr, "ExpeditionPlace:", expeditionPlace);
+  }, [ivaRateStr, expeditionPlace]);
 
   const handleConfirm = async (mode: InvoiceMode) => {
     if (!selectedFiscalData) {
@@ -877,14 +908,13 @@ const splitIva = useCallback(
         id_hospedaje: x.id_hospedaje,
       }));
 
-      // 3) CFDI Items (IMPORTANT: usa splitIva, no splitIva16)
+      // 3) CFDI Items
       const cfdiItems = (() => {
         const QTY_ONE = "1";
 
         if (mode === "consolidada") {
-    const totalFacturado = round2(itemsFacturadosFull.reduce((s, it) => s + it.total, 0));
-    const { subtotal, iva, total } = splitIva(totalFacturado);
-    
+          const totalFacturado = round2(itemsFacturadosFull.reduce((s, it) => s + it.total, 0));
+          const { subtotal, iva, total } = splitIva(totalFacturado);
 
           return [
             {
@@ -993,7 +1023,7 @@ const splitIva = useCallback(
         });
       })();
 
-      // ✅ PRE-FLIGHT: si no coincide, NO mandes a Facturama
+      // ✅ PRE-FLIGHT
       if (!preflightCfdi(cfdiItems, itemsFacturadosFull, showNotification)) {
         return;
       }
@@ -1002,7 +1032,7 @@ const splitIva = useCallback(
       const payloadCFDI = {
         cfdi: {
           ...cfdi,
-          ExpeditionPlace: expeditionPlace, // ✅ garantizado
+          ExpeditionPlace: expeditionPlace,
           Receiver: {
             ...cfdi.Receiver,
             CfdiUse: selectedCfdiUse,
@@ -1030,6 +1060,7 @@ const splitIva = useCallback(
           addenda_type: "Noktos",
           invoice_mode: mode,
           iva_rate: ivaRateStr,
+          is_public_general: isPublicGeneral,
         },
         items_facturados: itemsFacturados,
       };
@@ -1059,10 +1090,10 @@ const splitIva = useCallback(
     (sum, reserva) => sum + (reserva.nightsCount || 0),
     0
   );
-  useEffect(() => {
-  console.log("IVA RATE:", ivaRate, "ivaFactor:", 1 + ivaRate, "ivaRateStr:", ivaRate.toFixed(6));
-}, [ivaRate]);
 
+  useEffect(() => {
+    console.log("IVA RATE:", ivaRate, "ivaFactor:", 1 + ivaRate, "ivaRateStr:", ivaRate.toFixed(6));
+  }, [ivaRate]);
 
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -1160,24 +1191,21 @@ const splitIva = useCallback(
                           </div>
                         </td>
                         {(() => {
-  const totalSel = reserva.items.reduce((s, it) => s + Number(it.total || 0), 0);
-  const { subtotal, iva, total } = splitIva(totalSel);
+                          const totalSel = reserva.items.reduce((s, it) => s + Number(it.total || 0), 0);
+                          const { subtotal, iva, total } = splitIva(totalSel);
 
-  return (
-    <>
-      <td className="px-3 py-2 text-sm border-b">
-        ${subtotal.toFixed(2)}
-        <div className="text-[11px] text-gray-500">
-          IVA: ${iva.toFixed(2)} ({ivaRateStr})
-        </div>
-      </td>
-      <td className="px-3 py-2 text-sm border-b">
-        ${total.toFixed(2)}
-      </td>
-    </>
-  );
-})()}
-
+                          return (
+                            <>
+                              <td className="px-3 py-2 text-sm border-b">
+                                ${subtotal.toFixed(2)}
+                                <div className="text-[11px] text-gray-500">
+                                  IVA: ${iva.toFixed(2)} ({ivaRateStr})
+                                </div>
+                              </td>
+                              <td className="px-3 py-2 text-sm border-b">${total.toFixed(2)}</td>
+                            </>
+                          );
+                        })()}
                       </tr>
                     ))
                   )}
@@ -1192,13 +1220,75 @@ const splitIva = useCallback(
             </div>
           </div>
 
+          {/* Selector Cliente / Público general */}
+          <div className="mb-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setIsPublicGeneral(false)}
+              className={`px-3 py-1.5 text-sm rounded-md border ${
+                !isPublicGeneral
+                  ? "border-blue-500 bg-blue-50 text-blue-700"
+                  : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+              }`}
+            >
+              Usar datos fiscales del cliente
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsPublicGeneral(true)}
+              className={`px-3 py-1.5 text-sm rounded-md border ${
+                isPublicGeneral
+                  ? "border-blue-500 bg-blue-50 text-blue-700"
+                  : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+              }`}
+              title="RFC genérico XAXX010101000"
+            >
+              Público en general
+            </button>
+          </div>
+
+          {isPublicGeneral && (
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-sm text-blue-800 mb-4">
+              <div className="font-medium mb-1">Se facturará a Público en General</div>
+              <div>
+                RFC: <b>XAXX010101000</b>
+              </div>
+              <div>
+                Nombre: <b>PUBLICO EN GENERAL</b>
+              </div>
+              <div>
+                Régimen Fiscal: <b>616</b>
+              </div>
+              <div>
+                Uso CFDI: <b>S01</b>
+              </div>
+              <div>
+                CP Receptor = Lugar de expedición: <b>{expeditionPlace}</b>
+              </div>
+            </div>
+          )}
+
           {/* Datos fiscales */}
           <div className="mb-6">
             <h4 className="text-md font-medium text-gray-900 mb-3">Datos Fiscales</h4>
 
-            {loading ? (
+            {isPublicGeneral ? (
+              <div className="border rounded-md p-4 bg-gray-50">
+                <div className="flex justify-between">
+                  <h5 className="font-medium text-gray-900">{publicGeneralFiscalData.razon_social_df}</h5>
+                  <span className="text-sm text-gray-500">RFC: {publicGeneralFiscalData.rfc}</span>
+                </div>
+                <p className="text-sm text-gray-600 mt-1">
+                  Régimen Fiscal: {publicGeneralFiscalData.regimen_fiscal}
+                </p>
+                <p className="text-sm text-gray-600 mt-1">
+                  CP receptor: {publicGeneralFiscalData.codigo_postal_fiscal}
+                </p>
+              </div>
+            ) : loading ? (
               <div className="text-center py-4">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto" />
                 <p className="mt-2 text-sm text-gray-500">Cargando datos fiscales...</p>
               </div>
             ) : error ? (
@@ -1243,12 +1333,21 @@ const splitIva = useCallback(
               <select
                 value={selectedCfdiUse}
                 onChange={(e) => setSelectedCfdiUse(e.target.value)}
-                className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                disabled={isPublicGeneral}
+                className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-100"
               >
                 {cfdiUseOptions.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
                 ))}
               </select>
+
+              {isPublicGeneral && (
+                <p className="text-[11px] text-gray-500 mt-1">
+                  Para Público en General se usa S01.
+                </p>
+              )}
             </div>
 
             <div>
@@ -1259,7 +1358,9 @@ const splitIva = useCallback(
                 className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               >
                 {paymentFormOptions.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
                 ))}
               </select>
             </div>
@@ -1272,7 +1373,9 @@ const splitIva = useCallback(
                 className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               >
                 {paymentMethodOptions.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
                 ))}
               </select>
 
@@ -1346,7 +1449,9 @@ const splitIva = useCallback(
                 className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               >
                 {paymentDescriptions.map((option) => (
-                  <option key={option} value={option}>{option}</option>
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
                 ))}
               </select>
 
@@ -1387,7 +1492,10 @@ const splitIva = useCallback(
                   {totalNights} noche(s) en {reservationsWithSelectedItems.length} reserva(s)
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  Subtotal: {new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(previewSubtotal)}{" "}
+                  Subtotal:{" "}
+                  {new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(
+                    previewSubtotal
+                  )}{" "}
                   | IVA ({ivaRateStr}):{" "}
                   {new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(previewIva)}
                 </p>
@@ -1422,7 +1530,7 @@ const splitIva = useCallback(
                     maybeDownloadByUrl(
                       pdf,
                       "application/pdf",
-                      `factura_${(isInvoiceGenerated as any)?.Folio ?? cfdi?.Folio ?? "archivo"}.pdf`
+                      `factura_${(isInvoiceGenerated as any)?.Folio ?? (cfdi as any)?.Folio ?? "archivo"}.pdf`
                     )
                   ) {
                     return;
@@ -1436,7 +1544,7 @@ const splitIva = useCallback(
                   downloadBase64File(
                     pdf,
                     "application/pdf",
-                    `factura_${(isInvoiceGenerated as any)?.Folio ?? cfdi?.Folio ?? "archivo"}.pdf`
+                    `factura_${(isInvoiceGenerated as any)?.Folio ?? (cfdi as any)?.Folio ?? "archivo"}.pdf`
                   );
                 }}
                 className="px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors border border-blue-200 flex items-center gap-2"
@@ -1456,7 +1564,7 @@ const splitIva = useCallback(
                     maybeDownloadByUrl(
                       xml,
                       "application/xml",
-                      `factura_${(isInvoiceGenerated as any)?.Folio ?? cfdi?.Folio ?? "archivo"}.xml`
+                      `factura_${(isInvoiceGenerated as any)?.Folio ?? (cfdi as any)?.Folio ?? "archivo"}.xml`
                     )
                   ) {
                     return;
@@ -1470,7 +1578,7 @@ const splitIva = useCallback(
                   downloadBase64File(
                     xml,
                     "application/xml",
-                    `factura_${(isInvoiceGenerated as any)?.Folio ?? cfdi?.Folio ?? "archivo"}.xml`
+                    `factura_${(isInvoiceGenerated as any)?.Folio ?? (cfdi as any)?.Folio ?? "archivo"}.xml`
                   );
                 }}
                 className="px-4 py-2 bg-white text-green-600 rounded-lg hover:bg-green-50 transition-colors border border-green-200 flex items-center gap-2"
