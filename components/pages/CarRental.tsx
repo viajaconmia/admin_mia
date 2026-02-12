@@ -23,6 +23,7 @@ import { ForSave, GuardadoRapido } from "../template/GuardadoRapido";
 import { ExtraService, Sucursal } from "@/services/ExtraServices";
 import { CarRentalServices } from "@/services/RentaCarros";
 import { Proveedor } from "@/services/ProveedoresService";
+import { useProveedor } from "@/context/Proveedores";
 
 // Ajusta / elimina si ya tienes el type Agente global
 type Agente = { id_agente: string };
@@ -388,7 +389,8 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
 
   const [viajeros, setViajeros] = useState<ViajeroService[]>([]);
   const [loading, setLoading] = useState(false);
-  const [proveedores, setProveedores] = useState<Proveedor[]>([]);
+  const { proveedores, updateProveedores, getProveedores } = useProveedor();
+  getProveedores();
   const [sucursales, setSucursales] = useState<Sucursal[]>([]);
 
   const [openPago, setOpenPago] = useState(false);
@@ -431,16 +433,6 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
       );
 
     ExtraService.getInstance()
-      .getProveedoresCarros()
-      .then((res) => setProveedores(res.data || []))
-      .catch((error: any) =>
-        showNotification(
-          "error",
-          error?.message || "Error al obtener proveedores",
-        ),
-      );
-
-    ExtraService.getInstance()
       .getSucursales()
       .then((res) => setSucursales(res.data || []))
       .catch((error: any) =>
@@ -449,7 +441,7 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
           error?.message || "Error al obtener sucursales",
         ),
       );
-  }, [agenteId, showNotification]);
+  }, [agenteId]);
 
   /** Resolver proveedor/sucursales/conductor cuando catálogos ya llegaron */
   useEffect(() => {
@@ -510,7 +502,7 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
   };
 
   const handleGuardarProveedor = (p: Proveedor[]) => {
-    setProveedores(p);
+    updateProveedores();
     setSave(null);
   };
 
@@ -637,10 +629,12 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
                   onChange={(value: ComboBoxOption2<Proveedor>) => {
                     handleUpdateCarRental("proveedor", value.content);
                   }}
-                  options={proveedores.map((proveedor) => ({
-                    name: proveedor.proveedor,
-                    content: proveedor,
-                  }))}
+                  options={proveedores
+                    .filter((p) => p.type == "renta_carro")
+                    .map((proveedor) => ({
+                      name: proveedor.proveedor,
+                      content: proveedor,
+                    }))}
                 />
                 <Button
                   icon={Plus}
@@ -896,17 +890,19 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
               onChange={(value: ComboBoxOption2<Proveedor>) =>
                 handleUpdateCarRental("intermediario", value.content)
               }
-              options={proveedores.map((i) => ({
-                name: i.proveedor,
-                content: i,
-              }))}
+              options={proveedores
+                .filter((p) => p.intermediario)
+                .map((i) => ({
+                  name: i.proveedor,
+                  content: i,
+                }))}
             />
 
             <Button
               icon={Plus}
               className="self-end"
               type="button"
-              onClick={() => setSave("renta_carro")}
+              onClick={() => setSave("intermediario")}
             >
               Agregar
             </Button>

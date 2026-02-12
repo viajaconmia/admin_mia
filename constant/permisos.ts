@@ -29,7 +29,7 @@ export const PERMISOS = {
       MIA_TARJETAS_CREAR: "button.mia.tarjetas.crear",
       MIA_TARJETAS_EDITAR: "button.mia.tarjetas.editar",
       MIA_TARJETAS_ELIMINAR: "button.mia.tarjetas.eliminar",
-
+      CANCELAR_RESERVA: "button.cancelar.bookings",
       MIA_TITULARES_CREAR: "button.mia.titulares.crear",
       MIA_TITULARES_EDITAR: "button.mia.titulares.editar",
       MIA_TITULARES_ELIMINAR: "button.mia.titulares.eliminar",

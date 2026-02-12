@@ -31,11 +31,13 @@ import { Table } from "../Table";
 import { formatNumberWithCommas, getEstatus } from "@/helpers/utils";
 import { updateRoom } from "@/lib/utils";
 import { useNotification } from "@/context/useNotificacion";
-import { CreditCard, Wallet } from "lucide-react";
+import { CreditCard, Plus, Wallet } from "lucide-react";
 import { useHoteles } from "@/context/Hoteles";
 import { Proveedor } from "@/services/ProveedoresService";
 import { useProveedor } from "@/context/Proveedores";
 import { Loader } from "../atom/Loader";
+import Modal from "./Modal";
+import { GuardadoRapido } from "../template/GuardadoRapido";
 
 interface ReservationFormProps {
   solicitud?: Solicitud & {
@@ -78,8 +80,9 @@ export function ReservationForm({
     boolean | null
   >(solicitud.nuevo_incluye_desayuno || null);
   const { showNotification } = useNotification();
-  const { getProveedores, proveedores } = useProveedor();
+  const { getProveedores, proveedores, updateProveedores } = useProveedor();
   const [acompanantes, setAcompanantes] = useState<Viajero[]>([]);
+  const [save, setSave] = useState<boolean>(false);
   const [defaultViajero, setDefaultViajero] = useState<Viajero | null>(null);
   const [form, setForm] = useState<ReservaForm>({
     hotel: {
@@ -578,8 +581,25 @@ export function ReservationForm({
     }
   };
 
+  const handleGuardarIntermediario = (list: Proveedor[]) => {
+    setSave(false);
+    updateProveedores();
+  };
+
   return (
     <>
+      {save && (
+        <Modal
+          onClose={() => setSave(null)}
+          title={`Agregar intermediario"}`}
+          subtitle={`Agrega los valores del nuevo intermediario`}
+        >
+          <GuardadoRapido
+            onSaveProveedor={handleGuardarIntermediario}
+            type={"intermediario"}
+          />
+        </Modal>
+      )}
       <form
         onSubmit={handleSubmit}
         className="space-y-6 mx-5 overflow-y-auto rounded-md bg-white p-4"
@@ -1160,29 +1180,37 @@ export function ReservationForm({
                 </div>
                 <div>
                   {intermediario.exists && (
-                    <ComboBox2
-                      value={
-                        intermediario.proveedor
-                          ? {
-                              name: intermediario.proveedor.proveedor,
-                              content: intermediario.proveedor,
-                            }
-                          : null
-                      }
-                      label="Intermediario"
-                      options={proveedores.map((p) => ({
-                        name: p.proveedor,
-                        content: p,
-                      }))}
-                      onChange={function (
-                        value: ComboBoxOption2<Proveedor>,
-                      ): void {
-                        setIntermediario((prev) => ({
-                          ...prev,
-                          proveedor: value.content,
-                        }));
-                      }}
-                    />
+                    <div className="grid grid-cols-3 items-end">
+                      <ComboBox2
+                        value={
+                          intermediario.proveedor
+                            ? {
+                                name: intermediario.proveedor.proveedor,
+                                content: intermediario.proveedor,
+                              }
+                            : null
+                        }
+                        label="Intermediario"
+                        options={proveedores
+                          .filter((p) => p.intermediario)
+                          .map((p) => ({
+                            name: p.proveedor,
+                            content: p,
+                          }))}
+                        className="col-span-2"
+                        onChange={function (
+                          value: ComboBoxOption2<Proveedor>,
+                        ): void {
+                          setIntermediario((prev) => ({
+                            ...prev,
+                            proveedor: value.content,
+                          }));
+                        }}
+                      />
+                      <Button className="ml-2" onClick={() => setSave(true)}>
+                        <Plus className="w-4 h-4 mr-2" /> Agregar
+                      </Button>
+                    </div>
                   )}
                 </div>
               </div>

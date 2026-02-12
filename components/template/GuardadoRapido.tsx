@@ -17,7 +17,8 @@ export type ForSave =
   | "aeropuerto"
   | "vuelo"
   | "renta_carro"
-  | "sucursal";
+  | "sucursal"
+  | "intermediario";
 
 export const GuardadoRapido = ({
   onSaveProveedor,
@@ -35,6 +36,9 @@ export const GuardadoRapido = ({
   if (!type) return;
   return (
     <div className={`grid gap-4 items-end`}>
+      {type == "intermediario" && (
+        <GuardadoProveedor onSaveProveedor={onSaveProveedor} type={type} />
+      )}
       {(type == "vuelo" || type == "renta_carro") && (
         <GuardadoProveedor onSaveProveedor={onSaveProveedor} type={type} />
       )}
@@ -65,7 +69,7 @@ const GuardadoProveedor = ({
     ExtraService.getInstance()
       .createProveedor({
         nombre: nombre,
-
+        intermediario: type == "intermediario",
         type: type,
       })
       .then((res) => {

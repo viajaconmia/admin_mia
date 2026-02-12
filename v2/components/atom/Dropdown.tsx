@@ -23,7 +23,18 @@ export const Dropdown = ({
 
   return (
     <>
-      {open && <Modal onClose={handleClose}>{children}</Modal>}
+      {open && (
+        <Modal onClose={handleClose}>
+          <>
+            {children}
+            <div className="w-full flex justify-end mt-4">
+              <Button onClick={handleClose} variant="secondary" size="sm">
+                Cerrar
+              </Button>
+            </div>
+          </>
+        </Modal>
+      )}
       <Button
         onClick={() => setOpen((prev) => !prev)}
         icon={!open ? ChevronDown : ChevronUp}

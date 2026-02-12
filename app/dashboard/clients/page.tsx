@@ -31,7 +31,6 @@ import Modal from "@/components/organism/Modal";
 import NavContainer from "@/components/organism/NavContainer";
 import { AgentDetailsCard } from "@/components/organism/DetailsClient";
 import { UsersClient } from "@/components/organism/UsersClient";
-import PageReservasClientes from "@/components/template/PageReservaClient";
 import PageCuentasPorCobrar from "@/components/template/PageCuentasPorCobrar";
 import { ToolTip } from "@/components/atom/ToolTip";
 

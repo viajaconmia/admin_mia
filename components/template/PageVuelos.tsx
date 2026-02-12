@@ -27,6 +27,7 @@ import {
 } from "@/services/VuelosServices";
 import { ForSave, GuardadoRapido } from "./GuardadoRapido";
 import { Proveedor } from "@/services/ProveedoresService";
+import { useProveedor } from "@/context/Proveedores";
 
 /* =========================
    Tipos
@@ -60,6 +61,7 @@ type Details = {
   costo: number | null;
   precio: number | null;
   status: string | null;
+  intermediario?: Proveedor | null;
 };
 
 const emptyVuelo: Vuelo = {
@@ -497,9 +499,10 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
 
   const [state, dispatch] = useReducer(vuelosReducer, initialState);
   const [details, setDetails] = useState<Details>(initialDetails);
+  const { getProveedores, proveedores, updateProveedores } = useProveedor();
+  getProveedores();
 
   const [viajeros, setViajeros] = useState<ViajeroService[]>([]);
-  const [aerolineas, setAerolineas] = useState<Proveedor[]>([]);
   const [aeropuertos, setAeropuertos] = useState<Aeropuerto[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
 
@@ -536,16 +539,6 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
         showNotification(
           "error",
           error?.message || "Error al obtener viajeros",
-        ),
-      );
-
-    ExtraService.getInstance()
-      .getAerolineas()
-      .then((res) => setAerolineas(res.data || []))
-      .catch((error: any) =>
-        showNotification(
-          "error",
-          error?.message || "Error al obtener aerolíneas",
         ),
       );
 
@@ -605,7 +598,7 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
 
   useEffect(() => {
     if (!data_inicio) return;
-    if (!aerolineas.length && !aeropuertos.length && !viajeros.length) return;
+    if (!proveedores.length && !aeropuertos.length && !viajeros.length) return;
 
     // 3.1 viajero en details
     if (!details.viajero && viajeros.length) {
@@ -623,8 +616,8 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
       console.log("envio de informacion de vuelo", vuelo);
 
       // aerolínea
-      if (!vuelo.aerolinea && aerolineas.length) {
-        const p = findProveedorByName(aerolineas, meta?.airlineName ?? null);
+      if (!vuelo.aerolinea && proveedores.length) {
+        const p = findProveedorByName(proveedores, meta?.airlineName ?? null);
         if (p) handleUpdateVuelo(idx, "aerolinea", p);
       }
 
@@ -644,7 +637,7 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data_inicio, aerolineas, aeropuertos, viajeros]);
+  }, [data_inicio, proveedores, aeropuertos, viajeros]);
 
   /* ---------------------------------
      Acciones: pagar / guardar
@@ -655,7 +648,18 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
         throw new Error("El precio debe ser mayor a 0");
 
       const res = state
-        .map((vuelo) => isSomeNull(vuelo, ["comentarios", "intermediario"]))
+        .map((vuelo) =>
+          isSomeNull(vuelo, [
+            "comentarios",
+            "intermediario",
+            "eq_mano",
+            "eq_personal",
+            "eq_documentado",
+            "is_eq_mano",
+            "is_eq_personal",
+            "is_eq_documentado",
+          ]),
+        )
         .some(Boolean);
 
       // OJO: aquí isSomeNull(details) te exige viajero/codigo/costo etc.
@@ -671,8 +675,8 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
   };
 
   const handleGuardarAerolinea = (list: Proveedor[]) => {
-    setAerolineas(list);
     setSave(null);
+    updateProveedores();
   };
 
   const handleGuardarAeropuerto = (list: Aeropuerto[]) => {
@@ -754,8 +758,8 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
       {save && (
         <Modal
           onClose={() => setSave(null)}
-          title={`Agregar ${save === "vuelo" ? "aerolínea" : "aeropuerto"}`}
-          subtitle={`Agrega los valores del nuevo ${save === "vuelo" ? "proveedor" : "aeropuerto"}`}
+          title={`Agregar ${save === "vuelo" ? "aerolínea" : save == "intermediario" ? "intermediario" : "aeropuerto"}`}
+          subtitle={`Agrega los valores del nuevo ${save === "vuelo" ? "proveedor" : save == "intermediario" ? "intermediario" : "aeropuerto"}`}
         >
           <GuardadoRapido
             onSaveProveedor={handleGuardarAerolinea}
@@ -772,7 +776,7 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
         ) : null}
 
         {/* Detalles */}
-        <div className="w-full grid md:grid-cols-3 gap-4 p-2">
+        <div className="w-full grid md:grid-cols-4 gap-4 p-2">
           <ComboBox2
             value={
               details.viajero
@@ -800,6 +804,42 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
               setDetails((prev) => ({ ...prev, codigo: value }))
             }
           />
+
+          <div className="grid grid-cols-3 gap-4 w-full">
+            <ComboBox2
+              className="col-span-2"
+              value={
+                details.intermediario
+                  ? {
+                      name: details.intermediario.proveedor,
+                      content: details.intermediario,
+                    }
+                  : null
+              }
+              label="Intermediario"
+              onChange={(value: ComboBoxOption2<Proveedor>) =>
+                setDetails((prev) => ({
+                  ...prev,
+                  intermediario: value.content,
+                }))
+              }
+              options={proveedores
+                .filter((p) => p.intermediario)
+                .map((p) => ({
+                  name: p.proveedor,
+                  content: p,
+                }))}
+            />
+            <Button
+              icon={Plus}
+              size="md"
+              className="mt-6 h-fit"
+              onClick={() => setSave("intermediario")}
+              type="button"
+            >
+              Agregar
+            </Button>
+          </div>
 
           <Dropdown
             label="Estado"
@@ -867,10 +907,12 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
                       onChange={(value: ComboBoxOption2<Proveedor>) =>
                         handleUpdateVuelo(index, "aerolinea", value.content)
                       }
-                      options={aerolineas.map((a) => ({
-                        name: a.proveedor,
-                        content: a,
-                      }))}
+                      options={proveedores
+                        .filter((p) => p.type == "vuelo")
+                        .map((a) => ({
+                          name: a.proveedor,
+                          content: a,
+                        }))}
                     />
                     <Button
                       icon={Plus}
@@ -949,7 +991,7 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
                   />
                 </div>
 
-                <div className="grid md:grid-cols-5 gap-4">
+                <div className="grid md:grid-cols-3 gap-4">
                   <TextInput
                     label="Asientos"
                     value={vuelo.asiento}
@@ -978,38 +1020,6 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
                       handleUpdateVuelo(index, "comentarios", value)
                     }
                   />
-
-                  {/* Intermediario */}
-                  <div className="grid grid-cols-3 gap-4 w-full col-span-2">
-                    <ComboBox2
-                      className="col-span-2"
-                      value={
-                        vuelo.intermediario
-                          ? {
-                              name: vuelo.intermediario.proveedor,
-                              content: vuelo.intermediario,
-                            }
-                          : null
-                      }
-                      label="Intermediario"
-                      onChange={(value: ComboBoxOption2<Proveedor>) =>
-                        handleUpdateVuelo(index, "intermediario", value.content)
-                      }
-                      options={aerolineas.map((p) => ({
-                        name: p.proveedor,
-                        content: p,
-                      }))}
-                    />
-                    <Button
-                      icon={Plus}
-                      size="md"
-                      className="mt-6 h-fit"
-                      onClick={() => setSave("vuelo")}
-                      type="button"
-                    >
-                      Agregar
-                    </Button>
-                  </div>
                 </div>
 
                 <div className="grid md:grid-cols-3 gap-4">
@@ -1077,6 +1087,19 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
             );
           })}
         </div>
+        <div className="w-full pb-10 flex flex-col items-end mb-30">
+          <Button
+            variant="secondary"
+            icon={Plus}
+            onClick={handleAddVuelo}
+            type="button"
+          >
+            Agregar vuelo
+          </Button>
+          <br />
+          <br />
+          <br />
+        </div>
 
         {/* Footer sticky */}
         <div className="sticky bottom-0 py-6 px-4 rounded-t-lg bg-gray-100 flex flex-col space-y-4">
@@ -1095,15 +1118,7 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
                 setDetails((prev) => ({ ...prev, precio: Number(value) }))
               }
             />
-            <div className="grid grid-cols-2 gap-2 pt-6">
-              <Button
-                variant="secondary"
-                icon={Plus}
-                onClick={handleAddVuelo}
-                type="button"
-              >
-                Agregar vuelo
-              </Button>
+            <div className="grid pt-6">
               <Button icon={CheckCircle} onClick={onPagar} type="button">
                 Ir a pagar
               </Button>

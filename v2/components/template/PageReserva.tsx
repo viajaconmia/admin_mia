@@ -33,6 +33,9 @@ import {
 import { DollarSign, Pencil, Plus, RefreshCwIcon, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import CrearReserva from "./CrearReserva";
+import { usePermiso } from "@/hooks/usePermission";
+import { PERMISOS } from "@/constant/permisos";
 
 const PageReservas = ({ agente }: { agente?: Agente }) => {
   const [loading, setLoading] = useState(false);
@@ -42,12 +45,13 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     total_pages: 1,
   });
   const [reservas, setReservas] = useState<BookingAll[]>([]);
+  const [creacion, setCreacion] = useState<boolean>(false);
   const [filters, setFilters] = useState<TypeFilters>(
     defaultFiltersSolicitudes,
   );
   const [selectedItem, setSelectedItem] = useState<BookingAll>(null);
   const [selectedEdit, setSelectedEdit] = useState<string>(null);
-  const router = useRouter();
+  const { Can } = usePermiso();
   const { showNotification } = useNotification();
 
   const handleFetchSolicitudes = async (page = tracking.page) => {
@@ -146,14 +150,16 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
       return (
         <>
           {reserva.estado != "Cancelada" && (
-            <Button
-              icon={Trash2}
-              size="sm"
-              variant="warning"
-              onClick={handleCancel}
-            >
-              Cancelar
-            </Button>
+            <Can permiso={PERMISOS.COMPONENTES.BOTON.CANCELAR_RESERVA}>
+              <Button
+                icon={Trash2}
+                size="sm"
+                variant="warning"
+                onClick={handleCancel}
+              >
+                Cancelar
+              </Button>
+            </Can>
           )}
         </>
       );
@@ -225,7 +231,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     <>
       <div className="grid md:grid-cols-2 gap-4 p-4 pb-0">
         <Dropdown label="Filtros" onClose={() => handleFetchSolicitudes()}>
-          <div className="w-full p-4 pb-10 grid md:grid-cols-4 gap-4">
+          <div className="w-full p-8 grid md:grid-cols-4 gap-4">
             <FilterInput
               type="text"
               onChange={handleFilterChange}
@@ -316,20 +322,6 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
               options={["transaccion", "Check in", "Check out"]}
             />
           </div>
-          <div className="flex justify-end w-full mt-11">
-            <Button
-              onClick={() => handleFetchSolicitudes()}
-              disabled={loading}
-              size="sm"
-              icon={RefreshCwIcon}
-            >
-              {loading
-                ? "Cargando..."
-                : !reservas
-                  ? "Buscar resultados"
-                  : "Refrescar"}
-            </Button>
-          </div>
         </Dropdown>
         <Button onClick={() => setFilters({})} icon={Trash2} variant="ghost">
           Limpiar
@@ -339,24 +331,8 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
         </div>
       </div>
       <div className="w-full flex justify-end p-4 gap-2 pt-0">
-        {!agente?.id_agente ? (
-          <Button
-            icon={Plus}
-            size="sm"
-            onClick={() => router.replace("/dashboard/newreserva/crear")}
-          >
-            Crear reservacion
-          </Button>
-        ) : (
-          <Button
-            icon={Plus}
-            size="sm"
-            onClick={() =>
-              window.location.assign(
-                "/dashboard/newreserva/crear?client=" + agente.id_agente,
-              )
-            }
-          >
+        {agente?.id_agente && (
+          <Button icon={Plus} size="sm" onClick={() => setCreacion(true)}>
             Crear reservacion
           </Button>
         )}
@@ -424,6 +400,15 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
               handleFetchSolicitudes();
             }}
           />
+        </Modal>
+      )}
+      {creacion && (
+        <Modal
+          onClose={() => {
+            setCreacion(false);
+          }}
+        >
+          <CrearReserva agente={agente}></CrearReserva>
         </Modal>
       )}
     </>
