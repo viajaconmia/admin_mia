@@ -17,11 +17,12 @@ import { useNotification } from "@/context/useNotificacion";
 import { CheckCircle, Plus, Trash2 } from "lucide-react";
 import { MostrarSaldos } from "./MostrarSaldos";
 import Modal from "../organism/Modal";
-import { Aeropuerto, ExtraService, Proveedor } from "@/services/ExtraServices";
+import { Aeropuerto, ExtraService } from "@/services/ExtraServices";
 import { isSomeNull } from "@/helpers/validator";
 import { Saldo } from "@/services/SaldoAFavor";
 import { VuelosServices } from "@/services/VuelosServices";
 import { ForSave, GuardadoRapido } from "./GuardadoRapido";
+import { Proveedor } from "@/services/ProveedoresService";
 
 /* =========================
    Tipos
@@ -85,7 +86,10 @@ type Action<K extends keyof Vuelo> =
   | { type: "SET_ALL"; payload: Vuelo[] }
   | { type: "ADD_VUELO" }
   | { type: "DELETE_VUELO"; payload: number }
-  | { type: "UPDATE_VUELO"; payload: { index: number; field: K; value: Vuelo[K] } };
+  | {
+      type: "UPDATE_VUELO";
+      payload: { index: number; field: K; value: Vuelo[K] };
+    };
 
 const vuelosReducer = (state: Vuelo[], action: Action<keyof Vuelo>) => {
   switch (action.type) {
@@ -114,7 +118,8 @@ const vuelosReducer = (state: Vuelo[], action: Action<keyof Vuelo>) => {
    Helpers (prefill)
 ========================= */
 
-const safe = (v: any) => (v === null || v === undefined || v === "" ? "—" : String(v));
+const safe = (v: any) =>
+  v === null || v === undefined || v === "" ? "—" : String(v);
 
 const toDT = (iso?: string | null) => {
   if (!iso) return null;
@@ -137,13 +142,22 @@ const normalizeStatus = (s?: any): string | null => {
 };
 
 // Matchers
-const findProveedorByName = (proveedores: Proveedor[], name?: string | null) => {
+const findProveedorByName = (
+  proveedores: Proveedor[],
+  name?: string | null,
+) => {
   if (!name) return null;
   const n = name.toLowerCase().trim();
-  return proveedores.find((p) => (p.nombre ?? "").toLowerCase().trim() === n) ?? null;
+  return (
+    proveedores.find((p) => (p.proveedor ?? "").toLowerCase().trim() === n) ??
+    null
+  );
 };
 
-const findAeropuertoByNameOrCode = (aeropuertos: Aeropuerto[], q?: string | null) => {
+const findAeropuertoByNameOrCode = (
+  aeropuertos: Aeropuerto[],
+  q?: string | null,
+) => {
   if (!q) return null;
   const needle = q.trim();
   // Ajusta si tu Aeropuerto tiene "iata", "codigo", etc.
@@ -155,9 +169,15 @@ const findAeropuertoByNameOrCode = (aeropuertos: Aeropuerto[], q?: string | null
   );
 };
 
-const findViajeroById = (viajeros: ViajeroService[], id_viajero?: string | null) => {
+const findViajeroById = (
+  viajeros: ViajeroService[],
+  id_viajero?: string | null,
+) => {
   if (!id_viajero) return null;
-  return viajeros.find((v: any) => String(v?.id_viajero) === String(id_viajero)) ?? null;
+  return (
+    viajeros.find((v: any) => String(v?.id_viajero) === String(id_viajero)) ??
+    null
+  );
 };
 
 // Extrae un "array de segmentos" desde data_inicio en rutas comunes
@@ -206,7 +226,10 @@ const buildDetailsPatchFromDataInicio = (raw: any): Partial<Details> => {
 
   // status
   const status = normalizeStatus(
-    raw?.estado_solicitud ?? base?.estado_solicitud ?? base?.objeto_gemini?.status ?? base?.status
+    raw?.estado_solicitud ??
+      base?.estado_solicitud ??
+      base?.objeto_gemini?.status ??
+      base?.status,
   );
 
   return {
@@ -217,9 +240,10 @@ const buildDetailsPatchFromDataInicio = (raw: any): Partial<Details> => {
   };
 };
 
-
 // Construye drafts de Vuelo[] (SIN resolver Aeropuerto/Proveedor aún)
-const buildVueloDraftsFromDataInicio = (raw: any): Array<Partial<Vuelo> & { __meta?: any }> => {
+const buildVueloDraftsFromDataInicio = (
+  raw: any,
+): Array<Partial<Vuelo> & { __meta?: any }> => {
   const base = raw?.raw ?? raw;
 
   const segments = getSegmentsFromRaw(raw);
@@ -240,7 +264,9 @@ const buildVueloDraftsFromDataInicio = (raw: any): Array<Partial<Vuelo> & { __me
           base?.objeto_gemini?.item?.item?.folio ??
           null,
         check_in: toDT(base?.objeto_gemini?.check_in ?? base?.check_in ?? null),
-        check_out: toDT(base?.objeto_gemini?.check_out ?? base?.check_out ?? null),
+        check_out: toDT(
+          base?.objeto_gemini?.check_out ?? base?.check_out ?? null,
+        ),
         tipo_tarifa:
           base?.objeto_gemini?.item?.item?.fareType ??
           base?.objeto_gemini?.item?.item?.tipo_tarifa ??
@@ -258,7 +284,9 @@ const buildVueloDraftsFromDataInicio = (raw: any): Array<Partial<Vuelo> & { __me
   }
 
   // Para round_trip, separa ida/vuelta por mitad si aplica
-  const isRoundTrip = String(itineraryType).toLowerCase().includes("round_trip");
+  const isRoundTrip = String(itineraryType)
+    .toLowerCase()
+    .includes("round_trip");
   const mid = isRoundTrip ? Math.floor(segments.length / 2) : 0;
 
   return segments.map((seg: any, idx: number) => {
@@ -304,11 +332,7 @@ const buildVueloDraftsFromDataInicio = (raw: any): Array<Partial<Vuelo> & { __me
       seg?.carrierName ??
       null;
 
-    const flightNo =
-      seg?.flightNumber ??
-      seg?.number ??
-      seg?.folio ??
-      null;
+    const flightNo = seg?.flightNumber ?? seg?.number ?? seg?.folio ?? null;
 
     const depTime =
       seg?.departureTime ??
@@ -339,9 +363,7 @@ const buildVueloDraftsFromDataInicio = (raw: any): Array<Partial<Vuelo> & { __me
       check_in: toDT(depTime),
       check_out: toDT(arrTime),
       tipo_tarifa:
-        seg?.fareType ??
-        base?.objeto_gemini?.item?.item?.fareType ??
-        null,
+        seg?.fareType ?? base?.objeto_gemini?.item?.item?.fareType ?? null,
       __meta: {
         airlineName,
         originQ: originCode ?? originCity ?? null,
@@ -351,17 +373,20 @@ const buildVueloDraftsFromDataInicio = (raw: any): Array<Partial<Vuelo> & { __me
   });
 };
 
-
 const moneyMXN = (v: any) => {
   const n = Number(v);
   if (!Number.isFinite(n)) return safe(v);
-  return new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(n);
+  return new Intl.NumberFormat("es-MX", {
+    style: "currency",
+    currency: "MXN",
+  }).format(n);
 };
 
 const VuelosDataInicioSummary = ({ data_inicio }: { data_inicio: any }) => {
   const gem = data_inicio?.objeto_gemini ?? {};
   const item = gem?.item ?? {};
-  const total = gem?.total ?? item?.price?.total ?? data_inicio?.total_solicitud ?? null;
+  const total =
+    gem?.total ?? item?.price?.total ?? data_inicio?.total_solicitud ?? null;
 
   const segs = getSegmentsFromRaw(data_inicio);
 
@@ -369,35 +394,64 @@ const VuelosDataInicioSummary = ({ data_inicio }: { data_inicio: any }) => {
     <div className="mb-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-slate-800">Información de la solicitud</h3>
-          <p className="text-xs text-slate-600">Se detectó data inicial; se usará para autorrellenar.</p>
+          <h3 className="text-sm font-semibold text-slate-800">
+            Información de la solicitud
+          </h3>
+          <p className="text-xs text-slate-600">
+            Se detectó data inicial; se usará para autorrellenar.
+          </p>
         </div>
         <div className="text-right">
           <div className="text-xs text-slate-600">Total</div>
-          <div className="text-sm font-semibold text-slate-900">{moneyMXN(total)}</div>
-          <div className="text-xs text-slate-600">{safe(gem?.status ?? data_inicio?.estado_solicitud)}</div>
+          <div className="text-sm font-semibold text-slate-900">
+            {moneyMXN(total)}
+          </div>
+          <div className="text-xs text-slate-600">
+            {safe(gem?.status ?? data_inicio?.estado_solicitud)}
+          </div>
         </div>
       </div>
 
       <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
         <div className="rounded-md bg-white p-2 border border-slate-200">
           <div className="font-semibold text-slate-700">Cliente / Viajero</div>
-          <div className="text-slate-700">Cliente: {safe(data_inicio?.nombre_cliente ?? data_inicio?.razon_social)}</div>
-          <div className="text-slate-700">Viajero: {safe(gem?.viajero_principal ?? data_inicio?.nombre_viajero)}</div>
-          <div className="text-slate-500">ID viajero: {safe(gem?.id_viajero ?? data_inicio?.id_viajero)}</div>
+          <div className="text-slate-700">
+            Cliente:{" "}
+            {safe(data_inicio?.nombre_cliente ?? data_inicio?.razon_social)}
+          </div>
+          <div className="text-slate-700">
+            Viajero:{" "}
+            {safe(gem?.viajero_principal ?? data_inicio?.nombre_viajero)}
+          </div>
+          <div className="text-slate-500">
+            ID viajero: {safe(gem?.id_viajero ?? data_inicio?.id_viajero)}
+          </div>
         </div>
 
         <div className="rounded-md bg-white p-2 border border-slate-200">
           <div className="font-semibold text-slate-700">Reserva</div>
-          <div className="text-slate-700">ID solicitud: {safe(data_inicio?.id_solicitud)}</div>
-          <div className="text-slate-700">Código: {safe(data_inicio?.confirmation_code ?? item?.pnr ?? item?.bookingCode)}</div>
-          <div className="text-slate-500">Tramos: {safe(segs?.length || 1)}</div>
+          <div className="text-slate-700">
+            ID solicitud: {safe(data_inicio?.id_solicitud)}
+          </div>
+          <div className="text-slate-700">
+            Código:{" "}
+            {safe(
+              data_inicio?.confirmation_code ?? item?.pnr ?? item?.bookingCode,
+            )}
+          </div>
+          <div className="text-slate-500">
+            Tramos: {safe(segs?.length || 1)}
+          </div>
         </div>
 
         <div className="rounded-md bg-white p-2 border border-slate-200">
           <div className="font-semibold text-slate-700">Fechas</div>
-          <div className="text-slate-700">Check-in: {safe(gem?.check_in ?? data_inicio?.check_in)}</div>
-          <div className="text-slate-700">Check-out: {safe(gem?.check_out ?? data_inicio?.check_out)}</div>
+          <div className="text-slate-700">
+            Check-in: {safe(gem?.check_in ?? data_inicio?.check_in)}
+          </div>
+          <div className="text-slate-700">
+            Check-out: {safe(gem?.check_out ?? data_inicio?.check_out)}
+          </div>
         </div>
       </div>
     </div>
@@ -410,10 +464,10 @@ const VuelosDataInicioSummary = ({ data_inicio }: { data_inicio: any }) => {
 
 type VuelosFormProps = {
   agente: Agente;
-  data_inicio?: any;          // cart/solicitud
+  data_inicio?: any; // cart/solicitud
   onClose?: () => void;
   onSuccess?: () => void;
-  showSummary?: boolean;      // para decidir si el cuadro se pinta aquí o en el modal wrapper
+  showSummary?: boolean; // para decidir si el cuadro se pinta aquí o en el modal wrapper
 };
 
 export const VuelosForm: React.FC<VuelosFormProps> = ({
@@ -433,7 +487,7 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
   const [aeropuertos, setAeropuertos] = useState<Aeropuerto[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
 
-  console.log("agente y data inicio",agente,data_inicio)
+  console.log("agente y data inicio", agente, data_inicio);
 
   // Modal interno: pagar
   const [openPago, setOpenPago] = useState<boolean>(false);
@@ -444,31 +498,50 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
   // Para no re-aplicar el prefill varias veces al mismo cart
   const prefillKeyRef = useRef<string | null>(null);
 
-  const handleDelete = (index: number) => dispatch({ type: "DELETE_VUELO", payload: index });
+  const handleDelete = (index: number) =>
+    dispatch({ type: "DELETE_VUELO", payload: index });
   const handleAddVuelo = () => dispatch({ type: "ADD_VUELO" });
 
-  const handleUpdateVuelo = <K extends keyof Vuelo>(index: number, field: K, value: Vuelo[K]) =>
-    dispatch({ type: "UPDATE_VUELO", payload: { index, field, value } });
+  const handleUpdateVuelo = <K extends keyof Vuelo>(
+    index: number,
+    field: K,
+    value: Vuelo[K],
+  ) => dispatch({ type: "UPDATE_VUELO", payload: { index, field, value } });
 
   /* ---------------------------------
      1) Carga catálogos
   ---------------------------------- */
-  const id_agente = agente.id_agente || agente;
+  const id_agente = (agente.id_agente || agente) as string;
   useEffect(() => {
     ViajerosService.getInstance()
       .obtenerViajerosPorAgente(id_agente)
       .then((res) => setViajeros(res.data || []))
-      .catch((error: any) => showNotification("error", error?.message || "Error al obtener viajeros"));
+      .catch((error: any) =>
+        showNotification(
+          "error",
+          error?.message || "Error al obtener viajeros",
+        ),
+      );
 
     ExtraService.getInstance()
       .getAerolineas()
       .then((res) => setAerolineas(res.data || []))
-      .catch((error: any) => showNotification("error", error?.message || "Error al obtener aerolíneas"));
+      .catch((error: any) =>
+        showNotification(
+          "error",
+          error?.message || "Error al obtener aerolíneas",
+        ),
+      );
 
     ExtraService.getInstance()
       .getAeropuerto()
       .then((res) => setAeropuertos(res.data || []))
-      .catch((error: any) => showNotification("error", error?.message || "Error al obtener aeropuertos"));
+      .catch((error: any) =>
+        showNotification(
+          "error",
+          error?.message || "Error al obtener aeropuertos",
+        ),
+      );
   }, [agente.id_agente, showNotification]);
 
   /* ---------------------------------
@@ -487,7 +560,9 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
     setDetails((prev) => ({
       ...prev,
       ...Object.fromEntries(
-        Object.entries(patchDetails).filter(([_, v]) => v !== null && v !== undefined && v !== "")
+        Object.entries(patchDetails).filter(
+          ([_, v]) => v !== null && v !== undefined && v !== "",
+        ),
       ),
     }));
 
@@ -528,8 +603,8 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
     // solo intentamos completar si aún está null
     state.forEach((vuelo, idx) => {
       const meta = draftsMeta[idx]?.__meta ?? {};
-      
-      console.log("envio de informacion de vuelo",vuelo)
+
+      console.log("envio de informacion de vuelo", vuelo);
 
       // aerolínea
       if (!vuelo.aerolinea && aerolineas.length) {
@@ -539,8 +614,11 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
 
       // origen/destino
       if (!vuelo.origen && aeropuertos.length) {
-        console.log("QQQQQQQQQQQQQ",meta?.originQ)
-        const a = findAeropuertoByNameOrCode(aeropuertos, meta?.originQ ?? null);
+        console.log("QQQQQQQQQQQQQ", meta?.originQ);
+        const a = findAeropuertoByNameOrCode(
+          aeropuertos,
+          meta?.originQ ?? null,
+        );
         if (a) handleUpdateVuelo(idx, "origen", a);
       }
 
@@ -557,9 +635,12 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
   ---------------------------------- */
   const onPagar = () => {
     try {
-      if ((details.precio ?? 0) <= 0) throw new Error("El precio debe ser mayor a 0");
+      if ((details.precio ?? 0) <= 0)
+        throw new Error("El precio debe ser mayor a 0");
 
-      const res = state.map((vuelo) => isSomeNull(vuelo, ["comentarios"])).some(Boolean);
+      const res = state
+        .map((vuelo) => isSomeNull(vuelo, ["comentarios"]))
+        .some(Boolean);
 
       // OJO: aquí isSomeNull(details) te exige viajero/codigo/costo etc.
       // si "costo" no es obligatorio, pásalo en ignore list o valida tú.
@@ -586,23 +667,27 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
   const handleSubmit = async (
     saldos: (Saldo & { restante: number; usado: boolean })[],
     faltante: number,
-    isPrimary: boolean
+    isPrimary: boolean,
   ) => {
     try {
       setLoading(true);
 
       if (faltante !== 0 && isPrimary)
-        throw new Error("No puedes pagar con este, por favor si quieres pagar con crédito usa el otro botón");
+        throw new Error(
+          "No puedes pagar con este, por favor si quieres pagar con crédito usa el otro botón",
+        );
 
       if (faltante === 0 && !isPrimary)
-        throw new Error("Parece que ya pagaste todo con saldo a favor, ya no queda nada para pagar a crédito");
+        throw new Error(
+          "Parece que ya pagaste todo con saldo a favor, ya no queda nada para pagar a crédito",
+        );
 
       const { message } = await VuelosServices.getInstance().createVuelo(
         faltante,
         saldos,
         state.flat().filter((item): item is Vuelo => !Array.isArray(item)),
         details,
-        agente
+        agente,
       );
 
       dispatch({ type: "RESET" });
@@ -655,14 +740,19 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
 
       <div className="w-full h-full p-2 space-y-4 relative">
         {/* ✅ Cuadro de data inicial */}
-        {showSummary && data_inicio ? <VuelosDataInicioSummary data_inicio={data_inicio} /> : null}
+        {showSummary && data_inicio ? (
+          <VuelosDataInicioSummary data_inicio={data_inicio} />
+        ) : null}
 
         {/* Detalles */}
         <div className="w-full grid md:grid-cols-3 gap-4 p-2">
           <ComboBox2
             value={
               details.viajero
-                ? { name: details.viajero.nombre_completo, content: details.viajero }
+                ? {
+                    name: details.viajero.nombre_completo,
+                    content: details.viajero,
+                  }
                 : null
             }
             label="Viajero"
@@ -679,13 +769,17 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
             value={details.codigo}
             label="Código de reservación"
             placeholder="PNR / Código..."
-            onChange={(value: string) => setDetails((prev) => ({ ...prev, codigo: value }))}
+            onChange={(value: string) =>
+              setDetails((prev) => ({ ...prev, codigo: value }))
+            }
           />
 
           <Dropdown
             label="Estado"
             value={details.status}
-            onChange={(value: string) => setDetails((prev) => ({ ...prev, status: value }))}
+            onChange={(value: string) =>
+              setDetails((prev) => ({ ...prev, status: value }))
+            }
             options={["confirmada", "cancelada", "pendiente"]}
           />
         </div>
@@ -708,20 +802,26 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
                   <Dropdown
                     label="Tipo"
                     value={vuelo.tipo}
-                    onChange={(value: string) => handleUpdateVuelo(index, "tipo", value as Vuelo["tipo"])}
+                    onChange={(value: string) =>
+                      handleUpdateVuelo(index, "tipo", value as Vuelo["tipo"])
+                    }
                     options={["ida", "vuelta", "ida escala", "vuelta escala"]}
                   />
 
                   <TextInput
                     value={vuelo.folio}
-                    onChange={(value: string) => handleUpdateVuelo(index, "folio", value)}
+                    onChange={(value: string) =>
+                      handleUpdateVuelo(index, "folio", value)
+                    }
                     label="Número de vuelo"
                   />
 
                   <TextInput
                     label="Tipo de tarifa"
                     value={vuelo.tipo_tarifa}
-                    onChange={(value: string) => handleUpdateVuelo(index, "tipo_tarifa", value)}
+                    onChange={(value: string) =>
+                      handleUpdateVuelo(index, "tipo_tarifa", value)
+                    }
                   />
 
                   {/* Aerolínea */}
@@ -730,14 +830,20 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
                       className="col-span-2"
                       value={
                         vuelo.aerolinea
-                          ? { name: vuelo.aerolinea.nombre, content: vuelo.aerolinea }
+                          ? {
+                              name: vuelo.aerolinea.proveedor,
+                              content: vuelo.aerolinea,
+                            }
                           : null
                       }
                       label="Aerolínea"
                       onChange={(value: ComboBoxOption2<Proveedor>) =>
                         handleUpdateVuelo(index, "aerolinea", value.content)
                       }
-                      options={aerolineas.map((a) => ({ name: a.nombre, content: a }))}
+                      options={aerolineas.map((a) => ({
+                        name: a.proveedor,
+                        content: a,
+                      }))}
                     />
                     <Button
                       icon={Plus}
@@ -754,23 +860,37 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
                 {/* Origen / Destino */}
                 <div className="grid md:grid-cols-7 gap-4">
                   <ComboBox2<Aeropuerto>
-                    value={vuelo.origen ? { name: vuelo.origen.nombre, content: vuelo.origen } : null}
+                    value={
+                      vuelo.origen
+                        ? { name: vuelo.origen.nombre, content: vuelo.origen }
+                        : null
+                    }
                     className="col-span-3"
                     label="Origen"
                     onChange={(value: ComboBoxOption2<Aeropuerto>) =>
                       handleUpdateVuelo(index, "origen", value.content)
                     }
-                    options={aeropuertos.map((a) => ({ name: a.nombre, content: a }))}
+                    options={aeropuertos.map((a) => ({
+                      name: a.nombre,
+                      content: a,
+                    }))}
                   />
 
                   <ComboBox2<Aeropuerto>
-                    value={vuelo.destino ? { name: vuelo.destino.nombre, content: vuelo.destino } : null}
+                    value={
+                      vuelo.destino
+                        ? { name: vuelo.destino.nombre, content: vuelo.destino }
+                        : null
+                    }
                     className="col-span-3"
                     label="Destino"
                     onChange={(value: ComboBoxOption2<Aeropuerto>) =>
                       handleUpdateVuelo(index, "destino", value.content)
                     }
-                    options={aeropuertos.map((a) => ({ name: a.nombre, content: a }))}
+                    options={aeropuertos.map((a) => ({
+                      name: a.nombre,
+                      content: a,
+                    }))}
                   />
 
                   <Button
@@ -789,12 +909,16 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
                   <DateTimeInput
                     label="Fecha de salida"
                     value={vuelo.check_in}
-                    onChange={(value: string) => handleUpdateVuelo(index, "check_in", value)}
+                    onChange={(value: string) =>
+                      handleUpdateVuelo(index, "check_in", value)
+                    }
                   />
                   <DateTimeInput
                     label="Fecha de llegada"
                     value={vuelo.check_out}
-                    onChange={(value: string) => handleUpdateVuelo(index, "check_out", value)}
+                    onChange={(value: string) =>
+                      handleUpdateVuelo(index, "check_out", value)
+                    }
                   />
                 </div>
 
@@ -802,14 +926,20 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
                   <TextInput
                     label="Asientos"
                     value={vuelo.asiento}
-                    onChange={(value: string) => handleUpdateVuelo(index, "asiento", value)}
+                    onChange={(value: string) =>
+                      handleUpdateVuelo(index, "asiento", value)
+                    }
                   />
 
                   <Dropdown
                     label="Ubicación del asiento"
                     value={vuelo.ubicacion_asiento}
                     onChange={(value: string) =>
-                      handleUpdateVuelo(index, "ubicacion_asiento", value as Vuelo["ubicacion_asiento"])
+                      handleUpdateVuelo(
+                        index,
+                        "ubicacion_asiento",
+                        value as Vuelo["ubicacion_asiento"],
+                      )
                     }
                     options={["Ventana", "En medio", "Pasillo"]}
                   />
@@ -817,7 +947,9 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
                   <TextAreaInput
                     label="Comentarios"
                     value={vuelo.comentarios}
-                    onChange={(value: string) => handleUpdateVuelo(index, "comentarios", value)}
+                    onChange={(value: string) =>
+                      handleUpdateVuelo(index, "comentarios", value)
+                    }
                   />
 
                   {/* Intermediario */}
@@ -826,14 +958,20 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
                       className="col-span-2"
                       value={
                         vuelo.intermediario
-                          ? { name: vuelo.intermediario.nombre, content: vuelo.intermediario }
+                          ? {
+                              name: vuelo.intermediario.proveedor,
+                              content: vuelo.intermediario,
+                            }
                           : null
                       }
                       label="Intermediario"
                       onChange={(value: ComboBoxOption2<Proveedor>) =>
                         handleUpdateVuelo(index, "intermediario", value.content)
                       }
-                      options={aerolineas.map((p) => ({ name: p.nombre, content: p }))}
+                      options={aerolineas.map((p) => ({
+                        name: p.proveedor,
+                        content: p,
+                      }))}
                     />
                     <Button
                       icon={Plus}
@@ -868,15 +1006,24 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
             <NumberInput
               label="Costo proveedor"
               value={details.costo}
-              onChange={(value: string) => setDetails((prev) => ({ ...prev, costo: Number(value) }))}
+              onChange={(value: string) =>
+                setDetails((prev) => ({ ...prev, costo: Number(value) }))
+              }
             />
             <NumberInput
               label="Precio a cliente"
               value={details.precio}
-              onChange={(value: string) => setDetails((prev) => ({ ...prev, precio: Number(value) }))}
+              onChange={(value: string) =>
+                setDetails((prev) => ({ ...prev, precio: Number(value) }))
+              }
             />
             <div className="grid grid-cols-2 gap-2 pt-6">
-              <Button variant="secondary" icon={Plus} onClick={handleAddVuelo} type="button">
+              <Button
+                variant="secondary"
+                icon={Plus}
+                onClick={handleAddVuelo}
+                type="button"
+              >
                 Agregar vuelo
               </Button>
               <Button icon={CheckCircle} onClick={onPagar} type="button">
@@ -923,7 +1070,9 @@ export const VuelosModal: React.FC<VuelosModalProps> = ({
     >
       <div className="w-[90vw] max-w-6xl max-h-[85vh] ">
         {/* Aquí puedes mostrar el summary en el wrapper o dentro del form */}
-        {data_inicio ? <VuelosDataInicioSummary data_inicio={data_inicio} /> : null}
+        {data_inicio ? (
+          <VuelosDataInicioSummary data_inicio={data_inicio} />
+        ) : null}
 
         <VuelosForm
           agente={agente}
@@ -941,7 +1090,13 @@ export const VuelosModal: React.FC<VuelosModalProps> = ({
    PAGE (compatibilidad)
 ========================= */
 
-export const PageVuelosForm = ({ agente, data_inicio }: { agente: Agente; data_inicio?: any }) => {
+export const PageVuelosForm = ({
+  agente,
+  data_inicio,
+}: {
+  agente: Agente;
+  data_inicio?: any;
+}) => {
   return <VuelosForm agente={agente} data_inicio={data_inicio} />;
 };
 

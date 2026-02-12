@@ -67,14 +67,18 @@ export const DateInput = ({
   value,
   onChange,
   disabled,
+  className,
 }: {
-  label: string;
+  label?: string;
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
+  className?: string;
 }) => (
-  <div className="flex flex-col space-y-1">
-    <label className="text-sm text-gray-900 font-medium">{label}</label>
+  <div className={`flex flex-col space-y-1 ${className}`}>
+    {label && (
+      <label className="text-sm text-gray-900 font-medium">{label}</label>
+    )}
     <div className="relative">
       <input
         type="date"
@@ -273,8 +277,8 @@ export const ComboBox = <T extends any>({
   useEffect(() => {
     setFilteredOptions(
       options.filter((option) =>
-        option.name.toLowerCase().includes(inputValue.toLowerCase())
-      )
+        option.name.toLowerCase().includes(inputValue.toLowerCase()),
+      ),
     );
   }, [inputValue, options]);
 
@@ -378,7 +382,7 @@ export const DropdownValues = ({
   disabled?: boolean;
 }) => {
   // Si el value es un string, buscamos el objeto correspondiente
-  const selectedId = typeof value === "string" ? value : value?.value ?? "";
+  const selectedId = typeof value === "string" ? value : (value?.value ?? "");
 
   return (
     <div className="flex flex-col space-y-1">
@@ -388,7 +392,7 @@ export const DropdownValues = ({
           value={selectedId}
           onChange={(e) => {
             const selectedOption = options.find(
-              (opt) => opt.value === e.target.value
+              (opt) => opt.value === e.target.value,
             );
             onChange(selectedOption || null);
           }}
@@ -444,8 +448,8 @@ export const InputRadio = <T,>({
         disabled === true
           ? "border-gray-50 bg-gray-50"
           : selectedItem === item.id
-          ? "border-blue-500 bg-blue-50"
-          : "border-gray-200 hover:border-gray-300"
+            ? "border-blue-500 bg-blue-50"
+            : "border-gray-200 hover:border-gray-300"
       }`}
     >
       <input
@@ -552,7 +556,7 @@ export const CheckboxInput = ({
               // Permite hacer clic en el texto para cambiar el estado del interruptor
               if (!disabled) {
                 const inputElement = document.getElementById(
-                  uniqueId
+                  uniqueId,
                 ) as HTMLInputElement | null;
                 if (inputElement) {
                   inputElement.click();
@@ -629,13 +633,13 @@ export const ComboBox2 = <T,>({
     if (isOpen && filteredOptions.length > 0) {
       if (event.key === "ArrowDown") {
         setFocus((prev) =>
-          prev === filteredOptions.length - 1 ? 0 : (prev ?? 0) + 1
+          prev === filteredOptions.length - 1 ? 0 : (prev ?? 0) + 1,
         );
         event.preventDefault();
       }
       if (event.key === "ArrowUp") {
         setFocus((prev) =>
-          prev === 0 ? filteredOptions.length - 1 : (prev ?? 0) - 1
+          prev === 0 ? filteredOptions.length - 1 : (prev ?? 0) - 1,
         );
         event.preventDefault();
       }
@@ -834,7 +838,7 @@ export function InputGoogle({
       {
         types: ["geocode", "establishment"],
         // componentRestrictions: { country: "mx" },
-      }
+      },
     );
 
     autocomplete.addListener("place_changed", () => {
@@ -903,13 +907,13 @@ export const ComboBoxValue2 = <T,>({
     if (isOpen && filteredOptions.length > 0) {
       if (event.key === "ArrowDown") {
         setFocus((prev) =>
-          prev === filteredOptions.length - 1 ? 0 : (prev ?? 0) + 1
+          prev === filteredOptions.length - 1 ? 0 : (prev ?? 0) + 1,
         );
         event.preventDefault();
       }
       if (event.key === "ArrowUp") {
         setFocus((prev) =>
-          prev === 0 ? filteredOptions.length - 1 : (prev ?? 0) - 1
+          prev === 0 ? filteredOptions.length - 1 : (prev ?? 0) - 1,
         );
         event.preventDefault();
       }
