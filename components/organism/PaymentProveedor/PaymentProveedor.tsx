@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useEffect, useReducer, useState, useMemo, useRef } from "react";
 import {
   CreditCard,
@@ -54,7 +56,7 @@ function computePaymentStatus(opts: {
   if (paymentMethod === "transfer") return "spei_solicitado";
   if (paymentMethod === "card") {
     if (useQR === "qr") return "enviada_para_cobro";
-    return "pago_tdc";
+    return "pago_tdc"; // code/archivo
   }
 
   return "pendiente";
@@ -78,25 +80,15 @@ function to2(n: number) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 
-export const PaymentModal = ({
-  reservation,
-}: {
-  reservation: BookingAll | null;
-}) => {
+export const PaymentModal = ({ reservation }: { reservation: BookingAll | null }) => {
   const reservaRef = useRef<ReservaHandle>(null);
 
   const { data, fetchData } = useFetchCards();
-
-  // ✅ NUEVO: titulares
   const { data: titularesData, fetchTitulares } = useFetchTitulares();
 
   const [isReservaOpen, setIsReservaOpen] = useState(false);
 
-  const [state, dispatch] = useReducer(
-    paymentReducer,
-    reservation,
-    getInitialState
-  );
+  const [state, dispatch] = useReducer(paymentReducer, reservation, getInitialState);
 
   const {
     hasFavorBalance,
@@ -114,17 +106,21 @@ export const PaymentModal = ({
     document,
   } = state;
 
-  // NUEVO: Comentarios CXP (local para no tocar tu reducer)
   const [commentsCxp, setCommentsCxp] = useState<string>("");
-
-  // ✅ NUEVO: titular seleccionado (local)
   const [selectedTitularId, setSelectedTitularId] = useState<string>("");
 
   if (!reservation) return null;
 
-  const reservationTotal = Number(reservation.costo_total) || 0;
+  // =========================================================
+  // ✅ Markup: costo_total (costo proveedor) vs total (vendido)
+  // =========================================================
+  const costoProveedor = Number((reservation as any).costo_total) || 0; // lo que te costó
+  const totalVendido = Number((reservation as any).total) || 0;         // por lo que lo vendiste
+
   const balanceToApply = parseFloat(String(favorBalance ?? "")) || 0;
-  const monto_a_pagar = to2(reservationTotal - balanceToApply);
+
+  // ✅ monto a pagar al proveedor: costo - saldo a favor
+  const monto_a_pagar = to2(Math.max(0, costoProveedor - balanceToApply));
 
   const todayISO = useMemo(() => {
     const d = new Date();
@@ -135,17 +131,13 @@ export const PaymentModal = ({
   }, []);
 
   /** ====== Calendario (solo card/link) ====== */
-  const [paymentSchedule, setPaymentSchedule] = useState<PaymentScheduleRow[]>(
-    () => [
-      {
-        id: safeUUID(),
-        date: (date as string) || todayISO,
-        amount: monto_a_pagar || 0,
-      },
-    ]
-  );
-
- console.log("reservagion",reservation)
+  const [paymentSchedule, setPaymentSchedule] = useState<PaymentScheduleRow[]>(() => [
+    {
+      id: safeUUID(),
+      date: (date as string) || todayISO,
+      amount: monto_a_pagar || 0,
+    },
+  ]);
 
   // Si cambia el monto (saldo a favor, etc) y el schedule tiene 1 fila, lo sincronizamos
   useEffect(() => {
@@ -171,32 +163,21 @@ export const PaymentModal = ({
   }, [paymentSchedule]);
 
   const shouldShowSchedule =
-    paymentType === "prepaid" &&
-    (paymentMethod === "card" || paymentMethod === "link");
+    paymentType === "prepaid" && (paymentMethod === "card" || paymentMethod === "link");
 
   const addScheduleRow = () => {
-    setPaymentSchedule((rows) => [
-      ...rows,
-      { id: safeUUID(), date: "", amount: "" },
-    ]);
+    setPaymentSchedule((rows) => [...rows, { id: safeUUID(), date: "", amount: "" }]);
   };
 
   const removeScheduleRow = (id: string) => {
-    setPaymentSchedule((rows) =>
-      rows.length <= 1 ? rows : rows.filter((r) => r.id !== id)
-    );
+    setPaymentSchedule((rows) => (rows.length <= 1 ? rows : rows.filter((r) => r.id !== id)));
   };
 
-  const updateScheduleRow = (
-    id: string,
-    patch: Partial<PaymentScheduleRow>,
-    rowIndex?: number
-  ) => {
+  const updateScheduleRow = (id: string, patch: Partial<PaymentScheduleRow>, rowIndex?: number) => {
     setPaymentSchedule((rows) =>
       rows.map((r, idx) => {
         if (r.id !== id) return r;
         const next = { ...r, ...patch };
-        // compat: si cambian la 1a fecha, reflejamos date del reducer
         if (rowIndex === 0 && typeof patch.date === "string") {
           dispatch({ type: "SET_FIELD", field: "date", payload: patch.date });
         }
@@ -206,21 +187,16 @@ export const PaymentModal = ({
   };
 
   const validateAndBuildSchedulePayload = () => {
-    // Solo para card/link
     const normalized = paymentSchedule.map((r) => ({
       fecha_pago: (r.date || "").trim(),
       monto: r.amount === "" ? NaN : Number(r.amount),
     }));
 
     if (normalized.some((r) => !r.fecha_pago)) {
-      throw new Error(
-        "Falta capturar la fecha en una o más filas del calendario de pagos."
-      );
+      throw new Error("Falta capturar la fecha en una o más filas del calendario de pagos.");
     }
     if (normalized.some((r) => !Number.isFinite(r.monto) || r.monto <= 0)) {
-      throw new Error(
-        "Todos los montos del calendario de pagos deben ser mayores a 0."
-      );
+      throw new Error("Todos los montos del calendario de pagos deben ser mayores a 0.");
     }
 
     const sum = to2(normalized.reduce((acc, r) => acc + (r.monto || 0), 0));
@@ -244,9 +220,7 @@ export const PaymentModal = ({
       }))
     : [];
 
-  const currentSelectedCard = creditCards.find(
-    (card: any) => String(card.id) === String(selectedCard)
-  );
+  const currentSelectedCard = creditCards.find((card: any) => String(card.id) === String(selectedCard));
 
   const selectFiles = creditCards.map((card: any) => ({
     label: card.nombre_titular,
@@ -254,7 +228,6 @@ export const PaymentModal = ({
     item: card,
   }));
 
-  // ✅ traer tarjetas y titulares
   useEffect(() => {
     fetchData();
     fetchTitulares();
@@ -262,24 +235,22 @@ export const PaymentModal = ({
 
   /** ===== Titulares ===== */
   const currentTitular = Array.isArray(titularesData)
-    ? titularesData.find(
-        (t: any) => String(t.idTitular) === String(selectedTitularId)
-      )
+    ? titularesData.find((t: any) => String(t.idTitular) === String(selectedTitularId))
     : null;
 
   const mappedReservation = useMemo(() => {
     if (!reservation) return null;
     return {
       codigo_confirmacion: reservation.codigo_confirmacion ?? "SIN-CODIGO",
-      huesped: reservation.viajero ?? "",
-      hotel: reservation.proveedor ?? "",
+      huesped: (reservation as any).viajero ?? "",
+      hotel: (reservation as any).proveedor ?? "",
       direccion: "",
       acompañantes: "",
       incluye_desayuno: 0,
       check_in: reservation.check_in ?? "",
       check_out: reservation.check_out ?? "",
-      room: reservation.tipo_cuarto_vuelo ?? "",
-      comentarios: reservation.comments ?? "",
+      room: (reservation as any).tipo_cuarto_vuelo ?? "",
+      comentarios: (reservation as any).comments ?? "",
     };
   }, [reservation]);
 
@@ -290,11 +261,7 @@ export const PaymentModal = ({
   const handleSendCoupon = async () => {
     try {
       if (!emails) throw new Error("Agrega al menos un correo.");
-      const list = emails
-        .split(",")
-        .map((e) => e.trim())
-        .filter(Boolean);
-
+      const list = emails.split(",").map((e) => e.trim()).filter(Boolean);
       if (list.length === 0) throw new Error("Formato de correos inválido.");
 
       const blob = await reservaRef.current?.getPdfBlob();
@@ -302,27 +269,16 @@ export const PaymentModal = ({
 
       const fd = new FormData();
       fd.append("emails", JSON.stringify(list));
-      fd.append(
-        "subject",
-        `Cupón de reservación ${mappedReservation?.codigo_confirmacion ?? ""}`
-      );
-      fd.append(
-        "message",
-        comments || "Adjuntamos su cupón de reservación en PDF."
-      );
+      fd.append("subject", `Cupón de reservación ${mappedReservation?.codigo_confirmacion ?? ""}`);
+      fd.append("message", comments || "Adjuntamos su cupón de reservación en PDF.");
       fd.append(
         "file",
-        new File(
-          [blob],
-          `cupon-${mappedReservation?.codigo_confirmacion ?? "reserva"}.pdf`,
-          { type: "application/pdf" }
-        )
+        new File([blob], `cupon-${mappedReservation?.codigo_confirmacion ?? "reserva"}.pdf`, {
+          type: "application/pdf",
+        })
       );
 
-      const resp = await fetch("/api/send-coupon", {
-        method: "POST",
-        body: fd,
-      });
+      const resp = await fetch("/api/send-coupon", { method: "POST", body: fd });
 
       if (!resp.ok) {
         const t = await resp.text();
@@ -336,144 +292,11 @@ export const PaymentModal = ({
     }
   };
 
-  const handlePayment = async () => {
-    try {
-      // status derivado
-      const derivedStatus: PaymentStatus = computePaymentStatus({
-        paymentType,
-        paymentMethod,
-        useQR,
-      });
-
-      dispatch({
-        type: "SET_FIELD",
-        field: "paymentStatus",
-        payload: derivedStatus,
-      });
-
-      // Armar paymentSchedule según método:
-      // - card/link: tabla
-      // - transfer: 1 fila con date + monto
-      let paymentSchedulePayload:
-        | Array<{ fecha_pago: string; monto: number }>
-        | undefined;
-
-      let effectiveDate = (date as string) || todayISO;
-
-      if (paymentType === "prepaid") {
-        if (paymentMethod === "card" || paymentMethod === "link") {
-          paymentSchedulePayload = validateAndBuildSchedulePayload();
-          effectiveDate =
-            paymentSchedulePayload[0]?.fecha_pago || effectiveDate;
-        } else if (paymentMethod === "transfer") {
-          if (!effectiveDate) {
-            throw new Error("Selecciona la fecha de pago.");
-          }
-          paymentSchedulePayload = [
-            { fecha_pago: effectiveDate, monto: monto_a_pagar },
-          ];
-        }
-      }
-
-      // ----- Crédito -----
-      if (paymentType === "credit") {
-        console.log({
-          date: effectiveDate,
-          paymentType,
-          monto_a_pagar,
-          comments,
-          comments_cxp: commentsCxp,
-          id_hospedaje: reservation.id_booking,
-          paymentStatus: derivedStatus,
-          usuario_creador:reservation.usuario_creador
-        });
-        return;
-      }
-
-      // ----- Prepago -----
-      if (paymentType === "prepaid") {
-        if (
-          !reservation ||
-          ((paymentMethod === "card" || paymentMethod === "link") &&
-            !currentSelectedCard) ||
-          (paymentMethod === "card" && !useQR)
-        ) {
-          throw new Error(
-            "Hay un error en la reservación, en la tarjeta o en la forma de mandar los datos, verifica que los datos estén completos."
-          );
-        }
-
-        // ✅ VALIDACIÓN EXTRA PARA LINK
-        if (paymentMethod === "link" && !selectedTitularId) {
-          throw new Error("Selecciona el titular para generar el link.");
-        }
-
-        if (paymentMethod === "link" || paymentMethod === "card") {
-          fetchCreateSolicitud(
-            {
-              selectedCard,
-              date: effectiveDate, // compatibilidad
-              comments,
-              comments_cxp: commentsCxp,
-              paymentMethod,
-              paymentType,
-              monto_a_pagar,
-              id_hospedaje: reservation.id_hospedaje,
-              paymentStatus: derivedStatus,
-              paymentSchedule: paymentSchedulePayload,
-              usuario_creador:reservation.usuario_creador,
-
-              // ✅ SOLO LINK: titular al payload
-              idTitular:
-                paymentMethod === "link" ? Number(selectedTitularId) : null,
-              titular:
-                paymentMethod === "link" ? currentTitular?.Titular ?? "" : "",
-              identificacion:
-                paymentMethod === "link"
-                  ? currentTitular?.identificacion ?? ""
-                  : "",
-            },
-            (response: any) => {}
-          );
-
-          if (paymentMethod === "card" && useQR === "qr") {
-            await generateQRPaymentPDF();
-          }
-        } else if (paymentMethod === "transfer") {
-          fetchCreateSolicitud(
-            {
-              date: effectiveDate,
-              comments,
-              comments_cxp: commentsCxp,
-              paymentMethod,
-              paymentType,
-              monto_a_pagar,
-              id_hospedaje: reservation.id_hospedaje,
-              paymentStatus: derivedStatus,
-              paymentSchedule: paymentSchedulePayload,
-              usuario_creador:reservation.usuario_creador
-            },
-            (response: any) => {
-              alert(response.message);
-            }
-          );
-        }
-      }
-
-      dispatch({ type: "SET_FIELD", field: "error", payload: "" });
-    } catch (error: any) {
-      dispatch({
-        type: "SET_FIELD",
-        field: "error",
-        payload: error.message,
-      });
-    }
-  };
-
-  const generateQRPaymentPDF = async () => {
-    if (!document)
-      throw new Error("Falta seleccionar el documento que aparecerá");
+  const generatePaymentPDF = async () => {
+    // ✅ genera PDF tanto para qr como para code (archivo)
+    if (!document) throw new Error("Falta seleccionar el documento que aparecerá");
     if (!currentSelectedCard) throw new Error("Falta seleccionar tarjeta");
+    if (!useQR) throw new Error("Selecciona si es Con QR o En archivo");
 
     const secureToken = generateSecureToken(
       reservation.codigo_confirmacion.replaceAll("-", "."),
@@ -485,7 +308,7 @@ export const PaymentModal = ({
     const qrData: QRPaymentData = {
       isSecureCode,
       cargo,
-      type: useQR,
+      type: useQR, // "qr" | "code"
       secureToken,
       logoUrl: "https://luiscastaneda-tos.github.io/log/files/nokt.png",
       empresa: {
@@ -507,45 +330,142 @@ export const PaymentModal = ({
           checkIn: reservation.check_in.split("T")[0],
           checkOut: reservation.check_out.split("T")[0],
           reservacionId: reservation.codigo_confirmacion,
-          monto: Number(reservation.costo_total),
-          nombre: reservation.viajero,
-          tipoHabitacion: updateRoom(reservation.tipo_cuarto_vuelo),
+          monto: costoProveedor, // ✅ el costo proveedor tiene más sentido aquí
+          nombre: (reservation as any).viajero,
+          tipoHabitacion: updateRoom((reservation as any).tipo_cuarto_vuelo),
         },
       ],
       codigoDocumento: "xxxx",
       currency: "MXN",
     };
 
+    const pdf = await generateSecureQRPaymentPDF(qrData);
+    pdf.save(`pago-proveedor-${reservation.codigo_confirmacion}.pdf`);
+  };
+
+  const handlePayment = async () => {
     try {
-      const pdf = await generateSecureQRPaymentPDF(qrData);
-      pdf.save(`pago-proveedor-${reservation.codigo_confirmacion}.pdf`);
-    } catch (err) {
-      console.error("Error generating QR PDF:", err);
+      const derivedStatus: PaymentStatus = computePaymentStatus({
+        paymentType,
+        paymentMethod,
+        useQR,
+      });
+
+      dispatch({ type: "SET_FIELD", field: "paymentStatus", payload: derivedStatus });
+
+      let paymentSchedulePayload: Array<{ fecha_pago: string; monto: number }> | undefined;
+      let effectiveDate = (date as string) || todayISO;
+
+      if (paymentType === "prepaid") {
+        if (paymentMethod === "card" || paymentMethod === "link") {
+          paymentSchedulePayload = validateAndBuildSchedulePayload();
+          effectiveDate = paymentSchedulePayload[0]?.fecha_pago || effectiveDate;
+        } else if (paymentMethod === "transfer") {
+          if (!effectiveDate) throw new Error("Selecciona la fecha de pago.");
+          paymentSchedulePayload = [{ fecha_pago: effectiveDate, monto: monto_a_pagar }];
+        }
+      }
+
+      // ----- Crédito -----
+      if (paymentType === "credit") {
+        // ✅ lo que pediste: agregar botón y usar este bloque
+        console.log({
+          date: effectiveDate,
+          paymentType,
+          monto_a_pagar,
+          comments,
+          comments_cxp: commentsCxp,
+          id_hospedaje: reservation.id_booking,
+          paymentStatus: derivedStatus,
+          usuario_creador: (reservation as any).usuario_creador,
+        });
+        return;
+      }
+
+      // ----- Prepago -----
+      if (paymentType === "prepaid") {
+        if (
+          !reservation ||
+          ((paymentMethod === "card" || paymentMethod === "link") && !currentSelectedCard) ||
+          (paymentMethod === "card" && !useQR)
+        ) {
+          throw new Error(
+            "Hay un error en la reservación, en la tarjeta o en la forma de mandar los datos, verifica que los datos estén completos."
+          );
+        }
+
+        if (paymentMethod === "link" && !selectedTitularId) {
+          throw new Error("Selecciona el titular para generar el link.");
+        }
+
+        if (paymentMethod === "link" || paymentMethod === "card") {
+          fetchCreateSolicitud(
+            {
+              selectedCard,
+              date: effectiveDate,
+              comments,
+              comments_cxp: commentsCxp,
+              paymentMethod,
+              paymentType,
+              monto_a_pagar,
+              id_hospedaje: reservation.id_booking,
+              paymentStatus: derivedStatus,
+              paymentSchedule: paymentSchedulePayload,
+              usuario_creador: (reservation as any).usuario_creador,
+
+              idTitular: paymentMethod === "link" ? Number(selectedTitularId) : null,
+              titular: paymentMethod === "link" ? currentTitular?.Titular ?? "" : "",
+              identificacion: paymentMethod === "link" ? currentTitular?.identificacion ?? "" : "",
+            },
+            (_response: any) => {}
+          );
+
+          // ✅ ARREGLO: generar PDF tanto para QR como para Archivo
+          // (si quieres solo cuando es tarjeta, lo limitamos a paymentMethod === "card")
+          if (paymentMethod === "card") {
+            await generatePaymentPDF();
+          }
+        } else if (paymentMethod === "transfer") {
+          fetchCreateSolicitud(
+            {
+              date: effectiveDate,
+              comments,
+              comments_cxp: commentsCxp,
+              paymentMethod,
+              paymentType,
+              monto_a_pagar,
+              id_hospedaje: reservation.id_booking,
+              paymentStatus: derivedStatus,
+              paymentSchedule: paymentSchedulePayload,
+              usuario_creador: (reservation as any).usuario_creador,
+            },
+            (response: any) => {
+              alert(response.message);
+            }
+          );
+        }
+      }
+
+      dispatch({ type: "SET_FIELD", field: "error", payload: "" });
+    } catch (err: any) {
+      dispatch({ type: "SET_FIELD", field: "error", payload: err?.message || "Error" });
     }
+  };
+
+  const handleConfirmCredit = async () => {
+    // ✅ botón dedicado para crédito (usa la misma lógica handlePayment)
+    await handlePayment();
   };
 
   return (
     <div className="max-w-[85vw] w-screen p-2 pt-0 max-h-[90vh] grid grid-cols-2">
       <div
         className={`top-0 col-span-2 z-10 p-4 rounded-md border border-red-300 bg-red-50 text-red-700 shadow-md flex items-start gap-3 transform transition-all duration-300 ease-out ${
-          error
-            ? "opacity-100 scale-100 sticky"
-            : "opacity-0 scale-10 pointer-events-none absolute"
+          error ? "opacity-100 scale-100 sticky" : "opacity-0 scale-10 pointer-events-none absolute"
         }`}
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          className="h-5 w-5 mt-0.5 text-red-500"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-            d="M12 9v2m0 4h.01M4.93 4.93a10 10 0 0114.14 0M4.93 19.07a10 10 0 010-14.14M19.07 19.07a10 10 0 000-14.14"
-          />
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mt-0.5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01M4.93 4.93a10 10 0 0114.14 0M4.93 19.07a10 10 0 010-14.14M19.07 19.07a10 10 0 000-14.14" />
         </svg>
         <p className="text-sm font-medium">{error}</p>
       </div>
@@ -554,18 +474,31 @@ export const PaymentModal = ({
       <div className="px-4 border-r">
         <ReservationDetails reservation={reservation} />
 
-        <div className="space-y-2">
-          {/* Saldo a Favor + Fechas SOLO en PREPAGO */}
+        {/* ✅ MARKUP CLARO */}
+        <div className="mt-2 space-y-2">
+          <div className="p-3 border rounded-md bg-slate-50">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-slate-600">Costo proveedor (costo_total):</span>
+              <span className="font-semibold">${to2(costoProveedor).toFixed(2)}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm mt-1">
+              <span className="text-slate-600">Total vendido (total):</span>
+              <span className="font-semibold">${to2(totalVendido).toFixed(2)}</span>
+            </div>
+            <div className="flex items-center justify-between text-sm mt-1">
+              <span className="text-slate-600">Markup:</span>
+              <span className="font-semibold">
+                ${to2(totalVendido - costoProveedor).toFixed(2)}
+              </span>
+            </div>
+          </div>
+
           {paymentType === "prepaid" && (
             <>
               <CheckboxInput
                 checked={hasFavorBalance}
                 onChange={(checked) =>
-                  dispatch({
-                    type: "SET_FIELD",
-                    field: "hasFavorBalance",
-                    payload: checked === true,
-                  })
+                  dispatch({ type: "SET_FIELD", field: "hasFavorBalance", payload: checked === true })
                 }
                 label="Tiene saldo a favor"
               />
@@ -573,25 +506,16 @@ export const PaymentModal = ({
               {hasFavorBalance && (
                 <>
                   <NumberInput
-                    onChange={(value) =>
-                      dispatch({
-                        type: "SET_FIELD",
-                        field: "favorBalance",
-                        payload: value,
-                      })
-                    }
+                    onChange={(value) => dispatch({ type: "SET_FIELD", field: "favorBalance", payload: value })}
                     value={Number(favorBalance) || null}
                     label="Monto Saldo a Favor a Aplicar"
                     placeholder="0.00"
                   />
+
                   <div className="p-4 bg-green-50 border rounded-md border-green-200">
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-700 text-sm">
-                        Monto a Pagar al Proveedor:
-                      </span>
-                      <span className="text-xl font-bold text-green-700">
-                        ${monto_a_pagar.toFixed(2)}
-                      </span>
+                      <span className="text-slate-700 text-sm">Monto a Pagar al Proveedor:</span>
+                      <span className="text-xl font-bold text-green-700">${monto_a_pagar.toFixed(2)}</span>
                     </div>
                   </div>
                 </>
@@ -602,13 +526,7 @@ export const PaymentModal = ({
                 <DateInput
                   label="Fecha estimada"
                   value={date}
-                  onChange={(value) =>
-                    dispatch({
-                      type: "SET_FIELD",
-                      field: "date",
-                      payload: value,
-                    })
-                  }
+                  onChange={(value) => dispatch({ type: "SET_FIELD", field: "date", payload: value })}
                 />
               )}
 
@@ -616,9 +534,7 @@ export const PaymentModal = ({
               {shouldShowSchedule && (
                 <div className="mt-3 space-y-2">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold">
-                      Calendario de pagos
-                    </h3>
+                    <h3 className="text-sm font-semibold">Calendario de pagos</h3>
                     <div className="flex gap-2">
                       <Button
                         type="button"
@@ -626,23 +542,15 @@ export const PaymentModal = ({
                         size="sm"
                         onClick={() =>
                           setPaymentSchedule([
-                            {
-                              id: safeUUID(),
-                              date: (date as string) || todayISO,
-                              amount: monto_a_pagar,
-                            },
+                            { id: safeUUID(), date: (date as string) || todayISO, amount: monto_a_pagar },
                           ])
                         }
                         title="Reiniciar a un solo pago con el total"
                       >
                         Reset
                       </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={addScheduleRow}
-                      >
+
+                      <Button type="button" variant="outline" size="sm" onClick={addScheduleRow}>
                         Agregar pago
                       </Button>
                     </div>
@@ -652,15 +560,9 @@ export const PaymentModal = ({
                     <table className="w-full text-sm">
                       <thead className="bg-slate-50">
                         <tr>
-                          <th className="text-left font-semibold p-2">
-                            Fecha de pago
-                          </th>
-                          <th className="text-left font-semibold p-2">
-                            Monto
-                          </th>
-                          <th className="text-right font-semibold p-2">
-                            Acción
-                          </th>
+                          <th className="text-left font-semibold p-2">Fecha de pago</th>
+                          <th className="text-left font-semibold p-2">Monto</th>
+                          <th className="text-right font-semibold p-2">Acción</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -671,13 +573,7 @@ export const PaymentModal = ({
                                 type="date"
                                 className="w-full border rounded-md px-2 py-1"
                                 value={row.date}
-                                onChange={(e) =>
-                                  updateScheduleRow(
-                                    row.id,
-                                    { date: e.target.value },
-                                    idx
-                                  )
-                                }
+                                onChange={(e) => updateScheduleRow(row.id, { date: e.target.value }, idx)}
                               />
                             </td>
                             <td className="p-2">
@@ -686,14 +582,11 @@ export const PaymentModal = ({
                                 min={0}
                                 step="0.01"
                                 className="w-full border rounded-md px-2 py-1"
-                                value={
-                                  row.amount === "" ? "" : String(row.amount)
-                                }
+                                value={row.amount === "" ? "" : String(row.amount)}
                                 onChange={(e) => {
                                   const raw = e.target.value;
                                   updateScheduleRow(row.id, {
-                                    amount:
-                                      raw === "" ? "" : to2(Number(raw || 0)),
+                                    amount: raw === "" ? "" : to2(Number(raw || 0)),
                                   });
                                 }}
                                 placeholder="0.00"
@@ -706,11 +599,7 @@ export const PaymentModal = ({
                                 size="icon"
                                 onClick={() => removeScheduleRow(row.id)}
                                 disabled={paymentSchedule.length <= 1}
-                                title={
-                                  paymentSchedule.length <= 1
-                                    ? "Debe existir al menos una fila"
-                                    : "Eliminar fila"
-                                }
+                                title={paymentSchedule.length <= 1 ? "Debe existir al menos una fila" : "Eliminar fila"}
                               >
                                 <X className="h-4 w-4" />
                               </Button>
@@ -723,17 +612,13 @@ export const PaymentModal = ({
 
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-slate-600">Total programado:</span>
-                    <span className="font-semibold">
-                      ${scheduleTotal.toFixed(2)}
-                    </span>
+                    <span className="font-semibold">${scheduleTotal.toFixed(2)}</span>
                   </div>
 
                   {Math.abs(scheduleTotal - monto_a_pagar) > 0.01 && (
                     <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2">
                       El total programado debe ser igual al monto a pagar:{" "}
-                      <span className="font-semibold">
-                        ${monto_a_pagar.toFixed(2)}
-                      </span>
+                      <span className="font-semibold">${monto_a_pagar.toFixed(2)}</span>
                     </div>
                   )}
                 </div>
@@ -751,13 +636,7 @@ export const PaymentModal = ({
           <div className="grid grid-cols-2 gap-4">
             <Button
               variant={paymentType === "prepaid" ? "default" : "outline"}
-              onClick={() =>
-                dispatch({
-                  type: "SET_FIELD",
-                  field: "paymentType",
-                  payload: "prepaid",
-                })
-              }
+              onClick={() => dispatch({ type: "SET_FIELD", field: "paymentType", payload: "prepaid" })}
               className="h-10"
             >
               <CreditCard className="mr-2 h-5 w-5" />
@@ -766,13 +645,7 @@ export const PaymentModal = ({
 
             <Button
               variant={paymentType === "credit" ? "default" : "outline"}
-              onClick={() =>
-                dispatch({
-                  type: "SET_FIELD",
-                  field: "paymentType",
-                  payload: "credit",
-                })
-              }
+              onClick={() => dispatch({ type: "SET_FIELD", field: "paymentType", payload: "credit" })}
               className="h-10"
             >
               <FileText className="mr-2 h-5 w-5" />
@@ -790,12 +663,8 @@ export const PaymentModal = ({
               <Button
                 variant={paymentMethod === "transfer" ? "default" : "outline"}
                 onClick={() => {
-                  dispatch({
-                    type: "SET_FIELD",
-                    field: "paymentMethod",
-                    payload: "transfer",
-                  });
-                  setSelectedTitularId(""); // ✅ reset
+                  dispatch({ type: "SET_FIELD", field: "paymentMethod", payload: "transfer" });
+                  setSelectedTitularId("");
                 }}
               >
                 <ArrowLeftRight className="w-3 h-3 mr-2" />
@@ -805,12 +674,8 @@ export const PaymentModal = ({
               <Button
                 variant={paymentMethod === "card" ? "default" : "outline"}
                 onClick={() => {
-                  dispatch({
-                    type: "SET_FIELD",
-                    field: "paymentMethod",
-                    payload: "card",
-                  });
-                  setSelectedTitularId(""); // ✅ reset
+                  dispatch({ type: "SET_FIELD", field: "paymentMethod", payload: "card" });
+                  setSelectedTitularId("");
                 }}
               >
                 <CreditCard className="w-3 h-3 mr-2" />
@@ -820,12 +685,8 @@ export const PaymentModal = ({
               <Button
                 variant={paymentMethod === "link" ? "default" : "outline"}
                 onClick={() => {
-                  dispatch({
-                    type: "SET_FIELD",
-                    field: "paymentMethod",
-                    payload: "link",
-                  });
-                  setSelectedTitularId(""); // ✅ reset para forzar elección
+                  dispatch({ type: "SET_FIELD", field: "paymentMethod", payload: "link" });
+                  setSelectedTitularId("");
                 }}
               >
                 <Link className="w-3 h-3 mr-2" />
@@ -840,13 +701,7 @@ export const PaymentModal = ({
                   <div className="grid grid-cols-2 gap-4 mt-2">
                     <Button
                       variant={useQR === "qr" ? "default" : "outline"}
-                      onClick={() =>
-                        dispatch({
-                          type: "SET_FIELD",
-                          field: "useQR",
-                          payload: "qr",
-                        })
-                      }
+                      onClick={() => dispatch({ type: "SET_FIELD", field: "useQR", payload: "qr" })}
                       size="sm"
                     >
                       <QrCode className="mr-2 h-4 w-4" />
@@ -855,13 +710,7 @@ export const PaymentModal = ({
 
                     <Button
                       variant={useQR === "code" ? "default" : "outline"}
-                      onClick={() =>
-                        dispatch({
-                          type: "SET_FIELD",
-                          field: "useQR",
-                          payload: "code",
-                        })
-                      }
+                      onClick={() => dispatch({ type: "SET_FIELD", field: "useQR", payload: "code" })}
                       size="sm"
                     >
                       <File className="mr-2 h-4 w-4" />
@@ -873,39 +722,21 @@ export const PaymentModal = ({
                 <CheckboxInput
                   label={"Mostrar cvv"}
                   checked={isSecureCode}
-                  onChange={(value) =>
-                    dispatch({
-                      type: "SET_FIELD",
-                      field: "isSecureCode",
-                      payload: value,
-                    })
-                  }
+                  onChange={(value) => dispatch({ type: "SET_FIELD", field: "isSecureCode", payload: value })}
                 />
 
                 <DropdownValues
                   label="Documento"
                   value={document}
-                  onChange={(
-                    value: { value: string; label: string; item: any } | null
-                  ) => {
+                  onChange={(value: { value: string; label: string; item: any } | null) => {
                     if (!value) return;
-                    dispatch({
-                      type: "SET_FIELD",
-                      field: "document",
-                      payload: value.value,
-                    });
+                    dispatch({ type: "SET_FIELD", field: "document", payload: value.value });
                   }}
                   options={selectFiles}
                 />
 
                 <TextInput
-                  onChange={(value) =>
-                    dispatch({
-                      type: "SET_FIELD",
-                      field: "cargo",
-                      payload: value,
-                    })
-                  }
+                  onChange={(value) => dispatch({ type: "SET_FIELD", field: "cargo", payload: value })}
                   value={cargo || ""}
                   label="Tipo de cargo"
                   placeholder="RENTA HABITACIÓN..."
@@ -917,29 +748,18 @@ export const PaymentModal = ({
               <div className="space-y-4">
                 <DropdownValues
                   onChange={(value: any) => {
-                    dispatch({
-                      type: "SET_FIELD",
-                      field: "selectedCard",
-                      payload: value?.item?.id ?? "",
-                    });
+                    dispatch({ type: "SET_FIELD", field: "selectedCard", payload: value?.item?.id ?? "" });
                   }}
                   value={selectedCard || ""}
-                  options={creditCards.map((item: any) => ({
-                    value: item.id,
-                    label: item.name,
-                    item,
-                  }))}
+                  options={creditCards.map((item: any) => ({ value: item.id, label: item.name, item }))}
                   label="Seleccionar tarjeta"
                 />
               </div>
             )}
 
-            {/* ✅ SELECT NATIVO TITULAR (SOLO LINK) */}
             {paymentMethod === "link" && (
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">
-                  Seleccionar titular
-                </label>
+                <label className="text-sm font-medium text-slate-700">Seleccionar titular</label>
 
                 <select
                   className="w-full h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -947,7 +767,6 @@ export const PaymentModal = ({
                   onChange={(e) => setSelectedTitularId(e.target.value)}
                 >
                   <option value="">-- Selecciona un titular --</option>
-
                   {Array.isArray(titularesData) &&
                     titularesData.map((t: any) => (
                       <option key={t.idTitular} value={String(t.idTitular)}>
@@ -957,33 +776,20 @@ export const PaymentModal = ({
                 </select>
 
                 {currentTitular?.identificacion && (
-                  <a
-                    href={currentTitular.identificacion}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-xs text-blue-600 underline"
-                  >
+                  <a href={currentTitular.identificacion} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline">
                     Ver identificación del titular
                   </a>
                 )}
               </div>
             )}
 
-            {/* Comentarios (1) */}
             <TextAreaInput
-              onChange={(value) =>
-                dispatch({
-                  type: "SET_FIELD",
-                  field: "comments",
-                  payload: value,
-                })
-              }
+              onChange={(value) => dispatch({ type: "SET_FIELD", field: "comments", payload: value })}
               placeholder="Agregar comentarios sobre el pago..."
               value={comments || ""}
               label="Comentarios"
             />
 
-            {/* Comentarios CXP (2) */}
             <TextAreaInput
               onChange={(value) => setCommentsCxp(value)}
               placeholder="Agregar comentarios para CXP..."
@@ -991,10 +797,7 @@ export const PaymentModal = ({
               label="Comentarios CXP"
             />
 
-            <Button
-              onClick={handlePayment}
-              className="w-full bg-blue-600 hover:bg-blue-700"
-            >
+            <Button onClick={handlePayment} className="w-full bg-blue-600 hover:bg-blue-700">
               Confirmar pago
             </Button>
           </div>
@@ -1004,20 +807,14 @@ export const PaymentModal = ({
         {paymentType === "credit" && (
           <div className="space-y-2">
             <TextAreaInput
-              onChange={(value) =>
-                dispatch({ type: "SET_FIELD", field: "emails", payload: value })
-              }
+              onChange={(value) => dispatch({ type: "SET_FIELD", field: "emails", payload: value })}
               placeholder="correo1@ejemplo.com, correo2@ejemplo.com"
               value={emails || ""}
               label="Correos Electronicos (separados por comas)"
             />
 
             <div className="grid grid-cols-3 gap-4">
-              <Button
-                onClick={handleDownloadCoupon}
-                variant="outline"
-                className="bg-green-50 border-green-200"
-              >
+              <Button onClick={handleDownloadCoupon} variant="outline" className="bg-green-50 border-green-200">
                 <Download className="mr-2 h-4 w-4" />
                 Descargar Cupón
               </Button>
@@ -1026,40 +823,25 @@ export const PaymentModal = ({
                 onClick={() => setIsReservaOpen(true)}
                 disabled={!mappedReservation}
                 className="w-full bg-emerald-600 hover:bg-emerald-700"
-                title={
-                  !mappedReservation
-                    ? "No hay datos de reservación aún"
-                    : "Abrir cupón / resumen"
-                }
+                title={!mappedReservation ? "No hay datos de reservación aún" : "Abrir cupón / resumen"}
               >
                 <Ticket className="mr-2 h-4 w-4" />
                 Ver Cupón / Resumen
               </Button>
 
-              <Button
-                onClick={handleSendCoupon}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
+              <Button onClick={handleSendCoupon} className="bg-blue-600 hover:bg-blue-700">
                 <Send className="mr-2 h-4 w-4" />
                 Enviar Cupón (PDF)
               </Button>
             </div>
 
-            {/* Comentarios (1) */}
             <TextAreaInput
-              onChange={(value) =>
-                dispatch({
-                  type: "SET_FIELD",
-                  field: "comments",
-                  payload: value,
-                })
-              }
+              onChange={(value) => dispatch({ type: "SET_FIELD", field: "comments", payload: value })}
               placeholder="Comentarios sobre el crédito..."
               value={comments || ""}
               label="Comentarios"
             />
 
-            {/* Comentarios CXP (2) */}
             <TextAreaInput
               onChange={(value) => setCommentsCxp(value)}
               placeholder="Comentarios para CXP..."
@@ -1067,23 +849,18 @@ export const PaymentModal = ({
               label="Comentarios CXP"
             />
 
-            <Reserva
-              isOpen={isReservaOpen}
-              onClose={() => setIsReservaOpen(false)}
-              reservation={mappedReservation}
-            />
+            {/* ✅ BOTÓN QUE FALTABA PARA CRÉDITO */}
+            <Button onClick={handleConfirmCredit} className="w-full bg-blue-600 hover:bg-blue-700">
+              Confirmar crédito
+            </Button>
+
+            <Reserva isOpen={isReservaOpen} onClose={() => setIsReservaOpen(false)} reservation={mappedReservation} />
           </div>
         )}
       </div>
 
       {/* Instancia oculta SOLO para generar/descargar/enviar el PDF */}
-      <Reserva
-        ref={reservaRef}
-        isOpen={false}
-        onClose={() => {}}
-        reservation={mappedReservation}
-        mountHidden
-      />
+      <Reserva ref={reservaRef} isOpen={false} onClose={() => {}} reservation={mappedReservation} mountHidden />
     </div>
   );
 };
