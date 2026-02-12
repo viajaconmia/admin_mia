@@ -25,7 +25,7 @@ export class FacturaService extends ApiService {
   }
 
   public obtenerFacturas = async (
-    body: TypeFilters,
+    body: TypeFilters & { page: number; length: number },
   ): Promise<ApiResponse<Factura[]>> =>
     this.post({
       path: this.formatPath(this.ENDPOINTS.POST.obtener_facturas),

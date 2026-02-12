@@ -41,6 +41,8 @@ import { FacturaService } from "@/services/FacturasService";
 import { useNotification } from "@/context/useNotificacion";
 import { Button } from "@/components/ui/button";
 import ModalDetalleFactura from "@/app/dashboard/invoices/_components/detalles";
+import { PageTracker, TrackingPage } from "./tracker_false";
+import { set } from "date-fns";
 
 // Formato moneda
 const fmtMoney = (n: any) =>
@@ -264,6 +266,8 @@ function FacturaDetails({
   );
 }
 
+const MAX_REGISTER = 50; // para paginación, número de registros por página
+
 /* ===================== Página con Table5 + filtros ===================== */
 
 const defaultFiltersFacturas: TypeFilters = {
@@ -283,9 +287,14 @@ export function TravelersPage() {
 
   // Estados
   const [searchTerm, setSearchTerm] = useState("");
+  const [tracking, setTracking] = useState<TrackingPage>({
+    page: 1,
+    total_pages: 0,
+    total: 0,
+  });
+
   // const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [activeFilters, setActiveFilters] = useState(defaultFiltersFacturas);
-  const [isLoading, setIsLoading] = useState(false);
   const [facturas, setFacturas] = useState<Factura[]>([]);
   const [id, setId] = useState<string | null>(null);
   const { Can } = usePermiso();
@@ -301,24 +310,29 @@ export function TravelersPage() {
   const [modalDetalleOpen, setModalDetalleOpen] = useState(false);
   const [detalleIdFactura, setDetalleIdFactura] = useState<string | null>(null);
 
-  // opcional: guardarlo en el padre
-  // const [detalleFacturaData, setDetalleFacturaData] = useState<any>(null);
-
-  // Llamada unificada
-  const cargarFacturas = async (filters: any) => {
-    setIsLoading(true);
+  const cargarFacturas = async (page = tracking.page) => {
     try {
-      const response =
-        await FacturaService.getInstance().obtenerFacturas(filters);
-      const data = response.data || [];
-      setFacturas(Array.isArray(data) ? data : []);
+      const response = await FacturaService.getInstance().obtenerFacturas({
+        ...activeFilters,
+        page,
+        length: MAX_REGISTER,
+      });
+      console.log(response, "respuesta facturas");
+      setFacturas(response.data || []);
+      setTracking({
+        page,
+        total_pages: Math.ceil(response.metadata.total / MAX_REGISTER) || 0,
+        total: response.metadata.total || 0,
+      });
     } catch (e) {
       console.error("Error al obtener facturas:", e);
       setFacturas([]);
-    } finally {
-      setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    setTracking({ ...tracking, page: 1 });
+  }, [activeFilters]);
 
   // Inicial
   // useEffect(() => {
@@ -371,7 +385,7 @@ export function TravelersPage() {
       showNotification("success", "Relación eliminada correctamente");
 
       // refresca tabla
-      await cargarFacturas(activeFilters);
+      await cargarFacturas();
     } catch (error: any) {
       showNotification(
         "error",
@@ -383,7 +397,6 @@ export function TravelersPage() {
   };
   const handleFilter = (filters: any) => {
     setActiveFilters(filters);
-    cargarFacturas(filters);
   };
 
   const [balance, setBalance] = useState<Balance | null>(null);
@@ -747,7 +760,7 @@ export function TravelersPage() {
         />
       )}
       <Card>
-        <div className="p-6 space-y-4">
+        <div className="p-6 space-y-2">
           <Filters
             defaultFilters={defaultFiltersFacturas}
             onFilter={handleFilter}
@@ -755,15 +768,27 @@ export function TravelersPage() {
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
           />
+          <Button size="sm" onClick={() => cargarFacturas()}>
+            Cargar facturas
+          </Button>
 
           <Table5
             registros={registros}
             renderers={renderers as any}
             customColumns={customColumns}
             defaultSort={{ key: "fecha_emision", sort: false }} // desc
-            maxHeight="32rem"
+            maxHeight="26rem"
             splitStringsBySpace
           />
+
+          {facturas && (
+            <PageTracker
+              tracking={tracking}
+              setPage={(page) => {
+                cargarFacturas(page);
+              }}
+            ></PageTracker>
+          )}
         </div>
       </Card>
 
