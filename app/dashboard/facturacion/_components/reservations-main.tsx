@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState,useCallback, useMemo  } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { fetchEmpresasDatosFiscales } from "@/hooks/useFetch";
 import {
   formatDate,
@@ -13,18 +13,23 @@ import { DescargaFactura, Root } from "@/types/billing";
 import { Download } from "lucide-react";
 import { formatMoneyMXN, withCommas } from "@/helpers/formater";
 import { useNotification } from "@/context/useNotificacion";
+import { se } from "date-fns/locale";
+import { currentDate } from "@/lib/utils";
 
 // --- Helpers de descarga robusta ---
 const normalizeBase64 = (b64?: string | null) => {
   if (!b64) return "";
-  const clean = b64.split("base64,").pop()!.replace(/[\r\n\s]/g, "");
+  const clean = b64
+    .split("base64,")
+    .pop()!
+    .replace(/[\r\n\s]/g, "");
   return clean.replace(/-/g, "+").replace(/_/g, "/");
 };
 
 // --- Subida segura a S3 con URL pre-firmada ---
 const subirArchivoAS3Seguro = async (
   file: File,
-  bucket: string = "comprobantes"
+  bucket: string = "comprobantes",
 ) => {
   try {
     console.log(`Iniciando subida de ${file.name} (${file.type})`);
@@ -32,14 +37,16 @@ const subirArchivoAS3Seguro = async (
     const { url: presignedUrl, publicUrl } = await obtenerPresignedUrl(
       file.name,
       file.type,
-      bucket
+      bucket,
     );
 
     console.log(`URL pre-firmada obtenida para ${file.name}`);
 
     await subirArchivoAS3(file, presignedUrl);
 
-    console.log(`✅ Archivo ${file.name} subido exitosamente a S3: ${publicUrl}`);
+    console.log(
+      `✅ Archivo ${file.name} subido exitosamente a S3: ${publicUrl}`,
+    );
 
     return publicUrl;
   } catch (error: any) {
@@ -52,7 +59,8 @@ const base64ToBlob = (b64: string, mime: string) => {
   const clean = normalizeBase64(b64);
   const byteChars = atob(clean);
   const byteNumbers = new Array(byteChars.length);
-  for (let i = 0; i < byteChars.length; i++) byteNumbers[i] = byteChars.charCodeAt(i);
+  for (let i = 0; i < byteChars.length; i++)
+    byteNumbers[i] = byteChars.charCodeAt(i);
   const byteArray = new Uint8Array(byteNumbers);
   return new Blob([byteArray], { type: mime });
 };
@@ -87,7 +95,11 @@ const getXmlBase64 = (d: any) =>
   d?.xml ??
   (d?.FileExtension === "xml" ? d?.Content : null);
 
-const maybeDownloadByUrl = (urlOrBase64: string, _fallbackMime: string, filename: string) => {
+const maybeDownloadByUrl = (
+  urlOrBase64: string,
+  _fallbackMime: string,
+  filename: string,
+) => {
   if (/^https?:\/\//i.test(urlOrBase64)) {
     const a = document.createElement("a");
     a.href = urlOrBase64;
@@ -106,18 +118,34 @@ const cfdiUseOptions = [
   { value: "G02", label: "G02 - Devoluciones, descuentos o bonificaciones" },
   { value: "G03", label: "G03 - Gastos en general" },
   { value: "I01", label: "I01 - Construcciones" },
-  { value: "I02", label: "I02 - Mobilario y equipo de oficina por inversiones" },
+  {
+    value: "I02",
+    label: "I02 - Mobilario y equipo de oficina por inversiones",
+  },
   { value: "I03", label: "I03 - Equipo de transporte" },
   { value: "I04", label: "I04 - Equipo de cómputo y accesorios" },
-  { value: "I05", label: "I05 - Dados, troqueles, moldes, matrices y herramental" },
+  {
+    value: "I05",
+    label: "I05 - Dados, troqueles, moldes, matrices y herramental",
+  },
   { value: "I06", label: "I06 - Comunicaciones telefónicas" },
   { value: "I07", label: "I07 - Comunicaciones satelitales" },
   { value: "I08", label: "I08 - Otra maquinaria y equipo" },
-  { value: "D01", label: "D01 - Honorarios médicos, dentales y gastos hospitalarios" },
-  { value: "D02", label: "D02 - Gastos médicos por incapacidad o discapacidad" },
+  {
+    value: "D01",
+    label: "D01 - Honorarios médicos, dentales y gastos hospitalarios",
+  },
+  {
+    value: "D02",
+    label: "D02 - Gastos médicos por incapacidad o discapacidad",
+  },
   { value: "D03", label: "D03 - Gastos funerales" },
   { value: "D04", label: "D04 - Donativos" },
-  { value: "D05", label: "D05 - Intereses reales efectivamente pagados por créditos hipotecarios" },
+  {
+    value: "D05",
+    label:
+      "D05 - Intereses reales efectivamente pagados por créditos hipotecarios",
+  },
   { value: "D06", label: "D06 - Aportaciones voluntarias al SAR" },
   { value: "D07", label: "D07 - Primas por seguros de gastos médicos" },
   { value: "D08", label: "D08 - Gastos de transportación escolar obligatoria" },
@@ -233,18 +261,27 @@ interface ReservationWithItems extends Reservation {
   nightsCount?: number;
 }
 
-type ReservationStatus = "pending" | "confirmed" | "completed" | "cancelled" | "all";
+type ReservationStatus =
+  | "pending"
+  | "confirmed"
+  | "completed"
+  | "cancelled"
+  | "all";
 
 // ✅ Nuevo: asignar URLs a la factura en tu backend
-const asignarURLS_factura = async (id_factura: string, url_pdf: string, url_xml: string) => {
+const asignarURLS_factura = async (
+  id_factura: string,
+  url_pdf: string,
+  url_xml: string,
+) => {
   const resp = await fetch(
     `${URL}/mia/factura/asignarURLS_factura?id_factura=${encodeURIComponent(
-      id_factura
+      id_factura,
     )}&url_pdf=${encodeURIComponent(url_pdf)}&url_xml=${encodeURIComponent(url_xml)}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-api-key": API_KEY },
-    }
+    },
   );
 
   if (!resp.ok) {
@@ -264,7 +301,7 @@ const num = (v: any) => Number.parseFloat(String(v ?? 0)) || 0;
 const preflightCfdi = (
   cfdiItems: any[],
   itemsFacturadosFull: any[],
-  showNotification: (type: any, message: string) => void
+  showNotification: (type: any, message: string) => void,
 ) => {
   const errs: string[] = [];
   const sum = (arr: any[], pick: (x: any) => number) =>
@@ -274,18 +311,18 @@ const preflightCfdi = (
   const totalCfdi = sum(cfdiItems, (x) => num(x.Total));
   const subtotalCfdi = sum(cfdiItems, (x) => num(x.Subtotal));
   const taxCfdi = sum(cfdiItems, (x) =>
-    sum(x?.Taxes ?? [], (t: any) => num(t.Total))
+    sum(x?.Taxes ?? [], (t: any) => num(t.Total)),
   );
 
   if (Math.abs(totalSelected - totalCfdi) > 0.01) {
     errs.push(
-      `Total seleccionado (${totalSelected.toFixed(2)}) != Total CFDI (${totalCfdi.toFixed(2)})`
+      `Total seleccionado (${totalSelected.toFixed(2)}) != Total CFDI (${totalCfdi.toFixed(2)})`,
     );
   }
 
   if (Math.abs(r2(subtotalCfdi + taxCfdi) - totalCfdi) > 0.01) {
     errs.push(
-      `Global: Subtotal(${subtotalCfdi.toFixed(2)}) + IVA(${taxCfdi.toFixed(2)}) != Total(${totalCfdi.toFixed(2)})`
+      `Global: Subtotal(${subtotalCfdi.toFixed(2)}) + IVA(${taxCfdi.toFixed(2)}) != Total(${totalCfdi.toFixed(2)})`,
     );
   }
 
@@ -299,8 +336,8 @@ const preflightCfdi = (
     if (Math.abs(expectedTotal - total) > 0.01) {
       errs.push(
         `Item#${idx + 1}: Subtotal(${sub.toFixed(2)}) + IVA(${taxSum.toFixed(
-          2
-        )}) != Total(${total.toFixed(2)})`
+          2,
+        )}) != Total(${total.toFixed(2)})`,
       );
     }
 
@@ -313,8 +350,8 @@ const preflightCfdi = (
       if (Math.abs(expectedTax - tax) > 0.01) {
         errs.push(
           `Item#${idx + 1} TAX: Base(${base.toFixed(
-            2
-          )})*Rate(${rate})=${expectedTax.toFixed(2)} != Tax(${tax.toFixed(2)})`
+            2,
+          )})*Rate(${rate})=${expectedTax.toFixed(2)} != Tax(${tax.toFixed(2)})`,
         );
       }
     });
@@ -326,7 +363,12 @@ const preflightCfdi = (
     return false;
   }
 
-  console.log("✅ PRE-FLIGHT CFDI OK", { totalSelected, subtotalCfdi, taxCfdi, totalCfdi });
+  console.log("✅ PRE-FLIGHT CFDI OK", {
+    totalSelected,
+    subtotalCfdi,
+    taxCfdi,
+    totalCfdi,
+  });
   return true;
 };
 
@@ -336,7 +378,13 @@ export const FacturacionModal: React.FC<{
   reservationsInit: Reservation[];
   onClose: () => void;
   onConfirm: (fiscalData: FiscalData, isConsolidated: boolean) => void;
-}> = ({ selectedItems, selectedHospedaje, reservationsInit, onClose, onConfirm }) => {
+}> = ({
+  selectedItems,
+  selectedHospedaje,
+  reservationsInit,
+  onClose,
+  onConfirm,
+}) => {
   const { showNotification } = useNotification();
   const { crearCfdi, descargarFactura } = useApi();
 
@@ -347,34 +395,41 @@ export const FacturacionModal: React.FC<{
   const IVA_8 = 0.08 as const;
   type IvaRate = typeof IVA_16 | typeof IVA_8;
   const EXPEDITION_PLACE_8P = "32460";
-const EXPEDITION_PLACE_16P = "11560";
+  const EXPEDITION_PLACE_16P = "11560";
   const [ivaRate, setIvaRate] = useState<IvaRate>(IVA_16);
 
-const expeditionPlace = useMemo(
-  () => (ivaRate === IVA_8 ? EXPEDITION_PLACE_8P : EXPEDITION_PLACE_16P),
-  [ivaRate]
-);
+  const expeditionPlace = useMemo(
+    () => (ivaRate === IVA_8 ? EXPEDITION_PLACE_8P : EXPEDITION_PLACE_16P),
+    [ivaRate],
+  );
 
+  const ivaFactor = useMemo(() => 1 + ivaRate, [ivaRate]);
+  const ivaRateStr = useMemo(() => ivaRate.toFixed(6), [ivaRate]);
 
-const ivaFactor = useMemo(() => 1 + ivaRate, [ivaRate]);
-const ivaRateStr = useMemo(() => ivaRate.toFixed(6), [ivaRate]);
+  // Cambia la función splitIva para que use el ivaFactor correctamente
+  const splitIva = useCallback(
+    (total: number) => {
+      const t = round2(Number(total) || 0);
+      const subtotal = round2(t / ivaFactor);
+      const iva = round2(t - subtotal);
+      return { subtotal, iva, total: t };
+    },
+    [ivaFactor],
+  );
 
-// Cambia la función splitIva para que use el ivaFactor correctamente
-const splitIva = useCallback(
-  (total: number) => {
-    const t = round2(Number(total) || 0);
-    const subtotal = round2(t / ivaFactor);
-    const iva = round2(t - subtotal);
-    return { subtotal, iva, total: t };
-  },
-  [ivaFactor]
-);
-
-  const [selectedDescription, setSelectedDescription] = useState<string>(paymentDescriptions[0]);
+  const [selectedDescription, setSelectedDescription] = useState<string>(
+    paymentDescriptions[0],
+  );
+  const now = new Date();
   const [omitObservations, setOmitObservations] = useState(false);
-
+  const [periodicity, setPeriodicity] = useState("04");
+  const [month, setMonth] = useState(
+    String(now.getMonth() + 1).padStart(2, "0"),
+  );
+  const [year, setYear] = useState(String(now.getFullYear()));
   const [fiscalDataList, setFiscalDataList] = useState<FiscalData[]>([]);
-  const [selectedFiscalData, setSelectedFiscalData] = useState<FiscalData | null>(null);
+  const [selectedFiscalData, setSelectedFiscalData] =
+    useState<FiscalData | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -384,12 +439,13 @@ const splitIva = useCallback(
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("PUE");
 
   const [descarga, setDescarga] = useState<DescargaFactura | null>(null);
-  const [isInvoiceGenerated, setIsInvoiceGenerated] = useState<Root | null>(null);
+  const [isInvoiceGenerated, setIsInvoiceGenerated] = useState<Root | null>(
+    null,
+  );
 
   const [isConsolidated, setIsConsolidated] = useState(true);
-  const [reservationsWithSelectedItems, setReservationsWithSelectedItems] = useState<
-    ReservationWithItems[]
-  >([]);
+  const [reservationsWithSelectedItems, setReservationsWithSelectedItems] =
+    useState<ReservationWithItems[]>([]);
 
   // --- Helpers fecha de vencimiento ---
   const addDays = (d: Date, days: number) => {
@@ -404,7 +460,9 @@ const splitIva = useCallback(
     return `${y}-${m}-${day}`;
   };
 
-  const [dueDate, setDueDate] = useState<string>(() => toInputDate(addDays(new Date(), 30)));
+  const [dueDate, setDueDate] = useState<string>(() =>
+    toInputDate(addDays(new Date(), 30)),
+  );
   const minDueDate = toInputDate(new Date());
 
   // Estado para el CFDI (preview / base)
@@ -420,7 +478,7 @@ const splitIva = useCallback(
     NameId: "1",
     Observations: "",
     //ExpeditionPlace: "42501",
-    ExpeditionPlace:EXPEDITION_PLACE_16P,
+    ExpeditionPlace: EXPEDITION_PLACE_16P,
     Serie: null as any,
     Folio: Math.round(Math.random() * 999999999),
     PaymentForm: selectedPaymentForm,
@@ -445,8 +503,11 @@ const splitIva = useCallback(
     .map((reserva) => `${reserva.hotel} - ${formatDate(reserva.check_in)}`)
     .join(" | ")}`;
 
-  const isCustomValid = customDescription && /[a-zA-Z0-9\S]/.test(customDescription.trim());
-  const descriptionToUse = isCustomValid ? customDescription : defaultDescription;
+  const isCustomValid =
+    customDescription && /[a-zA-Z0-9\S]/.test(customDescription.trim());
+  const descriptionToUse = isCustomValid
+    ? customDescription
+    : defaultDescription;
 
   const handleCopyObservations = async () => {
     const text = sanitizeFacturamaText(descriptionToUse, 1000);
@@ -486,7 +547,7 @@ const splitIva = useCallback(
             impuestos: iva.toFixed(2),
           };
         }),
-      }))
+      })),
   );
 
   useEffect(() => {
@@ -504,7 +565,7 @@ const splitIva = useCallback(
               impuestos: iva.toFixed(2),
             };
           }),
-        }))
+        })),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ivaRate, reservationsInit]);
@@ -513,10 +574,14 @@ const splitIva = useCallback(
   useEffect(() => {
     if (
       fiscalDataList.some(
-        (empresa) => empresa?.id_agente == "11e1a5c7-1d44-485e-99a2-7fdf674058f3"
+        (empresa) =>
+          empresa?.id_agente == "11e1a5c7-1d44-485e-99a2-7fdf674058f3",
       )
     ) {
-      showNotification("error", "Se detecto al cliente amparo, cambiaremos el servicio");
+      showNotification(
+        "error",
+        "Se detecto al cliente amparo, cambiaremos el servicio",
+      );
       setSelectedDescription(paymentDescriptions[1]);
     }
   }, [fiscalDataList, showNotification]);
@@ -529,7 +594,9 @@ const splitIva = useCallback(
         .map((reserva) => {
           const selectedItemIds = selectedItems[reserva.id_servicio] || [];
           const items = Array.isArray(reserva.items)
-            ? reserva.items.filter((item) => selectedItemIds.includes(item.id_item))
+            ? reserva.items.filter((item) =>
+                selectedItemIds.includes(item.id_item),
+              )
             : [];
 
           return {
@@ -541,12 +608,15 @@ const splitIva = useCallback(
 
       setReservationsWithSelectedItems(preparedReservations);
 
-      if (fiscalDataList.length === 0 && preparedReservations[0]?.id_usuario_generador) {
+      if (
+        fiscalDataList.length === 0 &&
+        preparedReservations[0]?.id_usuario_generador
+      ) {
         (async () => {
           try {
             setLoading(true);
             const data = await fetchEmpresasDatosFiscales(
-              preparedReservations[0].id_usuario_generador
+              preparedReservations[0].id_usuario_generador,
             );
             setFiscalDataList(data);
             if (data.length > 0) setSelectedFiscalData(data[0]);
@@ -568,20 +638,27 @@ const splitIva = useCallback(
     }));
   }, [expeditionPlace]);
 
-
   // Totales seleccionados (total con IVA incluido, porque viene de item.total)
   const totalAmount = reservationsWithSelectedItems.reduce(
     (sum, reserva) =>
       sum +
-      (reserva.items?.reduce((itemSum, item) => itemSum + parseFloat(item.total), 0) || 0),
-    0
+      (reserva.items?.reduce(
+        (itemSum, item) => itemSum + parseFloat(item.total),
+        0,
+      ) || 0),
+    0,
   );
 
-  const { subtotal: previewSubtotal, iva: previewIva, total: previewTotal } = splitIva(totalAmount);
+  const {
+    subtotal: previewSubtotal,
+    iva: previewIva,
+    total: previewTotal,
+  } = splitIva(totalAmount);
 
   // Actualizar CFDI preview (IMPORTANT: ya no hardcodea 1.16 / 0.16)
   useEffect(() => {
-    if (!selectedFiscalData || reservationsWithSelectedItems.length === 0) return;
+    if (!selectedFiscalData || reservationsWithSelectedItems.length === 0)
+      return;
 
     if (isConsolidated) {
       const { subtotal, iva, total } = splitIva(totalAmount);
@@ -620,7 +697,9 @@ const splitIva = useCallback(
             Total: total.toFixed(2),
           },
         ],
-        Observations: omitObservations ? "" : sanitizeFacturamaText(descriptionToUse),
+        Observations: omitObservations
+          ? ""
+          : sanitizeFacturamaText(descriptionToUse),
       }));
       return;
     }
@@ -641,10 +720,14 @@ const splitIva = useCallback(
       Items: reservationsWithSelectedItems
         .map((reserva) => {
           const ids = selectedItems[reserva.id_servicio] ?? [];
-          const itemsSel = (reserva.items ?? []).filter((it) => ids.includes(it.id_item));
+          const itemsSel = (reserva.items ?? []).filter((it) =>
+            ids.includes(it.id_item),
+          );
           if (!itemsSel.length) return null;
 
-          const totalSel = round2(itemsSel.reduce((s, it) => s + Number(it.total), 0));
+          const totalSel = round2(
+            itemsSel.reduce((s, it) => s + Number(it.total), 0),
+          );
           const { subtotal, iva, total } = splitIva(totalSel);
 
           return {
@@ -670,7 +753,9 @@ const splitIva = useCallback(
           };
         })
         .filter(Boolean),
-      Observations: omitObservations ? "" : sanitizeFacturamaText(descriptionToUse),
+      Observations: omitObservations
+        ? ""
+        : sanitizeFacturamaText(descriptionToUse),
     }));
   }, [
     selectedFiscalData,
@@ -696,12 +781,16 @@ const splitIva = useCallback(
 
     const missingFields: string[] = [];
     if (!cfdi.Receiver.Rfc) missingFields.push("RFC del receptor");
-    if (!cfdi.Receiver.TaxZipCode) missingFields.push("código postal del receptor");
+    if (!cfdi.Receiver.TaxZipCode)
+      missingFields.push("código postal del receptor");
     if (!selectedCfdiUse) missingFields.push("uso CFDI");
     if (!selectedPaymentForm) missingFields.push("forma de pago");
 
     if (missingFields.length > 0) {
-      showNotification("error", `Faltan los siguientes campos: ${missingFields.join(", ")}`);
+      showNotification(
+        "error",
+        `Faltan los siguientes campos: ${missingFields.join(", ")}`,
+      );
       return false;
     }
 
@@ -741,20 +830,22 @@ const splitIva = useCallback(
       total: arr.reduce((s, x) => s + Number(x.total || 0), 0),
       hotel: arr.find((x) => x.reserva?.hotel)?.reserva?.hotel ?? "",
       check_in: arr.find((x) => x.reserva?.check_in)?.reserva?.check_in ?? "",
-      check_out: arr.find((x) => x.reserva?.check_out)?.reserva?.check_out ?? "",
+      check_out:
+        arr.find((x) => x.reserva?.check_out)?.reserva?.check_out ?? "",
     }));
   };
 
   const getSelectedItemsFull = (
     reservationsSel: ReservationWithItems[],
     selected: Record<string, string[]>,
-    selectedHosp?: Record<string, string[]>
+    selectedHosp?: Record<string, string[]>,
   ): ItemFull[] => {
     return reservationsSel.flatMap((r) => {
       const ids = selected[r.id_servicio] ?? [];
       if (!ids.length) return [];
 
-      const id_hospedaje = selectedHosp?.[r.id_servicio]?.[0] ?? r.id_hospedaje ?? null;
+      const id_hospedaje =
+        selectedHosp?.[r.id_servicio]?.[0] ?? r.id_hospedaje ?? null;
 
       return (r.items ?? [])
         .filter((it) => ids.includes(it.id_item))
@@ -775,14 +866,18 @@ const splitIva = useCallback(
               hotel: r.hotel,
               check_in: r.check_in,
               check_out: r.check_out,
-              nombre_viajero: r.nombre_viajero_completo ?? r.nombre_viajero ?? null,
+              nombre_viajero:
+                r.nombre_viajero_completo ?? r.nombre_viajero ?? null,
             },
           };
         });
     });
   };
 
-  type InvoiceMode = "consolidada" | "detallada_por_hospedaje" | "detallada_por_item";
+  type InvoiceMode =
+    | "consolidada"
+    | "detallada_por_hospedaje"
+    | "detallada_por_item";
 
   const buildAddenda = () => {
     const reservas = reservationsWithSelectedItems.map((r) => {
@@ -819,7 +914,9 @@ const splitIva = useCallback(
     });
 
     const total = round2(reservas.reduce((s, r) => s + r.totales.total, 0));
-    const subtotal = round2(reservas.reduce((s, r) => s + r.totales.subtotal, 0));
+    const subtotal = round2(
+      reservas.reduce((s, r) => s + r.totales.subtotal, 0),
+    );
     const iva = round2(reservas.reduce((s, r) => s + r.totales.iva, 0));
 
     return {
@@ -833,9 +930,9 @@ const splitIva = useCallback(
       totales_globales: { subtotal, iva, total },
     };
   };
-    useEffect(() => {
-      console.log("IVA:", ivaRateStr, "ExpeditionPlace:", expeditionPlace);
-    }, [ivaRateStr, expeditionPlace]);
+  useEffect(() => {
+    console.log("IVA:", ivaRateStr, "ExpeditionPlace:", expeditionPlace);
+  }, [ivaRateStr, expeditionPlace]);
 
   const handleConfirm = async (mode: InvoiceMode) => {
     if (!selectedFiscalData) {
@@ -862,7 +959,7 @@ const splitIva = useCallback(
       const itemsFacturadosFull = getSelectedItemsFull(
         reservationsWithSelectedItems,
         selectedItems,
-        selectedHospedaje
+        selectedHospedaje,
       );
 
       if (!itemsFacturadosFull.length) {
@@ -882,9 +979,10 @@ const splitIva = useCallback(
         const QTY_ONE = "1";
 
         if (mode === "consolidada") {
-    const totalFacturado = round2(itemsFacturadosFull.reduce((s, it) => s + it.total, 0));
-    const { subtotal, iva, total } = splitIva(totalFacturado);
-    
+          const totalFacturado = round2(
+            itemsFacturadosFull.reduce((s, it) => s + it.total, 0),
+          );
+          const { subtotal, iva, total } = splitIva(totalFacturado);
 
           return [
             {
@@ -920,7 +1018,9 @@ const splitIva = useCallback(
             const descRaw = [
               selectedDescription,
               g.hotel ? `${g.hotel}` : "",
-              g.check_in && g.check_out ? `${formatDate(g.check_in)} - ${formatDate(g.check_out)}` : "",
+              g.check_in && g.check_out
+                ? `${formatDate(g.check_in)} - ${formatDate(g.check_out)}`
+                : "",
               g.items?.[0]?.reserva?.nombre_viajero ?? "",
             ]
               .filter(Boolean)
@@ -1012,13 +1112,17 @@ const splitIva = useCallback(
           Currency: "MXN",
           Date: formattedDate,
           OrderNumber: Math.round(Math.random() * 999999999).toString(),
-          Observations: omitObservations ? "" : sanitizeFacturamaText(descriptionToUse),
+          Observations: omitObservations
+            ? ""
+            : sanitizeFacturamaText(descriptionToUse),
           Items: cfdiItems,
         },
         info_user: {
           fecha_vencimiento: dueDate,
           id_user: reservationsWithSelectedItems[0].id_usuario_generador,
-          id_solicitud: reservationsWithSelectedItems.map((r) => r.id_solicitud),
+          id_solicitud: reservationsWithSelectedItems.map(
+            (r) => r.id_solicitud,
+          ),
           id_items: itemsFacturadosFull.map((x: any) => x.id_item),
           datos_empresa: {
             rfc: cfdi.Receiver.Rfc,
@@ -1033,6 +1137,13 @@ const splitIva = useCallback(
         },
         items_facturados: itemsFacturados,
       };
+      if (selectedFiscalData.rfc == RFC_GENERICO) {
+        payloadCFDI.cfdi.GlobalInformation = {
+          Periodicity: periodicity,
+          Months: month,
+          Year: year,
+        };
+      }
 
       console.log("📦 payloadCFDI (preview):", payloadCFDI);
 
@@ -1049,7 +1160,10 @@ const splitIva = useCallback(
       onConfirm(selectedFiscalData, modeIsConsolidated);
     } catch (error: any) {
       console.error(error);
-      showNotification("error", "Ocurrió un error al generar la factura: " + error.message);
+      showNotification(
+        "error",
+        "Ocurrió un error al generar la factura: " + error.message,
+      );
     } finally {
       setLoading(false);
     }
@@ -1057,23 +1171,38 @@ const splitIva = useCallback(
 
   const totalNights = reservationsWithSelectedItems.reduce(
     (sum, reserva) => sum + (reserva.nightsCount || 0),
-    0
+    0,
   );
-  useEffect(() => {
-  console.log("IVA RATE:", ivaRate, "ivaFactor:", 1 + ivaRate, "ivaRateStr:", ivaRate.toFixed(6));
-}, [ivaRate]);
 
+  useEffect(() => {
+    console.log(selectedFiscalData);
+  }, [selectedFiscalData]);
 
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium text-gray-900">Facturar Items de Reservaciones</h3>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-500">
+            <h3 className="text-lg font-medium text-gray-900">
+              Facturar Items de Reservaciones
+            </h3>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-500"
+            >
               <span className="sr-only">Cerrar</span>
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <svg
+                className="h-6 w-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           </div>
@@ -1081,7 +1210,8 @@ const splitIva = useCallback(
           {/* Vista previa */}
           <div className="mb-6 border rounded-md p-4 bg-gray-50">
             <h4 className="text-md font-medium text-gray-900 mb-3">
-              Vista previa de factura ({isConsolidated ? "Consolidada" : "Detallada"})
+              Vista previa de factura (
+              {isConsolidated ? "Consolidada" : "Detallada"})
             </h4>
 
             <div className="overflow-x-auto">
@@ -1123,12 +1253,16 @@ const splitIva = useCallback(
                             HOSPEDAJE - {totalNights} NOCHES(S) EN{" "}
                             {reservationsWithSelectedItems.length} RESERVAS(S)
                           </p>
-                          <p className="text-gray-600">02 - Con objeto de impuesto</p>
+                          <p className="text-gray-600">
+                            02 - Con objeto de impuesto
+                          </p>
                           <p className="text-gray-600">
                             Traslados:
                             <br />
-                            IVA: 002, Base: ${withCommas(previewSubtotal.toFixed(2))}, Tasa:{" "}
-                            {ivaRateStr}, Importe: ${withCommas(previewIva.toFixed(2))}
+                            IVA: 002, Base: $
+                            {withCommas(previewSubtotal.toFixed(2))}, Tasa:{" "}
+                            {ivaRateStr}, Importe: $
+                            {withCommas(previewIva.toFixed(2))}
                           </p>
                         </div>
                       </td>
@@ -1152,32 +1286,38 @@ const splitIva = useCallback(
                         <td className="px-3 py-2 text-sm border-b">
                           <div>
                             <p className="text-gray-600">
-                              HOSPEDAJE EN {reserva.hotel} - DEL {formatDate(reserva.check_in)} AL{" "}
-                              {formatDate(reserva.check_out)} ({reserva.nightsCount} NOCHES) -{" "}
+                              HOSPEDAJE EN {reserva.hotel} - DEL{" "}
+                              {formatDate(reserva.check_in)} AL{" "}
+                              {formatDate(reserva.check_out)} (
+                              {reserva.nightsCount} NOCHES) -{" "}
                               {reserva.nombre_viajero_completo}
                             </p>
-                            <p className="text-gray-600">02 - Con objeto de impuesto</p>
+                            <p className="text-gray-600">
+                              02 - Con objeto de impuesto
+                            </p>
                           </div>
                         </td>
                         {(() => {
-  const totalSel = reserva.items.reduce((s, it) => s + Number(it.total || 0), 0);
-  const { subtotal, iva, total } = splitIva(totalSel);
+                          const totalSel = reserva.items.reduce(
+                            (s, it) => s + Number(it.total || 0),
+                            0,
+                          );
+                          const { subtotal, iva, total } = splitIva(totalSel);
 
-  return (
-    <>
-      <td className="px-3 py-2 text-sm border-b">
-        ${subtotal.toFixed(2)}
-        <div className="text-[11px] text-gray-500">
-          IVA: ${iva.toFixed(2)} ({ivaRateStr})
-        </div>
-      </td>
-      <td className="px-3 py-2 text-sm border-b">
-        ${total.toFixed(2)}
-      </td>
-    </>
-  );
-})()}
-
+                          return (
+                            <>
+                              <td className="px-3 py-2 text-sm border-b">
+                                ${subtotal.toFixed(2)}
+                                <div className="text-[11px] text-gray-500">
+                                  IVA: ${iva.toFixed(2)} ({ivaRateStr})
+                                </div>
+                              </td>
+                              <td className="px-3 py-2 text-sm border-b">
+                                ${total.toFixed(2)}
+                              </td>
+                            </>
+                          );
+                        })()}
                       </tr>
                     ))
                   )}
@@ -1194,12 +1334,16 @@ const splitIva = useCallback(
 
           {/* Datos fiscales */}
           <div className="mb-6">
-            <h4 className="text-md font-medium text-gray-900 mb-3">Datos Fiscales</h4>
+            <h4 className="text-md font-medium text-gray-900 mb-3">
+              Datos Fiscales
+            </h4>
 
             {loading ? (
               <div className="text-center py-4">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-                <p className="mt-2 text-sm text-gray-500">Cargando datos fiscales...</p>
+                <p className="mt-2 text-sm text-gray-500">
+                  Cargando datos fiscales...
+                </p>
               </div>
             ) : error ? (
               <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
@@ -1207,7 +1351,9 @@ const splitIva = useCallback(
               </div>
             ) : fiscalDataList.length === 0 ? (
               <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
-                <p className="text-sm text-yellow-700">No se encontraron datos fiscales registrados.</p>
+                <p className="text-sm text-yellow-700">
+                  No se encontraron datos fiscales registrados.
+                </p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -1215,17 +1361,24 @@ const splitIva = useCallback(
                   <div
                     key={`${data.id_datos_fiscales}-${data.id_empresa}`}
                     className={`border rounded-md p-4 cursor-pointer ${
-                      selectedFiscalData?.id_datos_fiscales === data.id_datos_fiscales
+                      selectedFiscalData?.id_datos_fiscales ===
+                      data.id_datos_fiscales
                         ? "border-blue-500 bg-blue-50"
                         : "border-gray-200"
                     }`}
                     onClick={() => setSelectedFiscalData(data)}
                   >
                     <div className="flex justify-between">
-                      <h5 className="font-medium text-gray-900">{data.razon_social_df}</h5>
-                      <span className="text-sm text-gray-500">RFC: {data.rfc}</span>
+                      <h5 className="font-medium text-gray-900">
+                        {data.razon_social_df}
+                      </h5>
+                      <span className="text-sm text-gray-500">
+                        RFC: {data.rfc}
+                      </span>
                     </div>
-                    <p className="text-sm text-gray-600 mt-1">Regimen Fiscal: {data.regimen_fiscal}</p>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Regimen Fiscal: {data.regimen_fiscal}
+                    </p>
                     <p className="text-sm text-gray-600 mt-1">
                       {data.codigo_postal_fiscal},{data.estado},{" "}
                       {data.municipio}, {data.colonia} , {data.calle}
@@ -1239,45 +1392,59 @@ const splitIva = useCallback(
           {/* Controles */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Uso de CFDI</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Uso de CFDI
+              </label>
               <select
                 value={selectedCfdiUse}
                 onChange={(e) => setSelectedCfdiUse(e.target.value)}
                 className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               >
                 {cfdiUseOptions.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
                 ))}
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Forma de Pago</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Forma de Pago
+              </label>
               <select
                 value={selectedPaymentForm}
                 onChange={(e) => setSelectedPaymentForm(e.target.value)}
                 className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               >
                 {paymentFormOptions.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
                 ))}
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Metodo de Pago</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Metodo de Pago
+              </label>
               <select
                 value={selectedPaymentMethod}
                 onChange={(e) => setSelectedPaymentMethod(e.target.value)}
                 className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               >
                 {paymentMethodOptions.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
                 ))}
               </select>
 
               <div className="mt-3">
-                <label className="block text-xs font-medium text-gray-700 mb-1">Fecha de vencimiento</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Fecha de vencimiento
+                </label>
                 <input
                   type="date"
                   value={dueDate}
@@ -1320,7 +1487,9 @@ const splitIva = useCallback(
                         : "border-gray-300 bg-white hover:bg-gray-50"
                     }`}
                   >
-                    {omitObservations ? "Observación desactivada" : "No poner observación"}
+                    {omitObservations
+                      ? "Observación desactivada"
+                      : "No poner observación"}
                   </button>
 
                   {omitObservations && (
@@ -1339,26 +1508,34 @@ const splitIva = useCallback(
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Descripción</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Descripción
+              </label>
               <select
                 value={selectedDescription}
                 onChange={(e) => setSelectedDescription(e.target.value)}
                 className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               >
                 {paymentDescriptions.map((option) => (
-                  <option key={option} value={option}>{option}</option>
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
                 ))}
               </select>
 
               {/* IVA Switch */}
               <div className="mt-4">
-                <label className="block text-xs font-medium text-gray-700 mb-1">IVA</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  IVA
+                </label>
                 <div className="inline-flex rounded-md border border-gray-300 overflow-hidden">
                   <button
                     type="button"
                     onClick={() => setIvaRate(IVA_16)}
                     className={`px-3 py-2 text-sm ${
-                      ivaRate === IVA_16 ? "bg-blue-600 text-white" : "bg-white text-gray-700 hover:bg-gray-50"
+                      ivaRate === IVA_16
+                        ? "bg-blue-600 text-white"
+                        : "bg-white text-gray-700 hover:bg-gray-50"
                     }`}
                   >
                     16%
@@ -1367,13 +1544,68 @@ const splitIva = useCallback(
                     type="button"
                     onClick={() => setIvaRate(IVA_8)}
                     className={`px-3 py-2 text-sm ${
-                      ivaRate === IVA_8 ? "bg-blue-600 text-white" : "bg-white text-gray-700 hover:bg-gray-50"
+                      ivaRate === IVA_8
+                        ? "bg-blue-600 text-white"
+                        : "bg-white text-gray-700 hover:bg-gray-50"
                     }`}
                   >
                     8%
                   </button>
                 </div>
-                <p className="text-[11px] text-gray-500 mt-1">Por defecto es 16%.</p>
+                <p className="text-[11px] text-gray-500 mt-1">
+                  Por defecto es 16%.
+                </p>
+                {selectedFiscalData?.rfc == RFC_GENERICO && (
+                  <div className="mt-4 grid gap-4 md:grid-cols-3">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-sm font-medium text-gray-600">
+                        Periodicidad
+                      </label>
+                      <select
+                        value={periodicity}
+                        onChange={(e) => setPeriodicity(e.target.value)}
+                        className="rounded-xl border border-gray-300 px-3 py-2 text-sm focus:border-black focus:outline-none"
+                      >
+                        {periodicidades.map((p) => (
+                          <option key={p.value} value={p.value}>
+                            {p.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label className="text-sm font-medium text-gray-600">
+                        Mes
+                      </label>
+                      <select
+                        value={month}
+                        onChange={(e) => setMonth(e.target.value)}
+                        className="rounded-xl border border-gray-300 px-3 py-2 text-sm focus:border-black focus:outline-none"
+                      >
+                        {meses.map((m) => (
+                          <option key={m.value} value={m.value}>
+                            {m.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label className="text-sm font-medium text-gray-600">
+                        Año
+                      </label>
+                      <input
+                        type="number"
+                        value={year}
+                        onChange={(e) => setYear(e.target.value)}
+                        min="2000"
+                        max="2100"
+                        className="rounded-xl border border-gray-300 px-3 py-2 text-sm focus:border-black focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1382,18 +1614,31 @@ const splitIva = useCallback(
           <div className="mt-4 p-4 bg-gray-50 rounded-md">
             <div className="flex justify-between items-center">
               <div>
-                <span className="text-sm font-medium text-gray-700">Total a facturar:</span>
+                <span className="text-sm font-medium text-gray-700">
+                  Total a facturar:
+                </span>
                 <p className="text-xs text-gray-500 mt-1">
-                  {totalNights} noche(s) en {reservationsWithSelectedItems.length} reserva(s)
+                  {totalNights} noche(s) en{" "}
+                  {reservationsWithSelectedItems.length} reserva(s)
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  Subtotal: {new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(previewSubtotal)}{" "}
+                  Subtotal:{" "}
+                  {new Intl.NumberFormat("es-MX", {
+                    style: "currency",
+                    currency: "MXN",
+                  }).format(previewSubtotal)}{" "}
                   | IVA ({ivaRateStr}):{" "}
-                  {new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(previewIva)}
+                  {new Intl.NumberFormat("es-MX", {
+                    style: "currency",
+                    currency: "MXN",
+                  }).format(previewIva)}
                 </p>
               </div>
               <span className="text-lg font-bold text-gray-900">
-                {new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(previewTotal)}
+                {new Intl.NumberFormat("es-MX", {
+                  style: "currency",
+                  currency: "MXN",
+                }).format(previewTotal)}
               </span>
             </div>
           </div>
@@ -1415,28 +1660,33 @@ const splitIva = useCallback(
                 type="button"
                 onClick={() => {
                   if (!descarga) return;
-                  const pdf = getPdfBase64(descarga) ?? (typeof descarga === "string" ? descarga : null);
+                  const pdf =
+                    getPdfBase64(descarga) ??
+                    (typeof descarga === "string" ? descarga : null);
 
                   if (
                     typeof pdf === "string" &&
                     maybeDownloadByUrl(
                       pdf,
                       "application/pdf",
-                      `factura_${(isInvoiceGenerated as any)?.Folio ?? cfdi?.Folio ?? "archivo"}.pdf`
+                      `factura_${(isInvoiceGenerated as any)?.Folio ?? cfdi?.Folio ?? "archivo"}.pdf`,
                     )
                   ) {
                     return;
                   }
 
                   if (!pdf) {
-                    showNotification("error", "No se encontró el PDF en la respuesta de descarga.");
+                    showNotification(
+                      "error",
+                      "No se encontró el PDF en la respuesta de descarga.",
+                    );
                     return;
                   }
 
                   downloadBase64File(
                     pdf,
                     "application/pdf",
-                    `factura_${(isInvoiceGenerated as any)?.Folio ?? cfdi?.Folio ?? "archivo"}.pdf`
+                    `factura_${(isInvoiceGenerated as any)?.Folio ?? cfdi?.Folio ?? "archivo"}.pdf`,
                   );
                 }}
                 className="px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors border border-blue-200 flex items-center gap-2"
@@ -1456,21 +1706,24 @@ const splitIva = useCallback(
                     maybeDownloadByUrl(
                       xml,
                       "application/xml",
-                      `factura_${(isInvoiceGenerated as any)?.Folio ?? cfdi?.Folio ?? "archivo"}.xml`
+                      `factura_${(isInvoiceGenerated as any)?.Folio ?? cfdi?.Folio ?? "archivo"}.xml`,
                     )
                   ) {
                     return;
                   }
 
                   if (!xml) {
-                    showNotification("error", "No se encontró el XML en la respuesta de descarga.");
+                    showNotification(
+                      "error",
+                      "No se encontró el XML en la respuesta de descarga.",
+                    );
                     return;
                   }
 
                   downloadBase64File(
                     xml,
                     "application/xml",
-                    `factura_${(isInvoiceGenerated as any)?.Folio ?? cfdi?.Folio ?? "archivo"}.xml`
+                    `factura_${(isInvoiceGenerated as any)?.Folio ?? cfdi?.Folio ?? "archivo"}.xml`,
                   );
                 }}
                 className="px-4 py-2 bg-white text-green-600 rounded-lg hover:bg-green-50 transition-colors border border-green-200 flex items-center gap-2"
@@ -1484,7 +1737,11 @@ const splitIva = useCallback(
               <button
                 type="button"
                 onClick={() => handleConfirm("consolidada")}
-                disabled={!selectedFiscalData || loading || reservationsWithSelectedItems.length === 0}
+                disabled={
+                  !selectedFiscalData ||
+                  loading ||
+                  reservationsWithSelectedItems.length === 0
+                }
                 className="px-4 py-2 rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed"
               >
                 {loading ? "Generando..." : "Facturar Consolidada"}
@@ -1493,16 +1750,26 @@ const splitIva = useCallback(
               <button
                 type="button"
                 onClick={() => handleConfirm("detallada_por_hospedaje")}
-                disabled={!selectedFiscalData || loading || reservationsWithSelectedItems.length === 0}
+                disabled={
+                  !selectedFiscalData ||
+                  loading ||
+                  reservationsWithSelectedItems.length === 0
+                }
                 className="px-4 py-2 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 disabled:cursor-not-allowed"
               >
-                {loading ? "Generando..." : "Facturar Detallada (por hospedaje)"}
+                {loading
+                  ? "Generando..."
+                  : "Facturar Detallada (por hospedaje)"}
               </button>
 
               <button
                 type="button"
                 onClick={() => handleConfirm("detallada_por_item")}
-                disabled={!selectedFiscalData || loading || reservationsWithSelectedItems.length === 0}
+                disabled={
+                  !selectedFiscalData ||
+                  loading ||
+                  reservationsWithSelectedItems.length === 0
+                }
                 className="px-4 py-2 rounded-md text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 disabled:cursor-not-allowed"
               >
                 {loading ? "Generando..." : "Facturar Detallada (por ítem)"}
@@ -1518,4 +1785,29 @@ const splitIva = useCallback(
 const paymentDescriptions = [
   "Servicio de administración y gestión de Reservas",
   "Servicio y Gestión de viajes",
+];
+
+const RFC_GENERICO = "XAXX010101000";
+
+const periodicidades = [
+  { value: "01", label: "Diario" },
+  { value: "02", label: "Semanal" },
+  { value: "03", label: "Quincenal" },
+  { value: "04", label: "Mensual" },
+  { value: "05", label: "Bimestral" },
+];
+
+const meses = [
+  { value: "01", label: "Enero" },
+  { value: "02", label: "Febrero" },
+  { value: "03", label: "Marzo" },
+  { value: "04", label: "Abril" },
+  { value: "05", label: "Mayo" },
+  { value: "06", label: "Junio" },
+  { value: "07", label: "Julio" },
+  { value: "08", label: "Agosto" },
+  { value: "09", label: "Septiembre" },
+  { value: "10", label: "Octubre" },
+  { value: "11", label: "Noviembre" },
+  { value: "12", label: "Diciembre" },
 ];
