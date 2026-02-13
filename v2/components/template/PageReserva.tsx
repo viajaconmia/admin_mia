@@ -207,6 +207,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     reservante: reserva.reservante,
     etapa_reservacion: reserva.etapa_reservacion,
     estado: reserva.estado,
+    intermediario: reserva.intermediario,
     detalles_cliente: reserva.id_solicitud,
     editar: reserva.type == "hotel" ? reserva.id_solicitud : reserva.id_booking,
     pagar: reserva.estado == "Confirmada" ? reserva.id_solicitud : null,

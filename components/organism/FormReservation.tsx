@@ -1182,6 +1182,7 @@ export function ReservationForm({
                   {intermediario.exists && (
                     <div className="grid grid-cols-3 items-end">
                       <ComboBox2
+                        label="Intermediario"
                         value={
                           intermediario.proveedor
                             ? {
@@ -1190,7 +1191,6 @@ export function ReservationForm({
                               }
                             : null
                         }
-                        label="Intermediario"
                         options={proveedores
                           .filter((p) => p.intermediario)
                           .map((p) => ({

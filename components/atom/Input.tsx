@@ -692,7 +692,10 @@ export const ComboBox2 = <T,>({
   };
 
   return (
-    <div className={`flex flex-col space-y-1 ${className}`} ref={containerRef}>
+    <div
+      className={`flex flex-col space-y-1 relative ${className}`}
+      ref={containerRef}
+    >
       {label && (
         <label className="text-sm text-gray-900 font-medium line-clamp-1">
           {label}
@@ -726,7 +729,7 @@ export const ComboBox2 = <T,>({
             <ChevronDown size={18} className="text-gray-500" />
           </div>
           {isOpen && filteredOptions.length > 0 && (
-            <ul className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow max-h-60 overflow-y-auto text-sm">
+            <ul className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded shadow max-h-60 overflow-y-auto text-sm">
               {filteredOptions.map((option, index) => (
                 <li
                   key={option.name + index}

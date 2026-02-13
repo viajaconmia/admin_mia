@@ -72,6 +72,8 @@ export type Item = {
 export type BookingAll = {
   id_viajero: string;
   viajero: string;
+  intermediario: string;
+  id_intermediario: number;
 
   id_solicitud: string;
   id_hospedaje: string | null;

@@ -1,6 +1,12 @@
 "use client";
 
-import { createContext, useState, useContext, ReactNode } from "react";
+import {
+  createContext,
+  useState,
+  useContext,
+  ReactNode,
+  useEffect,
+} from "react";
 import { useNotification } from "./useNotificacion";
 import {
   mapProveedor,
@@ -60,6 +66,10 @@ export function ProveedorProvider({ children }: { children: ReactNode }) {
     getProveedores,
     updateProveedores,
   };
+
+  useEffect(() => {
+    updateProveedores();
+  }, []);
 
   return (
     <ProveedorContext.Provider value={value}>
