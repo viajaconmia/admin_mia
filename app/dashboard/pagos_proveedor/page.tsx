@@ -13,7 +13,8 @@ import { PERMISOS } from "@/constant/permisos";
 import { DispersionModal, SolicitudProveedorRaw } from "./Components/dispersion";
 import { ComprobanteModal } from "./Components/comprobantes";
 import { useNotification } from "@/context/useNotificacion";
-
+import Button from "@/components/atom/Button";
+import { Brush, File, Upload } from "lucide-react";
 // ---------- HELPERS GENERALES ----------
 const parseNum = (v: any) => (v == null ? 0 : Number(v));
 const norm = (s?: string | null) => (s ?? "").trim().toLowerCase();
@@ -61,6 +62,99 @@ type DatosDispersion = {
   cuenta_banco: string | null;
   rfc: string | null;
 };
+
+// --- Tabs UI helpers ---
+type TabKey = VistaCarpeta;
+
+const tabTheme: Record<
+  TabKey,
+  { ring: string; bg: string; text: string; border: string; dot: string; badge: string; badgeActive: string }
+> = {
+  all: {
+    ring: "focus:ring-blue-500",
+    bg: "bg-white",
+    text: "text-slate-700",
+    border: "border-slate-200",
+    dot: "bg-blue-500",
+    badge: "bg-slate-50 text-slate-600 border-slate-200",
+    badgeActive: "bg-blue-50 text-blue-700 border-blue-200",
+  },
+  spei_solicitado: {
+    ring: "focus:ring-cyan-500",
+    bg: "bg-white",
+    text: "text-slate-700",
+    border: "border-slate-200",
+    dot: "bg-cyan-500",
+    badge: "bg-cyan-50 text-cyan-800 border-cyan-200",
+    badgeActive: "bg-cyan-100 text-cyan-900 border-cyan-300",
+  },
+  pago_tdc: {
+    ring: "focus:ring-indigo-500",
+    bg: "bg-white",
+    text: "text-slate-700",
+    border: "border-slate-200",
+    dot: "bg-indigo-500",
+    badge: "bg-indigo-50 text-indigo-800 border-indigo-200",
+    badgeActive: "bg-indigo-100 text-indigo-900 border-indigo-300",
+  },
+  cupon_enviado: {
+    ring: "focus:ring-amber-500",
+    bg: "bg-white",
+    text: "text-slate-700",
+    border: "border-slate-200",
+    dot: "bg-amber-500",
+    badge: "bg-amber-50 text-amber-900 border-amber-200",
+    badgeActive: "bg-amber-100 text-amber-950 border-amber-300",
+  },
+  carta_garantia: {
+    ring: "focus:ring-violet-500",
+    bg: "bg-white",
+    text: "text-slate-700",
+    border: "border-slate-200",
+    dot: "bg-violet-500",
+    badge: "bg-violet-50 text-violet-800 border-violet-200",
+    badgeActive: "bg-violet-100 text-violet-900 border-violet-300",
+  },
+  pagada: {
+    ring: "focus:ring-emerald-500",
+    bg: "bg-white",
+    text: "text-slate-700",
+    border: "border-slate-200",
+    dot: "bg-emerald-500",
+    badge: "bg-emerald-50 text-emerald-800 border-emerald-200",
+    badgeActive: "bg-emerald-100 text-emerald-900 border-emerald-300",
+  },
+};
+
+const tabBase =
+  "relative select-none group !rounded-xl border px-3 py-2 " +
+  "transition-all duration-200 " +
+  "hover:-translate-y-[1px] active:translate-y-0 " +
+  "focus:outline-none focus:ring-2 focus:ring-offset-2";
+
+function getTabClass(key: TabKey, active: boolean) {
+  const t = tabTheme[key];
+  // Activo: tint + borde + sombra suave
+  const activeCls = active
+    ? `bg-gradient-to-b from-white to-slate-50 border-slate-300 shadow-sm`
+    : `${t.bg} ${t.border} hover:border-slate-300 hover:bg-slate-50`;
+
+  return `${tabBase} ${t.ring} ${activeCls}`;
+}
+
+function getActiveUnderline(key: TabKey) {
+  // underline suave con el color de la carpeta
+  const dot = tabTheme[key].dot;
+  // map rápido: bg-* => shadow con tono aproximado usando ring/border
+  // (Tailwind no permite "shadow-cyan-500/20" por defecto en todos los setups,
+  // así que mantenemos un underline sólido + blur usando bg)
+  return (
+    <span className="absolute -bottom-[2px] left-2 right-2 h-[3px] rounded-full bg-slate-900/0">
+      <span className={`block h-full rounded-full ${dot} opacity-80 blur-[0.2px]`} />
+    </span>
+  );
+}
+
 
 // ---------- UI HELPERS ----------
 const Pill = ({
@@ -670,6 +764,8 @@ function App() {
     [solicitudesPago, cartaGarantiaList]
   );
 
+  
+
   return (
     <div className="h-fit">
       <h1 className="text-2xl font-bold tracking-tight text-slate-900 my-4">Pagos a proveedor</h1>
@@ -678,32 +774,45 @@ function App() {
         <Filters defaultFilters={filters} onFilter={setFilters} searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
 
         {/* Tabs tipo carpetas (minimalista) */}
-        <div className="flex flex-wrap gap-1 border-b border-slate-200 pb-0 mb-3">
-          {tabs.map((btn) => {
-            const isActive = categoria === btn.key;
-            return (
-              <button
-                key={btn.key}
-                onClick={() => setCategoria(btn.key)}
-                className={`relative px-3 py-2 rounded-t-xl font-medium border border-b-0 text-sm transition ${
-                  isActive
-                    ? "bg-white text-slate-900 border-slate-300 shadow-sm -mb-[1px]"
-                    : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
-                }`}
-              >
-                <span>{btn.label}</span>
-                <span
-                  className={`ml-2 text-[11px] px-2 py-0.5 rounded-full border ${
-                    isActive ? "bg-slate-100 text-slate-800 border-slate-200" : "bg-white text-slate-600 border-slate-200"
-                  }`}
-                >
-                  {btn.count}
-                </span>
-                {isActive && <span className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-white" />}
-              </button>
-            );
-          })}
-        </div>
+        {/* Tabs tipo carpetas (mejorados) */}
+<div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3 mb-3">
+  {tabs.map((btn) => {
+    const isActive = categoria === btn.key;
+    const theme = tabTheme[btn.key];
+
+    return (
+      <Button
+        key={btn.key}
+        onClick={() => setCategoria(btn.key)}
+        variant="ghost"
+        size="md"
+        className={getTabClass(btn.key, isActive)}
+      >
+        {/* Dot color */}
+        <span className={`mr-2 h-2.5 w-2.5 rounded-full ${theme.dot} shadow-sm`} />
+
+        {/* Label */}
+        <span className={`font-semibold ${isActive ? "text-slate-900" : theme.text}`}>
+          {btn.label}
+        </span>
+
+        {/* Badge count */}
+        <span
+          className={
+            "ml-2 text-[11px] px-2 py-0.5 rounded-full border font-semibold " +
+            (isActive ? theme.badgeActive : theme.badge)
+          }
+        >
+          {btn.count}
+        </span>
+
+        {/* Active underline */}
+        {isActive && getActiveUnderline(btn.key)}
+      </Button>
+    );
+  })}
+</div>
+
 
         {/* Barra de acciones minimalista */}
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
@@ -712,36 +821,7 @@ function App() {
           </div>
 
           <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={handleCsv}
-              className="px-3 py-2 rounded-md text-sm font-medium bg-slate-900 text-white hover:bg-slate-800 transition"
-            >
-              Subir Comprobante
-            </button>
-
-            <button
-              type="button"
-              onClick={handleDispersion}
-              disabled={categoria === "pagada" || selectedCount === 0}
-              className={`px-3 py-2 rounded-md text-sm font-medium transition ${
-                categoria === "pagada" || selectedCount === 0
-                  ? "bg-slate-200 text-slate-500 cursor-not-allowed"
-                  : "bg-indigo-600 text-white hover:bg-indigo-700"
-              }`}
-            >
-              Generar dispersión
-            </button>
-
-            {selectedCount > 0 && categoria !== "pagada" && (
-              <button
-                type="button"
-                onClick={clearSelection}
-                className="px-3 py-2 rounded-md text-sm font-medium border border-slate-200 hover:bg-slate-50 transition"
-              >
-                Limpiar
-              </button>
-            )}
+            
           </div>
         </div>
 
@@ -750,6 +830,7 @@ function App() {
             <Loader />
           ) : (
             <Table5<ItemSolicitud>
+              
               registros={registrosVisibles as any}
               renderers={renderers}
               defaultSort={defaultSort}
@@ -761,7 +842,33 @@ function App() {
               leyenda={`Mostrando ${registrosVisibles.length} registros (${
                 categoria === "all" ? "todas" : categoria === "carta_garantia" ? "carta garantía" : `categoría: ${categoria}`
               })`}
-            />
+            >
+              <Button
+              onClick={handleCsv}
+              icon={Upload}
+            >
+              Subir Comprobante
+            </Button>
+
+            <Button
+              onClick={handleDispersion}
+              disabled={categoria === "pagada" || selectedCount === 0}
+              variant="secondary"
+              icon={File}
+            >
+              Generar dispersión
+            </Button>
+
+            {selectedCount > 0 && categoria !== "pagada" && (
+              <Button
+                onClick={clearSelection}
+                variant="ghost"
+                icon={Brush}
+              >
+                Limpiar
+              </Button>
+            )}
+            </Table5>
           )}
         </div>
       </div>
