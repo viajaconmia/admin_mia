@@ -367,20 +367,43 @@ export const PaymentModal = ({ reservation }: { reservation: BookingAll | null }
       }
 
       // ----- Crédito -----
-      if (paymentType === "credit") {
-        // ✅ lo que pediste: agregar botón y usar este bloque
-        console.log({
-          date: effectiveDate,
-          paymentType,
-          monto_a_pagar,
-          comments,
-          comments_cxp: commentsCxp,
-          id_hospedaje: reservation.id_booking,
-          paymentStatus: derivedStatus,
-          usuario_creador: (reservation as any).usuario_creador,
-        });
-        return;
-      }
+      // ----- Crédito -----
+if (paymentType === "credit") {
+  if (!reservation) throw new Error("No hay reservación.");
+
+  // Si quieres obligar comentarios o correos en crédito, valida aquí.
+  // Ejemplo: if (!comments) throw new Error("Agrega comentarios.");
+
+  // OJO: derivedStatus ya será "cupon_enviado" por computePaymentStatus()
+  fetchCreateSolicitud(
+    {
+      date: effectiveDate,
+      comments,
+      comments_cxp: commentsCxp,
+      paymentMethod: "transfer", // o null; depende de tu backend.
+      paymentType: "credit",
+      monto_a_pagar, // si en crédito NO quieres monto, puedes mandar 0 o el costoProveedor; depende tu regla.
+      id_hospedaje: reservation.id_booking,
+      paymentStatus: derivedStatus,
+      paymentSchedule: undefined, // crédito no usa schedule normalmente
+      usuario_creador: (reservation as any).usuario_creador,
+
+      // si tu backend espera estos campos aunque sea crédito:
+      selectedCard: null,
+      idTitular: null,
+      titular: "",
+      identificacion: "",
+    },
+    (response: any) => {
+      // si tu servicio manda mensaje
+      if (response?.message) alert(response.message);
+    }
+  );
+
+  dispatch({ type: "SET_FIELD", field: "error", payload: "" });
+  return;
+}
+
 
       // ----- Prepago -----
       if (paymentType === "prepaid") {
@@ -474,158 +497,6 @@ export const PaymentModal = ({ reservation }: { reservation: BookingAll | null }
       <div className="px-4 border-r">
         <ReservationDetails reservation={reservation} />
 
-        {/* ✅ MARKUP CLARO */}
-        <div className="mt-2 space-y-2">
-          <div className="p-3 border rounded-md bg-slate-50">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-600">Costo proveedor (costo_total):</span>
-              <span className="font-semibold">${to2(costoProveedor).toFixed(2)}</span>
-            </div>
-            <div className="flex items-center justify-between text-sm mt-1">
-              <span className="text-slate-600">Total vendido (total):</span>
-              <span className="font-semibold">${to2(totalVendido).toFixed(2)}</span>
-            </div>
-            <div className="flex items-center justify-between text-sm mt-1">
-              <span className="text-slate-600">Markup:</span>
-              <span className="font-semibold">
-                ${to2(totalVendido - costoProveedor).toFixed(2)}
-              </span>
-            </div>
-          </div>
-
-          {paymentType === "prepaid" && (
-            <>
-              <CheckboxInput
-                checked={hasFavorBalance}
-                onChange={(checked) =>
-                  dispatch({ type: "SET_FIELD", field: "hasFavorBalance", payload: checked === true })
-                }
-                label="Tiene saldo a favor"
-              />
-
-              {hasFavorBalance && (
-                <>
-                  <NumberInput
-                    onChange={(value) => dispatch({ type: "SET_FIELD", field: "favorBalance", payload: value })}
-                    value={Number(favorBalance) || null}
-                    label="Monto Saldo a Favor a Aplicar"
-                    placeholder="0.00"
-                  />
-
-                  <div className="p-4 bg-green-50 border rounded-md border-green-200">
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-700 text-sm">Monto a Pagar al Proveedor:</span>
-                      <span className="text-xl font-bold text-green-700">${monto_a_pagar.toFixed(2)}</span>
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {/* === SOLO TRANSFER: Fecha simple === */}
-              {paymentMethod === "transfer" && (
-                <DateInput
-                  label="Fecha estimada"
-                  value={date}
-                  onChange={(value) => dispatch({ type: "SET_FIELD", field: "date", payload: value })}
-                />
-              )}
-
-              {/* === SOLO CARD/LINK: Tabla schedule === */}
-              {shouldShowSchedule && (
-                <div className="mt-3 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold">Calendario de pagos</h3>
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          setPaymentSchedule([
-                            { id: safeUUID(), date: (date as string) || todayISO, amount: monto_a_pagar },
-                          ])
-                        }
-                        title="Reiniciar a un solo pago con el total"
-                      >
-                        Reset
-                      </Button>
-
-                      <Button type="button" variant="outline" size="sm" onClick={addScheduleRow}>
-                        Agregar pago
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="overflow-x-auto border rounded-md">
-                    <table className="w-full text-sm">
-                      <thead className="bg-slate-50">
-                        <tr>
-                          <th className="text-left font-semibold p-2">Fecha de pago</th>
-                          <th className="text-left font-semibold p-2">Monto</th>
-                          <th className="text-right font-semibold p-2">Acción</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {paymentSchedule.map((row, idx) => (
-                          <tr key={row.id} className="border-t">
-                            <td className="p-2">
-                              <input
-                                type="date"
-                                className="w-full border rounded-md px-2 py-1"
-                                value={row.date}
-                                onChange={(e) => updateScheduleRow(row.id, { date: e.target.value }, idx)}
-                              />
-                            </td>
-                            <td className="p-2">
-                              <input
-                                type="number"
-                                min={0}
-                                step="0.01"
-                                className="w-full border rounded-md px-2 py-1"
-                                value={row.amount === "" ? "" : String(row.amount)}
-                                onChange={(e) => {
-                                  const raw = e.target.value;
-                                  updateScheduleRow(row.id, {
-                                    amount: raw === "" ? "" : to2(Number(raw || 0)),
-                                  });
-                                }}
-                                placeholder="0.00"
-                              />
-                            </td>
-                            <td className="p-2 text-right">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => removeScheduleRow(row.id)}
-                                disabled={paymentSchedule.length <= 1}
-                                title={paymentSchedule.length <= 1 ? "Debe existir al menos una fila" : "Eliminar fila"}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-600">Total programado:</span>
-                    <span className="font-semibold">${scheduleTotal.toFixed(2)}</span>
-                  </div>
-
-                  {Math.abs(scheduleTotal - monto_a_pagar) > 0.01 && (
-                    <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2">
-                      El total programado debe ser igual al monto a pagar:{" "}
-                      <span className="font-semibold">${monto_a_pagar.toFixed(2)}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </>
-          )}
-        </div>
       </div>
 
       {/* ===== RIGHT ===== */}
