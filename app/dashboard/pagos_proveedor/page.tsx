@@ -23,7 +23,7 @@ const norm = (s?: string | null) => (s ?? "").trim().toLowerCase();
 type CategoriaEstatus = "spei_solicitado" | "pago_tdc" | "cupon_enviado" | "pagada" | "otros";
 
 // ✅ Nueva vista extra (no necesariamente viene del back)
-type VistaCarpeta = CategoriaEstatus | "all" | "carta_garantia";
+type VistaCarpeta = CategoriaEstatus | "all" ;
 
 type SolicitudesPorFiltro = {
   spei_solicitado: SolicitudProveedor[];
@@ -381,29 +381,48 @@ const clearDisabledReason =
   };
 
   const handleFetchSolicitudesPago = () => {
-    setLoading(true);
+  setLoading(true);
 
-    fetchGetSolicitudesProveedores1((data) => {
-      const d: any = data?.data || {};
-
-      const spei_solicitado = d.spei_solicitado || [];
-      const pago_tdc = d.pago_tdc || [];
-      const cupon_enviado = d.cupon_enviado || [];
-      const pagada = d.pagada || [];
-
-      const todos = mergeAll({ spei_solicitado, pago_tdc, cupon_enviado, pagada });
-
-      setSolicitudesPago({
-        spei_solicitado,
-        pago_tdc,
-        cupon_enviado,
-        pagada,
-        todos,
-      });
-
-      setLoading(false);
-    });
+  // helper dedupe por id_solicitud_proveedor
+  const uniqueBySolicitudProveedor = (arr: any[]) => {
+    const map = new Map<string, any>();
+    for (const it of arr || []) {
+      const id =
+        String(it?.solicitud_proveedor?.id_solicitud_proveedor ?? it?.id_solicitud_proveedor ?? "");
+      if (!id) continue;
+      if (!map.has(id)) map.set(id, it);
+    }
+    return Array.from(map.values());
   };
+
+  fetchGetSolicitudesProveedores1((data) => {
+    const d: any = data?.data || {};
+
+    const spei_solicitado = d.spei_solicitado || [];
+    const pago_tdc = d.pago_tdc || [];
+
+    // ✅ aquí es el cambio: cupon = cupon_enviado + carta_garantia
+    const cupon_raw = d.cupon_enviado || [];
+    const carta_raw = d.carta_garantia || [];
+
+    const cupon_enviado = uniqueBySolicitudProveedor([...cupon_raw, ...carta_raw]);
+
+    const pagada = d.pagada || [];
+
+    const todos = mergeAll({ spei_solicitado, pago_tdc, cupon_enviado, pagada });
+
+    setSolicitudesPago({
+      spei_solicitado,
+      pago_tdc,
+      cupon_enviado,
+      pagada,
+      todos,
+    });
+
+    setLoading(false);
+  });
+};
+
 
   useEffect(() => {
     handleFetchSolicitudesPago();
