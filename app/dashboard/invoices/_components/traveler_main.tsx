@@ -604,9 +604,7 @@ useEffect(() => {
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
           />
-          <Button size="sm" onClick={() => cargarFacturas()}>
-            Cargar facturas
-          </Button>
+          
 
           <Table5
             registros={registros}
@@ -615,7 +613,12 @@ useEffect(() => {
             defaultSort={{ key: "fecha_emision", sort: false }} // desc
             maxHeight="26rem"
             splitStringsBySpace
-          />
+          >
+<Button size="sm" onClick={() => cargarFacturas()}>
+            Cargar facturas
+          </Button>
+
+          </Table5>
 
           {facturas && (
             <PageTracker
