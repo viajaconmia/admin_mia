@@ -6,7 +6,7 @@ import { Table5 } from "@/components/Table5";
 import { URL, API_KEY } from "@/lib/constants/index";
 import { Filter, X, Search, Maximize2 } from "lucide-react";
 import SubirFactura from "@/app/dashboard/facturacion/subirfacturas/SubirFactura";
-import ModalDetalle from "@/app/dashboard/conciliacion/detalles"
+import ModalDetalle from "@/app/dashboard/conciliacion/compponents/detalles"
 
 type AnyRow = Record<string, any>;
 

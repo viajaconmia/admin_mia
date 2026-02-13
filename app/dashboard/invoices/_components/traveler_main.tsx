@@ -40,34 +40,9 @@ import { InputToS3 } from "@/components/atom/SendToS3";
 import { FacturaService } from "@/services/FacturasService";
 import { useNotification } from "@/context/useNotificacion";
 import { Button } from "@/components/ui/button";
-
-/* ===================== Helpers ===================== */
-
-// Soporta fetchFacturas con promesa o con callback: fetchFacturas(filters, cb)
-const fetchFacturasSafe = (filters: any): Promise<Factura[]> =>
-  new Promise((resolve, reject) => {
-    try {
-      if (fetchFacturasSvc.length >= 2) {
-        // firma con callback
-        (fetchFacturasSvc as any)(filters, (data: any) =>
-          resolve(
-            Array.isArray(data) ? data : data?.respuesta || data?.data || []
-          )
-        );
-      } else {
-        // firma tipo promesa
-        Promise.resolve((fetchFacturasSvc as any)(filters))
-          .then((data: any) =>
-            resolve(
-              Array.isArray(data) ? data : data?.respuesta || data?.data || []
-            )
-          )
-          .catch(reject);
-      }
-    } catch (e) {
-      reject(e);
-    }
-  });
+import ModalDetalleFactura from "@/app/dashboard/invoices/_components/detalles";
+import { PageTracker, TrackingPage } from "./tracker_false";
+import { set } from "date-fns";
 
 // Formato moneda
 const fmtMoney = (n: any) =>
@@ -108,8 +83,8 @@ function FacturaDetails({
     try {
       setLoading(true);
       const resp = await fetch(
-        `${URL}/mia/factura/getDetailsFactura?id_factura=${encodeURIComponent(
-          id_factura
+        `${URL}/mia/factura/detalles_facturas?id_factura=${encodeURIComponent(
+          id_factura,
         )}`,
         {
           method: "GET",
@@ -119,7 +94,7 @@ function FacturaDetails({
             "Content-Type": "application/json",
           },
           cache: "no-store",
-        }
+        },
       );
       if (!resp.ok) throw new Error(`HTTP error! status: ${resp.status}`);
       const data = await resp.json();
@@ -250,8 +225,8 @@ function FacturaDetails({
                         s +
                         Number(it.subtotal || 0) *
                           Number(it.noches_facturadas || 0),
-                      0
-                    )
+                      0,
+                    ),
                   )}
                 </span>
               </div>
@@ -264,8 +239,8 @@ function FacturaDetails({
                         s +
                         Number(it.impuestos || 0) *
                           Number(it.noches_facturadas || 0),
-                      0
-                    )
+                      0,
+                    ),
                   )}
                 </span>
               </div>
@@ -278,8 +253,8 @@ function FacturaDetails({
                         s +
                         Number(it.total || 0) *
                           Number(it.noches_facturadas || 0),
-                      0
-                    )
+                      0,
+                    ),
                   )}
                 </span>
               </div>
@@ -290,6 +265,8 @@ function FacturaDetails({
     </Modal>
   );
 }
+
+const MAX_REGISTER = 50; // para paginación, número de registros por página
 
 /* ===================== Página con Table5 + filtros ===================== */
 
@@ -310,12 +287,18 @@ export function TravelersPage() {
 
   // Estados
   const [searchTerm, setSearchTerm] = useState("");
+  const [tracking, setTracking] = useState<TrackingPage>({
+    page: 1,
+    total_pages: 0,
+    total: 0,
+  });
+
   // const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [activeFilters, setActiveFilters] = useState(defaultFiltersFacturas);
-  const [isLoading, setIsLoading] = useState(false);
   const [facturas, setFacturas] = useState<Factura[]>([]);
   const [id, setId] = useState<string | null>(null);
-  const { Can, hasPermission } = usePermiso();
+  const { Can } = usePermiso();
+  const [removingId, setRemovingId] = useState<string | null>(null);
 
   // Modales/acciones
   const [isModalOpen, setIsModalOpen] = useState<string>("");
@@ -324,19 +307,32 @@ export function TravelersPage() {
   const [facturaDataSel, setFacturaDataSel] = useState<Factura | null>(null);
   const [facturaEmpresa, setFacturaEmpresa] = useState<string | null>(null);
 
-  // Llamada unificada
-  const cargarFacturas = async (filters: any) => {
-    setIsLoading(true);
+  const [modalDetalleOpen, setModalDetalleOpen] = useState(false);
+  const [detalleIdFactura, setDetalleIdFactura] = useState<string | null>(null);
+
+  const cargarFacturas = async (page = tracking.page) => {
     try {
-      const data = await fetchFacturasSafe(filters);
-      setFacturas(Array.isArray(data) ? data : []);
+      const response = await FacturaService.getInstance().obtenerFacturas({
+        ...activeFilters,
+        page,
+        length: MAX_REGISTER,
+      });
+      console.log(response, "respuesta facturas");
+      setFacturas(response.data || []);
+      setTracking({
+        page,
+        total_pages: Math.ceil(response.metadata.total / MAX_REGISTER) || 0,
+        total: response.metadata.total || 0,
+      });
     } catch (e) {
       console.error("Error al obtener facturas:", e);
       setFacturas([]);
-    } finally {
-      setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    setTracking({ ...tracking, page: 1 });
+  }, [activeFilters]);
 
   // Inicial
   // useEffect(() => {
@@ -347,9 +343,60 @@ export function TravelersPage() {
   // }, []);
 
   // Handlers de filtros
+
+  /*Eliminar relacion de facturas existentes*/
+  const handleQuitarRelacion = async (id_factura: string) => {
+    if (!id_factura) return;
+
+    const ok = window.confirm(
+      "¿Seguro que quieres eliminar la relación de esta factura? Esto quitará sus detalles/asignación.",
+    );
+    if (!ok) return;
+
+    try {
+      setRemovingId(id_factura);
+
+      const resp = await fetch(
+        `${URL}/mia/factura/quitar_relacion?id_factura=${encodeURIComponent(
+          id_factura,
+        )}`,
+        {
+          method: "DELETE", // <-- si tu backend usa GET/POST, cámbialo aquí
+          headers: {
+            "x-api-key": API_KEY || "",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Content-Type": "application/json",
+          },
+          cache: "no-store",
+        },
+      );
+
+      let data: any = null;
+      try {
+        data = await resp.json();
+      } catch {
+        // por si tu backend no regresa JSON
+      }
+
+      if (!resp.ok) {
+        throw new Error(data?.message || `HTTP error! status: ${resp.status}`);
+      }
+
+      showNotification("success", "Relación eliminada correctamente");
+
+      // refresca tabla
+      await cargarFacturas();
+    } catch (error: any) {
+      showNotification(
+        "error",
+        error?.message || "Error al eliminar la relación",
+      );
+    } finally {
+      setRemovingId(null);
+    }
+  };
   const handleFilter = (filters: any) => {
     setActiveFilters(filters);
-    cargarFacturas(filters);
   };
 
   const [balance, setBalance] = useState<Balance | null>(null);
@@ -409,7 +456,10 @@ export function TravelersPage() {
         subtotal: toNum(f?.subtotal),
         iva: toNum(f?.impuestos),
         total: toNum(f?.total),
-        saldo: toNum(f?.saldo),
+        saldo:
+          f.saldo_x_aplicar_items != 0
+            ? toNum(f?.saldo)
+            : toNum(f?.saldo_x_aplicar_items),
         fecha_emision: f?.fecha_emision || null,
         fecha_vencimiento: f?.fecha_vencimiento || null,
         prepagada: f?.is_prepagada == null ? null : Number(f?.is_prepagada),
@@ -489,26 +539,36 @@ export function TravelersPage() {
     origen: ({ value }: { value: number }) =>
       value === 1 ? "Cliente" : "Operaciones",
     actualizar: ({ item }: { item: Factura }) => {
+      const isRemoving = removingId === item.id_factura;
+
       return (
-        <Can permiso={PERMISOS.COMPONENTES.BOTON.ACTUALIZAR_PDF_FACTURA}>
+        <div className="flex gap-2">
+          <Can permiso={PERMISOS.COMPONENTES.BOTON.ACTUALIZAR_PDF_FACTURA}>
+            <Button onClick={() => setId(item.id_factura)} size="sm">
+              Editar PDF
+            </Button>
+          </Can>
+
           <Button
-            onClick={() => setId(item.id_factura)}
             size="sm"
-            // icon={Pencil}
+            variant="destructive"
+            disabled={isRemoving}
+            onClick={() => handleQuitarRelacion(item.id_factura)}
           >
-            Editar PDF
+            {isRemoving ? "Eliminando..." : "Eliminar relación"}
           </Button>
-        </Can>
+        </div>
       );
     },
 
     acciones: ({ value }: { value: { fila: any } }) => {
       const f = value.fila as any;
-      const puedeAsignar = Number(f?.saldo ?? 0) > 0;
+      const puedeAsignar =
+        Number(f?.saldo ?? 0) > 0 && Number(f?.saldo_x_aplicar_items ?? 0) > 0;
 
       const handleDescargarFactura = async (
         id: string,
-        tipo: "pdf" | "xml"
+        tipo: "pdf" | "xml",
       ) => {
         try {
           if (tipo === "pdf") {
@@ -542,7 +602,12 @@ export function TravelersPage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setIsModalOpen(f.id_factura)}>
+              <DropdownMenuItem
+                onClick={() => {
+                  setDetalleIdFactura(f.id_factura);
+                  setModalDetalleOpen(true);
+                }}
+              >
                 <Eye className="mr-2 h-4 w-4" />
                 Ver detalles
               </DropdownMenuItem>
@@ -669,17 +734,17 @@ export function TravelersPage() {
                   if (!url) throw new Error("No existe archivo");
 
                   await FacturaService.getInstance().actualizarDocumentosFacturas(
-                    { id, url }
+                    { id, url },
                   );
                   showNotification(
                     "success",
-                    "Se actualizo el archivo correctamente"
+                    "Se actualizo el archivo correctamente",
                   );
                   setId(null);
                 } catch (error) {
                   showNotification(
                     "error",
-                    error.message || "Error al subir archivo"
+                    error.message || "Error al subir archivo",
                   );
                 }
               }}
@@ -687,6 +752,7 @@ export function TravelersPage() {
           </div>
         </Modal>
       )}
+
       {balance && (
         <BalanceSummary
           balance={balance}
@@ -694,7 +760,7 @@ export function TravelersPage() {
         />
       )}
       <Card>
-        <div className="p-6 space-y-4">
+        <div className="p-6 space-y-2">
           <Filters
             defaultFilters={defaultFiltersFacturas}
             onFilter={handleFilter}
@@ -702,15 +768,27 @@ export function TravelersPage() {
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
           />
+          <Button size="sm" onClick={() => cargarFacturas()}>
+            Cargar facturas
+          </Button>
 
           <Table5
             registros={registros}
             renderers={renderers as any}
             customColumns={customColumns}
             defaultSort={{ key: "fecha_emision", sort: false }} // desc
-            maxHeight="32rem"
+            maxHeight="26rem"
             splitStringsBySpace
           />
+
+          {facturas && (
+            <PageTracker
+              tracking={tracking}
+              setPage={(page) => {
+                cargarFacturas(page);
+              }}
+            ></PageTracker>
+          )}
         </div>
       </Card>
 
@@ -738,6 +816,19 @@ export function TravelersPage() {
       {/* Modal Detalles */}
       {isModalOpen && (
         <FacturaDetails setModal={setIsModalOpen} id_factura={isModalOpen} />
+      )}
+
+      {modalDetalleOpen && (
+        <ModalDetalleFactura
+          open={modalDetalleOpen}
+          onClose={() => {
+            setModalDetalleOpen(false);
+            setDetalleIdFactura(null);
+          }}
+          id_factura={detalleIdFactura}
+          setDetalleFacturaData={setDetalleFacturaData} // ✅ aquí se manda
+          title="Detalles de factura"
+        />
       )}
 
       {/* Diálogo legacy si lo usas */}
