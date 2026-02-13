@@ -423,7 +423,7 @@ export const FacturacionModal: React.FC<{
   );
   const [omitObservations, setOmitObservations] = useState(false);
   const now = new Date();
-  const [periodicity, setPeriodicity] = useState("04");
+  const [periodicity, setPeriodicity] = useState("01");
   const [month, setMonth] = useState(
     String(now.getMonth() + 1).padStart(2, "0"),
   );
