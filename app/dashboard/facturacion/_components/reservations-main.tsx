@@ -298,8 +298,9 @@ export const FacturacionModal: React.FC<{
   type IvaRate = typeof IVA_16 | typeof IVA_8;
 
   const EXPEDITION_PLACE_8P = "32460";
-  // const EXPEDITION_PLACE_16P = "11560";
-  const EXPEDITION_PLACE_16P = "42501"
+  const EXPEDITION_PLACE_16P = "11560";
+
+  // const EXPEDITION_PLACE_16P = "42501"
 
   const [ivaRate, setIvaRate] = useState<IvaRate>(IVA_16);
 
