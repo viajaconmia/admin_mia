@@ -320,6 +320,56 @@ const preflightCfdi = (
   return true;
 };
 
+// Ordena items por fecha ascendente (más viejo -> más nuevo)
+// Soporta: fecha_uso, created_at, updated_at, check_in, etc.
+const sortByDateAsc = <T extends Record<string, any>>(
+  arr: T[],
+  dateKey: keyof T,
+) => {
+  const parse = (v: any) => {
+    if (!v) return Number.POSITIVE_INFINITY;
+
+    // Date ya construido
+    if (v instanceof Date) return v.getTime();
+
+    // number timestamp
+    if (typeof v === "number") return v;
+
+    // string: ISO, "YYYY-MM-DD", etc.
+    const s = String(v).trim();
+    if (!s) return Number.POSITIVE_INFINITY;
+
+    const t = Date.parse(s); // maneja ISO y muchos formatos
+    if (!Number.isNaN(t)) return t;
+
+    // fallback para "YYYY-MM-DD" sin timezone (por si Date.parse falla)
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return new Date(`${m[1]}-${m[2]}-${m[3]}T00:00:00`).getTime();
+
+    return Number.POSITIVE_INFINITY;
+  };
+
+  return [...arr].sort((a, b) => parse(a[dateKey]) - parse(b[dateKey]));
+};
+
+const dateToMs = (v: any) => {
+  if (!v) return Number.POSITIVE_INFINITY;
+  if (v instanceof Date) return v.getTime();
+  if (typeof v === "number") return v;
+
+  const s = String(v).trim();
+  if (!s) return Number.POSITIVE_INFINITY;
+
+  const t = Date.parse(s);
+  if (!Number.isNaN(t)) return t;
+
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return new Date(`${m[1]}-${m[2]}-${m[3]}T00:00:00`).getTime();
+
+  return Number.POSITIVE_INFINITY;
+};
+
+
 export const FacturacionModal: React.FC<{
   selectedItems: { [reservationId: string]: string[] };
   selectedHospedaje: { [hospedajeId: string]: string[] };
@@ -344,7 +394,8 @@ export const FacturacionModal: React.FC<{
   type IvaRate = typeof IVA_16 | typeof IVA_8;
 
   const EXPEDITION_PLACE_8P = "32460";
-  const EXPEDITION_PLACE_16P = "11560";
+  // const EXPEDITION_PLACE_16P = "11560";
+  const EXPEDITION_PLACE_16P = "42501";
 
   const [ivaRate, setIvaRate] = useState<IvaRate>(IVA_16);
 
@@ -387,7 +438,7 @@ export const FacturacionModal: React.FC<{
 
   const [selectedCfdiUse, setSelectedCfdiUse] = useState("G03");
   const [selectedPaymentForm, setSelectedPaymentForm] = useState("03");
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("PUE");
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("PPD");
 
   const [descarga, setDescarga] = useState<DescargaFactura | null>(null);
   const [isInvoiceGenerated, setIsInvoiceGenerated] = useState<Root | null>(
@@ -629,6 +680,7 @@ export const FacturacionModal: React.FC<{
     total: number;
     subtotal: number;
     iva: number;
+    fecha_uso?: string; // ✅
     id_solicitud: string;
     id_usuario_generador: string;
     reserva?: {
@@ -666,6 +718,7 @@ export const FacturacionModal: React.FC<{
             total,
             subtotal,
             iva,
+            fecha_uso: it.fecha_uso,
             reserva: {
               hotel: r.hotel,
               check_in: r.check_in,
@@ -677,27 +730,51 @@ export const FacturacionModal: React.FC<{
     });
   };
 
-  const groupByHospedaje = (items: ItemFull[]) => {
-    const map = new Map<string, ItemFull[]>();
-    for (const it of items) {
-      const key = it.id_hospedaje ?? `servicio:${it.id_servicio}`;
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(it);
-    }
+const groupByHospedaje = (items: ItemFull[]) => {
+  const map = new Map<string, ItemFull[]>();
 
-    return Array.from(map.entries()).map(([key, arr]) => ({
+  for (const it of items) {
+    const key = it.id_hospedaje ?? `servicio:${it.id_servicio}`;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(it);
+  }
+
+  const groups = Array.from(map.entries()).map(([key, arr]) => {
+    // ✅ ordena items del grupo por fecha_uso
+    const arrSorted = [...arr].sort(
+      (a, b) => dateToMs(a.fecha_uso) - dateToMs(b.fecha_uso),
+    );
+
+    // ✅ fecha “referencia” del grupo: min(fecha_uso) o fallback check_in
+    const groupDateMs =
+      dateToMs(arrSorted[0]?.fecha_uso) !== Number.POSITIVE_INFINITY
+        ? dateToMs(arrSorted[0]?.fecha_uso)
+        : dateToMs(arrSorted.find((x) => x.reserva?.check_in)?.reserva?.check_in);
+
+    return {
       key,
-      id_hospedaje: arr[0]?.id_hospedaje ?? null,
-      items: arr,
-      total: arr.reduce((s, x) => s + Number(x.total || 0), 0),
-      hotel: arr.find((x) => x.reserva?.hotel)?.reserva?.hotel ?? "",
-      check_in: arr.find((x) => x.reserva?.check_in)?.reserva?.check_in ?? "",
-      check_out: arr.find((x) => x.reserva?.check_out)?.reserva?.check_out ?? "",
+      id_hospedaje: arrSorted[0]?.id_hospedaje ?? null,
+      items: arrSorted,
+      total: arrSorted.reduce((s, x) => s + Number(x.total || 0), 0),
+      hotel: arrSorted.find((x) => x.reserva?.hotel)?.reserva?.hotel ?? "",
+      check_in:
+        arrSorted.find((x) => x.reserva?.check_in)?.reserva?.check_in ?? "",
+      check_out:
+        arrSorted.find((x) => x.reserva?.check_out)?.reserva?.check_out ?? "",
       viajero:
-        arr.find((x) => x.reserva?.nombre_viajero)?.reserva?.nombre_viajero ??
+        arrSorted.find((x) => x.reserva?.nombre_viajero)?.reserva?.nombre_viajero ??
         "",
-    }));
-  };
+      _groupDateMs: groupDateMs, // 👈 interno para ordenar
+    };
+  });
+
+  // ✅ ordena los grupos (conceptos) por fecha
+  groups.sort((a, b) => (a._groupDateMs ?? Infinity) - (b._groupDateMs ?? Infinity));
+
+  // opcional: limpiar campo interno
+  return groups.map(({ _groupDateMs, ...rest }) => rest);
+};
+
 
   // =========================
   // ✅ PREVIEW: conceptos con viajero + ClaveProdServ 01010101 si público general
@@ -840,7 +917,7 @@ export const FacturacionModal: React.FC<{
 
     if (selectedFiscalData.rfc === RFC_GENERICO) {
       setSelectedCfdiUse("S01");
-      setSelectedPaymentMethod("PUE");
+      setSelectedPaymentMethod("PPD");
       setSelectedPaymentForm("99");
       // ❌ NO setInvoiceMode("consolidada")
       // ❌ NO forzar selectedDescription
@@ -979,11 +1056,14 @@ export const FacturacionModal: React.FC<{
       const addendaObj = buildAddenda();
       const addendaStr = JSON.stringify(addendaObj);
 
-      const itemsFacturadosFull = getSelectedItemsFull(
+      let itemsFacturadosFull = getSelectedItemsFull(
         reservationsWithSelectedItems,
         selectedItems,
         selectedHospedaje,
       );
+
+      itemsFacturadosFull = sortByDateAsc(itemsFacturadosFull, "fecha_uso" as any);
+
 
       if (!itemsFacturadosFull.length) {
         showNotification("error", "No hay items seleccionados para facturar");
