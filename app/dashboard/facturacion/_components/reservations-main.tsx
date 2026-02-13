@@ -11,7 +11,6 @@ import { URL as API_URL, API_KEY } from "@/lib/constants/index";
 import useApi from "@/hooks/useApi";
 import { DescargaFactura, Root } from "@/types/billing";
 import { Download } from "lucide-react";
-import { formatMoneyMXN } from "@/helpers/formater";
 import { useNotification } from "@/context/useNotificacion";
 
 // --- Helpers de descarga robusta ---
@@ -105,10 +104,7 @@ const cfdiUseOptions = [
   { value: "G02", label: "G02 - Devoluciones, descuentos o bonificaciones" },
   { value: "G03", label: "G03 - Gastos en general" },
   { value: "I01", label: "I01 - Construcciones" },
-  {
-    value: "I02",
-    label: "I02 - Mobilario y equipo de oficina por inversiones",
-  },
+  { value: "I02", label: "I02 - Mobilario y equipo de oficina por inversiones" },
   { value: "I03", label: "I03 - Equipo de transporte" },
   { value: "I04", label: "I04 - Equipo de cómputo y accesorios" },
   {
@@ -350,8 +346,6 @@ export const FacturacionModal: React.FC<{
   const EXPEDITION_PLACE_8P = "32460";
   const EXPEDITION_PLACE_16P = "11560";
 
-  // const EXPEDITION_PLACE_16P = "42501"
-
   const [ivaRate, setIvaRate] = useState<IvaRate>(IVA_16);
 
   const expeditionPlace = useMemo(
@@ -400,7 +394,7 @@ export const FacturacionModal: React.FC<{
     null,
   );
 
-  // ✅ solo un selector arriba para modo (preview + facturación)
+  // ✅ Selector de modo (preview + facturación)
   type InvoiceMode =
     | "consolidada"
     | "detallada_por_hospedaje"
@@ -468,9 +462,7 @@ export const FacturacionModal: React.FC<{
   );
   const isCustomValid =
     customDescription && /[a-zA-Z0-9\S]/.test(customDescription.trim());
-  const descriptionToUse = isCustomValid
-    ? customDescription
-    : defaultDescription;
+  const descriptionToUse = isCustomValid ? customDescription : defaultDescription;
 
   const handleCopyObservations = async () => {
     const text = sanitizeFacturamaText(descriptionToUse, 1000);
@@ -545,7 +537,7 @@ export const FacturacionModal: React.FC<{
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ivaRate, reservationsInit, splitIva]);
 
-  // HARD CODE AMPARO
+  // HARD CODE AMPARO (lo dejo igual)
   useEffect(() => {
     if (
       fiscalDataList.some(
@@ -678,8 +670,7 @@ export const FacturacionModal: React.FC<{
               hotel: r.hotel,
               check_in: r.check_in,
               check_out: r.check_out,
-              nombre_viajero:
-                r.nombre_viajero_completo ?? r.nombre_viajero ?? null,
+              nombre_viajero: r.nombre_viajero_completo ?? r.nombre_viajero ?? null,
             },
           };
         });
@@ -701,8 +692,7 @@ export const FacturacionModal: React.FC<{
       total: arr.reduce((s, x) => s + Number(x.total || 0), 0),
       hotel: arr.find((x) => x.reserva?.hotel)?.reserva?.hotel ?? "",
       check_in: arr.find((x) => x.reserva?.check_in)?.reserva?.check_in ?? "",
-      check_out:
-        arr.find((x) => x.reserva?.check_out)?.reserva?.check_out ?? "",
+      check_out: arr.find((x) => x.reserva?.check_out)?.reserva?.check_out ?? "",
       viajero:
         arr.find((x) => x.reserva?.nombre_viajero)?.reserva?.nombre_viajero ??
         "",
@@ -710,7 +700,7 @@ export const FacturacionModal: React.FC<{
   };
 
   // =========================
-  // ✅ PREVIEW: conceptos con viajero
+  // ✅ PREVIEW: conceptos con viajero + ClaveProdServ 01010101 si público general
   // =========================
   type PreviewLine = {
     key: string;
@@ -725,9 +715,11 @@ export const FacturacionModal: React.FC<{
     Total: number;
   };
 
+  const isPublicoGeneral = selectedFiscalData?.rfc === RFC_GENERICO;
+
   const previewLines = useMemo<PreviewLine[]>(() => {
     const QTY_ONE = "1";
-    const productCode = "90121500";
+    const productCode = isPublicoGeneral ? "01010101" : "90121500"; // ✅ regla
     const unitCode = "E48";
     const unit = "Unidad de servicio";
 
@@ -739,9 +731,7 @@ export const FacturacionModal: React.FC<{
     if (!itemsFull.length) return [];
 
     if (invoiceMode === "consolidada") {
-      const totalFacturado = round2(
-        itemsFull.reduce((s, it) => s + it.total, 0),
-      );
+      const totalFacturado = round2(itemsFull.reduce((s, it) => s + it.total, 0));
       const { subtotal, iva, total } = splitIva(totalFacturado);
 
       const desc = customConceptConsolidadaValid
@@ -770,7 +760,6 @@ export const FacturacionModal: React.FC<{
       return groups.map((g) => {
         const { subtotal, iva, total } = splitIva(round2(g.total));
 
-        // ✅ conserva tu descripción original (selectedDescription + hotel + fechas) y agrega viajero
         const descRaw = [
           selectedDescription,
           g.hotel ? `${g.hotel}` : "",
@@ -801,16 +790,13 @@ export const FacturacionModal: React.FC<{
     return itemsFull.map((it) => {
       const { subtotal, iva, total } = splitIva(round2(it.total));
 
-      // ✅ conserva tu descripción original por item y agrega viajero
       const descRaw = [
         selectedDescription,
         it?.reserva?.hotel ?? "",
         it?.reserva?.check_in && it?.reserva?.check_out
           ? `${formatDate(it.reserva.check_in)} - ${formatDate(it.reserva.check_out)}`
           : "",
-        it?.reserva?.nombre_viajero
-          ? `Viajero: ${it.reserva.nombre_viajero}`
-          : "",
+        it?.reserva?.nombre_viajero ? `Viajero: ${it.reserva.nombre_viajero}` : "",
       ]
         .filter(Boolean)
         .join(" - ");
@@ -838,6 +824,7 @@ export const FacturacionModal: React.FC<{
     selectedDescription,
     customConceptConsolidadaValid,
     customConceptConsolidada,
+    isPublicoGeneral, // ✅ dependencia
   ]);
 
   const previewTotals = useMemo(() => {
@@ -847,25 +834,46 @@ export const FacturacionModal: React.FC<{
     return { base, tax, total };
   }, [previewLines]);
 
-  // Actualizar CFDI base (receiver + exp place + obs)
+  // ✅ Auto-set para RFC genérico (SIN forzar invoiceMode)
   useEffect(() => {
     if (!selectedFiscalData) return;
+
+    if (selectedFiscalData.rfc === RFC_GENERICO) {
+      setSelectedCfdiUse("S01");
+      setSelectedPaymentMethod("PUE");
+      setSelectedPaymentForm("99");
+      // ❌ NO setInvoiceMode("consolidada")
+      // ❌ NO forzar selectedDescription
+    }
+  }, [selectedFiscalData]);
+
+  // Actualizar CFDI base (receiver + exp place + obs) con soporte público general
+  useEffect(() => {
+    if (!selectedFiscalData) return;
+
+    const isPG = selectedFiscalData.rfc === RFC_GENERICO;
 
     setCfdi((prev) => ({
       ...prev,
       ExpeditionPlace: expeditionPlace,
-      Receiver: {
-        Name: selectedFiscalData.razon_social_df,
-        CfdiUse: selectedCfdiUse,
-        Rfc: selectedFiscalData.rfc,
-        FiscalRegime: selectedFiscalData.regimen_fiscal || "612",
-        TaxZipCode: selectedFiscalData.codigo_postal_fiscal,
-      },
+      Receiver: isPG
+        ? {
+            Name: "PUBLICO EN GENERAL",
+            CfdiUse: "S01",
+            Rfc: RFC_GENERICO,
+            FiscalRegime: "616",
+            TaxZipCode: expeditionPlace, // usa el lugar de expedición como CP para global
+          }
+        : {
+            Name: selectedFiscalData.razon_social_df,
+            CfdiUse: selectedCfdiUse,
+            Rfc: selectedFiscalData.rfc,
+            FiscalRegime: selectedFiscalData.regimen_fiscal || "612",
+            TaxZipCode: selectedFiscalData.codigo_postal_fiscal,
+          },
       PaymentForm: selectedPaymentForm,
       PaymentMethod: selectedPaymentMethod,
-      Observations: omitObservations
-        ? ""
-        : sanitizeFacturamaText(descriptionToUse),
+      Observations: omitObservations ? "" : sanitizeFacturamaText(descriptionToUse),
     }));
   }, [
     selectedFiscalData,
@@ -890,16 +898,12 @@ export const FacturacionModal: React.FC<{
 
     const missingFields: string[] = [];
     if (!cfdi.Receiver.Rfc) missingFields.push("RFC del receptor");
-    if (!cfdi.Receiver.TaxZipCode)
-      missingFields.push("código postal del receptor");
+    if (!cfdi.Receiver.TaxZipCode) missingFields.push("código postal del receptor");
     if (!selectedCfdiUse) missingFields.push("uso CFDI");
     if (!selectedPaymentForm) missingFields.push("forma de pago");
 
     if (missingFields.length > 0) {
-      showNotification(
-        "error",
-        `Faltan los siguientes campos: ${missingFields.join(", ")}`,
-      );
+      showNotification("error", `Faltan los siguientes campos: ${missingFields.join(", ")}`);
       return false;
     }
 
@@ -941,9 +945,7 @@ export const FacturacionModal: React.FC<{
     });
 
     const total = round2(reservas.reduce((s, r) => s + r.totales.total, 0));
-    const subtotal = round2(
-      reservas.reduce((s, r) => s + r.totales.subtotal, 0),
-    );
+    const subtotal = round2(reservas.reduce((s, r) => s + r.totales.subtotal, 0));
     const iva = round2(reservas.reduce((s, r) => s + r.totales.iva, 0));
 
     return {
@@ -965,7 +967,7 @@ export const FacturacionModal: React.FC<{
     }
     if (!validateInvoiceData()) return;
 
-    const mode = invoiceMode; // ✅ depende de selector arriba
+    const mode = invoiceMode;
 
     try {
       setLoading(true);
@@ -995,7 +997,10 @@ export const FacturacionModal: React.FC<{
         id_hospedaje: x.id_hospedaje,
       }));
 
-      // 3) CFDI Items (mantiene descripciones como ya estaban + viajero en detalladas)
+      const isPG = selectedFiscalData.rfc === RFC_GENERICO;
+      const PRODUCT_CODE = isPG ? "01010101" : "90121500"; // ✅ regla solicitada
+
+      // CFDI Items (con viajero en detalladas)
       const cfdiItems = (() => {
         const QTY_ONE = "1";
 
@@ -1005,7 +1010,6 @@ export const FacturacionModal: React.FC<{
           );
           const { subtotal, iva, total } = splitIva(totalFacturado);
 
-          // ✅ solo consolidada puede customizar concepto
           const descConsolidada = customConceptConsolidadaValid
             ? sanitizeFacturamaText(customConceptConsolidada, 1000)
             : sanitizeFacturamaText(selectedDescription, 1000);
@@ -1013,7 +1017,7 @@ export const FacturacionModal: React.FC<{
           return [
             {
               Quantity: QTY_ONE,
-              ProductCode: "90121500",
+              ProductCode: PRODUCT_CODE,
               UnitCode: "E48",
               Unit: "Unidad de servicio",
               Description: descConsolidada,
@@ -1056,7 +1060,7 @@ export const FacturacionModal: React.FC<{
 
             return {
               Quantity: QTY_ONE,
-              ProductCode: "90121500",
+              ProductCode: PRODUCT_CODE,
               UnitCode: "E48",
               Unit: "Unidad de servicio",
               Description: desc,
@@ -1098,8 +1102,8 @@ export const FacturacionModal: React.FC<{
           const desc = sanitizeFacturamaText(descRaw, 1000);
 
           return {
-            Quantity: "1",
-            ProductCode: "90121500",
+            Quantity: QTY_ONE,
+            ProductCode: PRODUCT_CODE,
             UnitCode: "E48",
             Unit: "Unidad de servicio",
             Description: desc,
@@ -1122,10 +1126,9 @@ export const FacturacionModal: React.FC<{
       })();
 
       // ✅ PRE-FLIGHT
-      if (!preflightCfdi(cfdiItems, itemsFacturadosFull, showNotification))
-        return;
+      if (!preflightCfdi(cfdiItems, itemsFacturadosFull, showNotification)) return;
 
-      const payloadCFDI = {
+      const payloadCFDI: any = {
         cfdi: {
           ...cfdi,
           ExpeditionPlace: expeditionPlace,
@@ -1145,9 +1148,7 @@ export const FacturacionModal: React.FC<{
         info_user: {
           fecha_vencimiento: dueDate,
           id_user: reservationsWithSelectedItems[0].id_usuario_generador,
-          id_solicitud: reservationsWithSelectedItems.map(
-            (r) => r.id_solicitud,
-          ),
+          id_solicitud: reservationsWithSelectedItems.map((r) => r.id_solicitud),
           id_items: itemsFacturadosFull.map((x: any) => x.id_item),
           datos_empresa: {
             rfc: cfdi.Receiver.Rfc,
@@ -1162,7 +1163,9 @@ export const FacturacionModal: React.FC<{
         },
         items_facturados: itemsFacturados,
       };
-      if (selectedFiscalData.rfc == RFC_GENERICO) {
+
+      // GlobalInformation solo para RFC genérico
+      if (isPG) {
         payloadCFDI.cfdi.GlobalInformation = {
           Periodicity: periodicity,
           Months: month,
@@ -1204,10 +1207,7 @@ export const FacturacionModal: React.FC<{
             <h3 className="text-lg font-medium text-gray-900">
               Facturar Items de Reservaciones
             </h3>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-500"
-            >
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-500">
               <span className="sr-only">Cerrar</span>
               <svg
                 className="h-6 w-6"
@@ -1242,6 +1242,7 @@ export const FacturacionModal: React.FC<{
               >
                 Consolidada
               </button>
+
               <button
                 type="button"
                 onClick={() => setInvoiceMode("detallada_por_hospedaje")}
@@ -1253,6 +1254,7 @@ export const FacturacionModal: React.FC<{
               >
                 Detallada (por hospedaje)
               </button>
+
               <button
                 type="button"
                 onClick={() => setInvoiceMode("detallada_por_item")}
@@ -1265,6 +1267,14 @@ export const FacturacionModal: React.FC<{
                 Detallada (por ítem)
               </button>
             </div>
+
+            {/* Hint opcional para PG */}
+            {isPublicoGeneral && (
+              <p className="text-[11px] text-gray-600 mt-2">
+                RFC público general detectado: se usará <b>ClaveProdServ 01010101</b> y se enviará{" "}
+                <b>GlobalInformation</b>.
+              </p>
+            )}
           </div>
 
           {/* ✅ Vista previa CFDI */}
@@ -1342,9 +1352,7 @@ export const FacturacionModal: React.FC<{
                         : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
                     }`}
                   >
-                    {useCustomConceptConsolidada
-                      ? "Custom activo"
-                      : "Activar custom"}
+                    {useCustomConceptConsolidada ? "Custom activo" : "Activar custom"}
                   </button>
                 </div>
 
@@ -1354,16 +1362,13 @@ export const FacturacionModal: React.FC<{
                   </label>
                   <input
                     value={customConceptConsolidada}
-                    onChange={(e) =>
-                      setCustomConceptConsolidada(e.target.value)
-                    }
+                    onChange={(e) => setCustomConceptConsolidada(e.target.value)}
                     disabled={!useCustomConceptConsolidada}
                     placeholder={selectedDescription}
                     className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-100"
                   />
                   <p className="text-[11px] text-gray-500 mt-1">
-                    Si está desactivado o vacío, se usa:{" "}
-                    <b>{selectedDescription}</b>
+                    Si está desactivado o vacío, se usa: <b>{selectedDescription}</b>
                   </p>
                 </div>
               </div>
@@ -1419,9 +1424,7 @@ export const FacturacionModal: React.FC<{
                         </td>
                         <td className="px-3 py-2 text-sm text-gray-800">
                           {line.UnitCode}
-                          <div className="text-[11px] text-gray-500">
-                            {line.Unit}
-                          </div>
+                          <div className="text-[11px] text-gray-500">{line.Unit}</div>
                         </td>
                         <td className="px-3 py-2 text-sm text-gray-800">
                           <div className="break-words">{line.Description}</div>
@@ -1490,8 +1493,7 @@ export const FacturacionModal: React.FC<{
                 </div>
 
                 <div className="text-[11px] text-gray-500 mt-2">
-                  {totalNights} noche(s) ·{" "}
-                  {reservationsWithSelectedItems.length} reserva(s)
+                  {totalNights} noche(s) · {reservationsWithSelectedItems.length} reserva(s)
                 </div>
               </div>
             </div>
@@ -1499,16 +1501,12 @@ export const FacturacionModal: React.FC<{
 
           {/* Datos fiscales */}
           <div className="mb-6">
-            <h4 className="text-md font-medium text-gray-900 mb-3">
-              Datos Fiscales
-            </h4>
+            <h4 className="text-md font-medium text-gray-900 mb-3">Datos Fiscales</h4>
 
             {loading ? (
               <div className="text-center py-4">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto" />
-                <p className="mt-2 text-sm text-gray-500">
-                  Cargando datos fiscales...
-                </p>
+                <p className="mt-2 text-sm text-gray-500">Cargando datos fiscales...</p>
               </div>
             ) : error ? (
               <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
@@ -1526,27 +1524,22 @@ export const FacturacionModal: React.FC<{
                   <div
                     key={`${data.id_datos_fiscales}-${data.id_empresa}`}
                     className={`border rounded-md p-4 cursor-pointer ${
-                      selectedFiscalData?.id_datos_fiscales ===
-                      data.id_datos_fiscales
+                      selectedFiscalData?.id_datos_fiscales === data.id_datos_fiscales
                         ? "border-blue-500 bg-blue-50"
                         : "border-gray-200"
                     }`}
                     onClick={() => setSelectedFiscalData(data)}
                   >
                     <div className="flex justify-between">
-                      <h5 className="font-medium text-gray-900">
-                        {data.razon_social_df}
-                      </h5>
-                      <span className="text-sm text-gray-500">
-                        RFC: {data.rfc}
-                      </span>
+                      <h5 className="font-medium text-gray-900">{data.razon_social_df}</h5>
+                      <span className="text-sm text-gray-500">RFC: {data.rfc}</span>
                     </div>
                     <p className="text-sm text-gray-600 mt-1">
                       Regimen Fiscal: {data.regimen_fiscal}
                     </p>
                     <p className="text-sm text-gray-600 mt-1">
-                      {data.codigo_postal_fiscal},{data.estado},{" "}
-                      {data.municipio}, {data.colonia} , {data.calle}
+                      {data.codigo_postal_fiscal},{data.estado}, {data.municipio},{" "}
+                      {data.colonia} , {data.calle}
                     </p>
                   </div>
                 ))}
@@ -1620,6 +1613,7 @@ export const FacturacionModal: React.FC<{
                 <p className="text-[11px] text-gray-500 mt-1">
                   Por defecto se establece 30 días a partir de hoy.
                 </p>
+
                 {selectedFiscalData?.rfc == RFC_GENERICO && (
                   <div className="mt-4 grid gap-4 md:grid-cols-3">
                     <div className="flex flex-col gap-1">
@@ -1640,9 +1634,7 @@ export const FacturacionModal: React.FC<{
                     </div>
 
                     <div className="flex flex-col gap-1">
-                      <label className="text-sm font-medium text-gray-600">
-                        Mes
-                      </label>
+                      <label className="text-sm font-medium text-gray-600">Mes</label>
                       <select
                         value={month}
                         onChange={(e) => setMonth(e.target.value)}
@@ -1657,9 +1649,7 @@ export const FacturacionModal: React.FC<{
                     </div>
 
                     <div className="flex flex-col gap-1">
-                      <label className="text-sm font-medium text-gray-600">
-                        Año
-                      </label>
+                      <label className="text-sm font-medium text-gray-600">Año</label>
                       <input
                         type="number"
                         value={year}
@@ -1703,9 +1693,7 @@ export const FacturacionModal: React.FC<{
                         : "border-gray-300 bg-white hover:bg-gray-50"
                     }`}
                   >
-                    {omitObservations
-                      ? "Observación desactivada"
-                      : "No poner observación"}
+                    {omitObservations ? "Observación desactivada" : "No poner observación"}
                   </button>
 
                   {omitObservations && (
@@ -1741,9 +1729,7 @@ export const FacturacionModal: React.FC<{
 
               {/* IVA Switch */}
               <div className="mt-4">
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  IVA
-                </label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">IVA</label>
                 <div className="inline-flex rounded-md border border-gray-300 overflow-hidden">
                   <button
                     type="button"
@@ -1768,9 +1754,7 @@ export const FacturacionModal: React.FC<{
                     8%
                   </button>
                 </div>
-                <p className="text-[11px] text-gray-500 mt-1">
-                  Por defecto es 16%.
-                </p>
+                <p className="text-[11px] text-gray-500 mt-1">Por defecto es 16%.</p>
               </div>
             </div>
           </div>
@@ -1783,8 +1767,7 @@ export const FacturacionModal: React.FC<{
                   Total a facturar:
                 </span>
                 <p className="text-xs text-gray-500 mt-1">
-                  {totalNights} noche(s) en{" "}
-                  {reservationsWithSelectedItems.length} reserva(s)
+                  {totalNights} noche(s) en {reservationsWithSelectedItems.length} reserva(s)
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
                   Subtotal:{" "}
@@ -1841,10 +1824,7 @@ export const FacturacionModal: React.FC<{
                   }
 
                   if (!pdf) {
-                    showNotification(
-                      "error",
-                      "No se encontró el PDF en la respuesta de descarga.",
-                    );
+                    showNotification("error", "No se encontró el PDF en la respuesta de descarga.");
                     return;
                   }
 
@@ -1878,10 +1858,7 @@ export const FacturacionModal: React.FC<{
                   }
 
                   if (!xml) {
-                    showNotification(
-                      "error",
-                      "No se encontró el XML en la respuesta de descarga.",
-                    );
+                    showNotification("error", "No se encontró el XML en la respuesta de descarga.");
                     return;
                   }
 
@@ -1920,6 +1897,7 @@ export const FacturacionModal: React.FC<{
 const paymentDescriptions = [
   "Servicio de administración y gestión de Reservas",
   "Servicio y Gestión de viajes",
+  "Factura global",
 ];
 
 const RFC_GENERICO = "XAXX010101000";

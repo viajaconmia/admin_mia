@@ -354,6 +354,19 @@ function App() {
   hasAccess(PERMISOS.VISTAS.PROVEEDOR_PAGOS);
 
   const selectedCount = solicitud.length;
+  const canSelect = categoria !== "pagada";
+const canDispersion = canSelect && selectedCount > 0;
+
+const dispersionDisabledReason =
+  categoria === "pagada"
+    ? "En carpeta pagada no se puede generar dispersión"
+    : selectedCount === 0
+    ? "Selecciona al menos 1 solicitud"
+    : "";
+
+const clearDisabledReason =
+  !canSelect || selectedCount === 0 ? "No hay selección para limpiar" : "";
+
 
   const mergeAll = (d: Partial<SolicitudesPorFiltro>) => {
     const arr = [...(d.spei_solicitado ?? []), ...(d.pago_tdc ?? []), ...(d.cupon_enviado ?? []), ...(d.pagada ?? [])];
@@ -842,33 +855,66 @@ function App() {
               leyenda={`Mostrando ${registrosVisibles.length} registros (${
                 categoria === "all" ? "todas" : categoria === "carta_garantia" ? "carta garantía" : `categoría: ${categoria}`
               })`}
-            >
-              <Button
-              onClick={handleCsv}
-              icon={Upload}
-            >
-              Subir Comprobante
-            </Button>
-
-            <Button
-              onClick={handleDispersion}
-              disabled={categoria === "pagada" || selectedCount === 0}
-              variant="secondary"
-              icon={File}
-            >
-              Generar dispersión
-            </Button>
-
-            {selectedCount > 0 && categoria !== "pagada" && (
-              <Button
-                onClick={clearSelection}
-                variant="ghost"
-                icon={Brush}
               >
-                Limpiar
-              </Button>
-            )}
-            </Table5>
+                {/* Subir comprobante (secundario) */}
+                <Button
+                  onClick={handleCsv}
+                  icon={Upload}
+                  variant="ghost"
+                  size="md"
+                  className={[
+                    "h-10 !rounded-xl px-3",
+                    "border border-slate-200 bg-white text-slate-800",
+                    "shadow-sm hover:shadow",
+                    "hover:bg-slate-50 hover:border-slate-300",
+                    "active:translate-y-[1px] transition-all",
+                    "focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2",
+                  ].join(" ")}
+                  title="Subir comprobante"
+                >
+                  Subir comprobante
+                </Button>
+
+                {/* Generar dispersión (primario) */}
+                <Button
+                  onClick={handleDispersion}
+                  disabled={!canDispersion}
+                  icon={File}
+                  variant="secondary"
+                  size="md"
+                  className={[
+                    "h-10 !rounded-xl px-3",
+                    "bg-blue-600 text-white border border-blue-700/20",
+                    "shadow-sm hover:shadow hover:bg-blue-700",
+                    "active:translate-y-[1px] transition-all",
+                    "disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-200 disabled:shadow-none",
+                    "focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2",
+                  ].join(" ")}
+                  title={dispersionDisabledReason || `Generar dispersión (${selectedCount})`}
+                >
+                  Generar dispersión{selectedCount > 0 ? ` (${selectedCount})` : ""}
+                </Button>
+
+                {/* Limpiar (peligro suave) */}
+                <Button
+                  onClick={clearSelection}
+                  disabled={!canSelect || selectedCount === 0}
+                  icon={Brush}
+                  variant="ghost"
+                  size="md"
+                  className={[
+                    "h-10 !rounded-xl px-3",
+                    "border border-rose-200 bg-white text-rose-700",
+                    "hover:bg-rose-50 hover:border-rose-300",
+                    "active:translate-y-[1px] transition-all",
+                    "disabled:opacity-50 disabled:cursor-not-allowed",
+                    "focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-2",
+                  ].join(" ")}
+                  title={clearDisabledReason || `Limpiar selección (${selectedCount})`}
+                >
+                  Limpiar
+                </Button>
+              </Table5>
           )}
         </div>
       </div>
