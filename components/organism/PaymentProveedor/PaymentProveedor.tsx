@@ -56,7 +56,7 @@ function computePaymentStatus(opts: {
   if (paymentMethod === "transfer") return "spei_solicitado";
   if (paymentMethod === "card") {
     if (useQR === "qr") return "enviada_para_cobro";
-    return "pago_tdc"; // code/archivo
+    return "pago_tdc";
   }
 
   return "pendiente";
@@ -80,10 +80,16 @@ function to2(n: number) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 
-export const PaymentModal = ({ reservation }: { reservation: BookingAll | null }) => {
+export const PaymentModal = ({
+  reservation,
+}: {
+  reservation: BookingAll | null;
+}) => {
   const reservaRef = useRef<ReservaHandle>(null);
 
   const { data, fetchData } = useFetchCards();
+
+  // ✅ NUEVO: titulares
   const { data: titularesData, fetchTitulares } = useFetchTitulares();
 
   const [isReservaOpen, setIsReservaOpen] = useState(false);
@@ -106,21 +112,17 @@ export const PaymentModal = ({ reservation }: { reservation: BookingAll | null }
     document,
   } = state;
 
+  // NUEVO: Comentarios CXP (local para no tocar tu reducer)
   const [commentsCxp, setCommentsCxp] = useState<string>("");
+
+  // ✅ NUEVO: titular seleccionado (local)
   const [selectedTitularId, setSelectedTitularId] = useState<string>("");
 
   if (!reservation) return null;
 
-  // =========================================================
-  // ✅ Markup: costo_total (costo proveedor) vs total (vendido)
-  // =========================================================
-  const costoProveedor = Number((reservation as any).costo_total) || 0; // lo que te costó
-  const totalVendido = Number((reservation as any).total) || 0;         // por lo que lo vendiste
-
+  const reservationTotal = Number(reservation.costo_total) || 0;
   const balanceToApply = parseFloat(String(favorBalance ?? "")) || 0;
-
-  // ✅ monto a pagar al proveedor: costo - saldo a favor
-  const monto_a_pagar = to2(Math.max(0, costoProveedor - balanceToApply));
+  const monto_a_pagar = to2(reservationTotal - balanceToApply);
 
   const todayISO = useMemo(() => {
     const d = new Date();
@@ -178,6 +180,7 @@ export const PaymentModal = ({ reservation }: { reservation: BookingAll | null }
       rows.map((r, idx) => {
         if (r.id !== id) return r;
         const next = { ...r, ...patch };
+        // compat: si cambian la 1a fecha, reflejamos date del reducer
         if (rowIndex === 0 && typeof patch.date === "string") {
           dispatch({ type: "SET_FIELD", field: "date", payload: patch.date });
         }
@@ -187,6 +190,7 @@ export const PaymentModal = ({ reservation }: { reservation: BookingAll | null }
   };
 
   const validateAndBuildSchedulePayload = () => {
+    // Solo para card/link
     const normalized = paymentSchedule.map((r) => ({
       fecha_pago: (r.date || "").trim(),
       monto: r.amount === "" ? NaN : Number(r.amount),
@@ -202,9 +206,7 @@ export const PaymentModal = ({ reservation }: { reservation: BookingAll | null }
     const sum = to2(normalized.reduce((acc, r) => acc + (r.monto || 0), 0));
     if (Math.abs(sum - monto_a_pagar) > 0.01) {
       throw new Error(
-        `La suma del calendario de pagos (${sum.toFixed(
-          2
-        )}) debe ser igual al monto a pagar (${monto_a_pagar.toFixed(2)}).`
+        `La suma del calendario de pagos (${sum.toFixed(2)}) debe ser igual al monto a pagar (${monto_a_pagar.toFixed(2)}).`
       );
     }
 
@@ -220,7 +222,9 @@ export const PaymentModal = ({ reservation }: { reservation: BookingAll | null }
       }))
     : [];
 
-  const currentSelectedCard = creditCards.find((card: any) => String(card.id) === String(selectedCard));
+  const currentSelectedCard = creditCards.find(
+    (card: any) => String(card.id) === String(selectedCard)
+  );
 
   const selectFiles = creditCards.map((card: any) => ({
     label: card.nombre_titular,
@@ -228,6 +232,7 @@ export const PaymentModal = ({ reservation }: { reservation: BookingAll | null }
     item: card,
   }));
 
+  // ✅ traer tarjetas y titulares
   useEffect(() => {
     fetchData();
     fetchTitulares();
@@ -242,15 +247,15 @@ export const PaymentModal = ({ reservation }: { reservation: BookingAll | null }
     if (!reservation) return null;
     return {
       codigo_confirmacion: reservation.codigo_confirmacion ?? "SIN-CODIGO",
-      huesped: (reservation as any).viajero ?? "",
-      hotel: (reservation as any).proveedor ?? "",
+      huesped: reservation.viajero ?? "",
+      hotel: reservation.proveedor ?? "",
       direccion: "",
       acompañantes: "",
       incluye_desayuno: 0,
       check_in: reservation.check_in ?? "",
       check_out: reservation.check_out ?? "",
-      room: (reservation as any).tipo_cuarto_vuelo ?? "",
-      comentarios: (reservation as any).comments ?? "",
+      room: reservation.tipo_cuarto_vuelo ?? "",
+      comentarios: reservation.comments ?? "",
     };
   }, [reservation]);
 
@@ -262,6 +267,7 @@ export const PaymentModal = ({ reservation }: { reservation: BookingAll | null }
     try {
       if (!emails) throw new Error("Agrega al menos un correo.");
       const list = emails.split(",").map((e) => e.trim()).filter(Boolean);
+
       if (list.length === 0) throw new Error("Formato de correos inválido.");
 
       const blob = await reservaRef.current?.getPdfBlob();
@@ -292,57 +298,6 @@ export const PaymentModal = ({ reservation }: { reservation: BookingAll | null }
     }
   };
 
-  const generatePaymentPDF = async () => {
-    // ✅ genera PDF tanto para qr como para code (archivo)
-    if (!document) throw new Error("Falta seleccionar el documento que aparecerá");
-    if (!currentSelectedCard) throw new Error("Falta seleccionar tarjeta");
-    if (!useQR) throw new Error("Selecciona si es Con QR o En archivo");
-
-    const secureToken = generateSecureToken(
-      reservation.codigo_confirmacion.replaceAll("-", "."),
-      monto_a_pagar,
-      currentSelectedCard.id,
-      isSecureCode
-    );
-
-    const qrData: QRPaymentData = {
-      isSecureCode,
-      cargo,
-      type: useQR, // "qr" | "code"
-      secureToken,
-      logoUrl: "https://luiscastaneda-tos.github.io/log/files/nokt.png",
-      empresa: {
-        codigoPostal: "11570",
-        direccion:
-          "Presidente Masaryk #29, Interior P-4, CDMX, colonia: Chapultepec Morales, Alcaldía: Miguel Hidalgo",
-        nombre: "noktos",
-        razonSocial: "Noktos Alianza S.A. de C.V.",
-        rfc: "NAL190807BU2",
-      },
-      bancoEmisor: currentSelectedCard.banco_emisor,
-      fechaExpiracion: currentSelectedCard.fecha_vencimiento,
-      nombreTarjeta: currentSelectedCard.nombre_titular,
-      numeroTarjeta: currentSelectedCard.numero_completo,
-      documento: document,
-      cvv: currentSelectedCard.cvv,
-      reservations: [
-        {
-          checkIn: reservation.check_in.split("T")[0],
-          checkOut: reservation.check_out.split("T")[0],
-          reservacionId: reservation.codigo_confirmacion,
-          monto: costoProveedor, // ✅ el costo proveedor tiene más sentido aquí
-          nombre: (reservation as any).viajero,
-          tipoHabitacion: updateRoom((reservation as any).tipo_cuarto_vuelo),
-        },
-      ],
-      codigoDocumento: "xxxx",
-      currency: "MXN",
-    };
-
-    const pdf = await generateSecureQRPaymentPDF(qrData);
-    pdf.save(`pago-proveedor-${reservation.codigo_confirmacion}.pdf`);
-  };
-
   const handlePayment = async () => {
     try {
       const derivedStatus: PaymentStatus = computePaymentStatus({
@@ -367,43 +322,19 @@ export const PaymentModal = ({ reservation }: { reservation: BookingAll | null }
       }
 
       // ----- Crédito -----
-      // ----- Crédito -----
-if (paymentType === "credit") {
-  if (!reservation) throw new Error("No hay reservación.");
-
-  // Si quieres obligar comentarios o correos en crédito, valida aquí.
-  // Ejemplo: if (!comments) throw new Error("Agrega comentarios.");
-
-  // OJO: derivedStatus ya será "cupon_enviado" por computePaymentStatus()
-  fetchCreateSolicitud(
-    {
-      date: effectiveDate,
-      comments,
-      comments_cxp: commentsCxp,
-      paymentMethod: "transfer", // o null; depende de tu backend.
-      paymentType: "credit",
-      monto_a_pagar, // si en crédito NO quieres monto, puedes mandar 0 o el costoProveedor; depende tu regla.
-      id_hospedaje: reservation.id_booking,
-      paymentStatus: derivedStatus,
-      paymentSchedule: undefined, // crédito no usa schedule normalmente
-      usuario_creador: (reservation as any).usuario_creador,
-
-      // si tu backend espera estos campos aunque sea crédito:
-      selectedCard: null,
-      idTitular: null,
-      titular: "",
-      identificacion: "",
-    },
-    (response: any) => {
-      // si tu servicio manda mensaje
-      if (response?.message) alert(response.message);
-    }
-  );
-
-  dispatch({ type: "SET_FIELD", field: "error", payload: "" });
-  return;
-}
-
+      if (paymentType === "credit") {
+        console.log({
+          date: effectiveDate,
+          paymentType,
+          monto_a_pagar,
+          comments,
+          comments_cxp: commentsCxp,
+          id_hospedaje: reservation.id_booking,
+          paymentStatus: derivedStatus,
+          usuario_creador: reservation.usuario_creador,
+        });
+        return;
+      }
 
       // ----- Prepago -----
       if (paymentType === "prepaid") {
@@ -434,7 +365,7 @@ if (paymentType === "credit") {
               id_hospedaje: reservation.id_booking,
               paymentStatus: derivedStatus,
               paymentSchedule: paymentSchedulePayload,
-              usuario_creador: (reservation as any).usuario_creador,
+              usuario_creador: reservation.usuario_creador,
 
               idTitular: paymentMethod === "link" ? Number(selectedTitularId) : null,
               titular: paymentMethod === "link" ? currentTitular?.Titular ?? "" : "",
@@ -443,10 +374,8 @@ if (paymentType === "credit") {
             (_response: any) => {}
           );
 
-          // ✅ ARREGLO: generar PDF tanto para QR como para Archivo
-          // (si quieres solo cuando es tarjeta, lo limitamos a paymentMethod === "card")
-          if (paymentMethod === "card") {
-            await generatePaymentPDF();
+          if (paymentMethod === "card" && useQR === "qr") {
+            await generateQRPaymentPDF();
           }
         } else if (paymentMethod === "transfer") {
           fetchCreateSolicitud(
@@ -460,7 +389,7 @@ if (paymentType === "credit") {
               id_hospedaje: reservation.id_booking,
               paymentStatus: derivedStatus,
               paymentSchedule: paymentSchedulePayload,
-              usuario_creador: (reservation as any).usuario_creador,
+              usuario_creador: reservation.usuario_creador,
             },
             (response: any) => {
               alert(response.message);
@@ -470,14 +399,62 @@ if (paymentType === "credit") {
       }
 
       dispatch({ type: "SET_FIELD", field: "error", payload: "" });
-    } catch (err: any) {
-      dispatch({ type: "SET_FIELD", field: "error", payload: err?.message || "Error" });
+    } catch (error: any) {
+      dispatch({ type: "SET_FIELD", field: "error", payload: error.message });
     }
   };
 
-  const handleConfirmCredit = async () => {
-    // ✅ botón dedicado para crédito (usa la misma lógica handlePayment)
-    await handlePayment();
+  const generateQRPaymentPDF = async () => {
+    if (!document) throw new Error("Falta seleccionar el documento que aparecerá");
+    if (!currentSelectedCard) throw new Error("Falta seleccionar tarjeta");
+
+    const secureToken = generateSecureToken(
+      reservation.codigo_confirmacion.replaceAll("-", "."),
+      monto_a_pagar,
+      currentSelectedCard.id,
+      isSecureCode
+    );
+
+    const qrData: QRPaymentData = {
+      isSecureCode,
+      cargo,
+      type: useQR,
+      secureToken,
+      logoUrl: "https://luiscastaneda-tos.github.io/log/files/nokt.png",
+      empresa: {
+        codigoPostal: "11570",
+        direccion:
+          "Presidente Masaryk #29, Interior P-4, CDMX, colonia: Chapultepec Morales, Alcaldía: Miguel Hidalgo",
+        nombre: "noktos",
+        razonSocial: "Noktos Alianza S.A. de C.V.",
+        rfc: "NAL190807BU2",
+      },
+      bancoEmisor: currentSelectedCard.banco_emisor,
+      fechaExpiracion: currentSelectedCard.fecha_vencimiento,
+      nombreTarjeta: currentSelectedCard.nombre_titular,
+      numeroTarjeta: currentSelectedCard.numero_completo,
+      documento: document,
+      cvv: currentSelectedCard.cvv,
+      reservations: [
+        {
+          checkIn: reservation.check_in.split("T")[0],
+          checkOut: reservation.check_out.split("T")[0],
+          reservacionId: reservation.codigo_confirmacion,
+          monto: Number(reservation.costo_total),
+          nombre: reservation.viajero,
+          tipoHabitacion: updateRoom(reservation.tipo_cuarto_vuelo),
+        },
+      ],
+      codigoDocumento: "xxxx",
+      currency: "MXN",
+    };
+
+    try {
+      const pdf = await generateSecureQRPaymentPDF(qrData);
+      pdf.save(`pago-proveedor-${reservation.codigo_confirmacion}.pdf`);
+    } catch (err) {
+      console.error("Error generating QR PDF:", err);
+    }
   };
 
   return (
@@ -487,8 +464,19 @@ if (paymentType === "credit") {
           error ? "opacity-100 scale-100 sticky" : "opacity-0 scale-10 pointer-events-none absolute"
         }`}
       >
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mt-0.5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01M4.93 4.93a10 10 0 0114.14 0M4.93 19.07a10 10 0 010-14.14M19.07 19.07a10 10 0 000-14.14" />
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          className="h-5 w-5 mt-0.5 text-red-500"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+            d="M12 9v2m0 4h.01M4.93 4.93a10 10 0 0114.14 0M4.93 19.07a10 10 0 010-14.14M19.07 19.07a10 10 0 000-14.14"
+          />
         </svg>
         <p className="text-sm font-medium">{error}</p>
       </div>
@@ -497,6 +485,165 @@ if (paymentType === "credit") {
       <div className="px-4 border-r">
         <ReservationDetails reservation={reservation} />
 
+        <div className="space-y-2">
+          {/* Saldo a Favor + Fechas SOLO en PREPAGO */}
+          {paymentType === "prepaid" && (
+            <>
+              <CheckboxInput
+                checked={hasFavorBalance}
+                onChange={(checked) =>
+                  dispatch({
+                    type: "SET_FIELD",
+                    field: "hasFavorBalance",
+                    payload: checked === true,
+                  })
+                }
+                label="Tiene saldo a favor"
+              />
+
+              {hasFavorBalance && (
+                <>
+                  <NumberInput
+                    onChange={(value) =>
+                      dispatch({
+                        type: "SET_FIELD",
+                        field: "favorBalance",
+                        payload: value,
+                      })
+                    }
+                    value={Number(favorBalance) || null}
+                    label="Monto Saldo a Favor a Aplicar"
+                    placeholder="0.00"
+                  />
+                  <div className="p-4 bg-green-50 border rounded-md border-green-200">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-700 text-sm">Monto a Pagar al Proveedor:</span>
+                      <span className="text-xl font-bold text-green-700">${monto_a_pagar.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* ✅ NUEVO: Fecha estimada PARA LAS 3 OPCIONES (transfer/card/link) */}
+              {paymentMethod && (
+                <DateInput
+                  label="Fecha estimada"
+                  value={date}
+                  onChange={(value) =>
+                    dispatch({
+                      type: "SET_FIELD",
+                      field: "date",
+                      payload: value,
+                    })
+                  }
+                />
+              )}
+
+              {/* === SOLO CARD/LINK: Tabla schedule === */}
+              {shouldShowSchedule && (
+                <div className="mt-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold">Calendario de pagos</h3>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          setPaymentSchedule([
+                            {
+                              id: safeUUID(),
+                              date: (date as string) || todayISO,
+                              amount: monto_a_pagar,
+                            },
+                          ])
+                        }
+                        title="Reiniciar a un solo pago con el total"
+                      >
+                        Reset
+                      </Button>
+                      <Button type="button" variant="outline" size="sm" onClick={addScheduleRow}>
+                        Agregar pago
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto border rounded-md">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50">
+                        <tr>
+                          <th className="text-left font-semibold p-2">Fecha de pago</th>
+                          <th className="text-left font-semibold p-2">Monto</th>
+                          <th className="text-right font-semibold p-2">Acción</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {paymentSchedule.map((row, idx) => (
+                          <tr key={row.id} className="border-t">
+                            <td className="p-2">
+                              <input
+                                type="date"
+                                className="w-full border rounded-md px-2 py-1"
+                                value={row.date}
+                                onChange={(e) =>
+                                  updateScheduleRow(row.id, { date: e.target.value }, idx)
+                                }
+                              />
+                            </td>
+                            <td className="p-2">
+                              <input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                className="w-full border rounded-md px-2 py-1"
+                                value={row.amount === "" ? "" : String(row.amount)}
+                                onChange={(e) => {
+                                  const raw = e.target.value;
+                                  updateScheduleRow(row.id, {
+                                    amount: raw === "" ? "" : to2(Number(raw || 0)),
+                                  });
+                                }}
+                                placeholder="0.00"
+                              />
+                            </td>
+                            <td className="p-2 text-right">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => removeScheduleRow(row.id)}
+                                disabled={paymentSchedule.length <= 1}
+                                title={
+                                  paymentSchedule.length <= 1
+                                    ? "Debe existir al menos una fila"
+                                    : "Eliminar fila"
+                                }
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-600">Total programado:</span>
+                    <span className="font-semibold">${scheduleTotal.toFixed(2)}</span>
+                  </div>
+
+                  {Math.abs(scheduleTotal - monto_a_pagar) > 0.01 && (
+                    <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2">
+                      El total programado debe ser igual al monto a pagar:{" "}
+                      <span className="font-semibold">${monto_a_pagar.toFixed(2)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* ===== RIGHT ===== */}
@@ -507,7 +654,9 @@ if (paymentType === "credit") {
           <div className="grid grid-cols-2 gap-4">
             <Button
               variant={paymentType === "prepaid" ? "default" : "outline"}
-              onClick={() => dispatch({ type: "SET_FIELD", field: "paymentType", payload: "prepaid" })}
+              onClick={() =>
+                dispatch({ type: "SET_FIELD", field: "paymentType", payload: "prepaid" })
+              }
               className="h-10"
             >
               <CreditCard className="mr-2 h-5 w-5" />
@@ -516,7 +665,9 @@ if (paymentType === "credit") {
 
             <Button
               variant={paymentType === "credit" ? "default" : "outline"}
-              onClick={() => dispatch({ type: "SET_FIELD", field: "paymentType", payload: "credit" })}
+              onClick={() =>
+                dispatch({ type: "SET_FIELD", field: "paymentType", payload: "credit" })
+              }
               className="h-10"
             >
               <FileText className="mr-2 h-5 w-5" />
@@ -593,7 +744,9 @@ if (paymentType === "credit") {
                 <CheckboxInput
                   label={"Mostrar cvv"}
                   checked={isSecureCode}
-                  onChange={(value) => dispatch({ type: "SET_FIELD", field: "isSecureCode", payload: value })}
+                  onChange={(value) =>
+                    dispatch({ type: "SET_FIELD", field: "isSecureCode", payload: value })
+                  }
                 />
 
                 <DropdownValues
@@ -619,10 +772,18 @@ if (paymentType === "credit") {
               <div className="space-y-4">
                 <DropdownValues
                   onChange={(value: any) => {
-                    dispatch({ type: "SET_FIELD", field: "selectedCard", payload: value?.item?.id ?? "" });
+                    dispatch({
+                      type: "SET_FIELD",
+                      field: "selectedCard",
+                      payload: value?.item?.id ?? "",
+                    });
                   }}
                   value={selectedCard || ""}
-                  options={creditCards.map((item: any) => ({ value: item.id, label: item.name, item }))}
+                  options={creditCards.map((item: any) => ({
+                    value: item.id,
+                    label: item.name,
+                    item,
+                  }))}
                   label="Seleccionar tarjeta"
                 />
               </div>
@@ -638,6 +799,7 @@ if (paymentType === "credit") {
                   onChange={(e) => setSelectedTitularId(e.target.value)}
                 >
                   <option value="">-- Selecciona un titular --</option>
+
                   {Array.isArray(titularesData) &&
                     titularesData.map((t: any) => (
                       <option key={t.idTitular} value={String(t.idTitular)}>
@@ -647,7 +809,12 @@ if (paymentType === "credit") {
                 </select>
 
                 {currentTitular?.identificacion && (
-                  <a href={currentTitular.identificacion} target="_blank" rel="noreferrer" className="text-xs text-blue-600 underline">
+                  <a
+                    href={currentTitular.identificacion}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-blue-600 underline"
+                  >
                     Ver identificación del titular
                   </a>
                 )}
@@ -719,11 +886,6 @@ if (paymentType === "credit") {
               value={commentsCxp}
               label="Comentarios CXP"
             />
-
-            {/* ✅ BOTÓN QUE FALTABA PARA CRÉDITO */}
-            <Button onClick={handleConfirmCredit} className="w-full bg-blue-600 hover:bg-blue-700">
-              Confirmar crédito
-            </Button>
 
             <Reserva isOpen={isReservaOpen} onClose={() => setIsReservaOpen(false)} reservation={mappedReservation} />
           </div>
