@@ -19,12 +19,10 @@ import { Loader } from "@/components/atom/Loader";
 import { FilterInput } from "@/component/atom/FilterInput";
 import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
-
-interface TrackingPage {
-  total: number;
-  page: number;
-  total_pages: number;
-}
+import {
+  PageTracker,
+  TrackingPage,
+} from "@/v2/components/molecule/PageTracking";
 
 const PAGE_SIZE = 50;
 
@@ -53,7 +51,7 @@ export default function ProveedoresPage() {
   useEffect(() => {
     showNotification(
       "info",
-      "Debes seleccionar primero un filtro y despues presionar el boton de buscar resultados"
+      "Debes seleccionar primero un filtro y despues presionar el boton de buscar resultados",
     );
   }, []);
 
@@ -75,7 +73,7 @@ export default function ProveedoresPage() {
     } catch (err) {
       showNotification(
         "error",
-        err.message || "Error al obtener los proveedores"
+        err.message || "Error al obtener los proveedores",
       );
       setProveedores([]);
     } finally {
@@ -108,7 +106,7 @@ export default function ProveedoresPage() {
   const handleFilterChange = (value, propiedad) => {
     if (value == null) {
       const newObj = Object.fromEntries(
-        Object.entries({ ...filtros }).filter(([key]) => key != propiedad)
+        Object.entries({ ...filtros }).filter(([key]) => key != propiedad),
       );
       setFiltros(newObj);
       return;
@@ -163,8 +161,8 @@ export default function ProveedoresPage() {
               {isLoading
                 ? "Cargando..."
                 : !proveedores
-                ? "Buscar resultados"
-                : "Refrescar"}
+                  ? "Buscar resultados"
+                  : "Refrescar"}
             </Button>
 
             {/* Placeholder para creación */}
@@ -193,58 +191,16 @@ export default function ProveedoresPage() {
             )}
           </div>
           {proveedores && (
-            <div className="flex flex-col items-center gap-2 w-full">
-              <div className="flex gap-3 items-end relative px-3">
-                {pageTracking.page > 1 && (
-                  <div className="absolute top-0 right-full flex items-end  gap-3">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => {
-                        setPageTraking((prev) => ({
-                          ...prev,
-                          page: prev.page - 1,
-                        }));
-                        fetchProveedores(pageTracking.page - 1);
-                      }}
-                    >
-                      Anterior
-                    </Button>
-                    <span className="text-xs text-gray-400">
-                      {pageTracking.page - 1}
-                    </span>
-                  </div>
-                )}
-                {pageTracking.page && (
-                  <Button size="sm" variant="primary">
-                    {pageTracking.page}
-                  </Button>
-                )}
-                {pageTracking.page < pageTracking.total_pages && (
-                  <div className="absolute top-0 left-full flex  items-end gap-3">
-                    <span className="text-xs text-gray-400">
-                      {pageTracking.page + 1}
-                    </span>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => {
-                        setPageTraking((prev) => ({
-                          ...prev,
-                          page: prev.page + 1,
-                        }));
-                        fetchProveedores(pageTracking.page + 1);
-                      }}
-                    >
-                      Siguiente
-                    </Button>
-                  </div>
-                )}
-              </div>
-              <p className="text-xs text-gray-500 font-semibold">
-                {pageTracking.page}/{pageTracking.total_pages}
-              </p>
-            </div>
+            <PageTracker
+              tracking={pageTracking}
+              setPage={(page) => {
+                setPageTraking((prev) => ({
+                  ...prev,
+                  page,
+                }));
+                fetchProveedores(page);
+              }}
+            ></PageTracker>
           )}
         </div>
       </div>
@@ -272,7 +228,7 @@ export default function ProveedoresPage() {
               } catch (error) {
                 showNotification(
                   "error",
-                  error.message || "error al crear proveedor"
+                  error.message || "error al crear proveedor",
                 );
               }
             }}

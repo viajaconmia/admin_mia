@@ -61,15 +61,7 @@ export class ExtraService extends ApiService {
       path: this.formatPath(this.ENDPOINTS.SUCURSAL.GET.SUCURSAL),
     });
 
-  public createProveedor = ({
-    nombre,
-    pais,
-    rfc,
-    telefono,
-    email,
-    sitio_web,
-    type,
-  }: {
+  public createProveedor = (body: {
     nombre: string;
     pais?: string;
     rfc?: string;
@@ -77,10 +69,11 @@ export class ExtraService extends ApiService {
     email?: string;
     sitio_web?: string;
     type: string;
+    intermediario?: boolean;
   }): Promise<ApiResponse<Proveedor[]>> =>
     this.post<Proveedor[]>({
       path: this.formatPath(this.ENDPOINTS.PROVEEDORES.POST.PROVEEDORES),
-      body: { nombre, pais, rfc, telefono, email, sitio_web, type },
+      body,
     });
 
   public getAeropuerto = (): Promise<ApiResponse<Aeropuerto[]>> =>

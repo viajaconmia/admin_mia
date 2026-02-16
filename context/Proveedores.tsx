@@ -1,6 +1,12 @@
 "use client";
 
-import { createContext, useState, useContext, ReactNode } from "react";
+import {
+  createContext,
+  useState,
+  useContext,
+  ReactNode,
+  useEffect,
+} from "react";
 import { useNotification } from "./useNotificacion";
 import {
   mapProveedor,
@@ -11,11 +17,13 @@ import {
 type ProveedorContextType = {
   getProveedores: () => Promise<Proveedor[]>;
   proveedores: Proveedor[];
+  updateProveedores: () => Promise<void>;
 };
 
 const ProveedorContext = createContext<ProveedorContextType>({
   getProveedores: async () => [],
   proveedores: [],
+  updateProveedores: async () => {},
 });
 
 export function ProveedorProvider({ children }: { children: ReactNode }) {
@@ -34,7 +42,21 @@ export function ProveedorProvider({ children }: { children: ReactNode }) {
       showNotification(
         "error",
         error.message ||
-          "No se pudo descargar los proveedores, actualiza la pagina por favor"
+          "No se pudo descargar los proveedores, actualiza la pagina por favor",
+      );
+    }
+  };
+
+  const updateProveedores = async () => {
+    try {
+      const response = await ProveedoresService.getInstance().getProveedores();
+      const mapProv = response.data.map((prov) => mapProveedor(prov));
+      setProveedores(mapProv);
+    } catch (error) {
+      showNotification(
+        "error",
+        error.message ||
+          "No se pudo descargar los proveedores, actualiza la pagina por favor",
       );
     }
   };
@@ -42,7 +64,12 @@ export function ProveedorProvider({ children }: { children: ReactNode }) {
   const value: ProveedorContextType = {
     proveedores,
     getProveedores,
+    updateProveedores,
   };
+
+  useEffect(() => {
+    updateProveedores();
+  }, []);
 
   return (
     <ProveedorContext.Provider value={value}>

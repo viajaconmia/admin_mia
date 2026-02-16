@@ -4,6 +4,7 @@ export interface TypeFilters {
   client?: string | null;
   id_movimiento?: number | null;
   raw_id?: string | null;
+  proveedor?: string | null;
   traveler?: string | null;
   hotel?: string | null;
   nombre?: string | null;
@@ -179,6 +180,7 @@ export type Solicitud = {
 
 export interface Solicitud2 {
   id_hotel: string | null;
+  id_intermediario: number;
   id_agente: string;
   id_servicio: string;
   id_solicitud: string;

@@ -31,7 +31,6 @@ import Modal from "@/components/organism/Modal";
 import NavContainer from "@/components/organism/NavContainer";
 import { AgentDetailsCard } from "@/components/organism/DetailsClient";
 import { UsersClient } from "@/components/organism/UsersClient";
-import PageReservasClientes from "@/components/template/PageReservaClient";
 import PageCuentasPorCobrar from "@/components/template/PageCuentasPorCobrar";
 import { ToolTip } from "@/components/atom/ToolTip";
 
@@ -42,6 +41,8 @@ import { CarRentalPage } from "@/components/pages/CarRental";
 import { Configuration } from "@/components/template/crearEmpresa";
 import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
+import { usePathname } from "next/navigation";
+import PageReservas from "@/v2/components/template/PageReserva";
 
 const getWalletBadge = (monto: string | null) => {
   // Convertir el string a número para la verificación
@@ -71,8 +72,9 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [link, setLink] = useState<null | string>(null);
   const [defaultTab, setDefaultTab] = useState<string>("");
+  const pathname = usePathname();
   const [filters, setFilters] = useState<TypeFilters>(
-    defaultFiltersSolicitudes
+    defaultFiltersSolicitudes,
   );
   const { hasAccess } = usePermiso();
 
@@ -82,7 +84,7 @@ function App() {
     .filter(
       (item) =>
         item.nombre_agente_completo.toUpperCase().includes(searchTerm) ||
-        item.id_agente.toUpperCase().replaceAll("-", "").includes(searchTerm)
+        item.id_agente.toUpperCase().replaceAll("-", "").includes(searchTerm),
       // item.correo.to
     )
     .map((item) => ({
@@ -201,12 +203,7 @@ function App() {
       title: "Reservaciones",
       tab: "reservations",
       icon: CalendarDays,
-      component: (
-        <PageReservasClientes
-          id_agente={selectedItem ? selectedItem.id_agente : ""}
-          agente={selectedItem}
-        ></PageReservasClientes>
-      ),
+      component: <PageReservas agente={selectedItem} />,
     },
     {
       title: "Vuelos",
@@ -262,6 +259,13 @@ function App() {
   useEffect(() => {
     handleFetchClients();
   }, [filters]);
+
+  useEffect(() => {
+    if (selectedItem) {
+      setSelectedItem(null);
+      setDefaultTab("");
+    }
+  }, [pathname]);
 
   return (
     <div className="h-fit">
