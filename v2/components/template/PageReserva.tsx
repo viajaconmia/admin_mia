@@ -101,7 +101,33 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
         ...extras,
       });
 
-      const formatData = response.data.map((booking) => ({ ...booking }));
+      const formatData = response.data.map((reserva) => ({
+        servicio: reserva.type,
+        id_cliente: reserva.id_agente,
+        cliente: reserva.agente,
+        creado: `${reserva.created_at.split("T")[0]} : ${reserva.created_at.split("T")[1]}`,
+        proveedor: reserva.proveedor,
+        intermediario: reserva.intermediario,
+        codigo: reserva.codigo_confirmacion,
+        viajero: reserva.viajero,
+        check_in: reserva.check_in.split("T")[0],
+        horario_salida: reserva.horario_salida,
+        check_out: reserva.check_out.split("T")[0],
+        horario_llegada: reserva.horario_llegada,
+        tipo: reserva.tipo_cuarto_vuelo,
+        costo_proveedor: reserva.costo_total,
+        markup:
+          ((Number(reserva.total || 0) - Number(reserva.costo_total || 0)) /
+            Number(reserva.total || 0)) *
+          100,
+        precio_de_venta: reserva.total,
+        metodo_de_pago: reserva.metodo_pago,
+        reservante: reserva.reservante,
+        etapa_reservacion: reserva.etapa_reservacion,
+        estado: reserva.estado,
+        estado_pago: reserva.estado_pago,
+        estado_facturacion: reserva.estado_facturacion,
+      }));
 
       csv(formatData, fileName);
     } catch (error) {}
