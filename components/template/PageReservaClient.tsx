@@ -129,7 +129,11 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
         estado: item.status_reserva,
         detalles_cliente: "",
         ...(hasPermission(PERMISOS.COLUMNAS.BOOKINGS.USUARIO_CREADOR)
-          ? { nombre_reservante: item.nombre_usuario_creador }
+          ? {
+              nombre_reservante: (
+                item.nombre_usuario_creador || ""
+              ).toUpperCase(),
+            }
           : {}),
         editar: "",
         pagar: "",
