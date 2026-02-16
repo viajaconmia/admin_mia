@@ -61,6 +61,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
   const { Can } = usePermiso();
   const { showNotification } = useNotification();
   const { csv, loadingFile, setLoadingFile } = useFile();
+  const { hasPermission } = usePermiso();
 
   const booking_service = new BookingsService();
   const handleFetchSolicitudes = async (page = tracking.page) => {
@@ -130,7 +131,11 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
       }));
 
       csv(formatData, fileName);
-    } catch (error) {}
+    } catch (error) {
+      showNotification("error", error.message);
+    } finally {
+      setLoadingFile(false);
+    }
   };
 
   const renderers = {
@@ -269,6 +274,9 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     estado_pago: reserva.estado_pago,
     estado_facturacion: reserva.estado_facturacion,
     intermediario: reserva.intermediario,
+    ...(hasPermission(PERMISOS.COLUMNAS.BOOKINGS.USUARIO_CREADOR)
+      ? { usuario_creador: reserva.usuario_creador }
+      : {}),
     detalles_cliente: reserva.id_solicitud,
     editar: reserva.type == "hotel" ? reserva.id_solicitud : reserva.id_booking,
     pagar: reserva.estado == "Confirmada" ? reserva.id_solicitud : null,
@@ -400,7 +408,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
         )}
         <Button
           onClick={handleExport}
-          disabled={loading}
+          disabled={loading || loadingFile}
           variant="secondary"
           size="sm"
           icon={Download}
