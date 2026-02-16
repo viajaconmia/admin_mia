@@ -462,107 +462,11 @@ import { mapVueloRowToComprado } from "@/lib/flights";
 import { BoletoPdfDownload } from "./components/BoletoPdf";
 import { URL, API_KEY } from "@/lib/constants/index";
 
-  useEffect(() => {
-    // Ida: GDL -> SJD, Y4 1144, 26/01/2026 10:58, asiento 6C, confirmación MCIEQC
-    const rowIda: VueloDbRow = {
-      id_vuelo: "pdf-ida-y4-1144",
-      airline: "VOLARIS",
-      airline_code: "Y4",
-      flight_number: "1144",
+type RowState = { loading: boolean; error: string | null; status: FlightStatusResponse | null };
 
-      departure_airport:
-        "GDL Don Miguel Hidalgo Y Costilla International Airport Guadalajara Jalisco MX",
-      arrival_airport:
-        "SJD Los Cabos International Airport San Jose del Cabo Baja California Sur MX",
-      departure_date: "2026-01-26",
-      departure_time: "10:58:00",
-      arrival_date: "2026-01-26",
-      arrival_time: "11:30:00",
-
-      departure_city: "Guadalajara, Jalisco",
-      arrival_city: "San Jose del Cabo, BCS",
-
-      codigo_confirmacion: "MCIEQC",
-      nombre_completo: "HECTOR RENE CONTRERAS HERNANDEZ",
-      correo: null,
-      apellido_paterno: "CONTRERAS",
-      apellido_materno: "HERNANDEZ",
-
-      seat_number: "6C",
-      seat_location: null,
-    };
-
-    // Regreso: SJD -> GDL, Y4 1143, 30/01/2026 15:36, asiento 6D, confirmación MCIEQC
-    const rowRegreso: VueloDbRow = {
-      id_vuelo: "pdf-regreso-y4-1143",
-      airline: "VOLARIS",
-      airline_code: "Y4",
-      flight_number: "1143",
-
-      departure_airport:
-        "SJD Los Cabos International Airport San Jose del Cabo Baja California Sur MX",
-      arrival_airport:
-        "GDL Don Miguel Hidalgo Y Costilla International Airport Guadalajara Jalisco MX",
-      departure_date: "2026-01-30",
-      departure_time: "15:36:00",
-      arrival_date: "2026-01-30",
-      arrival_time: "18:07:00",
-
-      departure_city: "San Jose del Cabo, BCS",
-      arrival_city: "Guadalajara, Jalisco",
-
-      codigo_confirmacion: "MCIEQC",
-      nombre_completo: "HECTOR RENE CONTRERAS HERNANDEZ",
-      correo: null,
-      apellido_paterno: "CONTRERAS",
-      apellido_materno: "HERNANDEZ",
-
-      seat_number: "6D",
-      seat_location: null,
-    };
-
-    const rowRegreso1: VueloDbRow = {
-      id_vuelo: "pdf-regreso-y4-1143",
-      airline: "VIVAAEROBUS",
-      airline_code: "VB",
-      flight_number: "1143",
-
-      departure_airport:
-        "SJD Los Cabos International Airport San Jose del Cabo Baja California Sur MX",
-      arrival_airport:
-        "GDL Don Miguel Hidalgo Y Costilla International Airport Guadalajara Jalisco MX",
-      departure_date: "2026-01-30",
-      departure_time: "15:36:00",
-      arrival_date: "2026-01-30",
-      arrival_time: "18:07:00",
-
-      departure_city: "San Jose del Cabo, BCS",
-      arrival_city: "Guadalajara, Jalisco",
-
-      codigo_confirmacion: "IB226P",
-      nombre_completo: "Juan Carlos Martinez Gonzalez",
-      correo: null,
-      apellido_paterno: "MARTINEZ",
-      apellido_materno: "GONZALEZ",
-
-      seat_number: "6D",
-      seat_location: null,
-    };
-
-    const mapped = [
-      mapVueloRowToComprado(rowIda),
-      mapVueloRowToComprado(rowRegreso),
-      mapVueloRowToComprado(rowRegreso1),
-    ];
-    setVuelos(mapped);
-
-    const init: Record<string, RowState> = {};
-    mapped.forEach(
-      (v) => (init[v.id] = { loading: false, error: null, status: null }),
-    );
-    setById(init);
-    setPageTraking((prev) => ({ ...prev, page: 1 }));
-  }, [filtros]);
+export default function VuelosPage() {
+  const [vuelos, setVuelos] = useState<VueloComprado[]>([]);
+  const [byId, setById] = useState<Record<string, RowState>>({});
 
   // ✅ Datos reales del PDF (2 segmentos: ida + regreso)
   useEffect(() => {
@@ -657,68 +561,8 @@ import { URL, API_KEY } from "@/lib/constants/index";
   const setRow = (id: string, patch: Partial<RowState>) => {
     setById((prev) => ({
       ...prev,
-      [id]: {
-        ...(prev[id] ?? { loading: false, error: null, status: null }),
-        ...patch,
-      },
+      [id]: { ...(prev[id] ?? { loading: false, error: null, status: null }), ...patch },
     }));
-  };
-
-  const consultarStatus = async (v: VueloComprado) => {
-    setRow(v.id, { loading: true, error: null });
-
-    try {
-      const resp = await fetch("./vuelos/status", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          airlineCode: "Y4",
-          confirmationCode: v.confirmationCode,
-          passengerLastName: (v.passengerLastName || "").trim(),
-          debug: true,
-        }),
-      });
-
-      const json = await resp.json();
-      console.log("LOOKUP:", json);
-      const fetchVuelos = async (page = pageTracking.page) => {
-        setIsLoading(true);
-        try {
-          const resp = await fetch("./vuelos/status", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              airlineCode: v.airlineCode,
-              confirmationCode: v.confirmationCode,
-              passengerLastName: (v.passengerLastName || "").trim(),
-              flightNumber: v.flightNumberRaw ?? null,
-              departureDateISO: v.departureDateISO ?? null,
-              debug: true,
-            }),
-          });
-
-          if (!resp.ok || !json?.ok) {
-            throw new Error(json?.error || `HTTP ${resp.status}`);
-          }
-
-          // OJO: tu API responde { ok:true, data:{...} }
-          setRow(v.id, { loading: false, status: json.data, error: null });
-        } catch (e: any) {
-          setRow(v.id, {
-            loading: false,
-            error: e?.message ?? "Error al consultar",
-          });
-        }
-      };
-
-      const data: FlightStatusResponse = await resp.json();
-      setRow(v.id, { loading: false, status: data, error: null });
-    } catch (e: any) {
-      setRow(v.id, {
-        loading: false,
-        error: e?.message ?? "Error al consultar",
-      });
-    }
   };
 
   const consultarStatus = async (v: VueloComprado) => {

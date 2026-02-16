@@ -1,16 +1,39 @@
 // src/components/PaymentModal/ReservationDetails.tsx
+"use client";
+
 import { BookingAll } from "@/services/BookingService";
-import type { Solicitud, Solicitud2 } from "@/types";
 
 interface Props {
   reservation: BookingAll;
-  // Puedes pasarle otros datos calculados si es necesario
 }
 
-// Usamos `export default` para el componente principal del archivo
+const moneyMXN = (n: number) =>
+  new Intl.NumberFormat("es-MX", {
+    style: "currency",
+    currency: "MXN",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number.isFinite(n) ? n : 0);
+
+const n0 = (v: any) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
 export default function ReservationDetails({ reservation }: Props) {
+  // ✅ costo proveedor
+  const costoProveedor = n0((reservation as any).costo_total);
+
+  // ✅ total vendido (usa total_booking; si no existe, cae a total)
+  const totalVendido = n0((reservation as any).total_booking ?? (reservation as any).total);
+
+  const markupMonto = totalVendido - costoProveedor;
+
+  // ✅ % sobre vendido (si vendido=0, evita división)
+  const markupPct = totalVendido > 0 ? (markupMonto / totalVendido) * 100 : 0;
+
   return (
-    <div className=" py-2 text-sm text-slate-700 space-y-2">
+    <div className="py-2 text-sm text-slate-700 space-y-2">
       <h2 className="text-base font-semibold text-slate-800">
         Detalles de la reservación
       </h2>
@@ -29,7 +52,7 @@ export default function ReservationDetails({ reservation }: Props) {
           <div>
             <p className="text-xs text-slate-500">Hotel</p>
             <p className="font-medium text-slate-800">
-              {reservation.proveedor || ""}
+              {(reservation as any).proveedor || ""}
             </p>
           </div>
 
@@ -37,29 +60,39 @@ export default function ReservationDetails({ reservation }: Props) {
           <div>
             <p className="text-xs text-slate-500">Viajero</p>
             <p className="font-medium text-slate-800">
-              {reservation.viajero || ""}
+              {(reservation as any).viajero || ""}
             </p>
           </div>
 
-          {/* Total */}
+          {/* ✅ Costo proveedor */}
           <div>
-            <p className="text-xs text-slate-500">Total</p>
-            <p className="font-bold text-blue-700">
-              ${reservation.costo_total || ""}
+            <p className="text-xs text-slate-500">Costo proveedor</p>
+            <p className="font-bold text-slate-800">
+              {moneyMXN(costoProveedor)}
             </p>
           </div>
 
-          {/* Markup */}
+          {/* ✅ Total vendido */}
+          <div>
+            <p className="text-xs text-slate-500">Total vendido</p>
+            <p className="font-bold text-blue-700">
+              {moneyMXN(totalVendido)}
+            </p>
+          </div>
+
+          {/* ✅ Markup */}
           <div>
             <p className="text-xs text-slate-500">Markup</p>
-            <p className="font-semibold text-emerald-600">
-              %
-              {(
-                ((Number(reservation.total_booking || 0) -
-                  Number(reservation.costo_total || 0)) /
-                  Number(reservation.total_booking || 1)) *
-                100
-              ).toFixed(2)}
+            <p
+              className={`font-semibold ${
+                markupMonto >= 0 ? "text-emerald-600" : "text-red-600"
+              }`}
+              title={`${moneyMXN(markupMonto)} (${markupPct.toFixed(2)}%)`}
+            >
+              {moneyMXN(markupMonto)}{" "}
+              <span className="text-xs">
+                ({markupPct.toFixed(2)}%)
+              </span>
             </p>
           </div>
         </div>

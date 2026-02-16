@@ -40,35 +40,9 @@ import { InputToS3 } from "@/components/atom/SendToS3";
 import { FacturaService } from "@/services/FacturasService";
 import { useNotification } from "@/context/useNotificacion";
 import { Button } from "@/components/ui/button";
-import  ModalDetalleFactura  from "@/app/dashboard/invoices/_components/detalles";
-
-/* ===================== Helpers ===================== */
-
-// Soporta fetchFacturas con promesa o con callback: fetchFacturas(filters, cb)
-const fetchFacturasSafe = (filters: any): Promise<Factura[]> =>
-  new Promise((resolve, reject) => {
-    try {
-      if (fetchFacturasSvc.length >= 2) {
-        // firma con callback
-        (fetchFacturasSvc as any)(filters, (data: any) =>
-          resolve(
-            Array.isArray(data) ? data : data?.respuesta || data?.data || []
-          )
-        );
-      } else {
-        // firma tipo promesa
-        Promise.resolve((fetchFacturasSvc as any)(filters))
-          .then((data: any) =>
-            resolve(
-              Array.isArray(data) ? data : data?.respuesta || data?.data || []
-            )
-          )
-          .catch(reject);
-      }
-    } catch (e) {
-      reject(e);
-    }
-  });
+import ModalDetalleFactura from "@/app/dashboard/invoices/_components/detalles";
+import { PageTracker, TrackingPage } from "./tracker_false";
+import { set } from "date-fns";
 
 // Formato moneda
 const fmtMoney = (n: any) =>
@@ -93,204 +67,9 @@ const fmtDate = (v?: string | null) => {
   });
 };
 
-/* ===================== Modal de Detalle ===================== */
-function FacturaDetails({
-  setModal,
-  id_factura,
-}: {
-  setModal: (v: string) => void;
-  id_factura: string;
-}) {
-  const [facturaData, setFacturaData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  const getDetails = async () => {
-    try {
-      setLoading(true);
-      const resp = await fetch(
-        `${URL}/mia/factura/detalles_facturas?id_factura=${encodeURIComponent(
-          id_factura
-        )}`,
-        {
-          method: "GET",
-          headers: {
-            "x-api-key": API_KEY || "",
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            "Content-Type": "application/json",
-          },
-          cache: "no-store",
-        }
-      );
-      if (!resp.ok) throw new Error(`HTTP error! status: ${resp.status}`);
-      const data = await resp.json();
-      setFacturaData(Array.isArray(data) ? data : []);
-    } catch (e: any) {
-      setError(e?.message || "Error desconocido");
-      setFacturaData([]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  useEffect(() => {
-    if (id_factura) getDetails();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id_factura]);
-
-  return (
-    <Modal
-      onClose={() => setModal("")}
-      title="Detalles de factura"
-      subtitle="Reservas relacionadas a la factura"
-    >
-      {loading ? (
-        <div className="flex justify-center items-center h-32">
-          Cargando detalles…
-        </div>
-      ) : error ? (
-        <div className="text-red-500 p-4">
-          Error al cargar los detalles: {error}
-        </div>
-      ) : facturaData.length === 0 ? (
-        <div className="p-4 text-gray-500">
-          No se encontraron detalles para esta factura
-        </div>
-      ) : (
-        <div className="max-h-[70vh] overflow-y-auto px-4">
-          <div className="flex flex-col gap-5 mb-8">
-            {facturaData.map((r, i) => (
-              <div
-                key={i}
-                className="border border-gray-200 rounded-lg overflow-hidden shadow-sm"
-              >
-                <div className="bg-gray-50 px-4 py-3 flex justify-between items-center border-b border-gray-200">
-                  <h3 className="m-0 text-base font-medium text-gray-800">
-                    {r.nombre_hotel}
-                  </h3>
-                  <span className="bg-blue-600 text-white px-2 py-1 rounded text-xs">
-                    {r.tipo_cuarto}
-                  </span>
-                </div>
-                <div className="p-4">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">
-                        Noches facturadas:
-                      </p>
-                      <p className="text-sm font-medium">
-                        {r.noches_facturadas}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">
-                        Código Reserva:
-                      </p>
-                      <p className="text-sm font-medium">
-                        {r.codigo_reservacion_hotel || "N/A"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">Noches:</p>
-                      <p className="text-sm font-medium">{r.noches}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">
-                        Fecha de uso:
-                      </p>
-                      <p className="text-sm font-medium">
-                        {fmtDate(r.fecha_uso)}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 pt-4 border-t border-dashed border-gray-200">
-                    <h4 className="mt-0 mb-3 text-sm font-semibold">Montos</h4>
-                    <div className="grid grid-cols-3 gap-3">
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">Subtotal:</p>
-                        <p className="text-sm">
-                          {fmtMoney(r.subtotal_booking)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">Impuestos:</p>
-                        <p className="text-sm">
-                          {fmtMoney(r.impuestos_booking)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500 mb-1">Total:</p>
-                        <p className="text-sm font-semibold text-blue-700">
-                          {fmtMoney(r.total_booking)}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {r.comments && (
-                    <div className="mt-4">
-                      <p className="text-xs text-gray-500 mb-1">Comentarios:</p>
-                      <p className="text-sm italic">{r.comments}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold mb-3">Resumen de Factura</h3>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm">Subtotal:</span>
-                <span className="text-sm font-medium">
-                  {fmtMoney(
-                    facturaData.reduce(
-                      (s, it) =>
-                        s +
-                        Number(it.subtotal || 0) *
-                          Number(it.noches_facturadas || 0),
-                      0
-                    )
-                  )}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm">Impuestos:</span>
-                <span className="text-sm font-medium">
-                  {fmtMoney(
-                    facturaData.reduce(
-                      (s, it) =>
-                        s +
-                        Number(it.impuestos || 0) *
-                          Number(it.noches_facturadas || 0),
-                      0
-                    )
-                  )}
-                </span>
-              </div>
-              <div className="flex justify-between pt-2 border-t border-gray-200">
-                <span className="font-semibold">Total Factura:</span>
-                <span className="font-semibold text-blue-700">
-                  {fmtMoney(
-                    facturaData.reduce(
-                      (s, it) =>
-                        s +
-                        Number(it.total || 0) *
-                          Number(it.noches_facturadas || 0),
-                      0
-                    )
-                  )}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </Modal>
-  );
-}
+const MAX_REGISTER = 50; // para paginación, número de registros por página
 
 /* ===================== Página con Table5 + filtros ===================== */
 
@@ -311,12 +90,17 @@ export function TravelersPage() {
 
   // Estados
   const [searchTerm, setSearchTerm] = useState("");
+  const [tracking, setTracking] = useState<TrackingPage>({
+    page: 1,
+    total_pages: 0,
+    total: 0,
+  });
+
   // const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [activeFilters, setActiveFilters] = useState(defaultFiltersFacturas);
-  const [isLoading, setIsLoading] = useState(false);
   const [facturas, setFacturas] = useState<Factura[]>([]);
   const [id, setId] = useState<string | null>(null);
-  const { Can, hasPermission } = usePermiso();
+  const { Can } = usePermiso();
   const [removingId, setRemovingId] = useState<string | null>(null);
 
   // Modales/acciones
@@ -326,27 +110,65 @@ export function TravelersPage() {
   const [facturaDataSel, setFacturaDataSel] = useState<Factura | null>(null);
   const [facturaEmpresa, setFacturaEmpresa] = useState<string | null>(null);
 
-const [modalDetalleOpen, setModalDetalleOpen] = useState(false);
-const [detalleIdFactura, setDetalleIdFactura] = useState<string | null>(null);
-
-// opcional: guardarlo en el padre
-const [detalleFacturaData, setDetalleFacturaData] = useState<any>(null);
-
+  const [modalDetalleOpen, setModalDetalleOpen] = useState(false);
+  const [detalleIdFactura, setDetalleIdFactura] = useState<string | null>(null);
+  // ✅ Data seleccionada para el modal de detalle
+const [detalleFacturaData, setDetalleFacturaData] = useState<any | null>(null);
 
 
-  // Llamada unificada
-  const cargarFacturas = async (filters: any) => {
-    setIsLoading(true);
-    try {
-      const data = await fetchFacturasSafe(filters);
-      setFacturas(Array.isArray(data) ? data : []);
-    } catch (e) {
-      console.error("Error al obtener facturas:", e);
-      setFacturas([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+const cargarFacturas = async (page = tracking.page) => {
+  try {
+    const response = await FacturaService.getInstance().obtenerFacturas({
+      ...activeFilters,
+      page,
+      length: MAX_REGISTER,
+    });
+
+    // ✅ Normaliza shape (por si viene response.data.data)
+    const rows = (response?.data && Array.isArray(response.data))
+      ? response.data
+      : (response?.data && Array.isArray(response.data))
+        ? response.data
+        : [];
+
+    const total =
+      response?.metadata?.total ??
+      response?.metadata?.total ??
+      rows.length ??
+      0;
+
+    console.log("FACTURAS raw response:", response);
+    console.log("FACTURAS normalized rows:", rows);
+
+    setFacturas(rows);
+
+    setTracking((prev) => ({
+      ...prev,
+      page,
+      total_pages: Math.ceil(Number(total) / MAX_REGISTER) || 1,
+      total: Number(total) || 0,
+    }));
+  } catch (e) {
+    console.error("Error al obtener facturas:", e);
+    setFacturas([]);
+    setTracking((prev) => ({ ...prev, total_pages: 0, total: 0 }));
+  }
+};
+
+
+// ✅ cuando cambien filtros, resetea página a 1 y carga
+useEffect(() => {
+  const nextPage = 1;
+  setTracking((prev) => ({ ...prev, page: nextPage }));
+  cargarFacturas(nextPage);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [activeFilters]);
+
+// ✅ carga inicial (solo una vez)
+useEffect(() => {
+  cargarFacturas(1);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
 
   // Inicial
   // useEffect(() => {
@@ -359,59 +181,58 @@ const [detalleFacturaData, setDetalleFacturaData] = useState<any>(null);
   // Handlers de filtros
 
   /*Eliminar relacion de facturas existentes*/
-const handleQuitarRelacion = async (id_factura: string) => {
-  if (!id_factura) return;
+  const handleQuitarRelacion = async (id_factura: string) => {
+    if (!id_factura) return;
 
-  const ok = window.confirm(
-    "¿Seguro que quieres eliminar la relación de esta factura? Esto quitará sus detalles/asignación."
-  );
-  if (!ok) return;
-
-  try {
-    setRemovingId(id_factura);
-
-    const resp = await fetch(
-      `${URL}/mia/factura/quitar_relacion?id_factura=${encodeURIComponent(
-        id_factura
-      )}`,
-      {
-        method: "DELETE", // <-- si tu backend usa GET/POST, cámbialo aquí
-        headers: {
-          "x-api-key": API_KEY || "",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          "Content-Type": "application/json",
-        },
-        cache: "no-store",
-      }
+    const ok = window.confirm(
+      "¿Seguro que quieres eliminar la relación de esta factura? Esto quitará sus detalles/asignación.",
     );
+    if (!ok) return;
 
-    let data: any = null;
     try {
-      data = await resp.json();
-    } catch {
-      // por si tu backend no regresa JSON
+      setRemovingId(id_factura);
+
+      const resp = await fetch(
+        `${URL}/mia/factura/quitar_relacion?id_factura=${encodeURIComponent(
+          id_factura,
+        )}`,
+        {
+          method: "DELETE", // <-- si tu backend usa GET/POST, cámbialo aquí
+          headers: {
+            "x-api-key": API_KEY || "",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Content-Type": "application/json",
+          },
+          cache: "no-store",
+        },
+      );
+
+      let data: any = null;
+      try {
+        data = await resp.json();
+      } catch {
+        // por si tu backend no regresa JSON
+      }
+
+      if (!resp.ok) {
+        throw new Error(data?.message || `HTTP error! status: ${resp.status}`);
+      }
+
+      showNotification("success", "Relación eliminada correctamente");
+
+      // refresca tabla
+      await cargarFacturas();
+    } catch (error: any) {
+      showNotification(
+        "error",
+        error?.message || "Error al eliminar la relación",
+      );
+    } finally {
+      setRemovingId(null);
     }
-
-    if (!resp.ok) {
-      throw new Error(data?.message || `HTTP error! status: ${resp.status}`);
-    }
-
-    showNotification("success", "Relación eliminada correctamente");
-
-    // refresca tabla
-    await cargarFacturas(activeFilters);
-  } catch (error: any) {
-    showNotification(
-      "error",
-      error?.message || "Error al eliminar la relación"
-    );
-  } finally {
-    setRemovingId(null);
-  }
-};
+  };
   const handleFilter = (filters: any) => {
     setActiveFilters(filters);
-    cargarFacturas(filters);
   };
 
   const [balance, setBalance] = useState<Balance | null>(null);
@@ -471,7 +292,10 @@ const handleQuitarRelacion = async (id_factura: string) => {
         subtotal: toNum(f?.subtotal),
         iva: toNum(f?.impuestos),
         total: toNum(f?.total),
-        saldo: (f.saldo_x_aplicar_items!= 0) ? toNum(f?.saldo):toNum(f?.saldo_x_aplicar_items),
+        saldo:
+          f.saldo_x_aplicar_items != 0
+            ? toNum(f?.saldo)
+            : toNum(f?.saldo_x_aplicar_items),
         fecha_emision: f?.fecha_emision || null,
         fecha_vencimiento: f?.fecha_vencimiento || null,
         prepagada: f?.is_prepagada == null ? null : Number(f?.is_prepagada),
@@ -551,37 +375,36 @@ const handleQuitarRelacion = async (id_factura: string) => {
     origen: ({ value }: { value: number }) =>
       value === 1 ? "Cliente" : "Operaciones",
     actualizar: ({ item }: { item: Factura }) => {
-  const isRemoving = removingId === item.id_factura;
+      const isRemoving = removingId === item.id_factura;
 
-  return (
-    <div className="flex gap-2">
-      <Can permiso={PERMISOS.COMPONENTES.BOTON.ACTUALIZAR_PDF_FACTURA}>
-        <Button onClick={() => setId(item.id_factura)} size="sm">
-          Editar PDF
-        </Button>
-      </Can>
+      return (
+        <div className="flex gap-2">
+          <Can permiso={PERMISOS.COMPONENTES.BOTON.ACTUALIZAR_PDF_FACTURA}>
+            <Button onClick={() => setId(item.id_factura)} size="sm">
+              Editar PDF
+            </Button>
+          </Can>
 
-      <Button
-        size="sm"
-        variant="destructive"
-        disabled={isRemoving}
-        onClick={() => handleQuitarRelacion(item.id_factura)}
-      >
-        {isRemoving ? "Eliminando..." : "Eliminar relación"}
-      </Button>
-    </div>
-  );
-},
-
+          <Button
+            size="sm"
+            variant="destructive"
+            disabled={isRemoving}
+            onClick={() => handleQuitarRelacion(item.id_factura)}
+          >
+            {isRemoving ? "Eliminando..." : "Eliminar relación"}
+          </Button>
+        </div>
+      );
+    },
 
     acciones: ({ value }: { value: { fila: any } }) => {
       const f = value.fila as any;
-      const puedeAsignar = Number(f?.saldo ?? 0) > 0 && Number(f?.saldo_x_aplicar_items ?? 0) > 0;
-
+      const puedeAsignar =
+        Number(f?.saldo ?? 0) > 0 && Number(f?.saldo_x_aplicar_items ?? 0) > 0;
 
       const handleDescargarFactura = async (
         id: string,
-        tipo: "pdf" | "xml"
+        tipo: "pdf" | "xml",
       ) => {
         try {
           if (tipo === "pdf") {
@@ -615,16 +438,15 @@ const handleQuitarRelacion = async (id_factura: string) => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-<DropdownMenuItem
-  onClick={() => {
-    setDetalleIdFactura(f.id_factura);
-    setModalDetalleOpen(true);
-  }}
->
-  <Eye className="mr-2 h-4 w-4" />
-  Ver detalles
-</DropdownMenuItem>
-
+              <DropdownMenuItem
+                onClick={() => {
+                  setDetalleIdFactura(f.id_factura);
+                  setModalDetalleOpen(true);
+                }}
+              >
+                <Eye className="mr-2 h-4 w-4" />
+                Ver detalles
+              </DropdownMenuItem>
 
               {!!f?.id_facturama && (
                 <>
@@ -748,17 +570,17 @@ const handleQuitarRelacion = async (id_factura: string) => {
                   if (!url) throw new Error("No existe archivo");
 
                   await FacturaService.getInstance().actualizarDocumentosFacturas(
-                    { id, url }
+                    { id, url },
                   );
                   showNotification(
                     "success",
-                    "Se actualizo el archivo correctamente"
+                    "Se actualizo el archivo correctamente",
                   );
                   setId(null);
                 } catch (error) {
                   showNotification(
                     "error",
-                    error.message || "Error al subir archivo"
+                    error.message || "Error al subir archivo",
                   );
                 }
               }}
@@ -766,6 +588,7 @@ const handleQuitarRelacion = async (id_factura: string) => {
           </div>
         </Modal>
       )}
+
       {balance && (
         <BalanceSummary
           balance={balance}
@@ -773,7 +596,7 @@ const handleQuitarRelacion = async (id_factura: string) => {
         />
       )}
       <Card>
-        <div className="p-6 space-y-4">
+        <div className="p-6 space-y-2">
           <Filters
             defaultFilters={defaultFiltersFacturas}
             onFilter={handleFilter}
@@ -781,15 +604,30 @@ const handleQuitarRelacion = async (id_factura: string) => {
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
           />
+          
 
-          <Table5 
+          <Table5
             registros={registros}
             renderers={renderers as any}
             customColumns={customColumns}
             defaultSort={{ key: "fecha_emision", sort: false }} // desc
-            maxHeight="32rem"
+            maxHeight="26rem"
             splitStringsBySpace
-          />
+          >
+<Button size="sm" onClick={() => cargarFacturas()}>
+            Cargar facturas
+          </Button>
+
+          </Table5>
+
+          {facturas && (
+            <PageTracker
+              tracking={tracking}
+              setPage={(page) => {
+                cargarFacturas(page);
+              }}
+            ></PageTracker>
+          )}
         </div>
       </Card>
 
@@ -814,25 +652,20 @@ const handleQuitarRelacion = async (id_factura: string) => {
         />
       )}
 
-      {/* Modal Detalles */}
-      {isModalOpen && (
-        <FacturaDetails setModal={setIsModalOpen} id_factura={isModalOpen} />
+
+
+      {modalDetalleOpen && (
+        <ModalDetalleFactura
+          open={modalDetalleOpen}
+          onClose={() => {
+            setModalDetalleOpen(false);
+            setDetalleIdFactura(null);
+          }}
+          id_factura={detalleIdFactura}
+          setDetalleFacturaData={setDetalleFacturaData} // ✅ aquí se manda
+          title="Detalles de factura"
+        />
       )}
-
-{modalDetalleOpen && (
-  <ModalDetalleFactura
-    open={modalDetalleOpen}
-    onClose={() => {
-      setModalDetalleOpen(false);
-      setDetalleIdFactura(null);
-    }}
-    id_factura={detalleIdFactura}
-    setDetalleFacturaData={setDetalleFacturaData} // ✅ aquí se manda
-    title="Detalles de factura"
-  />
-)}
-
-
 
       {/* Diálogo legacy si lo usas */}
       {/* <TravelerDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} /> */}

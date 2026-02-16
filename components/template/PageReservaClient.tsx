@@ -57,11 +57,11 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
   const [filters, setFilters] = useState<TypeFilters>(
     defaultFiltersSolicitudes,
   );
-  const { hasAccess, Can } = usePermiso();
+  const { hasAccess, Can, hasPermission } = usePermiso();
   const { user } = useAuth();
 
   hasAccess(PERMISOS.VISTAS.RESERVAS);
-  console.log("solicitud de pago",PERMISOS,user)
+  console.log("solicitud de pago", PERMISOS, user);
 
   const handleEdit = (item: Solicitud2) => {
     setSelectedItem(item);
@@ -127,6 +127,13 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
         estado_pago_proveedor: "",
         estado_factura_proveedor: "",
         estado: item.status_reserva,
+        ...(hasPermission(PERMISOS.COLUMNAS.BOOKINGS.USUARIO_CREADOR)
+          ? {
+              nombre_reservante: (
+                item.nombre_usuario_creador || ""
+              ).toUpperCase(),
+            }
+          : {}),
         detalles_cliente: "",
         editar: "",
         pagar: "",
@@ -318,6 +325,9 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
                 "detalles_cliente",
                 "editar",
                 "pagar",
+                ...(hasPermission(PERMISOS.COLUMNAS.BOOKINGS.USUARIO_CREADOR)
+                  ? ["nombre_reservante"]
+                  : []),
               ]}
             >
               {id_agente && (
@@ -373,7 +383,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
                 proveedor: selectedItem.hotel_reserva,
                 tipo_cuarto_vuelo:
                   selectedItem.tipo_cuarto || selectedItem.room,
-                usuario_creador:user.id,
+                usuario_creador: user.id,
               }}
             />
           </Modal>

@@ -1,21 +1,37 @@
 // lib/volaris.ts
+
 export type VolarisLookupArgs = {
   confirmationCode: string;
   lastName: string; // "PATERNO MATERNO"
+  debug?: boolean;  // habilita debug.attempts
+};
+
+export type DebugAttempt = {
+  attempt: number;
+  method: "POST" | "GET";
+  url: string;
+  lastNameUsed: string;
+  authMode: "none" | "raw" | "bearer";
+  requestBody?: any;
+  httpStatus: number | "NETWORK_ERROR";
+  contentType: string | null;
+  ms: number;
+  bodySnippet?: string;
+  error?: string;
 };
 
 export type VolarisLookupOk = {
   ok: true;
   status: number;
   json: any;
-  debug: any[];
+  debug?: { attempts: DebugAttempt[] };
 };
 
 export type VolarisLookupErr = {
   ok: false;
   status: number;
   error: string;
-  debug: any[];
+  debug?: { attempts: DebugAttempt[] };
 };
 
 export type VolarisLookupResult = VolarisLookupOk | VolarisLookupErr;
@@ -29,12 +45,28 @@ function normalizeLastName(s: string) {
     .toUpperCase();
 }
 
+function lastNameCandidates(input: string) {
+  const full = normalizeLastName(input);
+  const first = full.split(" ")[0] || full;
+
+  const uniq: string[] = [];
+  for (const c of [full, first]) {
+    if (c && !uniq.includes(c)) uniq.push(c);
+  }
+  return uniq;
+}
+
 function truncate(s: string, n = 240) {
-  return s && s.length > n ? s.slice(0, n) + "…" : s;
+  if (!s) return s;
+  return s.length > n ? s.slice(0, n) + "…" : s;
 }
 
 function safeJsonParse(raw: string) {
-  try { return JSON.parse(raw); } catch { return null; }
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
 }
 
 async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number) {
@@ -49,22 +81,63 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
 
 function looksLikeSuccessJson(json: any) {
   if (!json) return false;
+  // Ajusta a lo que realmente devuelve el endpoint cuando sí pega.
   return Boolean(
     json.booking ||
-    json.reservation ||
-    json.itinerary ||
-    json.journeys ||
-    json.segments ||
-    json.passengers ||
-    json.data
+      json.reservation ||
+      json.itinerary ||
+      json.journeys ||
+      json.segments ||
+      json.passengers ||
+      json.data
   );
 }
 
-function makeAuthVariants(token: string) {
-  const t = token.trim();
+function looksLikeBotChallenge(text: string) {
+  const t = (text || "").toLowerCase();
+  return (
+    t.includes("recaptcha") ||
+    t.includes("incapsula") ||
+    t.includes("access denied") ||
+    t.includes("additional security check") ||
+    t.includes("request unsuccessful") ||
+    t.includes("enable javascript") ||
+    t.includes("captcha")
+  );
+}
+
+function makeAuthVariants(token?: string) {
+  const t = (token || "").trim();
+  if (!t) return [{ value: "", mode: "none" as const }];
+
   const isBearer = /^Bearer\s+/i.test(t);
-  // Intentamos: como viene + Bearer si no lo trae
-  return isBearer ? [t] : [t, `Bearer ${t}`];
+  const variants = isBearer ? [t] : [t, `Bearer ${t}`];
+
+  return variants.map((v) => ({
+    value: v,
+    mode: /^Bearer\s+/i.test(v) ? ("bearer" as const) : ("raw" as const),
+  }));
+}
+
+function envHeader(name: string, fallback?: string) {
+  const v = process.env[name];
+  return (v ?? fallback ?? "").trim();
+}
+
+function parseExtraHeadersJson(): Record<string, string> {
+  const raw = process.env.VOLARIS_EXTRA_HEADERS_JSON?.trim();
+  if (!raw) return {};
+  try {
+    const obj = JSON.parse(raw);
+    if (!obj || typeof obj !== "object") return {};
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(obj)) {
+      if (typeof v === "string" && v.trim()) out[k.toLowerCase()] = v.trim();
+    }
+    return out;
+  } catch {
+    return {};
+  }
 }
 
 // lib/volaris.ts

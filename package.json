@@ -39,6 +39,7 @@
     "@radix-ui/react-toggle-group": "^1.1.0",
     "@radix-ui/react-tooltip": "^1.1.2",
     "@react-pdf/renderer": "^4.3.2",
+    "@sparticuz/chromium": "^143.0.4",
     "@sparticuz/chromium-min": "^143.0.4",
     "@stripe/react-stripe-js": "^3.6.0",
     "@stripe/stripe-js": "^7.2.0",
@@ -68,6 +69,7 @@
     "next-themes": "^0.3.0",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^5.4.54",
+    "playwright-core": "^1.58.2",
     "postcss": "8.4.30",
     "puppeteer-core": "^24.37.1",
     "qrcode": "^1.5.4",
@@ -91,6 +93,7 @@
   },
   "devDependencies": {
     "@types/google.maps": "^3.58.1",
+    "playwright": "^1.58.2",
     "puppeteer": "^24.37.1"
   }
 }

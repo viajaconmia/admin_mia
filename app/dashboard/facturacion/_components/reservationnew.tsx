@@ -565,7 +565,7 @@ const ReservationsWithTable4: React.FC = () => {
       (r) => r.id_servicio === reservationId
     );
     const item = reservation?.items?.find((i) => i.id_item === itemId);
-    if (item?.id_factura != null) return; // item ya facturado
+    if (item?.id_factura != null || item?.id_factura == "") return; // item ya facturado
 
     setSelectedItems((prev) => {
       const currentSelected = prev[reservationId] || [];

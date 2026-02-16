@@ -73,7 +73,7 @@ const InteractiveElement: React.FC<InteractiveElementProps> = ({
   // Clases base para todos los elementos interactivos
   const baseClasses = `
     flex items-center justify-center rounded-md
-    font-normal
+    font-medium
     transition-all duration-200 ease-in-out
     focus:outline-none focus:ring-2 focus:ring-offset-2
     whitespace-nowrap
@@ -97,6 +97,8 @@ const InteractiveElement: React.FC<InteractiveElementProps> = ({
       hover:bg-blue-700
       focus:bg-blue-900
       active:bg-blue-800
+
+
       border border-transparent
     `,
     secondary: `
