@@ -20,6 +20,11 @@ export const PERMISOS = {
     MIA_TARJETAS: "view.mia.tarjetas",
     MIA_TITULARES: "view.mia.titulares",
   },
+  COLUMNAS: {
+    BOOKINGS: {
+      USUARIO_CREADOR: "column.creador_bookings",
+    },
+  },
   COMPONENTES: {
     BOTON: {
       PAGAR_PROVEEDOR: "button.pagar-proveedor-reserva",
