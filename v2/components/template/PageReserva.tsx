@@ -30,12 +30,19 @@ import {
   PageTracker,
   TrackingPage,
 } from "@/v2/components/molecule/PageTracking";
-import { DollarSign, Pencil, Plus, RefreshCwIcon, Trash2 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import {
+  DollarSign,
+  Download,
+  Pencil,
+  Plus,
+  RefreshCwIcon,
+  Trash2,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import CrearReserva from "./CrearReserva";
 import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
+import { useFile } from "@/hooks/useFile";
 
 const PageReservas = ({ agente }: { agente?: Agente }) => {
   const [loading, setLoading] = useState(false);
@@ -53,12 +60,13 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
   const [selectedEdit, setSelectedEdit] = useState<string>(null);
   const { Can } = usePermiso();
   const { showNotification } = useNotification();
+  const { csv, loadingFile, setLoadingFile } = useFile();
 
+  const booking_service = new BookingsService();
   const handleFetchSolicitudes = async (page = tracking.page) => {
     setLoading(true);
     let extras = agente?.id_agente ? { id_client: agente.id_agente } : {};
-    const booking = new BookingsService();
-    const response = await booking.obtenerReservas({
+    const response = await booking_service.obtenerReservas({
       page,
       length: MAX_REGISTERS,
       ...filters,
@@ -72,6 +80,31 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     }));
     setReservas(response.data || []);
     setLoading(false);
+  };
+
+  const handleExport = async () => {
+    setLoadingFile(true);
+    try {
+      let fileName = "Reservas";
+
+      if (!confirm('¿Quieres usar el nombre "Reservas" por default?')) {
+        const customName = prompt("Escribe el nombre del archivo:");
+
+        if (customName && customName.trim() !== "") {
+          fileName = customName.trim();
+        }
+      }
+      let extras = agente?.id_agente ? { id_client: agente.id_agente } : {};
+
+      const response = await booking_service.obtenerReservas({
+        ...filters,
+        ...extras,
+      });
+
+      const formatData = response.data.map((booking) => ({ ...booking }));
+
+      csv(formatData, fileName);
+    } catch (error) {}
   };
 
   const renderers = {
@@ -207,6 +240,8 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     reservante: reserva.reservante,
     etapa_reservacion: reserva.etapa_reservacion,
     estado: reserva.estado,
+    estado_pago: reserva.estado_pago,
+    estado_facturacion: reserva.estado_facturacion,
     intermediario: reserva.intermediario,
     detalles_cliente: reserva.id_solicitud,
     editar: reserva.type == "hotel" ? reserva.id_solicitud : reserva.id_booking,
@@ -338,8 +373,18 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
           </Button>
         )}
         <Button
+          onClick={handleExport}
+          disabled={loading}
+          variant="secondary"
+          size="sm"
+          icon={Download}
+        >
+          Exportar
+        </Button>
+        <Button
           onClick={() => handleFetchSolicitudes()}
           disabled={loading}
+          variant="ghost"
           size="sm"
           icon={RefreshCwIcon}
         >

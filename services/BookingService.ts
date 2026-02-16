@@ -37,7 +37,7 @@ export class BookingsService extends ApiService {
     });
   };
 
-  public obtenerReservas = async (params: { page: number; length: number }) =>
+  public obtenerReservas = async (params: any) =>
     this.get<BookingAll[]>({
       path: this.formatPath(this.ENDPOINTS.GET.RERESVAS),
       params,
@@ -82,6 +82,8 @@ export type BookingAll = {
   id_booking: string;
   id_servicio: string;
   id_agente: string;
+  estado_pago: string;
+  estado_facturacion: string;
 
   reservante: string;
   correo_cliente: string;
