@@ -127,7 +127,6 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
         estado_pago_proveedor: "",
         estado_factura_proveedor: "",
         estado: item.status_reserva,
-        detalles_cliente: "",
         ...(hasPermission(PERMISOS.COLUMNAS.BOOKINGS.USUARIO_CREADOR)
           ? {
               nombre_reservante: (
@@ -135,6 +134,7 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
               ).toUpperCase(),
             }
           : {}),
+        detalles_cliente: "",
         editar: "",
         pagar: "",
         item, // para los renderers
@@ -325,6 +325,9 @@ function App({ id_agente, agente }: { id_agente?: string; agente?: any }) {
                 "detalles_cliente",
                 "editar",
                 "pagar",
+                ...(hasPermission(PERMISOS.COLUMNAS.BOOKINGS.USUARIO_CREADOR)
+                  ? ["nombre_reservante"]
+                  : []),
               ]}
             >
               {id_agente && (
