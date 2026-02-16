@@ -88,8 +88,6 @@ export const PaymentModal = ({
   const reservaRef = useRef<ReservaHandle>(null);
 
   const { data, fetchData } = useFetchCards();
-
-  // ✅ NUEVO: titulares
   const { data: titularesData, fetchTitulares } = useFetchTitulares();
 
   const [isReservaOpen, setIsReservaOpen] = useState(false);
@@ -112,17 +110,14 @@ export const PaymentModal = ({
     document,
   } = state;
 
-  // NUEVO: Comentarios CXP (local para no tocar tu reducer)
   const [commentsCxp, setCommentsCxp] = useState<string>("");
-
-  // ✅ NUEVO: titular seleccionado (local)
   const [selectedTitularId, setSelectedTitularId] = useState<string>("");
 
   if (!reservation) return null;
 
-  const reservationTotal = Number(reservation.costo_total) || 0;
+  const reservationTotal = Number((reservation as any).costo_total) || 0;
   const balanceToApply = parseFloat(String(favorBalance ?? "")) || 0;
-  const monto_a_pagar = to2(reservationTotal - balanceToApply);
+  const monto_a_pagar = to2(Math.max(0, reservationTotal - balanceToApply));
 
   const todayISO = useMemo(() => {
     const d = new Date();
@@ -148,6 +143,7 @@ export const PaymentModal = ({
       return [
         {
           ...rows[0],
+          // si está vacío, caemos a date/today
           date: rows[0].date || (date as string) || todayISO,
           amount: monto_a_pagar,
         },
@@ -180,7 +176,8 @@ export const PaymentModal = ({
       rows.map((r, idx) => {
         if (r.id !== id) return r;
         const next = { ...r, ...patch };
-        // compat: si cambian la 1a fecha, reflejamos date del reducer
+
+        // compat: si cambian la 1a fecha del schedule, reflejamos date del reducer
         if (rowIndex === 0 && typeof patch.date === "string") {
           dispatch({ type: "SET_FIELD", field: "date", payload: patch.date });
         }
@@ -190,7 +187,6 @@ export const PaymentModal = ({
   };
 
   const validateAndBuildSchedulePayload = () => {
-    // Solo para card/link
     const normalized = paymentSchedule.map((r) => ({
       fecha_pago: (r.date || "").trim(),
       monto: r.amount === "" ? NaN : Number(r.amount),
@@ -210,7 +206,7 @@ export const PaymentModal = ({
       );
     }
 
-    return normalized;
+    return normalized as Array<{ fecha_pago: string; monto: number }>;
   };
 
   /** ===== Tarjetas ===== */
@@ -232,7 +228,6 @@ export const PaymentModal = ({
     item: card,
   }));
 
-  // ✅ traer tarjetas y titulares
   useEffect(() => {
     fetchData();
     fetchTitulares();
@@ -247,15 +242,15 @@ export const PaymentModal = ({
     if (!reservation) return null;
     return {
       codigo_confirmacion: reservation.codigo_confirmacion ?? "SIN-CODIGO",
-      huesped: reservation.viajero ?? "",
-      hotel: reservation.proveedor ?? "",
+      huesped: (reservation as any).viajero ?? "",
+      hotel: (reservation as any).proveedor ?? "",
       direccion: "",
       acompañantes: "",
       incluye_desayuno: 0,
       check_in: reservation.check_in ?? "",
       check_out: reservation.check_out ?? "",
-      room: reservation.tipo_cuarto_vuelo ?? "",
-      comentarios: reservation.comments ?? "",
+      room: (reservation as any).tipo_cuarto_vuelo ?? "",
+      comentarios: (reservation as any).comments ?? "",
     };
   }, [reservation]);
 
@@ -267,7 +262,6 @@ export const PaymentModal = ({
     try {
       if (!emails) throw new Error("Agrega al menos un correo.");
       const list = emails.split(",").map((e) => e.trim()).filter(Boolean);
-
       if (list.length === 0) throw new Error("Formato de correos inválido.");
 
       const blob = await reservaRef.current?.getPdfBlob();
@@ -298,115 +292,10 @@ export const PaymentModal = ({
     }
   };
 
-  const handlePayment = async () => {
-    try {
-      const derivedStatus: PaymentStatus = computePaymentStatus({
-        paymentType,
-        paymentMethod,
-        useQR,
-      });
-
-      dispatch({ type: "SET_FIELD", field: "paymentStatus", payload: derivedStatus });
-
-      let paymentSchedulePayload: Array<{ fecha_pago: string; monto: number }> | undefined;
-      let effectiveDate = (date as string) || todayISO;
-
-      if (paymentType === "prepaid") {
-        if (paymentMethod === "card" || paymentMethod === "link") {
-          paymentSchedulePayload = validateAndBuildSchedulePayload();
-          effectiveDate = paymentSchedulePayload[0]?.fecha_pago || effectiveDate;
-        } else if (paymentMethod === "transfer") {
-          if (!effectiveDate) throw new Error("Selecciona la fecha de pago.");
-          paymentSchedulePayload = [{ fecha_pago: effectiveDate, monto: monto_a_pagar }];
-        }
-      }
-
-      // ----- Crédito -----
-      if (paymentType === "credit") {
-        console.log({
-          date: effectiveDate,
-          paymentType,
-          monto_a_pagar,
-          comments,
-          comments_cxp: commentsCxp,
-          id_hospedaje: reservation.id_booking,
-          paymentStatus: derivedStatus,
-          usuario_creador: reservation.usuario_creador,
-        });
-        return;
-      }
-
-      // ----- Prepago -----
-      if (paymentType === "prepaid") {
-        if (
-          !reservation ||
-          ((paymentMethod === "card" || paymentMethod === "link") && !currentSelectedCard) ||
-          (paymentMethod === "card" && !useQR)
-        ) {
-          throw new Error(
-            "Hay un error en la reservación, en la tarjeta o en la forma de mandar los datos, verifica que los datos estén completos."
-          );
-        }
-
-        if (paymentMethod === "link" && !selectedTitularId) {
-          throw new Error("Selecciona el titular para generar el link.");
-        }
-
-        if (paymentMethod === "link" || paymentMethod === "card") {
-          fetchCreateSolicitud(
-            {
-              selectedCard,
-              date: effectiveDate,
-              comments,
-              comments_cxp: commentsCxp,
-              paymentMethod,
-              paymentType,
-              monto_a_pagar,
-              id_hospedaje: reservation.id_booking,
-              paymentStatus: derivedStatus,
-              paymentSchedule: paymentSchedulePayload,
-              usuario_creador: reservation.usuario_creador,
-
-              idTitular: paymentMethod === "link" ? Number(selectedTitularId) : null,
-              titular: paymentMethod === "link" ? currentTitular?.Titular ?? "" : "",
-              identificacion: paymentMethod === "link" ? currentTitular?.identificacion ?? "" : "",
-            },
-            (_response: any) => {}
-          );
-
-          if (paymentMethod === "card" && useQR === "qr") {
-            await generateQRPaymentPDF();
-          }
-        } else if (paymentMethod === "transfer") {
-          fetchCreateSolicitud(
-            {
-              date: effectiveDate,
-              comments,
-              comments_cxp: commentsCxp,
-              paymentMethod,
-              paymentType,
-              monto_a_pagar,
-              id_hospedaje: reservation.id_booking,
-              paymentStatus: derivedStatus,
-              paymentSchedule: paymentSchedulePayload,
-              usuario_creador: reservation.usuario_creador,
-            },
-            (response: any) => {
-              alert(response.message);
-            }
-          );
-        }
-      }
-
-      dispatch({ type: "SET_FIELD", field: "error", payload: "" });
-    } catch (error: any) {
-      dispatch({ type: "SET_FIELD", field: "error", payload: error.message });
-    }
-  };
-
   const generateQRPaymentPDF = async () => {
     if (!document) throw new Error("Falta seleccionar el documento que aparecerá");
     if (!currentSelectedCard) throw new Error("Falta seleccionar tarjeta");
+    if (!useQR) throw new Error("Selecciona si es Con QR o En archivo");
 
     const secureToken = generateSecureToken(
       reservation.codigo_confirmacion.replaceAll("-", "."),
@@ -440,21 +329,158 @@ export const PaymentModal = ({
           checkIn: reservation.check_in.split("T")[0],
           checkOut: reservation.check_out.split("T")[0],
           reservacionId: reservation.codigo_confirmacion,
-          monto: Number(reservation.costo_total),
-          nombre: reservation.viajero,
-          tipoHabitacion: updateRoom(reservation.tipo_cuarto_vuelo),
+          monto: Number((reservation as any).costo_total),
+          nombre: (reservation as any).viajero,
+          tipoHabitacion: updateRoom((reservation as any).tipo_cuarto_vuelo),
         },
       ],
       codigoDocumento: "xxxx",
       currency: "MXN",
     };
 
+    const pdf = await generateSecureQRPaymentPDF(qrData);
+    pdf.save(`pago-proveedor-${reservation.codigo_confirmacion}.pdf`);
+  };
+
+  const handlePayment = async () => {
     try {
-      const pdf = await generateSecureQRPaymentPDF(qrData);
-      pdf.save(`pago-proveedor-${reservation.codigo_confirmacion}.pdf`);
-    } catch (err) {
-      console.error("Error generating QR PDF:", err);
+      const derivedStatus: PaymentStatus = computePaymentStatus({
+        paymentType,
+        paymentMethod,
+        useQR,
+      });
+
+      dispatch({ type: "SET_FIELD", field: "paymentStatus", payload: derivedStatus });
+
+      let paymentSchedulePayload: Array<{ fecha_pago: string; monto: number }> | undefined;
+      let effectiveDate = (date as string) || todayISO;
+
+      // --------------------
+      // PREPAGO
+      // --------------------
+      if (paymentType === "prepaid") {
+        // ✅ card/link: schedule (fecha + monto)
+        if (paymentMethod === "card" || paymentMethod === "link") {
+          paymentSchedulePayload = validateAndBuildSchedulePayload();
+          effectiveDate = paymentSchedulePayload[0]?.fecha_pago || effectiveDate;
+        }
+
+        // ✅ transfer: solo fecha estimada (1 pago)
+        if (paymentMethod === "transfer") {
+          if (!effectiveDate) throw new Error("Selecciona la fecha estimada.");
+          paymentSchedulePayload = [{ fecha_pago: effectiveDate, monto: monto_a_pagar }];
+        }
+      }
+
+      // --------------------
+      // CRÉDITO (PORTADO del primer snippet)
+      // --------------------
+      if (paymentType === "credit") {
+        if (!reservation) throw new Error("No hay reservación.");
+
+        fetchCreateSolicitud(
+          {
+            date: effectiveDate,
+            comments,
+            comments_cxp: commentsCxp,
+            paymentMethod: "transfer", // o null; depende de tu backend
+            paymentType: "credit",
+            monto_a_pagar,
+            id_hospedaje: (reservation as any).id_booking,
+            paymentStatus: derivedStatus,
+            paymentSchedule: undefined,
+            usuario_creador: (reservation as any).usuario_creador,
+
+            // si tu backend espera estos campos aunque sea crédito:
+            selectedCard: null,
+            idTitular: null,
+            titular: "",
+            identificacion: "",
+          },
+          (response: any) => {
+            if (response?.message) alert(response.message);
+          }
+        );
+
+        dispatch({ type: "SET_FIELD", field: "error", payload: "" });
+        return;
+      }
+
+      // --------------------
+      // PREPAGO: validaciones + envío
+      // --------------------
+      if (paymentType === "prepaid") {
+        if (
+          !reservation ||
+          ((paymentMethod === "card" || paymentMethod === "link") && !currentSelectedCard) ||
+          (paymentMethod === "card" && !useQR)
+        ) {
+          throw new Error(
+            "Hay un error en la reservación, en la tarjeta o en la forma de mandar los datos, verifica que los datos estén completos."
+          );
+        }
+
+        if (paymentMethod === "link" && !selectedTitularId) {
+          throw new Error("Selecciona el titular para generar el link.");
+        }
+
+        if (paymentMethod === "link" || paymentMethod === "card") {
+          fetchCreateSolicitud(
+            {
+              selectedCard,
+              date: effectiveDate,
+              comments,
+              comments_cxp: commentsCxp,
+              paymentMethod,
+              paymentType,
+              monto_a_pagar,
+              id_hospedaje: (reservation as any).id_booking,
+              paymentStatus: derivedStatus,
+              paymentSchedule: paymentSchedulePayload,
+              usuario_creador: (reservation as any).usuario_creador,
+
+              idTitular: paymentMethod === "link" ? Number(selectedTitularId) : null,
+              titular: paymentMethod === "link" ? currentTitular?.Titular ?? "" : "",
+              identificacion: paymentMethod === "link" ? currentTitular?.identificacion ?? "" : "",
+            },
+            (_response: any) => {}
+          );
+
+          // ✅ genera PDF para tarjeta tanto QR como archivo (si quieres solo QR, cambia la condición)
+          if (paymentMethod === "card") {
+            await generateQRPaymentPDF();
+          }
+        }
+
+        if (paymentMethod === "transfer") {
+          fetchCreateSolicitud(
+            {
+              date: effectiveDate,
+              comments,
+              comments_cxp: commentsCxp,
+              paymentMethod,
+              paymentType,
+              monto_a_pagar,
+              id_hospedaje: (reservation as any).id_booking,
+              paymentStatus: derivedStatus,
+              paymentSchedule: paymentSchedulePayload,
+              usuario_creador: (reservation as any).usuario_creador,
+            },
+            (response: any) => {
+              if (response?.message) alert(response.message);
+            }
+          );
+        }
+      }
+
+      dispatch({ type: "SET_FIELD", field: "error", payload: "" });
+    } catch (e: any) {
+      dispatch({ type: "SET_FIELD", field: "error", payload: e?.message || "Error" });
     }
+  };
+
+  const handleConfirmCredit = async () => {
+    await handlePayment();
   };
 
   return (
@@ -518,14 +544,16 @@ export const PaymentModal = ({
                   <div className="p-4 bg-green-50 border rounded-md border-green-200">
                     <div className="flex justify-between items-center">
                       <span className="text-slate-700 text-sm">Monto a Pagar al Proveedor:</span>
-                      <span className="text-xl font-bold text-green-700">${monto_a_pagar.toFixed(2)}</span>
+                      <span className="text-xl font-bold text-green-700">
+                        ${monto_a_pagar.toFixed(2)}
+                      </span>
                     </div>
                   </div>
                 </>
               )}
 
-              {/* ✅ NUEVO: Fecha estimada PARA LAS 3 OPCIONES (transfer/card/link) */}
-              {paymentMethod && (
+              {/* ✅ CAMBIO: Fecha estimada SOLO para transferencia */}
+              {paymentMethod === "transfer" && (
                 <DateInput
                   label="Fecha estimada"
                   value={date}
@@ -539,7 +567,7 @@ export const PaymentModal = ({
                 />
               )}
 
-              {/* === SOLO CARD/LINK: Tabla schedule === */}
+              {/* ✅ card/link: Calendario de pagos (fecha y monto) */}
               {shouldShowSchedule && (
                 <div className="mt-3 space-y-2">
                   <div className="flex items-center justify-between">
@@ -654,9 +682,7 @@ export const PaymentModal = ({
           <div className="grid grid-cols-2 gap-4">
             <Button
               variant={paymentType === "prepaid" ? "default" : "outline"}
-              onClick={() =>
-                dispatch({ type: "SET_FIELD", field: "paymentType", payload: "prepaid" })
-              }
+              onClick={() => dispatch({ type: "SET_FIELD", field: "paymentType", payload: "prepaid" })}
               className="h-10"
             >
               <CreditCard className="mr-2 h-5 w-5" />
@@ -665,9 +691,7 @@ export const PaymentModal = ({
 
             <Button
               variant={paymentType === "credit" ? "default" : "outline"}
-              onClick={() =>
-                dispatch({ type: "SET_FIELD", field: "paymentType", payload: "credit" })
-              }
+              onClick={() => dispatch({ type: "SET_FIELD", field: "paymentType", payload: "credit" })}
               className="h-10"
             >
               <FileText className="mr-2 h-5 w-5" />
@@ -744,9 +768,7 @@ export const PaymentModal = ({
                 <CheckboxInput
                   label={"Mostrar cvv"}
                   checked={isSecureCode}
-                  onChange={(value) =>
-                    dispatch({ type: "SET_FIELD", field: "isSecureCode", payload: value })
-                  }
+                  onChange={(value) => dispatch({ type: "SET_FIELD", field: "isSecureCode", payload: value })}
                 />
 
                 <DropdownValues
@@ -887,7 +909,16 @@ export const PaymentModal = ({
               label="Comentarios CXP"
             />
 
-            <Reserva isOpen={isReservaOpen} onClose={() => setIsReservaOpen(false)} reservation={mappedReservation} />
+            {/* ✅ Botón que envía solicitud en crédito */}
+            <Button onClick={handleConfirmCredit} className="w-full bg-blue-600 hover:bg-blue-700">
+              Confirmar crédito
+            </Button>
+
+            <Reserva
+              isOpen={isReservaOpen}
+              onClose={() => setIsReservaOpen(false)}
+              reservation={mappedReservation}
+            />
           </div>
         )}
       </div>

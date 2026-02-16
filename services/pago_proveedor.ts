@@ -8,6 +8,7 @@ import {
 } from "@/types";
 import { PaymentData } from "@/types/pago_proveedor";
 
+
 export const fetchCreateSolicitud = async (
   solicitud: PaymentData,
   callback: (response: SuccessResponse<PaymentData>) => void

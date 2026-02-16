@@ -4,9 +4,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Table5 } from "@/components/Table5";
 import { URL, API_KEY } from "@/lib/constants/index";
-import { Filter, X, Search, Maximize2 } from "lucide-react";
+import { Filter, X, Search, Maximize2, Handshake, Upload } from "lucide-react";
 import SubirFactura from "@/app/dashboard/facturacion/subirfacturas/SubirFactura";
-import ModalDetalle from "@/app/dashboard/conciliacion/compponents/detalles"
+import ModalDetalle from "@/app/dashboard/conciliacion/compponents/detalles";
 
 type AnyRow = Record<string, any>;
 
@@ -118,49 +118,45 @@ function getEstatusPagoPayload(raw: any) {
 }
 
 function getTipoPago(raw: any): string {
-  const forma_pag = raw?.solicitud_proveedor?.forma_pago_solicitada ;
-  let final;
+  const forma_pag = raw?.solicitud_proveedor?.forma_pago_solicitada;
+  let final = "";
   switch (forma_pag) {
     case "card":
-      final = "TARJETA"
+      final = "TARJETA";
       break;
-      case "link":
-      final = "LINK_PAGO"
+    case "link":
+      final = "LINK_PAGO";
       break;
-      case "transfer":
-        final = "TRANSFERENCIA"
-      
+    case "transfer":
+      final = "TRANSFERENCIA";
       break;
-  
     default:
+      final = String(forma_pag ?? "").toUpperCase();
       break;
   }
-  return (
-    final
-  );
+  return final;
 }
 
 type TipoReservaInferida = "PREPAGO" | "CREDITO" | "";
 
 function inferTipoReserva(raw: any): TipoReservaInferida {
+  const isCredito = !!raw?.is_credito;
+  return isCredito ? "CREDITO" : "PREPAGO";
+}
 
-  const isRentaAuto = (raw?.is_credito);
-  if (!isRentaAuto) {return "PREPAGO"
-  }
-  else{
-      return "CREDITO"
-    }
-  };
-
-  function extractFacturasYPagosFromPFP(raw: any) {
+function extractFacturasYPagosFromPFP(raw: any) {
   const v = raw?.pagos_facturas_proveedores_json;
 
-  // Soporta array directo o string JSON
-  const arr: any[] = Array.isArray(v)
-    ? v
-    : typeof v === "string"
-    ? JSON.parse(v)
-    : [];
+  let arr: any[] = [];
+  if (Array.isArray(v)) arr = v;
+  else if (typeof v === "string") {
+    try {
+      const parsed = JSON.parse(v);
+      arr = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      arr = [];
+    }
+  }
 
   const id_facturas = Array.from(
     new Set(
@@ -181,16 +177,15 @@ function inferTipoReserva(raw: any): TipoReservaInferida {
   return { id_facturas, id_pagos };
 }
 
-
 type EstatusFacturaInferido = "FACTURADO" | "PARCIAL" | "SIN FACTURAR";
 
-function getEstatusFacturas(diferencia: any,costo_proveedor:any,baseFactura:any): EstatusFacturaInferido {
-  if (diferencia == 0)return "FACTURADO"; 
+function getEstatusFacturas(diferencia: any, costo_proveedor: any, _baseFactura: any): EstatusFacturaInferido {
+  const diff = Number(diferencia ?? 0) || 0;
+  const costo = Number(costo_proveedor ?? 0) || 0;
 
-  if (diferencia == costo_proveedor) return "SIN FACTURAR";
-
-  if (diferencia !=costo_proveedor)return "PARCIAL";
-  
+  if (Math.abs(diff) < 0.01) return "FACTURADO";
+  if (Math.abs(diff - costo) < 0.01) return "SIN FACTURAR";
+  return "PARCIAL";
 }
 
 /**
@@ -198,19 +193,17 @@ function getEstatusFacturas(diferencia: any,costo_proveedor:any,baseFactura:any)
  */
 function toConciliacionRow(raw: any, index: number): AnyRow {
   const row_id = getRowId(raw, index);
-  
-  const id_solicitud_proveedor =
-  raw?.solicitud_proveedor?.id_solicitud_proveedor ??
-  raw?.id_solicitud_proveedor ??
-  null;
-  
-  const id_proveedor =
-  raw?.id_proveedor_resuelto ??
-  raw?.solicitud_proveedor?.id_proveedor ??
-  raw?.proveedor?.id_proveedor ??
-  null;
-  
 
+  const id_solicitud_proveedor =
+    raw?.solicitud_proveedor?.id_solicitud_proveedor ??
+    raw?.id_solicitud_proveedor ??
+    null;
+
+  const id_proveedor =
+    raw?.id_proveedor_resuelto ??
+    raw?.solicitud_proveedor?.id_proveedor ??
+    raw?.proveedor?.id_proveedor ??
+    null;
 
   const hotel = (raw?.hotel ?? "").toString();
   const viajero = (raw?.nombre_viajero_completo ?? raw?.nombre_viajero ?? "").toString();
@@ -230,23 +223,23 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
   const comentariosOps =
     raw?.solicitud_proveedor?.comentarios ?? raw?.comentarios_ops ?? "";
 
-    const estatusPagoObj = getEstatusPagoPayload(raw);
-    
-    const total_facturado =
+  const estatusPagoObj = getEstatusPagoPayload(raw);
+
+  const total_facturado =
     Number(raw?.total_facturado_en_pfp ?? raw?.total_facturado ?? 0) || 0;
-    
-    const total_factura = Number(raw?.monto_facturado ?? 0) || 0;
-    
-    const total_aplicable = raw?.total_aplicable ?? "";
-    const impuestos = raw?.impuestos ?? "";
-    const subtotal = raw?.subtotal ?? "";
-    
-    const baseFactura =
+
+  const total_factura = Number(raw?.monto_facturado ?? 0) || 0;
+
+  const total_aplicable = raw?.total_aplicable ?? "";
+  const impuestos = raw?.impuestos ?? "";
+  const subtotal = raw?.subtotal ?? "";
+
+  const baseFactura =
     Number(total_aplicable) || total_facturado || total_factura || 0;
-    
-    const diferencia = Number((costo_proveedor - baseFactura).toFixed(2));
-    
-    const estatusFacturas = getEstatusFacturas(diferencia,costo_proveedor,baseFactura);
+
+  const diferencia = Number((costo_proveedor - baseFactura).toFixed(2));
+
+  const estatusFacturas = getEstatusFacturas(diferencia, costo_proveedor, baseFactura);
 
   const tarjeta = raw?.tarjeta?.ultimos_4 ?? raw?.ultimos_4 ?? "";
 
@@ -256,11 +249,13 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
     raw?.razon_social ??
     "";
 
-  const rfc = raw.rfc_proveedor;
+  const rfc = raw?.rfc_proveedor ?? raw?.proveedor?.rfc ?? raw?.rfc ?? "";
 
   const id_servicio = raw?.id_servicio ?? null;
 
-  const asociaciones = extractFacturasYPagosFromPFP(raw)
+  const asociaciones = extractFacturasYPagosFromPFP(raw);
+
+  const consolidado = Number(raw?.consolidado ?? raw?.estatus_conciliado ?? raw?.conciliado ?? 0) || 0;
 
   return {
     row_id,
@@ -314,11 +309,20 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
     subtotal,
 
     razon_social,
+    rfc,
 
-    rfc:rfc,
+    consolidado,
 
-    item:{id_solicitud_proveedor,diferencia_costo_proveedor_vs_factura:diferencia,asociaciones,informacion_completa:raw,id_proveedor},
-    
+    acciones: "", // ✅ columna UI
+
+    item: {
+      id_solicitud_proveedor,
+      diferencia_costo_proveedor_vs_factura: diferencia,
+      asociaciones,
+      informacion_completa: raw,
+      id_proveedor,
+    },
+
     __raw: raw,
   };
 }
@@ -357,9 +361,28 @@ type ProveedorSeleccionado = {
   id_proveedor: string;
 };
 
+/** =========================
+ *  ✅ MODAL COMPROBANTE (PDF only)
+ *  ========================= */
+type ComprobanteModalState = {
+  open: boolean;
+  id_solicitud_proveedor: string;
+  id_proveedor?: string;
+  // puedes extender con campos extra si tu API lo pide
+};
+
+function isPdfFile(file?: File | null) {
+  if (!file) return false;
+  const nameOk = (file.name || "").toLowerCase().endsWith(".pdf");
+  const typeOk = file.type === "application/pdf" || file.type === "application/x-pdf";
+  return nameOk || typeOk;
+}
+
 export default function ConciliacionPage() {
   const EPS = 0.01;
   const isZero = (n: any) => Math.abs(Number(n) || 0) < EPS;
+
+  const normUpper = (v: any) => String(v ?? "").trim().toUpperCase();
 
   const [isLoading, setIsLoading] = useState(false);
   const [showSubirFactura, setShowSubirFactura] = useState(false);
@@ -377,7 +400,11 @@ export default function ConciliacionPage() {
   const endpoint = `${URL}/mia/pago_proveedor/solicitud`;
   const editEndpoint = `${URL}/mia/pago_proveedor/edit`;
 
+  // 🔴 AJUSTA este endpoint al real de tu backend (si ya tienes ComprobanteModal en otro lado, puedes reusarlo)
+  const comprobanteEndpoint = `${URL}/mia/pago_proveedor/comprobante`;
+
   const [selectedRfc, setSelectedRfc] = useState<string>("");
+
   const [detalleOpen, setDetalleOpen] = useState(false);
   const [detalleSolicitud, setDetalleSolicitud] = useState<any | null>(null);
 
@@ -390,7 +417,6 @@ export default function ConciliacionPage() {
     setDetalleOpen(false);
     setDetalleSolicitud(null);
   }, []);
-
 
   const closeSubirFactura = useCallback(() => {
     setShowSubirFactura(false);
@@ -435,31 +461,29 @@ export default function ConciliacionPage() {
   /**
    * ✅ KEY estable para selección/edición
    */
-const getSelectionKey = (rowOrValue: any, index?: number) => {
-  // ✅ si Table5 manda directamente el string id en value
-  if (typeof rowOrValue === "string" || typeof rowOrValue === "number") {
-    const s = String(rowOrValue).trim();
-    if (s !== "" && s !== "undefined" && s !== "null") return s;
-  }
+  const getSelectionKey = (rowOrValue: any, index?: number) => {
+    // ✅ si Table5 manda directamente el string id en value
+    if (typeof rowOrValue === "string" || typeof rowOrValue === "number") {
+      const s = String(rowOrValue).trim();
+      if (s !== "" && s !== "undefined" && s !== "null") return s;
+    }
 
+    // ✅ si Table5 manda el row completo (objeto)
+    const row = rowOrValue && typeof rowOrValue === "object" ? rowOrValue : null;
 
-  // ✅ si Table5 manda el row completo (objeto)
-  const row = rowOrValue && typeof rowOrValue === "object" ? rowOrValue : null;
+    const id =
+      row?.id_solicitud_proveedor ??
+      row?.row_id ??
+      row?.__raw?.solicitud_proveedor?.id_solicitud_proveedor ??
+      null;
 
-  const id =
-    row?.id_solicitud_proveedor ??
-    row?.row_id ??
-    row?.__raw?.solicitud_proveedor?.id_solicitud_proveedor ??
-    null;
+    const clean = id != null ? String(id).trim() : "";
 
-  const clean = id != null ? String(id).trim() : "";
+    if (clean !== "" && clean !== "undefined" && clean !== "null") return clean;
 
-  if (clean !== "" && clean !== "undefined" && clean !== "null") return clean;
-
-  // ✅ fallback: index (para que NUNCA quede vacío)
-  return String(index ?? "");
-};
-
+    // ✅ fallback: index (para que NUNCA quede vacío)
+    return String(index ?? "");
+  };
 
   // ---- Modal de edición ----
   const [editModal, setEditModal] = useState<EditModalState>({
@@ -488,7 +512,7 @@ const getSelectionKey = (rowOrValue: any, index?: number) => {
   }, []);
 
   const handleEdit = useCallback(
-    async (rowIdSolicitudProveedor: string, field: EditableField, value: any) => {
+    async (rowIdSolicitudProveedor: string, field: EditableField | "consolidado", value: any) => {
       setDraftEdits((prev) => ({
         ...prev,
         [rowIdSolicitudProveedor]: {
@@ -497,11 +521,12 @@ const getSelectionKey = (rowOrValue: any, index?: number) => {
         },
       }));
 
-      const normalizedValue = MONEY_FIELDS.includes(field)
-        ? String(value).trim() === ""
-          ? null
-          : Number(value)
-        : value;
+      const normalizedValue =
+        MONEY_FIELDS.includes(field as EditableField)
+          ? String(value).trim() === ""
+            ? null
+            : Number(value)
+          : value;
 
       const apiField = FIELD_TO_API[field] ?? field;
 
@@ -526,8 +551,11 @@ const getSelectionKey = (rowOrValue: any, index?: number) => {
         if (!resp.ok) {
           throw new Error(json?.message || `Error HTTP: ${resp.status}`);
         }
+
+        return true;
       } catch (err) {
         console.error("❌ edit fail", err);
+        return false;
       }
     },
     [editEndpoint]
@@ -538,7 +566,8 @@ const getSelectionKey = (rowOrValue: any, index?: number) => {
     if (!rowId) return;
     await handleEdit(rowId, field, value);
     closeEditModal();
-  }, [editModal, handleEdit, closeEditModal]);
+    void load();
+  }, [editModal, handleEdit, closeEditModal, load]);
 
   /**
    * ✅ filteredData
@@ -563,43 +592,42 @@ const getSelectionKey = (rowOrValue: any, index?: number) => {
 
     return filteredItems.map((raw, i) => toConciliacionRow(raw, i));
   }, [todos, searchTerm]);
-  
+
   // ---------------- RFC VALIDATION ----------------
-const normRfc = (v: any) => String(v ?? "").trim().toUpperCase();
+  const normRfc = (v: any) => String(v ?? "").trim().toUpperCase();
 
+  // Mapa rápido: selectionKey -> RFC
+  const rfcByKey = useMemo(() => {
+    const m = new Map<string, string>();
+    (filteredData || []).forEach((row: AnyRow, index: number) => {
+      const key = getSelectionKey(row, index);
+      const rfc = normRfc(row?.rfc ?? row?.__raw?.rfc_proveedor ?? "");
+      m.set(key, rfc);
+    });
+    return m;
+  }, [filteredData]);
 
+  const getSelectedRfcInfo = useCallback(
+    (map: Record<string, boolean>) => {
+      const set = new Set<string>();
 
-// Mapa rápido: selectionKey -> RFC
-const rfcByKey = useMemo(() => {
-  const m = new Map<string, string>();
-  (filteredData || []).forEach((row: AnyRow, index: number) => {
-    const key = getSelectionKey(row, index);
-    const rfc = normRfc(row?.rfc ?? row?.__raw?.rfc_proveedor ?? "");
-    m.set(key, rfc);
-  });
-  return m;
-}, [filteredData]);
+      for (const [key, isSelected] of Object.entries(map)) {
+        if (!isSelected) continue;
+        const rfc = normRfc(rfcByKey.get(key) ?? "");
+        if (rfc) set.add(rfc);
+        if (set.size > 1) break;
+      }
 
-const getSelectedRfcInfo = useCallback(
-  (map: Record<string, boolean>) => {
-    const set = new Set<string>();
+      const list = Array.from(set);
+      return {
+        ok: list.length <= 1,
+        rfc: list[0] ?? "",
+        rfcs: list,
+      };
+    },
+    [rfcByKey]
+  );
 
-    for (const [key, isSelected] of Object.entries(map)) {
-      if (!isSelected) continue;
-      const rfc = normRfc(rfcByKey.get(key) ?? "");
-      if (rfc) set.add(rfc);
-      if (set.size > 1) break;
-    }
-
-    const list = Array.from(set);
-    return {
-      ok: list.length <= 1,
-      rfc: list[0] ?? "",
-      rfcs: list,
-    };
-  },
-  [rfcByKey]
-);
   const customColumns = useMemo(
     () => [
       "seleccionar",
@@ -628,6 +656,7 @@ const getSelectedRfcInfo = useCallback(
       "total_facturado",
       "diferencia_costo_proveedor_vs_factura",
       "subir_factura",
+      "acciones", // ✅ NUEVA COLUMNA: conciliación + comprobante
       "total_factura",
       "razon_social",
       "rfc",
@@ -642,56 +671,50 @@ const getSelectedRfcInfo = useCallback(
     return Object.keys(selectedMap).filter((k) => selectedMap[k]);
   }, [selectedMap]);
 
-const selectedRows = useMemo(() => {
-  return filteredData.filter((r: AnyRow, index: number) => {
-    const key = getSelectionKey(r, index);
-    if (!key) return false;
+  const selectedRows = useMemo(() => {
+    return filteredData.filter((r: AnyRow, index: number) => {
+      const key = getSelectionKey(r, index);
+      if (!key) return false;
 
-    const diff = Number(r?.diferencia_costo_proveedor_vs_factura ?? 0) || 0;
-    if (isZero(diff)) return false; // ✅ NO seleccionables
+      const diff = Number(r?.diferencia_costo_proveedor_vs_factura ?? 0) || 0;
+      if (isZero(diff)) return false; // ✅ NO seleccionables
 
-    return !!selectedMap[key];
-  });
-}, [filteredData, selectedMap]);
+      return !!selectedMap[key];
+    });
+  }, [filteredData, selectedMap]);
 
   const clearSelection = useCallback(() => {
     setSelectedMap({});
   }, []);
 
-const selectAllFiltered = useCallback(() => {
-  setSelectedMap((prev) => {
-    const next = { ...prev };
+  const selectAllFiltered = useCallback(() => {
+    setSelectedMap((prev) => {
+      const next = { ...prev };
 
-    const current = getSelectedRfcInfo(prev);
-    let baseRfc = current.rfc;
+      const current = getSelectedRfcInfo(prev);
+      let baseRfc = current.rfc;
 
-    // Si no hay selección aún, tomamos el primer RFC válido del filtro
-    if (!baseRfc) {
-      const firstWithRfc = filteredData.find((r: AnyRow) => normRfc(r?.rfc));
-      baseRfc = normRfc(firstWithRfc?.rfc ?? "");
-    }
+      // Si no hay selección aún, tomamos el primer RFC válido del filtro
+      if (!baseRfc) {
+        const firstWithRfc = filteredData.find((r: AnyRow) => normRfc(r?.rfc));
+        baseRfc = normRfc(firstWithRfc?.rfc ?? "");
+      }
 
-    // Si aún no hay RFC (todo vacío), solo selecciona los que también estén vacíos
-    filteredData.forEach((r: AnyRow, index: number) => {
-  const diff = Number(r?.diferencia_costo_proveedor_vs_factura ?? 0) || 0;
-  if (isZero(diff)) return; // ✅ saltar fila si diff = 0
+      filteredData.forEach((r: AnyRow, index: number) => {
+        const diff = Number(r?.diferencia_costo_proveedor_vs_factura ?? 0) || 0;
+        if (isZero(diff)) return;
 
-  const key = getSelectionKey(r, index);
-  const rowRfc = normRfc(r?.rfc ?? "");
+        const key = getSelectionKey(r, index);
+        const rowRfc = normRfc(r?.rfc ?? "");
 
-  const ok =
-    baseRfc
-      ? rowRfc === baseRfc
-      : !rowRfc;
+        const ok = baseRfc ? rowRfc === baseRfc : !rowRfc;
 
-  if (ok) next[key] = true;
+        if (ok) next[key] = true;
+      });
+
+      return next;
     });
-
-
-    return next;
-  });
-}, [filteredData, getSelectedRfcInfo]);
-
+  }, [filteredData, getSelectedRfcInfo]);
 
   const selectedProveedorData = useMemo(() => {
     const arr = selectedRows
@@ -711,6 +734,96 @@ const selectAllFiltered = useCallback(() => {
 
     return arr;
   }, [selectedRows]);
+
+  // =========================
+  // ✅ Conciliar (consolidado=1) - MISMA RUTA /edit
+  // =========================
+  const isPagadoRow = useCallback(
+    (row: AnyRow) => {
+      const label = normUpper(row?.estatus_pago);
+      if (label === "PAGADO") return true;
+
+      const stats = row?.__estatus_pago;
+      const solicitado = Number(stats?.solicitado ?? 0) || 0;
+      const pagado = Number(stats?.pagado ?? 0) || 0;
+      if (solicitado > 0 && pagado >= solicitado - EPS) return true;
+
+      return false;
+    },
+    [EPS]
+  );
+
+  const isConsolidadoRow = (row: AnyRow) => Number(row?.consolidado ?? 0) === 1;
+
+  const handleConciliar = useCallback(
+    async (row: AnyRow) => {
+      const id = String(row?.id_solicitud_proveedor ?? "").trim();
+      if (!id) return;
+
+      const ok = confirm(`¿Conciliar (consolidado=1) la solicitud ${id}?`);
+      if (!ok) return;
+
+      const done = await handleEdit(id, "consolidado", 1);
+      if (done) {
+        await load();
+      }
+    },
+    [handleEdit, load]
+  );
+
+  // =========================
+  // ✅ Comprobante Modal + Upload (PDF only)
+  // =========================
+  const [comprobanteModal, setComprobanteModal] = useState<ComprobanteModalState>({
+    open: false,
+    id_solicitud_proveedor: "",
+    id_proveedor: "",
+  });
+
+  const openComprobanteModal = useCallback((row: AnyRow) => {
+    setComprobanteModal({
+      open: true,
+      id_solicitud_proveedor: String(row?.id_solicitud_proveedor ?? "").trim(),
+      id_proveedor: String(row?.id_proveedor ?? "").trim(),
+    });
+  }, []);
+
+  const closeComprobanteModal = useCallback(() => {
+    setComprobanteModal({ open: false, id_solicitud_proveedor: "", id_proveedor: "" });
+  }, []);
+
+  const uploadComprobantePdf = useCallback(
+    async (id_solicitud_proveedor: string, file: File) => {
+      // ✅ endpoint pensado para multipart/form-data
+      // Si tu backend usa otro endpoint, cambia `comprobanteEndpoint`.
+      const fd = new FormData();
+      fd.append("id_solicitud_proveedor", id_solicitud_proveedor);
+      fd.append("file", file); // nombre esperado común
+      // fd.append("id_proveedor", comprobanteModal.id_proveedor || "");
+
+      try {
+        const resp = await fetch(comprobanteEndpoint, {
+          method: "POST",
+          headers: {
+            "x-api-key": API_KEY || "",
+            // NO pongas Content-Type en multipart; el browser setea boundary
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+          },
+          body: fd,
+        });
+
+        const json = await resp.json().catch(() => null);
+        if (!resp.ok) throw new Error(json?.message || `Error HTTP: ${resp.status}`);
+
+        return { ok: true, data: json };
+      } catch (err: any) {
+        console.error("❌ upload comprobante fail", err);
+        alert(err?.message || "Error subiendo comprobante");
+        return { ok: false, data: null };
+      }
+    },
+    [comprobanteEndpoint]
+  );
 
   // ✅ renderers
   const tableRenderers = useMemo<
@@ -746,7 +859,7 @@ const selectAllFiltered = useCallback(() => {
       },
 
       canal_de_reservacion: ({ value, item }) => {
-        const rowId = getSelectionKey(item); // ✅ FIX
+        const rowId = getSelectionKey(item);
         const v = draftEdits[rowId]?.canal_de_reservacion ?? value ?? "";
 
         return (
@@ -765,7 +878,7 @@ const selectAllFiltered = useCallback(() => {
       },
 
       nombre_intermediario: ({ value, item }) => {
-        const rowId = getSelectionKey(item); // ✅ FIX
+        const rowId = getSelectionKey(item);
         const v = draftEdits[rowId]?.nombre_intermediario ?? value ?? "";
 
         return (
@@ -786,7 +899,7 @@ const selectAllFiltered = useCallback(() => {
       },
 
       comentarios_ops: ({ value, item }) => {
-        const rowId = getSelectionKey(item); // ✅ FIX
+        const rowId = getSelectionKey(item);
         const v = draftEdits[rowId]?.comentarios_ops ?? value ?? "";
 
         return (
@@ -807,7 +920,7 @@ const selectAllFiltered = useCallback(() => {
       },
 
       comentarios_cxp: ({ value, item }) => {
-        const rowId = getSelectionKey(item); // ✅ FIX
+        const rowId = getSelectionKey(item);
         const v = draftEdits[rowId]?.comentarios_cxp ?? value ?? "";
 
         return (
@@ -831,16 +944,12 @@ const selectAllFiltered = useCallback(() => {
       seleccionar: ({ value, item, index }) => {
         const diff = Number(item?.diferencia_costo_proveedor_vs_factura ?? 0) || 0;
 
-        // ✅ si ya está conciliado, no permitimos selección
+        // ✅ si ya está conciliado (diff=0), no permitimos selección
         if (isZero(diff)) {
-          return <div className="w-4 h-4" />; // (espacio vacío)
+          return <div className="w-4 h-4" />;
         }
 
-        const key = getSelectionKey(
-          item && typeof item === "object" ? item : value,
-          index
-        );
-
+        const key = getSelectionKey(item && typeof item === "object" ? item : value, index);
         const checked = !!selectedMap[key];
 
         return (
@@ -890,7 +999,7 @@ const selectAllFiltered = useCallback(() => {
       },
 
       total_aplicable: ({ value, item }) => {
-        const rowId = getSelectionKey(item); // ✅ FIX
+        const rowId = getSelectionKey(item);
         const v = draftEdits[rowId]?.total_aplicable ?? value ?? "";
 
         return (
@@ -911,7 +1020,7 @@ const selectAllFiltered = useCallback(() => {
       },
 
       impuestos: ({ value, item }) => {
-        const rowId = getSelectionKey(item); // ✅ FIX
+        const rowId = getSelectionKey(item);
         const v = draftEdits[rowId]?.impuestos ?? value ?? "";
 
         return (
@@ -932,7 +1041,7 @@ const selectAllFiltered = useCallback(() => {
       },
 
       subtotal: ({ value, item }) => {
-        const rowId = getSelectionKey(item); // ✅ FIX
+        const rowId = getSelectionKey(item);
         const v = draftEdits[rowId]?.subtotal ?? value ?? "";
 
         return (
@@ -957,53 +1066,91 @@ const selectAllFiltered = useCallback(() => {
           <button
             type="button"
             className="px-2 py-1 rounded-md text-xs border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
-            onClick={() => openDetalle(item)} // ✅ abrimos modal
+            onClick={() => openDetalle(item)}
           >
             Detalles
           </button>
         );
       },
 
-
       // ✅ Subir 1 fila
       subir_factura: ({ item }) => {
-  const diff = Number(item?.diferencia_costo_proveedor_vs_factura ?? 0) || 0;
+        const diff = Number(item?.diferencia_costo_proveedor_vs_factura ?? 0) || 0;
 
-  // ✅ si no hay diferencia, no se sube factura
-  if (isZero(diff)) {
-    return <span className="text-xs text-gray-300">—</span>;
-  }
+        if (isZero(diff)) {
+          return <span className="text-xs text-gray-300">—</span>;
+        }
 
-  return (
-    <button
-      type="button"
-      className="px-2 py-1 rounded-md text-xs border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-      onClick={() => {
-        const payload = [
-          {
-            id_solicitud: String(item?.id_solicitud_proveedor).trim(),
-            id_proveedor: String(item?.id_proveedor ?? "").trim(),
-          },
-        ].filter(
-          (x) =>
-            x.id_solicitud &&
-            x.id_solicitud !== "null" &&
-            x.id_solicitud !== "undefined" &&
-            x.id_proveedor &&
-            x.id_proveedor !== "null" &&
-            x.id_proveedor !== "undefined"
+        return (
+          <button
+            type="button"
+            className="px-2 py-1 rounded-md text-xs border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+            onClick={() => {
+              const payload = [
+                {
+                  id_solicitud: String(item?.id_solicitud_proveedor).trim(),
+                  id_proveedor: String(item?.id_proveedor ?? "").trim(),
+                },
+              ].filter(
+                (x) =>
+                  x.id_solicitud &&
+                  x.id_solicitud !== "null" &&
+                  x.id_solicitud !== "undefined" &&
+                  x.id_proveedor &&
+                  x.id_proveedor !== "null" &&
+                  x.id_proveedor !== "undefined"
+              );
+
+              clearSelection();
+              setSelectedForFactura(payload);
+              setShowSubirFactura(true);
+            }}
+          >
+            Subir
+          </button>
         );
-        console.log("🚀 ABRIENDO MODAL SUBIR FACTURA (1 ROW):", payload);
+      },
 
-        // ✅ fuerza modo single-row
-        clearSelection();
-        setSelectedForFactura(payload);
-        setShowSubirFactura(true);
-      }}
-    >
-      Subir
-    </button>
-  );
+      // ✅ NUEVO: Acciones (Comprobante + Conciliar)
+      acciones: ({ item }) => {
+        const row = item as AnyRow;
+
+        const pagado = isPagadoRow(row);
+        const consolidado = isConsolidadoRow(row);
+
+        return (
+          <div className="flex items-center gap-2">
+            {/* Comprobante (PDF only) */}
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+              onClick={() => openComprobanteModal(row)}
+              title="Subir comprobante (PDF)"
+            >
+              <Upload className="w-4 h-4" />
+              Comprobante
+            </button>
+
+            {/* Conciliar (solo si está pagado) */}
+            {pagado && (
+              <button
+                type="button"
+                className={[
+                  "inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs border",
+                  consolidado
+                    ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+                    : "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100",
+                ].join(" ")}
+                disabled={consolidado}
+                onClick={() => void handleConciliar(row)}
+                title={consolidado ? "Ya está conciliado (consolidado=1)" : "Conciliar (consolidado=1)"}
+              >
+                <Handshake className="w-4 h-4" />
+                Conciliar
+              </button>
+            )}
+          </div>
+        );
       },
 
       total_facturado: ({ value }) => <span title={String(value)}>{formatMoney(value)}</span>,
@@ -1013,7 +1160,11 @@ const selectAllFiltered = useCallback(() => {
         return (
           <span
             className={
-              n === 0 ? "text-gray-700" : n > 0 ? "text-amber-700 font-semibold" : "text-red-700 font-semibold"
+              n === 0
+                ? "text-gray-700"
+                : n > 0
+                ? "text-amber-700 font-semibold"
+                : "text-red-700 font-semibold"
             }
             title={String(value)}
           >
@@ -1030,16 +1181,30 @@ const selectAllFiltered = useCallback(() => {
 
       total_factura: ({ value }) => <span title={String(value)}>{formatMoney(value)}</span>,
     }),
-    [draftEdits, openEditModal, selectedMap,openDetalle ]
+    [
+      draftEdits,
+      openEditModal,
+      selectedMap,
+      openDetalle,
+      isPagadoRow,
+      handleConciliar,
+      openComprobanteModal,
+    ]
   );
 
   const defaultSort = useMemo(() => ({ key: "creado", sort: false }), []);
 
   useEffect(() => {
-  const info = getSelectedRfcInfo(selectedMap);
-  setSelectedRfc(info.rfc || "");
-}, [selectedMap, getSelectedRfcInfo]);
+    const info = getSelectedRfcInfo(selectedMap);
+    setSelectedRfc(info.rfc || "");
+  }, [selectedMap, getSelectedRfcInfo]);
 
+  // ✅ opcional: pinta fila azul si consolidado=1 (si tu Table5 soporta getRowClassName)
+  const getRowClassName = useCallback((row: AnyRow) => {
+    const consolidado = Number((row as any)?.consolidado ?? (row as any)?.__raw?.consolidado ?? 0) || 0;
+    if (consolidado === 1) return "bg-blue-50";
+    return "";
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -1153,25 +1318,23 @@ const selectAllFiltered = useCallback(() => {
             <button
               type="button"
               disabled={selectedRows.length === 0}
-onClick={() => {
-  const rfcs = Array.from(
-    new Set(
-      selectedRows
-        .map((r: AnyRow) => normRfc(r?.rfc))
-        .filter(Boolean)
-    )
-  );
+              onClick={() => {
+                const rfcs = Array.from(
+                  new Set(
+                    selectedRows
+                      .map((r: AnyRow) => normRfc(r?.rfc))
+                      .filter(Boolean)
+                  )
+                );
 
-  if (rfcs.length > 1) {
-    alert(`No puedes subir facturas con RFC diferente.\nRFCs: ${rfcs.join(", ")}`);
-    return;
-  }
+                if (rfcs.length > 1) {
+                  alert(`No puedes subir facturas con RFC diferente.\nRFCs: ${rfcs.join(", ")}`);
+                  return;
+                }
 
-  console.log("🚀 ABRIENDO MODAL SUBIR FACTURA (BULK):", selectedRows);
-  setSelectedForFactura(selectedProveedorData);
-  setShowSubirFactura(true);
-}}
-
+                setSelectedForFactura(selectedProveedorData);
+                setShowSubirFactura(true);
+              }}
               className={[
                 "px-3 py-2 rounded-lg text-sm border",
                 selectedRows.length === 0
@@ -1194,6 +1357,7 @@ onClick={() => {
             customColumns={customColumns}
             fillHeight
             maxHeight="calc(100vh - 220px)"
+            getRowClassName={getRowClassName as any}
           />
         </div>
 
@@ -1300,27 +1464,168 @@ onClick={() => {
 
               <div className="p-6">
                 <SubirFactura
-                  proveedoresData={selectedRows.length==0? selectedForFactura:selectedRows} // ✅ array [{id_solicitud,id_proveedor}]
+                  proveedoresData={selectedRows.length == 0 ? selectedForFactura : selectedRows}
                   id_proveedor={selectedRows.length === 1 ? selectedRows[0]?.id_proveedor : undefined}
                   proveedoresRfc={selectedRfc}
                   autoOpen={true}
                   onSuccess={() => {
                     closeSubirFactura();
-                    // load();
+                    void load();
                   }}
                 />
               </div>
             </div>
           </div>
         )}
-        {detalleOpen && (
-          <ModalDetalle solicitud={detalleSolicitud} onClose={closeDetalle} />
-        )}
 
+        {/* MODAL DETALLE */}
+        {detalleOpen && <ModalDetalle solicitud={detalleSolicitud} onClose={closeDetalle} />}
+
+        {/* ✅ MODAL COMPROBANTE (PDF) */}
+        {comprobanteModal.open && (
+          <ComprobantePagoModal
+            id_solicitud_proveedor={comprobanteModal.id_solicitud_proveedor}
+            onClose={closeComprobanteModal}
+            onSubmit={async (file) => {
+              const id = comprobanteModal.id_solicitud_proveedor;
+              if (!id) return;
+
+              const res = await uploadComprobantePdf(id, file);
+              if (res.ok) {
+                closeComprobanteModal();
+                await load();
+              }
+            }}
+          />
+        )}
 
         {isLoading && (
           <div className="text-sm text-gray-500 px-2">Cargando información...</div>
         )}
+      </div>
+    </div>
+  );
+}
+
+/** =========================
+ *  ✅ Componente Modal Comprobante
+ *  ========================= */
+function ComprobantePagoModal({
+  id_solicitud_proveedor,
+  onClose,
+  onSubmit,
+}: {
+  id_solicitud_proveedor: string;
+  onClose: () => void;
+  onSubmit: (file: File) => Promise<void>;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [error, setError] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+
+  const canSubmit = !!file && isPdfFile(file) && !saving;
+
+  const handlePick = (f?: File | null) => {
+    setError("");
+    setFile(null);
+
+    if (!f) return;
+
+    if (!isPdfFile(f)) {
+      setError("Solo se permite PDF.");
+      return;
+    }
+
+    setFile(f);
+  };
+
+  const submit = async () => {
+    if (!file) return;
+    if (!isPdfFile(file)) {
+      setError("Solo se permite PDF.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await onSubmit(file);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div
+        className="relative z-10 w-[min(720px,92vw)] bg-white rounded-xl shadow-lg border border-gray-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+          <div>
+            <p className="text-sm font-semibold text-gray-900">Subir comprobante de pago (PDF)</p>
+            <p className="text-xs text-gray-500">
+              id_solicitud_proveedor:{" "}
+              <span className="font-mono">{id_solicitud_proveedor || "—"}</span>
+            </p>
+          </div>
+
+          <button
+            type="button"
+            className="inline-flex items-center justify-center w-9 h-9 rounded-md border border-gray-200 bg-white hover:bg-gray-50"
+            onClick={onClose}
+            title="Cerrar"
+          >
+            <X className="w-4 h-4 text-gray-700" />
+          </button>
+        </div>
+
+        <div className="p-4 space-y-3">
+          <div className="space-y-2">
+            <label className="block text-xs font-medium text-gray-700">Archivo (PDF)</label>
+
+            <input
+              type="file"
+              accept="application/pdf,.pdf"
+              onChange={(e) => handlePick(e.target.files?.[0] ?? null)}
+              className="block w-full text-sm"
+              disabled={saving}
+            />
+
+            {file && (
+              <div className="text-xs text-gray-600">
+                Seleccionado: <span className="font-semibold">{file.name}</span>
+              </div>
+            )}
+
+            {error && <div className="text-xs text-red-600">{error}</div>}
+
+            <div className="text-[11px] text-gray-500">
+              * Se valida por extensión/tipo. Solo PDF.
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <button
+              type="button"
+              className="px-3 py-2 rounded-lg text-sm border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50"
+              onClick={onClose}
+              disabled={saving}
+            >
+              Cancelar
+            </button>
+
+            <button
+              type="button"
+              className="px-3 py-2 rounded-lg text-sm border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+              onClick={() => void submit()}
+              disabled={!canSubmit}
+              title={!file ? "Selecciona un PDF" : ""}
+            >
+              {saving ? "Subiendo..." : "Subir PDF"}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

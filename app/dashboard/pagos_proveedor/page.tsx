@@ -138,8 +138,7 @@ type CategoriaEstatus =
   | "pago_link"
   | "carta_enviada"
   | "carta_garantia"
-  | "pagada"
-  | "historico";
+  | "pagada";
 
 type VistaCarpeta = CategoriaEstatus | "all";
 
@@ -236,15 +235,6 @@ const tabTheme: Record<
     dot: "bg-green-500",
     badge: "bg-green-50 text-green-800 border-green-200",
     badgeActive: "bg-green-100 text-green-900 border-green-300",
-  },
-  historico: {
-    ring: "focus:ring-slate-500",
-    bg: "bg-white",
-    text: "text-slate-700",
-    border: "border-slate-200",
-    dot: "bg-slate-500",
-    badge: "bg-slate-50 text-slate-600 border-slate-200",
-    badgeActive: "bg-slate-100 text-slate-900 border-slate-300",
   },
 };
 
@@ -524,7 +514,6 @@ function App() {
     carta_enviada: [],
     carta_garantia: [],
     pagada: [],
-    historico: [],
   });
 
   const [showDispersionModal, setShowDispersionModal] = useState(false);
@@ -688,7 +677,6 @@ function App() {
         carta_enviada,
         carta_garantia,
         pagada,
-        historico,
       });
 
       setLoading(false);
@@ -709,22 +697,21 @@ function App() {
   }, [categoria]);
 
   // ------- Lista base por carpeta -------
-  const baseList: SolicitudProveedor[] =
-    categoria === "all"
-      ? solicitudesPago.todos
-      : categoria === "spei"
-      ? solicitudesPago.spei
-      : categoria === "pago_tdc"
-      ? solicitudesPago.pago_tdc
-      : categoria === "pago_link"
-      ? solicitudesPago.pago_link
-      : categoria === "carta_enviada"
-      ? solicitudesPago.carta_enviada
-      : categoria === "carta_garantia"
-      ? solicitudesPago.carta_garantia
-      : categoria === "pagada"
-      ? solicitudesPago.pagada
-      : solicitudesPago.historico;
+const baseList: SolicitudProveedor[] =
+  categoria === "all"
+    ? solicitudesPago.todos
+    : categoria === "spei"
+    ? solicitudesPago.spei
+    : categoria === "pago_tdc"
+    ? solicitudesPago.pago_tdc
+    : categoria === "pago_link"
+    ? solicitudesPago.pago_link
+    : categoria === "carta_enviada"
+    ? solicitudesPago.carta_enviada
+    : categoria === "carta_garantia"
+    ? solicitudesPago.carta_garantia
+    : solicitudesPago.pagada; // ✅ aquí
+
 
   // 1) filtro extra (si aún lo quieres)
   const filteredSolicitudes = baseList.filter(() => true);
@@ -1160,15 +1147,7 @@ function App() {
       return (
         <div className="flex items-center gap-2">
           {/* Editar costo proveedor (SIEMPRE) */}
-          <button
-            type="button"
-            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs border border-slate-200 bg-white hover:bg-slate-50"
-            onClick={() => openEditModal(raw, "costo_proveedor", costoActual)}
-            title="Editar costo proveedor"
-          >
-            <Maximize2 className="w-4 h-4" />
-            Costo
-          </button>
+          
 
           {/* Marcar como pagado (solo si NO es transfer) */}
           {forma !== "transfer" && (
@@ -1245,7 +1224,6 @@ function App() {
         { key: "carta_enviada", label: "Carta enviada", count: solicitudesPago.carta_enviada.length },
         { key: "carta_garantia", label: "Carta garantía", count: solicitudesPago.carta_garantia.length },
         { key: "pagada", label: "Pagada", count: solicitudesPago.pagada.length },
-        { key: "historico", label: "Histórico", count: solicitudesPago.historico.length },
       ] as Array<{ key: VistaCarpeta; label: string; count: number }>,
     [solicitudesPago]
   );
@@ -1339,14 +1317,6 @@ return getFechaPagoRowClass((row as any).pendiente_a_pagar <= 0 ? "" : (row as a
                 icon={File}
                 variant="secondary"
                 size="md"
-                className={[
-                  "h-10 !rounded-xl px-3",
-                  "bg-blue-600 text-white border border-blue-700/20",
-                  "shadow-sm hover:shadow hover:bg-blue-700",
-                  "active:translate-y-[1px] transition-all",
-                  "disabled:bg-slate-200 disabled:text-slate-500 disabled:border-slate-200 disabled:shadow-none",
-                  "focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2",
-                ].join(" ")}
                 title={dispersionDisabledReason || `Generar dispersión (${selectedCount})`}
               >
                 Generar dispersión{selectedCount > 0 ? ` (${selectedCount})` : ""}
