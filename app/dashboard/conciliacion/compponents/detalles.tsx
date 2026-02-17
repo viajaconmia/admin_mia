@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { X, Eye, Upload, FileText, Receipt } from "lucide-react";
+import { X, Eye, Upload } from "lucide-react";
 import { Table5 } from "@/components/Table5";
 import { URL, API_KEY } from "@/lib/constants/index";
-import Button from "@/components/atom/Button"; // <- tu importación
+import Button from "@/components/atom/Button";
 
 type Props = {
   solicitud: any;
@@ -72,111 +72,33 @@ function buildPayloadFromRow(row: any) {
   };
 }
 
-function toFacturaRowFromPorFactura(
-  merged: any,
-  idx: number,
-  fallback: { razon_social: string; rfc: string },
-  rowFallback: any
-) {
-  const idFactura = merged?.id_factura ?? merged?.id_factura_rel ?? "";
-
-  const totalFactura =
-    merged?.facturado ??
-    merged?.monto_facturado ??
-    merged?.monto_facturado_rel ??
-    rowFallback?.total_factura ??
-    rowFallback?.__raw?.monto_facturado ??
-    "";
-
-  const totalAplicable = rowFallback?.total_aplicable ?? rowFallback?.__raw?.total_aplicable ?? "";
-  const impuestos = rowFallback?.impuestos ?? rowFallback?.__raw?.impuestos ?? "";
-  const subtotal = rowFallback?.subtotal ?? rowFallback?.__raw?.subtotal ?? "";
-
-  const razon_social = fallback.razon_social || "—";
-  const rfc = fallback.rfc || "—";
-
-  return {
-    row_id: String(idFactura || idx),
-    uuid_factura: idFactura,
-    total_factura: totalFactura,
-    total_aplicable: totalAplicable,
-    impuestos,
-    subtotal,
-    razon_social,
-    rfc,
-    __raw: merged,
-  };
-}
-
-function toPagoRowFromPago(p: any, idx: number) {
-  const fecha = p?.fecha_pago ?? p?.fecha ?? p?.created_at ?? p?.updated_at ?? "";
-  const montoPagado = p?.monto_pagado ?? p?.monto ?? p?.importe ?? "";
-  const referencia = p?.referencia ?? p?.referencia_pago ?? p?.folio ?? p?.id_pago_proveedor ?? p?.id_pago ?? "";
-  const estatus = p?.estatus ?? p?.estado ?? p?.status ?? "";
-  const metodo = p?.forma_pago ?? p?.metodo ?? p?.tipo ?? "";
-
-  return {
-    row_id: String(p?.id_pago_proveedor ?? p?.id_pago ?? idx),
-    fecha_pago: fecha,
-    monto_pagado: montoPagado,
-    metodo,
-    referencia,
-    estatus,
-    __raw: p,
-  };
-}
-
-/**
- * ESTE es el que te faltaba: construir pagos desde pagos_facturas_proveedores (PFPR)
- * porque tu endpoint está devolviendo ahí el pago y NO en data.pagos.
- */
-function toPagoRowFromPFPR(rel: any, idx: number) {
-  const fecha = rel?.updated_at ?? rel?.created_at ?? "";
-  const montoPagado = rel?.monto_pago ?? rel?.monto_pagado ?? rel?.monto ?? "";
-  const referencia = rel?.id_pago_proveedor ?? rel?.id ?? "";
-  const metodo = "TRANSFER"; // tu solicitud es transfer; si luego te llega en data.solicitud úsalo mejor
-
-  return {
-    row_id: String(rel?.id_pago_proveedor ?? rel?.id ?? idx),
-    fecha_pago: fecha,
-    monto_pagado: montoPagado,
-    metodo,
-    referencia,
-    estatus: "APLICADO", // no viene estatus; lo puedes inferir o traerlo del endpoint
-    __raw: rel,
-  };
-}
-
-/** ====== STUBS (conecta tus endpoints reales) ====== */
+/** ====== STUBS: Conecta tus endpoints reales ====== */
 async function fetchFacturaUrl(id_factura: string) {
-  // Ideal: endpoint que te regrese URL de PDF/XML (S3 o presigned)
-  // Ejemplo:
-  // const r = await fetch(`${URL}/mia/facturas/url/${id_factura}`, { headers: { "x-api-key": API_KEY || "" }});
-  // const j = await r.json();
-  // return { pdf: j.data.pdf_url, xml: j.data.xml_url };
-
-  return { pdf: "", xml: "" }; // <- por ahora vacío
+  // return { pdf: "...", xml: "..." };
+  return { pdf: "", xml: "" };
 }
 
-async function fetchComprobanteUrl(id_pago_proveedor: string | number) {
-  // Ideal: endpoint que te regrese URL del comprobante asociado al pago
+async function fetchComprobanteUrl(id_pago_proveedor: string) {
+  // return { url: "..." };
   return { url: "" };
 }
 
 async function getPresignedUrlForUpload(fileName: string, contentType: string) {
-  // Ideal: endpoint para presigned URL
-  // return { uploadUrl, publicUrl };
+  // return { uploadUrl: "...", publicUrl: "..." };
   return { uploadUrl: "", publicUrl: "" };
 }
 
 async function uploadToPresigned(uploadUrl: string, file: File) {
-  const r = await fetch(uploadUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+  const r = await fetch(uploadUrl, {
+    method: "PUT",
+    body: file,
+    headers: { "Content-Type": file.type },
+  });
   if (!r.ok) throw new Error(`No se pudo subir archivo (${r.status})`);
 }
 
 async function saveComprobantePago(id_pago_proveedor: string, comprobante_url: string) {
-  // Ideal: PATCH/POST a tu backend para guardar URL del comprobante para ese pago
-  // await fetch(`${URL}/mia/pago_proveedor/comprobante`, { method:"POST", headers:{...}, body: JSON.stringify({id_pago_proveedor, comprobante_url})})
+  // await fetch(`${URL}/mia/pago_proveedor/comprobante`, {...})
   return true;
 }
 /** ====== /STUBS ====== */
@@ -213,7 +135,7 @@ function DocViewerModal({
         <div className="p-3 h-[calc(100%-56px)]">
           {!url ? (
             <div className="text-sm text-gray-600">
-              No hay URL disponible para mostrar. Conecta un endpoint que regrese el link (PDF/XML/S3) y listo.
+              No hay URL disponible. Conecta endpoint que regrese el link (PDF/XML/S3).
             </div>
           ) : (
             <iframe title={title} src={url} className="w-full h-full rounded-md border border-gray-200" />
@@ -223,6 +145,15 @@ function DocViewerModal({
     </div>
   );
 }
+
+const pillClass = (s: string) => {
+  const v = normUpper(s);
+  if (v === "CUADRADO") return "bg-emerald-50 text-emerald-700 border-emerald-200";
+  if (v === "FALTA_PAGAR") return "bg-amber-50 text-amber-700 border-amber-200";
+  if (v === "PAGADO_DE_MAS") return "bg-rose-50 text-rose-700 border-rose-200";
+  if (v === "SIN_MOVIMIENTO") return "bg-gray-50 text-gray-700 border-gray-200";
+  return "bg-gray-50 text-gray-700 border-gray-200";
+};
 
 export default function ModalDetalle({ solicitud, onClose }: Props) {
   const endpoint = `${URL}/mia/pago_proveedor/detalles`;
@@ -246,15 +177,44 @@ export default function ModalDetalle({ solicitud, onClose }: Props) {
     setDocModal({ open: false, title: "", url: "" });
   }, []);
 
-  useEffect(() => {
+  const loadDetalles = useCallback(async () => {
     if (!payload?.id_solicitud_proveedor) return;
 
-    const controller = new AbortController();
     setLoading(true);
     setError("");
-    setResp(null);
 
+    try {
+      const r = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "x-api-key": API_KEY || "",
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const j = await r.json().catch(() => null);
+
+      if (!r.ok) throw new Error(j?.message || `Error HTTP: ${r.status}`);
+      if (!j?.ok) throw new Error(j?.message || "La respuesta no fue ok");
+
+      setResp(j);
+    } catch (e: any) {
+      setError(e?.message || "Error cargando detalles");
+    } finally {
+      setLoading(false);
+    }
+  }, [endpoint, payload]);
+
+  useEffect(() => {
+    const controller = new AbortController();
     (async () => {
+      if (!payload?.id_solicitud_proveedor) return;
+      setLoading(true);
+      setError("");
+      setResp(null);
+
       try {
         const r = await fetch(endpoint, {
           method: "POST",
@@ -287,9 +247,7 @@ export default function ModalDetalle({ solicitud, onClose }: Props) {
   const proveedorFallback = useMemo(() => {
     const razon_social =
       solicitud?.razon_social ?? solicitud?.__raw?.proveedor?.razon_social ?? solicitud?.__raw?.razon_social ?? "";
-
     const rfc = solicitud?.rfc ?? solicitud?.__raw?.rfc_proveedor ?? solicitud?.__raw?.rfc ?? "";
-
     return { razon_social: normUpper(razon_social), rfc: normUpper(rfc) };
   }, [solicitud]);
 
@@ -298,71 +256,171 @@ export default function ModalDetalle({ solicitud, onClose }: Props) {
 
   const facturasRaw: any[] = useMemo(() => safeArray(resp?.data?.facturas), [resp]);
   const pagosRaw: any[] = useMemo(() => safeArray(resp?.data?.pagos), [resp]);
-
   const pfpRaw: any[] = useMemo(() => safeArray(resp?.data?.pagos_facturas_proveedores), [resp]);
   const porFacturaRaw: any[] = useMemo(() => safeArray(resumen?.por_factura), [resumen]);
 
-  /** FACTURAS */
+  // Map validación por factura
+  const validByFactura = useMemo(() => {
+    const m = new Map<string, any>();
+    for (const v of porFacturaRaw) {
+      const k = String(v?.id_factura ?? "").trim();
+      if (k) m.set(k, v);
+    }
+    return m;
+  }, [porFacturaRaw]);
+
+  // Agregado de PFPR por factura (último movimiento, #aplicaciones, último id_pago)
+  const pfpAggByFactura = useMemo(() => {
+    const m = new Map<string, { ultimo_mov?: string; count: number; ultimo_id_pago?: any }>();
+
+    for (const r of pfpRaw) {
+      const id = String(r?.id_factura ?? "").trim();
+      if (!id) continue;
+
+      const mov = r?.updated_at ?? r?.created_at ?? "";
+      const prev = m.get(id) ?? { count: 0, ultimo_mov: "", ultimo_id_pago: null };
+
+      const prevTime = prev.ultimo_mov ? new Date(prev.ultimo_mov).getTime() : 0;
+      const curTime = mov ? new Date(mov).getTime() : 0;
+
+      m.set(id, {
+        count: prev.count + 1,
+        ultimo_id_pago: curTime >= prevTime ? r?.id_pago_proveedor : prev.ultimo_id_pago,
+        ultimo_mov: curTime >= prevTime ? mov : prev.ultimo_mov,
+      });
+    }
+
+    return m;
+  }, [pfpRaw]);
+
+  // FACTURAS: si vienen en data.facturas úsalo; si no, construye desde PFPR+validación
   const facturasRows = useMemo(() => {
     if (facturasRaw.length > 0) {
       return facturasRaw.map((f, i) => {
         const idFactura = f?.id_factura ?? f?.uuid_factura ?? f?.uuid ?? i;
+        const key = String(f?.id_factura ?? f?.uuid_factura ?? f?.uuid ?? "").trim();
+        const v = validByFactura.get(key);
+        const agg = pfpAggByFactura.get(key);
+
+        const facturado = Number(v?.facturado ?? f?.total_factura ?? f?.total ?? f?.monto ?? 0);
+        const pagado = Number(v?.pagado ?? 0);
+        const diferencia = Number(v?.diferencia ?? (pagado - facturado) ?? 0);
+        const pct = facturado > 0 ? Math.min(100, Math.max(0, (pagado / facturado) * 100)) : null;
+
         return {
           row_id: String(idFactura),
-          uuid_factura: f?.uuid_factura ?? f?.uuid ?? f?.uuid_cfdi ?? f?.UUID ?? f?.id_factura ?? "",
-          total_factura: f?.total_factura ?? f?.total ?? f?.monto ?? f?.importe ?? "",
-          total_aplicable: f?.total_aplicable ?? "",
-          impuestos: f?.impuestos ?? f?.iva ?? "",
-          subtotal: f?.subtotal ?? "",
-          razon_social: f?.razon_social ?? proveedorFallback.razon_social ?? "—",
-          rfc: f?.rfc ?? proveedorFallback.rfc ?? "—",
+          uuid_factura: key || "",
+          facturado_valid: facturado,
+          pagado_valid: pagado,
+          diferencia_valid: diferencia,
+          pct_pagado: pct,
+          estatus_valid: v?.estatus ?? "",
+          ultimo_mov: agg?.ultimo_mov ?? "",
+          num_aplicaciones: agg?.count ?? 0,
           __raw: f,
         };
       });
     }
 
-    const byId = new Map<string, any>();
+    // construir desde porFacturaRaw + pfpRaw
+    const ids = new Set<string>();
+    for (const v of porFacturaRaw) ids.add(String(v?.id_factura ?? "").trim());
+    for (const r of pfpRaw) ids.add(String(r?.id_factura ?? "").trim());
 
-    for (const pf of porFacturaRaw) {
-      const id = String(pf?.id_factura ?? "").trim();
-      if (!id) continue;
-      byId.set(id, { ...pf });
-    }
+    const rows = Array.from(ids).filter(Boolean).map((id, idx) => {
+      const v = validByFactura.get(id) ?? {};
+      const agg = pfpAggByFactura.get(id) ?? { count: 0, ultimo_mov: "", ultimo_id_pago: null };
 
-    for (const rel of pfpRaw) {
-      const id = String(rel?.id_factura ?? "").trim();
-      if (!id) continue;
-      const prev = byId.get(id) ?? { id_factura: id };
-      byId.set(id, {
-        ...prev,
-        monto_facturado_rel: rel?.monto_facturado,
-        created_at_rel: rel?.created_at,
-        updated_at_rel: rel?.updated_at,
-        // si algún día tu backend manda url_factura aquí, ya queda guardada:
-        url_factura_pdf: rel?.url_factura_pdf ?? rel?.pdf_url ?? "",
-        url_factura_xml: rel?.url_factura_xml ?? rel?.xml_url ?? "",
+      const facturado = Number(v?.facturado ?? 0);
+      const pagado = Number(v?.pagado ?? 0);
+      const diferencia = Number(v?.diferencia ?? (pagado - facturado) ?? 0);
+      const pct = facturado > 0 ? Math.min(100, Math.max(0, (pagado / facturado) * 100)) : null;
+
+      return {
+        row_id: String(id || idx),
+        uuid_factura: id,
+        facturado_valid: facturado,
+        pagado_valid: pagado,
+        diferencia_valid: diferencia,
+        pct_pagado: pct,
+        estatus_valid: v?.estatus ?? "",
+        ultimo_mov: agg?.ultimo_mov ?? "",
+        num_aplicaciones: agg?.count ?? 0,
+        __raw: { id_factura: id },
+      };
+    });
+
+    return rows;
+  }, [facturasRaw, porFacturaRaw, pfpRaw, validByFactura, pfpAggByFactura]);
+
+  // PAGOS: si vienen en data.pagos úsalo; si no, construye desde pfpRaw
+  const pagosRows = useMemo(() => {
+    if (pagosRaw.length > 0) {
+      return pagosRaw.map((p: any, idx: number) => {
+        const fecha = p?.fecha_pago ?? p?.fecha ?? p?.created_at ?? p?.updated_at ?? "";
+        const montoPagado = p?.monto_pagado ?? p?.monto ?? p?.importe ?? "";
+        const referencia = p?.referencia ?? p?.referencia_pago ?? p?.folio ?? p?.id_pago_proveedor ?? p?.id_pago ?? "";
+        const estatus = p?.estatus ?? p?.estado ?? p?.status ?? "";
+        const metodo = p?.forma_pago ?? p?.metodo_de_pago ?? p?.metodo ?? p?.tipo ?? "";
+
+        return {
+          row_id: String(p?.id_pago_proveedores ?? p?.id_pago_proveedor ?? p?.id_pago ?? idx),
+          fecha_pago: fecha,
+          monto_pagado: montoPagado,
+          metodo,
+          referencia,
+          estatus,
+          __raw: p,
+        };
       });
     }
 
-    if (byId.size === 0) return [];
+    if (pfpRaw.length > 0) {
+      // agrupar por id_pago_proveedor
+      const map = new Map<string, any>();
+      for (const r of pfpRaw) {
+        const idPago = String(r?.id_pago_proveedor ?? "").trim();
+        if (!idPago) continue;
 
-    return Array.from(byId.values()).map((merged, i) =>
-      toFacturaRowFromPorFactura(merged, i, proveedorFallback, solicitud)
-    );
-  }, [facturasRaw, porFacturaRaw, pfpRaw, proveedorFallback, solicitud]);
+        const prev = map.get(idPago) ?? {
+          row_id: idPago,
+          fecha_pago: r?.updated_at ?? r?.created_at ?? "",
+          monto_pagado: 0,
+          metodo: "TRANSFER",
+          referencia: idPago,
+          estatus: "APLICADO",
+          __raw: { id_pago_proveedor: Number(idPago) },
+        };
 
-  /** PAGOS
-   * FIX: si pagosRaw viene vacío, construir desde pfpRaw
-   */
-  const pagosRows = useMemo(() => {
-    if (pagosRaw.length > 0) return pagosRaw.map((p, i) => toPagoRowFromPago(p, i));
-    if (pfpRaw.length > 0) return pfpRaw.map((rel, i) => toPagoRowFromPFPR(rel, i));
+        prev.monto_pagado = Number(prev.monto_pagado || 0) + Number(r?.monto_pago || 0);
+
+        // fecha más reciente
+        const prevT = prev.fecha_pago ? new Date(prev.fecha_pago).getTime() : 0;
+        const curF = r?.updated_at ?? r?.created_at ?? "";
+        const curT = curF ? new Date(curF).getTime() : 0;
+        if (curT >= prevT) prev.fecha_pago = curF;
+
+        map.set(idPago, prev);
+      }
+      return Array.from(map.values());
+    }
+
     return [];
   }, [pagosRaw, pfpRaw]);
 
-  // ---- Columnas Facturas (agrego acciones) ----
+  // Columnas Facturas mejoradas
   const facturasColumns = useMemo(
-    () => ["uuid_factura", "total_factura", "total_aplicable", "impuestos", "subtotal", "razon_social", "rfc", "acciones"],
+    () => [
+      "uuid_factura",
+      "facturado_valid",
+      "pagado_valid",
+      "diferencia_valid",
+      "pct_pagado",
+      "estatus_valid",
+      "ultimo_mov",
+      "num_aplicaciones",
+      "acciones",
+    ],
     []
   );
 
@@ -371,14 +429,14 @@ export default function ModalDetalle({ solicitud, onClose }: Props) {
       const id_factura = row?.uuid_factura || row?.__raw?.id_factura;
       if (!id_factura) return;
 
-      // 1) si ya viene URL en el raw, úsala
-      const urlPdf = row?.__raw?.url_factura_pdf || row?.__raw?.pdf_url || "";
+      // si ya viene URL en raw, úsala
+      const urlPdf = row?.__raw?.url_factura_pdf || row?.__raw?.pdf_url || row?.__raw?.url_pdf || "";
       if (urlPdf) {
         openDoc(`Factura ${id_factura}`, urlPdf);
         return;
       }
 
-      // 2) si no viene, pide a backend (conecta endpoint real)
+      // pedir a backend (stub)
       try {
         const { pdf } = await fetchFacturaUrl(String(id_factura));
         openDoc(`Factura ${id_factura}`, pdf || "");
@@ -396,23 +454,33 @@ export default function ModalDetalle({ solicitud, onClose }: Props) {
           {value ? truncate(String(value), 22) : "—"}
         </span>
       ),
-      total_factura: ({ value, item }: any) => {
-        const estatus = item?.__raw?.estatus ? ` · ${item.__raw.estatus}` : "";
-        return <span title={`${String(value)}${estatus}`}>{money(value)}</span>;
+
+      facturado_valid: ({ value }: any) => <span title={String(value)}>{money(value)}</span>,
+      pagado_valid: ({ value }: any) => <span title={String(value)}>{money(value)}</span>,
+      diferencia_valid: ({ value }: any) => <span title={String(value)}>{money(value)}</span>,
+
+      pct_pagado: ({ value }: any) => {
+        if (value == null) return <span className="text-xs text-gray-500">—</span>;
+        return <span className="text-xs font-medium">{Number(value).toFixed(0)}%</span>;
       },
-      total_aplicable: ({ value }: any) => <span title={String(value)}>{value === "" ? "—" : money(value)}</span>,
-      impuestos: ({ value }: any) => <span title={String(value)}>{value === "" ? "—" : money(value)}</span>,
-      subtotal: ({ value }: any) => <span title={String(value)}>{value === "" ? "—" : money(value)}</span>,
-      razon_social: ({ value }: any) => (
+
+      estatus_valid: ({ value }: any) => {
+        const s = normUpper(value) || "—";
+        return (
+          <span className={`text-[11px] px-2 py-0.5 rounded-full border ${pillClass(s)}`}>
+            {s}
+          </span>
+        );
+      },
+
+      ultimo_mov: ({ value }: any) => (
         <span className="text-xs" title={String(value || "")}>
-          {normUpper(value) || "—"}
+          {value ? dateMx(value) : "—"}
         </span>
       ),
-      rfc: ({ value }: any) => (
-        <span className="font-mono text-xs" title={String(value || "")}>
-          {normUpper(value) || "—"}
-        </span>
-      ),
+
+      num_aplicaciones: ({ value }: any) => <span className="text-xs">{Number(value || 0)}</span>,
+
       acciones: ({ item }: any) => (
         <div className="flex items-center justify-end gap-2">
           <Button variant="ghost" size="sm" icon={Eye as any} onClick={() => onVerFactura(item)}>
@@ -423,15 +491,15 @@ export default function ModalDetalle({ solicitud, onClose }: Props) {
     } as any;
   }, [onVerFactura]);
 
-  // ---- Columnas Pagos (agrego acciones) ----
+  // Columnas pagos + acciones
   const pagosColumns = useMemo(() => ["fecha_pago", "monto_pagado", "metodo", "referencia", "estatus", "acciones"], []);
 
   const onVerComprobante = useCallback(
     async (row: any) => {
-      const id_pago_proveedor = row?.__raw?.id_pago_proveedor ?? row?.row_id;
+      const id_pago_proveedor = row?.__raw?.id_pago_proveedor ?? row?.__raw?.id_pago_proveedores ?? row?.row_id;
       if (!id_pago_proveedor) return;
 
-      const existing = row?.__raw?.url_comprobante || row?.__raw?.comprobante_url || "";
+      const existing = row?.__raw?.url_comprobante || row?.__raw?.comprobante_url || row?.__raw?.url_pdf || "";
       if (existing) {
         openDoc(`Comprobante pago ${id_pago_proveedor}`, existing);
         return;
@@ -447,46 +515,35 @@ export default function ModalDetalle({ solicitud, onClose }: Props) {
     [openDoc]
   );
 
-  const onUploadComprobante = useCallback(async (row: any, file: File) => {
-    const id_pago_proveedor = String(row?.__raw?.id_pago_proveedor ?? row?.row_id ?? "");
-    if (!id_pago_proveedor) {
-      setError("No se encontró id_pago_proveedor para subir comprobante");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError("");
-
-      // 1) presigned
-      const { uploadUrl, publicUrl } = await getPresignedUrlForUpload(file.name, file.type);
-
-      if (!uploadUrl || !publicUrl) {
-        throw new Error("No hay presigned URL. Conecta el endpoint de presigned.");
+  const onUploadComprobante = useCallback(
+    async (row: any, file: File) => {
+      const id_pago_proveedor = String(
+        row?.__raw?.id_pago_proveedor ?? row?.__raw?.id_pago_proveedores ?? row?.row_id ?? ""
+      );
+      if (!id_pago_proveedor) {
+        setError("No se encontró id_pago_proveedor para subir comprobante");
+        return;
       }
 
-      // 2) subir
-      await uploadToPresigned(uploadUrl, file);
+      try {
+        setLoading(true);
+        setError("");
 
-      // 3) guardar en backend
-      await saveComprobantePago(id_pago_proveedor, publicUrl);
+        const { uploadUrl, publicUrl } = await getPresignedUrlForUpload(file.name, file.type);
+        if (!uploadUrl || !publicUrl) throw new Error("No hay presigned URL. Conecta el endpoint de presigned.");
 
-      // 4) refrescar (re-consulta detalles)
-      // forzamos reload simple reusando endpoint
-      const r = await fetch(`${URL}/mia/pago_proveedor/detalles`, {
-        method: "POST",
-        headers: { "x-api-key": API_KEY || "", "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const j = await r.json().catch(() => null);
-      if (j?.ok) setResp(j);
+        await uploadToPresigned(uploadUrl, file);
+        await saveComprobantePago(id_pago_proveedor, publicUrl);
 
-    } catch (e: any) {
-      setError(e?.message || "No se pudo subir el comprobante");
-    } finally {
-      setLoading(false);
-    }
-  }, [payload]);
+        await loadDetalles();
+      } catch (e: any) {
+        setError(e?.message || "No se pudo subir el comprobante");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [loadDetalles]
+  );
 
   const pagosRenderers = useMemo(() => {
     return {
@@ -503,7 +560,7 @@ export default function ModalDetalle({ solicitud, onClose }: Props) {
     } as any;
   }, [onVerComprobante, onUploadComprobante]);
 
-  // ---- Table5: VALIDACIÓN POR FACTURA ----
+  // Validación por factura (tabla secundaria opcional)
   const validRows = useMemo(() => {
     return porFacturaRaw.map((x, i) => ({
       row_id: String(x?.id_factura ?? i),
@@ -517,7 +574,6 @@ export default function ModalDetalle({ solicitud, onClose }: Props) {
   }, [porFacturaRaw]);
 
   const validColumns = useMemo(() => ["id_factura", "facturado", "pagado", "diferencia", "estatus"], []);
-
   const validRenderers = useMemo(() => {
     return {
       id_factura: ({ value }: any) => (
@@ -528,7 +584,10 @@ export default function ModalDetalle({ solicitud, onClose }: Props) {
       facturado: ({ value }: any) => <span>{money(value)}</span>,
       pagado: ({ value }: any) => <span>{money(value)}</span>,
       diferencia: ({ value }: any) => <span>{money(value)}</span>,
-      estatus: ({ value }: any) => <span className="text-xs">{normUpper(value) || "—"}</span>,
+      estatus: ({ value }: any) => {
+        const s = normUpper(value) || "—";
+        return <span className={`text-[11px] px-2 py-0.5 rounded-full border ${pillClass(s)}`}>{s}</span>;
+      },
     } as any;
   }, []);
 
@@ -571,7 +630,7 @@ export default function ModalDetalle({ solicitud, onClose }: Props) {
             {/* FACTURAS */}
             <div className="border border-gray-200 rounded-lg overflow-hidden">
               <div className="px-3 py-2 bg-gray-50 border-b border-gray-200 text-sm font-semibold text-gray-800">
-                Facturas
+                Facturas (detalle contable)
               </div>
 
               <div className="p-3">
@@ -588,7 +647,7 @@ export default function ModalDetalle({ solicitud, onClose }: Props) {
               </div>
             </div>
 
-            {/* INFO DE PAGO (RESUMEN) */}
+            {/* INFO RESUMEN */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <InfoCard
                 title="Solicitud"
@@ -641,11 +700,11 @@ export default function ModalDetalle({ solicitud, onClose }: Props) {
               </div>
             </div>
 
-            {/* VALIDACIÓN POR FACTURA */}
+            {/* VALIDACIÓN POR FACTURA (opcional) */}
             {validRows.length > 0 && (
               <div className="border border-gray-200 rounded-lg overflow-hidden">
                 <div className="px-3 py-2 bg-gray-50 border-b border-gray-200 text-sm font-semibold text-gray-800">
-                  Validación por factura
+                  Validación por factura (raw)
                 </div>
 
                 <div className="p-3">
@@ -695,7 +754,7 @@ function PagoActions({
       </Button>
 
       {open && (
-        <label className="ml-2 inline-flex items-center gap-2 text-xs text-gray-600">
+        <label className="ml-2 inline-flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
           <input type="file" accept="application/pdf,image/*" className="hidden" onChange={handleFile} />
           <span className="inline-flex items-center gap-2">
             <span className="font-medium">Seleccionar archivo</span>
