@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { X, Eye, Upload } from "lucide-react";
+import { X, Eye, Upload, FileText, Receipt, Download, Calendar, DollarSign, CreditCard, User, FileCheck, AlertCircle } from "lucide-react";
 import { Table5 } from "@/components/Table5";
 import { URL, API_KEY } from "@/lib/constants/index";
 import Button from "@/components/atom/Button";
@@ -45,6 +45,31 @@ function truncate(s: string, max = 24) {
   return s.length > max ? s.slice(0, max) + "…" : s;
 }
 
+function getBadgeColor(status: string) {
+  const statusMap: Record<string, string> = {
+    CARTA_ENVIADA: "bg-blue-100 text-blue-800 border-blue-200",
+    PAGADO: "bg-green-100 text-green-800 border-green-200",
+    PENDIENTE: "bg-yellow-100 text-yellow-800 border-yellow-200",
+    RECHAZADO: "bg-red-100 text-red-800 border-red-200",
+    APROBADO: "bg-emerald-100 text-emerald-800 border-emerald-200",
+    enviado_a_pago: "bg-purple-100 text-purple-800 border-purple-200",
+    pagado: "bg-green-100 text-green-800 border-green-200",
+    pendiente: "bg-yellow-100 text-yellow-800 border-yellow-200",
+    link: "bg-indigo-100 text-indigo-800 border-indigo-200"
+  };
+  
+  return statusMap[status] || "bg-gray-100 text-gray-800 border-gray-200";
+}
+
+function StatusBadge({ status }: { status: string }) {
+  if (!status) return null;
+  return (
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getBadgeColor(status)}`}>
+      {normUpper(status)}
+    </span>
+  );
+}
+
 function buildPayloadFromRow(row: any) {
   const id_solicitud_proveedor =
     row?.id_solicitud_proveedor ??
@@ -72,36 +97,97 @@ function buildPayloadFromRow(row: any) {
   };
 }
 
-/** ====== STUBS: Conecta tus endpoints reales ====== */
+function toFacturaRowFromPorFactura(
+  merged: any,
+  idx: number,
+  fallback: { razon_social: string; rfc: string },
+  rowFallback: any
+) {
+  const idFactura = merged?.id_factura ?? merged?.id_factura_rel ?? "";
+
+  const totalFactura =
+    merged?.facturado ??
+    merged?.monto_facturado ??
+    merged?.monto_facturado_rel ??
+    rowFallback?.total_factura ??
+    rowFallback?.__raw?.monto_facturado ??
+    "";
+
+  const totalAplicable = rowFallback?.total_aplicable ?? rowFallback?.__raw?.total_aplicable ?? "";
+  const impuestos = rowFallback?.impuestos ?? rowFallback?.__raw?.impuestos ?? "";
+  const subtotal = rowFallback?.subtotal ?? rowFallback?.__raw?.subtotal ?? "";
+
+  const razon_social = fallback.razon_social || "—";
+  const rfc = fallback.rfc || "—";
+
+  return {
+    row_id: String(idFactura || idx),
+    uuid_factura: idFactura,
+    total_factura: totalFactura,
+    total_aplicable: totalAplicable,
+    impuestos,
+    subtotal,
+    razon_social,
+    rfc,
+    __raw: merged,
+  };
+}
+
+function toPagoRowFromPago(p: any, idx: number) {
+  const fecha = p?.fecha_pago ?? p?.fecha ?? p?.created_at ?? p?.updated_at ?? "";
+  const montoPagado = p?.monto_pagado ?? p?.monto ?? p?.importe ?? "";
+  const referencia = p?.referencia ?? p?.referencia_pago ?? p?.folio ?? p?.id_pago_proveedor ?? p?.id_pago ?? "";
+  const estatus = p?.estatus ?? p?.estado ?? p?.status ?? "";
+  const metodo = p?.forma_pago ?? p?.metodo ?? p?.tipo ?? "";
+
+  return {
+    row_id: String(p?.id_pago_proveedor ?? p?.id_pago ?? idx),
+    fecha_pago: fecha,
+    monto_pagado: montoPagado,
+    metodo,
+    referencia,
+    estatus,
+    __raw: p,
+  };
+}
+
+function toPagoRowFromPFPR(rel: any, idx: number) {
+  const fecha = rel?.updated_at ?? rel?.created_at ?? "";
+  const montoPagado = rel?.monto_pago ?? rel?.monto_pagado ?? rel?.monto ?? "";
+  const referencia = rel?.id_pago_proveedor ?? rel?.id ?? "";
+  const metodo = "TRANSFER";
+
+  return {
+    row_id: String(rel?.id_pago_proveedor ?? rel?.id ?? idx),
+    fecha_pago: fecha,
+    monto_pagado: montoPagado,
+    metodo,
+    referencia,
+    estatus: "APLICADO",
+    __raw: rel,
+  };
+}
+
 async function fetchFacturaUrl(id_factura: string) {
-  // return { pdf: "...", xml: "..." };
   return { pdf: "", xml: "" };
 }
 
-async function fetchComprobanteUrl(id_pago_proveedor: string) {
-  // return { url: "..." };
+async function fetchComprobanteUrl(id_pago_proveedor: string | number) {
   return { url: "" };
 }
 
 async function getPresignedUrlForUpload(fileName: string, contentType: string) {
-  // return { uploadUrl: "...", publicUrl: "..." };
   return { uploadUrl: "", publicUrl: "" };
 }
 
 async function uploadToPresigned(uploadUrl: string, file: File) {
-  const r = await fetch(uploadUrl, {
-    method: "PUT",
-    body: file,
-    headers: { "Content-Type": file.type },
-  });
+  const r = await fetch(uploadUrl, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
   if (!r.ok) throw new Error(`No se pudo subir archivo (${r.status})`);
 }
 
 async function saveComprobantePago(id_pago_proveedor: string, comprobante_url: string) {
-  // await fetch(`${URL}/mia/pago_proveedor/comprobante`, {...})
   return true;
 }
-/** ====== /STUBS ====== */
 
 function DocViewerModal({
   open,
@@ -135,7 +221,7 @@ function DocViewerModal({
         <div className="p-3 h-[calc(100%-56px)]">
           {!url ? (
             <div className="text-sm text-gray-600">
-              No hay URL disponible. Conecta endpoint que regrese el link (PDF/XML/S3).
+              No hay URL disponible para mostrar.
             </div>
           ) : (
             <iframe title={title} src={url} className="w-full h-full rounded-md border border-gray-200" />
@@ -143,17 +229,8 @@ function DocViewerModal({
         </div>
       </div>
     </div>
-  );
+  ); 
 }
-
-const pillClass = (s: string) => {
-  const v = normUpper(s);
-  if (v === "CUADRADO") return "bg-emerald-50 text-emerald-700 border-emerald-200";
-  if (v === "FALTA_PAGAR") return "bg-amber-50 text-amber-700 border-amber-200";
-  if (v === "PAGADO_DE_MAS") return "bg-rose-50 text-rose-700 border-rose-200";
-  if (v === "SIN_MOVIMIENTO") return "bg-gray-50 text-gray-700 border-gray-200";
-  return "bg-gray-50 text-gray-700 border-gray-200";
-};
 
 export default function ModalDetalle({ solicitud, onClose }: Props) {
   const endpoint = `${URL}/mia/pago_proveedor/detalles`;
@@ -177,44 +254,15 @@ export default function ModalDetalle({ solicitud, onClose }: Props) {
     setDocModal({ open: false, title: "", url: "" });
   }, []);
 
-  const loadDetalles = useCallback(async () => {
+  useEffect(() => {
     if (!payload?.id_solicitud_proveedor) return;
 
+    const controller = new AbortController();
     setLoading(true);
     setError("");
+    setResp(null);
 
-    try {
-      const r = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "x-api-key": API_KEY || "",
-          "Content-Type": "application/json",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const j = await r.json().catch(() => null);
-
-      if (!r.ok) throw new Error(j?.message || `Error HTTP: ${r.status}`);
-      if (!j?.ok) throw new Error(j?.message || "La respuesta no fue ok");
-
-      setResp(j);
-    } catch (e: any) {
-      setError(e?.message || "Error cargando detalles");
-    } finally {
-      setLoading(false);
-    }
-  }, [endpoint, payload]);
-
-  useEffect(() => {
-    const controller = new AbortController();
     (async () => {
-      if (!payload?.id_solicitud_proveedor) return;
-      setLoading(true);
-      setError("");
-      setResp(null);
-
       try {
         const r = await fetch(endpoint, {
           method: "POST",
@@ -247,7 +295,9 @@ export default function ModalDetalle({ solicitud, onClose }: Props) {
   const proveedorFallback = useMemo(() => {
     const razon_social =
       solicitud?.razon_social ?? solicitud?.__raw?.proveedor?.razon_social ?? solicitud?.__raw?.razon_social ?? "";
+
     const rfc = solicitud?.rfc ?? solicitud?.__raw?.rfc_proveedor ?? solicitud?.__raw?.rfc ?? "";
+
     return { razon_social: normUpper(razon_social), rfc: normUpper(rfc) };
   }, [solicitud]);
 
@@ -256,171 +306,65 @@ export default function ModalDetalle({ solicitud, onClose }: Props) {
 
   const facturasRaw: any[] = useMemo(() => safeArray(resp?.data?.facturas), [resp]);
   const pagosRaw: any[] = useMemo(() => safeArray(resp?.data?.pagos), [resp]);
+
   const pfpRaw: any[] = useMemo(() => safeArray(resp?.data?.pagos_facturas_proveedores), [resp]);
   const porFacturaRaw: any[] = useMemo(() => safeArray(resumen?.por_factura), [resumen]);
 
-  // Map validación por factura
-  const validByFactura = useMemo(() => {
-    const m = new Map<string, any>();
-    for (const v of porFacturaRaw) {
-      const k = String(v?.id_factura ?? "").trim();
-      if (k) m.set(k, v);
-    }
-    return m;
-  }, [porFacturaRaw]);
-
-  // Agregado de PFPR por factura (último movimiento, #aplicaciones, último id_pago)
-  const pfpAggByFactura = useMemo(() => {
-    const m = new Map<string, { ultimo_mov?: string; count: number; ultimo_id_pago?: any }>();
-
-    for (const r of pfpRaw) {
-      const id = String(r?.id_factura ?? "").trim();
-      if (!id) continue;
-
-      const mov = r?.updated_at ?? r?.created_at ?? "";
-      const prev = m.get(id) ?? { count: 0, ultimo_mov: "", ultimo_id_pago: null };
-
-      const prevTime = prev.ultimo_mov ? new Date(prev.ultimo_mov).getTime() : 0;
-      const curTime = mov ? new Date(mov).getTime() : 0;
-
-      m.set(id, {
-        count: prev.count + 1,
-        ultimo_id_pago: curTime >= prevTime ? r?.id_pago_proveedor : prev.ultimo_id_pago,
-        ultimo_mov: curTime >= prevTime ? mov : prev.ultimo_mov,
-      });
-    }
-
-    return m;
-  }, [pfpRaw]);
-
-  // FACTURAS: si vienen en data.facturas úsalo; si no, construye desde PFPR+validación
   const facturasRows = useMemo(() => {
     if (facturasRaw.length > 0) {
       return facturasRaw.map((f, i) => {
         const idFactura = f?.id_factura ?? f?.uuid_factura ?? f?.uuid ?? i;
-        const key = String(f?.id_factura ?? f?.uuid_factura ?? f?.uuid ?? "").trim();
-        const v = validByFactura.get(key);
-        const agg = pfpAggByFactura.get(key);
-
-        const facturado = Number(v?.facturado ?? f?.total_factura ?? f?.total ?? f?.monto ?? 0);
-        const pagado = Number(v?.pagado ?? 0);
-        const diferencia = Number(v?.diferencia ?? (pagado - facturado) ?? 0);
-        const pct = facturado > 0 ? Math.min(100, Math.max(0, (pagado / facturado) * 100)) : null;
-
         return {
           row_id: String(idFactura),
-          uuid_factura: key || "",
-          facturado_valid: facturado,
-          pagado_valid: pagado,
-          diferencia_valid: diferencia,
-          pct_pagado: pct,
-          estatus_valid: v?.estatus ?? "",
-          ultimo_mov: agg?.ultimo_mov ?? "",
-          num_aplicaciones: agg?.count ?? 0,
+          uuid_factura: f?.uuid_factura ?? f?.uuid ?? f?.uuid_cfdi ?? f?.UUID ?? f?.id_factura ?? "",
+          total_factura: f?.total_factura ?? f?.total ?? f?.monto ?? f?.importe ?? "",
+          total_aplicable: f?.total_aplicable ?? "",
+          impuestos: f?.impuestos ?? f?.iva ?? "",
+          subtotal: f?.subtotal ?? "",
+          razon_social: f?.razon_social ?? proveedorFallback.razon_social ?? "—",
+          rfc: f?.rfc ?? proveedorFallback.rfc ?? "—",
           __raw: f,
         };
       });
     }
 
-    // construir desde porFacturaRaw + pfpRaw
-    const ids = new Set<string>();
-    for (const v of porFacturaRaw) ids.add(String(v?.id_factura ?? "").trim());
-    for (const r of pfpRaw) ids.add(String(r?.id_factura ?? "").trim());
+    const byId = new Map<string, any>();
 
-    const rows = Array.from(ids).filter(Boolean).map((id, idx) => {
-      const v = validByFactura.get(id) ?? {};
-      const agg = pfpAggByFactura.get(id) ?? { count: 0, ultimo_mov: "", ultimo_id_pago: null };
+    for (const pf of porFacturaRaw) {
+      const id = String(pf?.id_factura ?? "").trim();
+      if (!id) continue;
+      byId.set(id, { ...pf });
+    }
 
-      const facturado = Number(v?.facturado ?? 0);
-      const pagado = Number(v?.pagado ?? 0);
-      const diferencia = Number(v?.diferencia ?? (pagado - facturado) ?? 0);
-      const pct = facturado > 0 ? Math.min(100, Math.max(0, (pagado / facturado) * 100)) : null;
-
-      return {
-        row_id: String(id || idx),
-        uuid_factura: id,
-        facturado_valid: facturado,
-        pagado_valid: pagado,
-        diferencia_valid: diferencia,
-        pct_pagado: pct,
-        estatus_valid: v?.estatus ?? "",
-        ultimo_mov: agg?.ultimo_mov ?? "",
-        num_aplicaciones: agg?.count ?? 0,
-        __raw: { id_factura: id },
-      };
-    });
-
-    return rows;
-  }, [facturasRaw, porFacturaRaw, pfpRaw, validByFactura, pfpAggByFactura]);
-
-  // PAGOS: si vienen en data.pagos úsalo; si no, construye desde pfpRaw
-  const pagosRows = useMemo(() => {
-    if (pagosRaw.length > 0) {
-      return pagosRaw.map((p: any, idx: number) => {
-        const fecha = p?.fecha_pago ?? p?.fecha ?? p?.created_at ?? p?.updated_at ?? "";
-        const montoPagado = p?.monto_pagado ?? p?.monto ?? p?.importe ?? "";
-        const referencia = p?.referencia ?? p?.referencia_pago ?? p?.folio ?? p?.id_pago_proveedor ?? p?.id_pago ?? "";
-        const estatus = p?.estatus ?? p?.estado ?? p?.status ?? "";
-        const metodo = p?.forma_pago ?? p?.metodo_de_pago ?? p?.metodo ?? p?.tipo ?? "";
-
-        return {
-          row_id: String(p?.id_pago_proveedores ?? p?.id_pago_proveedor ?? p?.id_pago ?? idx),
-          fecha_pago: fecha,
-          monto_pagado: montoPagado,
-          metodo,
-          referencia,
-          estatus,
-          __raw: p,
-        };
+    for (const rel of pfpRaw) {
+      const id = String(rel?.id_factura ?? "").trim();
+      if (!id) continue;
+      const prev = byId.get(id) ?? { id_factura: id };
+      byId.set(id, {
+        ...prev,
+        monto_facturado_rel: rel?.monto_facturado,
+        created_at_rel: rel?.created_at,
+        updated_at_rel: rel?.updated_at,
+        url_factura_pdf: rel?.url_factura_pdf ?? rel?.pdf_url ?? "",
+        url_factura_xml: rel?.url_factura_xml ?? rel?.xml_url ?? "",
       });
     }
 
-    if (pfpRaw.length > 0) {
-      // agrupar por id_pago_proveedor
-      const map = new Map<string, any>();
-      for (const r of pfpRaw) {
-        const idPago = String(r?.id_pago_proveedor ?? "").trim();
-        if (!idPago) continue;
+    if (byId.size === 0) return [];
 
-        const prev = map.get(idPago) ?? {
-          row_id: idPago,
-          fecha_pago: r?.updated_at ?? r?.created_at ?? "",
-          monto_pagado: 0,
-          metodo: "TRANSFER",
-          referencia: idPago,
-          estatus: "APLICADO",
-          __raw: { id_pago_proveedor: Number(idPago) },
-        };
+    return Array.from(byId.values()).map((merged, i) =>
+      toFacturaRowFromPorFactura(merged, i, proveedorFallback, solicitud)
+    );
+  }, [facturasRaw, porFacturaRaw, pfpRaw, proveedorFallback, solicitud]);
 
-        prev.monto_pagado = Number(prev.monto_pagado || 0) + Number(r?.monto_pago || 0);
-
-        // fecha más reciente
-        const prevT = prev.fecha_pago ? new Date(prev.fecha_pago).getTime() : 0;
-        const curF = r?.updated_at ?? r?.created_at ?? "";
-        const curT = curF ? new Date(curF).getTime() : 0;
-        if (curT >= prevT) prev.fecha_pago = curF;
-
-        map.set(idPago, prev);
-      }
-      return Array.from(map.values());
-    }
-
+  const pagosRows = useMemo(() => {
+    if (pagosRaw.length > 0) return pagosRaw.map((p, i) => toPagoRowFromPago(p, i));
+    if (pfpRaw.length > 0) return pfpRaw.map((rel, i) => toPagoRowFromPFPR(rel, i));
     return [];
   }, [pagosRaw, pfpRaw]);
 
-  // Columnas Facturas mejoradas
   const facturasColumns = useMemo(
-    () => [
-      "uuid_factura",
-      "facturado_valid",
-      "pagado_valid",
-      "diferencia_valid",
-      "pct_pagado",
-      "estatus_valid",
-      "ultimo_mov",
-      "num_aplicaciones",
-      "acciones",
-    ],
+    () => ["uuid_factura", "total_factura", "total_aplicable", "impuestos", "subtotal", "razon_social", "rfc", "acciones"],
     []
   );
 
@@ -429,14 +373,12 @@ export default function ModalDetalle({ solicitud, onClose }: Props) {
       const id_factura = row?.uuid_factura || row?.__raw?.id_factura;
       if (!id_factura) return;
 
-      // si ya viene URL en raw, úsala
-      const urlPdf = row?.__raw?.url_factura_pdf || row?.__raw?.pdf_url || row?.__raw?.url_pdf || "";
+      const urlPdf = row?.__raw?.url_factura_pdf || row?.__raw?.pdf_url || "";
       if (urlPdf) {
         openDoc(`Factura ${id_factura}`, urlPdf);
         return;
       }
 
-      // pedir a backend (stub)
       try {
         const { pdf } = await fetchFacturaUrl(String(id_factura));
         openDoc(`Factura ${id_factura}`, pdf || "");
@@ -454,33 +396,23 @@ export default function ModalDetalle({ solicitud, onClose }: Props) {
           {value ? truncate(String(value), 22) : "—"}
         </span>
       ),
-
-      facturado_valid: ({ value }: any) => <span title={String(value)}>{money(value)}</span>,
-      pagado_valid: ({ value }: any) => <span title={String(value)}>{money(value)}</span>,
-      diferencia_valid: ({ value }: any) => <span title={String(value)}>{money(value)}</span>,
-
-      pct_pagado: ({ value }: any) => {
-        if (value == null) return <span className="text-xs text-gray-500">—</span>;
-        return <span className="text-xs font-medium">{Number(value).toFixed(0)}%</span>;
+      total_factura: ({ value, item }: any) => {
+        const estatus = item?.__raw?.estatus ? ` · ${item.__raw.estatus}` : "";
+        return <span className="font-medium" title={`${String(value)}${estatus}`}>{money(value)}</span>;
       },
-
-      estatus_valid: ({ value }: any) => {
-        const s = normUpper(value) || "—";
-        return (
-          <span className={`text-[11px] px-2 py-0.5 rounded-full border ${pillClass(s)}`}>
-            {s}
-          </span>
-        );
-      },
-
-      ultimo_mov: ({ value }: any) => (
-        <span className="text-xs" title={String(value || "")}>
-          {value ? dateMx(value) : "—"}
+      total_aplicable: ({ value }: any) => <span className="font-medium" title={String(value)}>{value === "" ? "—" : money(value)}</span>,
+      impuestos: ({ value }: any) => <span title={String(value)}>{value === "" ? "—" : money(value)}</span>,
+      subtotal: ({ value }: any) => <span title={String(value)}>{value === "" ? "—" : money(value)}</span>,
+      razon_social: ({ value }: any) => (
+        <span className="text-xs font-medium" title={String(value || "")}>
+          {normUpper(value) || "—"}
         </span>
       ),
-
-      num_aplicaciones: ({ value }: any) => <span className="text-xs">{Number(value || 0)}</span>,
-
+      rfc: ({ value }: any) => (
+        <span className="font-mono text-xs font-medium" title={String(value || "")}>
+          {normUpper(value) || "—"}
+        </span>
+      ),
       acciones: ({ item }: any) => (
         <div className="flex items-center justify-end gap-2">
           <Button variant="ghost" size="sm" icon={Eye as any} onClick={() => onVerFactura(item)}>
@@ -491,15 +423,14 @@ export default function ModalDetalle({ solicitud, onClose }: Props) {
     } as any;
   }, [onVerFactura]);
 
-  // Columnas pagos + acciones
   const pagosColumns = useMemo(() => ["fecha_pago", "monto_pagado", "metodo", "referencia", "estatus", "acciones"], []);
 
   const onVerComprobante = useCallback(
     async (row: any) => {
-      const id_pago_proveedor = row?.__raw?.id_pago_proveedor ?? row?.__raw?.id_pago_proveedores ?? row?.row_id;
+      const id_pago_proveedor = row?.__raw?.id_pago_proveedor ?? row?.row_id;
       if (!id_pago_proveedor) return;
 
-      const existing = row?.__raw?.url_comprobante || row?.__raw?.comprobante_url || row?.__raw?.url_pdf || "";
+      const existing = row?.__raw?.url_comprobante || row?.__raw?.comprobante_url || "";
       if (existing) {
         openDoc(`Comprobante pago ${id_pago_proveedor}`, existing);
         return;
@@ -515,52 +446,56 @@ export default function ModalDetalle({ solicitud, onClose }: Props) {
     [openDoc]
   );
 
-  const onUploadComprobante = useCallback(
-    async (row: any, file: File) => {
-      const id_pago_proveedor = String(
-        row?.__raw?.id_pago_proveedor ?? row?.__raw?.id_pago_proveedores ?? row?.row_id ?? ""
-      );
-      if (!id_pago_proveedor) {
-        setError("No se encontró id_pago_proveedor para subir comprobante");
-        return;
+  const onUploadComprobante = useCallback(async (row: any, file: File) => {
+    const id_pago_proveedor = String(row?.__raw?.id_pago_proveedor ?? row?.row_id ?? "");
+    if (!id_pago_proveedor) {
+      setError("No se encontró id_pago_proveedor para subir comprobante");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError("");
+
+      const { uploadUrl, publicUrl } = await getPresignedUrlForUpload(file.name, file.type);
+
+      if (!uploadUrl || !publicUrl) {
+        throw new Error("No hay presigned URL.");
       }
 
-      try {
-        setLoading(true);
-        setError("");
+      await uploadToPresigned(uploadUrl, file);
+      await saveComprobantePago(id_pago_proveedor, publicUrl);
 
-        const { uploadUrl, publicUrl } = await getPresignedUrlForUpload(file.name, file.type);
-        if (!uploadUrl || !publicUrl) throw new Error("No hay presigned URL. Conecta el endpoint de presigned.");
+      const r = await fetch(`${URL}/mia/pago_proveedor/detalles`, {
+        method: "POST",
+        headers: { "x-api-key": API_KEY || "", "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const j = await r.json().catch(() => null);
+      if (j?.ok) setResp(j);
 
-        await uploadToPresigned(uploadUrl, file);
-        await saveComprobantePago(id_pago_proveedor, publicUrl);
-
-        await loadDetalles();
-      } catch (e: any) {
-        setError(e?.message || "No se pudo subir el comprobante");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [loadDetalles]
-  );
+    } catch (e: any) {
+      setError(e?.message || "No se pudo subir el comprobante");
+    } finally {
+      setLoading(false);
+    }
+  }, [payload]);
 
   const pagosRenderers = useMemo(() => {
     return {
-      fecha_pago: ({ value }: any) => <span title={String(value)}>{dateMx(value)}</span>,
-      monto_pagado: ({ value }: any) => <span title={String(value)}>{money(value)}</span>,
-      metodo: ({ value }: any) => <span className="text-xs">{normUpper(value) || "—"}</span>,
+      fecha_pago: ({ value }: any) => <span className="text-sm" title={String(value)}>{dateMx(value)}</span>,
+      monto_pagado: ({ value }: any) => <span className="font-medium" title={String(value)}>{money(value)}</span>,
+      metodo: ({ value }: any) => <span className="text-xs font-medium">{normUpper(value) || "—"}</span>,
       referencia: ({ value }: any) => (
         <span className="font-mono text-xs" title={String(value || "")}>
           {norm(value) ? truncate(norm(value), 22) : "—"}
         </span>
       ),
-      estatus: ({ value }: any) => <span className="text-xs">{normUpper(value) || "—"}</span>,
+      estatus: ({ value }: any) => <StatusBadge status={value} />,
       acciones: ({ item }: any) => <PagoActions row={item} onVer={onVerComprobante} onUpload={onUploadComprobante} />,
     } as any;
   }, [onVerComprobante, onUploadComprobante]);
 
-  // Validación por factura (tabla secundaria opcional)
   const validRows = useMemo(() => {
     return porFacturaRaw.map((x, i) => ({
       row_id: String(x?.id_factura ?? i),
@@ -574,6 +509,7 @@ export default function ModalDetalle({ solicitud, onClose }: Props) {
   }, [porFacturaRaw]);
 
   const validColumns = useMemo(() => ["id_factura", "facturado", "pagado", "diferencia", "estatus"], []);
+
   const validRenderers = useMemo(() => {
     return {
       id_factura: ({ value }: any) => (
@@ -581,18 +517,69 @@ export default function ModalDetalle({ solicitud, onClose }: Props) {
           {value ? truncate(String(value), 22) : "—"}
         </span>
       ),
-      facturado: ({ value }: any) => <span>{money(value)}</span>,
-      pagado: ({ value }: any) => <span>{money(value)}</span>,
-      diferencia: ({ value }: any) => <span>{money(value)}</span>,
-      estatus: ({ value }: any) => {
-        const s = normUpper(value) || "—";
-        return <span className={`text-[11px] px-2 py-0.5 rounded-full border ${pillClass(s)}`}>{s}</span>;
+      facturado: ({ value }: any) => <span className="font-medium">{money(value)}</span>,
+      pagado: ({ value }: any) => <span className="font-medium">{money(value)}</span>,
+      diferencia: ({ value }: any) => {
+        const color = Number(value) > 0 ? "text-red-600" : Number(value) < 0 ? "text-green-600" : "text-gray-900";
+        return <span className={`font-medium ${color}`}>{money(value)}</span>;
       },
+      estatus: ({ value }: any) => <StatusBadge status={value} />,
     } as any;
   }, []);
 
   const headerId = payload?.id_solicitud_proveedor || "—";
-  const headerFecha = solicitudApi?.fecha_solicitud ? ` · ${dateMx(solicitudApi.fecha_solicitud)}` : "";
+  
+  // Información detallada de la solicitud para mostrar en cards
+  const solicitudInfo = useMemo(() => {
+    return [
+      { 
+        icon: Calendar,
+        label: "Fecha solicitud",
+        value: dateMx(solicitudApi?.fecha_solicitud)
+      },
+      { 
+        icon: DollarSign,
+        label: "Monto solicitado",
+        value: money(solicitudApi?.monto_solicitado),
+        highlight: true
+      },
+      { 
+        icon: DollarSign,
+        label: "Saldo",
+        value: money(solicitudApi?.saldo)
+      },
+      { 
+        icon: CreditCard,
+        label: "Forma de pago",
+        value: normUpper(solicitudApi?.forma_pago_solicitada),
+        badge: true
+      },
+      { 
+        icon: FileCheck,
+        label: "Estado solicitud",
+        value: solicitudApi?.estado_solicitud,
+        badge: true
+      },
+      { 
+        icon: FileCheck,
+        label: "Estado facturación",
+        value: solicitudApi?.estado_facturacion,
+        badge: true
+      },
+      { 
+        icon: AlertCircle,
+        label: "Estatus pagos",
+        value: solicitudApi?.estatus_pagos,
+        badge: true
+      },
+      { 
+        icon: User,
+        label: "Comentarios",
+        value: solicitudApi?.comentarios || solicitudApi?.comentario_CXP || "—",
+        fullWidth: true
+      }
+    ];
+  }, [solicitudApi]);
 
   return (
     <>
@@ -601,41 +588,180 @@ export default function ModalDetalle({ solicitud, onClose }: Props) {
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
-        <div className="relative z-10 w-[min(1300px,96vw)] max-h-[92vh] overflow-y-auto bg-white rounded-xl shadow-lg border border-gray-200">
-          {/* Header */}
-          <div className="sticky top-0 bg-white border-b border-gray-100 p-4 flex items-start justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">Detalles</h2>
-              <p className="text-xs text-gray-500">
-                Solicitud: <span className="font-semibold">{headerId}</span>
-                <span>{headerFecha}</span>
-              </p>
+        <div className="relative z-10 w-[min(1400px,96vw)] max-h-[92vh] overflow-y-auto bg-white rounded-xl shadow-lg border border-gray-200">
+          {/* Header mejorado */}
+          <div className="sticky top-0 bg-white border-b border-gray-200 p-4 flex items-start justify-between z-10">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                <Receipt className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">Detalles de Solicitud</h2>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-sm text-gray-600">Solicitud:</span>
+                  <span className="text-sm font-mono font-medium bg-gray-100 px-2 py-0.5 rounded-md">{headerId}</span>
+                  <StatusBadge status={solicitudApi?.estado_solicitud} />
+                </div>
+              </div>
             </div>
 
             <button
               type="button"
-              className="inline-flex items-center justify-center w-9 h-9 rounded-md border border-gray-200 bg-white hover:bg-gray-50"
+              className="inline-flex items-center justify-center w-10 h-10 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 transition-colors"
               onClick={onClose}
               title="Cerrar"
             >
-              <X className="w-4 h-4 text-gray-700" />
+              <X className="w-5 h-5 text-gray-700" />
             </button>
           </div>
 
           {/* Body */}
-          <div className="p-4 space-y-4">
-            {loading && <div className="text-sm text-gray-500">Cargando detalles...</div>}
-            {!!error && <div className="text-sm text-red-600">{error}</div>}
+          <div className="p-6 space-y-6">
+            {loading && (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <span className="ml-3 text-sm text-gray-600">Cargando detalles...</span>
+              </div>
+            )}
+            
+            {!!error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-600">
+                {error}
+              </div>
+            )}
 
-            {/* FACTURAS */}
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
-              <div className="px-3 py-2 bg-gray-50 border-b border-gray-200 text-sm font-semibold text-gray-800">
-                Facturas (detalle contable)
+            {/* Información de la solicitud en cards mejoradas */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {solicitudInfo.map((item, idx) => {
+                if (item.fullWidth) {
+                  return (
+                    <div key={idx} className="lg:col-span-4 bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-xl p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+                          <item.icon className="w-4 h-4 text-gray-600" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="text-xs text-gray-500 mb-1">{item.label}</div>
+                          <div className="text-sm text-gray-900">{item.value}</div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div
+                    key={idx}
+                    className={`bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-xl p-4 ${
+                      item.highlight ? 'ring-2 ring-blue-100' : ''
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`w-8 h-8 rounded-lg ${
+                        item.highlight ? 'bg-blue-100' : 'bg-gray-100'
+                      } flex items-center justify-center flex-shrink-0`}>
+                        <item.icon className={`w-4 h-4 ${
+                          item.highlight ? 'text-blue-600' : 'text-gray-600'
+                        }`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs text-gray-500 mb-1">{item.label}</div>
+                        {item.badge ? (
+                          <StatusBadge status={item.value} />
+                        ) : (
+                          <div className={`text-sm font-medium truncate ${
+                            item.highlight ? 'text-blue-600 text-base' : 'text-gray-900'
+                          }`}>
+                            {item.value}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Cards de resumen */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-gradient-to-br from-blue-50 to-white border border-blue-200 rounded-xl p-5">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                    <DollarSign className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <h3 className="font-semibold text-gray-900">Resumen Financiero</h3>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center py-1 border-b border-blue-100">
+                    <span className="text-sm text-gray-600">Monto facturado</span>
+                    <span className="text-sm font-medium text-blue-600">{money(solicitudApi?.monto_facturado)}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-blue-100">
+                    <span className="text-sm text-gray-600">Por facturar</span>
+                    <span className="text-sm font-medium text-blue-600">{money(solicitudApi?.monto_por_facturar)}</span>
+                  </div>
+                </div>
               </div>
 
-              <div className="p-3">
+              <div className="bg-gradient-to-br from-green-50 to-white border border-green-200 rounded-xl p-5">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
+                    <DollarSign className="w-5 h-5 text-green-600" />
+                  </div>
+                  <h3 className="font-semibold text-gray-900">Pagos</h3>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center py-1 border-b border-green-100">
+                    <span className="text-sm text-gray-600">Total pagado</span>
+                    <span className="text-sm font-medium text-green-600">{money(resumen?.total_pagado)}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-sm text-gray-600">Total facturado</span>
+                    <span className="text-sm font-medium text-green-600">{money(resumen?.total_facturado)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-br from-purple-50 to-white border border-purple-200 rounded-xl p-5">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                    <AlertCircle className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <h3 className="font-semibold text-gray-900">Validación</h3>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center py-1 border-b border-purple-100">
+                    <span className="text-sm text-gray-600">Diferencia total</span>
+                    <span className={`text-sm font-medium ${
+                      Number(resumen?.diferencia_total) > 0 ? 'text-red-600' : 
+                      Number(resumen?.diferencia_total) < 0 ? 'text-green-600' : 'text-gray-900'
+                    }`}>
+                      {money(resumen?.diferencia_total)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* FACTURAS */}
+            <div className="border border-gray-200 rounded-xl overflow-hidden">
+              <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-white border-b border-gray-200">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-gray-600" />
+                  <span className="text-sm font-semibold text-gray-900">Facturas</span>
+                  {facturasRows.length > 0 && (
+                    <span className="ml-auto text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                      {facturasRows.length} {facturasRows.length === 1 ? 'factura' : 'facturas'}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="p-4">
                 {facturasRows.length === 0 ? (
-                  <div className="text-sm text-gray-500">Sin facturas para mostrar.</div>
+                  <div className="text-sm text-gray-500 text-center py-8 bg-gray-50 rounded-lg">
+                    No hay facturas para mostrar
+                  </div>
                 ) : (
                   <Table5<any>
                     registros={facturasRows as any}
@@ -647,47 +773,24 @@ export default function ModalDetalle({ solicitud, onClose }: Props) {
               </div>
             </div>
 
-            {/* INFO RESUMEN */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <InfoCard
-                title="Solicitud"
-                rows={[
-                  ["Forma pago", normUpper(solicitudApi?.forma_pago_solicitada) || "—"],
-                  ["Estatus pagos", normUpper(solicitudApi?.estatus_pagos) || "—"],
-                  ["Estado solicitud", normUpper(solicitudApi?.estado_solicitud) || "—"],
-                ]}
-              />
-
-              <InfoCard
-                title="Facturación"
-                rows={[
-                  ["Estado facturación", normUpper(solicitudApi?.estado_facturacion) || "—"],
-                  ["Monto facturado", money(solicitudApi?.monto_facturado)],
-                  ["Por facturar", money(solicitudApi?.monto_por_facturar)],
-                ]}
-              />
-
-              <InfoCard
-                title="Validación"
-                rows={[
-                  ["Total pagado", money(resumen?.total_pagado)],
-                  ["Total facturado", money(resumen?.total_facturado)],
-                  ["Diferencia total", money(resumen?.diferencia_total)],
-                ]}
-              />
-            </div>
-
             {/* PAGOS */}
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
-              <div className="px-3 py-2 bg-gray-50 border-b border-gray-200 text-sm font-semibold text-gray-800">
-                Pagos
+            <div className="border border-gray-200 rounded-xl overflow-hidden">
+              <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-white border-b border-gray-200">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-gray-600" />
+                  <span className="text-sm font-semibold text-gray-900">Pagos</span>
+                  {pagosRows.length > 0 && (
+                    <span className="ml-auto text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                      {pagosRows.length} {pagosRows.length === 1 ? 'pago' : 'pagos'}
+                    </span>
+                  )}
+                </div>
               </div>
 
-              <div className="p-3">
+              <div className="p-4">
                 {pagosRows.length === 0 ? (
-                  <div className="text-sm text-gray-500">
-                    Sin pagos para mostrar (si el backend no llena <code className="font-mono">data.pagos</code>,
-                    usamos <code className="font-mono">data.pagos_facturas_proveedores</code>).
+                  <div className="text-sm text-gray-500 text-center py-8 bg-gray-50 rounded-lg">
+                    No hay pagos para mostrar
                   </div>
                 ) : (
                   <Table5<any>
@@ -700,14 +803,20 @@ export default function ModalDetalle({ solicitud, onClose }: Props) {
               </div>
             </div>
 
-            {/* VALIDACIÓN POR FACTURA (opcional) */}
+            {/* VALIDACIÓN POR FACTURA */}
             {validRows.length > 0 && (
-              <div className="border border-gray-200 rounded-lg overflow-hidden">
-                <div className="px-3 py-2 bg-gray-50 border-b border-gray-200 text-sm font-semibold text-gray-800">
-                  Validación por factura (raw)
+              <div className="border border-gray-200 rounded-xl overflow-hidden">
+                <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-white border-b border-gray-200">
+                  <div className="flex items-center gap-2">
+                    <FileCheck className="w-4 h-4 text-gray-600" />
+                    <span className="text-sm font-semibold text-gray-900">Validación por factura</span>
+                    <span className="ml-auto text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full">
+                      {validRows.length} {validRows.length === 1 ? 'registro' : 'registros'}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="p-3">
+                <div className="p-4">
                   <Table5<any>
                     registros={validRows as any}
                     customColumns={validColumns as any}
@@ -749,34 +858,27 @@ function PagoActions({
         Ver
       </Button>
 
-      <Button variant="secondary" size="sm" icon={Upload as any} onClick={() => setOpen((s) => !s)}>
-        Subir
-      </Button>
-
-      {open && (
-        <label className="ml-2 inline-flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
-          <input type="file" accept="application/pdf,image/*" className="hidden" onChange={handleFile} />
-          <span className="inline-flex items-center gap-2">
-            <span className="font-medium">Seleccionar archivo</span>
-            <span className="text-gray-400">(PDF/imagen)</span>
-          </span>
-        </label>
-      )}
-    </div>
-  );
-}
-
-function InfoCard({ title, rows }: { title: string; rows: Array<[string, string]> }) {
-  return (
-    <div className="border border-gray-200 rounded-lg p-3 bg-white">
-      <div className="text-sm font-semibold text-gray-800 mb-2">{title}</div>
-      <div className="space-y-1">
-        {rows.map(([k, v]) => (
-          <div key={k} className="flex items-center justify-between gap-3">
-            <span className="text-xs text-gray-500">{k}</span>
-            <span className="text-xs font-medium text-gray-900 text-right">{v}</span>
+      <div className="relative">
+        <Button variant="secondary" size="sm" icon={Upload as any} onClick={() => setOpen((s) => !s)}>
+          Subir
+        </Button>
+        
+        {open && (
+          <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 p-3 z-20">
+            <label className="flex flex-col items-center gap-2 cursor-pointer">
+              <input type="file" accept="application/pdf,image/*" className="hidden" onChange={handleFile} />
+              <div className="w-full p-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 transition-colors">
+                <Upload className="w-6 h-6 text-gray-400 mx-auto mb-2" />
+                <span className="text-xs text-gray-600 block text-center">
+                  Seleccionar archivo
+                </span>
+                <span className="text-xs text-gray-400 block text-center mt-1">
+                  PDF o imagen
+                </span>
+              </div>
+            </label>
           </div>
-        ))}
+        )}
       </div>
     </div>
   );

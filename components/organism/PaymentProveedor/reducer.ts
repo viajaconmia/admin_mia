@@ -61,9 +61,7 @@ function showWarning(state: PaymentState, action: Action) {
   if (action.field == "paymentType" && action.payload == "credit") {
     response = {
       ...response,
-      error:
-        "Esta parte aun no esta procesada, todo lo que hagas aqui esta en prueba",
-    };
+          };
   } else if (action.field == "paymentType" && action.payload != "credit") {
     response = { ...response, error: "" };
   }
