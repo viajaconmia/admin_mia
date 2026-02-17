@@ -61,6 +61,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
   const { Can } = usePermiso();
   const { showNotification } = useNotification();
   const { csv, loadingFile, setLoadingFile } = useFile();
+  const { hasPermission } = usePermiso();
 
   const booking_service = new BookingsService();
   const handleFetchSolicitudes = async (page = tracking.page) => {
@@ -101,10 +102,40 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
         ...extras,
       });
 
-      const formatData = response.data.map((booking) => ({ ...booking }));
+      const formatData = response.data.map((reserva) => ({
+        servicio: reserva.type,
+        id_cliente: reserva.id_agente,
+        cliente: reserva.agente,
+        creado: `${reserva.created_at.split("T")[0]} : ${reserva.created_at.split("T")[1]}`,
+        proveedor: reserva.proveedor,
+        intermediario: reserva.intermediario,
+        codigo: reserva.codigo_confirmacion,
+        viajero: reserva.viajero,
+        check_in: reserva.check_in.split("T")[0],
+        horario_salida: reserva.horario_salida,
+        check_out: reserva.check_out.split("T")[0],
+        horario_llegada: reserva.horario_llegada,
+        tipo: reserva.tipo_cuarto_vuelo,
+        costo_proveedor: reserva.costo_total,
+        markup:
+          ((Number(reserva.total || 0) - Number(reserva.costo_total || 0)) /
+            Number(reserva.total || 0)) *
+          100,
+        precio_de_venta: reserva.total,
+        metodo_de_pago: reserva.metodo_pago,
+        reservante: reserva.reservante,
+        etapa_reservacion: reserva.etapa_reservacion,
+        estado: reserva.estado,
+        estado_pago: reserva.estado_pago,
+        estado_facturacion: reserva.estado_facturacion,
+      }));
 
       csv(formatData, fileName);
-    } catch (error) {}
+    } catch (error) {
+      showNotification("error", error.message);
+    } finally {
+      setLoadingFile(false);
+    }
   };
 
   const renderers = {
@@ -243,6 +274,9 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     estado_pago: reserva.estado_pago,
     estado_facturacion: reserva.estado_facturacion,
     intermediario: reserva.intermediario,
+    ...(hasPermission(PERMISOS.COLUMNAS.BOOKINGS.USUARIO_CREADOR)
+      ? { usuario_creador: reserva.usuario_creador }
+      : {}),
     detalles_cliente: reserva.id_solicitud,
     editar: reserva.type == "hotel" ? reserva.id_solicitud : reserva.id_booking,
     pagar: reserva.estado == "Confirmada" ? reserva.id_solicitud : null,
@@ -374,7 +408,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
         )}
         <Button
           onClick={handleExport}
-          disabled={loading}
+          disabled={loading || loadingFile}
           variant="secondary"
           size="sm"
           icon={Download}

@@ -1,14 +1,11 @@
-import PageReservasClientes from "@/components/template/PageReservaClient";
+"use client";
 
-const App = () => {
+import PageReservas from "@/v2/components/template/PageReserva";
+
+export default function Page() {
   return (
-    <div>
-      <h1 className="text-2xl font-bold tracking-tight text-sky-950 my-4">
-        Reservas
-      </h1>
-      <PageReservasClientes></PageReservasClientes>{" "}
-    </div>
+    <>
+      <PageReservas></PageReservas>
+    </>
   );
-};
-
-export default App;
+}

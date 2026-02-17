@@ -205,24 +205,24 @@ function App() {
       icon: CalendarDays,
       component: <PageReservas agente={selectedItem} />,
     },
-    {
-      title: "Vuelos",
-      tab: "vuelos",
-      icon: Plane,
-      component: <PageVuelos agente={selectedItem} />,
-    },
-    {
-      title: "Renta de autos",
-      tab: "car-rental",
-      icon: CarTaxiFrontIcon,
-      component: <CarRentalPage agente={selectedItem} />,
-    },
-    {
-      title: "Facturas",
-      tab: "invoices",
-      icon: Receipt,
-      component: <div>Facturas</div>,
-    },
+    // {
+    //   title: "Vuelos",
+    //   tab: "vuelos",
+    //   icon: Plane,
+    //   component: <PageVuelos agente={selectedItem} />,
+    // },
+    // {
+    //   title: "Renta de autos",
+    //   tab: "car-rental",
+    //   icon: CarTaxiFrontIcon,
+    //   component: <CarRentalPage agente={selectedItem} />,
+    // },
+    // {
+    //   title: "Facturas",
+    //   tab: "invoices",
+    //   icon: Receipt,
+    //   component: <div>Facturas</div>,
+    // },
     {
       title: "Usuarios",
       tab: "users",
@@ -247,12 +247,6 @@ function App() {
       tab: "empresas",
       icon: Building,
       component: <Configuration id_agente={selectedItem?.id_agente || null} />,
-    },
-    {
-      title: "Metodos de pago",
-      tab: "metodos-pago",
-      icon: CreditCard,
-      component: <div>Metodo de pago</div>,
     },
   ];
 
