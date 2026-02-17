@@ -508,6 +508,69 @@ const InlineMoneyEdit = ({
   );
 };
 
+type MetodoPagoPopoverProps = {
+  idSolProv: string;
+  currentMethod: string; // "credit" | "transfer" | "card" | "link" ...
+  onSetMethod: (nextMethod: "transfer" | "card") => Promise<boolean>;
+  onSetCard: (data: { id_tarjeta_solicitada: number }) => Promise<boolean>;
+};
+
+const MetodoPagoPopover: React.FC<MetodoPagoPopoverProps> = ({
+  idSolProv,
+  currentMethod,
+  onSetMethod,
+  onSetCard,
+}) => {
+  const [open, setOpen] = React.useState(false);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100"
+        onClick={() => setOpen((v) => !v)}
+        title="Cambiar método de pago"
+      >
+        Método
+      </button>
+
+      {open && (
+        <div className="absolute right-0 mt-2 z-[70] w-[280px] rounded-xl border border-slate-200 bg-white shadow-lg p-2">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs font-semibold text-slate-700">Solicitud: {idSolProv}</div>
+            <button
+              type="button"
+              className="text-xs px-2 py-1 rounded-md border border-slate-200 hover:bg-slate-50"
+              onClick={() => setOpen(false)}
+            >
+              Cerrar
+            </button>
+          </div>
+
+          {/* ✅ aquí montamos tu selector SOLO cuando se abre */}
+          <PaymentMethodSelector
+            idSolProv={idSolProv}
+            currentMethod={currentMethod}
+            onSetMethod={async (next) => {
+              const ok = await onSetMethod(next);
+              // opcional: si cambian a transfer, puedes limpiar tarjeta en backend
+              // if (ok && next === "transfer") await onSetCard({ id_tarjeta_solicitada: 0 }); // si tu back lo interpreta como null/clear
+              if (ok) setOpen(false); // si quieres que se cierre al guardar método
+              return ok;
+            }}
+            onSetCard={async (payload) => {
+              const ok = await onSetCard(payload);
+              if (ok) setOpen(false);
+              return ok;
+            }}
+          />
+        </div>
+      )}
+    </div>
+  );
+};
+
+
 
 function App() {
   const { showNotification } = useNotification();
@@ -931,6 +994,12 @@ function App() {
     seleccionar: ({ item, index }) => {
       const row = item as any;
       const raw: SolicitudProveedor | undefined = (row.item as SolicitudProveedor) || row;
+      // ✅ SOLO transfer puede seleccionarse (dispersión)
+const forma = getFormaPago(raw);
+if (forma !== "transfer") {
+  return <span className="text-gray-300" title="Solo Transferencia se puede seleccionar">—</span>;
+}
+
       if (!raw) return null;
 
       // mejoramos “tieneDispersion” con pagos asociados
@@ -1125,99 +1194,117 @@ function App() {
     ),
 
     // ✅ ACCIONES: 3 botones según reglas
-    acciones: ({ item }) => {
-      const row = (item as any);
-      const raw = row?.item ?? row;
-      const carpeta = (row as any)?.solicitud_proveedor.estado_solicitud;
-      if (carpeta === "CUPON ENVIADO") return null;
-      const idSolProv = getIdSolProv(raw);
-      const forma = getFormaPago(raw);
-      const pagado = isPagado(raw);
+acciones: ({ item }) => {
+  const row = item as any;
+  const raw = row?.item ?? row;
 
-      const costoActual = Number((raw as any)?.costo_total ?? 0) || 0;
-// ✅ carta_garantia: mostrar selector de forma de pago solicitada
-      if (carpeta === "CARTA ENVIADO") {
-        return (
-          <PaymentMethodSelector
-            idSolProv={idSolProv}
-            currentMethod={getFormaPago(raw)} // normalmente "credit" al inicio, pero permitimos cambiar
-            onSetMethod={async (nextMethod) => {
-              // actualiza forma_pago_solicitada en backend
-              const ok = await patchSolicitudProveedor(idSolProv, "forma_pago_solicitada" as any, nextMethod);
-              if (ok) handleFetchSolicitudesPago();
-              return ok;
-            }}
-            onSetCard={async ({ id_tarjeta_solicitada }) => {
-              // set tarjeta seleccionada en backend
-              const ok = await patchSolicitudProveedor(idSolProv, "id_tarjeta_solicitada" as any, id_tarjeta_solicitada);
-              if (ok) handleFetchSolicitudesPago();
-              return ok;
-            }}
-          />
-        );
-      }
+  const idSolProv = getIdSolProv(raw);
+  const forma = getFormaPago(raw);
+  const pagado = isPagado(raw);
 
-      return (
-        <div className="flex items-center gap-2">
-          {/* Editar costo proveedor (SIEMPRE) */}
-          <button
-            type="button"
-            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs border border-slate-200 bg-white hover:bg-slate-50"
-            onClick={() => openEditModal(raw, "costo_proveedor", costoActual)}
-            title="Editar costo proveedor"
-          >
-            <Maximize2 className="w-4 h-4" />
-            Costo
-          </button>
+  // ✅ lee bien el estado (viene de raw.solicitud_proveedor o del row ya mapeado)
+  const estadoSolicitud = normUpper(
+    raw?.solicitud_proveedor?.estado_solicitud ?? row?.estado_solicitud ?? ""
+  );
 
-          {/* Marcar como pagado (solo si NO es transfer) */}
-          {forma !== "transfer" && (
-            <button
-              type="button"
-              className={[
-                "inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs border",
-                pagado ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed" : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
-              ].join(" ")}
-              disabled={pagado}
-              onClick={async () => {
-                if (pagado) return;
-                const ok = confirm(`¿Marcar como PAGADO la solicitud ${idSolProv}?`);
-                if (!ok) return;
-                const done = await patchSolicitudProveedor(idSolProv, "estatus_pagos", "pagado");
-                if (done) handleFetchSolicitudesPago();
-              }}
-              title={pagado ? "Ya está pagado" : "Marcar como pagado"}
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              Pagado
-            </button>
-          )}
+  // ✅ si es CUPON, oculta acciones en todas las carpetas MENOS en carta_garantia
+  if (estadoSolicitud.includes("CUPON") && categoria !== "carta_garantia") return null;
 
-          {/* Conciliar (solo en pagados) */}
-{pagado && (
-  <button
-    type="button"
-    className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
-    onClick={async () => {
-      // ✅ set consolidado=1
-      const ok = await patchSolicitudProveedor(idSolProv, "consolidado", 1);
-      if (ok) {
-        // refresca para ver fila azul
-        handleFetchSolicitudesPago();
-        // opcional: abrir conciliación como antes
-        window.open(`/conciliacion?sol=${encodeURIComponent(idSolProv)}`, "_blank");
-      }
-    }}
-    title="Conciliar (marca consolidado=1)"
-  >
-    <Handshake className="w-4 h-4" />
-    Conciliar
-  </button>
-)}
+  const costoActual = Number((raw as any)?.costo_total ?? 0) || 0;
 
-        </div>
-      );
-    },
+  return (
+    <div className="flex items-center gap-2">
+      {/* ✅ MÉTODO SOLO PARA carta_garantia */}
+      {categoria === "carta_garantia" && (
+        <MetodoPagoPopover
+          idSolProv={idSolProv}
+          currentMethod={forma}
+          onSetMethod={async (nextMethod) => {
+            // actualiza forma_pago_solicitada (transfer | card)
+            const ok = await patchSolicitudProveedor(
+              idSolProv,
+              "forma_pago_solicitada",
+              nextMethod
+            );
+            if (ok) handleFetchSolicitudesPago();
+            return ok;
+          }}
+          onSetCard={async ({ id_tarjeta_solicitada }) => {
+            const ok = await patchSolicitudProveedor(
+              idSolProv,
+              "id_tarjeta_solicitada",
+              id_tarjeta_solicitada
+            );
+            if (ok) handleFetchSolicitudesPago();
+            return ok;
+          }}
+        />
+      )}
+
+      {/* Editar costo proveedor (SIEMPRE) */}
+      <button
+        type="button"
+        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs border border-slate-200 bg-white hover:bg-slate-50"
+        onClick={() => openEditModal(raw, "costo_proveedor", costoActual)}
+        title="Editar costo proveedor"
+      >
+        <Maximize2 className="w-4 h-4" />
+        Costo
+      </button>
+
+      {/* Marcar como pagado (solo si NO es transfer) */}
+      {forma !== "transfer" && (
+        <button
+          type="button"
+          className={[
+            "inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs border",
+            pagado
+              ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+              : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
+          ].join(" ")}
+          disabled={pagado}
+          onClick={async () => {
+            if (pagado) return;
+            const ok = confirm(`¿Marcar como PAGADO la solicitud ${idSolProv}?`);
+            if (!ok) return;
+            const done = await patchSolicitudProveedor(
+              idSolProv,
+              "estatus_pagos",
+              "pagado"
+            );
+            if (done) handleFetchSolicitudesPago();
+          }}
+          title={pagado ? "Ya está pagado" : "Marcar como pagado"}
+        >
+          <CheckCircle2 className="w-4 h-4" />
+          Pagado
+        </button>
+      )}
+
+      {/* Conciliar (solo en pagados) */}
+      {pagado && (
+        <button
+          type="button"
+          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+          onClick={async () => {
+            const ok = await patchSolicitudProveedor(idSolProv, "consolidado", 1);
+            if (ok) {
+              handleFetchSolicitudesPago();
+              window.open(
+                `/conciliacion?sol=${encodeURIComponent(idSolProv)}`,
+                "_blank"
+              );
+            }
+          }}
+          title="Conciliar (marca consolidado=1)"
+        >
+          <Handshake className="w-4 h-4" />
+          Conciliar
+        </button>
+      )}
+    </div>
+  );
+},
 
     // ✅ Mostrar TODOS los campos del SP (raw)
 

@@ -215,6 +215,8 @@ export default function SubirFactura({
       return;
     }
 
+    
+
     const arr = toArray(proveedoresData);
     const normalized: AsociacionSolicitudProveedor[] = arr
       .map((row: any) => {
@@ -247,6 +249,16 @@ export default function SubirFactura({
     }, 0);
     return Math.round((sum + Number.EPSILON) * 100) / 100;
   }, [isProveedorBatch, batchAsociaciones]);
+
+  useEffect(() => {
+  console.log("🟦 proveedoresData (prop) =>", proveedoresData);
+  console.log("🟦 isProveedorBatch/isProveedorMode =>", {
+    isProveedorBatch,
+    isProveedorMode,
+    isNormalAgenteMode,
+  });
+}, [proveedoresData, isProveedorBatch, isProveedorMode, isNormalAgenteMode]);
+
 
   const updateMontoBatch = (index: number, raw: string) => {
     const normalized = safeNumStr(raw);
@@ -720,6 +732,31 @@ export default function SubirFactura({
     }
   };
 
+  const fetchDatosFiscalesProveedor = async (id_proveedor: string) => {
+  const resp = await fetch(
+    `${URL}/mia/pago_proveedor/datosFiscales?id_proveedor=${encodeURIComponent(
+      id_proveedor
+    )}`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": API_KEY,
+      },
+    }
+  );
+
+  if (!resp.ok) {
+    const t = await resp.text().catch(() => "");
+    throw new Error(`Error datos fiscales proveedor (${resp.status}): ${t}`);
+  }
+
+  const json = await resp.json();
+  // tu back devuelve: { data: [...] }
+  return Array.isArray(json?.data) ? json.data : [];
+};
+
+
   const handleConfirmarFactura = async ({
     payload,
     url,
@@ -822,6 +859,8 @@ export default function SubirFactura({
         ? `${URL}/mia/factura/CrearFacturaDesdeCarga`
         : `${URL}/mia/pago_proveedor/subir_factura`;
 
+        console.log(ENDPOINT,"endpoint")
+
       if (basePayload.items !== "1") {
         const response = await fetch(ENDPOINT, {
           method: "POST",
@@ -831,6 +870,9 @@ export default function SubirFactura({
           },
           body: JSON.stringify(basePayload),
         });
+        console.log("info",response)
+
+
 
         if (!response.ok) {
           throw new Error("Error al asignar la factura");
@@ -898,26 +940,53 @@ export default function SubirFactura({
       // El back se encargará del automatch + datos fiscales.
       // ==========================
       if (isProveedorBatch) {
-        // const coincidencia = await fetchProveedoresDataFiscal()
-        console.log(proveedoresData,"klf vknriorv 😒😒😒😒😒😒😒",data.emisor.rfc,"cambios",proveedoresRfc)
-        
+  // 1) Parseo del XML ya lo tienes: const data = await parsearXML(archivoXML);
 
-        if ((data.emisor.rfc !== proveedoresRfc)) {
-          confirm(
-          `No hubo coincidencia con el RFC de la factura y de las solicitudes`
-        );
-        return;
-        }else if (data.comprobante.total < batchTotalAsociar) {
-confirm(
-          `No pueden ser esos montos`
-        );
-                return;
-        }
-        setFacturaData(data);
-        setMostrarModal(false);
-        setMostrarVistaPrevia(true);
-        return;
-      }
+  const rfcXml = String(data?.emisor?.rfc ?? "").trim().toUpperCase();
+
+  // 2) Tomar ids de proveedor de tus filas batchAsociaciones (ya las armas arriba)
+  const proveedorIds = Array.from(
+    new Set(batchAsociaciones.map((x) => String(x.id_proveedor)).filter(Boolean))
+  );
+
+  // 3) Llamar al back por cada proveedor y juntar RFCs
+  const rfcDBs = new Set<string>();
+
+  for (const idProv of proveedorIds) {
+    const dfs = await fetchDatosFiscalesProveedor(idProv);
+    // dfs son rows de proveedores_datos_fiscales (df.*)
+    for (const row of dfs) {
+      const r = String(row?.rfc ?? "").trim().toUpperCase();
+      if (r) rfcDBs.add(r);
+    }
+  }
+
+  // 4) Comparación: RFC XML debe existir en los RFCs de la(s) empresa(s) fiscal(es)
+  const coincideRfc = rfcDBs.has(rfcXml);
+
+  if (!coincideRfc) {
+    confirm(
+      `No hubo coincidencia de RFC.\nRFC XML(emisor): ${rfcXml}\nRFCs en DB: ${Array.from(rfcDBs).join(", ")}`
+    );
+    return;
+  }
+
+  // 5) Tu validación de montos sigue igual
+  const totalXml = Number(data?.comprobante?.total ?? 0);
+  if (totalXml < batchTotalAsociar) {
+    confirm(`No pueden ser esos montos`);
+    return;
+  }
+
+  // 6) Continúas flujo normal
+  setFacturaData(data);
+  setMostrarModal(false);
+  setMostrarVistaPrevia(true);
+  return;
+}
+
+
+      
 
       // 2) Cargar empresas del cliente / proveedor (single) si no están cargadas
       if (empresasAgente.length === 0 && clienteSeleccionado?.id_agente) {

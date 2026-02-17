@@ -1,188 +1,229 @@
-import React, { ButtonHTMLAttributes, AnchorHTMLAttributes } from "react";
+// components/atom/Button.tsx
+"use client";
+
+import React, { ButtonHTMLAttributes, AnchorHTMLAttributes, useMemo } from "react";
 import { Link } from "wouter";
 
-// Define la interfaz base para las propiedades comunes a ambos tipos
+// -----------------------------------------
+// Types
+// -----------------------------------------
+type Variant = "primary" | "secondary" | "ghost" | "warning" | "warning ghost";
+type Size = "sm" | "md" | "lg" | "full";
+
 interface CommonInteractiveElementProps {
   /**
    * Define el estilo visual del elemento.
    * 'primary': Elemento principal con el color blue-600.
    * 'secondary': Elemento secundario con un fondo gris claro.
    * 'ghost': Elemento transparente con texto blue-700 y borde transparente.
+   * 'warning': rojo
+   * 'warning ghost': texto neutro sin estilos (útil para icon-only)
    */
-  variant?: "primary" | "secondary" | "ghost" | "warning" | "warning ghost";
-  size?: "sm" | "md" | "lg" | "full";
-  /**
-   * Contenido del elemento (texto, otros elementos, etc.).
-   */
+  variant?: Variant;
+  size?: Size;
+
+  /** Contenido del elemento */
   children?: React.ReactNode;
-  /**
-   * Un elemento React (como un componente de icono SVG) para mostrar junto al texto.
-   */
+
+  /** Icono a renderizar (ej: lucide-react) */
   icon?: React.ElementType;
-  /**
-   * Clases adicionales de Tailwind CSS para personalizar el elemento.
-   */
+
+  /** Posición del icono */
+  iconPosition?: "left" | "right";
+
+  /** Estado loading (deshabilita y muestra spinner) */
+  loading?: boolean;
+
+  /** Clases extra */
   className?: string;
-  /**
-   * Indica si el elemento está deshabilitado.
-   */
+
+  /** Deshabilitado */
   disabled?: boolean;
 }
 
-// Interfaz para cuando el componente es un <button>
-type ButtonPropsWithoutChildren = Omit<
-  ButtonHTMLAttributes<HTMLButtonElement>,
-  "children"
->;
+// Button
+type ButtonPropsWithoutChildren = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children">;
 
 interface InteractiveElementAsButtonProps
   extends CommonInteractiveElementProps,
     ButtonPropsWithoutChildren {
-  as?: "button"; // Indica explícitamente que será un botón HTML
-  href?: never; // No debe tener href si es un botón
+  as?: "button";
+  href?: never;
 }
 
-// Interfaz para cuando el componente es un <Link> de Wouter
+// Link
 interface InteractiveElementAsLinkProps
   extends CommonInteractiveElementProps,
     Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "children"> {
-  as: "link"; // Indica explícitamente que será un enlace de Wouter
-  href: string; // Requiere href si es un enlace
+  as: "link";
+  href: string;
 }
 
-// Union de tipos para permitir ambos casos
-type InteractiveElementProps =
-  | InteractiveElementAsButtonProps
-  | InteractiveElementAsLinkProps;
+// Union
+type InteractiveElementProps = InteractiveElementAsButtonProps | InteractiveElementAsLinkProps;
 
-/**
- * Componente interactivo reutilizable con estilos primario, secundario y ghost.
- * Puede renderizarse como un botón HTML o un Link de Wouter.
- * Soporta la adición de íconos y es totalmente responsivo con Tailwind CSS.
- */
-const InteractiveElement: React.FC<InteractiveElementProps> = ({
-  variant = "primary", // Valor por defecto para el estilo
+// -----------------------------------------
+// Helpers
+// -----------------------------------------
+const cn = (...parts: Array<string | undefined | null | false>) => parts.filter(Boolean).join(" ");
+
+const Spinner: React.FC<{ size?: Size }> = ({ size = "md" }) => {
+  const s = size === "sm" ? "w-4 h-4" : "w-4 h-4";
+  return (
+    <span
+      className={cn(
+        "inline-block rounded-full border-2 border-current border-t-transparent animate-spin",
+        s
+      )}
+      aria-hidden="true"
+    />
+  );
+};
+
+// -----------------------------------------
+// Component
+// -----------------------------------------
+const Button: React.FC<InteractiveElementProps> = ({
+  variant = "primary",
+  size = "md",
   children,
   className = "",
-  size = "md",
   disabled,
-  as = "button", // Por defecto, será un botón HTML
+  loading = false,
+  as = "button",
   href,
+  icon,
+  iconPosition = "left",
   ...rest
 }) => {
-  // Clases base para todos los elementos interactivos
-  const baseClasses = `
-    flex items-center justify-center rounded-md
-    font-medium
-    transition-all duration-200 ease-in-out
-    focus:outline-none focus:ring-2 focus:ring-offset-2
-    whitespace-nowrap
-    ${
-      disabled &&
-      "opacity-70 cursor-not-allowed hover:bg-gray-50 hover:text-gray-600 text-gray-500"
-    }
-  `;
+  const isDisabled = !!disabled || !!loading;
 
-  const sizeClasses = {
-    sm: "text-xs px-2 py-1",
-    md: "text-sm px-4 py-2", // ya es tu base
-    lg: "text-base px-6 py-3",
-    full: "w-full text-base px-6 py-3",
+  // Base: más “pro”, consistente con tus tablas/modales (rounded-lg, focus ring, shadow sutil, active)
+  const baseClasses = cn(
+    "inline-flex items-center justify-center gap-2",
+    "rounded-lg font-medium",
+    "transition-all duration-200 ease-in-out",
+    "focus:outline-none focus:ring-2 focus:ring-offset-2",
+    "select-none whitespace-nowrap",
+    "shadow-sm hover:shadow",
+    "active:scale-[0.98]"
+  );
+
+  const sizeClasses: Record<Size, string> = {
+    sm: "h-8 px-3 text-xs",
+    md: "h-10 px-4 text-sm",
+    lg: "h-12 px-5 text-base",
+    full: "w-full h-12 px-6 text-base",
   };
 
-  // Clases específicas para cada variante
-  const variantClasses = {
-    primary: `
-      bg-blue-600 text-white
-      hover:bg-blue-700
-      focus:bg-blue-900
-      active:bg-blue-800
+  // Variantes con estados coherentes
+  const variantClasses: Record<Variant, string> = {
+    primary: cn(
+      "bg-blue-600 text-white border border-blue-600",
+      "hover:bg-blue-700 hover:border-blue-700",
+      "focus:ring-blue-200",
+      "active:bg-blue-800"
+    ),
 
+    secondary: cn(
+      "bg-white text-gray-900 border border-gray-200",
+      "hover:bg-gray-50",
+      "focus:ring-gray-200",
+      "active:bg-gray-100"
+    ),
 
-      border border-transparent
-    `,
-    secondary: `
-      bg-gray-200 text-gray-800
-      hover:bg-gray-300
-      focus:bg-gray-500
-      active:bg-gray-400
-      border border-transparent
-    `,
-    ghost: `
-      bg-transparent text-blue-700
-      hover:bg-blue-50 hover:text-blue-700
-      focus:bg-blue-100 focus:text-blue-800
-      border border-transparent
-      active:bg-blue-200
-      active:text-blue-800
-    `,
-    warning: `
-      bg-red-600 text-gray-50
-      hover:bg-red-700
-      focus:bg-red-900
-      border border-transparent
-      active:bg-red-800
-      active:text-gray-50
-    `,
-    "warning ghost": `
-      bg-transparent text-gray-700
-      hover:bg-transparent
-      focus:bg-transparent
-      focus:outline-none focus:ring-0 focus:ring-offset-0
-      border border-transparent
-      active:bg-transparent
-      active:text-gray-700
-    `,
+    ghost: cn(
+      "bg-transparent text-blue-700 border border-transparent",
+      "hover:bg-blue-50",
+      "focus:ring-blue-200",
+      "active:bg-blue-100"
+    ),
+
+    warning: cn(
+      "bg-red-600 text-white border border-red-600",
+      "hover:bg-red-700 hover:border-red-700",
+      "focus:ring-red-200",
+      "active:bg-red-800"
+    ),
+
+    // Útil para icon-only o acciones sin estilos (no ring, no bg)
+    "warning ghost": cn(
+      "bg-transparent text-gray-700 border border-transparent",
+      "hover:bg-transparent",
+      "focus:ring-0 focus:ring-offset-0",
+      "active:bg-transparent"
+    ),
   };
 
-  const combinedClasses = `${baseClasses} ${
-    disabled ? "" : variantClasses[variant]
-  } ${sizeClasses[size]} ${className} `;
+  const disabledClasses = cn(
+    "opacity-60 cursor-not-allowed",
+    // evita hover/active “raros”
+    "hover:shadow-sm active:scale-100"
+  );
 
-  // Contenido interno (ícono y texto)
+  const combinedClasses = useMemo(
+    () =>
+      cn(
+        baseClasses,
+        sizeClasses[size],
+        isDisabled ? disabledClasses : variantClasses[variant],
+        className
+      ),
+    [baseClasses, sizeClasses, size, isDisabled, disabledClasses, variantClasses, variant, className]
+  );
+
+  // Icono (si viene)
+  const Icon = icon as any;
+
   const content = (
     <>
-      {rest.icon && (
-        <span className={`${rest.icon && children && "mr-2"}`}>
-          {<rest.icon className="w-4 h-4" />}
+      {Icon && iconPosition === "left" && (
+        <span className="shrink-0">
+          <Icon className="w-4 h-4" aria-hidden="true" />
         </span>
       )}
-      {children}
+
+      {loading && <Spinner size={size} />}
+
+      {children != null && children !== "" && <span>{children}</span>}
+
+      {Icon && iconPosition === "right" && (
+        <span className="shrink-0">
+          <Icon className="w-4 h-4" aria-hidden="true" />
+        </span>
+      )}
     </>
   );
 
+  // ---------------- Link (wouter) ----------------
   if (as === "link") {
-    // Si 'as' es 'link', renderiza como un Link de Wouter
+    const linkProps = rest as AnchorHTMLAttributes<HTMLAnchorElement>;
+
     return (
       <Link
-        href={disabled ? "#" : (href as string)} // Si está deshabilitado, lo hacemos que no navegue
+        href={isDisabled ? "#" : (href as string)}
         className={combinedClasses}
         onClick={(e) => {
-          if (disabled) {
-            e.preventDefault(); // Previene la navegación si está deshabilitado
+          if (isDisabled) {
+            e.preventDefault();
+            return;
           }
-          // Si hay un onClick en `rest` (del AnchorHTMLAttributes), llámalo
-          if (rest.onClick && !disabled) {
-            (rest.onClick as React.MouseEventHandler<HTMLAnchorElement>)(e);
-          }
+          if (linkProps.onClick) linkProps.onClick(e);
         }}
-        {...(rest as AnchorHTMLAttributes<HTMLAnchorElement>)} // Asegura que se pasen las props correctas
+        {...linkProps}
       >
         {content}
       </Link>
     );
   }
 
-  // Por defecto, o si 'as' es 'button', renderiza como un botón HTML
+  // ---------------- Button ----------------
+  const btnProps = rest as ButtonHTMLAttributes<HTMLButtonElement>;
   return (
-    <button
-      className={`${combinedClasses} `}
-      disabled={disabled}
-      {...(rest as ButtonHTMLAttributes<HTMLButtonElement>)} // Asegura que se pasen las props correctas
-    >
+    <button className={combinedClasses} disabled={isDisabled} {...btnProps}>
       {content}
     </button>
   );
 };
 
-export default InteractiveElement;
+export default Button;

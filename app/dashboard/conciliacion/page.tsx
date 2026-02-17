@@ -4,9 +4,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Table5 } from "@/components/Table5";
 import { URL, API_KEY } from "@/lib/constants/index";
-import { Filter, X, Search, Maximize2 } from "lucide-react";
+import { Filter, X, Search } from "lucide-react";
+
+import Button from "@/components/atom/Button";
 import SubirFactura from "@/app/dashboard/facturacion/subirfacturas/SubirFactura";
-import ModalDetalle from "@/app/dashboard/conciliacion/compponents/detalles"
+import ModalDetalle from "@/app/dashboard/conciliacion/compponents/detalles";
 
 type AnyRow = Record<string, any>;
 
@@ -76,26 +78,18 @@ function getPagoStats(raw: any) {
 
   let solicitado = 0;
   let pagado = 0;
-  let conFecha = 0;
 
   for (const p of pagos) {
     solicitado += Number(p?.monto_solicitado ?? 0) || 0;
     pagado += Number(p?.monto_pagado ?? 0) || 0;
-    if (p?.fecha_pago) conFecha += 1;
   }
 
-  return {
-    count: pagos.length,
-    solicitado,
-    pagado,
-    conFecha,
-  };
+  return { count: pagos.length, solicitado, pagado };
 }
 
 function getEstatusPagoPayload(raw: any) {
   const estatusPayload = raw?.estatus_pagos ?? raw?.estatus_pago ?? "";
   const estadoSolicitud = raw?.solicitud_proveedor?.estado_solicitud ?? "";
-  const filtroPago = raw?.filtro_pago ?? "";
 
   const stats = getPagoStats(raw);
 
@@ -110,52 +104,41 @@ function getEstatusPagoPayload(raw: any) {
 
   return {
     label,
-    estatusPayload,
-    estadoSolicitud,
-    filtroPago,
     ...stats,
   };
 }
 
 function getTipoPago(raw: any): string {
-  const forma_pag = raw?.solicitud_proveedor?.forma_pago_solicitada ;
-  let final;
+  const forma_pag = raw?.solicitud_proveedor?.forma_pago_solicitada;
+  let final = "";
   switch (forma_pag) {
     case "card":
-      final = "TARJETA"
+      final = "TARJETA";
       break;
-      case "link":
-      final = "LINK_PAGO"
+    case "link":
+      final = "LINK_PAGO";
       break;
-      case "transfer":
-        final = "TRANSFERENCIA"
-      
+    case "transfer":
+      final = "TRANSFERENCIA";
       break;
-  
     default:
+      final = "";
       break;
   }
-  return (
-    final
-  );
+  return final;
 }
 
 type TipoReservaInferida = "PREPAGO" | "CREDITO" | "";
 
 function inferTipoReserva(raw: any): TipoReservaInferida {
+  const isRentaAuto = raw?.is_credito;
+  if (!isRentaAuto) return "PREPAGO";
+  return "CREDITO";
+}
 
-  const isRentaAuto = (raw?.is_credito);
-  if (!isRentaAuto) {return "PREPAGO"
-  }
-  else{
-      return "CREDITO"
-    }
-  };
-
-  function extractFacturasYPagosFromPFP(raw: any) {
+function extractFacturasYPagosFromPFP(raw: any) {
   const v = raw?.pagos_facturas_proveedores_json;
 
-  // Soporta array directo o string JSON
   const arr: any[] = Array.isArray(v)
     ? v
     : typeof v === "string"
@@ -181,16 +164,16 @@ function inferTipoReserva(raw: any): TipoReservaInferida {
   return { id_facturas, id_pagos };
 }
 
-
 type EstatusFacturaInferido = "FACTURADO" | "PARCIAL" | "SIN FACTURAR";
 
-function getEstatusFacturas(diferencia: any,costo_proveedor:any,baseFactura:any): EstatusFacturaInferido {
-  if (diferencia == 0)return "FACTURADO"; 
-
+function getEstatusFacturas(
+  diferencia: any,
+  costo_proveedor: any,
+  _baseFactura: any
+): EstatusFacturaInferido {
+  if (diferencia == 0) return "FACTURADO";
   if (diferencia == costo_proveedor) return "SIN FACTURAR";
-
-  if (diferencia !=costo_proveedor)return "PARCIAL";
-  
+  return "PARCIAL";
 }
 
 /**
@@ -198,19 +181,17 @@ function getEstatusFacturas(diferencia: any,costo_proveedor:any,baseFactura:any)
  */
 function toConciliacionRow(raw: any, index: number): AnyRow {
   const row_id = getRowId(raw, index);
-  
-  const id_solicitud_proveedor =
-  raw?.solicitud_proveedor?.id_solicitud_proveedor ??
-  raw?.id_solicitud_proveedor ??
-  null;
-  
-  const id_proveedor =
-  raw?.id_proveedor_resuelto ??
-  raw?.solicitud_proveedor?.id_proveedor ??
-  raw?.proveedor?.id_proveedor ??
-  null;
-  
 
+  const id_solicitud_proveedor =
+    raw?.solicitud_proveedor?.id_solicitud_proveedor ??
+    raw?.id_solicitud_proveedor ??
+    null;
+
+  const id_proveedor =
+    raw?.id_proveedor_resuelto ??
+    raw?.solicitud_proveedor?.id_proveedor ??
+    raw?.proveedor?.id_proveedor ??
+    null;
 
   const hotel = (raw?.hotel ?? "").toString();
   const viajero = (raw?.nombre_viajero_completo ?? raw?.nombre_viajero ?? "").toString();
@@ -230,23 +211,21 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
   const comentariosOps =
     raw?.solicitud_proveedor?.comentarios ?? raw?.comentarios_ops ?? "";
 
-    const estatusPagoObj = getEstatusPagoPayload(raw);
-    
-    const total_facturado =
+  const estatusPagoObj = getEstatusPagoPayload(raw);
+
+  const total_facturado =
     Number(raw?.total_facturado_en_pfp ?? raw?.total_facturado ?? 0) || 0;
-    
-    const total_factura = Number(raw?.monto_facturado ?? 0) || 0;
-    
-    const total_aplicable = raw?.total_aplicable ?? "";
-    const impuestos = raw?.impuestos ?? "";
-    const subtotal = raw?.subtotal ?? "";
-    
-    const baseFactura =
-    Number(total_aplicable) || total_facturado || total_factura || 0;
-    
-    const diferencia = Number((costo_proveedor - baseFactura).toFixed(2));
-    
-    const estatusFacturas = getEstatusFacturas(diferencia,costo_proveedor,baseFactura);
+
+  const total_factura = Number(raw?.monto_facturado ?? 0) || 0;
+
+  const total_aplicable = raw?.total_aplicable ?? "";
+  const impuestos = raw?.impuestos ?? "";
+  const subtotal = raw?.subtotal ?? "";
+
+  const baseFactura = Number(total_aplicable) || total_facturado || total_factura || 0;
+  const diferencia = Number((costo_proveedor - baseFactura).toFixed(2));
+
+  const estatusFacturas = getEstatusFacturas(diferencia, costo_proveedor, baseFactura);
 
   const tarjeta = raw?.tarjeta?.ultimos_4 ?? raw?.ultimos_4 ?? "";
 
@@ -256,15 +235,16 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
     raw?.razon_social ??
     "";
 
-  const rfc = raw.rfc_proveedor;
+  // ⚠️ Se mantiene en data para validaciones internas, pero ya NO se muestra como columna
+  const rfc = raw?.rfc_proveedor;
 
   const id_servicio = raw?.id_servicio ?? null;
 
-  const asociaciones = extractFacturasYPagosFromPFP(raw)
+  const asociaciones = extractFacturasYPagosFromPFP(raw);
 
   return {
     row_id,
-    seleccionar: row_id, // ✅ solo para que exista la columna
+    seleccionar: row_id,
 
     id_solicitud_proveedor,
     id_proveedor,
@@ -296,9 +276,9 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
     comentarios_ops: comentariosOps,
     comentarios_cxp: raw?.comentario_CXP ?? raw?.comentarios_cxp ?? "",
 
+    conciliacion: raw, // ✅ botón conciliación
     estatus_facturas: estatusFacturas,
     estatus_pago: estatusPagoObj.label ? estatusPagoObj.label.toUpperCase() : "",
-    __estatus_pago: estatusPagoObj,
 
     total_facturado,
     diferencia_costo_proveedor_vs_factura: diferencia,
@@ -306,26 +286,30 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
     uuid_factura: raw?.uuid_factura ?? null,
     total_factura,
 
-    detalles: raw,
     subir_factura: raw,
+    comprobante: raw, // ✅ botón subir comprobante (sin lógica)
 
     total_aplicable,
     impuestos,
     subtotal,
 
     razon_social,
+    rfc: rfc, // NO se muestra como columna
 
-    rfc:rfc,
+    item: {
+      id_solicitud_proveedor,
+      diferencia_costo_proveedor_vs_factura: diferencia,
+      asociaciones,
+      informacion_completa: raw,
+      id_proveedor,
+    },
 
-    item:{id_solicitud_proveedor,diferencia_costo_proveedor_vs_factura:diferencia,asociaciones,informacion_completa:raw,id_proveedor},
-    
     __raw: raw,
   };
 }
 
+// ✅ Solo quedan editables estos:
 type EditableField =
-  | "canal_de_reservacion"
-  | "nombre_intermediario"
   | "comentarios_ops"
   | "comentarios_cxp"
   | "total_aplicable"
@@ -335,8 +319,6 @@ type EditableField =
 const MONEY_FIELDS: EditableField[] = ["total_aplicable", "impuestos", "subtotal"];
 
 const FIELD_TO_API: Record<string, string> = {
-  canal_de_reservacion: "canal_de_reservacion",
-  nombre_intermediario: "nombre_intermediario",
   comentarios_ops: "comentarios_ops",
   comentarios_cxp: "comentarios_cxp",
   total_aplicable: "total_aplicable",
@@ -355,6 +337,14 @@ type EditModalState = {
 type ProveedorSeleccionado = {
   id_solicitud: string;
   id_proveedor: string;
+};
+
+// ✅ Modal “Subir comprobante” sin lógica
+type ComprobanteModalState = {
+  open: boolean;
+  row: AnyRow | null;
+  file: File | null;
+  nota: string;
 };
 
 export default function ConciliacionPage() {
@@ -378,6 +368,8 @@ export default function ConciliacionPage() {
   const editEndpoint = `${URL}/mia/pago_proveedor/edit`;
 
   const [selectedRfc, setSelectedRfc] = useState<string>("");
+
+  // ✅ Conciliación (tu lógica: abre ModalDetalle)
   const [detalleOpen, setDetalleOpen] = useState(false);
   const [detalleSolicitud, setDetalleSolicitud] = useState<any | null>(null);
 
@@ -391,10 +383,25 @@ export default function ConciliacionPage() {
     setDetalleSolicitud(null);
   }, []);
 
-
   const closeSubirFactura = useCallback(() => {
     setShowSubirFactura(false);
     setSelectedForFactura([]);
+  }, []);
+
+  // ✅ Modal comprobante (sin lógica)
+  const [comprobanteModal, setComprobanteModal] = useState<ComprobanteModalState>({
+    open: false,
+    row: null,
+    file: null,
+    nota: "",
+  });
+
+  const openComprobanteModal = useCallback((row: AnyRow) => {
+    setComprobanteModal({ open: true, row, file: null, nota: "" });
+  }, []);
+
+  const closeComprobanteModal = useCallback(() => {
+    setComprobanteModal({ open: false, row: null, file: null, nota: "" });
   }, []);
 
   // ✅ FETCH
@@ -435,33 +442,27 @@ export default function ConciliacionPage() {
   /**
    * ✅ KEY estable para selección/edición
    */
-const getSelectionKey = (rowOrValue: any, index?: number) => {
-  // ✅ si Table5 manda directamente el string id en value
-  if (typeof rowOrValue === "string" || typeof rowOrValue === "number") {
-    const s = String(rowOrValue).trim();
-    if (s !== "" && s !== "undefined" && s !== "null") return s;
-  }
+  const getSelectionKey = (rowOrValue: any, index?: number) => {
+    if (typeof rowOrValue === "string" || typeof rowOrValue === "number") {
+      const s = String(rowOrValue).trim();
+      if (s !== "" && s !== "undefined" && s !== "null") return s;
+    }
 
+    const row = rowOrValue && typeof rowOrValue === "object" ? rowOrValue : null;
 
-  // ✅ si Table5 manda el row completo (objeto)
-  const row = rowOrValue && typeof rowOrValue === "object" ? rowOrValue : null;
+    const id =
+      row?.id_solicitud_proveedor ??
+      row?.row_id ??
+      row?.__raw?.solicitud_proveedor?.id_solicitud_proveedor ??
+      null;
 
-  const id =
-    row?.id_solicitud_proveedor ??
-    row?.row_id ??
-    row?.__raw?.solicitud_proveedor?.id_solicitud_proveedor ??
-    null;
+    const clean = id != null ? String(id).trim() : "";
+    if (clean !== "" && clean !== "undefined" && clean !== "null") return clean;
 
-  const clean = id != null ? String(id).trim() : "";
+    return String(index ?? "");
+  };
 
-  if (clean !== "" && clean !== "undefined" && clean !== "null") return clean;
-
-  // ✅ fallback: index (para que NUNCA quede vacío)
-  return String(index ?? "");
-};
-
-
-  // ---- Modal de edición ----
+  // ---- Modal de edición (solo comentarios y totales) ----
   const [editModal, setEditModal] = useState<EditModalState>({
     open: false,
     rowId: "",
@@ -489,6 +490,7 @@ const getSelectionKey = (rowOrValue: any, index?: number) => {
 
   const handleEdit = useCallback(
     async (rowIdSolicitudProveedor: string, field: EditableField, value: any) => {
+      // draft UI
       setDraftEdits((prev) => ({
         ...prev,
         [rowIdSolicitudProveedor]: {
@@ -563,43 +565,42 @@ const getSelectionKey = (rowOrValue: any, index?: number) => {
 
     return filteredItems.map((raw, i) => toConciliacionRow(raw, i));
   }, [todos, searchTerm]);
-  
-  // ---------------- RFC VALIDATION ----------------
-const normRfc = (v: any) => String(v ?? "").trim().toUpperCase();
 
+  // ---------------- RFC VALIDATION (se mantiene para selección/bulk) ----------------
+  const normRfc = (v: any) => String(v ?? "").trim().toUpperCase();
 
+  const rfcByKey = useMemo(() => {
+    const m = new Map<string, string>();
+    (filteredData || []).forEach((row: AnyRow, index: number) => {
+      const key = getSelectionKey(row, index);
+      const rfc = normRfc(row?.rfc ?? row?.__raw?.rfc_proveedor ?? "");
+      m.set(key, rfc);
+    });
+    return m;
+  }, [filteredData]);
 
-// Mapa rápido: selectionKey -> RFC
-const rfcByKey = useMemo(() => {
-  const m = new Map<string, string>();
-  (filteredData || []).forEach((row: AnyRow, index: number) => {
-    const key = getSelectionKey(row, index);
-    const rfc = normRfc(row?.rfc ?? row?.__raw?.rfc_proveedor ?? "");
-    m.set(key, rfc);
-  });
-  return m;
-}, [filteredData]);
+  const getSelectedRfcInfo = useCallback(
+    (map: Record<string, boolean>) => {
+      const set = new Set<string>();
 
-const getSelectedRfcInfo = useCallback(
-  (map: Record<string, boolean>) => {
-    const set = new Set<string>();
+      for (const [key, isSelected] of Object.entries(map)) {
+        if (!isSelected) continue;
+        const rfc = normRfc(rfcByKey.get(key) ?? "");
+        if (rfc) set.add(rfc);
+        if (set.size > 1) break;
+      }
 
-    for (const [key, isSelected] of Object.entries(map)) {
-      if (!isSelected) continue;
-      const rfc = normRfc(rfcByKey.get(key) ?? "");
-      if (rfc) set.add(rfc);
-      if (set.size > 1) break;
-    }
+      const list = Array.from(set);
+      return {
+        ok: list.length <= 1,
+        rfc: list[0] ?? "",
+        rfcs: list,
+      };
+    },
+    [rfcByKey]
+  );
 
-    const list = Array.from(set);
-    return {
-      ok: list.length <= 1,
-      rfc: list[0] ?? "",
-      rfcs: list,
-    };
-  },
-  [rfcByKey]
-);
+  // ✅ Columnas (RFC quitado)
   const customColumns = useMemo(
     () => [
       "seleccionar",
@@ -614,84 +615,76 @@ const getSelectedRfcInfo = useCallback(
       "costo_proveedor",
       "markup",
       "precio_de_venta",
-      "canal_de_reservacion",
-      "nombre_intermediario",
+      "canal_de_reservacion",     // se muestra, pero ya NO se edita
+      "nombre_intermediario",     // se muestra, pero ya NO se edita
       "tipo_de_reserva",
       "tipo_de_pago",
       "tarjeta",
       "id_enviado",
       "comentarios_ops",
       "comentarios_cxp",
-      "detalles",
+      "conciliacion",             // ✅ botón conciliación con tu lógica (ModalDetalle)
       "estatus_facturas",
       "estatus_pago",
       "total_facturado",
       "diferencia_costo_proveedor_vs_factura",
       "subir_factura",
+      "comprobante",              // ✅ botón subir comprobante (modal sin lógica)
       "total_factura",
       "razon_social",
-      "rfc",
     ],
     []
   );
 
-  // ✅ MAP de seleccion
+  // ✅ selección
   const [selectedMap, setSelectedMap] = useState<Record<string, boolean>>({});
 
   const selectedIds = useMemo(() => {
     return Object.keys(selectedMap).filter((k) => selectedMap[k]);
   }, [selectedMap]);
 
-const selectedRows = useMemo(() => {
-  return filteredData.filter((r: AnyRow, index: number) => {
-    const key = getSelectionKey(r, index);
-    if (!key) return false;
+  const selectedRows = useMemo(() => {
+    return filteredData.filter((r: AnyRow, index: number) => {
+      const key = getSelectionKey(r, index);
+      if (!key) return false;
 
-    const diff = Number(r?.diferencia_costo_proveedor_vs_factura ?? 0) || 0;
-    if (isZero(diff)) return false; // ✅ NO seleccionables
+      const diff = Number(r?.diferencia_costo_proveedor_vs_factura ?? 0) || 0;
+      if (isZero(diff)) return false;
 
-    return !!selectedMap[key];
-  });
-}, [filteredData, selectedMap]);
+      return !!selectedMap[key];
+    });
+  }, [filteredData, selectedMap]);
 
   const clearSelection = useCallback(() => {
     setSelectedMap({});
   }, []);
 
-const selectAllFiltered = useCallback(() => {
-  setSelectedMap((prev) => {
-    const next = { ...prev };
+  const selectAllFiltered = useCallback(() => {
+    setSelectedMap((prev) => {
+      const next = { ...prev };
 
-    const current = getSelectedRfcInfo(prev);
-    let baseRfc = current.rfc;
+      const current = getSelectedRfcInfo(prev);
+      let baseRfc = current.rfc;
 
-    // Si no hay selección aún, tomamos el primer RFC válido del filtro
-    if (!baseRfc) {
-      const firstWithRfc = filteredData.find((r: AnyRow) => normRfc(r?.rfc));
-      baseRfc = normRfc(firstWithRfc?.rfc ?? "");
-    }
+      if (!baseRfc) {
+        const firstWithRfc = filteredData.find((r: AnyRow) => normRfc(r?.rfc));
+        baseRfc = normRfc(firstWithRfc?.rfc ?? "");
+      }
 
-    // Si aún no hay RFC (todo vacío), solo selecciona los que también estén vacíos
-    filteredData.forEach((r: AnyRow, index: number) => {
-  const diff = Number(r?.diferencia_costo_proveedor_vs_factura ?? 0) || 0;
-  if (isZero(diff)) return; // ✅ saltar fila si diff = 0
+      filteredData.forEach((r: AnyRow, index: number) => {
+        const diff = Number(r?.diferencia_costo_proveedor_vs_factura ?? 0) || 0;
+        if (isZero(diff)) return;
 
-  const key = getSelectionKey(r, index);
-  const rowRfc = normRfc(r?.rfc ?? "");
+        const key = getSelectionKey(r, index);
+        const rowRfc = normRfc(r?.rfc ?? "");
 
-  const ok =
-    baseRfc
-      ? rowRfc === baseRfc
-      : !rowRfc;
+        const ok = baseRfc ? rowRfc === baseRfc : !rowRfc;
+        if (ok) next[key] = true;
+      });
 
-  if (ok) next[key] = true;
+      return next;
     });
-
-
-    return next;
-  });
-}, [filteredData, getSelectedRfcInfo]);
-
+  }, [filteredData, getSelectedRfcInfo]);
 
   const selectedProveedorData = useMemo(() => {
     const arr = selectedRows
@@ -745,48 +738,18 @@ const selectAllFiltered = useCallback(() => {
         );
       },
 
-      canal_de_reservacion: ({ value, item }) => {
-        const rowId = getSelectionKey(item); // ✅ FIX
-        const v = draftEdits[rowId]?.canal_de_reservacion ?? value ?? "";
-
-        return (
-          <div className="flex items-center gap-2">
-            <span className="text-xs">{String(v || "—").toUpperCase()}</span>
-            <button
-              type="button"
-              className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 bg-white hover:bg-gray-50"
-              title="Editar"
-              onClick={() => openEditModal(rowId, item?.id_servicio, "canal_de_reservacion", v)}
-            >
-              <Maximize2 className="w-4 h-4 text-gray-600" />
-            </button>
-          </div>
-        );
-      },
-
-      nombre_intermediario: ({ value, item }) => {
-        const rowId = getSelectionKey(item); // ✅ FIX
-        const v = draftEdits[rowId]?.nombre_intermediario ?? value ?? "";
-
-        return (
-          <div className="flex items-center gap-2">
-            <span className="text-xs" title={String(v ?? "")}>
-              {truncateText(v, 30)}
-            </span>
-            <button
-              type="button"
-              className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 bg-white hover:bg-gray-50"
-              title="Editar"
-              onClick={() => openEditModal(rowId, item?.id_servicio, "nombre_intermediario", v)}
-            >
-              <Maximize2 className="w-4 h-4 text-gray-600" />
-            </button>
-          </div>
-        );
-      },
+      // ✅ YA NO EDITABLES: solo texto
+      canal_de_reservacion: ({ value }) => (
+        <span className="text-xs">{String(value ?? "—").toUpperCase()}</span>
+      ),
+      nombre_intermediario: ({ value }) => (
+        <span className="text-xs" title={String(value ?? "")}>
+          {truncateText(value, 30)}
+        </span>
+      ),
 
       comentarios_ops: ({ value, item }) => {
-        const rowId = getSelectionKey(item); // ✅ FIX
+        const rowId = getSelectionKey(item);
         const v = draftEdits[rowId]?.comentarios_ops ?? value ?? "";
 
         return (
@@ -794,20 +757,20 @@ const selectAllFiltered = useCallback(() => {
             <span className="text-xs" title={String(v ?? "")}>
               {truncateText(v, 26)}
             </span>
-            <button
-              type="button"
-              className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 bg-white hover:bg-gray-50"
-              title="Editar"
+            <Button
+              variant="secondary"
+              size="sm"
+              className="w-8 h-8 px-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-700"
               onClick={() => openEditModal(rowId, item?.id_servicio, "comentarios_ops", v)}
             >
-              <Maximize2 className="w-4 h-4 text-gray-600" />
-            </button>
+              …
+            </Button>
           </div>
         );
       },
 
       comentarios_cxp: ({ value, item }) => {
-        const rowId = getSelectionKey(item); // ✅ FIX
+        const rowId = getSelectionKey(item);
         const v = draftEdits[rowId]?.comentarios_cxp ?? value ?? "";
 
         return (
@@ -815,32 +778,23 @@ const selectAllFiltered = useCallback(() => {
             <span className="text-xs" title={String(v ?? "")}>
               {truncateText(v, 26)}
             </span>
-            <button
-              type="button"
-              className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 bg-white hover:bg-gray-50"
-              title="Editar"
+            <Button
+              variant="secondary"
+              size="sm"
+              className="w-8 h-8 px-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-700"
               onClick={() => openEditModal(rowId, item?.id_servicio, "comentarios_cxp", v)}
             >
-              <Maximize2 className="w-4 h-4 text-gray-600" />
-            </button>
+              …
+            </Button>
           </div>
         );
       },
 
-      // ✅ SELECCIÓN CORRECTA (NO MARCA TODOS)
       seleccionar: ({ value, item, index }) => {
         const diff = Number(item?.diferencia_costo_proveedor_vs_factura ?? 0) || 0;
+        if (isZero(diff)) return <div className="w-4 h-4" />;
 
-        // ✅ si ya está conciliado, no permitimos selección
-        if (isZero(diff)) {
-          return <div className="w-4 h-4" />; // (espacio vacío)
-        }
-
-        const key = getSelectionKey(
-          item && typeof item === "object" ? item : value,
-          index
-        );
-
+        const key = getSelectionKey(item && typeof item === "object" ? item : value, index);
         const checked = !!selectedMap[key];
 
         return (
@@ -875,11 +829,6 @@ const selectAllFiltered = useCallback(() => {
                     return prev;
                   }
 
-                  if (!current.ok) {
-                    alert(`Tienes seleccionados con RFC mezclado: ${current.rfcs.join(", ")}`);
-                    return prev;
-                  }
-
                   next[key] = true;
                   return next;
                 });
@@ -890,7 +839,7 @@ const selectAllFiltered = useCallback(() => {
       },
 
       total_aplicable: ({ value, item }) => {
-        const rowId = getSelectionKey(item); // ✅ FIX
+        const rowId = getSelectionKey(item);
         const v = draftEdits[rowId]?.total_aplicable ?? value ?? "";
 
         return (
@@ -898,20 +847,20 @@ const selectAllFiltered = useCallback(() => {
             <span className="text-xs" title={String(v ?? "")}>
               {v === "" || v === null || typeof v === "undefined" ? "—" : formatMoney(v)}
             </span>
-            <button
-              type="button"
-              className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 bg-white hover:bg-gray-50"
-              title="Editar"
+            <Button
+              variant="secondary"
+              size="sm"
+              className="w-8 h-8 px-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-700"
               onClick={() => openEditModal(rowId, item?.id_servicio, "total_aplicable", v)}
             >
-              <Maximize2 className="w-4 h-4 text-gray-600" />
-            </button>
+              …
+            </Button>
           </div>
         );
       },
 
       impuestos: ({ value, item }) => {
-        const rowId = getSelectionKey(item); // ✅ FIX
+        const rowId = getSelectionKey(item);
         const v = draftEdits[rowId]?.impuestos ?? value ?? "";
 
         return (
@@ -919,20 +868,20 @@ const selectAllFiltered = useCallback(() => {
             <span className="text-xs" title={String(v ?? "")}>
               {v === "" || v === null || typeof v === "undefined" ? "—" : formatMoney(v)}
             </span>
-            <button
-              type="button"
-              className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 bg-white hover:bg-gray-50"
-              title="Editar"
+            <Button
+              variant="secondary"
+              size="sm"
+              className="w-8 h-8 px-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-700"
               onClick={() => openEditModal(rowId, item?.id_servicio, "impuestos", v)}
             >
-              <Maximize2 className="w-4 h-4 text-gray-600" />
-            </button>
+              …
+            </Button>
           </div>
         );
       },
 
       subtotal: ({ value, item }) => {
-        const rowId = getSelectionKey(item); // ✅ FIX
+        const rowId = getSelectionKey(item);
         const v = draftEdits[rowId]?.subtotal ?? value ?? "";
 
         return (
@@ -940,70 +889,80 @@ const selectAllFiltered = useCallback(() => {
             <span className="text-xs" title={String(v ?? "")}>
               {v === "" || v === null || typeof v === "undefined" ? "—" : formatMoney(v)}
             </span>
-            <button
-              type="button"
-              className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 bg-white hover:bg-gray-50"
-              title="Editar"
+            <Button
+              variant="secondary"
+              size="sm"
+              className="w-8 h-8 px-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-700"
               onClick={() => openEditModal(rowId, item?.id_servicio, "subtotal", v)}
             >
-              <Maximize2 className="w-4 h-4 text-gray-600" />
-            </button>
+              …
+            </Button>
           </div>
         );
       },
 
-      detalles: ({ item }) => {
+      // ✅ BOTÓN CONCILIACIÓN (tu lógica): abre ModalDetalle
+      conciliacion: ({ item }) => {
         return (
-          <button
-            type="button"
-            className="px-2 py-1 rounded-md text-xs border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
-            onClick={() => openDetalle(item)} // ✅ abrimos modal
+          <Button
+            variant="secondary"
+            size="sm"
+            className="px-2 py-1 text-xs border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+            onClick={() => openDetalle(item)}
           >
-            Detalles
-          </button>
+            Conciliar
+          </Button>
         );
       },
 
-
-      // ✅ Subir 1 fila
+      // ✅ Subir 1 factura (misma lógica)
       subir_factura: ({ item }) => {
-  const diff = Number(item?.diferencia_costo_proveedor_vs_factura ?? 0) || 0;
+        const diff = Number(item?.diferencia_costo_proveedor_vs_factura ?? 0) || 0;
+        if (isZero(diff)) return <span className="text-xs text-gray-300">—</span>;
 
-  // ✅ si no hay diferencia, no se sube factura
-  if (isZero(diff)) {
-    return <span className="text-xs text-gray-300">—</span>;
-  }
+        return (
+          <Button
+            variant="secondary"
+            size="sm"
+            className="px-2 py-1 text-xs border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+            onClick={() => {
+              const payload = [
+                {
+                  id_solicitud: String(item?.id_solicitud_proveedor).trim(),
+                  id_proveedor: String(item?.id_proveedor ?? "").trim(),
+                },
+              ].filter(
+                (x) =>
+                  x.id_solicitud &&
+                  x.id_solicitud !== "null" &&
+                  x.id_solicitud !== "undefined" &&
+                  x.id_proveedor &&
+                  x.id_proveedor !== "null" &&
+                  x.id_proveedor !== "undefined"
+              );
 
-  return (
-    <button
-      type="button"
-      className="px-2 py-1 rounded-md text-xs border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-      onClick={() => {
-        const payload = [
-          {
-            id_solicitud: String(item?.id_solicitud_proveedor).trim(),
-            id_proveedor: String(item?.id_proveedor ?? "").trim(),
-          },
-        ].filter(
-          (x) =>
-            x.id_solicitud &&
-            x.id_solicitud !== "null" &&
-            x.id_solicitud !== "undefined" &&
-            x.id_proveedor &&
-            x.id_proveedor !== "null" &&
-            x.id_proveedor !== "undefined"
+              clearSelection(); // modo single-row
+              setSelectedForFactura(payload);
+              setShowSubirFactura(true);
+            }}
+          >
+            Subir factura
+          </Button>
         );
-        console.log("🚀 ABRIENDO MODAL SUBIR FACTURA (1 ROW):", payload);
+      },
 
-        // ✅ fuerza modo single-row
-        clearSelection();
-        setSelectedForFactura(payload);
-        setShowSubirFactura(true);
-      }}
-    >
-      Subir
-    </button>
-  );
+      // ✅ Botón “Subir comprobante” (modal sin lógica)
+      comprobante: ({ item }) => {
+        return (
+          <Button
+            variant="secondary"
+            size="sm"
+            className="px-2 py-1 text-xs border border-gray-200 bg-white text-gray-800 hover:bg-gray-50"
+            onClick={() => openComprobanteModal(item)}
+          >
+            Subir comprobante
+          </Button>
+        );
       },
 
       total_facturado: ({ value }) => <span title={String(value)}>{formatMoney(value)}</span>,
@@ -1013,7 +972,11 @@ const selectAllFiltered = useCallback(() => {
         return (
           <span
             className={
-              n === 0 ? "text-gray-700" : n > 0 ? "text-amber-700 font-semibold" : "text-red-700 font-semibold"
+              n === 0
+                ? "text-gray-700"
+                : n > 0
+                ? "text-amber-700 font-semibold"
+                : "text-red-700 font-semibold"
             }
             title={String(value)}
           >
@@ -1030,16 +993,24 @@ const selectAllFiltered = useCallback(() => {
 
       total_factura: ({ value }) => <span title={String(value)}>{formatMoney(value)}</span>,
     }),
-    [draftEdits, openEditModal, selectedMap,openDetalle ]
+    [
+      draftEdits,
+      openEditModal,
+      selectedMap,
+      openDetalle,
+      clearSelection,
+      rfcByKey,
+      getSelectedRfcInfo,
+      openComprobanteModal,
+    ]
   );
 
   const defaultSort = useMemo(() => ({ key: "creado", sort: false }), []);
 
   useEffect(() => {
-  const info = getSelectedRfcInfo(selectedMap);
-  setSelectedRfc(info.rfc || "");
-}, [selectedMap, getSelectedRfcInfo]);
-
+    const info = getSelectedRfcInfo(selectedMap);
+    setSelectedRfc(info.rfc || "");
+  }, [selectedMap, getSelectedRfcInfo]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -1060,23 +1031,25 @@ const selectAllFiltered = useCallback(() => {
             </div>
 
             <div className="flex items-center justify-end gap-2">
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="md"
+                className="border border-gray-200 bg-white hover:bg-gray-50 text-gray-800"
                 onClick={() => setFiltersOpen((s) => !s)}
-                className="inline-flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white hover:bg-gray-50"
               >
                 <Filter className="w-4 h-4" />
                 Filtros
-              </button>
+              </Button>
 
-              <button
-                type="button"
+              <Button
+                variant="secondary"
+                size="md"
+                className="border border-gray-200 bg-white hover:bg-gray-50 text-gray-800"
                 onClick={() => setSearchTerm("")}
-                className="inline-flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white hover:bg-gray-50"
               >
                 <X className="w-4 h-4" />
                 Limpiar
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -1134,53 +1107,54 @@ const selectAllFiltered = useCallback(() => {
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="md"
+              className="px-3 py-2 text-sm border border-gray-200 bg-white hover:bg-gray-50 text-gray-800"
               onClick={selectAllFiltered}
-              className="px-3 py-2 rounded-lg text-sm border border-gray-200 bg-white hover:bg-gray-50"
             >
               Seleccionar filtrados ({filteredData.length})
-            </button>
+            </Button>
 
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="md"
+              className="px-3 py-2 text-sm border border-gray-200 bg-white hover:bg-gray-50 text-gray-800"
               onClick={clearSelection}
-              className="px-3 py-2 rounded-lg text-sm border border-gray-200 bg-white hover:bg-gray-50"
             >
               Limpiar selección
-            </button>
+            </Button>
 
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="md"
               disabled={selectedRows.length === 0}
-onClick={() => {
-  const rfcs = Array.from(
-    new Set(
-      selectedRows
-        .map((r: AnyRow) => normRfc(r?.rfc))
-        .filter(Boolean)
-    )
-  );
-
-  if (rfcs.length > 1) {
-    alert(`No puedes subir facturas con RFC diferente.\nRFCs: ${rfcs.join(", ")}`);
-    return;
-  }
-
-  console.log("🚀 ABRIENDO MODAL SUBIR FACTURA (BULK):", selectedRows);
-  setSelectedForFactura(selectedProveedorData);
-  setShowSubirFactura(true);
-}}
-
               className={[
-                "px-3 py-2 rounded-lg text-sm border",
+                "px-3 py-2 text-sm border",
                 selectedRows.length === 0
                   ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
                   : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
               ].join(" ")}
+              onClick={() => {
+                const rfcs = Array.from(
+                  new Set(
+                    selectedRows
+                      .map((r: AnyRow) => normRfc(r?.rfc))
+                      .filter(Boolean)
+                  )
+                );
+
+                if (rfcs.length > 1) {
+                  alert(`No puedes subir facturas con RFC diferente.\nRFCs: ${rfcs.join(", ")}`);
+                  return;
+                }
+
+                setSelectedForFactura(selectedProveedorData);
+                setShowSubirFactura(true);
+              }}
             >
               Subir factura ({selectedRows.length})
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -1210,44 +1184,30 @@ onClick={() => {
                 <div>
                   <p className="text-sm font-semibold text-gray-900">Editar campo</p>
                   <p className="text-xs text-gray-500">
-                    Row (id_solicitud_proveedor): {editModal.rowId}{" "}
-                    {String(editModal.idServicio ?? "—")}
+                    id_solicitud_proveedor: {editModal.rowId}
                   </p>
                   <p className="text-xs text-gray-500">Campo: {editModal.field}</p>
                 </div>
 
-                <button
-                  type="button"
-                  className="inline-flex items-center justify-center w-9 h-9 rounded-md border border-gray-200 bg-white hover:bg-gray-50"
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="w-9 h-9 border border-gray-200 bg-white hover:bg-gray-50 text-gray-700"
                   onClick={closeEditModal}
-                  title="Cerrar"
                 >
-                  <X className="w-4 h-4 text-gray-700" />
-                </button>
+                  <X className="w-4 h-4" />
+                </Button>
               </div>
 
               <div className="p-4">
-                {editModal.field === "canal_de_reservacion" ? (
-                  <select
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white"
-                    value={editModal.value}
-                    onChange={(e) => setEditModal((s) => ({ ...s, value: e.target.value }))}
-                  >
-                    <option value="">—</option>
-                    <option value="DIRECTO">DIRECTO</option>
-                    <option value="INTERMEDIARIO">INTERMEDIARIO</option>
-                  </select>
-                ) : editModal.field === "comentarios_ops" ||
-                  editModal.field === "comentarios_cxp" ? (
+                {editModal.field === "comentarios_ops" || editModal.field === "comentarios_cxp" ? (
                   <textarea
                     className="w-full min-h-[180px] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
                     value={editModal.value}
                     onChange={(e) => setEditModal((s) => ({ ...s, value: e.target.value }))}
                     placeholder="Escribe el texto completo..."
                   />
-                ) : editModal.field === "total_aplicable" ||
-                  editModal.field === "impuestos" ||
-                  editModal.field === "subtotal" ? (
+                ) : (
                   <input
                     type="number"
                     step="0.01"
@@ -1256,31 +1216,110 @@ onClick={() => {
                     onChange={(e) => setEditModal((s) => ({ ...s, value: e.target.value }))}
                     placeholder="0.00"
                   />
-                ) : (
-                  <input
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
-                    value={editModal.value}
-                    onChange={(e) => setEditModal((s) => ({ ...s, value: e.target.value }))}
-                    placeholder="Escribe..."
-                  />
                 )}
 
                 <div className="mt-3 flex items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    className="px-3 py-2 rounded-lg text-sm border border-gray-200 bg-white hover:bg-gray-50"
+                  <Button
+                    variant="secondary"
+                    size="md"
+                    className="px-3 py-2 text-sm border border-gray-200 bg-white hover:bg-gray-50 text-gray-800"
                     onClick={closeEditModal}
                   >
                     Cancelar
-                  </button>
+                  </Button>
 
-                  <button
-                    type="button"
-                    className="px-3 py-2 rounded-lg text-sm border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                  <Button
+                    variant="secondary"
+                    size="md"
+                    className="px-3 py-2 text-sm border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
                     onClick={() => void saveEditModal()}
                   >
                     Cambiar
-                  </button>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL SUBIR COMPROBANTE (SIN LÓGICA) */}
+        {comprobanteModal.open && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/40" onClick={closeComprobanteModal} />
+
+            <div
+              className="relative z-10 w-[min(520px,92vw)] bg-white rounded-xl shadow-lg border border-gray-200"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">Subir comprobante</p>
+                  <p className="text-xs text-gray-500">
+                    Solicitud: {String(comprobanteModal.row?.id_solicitud_proveedor ?? "—")}
+                  </p>
+                </div>
+
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="w-9 h-9 border border-gray-200 bg-white hover:bg-gray-50 text-gray-700"
+                  onClick={closeComprobanteModal}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+
+              <div className="p-4 space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Archivo (PDF / imagen)
+                  </label>
+                  <input
+                    type="file"
+                    className="w-full text-sm"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0] ?? null;
+                      setComprobanteModal((s) => ({ ...s, file: f }));
+                    }}
+                  />
+                  <p className="text-[11px] text-gray-500 mt-1">
+                    (Sin lógica: este modal solo captura el archivo y cierra.)
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Nota</label>
+                  <textarea
+                    className="w-full min-h-[90px] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
+                    value={comprobanteModal.nota}
+                    onChange={(e) =>
+                      setComprobanteModal((s) => ({ ...s, nota: e.target.value }))
+                    }
+                    placeholder="Opcional..."
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2">
+                  <Button
+                    variant="secondary"
+                    size="md"
+                    className="px-3 py-2 text-sm border border-gray-200 bg-white hover:bg-gray-50 text-gray-800"
+                    onClick={closeComprobanteModal}
+                  >
+                    Cancelar
+                  </Button>
+
+                  <Button
+                    variant="secondary"
+                    size="md"
+                    className="px-3 py-2 text-sm border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                    onClick={() => {
+                      // ✅ sin lógica: solo cerrar
+                      closeComprobanteModal();
+                    }}
+                  >
+                    Guardar
+                  </Button>
                 </div>
               </div>
             </div>
@@ -1293,14 +1332,19 @@ onClick={() => {
             <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
               <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
                 <h2 className="text-xl font-bold text-gray-800"></h2>
-                <button onClick={closeSubirFactura} className="text-gray-500 hover:text-gray-700">
-                  <X className="w-6 h-6" />
-                </button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="w-10 h-10 border border-gray-200 bg-white hover:bg-gray-50 text-gray-700"
+                  onClick={closeSubirFactura}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
               </div>
 
               <div className="p-6">
                 <SubirFactura
-                  proveedoresData={selectedRows.length==0? selectedForFactura:selectedRows} // ✅ array [{id_solicitud,id_proveedor}]
+                  proveedoresData={selectedRows.length == 0 ? selectedForFactura : selectedRows}
                   id_proveedor={selectedRows.length === 1 ? selectedRows[0]?.id_proveedor : undefined}
                   proveedoresRfc={selectedRfc}
                   autoOpen={true}
@@ -1313,14 +1357,11 @@ onClick={() => {
             </div>
           </div>
         )}
-        {detalleOpen && (
-          <ModalDetalle solicitud={detalleSolicitud} onClose={closeDetalle} />
-        )}
 
+        {/* ✅ Conciliación (tu modal) */}
+        {detalleOpen && <ModalDetalle solicitud={detalleSolicitud} onClose={closeDetalle} />}
 
-        {isLoading && (
-          <div className="text-sm text-gray-500 px-2">Cargando información...</div>
-        )}
+        {isLoading && <div className="text-sm text-gray-500 px-2">Cargando información...</div>}
       </div>
     </div>
   );
