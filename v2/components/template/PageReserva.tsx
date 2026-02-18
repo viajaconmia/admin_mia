@@ -33,6 +33,7 @@ import {
 import {
   DollarSign,
   Download,
+  ExternalLink,
   Pencil,
   Plus,
   RefreshCwIcon,
@@ -43,6 +44,7 @@ import CrearReserva from "./CrearReserva";
 import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
 import { useFile } from "@/hooks/useFile";
+import Link from "next/link";
 
 const PageReservas = ({ agente }: { agente?: Agente }) => {
   const [loading, setLoading] = useState(false);
@@ -299,6 +301,13 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
 
   return (
     <>
+      <Link
+        href={"/dashboard/reservasold"}
+        className="p-3 py-2 border shadow-md bg-blue rounded-md flex gap-2 bg-blue-600 w-fit text-white"
+      >
+        <ExternalLink className="w-5 h-5"></ExternalLink>
+        Ir a la pagina anterior de reservas
+      </Link>
       <div className="grid md:grid-cols-2 gap-4 p-4 pb-0">
         <Dropdown label="Filtros" onClose={() => handleFetchSolicitudes()}>
           <div className="w-full p-8 grid md:grid-cols-4 gap-4">
