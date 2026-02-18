@@ -150,21 +150,9 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     },
     creado: ({ value }) => <>{formatDate(value)}</>,
     proveedor: ({ value }: { value: string }) => (
-      <Tooltip content={value}>
-        {(value || "").slice(0, 20)}
-        {(value || "").length >= 20 && (
-          <span className="font-semibold text-sm">. . .</span>
-        )}
-      </Tooltip>
+      <Tooltip content={value}>{value || ""}</Tooltip>
     ),
-    codigo: ({ value }) => (
-      <Tooltip content={value}>
-        {(value || "").slice(0, 15)}
-        {(value || "").length >= 15 && (
-          <span className="font-semibold text-sm">. . .</span>
-        )}
-      </Tooltip>
-    ),
+    codigo: ({ value }) => <Tooltip content={value}>{value || ""}</Tooltip>,
     markup: ({ value }) => <MarginPercent value={value} />,
     viajero: ({ value }) => <>{value}</>,
     check_in: ({ value }) => <>{formatDate(value)}</>,
@@ -309,7 +297,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
         Ir a la pagina antigua de reservas
       </Link>
       <div className="grid md:grid-cols-2 gap-4 p-4 pb-0">
-        <Dropdown label="Filtros" onClose={() => handleFetchSolicitudes()}>
+        <Dropdown label="Filtros" onConfirm={handleFetchSolicitudes}>
           <div className="w-full p-8 grid md:grid-cols-4 gap-4">
             <FilterInput
               type="text"
