@@ -306,7 +306,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
         className="p-3 py-2 border shadow-md bg-blue rounded-md flex gap-2 bg-blue-600 w-fit text-white"
       >
         <ExternalLink className="w-5 h-5"></ExternalLink>
-        Ir a la pagina anterior de reservas
+        Ir a la pagina antigua de reservas
       </Link>
       <div className="grid md:grid-cols-2 gap-4 p-4 pb-0">
         <Dropdown label="Filtros" onClose={() => handleFetchSolicitudes()}>
