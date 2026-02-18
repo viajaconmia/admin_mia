@@ -1025,6 +1025,22 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
                 <div className="grid md:grid-cols-3 gap-4">
                   <div className="flex flex-col gap-2">
                     <CheckboxInput
+                      label="Articulo personal"
+                      checked={vuelo.is_eq_personal}
+                      onChange={(checked) =>
+                        handleUpdateVuelo(index, "is_eq_personal", checked)
+                      }
+                    />
+                    <TextInput
+                      value={vuelo.eq_personal}
+                      disabled={!vuelo.is_eq_personal}
+                      onChange={function (value: string): void {
+                        handleUpdateVuelo(index, "eq_personal", value);
+                      }}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <CheckboxInput
                       label="Equipaje de mano"
                       checked={vuelo.is_eq_mano}
                       onChange={(checked) =>
@@ -1036,22 +1052,6 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
                       disabled={!vuelo.is_eq_mano}
                       onChange={function (value: string): void {
                         handleUpdateVuelo(index, "eq_mano", value);
-                      }}
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <CheckboxInput
-                      label="Equipaje personal"
-                      checked={vuelo.is_eq_personal}
-                      onChange={(checked) =>
-                        handleUpdateVuelo(index, "is_eq_personal", checked)
-                      }
-                    />
-                    <TextInput
-                      value={vuelo.eq_personal}
-                      disabled={!vuelo.is_eq_personal}
-                      onChange={function (value: string): void {
-                        handleUpdateVuelo(index, "eq_personal", value);
                       }}
                     />
                   </div>
