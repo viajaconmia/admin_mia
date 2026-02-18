@@ -7,17 +7,19 @@ import {
   Send,
   Download,
   QrCode,
-  File,
-  Link,
+  File as FileIcon, // ✅ alias: evita choque con constructor nativo File
+  Link as LinkIcon,
   ArrowLeftRight,
   Ticket,
   X,
 } from "lucide-react";
+
 import {
   generateSecureQRPaymentPDF,
   generateSecureToken,
   type QRPaymentData,
 } from "@/lib/qr-generator";
+
 import { Button } from "@/components/ui/button";
 import {
   CheckboxInput,
@@ -27,6 +29,7 @@ import {
   TextAreaInput,
   TextInput,
 } from "../../atom/Input";
+
 import ReservationDetails from "./ReservationDetails";
 import { useFetchCards, useFetchTitulares } from "@/hooks/useFetchCard";
 import { paymentReducer, getInitialState } from "./reducer";
@@ -34,6 +37,8 @@ import { fetchCreateSolicitud } from "@/services/pago_proveedor";
 import { Reserva, type ReservaHandle } from "./cupon";
 import { BookingAll } from "@/services/BookingService";
 import { updateRoom } from "@/lib/utils";
+
+import { useNotification } from "@/context/useNotificacion";
 
 type PaymentStatus =
   | "pagada"
@@ -80,17 +85,19 @@ function to2(n: number) {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 
-export const PaymentModal = ({
-  reservation,
-}: {
+type Props = {
   reservation: BookingAll | null;
-}) => {
+  onClose?: () => void; // ✅ para cerrar el modal desde el padre
+};
+
+export const PaymentModal = ({ reservation, onClose }: Props) => {
   const reservaRef = useRef<ReservaHandle>(null);
 
   const { data, fetchData } = useFetchCards();
   const { data: titularesData, fetchTitulares } = useFetchTitulares();
 
   const [isReservaOpen, setIsReservaOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [state, dispatch] = useReducer(paymentReducer, reservation, getInitialState);
 
@@ -112,6 +119,12 @@ export const PaymentModal = ({
 
   const [commentsCxp, setCommentsCxp] = useState<string>("");
   const [selectedTitularId, setSelectedTitularId] = useState<string>("");
+
+  const notificationCtx = useNotification(); // puede ser undefined si no hay Provider
+  const showNotification = (type: "success" | "error" | "info", message: string) => {
+    if (notificationCtx?.showNotification) notificationCtx.showNotification(type, message);
+    else alert(message); // fallback si no está envuelto en provider
+  };
 
   if (!reservation) return null;
 
@@ -143,7 +156,6 @@ export const PaymentModal = ({
       return [
         {
           ...rows[0],
-          // si está vacío, caemos a date/today
           date: rows[0].date || (date as string) || todayISO,
           amount: monto_a_pagar,
         },
@@ -202,7 +214,9 @@ export const PaymentModal = ({
     const sum = to2(normalized.reduce((acc, r) => acc + (r.monto || 0), 0));
     if (Math.abs(sum - monto_a_pagar) > 0.01) {
       throw new Error(
-        `La suma del calendario de pagos (${sum.toFixed(2)}) debe ser igual al monto a pagar (${monto_a_pagar.toFixed(2)}).`
+        `La suma del calendario de pagos (${sum.toFixed(
+          2
+        )}) debe ser igual al monto a pagar (${monto_a_pagar.toFixed(2)}).`
       );
     }
 
@@ -255,13 +269,20 @@ export const PaymentModal = ({
   }, [reservation]);
 
   const handleDownloadCoupon = async () => {
-    await reservaRef.current?.download();
+    try {
+      await reservaRef.current?.download();
+    } catch (e: any) {
+      showNotification("error", e?.message || "No se pudo descargar el cupón.");
+    }
   };
 
   const handleSendCoupon = async () => {
     try {
       if (!emails) throw new Error("Agrega al menos un correo.");
-      const list = emails.split(",").map((e) => e.trim()).filter(Boolean);
+      const list = emails
+        .split(",")
+        .map((e) => e.trim())
+        .filter(Boolean);
       if (list.length === 0) throw new Error("Formato de correos inválido.");
 
       const blob = await reservaRef.current?.getPdfBlob();
@@ -271,25 +292,49 @@ export const PaymentModal = ({
       fd.append("emails", JSON.stringify(list));
       fd.append("subject", `Cupón de reservación ${mappedReservation?.codigo_confirmacion ?? ""}`);
       fd.append("message", comments || "Adjuntamos su cupón de reservación en PDF.");
+
+      // ✅ usa constructor File nativo (ya no está “pisado” por lucide)
       fd.append(
         "file",
-        new File([blob], `cupon-${mappedReservation?.codigo_confirmacion ?? "reserva"}.pdf`, {
+        new window.File([blob], `cupon-${mappedReservation?.codigo_confirmacion ?? "reserva"}.pdf`, {
           type: "application/pdf",
         })
       );
 
       const resp = await fetch("/api/send-coupon", { method: "POST", body: fd });
-
       if (!resp.ok) {
         const t = await resp.text();
         throw new Error(t || "Error al enviar el correo.");
       }
 
-      alert("Cupón enviado correctamente.");
+      showNotification("success", "Cupón enviado correctamente.");
     } catch (err: any) {
-      alert(err?.message || "Error al enviar el cupón.");
+      showNotification("error", err?.message || "Error al enviar el cupón.");
       console.error(err);
     }
+  };
+
+  const downloadPdfSafely = (pdf: any, filename: string) => {
+    // más robusto que pdf.save() en algunos navegadores/bloqueos
+    try {
+      if (typeof pdf?.output === "function") {
+        const blob: Blob = pdf.output("blob");
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        return;
+      }
+    } catch (e) {
+      // fallback abajo
+    }
+
+    // fallback clásico
+    pdf?.save?.(filename);
   };
 
   const generateQRPaymentPDF = async () => {
@@ -339,10 +384,32 @@ export const PaymentModal = ({
     };
 
     const pdf = await generateSecureQRPaymentPDF(qrData);
-    pdf.save(`pago-proveedor-${reservation.codigo_confirmacion}.pdf`);
+    const filename = `pago-proveedor-${reservation.codigo_confirmacion}.pdf`;
+    downloadPdfSafely(pdf, filename);
+  };
+
+  const handleSolicitudResponse = (response: any) => {
+    if (response?.ok) {
+      showNotification(
+        "success",
+        `${response.message} (ID: ${response.id_solicitud_proveedor})`
+      );
+      dispatch({ type: "SET_FIELD", field: "error", payload: "" });
+
+      // ✅ cierra modal SOLO en éxito
+      onClose?.();
+      return true;
+    }
+
+    showNotification("error", response?.message || "No se pudo crear la solicitud.");
+    return false;
   };
 
   const handlePayment = async () => {
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
+
     try {
       const derivedStatus: PaymentStatus = computePaymentStatus({
         paymentType,
@@ -359,13 +426,13 @@ export const PaymentModal = ({
       // PREPAGO
       // --------------------
       if (paymentType === "prepaid") {
-        // ✅ card/link: schedule (fecha + monto)
+        // card/link: schedule (fecha + monto)
         if (paymentMethod === "card" || paymentMethod === "link") {
           paymentSchedulePayload = validateAndBuildSchedulePayload();
           effectiveDate = paymentSchedulePayload[0]?.fecha_pago || effectiveDate;
         }
 
-        // ✅ transfer: solo fecha estimada (1 pago)
+        // transfer: solo fecha estimada (1 pago)
         if (paymentMethod === "transfer") {
           if (!effectiveDate) throw new Error("Selecciona la fecha estimada.");
           paymentSchedulePayload = [{ fecha_pago: effectiveDate, monto: monto_a_pagar }];
@@ -373,7 +440,7 @@ export const PaymentModal = ({
       }
 
       // --------------------
-      // CRÉDITO (PORTADO del primer snippet)
+      // CRÉDITO
       // --------------------
       if (paymentType === "credit") {
         if (!reservation) throw new Error("No hay reservación.");
@@ -383,7 +450,7 @@ export const PaymentModal = ({
             date: effectiveDate,
             comments,
             comments_cxp: commentsCxp,
-            paymentMethod: "transfer", // o null; depende de tu backend
+            paymentMethod: "transfer",
             paymentType: "credit",
             monto_a_pagar,
             id_hospedaje: (reservation as any).id_booking,
@@ -391,19 +458,18 @@ export const PaymentModal = ({
             paymentSchedule: undefined,
             usuario_creador: (reservation as any).usuario_creador,
 
-            // si tu backend espera estos campos aunque sea crédito:
             selectedCard: null,
             idTitular: null,
             titular: "",
             identificacion: "",
           },
           (response: any) => {
-            if (response?.message) alert(response.message);
+            handleSolicitudResponse(response);
+            setIsSubmitting(false);
           }
         );
 
-        dispatch({ type: "SET_FIELD", field: "error", payload: "" });
-        return;
+        return; // callback hará el cierre
       }
 
       // --------------------
@@ -422,6 +488,16 @@ export const PaymentModal = ({
 
         if (paymentMethod === "link" && !selectedTitularId) {
           throw new Error("Selecciona el titular para generar el link.");
+        }
+
+        // ✅ Si es tarjeta, genera PDF (descarga) ANTES del request (más confiable vs bloqueos)
+        if (paymentMethod === "card") {
+          try {
+            await generateQRPaymentPDF();
+          } catch (err: any) {
+            console.error("PDF error:", err);
+            throw new Error(err?.message || "No se pudo generar el PDF.");
+          }
         }
 
         if (paymentMethod === "link" || paymentMethod === "card") {
@@ -443,13 +519,13 @@ export const PaymentModal = ({
               titular: paymentMethod === "link" ? currentTitular?.Titular ?? "" : "",
               identificacion: paymentMethod === "link" ? currentTitular?.identificacion ?? "" : "",
             },
-            (_response: any) => {}
+            (response: any) => {
+              handleSolicitudResponse(response);
+              setIsSubmitting(false);
+            }
           );
 
-          // ✅ genera PDF para tarjeta tanto QR como archivo (si quieres solo QR, cambia la condición)
-          if (paymentMethod === "card") {
-            await generateQRPaymentPDF();
-          }
+          return; // callback hará el cierre
         }
 
         if (paymentMethod === "transfer") {
@@ -467,15 +543,21 @@ export const PaymentModal = ({
               usuario_creador: (reservation as any).usuario_creador,
             },
             (response: any) => {
-              if (response?.message) alert(response.message);
+              handleSolicitudResponse(response);
+              setIsSubmitting(false);
             }
           );
+
+          return; // callback hará el cierre
         }
       }
 
+      setIsSubmitting(false);
       dispatch({ type: "SET_FIELD", field: "error", payload: "" });
     } catch (e: any) {
+      setIsSubmitting(false);
       dispatch({ type: "SET_FIELD", field: "error", payload: e?.message || "Error" });
+      showNotification("error", e?.message || "Error");
     }
   };
 
@@ -552,7 +634,7 @@ export const PaymentModal = ({
                 </>
               )}
 
-              {/* ✅ CAMBIO: Fecha estimada SOLO para transferencia */}
+              {/* Fecha estimada SOLO para transferencia */}
               {paymentMethod === "transfer" && (
                 <DateInput
                   label="Fecha estimada"
@@ -567,7 +649,7 @@ export const PaymentModal = ({
                 />
               )}
 
-              {/* ✅ card/link: Calendario de pagos (fecha y monto) */}
+              {/* card/link: Calendario de pagos */}
               {shouldShowSchedule && (
                 <div className="mt-3 space-y-2">
                   <div className="flex items-center justify-between">
@@ -681,18 +763,22 @@ export const PaymentModal = ({
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <Button
+              type="button"
               variant={paymentType === "prepaid" ? "default" : "outline"}
               onClick={() => dispatch({ type: "SET_FIELD", field: "paymentType", payload: "prepaid" })}
               className="h-10"
+              disabled={isSubmitting}
             >
               <CreditCard className="mr-2 h-5 w-5" />
               Prepago
             </Button>
 
             <Button
+              type="button"
               variant={paymentType === "credit" ? "default" : "outline"}
               onClick={() => dispatch({ type: "SET_FIELD", field: "paymentType", payload: "credit" })}
               className="h-10"
+              disabled={isSubmitting}
             >
               <FileText className="mr-2 h-5 w-5" />
               Crédito
@@ -707,35 +793,41 @@ export const PaymentModal = ({
 
             <div className="grid grid-cols-3 gap-4">
               <Button
+                type="button"
                 variant={paymentMethod === "transfer" ? "default" : "outline"}
                 onClick={() => {
                   dispatch({ type: "SET_FIELD", field: "paymentMethod", payload: "transfer" });
                   setSelectedTitularId("");
                 }}
+                disabled={isSubmitting}
               >
                 <ArrowLeftRight className="w-3 h-3 mr-2" />
                 Transferencia
               </Button>
 
               <Button
+                type="button"
                 variant={paymentMethod === "card" ? "default" : "outline"}
                 onClick={() => {
                   dispatch({ type: "SET_FIELD", field: "paymentMethod", payload: "card" });
                   setSelectedTitularId("");
                 }}
+                disabled={isSubmitting}
               >
                 <CreditCard className="w-3 h-3 mr-2" />
                 Tarjeta
               </Button>
 
               <Button
+                type="button"
                 variant={paymentMethod === "link" ? "default" : "outline"}
                 onClick={() => {
                   dispatch({ type: "SET_FIELD", field: "paymentMethod", payload: "link" });
                   setSelectedTitularId("");
                 }}
+                disabled={isSubmitting}
               >
-                <Link className="w-3 h-3 mr-2" />
+                <LinkIcon className="w-3 h-3 mr-2" />
                 Link
               </Button>
             </div>
@@ -746,20 +838,24 @@ export const PaymentModal = ({
                   <h5 className="text-sm font-semibold">Datos de Pago</h5>
                   <div className="grid grid-cols-2 gap-4 mt-2">
                     <Button
+                      type="button"
                       variant={useQR === "qr" ? "default" : "outline"}
                       onClick={() => dispatch({ type: "SET_FIELD", field: "useQR", payload: "qr" })}
                       size="sm"
+                      disabled={isSubmitting}
                     >
                       <QrCode className="mr-2 h-4 w-4" />
                       Con QR
                     </Button>
 
                     <Button
+                      type="button"
                       variant={useQR === "code" ? "default" : "outline"}
                       onClick={() => dispatch({ type: "SET_FIELD", field: "useQR", payload: "code" })}
                       size="sm"
+                      disabled={isSubmitting}
                     >
-                      <File className="mr-2 h-4 w-4" />
+                      <FileIcon className="mr-2 h-4 w-4" />
                       En archivo
                     </Button>
                   </div>
@@ -768,7 +864,9 @@ export const PaymentModal = ({
                 <CheckboxInput
                   label={"Mostrar cvv"}
                   checked={isSecureCode}
-                  onChange={(value) => dispatch({ type: "SET_FIELD", field: "isSecureCode", payload: value })}
+                  onChange={(value) =>
+                    dispatch({ type: "SET_FIELD", field: "isSecureCode", payload: value })
+                  }
                 />
 
                 <DropdownValues
@@ -819,6 +917,7 @@ export const PaymentModal = ({
                   className="w-full h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   value={selectedTitularId}
                   onChange={(e) => setSelectedTitularId(e.target.value)}
+                  disabled={isSubmitting}
                 >
                   <option value="">-- Selecciona un titular --</option>
 
@@ -857,8 +956,13 @@ export const PaymentModal = ({
               label="Comentarios CXP"
             />
 
-            <Button onClick={handlePayment} className="w-full bg-blue-600 hover:bg-blue-700">
-              Confirmar pago
+            <Button
+              type="button"
+              onClick={handlePayment}
+              disabled={isSubmitting}
+              className="w-full bg-blue-600 hover:bg-blue-700"
+            >
+              {isSubmitting ? "Procesando..." : "Confirmar pago"}
             </Button>
           </div>
         )}
@@ -874,14 +978,21 @@ export const PaymentModal = ({
             />
 
             <div className="grid grid-cols-3 gap-4">
-              <Button onClick={handleDownloadCoupon} variant="outline" className="bg-green-50 border-green-200">
+              <Button
+                type="button"
+                onClick={handleDownloadCoupon}
+                variant="outline"
+                className="bg-green-50 border-green-200"
+                disabled={isSubmitting}
+              >
                 <Download className="mr-2 h-4 w-4" />
                 Descargar Cupón
               </Button>
 
               <Button
+                type="button"
                 onClick={() => setIsReservaOpen(true)}
-                disabled={!mappedReservation}
+                disabled={!mappedReservation || isSubmitting}
                 className="w-full bg-emerald-600 hover:bg-emerald-700"
                 title={!mappedReservation ? "No hay datos de reservación aún" : "Abrir cupón / resumen"}
               >
@@ -889,7 +1000,12 @@ export const PaymentModal = ({
                 Ver Cupón / Resumen
               </Button>
 
-              <Button onClick={handleSendCoupon} className="bg-blue-600 hover:bg-blue-700">
+              <Button
+                type="button"
+                onClick={handleSendCoupon}
+                className="bg-blue-600 hover:bg-blue-700"
+                disabled={isSubmitting}
+              >
                 <Send className="mr-2 h-4 w-4" />
                 Enviar Cupón (PDF)
               </Button>
@@ -909,9 +1025,13 @@ export const PaymentModal = ({
               label="Comentarios CXP"
             />
 
-            {/* ✅ Botón que envía solicitud en crédito */}
-            <Button onClick={handleConfirmCredit} className="w-full bg-blue-600 hover:bg-blue-700">
-              Confirmar crédito
+            <Button
+              type="button"
+              onClick={handleConfirmCredit}
+              disabled={isSubmitting}
+              className="w-full bg-blue-600 hover:bg-blue-700"
+            >
+              {isSubmitting ? "Procesando..." : "Confirmar crédito"}
             </Button>
 
             <Reserva
