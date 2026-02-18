@@ -4,5 +4,5 @@ import { usePermiso } from "@/hooks/usePermission";
 export default function App({ children }) {
   const { hasAccess } = usePermiso();
   hasAccess("");
-  return <>{children}</>;
+  return <div className="bg-white rounded-lg">{children}</div>;
 }
