@@ -494,7 +494,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
   );
 };
 
-const MAX_REGISTERS = 20;
+const MAX_REGISTERS = 50;
 
 const defaultFiltersSolicitudes: TypeFilters = {
   codigo_reservacion: null,
