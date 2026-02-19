@@ -430,6 +430,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
       </div>
 
       <div className="overflow-hidden flex gap-2 flex-col">
+        <p>total de reservas:</p>
         <Table
           maxHeight="25rem"
           registros={data}
