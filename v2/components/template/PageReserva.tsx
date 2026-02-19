@@ -20,7 +20,7 @@ import {
   formatNumberWithCommas,
   formatTime,
 } from "@/helpers/formater";
-import { getStatusBadge } from "@/helpers/utils";
+import { calcularNoches, getStatusBadge } from "@/helpers/utils";
 import { currentDate } from "@/lib/utils";
 import { BookingAll, BookingsService } from "@/services/BookingService";
 import { TypeFilters } from "@/types";
@@ -142,17 +142,15 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
 
   const renderers = {
     serv: ({ value }) => <ServiceIcon type={value} />,
-    id: ({ value }: { value: string }) => (
+    id: ({ value }) => (
       <ButtonCopiar copy_value={value} label={value.slice(0, 12)} />
     ),
     cliente: (valor) => {
       return <h1>{valor.value}</h1>;
     },
-    creado: ({ value }) => <>{formatDate(value)}</>,
-    proveedor: ({ value }: { value: string }) => (
-      <Tooltip content={value}>{value || ""}</Tooltip>
-    ),
-    codigo: ({ value }) => <Tooltip content={value}>{value || ""}</Tooltip>,
+    creado: ({ value }) => <p>{formatDate(value)}</p>,
+    proveedor: ({ value }: { value: string }) => <p>{value || ""}</p>,
+    codigo: ({ value }) => <p>{value || ""}</p>,
     markup: ({ value }) => <MarginPercent value={value} />,
     viajero: ({ value }) => <>{value}</>,
     check_in: ({ value }) => <>{formatDate(value)}</>,
@@ -218,6 +216,9 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
         </>
       );
     },
+    noches: ({ value }) => (
+      <p>{calcularNoches(value.check_in, value.check_out)}</p>
+    ),
     pagar: ({ value }) => (
       <>
         {value && (
@@ -250,6 +251,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     horario_salida: reserva.horario_salida,
     check_out: reserva.check_out,
     horario_llegada: reserva.horario_llegada,
+    noches: reserva,
     tipo: reserva.tipo_cuarto_vuelo,
     costo_proveedor: reserva.costo_total,
     markup:
