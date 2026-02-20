@@ -638,7 +638,7 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data_inicio, proveedores, aeropuertos, viajeros]);
+  }, [data_inicio, aeropuertos, viajeros]);
 
   /* ---------------------------------
      Acciones: pagar / guardar
