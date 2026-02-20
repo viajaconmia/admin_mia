@@ -46,6 +46,15 @@ import { PERMISOS } from "@/constant/permisos";
 import { useFile } from "@/hooks/useFile";
 import Link from "next/link";
 
+// ✅ ponlo dentro del archivo (arriba del componente o dentro del componente)
+const formatMMDDYYYY = (value?: string | Date | null) => {
+  if (!value) return "";
+  const iso = value instanceof Date ? value.toISOString() : String(value);
+  const [yyyy, mm, dd] = iso.split("T")[0].split("-");
+  if (!yyyy || !mm || !dd) return "";
+  return `${mm}/${dd}/${yyyy}`; // 02/27/2026
+};
+
 const PageReservas = ({ agente }: { agente?: Agente }) => {
   const [loading, setLoading] = useState(false);
   const [tracking, setTracking] = useState<TrackingPage>({
@@ -113,9 +122,9 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
         intermediario: reserva.intermediario,
         codigo: reserva.codigo_confirmacion,
         viajero: reserva.viajero,
-        check_in: reserva.check_in.split("T")[0],
+        check_in: formatMMDDYYYY(reserva.check_in),
         horario_salida: reserva.horario_salida,
-        check_out: reserva.check_out.split("T")[0],
+        check_out: formatMMDDYYYY(reserva.check_out),
         horario_llegada: reserva.horario_llegada,
         tipo: reserva.tipo_cuarto_vuelo,
         costo_proveedor: reserva.costo_total,
