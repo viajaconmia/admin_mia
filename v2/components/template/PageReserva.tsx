@@ -20,7 +20,7 @@ import {
   formatNumberWithCommas,
   formatTime,
 } from "@/helpers/formater";
-import { calcularNoches, getStatusBadge } from "@/helpers/utils";
+import { getStatusBadge } from "@/helpers/utils";
 import { currentDate } from "@/lib/utils";
 import { BookingAll, BookingsService } from "@/services/BookingService";
 import { TypeFilters } from "@/types";
@@ -45,6 +45,15 @@ import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
 import { useFile } from "@/hooks/useFile";
 import Link from "next/link";
+
+// ✅ ponlo dentro del archivo (arriba del componente o dentro del componente)
+const formatMMDDYYYY = (value?: string | Date | null) => {
+  if (!value) return "";
+  const iso = value instanceof Date ? value.toISOString() : String(value);
+  const [yyyy, mm, dd] = iso.split("T")[0].split("-");
+  if (!yyyy || !mm || !dd) return "";
+  return `${mm}/${dd}/${yyyy}`; // 02/27/2026
+};
 
 const PageReservas = ({ agente }: { agente?: Agente }) => {
   const [loading, setLoading] = useState(false);
@@ -113,9 +122,9 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
         intermediario: reserva.intermediario,
         codigo: reserva.codigo_confirmacion,
         viajero: reserva.viajero,
-        check_in: reserva.check_in.split("T")[0],
+        check_in: formatMMDDYYYY(reserva.check_in),
         horario_salida: reserva.horario_salida,
-        check_out: reserva.check_out.split("T")[0],
+        check_out: formatMMDDYYYY(reserva.check_out),
         horario_llegada: reserva.horario_llegada,
         tipo: reserva.tipo_cuarto_vuelo,
         costo_proveedor: reserva.costo_total,
@@ -142,15 +151,17 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
 
   const renderers = {
     serv: ({ value }) => <ServiceIcon type={value} />,
-    id: ({ value }) => (
+    id: ({ value }: { value: string }) => (
       <ButtonCopiar copy_value={value} label={value.slice(0, 12)} />
     ),
     cliente: (valor) => {
       return <h1>{valor.value}</h1>;
     },
-    creado: ({ value }) => <p>{formatDate(value)}</p>,
-    proveedor: ({ value }: { value: string }) => <p>{value || ""}</p>,
-    codigo: ({ value }) => <p>{value || ""}</p>,
+    creado: ({ value }) => <>{formatDate(value)}</>,
+    proveedor: ({ value }: { value: string }) => (
+      <Tooltip content={value}>{value || ""}</Tooltip>
+    ),
+    codigo: ({ value }) => <Tooltip content={value}>{value || ""}</Tooltip>,
     markup: ({ value }) => <MarginPercent value={value} />,
     viajero: ({ value }) => <>{value}</>,
     check_in: ({ value }) => <>{formatDate(value)}</>,
@@ -216,9 +227,6 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
         </>
       );
     },
-    noches: ({ value }) => (
-      <p>{calcularNoches(value.check_in, value.check_out)}</p>
-    ),
     pagar: ({ value }) => (
       <>
         {value && (
@@ -251,7 +259,6 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     horario_salida: reserva.horario_salida,
     check_out: reserva.check_out,
     horario_llegada: reserva.horario_llegada,
-    noches: reserva,
     tipo: reserva.tipo_cuarto_vuelo,
     costo_proveedor: reserva.costo_total,
     markup:
@@ -430,7 +437,6 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
       </div>
 
       <div className="overflow-hidden flex gap-2 flex-col">
-        <p>total de reservas:</p>
         <Table
           maxHeight="25rem"
           registros={data}
@@ -495,7 +501,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
   );
 };
 
-const MAX_REGISTERS = 50;
+const MAX_REGISTERS = 20;
 
 const defaultFiltersSolicitudes: TypeFilters = {
   codigo_reservacion: null,
