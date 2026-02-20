@@ -500,7 +500,8 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
   const [state, dispatch] = useReducer(vuelosReducer, initialState);
   const [details, setDetails] = useState<Details>(initialDetails);
   const { getProveedores, proveedores, updateProveedores } = useProveedor();
-  getProveedores();
+  updateProveedores();
+  console.log(proveedores);
 
   const [viajeros, setViajeros] = useState<ViajeroService[]>([]);
   const [aeropuertos, setAeropuertos] = useState<Aeropuerto[]>([]);
