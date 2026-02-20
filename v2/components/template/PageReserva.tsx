@@ -437,6 +437,9 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
       </div>
 
       <div className="overflow-hidden flex gap-2 flex-col">
+        <p className="font-semibold text-gray-600 text-xs">
+          Total de reservas: {tracking.total}
+        </p>
         <Table
           maxHeight="25rem"
           registros={data}
