@@ -104,6 +104,7 @@ export function ReservationForm2({
       nombre_completo: "",
     },
     noches: currentNoches,
+    comentarios_internos: solicitud.comentarios_internos || "",
     venta: {
       total: Number(solicitud.total) || 0,
       subtotal: Number(solicitud.total) * 0.84 || 0,
@@ -993,10 +994,20 @@ export function ReservationForm2({
             <div className="grid gap-4">
               <div className="grid gap-2 md:grid-cols-3">
                 <TextInput
-                  value={""}
+                  value={form.comentarios_internos || ""}
                   label="Comentarios internos noktos"
-                  onChange={function (value: string): void {
-                    alert("Function not implemented.");
+                  onChange={(value: string) => {
+                    setForm((prev) => ({
+                      ...prev,
+                      comentarios_internos: value,
+                    }));
+                    setEdicionForm((prev) => ({
+                      ...prev,
+                      comentarios_internos: {
+                        before: solicitud.comentarios_internos || null,
+                        current: value,
+                      },
+                    }));
                   }}
                 ></TextInput>
                 <div className="flex gap-2 col-span-2">
