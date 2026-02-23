@@ -155,8 +155,8 @@ const PageReservas = () => {
       <>
         {value.type == "flyght" && (
           <Button
+            size="sm"
             onClick={async () => {
-              console.log(value);
               const pdf = await generatePdf(value.id_solicitud);
               const filename = `VUELO-${value.viajero.toUpperCase()}-${value.codigo_confirmacion}.pdf`;
               downloadPdfSafely(pdf, filename);

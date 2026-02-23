@@ -10,16 +10,19 @@ const STYLES = {
   COLORS: {
     PRIMARY: [0, 115, 185] as [number, number, number],
     TEXT_NORMAL: [0, 0, 0] as [number, number, number],
+    TEXT_WHITE: [255, 255, 255] as [number, number, number],
     TEXT_MUTED: [100, 100, 100] as [number, number, number],
-    TABLE_HEADER: [0, 115, 185] as [number, number, number],
+    HEADER: [0, 182, 226] as [number, number, number],
+    TABLE_HEADER: [47, 84, 150] as [number, number, number],
+    TABLE_BODY: [242, 242, 242] as [number, number, number],
   },
   FONTS: {
     TITLE: 14,
     SUBTITLE: 11,
     BODY: 9,
-    SMALL: 8,
+    SMALL: 6,
   },
-  MARGINS: { LEFT: 15, RIGHT: 15, TOP: 20 },
+  MARGINS: { LEFT: 8, RIGHT: 8, TOP: 15 },
   SPACING: { LINE: 6, SECTION: 10 },
 };
 
@@ -34,7 +37,6 @@ export async function generatePdf(id_solicitud: string): Promise<jsPDF> {
   let y = STYLES.MARGINS.TOP;
 
   drawHeader(doc, pageW);
-  y += 10;
 
   y = drawEmitidoPor(doc, y);
   y = drawBoletoInfo(doc, solicitud, pageW, y);
@@ -51,36 +53,111 @@ export async function generatePdf(id_solicitud: string): Promise<jsPDF> {
 }
 
 function drawHeader(doc: jsPDF, pageW: number) {
-  doc.setFillColor(...STYLES.COLORS.PRIMARY);
-  doc.rect(0, 0, pageW, 12, "F");
+  doc.setFillColor(...STYLES.COLORS.HEADER);
+  doc.rect(STYLES.MARGINS.LEFT, 0, pageW - STYLES.MARGINS.RIGHT * 2, 8, "F");
 }
 
 function drawEmitidoPor(doc: jsPDF, y: number) {
-  doc.setFontSize(STYLES.FONTS.SMALL);
-  doc.setTextColor(...STYLES.COLORS.TEXT_MUTED);
-  doc.text("EMITIDO POR:", STYLES.MARGINS.LEFT, y);
+  const w = 90;
+  console.log(y);
+  drawRectWithText(
+    doc,
+    STYLES.MARGINS.LEFT,
+    y,
+    w,
+    STYLES.FONTS.SMALL,
+    "EMITIDO POR:",
+    STYLES.COLORS.TABLE_HEADER,
+    STYLES.COLORS.TEXT_WHITE,
+  );
+  y += 3;
+  drawRectWithText(
+    doc,
+    STYLES.MARGINS.LEFT,
+    y,
+    w,
+    STYLES.FONTS.SMALL,
+    "",
+    STYLES.COLORS.TABLE_BODY,
+    STYLES.COLORS.TEXT_NORMAL,
+  );
+  y += 3;
+  drawRectWithText(
+    doc,
+    STYLES.MARGINS.LEFT,
+    y,
+    w,
+    STYLES.FONTS.SMALL,
+    "NOKTOS ALIANZA SA DE CV",
+    STYLES.COLORS.TABLE_BODY,
+    STYLES.COLORS.TEXT_NORMAL,
+  );
+  y += 3;
+  drawRectWithText(
+    doc,
+    STYLES.MARGINS.LEFT,
+    y,
+    w,
+    STYLES.FONTS.SMALL,
+    "NAL190807BU2",
+    STYLES.COLORS.TABLE_BODY,
+    STYLES.COLORS.TEXT_NORMAL,
+  );
+  y += 3;
+  drawRectWithText(
+    doc,
+    STYLES.MARGINS.LEFT,
+    y,
+    w,
+    STYLES.FONTS.SMALL,
+    "Presidente Masaryk #29, int. E3, Col. Chapultepec Morales 11570, Miguel Hidalgo, CDMX",
+    STYLES.COLORS.TABLE_BODY,
+    STYLES.COLORS.TEXT_NORMAL,
+  );
+  y += 3;
+  drawRectWithText(
+    doc,
+    STYLES.MARGINS.LEFT,
+    y,
+    w,
+    STYLES.FONTS.SMALL,
+    "",
+    STYLES.COLORS.TABLE_BODY,
+    STYLES.COLORS.TEXT_NORMAL,
+  );
 
-  y += 5;
-
-  doc.setTextColor(...STYLES.COLORS.TEXT_NORMAL);
-  doc.text("NOKTOS ALIANZA SA DE CV", STYLES.MARGINS.LEFT, y);
-
-  y += 4;
-  doc.text("CDMX", STYLES.MARGINS.LEFT, y);
-
-  return y + 6;
+  return y - 9;
 }
+
+function drawRectWithText(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  w: number,
+  textsize: number,
+  text: string,
+  bgcolor: [number, number, number],
+  textcolor: [number, number, number],
+) {
+  doc.setFillColor(...bgcolor);
+  doc.rect(x, y, w, textsize - 3, "F");
+
+  doc.setTextColor(...textcolor);
+  doc.setFontSize(textsize);
+  doc.text(text, x + 1, y + 2.2);
+}
+
 function drawBoletoInfo(
   doc: jsPDF,
   solicitud: SolicitudVuelo,
   pageW: number,
   y: number,
 ) {
-  const boxW = 70;
-  const x = pageW - boxW - STYLES.MARGINS.RIGHT;
+  const w = 40;
+  const x = pageW - w * 2 - STYLES.MARGINS.RIGHT;
 
   doc.setFillColor(...STYLES.COLORS.PRIMARY);
-  doc.rect(x, y, boxW, 8, "F");
+  doc.rect(x, y, w, 8, "F");
 
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(STYLES.FONTS.SMALL);

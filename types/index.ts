@@ -10,6 +10,7 @@ export interface TypeFilters {
   nombre?: string | null;
   nombre_agente?: string | null;
   startDate?: string | null;
+
   endDate?: string | null;
   cliente?: string | null;
   recordCount?: string | null;
