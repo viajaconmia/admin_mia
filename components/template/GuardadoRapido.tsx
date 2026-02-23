@@ -293,32 +293,44 @@ export const GuardarSucursal = ({
           <TextInput
             value={sucursalDetails.direccion}
             label="Dirección"
-            onChange={(value: string) => {}}
+            onChange={(value: string) =>
+              setSucursalDetails((prev) => ({ ...prev, direccion: value }))
+            }
           ></TextInput>
           <TextInput
             value={sucursalDetails.colonia}
             label="Colonia"
-            onChange={(value: string) => {}}
+            onChange={(value: string) =>
+              setSucursalDetails((prev) => ({ ...prev, colonia: value }))
+            }
           ></TextInput>
           <TextInput
             value={sucursalDetails.ciudad}
             label="Ciudad"
-            onChange={(value: string) => {}}
+            onChange={(value: string) =>
+              setSucursalDetails((prev) => ({ ...prev, ciudad: value }))
+            }
           ></TextInput>
           <TextInput
             value={sucursalDetails.estado}
             label="Estado"
-            onChange={(value: string) => {}}
+            onChange={(value: string) =>
+              setSucursalDetails((prev) => ({ ...prev, estado: value }))
+            }
           ></TextInput>
           <TextInput
             value={sucursalDetails.pais}
             label="Pais"
-            onChange={(value: string) => {}}
+            onChange={(value: string) =>
+              setSucursalDetails((prev) => ({ ...prev, pais: value }))
+            }
           ></TextInput>
           <TextInput
             value={sucursalDetails.telefono}
             label="Telefono"
-            onChange={(value: string) => {}}
+            onChange={(value: string) =>
+              setSucursalDetails((prev) => ({ ...prev, telefono: value }))
+            }
           ></TextInput>
         </div>
         <div>

@@ -18,11 +18,8 @@ import { Table } from "@/components/Table";
 import { fetchHoteles } from "@/services/hoteles";
 import Modal from "@/components/organism/Modal";
 import { TypeFilters } from "@/types";
-import { set } from "date-fns";
 import { Loader } from "@/components/atom/Loader";
 import { currentDate } from "@/lib/utils";
-import { usePermiso } from "@/hooks/usePermission";
-import { PERMISOS } from "@/constant/permisos";
 
 interface SolicitudClient {
   id_agente: string;
@@ -78,13 +75,13 @@ interface SolicitudClient {
 function App() {
   const [allSolicitudes, setAllSolicitudes] = useState<SolicitudClient[]>([]);
   const [selectedItem, setSelectedItem] = useState<SolicitudClient | null>(
-    null
+    null,
   );
   const [searchTerm, setSearchTerm] = useState<string | null>("");
   const [loading, setLoading] = useState(false);
   const [hoteles, setHoteles] = useState([]);
   const [filters, setFilters] = useState<TypeFilters>(
-    defaultFiltersSolicitudes
+    defaultFiltersSolicitudes,
   );
 
   const handleFetchSolicitudes = () => {
@@ -95,7 +92,7 @@ function App() {
       ({ data }) => {
         setAllSolicitudes(data);
         setLoading(false);
-      }
+      },
     );
   };
 
@@ -112,7 +109,7 @@ function App() {
       (item) =>
         (item.hotel_solicitud || "").toUpperCase().includes(searchTerm) ||
         item.nombre_cliente.toUpperCase().includes(searchTerm) ||
-        item.nombre_viajero_solicitud.toUpperCase().includes(searchTerm)
+        item.nombre_viajero_solicitud.toUpperCase().includes(searchTerm),
     )
     .map((item) => ({
       id_cliente: item.id_agente,
@@ -160,8 +157,8 @@ function App() {
           props.value == "Infinity"
             ? "text-gray-700 bg-gray-100 border-gray-300 "
             : props.value > 0
-            ? "text-green-600 bg-green-100 border-green-300"
-            : "text-red-600 bg-red-100 border-red-300"
+              ? "text-green-600 bg-green-100 border-green-300"
+              : "text-red-600 bg-red-100 border-red-300"
         }`}
       >
         {props.value == "Infinity" ? <>0%</> : <>{props.value.toFixed(2)}%</>}

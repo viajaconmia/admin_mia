@@ -104,7 +104,10 @@ const cfdiUseOptions = [
   { value: "G02", label: "G02 - Devoluciones, descuentos o bonificaciones" },
   { value: "G03", label: "G03 - Gastos en general" },
   { value: "I01", label: "I01 - Construcciones" },
-  { value: "I02", label: "I02 - Mobilario y equipo de oficina por inversiones" },
+  {
+    value: "I02",
+    label: "I02 - Mobilario y equipo de oficina por inversiones",
+  },
   { value: "I03", label: "I03 - Equipo de transporte" },
   { value: "I04", label: "I04 - Equipo de cómputo y accesorios" },
   {
@@ -173,6 +176,7 @@ const paymentMethodOptions = [
 interface Reservation {
   id_servicio: string;
   created_at: string;
+  id_relacion: string;
   is_credito: boolean | null;
   id_solicitud: string;
   confirmation_code: string;
@@ -195,7 +199,7 @@ interface Reservation {
   nombre_viajero_completo?: string | null;
   razon_social?: string;
   costo_total?: string;
-  id_hospedaje?: string | null;
+  id_relacion?: string | null;
   tipo_cuarto?: string | null;
   nombre_viajero?: string;
 }
@@ -223,7 +227,7 @@ interface Item {
   impuestos: string;
   is_facturado: boolean | null;
   fecha_uso: string;
-  id_hospedaje: string;
+  id_relacion: string;
   created_at: string;
   updated_at: string;
   costo_total: string;
@@ -301,7 +305,7 @@ const preflightCfdi = (
       const tax = r2(num(t.Total));
       const expectedTax = r2(base * rate);
 
-      if (Math.abs(expectedTax - tax) > 0.01) {
+      if (expectedTax - tax > 0.01) {
         errs.push(
           `Item#${idx + 1} TAX: Base(${base.toFixed(
             2,
@@ -368,7 +372,6 @@ const dateToMs = (v: any) => {
 
   return Number.POSITIVE_INFINITY;
 };
-
 
 export const FacturacionModal: React.FC<{
   selectedItems: { [reservationId: string]: string[] };
@@ -507,13 +510,18 @@ export const FacturacionModal: React.FC<{
     () =>
       reservationsInit
         .filter((r) => r.items != null)
-        .map((reserva) => `${reserva.hotel} - ${formatDate(reserva.check_in)}`)
+        .map(
+          (reserva) =>
+            `${!reserva.id_relacion.includes("vue") ? reserva.hotel : "Vuelo"} - ${formatDate(reserva.check_in)}`,
+        )
         .join(" | "),
     [reservationsInit],
   );
   const isCustomValid =
     customDescription && /[a-zA-Z0-9\S]/.test(customDescription.trim());
-  const descriptionToUse = isCustomValid ? customDescription : defaultDescription;
+  const descriptionToUse = isCustomValid
+    ? customDescription
+    : defaultDescription;
 
   const handleCopyObservations = async () => {
     const text = sanitizeFacturamaText(descriptionToUse, 1000);
@@ -676,7 +684,7 @@ export const FacturacionModal: React.FC<{
   type ItemFull = {
     id_item: string;
     id_servicio: string;
-    id_hospedaje: string | null;
+    id_relacion: string | null;
     total: number;
     subtotal: number;
     iva: number;
@@ -700,8 +708,8 @@ export const FacturacionModal: React.FC<{
       const ids = selected[r.id_servicio] ?? [];
       if (!ids.length) return [];
 
-      const id_hospedaje =
-        selectedHosp?.[r.id_servicio]?.[0] ?? r.id_hospedaje ?? null;
+      const id_relacion =
+        selectedHosp?.[r.id_servicio]?.[0] ?? r.id_relacion ?? null;
 
       return (r.items ?? [])
         .filter((it) => ids.includes(it.id_item))
@@ -712,8 +720,13 @@ export const FacturacionModal: React.FC<{
           return {
             id_item: it.id_item,
             id_servicio: r.id_servicio,
+<<<<<<< HEAD
             id_hospedaje,
             id_solicitud: r.id_solicitud,7550169455070
+=======
+            id_relacion,
+            id_solicitud: r.id_solicitud,
+>>>>>>> 92d788386132e9b903e9e80bae143346dbd0b43e
             id_usuario_generador: r.id_usuario_generador,
             total,
             subtotal,
@@ -723,58 +736,62 @@ export const FacturacionModal: React.FC<{
               hotel: r.hotel,
               check_in: r.check_in,
               check_out: r.check_out,
-              nombre_viajero: r.nombre_viajero_completo ?? r.nombre_viajero ?? null,
+              nombre_viajero:
+                r.nombre_viajero_completo ?? r.nombre_viajero ?? null,
             },
           };
         });
     });
   };
 
-const groupByHospedaje = (items: ItemFull[]) => {
-  const map = new Map<string, ItemFull[]>();
+  const groupByHospedaje = (items: ItemFull[]) => {
+    const map = new Map<string, ItemFull[]>();
 
-  for (const it of items) {
-    const key = it.id_hospedaje ?? `servicio:${it.id_servicio}`;
-    if (!map.has(key)) map.set(key, []);
-    map.get(key)!.push(it);
-  }
+    for (const it of items) {
+      const key = it.id_relacion ?? `servicio:${it.id_servicio}`;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(it);
+    }
 
-  const groups = Array.from(map.entries()).map(([key, arr]) => {
-    // ✅ ordena items del grupo por fecha_uso
-    const arrSorted = [...arr].sort(
-      (a, b) => dateToMs(a.fecha_uso) - dateToMs(b.fecha_uso),
+    const groups = Array.from(map.entries()).map(([key, arr]) => {
+      // ✅ ordena items del grupo por fecha_uso
+      const arrSorted = [...arr].sort(
+        (a, b) => dateToMs(a.fecha_uso) - dateToMs(b.fecha_uso),
+      );
+
+      // ✅ fecha “referencia” del grupo: min(fecha_uso) o fallback check_in
+      const groupDateMs =
+        dateToMs(arrSorted[0]?.fecha_uso) !== Number.POSITIVE_INFINITY
+          ? dateToMs(arrSorted[0]?.fecha_uso)
+          : dateToMs(
+              arrSorted.find((x) => x.reserva?.check_in)?.reserva?.check_in,
+            );
+
+      return {
+        key,
+        id_relacion: arrSorted[0]?.id_relacion ?? null,
+        items: arrSorted,
+        total: arrSorted.reduce((s, x) => s + Number(x.total || 0), 0),
+        hotel: arrSorted.find((x) => x.reserva?.hotel)?.reserva?.hotel ?? "",
+        check_in:
+          arrSorted.find((x) => x.reserva?.check_in)?.reserva?.check_in ?? "",
+        check_out:
+          arrSorted.find((x) => x.reserva?.check_out)?.reserva?.check_out ?? "",
+        viajero:
+          arrSorted.find((x) => x.reserva?.nombre_viajero)?.reserva
+            ?.nombre_viajero ?? "",
+        _groupDateMs: groupDateMs, // 👈 interno para ordenar
+      };
+    });
+
+    // ✅ ordena los grupos (conceptos) por fecha
+    groups.sort(
+      (a, b) => (a._groupDateMs ?? Infinity) - (b._groupDateMs ?? Infinity),
     );
 
-    // ✅ fecha “referencia” del grupo: min(fecha_uso) o fallback check_in
-    const groupDateMs =
-      dateToMs(arrSorted[0]?.fecha_uso) !== Number.POSITIVE_INFINITY
-        ? dateToMs(arrSorted[0]?.fecha_uso)
-        : dateToMs(arrSorted.find((x) => x.reserva?.check_in)?.reserva?.check_in);
-
-    return {
-      key,
-      id_hospedaje: arrSorted[0]?.id_hospedaje ?? null,
-      items: arrSorted,
-      total: arrSorted.reduce((s, x) => s + Number(x.total || 0), 0),
-      hotel: arrSorted.find((x) => x.reserva?.hotel)?.reserva?.hotel ?? "",
-      check_in:
-        arrSorted.find((x) => x.reserva?.check_in)?.reserva?.check_in ?? "",
-      check_out:
-        arrSorted.find((x) => x.reserva?.check_out)?.reserva?.check_out ?? "",
-      viajero:
-        arrSorted.find((x) => x.reserva?.nombre_viajero)?.reserva?.nombre_viajero ??
-        "",
-      _groupDateMs: groupDateMs, // 👈 interno para ordenar
-    };
-  });
-
-  // ✅ ordena los grupos (conceptos) por fecha
-  groups.sort((a, b) => (a._groupDateMs ?? Infinity) - (b._groupDateMs ?? Infinity));
-
-  // opcional: limpiar campo interno
-  return groups.map(({ _groupDateMs, ...rest }) => rest);
-};
-
+    // opcional: limpiar campo interno
+    return groups.map(({ _groupDateMs, ...rest }) => rest);
+  };
 
   // =========================
   // ✅ PREVIEW: conceptos con viajero + ClaveProdServ 01010101 si público general
@@ -808,7 +825,9 @@ const groupByHospedaje = (items: ItemFull[]) => {
     if (!itemsFull.length) return [];
 
     if (invoiceMode === "consolidada") {
-      const totalFacturado = round2(itemsFull.reduce((s, it) => s + it.total, 0));
+      const totalFacturado = round2(
+        itemsFull.reduce((s, it) => s + it.total, 0),
+      );
       const { subtotal, iva, total } = splitIva(totalFacturado);
 
       const desc = customConceptConsolidadaValid
@@ -836,10 +855,9 @@ const groupByHospedaje = (items: ItemFull[]) => {
 
       return groups.map((g) => {
         const { subtotal, iva, total } = splitIva(round2(g.total));
-
         const descRaw = [
           selectedDescription,
-          g.hotel ? `${g.hotel}` : "",
+          g.hotel ? `${g.id_relacion.includes("vue") ? "Vuelo" : g.hotel}` : "",
           g.check_in && g.check_out
             ? `${formatDate(g.check_in)} - ${formatDate(g.check_out)}`
             : "",
@@ -866,14 +884,16 @@ const groupByHospedaje = (items: ItemFull[]) => {
     // detallada_por_item
     return itemsFull.map((it) => {
       const { subtotal, iva, total } = splitIva(round2(it.total));
-
+      console.log("-Thus is the it point", it);
       const descRaw = [
         selectedDescription,
-        it?.reserva?.hotel ?? "",
+        `${it.id_relacion.includes("vue") ? "Vuelo" : it.reserva.hotel}`,
         it?.reserva?.check_in && it?.reserva?.check_out
           ? `${formatDate(it.reserva.check_in)} - ${formatDate(it.reserva.check_out)}`
           : "",
-        it?.reserva?.nombre_viajero ? `Viajero: ${it.reserva.nombre_viajero}` : "",
+        it?.reserva?.nombre_viajero
+          ? `Viajero: ${it.reserva.nombre_viajero}`
+          : "",
       ]
         .filter(Boolean)
         .join(" - ");
@@ -950,7 +970,9 @@ const groupByHospedaje = (items: ItemFull[]) => {
           },
       PaymentForm: selectedPaymentForm,
       PaymentMethod: selectedPaymentMethod,
-      Observations: omitObservations ? "" : sanitizeFacturamaText(descriptionToUse),
+      Observations: omitObservations
+        ? ""
+        : sanitizeFacturamaText(descriptionToUse),
     }));
   }, [
     selectedFiscalData,
@@ -975,12 +997,16 @@ const groupByHospedaje = (items: ItemFull[]) => {
 
     const missingFields: string[] = [];
     if (!cfdi.Receiver.Rfc) missingFields.push("RFC del receptor");
-    if (!cfdi.Receiver.TaxZipCode) missingFields.push("código postal del receptor");
+    if (!cfdi.Receiver.TaxZipCode)
+      missingFields.push("código postal del receptor");
     if (!selectedCfdiUse) missingFields.push("uso CFDI");
     if (!selectedPaymentForm) missingFields.push("forma de pago");
 
     if (missingFields.length > 0) {
-      showNotification("error", `Faltan los siguientes campos: ${missingFields.join(", ")}`);
+      showNotification(
+        "error",
+        `Faltan los siguientes campos: ${missingFields.join(", ")}`,
+      );
       return false;
     }
 
@@ -1022,7 +1048,9 @@ const groupByHospedaje = (items: ItemFull[]) => {
     });
 
     const total = round2(reservas.reduce((s, r) => s + r.totales.total, 0));
-    const subtotal = round2(reservas.reduce((s, r) => s + r.totales.subtotal, 0));
+    const subtotal = round2(
+      reservas.reduce((s, r) => s + r.totales.subtotal, 0),
+    );
     const iva = round2(reservas.reduce((s, r) => s + r.totales.iva, 0));
 
     return {
@@ -1062,8 +1090,10 @@ const groupByHospedaje = (items: ItemFull[]) => {
         selectedHospedaje,
       );
 
-      itemsFacturadosFull = sortByDateAsc(itemsFacturadosFull, "fecha_uso" as any);
-
+      itemsFacturadosFull = sortByDateAsc(
+        itemsFacturadosFull,
+        "fecha_uso" as any,
+      );
 
       if (!itemsFacturadosFull.length) {
         showNotification("error", "No hay items seleccionados para facturar");
@@ -1074,7 +1104,7 @@ const groupByHospedaje = (items: ItemFull[]) => {
         id_item: x.id_item,
         monto: x.total,
         id_servicio: x.id_servicio,
-        id_hospedaje: x.id_hospedaje,
+        id_relacion: x.id_relacion,
       }));
 
       const isPG = selectedFiscalData.rfc === RFC_GENERICO;
@@ -1124,10 +1154,12 @@ const groupByHospedaje = (items: ItemFull[]) => {
 
           return groups.map((g) => {
             const { subtotal, iva, total } = splitIva(round2(g.total));
-
+            console.log("this is the g point", g);
             const descRaw = [
               selectedDescription,
-              g.hotel ? `${g.hotel}` : "",
+              g.hotel
+                ? `${g.id_relacion.includes("vue-") ? "vuelo" : g.hotel}`
+                : "",
               g.check_in && g.check_out
                 ? `${formatDate(g.check_in)} - ${formatDate(g.check_out)}`
                 : "",
@@ -1168,7 +1200,7 @@ const groupByHospedaje = (items: ItemFull[]) => {
 
           const descRaw = [
             selectedDescription,
-            it?.reserva?.hotel ?? "",
+            `${it.id_relacion.includes("vue") ? "Vuelo" : it.reserva.hotel}`,
             it?.reserva?.check_in && it?.reserva?.check_out
               ? `${formatDate(it.reserva.check_in)} - ${formatDate(it.reserva.check_out)}`
               : "",
@@ -1206,7 +1238,8 @@ const groupByHospedaje = (items: ItemFull[]) => {
       })();
 
       // ✅ PRE-FLIGHT
-      if (!preflightCfdi(cfdiItems, itemsFacturadosFull, showNotification)) return;
+      if (!preflightCfdi(cfdiItems, itemsFacturadosFull, showNotification))
+        return;
 
       const payloadCFDI: any = {
         cfdi: {
@@ -1228,7 +1261,9 @@ const groupByHospedaje = (items: ItemFull[]) => {
         info_user: {
           fecha_vencimiento: dueDate,
           id_user: reservationsWithSelectedItems[0].id_usuario_generador,
-          id_solicitud: reservationsWithSelectedItems.map((r) => r.id_solicitud),
+          id_solicitud: reservationsWithSelectedItems.map(
+            (r) => r.id_solicitud,
+          ),
           id_items: itemsFacturadosFull.map((x: any) => x.id_item),
           datos_empresa: {
             rfc: cfdi.Receiver.Rfc,
@@ -1287,7 +1322,10 @@ const groupByHospedaje = (items: ItemFull[]) => {
             <h3 className="text-lg font-medium text-gray-900">
               Facturar Items de Reservaciones
             </h3>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-500">
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-500"
+            >
               <span className="sr-only">Cerrar</span>
               <svg
                 className="h-6 w-6"
@@ -1351,7 +1389,8 @@ const groupByHospedaje = (items: ItemFull[]) => {
             {/* Hint opcional para PG */}
             {isPublicoGeneral && (
               <p className="text-[11px] text-gray-600 mt-2">
-                RFC público general detectado: se usará <b>ClaveProdServ 01010101</b> y se enviará{" "}
+                RFC público general detectado: se usará{" "}
+                <b>ClaveProdServ 01010101</b> y se enviará{" "}
                 <b>GlobalInformation</b>.
               </p>
             )}
@@ -1432,7 +1471,9 @@ const groupByHospedaje = (items: ItemFull[]) => {
                         : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
                     }`}
                   >
-                    {useCustomConceptConsolidada ? "Custom activo" : "Activar custom"}
+                    {useCustomConceptConsolidada
+                      ? "Custom activo"
+                      : "Activar custom"}
                   </button>
                 </div>
 
@@ -1442,13 +1483,16 @@ const groupByHospedaje = (items: ItemFull[]) => {
                   </label>
                   <input
                     value={customConceptConsolidada}
-                    onChange={(e) => setCustomConceptConsolidada(e.target.value)}
+                    onChange={(e) =>
+                      setCustomConceptConsolidada(e.target.value)
+                    }
                     disabled={!useCustomConceptConsolidada}
                     placeholder={selectedDescription}
                     className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-100"
                   />
                   <p className="text-[11px] text-gray-500 mt-1">
-                    Si está desactivado o vacío, se usa: <b>{selectedDescription}</b>
+                    Si está desactivado o vacío, se usa:{" "}
+                    <b>{selectedDescription}</b>
                   </p>
                 </div>
               </div>
@@ -1504,7 +1548,9 @@ const groupByHospedaje = (items: ItemFull[]) => {
                         </td>
                         <td className="px-3 py-2 text-sm text-gray-800">
                           {line.UnitCode}
-                          <div className="text-[11px] text-gray-500">{line.Unit}</div>
+                          <div className="text-[11px] text-gray-500">
+                            {line.Unit}
+                          </div>
                         </td>
                         <td className="px-3 py-2 text-sm text-gray-800">
                           <div className="break-words">{line.Description}</div>
@@ -1573,7 +1619,8 @@ const groupByHospedaje = (items: ItemFull[]) => {
                 </div>
 
                 <div className="text-[11px] text-gray-500 mt-2">
-                  {totalNights} noche(s) · {reservationsWithSelectedItems.length} reserva(s)
+                  {totalNights} noche(s) ·{" "}
+                  {reservationsWithSelectedItems.length} reserva(s)
                 </div>
               </div>
             </div>
@@ -1581,12 +1628,16 @@ const groupByHospedaje = (items: ItemFull[]) => {
 
           {/* Datos fiscales */}
           <div className="mb-6">
-            <h4 className="text-md font-medium text-gray-900 mb-3">Datos Fiscales</h4>
+            <h4 className="text-md font-medium text-gray-900 mb-3">
+              Datos Fiscales
+            </h4>
 
             {loading ? (
               <div className="text-center py-4">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto" />
-                <p className="mt-2 text-sm text-gray-500">Cargando datos fiscales...</p>
+                <p className="mt-2 text-sm text-gray-500">
+                  Cargando datos fiscales...
+                </p>
               </div>
             ) : error ? (
               <div className="bg-red-50 border-l-4 border-red-400 p-4 mb-4">
@@ -1604,22 +1655,27 @@ const groupByHospedaje = (items: ItemFull[]) => {
                   <div
                     key={`${data.id_datos_fiscales}-${data.id_empresa}`}
                     className={`border rounded-md p-4 cursor-pointer ${
-                      selectedFiscalData?.id_datos_fiscales === data.id_datos_fiscales
+                      selectedFiscalData?.id_datos_fiscales ===
+                      data.id_datos_fiscales
                         ? "border-blue-500 bg-blue-50"
                         : "border-gray-200"
                     }`}
                     onClick={() => setSelectedFiscalData(data)}
                   >
                     <div className="flex justify-between">
-                      <h5 className="font-medium text-gray-900">{data.razon_social_df}</h5>
-                      <span className="text-sm text-gray-500">RFC: {data.rfc}</span>
+                      <h5 className="font-medium text-gray-900">
+                        {data.razon_social_df}
+                      </h5>
+                      <span className="text-sm text-gray-500">
+                        RFC: {data.rfc}
+                      </span>
                     </div>
                     <p className="text-sm text-gray-600 mt-1">
                       Regimen Fiscal: {data.regimen_fiscal}
                     </p>
                     <p className="text-sm text-gray-600 mt-1">
-                      {data.codigo_postal_fiscal},{data.estado}, {data.municipio},{" "}
-                      {data.colonia} , {data.calle}
+                      {data.codigo_postal_fiscal},{data.estado},{" "}
+                      {data.municipio}, {data.colonia} , {data.calle}
                     </p>
                   </div>
                 ))}
@@ -1714,7 +1770,9 @@ const groupByHospedaje = (items: ItemFull[]) => {
                     </div>
 
                     <div className="flex flex-col gap-1">
-                      <label className="text-sm font-medium text-gray-600">Mes</label>
+                      <label className="text-sm font-medium text-gray-600">
+                        Mes
+                      </label>
                       <select
                         value={month}
                         onChange={(e) => setMonth(e.target.value)}
@@ -1729,7 +1787,9 @@ const groupByHospedaje = (items: ItemFull[]) => {
                     </div>
 
                     <div className="flex flex-col gap-1">
-                      <label className="text-sm font-medium text-gray-600">Año</label>
+                      <label className="text-sm font-medium text-gray-600">
+                        Año
+                      </label>
                       <input
                         type="number"
                         value={year}
@@ -1773,7 +1833,9 @@ const groupByHospedaje = (items: ItemFull[]) => {
                         : "border-gray-300 bg-white hover:bg-gray-50"
                     }`}
                   >
-                    {omitObservations ? "Observación desactivada" : "No poner observación"}
+                    {omitObservations
+                      ? "Observación desactivada"
+                      : "No poner observación"}
                   </button>
 
                   {omitObservations && (
@@ -1809,7 +1871,9 @@ const groupByHospedaje = (items: ItemFull[]) => {
 
               {/* IVA Switch */}
               <div className="mt-4">
-                <label className="block text-xs font-medium text-gray-700 mb-1">IVA</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  IVA
+                </label>
                 <div className="inline-flex rounded-md border border-gray-300 overflow-hidden">
                   <button
                     type="button"
@@ -1834,7 +1898,9 @@ const groupByHospedaje = (items: ItemFull[]) => {
                     8%
                   </button>
                 </div>
-                <p className="text-[11px] text-gray-500 mt-1">Por defecto es 16%.</p>
+                <p className="text-[11px] text-gray-500 mt-1">
+                  Por defecto es 16%.
+                </p>
               </div>
             </div>
           </div>
@@ -1847,7 +1913,8 @@ const groupByHospedaje = (items: ItemFull[]) => {
                   Total a facturar:
                 </span>
                 <p className="text-xs text-gray-500 mt-1">
-                  {totalNights} noche(s) en {reservationsWithSelectedItems.length} reserva(s)
+                  {totalNights} noche(s) en{" "}
+                  {reservationsWithSelectedItems.length} reserva(s)
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
                   Subtotal:{" "}
@@ -1904,7 +1971,10 @@ const groupByHospedaje = (items: ItemFull[]) => {
                   }
 
                   if (!pdf) {
-                    showNotification("error", "No se encontró el PDF en la respuesta de descarga.");
+                    showNotification(
+                      "error",
+                      "No se encontró el PDF en la respuesta de descarga.",
+                    );
                     return;
                   }
 
@@ -1938,7 +2008,10 @@ const groupByHospedaje = (items: ItemFull[]) => {
                   }
 
                   if (!xml) {
-                    showNotification("error", "No se encontró el XML en la respuesta de descarga.");
+                    showNotification(
+                      "error",
+                      "No se encontró el XML en la respuesta de descarga.",
+                    );
                     return;
                   }
 

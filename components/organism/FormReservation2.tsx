@@ -79,6 +79,8 @@ export function ReservationForm2({
   const [acompanantes, setAcompanantes] = useState<Viajero[]>([]);
 
   const { getProveedores, proveedores, updateProveedores } = useProveedor();
+  console.log("this is solicitud", solicitud);
+  console.log("this is proveedores", proveedores);
   const [intermediario, setIntermediario] = useState<{
     exists: boolean;
     proveedor: Proveedor | null;
