@@ -68,7 +68,7 @@ export function ProveedorProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    updateProveedores();
+    getProveedores();
   }, []);
 
   return (
