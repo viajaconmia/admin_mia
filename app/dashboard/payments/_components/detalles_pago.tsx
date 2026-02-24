@@ -34,12 +34,12 @@ const buildReservasRows = (reservas: ReservaAPI[] = []) => {
       r.nombre_acompanantes_reserva ||
       r.nombres_viajeros_acompañantes ||
       "Ninguno",
-    tipo_cuarto: r.tipo_cuarto || "N/A",
-    hotel: r.nombre_hotel || r.hotel || "N/A",
+    tipo_cuarto_vuelo: r.tipo_cuarto_vuelo || "N/A",
+    proveedor: r.proveedor || r.hotel || "N/A",
     check_in: r.check_in || "N/A",
     check_out: r.check_out || "N/A",
     total_booking: r.total_booking || r.total || 0,
-    confirmation_code: r.codigo_reservacion_hotel || "N/A",
+    codigo_confirmacion:r.codigo_confirmacion|| r.codigo_reservacion_hotel || "N/A",
     item: r,
   }));
 };
@@ -593,8 +593,8 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({
                 customColumns={[
                   "id_solicitud",
                   "id_booking",
-                  "hotel",
-                  "tipo_cuarto",
+                  "proveedor",
+                  "tipo_cuarto_vuelo",
                   "viajero",
                   "viajeros_adicionales",
                   "check_in",
@@ -613,7 +613,7 @@ const ModalDetallePago: React.FC<ModalDetallePagoProps> = ({
                         <b>ID Booking:</b> {row.id_booking}
                       </div>
                       <div>
-                        <b>Conf. Code:</b> {row.confirmation_code}
+                        <b>Conf. Code:</b> {row.codigo_confirmacion}
                       </div>
                     </div>
                   </div>
