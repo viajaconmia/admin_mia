@@ -500,8 +500,7 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
   const [state, dispatch] = useReducer(vuelosReducer, initialState);
   const [details, setDetails] = useState<Details>(initialDetails);
   const { getProveedores, proveedores, updateProveedores } = useProveedor();
-  updateProveedores();
-  console.log(proveedores);
+  getProveedores();
 
   const [viajeros, setViajeros] = useState<ViajeroService[]>([]);
   const [aeropuertos, setAeropuertos] = useState<Aeropuerto[]>([]);
@@ -552,7 +551,7 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
           error?.message || "Error al obtener aeropuertos",
         ),
       );
-  }, [agente.id_agente, showNotification]);
+  }, []);
 
   /* ---------------------------------
      2) Prefill base (details + vuelos drafts)
@@ -638,7 +637,7 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data_inicio, aeropuertos, viajeros]);
+  }, []);
 
   /* ---------------------------------
      Acciones: pagar / guardar
