@@ -1,3 +1,4 @@
+import { formatDate, formatTime } from "@/helpers/formater";
 import {
   BookingsService,
   SolicitudVuelo,
@@ -18,8 +19,9 @@ const STYLES = {
     SUBTITLE: 11,
     BODY: 9,
     SMALL: 8,
+    XS: 6,
   },
-  MARGINS: { LEFT: 15, RIGHT: 15, TOP: 20 },
+  MARGINS: { LEFT: 8, RIGHT: 8, TOP: 20 },
   SPACING: { LINE: 6, SECTION: 10 },
 };
 
@@ -37,19 +39,96 @@ export async function generatePdf(id_solicitud: string): Promise<jsPDF> {
   y += 10;
 
   y = drawEmitidoPor(doc, y);
+  drawImage(
+    doc,
+    "https://luiscastaneda-tos.github.io/log/files/312974093_187206343834287_6123587238863977470_n.jpg",
+    pageW / 2 - 10,
+    y,
+    20,
+    20,
+  );
   y = drawBoletoInfo(doc, solicitud, pageW, y);
 
   y += 8;
 
+  //aqui va un cuadro que diga detalle
   y = drawTablaVuelos(doc, solicitud.vuelos, y);
-
-  y += 5;
-
-  drawEquipaje(doc, solicitud.vuelos, y);
+  //aqui va un cuadro que diga gracias por suconfianza
+  y += 4;
+  y = drawContacto(doc, y);
+  doc.text("Politicas:", STYLES.MARGINS.LEFT, y);
+  y += 3;
+  y = drawList(
+    doc,
+    condicionesVuelo,
+    STYLES.MARGINS.LEFT,
+    y,
+    pageW - STYLES.MARGINS.LEFT - STYLES.MARGINS.RIGHT,
+    { fontSize: STYLES.FONTS.XS, lineHeight: 4 },
+  );
+  doc.text("Nomenclatura:", STYLES.MARGINS.LEFT, y);
+  y += 3;
+  y = drawList(
+    doc,
+    restriccionesBoleto,
+    STYLES.MARGINS.LEFT,
+    y,
+    pageW - STYLES.MARGINS.LEFT - STYLES.MARGINS.RIGHT,
+    { symbol: "•", fontSize: STYLES.FONTS.XS, lineHeight: 4 },
+  );
+  y = drawParagraph(
+    doc,
+    `Noktos Alianza, S.A. de C.V., mejor conocido como Noktos, con domicilio en calle Av. presidente Masarik No. 29 Int. P-4, colonia Chapultepec Morales, ciudad México, municipio o delegación Miguel Hidalgo, cp. 11570, en la entidad de Ciudad de México, país México, es el responsable del uso y protección de sus datos personales, puede verificar más información en nuestro portal de internet https://www.noktos.com`,
+    STYLES.MARGINS.LEFT,
+    y,
+    pageW - STYLES.MARGINS.LEFT * 2,
+  );
+  //Aqui va un cuadro de nuevo como el del inicio, un rectangulo
 
   return doc;
 }
+function drawParagraph(
+  doc: jsPDF,
+  text: string,
+  startX: number,
+  startY: number,
+  maxWidth: number,
+  options?: {
+    fontSize?: number;
+    lineHeight?: number;
+    align?: "left" | "center" | "right" | "justify";
+  },
+) {
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const marginBottom = 20;
 
+  const fontSize = options?.fontSize ?? 6;
+  const lineHeight = options?.lineHeight ?? 3;
+  const align = options?.align ?? "left";
+
+  let y = startY;
+
+  doc.setFontSize(fontSize);
+
+  const lines = doc.splitTextToSize(text, maxWidth);
+
+  lines.forEach((line) => {
+    // 👇 salto automático de página
+    if (y + lineHeight > pageHeight - marginBottom) {
+      doc.addPage();
+      y = 20;
+    }
+
+    doc.text(line, startX, y, {
+      maxWidth,
+      align,
+    });
+
+    y += lineHeight;
+  });
+
+  return y + 2;
+}
 function drawHeader(doc: jsPDF, pageW: number) {
   doc.setFillColor(...STYLES.COLORS.PRIMARY);
   doc.rect(0, 0, pageW, 12, "F");
@@ -95,7 +174,24 @@ function drawBoletoInfo(
   return y + 10;
 }
 function drawTablaVuelos(doc: jsPDF, vuelos: VueloDetalle[], y: number) {
-  const body = vuelos.map((v) => [
+  const head = [
+    [
+      "Aerolínea",
+      "Origen",
+      "Fecha Salida",
+      "Hora",
+      "Destino",
+      "Fecha Llegada",
+      "Hora",
+      "Asiento",
+      "Pasajero",
+      "# Vuelo",
+    ],
+  ];
+
+  const columnCount = head[0].length;
+
+  const body: any[] = vuelos.map((v) => [
     v.airline,
     `${v.departure_airport} - ${v.departure_city}`,
     formatDate(v.departure_date),
@@ -108,376 +204,168 @@ function drawTablaVuelos(doc: jsPDF, vuelos: VueloDetalle[], y: number) {
     v.flight_number,
   ]);
 
+  // 👇 Si mandas nota, se agrega fila de ancho completo
+  if (vuelos.some((i) => i.eq_documentado || i.eq_mano || i.eq_personal)) {
+    const eq = vuelos.filter(
+      (i) => i.eq_documentado || i.eq_mano || i.eq_personal,
+    )[0];
+    body.push([
+      {
+        content: `${[eq.eq_personal ? `articulo personal: ${eq.eq_personal}` : null, eq.eq_mano ? `equipaje de mano: ${eq.eq_mano}` : null, eq.eq_documentado ? `equipaje documentado: ${eq.eq_documentado}` : null].filter((i) => Boolean(i)).join(" + ")}`,
+        colSpan: columnCount,
+        styles: {
+          halign: "center",
+          fontSize: 8,
+          cellPadding: 4,
+        },
+      },
+    ]);
+  }
+
   autoTable(doc, {
     startY: y,
-    head: [
-      [
-        "Aerolínea",
-        "Origen",
-        "Fecha Salida",
-        "Hora",
-        "Destino",
-        "Fecha Llegada",
-        "Hora",
-        "Asiento",
-        "Pasajero",
-        "# Vuelo",
-      ],
-    ],
+    head,
     body,
+    theme: "grid",
     styles: {
       fontSize: 7,
     },
     headStyles: {
       fillColor: STYLES.COLORS.TABLE_HEADER,
+      halign: "center",
+      fontSize: 7,
     },
-    margin: { left: STYLES.MARGINS.LEFT, right: STYLES.MARGINS.RIGHT },
+    bodyStyles: {
+      textColor: STYLES.COLORS.TEXT_NORMAL,
+    },
+    margin: {
+      left: STYLES.MARGINS.LEFT,
+      right: STYLES.MARGINS.RIGHT,
+    },
   });
 
   return (doc as any).lastAutoTable.finalY;
 }
-function drawEquipaje(doc: jsPDF, vuelos: VueloDetalle[], y: number) {
-  const eq = vuelos[0];
 
-  const equipaje = [
-    eq.eq_personal && "Artículo personal",
-    eq.eq_mano && `${eq.eq_mano} kg mano`,
-    eq.eq_documentado && `${eq.eq_documentado} kg documentado`,
-  ]
-    .filter(Boolean)
-    .join(" + ");
+function drawList(
+  doc: jsPDF,
+  items: string[],
+  startX: number,
+  startY: number,
+  maxWidth: number,
+  options?: {
+    symbol?: string; // 👈 opcional
+    lineHeight?: number;
+    fontSize?: number;
+  },
+) {
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const marginBottom = 20;
 
-  doc.setFontSize(STYLES.FONTS.BODY);
-  doc.text("EQUIPAJE:", STYLES.MARGINS.LEFT, y);
-  doc.text(equipaje || "No especificado", STYLES.MARGINS.LEFT + 25, y);
+  const lineHeight = options?.lineHeight ?? 6;
+  const fontSize = options?.fontSize ?? 9;
+  const symbol = options?.symbol;
+
+  let y = startY;
+
+  doc.setFontSize(fontSize);
+
+  items.forEach((item, index) => {
+    const bullet = symbol ?? `${index + 1}.`;
+
+    const textLines = doc.splitTextToSize(item, maxWidth - 10);
+
+    // 👇 salto de página si no cabe
+    if (y + textLines.length * lineHeight > pageHeight - marginBottom) {
+      doc.addPage();
+      y = 20;
+    }
+
+    // símbolo
+    doc.text(bullet, startX, y);
+
+    // texto
+    doc.text(textLines, startX + 4, y);
+
+    y += textLines.length * lineHeight - textLines.length;
+  });
+
+  return y + 2;
 }
-function formatDate(date: string) {
-  return new Date(date).toLocaleDateString("es-MX");
+function drawContacto(doc: jsPDF, y: number) {
+  const pageWidth = doc.internal.pageSize.getWidth();
+
+  // 1️⃣ Texto normal
+  doc.setFontSize(6);
+  doc.setTextColor(0, 0, 0);
+
+  doc.text(
+    "Si tiene alguna duda sobre esta información, póngase en contacto con nosotros",
+    pageWidth / 2,
+    y,
+    { align: "center" },
+  );
+
+  y += 3;
+
+  // 2️⃣ WhatsApp (link)
+  doc.setTextColor(0, 0, 255);
+
+  doc.textWithLink("WA 55 31 49 10 62", pageWidth / 2, y, {
+    url: "https://wa.me/525531491062",
+    align: "center",
+  });
+
+  y += 3;
+
+  // 3️⃣ Correo (link)
+  doc.textWithLink("reservaciones@noktos.com", pageWidth / 2, y, {
+    url: "mailto:reservaciones@noktos.com",
+    align: "center",
+  });
+
+  // Regresar color a negro
+  doc.setTextColor(0, 0, 0);
+
+  return y + 5;
 }
 
-function formatTime(time: string) {
-  return time.slice(0, 5);
+function drawImage(
+  doc: jsPDF,
+  image: string,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+) {
+  doc.addImage(image, "PNG", x, y, width, height);
 }
 
-// async function generatePdfmine(id_solicitud: string): Promise<jsPDF> {
-//   const doc = new jsPDF("p", "mm", "a4");
+const condicionesVuelo: string[] = [
+  "Es necesario presentarse por lo menos 2 horas antes de la salida del vuelo en rutas nacionales (importante considerar realizar el check in antes de presentarse al vuelo; el check in está sujeto a la aerolínea, es probable que sea necesario realizarlo en aeropuerto; se sugiere verificar horarios de documentación directamente con la aerolínea). En caso de vuelos internacionales, presentarse por lo menos 3 horas antes de la salida del vuelo (importante considerar realizar el check in antes de presentarse al vuelo; el check in está sujeto a la aerolínea, es probable que sea necesario realizarlo en aeropuerto; se sugiere verificar horarios de documentación directamente con la aerolínea).",
 
-//   const STYLES = {
-//     COLORS: {
-//       PRIMARY: [0, 115, 185],
-//       TEXT_NORMAL: [0, 0, 0],
-//       TEXT_MUTED: [100, 100, 100],
-//       TEXT_HIGHLIGHT: [220, 38, 38],
-//       TABLE_HEADER: [0, 115, 185],
-//     },
-//     FONTS: {
-//       TITLE: 14,
-//       SUBTITLE: 11,
-//       BODY: 10,
-//       SMALL: 9,
-//     },
-//     MARGINS: { LEFT: 15, RIGHT: 15, TOP: 20 },
-//     SPACING: { LINE: 7, SECTION: 10 },
-//   };
+  "Presenta tus documentos: identificación oficial vigente o pasaporte.",
 
-//   const pageW = doc.internal.pageSize.getWidth();
-//   const pageH = doc.internal.pageSize.getHeight();
-//   let y = STYLES.MARGINS.TOP;
+  "Cualquier cambio o cancelación a la reservación deberá ser solicitada por correo a reservaciones@noktos.com, al WhatsApp 55 31 49 10 62 o al teléfono 800 666 5867 con una anticipación mínima de 72 horas antes de la fecha de check in, proporcionando la(s) clave(s) de confirmación y la sede.",
 
-//   //Esto es para generar un qr con un url
-//   // const secureUrl = `https://admin.viajaconmia.com/secure-payment/${data.secureToken}`;
-//   // const qrDataUrl = await QRCode.toDataURL(secureUrl, {
-//   //   width: 256,
-//   //   margin: 2,
-//   // });
-//   // try {
-//   //   if (data.logoUrl) doc.addImage(data.logoUrl, "SVG", STYLES.MARGINS.LEFT, y - 10, 25, 15);
-//   // } catch (e) {
-//   //   console.error("No se pudo cargar el logo:", e);
-//   // }
-//   // =================================================================
-//   // 2. CUERPO DEL DOCUMENTO
-//   // =================================================================
+  "El pasajero debe respetar las políticas y lineamientos de la aerolínea para evitar incurrir en multas y penalizaciones. En caso de que se reporte algún mal comportamiento o una penalización que el pasajero se haya negado a pagar, Noktos se reserva el derecho de seguirle brindando servicio al cliente/pasajero involucrado.",
 
-//   doc.setFontSize(STYLES.FONTS.BODY);
-//   doc.setTextColor(...(STYLES.COLORS.TEXT_NORMAL as [number, number, number]));
-//   const fechaActual = currentDate();
-//   doc.text(`Fecha: ${fechaActual}`, pageW - STYLES.MARGINS.RIGHT, y, {
-//     align: "right",
-//   });
-//   y += STYLES.SPACING.LINE;
-//   doc.text(`Código: ${data.codigoDocumento}`, pageW - STYLES.MARGINS.RIGHT, y, {
-//     align: "right",
-//   });
+  "Las políticas de cambio en el itinerario de un boleto aéreo están sujetas a las reglas tarifarias vigentes; estas pueden aplicar penalidades de hasta el monto total de la compra y diferencia de tarifa.",
 
-//   // --- Título ---
-//   y += STYLES.SPACING.SECTION;
-//   doc.setFontSize(STYLES.FONTS.TITLE);
-//   doc.setFont("helvetica", "bold");
-//   doc.text("CARTA INSTRUCCIÓN DE PAGO", pageW / 2, y, { align: "center" });
-//   y += STYLES.SPACING.SECTION;
+  "La vigencia de los boletos aéreos emitidos es de 12 meses a partir de la fecha de emisión. Si las políticas de la tarifa lo permiten, cualquier cambio y segmento debe efectuarse antes de la vigencia del boleto aéreo emitido.",
 
-//   // --- Párrafos de Introducción y Datos de la Empresa ---
-//   doc.setFont("helvetica", "normal");
-//   doc.setFontSize(STYLES.FONTS.BODY);
-//   doc.text("A QUIEN CORRESPONDA", STYLES.MARGINS.LEFT, y);
-//   y += STYLES.SPACING.SECTION;
+  "Según las políticas de cancelación o no show (no presentarse al vuelo), en caso de no presentarse en el horario de salida del vuelo especificado por la aerolínea, es probable que se cancele el itinerario completo conforme a la regla tarifaria del vuelo.",
 
-//   const introText = `Por medio de la presente solicito de la manera más atenta, se facturen las siguientes reservaciones, a nombre de la empresa:`;
-//   const splitIntro = doc.splitTextToSize(
-//     introText,
-//     pageW - STYLES.MARGINS.LEFT - STYLES.MARGINS.RIGHT,
-//   );
-//   doc.text(splitIntro, STYLES.MARGINS.LEFT, y);
-//   y += splitIntro.length * STYLES.SPACING.LINE;
+  "Las cancelaciones solo aplican cuando se tratan de tarifas reembolsables; estas se deben solicitar al correo reservaciones@noktos.com.",
 
-//   doc.setFont("helvetica", "bold");
-//   doc.text(`RAZÓN SOCIAL:`, STYLES.MARGINS.LEFT, y);
-//   doc.setFont("helvetica", "normal");
-//   doc.text(data.empresa.razonSocial, STYLES.MARGINS.LEFT + 35, y);
-//   y += STYLES.SPACING.LINE;
+  "Las tarifas están sujetas a disponibilidad; la aerolínea puede aumentar o modificar los montos sin previo aviso. Las tarifas no están garantizadas hasta la emisión de los boletos aéreos.",
 
-//   // Repetimos para los demás datos...
-//   doc.setFont("helvetica", "bold");
-//   doc.text(`RFC:`, STYLES.MARGINS.LEFT, y);
-//   doc.setFont("helvetica", "normal");
-//   doc.text(data.empresa.rfc, STYLES.MARGINS.LEFT + 35, y);
-//   y += STYLES.SPACING.LINE;
-
-//   //codigo postal
-//   doc.setFont("helvetica", "bold");
-//   doc.text(`CÓDIGO POSTAL:`, STYLES.MARGINS.LEFT, y);
-//   doc.setFont("helvetica", "normal");
-//   doc.text(data.empresa.codigoPostal, STYLES.MARGINS.LEFT + 35, y);
-//   y += STYLES.SPACING.LINE;
-
-//   doc.setFont("helvetica", "bold");
-//   doc.text(`DIRECCIÓN:`, STYLES.MARGINS.LEFT, y);
-//   doc.setFont("helvetica", "normal");
-//   const splitDirec = doc.splitTextToSize(
-//     data.empresa.direccion,
-//     pageW - STYLES.MARGINS.LEFT - STYLES.MARGINS.RIGHT - 35,
-//   );
-//   doc.text(splitDirec, STYLES.MARGINS.LEFT + 35, y);
-//   y += splitDirec.length * STYLES.SPACING.LINE;
-
-//   // --- Tabla de Reservaciones ---
-//   const tableHead = [
-//     [
-//       "Tipo Habitación",
-//       "Nombre",
-//       "Check in",
-//       "Check out",
-//       "Reservación",
-//       "Monto a Pagar",
-//     ],
-//   ];
-//   const tableBody = data.reservations.map((r) => [
-//     r.tipoHabitacion,
-//     r.nombre,
-//     r.checkIn,
-//     r.checkOut,
-//     r.reservacionId,
-//     `${data.currency} ${r.monto.toFixed(2)}`,
-//   ]);
-
-//   autoTable(doc, {
-//     head: tableHead,
-//     body: tableBody,
-//     startY: y,
-//     theme: "grid",
-//     headStyles: {
-//       fillColor: STYLES.COLORS.TABLE_HEADER as [number, number, number],
-//       textColor: [255, 255, 255],
-//       fontStyle: "bold",
-//     },
-//     styles: {
-//       fontSize: STYLES.FONTS.SMALL,
-//       cellPadding: 2,
-//     },
-//     margin: { left: STYLES.MARGINS.LEFT, right: STYLES.MARGINS.RIGHT },
-//   });
-
-//   y = (doc as any).lastAutoTable.finalY + STYLES.SPACING.SECTION;
-
-//   // --- Párrafos Finales (con texto resaltado) ---
-//   const finalText1 = `Así mismo le informo que ${
-//     data.empresa.nombre
-//   } proporcionará la siguiente Tarjeta para realizar el cargo de ${
-//     data.cargo || ""
-//   }.`;
-//   const splitFinalText1 = doc.splitTextToSize(
-//     finalText1,
-//     pageW - STYLES.MARGINS.LEFT - STYLES.MARGINS.RIGHT,
-//   );
-//   doc.text(splitFinalText1, STYLES.MARGINS.LEFT, y);
-//   y += splitFinalText1.length * STYLES.SPACING.LINE;
-
-//   // Para la línea con texto de diferente color, lo hacemos por partes
-//   const part1 =
-//     "Solicitamos de su apoyo para que el cargo se haga al check out del cliente y se hagan únicamente por las noches efectivas, es decir, las noches dormidas. ";
-//   const part2_highlight =
-//     "NO COMENTAR NADA AL VIAJERO SOBRE PAGOS Y FACTURACION";
-//   doc.setFontSize(STYLES.FONTS.BODY);
-//   doc.setTextColor(...(STYLES.COLORS.TEXT_NORMAL as [number, number, number]));
-//   doc.text(part1, STYLES.MARGINS.LEFT, y, {
-//     maxWidth: pageW - STYLES.MARGINS.LEFT - STYLES.MARGINS.RIGHT,
-//   });
-//   // Medimos la altura del texto anterior para saber si hubo salto de línea
-//   const part1Height = doc.getTextDimensions(part1, {
-//     maxWidth: pageW - STYLES.MARGINS.LEFT - STYLES.MARGINS.RIGHT,
-//   }).h;
-//   y += part1Height + 2;
-
-//   doc.setTextColor(
-//     ...(STYLES.COLORS.TEXT_HIGHLIGHT as [number, number, number]),
-//   );
-//   doc.setFont("helvetica", "bold");
-//   doc.text(part2_highlight, STYLES.MARGINS.LEFT, y, {
-//     maxWidth: pageW - STYLES.MARGINS.LEFT - STYLES.MARGINS.RIGHT,
-//   });
-//   const part2Height = doc.getTextDimensions(part2_highlight, {
-//     maxWidth: pageW - STYLES.MARGINS.LEFT - STYLES.MARGINS.RIGHT,
-//   }).h;
-//   y += part2Height + STYLES.SPACING.SECTION;
-
-//   //--- aviso si el codigo esta oculto ---
-//   if (!data.isSecureCode) {
-//     doc.setFont("helvetica", "bold");
-//     doc.setTextColor(
-//       ...(STYLES.COLORS.TEXT_NORMAL as [number, number, number]),
-//     );
-//     const splitAnuncioText1 = doc.splitTextToSize(
-//       "Les pedimos que al momento de hacer el cargo favor de comunicarse por los siguientes medios, para brindarles el CVV",
-//       pageW - STYLES.MARGINS.LEFT - STYLES.MARGINS.RIGHT,
-//     );
-//     doc.text(splitAnuncioText1, STYLES.MARGINS.LEFT, y);
-//     y += splitAnuncioText1.length * STYLES.SPACING.LINE;
-//   }
-//   let y_contact;
-//   // --- Datos de la Tarjeta o Codigo QR---
-//   if (data.type == "code") {
-//     doc.setFont("helvetica", "normal");
-//     doc.setTextColor(
-//       ...(STYLES.COLORS.TEXT_NORMAL as [number, number, number]),
-//     );
-//     doc.text(`BANCO EMISOR: ${data.bancoEmisor}`, STYLES.MARGINS.LEFT, y);
-//     y += STYLES.SPACING.LINE;
-//     doc.text(`Nombre: ${data.nombreTarjeta}`, STYLES.MARGINS.LEFT, y);
-//     y += STYLES.SPACING.LINE;
-//     doc.text(
-//       `Número de Tarjeta: ${data.numeroTarjeta}`,
-//       STYLES.MARGINS.LEFT,
-//       y,
-//     );
-//     y += STYLES.SPACING.LINE;
-//     doc.text(
-//       `Fecha de expiración: ${data.fechaExpiracion}`,
-//       STYLES.MARGINS.LEFT,
-//       y,
-//     );
-//     y += STYLES.SPACING.LINE;
-//     if (data.isSecureCode) {
-//       doc.text(`CVV: ${data.cvv}`, STYLES.MARGINS.LEFT, y);
-//       y += STYLES.SPACING.LINE;
-//     }
-//     y_contact = y;
-//   } else if (data.type == "qr") {
-//     y_contact = y;
-//     const qrSize = 50;
-//     const qrX = STYLES.MARGINS.LEFT; // Del lado izquierdo
-//     doc.addImage(qrDataUrl, "PNG", qrX, y, qrSize, qrSize);
-//     y += qrSize + STYLES.SPACING.LINE;
-
-//     doc.setFontSize(STYLES.FONTS.BODY);
-//     doc.setTextColor(
-//       ...(STYLES.COLORS.TEXT_NORMAL as [number, number, number]),
-//     );
-//     doc.text("Escanear para pago seguro", STYLES.MARGINS.LEFT + qrSize / 2, y, {
-//       align: "center",
-//     });
-//   }
-
-//   //Imagenes y links
-//   doc.setFont("helvetica", "bold");
-//   doc.setTextColor(...(STYLES.COLORS.TEXT_NORMAL as [number, number, number]));
-//   const textContacto =
-//     "Cualquier duda o aclaración favor de \ncontactarse por los siguientes medios:";
-//   const x_contact =
-//     pageW - STYLES.MARGINS.RIGHT - doc.getTextWidth(textContacto) / 2 - 10;
-//   doc.text(textContacto, x_contact, y_contact);
-//   y_contact += STYLES.SPACING.LINE * 2;
-//   doc.setTextColor(...(STYLES.COLORS.PRIMARY as [number, number, number]));
-//   doc.addImage(
-//     "https://luiscastaneda-tos.github.io/log/files/wa.png",
-//     "PNG",
-//     x_contact,
-//     y_contact - 4,
-//     6,
-//     6,
-//   );
-//   const contactWa = "Por WhatsApp: 55 1044 5254";
-//   doc.textWithLink(contactWa, x_contact + 7, y_contact, {
-//     url: "https://wa.me/525510445254",
-//   });
-
-//   y_contact += STYLES.SPACING.LINE;
-//   doc.addImage(
-//     "https://luiscastaneda-tos.github.io/log/files/fon.png",
-//     "PNG",
-//     x_contact,
-//     y_contact - 4,
-//     6,
-//     6,
-//   );
-//   doc.textWithLink("Por llamada: 800 666 5867", x_contact + 7, y_contact, {
-//     url: "tel:8006665867",
-//   });
-//   y_contact += STYLES.SPACING.LINE;
-//   doc.addImage(
-//     "https://cdn-icons-png.flaticon.com/512/561/561127.png", // Ícono de email
-//     "PNG",
-//     x_contact,
-//     y_contact - 4,
-//     6,
-//     6,
-//   );
-
-//   doc.textWithLink(
-//     "Por correo: operaciones@noktos.com",
-//     x_contact + 7,
-//     y_contact,
-//     {
-//       url: "mailto:operaciones@noktos.com",
-//     },
-//   );
-
-//   y_contact += STYLES.SPACING.LINE;
-
-//   // --- Footer ---
-//   // Este se mantiene al final de la página, sin importar la altura del contenido
-//   doc.setFontSize(STYLES.FONTS.SMALL);
-//   doc.setTextColor(...(STYLES.COLORS.TEXT_MUTED as [number, number, number]));
-//   doc.text(
-//     `Documento generado automáticamente por el sistema`,
-//     pageW / 2,
-//     pageH - 10,
-//     { align: "center" },
-//   );
-
-//   doc.addPage();
-//   //ESTA ES LA EXTRA
-//   doc.addImage(
-//     data.documento,
-//     "PNG",
-//     STYLES.MARGINS.LEFT,
-//     STYLES.MARGINS.TOP,
-//     pageW - STYLES.MARGINS.LEFT * 4,
-//     150,
-//   );
-
-//   // =================================================================
-//   // 3. RETORNAR EL DOCUMENTO
-//   // =================================================================
-//   return doc;
-// }
+  "Cada pasajero es responsable de verificar que posee o, en su caso, gestionar la documentación de identificación, así como la documentación migratoria, de salud y/o aduanal necesaria para realizar su viaje, incluyendo pasaporte, visas, permisos sanitarios, vacunas y cualquier requisito impuesto por las autoridades competentes de cada nación o del país de destino. Asimismo, el pasaporte debe tener como mínimo una validez de 6 meses posteriores a la fecha de retorno del itinerario. Noktos no asume responsabilidad por cualquier eventualidad derivada de la falta de estos requisitos.",
+];
+const restriccionesBoleto: string[] = [
+  "No reembolsable – no podrá ser devuelto el importe del boleto.",
+  "No transferible – no se permiten los cambios de nombre del pasajero.",
+  "No intercambiable – los boletos no podrán ser cambiados por dinero en efectivo.",
+  "Sin cambio de ruta – no se permiten modificaciones en el origen ni destino del boleto.",
+  "Sin posibilidad de mejoras – no se permiten las mejoras a tipos de tarifa superiores o categoría de clases.",
+];
