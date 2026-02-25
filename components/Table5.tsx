@@ -157,6 +157,9 @@ const columnKeys = useMemo(() => {
     return isInExpandableList && (hasMultipleItems || isStringWithSeparators);
   };
 
+  const EXPORT_EXCLUDE_COLS = new Set(["id_factura", "id_booking", "id_relacion"]);
+
+
   // Formatear el valor de una columna expandible
   const renderExpandableValue = (
   colKey: string,
@@ -381,17 +384,20 @@ const FORCE_SPLIT_COLS = new Set(["nombre", "cliente", "nombre_cliente"]);
           <div className="flex gap-4">
             {children}
             <button
-              onClick={() =>
-                exportToCSV(
-                  displayData.map(({ item, ...rest }) => rest),
-                  "Solicitudes.csv"
-                )
-              }
-              className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2"
-            >
-              <FileDown className="w-4 h-4 mr-2" />
-              Exportar CSV
-            </button>
+  onClick={() => {
+    const dataToExport = displayData.map(({ item, ...rest }) =>
+      Object.fromEntries(
+        Object.entries(rest).filter(([k]) => !EXPORT_EXCLUDE_COLS.has(k))
+      )
+    );
+
+    exportToCSV(dataToExport, "Solicitudes.csv");
+  }}
+  className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2"
+>
+  <FileDown className="w-4 h-4 mr-2" />
+  Exportar CSV
+</button>
 <div className="relative" ref={columnSelectorRef}>
   <button
     className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2"
