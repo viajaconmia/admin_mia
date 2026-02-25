@@ -421,7 +421,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
       if (reservaData && isZeroMoney(montorestante)) {
         payload = {
           bandera: 1, // Siempre 1
-          hotel: reservaData.hotel || null, // Corregido: Usa el objeto 'hotel' completo
+          hotel: reservaData.hotel||reservaData.proveedor || null, // Corregido: Usa el objeto 'hotel' completo
           habitacion: reservaData.habitacion || "",
           check_in: reservaData.check_in || "",
           check_out: reservaData.check_out || "",
@@ -429,7 +429,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
           viajero: reservaData.viajero || {},
           noches: reservaData.Noches || 0,
           venta: reservaData.venta || {},
-          estado_reserva: reservaData.estado_reserva || "",
+          estado_reserva: reservaData.estado_reserva ||reservaData.codigo_confirmacion|| "",
           comments: reservaData.comments || "",
           proveedor: reservaData.proveedor || {},
           impuestos: reservaData.impuestos || {},
