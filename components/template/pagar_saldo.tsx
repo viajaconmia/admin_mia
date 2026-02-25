@@ -109,15 +109,21 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
   // console.log("facturas recibida:", facturaData);
   const { showNotification } = useNotification();
   // Helper global para dinero
-  const toMoney = (v: any): number => {
-    const n = Number(v) || 0;
-    return Number(n.toFixed(2));
-  };
+// ✅ Dinero seguro: operar en centavos (int), mostrar en pesos (2 decimales)
+const toCents = (v: any): number => {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 0;
+  return Math.round(n * 100);
+};
 
-  // Comparar si “es cero” con tolerancia
-  const isZeroMoney = (v: number): boolean => {
-    return Math.abs(toMoney(v)) < 0.01; // menos de 1 centavo lo tratamos como 0
-  };
+const fromCents = (c: number): number => {
+  return Number((c / 100).toFixed(2));
+};
+
+const toMoney = (v: any): number => fromCents(toCents(v));
+
+// “cero” real a nivel centavo
+const isZeroMoney = (v: any): boolean => Math.abs(toCents(v)) < 1;
 
   // Funciones para manejar las facturas
   function obtenerMontosFacturas(facturas_Data) {
@@ -310,76 +316,68 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
     }
   };
 
-  const handleItemSelection = (id_item: string, saldoOriginal: number) => {
-    setSelectedItems((prev) => {
-      console.log(id_item, "1️⃣1️⃣1️⃣1️⃣1️⃣1️⃣", saldoOriginal);
-      const isCurrentlySelected = prev.some((item) => item.id_item === id_item);
-      console.log("nvfnvif🤬🤬🤬🤬", itemsSaldo);
+const handleItemSelection = (id_item: string, saldoOriginal: number) => {
+  setSelectedItems((prev) => {
+    const isCurrentlySelected = prev.some((item) => item.id_item === id_item);
 
-      const currentSaldo = toMoney(itemsSaldo[id_item] ?? saldoOriginal);
-      console.log(currentSaldo, "🚓🚓🚓🚓🚓🚓🚓🚓");
+    const saldoDisponibleTotalC = toCents(effectiveSaldoData.saldo);
 
-      if (isCurrentlySelected) {
-        // Deseleccionar item - restaurar el saldo original
-        const newSelection = prev.filter((item) => item.id_item !== id_item);
-        const newTotal = toMoney(
-          newSelection.reduce((sum, item) => sum + item.saldo, 0)
-        );
-        console.log(newTotal, "😢😢😢😢😢😢😢", newSelection);
+    // suma seleccionada actual (en centavos)
+    const currentTotalC = prev.reduce((acc, it) => acc + toCents(it.saldo), 0);
 
-        const restante = toMoney(effectiveSaldoData.saldo - newTotal);
-        console.log(restante, "🚓🚓🚓🚓🚓🚓🚓🚓");
+    // saldo actual del item (lo que queda por pagar), en centavos
+    const currentSaldoC = toCents(
+      itemsSaldo[id_item] ?? saldoOriginal
+    );
 
-        // Restaurar el saldo original del item
-        setItemsSaldo((prevSaldo) => ({
-          ...prevSaldo,
-          [id_item]: toMoney(saldoOriginal),
-        }));
+    if (isCurrentlySelected) {
+      // ✅ Deseleccionar: quitar ese aplicado y restaurar saldo del item
+      const newSelection = prev.filter((item) => item.id_item !== id_item);
 
-        setMontoRestante(restante);
-        setMontoSeleccionado(newTotal);
-        return newSelection;
-      } else {
-        // Verificar si ya se ha alcanzado el límite
-        const currentTotal = toMoney(
-          prev.reduce((sum, item) => sum + item.saldo, 0)
-        );
-        const mensaje = reservaData
-          ? "Ya has pagado la reserva completa"
-          : "Ya has utilizado todo tu saldo disponible";
+      const newTotalC = newSelection.reduce((acc, it) => acc + toCents(it.saldo), 0);
+      const restanteC = saldoDisponibleTotalC - newTotalC;
 
-        if (currentTotal >= toMoney(effectiveSaldoData.saldo)) {
-          alert(mensaje);
-          return prev;
-        }
+      setItemsSaldo((prevSaldo) => ({
+        ...prevSaldo,
+        [id_item]: toMoney(saldoOriginal), // restaurar “original” visible
+      }));
 
-        // Calcular cuánto podemos aplicar de este ítem
-        const saldoDisponible = toMoney(
-          effectiveSaldoData.saldo - currentTotal
-        );
-        const montoAAplicar = toMoney(Math.min(currentSaldo, saldoDisponible));
-        console.log("nvfnvif🤬🤬🤬🤬", currentSaldo);
+      setMontoSeleccionado(fromCents(newTotalC));
+      setMontoRestante(fromCents(restanteC));
+      return newSelection;
+    }
 
-        // Actualizar el saldo del ítem (lo que queda por pagar)
-        const nuevoSaldoItem = toMoney(currentSaldo - montoAAplicar);
-        setItemsSaldo((prevSaldo) => ({
-          ...prevSaldo,
-          [id_item]: nuevoSaldoItem,
-        }));
+    // ✅ Seleccionar: no exceder el saldo disponible
+    if (currentTotalC >= saldoDisponibleTotalC) {
+      const mensaje = reservaData
+        ? "Ya has pagado la reserva completa"
+        : "Ya has utilizado todo tu saldo disponible";
+      alert(mensaje);
+      return prev;
+    }
 
-        const newTotal = toMoney(currentTotal + montoAAplicar);
-        const restante = toMoney(effectiveSaldoData.saldo - newTotal);
+    const saldoDisponibleC = saldoDisponibleTotalC - currentTotalC;
+    const aplicarC = Math.min(currentSaldoC, saldoDisponibleC);
 
-        const newSelection = [...prev, { id_item, saldo: montoAAplicar }];
-        console.log(newTotal, "😢😢😢😢😢😢😢", newSelection);
-        console.log(restante, "🚓🚓🚓🚓🚓🚓🚓🚓");
+    if (aplicarC <= 0) return prev;
 
-        setMontoRestante(restante);
-        setMontoSeleccionado(newTotal);
-        return newSelection;
-      }
-    });
-  };
+    // nuevo saldo restante del item
+    const nuevoSaldoItemC = currentSaldoC - aplicarC;
+
+    setItemsSaldo((prevSaldo) => ({
+      ...prevSaldo,
+      [id_item]: fromCents(nuevoSaldoItemC),
+    }));
+
+    const newTotalC = currentTotalC + aplicarC;
+    const restanteC = saldoDisponibleTotalC - newTotalC;
+
+    setMontoSeleccionado(fromCents(newTotalC));
+    setMontoRestante(fromCents(restanteC));
+
+    return [...prev, { id_item, saldo: fromCents(aplicarC) }];
+  });
+};
 
   const isItemSelected = (id_item: string): boolean => {
     return selectedItems.some((item) => item.id_item === id_item);
@@ -827,166 +825,77 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
   // Selecciona saldos en orden FIFO y deja todo redondeado a 2 decimales
 
   const seleccionarSaldosEnOrdenYAutoPagar = async () => {
-    try {
-      const agente = reservaData?.id_agente || facturaData[0]?.id_agente;
-      if (!agente) {
-        throw new Error(
-          "ID de agente no disponible en reservaData ni facturaData"
-        );
-      }
-      const response = await SaldoFavor.getPagos(agente);
-      let saldosCrudos = response.data;
-      // Solo aplica con reservaData y una sola vez
-      if (!reservaData || autoPayTriggered.current) return;
+  try {
+    const agente = reservaData?.id_agente || facturaData[0]?.id_agente;
+    if (!agente) throw new Error("ID de agente no disponible en reservaData ni facturaData");
 
-      // Objetivo a cubrir: total de la reserva (ya redondeado)
-      const totalReserva = toMoney(reservaData?.Total || 0);
+    const response = await SaldoFavor.getPagos(agente);
+    const saldosCrudos = response.data || [];
 
-      console.group("=== AUTOPAY RESERVA (FIFO) ===");
-      console.log("Total de la reserva (objetivo):", totalReserva.toFixed(2));
+    // Solo aplica con reservaData y una sola vez
+    if (!reservaData || autoPayTriggered.current) return;
 
-      // Orden FIFO por fecha_creacion (nulos van al final)
-      const saldosOrdenados = [...(saldosCrudos || [])]
-        .filter((s) => s?.activo !== 0)
-        .sort((a, b) => {
-          const ta = a?.fecha_creacion
-            ? new Date(a.fecha_creacion).getTime()
-            : Number.MAX_SAFE_INTEGER;
-          const tb = b?.fecha_creacion
-            ? new Date(b.fecha_creacion).getTime()
-            : Number.MAX_SAFE_INTEGER;
-          return ta - tb;
-        });
+    const totalReservaC = toCents(reservaData?.Total || 0);
 
-      console.log("Saldos ordenados por fecha_creacion:");
-      console.table(
-        saldosOrdenados.map((s) => ({
-          id_saldos: s.id_saldos,
-          fecha_creacion: s.fecha_creacion,
-          saldo: Number(s.saldo || 0).toFixed(2),
-        }))
-      );
-
-      // Copias temporales para actualizar estados de manera atómica
-      const tmpItemsSaldo: Record<string, number> = { ...itemsSaldo };
-      const tmpOriginal: Record<string, number> = { ...originalSaldoItems };
-      const nuevaSeleccion: SelectedItem[] = [];
-
-      let restante = totalReserva;
-      let aplicadoTotal = toMoney(0);
-
-      for (const s of saldosOrdenados) {
-        if (isZeroMoney(restante) || restante < 0) break;
-
-        const idItem = `saldo-${s.id_saldos}`;
-
-        // Valor disponible actual, siempre pasando por toMoney
-        let disponibleActual = toMoney(
-          typeof tmpItemsSaldo[idItem] === "number"
-            ? tmpItemsSaldo[idItem]
-            : s?.saldo || 0
-        );
-
-        // Asegura valores iniciales en los mapas (por si vienen vacíos)
-        if (tmpOriginal[idItem] === undefined) {
-          tmpOriginal[idItem] = disponibleActual;
-        }
-        if (tmpItemsSaldo[idItem] === undefined) {
-          tmpItemsSaldo[idItem] = disponibleActual;
-        }
-
-        if (disponibleActual <= 0 || isZeroMoney(disponibleActual)) continue;
-
-        const restanteAntes = restante;
-        const aplicarRaw = Math.min(disponibleActual, restante);
-        const aplicar = toMoney(aplicarRaw);
-
-        if (aplicar <= 0 || isZeroMoney(aplicar)) continue;
-
-        // Descuenta del saldo del ítem y agrega a la selección
-        const nuevoSaldoItem = toMoney(disponibleActual - aplicar);
-        tmpItemsSaldo[idItem] = nuevoSaldoItem;
-        nuevaSeleccion.push({ id_item: idItem, saldo: aplicar });
-
-        aplicadoTotal = toMoney(aplicadoTotal + aplicar);
-        restante = toMoney(restante - aplicar);
-
-        // Log detallado de esta iteración
-        console.log(
-          `[ITER] ${idItem} | disp=${disponibleActual.toFixed(
-            2
-          )} | aplicar=${aplicar.toFixed(2)} | ` +
-            `restante_antes=${restanteAntes.toFixed(
-              2
-            )} -> restante_despues=${restante.toFixed(2)} | ` +
-            `nuevo_saldo_item=${nuevoSaldoItem.toFixed(2)}`
-        );
-      }
-
-      // Logs detallados de lo seleccionado
-      const resumenSeleccion = nuevaSeleccion.map((sel) => {
-        const original = toMoney(tmpOriginal[sel.id_item] ?? 0);
-        const final = toMoney(tmpItemsSaldo[sel.id_item] ?? 0);
-        const aplicado = toMoney(original - final);
-        return {
-          id_item: sel.id_item,
-          aplicado,
-          saldo_inicial: original,
-          saldo_final: final,
-        };
+    // FIFO por fecha_creacion (nulos al final)
+    const saldosOrdenados = [...saldosCrudos]
+      .filter((s) => s?.activo !== 0)
+      .sort((a, b) => {
+        const ta = a?.fecha_creacion ? new Date(a.fecha_creacion).getTime() : Number.MAX_SAFE_INTEGER;
+        const tb = b?.fecha_creacion ? new Date(b.fecha_creacion).getTime() : Number.MAX_SAFE_INTEGER;
+        return ta - tb;
       });
 
-      console.log("=== Resumen de selección (por item) ===");
-      console.table(
-        resumenSeleccion.map((r) => ({
-          id_item: r.id_item,
-          aplicado: r.aplicado.toFixed(2),
-          saldo_inicial: r.saldo_inicial.toFixed(2),
-          saldo_final: r.saldo_final.toFixed(2),
-        }))
+    const tmpItemsSaldo: Record<string, number> = { ...itemsSaldo };
+    const tmpOriginal: Record<string, number> = { ...originalSaldoItems };
+    const nuevaSeleccion: SelectedItem[] = [];
+
+    let restanteC = totalReservaC;
+    let aplicadoTotalC = 0;
+
+    for (const s of saldosOrdenados) {
+      if (restanteC <= 0) break;
+
+      const idItem = `saldo-${s.id_saldos}`;
+
+      // disponible actual (en centavos)
+      const disponibleC = toCents(
+        typeof tmpItemsSaldo[idItem] === "number"
+          ? tmpItemsSaldo[idItem]
+          : (s?.saldo || 0)
       );
 
-      // Check general de totales
-      const sumaAplicadaDesdeSeleccion = toMoney(
-        resumenSeleccion.reduce((acc, r) => acc + r.aplicado, 0)
-      );
+      if (disponibleC <= 0) continue;
 
-      console.log("=== Check de consistencia ===");
-      console.log("Total aplicado (acumulado):", aplicadoTotal.toFixed(2));
-      console.log(
-        "Total aplicado (sumado de resumen):",
-        sumaAplicadaDesdeSeleccion.toFixed(2)
-      );
-      console.log(
-        "Diferencia entre ambos:",
-        toMoney(aplicadoTotal - sumaAplicadaDesdeSeleccion).toFixed(2)
-      );
-      console.log("Restante después de aplicar:", restante.toFixed(2));
+      // inicializar mapas si vienen vacíos
+      if (tmpOriginal[idItem] === undefined) tmpOriginal[idItem] = fromCents(disponibleC);
+      if (tmpItemsSaldo[idItem] === undefined) tmpItemsSaldo[idItem] = fromCents(disponibleC);
 
-      // Actualiza estados coherentemente
-      setItemsSaldo(tmpItemsSaldo);
-      setOriginalSaldoItems(tmpOriginal);
-      setSelectedItems(nuevaSeleccion);
-      setMontoSeleccionado(aplicadoTotal);
+      const aplicarC = Math.min(disponibleC, restanteC);
+      if (aplicarC <= 0) continue;
 
-      // En flujo de reserva, el "saldo disponible" es el total de la reserva
-      const saldoDisponible = totalReserva;
-      const nuevoRestante = toMoney(saldoDisponible - aplicadoTotal);
-      setMontoRestante(nuevoRestante);
+      const nuevoSaldoItemC = disponibleC - aplicarC;
 
-      console.log(`Monto seleccionado total: $${aplicadoTotal.toFixed(2)}`);
-      console.log(
-        `Monto restante total (calculado): $${nuevoRestante.toFixed(2)}`
-      );
-      console.groupEnd();
+      // guarda saldos ya convertidos a pesos (2 dec)
+      tmpItemsSaldo[idItem] = fromCents(nuevoSaldoItemC);
+      nuevaSeleccion.push({ id_item: idItem, saldo: fromCents(aplicarC) });
 
-      // marca que ya se hizo el autopay una vez
-      autoPayTriggered.current = true;
-    } catch (error) {
-      showNotification("error", error.message || "error al seleccionar saldos");
+      aplicadoTotalC += aplicarC;
+      restanteC -= aplicarC;
     }
-  };
 
+    setItemsSaldo(tmpItemsSaldo);
+    setOriginalSaldoItems(tmpOriginal);
+    setSelectedItems(nuevaSeleccion);
+
+    setMontoSeleccionado(fromCents(aplicadoTotalC));
+    setMontoRestante(fromCents(restanteC));
+
+    autoPayTriggered.current = true;
+  } catch (error: any) {
+    showNotification("error", error.message || "error al seleccionar saldos");
+  }
+};
   useEffect(() => {
     if (!autoPayTriggered.current) return;
     const restanteRedondeado = toMoney(montorestante);

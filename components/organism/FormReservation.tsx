@@ -1160,11 +1160,13 @@ export function ReservationForm({
             <div className="grid gap-4">
               <div className="grid gap-2 md:grid-cols-3">
                 <TextInput
-                  value={""}
+                  value={form.comentarios_internos || ""}
                   label="Comentarios internos noktos"
                   onChange={function (value: string): void {
-                    console.log(intermediario);
-                    alert("Function not implemented.");
+                    setForm((prev) => ({
+                      ...prev,
+                      comentarios_internos: value,
+                    }));
                   }}
                 ></TextInput>
                 <div className="flex p-2 items-end h-full w-full">
