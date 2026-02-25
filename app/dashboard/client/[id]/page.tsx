@@ -159,22 +159,31 @@ const PageReservas = () => {
   };
 
   const data = reservas.map((reserva) => ({
-    serv: reserva.type,
+    servicio: reserva.type,
+    id_cliente: reserva.id_agente,
     cliente: reserva.agente,
-    creado: reserva.created_at,
+    creado: `${reserva.created_at.split("T")[0]} : ${reserva.created_at.split("T")[1]}`,
     proveedor: reserva.proveedor,
+    intermediario: reserva.intermediario,
     codigo: reserva.codigo_confirmacion,
     viajero: reserva.viajero,
-    check_in: reserva.check_in,
+    check_in: reserva.check_in.split("T")[0],
     horario_salida: reserva.horario_salida,
-    check_out: reserva.check_out,
+    check_out: reserva.check_out.split("T")[0],
     horario_llegada: reserva.horario_llegada,
     tipo: reserva.tipo_cuarto_vuelo,
+    costo_proveedor: reserva.costo_total,
+    markup:
+      ((Number(reserva.total || 0) - Number(reserva.costo_total || 0)) /
+        Number(reserva.total || 0)) *
+      100,
     precio_de_venta: reserva.total,
     metodo_de_pago: reserva.metodo_pago,
     reservante: reserva.reservante,
     etapa_reservacion: reserva.etapa_reservacion,
     estado: reserva.estado,
+    estado_pago: reserva.estado_pago,
+    estado_facturacion: reserva.estado_facturacion,
     detalles_cliente: reserva.id_solicitud,
     cupon: reserva,
   }));
