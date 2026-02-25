@@ -658,8 +658,8 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
           (reserva.items_info?.items || []).map((item) => ({
             id_item: item.id_item,
             id_servicio: item.servicio,
-            codigo_reservacion: reserva.codigo_reservacion_hotel,
-            hotel: reserva.nombre_hotel,
+            codigo_reservacion: reserva.codigo_reservacion_hotel||reserva.codigo_confirmacion,
+            hotel: reserva.nombre_hotel||reserva.proveedor,
             viajero: reserva.viajero,
             fecha_uso: reserva.check_in,
             total: item.total,
