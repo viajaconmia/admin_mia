@@ -12,6 +12,9 @@ import {
   DoorOpen,
   Settings2,
   Truck,
+  Star,
+  Users2,
+  User,
 } from "lucide-react";
 
 import NavContainer from "@/components/organism/NavContainer"; // <- aquí importas el nuevo
@@ -155,6 +158,18 @@ const links: NavGroup[] = [
       },
       { title: "Reporte", href: "/dashboard/detalles_facturas", icon: Receipt },
       
+    ],
+  },
+  {
+    title: "Cliente especial",
+    icon: Star,
+    items: [
+      { title: "General", href: "/dashboard/client/", icon: Users2 },
+      {
+        title: "KONE",
+        href: "/dashboard/client/765f610d-b793-407d-8341-7d1fc8a86c37",
+        icon: User,
+      },
     ],
   },
 ];

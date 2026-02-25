@@ -1,7 +1,7 @@
 // "use client";
 
 // import Button from "@/components/atom/Button";
-// import { useNotification } from "@/context/useNotificacion";
+// import { useAlert } from "@/context/useAlert";
 // import { subirArchivoAS3Seguro } from "@/lib/utils";
 // import { useState } from "react";
 // import Modal from "../organism/Modal";
@@ -38,7 +38,7 @@
 //  *
 //  * @remarks
 //  * - Solo acepta archivos PDF (validación por tipo MIME)
-//  * - Requiere el hook `useNotification` para mostrar mensajes al usuario
+//  * - Requiere el hook `useAlert` para mostrar mensajes al usuario
 //  * - Requiere la función `subirArchivoAS3Seguro` para subir a S3
 //  * - Muestra un modal de confirmación antes de procesar la carga
 //  */
@@ -49,7 +49,7 @@
 // }) => {
 //   const [file, setFile] = useState<File | null>(null);
 //   const [showModal, setShowModal] = useState<boolean>(false);
-//   const { showNotification } = useNotification();
+//   const { showNotification } = useAlert();
 
 //   const onCancel = () => {
 //     setShowModal(false);
@@ -86,7 +86,7 @@
 //             e.target.value = "";
 //             setFile(null);
 //             return;
-//           } 
+//           }
 //           setFile(current);
 //           setShowModal(true);
 //         }}
@@ -110,11 +110,10 @@
 //   );
 // };
 
-
 "use client";
 
 import Button from "@/components/atom/Button";
-import { useNotification } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useAlert";
 import { subirArchivoAS3Seguro } from "@/lib/utils";
 import { useRef, useState } from "react";
 import Modal from "../organism/Modal";
@@ -127,7 +126,7 @@ export const InputToS3 = ({
 }) => {
   const [file, setFile] = useState<File | null>(null);
   const [showModal, setShowModal] = useState<boolean>(false);
-  const { showNotification } = useNotification();
+  const { showNotification } = useAlert();
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const resetInput = () => {
@@ -201,7 +200,10 @@ export const InputToS3 = ({
       />
 
       {showModal && (
-        <Modal onClose={onCancel} title="¿Estas seguro que quieres subir este archivo?">
+        <Modal
+          onClose={onCancel}
+          title="¿Estas seguro que quieres subir este archivo?"
+        >
           <div className="flex gap-8 justify-center items-center">
             <Button onClick={onConfirm} icon={CheckCircle2}>
               Confirmar

@@ -11,7 +11,7 @@ import { URL as API_URL, API_KEY } from "@/lib/constants/index";
 import useApi from "@/hooks/useApi";
 import { DescargaFactura, Root } from "@/types/billing";
 import { Download } from "lucide-react";
-import { useNotification } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useAlert";
 
 // --- Helpers de descarga robusta ---
 const normalizeBase64 = (b64?: string | null) => {
@@ -386,7 +386,7 @@ export const FacturacionModal: React.FC<{
   onClose,
   onConfirm,
 }) => {
-  const { showNotification } = useNotification();
+  const { showNotification } = useAlert();
   const { crearCfdi, descargarFactura } = useApi();
 
   // =========================

@@ -202,7 +202,7 @@
 // // }
 
 // import { formatDate } from "@/helpers/utils";
-// import { useNotification } from "@/context/useNotificacion";
+// import { useAlert } from "@/context/useAlert";
 // import Button from "@/components/atom/Button";
 // import { Printer, RefreshCwIcon } from "lucide-react";
 // import { Table } from "@/component/molecule/Table";
@@ -232,7 +232,7 @@
 //     page: 1,
 //     total_pages: 1,
 //   });
-//   const { showNotification } = useNotification();
+//   const { showNotification } = useAlert();
 
 //   useEffect(() => {
 //     setPageTraking((prev) => ({ ...prev, page: 1 }));
@@ -462,7 +462,11 @@ import { mapVueloRowToComprado } from "@/lib/flights";
 import { BoletoPdfDownload } from "./components/BoletoPdf";
 import { URL, API_KEY } from "@/lib/constants/index";
 
-type RowState = { loading: boolean; error: string | null; status: FlightStatusResponse | null };
+type RowState = {
+  loading: boolean;
+  error: string | null;
+  status: FlightStatusResponse | null;
+};
 
 export default function VuelosPage() {
   const [vuelos, setVuelos] = useState<VueloComprado[]>([]);
@@ -477,8 +481,10 @@ export default function VuelosPage() {
       airline_code: "Y4",
       flight_number: "1144",
 
-      departure_airport: "GDL Don Miguel Hidalgo Y Costilla International Airport Guadalajara Jalisco MX",
-      arrival_airport: "SJD Los Cabos International Airport San Jose del Cabo Baja California Sur MX",
+      departure_airport:
+        "GDL Don Miguel Hidalgo Y Costilla International Airport Guadalajara Jalisco MX",
+      arrival_airport:
+        "SJD Los Cabos International Airport San Jose del Cabo Baja California Sur MX",
       departure_date: "2026-01-26",
       departure_time: "10:58:00",
       arrival_date: "2026-01-26",
@@ -491,7 +497,7 @@ export default function VuelosPage() {
       nombre_completo: "HECTOR RENE CONTRERAS HERNANDEZ",
       correo: null,
       apellido_paterno: "CONTRERAS",
-      apellido_materno:"HERNANDEZ",
+      apellido_materno: "HERNANDEZ",
 
       seat_number: "6C",
       seat_location: null,
@@ -504,8 +510,10 @@ export default function VuelosPage() {
       airline_code: "Y4",
       flight_number: "1143",
 
-      departure_airport: "SJD Los Cabos International Airport San Jose del Cabo Baja California Sur MX",
-      arrival_airport: "GDL Don Miguel Hidalgo Y Costilla International Airport Guadalajara Jalisco MX",
+      departure_airport:
+        "SJD Los Cabos International Airport San Jose del Cabo Baja California Sur MX",
+      arrival_airport:
+        "GDL Don Miguel Hidalgo Y Costilla International Airport Guadalajara Jalisco MX",
       departure_date: "2026-01-30",
       departure_time: "15:36:00",
       arrival_date: "2026-01-30",
@@ -518,20 +526,22 @@ export default function VuelosPage() {
       nombre_completo: "HECTOR RENE CONTRERAS HERNANDEZ",
       correo: null,
       apellido_paterno: "CONTRERAS",
-      apellido_materno:"HERNANDEZ",
+      apellido_materno: "HERNANDEZ",
 
       seat_number: "6D",
       seat_location: null,
     };
 
-      const rowRegreso1: VueloDbRow = {
+    const rowRegreso1: VueloDbRow = {
       id_vuelo: "pdf-regreso-y4-1143",
       airline: "VIVAAEROBUS",
       airline_code: "VB",
       flight_number: "1143",
 
-      departure_airport: "SJD Los Cabos International Airport San Jose del Cabo Baja California Sur MX",
-      arrival_airport: "GDL Don Miguel Hidalgo Y Costilla International Airport Guadalajara Jalisco MX",
+      departure_airport:
+        "SJD Los Cabos International Airport San Jose del Cabo Baja California Sur MX",
+      arrival_airport:
+        "GDL Don Miguel Hidalgo Y Costilla International Airport Guadalajara Jalisco MX",
       departure_date: "2026-01-30",
       departure_time: "15:36:00",
       arrival_date: "2026-01-30",
@@ -544,58 +554,67 @@ export default function VuelosPage() {
       nombre_completo: "Juan Carlos Martinez Gonzalez",
       correo: null,
       apellido_paterno: "MARTINEZ",
-      apellido_materno:"GONZALEZ",
+      apellido_materno: "GONZALEZ",
 
       seat_number: "6D",
       seat_location: null,
     };
 
-    const mapped = [mapVueloRowToComprado(rowIda), mapVueloRowToComprado(rowRegreso),mapVueloRowToComprado(rowRegreso1)];
+    const mapped = [
+      mapVueloRowToComprado(rowIda),
+      mapVueloRowToComprado(rowRegreso),
+      mapVueloRowToComprado(rowRegreso1),
+    ];
     setVuelos(mapped);
 
     const init: Record<string, RowState> = {};
-    mapped.forEach((v) => (init[v.id] = { loading: false, error: null, status: null }));
+    mapped.forEach(
+      (v) => (init[v.id] = { loading: false, error: null, status: null }),
+    );
     setById(init);
   }, []);
 
   const setRow = (id: string, patch: Partial<RowState>) => {
     setById((prev) => ({
       ...prev,
-      [id]: { ...(prev[id] ?? { loading: false, error: null, status: null }), ...patch },
+      [id]: {
+        ...(prev[id] ?? { loading: false, error: null, status: null }),
+        ...patch,
+      },
     }));
   };
 
   const consultarStatus = async (v: VueloComprado) => {
-  setRow(v.id, { loading: true, error: null });
+    setRow(v.id, { loading: true, error: null });
 
-  try {
-const resp = await fetch("/dashboard/vuelos/status", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    airlineCode: v.airlineCode,
-    confirmationCode: v.confirmationCode,
-    passengerLastName: (v.passengerLastName || "").trim(),
-    debug: true,
-  }),
-});
+    try {
+      const resp = await fetch("/dashboard/vuelos/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          airlineCode: v.airlineCode,
+          confirmationCode: v.confirmationCode,
+          passengerLastName: (v.passengerLastName || "").trim(),
+          debug: true,
+        }),
+      });
 
+      const json = await resp.json();
+      console.log("LOOKUP:", json);
 
+      if (!resp.ok || !json?.ok) {
+        throw new Error(json?.error || `HTTP ${resp.status}`);
+      }
 
-    const json = await resp.json();
-    console.log("LOOKUP:", json);
-
-    if (!resp.ok || !json?.ok) {
-      throw new Error(json?.error || `HTTP ${resp.status}`);
+      // OJO: tu API responde { ok:true, data:{...} }
+      setRow(v.id, { loading: false, status: json.data, error: null });
+    } catch (e: any) {
+      setRow(v.id, {
+        loading: false,
+        error: e?.message ?? "Error al consultar",
+      });
     }
-
-    // OJO: tu API responde { ok:true, data:{...} }
-    setRow(v.id, { loading: false, status: json.data, error: null });
-  } catch (e: any) {
-    setRow(v.id, { loading: false, error: e?.message ?? "Error al consultar" });
-  }
-};
-
+  };
 
   const registros = useMemo(() => {
     return vuelos.map((v) => {
@@ -603,13 +622,20 @@ const resp = await fetch("/dashboard/vuelos/status", {
       const loading = byId[v.id]?.loading ?? false;
       const error = byId[v.id]?.error ?? null;
 
-      const flightPretty =
-        v.flightNumberRaw
-          ? (String(v.flightNumberRaw).toUpperCase().includes(v.airlineCode) ? v.flightNumberRaw : `${v.airlineCode} ${v.flightNumberRaw}`)
-          : "—";
+      const flightPretty = v.flightNumberRaw
+        ? String(v.flightNumberRaw).toUpperCase().includes(v.airlineCode)
+          ? v.flightNumberRaw
+          : `${v.airlineCode} ${v.flightNumberRaw}`
+        : "—";
 
       return {
-        acciones: { vuelo: v, loading, error, status: st, onClick: () => consultarStatus(v) },
+        acciones: {
+          vuelo: v,
+          loading,
+          error,
+          status: st,
+          onClick: () => consultarStatus(v),
+        },
         airline: `${v.airlineName} (${v.airlineCode})`,
         flight: flightPretty,
         fecha: `${v.departureDateISO} ${v.departureTime ?? ""}`.trim(),
@@ -644,14 +670,20 @@ const resp = await fetch("/dashboard/vuelos/status", {
 
           <BoletoPdfDownload vuelo={v} status={st} disabled={loading} />
 
-          {error ? <span className="text-[11px] text-red-600" title={error}>Error</span> : null}
+          {error ? (
+            <span className="text-[11px] text-red-600" title={error}>
+              Error
+            </span>
+          ) : null}
         </div>
       );
     },
 
     flight: ({ value }: any) => (
       <div className="flex justify-center">
-        <span className="font-mono text-[11px] bg-gray-100 px-2 py-0.5 rounded">{value}</span>
+        <span className="font-mono text-[11px] bg-gray-100 px-2 py-0.5 rounded">
+          {value}
+        </span>
       </div>
     ),
 
@@ -662,13 +694,24 @@ const resp = await fetch("/dashboard/vuelos/status", {
     ),
   };
 
-  const customColumns = ["acciones", "airline", "flight", "fecha", "ruta", "pasajero", "confirmacion", "status"];
+  const customColumns = [
+    "acciones",
+    "airline",
+    "flight",
+    "fecha",
+    "ruta",
+    "pasajero",
+    "confirmacion",
+    "status",
+  ];
 
   return (
     <div className="p-6 bg-slate-50 rounded-md">
       <header className="mb-6 border-b pb-4">
         <h1 className="text-2xl font-bold text-gray-800">Vuelos comprados</h1>
-        <p className="text-sm text-gray-600">Genera cupón PDF consultando estatus en aerolínea.</p>
+        <p className="text-sm text-gray-600">
+          Genera cupón PDF consultando estatus en aerolínea.
+        </p>
       </header>
 
       <div className="bg-white border rounded-lg overflow-hidden">

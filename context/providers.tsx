@@ -3,7 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "@/context/AuthContext";
 import { useState } from "react";
-import { NotificationProvider } from "./useNotificacion";
+import { NotificationProvider } from "./useAlert";
 import { Notification } from "@/components/molecule/Notification";
 import { HotelProvider } from "./Hoteles";
 import { ProveedorProvider } from "./Proveedores";
@@ -18,7 +18,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
             retry: 1,
           },
         },
-      })
+      }),
   );
 
   return (

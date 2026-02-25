@@ -30,7 +30,7 @@ import { Hotel, Solicitud, ReservaForm, Viajero, EdicionForm } from "@/types";
 import { Table } from "../Table";
 import { formatNumberWithCommas, getEstatus } from "@/helpers/utils";
 import { updateRoom } from "@/lib/utils";
-import { useNotification } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useAlert";
 import { CreditCard, Plus, Wallet } from "lucide-react";
 import { useHoteles } from "@/context/Hoteles";
 import { Proveedor } from "@/services/ProveedoresService";
@@ -79,7 +79,7 @@ export function ReservationForm({
   const [nuevo_incluye_desayuno, setNuevoIncluyeDesayuno] = useState<
     boolean | null
   >(solicitud.nuevo_incluye_desayuno || null);
-  const { showNotification } = useNotification();
+  const { showNotification } = useAlert();
   const { getProveedores, proveedores, updateProveedores } = useProveedor();
   const [acompanantes, setAcompanantes] = useState<Viajero[]>([]);
   const [save, setSave] = useState<boolean>(false);

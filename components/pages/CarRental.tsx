@@ -14,7 +14,7 @@ import {
 import { ViajeroService, ViajerosService } from "@/services/ViajerosService";
 import Button from "../atom/Button";
 import { CarFront, CheckCircle, Goal, Plus, Target, User2 } from "lucide-react";
-import { useNotification } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useAlert";
 import { isSomeNull } from "@/helpers/validator";
 import { Saldo } from "@/services/SaldoAFavor";
 import { getDatePlusFiveYears, getTodayDateTime } from "@/lib/utils";
@@ -396,7 +396,7 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
   const [openPago, setOpenPago] = useState(false);
   const [save, setSave] = useState<ForSave>(null);
 
-  const { showNotification } = useNotification();
+  const { showNotification } = useAlert();
 
   const handleUpdateCarRental = <K extends keyof CarRental>(
     field: K,

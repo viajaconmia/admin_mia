@@ -9,7 +9,7 @@ import {
 } from "../atom/Input";
 import Button from "../atom/Button";
 import { Aeropuerto, ExtraService, Sucursal } from "@/services/ExtraServices";
-import { useNotification } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useAlert";
 import { Proveedor } from "@/services/ProveedoresService";
 
 export type ForSave =
@@ -63,7 +63,7 @@ const GuardadoProveedor = ({
   type: ForSave;
 }) => {
   const [nombre, setNombre] = useState<string>("");
-  const { showNotification } = useNotification();
+  const { showNotification } = useAlert();
 
   const handleSubmit = () => {
     ExtraService.getInstance()
@@ -105,7 +105,7 @@ const GuardarAeropuerto = ({
 }) => {
   const [codigo, setCodigo] = useState<string>("");
   const [ubicacion, setUbicacion] = useState<string>("");
-  const { showNotification } = useNotification();
+  const { showNotification } = useAlert();
 
   const handleAddAeropuerto = () => {
     ExtraService.getInstance()
@@ -197,7 +197,7 @@ export const GuardarSucursal = ({
   const [sucursalDetails, setSucursalDetails] =
     useState<SucursalDetails>(initialPlaceDetails);
   const [proveedor, setProveedor] = useState<Proveedor>(null);
-  const { showNotification } = useNotification();
+  const { showNotification } = useAlert();
 
   const handleUpdatePlace = (place: PlaceMaps) => {
     const details_place: SucursalDetails = {

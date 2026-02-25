@@ -9,7 +9,7 @@ import {
 } from "@/components/atom/Input";
 import Modal from "@/components/organism/Modal";
 import { TableFromMia } from "@/components/organism/TableFromMia";
-import { useNotification } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useAlert";
 import { AuthService } from "@/services/AuthService";
 import { Permission, Role, User } from "@/types/auth";
 import { CheckCircle2, Plus } from "lucide-react";
@@ -21,11 +21,11 @@ type UserWithPermission = User &
 export default function AdministracionUsuarios() {
   const [users, setUsers] = useState<UserWithPermission[]>([]);
   const [selectedUser, setSelectedUser] = useState<UserWithPermission | null>(
-    null
+    null,
   );
   const [create, setCreate] = useState<boolean>(false);
   const [roles, setRoles] = useState<Role[]>([]);
-  const { showNotification } = useNotification();
+  const { showNotification } = useAlert();
 
   const handleOpenAddUser = () => {
     setCreate(!create);
@@ -38,7 +38,7 @@ export default function AdministracionUsuarios() {
     } catch (error) {
       showNotification(
         "error",
-        error.message || "Error al obtener a los usuarios"
+        error.message || "Error al obtener a los usuarios",
       );
       setUsers([]);
     }
@@ -61,7 +61,7 @@ export default function AdministracionUsuarios() {
     } catch (error) {
       showNotification(
         "error",
-        error.message || "Error al obtener a los usuarios"
+        error.message || "Error al obtener a los usuarios",
       );
       setRoles([]);
     }
@@ -73,8 +73,8 @@ export default function AdministracionUsuarios() {
 
       setUsers((prev) =>
         [...prev].map((user) =>
-          user.id == item.id ? { ...user, active: value } : user
-        )
+          user.id == item.id ? { ...user, active: value } : user,
+        ),
       );
     } catch (error) {
       showNotification("error", error.message || "Error al actualizar usuario");
@@ -126,7 +126,7 @@ export default function AdministracionUsuarios() {
                         console.log("WEARE");
                         await AuthService.getInstance().updateUserRole(
                           value.content.role_id,
-                          item.id
+                          item.id,
                         );
                         setUsers((prev) => [
                           ...prev.map((user) =>
@@ -136,7 +136,7 @@ export default function AdministracionUsuarios() {
                                   role_id: value.content.role_id,
                                   role_name: value.content.role_name,
                                 }
-                              : user
+                              : user,
                           ),
                         ]);
                       } catch (error) {}
@@ -201,7 +201,7 @@ const PermisosByUser = ({ id }: { id: string }) => {
   const [permisos, setPermisos] = useState<
     (Permission & { origen?: "roles" | "individual" })[]
   >([]);
-  const { showNotification } = useNotification();
+  const { showNotification } = useAlert();
 
   useEffect(() => {
     AuthService.getInstance()
@@ -223,14 +223,14 @@ const PermisosByUser = ({ id }: { id: string }) => {
               label: "",
               onChange: async (
                 value: boolean,
-                item: Permission & { origen: "roles" | "individual" }
+                item: Permission & { origen: "roles" | "individual" },
               ) => {
                 console.log(value, item, id);
                 try {
                   await AuthService.getInstance().updateUserPermission(
                     item.id,
                     id,
-                    value
+                    value,
                   );
                   setPermisos((prev) =>
                     prev.map((permiso) => {
@@ -238,7 +238,7 @@ const PermisosByUser = ({ id }: { id: string }) => {
                         return { ...permiso, active: value };
                       }
                       return permiso;
-                    })
+                    }),
                   );
                 } catch (error) {
                   showNotification("error", error.message);

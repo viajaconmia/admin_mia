@@ -5,14 +5,14 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/AuthContext";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useNotification } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useAlert";
 
 export default function LoginPage() {
   const { login, isAuthenticated } = useAuth();
   const [email, setEmail] = useState("");
   const router = useRouter();
   const [password, setPassword] = useState("");
-  const { showNotification } = useNotification();
+  const { showNotification } = useAlert();
 
   const handleSubmit = async (e) => {
     e.preventDefault();

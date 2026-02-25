@@ -17,11 +17,23 @@ import { currentDate } from "@/lib/utils";
 import { fetchGetSolicitudesProveedores1 } from "@/services/pago_proveedor";
 import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
-import { DispersionModal, SolicitudProveedorRaw } from "./Components/dispersion";
+import {
+  DispersionModal,
+  SolicitudProveedorRaw,
+} from "./Components/dispersion";
 import { ComprobanteModal } from "./Components/comprobantes";
-import { useNotification } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useAlert";
 import Button from "@/components/atom/Button";
-import { Brush, File, Upload, X, Maximize2, CheckCircle2, Handshake, Eye } from "lucide-react";
+import {
+  Brush,
+  File,
+  Upload,
+  X,
+  Maximize2,
+  CheckCircle2,
+  Handshake,
+  Eye,
+} from "lucide-react";
 import { URL, API_KEY } from "@/lib/constants/index";
 import PaymentMethodSelector from "./Components/PaymentMethodSelector";
 
@@ -73,7 +85,9 @@ const extractPagosAsociados = (raw: any): any[] => {
   }
 
   // Filtra basura (objetos vacíos)
-  return out.filter((p) => p && typeof p === "object" && Object.keys(p).length > 0);
+  return out.filter(
+    (p) => p && typeof p === "object" && Object.keys(p).length > 0,
+  );
 };
 
 const hasPagosAsociados = (raw: any) => extractPagosAsociados(raw).length > 0;
@@ -81,39 +95,61 @@ const hasPagosAsociados = (raw: any) => extractPagosAsociados(raw).length > 0;
 // Facturas: soporta `facturas`, `facturas_json`, etc.
 const extractFacturas = (raw: any): any[] => {
   const candidates: any[] = [];
-  if (Array.isArray((raw as any)?.facturas)) candidates.push((raw as any).facturas);
-  if ((raw as any)?.facturas_json != null) candidates.push((raw as any).facturas_json);
-  if ((raw as any)?.facturas_proveedor_json != null) candidates.push((raw as any).facturas_proveedor_json);
+  if (Array.isArray((raw as any)?.facturas))
+    candidates.push((raw as any).facturas);
+  if ((raw as any)?.facturas_json != null)
+    candidates.push((raw as any).facturas_json);
+  if ((raw as any)?.facturas_proveedor_json != null)
+    candidates.push((raw as any).facturas_proveedor_json);
 
   const out: any[] = [];
   for (const c of candidates) {
     if (Array.isArray(c)) out.push(...c.flatMap((x) => normalizeToArray(x)));
     else out.push(...normalizeToArray(c));
   }
-  return out.filter((f) => f && typeof f === "object" && Object.keys(f).length > 0);
+  return out.filter(
+    (f) => f && typeof f === "object" && Object.keys(f).length > 0,
+  );
 };
 
 const getMontoSolicitado = (raw: any) =>
   parseNum(raw?.solicitud_proveedor?.monto_solicitado ?? raw?.monto_solicitado);
 
-const getSaldo = (raw: any) => parseNum(raw?.solicitud_proveedor?.saldo ?? raw?.saldo);
+const getSaldo = (raw: any) =>
+  parseNum(raw?.solicitud_proveedor?.saldo ?? raw?.saldo);
 
-const getFormaPago = (raw: any) => norm(raw?.solicitud_proveedor?.forma_pago_solicitada ?? raw?.forma_pago_solicitada);
+const getFormaPago = (raw: any) =>
+  norm(
+    raw?.solicitud_proveedor?.forma_pago_solicitada ??
+      raw?.forma_pago_solicitada,
+  );
 
 const getIdSolProv = (raw: any, index?: number) =>
-  String(raw?.solicitud_proveedor?.id_solicitud_proveedor ?? raw?.id_solicitud_proveedor ?? index ?? "").trim();
+  String(
+    raw?.solicitud_proveedor?.id_solicitud_proveedor ??
+      raw?.id_solicitud_proveedor ??
+      index ??
+      "",
+  ).trim();
 
 const getTotalFacturadoLike = (raw: any) => {
   // 1) si viene ya calculado
-  const direct =
-    parseNum((raw as any)?.total_facturado ?? (raw as any)?.monto_facturado ?? (raw as any)?.total_facturado_en_pfp);
+  const direct = parseNum(
+    (raw as any)?.total_facturado ??
+      (raw as any)?.monto_facturado ??
+      (raw as any)?.total_facturado_en_pfp,
+  );
   if (direct > 0) return direct;
 
   // 2) si viene como facturas array/json
   const facturas = extractFacturas(raw);
   if (!facturas.length) return 0;
 
-  return facturas.reduce((acc, f) => acc + parseNum(f?.monto_facturado ?? f?.total ?? f?.importe ?? 0), 0);
+  return facturas.reduce(
+    (acc, f) =>
+      acc + parseNum(f?.monto_facturado ?? f?.total ?? f?.importe ?? 0),
+    0,
+  );
 };
 
 const isPagado = (raw: any) => {
@@ -125,7 +161,10 @@ const isPagado = (raw: any) => {
   // fallback: si hay pagos con fecha o monto >= solicitado, lo consideramos pagado
   const montoSolicitado = getMontoSolicitado(raw);
   const pagos = extractPagosAsociados(raw);
-  const totalPagado = pagos.reduce((acc, p) => acc + parseNum(p?.monto_pagado ?? 0), 0);
+  const totalPagado = pagos.reduce(
+    (acc, p) => acc + parseNum(p?.monto_pagado ?? 0),
+    0,
+  );
   if (montoSolicitado > 0 && totalPagado >= montoSolicitado - EPS) return true;
 
   return false;
@@ -171,7 +210,15 @@ type TabKey = VistaCarpeta;
 
 const tabTheme: Record<
   TabKey,
-  { ring: string; bg: string; text: string; border: string; dot: string; badge: string; badgeActive: string }
+  {
+    ring: string;
+    bg: string;
+    text: string;
+    border: string;
+    dot: string;
+    badge: string;
+    badgeActive: string;
+  }
 > = {
   all: {
     ring: "focus:ring-blue-500",
@@ -246,7 +293,9 @@ const tabBase =
 
 function getTabClass(key: TabKey, active: boolean) {
   const t = tabTheme[key];
-  const activeCls = active ? `bg-gradient-to-b from-white to-slate-50 border-slate-300 shadow-sm` : `${t.bg} ${t.border} hover:border-slate-300 hover:bg-slate-50`;
+  const activeCls = active
+    ? `bg-gradient-to-b from-white to-slate-50 border-slate-300 shadow-sm`
+    : `${t.bg} ${t.border} hover:border-slate-300 hover:bg-slate-50`;
   return `${tabBase} ${t.ring} ${activeCls}`;
 }
 
@@ -254,13 +303,21 @@ function getActiveUnderline(key: TabKey) {
   const dot = tabTheme[key].dot;
   return (
     <span className="absolute -bottom-[2px] left-2 right-2 h-[3px] rounded-full bg-slate-900/0">
-      <span className={`block h-full rounded-full ${dot} opacity-80 blur-[0.2px]`} />
+      <span
+        className={`block h-full rounded-full ${dot} opacity-80 blur-[0.2px]`}
+      />
     </span>
   );
 }
 
 // ---------- UI HELPERS ----------
-const Pill = ({ text, tone = "gray" }: { text: string; tone?: "gray" | "green" | "yellow" | "red" | "blue" }) => {
+const Pill = ({
+  text,
+  tone = "gray",
+}: {
+  text: string;
+  tone?: "gray" | "green" | "yellow" | "red" | "blue";
+}) => {
   const tones: Record<string, string> = {
     gray: "bg-gray-50 text-gray-700 border-gray-200 shadow-sm",
     green: "bg-green-50 text-green-700 border-green-200 shadow-sm",
@@ -269,7 +326,9 @@ const Pill = ({ text, tone = "gray" }: { text: string; tone?: "gray" | "green" |
     blue: "bg-blue-50 text-blue-700 border-blue-200 shadow-sm",
   };
   return (
-    <span className={`px-2.5 py-1 rounded-full border text-xs font-medium ${tones[tone] || tones.gray}`}>
+    <span
+      className={`px-2.5 py-1 rounded-full border text-xs font-medium ${tones[tone] || tones.gray}`}
+    >
       {text}
     </span>
   );
@@ -283,13 +342,23 @@ const pagoTone3 = (estado: string | null) => {
 };
 
 const facturaTone = (estado: string) =>
-  estado === "facturado" ? "green" : estado === "parcial" ? "yellow" : estado === "pendiente" ? "red" : "gray";
+  estado === "facturado"
+    ? "green"
+    : estado === "parcial"
+      ? "yellow"
+      : estado === "pendiente"
+        ? "red"
+        : "gray";
 
 const formatDateSimple = (date: string | Date) => {
   if (!date) return "—";
   const localDate = new Date(date);
   if (Number.isNaN(localDate.getTime())) return "—";
-  return localDate.toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return localDate.toLocaleDateString("es-MX", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
 };
 
 // -----helper para asignar color en fechas ----
@@ -300,7 +369,11 @@ const getFechaPagoColor = (dateStr?: string | Date | null | number) => {
 
   const hoy = new Date();
   const hoySinHora = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
-  const pagoSinHora = new Date(pagoDate.getFullYear(), pagoDate.getMonth(), pagoDate.getDate());
+  const pagoSinHora = new Date(
+    pagoDate.getFullYear(),
+    pagoDate.getMonth(),
+    pagoDate.getDate(),
+  );
 
   const diffMs = pagoSinHora.getTime() - hoySinHora.getTime();
   const diffDays = diffMs / (1000 * 60 * 60 * 24);
@@ -317,7 +390,11 @@ const getFechaPagoRowClass = (dateStr?: string | Date | null) => {
 
   const hoy = new Date();
   const hoySinHora = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
-  const pagoSinHora = new Date(pagoDate.getFullYear(), pagoDate.getMonth(), pagoDate.getDate());
+  const pagoSinHora = new Date(
+    pagoDate.getFullYear(),
+    pagoDate.getMonth(),
+    pagoDate.getDate(),
+  );
 
   const diffMs = pagoSinHora.getTime() - hoySinHora.getTime();
   const diffDays = diffMs / (1000 * 60 * 60 * 24);
@@ -329,26 +406,38 @@ const getFechaPagoRowClass = (dateStr?: string | Date | null) => {
 
 // ---------- INFO DE PAGOS / FACTURAS ----------
 function getPagoInfoFromRaw(raw: any) {
-  const pagos = extractPagosAsociados(raw).slice().sort((a, b) => {
-    const da = new Date(a.fecha_pago || a.creado_en || 0).getTime();
-    const db = new Date(b.fecha_pago || b.creado_en || 0).getTime();
-    return db - da;
-  });
+  const pagos = extractPagosAsociados(raw)
+    .slice()
+    .sort((a, b) => {
+      const da = new Date(a.fecha_pago || a.creado_en || 0).getTime();
+      const db = new Date(b.fecha_pago || b.creado_en || 0).getTime();
+      return db - da;
+    });
 
   const pendientePago = getSaldo(raw);
   const montoSolicitado = getMontoSolicitado(raw);
-  const totalPagado = pagos.reduce((acc, p) => acc + parseNum(p.monto_pagado ?? 0), 0);
+  const totalPagado = pagos.reduce(
+    (acc, p) => acc + parseNum(p.monto_pagado ?? 0),
+    0,
+  );
 
   const fechas = pagos
     .map((p) => p.fecha_pago || p.creado_en)
     .filter(Boolean)
     .map((f) => new Date(f));
 
-  const fechaUltimoPago = fechas.length ? new Date(Math.max(...fechas.map((d) => d.getTime()))).toISOString() : "";
+  const fechaUltimoPago = fechas.length
+    ? new Date(Math.max(...fechas.map((d) => d.getTime()))).toISOString()
+    : "";
 
   let estado_pago = "";
   if (isZero(pendientePago)) estado_pago = "Pagado";
-  else if (!isZero(pendientePago) && !isZero(montoSolicitado) && pendientePago !== montoSolicitado) estado_pago = "Parcial";
+  else if (
+    !isZero(pendientePago) &&
+    !isZero(montoSolicitado) &&
+    pendientePago !== montoSolicitado
+  )
+    estado_pago = "Parcial";
   else estado_pago = "Pendiente";
 
   return { estado_pago, totalPagado, fechaUltimoPago, pendientePago };
@@ -359,7 +448,8 @@ function getFacturaInfoFromRaw(raw: any) {
   const totalFacturado = getTotalFacturadoLike(raw);
   const porFacturar = Math.max(0, montoSolicitado - totalFacturado);
 
-  let estado: "parcial" | "facturado" | "pendiente" | "sin factura" = "sin factura";
+  let estado: "parcial" | "facturado" | "pendiente" | "sin factura" =
+    "sin factura";
   if (montoSolicitado > 0) {
     if (porFacturar <= EPS) estado = "facturado";
     else if (totalFacturado > EPS) estado = "parcial";
@@ -368,7 +458,11 @@ function getFacturaInfoFromRaw(raw: any) {
 
   // UUID (si existe en facturas)
   const facturas = extractFacturas(raw);
-  const uuid = facturas?.[0]?.uuid_cfdi || facturas?.[0]?.uuid || (raw as any)?.uuid_cfdi || "";
+  const uuid =
+    facturas?.[0]?.uuid_cfdi ||
+    facturas?.[0]?.uuid ||
+    (raw as any)?.uuid_cfdi ||
+    "";
 
   // Fecha última factura
   const fechas = facturas
@@ -376,7 +470,9 @@ function getFacturaInfoFromRaw(raw: any) {
     .filter(Boolean)
     .map((f) => new Date(f));
 
-  const fechaUltimaFactura = fechas.length ? new Date(Math.max(...fechas.map((d) => d.getTime()))).toISOString() : "";
+  const fechaUltimaFactura = fechas.length
+    ? new Date(Math.max(...fechas.map((d) => d.getTime()))).toISOString()
+    : "";
 
   return { estado, totalFacturado, porFacturar, fechaUltimaFactura, uuid };
 }
@@ -403,14 +499,17 @@ const defaultFiltersSolicitudes: TypeFilters = {
 };
 
 // ---------- PATCH / EDIT ----------
-type EditableField = "costo_proveedor" | "estatus_pagos" | "monto_solicitado" | "consolidado";
+type EditableField =
+  | "costo_proveedor"
+  | "estatus_pagos"
+  | "monto_solicitado"
+  | "consolidado";
 const FIELD_TO_API: Record<EditableField, string> = {
   costo_proveedor: "costo_total",
   estatus_pagos: "estatus_pagos",
   monto_solicitado: "monto_solicitado",
   consolidado: "consolidado",
 };
-
 
 type EditModalState = {
   open: boolean;
@@ -531,7 +630,9 @@ const MetodoPagoPopover: React.FC<MetodoPagoPopoverProps> = ({
       {open && (
         <div className="absolute right-0 mt-2 z-[70] w-[280px] rounded-xl border border-slate-200 bg-white shadow-lg p-2">
           <div className="flex items-center justify-between mb-2">
-            <div className="text-xs font-semibold text-slate-700">Solicitud: {idSolProv}</div>
+            <div className="text-xs font-semibold text-slate-700">
+              Solicitud: {idSolProv}
+            </div>
             <button
               type="button"
               className="text-xs px-2 py-1 rounded-md border border-slate-200 hover:bg-slate-50"
@@ -564,10 +665,8 @@ const MetodoPagoPopover: React.FC<MetodoPagoPopoverProps> = ({
   );
 };
 
-
-
 function App() {
-  const { showNotification } = useNotification();
+  const { showNotification } = useAlert();
   const { hasAccess } = usePermiso();
   hasAccess(PERMISOS.VISTAS.PROVEEDOR_PAGOS);
 
@@ -586,10 +685,13 @@ function App() {
   const [showDispersionModal, setShowDispersionModal] = useState(false);
   const [showComprobanteModal, setShowComprobanteModal] = useState(false);
 
-  const [solicitudesSeleccionadasModal, setSolicitudesSeleccionadasModal] = useState<SolicitudProveedorRaw[]>([]);
+  const [solicitudesSeleccionadasModal, setSolicitudesSeleccionadasModal] =
+    useState<SolicitudProveedorRaw[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [loading, setLoading] = useState(false);
-  const [filters, setFilters] = useState<TypeFilters>(defaultFiltersSolicitudes);
+  const [filters, setFilters] = useState<TypeFilters>(
+    defaultFiltersSolicitudes,
+  );
 
   // tabs / carpeta activa
   const [categoria, setCategoria] = useState<VistaCarpeta>("all");
@@ -597,7 +699,8 @@ function App() {
   // selección
   const [solicitud, setSolicitud] = useState<SolicitudProveedor[]>([]);
   type SelectedSolicitudesMap = Record<string, SolicitudProveedor>;
-  const [selectedSolicitudesMap, setSelectedSolicitudesMap] = useState<SelectedSolicitudesMap>({});
+  const [selectedSolicitudesMap, setSelectedSolicitudesMap] =
+    useState<SelectedSolicitudesMap>({});
   const [datosDispersion, setDatosDispersion] = useState<DatosDispersion[]>([]);
 
   const selectedCount = solicitud.length;
@@ -605,9 +708,14 @@ function App() {
   const canDispersion = canSelect && selectedCount > 0;
 
   const dispersionDisabledReason =
-    categoria === "pagada" ? "En carpeta pagada no se puede generar dispersión" : selectedCount === 0 ? "Selecciona al menos 1 solicitud" : "";
+    categoria === "pagada"
+      ? "En carpeta pagada no se puede generar dispersión"
+      : selectedCount === 0
+        ? "Selecciona al menos 1 solicitud"
+        : "";
 
-  const clearDisabledReason = !canSelect || selectedCount === 0 ? "No hay selección para limpiar" : "";
+  const clearDisabledReason =
+    !canSelect || selectedCount === 0 ? "No hay selección para limpiar" : "";
 
   // ---- Modal de edición ----
   const [editModal, setEditModal] = useState<EditModalState>({
@@ -617,63 +725,78 @@ function App() {
     value: "",
   });
 
-  const openEditModal = useCallback((raw: any, field: EditableField, currentValue: any) => {
-    const idSolProv = getIdSolProv(raw);
-    setEditModal({
-      open: true,
-      id_solicitud_proveedor: idSolProv,
-      field,
-      value: currentValue == null ? "" : String(currentValue),
-    });
-  }, []);
+  const openEditModal = useCallback(
+    (raw: any, field: EditableField, currentValue: any) => {
+      const idSolProv = getIdSolProv(raw);
+      setEditModal({
+        open: true,
+        id_solicitud_proveedor: idSolProv,
+        field,
+        value: currentValue == null ? "" : String(currentValue),
+      });
+    },
+    [],
+  );
 
-  const closeEditModal = useCallback(() => setEditModal((s) => ({ ...s, open: false })), []);
+  const closeEditModal = useCallback(
+    () => setEditModal((s) => ({ ...s, open: false })),
+    [],
+  );
 
   const patchSolicitudProveedor = useCallback(
-  async (id_solicitud_proveedor: string, field: string, value: any) => {
-    const apiField = (FIELD_TO_API as any)[field] ?? field;
+    async (id_solicitud_proveedor: string, field: string, value: any) => {
+      const apiField = (FIELD_TO_API as any)[field] ?? field;
 
-    const needsNumber = ["costo_total", "monto_solicitado", "consolidado", "id_tarjeta_solicitada"].includes(apiField);
+      const needsNumber = [
+        "costo_total",
+        "monto_solicitado",
+        "consolidado",
+        "id_tarjeta_solicitada",
+      ].includes(apiField);
 
-    const normalizedValue = needsNumber
-      ? String(value).trim() === ""
-        ? null
-        : Number(value)
-      : value;
+      const normalizedValue = needsNumber
+        ? String(value).trim() === ""
+          ? null
+          : Number(value)
+        : value;
 
-    const payload = { id_solicitud_proveedor, [apiField]: normalizedValue };
+      const payload = { id_solicitud_proveedor, [apiField]: normalizedValue };
 
-    try {
-      const resp = await fetch(editEndpoint, {
-        method: "PATCH",
-        headers: {
-          "x-api-key": API_KEY || "",
-          "Content-Type": "application/json",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-        },
-        body: JSON.stringify(payload),
-      });
+      try {
+        const resp = await fetch(editEndpoint, {
+          method: "PATCH",
+          headers: {
+            "x-api-key": API_KEY || "",
+            "Content-Type": "application/json",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+          },
+          body: JSON.stringify(payload),
+        });
 
-      const json = await resp.json().catch(() => null);
-      if (!resp.ok) throw new Error(json?.message || `Error HTTP: ${resp.status}`);
+        const json = await resp.json().catch(() => null);
+        if (!resp.ok)
+          throw new Error(json?.message || `Error HTTP: ${resp.status}`);
 
-      showNotification("success", "Actualizado correctamente");
-      return true;
-    } catch (err: any) {
-      console.error("❌ patch fail", err);
-      showNotification("error", err?.message || "Error al actualizar");
-      return false;
-    }
-  },
-  [editEndpoint, showNotification]
-);
-
+        showNotification("success", "Actualizado correctamente");
+        return true;
+      } catch (err: any) {
+        console.error("❌ patch fail", err);
+        showNotification("error", err?.message || "Error al actualizar");
+        return false;
+      }
+    },
+    [editEndpoint, showNotification],
+  );
 
   const saveEditModal = useCallback(async () => {
     const { id_solicitud_proveedor, field, value } = editModal;
     if (!id_solicitud_proveedor) return;
 
-    const ok = await patchSolicitudProveedor(id_solicitud_proveedor, field, value);
+    const ok = await patchSolicitudProveedor(
+      id_solicitud_proveedor,
+      field,
+      value,
+    );
     if (ok) {
       closeEditModal();
       // refresca
@@ -711,9 +834,15 @@ function App() {
       const all = normalizeApiToAll(apiData);
 
       // --- reglas de carpetas (tu nueva especificación) ---
-      const spei = all.filter((it) => getFormaPago(it) === "transfer" && !hasPagosAsociados(it));
-      const pago_tdc = all.filter((it) => getFormaPago(it) === "card" && !hasPagosAsociados(it));
-      const pago_link = all.filter((it) => getFormaPago(it) === "link" && !hasPagosAsociados(it));
+      const spei = all.filter(
+        (it) => getFormaPago(it) === "transfer" && !hasPagosAsociados(it),
+      );
+      const pago_tdc = all.filter(
+        (it) => getFormaPago(it) === "card" && !hasPagosAsociados(it),
+      );
+      const pago_link = all.filter(
+        (it) => getFormaPago(it) === "link" && !hasPagosAsociados(it),
+      );
 
       const creditAll = all.filter((it) => getFormaPago(it) === "credit");
 
@@ -764,21 +893,20 @@ function App() {
   }, [categoria]);
 
   // ------- Lista base por carpeta -------
-const baseList: SolicitudProveedor[] =
-  categoria === "all"
-    ? solicitudesPago.todos
-    : categoria === "spei"
-    ? solicitudesPago.spei
-    : categoria === "pago_tdc"
-    ? solicitudesPago.pago_tdc
-    : categoria === "pago_link"
-    ? solicitudesPago.pago_link
-    : categoria === "carta_enviada"
-    ? solicitudesPago.carta_enviada
-    : categoria === "carta_garantia"
-    ? solicitudesPago.carta_garantia
-    : solicitudesPago.pagada; // ✅ aquí
-
+  const baseList: SolicitudProveedor[] =
+    categoria === "all"
+      ? solicitudesPago.todos
+      : categoria === "spei"
+        ? solicitudesPago.spei
+        : categoria === "pago_tdc"
+          ? solicitudesPago.pago_tdc
+          : categoria === "pago_link"
+            ? solicitudesPago.pago_link
+            : categoria === "carta_enviada"
+              ? solicitudesPago.carta_enviada
+              : categoria === "carta_garantia"
+                ? solicitudesPago.carta_garantia
+                : solicitudesPago.pagada; // ✅ aquí
 
   // 1) filtro extra (si aún lo quieres)
   const filteredSolicitudes = baseList.filter(() => true);
@@ -790,8 +918,12 @@ const baseList: SolicitudProveedor[] =
       return (
         (item.hotel || "").toUpperCase().includes(q) ||
         (item.nombre_agente_completo || "").toUpperCase().includes(q) ||
-        (item.nombre_viajero_completo || item.nombre_viajero || "").toUpperCase().includes(q) ||
-        String((item as any)?.solicitud_proveedor?.id_solicitud_proveedor ?? "").toUpperCase().includes(q)
+        (item.nombre_viajero_completo || item.nombre_viajero || "")
+          .toUpperCase()
+          .includes(q) ||
+        String((item as any)?.solicitud_proveedor?.id_solicitud_proveedor ?? "")
+          .toUpperCase()
+          .includes(q)
       );
     })
     .map((raw) => {
@@ -814,8 +946,10 @@ const baseList: SolicitudProveedor[] =
         monto_solicitado: montoSolicitado,
         saldo: saldo,
         forma_pago_solicitada: forma,
-        id_tarjeta_solicitada: item?.solicitud_proveedor?.id_tarjeta_solicitada ?? null,
-        usuario_solicitante: item?.solicitud_proveedor?.usuario_solicitante ?? "",
+        id_tarjeta_solicitada:
+          item?.solicitud_proveedor?.id_tarjeta_solicitada ?? null,
+        usuario_solicitante:
+          item?.solicitud_proveedor?.usuario_solicitante ?? "",
         usuario_generador: item?.solicitud_proveedor?.usuario_generador ?? "",
         comentarios_sp: item?.solicitud_proveedor?.comentarios ?? "",
         estado_solicitud: item?.solicitud_proveedor?.estado_solicitud ?? "",
@@ -832,13 +966,20 @@ const baseList: SolicitudProveedor[] =
         hotel: (item.hotel || "").toUpperCase(),
         razon_social: item.proveedor?.razon_social,
         rfc: item.proveedor?.rfc,
-        viajero: (item.nombre_viajero_completo || item.nombre_viajero || "").toUpperCase(),
+        viajero: (
+          item.nombre_viajero_completo ||
+          item.nombre_viajero ||
+          ""
+        ).toUpperCase(),
         check_in: item.check_in,
         check_out: item.check_out,
         noches: calcularNoches(item.check_in, item.check_out),
         habitacion: formatRoom(item.room),
         costo_proveedor: Number((item as any).costo_total) || 0,
-        markup: ((Number(item.total || 0) - Number((item as any).costo_total || 0)) / Number(item.total || 0)) * 100,
+        markup:
+          ((Number(item.total || 0) - Number((item as any).costo_total || 0)) /
+            Number(item.total || 0)) *
+          100,
         precio_de_venta: parseFloat(item.total),
         metodo_de_pago: item.id_credito ? "credito" : "contado",
         etapa_reservacion: item.estado_reserva,
@@ -851,13 +992,15 @@ const baseList: SolicitudProveedor[] =
 
         // solicitud / pagos / facturación (UX)
         fecha_de_pago: item.solicitud_proveedor?.fecha_solicitud,
-        forma_de_pago_solicitada: item.solicitud_proveedor?.forma_pago_solicitada,
+        forma_de_pago_solicitada:
+          item.solicitud_proveedor?.forma_pago_solicitada,
         digitos_tajeta: item.tarjeta?.ultimos_4,
         banco: item.tarjeta?.banco_emisor,
         tipo_tarjeta: item.tarjeta?.tipo_tarjeta,
 
         // ✅ CXP comments (solo lectura)
-        comentarios_cxp: (item as any).comentario_CXP ?? (item as any).comments_cxp ?? "",
+        comentarios_cxp:
+          (item as any).comentario_CXP ?? (item as any).comments_cxp ?? "",
 
         // pago proveedor
         estado_pago: pagoInfo.estado_pago,
@@ -885,7 +1028,10 @@ const baseList: SolicitudProveedor[] =
   // ---------- HANDLERS ----------
   const handleDispersion = () => {
     if (!solicitud.length) {
-      showNotification("info", "No hay solicitudes seleccionadas para dispersión");
+      showNotification(
+        "info",
+        "No hay solicitudes seleccionadas para dispersión",
+      );
       return;
     }
 
@@ -897,14 +1043,16 @@ const baseList: SolicitudProveedor[] =
         id_pago: anyS.id_pago ?? null,
         hotel: s.hotel ?? null,
         codigo_reservacion_hotel: s.codigo_reservacion_hotel ?? null,
-        costo_total: s.costo_total ?? s.solicitud_proveedor?.monto_solicitado ?? "0",
+        costo_total:
+          s.costo_total ?? s.solicitud_proveedor?.monto_solicitado ?? "0",
         check_out: s.check_out ?? null,
         codigo_dispersion: anyS.codigo_dispersion ?? null,
         cuenta_de_deposito: (s as any).cuenta_de_deposito ?? null,
 
         solicitud_proveedor: s.solicitud_proveedor
           ? {
-              id_solicitud_proveedor: s.solicitud_proveedor.id_solicitud_proveedor,
+              id_solicitud_proveedor:
+                s.solicitud_proveedor.id_solicitud_proveedor,
               fecha_solicitud: s.solicitud_proveedor.fecha_solicitud ?? null,
               monto_solicitado: s.solicitud_proveedor.monto_solicitado ?? null,
             }
@@ -977,19 +1125,30 @@ const baseList: SolicitudProveedor[] =
       // ✅ acciones
       "acciones",
     ],
-    []
+    [],
   );
 
   // ---------- RENDERERS ----------
-  const renderers: Record<string, React.FC<{ value: any; item: any; index: number }>> = {
+  const renderers: Record<
+    string,
+    React.FC<{ value: any; item: any; index: number }>
+  > = {
     seleccionar: ({ item, index }) => {
       const row = item as any;
-      const raw: SolicitudProveedor | undefined = (row.item as SolicitudProveedor) || row;
+      const raw: SolicitudProveedor | undefined =
+        (row.item as SolicitudProveedor) || row;
       // ✅ SOLO transfer puede seleccionarse (dispersión)
-const forma = getFormaPago(raw);
-if (forma !== "transfer") {
-  return <span className="text-gray-300" title="Solo Transferencia se puede seleccionar">—</span>;
-}
+      const forma = getFormaPago(raw);
+      if (forma !== "transfer") {
+        return (
+          <span
+            className="text-gray-300"
+            title="Solo Transferencia se puede seleccionar"
+          >
+            —
+          </span>
+        );
+      }
 
       if (!raw) return null;
 
@@ -997,13 +1156,26 @@ if (forma !== "transfer") {
       const saldo = getSaldo(raw);
       const tieneDispersion = hasPagosAsociados(raw) || isZero(saldo);
 
-      const key = String((raw as any).id_solicitud ?? (raw as any).id ?? raw.solicitud_proveedor?.id_solicitud_proveedor ?? index);
+      const key = String(
+        (raw as any).id_solicitud ??
+          (raw as any).id ??
+          raw.solicitud_proveedor?.id_solicitud_proveedor ??
+          index,
+      );
       const isSelected = !!selectedSolicitudesMap[key];
 
-      if (categoria === "pagada") return <span className="text-gray-300">—</span>;
+      if (categoria === "pagada")
+        return <span className="text-gray-300">—</span>;
 
       if (tieneDispersion) {
-        return <input type="checkbox" checked={false} disabled title="Esta solicitud ya tiene pagos/dispersiones asociadas o saldo 0" />;
+        return (
+          <input
+            type="checkbox"
+            checked={false}
+            disabled
+            title="Esta solicitud ya tiene pagos/dispersiones asociadas o saldo 0"
+          />
+        );
       }
 
       return (
@@ -1021,26 +1193,34 @@ if (forma !== "transfer") {
             setSolicitud((prev) => {
               const rawId = (raw as any).id_solicitud ?? (raw as any).id;
               if (e.target.checked) return [...prev, raw];
-              return prev.filter((s) => ((s as any).id_solicitud ?? (s as any).id) !== rawId);
+              return prev.filter(
+                (s) => ((s as any).id_solicitud ?? (s as any).id) !== rawId,
+              );
             });
 
             setDatosDispersion((prev) => {
-              const idSolProv = raw.solicitud_proveedor?.id_solicitud_proveedor ?? null;
-              const idSol = (raw as any).id_solicitud ?? (raw as any).id ?? null;
+              const idSolProv =
+                raw.solicitud_proveedor?.id_solicitud_proveedor ?? null;
+              const idSol =
+                (raw as any).id_solicitud ?? (raw as any).id ?? null;
 
               if (e.target.checked) {
                 const nuevo: DatosDispersion = {
-                  codigo_reservacion_hotel: raw.codigo_reservacion_hotel ?? null,
+                  codigo_reservacion_hotel:
+                    raw.codigo_reservacion_hotel ?? null,
                   costo_proveedor: Number((raw as any).costo_total) || 0,
                   id_solicitud: idSol,
                   id_solicitud_proveedor: idSolProv,
-                  monto_solicitado: Number(raw.solicitud_proveedor?.monto_solicitado) || 0,
+                  monto_solicitado:
+                    Number(raw.solicitud_proveedor?.monto_solicitado) || 0,
                   razon_social: raw.proveedor?.razon_social ?? null,
                   rfc: raw.proveedor?.rfc ?? null,
                   cuenta_banco: (raw as any).cuenta_de_deposito ?? null,
                 };
 
-                const exists = prev.some((d) => d.id_solicitud === nuevo.id_solicitud);
+                const exists = prev.some(
+                  (d) => d.id_solicitud === nuevo.id_solicitud,
+                );
                 return exists ? prev : [...prev, nuevo];
               } else {
                 return prev.filter((d) => d.id_solicitud !== idSol);
@@ -1052,14 +1232,16 @@ if (forma !== "transfer") {
     },
 
     id_solicitud_proveedor: ({ value }) => (
-  <div className="px-1 py-0.5">
-    <span className="font-mono text-xs" title={String(value)}>
-      {String(value || "").slice(0, 10)}
-    </span>
-  </div>
-),
+      <div className="px-1 py-0.5">
+        <span className="font-mono text-xs" title={String(value)}>
+          {String(value || "").slice(0, 10)}
+        </span>
+      </div>
+    ),
 
-    fecha_solicitud: ({ value }) => <span title={value}>{formatDateSimple(value)}</span>,
+    fecha_solicitud: ({ value }) => (
+      <span title={value}>{formatDateSimple(value)}</span>
+    ),
 
     monto_solicitado: ({ value, item }) => {
       const raw = (item as any)?.item ?? item;
@@ -1076,7 +1258,9 @@ if (forma !== "transfer") {
       );
     },
 
-    saldo: ({ value }) => <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>,
+    saldo: ({ value }) => (
+      <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>
+    ),
 
     forma_pago_solicitada: ({ value }) => (
       <span className="font-semibold">
@@ -1092,24 +1276,54 @@ if (forma !== "transfer") {
     ),
 
     estatus_pagos: ({ value }) => (
-      <Pill text={value ? String(value).replace("enviado_a_pago", "Enviado a Pago").replace("pagado", "Pagado").toUpperCase() : "—"} tone="blue" />
+      <Pill
+        text={
+          value
+            ? String(value)
+                .replace("enviado_a_pago", "Enviado a Pago")
+                .replace("pagado", "Pagado")
+                .toUpperCase()
+            : "—"
+        }
+        tone="blue"
+      />
     ),
 
-    estado_solicitud: ({ value }) => <span className="text-xs">{String(value ?? "—")}</span>,
-    estado_facturacion: ({ value }) => <span className="text-xs">{String(value ?? "—")}</span>,
-    usuario_solicitante: ({ value }) => <span className="text-xs">{String(value ?? "—")}</span>,
-    usuario_generador: ({ value }) => <span className="text-xs">{String(value ?? "—")}</span>,
+    estado_solicitud: ({ value }) => (
+      <span className="text-xs">{String(value ?? "—")}</span>
+    ),
+    estado_facturacion: ({ value }) => (
+      <span className="text-xs">{String(value ?? "—")}</span>
+    ),
+    usuario_solicitante: ({ value }) => (
+      <span className="text-xs">{String(value ?? "—")}</span>
+    ),
+    usuario_generador: ({ value }) => (
+      <span className="text-xs">{String(value ?? "—")}</span>
+    ),
 
     comentarios_sp: ({ value }) => {
       const t = String(value ?? "").trim();
       const prev = t.length > 40 ? t.slice(0, 40) + "…" : t;
-      return <span className="text-xs" title={t || "—"}>{t ? prev : <span className="text-gray-400">—</span>}</span>;
+      return (
+        <span className="text-xs" title={t || "—"}>
+          {t ? prev : <span className="text-gray-400">—</span>}
+        </span>
+      );
     },
 
     creado: ({ value }) => <span title={value}>{formatDateSimple(value)}</span>,
-    codigo_hotel: ({ value }) => <span className="font-semibold">{value ? String(value).toUpperCase() : ""}</span>,
-    check_in: ({ value }) => <span title={value}>{formatDateSimple(value)}</span>,
-    check_out: ({ value }) => <span title={value}>{formatDateSimple(value)}</span>,
+    codigo_hotel: ({ value }) => (
+      <span className="font-semibold">
+        {value ? String(value).toUpperCase() : ""}
+      </span>
+    ),
+    check_in: ({ value }) => (
+      <span title={value}>{formatDateSimple(value)}</span>
+    ),
+    check_out: ({ value }) => (
+      <span title={value}>{formatDateSimple(value)}</span>
+    ),
 
     costo_proveedor: ({ value }) => {
       const monto = Number(value || 0);
@@ -1138,15 +1352,17 @@ if (forma !== "transfer") {
           value == "Infinity"
             ? "text-gray-700 bg-gray-100 border-gray-300"
             : value > 0
-            ? "text-green-600 bg-green-100 border-green-300"
-            : "text-red-600 bg-red-100 border-red-300"
+              ? "text-green-600 bg-green-100 border-green-300"
+              : "text-red-600 bg-red-100 border-red-300"
         }`}
       >
         {value == "Infinity" ? "0%" : `${Number(value).toFixed(2)}%`}
       </span>
     ),
 
-    precio_de_venta: ({ value }) => <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>,
+    precio_de_venta: ({ value }) => (
+      <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>
+    ),
 
     metodo_de_pago: ({ value }) => getPaymentBadge(value),
     reservante: ({ value }) => getWhoCreateBadge(value),
@@ -1156,29 +1372,62 @@ if (forma !== "transfer") {
     // ----------- PAGO -----------
     estado_pago: ({ value }) => (
       <Pill
-        text={(value ?? "—").replace("pagado", "Pagado").replace("enviado_a_pago", "Enviado a Pago").toUpperCase()}
+        text={(value ?? "—")
+          .replace("pagado", "Pagado")
+          .replace("enviado_a_pago", "Enviado a Pago")
+          .toUpperCase()}
         tone={pagoTone3(value) as any}
       />
     ),
 
-    pendiente_a_pagar: ({ value }) => <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>,
-    monto_pagado_proveedor: ({ value }) => <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>,
-    fecha_pagado: ({ value }) => (value ? <span title={value}>{formatDateSimple(value)}</span> : <span className="text-gray-400">—</span>),
+    pendiente_a_pagar: ({ value }) => (
+      <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>
+    ),
+    monto_pagado_proveedor: ({ value }) => (
+      <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>
+    ),
+    fecha_pagado: ({ value }) =>
+      value ? (
+        <span title={value}>{formatDateSimple(value)}</span>
+      ) : (
+        <span className="text-gray-400">—</span>
+      ),
 
     // ----------- FACTURA -----------
     estado_factura_proveedor: ({ value }) => (
       <Pill
-        text={(value || "—").replace("facturado", "Facturado").replace("parcial", "Parcial").replace("pendiente", "Pendiente").toUpperCase()}
+        text={(value || "—")
+          .replace("facturado", "Facturado")
+          .replace("parcial", "Parcial")
+          .replace("pendiente", "Pendiente")
+          .toUpperCase()}
         tone={facturaTone((value || "").toLowerCase()) as any}
       />
     ),
 
-    total_facturado: ({ value }) => <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>,
+    total_facturado: ({ value }) => (
+      <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>
+    ),
     monto_por_facturar: ({ value }) => {
       const n = Number(value || 0);
-      return <span className={n <= EPS ? "text-green-700 font-semibold" : "text-amber-700 font-semibold"}>${n.toFixed(2)}</span>;
+      return (
+        <span
+          className={
+            n <= EPS
+              ? "text-green-700 font-semibold"
+              : "text-amber-700 font-semibold"
+          }
+        >
+          ${n.toFixed(2)}
+        </span>
+      );
     },
-    fecha_facturacion: ({ value }) => (value ? <span title={value}>{formatDateSimple(value)}</span> : <span className="text-gray-400">—</span>),
+    fecha_facturacion: ({ value }) =>
+      value ? (
+        <span title={value}>{formatDateSimple(value)}</span>
+      ) : (
+        <span className="text-gray-400">—</span>
+      ),
 
     UUID: ({ value }) => (
       <span className="font-mono text-xs" title={value}>
@@ -1187,109 +1436,118 @@ if (forma !== "transfer") {
     ),
 
     // ✅ ACCIONES: 3 botones según reglas
-acciones: ({ item }) => {
-  const row = item as any;
-  const raw = row?.item ?? row;
+    acciones: ({ item }) => {
+      const row = item as any;
+      const raw = row?.item ?? row;
 
-  const idSolProv = getIdSolProv(raw);
-  const forma = getFormaPago(raw);
-  const pagado = isPagado(raw);
+      const idSolProv = getIdSolProv(raw);
+      const forma = getFormaPago(raw);
+      const pagado = isPagado(raw);
 
-  // ✅ lee bien el estado (viene de raw.solicitud_proveedor o del row ya mapeado)
-  const estadoSolicitud = normUpper(
-    raw?.solicitud_proveedor?.estado_solicitud ?? row?.estado_solicitud ?? ""
-  );
+      // ✅ lee bien el estado (viene de raw.solicitud_proveedor o del row ya mapeado)
+      const estadoSolicitud = normUpper(
+        raw?.solicitud_proveedor?.estado_solicitud ??
+          row?.estado_solicitud ??
+          "",
+      );
 
-  // ✅ si es CUPON, oculta acciones en todas las carpetas MENOS en carta_garantia
-  if (estadoSolicitud.includes("CUPON") && categoria !== "carta_garantia") return null;
+      // ✅ si es CUPON, oculta acciones en todas las carpetas MENOS en carta_garantia
+      if (estadoSolicitud.includes("CUPON") && categoria !== "carta_garantia")
+        return null;
 
-  const costoActual = Number((raw as any)?.costo_total ?? 0) || 0;
+      const costoActual = Number((raw as any)?.costo_total ?? 0) || 0;
 
-  return (
-    <div className="flex items-center gap-2">
-      {/* ✅ MÉTODO SOLO PARA carta_garantia */}
-      {categoria === "carta_garantia" && (
-        <MetodoPagoPopover
-          idSolProv={idSolProv}
-          currentMethod={forma}
-          onSetMethod={async (nextMethod) => {
-            // actualiza forma_pago_solicitada (transfer | card)
-            const ok = await patchSolicitudProveedor(
-              idSolProv,
-              "forma_pago_solicitada",
-              nextMethod
-            );
-            if (ok) handleFetchSolicitudesPago();
-            return ok;
-          }}
-          onSetCard={async ({ id_tarjeta_solicitada }) => {
-            const ok = await patchSolicitudProveedor(
-              idSolProv,
-              "id_tarjeta_solicitada",
-              id_tarjeta_solicitada
-            );
-            if (ok) handleFetchSolicitudesPago();
-            return ok;
-          }}
-        />
-      )}
+      return (
+        <div className="flex items-center gap-2">
+          {/* ✅ MÉTODO SOLO PARA carta_garantia */}
+          {categoria === "carta_garantia" && (
+            <MetodoPagoPopover
+              idSolProv={idSolProv}
+              currentMethod={forma}
+              onSetMethod={async (nextMethod) => {
+                // actualiza forma_pago_solicitada (transfer | card)
+                const ok = await patchSolicitudProveedor(
+                  idSolProv,
+                  "forma_pago_solicitada",
+                  nextMethod,
+                );
+                if (ok) handleFetchSolicitudesPago();
+                return ok;
+              }}
+              onSetCard={async ({ id_tarjeta_solicitada }) => {
+                const ok = await patchSolicitudProveedor(
+                  idSolProv,
+                  "id_tarjeta_solicitada",
+                  id_tarjeta_solicitada,
+                );
+                if (ok) handleFetchSolicitudesPago();
+                return ok;
+              }}
+            />
+          )}
 
-      {/* Editar costo proveedor (SIEMPRE) */}
-      <button
-        type="button"
-        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors shadow-sm"
-        onClick={() => openEditModal(raw, "costo_proveedor", costoActual)}
-        title="Editar costo proveedor"
-      >
-        <Maximize2 className="w-3.5 h-3.5" />
-        <span>Costo</span>
-      </button>
+          {/* Editar costo proveedor (SIEMPRE) */}
+          <button
+            type="button"
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors shadow-sm"
+            onClick={() => openEditModal(raw, "costo_proveedor", costoActual)}
+            title="Editar costo proveedor"
+          >
+            <Maximize2 className="w-3.5 h-3.5" />
+            <span>Costo</span>
+          </button>
 
-      {/* Botón marcar pagado (solo si no es transfer) */}
-      {forma !== "transfer" && (
-        <button
-          type="button"
-          className={[
-            "inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors shadow-sm",
-            pagado
-              ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
-              : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300",
-          ].join(" ")}
-          disabled={pagado}
-          onClick={async () => { /* ... */ }}
-          title={pagado ? "Ya está pagado" : "Marcar como pagado"}
-        >
-          <CheckCircle2 className="w-3.5 h-3.5" />
-          <span>Pagado</span>
-        </button>
-      )}
+          {/* Botón marcar pagado (solo si no es transfer) */}
+          {forma !== "transfer" && (
+            <button
+              type="button"
+              className={[
+                "inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors shadow-sm",
+                pagado
+                  ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+                  : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300",
+              ].join(" ")}
+              disabled={pagado}
+              onClick={async () => {
+                /* ... */
+              }}
+              title={pagado ? "Ya está pagado" : "Marcar como pagado"}
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>Pagado</span>
+            </button>
+          )}
 
-      {/* Conciliar (solo en pagados) */}
-      {/* Botón conciliar (solo pagados) */}
-      {pagado && (
-        <button
-          type="button"
-          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition-colors shadow-sm"
-          onClick={async () => { /* ... */ }}
-          title="Conciliar (marca consolidado=1)"
-        >
-          <Handshake className="w-3.5 h-3.5" />
-          <span>Conciliar</span>
-        </button>
-      )}
-    </div>
-  );
-},
+          {/* Conciliar (solo en pagados) */}
+          {/* Botón conciliar (solo pagados) */}
+          {pagado && (
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition-colors shadow-sm"
+              onClick={async () => {
+                /* ... */
+              }}
+              title="Conciliar (marca consolidado=1)"
+            >
+              <Handshake className="w-3.5 h-3.5" />
+              <span>Conciliar</span>
+            </button>
+          )}
+        </div>
+      );
+    },
 
     // ✅ Mostrar TODOS los campos del SP (raw)
-
 
     // ----------- SOLICITUD -----------
     fecha_de_pago: ({ value }) => {
       if (!value) return <span className="text-gray-400">—</span>;
       const colorClasses = getFechaPagoColor(value);
       return (
-        <span title={value} className={`px-2 py-1 rounded-full text-xs font-semibold border ${colorClasses}`}>
+        <span
+          title={value}
+          className={`px-2 py-1 rounded-full text-xs font-semibold border ${colorClasses}`}
+        >
           {formatDateSimple(value)}
         </span>
       );
@@ -1302,21 +1560,48 @@ acciones: ({ item }) => {
       [
         { key: "all", label: "Todos", count: solicitudesPago.todos.length },
         { key: "spei", label: "SPEI", count: solicitudesPago.spei.length },
-        { key: "pago_tdc", label: "Pago TDC", count: solicitudesPago.pago_tdc.length },
-        { key: "pago_link", label: "Pago Link", count: solicitudesPago.pago_link.length },
-        { key: "carta_enviada", label: "Carta enviada", count: solicitudesPago.carta_enviada.length },
-        { key: "carta_garantia", label: "Carta garantía", count: solicitudesPago.carta_garantia.length },
-        { key: "pagada", label: "Pagada", count: solicitudesPago.pagada.length },
+        {
+          key: "pago_tdc",
+          label: "Pago TDC",
+          count: solicitudesPago.pago_tdc.length,
+        },
+        {
+          key: "pago_link",
+          label: "Pago Link",
+          count: solicitudesPago.pago_link.length,
+        },
+        {
+          key: "carta_enviada",
+          label: "Carta enviada",
+          count: solicitudesPago.carta_enviada.length,
+        },
+        {
+          key: "carta_garantia",
+          label: "Carta garantía",
+          count: solicitudesPago.carta_garantia.length,
+        },
+        {
+          key: "pagada",
+          label: "Pagada",
+          count: solicitudesPago.pagada.length,
+        },
       ] as Array<{ key: VistaCarpeta; label: string; count: number }>,
-    [solicitudesPago]
+    [solicitudesPago],
   );
 
   return (
     <div className="h-fit">
-      <h1 className="text-2xl font-bold tracking-tight text-slate-900 my-4">Pagos a proveedor</h1>
+      <h1 className="text-2xl font-bold tracking-tight text-slate-900 my-4">
+        Pagos a proveedor
+      </h1>
 
       <div className="w-full mx-auto bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-        <Filters defaultFilters={filters} onFilter={setFilters} searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+        <Filters
+          defaultFilters={filters}
+          onFilter={setFilters}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+        />
 
         {/* Tabs tipo carpetas */}
         <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3 mb-3">
@@ -1325,10 +1610,27 @@ acciones: ({ item }) => {
             const theme = tabTheme[btn.key];
 
             return (
-              <Button key={btn.key} onClick={() => setCategoria(btn.key)} variant="ghost" size="md" className={getTabClass(btn.key, isActive)}>
-                <span className={`mr-2 h-2.5 w-2.5 rounded-full ${theme.dot} shadow-sm`} />
-                <span className={`font-semibold ${isActive ? "text-slate-900" : theme.text}`}>{btn.label}</span>
-                <span className={"ml-2 text-[11px] px-2 py-0.5 rounded-full border font-semibold " + (isActive ? theme.badgeActive : theme.badge)}>
+              <Button
+                key={btn.key}
+                onClick={() => setCategoria(btn.key)}
+                variant="ghost"
+                size="md"
+                className={getTabClass(btn.key, isActive)}
+              >
+                <span
+                  className={`mr-2 h-2.5 w-2.5 rounded-full ${theme.dot} shadow-sm`}
+                />
+                <span
+                  className={`font-semibold ${isActive ? "text-slate-900" : theme.text}`}
+                >
+                  {btn.label}
+                </span>
+                <span
+                  className={
+                    "ml-2 text-[11px] px-2 py-0.5 rounded-full border font-semibold " +
+                    (isActive ? theme.badgeActive : theme.badge)
+                  }
+                >
                   {btn.count}
                 </span>
                 {isActive && getActiveUnderline(btn.key)}
@@ -1340,10 +1642,16 @@ acciones: ({ item }) => {
         {/* Barra de acciones */}
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
           <div className="text-xs text-slate-600">
-            {categoria === "pagada" ? "Carpeta pagada (sin selección)" : selectedCount > 0 ? `Seleccionadas: ${selectedCount}` : "Sin selección"}
+            {categoria === "pagada"
+              ? "Carpeta pagada (sin selección)"
+              : selectedCount > 0
+                ? `Seleccionadas: ${selectedCount}`
+                : "Sin selección"}
           </div>
 
-          <div className="flex gap-2">{/* espacio por si agregas acciones nuevas */}</div>
+          <div className="flex gap-2">
+            {/* espacio por si agregas acciones nuevas */}
+          </div>
         </div>
 
         <div>
@@ -1356,22 +1664,25 @@ acciones: ({ item }) => {
               defaultSort={defaultSort as any}
               customColumns={customColumns}
               getRowClassName={(row) => {
-  const raw = (row as any)?.item ?? row;
+                const raw = (row as any)?.item ?? row;
 
-  const consolidado = Number(
-    (raw as any)?.consolidado ??
-      (raw as any)?.estatus_conciliado ??
-      (raw as any)?.conciliado ??
-      0
-  );
+                const consolidado = Number(
+                  (raw as any)?.consolidado ??
+                    (raw as any)?.estatus_conciliado ??
+                    (raw as any)?.conciliado ??
+                    0,
+                );
 
-  if (consolidado === 1) return "bg-blue-100"; // ✅ azul
+                if (consolidado === 1) return "bg-blue-100"; // ✅ azul
 
-  if (categoria === "pagada") return "";
+                if (categoria === "pagada") return "";
 
-return getFechaPagoRowClass((row as any).pendiente_a_pagar <= 0 ? "" : (row as any).fecha_solicitud);
-}}
-
+                return getFechaPagoRowClass(
+                  (row as any).pendiente_a_pagar <= 0
+                    ? ""
+                    : (row as any).fecha_solicitud,
+                );
+              }}
               leyenda={`Mostrando ${registrosVisibles.length} registros (${categoria === "all" ? "todas" : `categoría: ${categoria}`})`}
             >
               {/* Subir comprobante (secundario) */}
@@ -1400,9 +1711,13 @@ return getFechaPagoRowClass((row as any).pendiente_a_pagar <= 0 ? "" : (row as a
                 icon={File}
                 variant="secondary"
                 size="md"
-                title={dispersionDisabledReason || `Generar dispersión (${selectedCount})`}
+                title={
+                  dispersionDisabledReason ||
+                  `Generar dispersión (${selectedCount})`
+                }
               >
-                Generar dispersión{selectedCount > 0 ? ` (${selectedCount})` : ""}
+                Generar dispersión
+                {selectedCount > 0 ? ` (${selectedCount})` : ""}
               </Button>
 
               {/* Limpiar */}
@@ -1420,7 +1735,9 @@ return getFechaPagoRowClass((row as any).pendiente_a_pagar <= 0 ? "" : (row as a
                   "disabled:opacity-50 disabled:cursor-not-allowed",
                   "focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-2",
                 ].join(" ")}
-                title={clearDisabledReason || `Limpiar selección (${selectedCount})`}
+                title={
+                  clearDisabledReason || `Limpiar selección (${selectedCount})`
+                }
               >
                 Limpiar
               </Button>
@@ -1432,13 +1749,25 @@ return getFechaPagoRowClass((row as any).pendiente_a_pagar <= 0 ? "" : (row as a
       {/* MODAL EDIT (costo proveedor) */}
       {editModal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40 z-0" onClick={closeEditModal} />
-          <div className="relative z-10 w-[min(720px,92vw)] bg-white rounded-xl shadow-lg border border-gray-200" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="absolute inset-0 bg-black/40 z-0"
+            onClick={closeEditModal}
+          />
+          <div
+            className="relative z-10 w-[min(720px,92vw)] bg-white rounded-xl shadow-lg border border-gray-200"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
               <div>
-                <p className="text-sm font-semibold text-gray-900">Editar campo</p>
-                <p className="text-xs text-gray-500">id_solicitud_proveedor: {editModal.id_solicitud_proveedor}</p>
-                <p className="text-xs text-gray-500">Campo: {editModal.field}</p>
+                <p className="text-sm font-semibold text-gray-900">
+                  Editar campo
+                </p>
+                <p className="text-xs text-gray-500">
+                  id_solicitud_proveedor: {editModal.id_solicitud_proveedor}
+                </p>
+                <p className="text-xs text-gray-500">
+                  Campo: {editModal.field}
+                </p>
               </div>
               <button
                 type="button"
@@ -1457,19 +1786,27 @@ return getFechaPagoRowClass((row as any).pendiente_a_pagar <= 0 ? "" : (row as a
                   step="0.01"
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
                   value={editModal.value}
-                  onChange={(e) => setEditModal((s) => ({ ...s, value: e.target.value }))}
+                  onChange={(e) =>
+                    setEditModal((s) => ({ ...s, value: e.target.value }))
+                  }
                   placeholder="0.00"
                 />
               ) : (
                 <input
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
                   value={editModal.value}
-                  onChange={(e) => setEditModal((s) => ({ ...s, value: e.target.value }))}
+                  onChange={(e) =>
+                    setEditModal((s) => ({ ...s, value: e.target.value }))
+                  }
                 />
               )}
 
               <div className="mt-3 flex items-center justify-end gap-2">
-                <button type="button" className="px-3 py-2 rounded-lg text-sm border border-gray-200 bg-white hover:bg-gray-50" onClick={closeEditModal}>
+                <button
+                  type="button"
+                  className="px-3 py-2 rounded-lg text-sm border border-gray-200 bg-white hover:bg-gray-50"
+                  onClick={closeEditModal}
+                >
                   Cancelar
                 </button>
                 <button
@@ -1484,7 +1821,6 @@ return getFechaPagoRowClass((row as any).pendiente_a_pagar <= 0 ? "" : (row as a
           </div>
         </div>
       )}
-
 
       {showDispersionModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">

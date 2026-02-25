@@ -1,8 +1,8 @@
-import { useNotification } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useAlert";
 import { AlertCircle, CheckCircle, X } from "lucide-react";
 
 export const Notification = () => {
-  const { notification, hideNotification } = useNotification();
+  const { notification, hideNotification } = useAlert();
 
   return (
     <div
@@ -15,8 +15,8 @@ export const Notification = () => {
           notification.type === "success"
             ? "bg-emerald-500"
             : notification.type === "error"
-            ? "bg-red-500"
-            : "bg-yellow-500"
+              ? "bg-red-500"
+              : "bg-yellow-500"
         }`}
       >
         <div className="flex items-center justify-center gap-2 w-full">

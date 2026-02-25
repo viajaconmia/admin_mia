@@ -10,9 +10,6 @@ import {
 } from "@/component/atom/ItemTable";
 import { Table } from "@/component/molecule/Table";
 import Button from "@/components/atom/Button";
-import { ReservationEditContainer } from "@/components/organism/FormReservation2";
-import Modal from "@/components/organism/Modal";
-import { PaymentModal } from "@/components/organism/PaymentProveedor/PaymentProveedor";
 import { ROUTES } from "@/constant/routes";
 import { useAlert } from "@/context/useAlert";
 import {
@@ -30,32 +27,14 @@ import {
   PageTracker,
   TrackingPage,
 } from "@/v2/components/molecule/PageTracking";
-import {
-  DollarSign,
-  Download,
-  ExternalLink,
-  Pencil,
-  Plus,
-  RefreshCwIcon,
-  Trash2,
-} from "lucide-react";
+import { Download, RefreshCwIcon, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import CrearReserva from "./CrearReserva";
-import { usePermiso } from "@/hooks/usePermission";
-import { PERMISOS } from "@/constant/permisos";
 import { useFile } from "@/hooks/useFile";
-import Link from "next/link";
+import { useParams } from "next/navigation";
+import { generatePdf } from "@/lib/pdf/cupon_vuelo";
+import { downloadPdfSafely } from "@/lib/pdf/descarga";
 
-// ✅ ponlo dentro del archivo (arriba del componente o dentro del componente)
-const formatMMDDYYYY = (value?: string | Date | null) => {
-  if (!value) return "";
-  const iso = value instanceof Date ? value.toISOString() : String(value);
-  const [yyyy, mm, dd] = iso.split("T")[0].split("-");
-  if (!yyyy || !mm || !dd) return "";
-  return `${mm}/${dd}/${yyyy}`; // 02/27/2026
-};
-
-const PageReservas = ({ agente }: { agente?: Agente }) => {
+const PageReservas = () => {
   const [loading, setLoading] = useState(false);
   const [tracking, setTracking] = useState<TrackingPage>({
     page: 1,
@@ -63,21 +42,20 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     total_pages: 1,
   });
   const [reservas, setReservas] = useState<BookingAll[]>([]);
-  const [creacion, setCreacion] = useState<boolean>(false);
   const [filters, setFilters] = useState<TypeFilters>(
     defaultFiltersSolicitudes,
   );
-  const [selectedItem, setSelectedItem] = useState<BookingAll>(null);
-  const [selectedEdit, setSelectedEdit] = useState<string>(null);
-  const { Can } = usePermiso();
   const { showNotification } = useAlert();
   const { csv, loadingFile, setLoadingFile } = useFile();
-  const { hasPermission } = usePermiso();
+  const { id } = useParams();
+  const agente = { id_agente: Array.isArray(id) ? id[0] : id };
 
   const booking_service = new BookingsService();
   const handleFetchSolicitudes = async (page = tracking.page) => {
     setLoading(true);
-    let extras = agente?.id_agente ? { id_client: agente.id_agente } : {};
+    let extras = agente?.id_agente
+      ? { id_client: agente.id_agente, status: "Confirmada" }
+      : {};
     const response = await booking_service.obtenerReservas({
       page,
       length: MAX_REGISTERS,
@@ -115,11 +93,9 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
 
       const formatData = response.data.map((reserva) => ({
         servicio: reserva.type,
-        id_cliente: reserva.id_agente,
         cliente: reserva.agente,
         creado: `${reserva.created_at.split("T")[0]} : ${reserva.created_at.split("T")[1]}`,
         proveedor: reserva.proveedor,
-        intermediario: reserva.intermediario,
         codigo: reserva.codigo_confirmacion,
         viajero: reserva.viajero,
         check_in: reserva.check_in.split("T")[0],
@@ -127,18 +103,10 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
         check_out: reserva.check_out.split("T")[0],
         horario_llegada: reserva.horario_llegada,
         tipo: reserva.tipo_cuarto_vuelo,
-        costo_proveedor: reserva.costo_total,
-        markup:
-          ((Number(reserva.total || 0) - Number(reserva.costo_total || 0)) /
-            Number(reserva.total || 0)) *
-          100,
         precio_de_venta: reserva.total,
         metodo_de_pago: reserva.metodo_pago,
-        reservante: reserva.reservante,
         etapa_reservacion: reserva.etapa_reservacion,
         estado: reserva.estado,
-        estado_pago: reserva.estado_pago,
-        estado_facturacion: reserva.estado_facturacion,
       }));
 
       csv(formatData, fileName);
@@ -158,19 +126,13 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
       return <h1>{valor.value}</h1>;
     },
     creado: ({ value }) => <>{formatDate(value)}</>,
-    proveedor: ({ value }: { value: string }) => (
-      <Tooltip content={value}>{value || ""}</Tooltip>
-    ),
-    codigo: ({ value }) => <Tooltip content={value}>{value || ""}</Tooltip>,
-    markup: ({ value }) => <MarginPercent value={value} />,
+    proveedor: ({ value }: { value: string }) => <p>{value || ""}</p>,
+    codigo: ({ value }) => <p>{value || ""}</p>,
     viajero: ({ value }) => <>{value}</>,
     check_in: ({ value }) => <>{formatDate(value)}</>,
     horario_salida: ({ value }) => <>{value ? formatTime(value) : ""}</>,
     check_out: ({ value }) => <>{formatDate(value)}</>,
     horario_llegada: ({ value }) => <>{value ? formatTime(value) : ""}</>,
-    costo_proveedor: ({ value }) => (
-      <>{value ? "$" + formatNumberWithCommas(value) : ""}</>
-    ),
     estado: ({ value }) => <span title={value}>{getStatusBadge(value)}</span>,
     precio_de_venta: ({ value }) => (
       <>{value ? "$" + formatNumberWithCommas(value) : ""}</>
@@ -178,69 +140,18 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     detalles_cliente: ({ value }) => (
       <LinkCopiar link={ROUTES.BOOKING.ID_SOLICITUD(value) || ""} />
     ),
-    editar: ({ value }: { value: string }) => {
-      const book = new BookingsService();
-      const handleCancel = async () => {
-        try {
-          const response = await book.cancelarBooking(value);
-          console.log(response);
-          handleFetchSolicitudes();
-        } catch (error) {
-          showNotification("error", error.message || "error");
-        }
-      };
-      if (value.includes("sol-"))
-        return (
+    cupon: ({ value }: { value: BookingAll }) => (
+      <>
+        {value.type == "flyght" && (
           <Button
-            icon={Pencil}
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setSelectedEdit(value);
+            onClick={async () => {
+              console.log(value);
+              const pdf = await generatePdf(value.id_solicitud);
+              const filename = `VUELO-${value.viajero.toUpperCase()}-${value.codigo_confirmacion}.pdf`;
+              downloadPdfSafely(pdf, filename);
             }}
           >
-            Editar
-          </Button>
-        );
-      const reserva = reservas.filter((boo) => boo.id_booking == value)[0];
-      if (!reserva)
-        return (
-          <span>
-            Si me ves avisale a angel de tecnologia, soy un bug que estuvo
-            buscando, le ayudarias mucho 👍
-          </span>
-        );
-      return (
-        <>
-          {reserva.estado != "Cancelada" && (
-            <Can permiso={PERMISOS.COMPONENTES.BOTON.CANCELAR_RESERVA}>
-              <Button
-                icon={Trash2}
-                size="sm"
-                variant="warning"
-                onClick={handleCancel}
-              >
-                Cancelar
-              </Button>
-            </Can>
-          )}
-        </>
-      );
-    },
-    pagar: ({ value }) => (
-      <>
-        {value && (
-          <Button
-            onClick={() =>
-              setSelectedItem(
-                reservas.filter((book) => book.id_solicitud == value)[0],
-              )
-            }
-            icon={DollarSign}
-            size="sm"
-            variant="ghost"
-          >
-            Pagar
+            Ver
           </Button>
         )}
       </>
@@ -249,7 +160,6 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
 
   const data = reservas.map((reserva) => ({
     serv: reserva.type,
-    id: reserva.id_agente,
     cliente: reserva.agente,
     creado: reserva.created_at,
     proveedor: reserva.proveedor,
@@ -260,25 +170,13 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     check_out: reserva.check_out,
     horario_llegada: reserva.horario_llegada,
     tipo: reserva.tipo_cuarto_vuelo,
-    costo_proveedor: reserva.costo_total,
-    markup:
-      ((Number(reserva.total || 0) - Number(reserva.costo_total || 0)) /
-        Number(reserva.total || 0)) *
-      100,
     precio_de_venta: reserva.total,
     metodo_de_pago: reserva.metodo_pago,
     reservante: reserva.reservante,
     etapa_reservacion: reserva.etapa_reservacion,
     estado: reserva.estado,
-    estado_pago: reserva.estado_pago,
-    estado_facturacion: reserva.estado_facturacion,
-    intermediario: reserva.intermediario,
-    ...(hasPermission(PERMISOS.COLUMNAS.BOOKINGS.USUARIO_CREADOR)
-      ? { usuario_creador: reserva.usuario_creador }
-      : {}),
     detalles_cliente: reserva.id_solicitud,
-    editar: reserva.type == "hotel" ? reserva.id_solicitud : reserva.id_booking,
-    pagar: reserva.estado == "Confirmada" ? reserva.id_solicitud : null,
+    cupon: reserva,
   }));
 
   const handleFilterChange = (value, propiedad) => {
@@ -298,15 +196,8 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
 
   return (
     <>
-      <Link
-        href={"/dashboard/reservasold"}
-        className="p-3 py-2 border shadow-md bg-blue rounded-md flex gap-2 bg-blue-600 w-fit text-white"
-      >
-        <ExternalLink className="w-5 h-5"></ExternalLink>
-        Ir a la pagina antigua de reservas
-      </Link>
       <div className="grid md:grid-cols-2 gap-4 p-4 pb-0">
-        <Dropdown label="Filtros" onConfirm={handleFetchSolicitudes}>
+        <Dropdown label="Filtros" onConfirm={() => handleFetchSolicitudes()}>
           <div className="w-full p-8 grid md:grid-cols-4 gap-4">
             <FilterInput
               type="text"
@@ -407,11 +298,6 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
         </div>
       </div>
       <div className="w-full flex justify-end p-4 gap-2 pt-0">
-        {agente?.id_agente && (
-          <Button icon={Plus} size="sm" onClick={() => setCreacion(true)}>
-            Crear reservacion
-          </Button>
-        )}
         <Button
           onClick={handleExport}
           disabled={loading || loadingFile}
@@ -437,9 +323,6 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
       </div>
 
       <div className="overflow-hidden flex gap-2 flex-col">
-        <p className="font-semibold text-gray-600 text-xs">
-          Total de reservas: {tracking.total}
-        </p>
         <Table
           maxHeight="25rem"
           registros={data}
@@ -459,52 +342,11 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
           ></PageTracker>
         )}
       </div>
-      {selectedItem && (
-        <Modal
-          onClose={() => {
-            setSelectedItem(null);
-          }}
-          title="Pagar reserva al proveedor"
-        >
-          <PaymentModal
-            reservation={{
-              ...selectedItem,
-              codigo_confirmacion: selectedItem.codigo_confirmacion || "",
-            }}
-          />
-        </Modal>
-      )}
-      {selectedEdit && (
-        <Modal
-          onClose={() => {
-            setSelectedEdit(null);
-          }}
-          title="Editar reserva"
-          subtitle="Modifica los detalles de una reservación anteriormente procesada."
-        >
-          <ReservationEditContainer
-            id_solicitud={selectedEdit}
-            onClose={() => {
-              setSelectedItem(null);
-              handleFetchSolicitudes();
-            }}
-          />
-        </Modal>
-      )}
-      {creacion && (
-        <Modal
-          onClose={() => {
-            setCreacion(false);
-          }}
-        >
-          <CrearReserva agente={agente}></CrearReserva>
-        </Modal>
-      )}
     </>
   );
 };
 
-const MAX_REGISTERS = 50;
+const MAX_REGISTERS = 20;
 
 const defaultFiltersSolicitudes: TypeFilters = {
   codigo_reservacion: null,

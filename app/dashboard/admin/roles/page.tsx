@@ -4,7 +4,7 @@ import Button from "@/components/atom/Button";
 import { TextInput } from "@/components/atom/Input";
 import Modal from "@/components/organism/Modal";
 import { TableFromMia } from "@/components/organism/TableFromMia";
-import { useNotification } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useAlert";
 import { AuthService } from "@/services/AuthService";
 import { Permission, Role, User } from "@/types/auth";
 import { CheckCircle2, Plus } from "lucide-react";
@@ -14,7 +14,7 @@ export default function AdministracionUsuarios() {
   const [roles, setRoles] = useState([]);
   const [selectedRole, setSelectedRole] = useState<Role>(null);
   const [create, setCreate] = useState<boolean>(false);
-  const { showNotification } = useNotification();
+  const { showNotification } = useAlert();
 
   const fetchRoles = async () => {
     try {
@@ -24,7 +24,7 @@ export default function AdministracionUsuarios() {
     } catch (error) {
       showNotification(
         "error",
-        error.message || "Error al obtener a los usuarios"
+        error.message || "Error al obtener a los usuarios",
       );
       setRoles([]);
     }
@@ -42,7 +42,7 @@ export default function AdministracionUsuarios() {
     } catch (error) {
       showNotification(
         "error",
-        error.message || "Error al obtener a los usuarios"
+        error.message || "Error al obtener a los usuarios",
       );
       setRoles([]);
     }
@@ -134,7 +134,7 @@ const AddRole = ({ onSubmit }: { onSubmit: (role: string) => void }) => {
 
 const PermisosByRole = ({ id }: { id: number }) => {
   const [permisos, setPermisos] = useState<Permission[]>([]);
-  const { showNotification } = useNotification();
+  const { showNotification } = useAlert();
 
   useEffect(() => {
     AuthService.getInstance()
@@ -160,7 +160,7 @@ const PermisosByRole = ({ id }: { id: number }) => {
                   await AuthService.getInstance().updateRolePermission(
                     item.id,
                     id,
-                    value
+                    value,
                   );
                   setPermisos((prev) =>
                     prev.map((permiso) => {
@@ -168,7 +168,7 @@ const PermisosByRole = ({ id }: { id: number }) => {
                         return { ...permiso, active: value };
                       }
                       return permiso;
-                    })
+                    }),
                   );
                 } catch (error) {
                   showNotification("error", error.message);

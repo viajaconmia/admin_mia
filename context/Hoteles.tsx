@@ -7,7 +7,7 @@ import {
   ReactNode,
   useEffect,
 } from "react";
-import { useNotification } from "./useNotificacion";
+import { useAlert } from "./useAlert";
 import { fetchHoteles, newFetchHoteles } from "@/services/hoteles";
 
 type HotelContextType = {
@@ -26,7 +26,7 @@ type HotelProviderProps = {
 
 export function HotelProvider({ children }: HotelProviderProps) {
   const [hoteles, setHoteles] = useState<any[] | null>(null);
-  const { showNotification } = useNotification();
+  const { showNotification } = useAlert();
 
   const actualizarHoteles = async () => {
     try {
@@ -38,7 +38,7 @@ export function HotelProvider({ children }: HotelProviderProps) {
       showNotification(
         "error",
         error.message ||
-          "No se pudo descargar los hoteles, actualiza la pagina por favor"
+          "No se pudo descargar los hoteles, actualiza la pagina por favor",
       );
     }
   };

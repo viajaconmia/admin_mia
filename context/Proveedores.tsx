@@ -7,7 +7,7 @@ import {
   ReactNode,
   useEffect,
 } from "react";
-import { useNotification } from "./useNotificacion";
+import { useAlert } from "./useAlert";
 import {
   mapProveedor,
   Proveedor,
@@ -28,7 +28,7 @@ const ProveedorContext = createContext<ProveedorContextType>({
 
 export function ProveedorProvider({ children }: { children: ReactNode }) {
   const [proveedores, setProveedores] = useState<Proveedor[] | null>(null);
-  const { showNotification } = useNotification();
+  const { showNotification } = useAlert();
 
   const getProveedores = async () => {
     try {

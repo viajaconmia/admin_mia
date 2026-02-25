@@ -14,7 +14,7 @@ import {
   TextInput,
 } from "../atom/Input";
 import { ViajeroService, ViajerosService } from "@/services/ViajerosService";
-import { useNotification } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useAlert";
 import { CheckCircle, Plus, Trash2 } from "lucide-react";
 import { MostrarSaldos } from "./MostrarSaldos";
 import Modal from "../organism/Modal";
@@ -495,7 +495,7 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
   onSuccess,
   showSummary = true,
 }) => {
-  const { showNotification } = useNotification();
+  const { showNotification } = useAlert();
 
   const [state, dispatch] = useReducer(vuelosReducer, initialState);
   const [details, setDetails] = useState<Details>(initialDetails);
