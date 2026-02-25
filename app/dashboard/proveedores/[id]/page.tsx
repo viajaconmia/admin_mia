@@ -8,7 +8,7 @@ import {
   TextInput,
 } from "@/components/atom/Input";
 import { Loader } from "@/components/atom/Loader";
-import { useAlert } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useAlert";
 import {
   DatosFiscales,
   mapProveedor,

@@ -38,7 +38,7 @@ import { Reserva, type ReservaHandle } from "./cupon";
 import { BookingAll } from "@/services/BookingService";
 import { updateRoom } from "@/lib/utils";
 
-import { useAlert } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useAlert";
 
 type PaymentStatus =
   | "pagada"

@@ -9,7 +9,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { AuthService } from "@/services/AuthService";
-import { useAlert } from "./useNotificacion";
+import { useAlert } from "./useAlert";
 import { User } from "@/types/auth";
 
 export type UserLoggin = User & {

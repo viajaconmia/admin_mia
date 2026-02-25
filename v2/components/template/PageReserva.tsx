@@ -14,7 +14,7 @@ import { ReservationEditContainer } from "@/components/organism/FormReservation2
 import Modal from "@/components/organism/Modal";
 import { PaymentModal } from "@/components/organism/PaymentProveedor/PaymentProveedor";
 import { ROUTES } from "@/constant/routes";
-import { useAlert } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useAlert";
 import {
   formatDate,
   formatNumberWithCommas,

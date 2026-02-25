@@ -1,5 +1,5 @@
 import Button from "@/components/atom/Button";
-import { useAlert } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useAlert";
 import { copyToClipboard } from "@/helpers/utils";
 import { Building2, Car, Copy, HelpCircle, Plane } from "lucide-react";
 import { useState } from "react";

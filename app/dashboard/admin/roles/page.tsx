@@ -4,7 +4,7 @@ import Button from "@/components/atom/Button";
 import { TextInput } from "@/components/atom/Input";
 import Modal from "@/components/organism/Modal";
 import { TableFromMia } from "@/components/organism/TableFromMia";
-import { useAlert } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useAlert";
 import { AuthService } from "@/services/AuthService";
 import { Permission, Role, User } from "@/types/auth";
 import { CheckCircle2, Plus } from "lucide-react";

@@ -31,7 +31,7 @@ import {
 import { updateRoom } from "@/lib/utils";
 import Modal from "./Modal";
 import { redondear } from "@/helpers/formater";
-import { useAlert } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useAlert";
 import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
 import { Loader } from "../atom/Loader";

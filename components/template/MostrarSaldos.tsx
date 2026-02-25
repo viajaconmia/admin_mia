@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Saldo, SaldoFavor } from "@/services/SaldoAFavor";
 import { redondear } from "@/helpers/formater";
 import { TableFromMia } from "../organism/TableFromMia";
-import { useAlert } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useAlert";
 import { BalanceCard } from "../molecule/BalanceCard";
 import Button from "../atom/Button";
 import { Shuffle } from "lucide-react";

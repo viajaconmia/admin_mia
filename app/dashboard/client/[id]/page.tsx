@@ -11,7 +11,7 @@ import {
 import { Table } from "@/component/molecule/Table";
 import Button from "@/components/atom/Button";
 import { ROUTES } from "@/constant/routes";
-import { useAlert } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useAlert";
 import {
   formatDate,
   formatNumberWithCommas,

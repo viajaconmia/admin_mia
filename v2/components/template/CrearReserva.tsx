@@ -4,7 +4,7 @@ import { TabsList } from "@/components/molecule/TabsList";
 import { ReservationForm } from "@/components/organism/FormReservation";
 import { CarRentalPage } from "@/components/pages/CarRental";
 import { PageVuelos } from "@/components/template/PageVuelos";
-import { useAlert } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useAlert";
 import { Building2, CarTaxiFront, Plane } from "lucide-react";
 import { useState } from "react";
 

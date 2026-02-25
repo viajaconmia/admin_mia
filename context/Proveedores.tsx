@@ -7,7 +7,7 @@ import {
   ReactNode,
   useEffect,
 } from "react";
-import { useAlert } from "./useNotificacion";
+import { useAlert } from "./useAlert";
 import {
   mapProveedor,
   Proveedor,

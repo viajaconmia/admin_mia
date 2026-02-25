@@ -38,7 +38,7 @@ import type { TypeFilters } from "@/types";
 import Link from "next/link";
 import { InputToS3 } from "@/components/atom/SendToS3";
 import { FacturaService } from "@/services/FacturasService";
-import { useAlert } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useAlert";
 import { Button } from "@/components/ui/button";
 import ModalDetalleFactura from "@/app/dashboard/invoices/_components/detalles";
 import { PageTracker, TrackingPage } from "./tracker_false";

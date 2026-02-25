@@ -14,7 +14,7 @@ import {
 import { ViajeroService, ViajerosService } from "@/services/ViajerosService";
 import Button from "../atom/Button";
 import { CarFront, CheckCircle, Goal, Plus, Target, User2 } from "lucide-react";
-import { useAlert } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useAlert";
 import { isSomeNull } from "@/helpers/validator";
 import { Saldo } from "@/services/SaldoAFavor";
 import { getDatePlusFiveYears, getTodayDateTime } from "@/lib/utils";

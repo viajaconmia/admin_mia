@@ -9,7 +9,7 @@ import {
   Calendar,
   Wallet2,
 } from "lucide-react";
-import { useAlert } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useAlert";
 import { Solicitud2 } from "@/types";
 import { calcularNoches, formatNumberWithCommas } from "@/helpers/utils";
 import { usePagos } from "@/hooks/usePagos";

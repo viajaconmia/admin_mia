@@ -7,7 +7,7 @@ import { es } from "date-fns/locale";
 import { SaldoFavor } from "@/services/SaldoAFavor";
 import Modal from "../organism/Modal";
 import Button from "../atom/Button";
-import { useAlert } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useAlert";
 
 interface TableRow {
   id_item: string;

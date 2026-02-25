@@ -22,7 +22,7 @@ import {
   SolicitudProveedorRaw,
 } from "./Components/dispersion";
 import { ComprobanteModal } from "./Components/comprobantes";
-import { useAlert } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useAlert";
 import Button from "@/components/atom/Button";
 import {
   Brush,

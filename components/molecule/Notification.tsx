@@ -1,4 +1,4 @@
-import { useAlert } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useAlert";
 import { AlertCircle, CheckCircle, X } from "lucide-react";
 
 export const Notification = () => {

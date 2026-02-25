@@ -14,7 +14,7 @@ import {
   TextInput,
 } from "../atom/Input";
 import { ViajeroService, ViajerosService } from "@/services/ViajerosService";
-import { useAlert } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useAlert";
 import { CheckCircle, Plus, Trash2 } from "lucide-react";
 import { MostrarSaldos } from "./MostrarSaldos";
 import Modal from "../organism/Modal";

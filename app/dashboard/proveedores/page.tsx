@@ -7,7 +7,7 @@ import {
   ProveedoresService,
   mapProveedor,
 } from "@/services/ProveedoresService";
-import { useAlert } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useAlert";
 import Button from "@/components/atom/Button";
 import Link from "next/link";
 import { ExternalLink, Plus, RefreshCwIcon, X } from "lucide-react";

@@ -1,7 +1,7 @@
 // "use client";
 
 // import Button from "@/components/atom/Button";
-// import { useAlert } from "@/context/useNotificacion";
+// import { useAlert } from "@/context/useAlert";
 // import { subirArchivoAS3Seguro } from "@/lib/utils";
 // import { useState } from "react";
 // import Modal from "../organism/Modal";
@@ -113,7 +113,7 @@
 "use client";
 
 import Button from "@/components/atom/Button";
-import { useAlert } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useAlert";
 import { subirArchivoAS3Seguro } from "@/lib/utils";
 import { useRef, useState } from "react";
 import Modal from "../organism/Modal";

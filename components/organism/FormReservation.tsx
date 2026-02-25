@@ -30,7 +30,7 @@ import { Hotel, Solicitud, ReservaForm, Viajero, EdicionForm } from "@/types";
 import { Table } from "../Table";
 import { formatNumberWithCommas, getEstatus } from "@/helpers/utils";
 import { updateRoom } from "@/lib/utils";
-import { useAlert } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useAlert";
 import { CreditCard, Plus, Wallet } from "lucide-react";
 import { useHoteles } from "@/context/Hoteles";
 import { Proveedor } from "@/services/ProveedoresService";

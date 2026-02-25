@@ -1,6 +1,6 @@
 "use client";
 
-import { useAlert } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useAlert";
 import {
   ArrowDown,
   ChevronDown,
