@@ -1,4 +1,8 @@
-import { formatDate, formatTime } from "@/helpers/formater";
+import {
+  formatDate,
+  formatNumberWithCommas,
+  formatTime,
+} from "@/helpers/formater";
 import {
   BookingsService,
   SolicitudVuelo,
@@ -6,13 +10,16 @@ import {
 } from "@/services/BookingService";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { currentDate } from "../utils";
 
 const STYLES = {
   COLORS: {
     PRIMARY: [0, 115, 185] as [number, number, number],
     TEXT_NORMAL: [0, 0, 0] as [number, number, number],
-    TEXT_MUTED: [100, 100, 100] as [number, number, number],
-    TABLE_HEADER: [0, 115, 185] as [number, number, number],
+    TEXT_MUTED: [220, 220, 220] as [number, number, number],
+    RECT: [0, 181, 226] as [number, number, number],
+    TABLE_HEADER: [47, 84, 150] as [number, number, number],
+    WHITE: [255, 255, 255] as [number, number, number],
   },
   FONTS: {
     TITLE: 14,
@@ -33,26 +40,25 @@ export async function generatePdf(id_solicitud: string): Promise<jsPDF> {
   const doc = new jsPDF("p", "mm", "a4");
 
   const pageW = doc.internal.pageSize.getWidth();
-  let y = STYLES.MARGINS.TOP;
+  let y = STYLES.MARGINS.TOP - 4;
 
   drawHeader(doc, pageW);
-  y += 10;
 
-  y = drawEmitidoPor(doc, y);
+  drawEmitidoPor(doc, y);
   drawImage(
     doc,
     "https://luiscastaneda-tos.github.io/log/files/312974093_187206343834287_6123587238863977470_n.jpg",
-    pageW / 2 - 10,
+    pageW / 2 - 5,
     y,
     20,
     20,
   );
-  y = drawBoletoInfo(doc, solicitud, pageW, y);
+  y = drawBoletoInfo(doc, solicitud, pageW, y - 4);
 
-  y += 8;
+  y += 2;
 
   //aqui va un cuadro que diga detalle
-  y = drawTablaVuelos(doc, solicitud.vuelos, y);
+  y = drawTablaVuelos(doc, solicitud.vuelos, y, solicitud.viajero);
   //aqui va un cuadro que diga gracias por suconfianza
   y += 4;
   y = drawContacto(doc, y);
@@ -83,10 +89,59 @@ export async function generatePdf(id_solicitud: string): Promise<jsPDF> {
     y,
     pageW - STYLES.MARGINS.LEFT * 2,
   );
+  drawHeader(doc, pageW);
   //Aqui va un cuadro de nuevo como el del inicio, un rectangulo
 
   return doc;
 }
+
+function drawTextBox(
+  doc: jsPDF,
+  options: {
+    x: number;
+    y: number;
+    width: number;
+    text: string;
+    padding?: number;
+    bgColor?: [number, number, number];
+    borderColor?: [number, number, number];
+    textColor?: [number, number, number];
+    fontSize?: number;
+    lineHeight?: number;
+  },
+) {
+  const {
+    x,
+    y,
+    width,
+    text,
+    padding = 0,
+    bgColor = [245, 245, 245],
+    borderColor = [220, 220, 220],
+    textColor = [0, 0, 0],
+    fontSize = 6,
+    lineHeight = 4,
+  } = options;
+
+  doc.setFontSize(fontSize);
+
+  // Dividir texto en líneas según el ancho disponible
+  const textLines = doc.splitTextToSize(text, width - padding * 2);
+
+  const textHeight = textLines.length * lineHeight;
+  const height = textHeight + padding * 2;
+
+  // Fondo
+  doc.setFillColor(...bgColor);
+  doc.setDrawColor(0, 0, 0, 0);
+  doc.rect(x, y, width, height, "FD");
+
+  doc.setTextColor(...textColor);
+  doc.text(textLines, x + padding + 2, y + padding + lineHeight - 1);
+
+  return y + height; // nuevo y
+}
+
 function drawParagraph(
   doc: jsPDF,
   text: string,
@@ -129,25 +184,44 @@ function drawParagraph(
 
   return y + 2;
 }
+
 function drawHeader(doc: jsPDF, pageW: number) {
-  doc.setFillColor(...STYLES.COLORS.PRIMARY);
-  doc.rect(0, 0, pageW, 12, "F");
+  doc.setFillColor(...STYLES.COLORS.RECT);
+  doc.rect(STYLES.MARGINS.LEFT, 0, pageW - STYLES.MARGINS.LEFT * 2, 8, "F");
 }
 
 function drawEmitidoPor(doc: jsPDF, y: number) {
-  doc.setFontSize(STYLES.FONTS.SMALL);
-  doc.setTextColor(...STYLES.COLORS.TEXT_MUTED);
-  doc.text("EMITIDO POR:", STYLES.MARGINS.LEFT, y);
-
-  y += 5;
-
-  doc.setTextColor(...STYLES.COLORS.TEXT_NORMAL);
-  doc.text("NOKTOS ALIANZA SA DE CV", STYLES.MARGINS.LEFT, y);
-
-  y += 4;
-  doc.text("CDMX", STYLES.MARGINS.LEFT, y);
-
-  return y + 6;
+  const x = STYLES.MARGINS.LEFT;
+  const width = 90;
+  y = drawTextBox(doc, {
+    x,
+    y,
+    text: "EMITIDO POR:",
+    width,
+    bgColor: STYLES.COLORS.TABLE_HEADER,
+    textColor: STYLES.COLORS.WHITE,
+  });
+  y = drawTextBox(doc, {
+    x,
+    y,
+    text: "NOKTOS ALIANZA SA DE CV",
+    width,
+    bgColor: STYLES.COLORS.WHITE,
+  });
+  y = drawTextBox(doc, {
+    x,
+    y,
+    text: "NAL190807BU2",
+    width,
+    bgColor: STYLES.COLORS.WHITE,
+  });
+  y = drawTextBox(doc, {
+    x,
+    y,
+    text: "Presidente Masaryk #29, int. E3, Col. Chapultepec Morales 11570, Miguel Hidalgo, CDMX",
+    width,
+    bgColor: STYLES.COLORS.WHITE,
+  });
 }
 function drawBoletoInfo(
   doc: jsPDF,
@@ -155,25 +229,86 @@ function drawBoletoInfo(
   pageW: number,
   y: number,
 ) {
-  const boxW = 70;
+  const boxW = 80;
   const x = pageW - boxW - STYLES.MARGINS.RIGHT;
-
-  doc.setFillColor(...STYLES.COLORS.PRIMARY);
-  doc.rect(x, y, boxW, 8, "F");
-
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(STYLES.FONTS.SMALL);
-  doc.text("BOLETO AÉREO", x + 5, y + 5);
-
-  y += 12;
-
-  doc.setTextColor(0, 0, 0);
-  doc.text("Código confirmación:", x, y);
-  doc.text(solicitud.codigo_confirmacion, x, y + 5);
+  y = drawTextBox(doc, {
+    x,
+    y,
+    width: boxW,
+    text: "BOLETO AÉREO",
+    bgColor: STYLES.COLORS.WHITE,
+  });
+  drawTextBox(doc, {
+    x,
+    y,
+    width: boxW / 2,
+    text: "FECHA DE EMISIÓN",
+    bgColor: STYLES.COLORS.TABLE_HEADER,
+    textColor: STYLES.COLORS.WHITE,
+  });
+  y = drawTextBox(doc, {
+    x: x + boxW / 2,
+    y,
+    width: boxW / 2,
+    text: formatDate(currentDate()).toString(),
+    bgColor: STYLES.COLORS.TABLE_HEADER,
+    textColor: STYLES.COLORS.WHITE,
+  });
+  drawTextBox(doc, {
+    x,
+    y,
+    width: boxW / 2,
+    text: "CODIGO DE LA AEROLINEA",
+    bgColor: STYLES.COLORS.TABLE_HEADER,
+    textColor: STYLES.COLORS.WHITE,
+  });
+  y = drawTextBox(doc, {
+    x: x + boxW / 2,
+    y,
+    width: boxW / 2,
+    text: solicitud.codigo_confirmacion.toString(),
+    bgColor: STYLES.COLORS.TABLE_HEADER,
+    textColor: STYLES.COLORS.WHITE,
+  });
+  drawTextBox(doc, {
+    x,
+    y,
+    width: boxW / 2,
+    text: "TOTAL",
+    bgColor: STYLES.COLORS.TABLE_HEADER,
+    textColor: STYLES.COLORS.WHITE,
+  });
+  y = drawTextBox(doc, {
+    x: x + boxW / 2,
+    y,
+    width: boxW / 2,
+    text: `$${formatNumberWithCommas(solicitud.total)}`,
+    bgColor: STYLES.COLORS.WHITE,
+  });
+  drawTextBox(doc, {
+    x,
+    y,
+    width: boxW / 2,
+    text: "TARIFA",
+    bgColor: STYLES.COLORS.TABLE_HEADER,
+    textColor: STYLES.COLORS.WHITE,
+  });
+  y = drawTextBox(doc, {
+    x: x + boxW / 2,
+    y,
+    width: boxW / 2,
+    text: "NO REMBOLSABLE",
+    bgColor: STYLES.COLORS.TEXT_MUTED,
+  });
 
   return y + 10;
 }
-function drawTablaVuelos(doc: jsPDF, vuelos: VueloDetalle[], y: number) {
+function drawTablaVuelos(
+  doc: jsPDF,
+  vuelos: VueloDetalle[],
+  y: number,
+  viajero: string,
+) {
   const head = [
     [
       "Aerolínea",
@@ -200,7 +335,7 @@ function drawTablaVuelos(doc: jsPDF, vuelos: VueloDetalle[], y: number) {
     formatDate(v.arrival_date),
     formatTime(v.arrival_time),
     v.seat_number,
-    v.viajero,
+    viajero,
     v.flight_number,
   ]);
 
@@ -321,6 +456,13 @@ function drawContacto(doc: jsPDF, y: number) {
   // 3️⃣ Correo (link)
   doc.textWithLink("reservaciones@noktos.com", pageWidth / 2, y, {
     url: "mailto:reservaciones@noktos.com",
+    align: "center",
+  });
+
+  y += 3;
+
+  doc.textWithLink("support@noktos.zohodesk.com", pageWidth / 2, y, {
+    url: "mailto:support@noktos.zohodesk.com",
     align: "center",
   });
 

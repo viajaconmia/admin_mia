@@ -183,6 +183,7 @@ export type VueloDetalle = {
 
 export type SolicitudVuelo = {
   type: "vuelo";
+  total: string;
 
   id_viaje_aereo: string;
   origen: string;
