@@ -260,7 +260,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
       hotel: (reservation as any).proveedor ?? "",
       direccion: "",
       acompañantes: "",
-      incluye_desayuno: 0,
+      incluye_desayuno: reservation.nuevo_incluye_desayuno,
       check_in: reservation.check_in ?? "",
       check_out: reservation.check_out ?? "",
       room: (reservation as any).tipo_cuarto_vuelo ?? "",
