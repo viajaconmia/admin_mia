@@ -99,7 +99,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
   saldoData,
   rowData,
   onClose,
-  onSubmit,
+  onSubmit, 
   open = true,
   onEnd = () => {},
   reservaData = null,
