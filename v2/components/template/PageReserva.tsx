@@ -14,7 +14,7 @@ import { ReservationEditContainer } from "@/components/organism/FormReservation2
 import Modal from "@/components/organism/Modal";
 import { PaymentModal } from "@/components/organism/PaymentProveedor/PaymentProveedor";
 import { ROUTES } from "@/constant/routes";
-import { useNotification } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useNotificacion";
 import {
   formatDate,
   formatNumberWithCommas,
@@ -70,7 +70,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
   const [selectedItem, setSelectedItem] = useState<BookingAll>(null);
   const [selectedEdit, setSelectedEdit] = useState<string>(null);
   const { Can } = usePermiso();
-  const { showNotification } = useNotification();
+  const { showNotification } = useAlert();
   const { csv, loadingFile, setLoadingFile } = useFile();
   const { hasPermission } = usePermiso();
 

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Saldo, SaldoFavor } from "@/services/SaldoAFavor";
 import { redondear } from "@/helpers/formater";
 import { TableFromMia } from "../organism/TableFromMia";
-import { useNotification } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useNotificacion";
 import { BalanceCard } from "../molecule/BalanceCard";
 import Button from "../atom/Button";
 import { Shuffle } from "lucide-react";
@@ -11,7 +11,7 @@ interface PagarModalProps {
   onSubmit?: (
     saldos: (Saldo & { restante: number; usado: boolean })[],
     faltante: number,
-    isPrimary: boolean
+    isPrimary: boolean,
   ) => void;
   reserva_Data?: any;
   precio: number;
@@ -30,7 +30,7 @@ export const MostrarSaldos: React.FC<PagarModalProps> = ({
   const [saldosFavor, setSaldosFavor] = useState<
     (Saldo & { restante: number; usado: boolean })[]
   >([]);
-  const { showNotification } = useNotification();
+  const { showNotification } = useAlert();
 
   useEffect(() => {
     fetchSaldos();
@@ -61,14 +61,14 @@ export const MostrarSaldos: React.FC<PagarModalProps> = ({
 
   const onSelectSaldo = (
     value: boolean,
-    item: Saldo & { restante: number; usado: boolean }
+    item: Saldo & { restante: number; usado: boolean },
   ) => {
     try {
       if (faltante == 0 && value)
         throw new Error("Ya has seleccionado el total del precio");
       if (faltante < 0 && value)
         throw new Error(
-          "Parece que se debe regresar dinero por esta reserva, solo presiona en continuar"
+          "Parece que se debe regresar dinero por esta reserva, solo presiona en continuar",
         );
 
       const restante: number = value
@@ -82,15 +82,15 @@ export const MostrarSaldos: React.FC<PagarModalProps> = ({
           ? prev < item.restante
             ? 0
             : Number((prev - Number(item.saldo)).toFixed(2))
-          : Number((prev + Number(item.saldo) - item.restante).toFixed(2))
+          : Number((prev + Number(item.saldo) - item.restante).toFixed(2)),
       );
 
       setSaldosFavor((prev) =>
         prev.map((saldo) =>
           saldo.id_saldos == item.id_saldos
             ? { ...saldo, usado: value, restante }
-            : saldo
-        )
+            : saldo,
+        ),
       );
       if (reserva_Data) {
         console.log;
@@ -126,7 +126,10 @@ export const MostrarSaldos: React.FC<PagarModalProps> = ({
   };
 
   let total_saldos = redondear(
-    saldosFavor.reduce((previus, current) => previus + Number(current.saldo), 0)
+    saldosFavor.reduce(
+      (previus, current) => previus + Number(current.saldo),
+      0,
+    ),
   );
 
   if (precio <= 0)
@@ -177,7 +180,7 @@ export const MostrarSaldos: React.FC<PagarModalProps> = ({
         totalSeleccionado={saldosFavor.reduce(
           (previus, current) =>
             redondear(previus + Number(current.saldo) - current.restante),
-          0
+          0,
         )}
         onSecondary={() =>
           onSubmit(
@@ -186,11 +189,11 @@ export const MostrarSaldos: React.FC<PagarModalProps> = ({
               .map((saldo) => ({
                 ...saldo,
                 saldo_usado: redondear(
-                  Number(saldo.saldo) - saldo.restante
+                  Number(saldo.saldo) - saldo.restante,
                 ).toFixed(2),
               })),
             faltante,
-            false
+            false,
           )
         }
         onConfirm={() =>
@@ -200,11 +203,11 @@ export const MostrarSaldos: React.FC<PagarModalProps> = ({
               .map((saldo) => ({
                 ...saldo,
                 saldo_usado: redondear(
-                  Number(saldo.saldo) - saldo.restante
+                  Number(saldo.saldo) - saldo.restante,
                 ).toFixed(2),
               })),
             faltante,
-            true
+            true,
           )
         }
       ></BalanceCard>

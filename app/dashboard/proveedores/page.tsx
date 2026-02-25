@@ -7,7 +7,7 @@ import {
   ProveedoresService,
   mapProveedor,
 } from "@/services/ProveedoresService";
-import { useNotification } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useNotificacion";
 import Button from "@/components/atom/Button";
 import Link from "next/link";
 import { ExternalLink, Plus, RefreshCwIcon, X } from "lucide-react";
@@ -41,7 +41,7 @@ export default function ProveedoresPage() {
     page: 1,
     total_pages: 1,
   });
-  const { showNotification } = useNotification();
+  const { showNotification } = useAlert();
   const { Can } = usePermiso();
 
   useEffect(() => {

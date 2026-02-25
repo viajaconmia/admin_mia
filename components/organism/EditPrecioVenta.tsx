@@ -9,7 +9,7 @@ import {
   Calendar,
   Wallet2,
 } from "lucide-react";
-import { useNotification } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useNotificacion";
 import { Solicitud2 } from "@/types";
 import { calcularNoches, formatNumberWithCommas } from "@/helpers/utils";
 import { usePagos } from "@/hooks/usePagos";
@@ -24,7 +24,6 @@ type SaldoWallet = {
 // handleSubmitReserva.ts
 import { updateReserva } from "@/services/reservas";
 
-
 const SalesManagementPage: React.FC<{
   reserva: Solicitud2;
   hotelData: { id_hotel: number; nombre_hotel: string } | null;
@@ -38,7 +37,7 @@ const SalesManagementPage: React.FC<{
     extra?: any;
   }) => Promise<void> | void;
 }> = ({ reserva, onClose, precioNuevo, hotelData, onConfirm }) => {
-  const { showNotification } = useNotification();
+  const { showNotification } = useAlert();
   const [showWalletModal, setShowWalletModal] = useState<boolean>(false);
   const [saldoWallet, setSaldoWallet] = useState<SaldoWallet | null>(null);
   const [precioActualizado, setPrecioActualizado] =
@@ -87,7 +86,7 @@ const SalesManagementPage: React.FC<{
           acc[current.metodo_pago] = Number(current.saldo);
           return acc;
         },
-        {}
+        {},
       );
       setSaldoWallet({
         tarjeta: saldoByMetodo.tarjeta || 0,
@@ -99,12 +98,12 @@ const SalesManagementPage: React.FC<{
       console.log(error);
       showNotification(
         "error",
-        `Error al consultar wallet: ${error instanceof Error ? error.message : "Error desconocido"
-        }`
+        `Error al consultar wallet: ${
+          error instanceof Error ? error.message : "Error desconocido"
+        }`,
       );
     }
   };
-
 
   const pagarConWallet = async (tipo: TypesSaldoWallet): Promise<void> => {
     try {
@@ -163,7 +162,7 @@ const SalesManagementPage: React.FC<{
         precioActualizado,
         id_booking: reserva.id_booking,
         id_servicio: reserva.id_servicio,
-        hotel: hotelData
+        hotel: hotelData,
       });
 
       showNotification("success", message);
@@ -173,14 +172,15 @@ const SalesManagementPage: React.FC<{
         diferencia,
         precioActualizado,
         metodo_wallet: tipo,
-        extra: { updatedItem, updatedSaldos, data }
+        extra: { updatedItem, updatedSaldos, data },
       });
       onClose();
     } catch (error) {
       showNotification(
         "error",
-        `Error en pago: ${error instanceof Error ? error.message : "Error desconocido"
-        }`
+        `Error en pago: ${
+          error instanceof Error ? error.message : "Error desconocido"
+        }`,
       );
     }
   };
@@ -208,14 +208,15 @@ const SalesManagementPage: React.FC<{
         tipo: "credito",
         diferencia,
         precioActualizado,
-        extra: { data }
+        extra: { data },
       });
       onClose();
     } catch (error) {
       showNotification(
         "error",
-        `Error en pago con crédito: ${error instanceof Error ? error.message : "Error desconocido"
-        }`
+        `Error en pago con crédito: ${
+          error instanceof Error ? error.message : "Error desconocido"
+        }`,
       );
     }
   };
@@ -239,18 +240,17 @@ const SalesManagementPage: React.FC<{
             check_in: reserva.check_in,
 
             check_out: reserva.check_out,
-
           });
           showNotification("success", message);
           await afterSuccess({
             tipo: "regreso",
             diferencia,
             precioActualizado,
-            extra: { data, via: "credito" }
+            extra: { data, via: "credito" },
           });
         } else {
           console.log(
-            "Debemos regresarle el dinero al cliente, por lo tanto cambiamos el precio de los items, de la reserva y le agregamos un saldo con el restante y el otro se lo debemos quitar al pago"
+            "Debemos regresarle el dinero al cliente, por lo tanto cambiamos el precio de los items, de la reserva y le agregamos un saldo con el restante y el otro se lo debemos quitar al pago",
           );
           const { message, data } = await actualizarContadoRegresarSaldo({
             id_agente: reserva.id_agente,
@@ -270,7 +270,7 @@ const SalesManagementPage: React.FC<{
             tipo: "regreso",
             diferencia,
             precioActualizado,
-            extra: { data, via: "contado" }
+            extra: { data, via: "contado" },
           });
         }
       }
@@ -278,8 +278,9 @@ const SalesManagementPage: React.FC<{
     } catch (error) {
       showNotification(
         "error",
-        `Error en pago con crédito: ${error instanceof Error ? error.message : "Error desconocido"
-        }`
+        `Error en pago con crédito: ${
+          error instanceof Error ? error.message : "Error desconocido"
+        }`,
       );
     }
   };
@@ -334,8 +335,9 @@ const SalesManagementPage: React.FC<{
                   </span>
                 </div>
                 <span
-                  className={`font-bold ${esBajada ? "text-red-600" : "text-emerald-600"
-                    }`}
+                  className={`font-bold ${
+                    esBajada ? "text-red-600" : "text-emerald-600"
+                  }`}
                 >
                   {esBajada ? "-" : "+"}${Math.abs(diferencia).toLocaleString()}
                 </span>

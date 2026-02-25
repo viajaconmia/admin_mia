@@ -38,7 +38,7 @@ import type { TypeFilters } from "@/types";
 import Link from "next/link";
 import { InputToS3 } from "@/components/atom/SendToS3";
 import { FacturaService } from "@/services/FacturasService";
-import { useNotification } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useNotificacion";
 import { Button } from "@/components/ui/button";
 import ModalDetalleFactura from "@/app/dashboard/invoices/_components/detalles";
 import { PageTracker, TrackingPage } from "./tracker_false";
@@ -66,8 +66,6 @@ const fmtDate = (v?: string | null) => {
     year: "numeric",
   });
 };
-
-
 
 const MAX_REGISTER = 50; // para paginación, número de registros por página
 
@@ -113,62 +111,63 @@ export function TravelersPage() {
   const [modalDetalleOpen, setModalDetalleOpen] = useState(false);
   const [detalleIdFactura, setDetalleIdFactura] = useState<string | null>(null);
   // ✅ Data seleccionada para el modal de detalle
-const [detalleFacturaData, setDetalleFacturaData] = useState<any | null>(null);
+  const [detalleFacturaData, setDetalleFacturaData] = useState<any | null>(
+    null,
+  );
 
+  const cargarFacturas = async (page = tracking.page) => {
+    try {
+      const response = await FacturaService.getInstance().obtenerFacturas({
+        ...activeFilters,
+        page,
+        length: MAX_REGISTER,
+      });
 
-const cargarFacturas = async (page = tracking.page) => {
-  try {
-    const response = await FacturaService.getInstance().obtenerFacturas({
-      ...activeFilters,
-      page,
-      length: MAX_REGISTER,
-    });
+      // ✅ Normaliza shape (por si viene response.data.data)
+      const rows =
+        response?.data && Array.isArray(response.data)
+          ? response.data
+          : response?.data && Array.isArray(response.data)
+            ? response.data
+            : [];
 
-    // ✅ Normaliza shape (por si viene response.data.data)
-    const rows = (response?.data && Array.isArray(response.data))
-      ? response.data
-      : (response?.data && Array.isArray(response.data))
-        ? response.data
-        : [];
+      const total =
+        response?.metadata?.total ??
+        response?.metadata?.total ??
+        rows.length ??
+        0;
 
-    const total =
-      response?.metadata?.total ??
-      response?.metadata?.total ??
-      rows.length ??
-      0;
+      console.log("FACTURAS raw response:", response);
+      console.log("FACTURAS normalized rows:", rows);
 
-    console.log("FACTURAS raw response:", response);
-    console.log("FACTURAS normalized rows:", rows);
+      setFacturas(rows);
 
-    setFacturas(rows);
+      setTracking((prev) => ({
+        ...prev,
+        page,
+        total_pages: Math.ceil(Number(total) / MAX_REGISTER) || 1,
+        total: Number(total) || 0,
+      }));
+    } catch (e) {
+      console.error("Error al obtener facturas:", e);
+      setFacturas([]);
+      setTracking((prev) => ({ ...prev, total_pages: 0, total: 0 }));
+    }
+  };
 
-    setTracking((prev) => ({
-      ...prev,
-      page,
-      total_pages: Math.ceil(Number(total) / MAX_REGISTER) || 1,
-      total: Number(total) || 0,
-    }));
-  } catch (e) {
-    console.error("Error al obtener facturas:", e);
-    setFacturas([]);
-    setTracking((prev) => ({ ...prev, total_pages: 0, total: 0 }));
-  }
-};
+  // ✅ cuando cambien filtros, resetea página a 1 y carga
+  useEffect(() => {
+    const nextPage = 1;
+    setTracking((prev) => ({ ...prev, page: nextPage }));
+    cargarFacturas(nextPage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeFilters]);
 
-
-// ✅ cuando cambien filtros, resetea página a 1 y carga
-useEffect(() => {
-  const nextPage = 1;
-  setTracking((prev) => ({ ...prev, page: nextPage }));
-  cargarFacturas(nextPage);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [activeFilters]);
-
-// ✅ carga inicial (solo una vez)
-useEffect(() => {
-  cargarFacturas(1);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, []);
+  // ✅ carga inicial (solo una vez)
+  useEffect(() => {
+    cargarFacturas(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Inicial
   // useEffect(() => {
@@ -554,7 +553,7 @@ useEffect(() => {
   };
 
   console.log(balance, "cambios");
-  const { showNotification } = useNotification();
+  const { showNotification } = useAlert();
 
   return (
     <div className="space-y-8">
@@ -604,7 +603,6 @@ useEffect(() => {
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
           />
-          
 
           <Table5
             registros={registros}
@@ -614,10 +612,9 @@ useEffect(() => {
             maxHeight="26rem"
             splitStringsBySpace
           >
-<Button size="sm" onClick={() => cargarFacturas()}>
-            Cargar facturas
-          </Button>
-
+            <Button size="sm" onClick={() => cargarFacturas()}>
+              Cargar facturas
+            </Button>
           </Table5>
 
           {facturas && (
@@ -651,8 +648,6 @@ useEffect(() => {
           empresaSeleccionada={facturaEmpresa as any}
         />
       )}
-
-
 
       {modalDetalleOpen && (
         <ModalDetalleFactura

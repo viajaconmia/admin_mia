@@ -38,7 +38,7 @@ import { Reserva, type ReservaHandle } from "./cupon";
 import { BookingAll } from "@/services/BookingService";
 import { updateRoom } from "@/lib/utils";
 
-import { useNotification } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useNotificacion";
 
 type PaymentStatus =
   | "pagada"
@@ -99,7 +99,11 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
   const [isReservaOpen, setIsReservaOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [state, dispatch] = useReducer(paymentReducer, reservation, getInitialState);
+  const [state, dispatch] = useReducer(
+    paymentReducer,
+    reservation,
+    getInitialState,
+  );
 
   const {
     hasFavorBalance,
@@ -120,9 +124,13 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
   const [commentsCxp, setCommentsCxp] = useState<string>("");
   const [selectedTitularId, setSelectedTitularId] = useState<string>("");
 
-  const notificationCtx = useNotification(); // puede ser undefined si no hay Provider
-  const showNotification = (type: "success" | "error" | "info", message: string) => {
-    if (notificationCtx?.showNotification) notificationCtx.showNotification(type, message);
+  const notificationCtx = useAlert(); // puede ser undefined si no hay Provider
+  const showNotification = (
+    type: "success" | "error" | "info",
+    message: string,
+  ) => {
+    if (notificationCtx?.showNotification)
+      notificationCtx.showNotification(type, message);
     else alert(message); // fallback si no está envuelto en provider
   };
 
@@ -141,13 +149,15 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
   }, []);
 
   /** ====== Calendario (solo card/link) ====== */
-  const [paymentSchedule, setPaymentSchedule] = useState<PaymentScheduleRow[]>(() => [
-    {
-      id: safeUUID(),
-      date: (date as string) || todayISO,
-      amount: monto_a_pagar || 0,
-    },
-  ]);
+  const [paymentSchedule, setPaymentSchedule] = useState<PaymentScheduleRow[]>(
+    () => [
+      {
+        id: safeUUID(),
+        date: (date as string) || todayISO,
+        amount: monto_a_pagar || 0,
+      },
+    ],
+  );
 
   // Si cambia el monto (saldo a favor, etc) y el schedule tiene 1 fila, lo sincronizamos
   useEffect(() => {
@@ -168,22 +178,32 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
       paymentSchedule.reduce((acc, r) => {
         const n = r.amount === "" ? 0 : Number(r.amount);
         return acc + (Number.isFinite(n) ? n : 0);
-      }, 0)
+      }, 0),
     );
   }, [paymentSchedule]);
 
   const shouldShowSchedule =
-    paymentType === "prepaid" && (paymentMethod === "card" || paymentMethod === "link");
+    paymentType === "prepaid" &&
+    (paymentMethod === "card" || paymentMethod === "link");
 
   const addScheduleRow = () => {
-    setPaymentSchedule((rows) => [...rows, { id: safeUUID(), date: "", amount: "" }]);
+    setPaymentSchedule((rows) => [
+      ...rows,
+      { id: safeUUID(), date: "", amount: "" },
+    ]);
   };
 
   const removeScheduleRow = (id: string) => {
-    setPaymentSchedule((rows) => (rows.length <= 1 ? rows : rows.filter((r) => r.id !== id)));
+    setPaymentSchedule((rows) =>
+      rows.length <= 1 ? rows : rows.filter((r) => r.id !== id),
+    );
   };
 
-  const updateScheduleRow = (id: string, patch: Partial<PaymentScheduleRow>, rowIndex?: number) => {
+  const updateScheduleRow = (
+    id: string,
+    patch: Partial<PaymentScheduleRow>,
+    rowIndex?: number,
+  ) => {
     setPaymentSchedule((rows) =>
       rows.map((r, idx) => {
         if (r.id !== id) return r;
@@ -194,7 +214,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
           dispatch({ type: "SET_FIELD", field: "date", payload: patch.date });
         }
         return next;
-      })
+      }),
     );
   };
 
@@ -205,18 +225,22 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
     }));
 
     if (normalized.some((r) => !r.fecha_pago)) {
-      throw new Error("Falta capturar la fecha en una o más filas del calendario de pagos.");
+      throw new Error(
+        "Falta capturar la fecha en una o más filas del calendario de pagos.",
+      );
     }
     if (normalized.some((r) => !Number.isFinite(r.monto) || r.monto <= 0)) {
-      throw new Error("Todos los montos del calendario de pagos deben ser mayores a 0.");
+      throw new Error(
+        "Todos los montos del calendario de pagos deben ser mayores a 0.",
+      );
     }
 
     const sum = to2(normalized.reduce((acc, r) => acc + (r.monto || 0), 0));
     if (Math.abs(sum - monto_a_pagar) > 0.01) {
       throw new Error(
         `La suma del calendario de pagos (${sum.toFixed(
-          2
-        )}) debe ser igual al monto a pagar (${monto_a_pagar.toFixed(2)}).`
+          2,
+        )}) debe ser igual al monto a pagar (${monto_a_pagar.toFixed(2)}).`,
       );
     }
 
@@ -233,7 +257,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
     : [];
 
   const currentSelectedCard = creditCards.find(
-    (card: any) => String(card.id) === String(selectedCard)
+    (card: any) => String(card.id) === String(selectedCard),
   );
 
   const selectFiles = creditCards.map((card: any) => ({
@@ -249,7 +273,9 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
 
   /** ===== Titulares ===== */
   const currentTitular = Array.isArray(titularesData)
-    ? titularesData.find((t: any) => String(t.idTitular) === String(selectedTitularId))
+    ? titularesData.find(
+        (t: any) => String(t.idTitular) === String(selectedTitularId),
+      )
     : null;
 
   const mappedReservation = useMemo(() => {
@@ -290,18 +316,31 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
 
       const fd = new FormData();
       fd.append("emails", JSON.stringify(list));
-      fd.append("subject", `Cupón de reservación ${mappedReservation?.codigo_confirmacion ?? ""}`);
-      fd.append("message", comments || "Adjuntamos su cupón de reservación en PDF.");
+      fd.append(
+        "subject",
+        `Cupón de reservación ${mappedReservation?.codigo_confirmacion ?? ""}`,
+      );
+      fd.append(
+        "message",
+        comments || "Adjuntamos su cupón de reservación en PDF.",
+      );
 
       // ✅ usa constructor File nativo (ya no está “pisado” por lucide)
       fd.append(
         "file",
-        new window.File([blob], `cupon-${mappedReservation?.codigo_confirmacion ?? "reserva"}.pdf`, {
-          type: "application/pdf",
-        })
+        new window.File(
+          [blob],
+          `cupon-${mappedReservation?.codigo_confirmacion ?? "reserva"}.pdf`,
+          {
+            type: "application/pdf",
+          },
+        ),
       );
 
-      const resp = await fetch("/api/send-coupon", { method: "POST", body: fd });
+      const resp = await fetch("/api/send-coupon", {
+        method: "POST",
+        body: fd,
+      });
       if (!resp.ok) {
         const t = await resp.text();
         throw new Error(t || "Error al enviar el correo.");
@@ -338,7 +377,8 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
   };
 
   const generateQRPaymentPDF = async () => {
-    if (!document) throw new Error("Falta seleccionar el documento que aparecerá");
+    if (!document)
+      throw new Error("Falta seleccionar el documento que aparecerá");
     if (!currentSelectedCard) throw new Error("Falta seleccionar tarjeta");
     if (!useQR) throw new Error("Selecciona si es Con QR o En archivo");
 
@@ -346,7 +386,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
       reservation.codigo_confirmacion.replaceAll("-", "."),
       monto_a_pagar,
       currentSelectedCard.id,
-      isSecureCode
+      isSecureCode,
     );
 
     const qrData: QRPaymentData = {
@@ -392,7 +432,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
     if (response?.ok) {
       showNotification(
         "success",
-        `${response.message} (ID: ${response.id_solicitud_proveedor})`
+        `${response.message} (ID: ${response.id_solicitud_proveedor})`,
       );
       dispatch({ type: "SET_FIELD", field: "error", payload: "" });
 
@@ -401,7 +441,10 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
       return true;
     }
 
-    showNotification("error", response?.message || "No se pudo crear la solicitud.");
+    showNotification(
+      "error",
+      response?.message || "No se pudo crear la solicitud.",
+    );
     return false;
   };
 
@@ -417,9 +460,15 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
         useQR,
       });
 
-      dispatch({ type: "SET_FIELD", field: "paymentStatus", payload: derivedStatus });
+      dispatch({
+        type: "SET_FIELD",
+        field: "paymentStatus",
+        payload: derivedStatus,
+      });
 
-      let paymentSchedulePayload: Array<{ fecha_pago: string; monto: number }> | undefined;
+      let paymentSchedulePayload:
+        | Array<{ fecha_pago: string; monto: number }>
+        | undefined;
       let effectiveDate = (date as string) || todayISO;
 
       // --------------------
@@ -429,13 +478,16 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
         // card/link: schedule (fecha + monto)
         if (paymentMethod === "card" || paymentMethod === "link") {
           paymentSchedulePayload = validateAndBuildSchedulePayload();
-          effectiveDate = paymentSchedulePayload[0]?.fecha_pago || effectiveDate;
+          effectiveDate =
+            paymentSchedulePayload[0]?.fecha_pago || effectiveDate;
         }
 
         // transfer: solo fecha estimada (1 pago)
         if (paymentMethod === "transfer") {
           if (!effectiveDate) throw new Error("Selecciona la fecha estimada.");
-          paymentSchedulePayload = [{ fecha_pago: effectiveDate, monto: monto_a_pagar }];
+          paymentSchedulePayload = [
+            { fecha_pago: effectiveDate, monto: monto_a_pagar },
+          ];
         }
       }
 
@@ -466,7 +518,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
           (response: any) => {
             handleSolicitudResponse(response);
             setIsSubmitting(false);
-          }
+          },
         );
 
         return; // callback hará el cierre
@@ -478,11 +530,12 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
       if (paymentType === "prepaid") {
         if (
           !reservation ||
-          ((paymentMethod === "card" || paymentMethod === "link") && !currentSelectedCard) ||
+          ((paymentMethod === "card" || paymentMethod === "link") &&
+            !currentSelectedCard) ||
           (paymentMethod === "card" && !useQR)
         ) {
           throw new Error(
-            "Hay un error en la reservación, en la tarjeta o en la forma de mandar los datos, verifica que los datos estén completos."
+            "Hay un error en la reservación, en la tarjeta o en la forma de mandar los datos, verifica que los datos estén completos.",
           );
         }
 
@@ -515,14 +568,19 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
               paymentSchedule: paymentSchedulePayload,
               usuario_creador: (reservation as any).usuario_creador,
 
-              idTitular: paymentMethod === "link" ? Number(selectedTitularId) : null,
-              titular: paymentMethod === "link" ? currentTitular?.Titular ?? "" : "",
-              identificacion: paymentMethod === "link" ? currentTitular?.identificacion ?? "" : "",
+              idTitular:
+                paymentMethod === "link" ? Number(selectedTitularId) : null,
+              titular:
+                paymentMethod === "link" ? (currentTitular?.Titular ?? "") : "",
+              identificacion:
+                paymentMethod === "link"
+                  ? (currentTitular?.identificacion ?? "")
+                  : "",
             },
             (response: any) => {
               handleSolicitudResponse(response);
               setIsSubmitting(false);
-            }
+            },
           );
 
           return; // callback hará el cierre
@@ -545,7 +603,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
             (response: any) => {
               handleSolicitudResponse(response);
               setIsSubmitting(false);
-            }
+            },
           );
 
           return; // callback hará el cierre
@@ -556,7 +614,11 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
       dispatch({ type: "SET_FIELD", field: "error", payload: "" });
     } catch (e: any) {
       setIsSubmitting(false);
-      dispatch({ type: "SET_FIELD", field: "error", payload: e?.message || "Error" });
+      dispatch({
+        type: "SET_FIELD",
+        field: "error",
+        payload: e?.message || "Error",
+      });
       showNotification("error", e?.message || "Error");
     }
   };
@@ -569,7 +631,9 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
     <div className="max-w-[85vw] w-screen p-2 pt-0 max-h-[90vh] grid grid-cols-2">
       <div
         className={`top-0 col-span-2 z-10 p-4 rounded-md border border-red-300 bg-red-50 text-red-700 shadow-md flex items-start gap-3 transform transition-all duration-300 ease-out ${
-          error ? "opacity-100 scale-100 sticky" : "opacity-0 scale-10 pointer-events-none absolute"
+          error
+            ? "opacity-100 scale-100 sticky"
+            : "opacity-0 scale-10 pointer-events-none absolute"
         }`}
       >
         <svg
@@ -625,7 +689,9 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                   />
                   <div className="p-4 bg-green-50 border rounded-md border-green-200">
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-700 text-sm">Monto a Pagar al Proveedor:</span>
+                      <span className="text-slate-700 text-sm">
+                        Monto a Pagar al Proveedor:
+                      </span>
                       <span className="text-xl font-bold text-green-700">
                         ${monto_a_pagar.toFixed(2)}
                       </span>
@@ -653,7 +719,9 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
               {shouldShowSchedule && (
                 <div className="mt-3 space-y-2">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold">Calendario de pagos</h3>
+                    <h3 className="text-sm font-semibold">
+                      Calendario de pagos
+                    </h3>
                     <div className="flex gap-2">
                       <Button
                         type="button"
@@ -672,7 +740,12 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                       >
                         Reset
                       </Button>
-                      <Button type="button" variant="outline" size="sm" onClick={addScheduleRow}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={addScheduleRow}
+                      >
                         Agregar pago
                       </Button>
                     </div>
@@ -682,9 +755,13 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                     <table className="w-full text-sm">
                       <thead className="bg-slate-50">
                         <tr>
-                          <th className="text-left font-semibold p-2">Fecha de pago</th>
+                          <th className="text-left font-semibold p-2">
+                            Fecha de pago
+                          </th>
                           <th className="text-left font-semibold p-2">Monto</th>
-                          <th className="text-right font-semibold p-2">Acción</th>
+                          <th className="text-right font-semibold p-2">
+                            Acción
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
@@ -696,7 +773,11 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                                 className="w-full border rounded-md px-2 py-1"
                                 value={row.date}
                                 onChange={(e) =>
-                                  updateScheduleRow(row.id, { date: e.target.value }, idx)
+                                  updateScheduleRow(
+                                    row.id,
+                                    { date: e.target.value },
+                                    idx,
+                                  )
                                 }
                               />
                             </td>
@@ -706,11 +787,14 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                                 min={0}
                                 step="0.01"
                                 className="w-full border rounded-md px-2 py-1"
-                                value={row.amount === "" ? "" : String(row.amount)}
+                                value={
+                                  row.amount === "" ? "" : String(row.amount)
+                                }
                                 onChange={(e) => {
                                   const raw = e.target.value;
                                   updateScheduleRow(row.id, {
-                                    amount: raw === "" ? "" : to2(Number(raw || 0)),
+                                    amount:
+                                      raw === "" ? "" : to2(Number(raw || 0)),
                                   });
                                 }}
                                 placeholder="0.00"
@@ -740,13 +824,17 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
 
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-slate-600">Total programado:</span>
-                    <span className="font-semibold">${scheduleTotal.toFixed(2)}</span>
+                    <span className="font-semibold">
+                      ${scheduleTotal.toFixed(2)}
+                    </span>
                   </div>
 
                   {Math.abs(scheduleTotal - monto_a_pagar) > 0.01 && (
                     <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2">
                       El total programado debe ser igual al monto a pagar:{" "}
-                      <span className="font-semibold">${monto_a_pagar.toFixed(2)}</span>
+                      <span className="font-semibold">
+                        ${monto_a_pagar.toFixed(2)}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -765,7 +853,13 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
             <Button
               type="button"
               variant={paymentType === "prepaid" ? "default" : "outline"}
-              onClick={() => dispatch({ type: "SET_FIELD", field: "paymentType", payload: "prepaid" })}
+              onClick={() =>
+                dispatch({
+                  type: "SET_FIELD",
+                  field: "paymentType",
+                  payload: "prepaid",
+                })
+              }
               className="h-10"
               disabled={isSubmitting}
             >
@@ -776,7 +870,13 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
             <Button
               type="button"
               variant={paymentType === "credit" ? "default" : "outline"}
-              onClick={() => dispatch({ type: "SET_FIELD", field: "paymentType", payload: "credit" })}
+              onClick={() =>
+                dispatch({
+                  type: "SET_FIELD",
+                  field: "paymentType",
+                  payload: "credit",
+                })
+              }
               className="h-10"
               disabled={isSubmitting}
             >
@@ -796,7 +896,11 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                 type="button"
                 variant={paymentMethod === "transfer" ? "default" : "outline"}
                 onClick={() => {
-                  dispatch({ type: "SET_FIELD", field: "paymentMethod", payload: "transfer" });
+                  dispatch({
+                    type: "SET_FIELD",
+                    field: "paymentMethod",
+                    payload: "transfer",
+                  });
                   setSelectedTitularId("");
                 }}
                 disabled={isSubmitting}
@@ -809,7 +913,11 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                 type="button"
                 variant={paymentMethod === "card" ? "default" : "outline"}
                 onClick={() => {
-                  dispatch({ type: "SET_FIELD", field: "paymentMethod", payload: "card" });
+                  dispatch({
+                    type: "SET_FIELD",
+                    field: "paymentMethod",
+                    payload: "card",
+                  });
                   setSelectedTitularId("");
                 }}
                 disabled={isSubmitting}
@@ -822,7 +930,11 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                 type="button"
                 variant={paymentMethod === "link" ? "default" : "outline"}
                 onClick={() => {
-                  dispatch({ type: "SET_FIELD", field: "paymentMethod", payload: "link" });
+                  dispatch({
+                    type: "SET_FIELD",
+                    field: "paymentMethod",
+                    payload: "link",
+                  });
                   setSelectedTitularId("");
                 }}
                 disabled={isSubmitting}
@@ -840,7 +952,13 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                     <Button
                       type="button"
                       variant={useQR === "qr" ? "default" : "outline"}
-                      onClick={() => dispatch({ type: "SET_FIELD", field: "useQR", payload: "qr" })}
+                      onClick={() =>
+                        dispatch({
+                          type: "SET_FIELD",
+                          field: "useQR",
+                          payload: "qr",
+                        })
+                      }
                       size="sm"
                       disabled={isSubmitting}
                     >
@@ -851,7 +969,13 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                     <Button
                       type="button"
                       variant={useQR === "code" ? "default" : "outline"}
-                      onClick={() => dispatch({ type: "SET_FIELD", field: "useQR", payload: "code" })}
+                      onClick={() =>
+                        dispatch({
+                          type: "SET_FIELD",
+                          field: "useQR",
+                          payload: "code",
+                        })
+                      }
                       size="sm"
                       disabled={isSubmitting}
                     >
@@ -865,22 +989,38 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                   label={"Mostrar cvv"}
                   checked={isSecureCode}
                   onChange={(value) =>
-                    dispatch({ type: "SET_FIELD", field: "isSecureCode", payload: value })
+                    dispatch({
+                      type: "SET_FIELD",
+                      field: "isSecureCode",
+                      payload: value,
+                    })
                   }
                 />
 
                 <DropdownValues
                   label="Documento"
                   value={document}
-                  onChange={(value: { value: string; label: string; item: any } | null) => {
+                  onChange={(
+                    value: { value: string; label: string; item: any } | null,
+                  ) => {
                     if (!value) return;
-                    dispatch({ type: "SET_FIELD", field: "document", payload: value.value });
+                    dispatch({
+                      type: "SET_FIELD",
+                      field: "document",
+                      payload: value.value,
+                    });
                   }}
                   options={selectFiles}
                 />
 
                 <TextInput
-                  onChange={(value) => dispatch({ type: "SET_FIELD", field: "cargo", payload: value })}
+                  onChange={(value) =>
+                    dispatch({
+                      type: "SET_FIELD",
+                      field: "cargo",
+                      payload: value,
+                    })
+                  }
                   value={cargo || ""}
                   label="Tipo de cargo"
                   placeholder="RENTA HABITACIÓN..."
@@ -911,7 +1051,9 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
 
             {paymentMethod === "link" && (
               <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Seleccionar titular</label>
+                <label className="text-sm font-medium text-slate-700">
+                  Seleccionar titular
+                </label>
 
                 <select
                   className="w-full h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -943,7 +1085,13 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
             )}
 
             <TextAreaInput
-              onChange={(value) => dispatch({ type: "SET_FIELD", field: "comments", payload: value })}
+              onChange={(value) =>
+                dispatch({
+                  type: "SET_FIELD",
+                  field: "comments",
+                  payload: value,
+                })
+              }
               placeholder="Agregar comentarios sobre el pago..."
               value={comments || ""}
               label="Comentarios"
@@ -971,7 +1119,9 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
         {paymentType === "credit" && (
           <div className="space-y-2">
             <TextAreaInput
-              onChange={(value) => dispatch({ type: "SET_FIELD", field: "emails", payload: value })}
+              onChange={(value) =>
+                dispatch({ type: "SET_FIELD", field: "emails", payload: value })
+              }
               placeholder="correo1@ejemplo.com, correo2@ejemplo.com"
               value={emails || ""}
               label="Correos Electronicos (separados por comas)"
@@ -994,7 +1144,11 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                 onClick={() => setIsReservaOpen(true)}
                 disabled={!mappedReservation || isSubmitting}
                 className="w-full bg-emerald-600 hover:bg-emerald-700"
-                title={!mappedReservation ? "No hay datos de reservación aún" : "Abrir cupón / resumen"}
+                title={
+                  !mappedReservation
+                    ? "No hay datos de reservación aún"
+                    : "Abrir cupón / resumen"
+                }
               >
                 <Ticket className="mr-2 h-4 w-4" />
                 Ver Cupón / Resumen
@@ -1012,7 +1166,13 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
             </div>
 
             <TextAreaInput
-              onChange={(value) => dispatch({ type: "SET_FIELD", field: "comments", payload: value })}
+              onChange={(value) =>
+                dispatch({
+                  type: "SET_FIELD",
+                  field: "comments",
+                  payload: value,
+                })
+              }
               placeholder="Comentarios sobre el crédito..."
               value={comments || ""}
               label="Comentarios"
@@ -1044,7 +1204,13 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
       </div>
 
       {/* Instancia oculta SOLO para generar/descargar/enviar el PDF */}
-      <Reserva ref={reservaRef} isOpen={false} onClose={() => {}} reservation={mappedReservation} mountHidden />
+      <Reserva
+        ref={reservaRef}
+        isOpen={false}
+        onClose={() => {}}
+        reservation={mappedReservation}
+        mountHidden
+      />
     </div>
   );
 };

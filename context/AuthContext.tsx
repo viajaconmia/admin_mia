@@ -9,7 +9,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { AuthService } from "@/services/AuthService";
-import { useNotification } from "./useNotificacion";
+import { useAlert } from "./useNotificacion";
 import { User } from "@/types/auth";
 
 export type UserLoggin = User & {
@@ -40,7 +40,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<UserLoggin | null>(null);
   const [loading, setLoading] = useState(true); // Ya teníamos este estado, ahora lo expondremos
   const router = useRouter();
-  const { showNotification } = useNotification();
+  const { showNotification } = useAlert();
 
   useEffect(() => {
     const initSession = async () => {

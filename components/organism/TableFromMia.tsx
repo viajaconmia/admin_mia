@@ -1,6 +1,6 @@
 "use client";
 
-import { useNotification } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useNotificacion";
 import {
   ArrowDown,
   ChevronDown,
@@ -60,7 +60,7 @@ type ComponentPropsMap<T> = {
 
 export interface ColumnsTable<
   T,
-  K extends keyof ComponentPropsMap<T> = keyof ComponentPropsMap<T>
+  K extends keyof ComponentPropsMap<T> = keyof ComponentPropsMap<T>,
 > {
   key: keyof T | null;
   header: string;
@@ -102,10 +102,10 @@ export const TableFromMia = <T extends Record<string, any>>({
     defaultSort || {
       key: columns.length > 0 ? String(columns[0].key) : "",
       direction: "asc",
-    }
+    },
   );
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
-  const { showNotification } = useNotification();
+  const { showNotification } = useAlert();
 
   function createComponents<T>() {
     const map: {
@@ -152,7 +152,7 @@ export const TableFromMia = <T extends Record<string, any>>({
                 console.error(error);
                 showNotification(
                   "error",
-                  error.message || "sucedio un error al copiar el valor"
+                  error.message || "sucedio un error al copiar el valor",
                 );
               }
             }}
@@ -286,7 +286,7 @@ export const TableFromMia = <T extends Record<string, any>>({
               {tableColumns.map((column) => (
                 <th
                   key={`${String(column.key)}-${(Math.random() * 9999).toFixed(
-                    2
+                    2,
                   )}`}
                   onClick={() => handleSort(String(column.key))}
                   className={`px-6 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider ${
@@ -366,7 +366,7 @@ export const TableFromMia = <T extends Record<string, any>>({
                           <Comp {...baseProps} />
                         ) : (
                           String(
-                            value !== undefined && value !== null ? value : ""
+                            value !== undefined && value !== null ? value : "",
                           )
                         )}
                       </td>

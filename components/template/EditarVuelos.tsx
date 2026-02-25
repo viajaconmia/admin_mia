@@ -11,7 +11,7 @@ import {
   TextInput,
 } from "../atom/Input";
 import { ViajeroService, ViajerosService } from "@/services/ViajerosService";
-import { useNotification } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useNotificacion";
 import { CheckCircle, Plus, Trash2 } from "lucide-react";
 import { MostrarSaldos } from "./MostrarSaldos";
 import Modal from "../organism/Modal";
@@ -40,7 +40,7 @@ export const EditarVuelos = ({
   const [state, dispatch] = useReducer(vuelosReducer, initialState);
   const [before, dispatchBefore] = useReducer(vuelosReducer, initialState);
 
-  const { showNotification } = useNotification();
+  const { showNotification } = useAlert();
 
   const handleDelete = (index: number) =>
     dispatch({ type: "DELETE_VUELO", payload: index });
@@ -49,7 +49,7 @@ export const EditarVuelos = ({
 
   const handleUpdateViaje = <K extends keyof ViajeAereoDetails>(
     field: K,
-    value: ViajeAereoDetails[K]
+    value: ViajeAereoDetails[K],
   ) => {
     dispatch({
       type: "UPDATE_VUELO",
@@ -60,7 +60,7 @@ export const EditarVuelos = ({
   const handleUpdateVuelo = <K extends keyof Vuelo>(
     index: number,
     field: K,
-    value: Vuelo[K]
+    value: Vuelo[K],
   ) => {
     const newVuelos = [...state.vuelos];
     newVuelos[index] = {
@@ -94,7 +94,6 @@ export const EditarVuelos = ({
     setSave(null);
   };
 
-
   const handleGuardarAeropuerto = (aeropuertos: Aeropuerto[]) => {
     setAeropuertos(aeropuertos);
     setSave(null);
@@ -103,17 +102,17 @@ export const EditarVuelos = ({
   const handleSubmit = async (
     saldos: (Saldo & { restante: number; usado: boolean })[],
     faltante: number,
-    isPrimary: boolean
+    isPrimary: boolean,
   ) => {
     try {
       setLoading(true);
       if (faltante > 0 && isPrimary)
         throw new Error(
-          "Al parecer aun falta por pagar, deberas usar credito para pagar"
+          "Al parecer aun falta por pagar, deberas usar credito para pagar",
         );
       if (faltante == 0 && !isPrimary)
         throw new Error(
-          "Parece que ya pagaste todo con saldo a favor, ya no queda nada para pagar a credito"
+          "Parece que ya pagaste todo con saldo a favor, ya no queda nada para pagar a credito",
         );
       let logs = {};
       Object.entries(state).forEach(([key, value]) => {
@@ -166,7 +165,7 @@ export const EditarVuelos = ({
         setViajeros(res.data || []);
       })
       .catch((error) =>
-        showNotification("error", error.message || "Error al obtener viajeros")
+        showNotification("error", error.message || "Error al obtener viajeros"),
       );
     ExtraService.getInstance()
       .getAerolineas()
@@ -174,7 +173,10 @@ export const EditarVuelos = ({
         setAerolineas(res.data || []);
       })
       .catch((error) =>
-        showNotification("error", error.message || "Error al obtener aerolinea")
+        showNotification(
+          "error",
+          error.message || "Error al obtener aerolinea",
+        ),
       );
     ExtraService.getInstance()
       .getAeropuerto()
@@ -182,7 +184,7 @@ export const EditarVuelos = ({
         setAeropuertos(res.data || []);
       })
       .catch((error) =>
-        showNotification("error", error.message || "Error con aeropuerto")
+        showNotification("error", error.message || "Error con aeropuerto"),
       );
     VuelosServices.getInstance()
       .getVueloById(vuelo.id_viaje_aereo)
@@ -221,8 +223,9 @@ export const EditarVuelos = ({
             setSave(null);
           }}
           title={`Agregar ${save == "vuelo" ? "aerolinea" : "aeropuerto"}`}
-          subtitle={`Agrega los valores de la nueva ${save == "vuelo" ? "aerolinea" : "aeropuerto"
-            } para agregarla`}
+          subtitle={`Agrega los valores de la nueva ${
+            save == "vuelo" ? "aerolinea" : "aeropuerto"
+          } para agregarla`}
         >
           <GuardadoRapido
             onSaveProveedor={handleGuardarAerolinea}
@@ -237,9 +240,9 @@ export const EditarVuelos = ({
             value={
               state.viajero
                 ? {
-                  name: state.viajero.nombre_completo,
-                  content: state.viajero,
-                }
+                    name: state.viajero.nombre_completo,
+                    content: state.viajero,
+                  }
                 : null
             }
             label="Viajero"
@@ -302,9 +305,9 @@ export const EditarVuelos = ({
                       value={
                         vuelo.aerolinea
                           ? {
-                            name: vuelo.aerolinea.nombre,
-                            content: vuelo.aerolinea,
-                          }
+                              name: vuelo.aerolinea.nombre,
+                              content: vuelo.aerolinea,
+                            }
                           : null
                       }
                       className="col-span-2"
@@ -332,9 +335,9 @@ export const EditarVuelos = ({
                     value={
                       vuelo.origen
                         ? {
-                          name: vuelo.origen.nombre,
-                          content: vuelo.origen,
-                        }
+                            name: vuelo.origen.nombre,
+                            content: vuelo.origen,
+                          }
                         : null
                     }
                     className="col-span-3"
@@ -351,9 +354,9 @@ export const EditarVuelos = ({
                     value={
                       vuelo.destino
                         ? {
-                          name: vuelo.destino.nombre,
-                          content: vuelo.destino,
-                        }
+                            name: vuelo.destino.nombre,
+                            content: vuelo.destino,
+                          }
                         : null
                     }
                     className="col-span-3"
@@ -407,7 +410,7 @@ export const EditarVuelos = ({
                         handleUpdateVuelo(
                           index,
                           "ubicacion_asiento",
-                          value as Vuelo["ubicacion_asiento"]
+                          value as Vuelo["ubicacion_asiento"],
                         );
                       }}
                       options={["Ventana", "En medio", "Pasillo"]}
@@ -512,16 +515,16 @@ type Action<K extends keyof ViajeAereoDetails> =
   | { type: "DELETE_VUELO"; payload: number }
   | { type: "LOAD_VUELO"; payload: ViajeAereoDetails }
   | {
-    type: "UPDATE_VUELO";
-    payload: {
-      field: K;
-      value: ViajeAereoDetails[K];
+      type: "UPDATE_VUELO";
+      payload: {
+        field: K;
+        value: ViajeAereoDetails[K];
+      };
     };
-  };
 
 const vuelosReducer = (
   state: ViajeAereoDetails,
-  action: Action<keyof ViajeAereoDetails>
+  action: Action<keyof ViajeAereoDetails>,
 ) => {
   switch (action.type) {
     case "ADD_VUELO":
@@ -530,7 +533,7 @@ const vuelosReducer = (
       return {
         ...state,
         vuelos: state.vuelos.filter(
-          (_, index: number) => index != action.payload
+          (_, index: number) => index != action.payload,
         ),
       };
     case "UPDATE_VUELO":

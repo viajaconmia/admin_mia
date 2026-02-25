@@ -1,5 +1,5 @@
 import Button from "@/components/atom/Button";
-import { useNotification } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useNotificacion";
 import { copyToClipboard } from "@/helpers/utils";
 import { Building2, Car, Copy, HelpCircle, Plane } from "lucide-react";
 import { useState } from "react";
@@ -11,7 +11,7 @@ export const ButtonCopiar = ({
   copy_value: string;
   label: string;
 }) => {
-  const { showNotification } = useNotification();
+  const { showNotification } = useAlert();
   return (
     <div className="flex gap-2 items-center justify-between">
       <span className="font-semibold text-sm">{label}</span>
@@ -40,8 +40,8 @@ export const MarginPercent = ({ value }) => (
       value == "Infinity"
         ? "text-gray-700 bg-gray-100 border-gray-300 "
         : value > 0
-        ? "text-green-600 bg-green-100 border-green-300"
-        : "text-red-600 bg-red-100 border-red-300"
+          ? "text-green-600 bg-green-100 border-green-300"
+          : "text-red-600 bg-red-100 border-red-300"
     }`}
   >
     {value == "Infinity" ? "0%" : `${Number(value).toFixed(2)}%`}

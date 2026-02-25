@@ -8,7 +8,7 @@ import {
   TextInput,
 } from "@/components/atom/Input";
 import { Loader } from "@/components/atom/Loader";
-import { useNotification } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useNotificacion";
 import {
   DatosFiscales,
   mapProveedor,
@@ -31,12 +31,12 @@ import { PERMISOS } from "@/constant/permisos";
 
 const App = () => {
   const [loading, setLoading] = useState(true);
-  const { showNotification } = useNotification();
+  const { showNotification } = useAlert();
   const [proveedor, setProveedor] = useState<Proveedor | null>(null);
   const [datosFiscales, setDatosFiscales] = useState<DatosFiscales[]>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedFiscal, setSelectedFiscal] = useState<DatosFiscales | null>(
-    null
+    null,
   );
   const [cuentas, setCuentas] = useState<ProveedorCuenta[]>([]);
   const [isCuentaOpen, setIsCuentaOpen] = useState(false);
@@ -67,7 +67,7 @@ const App = () => {
     } catch (error) {
       showNotification(
         "error",
-        error.message || "Error al isModalOpen datos fiscales"
+        error.message || "Error al isModalOpen datos fiscales",
       );
     } finally {
       setSelectedCuenta(null);
@@ -86,25 +86,23 @@ const App = () => {
   };
 
   const handleSave = async (
-    datos: DatosFiscales & { id_proveedor: number }
+    datos: DatosFiscales & { id_proveedor: number },
   ) => {
     try {
       let response: ApiResponse<DatosFiscales[]>;
       if (selectedFiscal) {
-        response = await ProveedoresService.getInstance().editarFiscalData(
-          datos
-        );
+        response =
+          await ProveedoresService.getInstance().editarFiscalData(datos);
       } else {
-        response = await ProveedoresService.getInstance().crearFiscalData(
-          datos
-        );
+        response =
+          await ProveedoresService.getInstance().crearFiscalData(datos);
       }
       setDatosFiscales(response.data);
       showNotification("success", response.message);
     } catch (error) {
       showNotification(
         "error",
-        error.message || "Error al isModalOpen datos fiscales"
+        error.message || "Error al isModalOpen datos fiscales",
       );
     } finally {
       setSelectedFiscal(null);
@@ -143,7 +141,7 @@ const App = () => {
       } catch (err: any) {
         showNotification(
           "error",
-          err?.message || "Error al obtener el proveedor"
+          err?.message || "Error al obtener el proveedor",
         );
       } finally {
         setLoading(false);
@@ -214,7 +212,7 @@ function ProveedorCard({
 }) {
   const { draft, update, hasChanges, getChanges, editar, toggleEdit, save } =
     useProveedorEditor(proveedor);
-  const { showNotification } = useNotification();
+  const { showNotification } = useAlert();
   const [activeTab, setActiveTab] = useState("datos");
   const [activeTable, setActiveTable] = useState("datos_fiscales");
   const { Can, hasPermission } = usePermiso();
@@ -231,7 +229,7 @@ function ProveedorCard({
     } catch (error) {
       showNotification(
         "error",
-        error.message || "error al actualizar proveedor"
+        error.message || "error al actualizar proveedor",
       );
     }
   };
@@ -616,7 +614,7 @@ type Action =
 
 function proveedorReducer(
   state: ProveedorState,
-  action: Action
+  action: Action,
 ): ProveedorState {
   switch (action.type) {
     case "INIT":
@@ -642,7 +640,7 @@ function proveedorReducer(
     case "UPDATE_FIELD": {
       const draft = { ...state.draft, [action.field]: action.value };
       const hasChanges = (Object.keys(draft) as (keyof Proveedor)[]).some(
-        (key) => draft[key] !== state.original[key]
+        (key) => draft[key] !== state.original[key],
       );
       return { ...state, draft, hasChanges };
     }
@@ -660,7 +658,7 @@ function useProveedorEditor(proveedor: Proveedor) {
     hasChanges: false,
     editar: false,
   });
-  const { showNotification } = useNotification();
+  const { showNotification } = useAlert();
 
   useEffect(() => {
     dispatch({ type: "INIT", payload: proveedor });
@@ -685,7 +683,7 @@ function useProveedorEditor(proveedor: Proveedor) {
     if (proveedor.type == "hotel") {
       showNotification(
         "info",
-        "Los hoteles solo se pueden editar en la parte de hoteles, aqui solo puedes agregar cuentas y datos fiscales del hotel"
+        "Los hoteles solo se pueden editar en la parte de hoteles, aqui solo puedes agregar cuentas y datos fiscales del hotel",
       );
       return;
     }

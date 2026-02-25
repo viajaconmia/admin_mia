@@ -31,7 +31,7 @@ import {
 import { updateRoom } from "@/lib/utils";
 import Modal from "./Modal";
 import { redondear } from "@/helpers/formater";
-import { useNotification } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useNotificacion";
 import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
 import { Loader } from "../atom/Loader";
@@ -185,7 +185,7 @@ export function ReservationForm2({
   );
   const [inicial, setInicial] = useState(true);
   const [precio, setPrecio] = useState<number>(form.venta.total);
-  const { showNotification } = useNotification();
+  const { showNotification } = useAlert();
 
   const handleSaldosSubmit = async (saldos, restante, usado) => {
     try {

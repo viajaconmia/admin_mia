@@ -11,7 +11,7 @@ import {
 import { Table } from "@/component/molecule/Table";
 import Button from "@/components/atom/Button";
 import { ROUTES } from "@/constant/routes";
-import { useNotification } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useNotificacion";
 import {
   formatDate,
   formatNumberWithCommas,
@@ -45,7 +45,7 @@ const PageReservas = () => {
   const [filters, setFilters] = useState<TypeFilters>(
     defaultFiltersSolicitudes,
   );
-  const { showNotification } = useNotification();
+  const { showNotification } = useAlert();
   const { csv, loadingFile, setLoadingFile } = useFile();
   const { id } = useParams();
   const agente = { id_agente: Array.isArray(id) ? id[0] : id };

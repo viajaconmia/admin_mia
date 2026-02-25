@@ -15,7 +15,7 @@ type NotificationContextProps = {
 };
 
 const NotificationContext = createContext<NotificationContextProps | undefined>(
-  undefined
+  undefined,
 );
 
 export const NotificationProvider = ({
@@ -39,7 +39,7 @@ export const NotificationProvider = ({
       () => {
         setNotification({ type, message, show: true });
       },
-      idTime ? 200 : 0
+      idTime ? 200 : 0,
     );
     const id = setTimeout(() => {
       setNotification((prev) => ({ ...prev, show: false }));
@@ -60,4 +60,4 @@ export const NotificationProvider = ({
   );
 };
 
-export const useNotification = () => useContext(NotificationContext);
+export const useAlert = () => useContext(NotificationContext);

@@ -4,13 +4,13 @@ import { TabsList } from "@/components/molecule/TabsList";
 import { ReservationForm } from "@/components/organism/FormReservation";
 import { CarRentalPage } from "@/components/pages/CarRental";
 import { PageVuelos } from "@/components/template/PageVuelos";
-import { useNotification } from "@/context/useNotificacion";
+import { useAlert } from "@/context/useNotificacion";
 import { Building2, CarTaxiFront, Plane } from "lucide-react";
 import { useState } from "react";
 
 const App = ({ agente }: { agente: Agente }) => {
   const [tab, setTab] = useState<"hotel" | "vuelo" | "renta">("hotel");
-  const { showNotification } = useNotification();
+  const { showNotification } = useAlert();
 
   return (
     <>
