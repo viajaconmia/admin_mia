@@ -53,7 +53,9 @@ const PageReservas = () => {
   const booking_service = new BookingsService();
   const handleFetchSolicitudes = async (page = tracking.page) => {
     setLoading(true);
-    let extras = agente?.id_agente ? { id_client: agente.id_agente } : {};
+    let extras = agente?.id_agente
+      ? { id_client: agente.id_agente, status: "Confirmada" }
+      : {};
     const response = await booking_service.obtenerReservas({
       page,
       length: MAX_REGISTERS,
@@ -94,7 +96,6 @@ const PageReservas = () => {
         cliente: reserva.agente,
         creado: `${reserva.created_at.split("T")[0]} : ${reserva.created_at.split("T")[1]}`,
         proveedor: reserva.proveedor,
-        intermediario: reserva.intermediario,
         codigo: reserva.codigo_confirmacion,
         viajero: reserva.viajero,
         check_in: reserva.check_in.split("T")[0],
@@ -102,18 +103,10 @@ const PageReservas = () => {
         check_out: reserva.check_out.split("T")[0],
         horario_llegada: reserva.horario_llegada,
         tipo: reserva.tipo_cuarto_vuelo,
-        costo_proveedor: reserva.costo_total,
-        markup:
-          ((Number(reserva.total || 0) - Number(reserva.costo_total || 0)) /
-            Number(reserva.total || 0)) *
-          100,
         precio_de_venta: reserva.total,
         metodo_de_pago: reserva.metodo_pago,
-        reservante: reserva.reservante,
         etapa_reservacion: reserva.etapa_reservacion,
         estado: reserva.estado,
-        estado_pago: reserva.estado_pago,
-        estado_facturacion: reserva.estado_facturacion,
       }));
 
       csv(formatData, fileName);
@@ -135,15 +128,11 @@ const PageReservas = () => {
     creado: ({ value }) => <>{formatDate(value)}</>,
     proveedor: ({ value }: { value: string }) => <p>{value || ""}</p>,
     codigo: ({ value }) => <p>{value || ""}</p>,
-    markup: ({ value }) => <MarginPercent value={value} />,
     viajero: ({ value }) => <>{value}</>,
     check_in: ({ value }) => <>{formatDate(value)}</>,
     horario_salida: ({ value }) => <>{value ? formatTime(value) : ""}</>,
     check_out: ({ value }) => <>{formatDate(value)}</>,
     horario_llegada: ({ value }) => <>{value ? formatTime(value) : ""}</>,
-    costo_proveedor: ({ value }) => (
-      <>{value ? "$" + formatNumberWithCommas(value) : ""}</>
-    ),
     estado: ({ value }) => <span title={value}>{getStatusBadge(value)}</span>,
     precio_de_venta: ({ value }) => (
       <>{value ? "$" + formatNumberWithCommas(value) : ""}</>
@@ -181,11 +170,6 @@ const PageReservas = () => {
     check_out: reserva.check_out,
     horario_llegada: reserva.horario_llegada,
     tipo: reserva.tipo_cuarto_vuelo,
-    costo_proveedor: reserva.costo_total,
-    markup:
-      ((Number(reserva.total || 0) - Number(reserva.costo_total || 0)) /
-        Number(reserva.total || 0)) *
-      100,
     precio_de_venta: reserva.total,
     metodo_de_pago: reserva.metodo_pago,
     reservante: reserva.reservante,
