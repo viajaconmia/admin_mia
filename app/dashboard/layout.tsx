@@ -101,15 +101,18 @@ const links: NavGroup[] = [
         href: "/dashboard/codigo-confirmacion",
         icon: Shield,
       },
+      { title: "Tarjetas", href: "/dashboard/tarjetas", icon: CreditCard },
+      {
+        title: "Conciliación",
+        href: "/dashboard/conciliacion",
+        icon: CreditCard,
+      },
     ],
   },
   {
     title: "Pagos",
     icon: CreditCard,
-    items: [
-      { title: "Pagos", href: "/dashboard/payments", icon: CreditCard },
-      { title: "Tarjetas", href: "/dashboard/tarjetas", icon: CreditCard },
-    ],
+    items: [{ title: "Pagos", href: "/dashboard/payments", icon: CreditCard }],
   },
   {
     title: "CXP",
@@ -118,11 +121,6 @@ const links: NavGroup[] = [
       {
         title: "Pagos proveedor",
         href: "/dashboard/pagos_proveedor",
-        icon: CreditCard,
-      },
-      {
-        title: "Conciliación",
-        href: "/dashboard/conciliacion",
         icon: CreditCard,
       },
     ],

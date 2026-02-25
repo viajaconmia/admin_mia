@@ -33,6 +33,7 @@ import {
 import {
   DollarSign,
   Download,
+  ExternalLink,
   Pencil,
   Plus,
   RefreshCwIcon,
@@ -43,6 +44,16 @@ import CrearReserva from "./CrearReserva";
 import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
 import { useFile } from "@/hooks/useFile";
+import Link from "next/link";
+
+// ✅ ponlo dentro del archivo (arriba del componente o dentro del componente)
+const formatMMDDYYYY = (value?: string | Date | null) => {
+  if (!value) return "";
+  const iso = value instanceof Date ? value.toISOString() : String(value);
+  const [yyyy, mm, dd] = iso.split("T")[0].split("-");
+  if (!yyyy || !mm || !dd) return "";
+  return `${mm}/${dd}/${yyyy}`; // 02/27/2026
+};
 
 const PageReservas = ({ agente }: { agente?: Agente }) => {
   const [loading, setLoading] = useState(false);
@@ -148,21 +159,9 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     },
     creado: ({ value }) => <>{formatDate(value)}</>,
     proveedor: ({ value }: { value: string }) => (
-      <Tooltip content={value}>
-        {(value || "").slice(0, 20)}
-        {(value || "").length >= 20 && (
-          <span className="font-semibold text-sm">. . .</span>
-        )}
-      </Tooltip>
+      <Tooltip content={value}>{value || ""}</Tooltip>
     ),
-    codigo: ({ value }) => (
-      <Tooltip content={value}>
-        {(value || "").slice(0, 15)}
-        {(value || "").length >= 15 && (
-          <span className="font-semibold text-sm">. . .</span>
-        )}
-      </Tooltip>
-    ),
+    codigo: ({ value }) => <Tooltip content={value}>{value || ""}</Tooltip>,
     markup: ({ value }) => <MarginPercent value={value} />,
     viajero: ({ value }) => <>{value}</>,
     check_in: ({ value }) => <>{formatDate(value)}</>,
@@ -299,8 +298,15 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
 
   return (
     <>
+      <Link
+        href={"/dashboard/reservasold"}
+        className="p-3 py-2 border shadow-md bg-blue rounded-md flex gap-2 bg-blue-600 w-fit text-white"
+      >
+        <ExternalLink className="w-5 h-5"></ExternalLink>
+        Ir a la pagina antigua de reservas
+      </Link>
       <div className="grid md:grid-cols-2 gap-4 p-4 pb-0">
-        <Dropdown label="Filtros" onClose={() => handleFetchSolicitudes()}>
+        <Dropdown label="Filtros" onConfirm={handleFetchSolicitudes}>
           <div className="w-full p-8 grid md:grid-cols-4 gap-4">
             <FilterInput
               type="text"
@@ -431,6 +437,9 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
       </div>
 
       <div className="overflow-hidden flex gap-2 flex-col">
+        <p className="font-semibold text-gray-600 text-xs">
+          Total de reservas: {tracking.total}
+        </p>
         <Table
           maxHeight="25rem"
           registros={data}
@@ -495,7 +504,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
   );
 };
 
-const MAX_REGISTERS = 20;
+const MAX_REGISTERS = 50;
 
 const defaultFiltersSolicitudes: TypeFilters = {
   codigo_reservacion: null,

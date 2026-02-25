@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ChevronUp, SlidersHorizontal } from "lucide-react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import Button from "@/components/atom/Button";
 import Modal from "@/components/organism/Modal";
 
