@@ -153,6 +153,8 @@ const links: NavGroup[] = [
         href: "/dashboard/facturacion",
         icon: BookOpen,
       },
+      { title: "Reporte", href: "/dashboard/detalles_facturas", icon: Receipt },
+      
     ],
   },
 ];
