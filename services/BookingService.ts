@@ -186,6 +186,7 @@ export type SolicitudVuelo = {
   total: string;
 
   id_viaje_aereo: string;
+  id_solicitud: string;
   origen: string;
   viajero: string;
   destino: string;

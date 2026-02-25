@@ -61,7 +61,7 @@ export async function generatePdf(id_solicitud: string): Promise<jsPDF> {
   y = drawTablaVuelos(doc, solicitud.vuelos, y, solicitud.viajero);
   //aqui va un cuadro que diga gracias por suconfianza
   y += 4;
-  y = drawContacto(doc, y);
+  y = drawContacto(doc, y, solicitud.id_solicitud);
   doc.text("Politicas:", STYLES.MARGINS.LEFT, y);
   y += 3;
   y = drawList(
@@ -297,7 +297,7 @@ function drawBoletoInfo(
     x: x + boxW / 2,
     y,
     width: boxW / 2,
-    text: "NO REMBOLSABLE",
+    text: "NO REEMBOLSABLE",
     bgColor: STYLES.COLORS.TEXT_MUTED,
   });
 
@@ -321,6 +321,7 @@ function drawTablaVuelos(
       "Asiento",
       "Pasajero",
       "# Vuelo",
+      // "Tipo de vuelo",
     ],
   ];
 
@@ -337,6 +338,7 @@ function drawTablaVuelos(
     v.seat_number,
     viajero,
     v.flight_number,
+    // v.fly_type.split(" ").slice(-1)[0],
   ]);
 
   // 👇 Si mandas nota, se agrega fila de ancho completo
@@ -427,13 +429,21 @@ function drawList(
 
   return y + 2;
 }
-function drawContacto(doc: jsPDF, y: number) {
+function drawContacto(doc: jsPDF, y: number, id: string) {
   const pageWidth = doc.internal.pageSize.getWidth();
 
   // 1️⃣ Texto normal
   doc.setFontSize(6);
-  doc.setTextColor(0, 0, 0);
+  doc.setTextColor(0, 0, 255);
 
+  doc.textWithLink("Ver reserva en linea", pageWidth / 2, y, {
+    url: `https://www.viajaconmia.com/bookings/${btoa(id)}`,
+    align: "center",
+  });
+
+  y += 3;
+
+  doc.setTextColor(0, 0, 0);
   doc.text(
     "Si tiene alguna duda sobre esta información, póngase en contacto con nosotros",
     pageWidth / 2,
@@ -466,7 +476,6 @@ function drawContacto(doc: jsPDF, y: number) {
     align: "center",
   });
 
-  // Regresar color a negro
   doc.setTextColor(0, 0, 0);
 
   return y + 5;
