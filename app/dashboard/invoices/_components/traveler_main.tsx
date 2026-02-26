@@ -104,6 +104,7 @@ export function TravelersPage() {
   // Modales/acciones
   const [isModalOpen, setIsModalOpen] = useState<string>("");
   const [facturaAsignando, setFacturaAsignando] = useState<string | null>(null);
+  const [tipo_factura, setTipo_factura] = useState<boolean | null>(null);
   const [facturaAgente, setFacturaAgente] = useState<string | null>(null);
   const [facturaDataSel, setFacturaDataSel] = useState<Factura | null>(null);
   const [facturaEmpresa, setFacturaEmpresa] = useState<string | null>(null);
@@ -308,6 +309,11 @@ export function TravelersPage() {
         actualizar: String(f?.id_factura || ""),
         acciones: { fila: f },
         item: f,
+        facturada_por:
+          f.saldo_x_aplicar_items != 0
+            ? true
+            : false,
+            //true es por wallets y false es por items
       };
     });
   }, [facturasFiltradas]);
@@ -509,6 +515,7 @@ export function TravelersPage() {
                     setFacturaAgente(f.id_agente);
                     setFacturaEmpresa(f.id_empresa);
                     setFacturaDataSel(f);
+                    setTipo_factura(f.facturada_por)
                   }}
                 >
                   <FilePlus className="mr-2 h-4 w-4" />
@@ -641,6 +648,7 @@ export function TravelersPage() {
             // cargarFacturas(activeFilters);
           }}
           id_factura={facturaAsignando}
+          tipo={tipo_factura}
           clienteSeleccionado={facturaAgente as any}
           facturaData={facturaDataSel as any}
           onAssign={() => {}}

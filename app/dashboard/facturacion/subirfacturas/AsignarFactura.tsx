@@ -12,6 +12,7 @@ interface AsignarFacturaProps {
   onCloseVistaPrevia?: () => void;
   facturaData?: any;
   empresaSeleccionada?: any;
+    tipo:boolean;
   clienteSeleccionado?: any;
   archivoPDFUrl?: string | null;
   archivoXMLUrl?: string | null;
@@ -95,6 +96,7 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
   clienteSeleccionado,
   pagoData,
   saldo,
+  tipo,
 }) => {
   const [montoSeleccionado, setMontoSeleccionado] = useState<number>(0);
   const [montoRestante, setMontoRestante] = useState<number>(0);

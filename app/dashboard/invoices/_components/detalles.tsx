@@ -187,6 +187,8 @@ const resp = await fetch(endpoint, {
 
 const json = await resp.json().catch(() => null);
 
+console.log(json)
+
 if (!resp.ok) {
   throw new Error(json?.message || `Error HTTP: ${resp.status}`);
 }
@@ -397,7 +399,7 @@ setDetalleFacturaData?.(resolved);
   );
 
   const reservasCols = useMemo(
-    () => ["codigo_reservacion_hotel", "hotel", "nombre_viajero_reservacion", "total"],
+    () => ["codigo_reservacion", "proveedor", "viajero", "total"],
     []
   );
 
