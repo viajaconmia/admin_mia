@@ -463,6 +463,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
         <Modal
           onClose={() => {
             setSelectedItem(null);
+            handleFetchSolicitudes();
           }}
           title="Pagar reserva al proveedor"
         >
