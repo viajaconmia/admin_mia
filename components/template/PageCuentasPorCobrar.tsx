@@ -1176,7 +1176,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       );
       const showDeleteButtons = isActive && !isDifferent;
       const showEditbuttosn = isActive && !isDifferent && !hasLink;
-      const showPagarButton = isActive && hasBalance && !wallet_credito;
+      const showPagarButton = isActive && hasBalance ;
       const showFacturasButton = isActive && montoPorFacturar > 0; // (ajusta si quieres otras reglas)
       if (item.saldo !== item.monto_pagado) {
         editar = false;

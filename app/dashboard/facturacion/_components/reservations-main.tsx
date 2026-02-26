@@ -1259,13 +1259,11 @@ export const FacturacionModal: React.FC<{
           id_solicitud: reservationsWithSelectedItems.map(
             (r) => r.id_solicitud,
           ),
-          id_items: itemsFacturadosFull.map((x: any) => x.id_item),
           datos_empresa: {
             rfc: cfdi.Receiver.Rfc,
             id_empresa: selectedFiscalData.id_empresa,
           },
           items_facturados: itemsFacturados,
-          items_facturados_full: itemsFacturadosFull,
           addenda: addendaStr,
           addenda_type: "Noktos",
           invoice_mode: mode,
