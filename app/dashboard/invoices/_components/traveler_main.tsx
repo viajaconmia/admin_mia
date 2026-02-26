@@ -75,7 +75,7 @@ const defaultFiltersFacturas: TypeFilters = {
   estatusFactura: "Confirmada",
   id_factura: null,
   id_cliente: "",
-  cliente: "",
+  cliente: "", 
   uuid: "",
   rfc: "",
 };

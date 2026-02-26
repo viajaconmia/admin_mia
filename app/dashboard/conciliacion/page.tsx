@@ -234,8 +234,7 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
 
   // ✅ de la versión antigua (conciliar real)
   const consolidado =
-    Number(raw?.consolidado ?? raw?.estatus_conciliado ?? raw?.conciliado ?? 0) || 0;
-
+   Number(raw?.consolidado ?? raw?.estatus_conciliado ?? raw?.conciliado ?? 0) || 0;
   return {
     row_id,
     seleccionar: row_id,

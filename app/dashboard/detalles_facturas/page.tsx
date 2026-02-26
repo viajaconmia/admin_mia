@@ -228,12 +228,12 @@ export default function AgentesReportFacPage() {
 
       // Render reutilizable para cualquier columna de fecha
        fecha_emision: ({ value }: any) => (
-  <div className="flex justify-center">
-    <span className="text-xs font-mono tabular-nums text-gray-600">
-      {fmtDateCell(value)}
-    </span>
-  </div>
-),
+        <div className="flex justify-center">
+            <span className="text-xs font-mono tabular-nums text-gray-600">
+            {fmtDateCell(value)}
+            </span>
+        </div>
+        ),
 
       folio: ({ value }: any) => (
         <div className="flex justify-center">
@@ -252,7 +252,7 @@ export default function AgentesReportFacPage() {
           </span>
         </div>
       ),
-      hjk: ({ value }: any) => (
+      codigo_confirmacion: ({ value }: any) => (
         <div className="flex justify-center">
           <span className="font-mono text-xs">{value}</span>
         </div>
@@ -332,7 +332,7 @@ export default function AgentesReportFacPage() {
               "monto_total_por_estancia",
               "fecha_emision",
               "estado_reserva",
-              "hjk",
+              "codigo_confirmacion",
               "folio",
               "uuid_factura",
               "booking_subtotal",
