@@ -37,6 +37,8 @@ import { fetchCreateSolicitud } from "@/services/pago_proveedor";
 import { Reserva, type ReservaHandle } from "./cupon";
 import { BookingAll } from "@/services/BookingService";
 import { updateRoom } from "@/lib/utils";
+import { API_KEY, URL } from "@/lib/constants";
+
 
 import { useAlert } from "@/context/useAlert";
 
@@ -98,6 +100,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
 
   const [isReservaOpen, setIsReservaOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [cupon, setCupon] = useState<Boolean | null>(null);
 
   const [state, dispatch] = useReducer(
     paymentReducer,
@@ -627,6 +630,54 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
   const handleConfirmCredit = async () => {
     await handlePayment();
   };
+
+useEffect(() => {
+
+  const controller = new AbortController();
+
+  (async () => {
+    try {
+
+      // Ajusta el endpoint según tu backend:
+      // Si URL ya trae /v1 -> usa /mia/...
+      // Si URL NO trae /v1 -> usa /v1/mia/...
+      const endpoint =  `${URL}/mia/reservas/v2/cupon?id=${reservation.id_solicitud}`;
+
+      const resp = await fetch(endpoint, {
+        method: "GET",
+        headers: {
+          "x-api-key": API_KEY || "",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "Content-Type": "application/json",
+        },
+        cache: "no-store",
+        signal: controller.signal,
+      });
+
+      if (!resp.ok) {
+        const text = await resp.text().catch(() => "");
+        throw new Error(`HTTP ${resp.status} ${resp.statusText} :: ${text}`);
+      }
+
+      const json = await resp.json();
+      setCupon(Boolean(json.data.incluye_desayuno));
+
+      // ✅ IMPRIMIR LO QUE LLEGA
+      console.log("✅ CUPON RESPONSE:", json);
+
+      // ✅ Normaliza a tu shape (ajusta si tu API devuelve otra estructura)
+      const detalles = json?.res?.[0] ?? json?.data ?? json;
+
+    } catch (e: any) {
+      console.error("❌ Error cargando cupón:", e);
+      
+    } finally {
+      
+    }
+  })();
+
+  return () => controller.abort();
+}, [reservation, ]);
 
   return (
     <div className="max-w-[85vw] w-screen p-2 pt-0 max-h-[90vh] grid grid-cols-2">
@@ -1198,7 +1249,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
             <Reserva
               isOpen={isReservaOpen}
               onClose={() => setIsReservaOpen(false)}
-              reservation={mappedReservation}
+              reservation={{...mappedReservation, incluye_desayuno:cupon}}
             />
           </div>
         )}
@@ -1209,7 +1260,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
         ref={reservaRef}
         isOpen={false}
         onClose={() => {}}
-        reservation={mappedReservation}
+        reservation={{...mappedReservation, incluye_desayuno:cupon}}
         mountHidden
       />
     </div>
