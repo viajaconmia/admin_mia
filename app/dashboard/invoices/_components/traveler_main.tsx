@@ -98,6 +98,7 @@ export function TravelersPage() {
   const [activeFilters, setActiveFilters] = useState(defaultFiltersFacturas);
   const [facturas, setFacturas] = useState<Factura[]>([]);
   const [id, setId] = useState<string | null>(null);
+  const [cancelarFactura, setCancelarFactura] = useState<string | null>(null);
   const { Can } = usePermiso();
   const [removingId, setRemovingId] = useState<string | null>(null);
 
@@ -392,6 +393,17 @@ export function TravelersPage() {
           >
             {isRemoving ? "Eliminando..." : "Eliminar relación"}
           </Button>
+
+          {item.id_facturama && (
+            <Can permiso={PERMISOS.COMPONENTES.BOTON.ACTUALIZAR_PDF_FACTURA}>
+              <Button
+                onClick={() => setCancelarFactura(item.id_factura)}
+                size="sm"
+              >
+                Cancelar factura
+              </Button>
+            </Can>
+          )}
         </div>
       );
     },

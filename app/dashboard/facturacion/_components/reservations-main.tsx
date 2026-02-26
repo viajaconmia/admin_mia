@@ -7,7 +7,7 @@ import {
   subirArchivoAS3,
   obtenerPresignedUrl,
 } from "@/helpers/utils";
-import { URL as API_URL, API_KEY } from "@/lib/constants/index";
+import { URL as API_URL, API_KEY, environment } from "@/lib/constants/index";
 import useApi from "@/hooks/useApi";
 import { DescargaFactura, Root } from "@/types/billing";
 import { Download } from "lucide-react";
@@ -397,7 +397,7 @@ export const FacturacionModal: React.FC<{
   type IvaRate = typeof IVA_16 | typeof IVA_8;
 
   const EXPEDITION_PLACE_8P = "32460";
-  const EXPEDITION_PLACE_16P = "11560";
+  const EXPEDITION_PLACE_16P = !environment ? "11560" : "42501";
   // const EXPEDITION_PLACE_16P = "42501";
 
   const [ivaRate, setIvaRate] = useState<IvaRate>(IVA_16);
@@ -1259,13 +1259,13 @@ export const FacturacionModal: React.FC<{
           id_solicitud: reservationsWithSelectedItems.map(
             (r) => r.id_solicitud,
           ),
-          id_items: itemsFacturadosFull.map((x: any) => x.id_item),
+          // id_items: itemsFacturadosFull.map((x: any) => x.id_item),
           datos_empresa: {
             rfc: cfdi.Receiver.Rfc,
             id_empresa: selectedFiscalData.id_empresa,
           },
           items_facturados: itemsFacturados,
-          items_facturados_full: itemsFacturadosFull,
+          // items_facturados_full: itemsFacturadosFull,
           addenda: addendaStr,
           addenda_type: "Noktos",
           invoice_mode: mode,
