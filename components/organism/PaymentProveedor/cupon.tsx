@@ -1003,7 +1003,7 @@ useEffect(() => {
                       <InfoCard
                         icon={CupSoda}
                         label="Desayuno incluido"
-                        value={cupon == true ? "Desayuno incluido" : "No incluye desayuno"}
+                        value={cupon == 1 ? "Desayuno incluido" : "No incluye desayuno"}
                       />
                     </div>
 
