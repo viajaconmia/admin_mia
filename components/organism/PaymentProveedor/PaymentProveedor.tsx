@@ -291,6 +291,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
       check_out: reservation.check_out ?? "",
       room: (reservation as any).tipo_cuarto_vuelo ?? "",
       comentarios: (reservation as any).comments ?? "",
+      solicitud: reservation.id_solicitud,
     };
   }, [reservation]);
 
