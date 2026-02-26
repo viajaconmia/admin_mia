@@ -101,6 +101,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
   const [isReservaOpen, setIsReservaOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [cupon, setCupon] = useState<Boolean | null>(null);
+  const [loading, setLoading] = useState<Boolean | null>(true);
 
   const [state, dispatch] = useReducer(
     paymentReducer,
@@ -633,11 +634,10 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
 
 useEffect(() => {
 
-  const controller = new AbortController();
 
-  (async () => {
+  const fn = async () => {
     try {
-
+setLoading(true)
       // Ajusta el endpoint según tu backend:
       // Si URL ya trae /v1 -> usa /mia/...
       // Si URL NO trae /v1 -> usa /v1/mia/...
@@ -651,7 +651,6 @@ useEffect(() => {
           "Content-Type": "application/json",
         },
         cache: "no-store",
-        signal: controller.signal,
       });
 
       if (!resp.ok) {
@@ -670,14 +669,14 @@ useEffect(() => {
 
     } catch (e: any) {
       console.error("❌ Error cargando cupón:", e);
-      
+      showNotification("error", "Paso un error, si la reserva tiene desayuno el cupon no va a salir con desayuno")
     } finally {
-      
+      setLoading(false)
     }
-  })();
+  }
+  fn()
 
-  return () => controller.abort();
-}, [reservation, ]);
+}, []);
 
   return (
     <div className="max-w-[85vw] w-screen p-2 pt-0 max-h-[90vh] grid grid-cols-2">
@@ -1185,7 +1184,7 @@ useEffect(() => {
                 onClick={handleDownloadCoupon}
                 variant="outline"
                 className="bg-green-50 border-green-200"
-                disabled={isSubmitting}
+                disabled={isSubmitting || !!loading}
               >
                 <Download className="mr-2 h-4 w-4" />
                 Descargar Cupón

@@ -1,14 +1,12 @@
 "use client";
 
 import React, {
-  useEffect, useState, useRef, forwardRef, useImperativeHandle,
-  use
+  useEffect, useState, useRef, forwardRef, useImperativeHandle
 } from "react";
 import { Calendar, Hotel, User, Bed, ArrowRight, MessageCircle, Users, CupSoda, FileDown, X } from "lucide-react";
 import { SupportModal } from "./superModal";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
-import { API_KEY, URL } from "@/lib/constants";
 import { getUbicacion } from "./reservas";
 // ↑ Encima del componente Reserva()
 type LogoAsset = { key: string; src: string };
@@ -103,9 +101,8 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
   const pageRef = useRef<HTMLDivElement>(null);
   const [logos, setLogos] = useState<Record<string, LogoLoaded>>({});
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [cupon, setCupon] = useState<Boolean | null>(null);
 
-  console.log(reservation,"pruebas")
+  console.log("arreglar",reservation)
 
   const handleUbicacion = async (): Promise<UbicacionType> => {
     try {
@@ -863,59 +860,6 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
     ? { position: "absolute" as const, left: "-10000px", top: 0, width: "1000px" }
     : undefined;
 
-  // ✅ carga inicial (solo una vez)
-useEffect(() => {
-
-  const controller = new AbortController();
-
-  (async () => {
-    try {
-      setLoading(true);
-
-      // Ajusta el endpoint según tu backend:
-      // Si URL ya trae /v1 -> usa /mia/...
-      // Si URL NO trae /v1 -> usa /v1/mia/...
-      const endpoint =  `${URL}/mia/reservas/v2/cupon?id=${reservation.solicitud}`;
-
-      const resp = await fetch(endpoint, {
-        method: "GET",
-        headers: {
-          "x-api-key": API_KEY || "",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          "Content-Type": "application/json",
-        },
-        cache: "no-store",
-        signal: controller.signal,
-      });
-
-      if (!resp.ok) {
-        const text = await resp.text().catch(() => "");
-        throw new Error(`HTTP ${resp.status} ${resp.statusText} :: ${text}`);
-      }
-
-      const json = await resp.json();
-      setCupon(json.data.incluye_desayuno);
-
-      // ✅ IMPRIMIR LO QUE LLEGA
-      console.log("✅ CUPON RESPONSE:", json);
-
-      // ✅ Normaliza a tu shape (ajusta si tu API devuelve otra estructura)
-      const detalles = json?.res?.[0] ?? json?.data ?? json;
-
-      setReservationDetails(detalles);
-    } catch (e: any) {
-      if (e?.name === "AbortError") return;
-      console.error("❌ Error cargando cupón:", e);
-      setReservationDetails(null);
-    } finally {
-      setLoading(false);
-    }
-  })();
-
-  return () => controller.abort();
-}, [reservation, reservationIdBase64]);
-
-
   return (
     <div
       className={isOpen ? "fixed inset-0 z-[999] flex items-center justify-center" : ""}
@@ -1003,7 +947,7 @@ useEffect(() => {
                       <InfoCard
                         icon={CupSoda}
                         label="Desayuno incluido"
-                        value={reservationDetails.incluye_desayuno == 1 ? "Desayuno incluido" : "No incluye desayuno"}
+                        value={reservationDetails.incluye_desayuno ? "Desayuno incluido" : "No incluye desayuno"}
                       />
                     </div>
 
