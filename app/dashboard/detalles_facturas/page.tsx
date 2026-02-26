@@ -50,18 +50,45 @@ const fmtISODate = (s: any) => {
   return d.toISOString().slice(0, 10);
 };
 
+const TZ = "America/Mexico_City";
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const fmtYYYYMMDD_TZ = (d: Date) => {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(d);
+
+  const y = parts.find((p) => p.type === "year")?.value ?? "";
+  const m = parts.find((p) => p.type === "month")?.value ?? "";
+  const da = parts.find((p) => p.type === "day")?.value ?? "";
+  return `${y}-${m}-${da}`;
+};
+
+const defaultFechaHasta = () => fmtYYYYMMDD_TZ(new Date());
+const defaultFechaDesde = () => fmtYYYYMMDD_TZ(new Date(Date.now() - 7 * DAY_MS));
+
 export default function AgentesReportFacPage() {
   const [idAgente, setIdAgente] = useState<string>(
     "765f610d-b793-407d-8341-7d1fc8a86c37"
   );
 
   // ✅ NUEVO: rango de fechas (opcionales)
-  const [fechaDesde, setFechaDesde] = useState<string>(""); // YYYY-MM-DD
-  const [fechaHasta, setFechaHasta] = useState<string>(""); // YYYY-MM-DD
+// ✅ NUEVO: rango de fechas (por default últimos 7 días)
+const [fechaDesde, setFechaDesde] = useState<string>(() => defaultFechaDesde()); // YYYY-MM-DD
+const [fechaHasta, setFechaHasta] = useState<string>(() => defaultFechaHasta()); // YYYY-MM-DD
+
 
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState<AnyRow[]>([]);
   const [error, setError] = useState<string>("");
+
+const limpiarFechas = () => {
+  setFechaDesde("");
+  setFechaHasta("");
+};
 
   const consultar = async () => {
     setError("");
@@ -306,6 +333,16 @@ export default function AgentesReportFacPage() {
             >
               Consultar
             </button>
+
+            <button
+              onClick={limpiarFechas}
+              disabled={loading}
+              className="h-10 px-4 rounded-md border border-gray-300 shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+              title="Quita el filtro de fechas"
+            >
+              Limpiar fechas
+            </button>
+
 
             {error ? <div className="text-sm text-red-600">{error}</div> : null}
           </div>

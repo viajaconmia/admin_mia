@@ -174,11 +174,10 @@ function getEstatusFacturas(diferencia: any, costo_proveedor: any): EstatusFactu
 
 /**
  * ✅ TRANSFORMACIÓN: raw -> row final
- */
+*/
 function toConciliacionRow(raw: any, index: number): AnyRow {
   const row_id = getRowId(raw, index);
 
-  console.log(raw,"😒😒😒😒😒")
 
   const id_solicitud_proveedor =
     raw?.solicitud_proveedor?.id_solicitud_proveedor ??
@@ -560,6 +559,7 @@ export default function ConciliacionPage() {
         String(raw?.id_servicio ?? "").toUpperCase().includes(q)
       );
     });
+console.log(filteredItems,"😒😒😒😒😒")
 
     return filteredItems.map((raw, i) => toConciliacionRow(raw, i));
   }, [todos, searchTerm]);
