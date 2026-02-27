@@ -698,51 +698,59 @@ const ModalCancelarFactura = ({ id }: { id: string }) => {
   }, [data]);
   return (
     <>
-      <div className="w-[90vw] max-w-xl flex justify-center h-60 p-4 gap-2">
-        <ComboBox2
-          value={
-            data.motive
-              ? {
-                  name: data.motive.label,
-                  content: data.motive,
-                }
-              : {
-                  name: "",
-                  content: undefined,
-                }
-          }
-          onChange={function (value: ComboBoxOption2<unknown>): void {
-            setData((prev) => ({ ...prev, motive: value.content }));
-          }}
-          options={MOTIVOS_CANCELACION.map((opt) => ({
-            name: opt.label,
-            content: opt,
-          }))}
-          label="Motivo de cancelación"
-          className="w-full"
-        />
-        <ComboBox2
-          value={
-            data.type
-              ? {
-                  name: data.type.label,
-                  content: data.type,
-                }
-              : {
-                  name: "",
-                  content: undefined,
-                }
-          }
-          onChange={function (value: ComboBoxOption2<unknown>): void {
-            setData((prev) => ({ ...prev, type: value.content }));
-          }}
-          options={CFDI_STATUS.map((opt) => ({
-            name: opt.label,
-            content: opt,
-          }))}
-          label="Tipo de reserva"
-          className="w-full"
-        />
+      <div className="w-[90vw] max-w-xl flex flex-col justify-center h-60 p-4 gap-2">
+        <div className="grid grid-cols-2 w-full gap-2">
+          <ComboBox2
+            value={
+              data.motive
+                ? {
+                    name: data.motive.label,
+                    content: data.motive,
+                  }
+                : {
+                    name: "",
+                    content: undefined,
+                  }
+            }
+            onChange={function (value: ComboBoxOption2<unknown>): void {
+              setData((prev) => ({ ...prev, motive: value.content }));
+            }}
+            options={MOTIVOS_CANCELACION.map((opt) => ({
+              name: opt.label,
+              content: opt,
+            }))}
+            label="Motivo de cancelación"
+            className="w-full"
+          />
+          <ComboBox2
+            value={
+              data.type
+                ? {
+                    name: data.type.label,
+                    content: data.type,
+                  }
+                : {
+                    name: "",
+                    content: undefined,
+                  }
+            }
+            onChange={function (value: ComboBoxOption2<unknown>): void {
+              setData((prev) => ({ ...prev, type: value.content }));
+            }}
+            options={CFDI_STATUS.map((opt) => ({
+              name: opt.label,
+              content: opt,
+            }))}
+            label="Tipo de reserva"
+            className="w-full"
+          />
+        </div>
+        <div className="flex flex-col items-center">
+          <div className="grid grid-cols-2 w-full gap-2">
+            <Button>Cancelar</Button>
+            <Button>Continuar</Button>
+          </div>
+        </div>
       </div>
     </>
   );
