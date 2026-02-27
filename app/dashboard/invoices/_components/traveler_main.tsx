@@ -268,23 +268,6 @@ export function TravelersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeFilters]);
 
-  // ✅ carga inicial (solo una vez)
-  useEffect(() => {
-    cargarFacturas(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Inicial
-  // useEffect(() => {
-  //   // if (firstLoad.current) {
-  //   //   firstLoad.current = false;
-  //   //   cargarFacturas(defaultFiltersFacturas);
-  //   // }
-  // }, []);
-
-  // Handlers de filtros
-
-  /*Eliminar relacion de facturas existentes*/
   const handleQuitarRelacion = async (id_factura: string) => {
     if (!id_factura) return;
 
@@ -656,13 +639,14 @@ export function TravelersPage() {
       const handleDescargarFactura = async (
         id: string,
         tipo: "pdf" | "xml",
+        nombre = "factura",
       ) => {
         try {
           if (tipo === "pdf") {
             const obj = await descargarFactura(id);
             const a = document.createElement("a");
             a.href = `data:application/pdf;base64,${obj.Content}`;
-            a.download = "factura.pdf";
+            a.download = nombre;
             document.body.appendChild(a);
             a.click();
             setTimeout(() => document.body.removeChild(a), 100);
@@ -670,7 +654,7 @@ export function TravelersPage() {
             const obj = await descargarFacturaXML(id);
             const a = document.createElement("a");
             a.href = `data:application/xml;base64,${obj.Content}`;
-            a.download = `factura_${Date.now()}.xml`;
+            a.download = nombre;
             document.body.appendChild(a);
             a.click();
             setTimeout(() => document.body.removeChild(a), 100);
@@ -703,7 +687,11 @@ export function TravelersPage() {
                 <>
                   <DropdownMenuItem
                     onClick={() =>
-                      handleDescargarFactura(f.id_facturama || "", "pdf")
+                      handleDescargarFactura(
+                        f.id_facturama || "",
+                        "pdf",
+                        `Factura-${f?.folio || ""}-${f?.rfc}`,
+                      )
                     }
                   >
                     <DownloadCloud className="mr-2 h-4 w-4" />
@@ -711,7 +699,11 @@ export function TravelersPage() {
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() =>
-                      handleDescargarFactura(f.id_facturama || "", "xml")
+                      handleDescargarFactura(
+                        f.id_facturama || "",
+                        "xml",
+                        `Factura-${f?.folio || ""}-${f?.rfc}`,
+                      )
                     }
                   >
                     <DownloadCloud className="mr-2 h-4 w-4" />
@@ -729,7 +721,12 @@ export function TravelersPage() {
                     </a>
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() => downloadFile(f.url_pdf, "factura.pdf")}
+                    onClick={() =>
+                      downloadFile(
+                        f.url_pdf,
+                        `Factura-${f?.folio || ""}-${f?.rfc}.pdf`,
+                      )
+                    }
                   >
                     <FileDown className="mr-2 h-4 w-4" />
                     Descargar PDF
@@ -746,7 +743,12 @@ export function TravelersPage() {
                     </a>
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() => downloadFile(f.url_xml, "factura.xml")}
+                    onClick={() =>
+                      downloadFile(
+                        f.url_xml,
+                        `Factura-${f?.folio || ""}-${f?.rfc}.xml`,
+                      )
+                    }
                   >
                     <FileDown className="mr-2 h-4 w-4" />
                     Descargar XML
