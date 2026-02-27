@@ -1946,6 +1946,7 @@ export const FacturacionModal: React.FC<{
             <div className="flex gap-2">
               <button
                 type="button"
+                disabled={!descarga}
                 onClick={() => {
                   if (!descarga) return;
                   const pdf =
@@ -1985,6 +1986,7 @@ export const FacturacionModal: React.FC<{
 
               <button
                 type="button"
+                disabled={!descarga}
                 onClick={() => {
                   if (!descarga) return;
                   const xml = getXmlBase64(descarga) ?? null;
