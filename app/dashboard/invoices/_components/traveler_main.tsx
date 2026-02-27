@@ -43,6 +43,7 @@ import { Button } from "@/components/ui/button";
 import ModalDetalleFactura from "@/app/dashboard/invoices/_components/detalles";
 import { PageTracker, TrackingPage } from "./tracker_false";
 import { set } from "date-fns";
+import { ComboBox2, ComboBoxOption2 } from "@/components/atom/Input";
 
 // Formato moneda
 const fmtMoney = (n: any) =>
@@ -568,114 +569,226 @@ export function TravelersPage() {
   const { showNotification } = useAlert();
 
   return (
-    <div className="space-y-8">
-      <h1 className="text-3xl font-bold tracking-tight text-sky-950 my-4">
-        Facturas
-      </h1>
-      {id && (
-        <Modal onClose={() => setId(null)} title="Sube el archivo PDF">
-          <div className="p-8">
-            <InputToS3
-              setUrl={async (url: string | null) => {
-                try {
-                  if (!url) throw new Error("No existe archivo");
-
-                  await FacturaService.getInstance().actualizarDocumentosFacturas(
-                    { id, url },
-                  );
-                  showNotification(
-                    "success",
-                    "Se actualizo el archivo correctamente",
-                  );
-                  setId(null);
-                } catch (error) {
-                  showNotification(
-                    "error",
-                    error.message || "Error al subir archivo",
-                  );
-                }
-              }}
-            ></InputToS3>
-          </div>
+    <>
+      {!!cancelarFactura && (
+        <Modal
+          onClose={() => setCancelarFactura(null)}
+          title={`Cancelar factura`}
+        >
+          <ModalCancelarFactura id={cancelarFactura} />
         </Modal>
       )}
+      <div className="space-y-8">
+        <h1 className="text-3xl font-bold tracking-tight text-sky-950 my-4">
+          Facturas
+        </h1>
+        {id && (
+          <Modal onClose={() => setId(null)} title="Sube el archivo PDF">
+            <div className="p-8">
+              <InputToS3
+                setUrl={async (url: string | null) => {
+                  try {
+                    if (!url) throw new Error("No existe archivo");
 
-      {balance && (
-        <BalanceSummary
-          balance={balance}
-          formatCurrency={formatCurrency} // Pasa la función de formato de divisa
-        />
-      )}
-      <Card>
-        <div className="p-6 space-y-2">
-          <Filters
-            defaultFilters={defaultFiltersFacturas}
-            onFilter={handleFilter}
-            defaultOpen={true}
-            searchTerm={searchTerm}
-            setSearchTerm={setSearchTerm}
+                    await FacturaService.getInstance().actualizarDocumentosFacturas(
+                      { id, url },
+                    );
+                    showNotification(
+                      "success",
+                      "Se actualizo el archivo correctamente",
+                    );
+                    setId(null);
+                  } catch (error) {
+                    showNotification(
+                      "error",
+                      error.message || "Error al subir archivo",
+                    );
+                  }
+                }}
+              ></InputToS3>
+            </div>
+          </Modal>
+        )}
+
+        {balance && (
+          <BalanceSummary
+            balance={balance}
+            formatCurrency={formatCurrency} // Pasa la función de formato de divisa
           />
+        )}
+        <Card>
+          <div className="p-6 space-y-2">
+            <Filters
+              defaultFilters={defaultFiltersFacturas}
+              onFilter={handleFilter}
+              defaultOpen={true}
+              searchTerm={searchTerm}
+              setSearchTerm={setSearchTerm}
+            />
 
-          <Table5
-            registros={registros}
-            renderers={renderers as any}
-            customColumns={customColumns}
-            defaultSort={{ key: "fecha_emision", sort: false }} // desc
-            maxHeight="26rem"
-            splitStringsBySpace
-          >
-            <Button size="sm" onClick={() => cargarFacturas()}>
-              Cargar facturas
-            </Button>
-          </Table5>
+            <Table5
+              registros={registros}
+              renderers={renderers as any}
+              customColumns={customColumns}
+              defaultSort={{ key: "fecha_emision", sort: false }} // desc
+              maxHeight="26rem"
+              splitStringsBySpace
+            >
+              <Button size="sm" onClick={() => cargarFacturas()}>
+                Cargar facturas
+              </Button>
+            </Table5>
 
-          {facturas && (
-            <PageTracker
-              tracking={tracking}
-              setPage={(page) => {
-                cargarFacturas(page);
-              }}
-            ></PageTracker>
-          )}
-        </div>
-      </Card>
+            {facturas && (
+              <PageTracker
+                tracking={tracking}
+                setPage={(page) => {
+                  cargarFacturas(page);
+                }}
+              ></PageTracker>
+            )}
+          </div>
+        </Card>
 
-      {/* Modal de Asignar */}
-      {facturaAsignando && (
-        <AsignarFacturaModal
-          isOpen={!!facturaAsignando}
-          onClose={() => {
-            setFacturaAsignando(null);
-            setFacturaAgente(null);
-            setFacturaDataSel(null);
-            setFacturaEmpresa(null);
-            // refresco tras asignación
-            // cargarFacturas(activeFilters);
-          }}
-          id_factura={facturaAsignando}
-          clienteSeleccionado={facturaAgente as any}
-          facturaData={facturaDataSel as any}
-          onAssign={() => {}}
-          onCloseVistaPrevia={() => {}}
-          empresaSeleccionada={facturaEmpresa as any}
-        />
-      )}
+        {/* Modal de Asignar */}
+        {facturaAsignando && (
+          <AsignarFacturaModal
+            isOpen={!!facturaAsignando}
+            onClose={() => {
+              setFacturaAsignando(null);
+              setFacturaAgente(null);
+              setFacturaDataSel(null);
+              setFacturaEmpresa(null);
+              // refresco tras asignación
+              // cargarFacturas(activeFilters);
+            }}
+            id_factura={facturaAsignando}
+            clienteSeleccionado={facturaAgente as any}
+            facturaData={facturaDataSel as any}
+            onAssign={() => {}}
+            onCloseVistaPrevia={() => {}}
+            empresaSeleccionada={facturaEmpresa as any}
+          />
+        )}
 
-      {modalDetalleOpen && (
-        <ModalDetalleFactura
-          open={modalDetalleOpen}
-          onClose={() => {
-            setModalDetalleOpen(false);
-            setDetalleIdFactura(null);
-          }}
-          id_factura={detalleIdFactura}
-          setDetalleFacturaData={setDetalleFacturaData} // ✅ aquí se manda
-          title="Detalles de factura"
-        />
-      )}
+        {modalDetalleOpen && (
+          <ModalDetalleFactura
+            open={modalDetalleOpen}
+            onClose={() => {
+              setModalDetalleOpen(false);
+              setDetalleIdFactura(null);
+            }}
+            id_factura={detalleIdFactura}
+            setDetalleFacturaData={setDetalleFacturaData} // ✅ aquí se manda
+            title="Detalles de factura"
+          />
+        )}
 
-      {/* Diálogo legacy si lo usas */}
-      {/* <TravelerDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} /> */}
-    </div>
+        {/* Diálogo legacy si lo usas */}
+        {/* <TravelerDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} /> */}
+      </div>
+    </>
   );
 }
+
+const ModalCancelarFactura = ({ id }: { id: string }) => {
+  const [data, setData] = useState({ motive: null, type: null });
+  useEffect(() => {
+    console.log(data);
+  }, [data]);
+  return (
+    <>
+      <div className="w-[90vw] max-w-xl flex justify-center h-60 p-4 gap-2">
+        <ComboBox2
+          value={
+            data.motive
+              ? {
+                  name: data.motive.label,
+                  content: data.motive,
+                }
+              : {
+                  name: "",
+                  content: undefined,
+                }
+          }
+          onChange={function (value: ComboBoxOption2<unknown>): void {
+            setData((prev) => ({ ...prev, motive: value.content }));
+          }}
+          options={MOTIVOS_CANCELACION.map((opt) => ({
+            name: opt.label,
+            content: opt,
+          }))}
+          label="Motivo de cancelación"
+          className="w-full"
+        />
+        <ComboBox2
+          value={
+            data.type
+              ? {
+                  name: data.type.label,
+                  content: data.type,
+                }
+              : {
+                  name: "",
+                  content: undefined,
+                }
+          }
+          onChange={function (value: ComboBoxOption2<unknown>): void {
+            setData((prev) => ({ ...prev, type: value.content }));
+          }}
+          options={CFDI_STATUS.map((opt) => ({
+            name: opt.label,
+            content: opt,
+          }))}
+          label="Tipo de reserva"
+          className="w-full"
+        />
+      </div>
+    </>
+  );
+};
+
+const MOTIVOS_CANCELACION = [
+  {
+    value: "01",
+    label: "01 - Comprobante emitido con errores con relación",
+  },
+  {
+    value: "02",
+    label: "02 - Comprobante emitido con errores sin relación",
+  },
+  {
+    value: "03",
+    label: "03 - No se llevó a cabo la operación",
+  },
+  {
+    value: "04",
+    label: "04 - Operación nominativa relacionada en factura global",
+  },
+];
+const CFDI_STATUS = [
+  {
+    value: "issued",
+    label: "Issued - Factura emitida y timbrada",
+  },
+  {
+    value: "canceled",
+    label: "Canceled - Factura cancelada",
+  },
+  {
+    value: "pending",
+    label: "Pending - Factura pendiente de timbrar",
+  },
+  {
+    value: "draft",
+    label: "Draft - Borrador (no timbrada)",
+  },
+  {
+    value: "payment",
+    label: "Payment - Complemento de pago",
+  },
+  {
+    value: "payroll",
+    label: "Payroll - Nómina",
+  },
+];
