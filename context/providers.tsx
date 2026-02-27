@@ -24,12 +24,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <NotificationProvider>
-        <HotelProvider>
-          <ProveedorProvider>
-            <Notification></Notification>
-            <AuthProvider>{children}</AuthProvider>
-          </ProveedorProvider>
-        </HotelProvider>
+        <AuthProvider>
+          <HotelProvider>
+            <ProveedorProvider>
+              <Notification></Notification>
+              {children}
+            </ProveedorProvider>
+          </HotelProvider>
+        </AuthProvider>
       </NotificationProvider>
     </QueryClientProvider>
   );
