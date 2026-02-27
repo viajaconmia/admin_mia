@@ -440,7 +440,7 @@ export const FacturacionModal: React.FC<{
   const [error, setError] = useState<string | null>(null);
 
   const [selectedCfdiUse, setSelectedCfdiUse] = useState("G03");
-  const [selectedPaymentForm, setSelectedPaymentForm] = useState("03");
+  const [selectedPaymentForm, setSelectedPaymentForm] = useState("99");
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("PPD");
 
   const [descarga, setDescarga] = useState<string | null>(null);
