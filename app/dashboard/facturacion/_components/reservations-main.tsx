@@ -2003,10 +2003,6 @@ export const FacturacionModal: React.FC<{
                   }
 
                   if (!xml) {
-                    showNotification(
-                      "error",
-                      "No se encontró el XML en la respuesta de descarga.",
-                    );
                     return;
                   }
 
