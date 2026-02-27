@@ -469,7 +469,7 @@ export const FacturacionModal: React.FC<{
   };
 
   const [dueDate, setDueDate] = useState<string>(() =>
-    toInputDate(addDays(new Date(), 30)),
+    toInputDate(addDays(new Date(), 15)),
   );
   const minDueDate = toInputDate(new Date());
 
@@ -1740,7 +1740,7 @@ export const FacturacionModal: React.FC<{
                   className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 />
                 <p className="text-[11px] text-gray-500 mt-1">
-                  Por defecto se establece 30 días a partir de hoy.
+                  Por defecto se establece 15 días a partir de hoy.
                 </p>
 
                 {selectedFiscalData?.rfc == RFC_GENERICO && (
