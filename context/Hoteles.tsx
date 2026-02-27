@@ -9,6 +9,7 @@ import {
 } from "react";
 import { useAlert } from "./useAlert";
 import { fetchHoteles, newFetchHoteles } from "@/services/hoteles";
+import { useAuth } from "./AuthContext";
 
 type HotelContextType = {
   actualizarHoteles: () => void;
@@ -27,6 +28,7 @@ type HotelProviderProps = {
 export function HotelProvider({ children }: HotelProviderProps) {
   const [hoteles, setHoteles] = useState<any[] | null>(null);
   const { showNotification } = useAlert();
+  const { isAuthenticated, loading } = useAuth();
 
   const actualizarHoteles = async () => {
     try {
@@ -44,8 +46,11 @@ export function HotelProvider({ children }: HotelProviderProps) {
   };
 
   useEffect(() => {
-    actualizarHoteles();
-  }, []);
+    if (isAuthenticated && !loading) {
+      console.log("Jalando hoteles");
+      actualizarHoteles();
+    }
+  }, [isAuthenticated]);
 
   const value: HotelContextType = {
     hoteles,
