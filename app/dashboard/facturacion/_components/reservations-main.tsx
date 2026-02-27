@@ -7,7 +7,7 @@ import {
   subirArchivoAS3,
   obtenerPresignedUrl,
 } from "@/helpers/utils";
-import { URL as API_URL, API_KEY } from "@/lib/constants/index";
+import { URL as API_URL, API_KEY, environment } from "@/lib/constants/index";
 import useApi from "@/hooks/useApi";
 import { DescargaFactura, Root } from "@/types/billing";
 import { Download } from "lucide-react";
@@ -397,7 +397,7 @@ export const FacturacionModal: React.FC<{
   type IvaRate = typeof IVA_16 | typeof IVA_8;
 
   const EXPEDITION_PLACE_8P = "32460";
-  const EXPEDITION_PLACE_16P = "11560";
+  const EXPEDITION_PLACE_16P = !environment ? "11560" : "42501";
   // const EXPEDITION_PLACE_16P = "42501";
 
   const [ivaRate, setIvaRate] = useState<IvaRate>(IVA_16);
@@ -443,7 +443,8 @@ export const FacturacionModal: React.FC<{
   const [selectedPaymentForm, setSelectedPaymentForm] = useState("03");
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("PPD");
 
-  const [descarga, setDescarga] = useState<DescargaFactura | null>(null);
+  const [descarga, setDescarga] = useState<string | null>(null);
+  const [descargaxml, setDescargaxml] = useState<string | null>(null);
   const [isInvoiceGenerated, setIsInvoiceGenerated] = useState<Root | null>(
     null,
   );
@@ -1283,11 +1284,15 @@ export const FacturacionModal: React.FC<{
 
       const response = await crearCfdi(payloadCFDI.cfdi, payloadCFDI.info_user);
       if ((response as any)?.error) throw new Error((response as any).error);
-
+      console.log(response);
+      descargarFactura(response.Id)
+        .then((factura) => setDescarga(factura))
+        .catch((err) => console.error(err));
+      descargarFactura(response.Id, "xml")
+        .then((factura) => setDescargaxml(factura))
+        .catch((err) => console.error(err));
+      setIsInvoiceGenerated(response.data);
       setIsInvoiceGenerated(response);
-
-      const factura = await descargarFactura((response as any).Id);
-      setDescarga(factura);
 
       showNotification("success", "Se ha generado con éxito la factura");
       onConfirm(selectedFiscalData, mode === "consolidada");
@@ -1943,81 +1948,24 @@ export const FacturacionModal: React.FC<{
           </button>
 
           {isInvoiceGenerated ? (
-            <div className="flex gap-2">
-              <button
-                type="button"
-                disabled={!descarga}
-                onClick={() => {
-                  if (!descarga) return;
-                  const pdf =
-                    getPdfBase64(descarga) ??
-                    (typeof descarga === "string" ? descarga : null);
-
-                  if (
-                    typeof pdf === "string" &&
-                    maybeDownloadByUrl(
-                      pdf,
-                      "application/pdf",
-                      `factura_${(isInvoiceGenerated as any)?.Folio ?? (cfdi as any)?.Folio ?? "archivo"}.pdf`,
-                    )
-                  ) {
-                    return;
-                  }
-
-                  if (!pdf) {
-                    showNotification(
-                      "error",
-                      "No se encontró el PDF en la respuesta de descarga.",
-                    );
-                    return;
-                  }
-
-                  downloadBase64File(
-                    pdf,
-                    "application/pdf",
-                    `factura_${(isInvoiceGenerated as any)?.Folio ?? (cfdi as any)?.Folio ?? "archivo"}.pdf`,
-                  );
-                }}
-                className="px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors border border-blue-200 flex items-center gap-2"
+            <>
+              <a
+                href={`data:application/pdf;base64,${descarga?.Content}`}
+                download={`Factura-${cfdi.Folio}-${cfdi.Receiver.Rfc}.pdf`}
+                className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors border border-blue-200"
               >
                 <Download className="w-4 h-4" />
                 <span className="text-sm">Descargar PDF</span>
-              </button>
-
-              <button
-                type="button"
-                disabled={!descarga}
-                onClick={() => {
-                  if (!descarga) return;
-                  const xml = getXmlBase64(descarga) ?? null;
-
-                  if (
-                    typeof xml === "string" &&
-                    maybeDownloadByUrl(
-                      xml,
-                      "application/xml",
-                      `factura_${(isInvoiceGenerated as any)?.Folio ?? (cfdi as any)?.Folio ?? "archivo"}.xml`,
-                    )
-                  ) {
-                    return;
-                  }
-
-                  if (!xml) {
-                    return;
-                  }
-
-                  downloadBase64File(
-                    xml,
-                    "application/xml",
-                    `factura_${(isInvoiceGenerated as any)?.Folio ?? (cfdi as any)?.Folio ?? "archivo"}.xml`,
-                  );
-                }}
-                className="px-4 py-2 bg-white text-green-600 rounded-lg hover:bg-green-50 transition-colors border border-green-200 flex items-center gap-2"
+              </a>
+              <a
+                href={`data:application/xml;base64,${descargaxml?.Content}`}
+                download={`Factura-${cfdi.Folio}-${cfdi.Receiver.Rfc}.xml`}
+                className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors border border-blue-200"
               >
                 <Download className="w-4 h-4" />
                 <span className="text-sm">Descargar XML</span>
-              </button>
-            </div>
+              </a>
+            </>
           ) : (
             <button
               type="button"

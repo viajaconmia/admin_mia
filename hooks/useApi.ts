@@ -17,8 +17,11 @@ async function safeFetchJSON(input: RequestInfo, init?: RequestInit) {
   let data: any = null;
 
   if (raw) {
-    try { data = JSON.parse(raw); }
-    catch { data = { raw }; } // por si el backend manda HTML o texto
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      data = { raw };
+    } // por si el backend manda HTML o texto
   }
 
   if (!res.ok) {
@@ -42,13 +45,12 @@ export const useApi = () => {
       {
         method: "GET",
         headers: HEADERS_API,
-      }
+      },
     );
     const json = await response.json();
     console.log(json);
   };
 
-  
   const crearSessionCheckout = async (payment_data) => {
     const response = await fetch(`${URL}${ROUTES.stripe}${ENDPOINTS.create}`, {
       method: "POST",
@@ -66,19 +68,22 @@ export const useApi = () => {
       {
         method: "GET",
         headers: HEADERS_API,
-      }
+      },
     );
     const json = await response.json();
     console.log(json);
     return json;
   };
 
-    const postFactura = async (endpoint: string, body: PostBodyParams) => {
-    return safeFetchJSON(`${URL}${ROUTES.factura}${endpoint}`, {
+  const postFactura = async (endpoint: string, body: PostBodyParams) => {
+    const response = await fetch(`${URL}${ROUTES.factura}${endpoint}`, {
       method: "POST",
       headers: HEADERS_API,
       body: JSON.stringify(body),
     });
+    const json = await response.json();
+    console.log(json);
+    return json;
   };
 
   const crearCfdi = async (
@@ -87,7 +92,7 @@ export const useApi = () => {
       id_user: string;
       id_solicitud: string[];
       id_items: string[];
-    }
+    },
   ) => {
     try {
       const response = await fetch(`${URL}/mia/factura/combinada`, {
@@ -116,48 +121,47 @@ export const useApi = () => {
       };
     }
   };
-  
-  
-//   const crearCfdiEmi = async (
-//     cfdi: CfdiInvoice,
-//     info_user: {
-//       id_user: string;
-//       id_solicitud: string[];
-//       id_items: string[];
-//     }
-//   ) => {
-//     try {
-//       const response = await fetch(`${URL}/mia/factura/combinadaEmi`, {
-//         method: "POST",
-//         headers: HEADERS_API,
-//         body: JSON.stringify({ cfdi, info_user }),
-//       });
 
-//       // if (!response.ok) {
-//       //   console.log("Error de http")
-//       //   throw new Error(`HTTP error! status: ${response.status}`);
-//       // }
+  //   const crearCfdiEmi = async (
+  //     cfdi: CfdiInvoice,
+  //     info_user: {
+  //       id_user: string;
+  //       id_solicitud: string[];
+  //       id_items: string[];
+  //     }
+  //   ) => {
+  //     try {
+  //       const response = await fetch(`${URL}/mia/factura/combinadaEmi`, {
+  //         method: "POST",
+  //         headers: HEADERS_API,
+  //         body: JSON.stringify({ cfdi, info_user }),
+  //       });
 
-//       const json = await response.json();
-// console.log(json)
-//       // if (json.error) {
-//       //   throw new Error(json.error);
-//       // }
+  //       // if (!response.ok) {
+  //       //   console.log("Error de http")
+  //       //   throw new Error(`HTTP error! status: ${response.status}`);
+  //       // }
 
-//       return json;
-//     } catch (error) {
-//       console.error("Error en crearCfdi:", error);
-//       throw {
-//         error: "Error al crear CFDI",
-//         details: error.message,
-//         originalError: error,
-//       };
-//     }
-//   };
+  //       const json = await response.json();
+  // console.log(json)
+  //       // if (json.error) {
+  //       //   throw new Error(json.error);
+  //       // }
+
+  //       return json;
+  //     } catch (error) {
+  //       console.error("Error en crearCfdi:", error);
+  //       throw {
+  //         error: "Error al crear CFDI",
+  //         details: error.message,
+  //         originalError: error,
+  //       };
+  //     }
+  //   };
 
   const crearCfdiEmi = async (payload: {
     cfdi: CfdiInvoice;
-    info_user: { id_user: string;};
+    info_user: { id_user: string };
     datos_empresa: { rfc: string; id_empresa: string };
   }) => {
     try {
@@ -169,7 +173,11 @@ export const useApi = () => {
       console.log("crearCfdiEmi OK:", json);
       return json;
     } catch (error: any) {
-      console.error("Error en crearCfdiEmi:", error?.status, error?.data || error);
+      console.error(
+        "Error en crearCfdiEmi:",
+        error?.status,
+        error?.data || error,
+      );
       // Re-lanza con formato consistente para el componente
       throw {
         error: "Error al crear CFDI",
@@ -185,20 +193,20 @@ export const useApi = () => {
   const obtenerClientesPorRfc = async (clientRfc: string) =>
     await getFactura(
       ENDPOINTS.facturas.getClientesPorRfc.endpoint,
-      `?clientRfc=${clientRfc}`
+      `?clientRfc=${clientRfc}`,
     );
 
   const obtenerClientesPorId = async (clientId: string) =>
     await getFactura(
       ENDPOINTS.facturas.getClientesPorId.endpoint,
-      `?clientId=${clientId}`
+      `?clientId=${clientId}`,
     );
 
   const obtenerlistaCfdisPorCliente = async (rfc: string) =>
     await getFactura(ENDPOINTS.facturas.getCfdi.endpoint, `?rfc=${rfc}`);
 
-  const descargarFactura = async (cfdi_id: string) =>
-    postFactura(ENDPOINTS.facturas.downloadCfdi.endpoint, { cfdi_id });
+  const descargarFactura = async (cfdi_id: string, type: string = "pdf") =>
+    postFactura(ENDPOINTS.facturas.downloadCfdi.endpoint, { cfdi_id, type });
 
   const descargarFacturaXML = async (cfdi_id: string) =>
     postFactura(ENDPOINTS.facturas.downloadCfdiXML.endpoint, { cfdi_id });
@@ -227,6 +235,7 @@ export const useApi = () => {
 
 interface DataToDownload {
   cfdi_id: string;
+  type: string;
 }
 
 interface DataToSendEmail {
