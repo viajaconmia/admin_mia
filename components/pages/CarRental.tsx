@@ -796,7 +796,6 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
 
               <DateTimeInput
                 label="Fecha de recogida"
-                min={getTodayDateTime()}
                 max={getDatePlusFiveYears()}
                 value={state.check_in}
                 onChange={(value: string) => {
@@ -852,7 +851,7 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
               </div>
 
               <DateTimeInput
-                min={getTodayDateTime()}
+                min={state.check_in ? state.check_in : undefined}
                 max={getDatePlusFiveYears()}
                 label="Fecha de devolución"
                 value={state.check_out}
