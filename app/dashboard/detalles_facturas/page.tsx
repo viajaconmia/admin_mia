@@ -188,6 +188,11 @@ const limpiarFechas = () => {
           <span className="font-semibold text-xs text-gray-800">{value}</span>
         </div>
       ),
+      codigo_empleado: ({ value }: any) => (
+        <div className="flex justify-center">
+          <span className="font-semibold text-xs text-gray-800">{value}</span>
+        </div>
+      ),
       host: ({ value }: any) => (
         <div className="flex justify-center">
           <span className="font-semibold text-xs text-gray-800">{value}</span>
@@ -360,6 +365,7 @@ const limpiarFechas = () => {
             maxHeight="calc(100vh - 300px)"
             customColumns={[
               "viajero",
+              "numero_empleado",
               "host",
               "tipo_habitacion",
               "chin",
