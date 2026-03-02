@@ -901,11 +901,12 @@ export default function SubirFactura({
 
   const handleEnviar = async () => {
     // ========== Validación ==========
-    const validationErrors = validateFacturaForm({
-      clienteSeleccionado,
-      archivoXML,
-      isProveedorBatch,
-    });
+const validationErrors = validateFacturaForm({
+  clienteSeleccionado,
+  archivoXML,
+  archivoPDF, // ✅ NUEVO
+  isProveedorBatch,
+});
 
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
@@ -1207,57 +1208,6 @@ export default function SubirFactura({
               </div>
             )}
 
-            {/* ==============================
-                BATCH proveedor: N inputs montos
-               ============================== */}
-            {isProveedorBatch && (
-              <div className="mt-4 mb-4">
-                <label className="block mb-2 font-medium">
-                  Montos a asociar por solicitud (MXN)
-                </label>
-
-                <div className="space-y-3">
-                  {batchAsociaciones.map((it, idx) => {
-                    const proveedorLabel =
-                      it.raw?.proveedor ||
-                      it.raw?.hotel ||
-                      `Proveedor ${it.id_proveedor}`;
-                    return (
-                      <div
-                        key={`${it.id_solicitud}-${it.id_proveedor}-${idx}`}
-                        className="p-3 rounded border bg-white"
-                      >
-                        <div className="text-xs text-gray-600 mb-2">
-                          <div>
-                            <strong>Solicitud:</strong> {it.id_solicitud}
-                          </div>
-                          <div>
-                            <strong>Proveedor:</strong> {proveedorLabel}
-                          </div>
-                        </div>
-
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          placeholder="0.00"
-                          value={it.monto_asociar}
-                          onChange={(e) => updateMontoBatch(idx, e.target.value)}
-                          className="w-full p-2 border rounded border-gray-300"
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="mt-3 text-sm text-gray-700">
-                  <strong>Total asociado:</strong>{" "}
-                  {new Intl.NumberFormat("es-MX", {
-                    style: "currency",
-                    currency: "MXN",
-                  }).format(batchTotalAsociar)}
-                </div>
-              </div>
-            )}
 
             {/* Checkbox factura pagada */}
             <div className="flex items-center mb-4">
@@ -1423,12 +1373,14 @@ interface FacturaErrors {
   clienteSeleccionado?: string;
   empresaSeleccionada?: string;
   archivoXML?: string;
+  archivoPDF?: string; // ✅ NUEVO
 }
 
 // Función de validación
 const validateFacturaForm = (formData: {
   clienteSeleccionado: Agente | null;
   archivoXML: File | null;
+  archivoPDF: File | null; // ✅ NUEVO
   isProveedorBatch: boolean;
 }): FacturaErrors => {
   const errors: FacturaErrors = {};
@@ -1442,6 +1394,11 @@ const validateFacturaForm = (formData: {
 
   if (!formData.archivoXML) {
     errors.archivoXML = "El archivo XML es requerido";
+  }
+
+  // ✅ PDF requerido igual que XML
+  if (!formData.archivoPDF) {
+    errors.archivoPDF = "El archivo PDF es requerido";
   }
 
   return errors;
