@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 
 export const getEstatus = (
-  estatus: string
+  estatus: string,
 ): "Confirmada" | "En proceso" | "Cancelada" => {
   let data = estatus;
   switch (data) {
@@ -75,12 +75,10 @@ export const formatDate = (dateString: string) => {
   });
 };
 
-
 export const formatRoom = (room: string) => {
   let response = room;
   if (typeof room !== "string") return "";
   if (response.toUpperCase() == "SINGLE") {
-
     response = "SENCILLO";
   } else if ((response || "").toUpperCase() == "DOUBLE") {
     response = "DOBLE";
@@ -94,7 +92,7 @@ export function quitarAcentos(texto) {
 
 export function calcularNoches(
   checkIn: string | Date,
-  checkOut: string | Date
+  checkOut: string | Date,
 ): number {
   const entrada = new Date(checkIn);
   const salida = new Date(checkOut);
@@ -253,12 +251,12 @@ export const exportToCSV = (data, filename = "archivo.csv") => {
 
           return `"${(val ?? "").toString().replace(/"/g, '""')}"`;
         })
-        .join(",")
+        .join(","),
     ),
   ].join("\n");
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
   const link = document.createElement("a");
-  const url = window.URL.createObjectURL(blob);
+  const url = window.window.URL.createObjectURL(blob);
   link.setAttribute("href", url);
   link.setAttribute("download", filename);
   document.body.appendChild(link);
@@ -267,7 +265,7 @@ export const exportToCSV = (data, filename = "archivo.csv") => {
 };
 
 export function formatNumberWithCommas(
-  numberStr: string | number | undefined | null
+  numberStr: string | number | undefined | null,
 ): string {
   // Si el valor es undefined o null, retornar cadena vacía
   if (numberStr == null) return "";
@@ -403,7 +401,7 @@ export async function obtenerPresignedUrl(
   filename: string,
   filetype: string,
   folder: string,
-  endpointBase = "/mia/utils/cargar-archivos"
+  endpointBase = "/mia/utils/cargar-archivos",
 ): Promise<UploadResponse> {
   const url = `${URL}${endpointBase}/${folder}?filename=${filename}&filetype=${filetype}`;
 
@@ -423,7 +421,7 @@ export async function obtenerPresignedUrl(
 
 export async function subirArchivoAS3(
   file: File,
-  presignedUrl: string
+  presignedUrl: string,
 ): Promise<void> {
   try {
     const uploadRes = await fetch(presignedUrl, {
@@ -444,7 +442,7 @@ export async function subirArchivoAS3(
 
 export const subirArchivosAS3Luis = async (
   archivo: File,
-  folder: string
+  folder: string,
 ): Promise<string> => {
   if (!archivo) {
     throw new Error("El archivo es requerido");
@@ -454,7 +452,7 @@ export const subirArchivosAS3Luis = async (
     const { url, publicUrl } = await obtenerPresignedUrl(
       archivo.name,
       archivo.type,
-      folder
+      folder,
     );
     await subirArchivoAS3(archivo, url);
     return publicUrl;
@@ -463,3 +461,22 @@ export const subirArchivosAS3Luis = async (
     throw err;
   }
 };
+
+export function downloadXML(base64: string, fileName: string) {
+  const byteCharacters = atob(base64);
+  const byteNumbers = new Array(byteCharacters.length);
+
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i);
+  }
+
+  const byteArray = new Uint8Array(byteNumbers);
+  const blob = new Blob([byteArray], { type: "application/xml" });
+
+  const link = document.createElement("a");
+  link.href = window.URL.createObjectURL(blob);
+  link.download = `${fileName}.xml`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}

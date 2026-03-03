@@ -43,7 +43,13 @@ import { Button } from "@/components/ui/button";
 import ModalDetalleFactura from "@/app/dashboard/invoices/_components/detalles";
 import { PageTracker, TrackingPage } from "./tracker_false";
 import { set } from "date-fns";
-import { ComboBox2, ComboBoxOption2 } from "@/components/atom/Input";
+import {
+  ComboBox2,
+  ComboBoxOption2,
+  TextAreaInput,
+  TextInput,
+} from "@/components/atom/Input";
+import { downloadXML } from "@/helpers/utils";
 
 // Formato moneda
 const fmtMoney = (n: any) =>
@@ -73,12 +79,12 @@ const MAX_REGISTER = 50; // para paginación, número de registros por página
 /* ===================== Página con Table5 + filtros ===================== */
 
 const defaultFiltersFacturas: TypeFilters = {
-  estatusFactura: "Confirmada",
+  estatusFactura: null,
   id_factura: null,
-  id_cliente: "",
-  cliente: "",
-  uuid: "",
-  rfc: "",
+  id_cliente: null,
+  cliente: null,
+  uuid: null,
+  rfc: null,
 };
 
 export function TravelersPage() {
@@ -157,31 +163,11 @@ export function TravelersPage() {
     }
   };
 
-  // ✅ cuando cambien filtros, resetea página a 1 y carga
   useEffect(() => {
     const nextPage = 1;
     setTracking((prev) => ({ ...prev, page: nextPage }));
-    cargarFacturas(nextPage);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeFilters]);
 
-  // ✅ carga inicial (solo una vez)
-  useEffect(() => {
-    cargarFacturas(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Inicial
-  // useEffect(() => {
-  //   // if (firstLoad.current) {
-  //   //   firstLoad.current = false;
-  //   //   cargarFacturas(defaultFiltersFacturas);
-  //   // }
-  // }, []);
-
-  // Handlers de filtros
-
-  /*Eliminar relacion de facturas existentes*/
   const handleQuitarRelacion = async (id_factura: string) => {
     if (!id_factura) return;
 
@@ -276,7 +262,7 @@ export function TravelersPage() {
       );
     });
   }, [searchTerm, facturas]);
-  console.log(facturasFiltradas, "pagos");
+  // console.log(facturasFiltradas, "pagos");
   // Registros para Table5
   const registros = useMemo(() => {
     return (facturasFiltradas || []).map((f: any) => {
@@ -400,6 +386,7 @@ export function TravelersPage() {
               <Button
                 onClick={() => setCancelarFactura(item.id_factura)}
                 size="sm"
+                variant="destructive"
               >
                 Cancelar factura
               </Button>
@@ -565,7 +552,6 @@ export function TravelersPage() {
     }).format(value);
   };
 
-  console.log(balance, "cambios");
   const { showNotification } = useAlert();
 
   return (
@@ -573,9 +559,17 @@ export function TravelersPage() {
       {!!cancelarFactura && (
         <Modal
           onClose={() => setCancelarFactura(null)}
-          title={`Cancelar factura`}
+          title={`¿Quieres cancelar la factura?`}
+          subtitle={`UUID: ${
+            facturas.filter((f) => f.id_factura === cancelarFactura)[0]
+              ?.uuid_factura || "UUID no encontrado"
+          }`}
         >
-          <ModalCancelarFactura id={cancelarFactura} />
+          <ModalCancelarFactura
+            onConfirm={() => cargarFacturas()}
+            id={cancelarFactura}
+            onClose={() => setCancelarFactura(null)}
+          />
         </Modal>
       )}
       <div className="space-y-8">
@@ -621,7 +615,6 @@ export function TravelersPage() {
             <Filters
               defaultFilters={defaultFiltersFacturas}
               onFilter={handleFilter}
-              defaultOpen={true}
               searchTerm={searchTerm}
               setSearchTerm={setSearchTerm}
             />
@@ -691,29 +684,92 @@ export function TravelersPage() {
   );
 }
 
-const ModalCancelarFactura = ({ id }: { id: string }) => {
-  const [data, setData] = useState({ motive: null, type: null });
-  useEffect(() => {
-    console.log(data);
-  }, [data]);
+const ModalCancelarFactura = ({
+  id,
+  onClose,
+  onConfirm,
+}: {
+  id: string;
+  onClose: () => void;
+  onConfirm: () => void;
+}) => {
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState({
+    motive: "03",
+    type: "issued",
+    comentarios: null,
+  });
+  const { showNotification, error: showError, success, info } = useAlert();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    if (!data.motive || !data.type) {
+      showNotification(
+        "error",
+        "Por favor, selecciona un motivo y tipo de cancelación.",
+      );
+      return;
+    }
+    try {
+      let response = await FacturaService.getInstance().cancelarFactura(
+        id,
+        data,
+      );
+      if (response.data?.estado == "required_validation") {
+        const confirmacion = confirm(
+          "La factura es de meses anteriores ¿Continuar con la cancelación?",
+        );
+        if (!confirmacion) {
+          info("Cancelación de factura cancelada por el usuario");
+          return;
+        }
+        response = await FacturaService.getInstance().cancelarFactura(id, {
+          ...data,
+          force: true,
+        });
+      }
+      downloadXML(response.data, `factura_cancelada_${id}.xml`);
+      success(response.message || "Factura cancelada correctamente");
+      onConfirm();
+      onClose();
+    } catch (error) {
+      showError(error.message || "Error al cancelar la factura");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <>
-      <div className="w-[90vw] max-w-xl flex flex-col justify-center h-60 p-4 gap-2">
+      <form
+        className="w-[90vw] max-w-xl flex flex-col justify-between h-72 p-4 gap-2"
+        onSubmit={handleSubmit}
+      >
         <div className="grid grid-cols-2 w-full gap-2">
           <ComboBox2
             value={
-              data.motive
+              MOTIVOS_CANCELACION.filter((opt) => opt.value === data.motive)[0]
                 ? {
-                    name: data.motive.label,
-                    content: data.motive,
+                    name: MOTIVOS_CANCELACION.filter(
+                      (opt) => opt.value === data.motive,
+                    )[0].label,
+                    content: MOTIVOS_CANCELACION.filter(
+                      (opt) => opt.value === data.motive,
+                    )[0],
                   }
                 : {
                     name: "",
                     content: undefined,
                   }
             }
-            onChange={function (value: ComboBoxOption2<unknown>): void {
-              setData((prev) => ({ ...prev, motive: value.content }));
+            onChange={function (
+              value: ComboBoxOption2<{ value: string; label: string }>,
+            ): void {
+              setData((prev) => ({
+                ...prev,
+                motive: value.content.value,
+              }));
             }}
             options={MOTIVOS_CANCELACION.map((opt) => ({
               name: opt.label,
@@ -724,34 +780,57 @@ const ModalCancelarFactura = ({ id }: { id: string }) => {
           />
           <ComboBox2
             value={
-              data.type
+              CFDI_STATUS.filter((opt) => opt.value === data.type)[0]
                 ? {
-                    name: data.type.label,
-                    content: data.type,
+                    name: CFDI_STATUS.filter(
+                      (opt) => opt.value === data.type,
+                    )[0].label,
+                    content: CFDI_STATUS.filter(
+                      (opt) => opt.value === data.type,
+                    )[0],
                   }
                 : {
                     name: "",
                     content: undefined,
                   }
             }
-            onChange={function (value: ComboBoxOption2<unknown>): void {
-              setData((prev) => ({ ...prev, type: value.content }));
+            onChange={function (
+              value: ComboBoxOption2<{ value: string; label: string }>,
+            ): void {
+              setData((prev) => ({ ...prev, type: value.content.value }));
             }}
             options={CFDI_STATUS.map((opt) => ({
               name: opt.label,
               content: opt,
             }))}
-            label="Tipo de reserva"
+            label="Tipo de factura"
             className="w-full"
           />
+          <TextAreaInput
+            className="col-span-2"
+            label="¿Por qué se cancela la reserva?"
+            value={data.comentarios}
+            onChange={function (value: string): void {
+              setData((prev) => ({ ...prev, comentarios: value }));
+            }}
+          ></TextAreaInput>
         </div>
         <div className="flex flex-col items-center">
           <div className="grid grid-cols-2 w-full gap-2">
-            <Button>Cancelar</Button>
-            <Button>Continuar</Button>
+            <Button
+              variant="ghost"
+              type="button"
+              onClick={onClose}
+              disabled={loading}
+            >
+              Conservar factura
+            </Button>
+            <Button variant="destructive" type="submit" disabled={loading}>
+              Sí, cancelar factura
+            </Button>
           </div>
         </div>
-      </div>
+      </form>
     </>
   );
 };
@@ -774,6 +853,7 @@ const MOTIVOS_CANCELACION = [
     label: "04 - Operación nominativa relacionada en factura global",
   },
 ];
+
 const CFDI_STATUS = [
   {
     value: "issued",

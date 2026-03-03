@@ -10,6 +10,9 @@ export class FacturaService extends ApiService {
     POST: {
       obtener_facturas: "/filtrarFacturas",
     },
+    DELETE: {
+      BY_ID: (id: string) => `/${id}`,
+    },
   };
   private static instance: FacturaService;
 
@@ -30,6 +33,15 @@ export class FacturaService extends ApiService {
     this.post({
       path: this.formatPath(this.ENDPOINTS.POST.obtener_facturas),
       body,
+    });
+
+  public cancelarFactura = async (
+    id: string,
+    params: any,
+  ): Promise<ApiResponse<any>> =>
+    this.delete({
+      path: this.formatPath(this.ENDPOINTS.DELETE.BY_ID(id)),
+      params,
     });
 
   public actualizarDocumentosFacturas = async (body: {
