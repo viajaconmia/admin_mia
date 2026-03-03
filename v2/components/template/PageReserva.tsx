@@ -20,7 +20,7 @@ import {
   formatNumberWithCommas,
   formatTime,
 } from "@/helpers/formater";
-import { getStatusBadge } from "@/helpers/utils";
+import { calcularNoches, getStatusBadge } from "@/helpers/utils";
 import { currentDate } from "@/lib/utils";
 import { BookingAll, BookingsService } from "@/services/BookingService";
 import { TypeFilters } from "@/types";
@@ -126,6 +126,10 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
         horario_salida: reserva.horario_salida,
         check_out: reserva.check_out.split("T")[0],
         horario_llegada: reserva.horario_llegada,
+        noches: calcularNoches(
+          reserva.check_in || "",
+          reserva.check_out || "",
+        ),
         tipo: reserva.tipo_cuarto_vuelo,
         costo_proveedor: reserva.costo_total,
         markup:
@@ -259,6 +263,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     horario_salida: reserva.horario_salida,
     check_out: reserva.check_out,
     horario_llegada: reserva.horario_llegada,
+    noches: calcularNoches(reserva.check_in || "", reserva.check_out || ""),
     tipo: reserva.tipo_cuarto_vuelo,
     costo_proveedor: reserva.costo_total,
     markup:
