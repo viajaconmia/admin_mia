@@ -681,6 +681,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       item: saldo,
     }));
 
+
     // Sort the data
     return transformedData.sort((a, b) => {
       const aValue = a[sortConfig.key];
@@ -711,6 +712,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       return 0;
     });
   }, [saldos, filters, searchTerm, sortConfig.key, sortConfig.sort]);
+    console.log(filteredData,"informoacniodnbiornvio😢😢😢😢😢")
 
   // 👇 dentro de PageCuentasPorCobrar
   const actualizarSoloComentario = async (
@@ -752,18 +754,28 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   };
 
   const tableRenderers = {
-    fecha_De_Pago: ({ value }: { value: string | null }) => {
-      if (!value) return <div className="text-gray-400 italic">Sin fecha</div>;
+    // fecha_De_Pago: ({ value }: { value: string | null }) => {
+    //   if (!value) return <div className="text-gray-400 italic">Sin fecha</div>;
 
-      return (
-        <div className="whitespace-nowrap text-sm text-blue-900">
-          {formatDate(value)}
-        </div>
-      );
-    },
+    //   return (
+    //     <div className="whitespace-nowrap text-sm text-blue-900">
+    //       {formatDate(value)}
+    //     </div>
+    //   );
+    // },
 
-    // Renderizador para creado
-    creado: ({ value }: { value: Date | null }) => {
+    // // Renderizador para creado
+    // creado: ({ value }: { value: Date | null }) => {
+    //   if (!value) return <div className="text-gray-400">N/A</div>;
+
+    //   return (
+    //     <div className="whitespace-nowrap text-sm text-blue-900">
+    //       {format(new Date(value), "dd 'de' MMMM yyyy", { locale: es })}
+    //     </div>
+    //   );
+    // },
+
+    fecha_De_Pago: ({ value }: { value: Date | null }) => {
       if (!value) return <div className="text-gray-400">N/A</div>;
 
       return (
@@ -772,7 +784,15 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         </div>
       );
     },
+creado: ({ value }: { value: Date | null }) => {
+      if (!value) return <div className="text-gray-400">N/A</div>;
 
+      return (
+        <div className="whitespace-nowrap text-sm text-blue-900">
+          {format(new Date(value), "dd 'de' MMMM yyyy", { locale: es })}
+        </div>
+      );
+    },
     monto_pagado: ({ value, item }: { value: string; item: Saldo }) => {
       const isActive = Boolean(item?.activo);
       const formatted = formatNumberWithCommas(parseFloat(value).toFixed(2));
@@ -1678,7 +1698,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
               renderers={tableRenderers}
               customColumns={[
                 "saldo",
-                "fecha_de_pago",
+                "fecha_De_Pago",
                 "tipo_tarjeta",
                 "forma_de_pago",
                 "creado",

@@ -4,6 +4,9 @@ import { TypeFilters } from "@/types";
 
 export class FacturaService extends ApiService {
   private ENDPOINTS = {
+    GET: {
+      obtener_facturas: "/",
+    },
     PUT: {
       PDF: "/documentos",
     },
@@ -26,6 +29,12 @@ export class FacturaService extends ApiService {
     }
     return this.instance;
   }
+
+  public getFacturas = async (params: any): Promise<ApiResponse<Factura[]>> =>
+    this.get({
+      path: this.formatPath(this.ENDPOINTS.GET.obtener_facturas),
+      params,
+    });
 
   public obtenerFacturas = async (
     body: TypeFilters & { page?: number; length?: number },
