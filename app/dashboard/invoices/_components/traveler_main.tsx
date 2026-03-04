@@ -74,7 +74,7 @@ const MAX_REGISTER = 200; // para paginación, número de registros por página
 /* ===================== Página con Table5 + filtros ===================== */
 
 const defaultFiltersFacturas: TypeFilters = {
-  estatusFactura: "Confirmada",
+  estatusFactura: null,
   id_factura: null,
   id_cliente: "",
   cliente: "",
