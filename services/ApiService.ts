@@ -20,7 +20,7 @@ export class ApiError extends Error {
   constructor(
     message: string,
     status: number,
-    response: ApiResponse<any> | null = null
+    response: ApiResponse<any> | null = null,
   ) {
     super(message);
     this.name = "ApiError";
@@ -50,7 +50,7 @@ export class ApiService {
     method: string,
     path: string,
     body?: any,
-    customHeaders: { [key: string]: any } = {}
+    customHeaders: { [key: string]: any } = {},
   ): Promise<ApiResponse<T>> {
     try {
       const headers = { ...this.headers, ...customHeaders };
@@ -64,7 +64,7 @@ export class ApiService {
         config.body = JSON.stringify(body);
       } else if (body && ["GET", "HEAD"].includes(method.toUpperCase())) {
         console.warn(
-          `Advertencia: El método ${method} no debería tener un cuerpo. Los datos del 'body' serán ignorados.`
+          `Advertencia: El método ${method} no debería tener un cuerpo. Los datos del 'body' serán ignorados.`,
         );
       }
 
@@ -110,7 +110,7 @@ export class ApiService {
       } else {
         console.error("Respuesta de API exitosa no conforme:", result);
         throw new Error(
-          "La respuesta de la API exitosa no sigue el formato esperado { message, data }."
+          "La respuesta de la API exitosa no sigue el formato esperado { message, data }.",
         );
       }
     } catch (error) {
@@ -119,7 +119,7 @@ export class ApiService {
       }
       console.error("Error de red o inesperado en la solicitud:", error);
       throw new Error(
-        `Fallo de red o error inesperado: ${(error as Error).message}`
+        `Fallo de red o error inesperado: ${(error as Error).message}`,
       );
     }
   }
@@ -127,11 +127,22 @@ export class ApiService {
   // Helper para construir la cadena de consulta
   private buildQueryString(params: { [key: string]: any }): string {
     const queryParams = new URLSearchParams();
-    Object.entries(params).forEach(([key, value]: [string, any]) => {
-      if (value !== null && value !== undefined) {
+
+    Object.entries(params).forEach(([key, value]) => {
+      if (value === null || value === undefined) return;
+
+      // 🔹 Si es array
+      if (Array.isArray(value)) {
+        value.forEach((item) => {
+          queryParams.append(key, item.toString());
+        });
+      }
+      // 🔹 Si es valor normal
+      else {
         queryParams.append(key, value.toString());
       }
     });
+
     const queryString = queryParams.toString();
     return queryString ? `?${queryString}` : "";
   }
