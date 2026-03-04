@@ -13,6 +13,7 @@ import {
   Proveedor,
   ProveedoresService,
 } from "@/services/ProveedoresService";
+import { useAuth } from "./AuthContext";
 
 type ProveedorContextType = {
   getProveedores: () => Promise<Proveedor[]>;
@@ -29,6 +30,7 @@ const ProveedorContext = createContext<ProveedorContextType>({
 export function ProveedorProvider({ children }: { children: ReactNode }) {
   const [proveedores, setProveedores] = useState<Proveedor[] | null>(null);
   const { showNotification } = useAlert();
+  const { isAuthenticated, loading } = useAuth();
 
   const getProveedores = async () => {
     try {
@@ -61,15 +63,18 @@ export function ProveedorProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  useEffect(() => {
+    if (isAuthenticated && !loading) {
+      console.log("Jalando proveedores");
+      getProveedores();
+    }
+  }, [isAuthenticated]);
+
   const value: ProveedorContextType = {
     proveedores,
     getProveedores,
     updateProveedores,
   };
-
-  useEffect(() => {
-    getProveedores();
-  }, []);
 
   return (
     <ProveedorContext.Provider value={value}>

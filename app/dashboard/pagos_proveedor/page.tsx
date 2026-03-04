@@ -33,6 +33,7 @@ import {
   CheckCircle2,
   Handshake,
   Eye,
+  Ban,
 } from "lucide-react";
 import { URL, API_KEY } from "@/lib/constants/index";
 import PaymentMethodSelector from "./Components/PaymentMethodSelector";
@@ -1069,11 +1070,11 @@ function App() {
 
   const handleCsv = () => setShowComprobanteModal(true);
 
-  const clearSelection = () => {
-    setSelectedSolicitudesMap({});
-    setSolicitud([]);
-    setDatosDispersion([]);
-  };
+const clearSelection = useCallback(() => {
+  setSelectedSolicitudesMap({});
+  setSolicitud([]);
+  setDatosDispersion([]);
+}, []);
 
   // ---------- COLUMNAS (para orden estable + mostrar SP) ----------
   const customColumns = useMemo(
@@ -1127,7 +1128,23 @@ function App() {
     ],
     [],
   );
+const cancelSolicitud = useCallback(
+  async (id_solicitud_proveedor: string) => {
+    const id = String(id_solicitud_proveedor ?? "").trim();
+    if (!id) return false;
 
+    // ✅ Reusa tu PATCH genérico
+    const ok = await patchSolicitudProveedor(id, "estado_solicitud", "CANCELADA");
+
+    if (ok) {
+      clearSelection();
+      handleFetchSolicitudesPago();
+    }
+
+    return ok;
+  },
+  [patchSolicitudProveedor, clearSelection, handleFetchSolicitudesPago],
+);
   // ---------- RENDERERS ----------
   const renderers: Record<
     string,
@@ -1139,6 +1156,8 @@ function App() {
         (row.item as SolicitudProveedor) || row;
       // ✅ SOLO transfer puede seleccionarse (dispersión)
       const forma = getFormaPago(raw);
+      const estadoSolicitud = normUpper(raw?.solicitud_proveedor?.estado_solicitud ?? "");
+      const isCancelada = estadoSolicitud.includes("CANCEL");
       if (forma !== "transfer") {
         return (
           <span
@@ -1149,6 +1168,13 @@ function App() {
           </span>
         );
       }
+      if (isCancelada) {
+  return (
+    <span className="text-gray-300" title="Solicitud cancelada">
+      —
+    </span>
+  );
+}
 
       if (!raw) return null;
 
@@ -1450,6 +1476,8 @@ function App() {
           row?.estado_solicitud ??
           "",
       );
+      const isCancelada = estadoSolicitud.includes("CANCEL");
+      const cancelDisabled = pagado || isCancelada || categoria === "pagada";
 
       // ✅ si es CUPON, oculta acciones en todas las carpetas MENOS en carta_garantia
       if (estadoSolicitud.includes("CUPON") && categoria !== "carta_garantia")
@@ -1496,6 +1524,38 @@ function App() {
             <Maximize2 className="w-3.5 h-3.5" />
             <span>Costo</span>
           </button>
+
+          {/* ✅ Cancelar (PATCH estado_solicitud=CANCELADA) */}
+<button
+  type="button"
+  className={[
+    "inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors shadow-sm",
+    cancelDisabled
+      ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+      : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:border-rose-300",
+  ].join(" ")}
+  disabled={cancelDisabled}
+  onClick={async () => {
+    const okConfirm = window.confirm(
+      `¿Seguro que deseas CANCELAR la solicitud ${idSolProv}?`,
+    );
+    if (!okConfirm) return;
+
+    await cancelSolicitud(idSolProv);
+  }}
+  title={
+    categoria === "pagada"
+      ? "En carpeta pagada no se puede cancelar"
+      : isCancelada
+        ? "Ya está cancelada"
+        : pagado
+          ? "No se puede cancelar una solicitud pagada"
+          : "Cancelar solicitud"
+  }
+>
+  <Ban className="w-3.5 h-3.5" />
+  <span>Cancelar</span>
+</button>
 
           {/* Botón marcar pagado (solo si no es transfer) */}
           {forma !== "transfer" && (

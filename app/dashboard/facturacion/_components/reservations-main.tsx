@@ -440,10 +440,11 @@ export const FacturacionModal: React.FC<{
   const [error, setError] = useState<string | null>(null);
 
   const [selectedCfdiUse, setSelectedCfdiUse] = useState("G03");
-  const [selectedPaymentForm, setSelectedPaymentForm] = useState("03");
+  const [selectedPaymentForm, setSelectedPaymentForm] = useState("99");
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState("PPD");
 
-  const [descarga, setDescarga] = useState<DescargaFactura | null>(null);
+  const [descarga, setDescarga] = useState<string | null>(null);
+  const [descargaxml, setDescargaxml] = useState<string | null>(null);
   const [isInvoiceGenerated, setIsInvoiceGenerated] = useState<Root | null>(
     null,
   );
@@ -469,7 +470,7 @@ export const FacturacionModal: React.FC<{
   };
 
   const [dueDate, setDueDate] = useState<string>(() =>
-    toInputDate(addDays(new Date(), 30)),
+    toInputDate(addDays(new Date(), 15)),
   );
   const minDueDate = toInputDate(new Date());
 
@@ -1259,13 +1260,11 @@ export const FacturacionModal: React.FC<{
           id_solicitud: reservationsWithSelectedItems.map(
             (r) => r.id_solicitud,
           ),
-          // id_items: itemsFacturadosFull.map((x: any) => x.id_item),
           datos_empresa: {
             rfc: cfdi.Receiver.Rfc,
             id_empresa: selectedFiscalData.id_empresa,
           },
           items_facturados: itemsFacturados,
-          // items_facturados_full: itemsFacturadosFull,
           addenda: addendaStr,
           addenda_type: "Noktos",
           invoice_mode: mode,
@@ -1285,11 +1284,15 @@ export const FacturacionModal: React.FC<{
 
       const response = await crearCfdi(payloadCFDI.cfdi, payloadCFDI.info_user);
       if ((response as any)?.error) throw new Error((response as any).error);
-
+      console.log(response);
+      descargarFactura(response.Id)
+        .then((factura) => setDescarga(factura))
+        .catch((err) => console.error(err));
+      descargarFactura(response.Id, "xml")
+        .then((factura) => setDescargaxml(factura))
+        .catch((err) => console.error(err));
+      setIsInvoiceGenerated(response.data);
       setIsInvoiceGenerated(response);
-
-      const factura = await descargarFactura((response as any).Id);
-      setDescarga(factura);
 
       showNotification("success", "Se ha generado con éxito la factura");
       onConfirm(selectedFiscalData, mode === "consolidada");
@@ -1742,7 +1745,7 @@ export const FacturacionModal: React.FC<{
                   className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 />
                 <p className="text-[11px] text-gray-500 mt-1">
-                  Por defecto se establece 30 días a partir de hoy.
+                  Por defecto se establece 15 días a partir de hoy.
                 </p>
 
                 {selectedFiscalData?.rfc == RFC_GENERICO && (
@@ -1945,83 +1948,24 @@ export const FacturacionModal: React.FC<{
           </button>
 
           {isInvoiceGenerated ? (
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  if (!descarga) return;
-                  const pdf =
-                    getPdfBase64(descarga) ??
-                    (typeof descarga === "string" ? descarga : null);
-
-                  if (
-                    typeof pdf === "string" &&
-                    maybeDownloadByUrl(
-                      pdf,
-                      "application/pdf",
-                      `factura_${(isInvoiceGenerated as any)?.Folio ?? (cfdi as any)?.Folio ?? "archivo"}.pdf`,
-                    )
-                  ) {
-                    return;
-                  }
-
-                  if (!pdf) {
-                    showNotification(
-                      "error",
-                      "No se encontró el PDF en la respuesta de descarga.",
-                    );
-                    return;
-                  }
-
-                  downloadBase64File(
-                    pdf,
-                    "application/pdf",
-                    `factura_${(isInvoiceGenerated as any)?.Folio ?? (cfdi as any)?.Folio ?? "archivo"}.pdf`,
-                  );
-                }}
-                className="px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors border border-blue-200 flex items-center gap-2"
+            <>
+              <a
+                href={`data:application/pdf;base64,${descarga?.Content}`}
+                download={`Factura-${cfdi.Folio}-${cfdi.Receiver.Rfc}.pdf`}
+                className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors border border-blue-200"
               >
                 <Download className="w-4 h-4" />
                 <span className="text-sm">Descargar PDF</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  if (!descarga) return;
-                  const xml = getXmlBase64(descarga) ?? null;
-
-                  if (
-                    typeof xml === "string" &&
-                    maybeDownloadByUrl(
-                      xml,
-                      "application/xml",
-                      `factura_${(isInvoiceGenerated as any)?.Folio ?? (cfdi as any)?.Folio ?? "archivo"}.xml`,
-                    )
-                  ) {
-                    return;
-                  }
-
-                  if (!xml) {
-                    showNotification(
-                      "error",
-                      "No se encontró el XML en la respuesta de descarga.",
-                    );
-                    return;
-                  }
-
-                  downloadBase64File(
-                    xml,
-                    "application/xml",
-                    `factura_${(isInvoiceGenerated as any)?.Folio ?? (cfdi as any)?.Folio ?? "archivo"}.xml`,
-                  );
-                }}
-                className="px-4 py-2 bg-white text-green-600 rounded-lg hover:bg-green-50 transition-colors border border-green-200 flex items-center gap-2"
+              </a>
+              <a
+                href={`data:application/xml;base64,${descargaxml?.Content}`}
+                download={`Factura-${cfdi.Folio}-${cfdi.Receiver.Rfc}.xml`}
+                className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition-colors border border-blue-200"
               >
                 <Download className="w-4 h-4" />
                 <span className="text-sm">Descargar XML</span>
-              </button>
-            </div>
+              </a>
+            </>
           ) : (
             <button
               type="button"

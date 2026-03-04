@@ -57,7 +57,7 @@ export const HEADERS_API = {
   "x-api-key": pruebaapi,
   "Cache-Control": "no-cache",
 };
-
+   
 export const URL: string = process.env.NEXT_PUBLIC_URL;
 // console.log(URL);
 

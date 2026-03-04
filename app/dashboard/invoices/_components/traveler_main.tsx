@@ -20,6 +20,7 @@ import {
   FileDown,
   FilePlus,
   Pencil,
+  Download,
 } from "lucide-react";
 import { fetchPagosPrepagobalance } from "@/services/pagos";
 import BalanceSummary from "@/app/dashboard/facturas-pendientes/balance";
@@ -43,13 +44,7 @@ import { Button } from "@/components/ui/button";
 import ModalDetalleFactura from "@/app/dashboard/invoices/_components/detalles";
 import { PageTracker, TrackingPage } from "./tracker_false";
 import { set } from "date-fns";
-import {
-  ComboBox2,
-  ComboBoxOption2,
-  TextAreaInput,
-  TextInput,
-} from "@/components/atom/Input";
-import { downloadXML } from "@/helpers/utils";
+import { useFile } from "@/hooks/useFile";
 
 // Formato moneda
 const fmtMoney = (n: any) =>
@@ -74,17 +69,19 @@ const fmtDate = (v?: string | null) => {
   });
 };
 
-const MAX_REGISTER = 50; // para paginación, número de registros por página
+const MAX_REGISTER = 200; // para paginación, número de registros por página
 
 /* ===================== Página con Table5 + filtros ===================== */
 
 const defaultFiltersFacturas: TypeFilters = {
   estatusFactura: null,
   id_factura: null,
-  id_cliente: null,
-  cliente: null,
-  uuid: null,
-  rfc: null,
+  id_cliente: "",
+  cliente: "",
+  uuid: "",
+  rfc: "",
+  startDate: null,
+  endDate: null,
 };
 
 export function TravelersPage() {
@@ -112,9 +109,11 @@ export function TravelersPage() {
   // Modales/acciones
   const [isModalOpen, setIsModalOpen] = useState<string>("");
   const [facturaAsignando, setFacturaAsignando] = useState<string | null>(null);
+  const [tipo_factura, setTipo_factura] = useState<boolean | null>(null);
   const [facturaAgente, setFacturaAgente] = useState<string | null>(null);
   const [facturaDataSel, setFacturaDataSel] = useState<Factura | null>(null);
   const [facturaEmpresa, setFacturaEmpresa] = useState<string | null>(null);
+  const { csv, setLoadingFile, loadingFile } = useFile();
 
   const [modalDetalleOpen, setModalDetalleOpen] = useState(false);
   const [detalleIdFactura, setDetalleIdFactura] = useState<string | null>(null);
@@ -122,6 +121,105 @@ export function TravelersPage() {
   const [detalleFacturaData, setDetalleFacturaData] = useState<any | null>(
     null,
   );
+
+  const toText = (v: any, fallback = "N/A") => {
+    if (v === null || v === undefined) return fallback;
+    const s = String(v).trim();
+    return s ? s : fallback;
+  };
+
+  const fmtDateTime = (v?: string | null) => {
+    if (!v) return "N/A";
+    const d = new Date(v);
+    if (Number.isNaN(d.getTime())) return fmtDate(v); // fallback a tu fecha corta
+    return d.toLocaleString("es-MX", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const handleExport = async () => {
+    setLoadingFile(true);
+    try {
+      let fileName = "Facturas";
+
+      if (!confirm(`¿Quieres usar el nombre ${fileName} por default?`)) {
+        const customName = prompt("Escribe el nombre del archivo:");
+
+        if (customName && customName.trim() !== "") {
+          fileName = customName.trim();
+        }
+      }
+
+      const { data } = await FacturaService.getInstance().obtenerFacturas({
+        ...activeFilters,
+      });
+
+      const toNum = (v: any) => Number(v ?? 0);
+      const formatData = data.map((f) => ({
+        id_factura: String(f?.id_factura || ""),
+        id_cliente: f?.id_agente ?? f?.usuario_creador ?? "N/A",
+        cliente: toText(f?.nombre),
+        rfc: toText(f?.rfc),
+        folio: f.folio || "",
+        uuid: toText(f?.uuid_factura),
+        estado: toText(f?.estado),
+        subtotal: toNum(f?.subtotal),
+        iva: toNum(f?.impuestos),
+        total: toNum(f?.total),
+        saldo:
+          f.saldo_x_aplicar_items != 0
+            ? toNum(f?.saldo)
+            : toNum(f?.saldo_x_aplicar_items),
+        fecha_emision: f?.fecha_emision || null,
+        fecha_vencimiento: f?.fecha_vencimiento || null,
+        prepagada: f?.is_prepagada == null ? null : Number(f?.is_prepagada),
+        origen: Number(f?.origen ?? 0),
+        fecha_timbrado: f?.fecha_timbrado || null,
+        serie: f?.serie ?? null,
+        estado_sat: toText(f?.estado_sat),
+        cfdi_version: toText(f?.cfdi_version),
+        cfdi_tipo: toText(f?.cfdi_tipo),
+        usuario_creador: toText(f?.usuario_creador),
+        iva_16: f?.iva_16 == null ? null : toNum(f?.iva_16),
+        iva_8: f?.iva_8 == null ? null : toNum(f?.iva_8),
+        regimen_fiscal_receptor: toText(f?.regimen_fiscal_receptor),
+        domicilio_fiscal_receptor: toText(f?.domicilio_fiscal_receptor),
+        impuestos: toNum(f?.impuestos), // (sí, también existe en el objeto)
+        created_at: f?.created_at || null,
+        updated_at: f?.updated_at || null,
+        id_facturama: f?.id_facturama || null,
+        folio: toText(f?.folio),
+        id_empresa: f?.id_empresa || null,
+        id_agente: f?.id_agente || null,
+        uuid_factura: toText(f?.uuid_factura),
+        rfc_emisor: toText(f?.rfc_emisor),
+        nombre_emisor: toText(f?.nombre_emisor),
+        lugar_expedicion: toText(f?.lugar_expedicion),
+        rfc_receptor: toText(f?.rfc_receptor),
+        nombre_receptor: toText(f?.nombre_receptor),
+        uso_cfdi: toText(f?.uso_cfdi),
+        moneda: toText(f?.moneda),
+        forma_pago: toText(f?.forma_pago),
+        metodo_pago: toText(f?.metodo_pago),
+        condicion_pago: toText(f?.condicion_pago),
+        conceptos: f?.conceptos ?? null,
+        nombre: toText(f?.nombre),
+        razon_social: toText(f?.razon_social),
+        url_pdf: f?.url_pdf || null,
+        url_xml: f?.url_xml || null,
+      }));
+
+      csv(formatData, fileName);
+    } catch (error) {
+      showNotification("error", error.message);
+    } finally {
+      setLoadingFile(false);
+    }
+  };
 
   const cargarFacturas = async (page = tracking.page) => {
     try {
@@ -270,73 +368,110 @@ export function TravelersPage() {
       const toNum = (v: any) => Number(v ?? 0);
 
       return {
+        // ===== “Friendly” (los que ya usabas) =====
         id_factura: String(f?.id_factura || ""),
         id_cliente: idCliente ?? "N/A",
-        cliente: String(f?.nombre ?? "N/A"), // <-- NUEVO
-        rfc: String(f?.rfc ?? "N/A"),
-        uuid: String(f?.uuid_factura ?? "N/A"),
-        estado: String(f?.estado ?? "N/A"),
+        cliente: toText(f?.nombre),
+        rfc: toText(f?.rfc),
+        folio: f.folio || "",
+        uuid: toText(f?.uuid_factura),
+        estado: toText(f?.estado),
         subtotal: toNum(f?.subtotal),
         iva: toNum(f?.impuestos),
         total: toNum(f?.total),
+
+        // ✅ CONSERVADO tal cual lo tenías
         saldo:
           f.saldo_x_aplicar_items != 0
             ? toNum(f?.saldo)
             : toNum(f?.saldo_x_aplicar_items),
+
         fecha_emision: f?.fecha_emision || null,
         fecha_vencimiento: f?.fecha_vencimiento || null,
         prepagada: f?.is_prepagada == null ? null : Number(f?.is_prepagada),
         origen: Number(f?.origen ?? 0),
-        // para acciones
+
+        // ===== Nuevos / faltantes (del objeto) =====
+        fecha_timbrado: f?.fecha_timbrado || null,
+        serie: f?.serie ?? null,
+        estado_sat: toText(f?.estado_sat),
+        cfdi_version: toText(f?.cfdi_version),
+        cfdi_tipo: toText(f?.cfdi_tipo),
+        usuario_creador: toText(f?.usuario_creador),
+
+        iva_16: f?.iva_16 == null ? null : toNum(f?.iva_16),
+        iva_8: f?.iva_8 == null ? null : toNum(f?.iva_8),
+
+        regimen_fiscal_receptor: toText(f?.regimen_fiscal_receptor),
+        domicilio_fiscal_receptor: toText(f?.domicilio_fiscal_receptor),
+
+        impuestos: toNum(f?.impuestos), // (sí, también existe en el objeto)
+
+        created_at: f?.created_at || null,
+        updated_at: f?.updated_at || null,
+
         id_facturama: f?.id_facturama || null,
+        folio: toText(f?.folio),
+
+        id_empresa: f?.id_empresa || null,
+        id_agente: f?.id_agente || null,
+
+        uuid_factura: toText(f?.uuid_factura),
+        rfc_emisor: toText(f?.rfc_emisor),
+        nombre_emisor: toText(f?.nombre_emisor),
+        lugar_expedicion: toText(f?.lugar_expedicion),
+
+        rfc_receptor: toText(f?.rfc_receptor),
+        nombre_receptor: toText(f?.nombre_receptor),
+
+        uso_cfdi: toText(f?.uso_cfdi),
+        moneda: toText(f?.moneda),
+        forma_pago: toText(f?.forma_pago),
+        metodo_pago: toText(f?.metodo_pago),
+        condicion_pago: toText(f?.condicion_pago),
+
+        conceptos: f?.conceptos ?? null,
+
+        nombre: toText(f?.nombre),
+        razon_social: toText(f?.razon_social),
+        // ===== Mantengo campos para acciones internas =====
+        // (NO se agregan como columnas url, pero siguen sirviendo al dropdown)
         url_pdf: f?.url_pdf || null,
         url_xml: f?.url_xml || null,
-        id_agente: f?.id_agente || null,
-        id_empresa: f?.id_empresa || null,
+
         actualizar: String(f?.id_factura || ""),
         acciones: { fila: f },
         item: f,
+
+        facturada_por: f.saldo_x_aplicar_items != 0 ? true : false,
+        // true es por wallets y false es por items
       };
     });
-  }, [facturasFiltradas]);
+  }, [facturasFiltradas, removingId]);
 
   // Renderers para Table5
   const renderers = {
+    // ====== ya existentes (deja los tuyos) ======
     id_cliente: ({ value }: { value: string | null }) => {
       const full = String(value ?? "");
       const short = full.slice(0, 12);
       const handleCopy = async () => {
         try {
           await navigator.clipboard.writeText(full);
-          // Si tienes un toast, úsalo aquí. Si no, un fallback rápido:
-          // alert("ID copiado");
-        } catch {
-          // alert("No se pudo copiar");
-        }
+        } catch {}
       };
       return (
         <button
           type="button"
           onClick={handleCopy}
-          title="Copiar id_agente"
+          title="Copiar"
           className="font-mono underline-offset-2 hover:underline"
         >
           {short}
         </button>
       );
     },
-    // cliente: ({ value }: { value: string }) => {
-    //   const shouldSplitCol = (colKey: string) =>
-    //     splitStringsBySpace &&
-    //     (Array.isArray(splitColumns) ? splitColumns.includes(colKey) : true);
-    //   const normalize = (str: string) =>
-    //     str
-    //       ?.normalize("NFD") // separa los acentos
-    //       .replace(/[\u0300-\u036f]/g, "") // elimina los diacríticos
-    //       .toUpperCase() || "N/A"; // convierte a mayúsculas
 
-    //   return <span className="font-semibold text-gray-800">{normalize(value)}</span>;
-    // },
     subtotal: ({ value }: { value: number }) => <span>{fmtMoney(value)}</span>,
     iva: ({ value }: { value: number }) => <span>{fmtMoney(value)}</span>,
     total: ({ value }: { value: number }) => (
@@ -361,6 +496,116 @@ export function TravelersPage() {
       value == null ? "N/A" : value === 1 ? "Sí" : "No",
     origen: ({ value }: { value: number }) =>
       value === 1 ? "Cliente" : "Operaciones",
+
+    // ====== NUEVOS renderers ======
+    fecha_timbrado: ({ value }: { value: string | null }) => (
+      <span>{fmtDateTime(value)}</span>
+    ),
+    created_at: ({ value }: { value: string | null }) => (
+      <span>{fmtDateTime(value)}</span>
+    ),
+    updated_at: ({ value }: { value: string | null }) => (
+      <span>{fmtDateTime(value)}</span>
+    ),
+
+    serie: ({ value }: { value: string | null }) => (
+      <span>{toText(value)}</span>
+    ),
+    estado_sat: ({ value }: { value: string }) => <span>{toText(value)}</span>,
+    cfdi_version: ({ value }: { value: string }) => (
+      <span className="font-mono">{toText(value)}</span>
+    ),
+    cfdi_tipo: ({ value }: { value: string }) => <span>{toText(value)}</span>,
+
+    usuario_creador: ({ value }: { value: string }) => {
+      const full = toText(value);
+      const short = full.slice(0, 12);
+      const handleCopy = async () => {
+        try {
+          await navigator.clipboard.writeText(full);
+        } catch {}
+      };
+      return (
+        <button
+          type="button"
+          onClick={handleCopy}
+          title="Copiar usuario_creador"
+          className="font-mono underline-offset-2 hover:underline"
+        >
+          {short}
+        </button>
+      );
+    },
+
+    iva_16: ({ value }: { value: number | null }) =>
+      value == null ? "N/A" : <span>{fmtMoney(value)}</span>,
+    iva_8: ({ value }: { value: number | null }) =>
+      value == null ? "N/A" : <span>{fmtMoney(value)}</span>,
+
+    impuestos: ({ value }: { value: number }) => <span>{fmtMoney(value)}</span>,
+    saldo_x_aplicar_items: ({ value }: { value: number }) => (
+      <span>{fmtMoney(value)}</span>
+    ),
+
+    rfc_emisor: ({ value }: { value: string }) => (
+      <span className="font-mono">{toText(value).toUpperCase()}</span>
+    ),
+    rfc_receptor: ({ value }: { value: string }) => (
+      <span className="font-mono">{toText(value).toUpperCase()}</span>
+    ),
+
+    id_agente: ({ value }: { value: string }) => {
+      const full = toText(value);
+      const short = full.slice(0, 12);
+      const handleCopy = async () => {
+        try {
+          await navigator.clipboard.writeText(full);
+        } catch {}
+      };
+      return (
+        <button
+          type="button"
+          onClick={handleCopy}
+          title="Copiar id_agente"
+          className="font-mono underline-offset-2 hover:underline"
+        >
+          {short}
+        </button>
+      );
+    },
+
+    id_empresa: ({ value }: { value: string }) => {
+      const full = toText(value);
+      const short = full.slice(0, 12);
+      const handleCopy = async () => {
+        try {
+          await navigator.clipboard.writeText(full);
+        } catch {}
+      };
+      return (
+        <button
+          type="button"
+          onClick={handleCopy}
+          title="Copiar id_empresa"
+          className="font-mono underline-offset-2 hover:underline"
+        >
+          {short}
+        </button>
+      );
+    },
+
+    id_facturama: ({ value }: { value: string | null }) => (
+      <span className="font-mono">{toText(value)}</span>
+    ),
+
+    conceptos: ({ value }: { value: any }) => {
+      if (value == null) return <span>N/A</span>;
+      const raw = typeof value === "string" ? value : JSON.stringify(value);
+      const short = raw.length > 80 ? raw.slice(0, 80) + "…" : raw;
+      return <span title={raw}>{short}</span>;
+    },
+
+    // ====== deja tus renderers de actualizar/acciones tal cual ======
     actualizar: ({ item }: { item: Factura }) => {
       const isRemoving = removingId === item.id_factura;
 
@@ -404,13 +649,14 @@ export function TravelersPage() {
       const handleDescargarFactura = async (
         id: string,
         tipo: "pdf" | "xml",
+        nombre = "factura",
       ) => {
         try {
           if (tipo === "pdf") {
             const obj = await descargarFactura(id);
             const a = document.createElement("a");
             a.href = `data:application/pdf;base64,${obj.Content}`;
-            a.download = "factura.pdf";
+            a.download = nombre;
             document.body.appendChild(a);
             a.click();
             setTimeout(() => document.body.removeChild(a), 100);
@@ -418,7 +664,7 @@ export function TravelersPage() {
             const obj = await descargarFacturaXML(id);
             const a = document.createElement("a");
             a.href = `data:application/xml;base64,${obj.Content}`;
-            a.download = `factura_${Date.now()}.xml`;
+            a.download = nombre;
             document.body.appendChild(a);
             a.click();
             setTimeout(() => document.body.removeChild(a), 100);
@@ -451,7 +697,11 @@ export function TravelersPage() {
                 <>
                   <DropdownMenuItem
                     onClick={() =>
-                      handleDescargarFactura(f.id_facturama || "", "pdf")
+                      handleDescargarFactura(
+                        f.id_facturama || "",
+                        "pdf",
+                        `Factura-${f?.folio || ""}-${f?.rfc}`,
+                      )
                     }
                   >
                     <DownloadCloud className="mr-2 h-4 w-4" />
@@ -459,7 +709,11 @@ export function TravelersPage() {
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() =>
-                      handleDescargarFactura(f.id_facturama || "", "xml")
+                      handleDescargarFactura(
+                        f.id_facturama || "",
+                        "xml",
+                        `Factura-${f?.folio || ""}-${f?.rfc}`,
+                      )
                     }
                   >
                     <DownloadCloud className="mr-2 h-4 w-4" />
@@ -477,7 +731,12 @@ export function TravelersPage() {
                     </a>
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() => downloadFile(f.url_pdf, "factura.pdf")}
+                    onClick={() =>
+                      downloadFile(
+                        f.url_pdf,
+                        `Factura-${f?.folio || ""}-${f?.rfc}.pdf`,
+                      )
+                    }
                   >
                     <FileDown className="mr-2 h-4 w-4" />
                     Descargar PDF
@@ -494,7 +753,12 @@ export function TravelersPage() {
                     </a>
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() => downloadFile(f.url_xml, "factura.xml")}
+                    onClick={() =>
+                      downloadFile(
+                        f.url_xml,
+                        `Factura-${f?.folio || ""}-${f?.rfc}.xml`,
+                      )
+                    }
                   >
                     <FileDown className="mr-2 h-4 w-4" />
                     Descargar XML
@@ -509,6 +773,7 @@ export function TravelersPage() {
                     setFacturaAgente(f.id_agente);
                     setFacturaEmpresa(f.id_empresa);
                     setFacturaDataSel(f);
+                    setTipo_factura(f.facturada_por);
                   }}
                 >
                   <FilePlus className="mr-2 h-4 w-4" />
@@ -523,19 +788,64 @@ export function TravelersPage() {
   };
 
   const customColumns = [
+    // Identificación / cliente
+    "id_factura",
+    "folio",
     "id_cliente",
-    "cliente", // <-- NUEVO
+    "cliente",
+    "nombre",
+    "razon_social",
+
+    // RFCs / UUIDs
     "rfc",
     "uuid",
+    "uuid_factura",
+
+    // Estatus CFDI
     "estado",
+    "estado_sat",
+    "cfdi_tipo",
+    "cfdi_version",
+    "serie",
+
+    // Emisor/Receptor
+    "rfc_emisor",
+    "nombre_emisor",
+    "lugar_expedicion",
+    "nombre_receptor",
+
+    // CFDI info
+    "uso_cfdi",
+    "moneda",
+    "forma_pago",
+    "metodo_pago",
+    "condicion_pago",
+
+    // Importes
     "subtotal",
     "iva",
+    "impuestos",
     "total",
     "saldo",
+    "saldo_x_aplicar_items",
+
+    // Fechas
     "fecha_emision",
+    "fecha_timbrado",
     "fecha_vencimiento",
-    "prepagada",
-    "origen",
+    "created_at",
+    "updated_at",
+
+    // Relación / IDs
+    "id_facturama",
+    "id_empresa",
+    "id_agente",
+    "usuario_creador",
+
+    // Otros
+    "conceptos",
+
+    // Acciones
     "actualizar",
     "acciones",
   ];
@@ -555,34 +865,14 @@ export function TravelersPage() {
   const { showNotification } = useAlert();
 
   return (
-    <>
-      {!!cancelarFactura && (
-        <Modal
-          onClose={() => setCancelarFactura(null)}
-          title={`¿Quieres cancelar la factura?`}
-          subtitle={`UUID: ${
-            facturas.filter((f) => f.id_factura === cancelarFactura)[0]
-              ?.uuid_factura || "UUID no encontrado"
-          }`}
-        >
-          <ModalCancelarFactura
-            onConfirm={() => cargarFacturas()}
-            id={cancelarFactura}
-            onClose={() => setCancelarFactura(null)}
-          />
-        </Modal>
-      )}
-      <div className="space-y-8">
-        <h1 className="text-3xl font-bold tracking-tight text-sky-950 my-4">
-          Facturas
-        </h1>
-        {id && (
-          <Modal onClose={() => setId(null)} title="Sube el archivo PDF">
-            <div className="p-8">
-              <InputToS3
-                setUrl={async (url: string | null) => {
-                  try {
-                    if (!url) throw new Error("No existe archivo");
+    <div className="space-y-2 bg-white p-4">
+      {id && (
+        <Modal onClose={() => setId(null)} title="Sube el archivo PDF">
+          <div className="p-8">
+            <InputToS3
+              setUrl={async (url: string | null) => {
+                try {
+                  if (!url) throw new Error("No existe archivo");
 
                     await FacturaService.getInstance().actualizarDocumentosFacturas(
                       { id, url },
@@ -619,18 +909,27 @@ export function TravelersPage() {
               setSearchTerm={setSearchTerm}
             />
 
-            <Table5
-              registros={registros}
-              renderers={renderers as any}
-              customColumns={customColumns}
-              defaultSort={{ key: "fecha_emision", sort: false }} // desc
-              maxHeight="26rem"
-              splitStringsBySpace
+          <Table5
+            registros={registros}
+            isExport={false}
+            renderers={renderers as any}
+            customColumns={customColumns}
+            defaultSort={{ key: "fecha_emision", sort: false }} // desc
+            maxHeight="26rem"
+            splitStringsBySpace
+          >
+            <Button
+              onClick={handleExport}
+              disabled={loadingFile}
+              variant="secondary"
+              size="sm"
             >
-              <Button size="sm" onClick={() => cargarFacturas()}>
-                Cargar facturas
-              </Button>
-            </Table5>
+              Exportar
+            </Button>
+            <Button size="sm" onClick={() => cargarFacturas()}>
+              Cargar facturas
+            </Button>
+          </Table5>
 
             {facturas && (
               <PageTracker
@@ -643,26 +942,27 @@ export function TravelersPage() {
           </div>
         </Card>
 
-        {/* Modal de Asignar */}
-        {facturaAsignando && (
-          <AsignarFacturaModal
-            isOpen={!!facturaAsignando}
-            onClose={() => {
-              setFacturaAsignando(null);
-              setFacturaAgente(null);
-              setFacturaDataSel(null);
-              setFacturaEmpresa(null);
-              // refresco tras asignación
-              // cargarFacturas(activeFilters);
-            }}
-            id_factura={facturaAsignando}
-            clienteSeleccionado={facturaAgente as any}
-            facturaData={facturaDataSel as any}
-            onAssign={() => {}}
-            onCloseVistaPrevia={() => {}}
-            empresaSeleccionada={facturaEmpresa as any}
-          />
-        )}
+      {/* Modal de Asignar */}
+      {facturaAsignando && (
+        <AsignarFacturaModal
+          isOpen={!!facturaAsignando}
+          onClose={() => {
+            setFacturaAsignando(null);
+            setFacturaAgente(null);
+            setFacturaDataSel(null);
+            setFacturaEmpresa(null);
+            // refresco tras asignación
+            // cargarFacturas(activeFilters);
+          }}
+          id_factura={facturaAsignando}
+          tipo={tipo_factura}
+          clienteSeleccionado={facturaAgente as any}
+          facturaData={facturaDataSel as any}
+          onAssign={() => {}}
+          onCloseVistaPrevia={() => {}}
+          empresaSeleccionada={facturaEmpresa as any}
+        />
+      )}
 
         {modalDetalleOpen && (
           <ModalDetalleFactura

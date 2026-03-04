@@ -102,6 +102,8 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
   const [logos, setLogos] = useState<Record<string, LogoLoaded>>({});
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  console.log("arreglar",reservation)
+
   const handleUbicacion = async (): Promise<UbicacionType> => {
     try {
       const idHotel = reservationDetails?.id_hotel;
@@ -945,7 +947,7 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
                       <InfoCard
                         icon={CupSoda}
                         label="Desayuno incluido"
-                        value={reservationDetails.incluye_desayuno === 1 ? "Desayuno incluido" : "No incluye desayuno"}
+                        value={reservationDetails.incluye_desayuno ? "Desayuno incluido" : "No incluye desayuno"}
                       />
                     </div>
 

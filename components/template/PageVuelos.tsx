@@ -642,7 +642,8 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
   /* ---------------------------------
      Acciones: pagar / guardar
   ---------------------------------- */
-  const onPagar = () => {
+  const onPagar = (e) => {
+    e.preventDefault();
     try {
       if ((details.precio ?? 0) <= 0)
         throw new Error("El precio debe ser mayor a 0");
@@ -769,7 +770,7 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
         </Modal>
       )}
 
-      <div className="w-full h-full p-2 space-y-4 relative">
+      <form className="w-full h-full p-2 space-y-4 relative" onSubmit={onPagar}>
         {/* ✅ Cuadro de data inicial */}
         {showSummary && data_inicio ? (
           <VuelosDataInicioSummary data_inicio={data_inicio} />
@@ -983,6 +984,7 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
                     }
                   />
                   <DateTimeInput
+                    min={vuelo.check_in ? vuelo.check_in : undefined}
                     label="Fecha de llegada"
                     value={vuelo.check_out}
                     onChange={(value: string) =>
@@ -1119,13 +1121,13 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
               }
             />
             <div className="grid pt-6">
-              <Button icon={CheckCircle} onClick={onPagar} type="button">
+              <Button icon={CheckCircle} type="submit">
                 Ir a pagar
               </Button>
             </div>
           </div>
         </div>
-      </div>
+      </form>
     </>
   );
 };
