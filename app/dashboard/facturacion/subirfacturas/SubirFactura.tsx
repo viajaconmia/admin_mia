@@ -11,7 +11,7 @@ import {
   fetchProveedoresDataFiscal,
 } from "@/services/agentes";
 import { TypeFilters, EmpresaFromAgent } from "@/types";
-import AsignarFacturaModal from "./AsignarFactura";
+import AsignarFacturaModal from "./AsignarFactura"; 
 import { obtenerPresignedUrl, subirArchivoAS3 } from "@/helpers/utils";
 
 interface SubirFacturaProps {
@@ -354,40 +354,32 @@ export default function SubirFactura({
     }
   }, [initialItems]);
 
-  const subirArchivosAS3 = async (): Promise<{
-    pdfUrl: string | null;
-    xmlUrl: string;
-  }> => {
-    if (!archivoXML) {
-      throw new Error("El archivo XML es requerido");
-    }
+const subirArchivosAS3 = async (): Promise<{
+  pdfUrl: string;
+  xmlUrl: string;
+}> => {
+  if (!archivoXML) throw new Error("El archivo XML es requerido");
+  if (!archivoPDF) throw new Error("El archivo PDF es requerido");
 
-    try {
-      setSubiendoArchivos(true);
-      const folder = "comprobantes";
+  const folder = "comprobantes";
 
-      // Subir XML (requerido)
-      const { url: urlXML, publicUrl: publicUrlXML } =
-        await obtenerPresignedUrl(archivoXML.name, archivoXML.type, folder);
-      await subirArchivoAS3(archivoXML, urlXML);
+  // Subir XML (requerido)
+  const { url: urlXML, publicUrl: publicUrlXML } =
+    await obtenerPresignedUrl(archivoXML.name, archivoXML.type, folder);
+  await subirArchivoAS3(archivoXML, urlXML);
 
-      // Subir PDF (opcional)
-      let pdfUrl = null;
-      if (archivoPDF) {
-        const { url: urlPDF, publicUrl: publicUrlPDF } =
-          await obtenerPresignedUrl(archivoPDF.name, archivoPDF.type, folder);
-        await subirArchivoAS3(archivoPDF, urlPDF);
-        pdfUrl = publicUrlPDF;
-      }
+  // Subir PDF (requerido)
+  const { url: urlPDF, publicUrl: publicUrlPDF } =
+    await obtenerPresignedUrl(archivoPDF.name, archivoPDF.type, folder);
+  await subirArchivoAS3(archivoPDF, urlPDF);
 
-      return { pdfUrl, xmlUrl: publicUrlXML };
-    } catch (error) {
-      console.error("Error al subir archivos:", error);
-      throw error;
-    } finally {
-      setSubiendoArchivos(false);
-    }
-  };
+  // Guarda URLs por si las ocupas después
+  setArchivoXMLUrl(publicUrlXML);
+  setArchivoPDFUrl(publicUrlPDF);
+
+  return { pdfUrl: publicUrlPDF, xmlUrl: publicUrlXML };
+};
+
 
   // Función para buscar clientes / proveedores (single) por nombre
   const handleBuscarCliente = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -904,9 +896,9 @@ export default function SubirFactura({
 const validationErrors = validateFacturaForm({
   clienteSeleccionado,
   archivoXML,
-  archivoPDF, // ✅ NUEVO
   isProveedorBatch,
 });
+
 
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
@@ -916,15 +908,15 @@ const validationErrors = validateFacturaForm({
     if (!archivoXML) return;
 
     // Validación extra: batch montos
-    if (isProveedorBatch) {
-      const invalid = batchAsociaciones.some(
-        (x) => !x.monto_asociar || Number(x.monto_asociar) <= 0
-      );
-      if (invalid) {
-        alert("Debes capturar un monto válido para cada solicitud.");
-        return;
-      }
-    }
+    // if (isProveedorBatch) {
+    //   const invalid = batchAsociaciones.some(
+    //     (x) => !x.monto_asociar || Number(x.monto_asociar) <= 0
+    //   );
+    //   if (invalid) {
+    //     alert("Debes capturar un monto válido para cada solicitud.");
+    //     return;
+    //   }
+    // }
 
     try {
       setSubiendoArchivos(true);
@@ -1184,6 +1176,58 @@ const validationErrors = validateFacturaForm({
               </div>
             </div>
 
+            {/* PDF */}
+<div className="mt-4">
+  <div className="border-2 border-dashed border-gray-300 p-6 rounded-lg bg-gray-50 hover:bg-gray-100 transition">
+    <label className="block text-gray-700 font-semibold mb-2">
+      Archivo PDF (Requerido) <span className="text-red-500">*</span>
+    </label>
+
+    <input
+      type="file"
+      id="pdf-upload"
+      accept="application/pdf,.pdf"
+      className="hidden"
+      onChange={(e) => {
+        const file = e.target.files?.[0] || null;
+        if (file && file.type !== "application/pdf") {
+          alert("Por favor, sube solo archivos PDF");
+          e.target.value = "";
+          setArchivoPDF(null);
+          return;
+        }
+        setArchivoPDF(file);
+      }}
+    />
+
+    <label
+      htmlFor="pdf-upload"
+      className="inline-flex items-center px-4 py-2 bg-green-500 text-white rounded cursor-pointer hover:bg-green-600 transition"
+    >
+      <svg
+        className="w-5 h-5 mr-2"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="2"
+          d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+        ></path>
+      </svg>
+      Seleccionar archivo
+    </label>
+
+    <p className="text-sm text-gray-500 mt-2">
+      {archivoPDF ? archivoPDF.name : "Sin archivos seleccionados"}
+    </p>
+
+  </div>
+</div>
+
+
             {/* ==============================
                 SINGLE proveedor: input monto único
                ============================== */}
@@ -1259,7 +1303,7 @@ const validationErrors = validateFacturaForm({
         </div>
       )}
 
-      {mostrarVistaPrevia && (
+      {/* {mostrarVistaPrevia && (
         <VistaPreviaModal
           facturaData={facturaData}
           pagoData={pagoData}
@@ -1294,7 +1338,43 @@ const validationErrors = validateFacturaForm({
           onClose={cerrarVistaPrevia}
           isLoading={subiendoArchivos}
         />
-      )}
+      )} */}
+      {mostrarVistaPrevia && (
+  <VistaPreviaModal
+    facturaData={facturaData}
+    pagoData={pagoData}
+    itemsTotal={getItemsTotal()}
+
+    // ✅ si llega PDF se usa; si no, VistaPrevia lo genera
+    archivoPDF={archivoPDF}
+
+    // ✅ batch
+    isProveedorBatch={isProveedorBatch}
+    batchAsociaciones={batchAsociaciones}
+    updateMontoBatch={updateMontoBatch}
+    batchTotalAsociar={batchTotalAsociar}
+
+    onConfirm={(pdfUrl, fecha_vencimiento) => {
+      setArchivoPDFUrl(pdfUrl);
+
+      if (hasItems) {
+        setFacturaPagada(false);
+        handleConfirmarFactura({ url: pdfUrl ?? undefined, fecha_vencimiento });
+        return;
+      }
+
+      setFacturaPagada(true);
+      if (pagoData && facturaData) {
+        handlePagos({ url: pdfUrl ?? undefined, fecha_vencimiento });
+      } else {
+        handleConfirmarFactura({ url: pdfUrl ?? undefined, fecha_vencimiento });
+      }
+    }}
+    onClose={cerrarVistaPrevia}
+    isLoading={subiendoArchivos}
+  />
+)}
+
 
       {/* Totales de Ítems vs Factura */}
       {facturaData && getItemsTotal() > 0 && (
@@ -1373,19 +1453,17 @@ interface FacturaErrors {
   clienteSeleccionado?: string;
   empresaSeleccionada?: string;
   archivoXML?: string;
-  archivoPDF?: string; // ✅ NUEVO
+  // PDF opcional
 }
 
 // Función de validación
 const validateFacturaForm = (formData: {
   clienteSeleccionado: Agente | null;
   archivoXML: File | null;
-  archivoPDF: File | null; // ✅ NUEVO
   isProveedorBatch: boolean;
 }): FacturaErrors => {
   const errors: FacturaErrors = {};
 
-  // en batch NO se valida clienteSeleccionado
   if (!formData.isProveedorBatch) {
     if (!formData.clienteSeleccionado) {
       errors.clienteSeleccionado = "Debes seleccionar un cliente";
@@ -1394,11 +1472,6 @@ const validateFacturaForm = (formData: {
 
   if (!formData.archivoXML) {
     errors.archivoXML = "El archivo XML es requerido";
-  }
-
-  // ✅ PDF requerido igual que XML
-  if (!formData.archivoPDF) {
-    errors.archivoPDF = "El archivo PDF es requerido";
   }
 
   return errors;
