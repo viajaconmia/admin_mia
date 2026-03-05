@@ -762,13 +762,13 @@ export function ReservationForm({
                         ...prev,
                         codigo_reservacion_hotel: {
                           before: form.codigo_reservacion_hotel,
-                          current: value,
+                          current: (value || "").trim(),
                         },
                       }));
                     }
                     setForm((prev) => ({
                       ...prev,
-                      codigo_reservacion_hotel: value,
+                      codigo_reservacion_hotel: (value || "").trim(),
                     }));
                   }}
                   value={form.codigo_reservacion_hotel}
