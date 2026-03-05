@@ -74,7 +74,7 @@ const MAX_REGISTER = 200; // para paginación, número de registros por página
 /* ===================== Página con Table5 + filtros ===================== */
 
 const defaultFiltersFacturas: TypeFilters = {
-  estatusFactura: "Confirmada",
+  estatusFactura: null,
   id_factura: null,
   id_cliente: "",
   cliente: "",
@@ -856,10 +856,7 @@ export function TravelersPage() {
   const { showNotification } = useAlert();
 
   return (
-    <div className="space-y-8">
-      <h1 className="text-3xl font-bold tracking-tight text-sky-950 my-4">
-        Facturas
-      </h1>
+    <div className="space-y-2 bg-white p-4">
       {id && (
         <Modal onClose={() => setId(null)} title="Sube el archivo PDF">
           <div className="p-8">
