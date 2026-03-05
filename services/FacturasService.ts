@@ -6,6 +6,7 @@ export class FacturaService extends ApiService {
   private ENDPOINTS = {
     GET: {
       obtener_facturas: "/",
+      ACTUALIZAR_BY_ID: (id: string) => `/${id}`,
     },
     PUT: {
       PDF: "/documentos",
@@ -15,6 +16,7 @@ export class FacturaService extends ApiService {
     },
     DELETE: {
       BY_ID: (id: string) => `/${id}`,
+      ELIMINAR_RELACION: `/quitar_relacion`,
     },
   };
   private static instance: FacturaService;
@@ -34,6 +36,21 @@ export class FacturaService extends ApiService {
     this.get({
       path: this.formatPath(this.ENDPOINTS.GET.obtener_facturas),
       params,
+    });
+
+  public eliminarRelacionFactura = async (
+    id_factura: string,
+  ): Promise<ApiResponse<Factura>> =>
+    this.delete({
+      path: this.formatPath(this.ENDPOINTS.DELETE.ELIMINAR_RELACION),
+      params: { id_factura },
+    });
+
+  public actualizarFactura = async (
+    id: string,
+  ): Promise<ApiResponse<Factura>> =>
+    this.get({
+      path: this.formatPath(this.ENDPOINTS.GET.ACTUALIZAR_BY_ID(id)),
     });
 
   public obtenerFacturas = async (

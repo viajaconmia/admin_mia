@@ -45,6 +45,17 @@ import ModalDetalleFactura from "@/app/dashboard/invoices/_components/detalles";
 import { PageTracker, TrackingPage } from "./tracker_false";
 import { set } from "date-fns";
 import { useFile } from "@/hooks/useFile";
+import { downloadXML } from "@/helpers/utils";
+import {
+  ComboBox2,
+  ComboBoxOption2,
+  TextAreaInput,
+} from "@/components/atom/Input";
+//  from "@/helpers/utils";
+//   ComboBox2,
+//   ComboBoxOption2,
+//   TextAreaInput,
+// } from "@/components/atom/Input";
 
 // Formato moneda
 const fmtMoney = (n: any) =>
@@ -874,40 +885,40 @@ export function TravelersPage() {
                 try {
                   if (!url) throw new Error("No existe archivo");
 
-                    await FacturaService.getInstance().actualizarDocumentosFacturas(
-                      { id, url },
-                    );
-                    showNotification(
-                      "success",
-                      "Se actualizo el archivo correctamente",
-                    );
-                    setId(null);
-                  } catch (error) {
-                    showNotification(
-                      "error",
-                      error.message || "Error al subir archivo",
-                    );
-                  }
-                }}
-              ></InputToS3>
-            </div>
-          </Modal>
-        )}
+                  await FacturaService.getInstance().actualizarDocumentosFacturas(
+                    { id, url },
+                  );
+                  showNotification(
+                    "success",
+                    "Se actualizo el archivo correctamente",
+                  );
+                  setId(null);
+                } catch (error) {
+                  showNotification(
+                    "error",
+                    error.message || "Error al subir archivo",
+                  );
+                }
+              }}
+            ></InputToS3>
+          </div>
+        </Modal>
+      )}
 
-        {balance && (
-          <BalanceSummary
-            balance={balance}
-            formatCurrency={formatCurrency} // Pasa la función de formato de divisa
+      {balance && (
+        <BalanceSummary
+          balance={balance}
+          formatCurrency={formatCurrency} // Pasa la función de formato de divisa
+        />
+      )}
+      <Card>
+        <div className="p-6 space-y-2">
+          <Filters
+            defaultFilters={defaultFiltersFacturas}
+            onFilter={handleFilter}
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
           />
-        )}
-        <Card>
-          <div className="p-6 space-y-2">
-            <Filters
-              defaultFilters={defaultFiltersFacturas}
-              onFilter={handleFilter}
-              searchTerm={searchTerm}
-              setSearchTerm={setSearchTerm}
-            />
 
           <Table5
             registros={registros}
@@ -931,16 +942,16 @@ export function TravelersPage() {
             </Button>
           </Table5>
 
-            {facturas && (
-              <PageTracker
-                tracking={tracking}
-                setPage={(page) => {
-                  cargarFacturas(page);
-                }}
-              ></PageTracker>
-            )}
-          </div>
-        </Card>
+          {facturas && (
+            <PageTracker
+              tracking={tracking}
+              setPage={(page) => {
+                cargarFacturas(page);
+              }}
+            ></PageTracker>
+          )}
+        </div>
+      </Card>
 
       {/* Modal de Asignar */}
       {facturaAsignando && (
@@ -964,27 +975,40 @@ export function TravelersPage() {
         />
       )}
 
-        {modalDetalleOpen && (
-          <ModalDetalleFactura
-            open={modalDetalleOpen}
-            onClose={() => {
-              setModalDetalleOpen(false);
-              setDetalleIdFactura(null);
+      {modalDetalleOpen && (
+        <ModalDetalleFactura
+          open={modalDetalleOpen}
+          onClose={() => {
+            setModalDetalleOpen(false);
+            setDetalleIdFactura(null);
+          }}
+          id_factura={detalleIdFactura}
+          setDetalleFacturaData={setDetalleFacturaData} // ✅ aquí se manda
+          title="Detalles de factura"
+        />
+      )}
+      {cancelarFactura && (
+        <Modal
+          onClose={() => setCancelarFactura(null)}
+          title="Cancelar factura"
+        >
+          <ModalCancelarFactura
+            id={cancelarFactura}
+            onClose={() => setCancelarFactura(null)}
+            onConfirm={() => {
+              cargarFacturas();
             }}
-            id_factura={detalleIdFactura}
-            setDetalleFacturaData={setDetalleFacturaData} // ✅ aquí se manda
-            title="Detalles de factura"
           />
-        )}
+        </Modal>
+      )}
 
-        {/* Diálogo legacy si lo usas */}
-        {/* <TravelerDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} /> */}
-      </div>
-    </>
+      {/* Diálogo legacy si lo usas */}
+      {/* <TravelerDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} /> */}
+    </div>
   );
 }
 
-const ModalCancelarFactura = ({
+export const ModalCancelarFactura = ({
   id,
   onClose,
   onConfirm,

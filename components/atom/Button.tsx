@@ -1,7 +1,11 @@
 // components/atom/Button.tsx
 "use client";
 
-import React, { ButtonHTMLAttributes, AnchorHTMLAttributes, useMemo } from "react";
+import React, {
+  ButtonHTMLAttributes,
+  AnchorHTMLAttributes,
+  useMemo,
+} from "react";
 import { Link } from "wouter";
 
 // -----------------------------------------
@@ -42,30 +46,36 @@ interface CommonInteractiveElementProps {
 }
 
 // Button
-type ButtonPropsWithoutChildren = Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children">;
+type ButtonPropsWithoutChildren = Omit<
+  ButtonHTMLAttributes<HTMLButtonElement>,
+  "children"
+>;
 
 interface InteractiveElementAsButtonProps
-  extends CommonInteractiveElementProps,
-    ButtonPropsWithoutChildren {
+  extends CommonInteractiveElementProps, ButtonPropsWithoutChildren {
   as?: "button";
   href?: never;
 }
 
 // Link
 interface InteractiveElementAsLinkProps
-  extends CommonInteractiveElementProps,
+  extends
+    CommonInteractiveElementProps,
     Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "children"> {
   as: "link";
   href: string;
 }
 
 // Union
-type InteractiveElementProps = InteractiveElementAsButtonProps | InteractiveElementAsLinkProps;
+type InteractiveElementProps =
+  | InteractiveElementAsButtonProps
+  | InteractiveElementAsLinkProps;
 
 // -----------------------------------------
 // Helpers
 // -----------------------------------------
-const cn = (...parts: Array<string | undefined | null | false>) => parts.filter(Boolean).join(" ");
+const cn = (...parts: Array<string | undefined | null | false>) =>
+  parts.filter(Boolean).join(" ");
 
 const Spinner: React.FC<{ size?: Size }> = ({ size = "md" }) => {
   const s = size === "sm" ? "w-4 h-4" : "w-4 h-4";
@@ -73,7 +83,7 @@ const Spinner: React.FC<{ size?: Size }> = ({ size = "md" }) => {
     <span
       className={cn(
         "inline-block rounded-full border-2 border-current border-t-transparent animate-spin",
-        s
+        s,
       )}
       aria-hidden="true"
     />
@@ -106,11 +116,11 @@ const Button: React.FC<InteractiveElementProps> = ({
     "focus:outline-none focus:ring-2 focus:ring-offset-2",
     "select-none whitespace-nowrap",
     "shadow-sm hover:shadow",
-    "active:scale-[0.98]"
+    "active:scale-[0.98]",
   );
 
   const sizeClasses: Record<Size, string> = {
-    sm: "h-8 px-3 text-xs",
+    sm: "h-6 px-3 text-xs",
     md: "h-10 px-4 text-sm",
     lg: "h-12 px-5 text-base",
     full: "w-full h-12 px-6 text-base",
@@ -122,28 +132,28 @@ const Button: React.FC<InteractiveElementProps> = ({
       "bg-blue-600 text-white border border-blue-600",
       "hover:bg-blue-700 hover:border-blue-700",
       "focus:ring-blue-200",
-      "active:bg-blue-800"
+      "active:bg-blue-800",
     ),
 
     secondary: cn(
       "bg-white text-gray-900 border border-gray-200",
       "hover:bg-gray-50",
       "focus:ring-gray-200",
-      "active:bg-gray-100"
+      "active:bg-gray-100",
     ),
 
     ghost: cn(
       "bg-transparent text-blue-700 border border-transparent",
       "hover:bg-blue-50",
       "focus:ring-blue-200",
-      "active:bg-blue-100"
+      "active:bg-blue-100",
     ),
 
     warning: cn(
       "bg-red-600 text-white border border-red-600",
       "hover:bg-red-700 hover:border-red-700",
       "focus:ring-red-200",
-      "active:bg-red-800"
+      "active:bg-red-800",
     ),
 
     // Útil para icon-only o acciones sin estilos (no ring, no bg)
@@ -151,14 +161,14 @@ const Button: React.FC<InteractiveElementProps> = ({
       "bg-transparent text-gray-700 border border-transparent",
       "hover:bg-transparent",
       "focus:ring-0 focus:ring-offset-0",
-      "active:bg-transparent"
+      "active:bg-transparent",
     ),
   };
 
   const disabledClasses = cn(
     "opacity-60 cursor-not-allowed",
     // evita hover/active “raros”
-    "hover:shadow-sm active:scale-100"
+    "hover:shadow-sm active:scale-100",
   );
 
   const combinedClasses = useMemo(
@@ -167,9 +177,18 @@ const Button: React.FC<InteractiveElementProps> = ({
         baseClasses,
         sizeClasses[size],
         isDisabled ? disabledClasses : variantClasses[variant],
-        className
+        className,
       ),
-    [baseClasses, sizeClasses, size, isDisabled, disabledClasses, variantClasses, variant, className]
+    [
+      baseClasses,
+      sizeClasses,
+      size,
+      isDisabled,
+      disabledClasses,
+      variantClasses,
+      variant,
+      className,
+    ],
   );
 
   // Icono (si viene)
