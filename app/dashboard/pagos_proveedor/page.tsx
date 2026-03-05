@@ -21,6 +21,7 @@ import {
   DispersionModal,
   SolicitudProveedorRaw,
 } from "./Components/dispersion";
+import MetodoPagoModal from "@/app/dashboard/pagos_proveedor/Components/MetodoPagoModal";
 import { ComprobanteModal } from "./Components/comprobantes";
 import { useAlert } from "@/context/useAlert";
 import Button from "@/components/atom/Button";
@@ -604,10 +605,11 @@ const InlineMoneyEdit = ({
 
 type MetodoPagoPopoverProps = {
   idSolProv: string;
-  currentMethod: string; // "credit" | "transfer" | "card" | "link" ...
+  currentMethod: string;
   onSetMethod: (nextMethod: "transfer" | "card") => Promise<boolean>;
-  onSetCard: (data: { id_tarjeta_solicitada: number }) => Promise<boolean>;
+  onSetCard: (data: { id_tarjeta_solicitada: string | null }) => Promise<boolean>;
 };
+
 
 const MetodoPagoPopover: React.FC<MetodoPagoPopoverProps> = ({
   idSolProv,
@@ -752,14 +754,17 @@ function App() {
         "costo_total",
         "monto_solicitado",
         "consolidado",
-        "id_tarjeta_solicitada",
       ].includes(apiField);
 
+
       const normalizedValue = needsNumber
-        ? String(value).trim() === ""
-          ? null
-          : Number(value)
+      ? String(value).trim() === ""
+        ? null
+        : Number(value)
+      : String(value).trim() === ""
+        ? null
         : value;
+
 
       const payload = { id_solicitud_proveedor, [apiField]: normalizedValue };
 
@@ -1489,30 +1494,23 @@ const cancelSolicitud = useCallback(
         <div className="flex items-center gap-2">
           {/* ✅ MÉTODO SOLO PARA carta_garantia */}
           {categoria === "carta_garantia" && (
-            <MetodoPagoPopover
-              idSolProv={idSolProv}
-              currentMethod={forma}
-              onSetMethod={async (nextMethod) => {
-                // actualiza forma_pago_solicitada (transfer | card)
-                const ok = await patchSolicitudProveedor(
-                  idSolProv,
-                  "forma_pago_solicitada",
-                  nextMethod,
-                );
-                if (ok) handleFetchSolicitudesPago();
-                return ok;
-              }}
-              onSetCard={async ({ id_tarjeta_solicitada }) => {
-                const ok = await patchSolicitudProveedor(
-                  idSolProv,
-                  "id_tarjeta_solicitada",
-                  id_tarjeta_solicitada,
-                );
-                if (ok) handleFetchSolicitudesPago();
-                return ok;
-              }}
-            />
+          <MetodoPagoModal
+            idSolProv={idSolProv}
+            currentMethod={forma}
+            currentCardId={raw?.solicitud_proveedor?.id_tarjeta_solicitada ?? null}
+            onSetMethod={async (next) => {
+              const ok = await patchSolicitudProveedor(idSolProv, "forma_pago_solicitada", next);
+              if (ok) handleFetchSolicitudesPago();
+              return ok;
+            }}
+            onSetCard={async ({ id_tarjeta_solicitada }) => {
+              const ok = await patchSolicitudProveedor(idSolProv, "id_tarjeta_solicitada", id_tarjeta_solicitada);
+              if (ok) handleFetchSolicitudesPago();
+              return ok;
+            }}
+          />
           )}
+
 
           {/* Editar costo proveedor (SIEMPRE) */}
           <button

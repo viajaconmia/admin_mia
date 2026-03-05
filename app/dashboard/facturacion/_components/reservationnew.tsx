@@ -48,7 +48,7 @@ interface ReservationWithItems extends Reservation {
   items: Item[];
 }
 
-type SelectedMap = { [id_servicio: string]: string[] };
+type SelectedMap = { [id_booking: string]: string[] };
 
 // ---------- Helpers selección ----------
 const isItemFacturable = (it: Item) => it?.id_factura == null;
@@ -81,7 +81,7 @@ const LazyItemsTable = React.memo(function LazyItemsTable({
     () => adjustItemDates(r),
     // Si la API te garantiza que los items cambian de ref, puedes usar r.items como dep;
     // si no, usa campos estables como id, check_in/out y longitud de items:
-    [r.id_servicio, r.check_in, r.check_out, r.items],
+    [r.id_booking, r.check_in, r.check_out, r.items],
   );
 
   const items: Item[] = reservationWithDates.items ?? [];
@@ -225,7 +225,7 @@ const ReservationsWithTable4: React.FC = () => {
     const agentIds = selectedReservaIds
       .map(
         (id) =>
-          reservations.find((r) => r.id_servicio === id)?.id_usuario_generador,
+          reservations.find((r) => r.id_booking === id)?.id_usuario_generador,
       )
       .filter((v): v is string => !!v);
 
@@ -245,8 +245,8 @@ const ReservationsWithTable4: React.FC = () => {
   ): SelectedMap => {
     const result: SelectedMap = {};
 
-    Object.keys(selected).forEach((id_servicio) => {
-      const reserva = reservations.find((r) => r.id_servicio === id_servicio);
+    Object.keys(selected).forEach((id_booking) => {
+      const reserva = reservations.find((r) => r.id_booking === id_booking);
       if (!reserva) return;
 
       // 👇 Aquí pones lo que quieras guardar como "hospedaje"
@@ -255,7 +255,7 @@ const ReservationsWithTable4: React.FC = () => {
 
       if (hospedajeId) {
         // lo metemos como array porque SelectedMap es string[]
-        result[id_servicio] = [hospedajeId];
+        result[id_booking] = [hospedajeId];
       }
     });
 
@@ -516,7 +516,7 @@ const ReservationsWithTable4: React.FC = () => {
   // ---- selección por RESERVA (todos los items facturables) ----
   const toggleReservationSelection = (reservationId: string) => {
     const reservation = reservations.find(
-      (r) => r.id_servicio === reservationId,
+      (r) => r.id_booking === reservationId,
     );
     if (!reservation || !reservation.items) return;
 
@@ -533,7 +533,7 @@ const ReservationsWithTable4: React.FC = () => {
       const selectedAgentId = Object.keys(prev)
         .map(
           (resId) =>
-            reservations.find((r) => r.id_servicio === resId)
+            reservations.find((r) => r.id_booking === resId)
               ?.id_usuario_generador,
         )
         .find((id) => id !== agentId);
@@ -562,7 +562,7 @@ const ReservationsWithTable4: React.FC = () => {
   // ---- selección por ITEM (no tocar si ya está facturado) ----
   const toggleItemSelection = (reservationId: string, itemId: string) => {
     const reservation = reservations.find(
-      (r) => r.id_servicio === reservationId,
+      (r) => r.id_booking === reservationId,
     );
     const item = reservation?.items?.find((i) => i.id_item === itemId);
     if (item?.id_factura != null || item?.id_factura == "") return; // item ya facturado
@@ -584,7 +584,7 @@ const ReservationsWithTable4: React.FC = () => {
 
   const isReservationFullySelected = (reservationId: string) => {
     const reservation = reservations.find(
-      (r) => r.id_servicio === reservationId,
+      (r) => r.id_booking === reservationId,
     );
     if (!reservation) return false;
 
@@ -611,7 +611,7 @@ const ReservationsWithTable4: React.FC = () => {
     const agentIds = reservasSeleccionadas
       .map(
         (id) =>
-          reservations.find((r) => r.id_servicio === id)?.id_usuario_generador,
+          reservations.find((r) => r.id_booking === id)?.id_usuario_generador,
       )
       .filter((v): v is string => !!v);
 
@@ -681,7 +681,7 @@ const ReservationsWithTable4: React.FC = () => {
     // después de facturar desde el modal, refrescamos y limpiamos
     await fetchReservations();
     setSelectedItems({});
-    // setShowFacturacionModal(false);
+    setShowFacturacionModal(false);
   };
 
   const subirFactura = async () => {
@@ -720,7 +720,7 @@ const ReservationsWithTable4: React.FC = () => {
       const pendientePorFacturar = Math.max(0, precioVenta - totalFacturado);
 
       return {
-        id: `${r.id_servicio}-${index}`, // 🔑 clave única
+        id: `${r.id_booking}-${index}`, // 🔑 clave única
         seleccionado: { ...r }, // ⚡ nuevo objeto para React
         id_cliente: r.id_usuario_generador,
         cliente: r.razon_social ?? "",
@@ -737,7 +737,7 @@ const ReservationsWithTable4: React.FC = () => {
         pendiente_por_facturar: pendientePorFacturar,
         total_facturado: totalFacturado,
         detalles: {
-          reservaId: r.id_servicio,
+          reservaId: r.id_booking,
         },
       };
     });
@@ -762,14 +762,14 @@ const ReservationsWithTable4: React.FC = () => {
 
     seleccionado: ({ value }: { value: Reservation }) => {
       const r = value;
-      const checked = isReservationFullySelected(r.id_servicio);
+      const checked = isReservationFullySelected(r.id_booking);
       const disabled = getSelectableItemsOfReservation(r).length === 0;
-      const expanded = !!expandedMap[r.id_servicio];
+      const expanded = !!expandedMap[r.id_booking];
 
       return (
         <div className="flex items-center gap-2">
           <button
-            onClick={() => toggleExpand(r.id_servicio)}
+            onClick={() => toggleExpand(r.id_booking)}
             className="p-1 text-gray-500 hover:text-gray-700"
             title={expanded ? "Ocultar items" : "Mostrar items"}
           >
@@ -785,7 +785,7 @@ const ReservationsWithTable4: React.FC = () => {
             className="h-4 w-4 accent-blue-600"
             checked={checked}
             disabled={disabled}
-            onChange={() => toggleReservationSelection(r.id_servicio)}
+            onChange={() => toggleReservationSelection(r.id_booking)}
             title={disabled ? "Sin items facturables" : "Seleccionar reserva"}
           />
         </div>
@@ -841,7 +841,7 @@ const ReservationsWithTable4: React.FC = () => {
 
   // Renderer expandido actualizado
   const getReservationById = React.useCallback(
-    (id: string) => reservations.find((rr) => rr.id_servicio === id),
+    (id: string) => reservations.find((rr) => rr.id_booking === id),
     [reservations],
   );
 
@@ -974,9 +974,7 @@ const ReservationsWithTable4: React.FC = () => {
           selectedItems={selectedItems}
           selectedHospedaje={selectHospedaje} // 👈 NUEVO
           reservationsInit={reservations}
-          onClose={() => {
-            setShowFacturacionModal(false);
-          }}
+          onClose={() => setShowFacturacionModal(false)}
           onConfirm={confirmFacturacion}
         />
       )}

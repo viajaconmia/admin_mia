@@ -617,7 +617,7 @@ export const getEmpresasDatosFiscales = async (agent_id: string) => {
           "x-api-key": API_KEY || "",
           "Cache-Control": "no-cache, no-store, must-revalidate",
           "Content-Type": "application/json",
-        },
+        }, 
       }
     );
     const json = await response.json();

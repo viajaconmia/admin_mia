@@ -173,7 +173,6 @@ export const Table5 = <T,>({
 
   const EXPORT_EXCLUDE_COLS = new Set([
     "id_factura",
-    "id_booking",
     "id_relacion",
   ]);
 

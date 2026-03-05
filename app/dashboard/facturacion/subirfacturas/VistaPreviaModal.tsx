@@ -1,15 +1,31 @@
 'use client';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { generarFacturaPDF } from "./parsePdf";
 import { obtenerPresignedUrl, subirArchivoAS3 } from "@/helpers/utils";
-import { Console } from 'console';
+
+type AsociacionSolicitudProveedor = {
+  id_solicitud: string;
+  id_proveedor: string;
+  monto_asociar: string;
+  raw?: any;
+};
 
 interface VistaPreviaProps {
   facturaData: any;
   pagoData: any;
   itemsTotal?: number;
+
+  // ✅ PDF opcional (si viene, se usa; si no, se genera)
+  archivoPDF?: File | null;
+
+  // ✅ batch UI en vista previa
+  isProveedorBatch?: boolean;
+  batchAsociaciones?: AsociacionSolicitudProveedor[];
+  updateMontoBatch?: (index: number, raw: string) => void;
+  batchTotalAsociar?: number;
+
   onClose: () => void;
-  onConfirm: (data: { url?: string | null; fecha_vencimiento?: string; payload?: any }) => void;
+  onConfirm: (pdfUrl?: string | null, fecha_vencimiento?: string) => void;
   isLoading?: boolean;
 }
 
@@ -17,164 +33,167 @@ export default function VistaPreviaModal({
   facturaData,
   itemsTotal,
   pagoData,
+  archivoPDF = null,
+  isProveedorBatch = false,
+  batchAsociaciones = [],
+  updateMontoBatch,
+  batchTotalAsociar = 0,
   onClose,
   onConfirm,
   isLoading = false
 }: VistaPreviaProps) {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const [pdfObjectUrl, setPdfObjectUrl] = useState<string | null>(null); // Para la vista previa
+  const [pdfObjectUrl, setPdfObjectUrl] = useState<string | null>(null);
   const [showPdf, setShowPdf] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
-  const [validationMessage, setValidationMessage] = useState<string | null>(null);
-  const [facturar, setFacturar] = useState<number>(0);
   const [fechaVencimiento, setFechaVencimiento] = useState<string>("");
 
-  useEffect(() => {
-    // Validación del monto cuando tenemos ambos datos
-    if (pagoData && facturaData) {
-      const montoPorFacturar = (pagoData.monto || pagoData.monto_por_facturar);
-      setFacturar(montoPorFacturar);
-      const totalFactura = parseFloat(facturaData.comprobante.total);
-      if (montoPorFacturar >= totalFactura) {
+  const toggleView = () => setShowPdf(!showPdf);
 
-      }
-    } else {
-      setValidationMessage(null);
-    }
-  }, [pagoData, facturaData]);
+  const totalFactura = useMemo(
+    () => parseFloat(facturaData?.comprobante?.total || "0"),
+    [facturaData]
+  );
+
+  const okItems = ((itemsTotal || 0) <= totalFactura);
 
   useEffect(() => {
     if (facturaData?.comprobante?.fecha) {
       const d = new Date(facturaData.comprobante.fecha);
-      // default +30 días
       d.setDate(d.getDate() + 30);
-      // formatea a YYYY-MM-DD para input type="date"
-      const iso = d.toISOString().split("T")[0];
-      setFechaVencimiento(iso);
+      setFechaVencimiento(d.toISOString().split("T")[0]);
     }
   }, [facturaData]);
 
+  const safeNumStr = (raw: string) => {
+    const cleaned = String(raw ?? "").replace(/[^\d.]/g, "");
+    const parts = cleaned.split(".");
+    return parts.length <= 1
+      ? parts[0]
+      : `${parts[0]}.${parts.slice(1).join("").slice(0, 2)}`;
+  };
+
+  // ✅ clamp por input para que el total batch nunca exceda totalFactura
+  const handleChangeMontoBatch = (idx: number, raw: string) => {
+    const normalized = safeNumStr(raw);
+    const val = Number(normalized || 0);
+
+    const sumOthers = batchAsociaciones.reduce((acc, it, i) => {
+      if (i === idx) return acc;
+      const n = Number(it.monto_asociar || 0);
+      return acc + (Number.isFinite(n) ? n : 0);
+    }, 0);
+
+    const maxThis = Math.max(0, totalFactura - sumOthers);
+
+    if (val > maxThis) {
+      updateMontoBatch?.(idx, maxThis.toFixed(2));
+      return;
+    }
+
+    updateMontoBatch?.(idx, normalized);
+  };
+
+  // ✅ Genera o usa PDF y lo sube a S3
   useEffect(() => {
-    async function generarYSubirPDF() {
+    let localObjectUrl: string | null = null;
+    let cancelled = false;
+
+    async function generarOUsarYSubir() {
       try {
-        // 1. Generar el PDF
-
-        const pdfBlob = await generarFacturaPDF(facturaData);
-        const objectUrl = URL.createObjectURL(pdfBlob);
-        setPdfObjectUrl(objectUrl);
-
-        // 2. Subir el PDF a S3
         setUploadingPdf(true);
-        const fileName = `factura_${facturaData.timbreFiscal.uuid}.pdf`;
+        setPdfUrl(null);
 
+        // 1) Obtener Blob (si viene PDF -> usarlo; si no -> generar)
+        let pdfBlob: Blob;
+        let fileName: string;
+
+        if (archivoPDF) {
+          pdfBlob = archivoPDF;
+          fileName =
+            archivoPDF.name ||
+            `factura_${facturaData?.timbreFiscal?.uuid || Date.now()}.pdf`;
+        } else {
+          pdfBlob = await generarFacturaPDF(facturaData);
+          fileName = `factura_${facturaData?.timbreFiscal?.uuid || Date.now()}.pdf`;
+        }
+
+        if (cancelled) return;
+
+        // 2) Vista previa local
+        localObjectUrl = URL.createObjectURL(pdfBlob);
+        setPdfObjectUrl(localObjectUrl);
+
+        // 3) Subir a S3 (presigned)
         const pdfFile = new File([pdfBlob], fileName, {
           type: 'application/pdf',
           lastModified: Date.now()
         });
 
-        // Obtener URL firmada
         const { url: signedUrl, publicUrl } = await obtenerPresignedUrl(
           fileName,
           'application/pdf',
           'comprobantes'
         );
 
-        // Subir el archivo
         await subirArchivoAS3(pdfFile, signedUrl);
 
-        // Establecer la URL pública
+        if (cancelled) return;
         setPdfUrl(publicUrl);
-      } catch (error) {
-        console.error("Error al generar o subir PDF:", error);
+      } catch (e) {
+        console.error("Error al generar/subir PDF:", e);
       } finally {
-        setUploadingPdf(false);
+        if (!cancelled) setUploadingPdf(false);
       }
     }
 
-    if (facturaData) {
-      generarYSubirPDF();
-    }
+    if (facturaData) generarOUsarYSubir();
 
-    // Limpieza
     return () => {
-      if (pdfObjectUrl) {
-        URL.revokeObjectURL(pdfObjectUrl);
-      }
+      cancelled = true;
+      if (localObjectUrl) URL.revokeObjectURL(localObjectUrl);
     };
-  }, [facturaData]);
-
-  const toggleView = () => setShowPdf(!showPdf);
+  }, [facturaData, archivoPDF]);
 
   const handleConfirm = () => {
-    const totalFactura = parseFloat(facturaData.comprobante.total);
-    if (typeof itemsTotal === 'number' && itemsTotal > 0) {
-      if (itemsTotal > totalFactura) {
-        alert('El total de los ítems es mayor al total de la factura.');
-        return; // bloquea avance
-      }
+    // ✅ Validación items vs total
+    if (typeof itemsTotal === 'number' && itemsTotal > 0 && itemsTotal > totalFactura) {
+      alert('El total de los ítems es mayor al total de la factura.');
+      return;
     }
-    console.log("fecha de vencimiento", fechaVencimiento)
-    const payload = {
-      fecha_emision: facturaData.comprobante.fecha.split("T")[0],
-      estado: "Confirmada",
-      usuario_creador: "", // Este dato no está disponible en VistaPrevia
-      id_agente: "", // Este dato no está disponible en VistaPrevia
-      total: parseFloat(facturaData.comprobante.total),
-      subtotal: parseFloat(facturaData.comprobante.subtotal),
-      impuestos: parseFloat(facturaData.impuestos?.traslado?.importe || "0.00"),
-      saldo: parseFloat(facturaData.comprobante.total),
-      rfc: facturaData.receptor.rfc,
-      id_empresa: null, // No disponible en VistaPrevia
-      uuid_factura: facturaData.timbreFiscal.uuid,
-      rfc_emisor: facturaData.emisor.rfc,
-      url_pdf: pdfUrl,
-      url_xml: null, // No disponible en VistaPrevia 
-      items_json: JSON.stringify([]),
-      // Campos adicionales de pago si existe pagoData
-      ...(pagoData && {
-        saldo_pago: pagoData.saldo,
-        pago: pagoData.pago,
-        raw_id: pagoData.raw_id
-      }),
-      fecha_vencimiento: fechaVencimiento || null,
-    };
 
-    if (pagoData && facturaData) {
-      const montoPorFacturar = pagoData.montoporfacturar || 0;
-      const totalFactura = parseFloat(facturaData.comprobante.total);
-
-      if (montoPorFacturar >= totalFactura) {
-        console.log("Payload completo para pago:", payload);
-        onClose(); // Cierra el modal directamente
+    // ✅ Validación batch
+    if (isProveedorBatch) {
+      const invalid = batchAsociaciones.some(
+        (x) => !x.monto_asociar || Number(x.monto_asociar) <= 0
+      );
+      if (invalid) {
+        alert("Debes capturar un monto válido para cada solicitud.");
+        return;
+      }
+      if (batchTotalAsociar > totalFactura) {
+        alert("El total asociado por proveedor excede el total de la factura.");
         return;
       }
     }
 
-    // Flujo normal - pasar el payload a onConfirm
+    if (!fechaVencimiento) {
+      alert("Selecciona la fecha de vencimiento.");
+      return;
+    }
+
     onConfirm(pdfUrl, fechaVencimiento);
   };
 
-  const formatCurrency = (value: string) => {
-    return parseFloat(value).toLocaleString('es-MX', {
-      style: 'currency',
-      currency: 'MXN'
-    });
-  };
+  const formatCurrency = (value: string) =>
+    parseFloat(value).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('es-MX', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+  const formatDate = (dateString: string) =>
+    new Date(dateString).toLocaleDateString('es-MX', {
+      year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
     });
-  };
-  console.log("factura", facturaData, "pagos", itemsTotal)
-  const totalFactura = parseFloat(facturaData.comprobante.total);
-  const diferencia = totalFactura - (itemsTotal || 0);
-  const ok = (itemsTotal || 0) <= totalFactura;
+
+  const diferenciaItems = totalFactura - (itemsTotal || 0);
 
   return (
     <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
@@ -183,15 +202,22 @@ export default function VistaPreviaModal({
           <div>
             <h1 className="text-2xl font-bold">Vista Previa de Factura</h1>
             <p className="text-gray-500 text-sm">
-              {showPdf ? "Visualización del PDF generado" : "Datos estructurados de la factura"}
+              {showPdf ? "Visualización del PDF" : "Datos estructurados de la factura"}
             </p>
+
             {uploadingPdf && (
-              <p className="text-sm text-blue-500">Subiendo PDF a S3...</p>
+              <p className="text-sm text-blue-500">Generando/Subiendo PDF a S3...</p>
             )}
             {pdfUrl && (
               <p className="text-sm text-green-500">PDF listo para guardar</p>
             )}
+            {!archivoPDF && (
+              <p className="text-xs text-gray-500">
+                No llegó PDF: se generó automáticamente.
+              </p>
+            )}
           </div>
+
           <button
             onClick={toggleView}
             className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200"
@@ -200,6 +226,7 @@ export default function VistaPreviaModal({
             {showPdf ? 'Ver datos estructurados' : 'Ver vista PDF'}
           </button>
         </div>
+
         {/* Resumen de Ítems Seleccionados */}
         {typeof itemsTotal === 'number' && itemsTotal > 0 && (
           <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
@@ -214,74 +241,112 @@ export default function VistaPreviaModal({
               <div>
                 <p className="text-sm">Total de la factura:</p>
                 <p className="font-semibold">
-                  {formatCurrency(facturaData.comprobante.total)}
+                  {formatCurrency(String(totalFactura))}
                 </p>
               </div>
             </div>
 
-            {(() => {
-
-              return (
-                <div className={`mt-2 p-2 rounded ${ok ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                  {ok ? (
-                    <p className="font-semibold">
-                      Diferencia (factura - ítems): {formatCurrency(diferencia.toFixed(2))}
-                    </p>
-                  ) : (
-                    <p className="font-semibold">
-                      El total de los ítems excede el total de la factura. Ajusta la selección o usa otra factura.
-                    </p>
-                  )}
-                </div>
-              );
-            })()}
+            <div
+              className={`mt-2 p-2 rounded ${okItems ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
+            >
+              {okItems ? (
+                <p className="font-semibold">
+                  Diferencia (factura - ítems): {formatCurrency(diferenciaItems.toFixed(2))}
+                </p>
+              ) : (
+                <p className="font-semibold">
+                  El total de los ítems excede el total de la factura. Ajusta la selección o usa otra factura.
+                </p>
+              )}
+            </div>
           </div>
         )}
 
-        {/* Nuevo bloque para mostrar información de pago */}
+        {/* ==============================
+            ✅ BATCH proveedor: N inputs montos (en vista previa)
+           ============================== */}
+        {isProveedorBatch && (
+          <div className="mt-4 mb-4">
+            <label className="block mb-2 font-medium">
+              Montos a asociar por solicitud (MXN)
+            </label>
+
+            <div className="space-y-3">
+              {batchAsociaciones.map((it, idx) => {
+                const proveedorLabel =
+                  it.raw?.proveedor ||
+                  it.raw?.hotel ||
+                  `Proveedor ${it.id_proveedor}`;
+
+                const sumOthers = batchAsociaciones.reduce((acc, x, i) => {
+                  if (i === idx) return acc;
+                  const n = Number(x.monto_asociar || 0);
+                  return acc + (Number.isFinite(n) ? n : 0);
+                }, 0);
+
+                const maxThis = Math.max(0, totalFactura - sumOthers);
+
+                return (
+                  <div
+                    key={`${it.id_solicitud}-${it.id_proveedor}-${idx}`}
+                    className="p-3 rounded border bg-white"
+                  >
+                    <div className="text-xs text-gray-600 mb-2">
+                      <div><strong>Solicitud:</strong> {it.id_solicitud}</div>
+                      <div><strong>Proveedor:</strong> {proveedorLabel}</div>
+                      <div className="mt-1">
+                        <strong>Máximo para esta fila:</strong>{" "}
+                        {new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" })
+                          .format(maxThis)}
+                      </div>
+                    </div>
+
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="0.00"
+                      value={it.monto_asociar}
+                      onChange={(e) => handleChangeMontoBatch(idx, e.target.value)}
+                      className="w-full p-2 border rounded border-gray-300"
+                    />
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-3 text-sm text-gray-700">
+              <strong>Total asociado:</strong>{" "}
+              {new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" })
+                .format(batchTotalAsociar)}
+              <span className="ml-3">
+                <strong>Restante:</strong>{" "}
+                {new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" })
+                  .format(Math.max(0, totalFactura - batchTotalAsociar))}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Nuevo bloque para mostrar información de pago (si existe) */}
         {pagoData?.monto != null && (
           <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
             <h3 className="font-bold text-yellow-800 mb-2">Información de Pago</h3>
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <p className="text-sm">Saldo disponible:</p>
-                <p className="font-semibold">{(facturar)}</p>
+                <p className="font-semibold">{String(pagoData.monto)}</p>
               </div>
               <div>
                 <p className="text-sm">Monto de la factura:</p>
-                <p className="font-semibold">{formatCurrency(facturaData.comprobante.total)}</p>
+                <p className="font-semibold">{formatCurrency(String(totalFactura))}</p>
               </div>
             </div>
-
-            {(() => {
-              const saldo = (facturar);
-              const totalFactura = parseFloat(facturaData.comprobante.total);
-              const diferencia = saldo - totalFactura;
-
-              return (
-                <div className={`mt-2 p-2 rounded ${diferencia < 0 ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
-                  {diferencia >= 0 ? (
-                    <p className="font-semibold">
-                      Saldo restante después de esta factura: {formatCurrency(diferencia.toString())}
-                    </p>
-                  ) : (
-                    <p className="font-semibold">
-                      Saldo insuficiente. Faltan {formatCurrency(Math.abs(diferencia).toString())}.
-                      Deberá elegir otros saldos para completar el pago.
-                    </p>
-                  )}
-                </div>
-              );
-            })()}
           </div>
         )}
+
         {showPdf ? (
           pdfObjectUrl ? (
-            <iframe
-              src={pdfObjectUrl}
-              className="w-full h-[600px] border"
-              title="Vista PDF"
-            />
+            <iframe src={pdfObjectUrl} className="w-full h-[600px] border" title="Vista PDF" />
           ) : (
             <p>Generando vista previa PDF...</p>
           )
@@ -314,15 +379,15 @@ export default function VistaPreviaModal({
           <button
             className="px-4 py-2 rounded bg-red-500 text-white hover:bg-red-600 disabled:opacity-50"
             onClick={onClose}
-            disabled={isLoading && uploadingPdf}
+            disabled={isLoading || uploadingPdf}
           >
             Cancelar
           </button>
+
           <button
             className="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
             onClick={handleConfirm}
-
-            disabled={isLoading || uploadingPdf || !pdfUrl || !ok || !fechaVencimiento}
+            disabled={isLoading || uploadingPdf || !pdfUrl || !okItems || !fechaVencimiento}
           >
             {(isLoading || uploadingPdf) ? "Procesando..." : "Aceptar y Continuar"}
           </button>
@@ -334,7 +399,6 @@ export default function VistaPreviaModal({
 
 const FacturaEstructurada = ({ facturaData, formatCurrency, formatDate }: any) => (
   <div className="border border-gray-200 rounded-lg p-6">
-    {/* Encabezado */}
     <div className="flex justify-between items-start mb-8">
       <div>
         <h2 className="text-xl font-bold text-blue-800">{facturaData.emisor.nombre}</h2>
@@ -347,14 +411,12 @@ const FacturaEstructurada = ({ facturaData, formatCurrency, formatDate }: any) =
       </div>
     </div>
 
-    {/* Datos del receptor */}
     <div className="mb-6 p-4 bg-gray-50 rounded">
       <h4 className="font-bold text-gray-700 mb-2">DATOS DEL RECEPTOR</h4>
       <p className="font-semibold">{facturaData.receptor.nombre}</p>
       <p className="text-sm">RFC: {facturaData.receptor.rfc}</p>
     </div>
 
-    {/* Conceptos */}
     <div className="mb-6">
       <h4 className="font-bold text-gray-700 mb-3">CONCEPTOS</h4>
       <table className="w-full border-collapse">
@@ -379,7 +441,6 @@ const FacturaEstructurada = ({ facturaData, formatCurrency, formatDate }: any) =
       </table>
     </div>
 
-    {/* Totales */}
     <div className="flex justify-end">
       <div className="w-1/2">
         <div className="flex justify-between py-2 border-b">
@@ -387,8 +448,10 @@ const FacturaEstructurada = ({ facturaData, formatCurrency, formatDate }: any) =
           <span>{formatCurrency(facturaData.comprobante.subtotal)}</span>
         </div>
         <div className="flex justify-between py-2 border-b">
-          <span className="font-semibold">IVA ({facturaData.impuestos.traslado.tasa * 100}%):</span>
-          <span>{formatCurrency(facturaData.impuestos.traslado.importe)}</span>
+          <span className="font-semibold">
+            IVA ({(facturaData.impuestos?.traslado?.tasa || 0) * 100}%):
+          </span>
+          <span>{formatCurrency(facturaData.impuestos?.traslado?.importe || "0")}</span>
         </div>
         <div className="flex justify-between py-2 font-bold text-lg">
           <span>Total:</span>
@@ -397,12 +460,10 @@ const FacturaEstructurada = ({ facturaData, formatCurrency, formatDate }: any) =
       </div>
     </div>
 
-    {/* Timbre fiscal */}
     <div className="mt-6 pt-4 border-t text-xs text-gray-500">
       <p className="font-semibold">TIMBRE FISCAL DIGITAL</p>
       <p>UUID: <span className="text-blue-500">{facturaData.timbreFiscal.uuid}</span></p>
       <p>Fecha de timbrado: {formatDate(facturaData.timbreFiscal.fechaTimbrado)}</p>
     </div>
   </div>
-
 );

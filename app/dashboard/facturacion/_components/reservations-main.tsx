@@ -558,6 +558,8 @@ export const FacturacionModal: React.FC<{
       /[a-zA-Z0-9\S]/.test(customConceptConsolidada.trim())
     );
   }, [useCustomConceptConsolidada, customConceptConsolidada]);
+  console.log("😒😒😒😒😒😒",selectedItems,  "informacion de selected",selectedHospedaje,"informacion select reservation",
+  reservationsInit)
 
   // Reservas (para UI) – recalcula cuando cambia IVA
   const [reservations, setReservations] = useState(() =>
@@ -611,7 +613,7 @@ export const FacturacionModal: React.FC<{
       );
       setSelectedDescription(paymentDescriptions[1]);
     }
-  }, [fiscalDataList, showNotification]);
+  }, [fiscalDataList]);
 
   // Preparar seleccionados + cargar fiscales
   const [reservationsWithSelectedItems, setReservationsWithSelectedItems] =
@@ -620,9 +622,9 @@ export const FacturacionModal: React.FC<{
   useEffect(() => {
     if (reservations.length > 0 && Object.keys(selectedItems).length > 0) {
       const preparedReservations = reservations
-        .filter((reserva) => selectedItems[reserva.id_servicio]?.length > 0)
+        .filter((reserva) => selectedItems[reserva.id_booking]?.length > 0)
         .map((reserva) => {
-          const selectedItemIds = selectedItems[reserva.id_servicio] || [];
+          const selectedItemIds = selectedItems[reserva.id_booking] || [];
           const items = Array.isArray(reserva.items)
             ? reserva.items.filter((item) =>
                 selectedItemIds.includes(item.id_item),
@@ -684,7 +686,7 @@ export const FacturacionModal: React.FC<{
   // --------- helpers para modos ----------
   type ItemFull = {
     id_item: string;
-    id_servicio: string;
+    id_booking: string;
     id_relacion: string | null;
     total: number;
     subtotal: number;
@@ -706,11 +708,11 @@ export const FacturacionModal: React.FC<{
     selectedHosp?: Record<string, string[]>,
   ): ItemFull[] => {
     return reservationsSel.flatMap((r) => {
-      const ids = selected[r.id_servicio] ?? [];
+      const ids = selected[r.id_booking] ?? [];
       if (!ids.length) return [];
 
       const id_relacion =
-        selectedHosp?.[r.id_servicio]?.[0] ?? r.id_relacion ?? null;
+        selectedHosp?.[r.id_booking]?.[0] ?? r.id_relacion ?? null;
 
       return (r.items ?? [])
         .filter((it) => ids.includes(it.id_item))
@@ -720,7 +722,7 @@ export const FacturacionModal: React.FC<{
 
           return {
             id_item: it.id_item,
-            id_servicio: r.id_servicio,
+            id_servicio: r.id_booking,
             id_relacion,
             id_solicitud: r.id_solicitud,
             id_usuario_generador: r.id_usuario_generador,
@@ -744,7 +746,7 @@ export const FacturacionModal: React.FC<{
     const map = new Map<string, ItemFull[]>();
 
     for (const it of items) {
-      const key = it.id_relacion ?? `servicio:${it.id_servicio}`;
+      const key = it.id_relacion ?? `servicio:${it.id_booking}`;
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(it);
     }
@@ -1011,14 +1013,14 @@ export const FacturacionModal: React.FC<{
 
   const buildAddenda = () => {
     const reservas = reservationsWithSelectedItems.map((r) => {
-      const ids = selectedItems[r.id_servicio] ?? [];
+      const ids = selectedItems[r.id_booking] ?? [];
       const itemsSel = (r.items ?? []).filter((it) => ids.includes(it.id_item));
 
       const total = round2(itemsSel.reduce((s, it) => s + Number(it.total), 0));
       const { subtotal, iva, total: t } = splitIva(total);
 
       return {
-        id_servicio: r.id_servicio,
+        id_servicio: r.id_booking,
         id_solicitud: r.id_solicitud,
         confirmation_code: r.confirmation_code,
         hotel: r.hotel,
@@ -1099,7 +1101,7 @@ export const FacturacionModal: React.FC<{
       const itemsFacturados = itemsFacturadosFull.map((x) => ({
         id_item: x.id_item,
         monto: x.total,
-        id_servicio: x.id_servicio,
+        id_servicio: x.id_booking,
         id_relacion: x.id_relacion,
       }));
 

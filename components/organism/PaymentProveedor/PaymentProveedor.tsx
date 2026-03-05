@@ -496,6 +496,8 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
         }
       }
 
+      console.log("informacion", reservaRef,"informacion",reservation)
+
       // --------------------
       // CRÉDITO
       // --------------------
@@ -514,7 +516,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
             paymentStatus: derivedStatus,
             paymentSchedule: undefined,
             usuario_creador: (reservation as any).usuario_creador,
-
+            id_proveedor:(reservation as any).id_proveedor,
             selectedCard: null,
             idTitular: null,
             titular: "",
@@ -572,7 +574,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
               paymentStatus: derivedStatus,
               paymentSchedule: paymentSchedulePayload,
               usuario_creador: (reservation as any).usuario_creador,
-
+              id_proveedor:(reservation as any).id_proveedor,
               idTitular:
                 paymentMethod === "link" ? Number(selectedTitularId) : null,
               titular:
@@ -600,6 +602,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
               paymentMethod,
               paymentType,
               monto_a_pagar,
+              id_proveedor:(reservation as any).id_proveedor,
               id_hospedaje: (reservation as any).id_booking,
               paymentStatus: derivedStatus,
               paymentSchedule: paymentSchedulePayload,

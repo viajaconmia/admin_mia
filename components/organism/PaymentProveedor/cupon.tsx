@@ -104,7 +104,7 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
 
   console.log("arreglar",reservation)
 
-  const handleUbicacion = async (): Promise<UbicacionType> => {
+  const handleUbicacion = async (): Promise<UbicacionType> => { 
     try {
       const idHotel = reservationDetails?.id_hotel;
       if (!idHotel) {
