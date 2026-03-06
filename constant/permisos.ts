@@ -38,6 +38,7 @@ export const PERMISOS = {
       MIA_TITULARES_CREAR: "button.mia.titulares.crear",
       MIA_TITULARES_EDITAR: "button.mia.titulares.editar",
       MIA_TITULARES_ELIMINAR: "button.mia.titulares.eliminar",
+      EDITAR_RESERVA: "button.edit-booking",
     },
     GROUP: {
       PROVEEDORES_EDICIONES: "button.proveedores.edicion",

@@ -195,16 +195,18 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
       };
       if (value.includes("sol-"))
         return (
-          <Button
-            icon={Pencil}
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setSelectedEdit(value);
-            }}
-          >
-            Editar
-          </Button>
+          <Can permiso={PERMISOS.COMPONENTES.BOTON.EDITAR_RESERVA}>
+            <Button
+              icon={Pencil}
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSelectedEdit(value);
+              }}
+            >
+              Editar
+            </Button>
+          </Can>
         );
       const reserva = reservas.filter((boo) => boo.id_booking == value)[0];
       if (!reserva)
