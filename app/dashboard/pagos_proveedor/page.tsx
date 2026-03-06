@@ -179,7 +179,8 @@ type CategoriaEstatus =
   | "pago_link"
   | "carta_enviada"
   | "carta_garantia"
-  | "pagada";
+  | "pagada"
+  | "canceladas";
 
 type VistaCarpeta = CategoriaEstatus | "all";
 
@@ -284,6 +285,15 @@ const tabTheme: Record<
     dot: "bg-green-500",
     badge: "bg-green-50 text-green-800 border-green-200",
     badgeActive: "bg-green-100 text-green-900 border-green-300",
+  },
+    canceladas: {
+    ring: "focus:ring-rose-500",
+    bg: "bg-white",
+    text: "text-slate-700",
+    border: "border-slate-200",
+    dot: "bg-rose-500",
+    badge: "bg-rose-50 text-rose-800 border-rose-200",
+    badgeActive: "bg-rose-100 text-rose-900 border-rose-300",
   },
 };
 
@@ -675,16 +685,16 @@ function App() {
 
   const editEndpoint = `${URL}/mia/pago_proveedor/edit`;
 
-  const [solicitudesPago, setSolicitudesPago] = useState<SolicitudesPorFiltro>({
-    todos: [],
-    spei: [],
-    pago_tdc: [],
-    pago_link: [],
-    carta_enviada: [],
-    carta_garantia: [],
-    pagada: [],
-  });
-
+const [solicitudesPago, setSolicitudesPago] = useState<SolicitudesPorFiltro>({
+  todos: [],
+  spei: [],
+  pago_tdc: [],
+  pago_link: [],
+  carta_enviada: [],
+  carta_garantia: [],
+  pagada: [],
+  canceladas: [],
+});
   const [showDispersionModal, setShowDispersionModal] = useState(false);
   const [showComprobanteModal, setShowComprobanteModal] = useState(false);
 
@@ -707,12 +717,14 @@ function App() {
   const [datosDispersion, setDatosDispersion] = useState<DatosDispersion[]>([]);
 
   const selectedCount = solicitud.length;
-  const canSelect = categoria !== "pagada"; // mantenemos tu regla
+const canSelect = categoria !== "pagada" && categoria !== "canceladas";
   const canDispersion = canSelect && selectedCount > 0;
 
   const dispersionDisabledReason =
-    categoria === "pagada"
-      ? "En carpeta pagada no se puede generar dispersión"
+  categoria === "pagada"
+    ? "En carpeta pagada no se puede generar dispersión"
+    : categoria === "canceladas"
+      ? "En carpeta canceladas no se puede generar dispersión"
       : selectedCount === 0
         ? "Selecciona al menos 1 solicitud"
         : "";
@@ -832,58 +844,73 @@ function App() {
     return Array.from(map.values());
   };
 
-  const handleFetchSolicitudesPago = useCallback(() => {
-    setLoading(true);
+const dedupeSolicitudes = (arr: any[]): SolicitudProveedor[] => {
+  const map = new Map<string, SolicitudProveedor>();
 
-    fetchGetSolicitudesProveedores1((data) => {
+  for (const it of arr || []) {
+    const id = getIdSolProv(it);
+    if (!id) continue;
+    if (!map.has(id)) map.set(id, it);
+  }
+
+  return Array.from(map.values());
+};
+
+const normalizeApiBuckets = (data: any) => {
+  const spei = Array.isArray(data?.spei_solicitado) ? data.spei_solicitado : [];
+  const pago_tdc = Array.isArray(data?.pago_tdc) ? data.pago_tdc : [];
+  const pago_link = Array.isArray(data?.pago_link) ? data.pago_link : [];
+  const carta_enviada = Array.isArray(data?.carta_enviada) ? data.carta_enviada : [];
+  const carta_garantia = Array.isArray(data?.carta_garantia) ? data.carta_garantia : [];
+  const pagada = Array.isArray(data?.pagada) ? data.pagada : [];
+  const canceladas = Array.isArray(data?.canceladas) ? data.canceladas : [];
+
+  const todos = dedupeSolicitudes([
+    ...spei,
+    ...pago_tdc,
+    ...pago_link,
+    ...carta_enviada,
+    ...carta_garantia,
+    ...pagada,
+    ...canceladas,
+  ]);
+
+  return {
+    todos,
+    spei,
+    pago_tdc,
+    pago_link,
+    carta_enviada,
+    carta_garantia,
+    pagada,
+    canceladas,
+  };
+};
+
+const handleFetchSolicitudesPago = useCallback(() => {
+  setLoading(true);
+
+  fetchGetSolicitudesProveedores1((data) => {
+    try {
       const apiData = data?.data || {};
-      const all = normalizeApiToAll(apiData);
 
-      // --- reglas de carpetas (tu nueva especificación) ---
-      const spei = all.filter(
-        (it) => getFormaPago(it) === "transfer" && !hasPagosAsociados(it),
-      );
-      const pago_tdc = all.filter(
-        (it) => getFormaPago(it) === "card" && !hasPagosAsociados(it),
-      );
-      const pago_link = all.filter(
-        (it) => getFormaPago(it) === "link" && !hasPagosAsociados(it),
-      );
-
-      const creditAll = all.filter((it) => getFormaPago(it) === "credit");
-
-      const carta_garantia = creditAll.filter((it) => {
-        const montoSolicitado = getMontoSolicitado(it);
-        const totalFacturado = getTotalFacturadoLike(it);
-        const porFacturar = Math.max(0, montoSolicitado - totalFacturado);
-        return porFacturar <= EPS && montoSolicitado > 0;
-      });
-
-      const carta_enviada = creditAll.filter((it) => {
-        const montoSolicitado = getMontoSolicitado(it);
-        const totalFacturado = getTotalFacturadoLike(it);
-        const porFacturar = Math.max(0, montoSolicitado - totalFacturado);
-        // “no tiene monto facturado” o “< solicitado” o “por facturar == solicitado”
-        return porFacturar > EPS && montoSolicitado > 0;
-      });
-
-      const pagada = all.filter((it) => isPagado(it));
-
-      const historico: SolicitudProveedor[] = []; // ✅ vacía por ahora
+      const buckets = normalizeApiBuckets(apiData);
 
       setSolicitudesPago({
-        todos: all,
-        spei,
-        pago_tdc,
-        pago_link,
-        carta_enviada,
-        carta_garantia,
-        pagada,
+        todos: buckets.todos,
+        spei: buckets.spei,
+        pago_tdc: buckets.pago_tdc,
+        pago_link: buckets.pago_link,
+        carta_enviada: buckets.carta_enviada,
+        carta_garantia: buckets.carta_garantia,
+        pagada: buckets.pagada,
+        canceladas: buckets.canceladas,
       });
-
+    } finally {
       setLoading(false);
-    });
-  }, []);
+    }
+  });
+}, []);
 
   useEffect(() => {
     handleFetchSolicitudesPago();
@@ -912,7 +939,9 @@ function App() {
               ? solicitudesPago.carta_enviada
               : categoria === "carta_garantia"
                 ? solicitudesPago.carta_garantia
-                : solicitudesPago.pagada; // ✅ aquí
+                : categoria === "pagada"
+                  ? solicitudesPago.pagada
+                  : solicitudesPago.canceladas; // ✅ aquí
 
   // 1) filtro extra (si aún lo quieres)
   const filteredSolicitudes = baseList.filter(() => true);
@@ -1474,6 +1503,7 @@ const cancelSolicitud = useCallback(
       const idSolProv = getIdSolProv(raw);
       const forma = getFormaPago(raw);
       const pagado = isPagado(raw);
+      if (categoria === "canceladas") return null;
 
       // ✅ lee bien el estado (viene de raw.solicitud_proveedor o del row ya mapeado)
       const estadoSolicitud = normUpper(
@@ -1643,6 +1673,11 @@ const cancelSolicitud = useCallback(
           label: "Pagada",
           count: solicitudesPago.pagada.length,
         },
+                {
+          key: "canceladas",
+          label: "Canceladas",
+          count: solicitudesPago.canceladas.length,
+        },
       ] as Array<{ key: VistaCarpeta; label: string; count: number }>,
     [solicitudesPago],
   );
@@ -1701,7 +1736,9 @@ const cancelSolicitud = useCallback(
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
           <div className="text-xs text-slate-600">
             {categoria === "pagada"
-              ? "Carpeta pagada (sin selección)"
+  ? "Carpeta pagada (sin selección)"
+  : categoria === "canceladas"
+    ? "Carpeta canceladas (sin selección)"
               : selectedCount > 0
                 ? `Seleccionadas: ${selectedCount}`
                 : "Sin selección"}
@@ -1733,7 +1770,7 @@ const cancelSolicitud = useCallback(
 
                 if (consolidado === 1) return "bg-blue-100"; // ✅ azul
 
-                if (categoria === "pagada") return "";
+                if (categoria === "pagada" || categoria === "canceladas")
 
                 return getFechaPagoRowClass(
                   (row as any).pendiente_a_pagar <= 0

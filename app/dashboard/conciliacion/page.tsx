@@ -9,19 +9,11 @@ import { Filter, X, Search, Handshake, Upload } from "lucide-react";
 import Button from "@/components/atom/Button";
 import SubirFactura from "@/app/dashboard/facturacion/subirfacturas/SubirFactura";
 import ModalDetalle from "@/app/dashboard/conciliacion/compponents/detalles";
+import { formatDate } from "@/helpers/formater";
+
 
 type AnyRow = Record<string, any>;
 
-function formatDateSimple(dateStr?: string) {
-  if (!dateStr) return "—";
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("es-MX", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
 
 function formatMoney(n: any) {
   const num = Number(n);
@@ -244,7 +236,7 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
 
     creado: raw?.created_at ?? null,
     hotel: hotel ? hotel.toUpperCase() : "",
-    codigo_hotel: raw?.codigo_reservacion_hotel ?? "",
+    codigo_hotel: raw?.codigo_confirmacion ?? "",
     viajero: viajero ? viajero.toUpperCase() : "",
     check_in: raw?.check_in ?? null,
     check_out: raw?.check_out ?? null,
@@ -400,35 +392,41 @@ export default function ConciliacionPage() {
   }, []);
 
   // ✅ FETCH
-  const load = useCallback(async () => {
-    const controller = new AbortController();
-    setIsLoading(true);
+const load = useCallback(async () => {
+  const controller = new AbortController();
+  setIsLoading(true);
 
-    try {
-      const response = await fetch(endpoint, {
-        method: "GET",
-        signal: controller.signal,
-        headers: {
-          "x-api-key": API_KEY || "",
-          "Content-Type": "application/json",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-        },
-      });
+  try {
+    const response = await fetch(endpoint, {
+      method: "GET",
+      signal: controller.signal,
+      headers: {
+        "x-api-key": API_KEY || "",
+        "Content-Type": "application/json",
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+      },
+    });
 
-      if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
+    if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
 
-      const json = await response.json();
-      const list = Array.isArray(json?.data?.todos) ? json.data.todos : [];
-      setTodos(list);
-    } catch (err) {
-      console.error("Error cargando conciliación:", err);
-      setTodos([]);
-    } finally {
-      setIsLoading(false);
-    }
+    const json = await response.json();
+    const data = json?.data ?? {};
 
-    return () => controller.abort();
-  }, [endpoint]);
+    // ✅ tomar todas las solicitudes menos las canceladas
+    const list = Object.entries(data)
+      .filter(([key, value]) => key !== "canceladas" && Array.isArray(value))
+      .flatMap(([, value]) => value as any[]);
+
+    setTodos(list);
+  } catch (err) {
+    console.error("Error cargando conciliación:", err);
+    setTodos([]);
+  } finally {
+    setIsLoading(false);
+  }
+
+  return () => controller.abort();
+}, [endpoint]);
 
   useEffect(() => {
     load();
@@ -636,8 +634,8 @@ console.log(filteredItems,"😒😒😒😒😒")
     () => [
       "seleccionar",
       "creado",
-      "hotel",
-      "codigo_hotel",
+      "proveedor",
+      "codigo_reserva",
       "viajero",
       "check_in",
       "check_out",
@@ -849,9 +847,9 @@ const getFacturaPagoDiffInfo = useCallback((row: AnyRow) => {
     Record<string, React.FC<{ value: any; item: any; index: number }>>
   >(
     () => ({
-      creado: ({ value }) => <span title={value}>{formatDateSimple(value)}</span>,
-      check_in: ({ value }) => <span title={value}>{formatDateSimple(value)}</span>,
-      check_out: ({ value }) => <span title={value}>{formatDateSimple(value)}</span>,
+      creado: ({ value }) => <span title={value}>{formatDate(value)}</span>,
+      check_in: ({ value }) => <span title={value}>{formatDate(value)}</span>,
+      check_out: ({ value }) => <span title={value}>{formatDate(value)}</span>,
 
       codigo_hotel: ({ value }) => (
         <span className="font-semibold">{value ? String(value).toUpperCase() : ""}</span>
