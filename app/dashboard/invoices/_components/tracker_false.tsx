@@ -5,6 +5,11 @@ export interface TrackingPage {
   page: number;
   total_pages: number;
 }
+export const initialTracking: TrackingPage = {
+  total: 0,
+  page: 1,
+  total_pages: 1,
+};
 
 export const PageTracker = ({
   tracking,
@@ -39,13 +44,6 @@ export const PageTracker = ({
             <Button
               size="sm"
               variant="secondary"
-              // onClick={() => {
-              //   setTracking((prev) => ({
-              //     ...prev,
-              //     page: prev.page + 1,
-              //   }));
-              //   fetchProveedores(tracking.page + 1);
-              // }}
               onClick={() => setPage(tracking.page + 1)}
             >
               Siguiente

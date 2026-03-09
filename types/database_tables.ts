@@ -2,6 +2,7 @@ export type TypesSaldoWallet = "transferencia" | "tarjeta" | "wallet";
 
 export type Saldo = {
   id_saldos: number;
+  nombre?: string;
   id_agente: string;
   fecha_creacion: string;
   saldo: string;
