@@ -681,7 +681,7 @@ const ReservationsWithTable4: React.FC = () => {
     // después de facturar desde el modal, refrescamos y limpiamos
     await fetchReservations();
     setSelectedItems({});
-    setShowFacturacionModal(false);
+    // setShowFacturacionModal(false);
   };
 
   const subirFactura = async () => {

@@ -262,7 +262,7 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
 
     // ✅ botón Detalles (UI nueva)
     detalles: raw,
-
+    estado_solicitud: raw?.solicitud_proveedor?.estado_solicitud ?? "",
     estatus_facturas: estatusFacturas,
     estatus_pago: estatusPagoObj.label ? estatusPagoObj.label.toUpperCase() : "",
     __estatus_pago: estatusPagoObj, // ✅ usado por conciliar (antigua)
@@ -675,11 +675,14 @@ const solicitarPagoCredito = useCallback(
       "creado",
       "proveedor",
       "codigo_reserva",
+      "hotel",
+      "codigo_hotel",
       "viajero",
       "check_in",
       "check_out",
       "noches",
       "tipo_cuarto",
+      "estado_solicitud",
       "costo_proveedor",
       "markup",
       "precio_de_venta",

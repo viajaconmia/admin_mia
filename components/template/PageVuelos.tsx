@@ -659,6 +659,7 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
             "is_eq_mano",
             "is_eq_personal",
             "is_eq_documentado",
+            "ubicacion_asiento",
           ]),
         )
         .some(Boolean);
