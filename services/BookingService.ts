@@ -94,6 +94,7 @@ export type BookingAll = {
   id_agente: string;
   estado_pago: string;
   estado_facturacion: string;
+  id_proveedor:string;
 
   reservante: string;
   correo_cliente: string;
