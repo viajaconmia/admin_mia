@@ -5,7 +5,12 @@ export interface TrackingPage {
   page: number;
   total_pages: number;
 }
-export const initialTracking: TrackingPage = {
+export interface TypeTracking {
+  total: number;
+  page: number;
+  total_pages: number;
+}
+export const initial: TrackingPage = {
   total: 0,
   page: 1,
   total_pages: 1,
