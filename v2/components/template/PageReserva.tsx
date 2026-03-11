@@ -45,15 +45,7 @@ import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
 import { useFile } from "@/hooks/useFile";
 import Link from "next/link";
-
-// ✅ ponlo dentro del archivo (arriba del componente o dentro del componente)
-const formatMMDDYYYY = (value?: string | Date | null) => {
-  if (!value) return "";
-  const iso = value instanceof Date ? value.toISOString() : String(value);
-  const [yyyy, mm, dd] = iso.split("T")[0].split("-");
-  if (!yyyy || !mm || !dd) return "";
-  return `${mm}/${dd}/${yyyy}`; // 02/27/2026
-};
+import { PageVuelos } from "@/components/template/PageVuelos";
 
 const PageReservas = ({ agente }: { agente?: Agente }) => {
   const [loading, setLoading] = useState(false);
@@ -68,6 +60,10 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     defaultFiltersSolicitudes,
   );
   const [selectedItem, setSelectedItem] = useState<BookingAll>(null);
+  const [editVuelo, setEditVuelo] = useState<{
+    id: string;
+    agente: { id_agente: string; nombre: string };
+  } | null>(null);
   const [selectedEdit, setSelectedEdit] = useState<string>(null);
   const { Can } = usePermiso();
   const { showNotification } = useAlert();
@@ -182,49 +178,40 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     detalles_cliente: ({ value }) => (
       <LinkCopiar link={ROUTES.BOOKING.ID_SOLICITUD(value) || ""} />
     ),
-    editar: ({ value }: { value: string }) => {
-      const book = new BookingsService();
-      const handleCancel = async () => {
-        try {
-          const response = await book.cancelarBooking(value);
-          console.log(response);
-          handleFetchSolicitudes();
-        } catch (error) {
-          showNotification("error", error.message || "error");
-        }
+    editar: ({
+      value,
+    }: {
+      value: {
+        type: "flyght" | "car_rental" | "hotel";
+        id: string;
+        estado: string;
+        agente: { id_agente: string; nombre: string };
       };
-      if (value.includes("sol-"))
-        return (
-          <Can permiso={PERMISOS.COMPONENTES.BOTON.EDITAR_RESERVA}>
-            <Button
-              icon={Pencil}
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                setSelectedEdit(value);
-              }}
-            >
-              Editar
-            </Button>
-          </Can>
-        );
-      const reserva = reservas.filter((boo) => boo.id_booking == value)[0];
-      if (!reserva)
-        return (
-          <span>
-            Si me ves avisale a angel de tecnologia, soy un bug que estuvo
-            buscando, le ayudarias mucho 👍
-          </span>
-        );
+    }) => {
+      const { id, type, estado, agente } = value;
       return (
         <>
-          {reserva.estado != "Cancelada" && (
+          {type != "car_rental" && estado != "Cancelada" && (
+            <Can permiso={PERMISOS.COMPONENTES.BOTON.EDITAR_RESERVA}>
+              <Button
+                icon={Pencil}
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  handleEdicion(type, id, agente);
+                }}
+              >
+                Editar
+              </Button>
+            </Can>
+          )}
+          {type != "hotel" && estado != "Cancelada" && (
             <Can permiso={PERMISOS.COMPONENTES.BOTON.CANCELAR_RESERVA}>
               <Button
                 icon={Trash2}
                 size="sm"
                 variant="warning"
-                onClick={handleCancel}
+                onClick={() => handleCancel(id)}
               >
                 Cancelar
               </Button>
@@ -251,6 +238,34 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
         )}
       </>
     ),
+  };
+
+  const handleCancel = async (value: string) => {
+    try {
+      const confirmed = confirm(
+        "¿Estás seguro que quieres cancelar esta reserva?",
+      );
+      if (!confirmed) return;
+      const book = new BookingsService();
+      await book.cancelarBooking(value);
+      handleFetchSolicitudes();
+    } catch (error) {
+      showNotification("error", error.message || "error");
+    }
+  };
+
+  const handleEdicion = (
+    type: string,
+    id: string,
+    agente: { id_agente: string; nombre: string },
+  ) => {
+    if (type == "car_rental") return;
+    if (type == "hotel") {
+      setSelectedEdit(id);
+    }
+    if (type == "flyght") {
+      setEditVuelo({ id, agente });
+    }
   };
 
   const data = reservas.map((reserva) => ({
@@ -287,11 +302,16 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
       ? { usuario_creador: reserva.usuario_creador }
       : {}),
     detalles_cliente: reserva.id_solicitud,
-    editar: reserva.type == "hotel" ? reserva.id_solicitud : reserva.id_booking,
+    editar: {
+      type: reserva.type,
+      id: reserva.type == "hotel" ? reserva.id_solicitud : reserva.id_booking,
+      estado: reserva.estado,
+      agente: { id_agente: reserva.id_agente, nombre: reserva.agente },
+    },
     pagar: reserva.estado == "Confirmada" ? reserva.id_solicitud : null,
   }));
 
-  const handleFilterChange = (value, propiedad) => {
+  const handleFilterChange = (value: string | null, propiedad: string) => {
     if (value == null) {
       const newObj = Object.fromEntries(
         Object.entries({ ...filters }).filter(([key]) => key != propiedad),
@@ -511,6 +531,23 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
           <CrearReserva agente={agente}></CrearReserva>
         </Modal>
       )}
+      {editVuelo && (
+        <Modal
+          onClose={() => {
+            setEditVuelo(null);
+          }}
+          title="Editar reserva de vuelo"
+        >
+          <PageVuelos
+            agente={editVuelo.agente as Agente}
+            id_booking={editVuelo.id}
+            onConfirm={() => {
+              handleFetchSolicitudes();
+              setEditVuelo(null);
+            }}
+          ></PageVuelos>
+        </Modal>
+      )}
     </>
   );
 };
@@ -531,8 +568,6 @@ const defaultFiltersSolicitudes: TypeFilters = {
   id_client: null,
   statusPagoProveedor: null,
   filterType: "Transaccion",
-  // markup_end: null,
-  // markup_start: null,
 };
 
 export default PageReservas;

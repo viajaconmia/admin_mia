@@ -54,11 +54,11 @@ export class VuelosServices extends ApiService {
     });
 
   public editarViajeAereo = (body: {
-    saldos: (Saldo & {
+    saldos?: (Saldo & {
       restante: number;
       usado: boolean;
     })[];
-    faltante: number;
+    faltante?: number;
     cambios: {
       logs: {};
       keys: string[];
