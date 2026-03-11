@@ -1398,7 +1398,7 @@ useEffect(() => {
               <Button
                 type="button"
                 onClick={() => setIsReservaOpen(true)}
-                disabled={!mappedReservation || isSubmitting}
+                disabled={!mappedReservation || isSubmitting||!!loading}
                 className="w-full bg-emerald-600 hover:bg-emerald-700"
                 title={
                   !mappedReservation
