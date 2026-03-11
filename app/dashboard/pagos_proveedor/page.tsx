@@ -1720,7 +1720,7 @@ const marcarNotificadoPagado = useCallback(
   </button>
 )}
           {/* Botón marcar pagado (solo si no es transfer) */}
-          {forma !== "transfer" && (
+          {forma !== "transfer" && categoria !== "carta_garantia" && (
             <button
               type="button"
               className={[

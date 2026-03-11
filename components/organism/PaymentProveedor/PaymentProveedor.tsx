@@ -583,7 +583,7 @@ useEffect(() => {
 
 if (hasFavorBalance) {
   if (!selectedFavorSaldoId) {
-    throw new Error("Selecciona el saldo a favor que deseas aplicar.");
+    throw new Error("Selecciona el saldo a favor que deseas aplicar."); 
   }
 
   const montoSaldoAplicar = Number(favorBalance) || 0;
