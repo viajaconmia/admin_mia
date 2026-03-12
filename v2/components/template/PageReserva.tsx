@@ -139,6 +139,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
         estado: reserva.estado,
         estado_pago: reserva.estado_pago,
         estado_facturacion: reserva.estado_facturacion,
+        id_booking: reserva.id_booking,
       }));
 
       csv(formatData, fileName);
