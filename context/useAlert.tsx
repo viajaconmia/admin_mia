@@ -12,6 +12,9 @@ type NotificationContextProps = {
   notification: Notification;
   showNotification: (type: NotificationType, message: string) => void;
   hideNotification: () => void;
+  error: (message: string) => void;
+  success: (message: string) => void;
+  info: (message: string) => void;
 };
 
 const NotificationContext = createContext<NotificationContextProps | undefined>(
@@ -47,13 +50,31 @@ export const NotificationProvider = ({
     }, 7000);
     setIdTime(id);
   };
+
+  const error = (message: string) => {
+    showNotification("error", message);
+  };
+  const success = (message: string) => {
+    showNotification("success", message);
+  };
+  const info = (message: string) => {
+    showNotification("info", message);
+  };
+
   const hideNotification = () => {
     setNotification((prev) => ({ ...prev, show: false }));
   };
 
   return (
     <NotificationContext.Provider
-      value={{ notification, showNotification, hideNotification }}
+      value={{
+        notification,
+        showNotification,
+        hideNotification,
+        error,
+        success,
+        info,
+      }}
     >
       {children}
     </NotificationContext.Provider>
