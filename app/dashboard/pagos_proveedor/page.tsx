@@ -120,6 +120,16 @@ const getMontoSolicitado = (raw: any) =>
 const getSaldo = (raw: any) =>
   parseNum(raw?.solicitud_proveedor?.saldo ?? raw?.saldo);
 
+const getComentarioSistema = (raw: any) =>
+  String(
+    raw?.comentario_sistema ??
+      raw?.solicitud_proveedor?.comentario_sistema ??
+      raw?.solicitud_proveedor?.comentario_ajuste ??
+      raw?.comentario_ajuste ??
+      raw?.solicitud_proveedor?.comentarios ??
+      "",
+  ).trim();
+
 const getFormaPago = (raw: any) =>
   norm(
     raw?.solicitud_proveedor?.forma_pago_solicitada ??
@@ -180,6 +190,7 @@ type CategoriaEstatus =
   | "carta_enviada"
   | "carta_garantia"
   | "pagada"
+  | "notificados"
   | "canceladas";
 
 type VistaCarpeta = CategoriaEstatus | "all";
@@ -286,6 +297,15 @@ const tabTheme: Record<
     badge: "bg-green-50 text-green-800 border-green-200",
     badgeActive: "bg-green-100 text-green-900 border-green-300",
   },
+  notificados: {
+  ring: "focus:ring-sky-500",
+  bg: "bg-white",
+  text: "text-slate-700",
+  border: "border-slate-200",
+  dot: "bg-sky-500",
+  badge: "bg-sky-50 text-sky-800 border-sky-200",
+  badgeActive: "bg-sky-100 text-sky-900 border-sky-300",
+},
     canceladas: {
     ring: "focus:ring-rose-500",
     bg: "bg-white",
@@ -693,8 +713,10 @@ const [solicitudesPago, setSolicitudesPago] = useState<SolicitudesPorFiltro>({
   carta_enviada: [],
   carta_garantia: [],
   pagada: [],
+  notificados: [],
   canceladas: [],
 });
+
   const [showDispersionModal, setShowDispersionModal] = useState(false);
   const [showComprobanteModal, setShowComprobanteModal] = useState(false);
 
@@ -831,6 +853,7 @@ const canSelect = categoria !== "pagada" && categoria !== "canceladas";
       ...(data?.pago_tdc ?? []),
       ...(data?.cupon_enviado ?? []),
       ...(data?.carta_garantia ?? []),
+      ...(data?.notificados??[]),
       ...(data?.pagada ?? []),
     ].filter(Boolean);
 
@@ -856,6 +879,40 @@ const dedupeSolicitudes = (arr: any[]): SolicitudProveedor[] => {
   return Array.from(map.values());
 };
 
+const patchSolicitudProveedorFields = useCallback(
+  async (id_solicitud_proveedor: string, fields: Record<string, any>) => {
+    const payload = {
+      id_solicitud_proveedor,
+      ...fields,
+    };
+
+    try {
+      const resp = await fetch(editEndpoint, {
+        method: "PATCH",
+        headers: {
+          "x-api-key": API_KEY || "",
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const json = await resp.json().catch(() => null);
+      if (!resp.ok) {
+        throw new Error(json?.message || `Error HTTP: ${resp.status}`);
+      }
+
+      showNotification("success", "Actualizado correctamente");
+      return true;
+    } catch (err: any) {
+      console.error("❌ patch fail", err);
+      showNotification("error", err?.message || "Error al actualizar");
+      return false;
+    }
+  },
+  [editEndpoint, showNotification],
+);
+
 const normalizeApiBuckets = (data: any) => {
   const spei = Array.isArray(data?.spei_solicitado) ? data.spei_solicitado : [];
   const pago_tdc = Array.isArray(data?.pago_tdc) ? data.pago_tdc : [];
@@ -863,6 +920,7 @@ const normalizeApiBuckets = (data: any) => {
   const carta_enviada = Array.isArray(data?.carta_enviada) ? data.carta_enviada : [];
   const carta_garantia = Array.isArray(data?.carta_garantia) ? data.carta_garantia : [];
   const pagada = Array.isArray(data?.pagada) ? data.pagada : [];
+  const notificados = Array.isArray(data?.notificados) ? data.notificados : [];
   const canceladas = Array.isArray(data?.canceladas) ? data.canceladas : [];
 
   const todos = dedupeSolicitudes([
@@ -872,6 +930,7 @@ const normalizeApiBuckets = (data: any) => {
     ...carta_enviada,
     ...carta_garantia,
     ...pagada,
+    ...notificados,
     ...canceladas,
   ]);
 
@@ -883,6 +942,7 @@ const normalizeApiBuckets = (data: any) => {
     carta_enviada,
     carta_garantia,
     pagada,
+    notificados,
     canceladas,
   };
 };
@@ -904,6 +964,7 @@ const handleFetchSolicitudesPago = useCallback(() => {
         carta_enviada: buckets.carta_enviada,
         carta_garantia: buckets.carta_garantia,
         pagada: buckets.pagada,
+        notificados: buckets.notificados,
         canceladas: buckets.canceladas,
       });
     } finally {
@@ -926,22 +987,24 @@ const handleFetchSolicitudesPago = useCallback(() => {
   }, [categoria]);
 
   // ------- Lista base por carpeta -------
-  const baseList: SolicitudProveedor[] =
-    categoria === "all"
-      ? solicitudesPago.todos
-      : categoria === "spei"
-        ? solicitudesPago.spei
-        : categoria === "pago_tdc"
-          ? solicitudesPago.pago_tdc
-          : categoria === "pago_link"
-            ? solicitudesPago.pago_link
-            : categoria === "carta_enviada"
-              ? solicitudesPago.carta_enviada
-              : categoria === "carta_garantia"
-                ? solicitudesPago.carta_garantia
-                : categoria === "pagada"
-                  ? solicitudesPago.pagada
-                  : solicitudesPago.canceladas; // ✅ aquí
+const baseList: SolicitudProveedor[] =
+  categoria === "all"
+    ? solicitudesPago.todos
+    : categoria === "spei"
+      ? solicitudesPago.spei
+      : categoria === "pago_tdc"
+        ? solicitudesPago.pago_tdc
+        : categoria === "pago_link"
+          ? solicitudesPago.pago_link
+          : categoria === "carta_enviada"
+            ? solicitudesPago.carta_enviada
+            : categoria === "carta_garantia"
+              ? solicitudesPago.carta_garantia
+              : categoria === "pagada"
+                ? solicitudesPago.pagada
+                : categoria === "notificados"
+                  ? solicitudesPago.notificados
+                  : solicitudesPago.canceladas;
 
   // 1) filtro extra (si aún lo quieres)
   const filteredSolicitudes = baseList.filter(() => true);
@@ -990,15 +1053,15 @@ const handleFetchSolicitudesPago = useCallback(() => {
         estado_solicitud: item?.solicitud_proveedor?.estado_solicitud ?? "",
         estado_facturacion: item?.solicitud_proveedor?.estado_facturacion ?? "",
         estatus_pagos: item?.estatus_pagos ?? "",
-
+        comentario_sistema: getComentarioSistema(item),
         // UI
         seleccionar: "",
         carpeta: categoria,
 
         // reserva
-        codigo_hotel: item.codigo_reservacion_hotel,
+        codigo_confirmacion: item.codigo_confirmacion,
         creado: item.created_at,
-        hotel: (item.hotel || "").toUpperCase(),
+        proveedor: (item.hotel || "").toUpperCase(),
         razon_social: item.proveedor?.razon_social,
         rfc: item.proveedor?.rfc,
         viajero: (
@@ -1111,57 +1174,62 @@ const clearSelection = useCallback(() => {
 }, []);
 
   // ---------- COLUMNAS (para orden estable + mostrar SP) ----------
-  const customColumns = useMemo(
-    () => [
-      "seleccionar",
+  const customColumns = useMemo(() => {
+  const cols = [
+    "seleccionar",
 
-      // ✅ SP base / control
-      "id_solicitud_proveedor",
-      "fecha_solicitud",
-      "monto_solicitado",
-      "saldo",
-      "forma_pago_solicitada",
-      "estatus_pagos",
-      "estado_solicitud",
-      "estado_facturacion",
-      "usuario_solicitante",
-      "usuario_generador",
-      "comentarios_sp",
+    // ✅ SP base / control
+    "id_solicitud_proveedor",
+    "fecha_solicitud",
+    "monto_solicitado",
+    "saldo",
+    "forma_pago_solicitada",
+    "estatus_pagos",
+    "estado_solicitud",
+    "estado_facturacion",
+    "usuario_solicitante",
+    "usuario_generador",
+    "comentarios_sp",
 
-      // reserva/negocio
-      "codigo_hotel",
-      "creado",
-      "hotel",
-      "viajero",
-      "check_in",
-      "check_out",
-      "noches",
-      "habitacion",
-      "costo_proveedor",
-      "markup",
-      "precio_de_venta",
-      "razon_social",
-      "rfc",
+    // reserva/negocio
+    "codigo_confirmacion",
+    "creado",
+    "proveedor",
+    "viajero",
+    "check_in",
+    "check_out",
+    "noches",
+    "habitacion",
+    "costo_proveedor",
+    "markup",
+    "precio_de_venta",
+    "razon_social",
+    "rfc",
 
-      // pagos / facturas
-      "estado_pago",
-      "pendiente_a_pagar",
-      "monto_pagado_proveedor",
-      "fecha_pagado",
-      "estado_factura_proveedor",
-      "total_facturado",
-      "monto_por_facturar",
-      "fecha_facturacion",
-      "UUID",
+    // pagos / facturas
+    "estado_pago",
+    "pendiente_a_pagar",
+    "monto_pagado_proveedor",
+    "fecha_pagado",
+    "estado_factura_proveedor",
+    "total_facturado",
+    "monto_por_facturar",
+    "fecha_facturacion",
+    "UUID",
 
-      // tus campos actuales
-      "comentarios_cxp",
+    // actuales
+    "comentarios_cxp",
+  ];
 
-      // ✅ acciones
-      "acciones",
-    ],
-    [],
-  );
+  if (categoria === "notificados") {
+    cols.push("comentario_sistema");
+  }
+
+  cols.push("acciones");
+
+  return cols;
+}, [categoria]);
+
 const cancelSolicitud = useCallback(
   async (id_solicitud_proveedor: string) => {
     const id = String(id_solicitud_proveedor ?? "").trim();
@@ -1179,11 +1247,40 @@ const cancelSolicitud = useCallback(
   },
   [patchSolicitudProveedor, clearSelection, handleFetchSolicitudesPago],
 );
+const marcarNotificadoPagado = useCallback(
+  async (id_solicitud_proveedor: string, pagado: 0 | 1) => {
+    const id = String(id_solicitud_proveedor ?? "").trim();
+    if (!id) return false;
+
+    const ok = await patchSolicitudProveedorFields(id, {
+      estado_solicitud: "CANCELADA",
+      pagado,
+    });
+
+    if (ok) {
+      clearSelection();
+      handleFetchSolicitudesPago();
+    }
+
+    return ok;
+  },
+  [patchSolicitudProveedorFields, clearSelection, handleFetchSolicitudesPago],
+);
   // ---------- RENDERERS ----------
   const renderers: Record<
     string,
     React.FC<{ value: any; item: any; index: number }>
   > = {
+    comentario_sistema: ({ value }) => {
+  const texto = String(value ?? "").trim();
+  const preview = texto.length > 42 ? texto.slice(0, 42) + "…" : texto;
+
+  return (
+    <span className="text-xs text-sky-800" title={texto || "—"}>
+      {texto ? preview : <span className="text-gray-400">—</span>}
+    </span>
+  );
+},
     seleccionar: ({ item, index }) => {
       const row = item as any;
       const raw: SolicitudProveedor | undefined =
@@ -1553,40 +1650,77 @@ const cancelSolicitud = useCallback(
             <span>Costo</span>
           </button>
 
-          {/* ✅ Cancelar (PATCH estado_solicitud=CANCELADA) */}
-<button
-  type="button"
-  className={[
-    "inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors shadow-sm",
-    cancelDisabled
-      ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
-      : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:border-rose-300",
-  ].join(" ")}
-  disabled={cancelDisabled}
-  onClick={async () => {
-    const okConfirm = window.confirm(
-      `¿Seguro que deseas CANCELAR la solicitud ${idSolProv}?`,
-    );
-    if (!okConfirm) return;
+{categoria === "notificados" ? (
+  <select
+    className="px-2.5 py-1.5 rounded-md text-xs font-medium border border-sky-200 bg-sky-50 text-sky-800 shadow-sm outline-none focus:ring-2 focus:ring-sky-300"
+    defaultValue=""
+    onChange={async (e) => {
+      const value = e.target.value;
 
-    await cancelSolicitud(idSolProv);
-  }}
-  title={
-    categoria === "pagada"
-      ? "En carpeta pagada no se puede cancelar"
-      : isCancelada
-        ? "Ya está cancelada"
-        : pagado
-          ? "No se puede cancelar una solicitud pagada"
-          : "Cancelar solicitud"
-  }
->
-  <Ban className="w-3.5 h-3.5" />
-  <span>Cancelar</span>
-</button>
+      if (!value) return;
 
+      const pagadoValue = value === "1" ? 1 : 0;
+
+      const okConfirm = window.confirm(
+        `¿Seguro que deseas actualizar la solicitud ${idSolProv}?\n\n` +
+          `Se enviará:\n` +
+          `- estado_solicitud: CANCELADA\n` +
+          `- pagado: ${pagadoValue}`
+      );
+      if (!okConfirm) {
+        e.target.value = "";
+        return;
+      }
+
+      const ok = await marcarNotificadoPagado(
+        idSolProv,
+        pagadoValue as 0 | 1
+      );
+
+      if (!ok) {
+        e.target.value = "";
+      }
+    }}
+    title="Actualizar pagado/no pagado"
+  >
+    <option value="">Pagado / No pagado</option>
+    <option value="1">Pagado</option>
+    <option value="0">No pagado</option>
+  </select>
+) : (
+  <button
+    type="button"
+    className={[
+      "inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors shadow-sm",
+      cancelDisabled
+        ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+        : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:border-rose-300",
+    ].join(" ")}
+    disabled={cancelDisabled}
+    onClick={async () => {
+      const okConfirm = window.confirm(
+        `¿Seguro que deseas CANCELAR la solicitud ${idSolProv}?`,
+      );
+      if (!okConfirm) return;
+
+      await cancelSolicitud(idSolProv);
+    }}
+    title={
+      categoria === "pagada"
+        ? "En carpeta pagada no se puede cancelar"
+        : isCancelada
+          ? "Ya está cancelada"
+          : pagado
+            ? "No se puede cancelar una solicitud pagada"
+            : "Cancelar solicitud"
+    }
+  >
+    <Ban className="w-3.5 h-3.5" />
+    <span>Cancelar</span>
+  </button>
+)}
           {/* Botón marcar pagado (solo si no es transfer) */}
-          {forma !== "transfer" && (
+          {forma !== "transfer" && categoria !== "carta_garantia" && (
             <button
               type="button"
               className={[
@@ -1672,6 +1806,11 @@ const cancelSolicitud = useCallback(
           key: "pagada",
           label: "Pagada",
           count: solicitudesPago.pagada.length,
+        },
+        {
+          key: "notificados",
+          label: "Notificados",
+          count: solicitudesPago.notificados.length,
         },
                 {
           key: "canceladas",

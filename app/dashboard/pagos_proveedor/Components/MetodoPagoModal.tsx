@@ -212,17 +212,13 @@ async function fetchBoth(
 
 export type MetodoPagoModalProps = {
   idSolProv: string;
+
+  /** puede venir como estado_solicitud o como método */
   currentMethod: string;
 
-  /** UUID string si ya hay tarjeta guardada */
   currentCardId?: string | null;
-
   onSetMethod: (next: Metodo) => Promise<boolean>;
-
-  /** guarda UUID o null */
   onSetCard: (payload: { id_tarjeta_solicitada: string | null }) => Promise<boolean>;
-
-  /** si tu back usa rutas distintas */
   endpoints?: {
     tarjetas?: string;
     titulares?: string;
@@ -239,8 +235,14 @@ export default function MetodoPagoModal({
 }: MetodoPagoModalProps) {
   const [open, setOpen] = React.useState(false);
 
-  const initialMetodo: Metodo =
-    String(currentMethod || "").toLowerCase() === "card" ? "card" : "transfer";
+  const statusOrMethod = String(currentMethod || "").trim().toUpperCase();
+
+const initialMetodo: Metodo =
+  statusOrMethod === "CARD" ||
+  statusOrMethod === "CARTA_ENVIADA" ||
+  statusOrMethod === "PAGADO TARJETA"
+    ? "card"
+    : "transfer";
 
   const [metodo, setMetodo] = React.useState<Metodo>(initialMetodo);
 

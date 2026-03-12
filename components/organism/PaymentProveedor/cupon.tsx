@@ -8,14 +8,14 @@ import { SupportModal } from "./superModal";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { getUbicacion } from "./reservas";
+
 // ↑ Encima del componente Reserva()
 type LogoAsset = { key: string; src: string };
-
+ 
 type LogoLoaded = {
   dataUrl: string;
   ar: number; // aspect ratio = width/height
-};
-
+};   
 
 export type ReservaHandle = {
   download: () => Promise<void>;

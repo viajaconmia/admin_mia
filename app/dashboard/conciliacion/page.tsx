@@ -4,7 +4,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Table5 } from "@/components/Table5";
 import { URL, API_KEY } from "@/lib/constants/index";
-import { Filter, X, Search, Handshake, Upload } from "lucide-react";
+import { Filter, X, Search, Handshake, Upload,Send } from "lucide-react";
 
 import Button from "@/components/atom/Button";
 import SubirFactura from "@/app/dashboard/facturacion/subirfacturas/SubirFactura";
@@ -628,6 +628,45 @@ console.log(filteredItems,"😒😒😒😒😒")
   [editEndpoint]
 );
 
+const solicitarPagoCredito = useCallback(
+  async (row: AnyRow) => {
+    const id = String(row?.id_solicitud_proveedor ?? "").trim();
+    if (!id) return false;
+
+    const ok = confirm(`¿Solicitar pago para la solicitud ${id}?`);
+    if (!ok) return false;
+
+    const payload = {
+      id_solicitud_proveedor: id,
+      is_ajuste: 1,
+      comentario_ajuste: "pago solicitado",
+    };
+
+    try {
+      const resp = await fetch(editEndpoint, {
+        method: "PATCH",
+        headers: {
+          "x-api-key": API_KEY || "",
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const json = await resp.json().catch(() => null);
+      if (!resp.ok) throw new Error(json?.message || `Error HTTP: ${resp.status}`);
+
+      await load();
+      return true;
+    } catch (err: any) {
+      console.error("❌ solicitar pago fail", err);
+      alert(err?.message || "Error al solicitar el pago");
+      return false;
+    }
+  },
+  [editEndpoint, load]
+);
+
 
   // ✅ Columnas (UI NUEVA / corto) + acciones antiguas
   const customColumns = useMemo(
@@ -1052,6 +1091,27 @@ acciones: ({ item }) => {
 
   const disableCancelar = yaCancelada || pagado;
 
+  const formaPago = String(
+  row?.informacion_completa.solicitud_proveedor?.forma_pago_solicitada ??
+    row?.__raw?.forma_pago_solicitada ??
+    ""
+).toLowerCase();
+
+const esCredito = formaPago === "credit";
+
+const yaSolicitoPago =
+Number(
+  row?.informacion_completa?.solicitud_proveedor?.is_ajuste ??
+  row?.__raw?.is_ajuste ??
+  0
+) === 1;
+
+const facturado = (Number(row?.informacion_completa?.total_facturado_en_pfp)) > 0;
+console.log(((row?.informacion_completa?.total_facturado_en_pfp)))
+
+const disableSolicitarPago = yaSolicitoPago || !facturado;
+console.log("informacion de pago",disableSolicitarPago,"🤬🤬🤬",facturado,row?.informacion_completa?.solicitud_proveedor?.id_solicitud_proveedor)
+
   return (
     <div className="flex flex-wrap items-center gap-2">
       {/* Comprobante */}
@@ -1093,6 +1153,36 @@ acciones: ({ item }) => {
           </span>
         </Button>
       )}
+
+      {/* Solicitar pago (solo CREDIT) */}
+{esCredito && (
+  <Button
+    variant="secondary"
+    size="sm"
+    className={[
+      "px-2 py-1 text-xs border",
+      disableSolicitarPago
+        ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+        : "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100",
+    ].join(" ")}
+    disabled={disableSolicitarPago}
+    onClick={() => {
+      if (disableSolicitarPago) return;
+      void solicitarPagoCredito(row);
+    }}
+    title={
+      yaSolicitoPago
+        ? "Ya fue solicitado (is_ajuste=1)"
+        : "Solicitar pago (is_ajuste=1 / comentario_ajuste='pago solicitado')"
+    }
+  >
+    <span className="inline-flex items-center gap-1">
+      {/* puedes cambiar el icono si quieres */}
+      <Send className="w-4 h-4" />
+      <span className="hidden xl:inline">Solicitar pago</span>
+    </span>
+  </Button>
+)}
 
       {/* Cancelar (si no pagado y no cancelada) */}
       <Button
@@ -1161,6 +1251,7 @@ acciones: ({ item }) => {
       selectedMap,
       openDetalle,
       clearSelection,
+      solicitarPagoCredito,
       rfcByKey,
       getSelectedRfcInfo,
       isPagadoRow,

@@ -37,10 +37,10 @@ import { fetchCreateSolicitud } from "@/services/pago_proveedor";
 import { Reserva, type ReservaHandle } from "./cupon";
 import { BookingAll } from "@/services/BookingService";
 import { updateRoom } from "@/lib/utils";
-import { API_KEY, URL } from "@/lib/constants";
-
-
+import { API_KEY, URL as API_URL } from "@/lib/constants";
 import { useAlert } from "@/context/useAlert";
+import { usePermiso } from "@/hooks/usePermission";
+import { PERMISOS } from "@/constant/permisos";
 
 type PaymentStatus =
   | "pagada"
@@ -50,22 +50,23 @@ type PaymentStatus =
   | "spei_solicitado"
   | "cupon_enviado";
 
-function computePaymentStatus(opts: {
-  paymentType: "prepaid" | "credit";
-  paymentMethod?: "transfer" | "card" | "link";
-  useQR?: "qr" | "code";
-}): PaymentStatus {
-  const { paymentType, paymentMethod, useQR } = opts;
-
-  if (paymentType === "credit") return "cupon_enviado";
-
-  if (paymentMethod === "link") return "pagada";
-  if (paymentMethod === "transfer") return "spei_solicitado";
-  if (paymentMethod === "card") {
-    if (useQR === "qr") return "enviada_para_cobro";
+  
+  function computePaymentStatus(opts: {
+    paymentType: "prepaid" | "credit";
+    paymentMethod?: "transfer" | "card" | "link";
+    useQR?: "qr" | "code";
+  }): PaymentStatus {
+    const { paymentType, paymentMethod, useQR } = opts;
+    
+    if (paymentType === "credit") return "cupon_enviado";
+    
+    if (paymentMethod === "link") return "pagada";
+    if (paymentMethod === "transfer") return "spei_solicitado";
+    if (paymentMethod === "card") {
+      if (useQR === "qr") return "enviada_para_cobro";
     return "pago_tdc";
   }
-
+  
   return "pendiente";
 }
 
@@ -93,8 +94,11 @@ type Props = {
 };
 
 export const PaymentModal = ({ reservation, onClose }: Props) => {
+  // const { hasAccess } = usePermiso();
+  // hasAccess(PERMISOS.COMPONENTES.BOTON.SALDO_A_FAVOR);
+  const { Can } = usePermiso();
   const reservaRef = useRef<ReservaHandle>(null);
-
+  
   const { data, fetchData } = useFetchCards();
   const { data: titularesData, fetchTitulares } = useFetchTitulares();
 
@@ -102,6 +106,8 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [cupon, setCupon] = useState<Boolean | null>(null);
   const [loading, setLoading] = useState<Boolean | null>(true);
+  const [selectedFavorSaldoId, setSelectedFavorSaldoId] = useState<string>("");
+  
 
   const [state, dispatch] = useReducer(
     paymentReducer,
@@ -127,6 +133,36 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
 
   const [commentsCxp, setCommentsCxp] = useState<string>("");
   const [selectedTitularId, setSelectedTitularId] = useState<string>("");
+  const [saldosProveedor, setSaldosProveedor] = useState<any[]>([]);
+
+  const saldosFavorAplicables = useMemo(() => {
+  return (saldosProveedor || []).filter((item) => {
+    const estado = String(item?.estado ?? "").toLowerCase();
+    const restante = Number(item?.restante ?? 0) || 0;
+    return estado === "approved" && restante > 0;
+  });
+}, [saldosProveedor]);
+
+const saldoFavorDisponible = useMemo(() => {
+  return to2(
+    saldosFavorAplicables.reduce((acc, item) => {
+      const restante = Number(item?.restante) || 0;
+      return acc + Math.max(0, restante);
+    }, 0),
+  );
+}, [saldosFavorAplicables]);
+
+const selectedFavorSaldo = useMemo(() => {
+  return saldosFavorAplicables.find(
+    (item) => String(item.id_saldo) === String(selectedFavorSaldoId),
+  ) || null;
+}, [saldosFavorAplicables, selectedFavorSaldoId]);
+
+const saldoFavorMaximoSeleccionado = useMemo(() => {
+  return Number(selectedFavorSaldo?.restante ?? 0) || 0;
+}, [selectedFavorSaldo]);
+
+const canUseFavorBalance = saldoFavorDisponible > 0;
 
   const notificationCtx = useAlert(); // puede ser undefined si no hay Provider
   const showNotification = (
@@ -141,8 +177,33 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
   if (!reservation) return null;
 
   const reservationTotal = Number((reservation as any).costo_total) || 0;
-  const balanceToApply = parseFloat(String(favorBalance ?? "")) || 0;
-  const monto_a_pagar = to2(Math.max(0, reservationTotal - balanceToApply));
+
+    const maxSaldoAplicable = useMemo(() => {
+  // pago proveedor = reservationTotal
+  // saldo seleccionado = saldoFavorMaximoSeleccionado
+  return to2(Math.max(0, Math.min(reservationTotal, saldoFavorMaximoSeleccionado)));
+}, [reservationTotal, saldoFavorMaximoSeleccionado]);
+
+useEffect(() => {
+  if (!hasFavorBalance) return;
+
+  const current = Number(favorBalance) || 0;
+
+  if (current > maxSaldoAplicable) {
+    dispatch({
+      type: "SET_FIELD",
+      field: "favorBalance",
+      payload: maxSaldoAplicable,
+    });
+  }
+}, [hasFavorBalance, maxSaldoAplicable, favorBalance]);
+
+const balanceToApply = hasFavorBalance
+  ? Math.min(Number(favorBalance) || 0, maxSaldoAplicable)
+  : 0;
+
+const monto_a_pagar = to2(Math.max(0, reservationTotal - balanceToApply));
+
 
   const todayISO = useMemo(() => {
     const d = new Date();
@@ -162,6 +223,24 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
       },
     ],
   );
+
+  useEffect(() => {
+  if (!hasFavorBalance) return;
+
+  const exists = saldosFavorAplicables.some(
+    (s) => String(s.id_saldo) === String(selectedFavorSaldoId),
+  );
+
+  if (!exists) {
+    setSelectedFavorSaldoId(saldosFavorAplicables[0]?.id_saldo ?? "");
+  }
+}, [hasFavorBalance, saldosFavorAplicables, selectedFavorSaldoId]);
+
+useEffect(() => {
+  if (!hasFavorBalance) {
+    setSelectedFavorSaldoId("");
+  }
+}, [hasFavorBalance]);
 
   // Si cambia el monto (saldo a favor, etc) y el schedule tiene 1 fila, lo sincronizamos
   useEffect(() => {
@@ -498,6 +577,39 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
 
       console.log("informacion", reservaRef,"informacion",reservation)
 
+      let saldoFavorPayload:
+  | { id_saldo: string; monto_aplicado: number }
+  | null = null;
+
+if (hasFavorBalance) {
+  if (!selectedFavorSaldoId) {
+    throw new Error("Selecciona el saldo a favor que deseas aplicar."); 
+  }
+
+  const montoSaldoAplicar = Number(favorBalance) || 0;
+
+  if (montoSaldoAplicar <= 0) {
+    throw new Error("El monto de saldo a favor debe ser mayor a 0.");
+  }
+
+  if (montoSaldoAplicar > saldoFavorMaximoSeleccionado) {
+    throw new Error("El monto excede el saldo a favor seleccionado.");
+  }
+
+  if (montoSaldoAplicar > reservationTotal) {
+  throw new Error("El saldo a favor no puede exceder el pago al proveedor.");
+}
+
+if (montoSaldoAplicar > maxSaldoAplicable) {
+  throw new Error("El monto excede el máximo aplicable para esta reservación.");
+}
+
+  saldoFavorPayload = {
+    id_saldo: selectedFavorSaldoId,
+    monto_aplicado: montoSaldoAplicar,
+  };
+}
+
       // --------------------
       // CRÉDITO
       // --------------------
@@ -521,6 +633,9 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
             idTitular: null,
             titular: "",
             identificacion: "",
+            saldo_a_favor: hasFavorBalance,
+            monto_saldo_a_favor: hasFavorBalance ? Number(favorBalance) || 0 : 0,
+            id_saldo_a_favor: hasFavorBalance ? selectedFavorSaldoId : null,
           },
           (response: any) => {
             handleSolicitudResponse(response);
@@ -583,6 +698,9 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                 paymentMethod === "link"
                   ? (currentTitular?.identificacion ?? "")
                   : "",
+              saldo_a_favor: hasFavorBalance,
+              monto_saldo_a_favor: hasFavorBalance ? Number(favorBalance) || 0 : 0,
+              id_saldo_a_favor: hasFavorBalance ? selectedFavorSaldoId : null,
             },
             (response: any) => {
               handleSolicitudResponse(response);
@@ -607,6 +725,9 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
               paymentStatus: derivedStatus,
               paymentSchedule: paymentSchedulePayload,
               usuario_creador: (reservation as any).usuario_creador,
+              saldo_a_favor: hasFavorBalance,
+             monto_saldo_a_favor: hasFavorBalance ? Number(favorBalance) || 0 : 0,
+              id_saldo_a_favor: hasFavorBalance ? selectedFavorSaldoId : null,
             },
             (response: any) => {
               handleSolicitudResponse(response);
@@ -631,55 +752,115 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
     }
   };
 
+
   const handleConfirmCredit = async () => {
     await handlePayment();
   };
 
 useEffect(() => {
-
-
   const fn = async () => {
     try {
-setLoading(true)
-      // Ajusta el endpoint según tu backend:
-      // Si URL ya trae /v1 -> usa /mia/...
-      // Si URL NO trae /v1 -> usa /v1/mia/...
-      const endpoint =  `${URL}/mia/reservas/v2/cupon?id=${reservation.id_solicitud}`;
+      setLoading(true);
 
-      const resp = await fetch(endpoint, {
-        method: "GET",
-        headers: {
-          "x-api-key": API_KEY || "",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          "Content-Type": "application/json",
-        },
-        cache: "no-store",
-      });
+      const endpoint = `${API_URL}/mia/reservas/v2/cupon?id=${reservation.id_solicitud}`;
+      const fecthsaldos = `${API_URL}/mia/pago_proveedor/saldos?id=${reservation.id_proveedor}`;
+
+      console.log(reservation);
+
+      const [resp, saldosResp] = await Promise.all([
+        fetch(endpoint, {
+          method: "GET",
+          headers: {
+            "x-api-key": API_KEY || "",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Content-Type": "application/json",
+          },
+          cache: "no-store",
+        }),
+        fetch(fecthsaldos, {
+          method: "GET",
+          headers: {
+            "x-api-key": API_KEY || "",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Content-Type": "application/json",
+          },
+          cache: "no-store",
+        }),
+      ]);
 
       if (!resp.ok) {
         const text = await resp.text().catch(() => "");
         throw new Error(`HTTP ${resp.status} ${resp.statusText} :: ${text}`);
       }
 
+      if (!saldosResp.ok) {
+        const text = await saldosResp.text().catch(() => "");
+        throw new Error(
+          `HTTP ${saldosResp.status} ${saldosResp.statusText} :: ${text}`,
+        );
+      }
+
       const json = await resp.json();
-      setCupon(Boolean(json.data.incluye_desayuno));
+      const saldosJson = await saldosResp.json();
 
-      // ✅ IMPRIMIR LO QUE LLEGA
+      setCupon(Boolean(json?.data?.incluye_desayuno));
+
+      // el endpoint de saldos viene como array según tu ejemplo
+      const saldosArray = Array.isArray(saldosJson)
+        ? saldosJson
+        : Array.isArray(saldosJson?.data)
+        ? saldosJson.data
+        : [];
+
+      setSaldosProveedor(saldosArray);
+
       console.log("✅ CUPON RESPONSE:", json);
-
-      // ✅ Normaliza a tu shape (ajusta si tu API devuelve otra estructura)
-      const detalles = json?.res?.[0] ?? json?.data ?? json;
-
+      console.log("✅ SALDOS RESPONSE:", saldosArray);
     } catch (e: any) {
-      console.error("❌ Error cargando cupón:", e);
-      showNotification("error", "Paso un error, si la reserva tiene desayuno el cupon no va a salir con desayuno")
+      console.error("❌ Error cargando cupón/saldos:", e);
+      setSaldosProveedor([]);
+      showNotification(
+        "error",
+        "Pasó un error. Si la reserva tiene desayuno el cupón no va a salir con desayuno.",
+      );
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
-  fn()
+  };
 
-}, []);
+  if (reservation?.id_solicitud && reservation?.id_proveedor) {
+    fn();
+  }
+}, [reservation?.id_solicitud, reservation?.id_proveedor]);
+
+
+useEffect(() => {
+  if (!canUseFavorBalance) {
+    dispatch({
+      type: "SET_FIELD",
+      field: "hasFavorBalance",
+      payload: false,
+    });
+
+    dispatch({
+      type: "SET_FIELD",
+      field: "favorBalance",
+      payload: 0,
+    });
+  }
+}, [canUseFavorBalance]);
+
+useEffect(() => {
+  const currentFavorBalance = Number(favorBalance) || 0;
+
+  if (currentFavorBalance > saldoFavorMaximoSeleccionado) {
+    dispatch({
+      type: "SET_FIELD",
+      field: "favorBalance",
+      payload: saldoFavorMaximoSeleccionado,
+    });
+  }
+}, [saldoFavorMaximoSeleccionado, favorBalance]);
 
   return (
     <div className="max-w-[85vw] w-screen p-2 pt-0 max-h-[90vh] grid grid-cols-2">
@@ -711,36 +892,57 @@ setLoading(true)
       <div className="px-4 border-r">
         <ReservationDetails reservation={reservation} />
 
+
         <div className="space-y-2">
           {/* Saldo a Favor + Fechas SOLO en PREPAGO */}
           {paymentType === "prepaid" && (
             <>
-              <CheckboxInput
-                checked={hasFavorBalance}
-                onChange={(checked) =>
-                  dispatch({
-                    type: "SET_FIELD",
-                    field: "hasFavorBalance",
-                    payload: checked === true,
-                  })
-                }
-                label="Tiene saldo a favor"
-              />
-
+              <Can permiso={PERMISOS.COMPONENTES.BOTON.SALDO_A_FAVOR}>
+                <CheckboxInput
+                  checked={canUseFavorBalance ? hasFavorBalance : false}
+                  disabled={!canUseFavorBalance}
+                  onChange={(checked) =>
+                    dispatch({
+                      type: "SET_FIELD",
+                      field: "hasFavorBalance",
+                      payload: canUseFavorBalance && checked === true,
+                    })
+                  }
+                  label={
+                    canUseFavorBalance
+                      ? `Tiene saldo a favor disponible ($${saldoFavorDisponible.toFixed(2)})`
+                      : "No hay saldo a favor disponible"
+                  }
+                />
+              </Can>
               {hasFavorBalance && (
                 <>
                   <NumberInput
-                    onChange={(value) =>
-                      dispatch({
-                        type: "SET_FIELD",
-                        field: "favorBalance",
-                        payload: value,
-                      })
-                    }
-                    value={Number(favorBalance) || null}
-                    label="Monto Saldo a Favor a Aplicar"
-                    placeholder="0.00"
-                  />
+  onChange={(value) => {
+    const numericValue = Number(value) || 0;
+    dispatch({
+      type: "SET_FIELD",
+      field: "favorBalance",
+      payload: Math.min(numericValue, maxSaldoAplicable),
+    });
+  }}
+  value={Number(favorBalance) || null}
+  label={`Monto Saldo a Favor a Aplicar (máx. $${maxSaldoAplicable.toFixed(2)})`}
+  placeholder="0.00"
+/>
+                  <select
+  className="w-full h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+  value={selectedFavorSaldoId}
+  onChange={(e) => setSelectedFavorSaldoId(e.target.value)}
+>
+  <option value="">-- Selecciona un saldo a favor --</option>
+
+  {saldosFavorAplicables.map((saldo: any) => (
+    <option key={saldo.id_saldo} value={String(saldo.id_saldo)}>
+      {` Disponible: $${Number(saldo.restante).toFixed(2)} `}
+    </option>
+  ))}
+</select>
                   <div className="p-4 bg-green-50 border rounded-md border-green-200">
                     <div className="flex justify-between items-center">
                       <span className="text-slate-700 text-sm">
@@ -1196,7 +1398,7 @@ setLoading(true)
               <Button
                 type="button"
                 onClick={() => setIsReservaOpen(true)}
-                disabled={!mappedReservation || isSubmitting}
+                disabled={!mappedReservation || isSubmitting||!!loading}
                 className="w-full bg-emerald-600 hover:bg-emerald-700"
                 title={
                   !mappedReservation

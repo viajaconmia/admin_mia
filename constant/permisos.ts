@@ -28,6 +28,7 @@ export const PERMISOS = {
   COMPONENTES: {
     BOTON: {
       PAGAR_PROVEEDOR: "button.pagar-proveedor-reserva",
+      SALDO_A_FAVOR:"button.saldo-favor-proveedor",
       CREAR_RESERVA: "button.crear-reserva",
       EDITAR_PRECIO_RESERVA: "button.edit-price-booking",
       ACTUALIZAR_PDF_FACTURA: "button.actualizar_factura_pdf",

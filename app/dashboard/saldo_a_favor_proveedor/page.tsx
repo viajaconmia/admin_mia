@@ -4,7 +4,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Table5 } from "@/components/Table5";
 import { URL, API_KEY } from "@/lib/constants/index";
-import { Search, Filter, X, RefreshCw, Ban } from "lucide-react";
+import { Search, Filter, X, RefreshCw, Ban , CheckCircle} from "lucide-react";
 import Button from "@/components/atom/Button";
 
 type AnyRow = Record<string, any>;
@@ -106,7 +106,7 @@ function toSaldoFavorRow(raw: any, index: number): AnyRow {
 export default function SaldoAFavorProveedoresPage() {
   const endpoint = `${URL}/mia/pago_proveedor/saldo_a_favor`;
   const changeStatusEndpoint = `${URL}/mia/pago_proveedor/cambio_de_estatus`;
-
+ 
   const [isLoading, setIsLoading] = useState(false);
   const [todos, setTodos] = useState<any[]>([]);
 
@@ -118,6 +118,7 @@ export default function SaldoAFavorProveedoresPage() {
   const [idProveedorFiltro, setIdProveedorFiltro] = useState<string>(""); // se manda al back (opcional)
   const [estadoFiltro, setEstadoFiltro] = useState<EstadoSaldo>("");
   const [formaPagoFiltro, setFormaPagoFiltro] = useState<FormaPago>("");
+  
 
   const load = useCallback(async () => {
     const controller = new AbortController();
@@ -176,6 +177,26 @@ export default function SaldoAFavorProveedoresPage() {
     },
     [changeStatusEndpoint]
   );
+
+    const aprobar_saldo = useCallback(
+    async (id_saldo: string) => {
+      const resp = await fetch(changeStatusEndpoint, {
+        method: "POST",
+        headers: {
+          "x-api-key": API_KEY || "",
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+        },
+        body: JSON.stringify({ id_saldo, estado: "approved" }),
+      });
+
+      const json = await resp.json().catch(() => null);
+      if (!resp.ok) throw new Error(json?.message || `Error HTTP: ${resp.status}`);
+      return true;
+    },
+    [changeStatusEndpoint]
+  );
+
 
   const filteredData = useMemo(() => {
     const q = (searchTerm || "").toUpperCase().trim();
@@ -308,7 +329,7 @@ export default function SaldoAFavorProveedoresPage() {
         ].join(" ")}
         onClick={async () => {
           if (!canCancel) return; // ✅ guard por si tu UI no respeta disabled
-          const ok = confirm(`¿Cancelar saldo ${id}? (estado=cancelled)`);
+          const ok = confirm(`¿Aprobar saldo ${id}? (estado=approved)`);
           if (!ok) return;
 
           try {
@@ -323,14 +344,46 @@ export default function SaldoAFavorProveedoresPage() {
         <Ban className="w-4 h-4" />
         Cancelar
       </button>
+
+
+      <button
+        type="button"
+        disabled={!canCancel}
+        aria-disabled={!canCancel}
+        className={[
+          "px-2 py-1 text-xs border rounded-md inline-flex items-center gap-1",
+          canCancel
+            ? "border-green-200 bg-green-50 text-green-700 hover:bg-green-100"
+            : "border-gray-200 bg-gray-100 text-gray-400",
+          "disabled:opacity-60 disabled:cursor-not-allowed",
+        ].join(" ")}
+        onClick={async () => {
+          if (!canCancel) return; // ✅ guard por si tu UI no respeta disabled
+          const ok = confirm(`aprobar saldo ${id}? (estado=aprobado)`);
+          if (!ok) return;
+
+          try {
+            await aprobar_saldo(id);
+            await load();
+          } catch (e: any) {
+            alert(e?.message || "Error aprobando saldo");
+          }
+        }}
+        title={canCancel ? "aprobar saldo (solo pending)" : "No se puede aprobar: solo estado pending"}
+      >
+        <Ban className="w-4 h-4" />
+        aprobar
+      </button>
     </div>
   );
 },
     }),
-    [cancelarSaldo, load]
+    [cancelarSaldo, load, aprobar_saldo]
   );
 
   const defaultSort = useMemo(() => ({ key: "fecha_procesamiento", sort: false }), []);
+
+  
 
   return (
     <div className="min-h-screen bg-gray-50">

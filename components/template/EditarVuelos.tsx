@@ -483,6 +483,7 @@ export type ViajeAereoDetails = {
   costo: number | null;
   precio: number | null;
   status: string | null;
+  id_booking?: string;
   vuelos: Vuelo[];
 };
 
