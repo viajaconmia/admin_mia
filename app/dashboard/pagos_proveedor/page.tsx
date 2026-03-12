@@ -550,6 +550,20 @@ type EditModalState = {
   value: string;
 };
 
+type ComprobantePagoFlowState = {
+  open: boolean;
+  raw: any | null;
+  id_solicitud_proveedor: string;
+};
+
+function isPdfFile(file?: File | null) {
+  if (!file) return false;
+  const nameOk = (file.name || "").toLowerCase().endsWith(".pdf");
+  const typeOk =
+    file.type === "application/pdf" || file.type === "application/x-pdf";
+  return nameOk || typeOk;
+}
+
 const InlineMoneyEdit = ({
   id,
   value,
@@ -641,6 +655,52 @@ type MetodoPagoPopoverProps = {
 };
 
 
+const getSolicitudSemaforoRowClass = ({
+  categoria,
+  fechaSolicitud,
+  pagado,
+  consolidado,
+}: {
+  categoria: string;
+  fechaSolicitud?: string | Date | null;
+  pagado: boolean;
+  consolidado: number;
+}) => {
+  // ✅ consolidado manda sobre todo
+  if (Number(consolidado) === 1) return "bg-blue-100";
+
+  // ✅ si ya está pagado, sin color
+  if (pagado) return "";
+
+  // ✅ solo aplica a SPEI y Pago TDC
+  if (categoria !== "spei" && categoria !== "pago_tdc") return "";
+
+  if (!fechaSolicitud) return "";
+
+  const fecha = new Date(fechaSolicitud as any);
+  if (isNaN(fecha.getTime())) return "";
+
+  const hoy = new Date();
+  const hoySinHora = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
+  const fechaSinHora = new Date(
+    fecha.getFullYear(),
+    fecha.getMonth(),
+    fecha.getDate(),
+  );
+
+  const diffMs = fechaSinHora.getTime() - hoySinHora.getTime();
+  const diffDays = diffMs / (1000 * 60 * 60 * 24);
+
+  // 🔴 ya pasó
+  if (diffDays < 0) return "bg-red-200";
+
+  // 🟡 hoy o hasta 3 días
+  if (diffDays <= 3) return "bg-yellow-200";
+
+  // 🟢 más de 3 días
+  return "bg-green-200";
+};
+
 const MetodoPagoPopover: React.FC<MetodoPagoPopoverProps> = ({
   idSolProv,
   currentMethod,
@@ -698,12 +758,71 @@ const MetodoPagoPopover: React.FC<MetodoPagoPopoverProps> = ({
   );
 };
 
+const getEstadoSolicitudPagado = (
+  raw: any,
+  categoria: string,
+):
+  | "PAGADO TARJETA"
+  | "PAGADO TRANSFERENCIA"
+  | "PAGADO LINK"
+  | null => {
+  const estadoActual = normUpper(
+    raw?.solicitud_proveedor?.estado_solicitud ?? raw?.estado_solicitud ?? "",
+  );
+
+  if (
+    estadoActual === "PAGADO TARJETA" ||
+    estadoActual === "PAGADO TRANSFERENCIA" ||
+    estadoActual === "PAGADO LINK"
+  ) {
+    return estadoActual;
+  }
+
+  const forma = norm(
+    raw?.solicitud_proveedor?.forma_pago_solicitada ??
+      raw?.forma_pago_solicitada ??
+      "",
+  );
+
+  if (categoria === "pago_link" || forma === "link") return "PAGADO LINK";
+  if (categoria === "pago_tdc" || forma === "card") return "PAGADO TARJETA";
+  if (categoria === "spei" || forma === "transfer")
+    return "PAGADO TRANSFERENCIA";
+
+  return null;
+};
+
+const getConciliacionInfo = (raw: any) => {
+  const pagoInfo = getPagoInfoFromRaw(raw);
+  const facturaInfo = getFacturaInfoFromRaw(raw);
+
+  const totalPagado = Number(pagoInfo?.totalPagado ?? 0);
+  const totalFacturado = Number(facturaInfo?.totalFacturado ?? 0);
+  const diferencia = Math.abs(totalPagado - totalFacturado);
+
+  return {
+    totalPagado,
+    totalFacturado,
+    diferencia,
+    puedeConciliar: diferencia < 20,
+  };
+};
+
+
 function App() {
   const { showNotification } = useAlert();
   const { hasAccess } = usePermiso();
   hasAccess(PERMISOS.VISTAS.PROVEEDOR_PAGOS);
 
   const editEndpoint = `${URL}/mia/pago_proveedor/edit`;
+  const comprobantePagoEndpoint = `${URL}/mia/pago_proveedor/comprobante`;
+
+const [comprobantePagoModal, setComprobantePagoModal] =
+  useState<ComprobantePagoFlowState>({
+    open: false,
+    raw: null,
+    id_solicitud_proveedor: "",
+  });
 
 const [solicitudesPago, setSolicitudesPago] = useState<SolicitudesPorFiltro>({
   todos: [],
@@ -1230,6 +1349,42 @@ const clearSelection = useCallback(() => {
   return cols;
 }, [categoria]);
 
+const marcarSolicitudPagada = useCallback(
+  async (raw: any) => {
+    const idSolProv = getIdSolProv(raw);
+    if (!idSolProv) return false;
+
+    const estadoSolicitudPagado = getEstadoSolicitudPagado(raw, categoria);
+
+    if (!estadoSolicitudPagado) {
+      showNotification(
+        "error",
+        "No se pudo determinar el estado_solicitud de pagado para esta solicitud.",
+      );
+      return false;
+    }
+
+    const ok = await patchSolicitudProveedorFields(idSolProv, {
+      estatus_pagos: "pagado",
+      estado_solicitud: estadoSolicitudPagado,
+    });
+
+    if (ok) {
+      clearSelection();
+      handleFetchSolicitudesPago();
+    }
+
+    return ok;
+  },
+  [
+    categoria,
+    patchSolicitudProveedorFields,
+    clearSelection,
+    handleFetchSolicitudesPago,
+    showNotification,
+  ],
+);
+
 const cancelSolicitud = useCallback(
   async (id_solicitud_proveedor: string) => {
     const id = String(id_solicitud_proveedor ?? "").trim();
@@ -1247,6 +1402,48 @@ const cancelSolicitud = useCallback(
   },
   [patchSolicitudProveedor, clearSelection, handleFetchSolicitudesPago],
 );
+
+const conciliarSolicitud = useCallback(
+  async (raw: any) => {
+    const idSolProv = getIdSolProv(raw);
+    if (!idSolProv) return false;
+
+    const { diferencia, totalPagado, totalFacturado, puedeConciliar } =
+      getConciliacionInfo(raw);
+
+    if (!puedeConciliar) {
+      showNotification(
+        "error",
+        `No se puede conciliar. Diferencia actual: $${diferencia.toFixed(
+          2,
+        )}. Pagado: $${totalPagado.toFixed(
+          2,
+        )} / Facturado: $${totalFacturado.toFixed(2)}.`,
+      );
+      return false;
+    }
+
+    const okConfirm = window.confirm(
+      `¿Conciliar la solicitud ${idSolProv}?\n\n` +
+        `Pagado: $${totalPagado.toFixed(2)}\n` +
+        `Facturado: $${totalFacturado.toFixed(2)}\n` +
+        `Diferencia: $${diferencia.toFixed(2)}`
+    );
+
+    if (!okConfirm) return false;
+
+    const ok = await patchSolicitudProveedor(idSolProv, "consolidado", 1);
+
+    if (ok) {
+      clearSelection();
+      handleFetchSolicitudesPago();
+    }
+
+    return ok;
+  },
+  [patchSolicitudProveedor, clearSelection, handleFetchSolicitudesPago, showNotification],
+);
+
 const marcarNotificadoPagado = useCallback(
   async (id_solicitud_proveedor: string, pagado: 0 | 1) => {
     const id = String(id_solicitud_proveedor ?? "").trim();
@@ -1720,41 +1917,86 @@ const marcarNotificadoPagado = useCallback(
   </button>
 )}
           {/* Botón marcar pagado (solo si no es transfer) */}
-          {forma !== "transfer" && categoria !== "carta_garantia" && (
-            <button
-              type="button"
-              className={[
-                "inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors shadow-sm",
-                pagado
-                  ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
-                  : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300",
-              ].join(" ")}
-              disabled={pagado}
-              onClick={async () => {
-                /* ... */
-              }}
-              title={pagado ? "Ya está pagado" : "Marcar como pagado"}
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Pagado</span>
-            </button>
-          )}
+          {forma !== "transfer" && categoria !== "carta_garantia" && categoria !== "notificados" && (
+  <button
+    type="button"
+    className={[
+      "inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors shadow-sm",
+      pagado
+        ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+        : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300",
+    ].join(" ")}
+    disabled={pagado}
+    onClick={async () => {
+      if (pagado) return;
+
+      const estadoSolicitudPagado = getEstadoSolicitudPagado(raw, categoria);
+
+      const ok = window.confirm(
+        `¿Marcar como PAGADO la solicitud ${idSolProv}?\n\n` +
+          `Se enviará:\n` +
+          `- estatus_pagos: pagado\n` +
+          `- estado_solicitud: ${estadoSolicitudPagado ?? "N/D"}`
+      );
+      if (!ok) return;
+
+      await marcarSolicitudPagada(raw);
+    }}
+    title={pagado ? "Ya está pagado" : "Marcar como pagado"}
+  >
+    <CheckCircle2 className="w-3.5 h-3.5" />
+    <span>Pagado</span>
+  </button>
+)}
 
           {/* Conciliar (solo en pagados) */}
           {/* Botón conciliar (solo pagados) */}
-          {pagado && (
-            <button
-              type="button"
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition-colors shadow-sm"
-              onClick={async () => {
-                /* ... */
-              }}
-              title="Conciliar (marca consolidado=1)"
-            >
-              <Handshake className="w-3.5 h-3.5" />
-              <span>Conciliar</span>
-            </button>
-          )}
+          {(() => {
+  const consolidado = Number(
+    (raw as any)?.consolidado ??
+      (raw as any)?.estatus_conciliado ??
+      (raw as any)?.conciliado ??
+      0,
+  );
+
+  const { diferencia, totalPagado, totalFacturado, puedeConciliar } =
+    getConciliacionInfo(raw);
+
+  if (!pagado) return null;
+
+  const disabled = consolidado === 1 || !puedeConciliar;
+
+  return (
+    <button
+      type="button"
+      className={[
+        "inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors shadow-sm",
+        disabled
+          ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+          : "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-300",
+      ].join(" ")}
+      disabled={disabled}
+      onClick={async () => {
+        if (disabled) return;
+        await conciliarSolicitud(raw);
+      }}
+      title={
+        consolidado === 1
+          ? "Ya está conciliada"
+          : !puedeConciliar
+            ? `No se puede conciliar. Diferencia actual: $${diferencia.toFixed(
+                2,
+              )} (pagado: $${totalPagado.toFixed(
+                2,
+              )}, facturado: $${totalFacturado.toFixed(2)})`
+            : "Conciliar (marca consolidado=1)"
+      }
+    >
+      <Handshake className="w-3.5 h-3.5" />
+      <span>Conciliar</span>
+    </button>
+  );
+})()}
         </div>
       );
     },
@@ -1897,26 +2139,30 @@ const marcarNotificadoPagado = useCallback(
               renderers={renderers}
               defaultSort={defaultSort as any}
               customColumns={customColumns}
-              getRowClassName={(row) => {
-                const raw = (row as any)?.item ?? row;
+getRowClassName={(row) => {
+  const raw = (row as any)?.item ?? row;
 
-                const consolidado = Number(
-                  (raw as any)?.consolidado ??
-                    (raw as any)?.estatus_conciliado ??
-                    (raw as any)?.conciliado ??
-                    0,
-                );
+  const consolidado = Number(
+    (raw as any)?.consolidado ??
+      (raw as any)?.estatus_conciliado ??
+      (raw as any)?.conciliado ??
+      0,
+  );
 
-                if (consolidado === 1) return "bg-blue-100"; // ✅ azul
+  const pagado = isPagado(raw);
 
-                if (categoria === "pagada" || categoria === "canceladas")
+  const fechaSolicitud =
+    raw?.solicitud_proveedor?.fecha_solicitud ??
+    (row as any)?.fecha_solicitud ??
+    null;
 
-                return getFechaPagoRowClass(
-                  (row as any).pendiente_a_pagar <= 0
-                    ? ""
-                    : (row as any).fecha_solicitud,
-                );
-              }}
+  return getSolicitudSemaforoRowClass({
+    categoria,
+    fechaSolicitud,
+    pagado,
+    consolidado,
+  });
+}}
               leyenda={`Mostrando ${registrosVisibles.length} registros (${categoria === "all" ? "todas" : `categoría: ${categoria}`})`}
             >
               {/* Subir comprobante (secundario) */}

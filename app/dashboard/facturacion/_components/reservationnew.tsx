@@ -350,24 +350,57 @@ const ReservationsWithTable4: React.FC = () => {
     }).format(value);
   };
 
-  const fetchReservations = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      await fetchReservationsFacturacion((data: ReservationWithItems[]) => {
-        setReservations(data);
-      });
-    } catch (err) {
-      console.error(err);
-      setError("Error al cargar las reservaciones");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const hasActiveFilters = useMemo(() => {
+  const hasSearch = !!searchTerm.trim();
 
-  useEffect(() => {
-    fetchReservations();
-  }, [fetchReservations]);
+  const hasFilters =
+    !!filters.id_agente ||
+    !!filters.nombre_agente ||
+    !!filters.hotel ||
+    !!filters.codigo_reservacion ||
+    !!filters.traveler ||
+    !!filters.tipo_hospedaje ||
+    !!filters.filterType ||
+    !!filters.startDate ||
+    !!filters.endDate ||
+    filters.markup_start != null ||
+    filters.markup_end != null ||
+    filters.startCantidad != null ||
+    filters.endCantidad != null;
+
+  return hasSearch || hasFilters;
+}, [filters, searchTerm]);
+
+const fetchReservations = useCallback(async () => {
+  if (!hasActiveFilters) {
+    setReservations([]);
+    setLoading(false);
+    setError(null);
+    return;
+  }
+
+  setLoading(true);
+  setError(null);
+
+  try {
+    const data = await fetchReservationsFacturacion({
+      ...filters,
+      search: searchTerm || null,
+      onlyPending,
+    });
+
+    setReservations(Array.isArray(data) ? data : []);
+  } catch (err) {
+    console.error(err);
+    setError("Error al cargar las reservaciones");
+  } finally {
+    setLoading(false);
+  }
+}, [filters, searchTerm, onlyPending, hasActiveFilters]);
+
+useEffect(() => {
+  fetchReservations();
+}, [fetchReservations]);
 
   const [showAsignarModal, setShowAsignarModal] = useState(false);
   const [asignarData, setAsignarData] = useState<{
@@ -414,7 +447,7 @@ const ReservationsWithTable4: React.FC = () => {
   };
 
   const tokens = (s?: string | null) => norm(s).split(" ").filter(Boolean);
-
+  
   // Aplica todos los filtros soportados por las columnas de la tabla
   const applyFiltersReservation = (
     list: ReservationWithItems[],
@@ -689,17 +722,23 @@ const ReservationsWithTable4: React.FC = () => {
   };
 
   // ---- filas para Table4 ----
+  // const rows = useMemo(() => {
+  //   // 0) Origen: pendientes o todas
+  //   const base = onlyPending
+  //     ? reservations.filter(hasPendingItems)
+  //     : reservations;
+
+  //   // 1) Aplica filtros + search
+  //   const filtradas = applyFiltersReservation(base, filters, searchTerm);
+
+  //   // 2) Mapea a rows de la tabla creando nuevos objetos para React
+  //   return filtradas.map((r, index) => {
   const rows = useMemo(() => {
-    // 0) Origen: pendientes o todas
-    const base = onlyPending
-      ? reservations.filter(hasPendingItems)
-      : reservations;
+  const base = onlyPending
+    ? reservations.filter(hasPendingItems)
+    : reservations;
 
-    // 1) Aplica filtros + search
-    const filtradas = applyFiltersReservation(base, filters, searchTerm);
-
-    // 2) Mapea a rows de la tabla creando nuevos objetos para React
-    return filtradas.map((r, index) => {
+  return base.map((r, index) => {
       const noches = Math.max(
         0,
         Math.ceil(
