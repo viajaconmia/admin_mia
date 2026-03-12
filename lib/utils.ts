@@ -18,6 +18,17 @@ export function currentDate() {
   return `${año}-${mes}-${dia}`;
 }
 
+export function horasDesde(fecha: string): number {
+  const fechaFormateada = fecha.replace(" ", "T");
+  const ahora = new Date();
+  const fechaInicio = new Date(fechaFormateada);
+
+  const diferenciaMs = ahora - fechaInicio;
+  const horas = diferenciaMs / (1000 * 60 * 60);
+
+  return horas;
+}
+
 export const verificar = (key: string, current: any, before: any) => {
   if (typeof current !== typeof before) return { [key]: { current, before } };
   if (
@@ -36,7 +47,7 @@ export const verificar = (key: string, current: any, before: any) => {
   }
   if (Array.isArray(current)) {
     let isCambio = current.map((current, index) =>
-      verificar(String(index), current, before[index])
+      verificar(String(index), current, before[index]),
     );
     isCambio = isCambio.some((item) => !!item);
     return isCambio ? { [key]: { current, before } } : undefined;
@@ -97,13 +108,13 @@ export const getDatePlusFiveYears = () => {
 // Función para subir archivo a S3
 export const subirArchivoAS3Seguro = async (
   file: File,
-  bucket: string = "comprobantes"
+  bucket: string = "comprobantes",
 ) => {
   try {
     const { url: presignedUrl, publicUrl } = await obtenerPresignedUrl(
       file.name,
       file.type,
-      bucket
+      bucket,
     );
 
     await subirArchivoAS3(file, presignedUrl);
