@@ -39,13 +39,6 @@ export const PageTracker = ({
             <Button
               size="sm"
               variant="secondary"
-              // onClick={() => {
-              //   setTracking((prev) => ({
-              //     ...prev,
-              //     page: prev.page + 1,
-              //   }));
-              //   fetchProveedores(tracking.page + 1);
-              // }}
               onClick={() => setPage(tracking.page + 1)}
             >
               Siguiente

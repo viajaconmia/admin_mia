@@ -45,6 +45,17 @@ import ModalDetalleFactura from "@/app/dashboard/invoices/_components/detalles";
 import { PageTracker, TrackingPage } from "./tracker_false";
 import { set } from "date-fns";
 import { useFile } from "@/hooks/useFile";
+import { downloadXML } from "@/helpers/utils";
+import {
+  ComboBox2,
+  ComboBoxOption2,
+  TextAreaInput,
+} from "@/components/atom/Input";
+//  from "@/helpers/utils";
+//   ComboBox2,
+//   ComboBoxOption2,
+//   TextAreaInput,
+// } from "@/components/atom/Input";
 
 // Formato moneda
 const fmtMoney = (n: any) =>
@@ -102,6 +113,7 @@ export function TravelersPage() {
   const [activeFilters, setActiveFilters] = useState(defaultFiltersFacturas);
   const [facturas, setFacturas] = useState<Factura[]>([]);
   const [id, setId] = useState<string | null>(null);
+  const [cancelarFactura, setCancelarFactura] = useState<string | null>(null);
   const { Can } = usePermiso();
   const [removingId, setRemovingId] = useState<string | null>(null);
 
@@ -260,12 +272,9 @@ export function TravelersPage() {
     }
   };
 
-  // ✅ cuando cambien filtros, resetea página a 1 y carga
   useEffect(() => {
     const nextPage = 1;
     setTracking((prev) => ({ ...prev, page: nextPage }));
-    cargarFacturas(nextPage);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeFilters]);
 
   const handleQuitarRelacion = async (id_factura: string) => {
@@ -362,7 +371,7 @@ export function TravelersPage() {
       );
     });
   }, [searchTerm, facturas]);
-  console.log(facturasFiltradas, "pagos");
+  // console.log(facturasFiltradas, "pagos");
   // Registros para Table5
   const registros = useMemo(() => {
     return (facturasFiltradas || []).map((f: any) => {
@@ -627,6 +636,18 @@ export function TravelersPage() {
           >
             {isRemoving ? "Eliminando..." : "Eliminar relación"}
           </Button>
+
+          {item.id_facturama && (
+            <Can permiso={PERMISOS.COMPONENTES.BOTON.ACTUALIZAR_PDF_FACTURA}>
+              <Button
+                onClick={() => setCancelarFactura(item.id_factura)}
+                size="sm"
+                variant="destructive"
+              >
+                Cancelar factura
+              </Button>
+            </Can>
+          )}
         </div>
       );
     },
@@ -852,7 +873,6 @@ export function TravelersPage() {
     }).format(value);
   };
 
-  console.log(balance, "cambios");
   const { showNotification } = useAlert();
 
   return (
@@ -896,7 +916,6 @@ export function TravelersPage() {
           <Filters
             defaultFilters={defaultFiltersFacturas}
             onFilter={handleFilter}
-            defaultOpen={true}
             searchTerm={searchTerm}
             setSearchTerm={setSearchTerm}
           />
@@ -968,9 +987,220 @@ export function TravelersPage() {
           title="Detalles de factura"
         />
       )}
+      {cancelarFactura && (
+        <Modal
+          onClose={() => setCancelarFactura(null)}
+          title="Cancelar factura"
+        >
+          <ModalCancelarFactura
+            id={cancelarFactura}
+            onClose={() => setCancelarFactura(null)}
+            onConfirm={() => {
+              cargarFacturas();
+            }}
+          />
+        </Modal>
+      )}
 
       {/* Diálogo legacy si lo usas */}
       {/* <TravelerDialog open={isDialogOpen} onOpenChange={setIsDialogOpen} /> */}
     </div>
   );
 }
+
+export const ModalCancelarFactura = ({
+  id,
+  onClose,
+  onConfirm,
+}: {
+  id: string;
+  onClose: () => void;
+  onConfirm: () => void;
+}) => {
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState({
+    motive: "03",
+    type: "issued",
+    comentarios: null,
+  });
+  const { showNotification, error: showError, success, info } = useAlert();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    if (!data.motive || !data.type) {
+      showNotification(
+        "error",
+        "Por favor, selecciona un motivo y tipo de cancelación.",
+      );
+      return;
+    }
+    try {
+      let response = await FacturaService.getInstance().cancelarFactura(
+        id,
+        data,
+      );
+      if (response.data?.estado == "required_validation") {
+        const confirmacion = confirm(
+          "La factura es de meses anteriores ¿Continuar con la cancelación?",
+        );
+        if (!confirmacion) {
+          info("Cancelación de factura cancelada por el usuario");
+          return;
+        }
+        response = await FacturaService.getInstance().cancelarFactura(id, {
+          ...data,
+          force: true,
+        });
+      }
+      downloadXML(response.data, `factura_cancelada_${id}.xml`);
+      success(response.message || "Factura cancelada correctamente");
+      onConfirm();
+      onClose();
+    } catch (error) {
+      showError(error.message || "Error al cancelar la factura");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <form
+        className="w-[90vw] max-w-xl flex flex-col justify-between h-72 p-4 gap-2"
+        onSubmit={handleSubmit}
+      >
+        <div className="grid grid-cols-2 w-full gap-2">
+          <ComboBox2
+            value={
+              MOTIVOS_CANCELACION.filter((opt) => opt.value === data.motive)[0]
+                ? {
+                    name: MOTIVOS_CANCELACION.filter(
+                      (opt) => opt.value === data.motive,
+                    )[0].label,
+                    content: MOTIVOS_CANCELACION.filter(
+                      (opt) => opt.value === data.motive,
+                    )[0],
+                  }
+                : {
+                    name: "",
+                    content: undefined,
+                  }
+            }
+            onChange={function (
+              value: ComboBoxOption2<{ value: string; label: string }>,
+            ): void {
+              setData((prev) => ({
+                ...prev,
+                motive: value.content.value,
+              }));
+            }}
+            options={MOTIVOS_CANCELACION.map((opt) => ({
+              name: opt.label,
+              content: opt,
+            }))}
+            label="Motivo de cancelación"
+            className="w-full"
+          />
+          <ComboBox2
+            value={
+              CFDI_STATUS.filter((opt) => opt.value === data.type)[0]
+                ? {
+                    name: CFDI_STATUS.filter(
+                      (opt) => opt.value === data.type,
+                    )[0].label,
+                    content: CFDI_STATUS.filter(
+                      (opt) => opt.value === data.type,
+                    )[0],
+                  }
+                : {
+                    name: "",
+                    content: undefined,
+                  }
+            }
+            onChange={function (
+              value: ComboBoxOption2<{ value: string; label: string }>,
+            ): void {
+              setData((prev) => ({ ...prev, type: value.content.value }));
+            }}
+            options={CFDI_STATUS.map((opt) => ({
+              name: opt.label,
+              content: opt,
+            }))}
+            label="Tipo de factura"
+            className="w-full"
+          />
+          <TextAreaInput
+            className="col-span-2"
+            label="¿Por qué se cancela la reserva?"
+            value={data.comentarios}
+            onChange={function (value: string): void {
+              setData((prev) => ({ ...prev, comentarios: value }));
+            }}
+          ></TextAreaInput>
+        </div>
+        <div className="flex flex-col items-center">
+          <div className="grid grid-cols-2 w-full gap-2">
+            <Button
+              variant="ghost"
+              type="button"
+              onClick={onClose}
+              disabled={loading}
+            >
+              Conservar factura
+            </Button>
+            <Button variant="destructive" type="submit" disabled={loading}>
+              Sí, cancelar factura
+            </Button>
+          </div>
+        </div>
+      </form>
+    </>
+  );
+};
+
+const MOTIVOS_CANCELACION = [
+  {
+    value: "01",
+    label: "01 - Comprobante emitido con errores con relación",
+  },
+  {
+    value: "02",
+    label: "02 - Comprobante emitido con errores sin relación",
+  },
+  {
+    value: "03",
+    label: "03 - No se llevó a cabo la operación",
+  },
+  {
+    value: "04",
+    label: "04 - Operación nominativa relacionada en factura global",
+  },
+];
+
+const CFDI_STATUS = [
+  {
+    value: "issued",
+    label: "Issued - Factura emitida y timbrada",
+  },
+  {
+    value: "canceled",
+    label: "Canceled - Factura cancelada",
+  },
+  {
+    value: "pending",
+    label: "Pending - Factura pendiente de timbrar",
+  },
+  {
+    value: "draft",
+    label: "Draft - Borrador (no timbrada)",
+  },
+  {
+    value: "payment",
+    label: "Payment - Complemento de pago",
+  },
+  {
+    value: "payroll",
+    label: "Payroll - Nómina",
+  },
+];

@@ -59,8 +59,15 @@ export type Agente = {
 
 export type Factura = {
   id_factura: string;
+  uuid_factura: string;
+  folio: string;
+  estado: string;
+  nombre_comercial: string;
+  total: string;
+  request_canceled_time: string;
+
   fecha_emision: Date | string;
-  estado_factura: 'Confirmada' | 'Cancelada' | 'En proceso';
+  estado_factura: "Confirmada" | "Cancelada" | "En proceso";
   usuario_creador: string;
   total_factura?: number | null;
   subtotal_factura?: number | null;
@@ -102,7 +109,7 @@ export type Factura = {
   id_booking?: string | null;
   check_in?: Date | string | null;
   check_out?: Date | string | null;
-  estado_booking?: 'Confirmada' | 'Cancelada' | 'En proceso';
+  estado_booking?: "Confirmada" | "Cancelada" | "En proceso";
   fecha_pago_proveedor?: Date | string | null;
   costo_total?: number | null;
   costo_subtotal?: number | null;
@@ -113,12 +120,12 @@ export type Factura = {
   id_viajero?: string | null;
   hotel?: string | null;
   room?: string | null;
-  status_solicitud?: 'pending' | 'complete' | 'canceled';
+  status_solicitud?: "pending" | "complete" | "canceled";
   id_usuario_generador?: string | null;
   id_agente?: string | null;
   id_cliente?: string | null;
   nombre_agente?: string | null;
   tiene_credito_consolidado?: boolean;
   id_empresa?: string | null;
-  rfc?:string|null
-}
+  rfc?: string | null;
+};
