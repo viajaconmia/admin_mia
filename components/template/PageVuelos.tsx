@@ -31,11 +31,12 @@ import { useProveedor } from "@/context/Proveedores";
 import { Loader } from "../atom/Loader";
 import { ViajeAereoDetails } from "./EditarVuelos";
 import { verificar } from "@/lib/utils";
+import { set } from "date-fns";
 
 type VuelosFormProps = {
   agente: Agente;
   data: ViajeAereoDetails | null;
-  onConfirm?: () => void;
+  onConfirm?: (() => void) | false;
 };
 
 export const PageVuelos: React.FC<{
@@ -66,7 +67,7 @@ export const PageVuelos: React.FC<{
         <VuelosForm
           agente={agente}
           data={{ ...data, id_booking }}
-          onConfirm={onConfirm}
+          onConfirm={onConfirm || false}
         />
       ) : (
         <>
@@ -142,7 +143,8 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
   const onPagar = async (e) => {
     e.preventDefault();
     try {
-      if (!!data) {
+      if (!!onConfirm) {
+        setLoading(true);
         let logs = {};
         const beforeState = {
           ...mapApiToDetails(data),
@@ -175,8 +177,9 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
             nombre: agente.nombre,
           } as any,
         });
-        showNotification("success", response.message);
+        showNotification("success", "Viaje aéreo actualizado correctamente");
         onConfirm?.();
+        setLoading(false);
       } else {
         if ((details.precio ?? 0) <= 0)
           throw new Error("El precio debe ser mayor a 0");
@@ -205,6 +208,8 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
       }
     } catch (error: any) {
       showNotification("error", error?.message || "Error al ir a pagar");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -363,7 +368,7 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
               Agregar
             </Button>
           </div>
-          {!data && (
+          {!onConfirm && (
             <Dropdown
               label="Estado"
               value={details.status}
@@ -627,21 +632,21 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
             <NumberInput
               label="Costo proveedor"
               value={details.costo}
-              disabled={!!data}
+              disabled={!!onConfirm}
               onChange={(value: string) =>
                 setDetails((prev) => ({ ...prev, costo: Number(value) }))
               }
             />
             <NumberInput
               label="Precio a cliente"
-              disabled={!!data}
+              disabled={!!onConfirm}
               value={details.precio}
               onChange={(value: string) =>
                 setDetails((prev) => ({ ...prev, precio: Number(value) }))
               }
             />
             <div className="grid pt-6">
-              <Button icon={CheckCircle} type="submit">
+              <Button icon={CheckCircle} type="submit" disabled={loading}>
                 Ir a pagar
               </Button>
             </div>
