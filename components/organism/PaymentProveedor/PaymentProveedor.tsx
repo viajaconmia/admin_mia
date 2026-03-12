@@ -93,6 +93,8 @@ type Props = {
   onClose?: () => void; // ✅ para cerrar el modal desde el padre
 };
 
+
+
 export const PaymentModal = ({ reservation, onClose }: Props) => {
   // const { hasAccess } = usePermiso();
   // hasAccess(PERMISOS.COMPONENTES.BOTON.SALDO_A_FAVOR);

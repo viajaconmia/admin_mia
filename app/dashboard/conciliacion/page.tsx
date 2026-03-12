@@ -120,6 +120,7 @@ function getTipoPago(raw: any): string {
   }
 }
 
+
 type TipoReservaInferida = "PREPAGO" | "CREDITO" | "";
 
 function inferTipoReserva(raw: any): TipoReservaInferida {
@@ -343,6 +344,7 @@ function isPdfFile(file?: File | null) {
   return nameOk || typeOk;
 }
 
+
 export default function ConciliacionPage() {
   const EPS = 0.01;
   const isZero = (n: any) => Math.abs(Number(n) || 0) < EPS;
@@ -396,6 +398,7 @@ const load = useCallback(async () => {
   const controller = new AbortController();
   setIsLoading(true);
 
+  
   try {
     const response = await fetch(endpoint, {
       method: "GET",
@@ -795,6 +798,18 @@ const solicitarPagoCredito = useCallback(
     [EPS]
   );
 
+  const isDispersionRow = useCallback((row: AnyRow) => {
+  const estado = normUpper(
+    row?.estado_solicitud ??
+    row?.__raw?.solicitud_proveedor?.estado_solicitud ??
+    row?.__raw?.estado_solicitud ??
+    row?.informacion_completa?.solicitud_proveedor?.estado_solicitud ??
+    ""
+  );
+
+  return estado === "DISPERSION";
+}, []);
+
   const isConsolidadoRow = (row: AnyRow) => Number(row?.consolidado ?? 0) === 1;
 
   const handleConciliar = useCallback(
@@ -883,6 +898,8 @@ const getFacturaPagoDiffInfo = useCallback((row: AnyRow) => {
 
   return { factura, pagado, diff, ok };
 }, []);
+
+
 
   // ✅ renderers
   const tableRenderers = useMemo<

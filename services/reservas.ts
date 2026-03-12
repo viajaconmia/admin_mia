@@ -1,5 +1,32 @@
 import { EdicionForm, ReservaForm, Viajero } from "@/types";
 import { URL, API_KEY } from "@/lib/constants";
+import { TypeFilters } from "@/types";
+
+type FacturacionFetchParams = Partial<TypeFilters> & {
+  search?: string | null;
+  onlyPending?: boolean;
+};
+
+const buildQueryParams = (params?: FacturacionFetchParams) => {
+  const searchParams = new URLSearchParams();
+
+  if (!params) return searchParams;
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === null || value === undefined || value === "") return;
+
+    // boolean -> true/false
+    if (typeof value === "boolean") {
+      searchParams.append(key, value ? "true" : "false");
+      return;
+    }
+
+    searchParams.append(key, String(value));
+  });
+
+  return searchParams;
+};
+
 
 export async function new_edit(
   reserva: EdicionForm & {
@@ -288,10 +315,36 @@ const getReservasByAgente = async (id_agente) => {
   }
 };
 
-export const fetchReservationsFacturacion = async (callback) => {
+// export const fetchReservationsFacturacion = async (callback) => {
+//   try {
+//     // Replace with your actual API endpoint
+//     const data = await fetch(`${URL}/mia/reservas/allFacturacion`, {
+//       method: "GET",
+//       headers: {
+//         "x-api-key": API_KEY || "",
+//         "Cache-Control": "no-cache, no-store, must-revalidate",
+//         "Content-Type": "application/json",
+//       },
+//       cache: "no-store",
+//     }).then((res) => res.json());
+//     console.log(data);
+//     callback(data);
+//   } catch (error) {
+//     throw error;
+//   }
+// };
+
+export const fetchReservationsFacturacion = async (
+  params?: FacturacionFetchParams
+) => {
   try {
-    // Replace with your actual API endpoint
-    const data = await fetch(`${URL}/mia/reservas/allFacturacion`, {
+    const queryParams = buildQueryParams(params).toString();
+
+    const endpoint = `${URL}/mia/reservas/allFacturacion${
+      queryParams ? `?${queryParams}` : ""
+    }`;
+
+    const res = await fetch(endpoint, {
       method: "GET",
       headers: {
         "x-api-key": API_KEY || "",
@@ -299,9 +352,16 @@ export const fetchReservationsFacturacion = async (callback) => {
         "Content-Type": "application/json",
       },
       cache: "no-store",
-    }).then((res) => res.json());
-    console.log(data);
-    callback(data);
+    });
+
+    if (!res.ok) {
+      throw new Error(`Error al obtener reservaciones: ${res.status}`);
+    }
+
+    const data = await res.json();
+    console.log("reservas facturación:", data);
+
+    return data;
   } catch (error) {
     throw error;
   }
