@@ -351,56 +351,56 @@ const ReservationsWithTable4: React.FC = () => {
   };
 
   const hasActiveFilters = useMemo(() => {
-  const hasSearch = !!searchTerm.trim();
+    const hasSearch = !!searchTerm.trim();
 
-  const hasFilters =
-    !!filters.id_agente ||
-    !!filters.nombre_agente ||
-    !!filters.hotel ||
-    !!filters.codigo_reservacion ||
-    !!filters.traveler ||
-    !!filters.tipo_hospedaje ||
-    !!filters.filterType ||
-    !!filters.startDate ||
-    !!filters.endDate ||
-    filters.markup_start != null ||
-    filters.markup_end != null ||
-    filters.startCantidad != null ||
-    filters.endCantidad != null;
+    const hasFilters =
+      !!filters.id_agente ||
+      !!filters.nombre_agente ||
+      !!filters.hotel ||
+      !!filters.codigo_reservacion ||
+      !!filters.traveler ||
+      !!filters.tipo_hospedaje ||
+      !!filters.filterType ||
+      !!filters.startDate ||
+      !!filters.endDate ||
+      filters.markup_start != null ||
+      filters.markup_end != null ||
+      filters.startCantidad != null ||
+      filters.endCantidad != null;
 
-  return hasSearch || hasFilters;
-}, [filters, searchTerm]);
+    return hasSearch || hasFilters;
+  }, [filters, searchTerm]);
 
-const fetchReservations = useCallback(async () => {
-  if (!hasActiveFilters) {
-    setReservations([]);
-    setLoading(false);
+  const fetchReservations = useCallback(async () => {
+    if (!hasActiveFilters) {
+      setReservations([]);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
+    setLoading(true);
     setError(null);
-    return;
-  }
 
-  setLoading(true);
-  setError(null);
+    try {
+      const data = await fetchReservationsFacturacion({
+        ...filters,
+        search: searchTerm || null,
+        onlyPending,
+      });
 
-  try {
-    const data = await fetchReservationsFacturacion({
-      ...filters,
-      search: searchTerm || null,
-      onlyPending,
-    });
+      setReservations(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error(err);
+      setError("Error al cargar las reservaciones");
+    } finally {
+      setLoading(false);
+    }
+  }, [filters, searchTerm, onlyPending, hasActiveFilters]);
 
-    setReservations(Array.isArray(data) ? data : []);
-  } catch (err) {
-    console.error(err);
-    setError("Error al cargar las reservaciones");
-  } finally {
-    setLoading(false);
-  }
-}, [filters, searchTerm, onlyPending, hasActiveFilters]);
-
-useEffect(() => {
-  fetchReservations();
-}, [fetchReservations]);
+  useEffect(() => {
+    fetchReservations();
+  }, [fetchReservations]);
 
   const [showAsignarModal, setShowAsignarModal] = useState(false);
   const [asignarData, setAsignarData] = useState<{
@@ -447,7 +447,7 @@ useEffect(() => {
   };
 
   const tokens = (s?: string | null) => norm(s).split(" ").filter(Boolean);
-  
+
   // Aplica todos los filtros soportados por las columnas de la tabla
   const applyFiltersReservation = (
     list: ReservationWithItems[],
@@ -734,11 +734,11 @@ useEffect(() => {
   //   // 2) Mapea a rows de la tabla creando nuevos objetos para React
   //   return filtradas.map((r, index) => {
   const rows = useMemo(() => {
-  const base = onlyPending
-    ? reservations.filter(hasPendingItems)
-    : reservations;
+    const base = onlyPending
+      ? reservations.filter(hasPendingItems)
+      : reservations;
 
-  return base.map((r, index) => {
+    return base.map((r, index) => {
       const noches = Math.max(
         0,
         Math.ceil(
@@ -759,7 +759,7 @@ useEffect(() => {
       const pendientePorFacturar = Math.max(0, precioVenta - totalFacturado);
 
       return {
-        id: `${r.id_booking}-${index}`, // 🔑 clave única
+        id: `${r.id_booking}`, // 🔑 clave única
         seleccionado: { ...r }, // ⚡ nuevo objeto para React
         id_cliente: r.id_usuario_generador,
         cliente: r.razon_social ?? "",
