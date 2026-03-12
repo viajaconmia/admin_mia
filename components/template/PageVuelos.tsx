@@ -89,7 +89,7 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
   const [details, setDetails] = useState<Details>(initialDetails);
   const { getProveedores, proveedores, updateProveedores } = useProveedor();
   const { showNotification } = useAlert();
-  getProveedores();
+  if (!proveedores) getProveedores();
   const [viajeros, setViajeros] = useState<ViajeroService[]>([]);
   const [aeropuertos, setAeropuertos] = useState<Aeropuerto[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -130,7 +130,7 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
   }, []);
 
   useEffect(() => {
-    if (!data) return;
+    if (!onConfirm) return;
 
     dispatch({
       type: "SET_ALL",
@@ -200,7 +200,7 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
           )
           .some(Boolean);
 
-        if (res || isSomeNull(details as any)) {
+        if (res || isSomeNull(details as any, ["intermediario"])) {
           throw new Error("Parece ser que dejaste algunos campos vacíos");
         }
 
@@ -208,8 +208,6 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
       }
     } catch (error: any) {
       showNotification("error", error?.message || "Error al ir a pagar");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -230,6 +228,7 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
   ) => {
     try {
       setLoading(true);
+      console.log("estoy cargando el submit?");
 
       if (faltante !== 0 && isPrimary)
         throw new Error(
@@ -260,8 +259,8 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
         agente,
       );
 
-      dispatch({ type: "RESET" });
-      setDetails(initialDetails);
+      // dispatch({ type: "RESET" });
+      // setDetails(initialDetails);
       setOpenPago(false);
 
       showNotification("success", message);
