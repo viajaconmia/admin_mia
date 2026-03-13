@@ -161,7 +161,7 @@ const endpoint = `${URL}/mia/factura/resumen`;
         if (Array.isArray(data)) {
   const grupos: GrupoAgente[] = data.map((row: any) => ({
   id_cliente: row.id_cliente,
-  nombre_cliente: row.nombre_cliente || "Sin asignar",
+  nombre_cliente: row.nombre_agente || "Sin asignar",
   total_facturas: Number(row.total_facturas || 0),
 
   vigentes: Number(row.vigentes || 0),

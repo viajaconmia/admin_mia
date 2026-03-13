@@ -193,7 +193,7 @@ const DEFAULT_RESERVA_FILTERS: TypeFilters = {
   traveler: null,
   tipo_hospedaje: null,
 
-  filterType: "Creacion",
+  filterType: null,
   startDate: null,
   endDate: null,
 
@@ -373,7 +373,6 @@ const fetchReservations = useCallback(async () => {
   try {
     const data = await fetchReservationsFacturacion({
       ...filters,
-      filterType: filters.filterType || "Creacion",
       onlyPending,
     });
 
