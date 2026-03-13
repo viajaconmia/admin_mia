@@ -20,6 +20,7 @@ export default function ReservationsPage() {
     SaldosService.getInstance()
       .obtenerSaldos({ page })
       .then(({ data, metadata }) => {
+        console.log("Saldos obtenidos:", data);
         setSaldos(data.map((saldo) => schema.mapSaldo(saldo)));
         setTracking((prev) => ({
           ...prev,

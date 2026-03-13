@@ -8,13 +8,21 @@ export type SaldoItem = Pick<Saldo, "banco_tarjeta" | "monto"> & {
   cliente: string;
 };
 
-export const mapSaldo = (saldo: Saldo): SaldoItem => {
+export const mapSaldo = (pago: any): any => {
   return {
-    cliente: saldo.nombre,
-    banco_tarjeta: saldo.banco_tarjeta,
-    monto: saldo.monto,
-    creado_en: saldo.fecha_creacion,
-    acciones: saldo.id_saldos,
+    agente: pago.agente,
+    codigo_confirmacion: pago.codigo_confirmacion,
+    fecha_creacion_factura: pago.fecha_creacion_factura,
+    fecha_creacion_pago: pago.fecha_creacion_pago,
+    fecha_creacion_reserva: pago.fecha_creacion_reserva,
+    id_saldos: pago.id_saldos,
+    monto: pago.monto,
+    monto_pago_asignado_a_factura: pago.monto_pago_asignado_a_factura,
+    tipo_servicio: pago.tipo_servicio,
+    total_factura: pago.total_factura,
+    total_reserva: pago.total_reserva,
+    uuid_factura: pago.uuid_factura,
+    acciones: pago,
   };
 };
 
@@ -25,7 +33,20 @@ export const createRenderers = ({
 }) => {
   return {
     monto: ({ value }: { value: string }) => <Precio value={value} />,
-    creado_en: ({ value }: { value: string }) => <DateTime value={value} />,
+    total_factura: ({ value }: { value: string }) => <Precio value={value} />,
+    total_reserva: ({ value }: { value: string }) => <Precio value={value} />,
+    monto_pago_asignado_a_factura: ({ value }: { value: string }) => (
+      <Precio value={value} />
+    ),
+    fecha_creacion_pago: ({ value }: { value: string }) => (
+      <DateTime value={value} />
+    ),
+    fecha_creacion_reserva: ({ value }: { value: string }) => (
+      <DateTime value={value} />
+    ),
+    fecha_creacion_factura: ({ value }: { value: string }) => (
+      <DateTime value={value} />
+    ),
     acciones: ({ value }: { value: number }) => (
       <Button
         size="sm"
