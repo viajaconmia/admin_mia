@@ -221,34 +221,54 @@ const [facturasModal, setFacturasModal] = useState<any[]>([]);
 };
 
 
+const fetchDetalleFacturas = async ({
+  bucket = "all",
+  id_agente = null,
+  fecha_vencimiento_inicio = null,
+  fecha_vencimiento_fin = null,
+} = {}) => {
+  const response = await fetch(`${URL}/mia/factura/detalle`, {
+    method: "POST",
+    headers: {
+      "x-api-key": API_KEY || "",
+      "Content-Type": "application/json",
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+    },
+    body: JSON.stringify({
+      bucket,
+      id_agente,
+      fecha_vencimiento_inicio,
+      fecha_vencimiento_fin,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Error HTTP: ${response.status}`);
+  }
+
+  return await response.json();
+};
+
   // Fetch
-  useEffect(() => {
-    const fetchFacturas = async () => {
-      const endpoint = `${URL}/mia/factura/getfacturasPagoPendiente`;
-      try {
-        const response = await fetch(endpoint, {
-          method: "GET",
-          headers: {
-            "x-api-key": API_KEY || "",
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            "Content-Type": "application/json",
-          },
-          cache: "no-store",
-        });
-        const data = await response.json();
-        if (Array.isArray(data) && (data[0]?.error || data[1]?.error)) {
-          throw new Error("Error al cargar los datos");
-        }
-        setFacturas(data);
-        setFilteredFacturas(data);
-      } catch (error) {
-        console.log("Error al cargar los datos en facturas:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchFacturas();
-  }, []);
+useEffect(() => {
+  const fetchFacturas = async () => {
+    try {
+      const data = await fetchDetalleFacturas({
+        bucket: "all",
+        id_agente: null,
+      });
+
+      setFacturas(data || []);
+      setFilteredFacturas(data || []);
+    } catch (error) {
+      console.log("Error al cargar los datos en facturas:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchFacturas();
+}, []);
 
   console.log(facturas)
 
@@ -284,11 +304,12 @@ const [facturasModal, setFacturasModal] = useState<any[]>([]);
 
       g.Total_facturado += total;
       g.Total_adeudo += isFinite(saldo) ? saldo : 0;
+
       if (isFinite(saldo)) {
-        if (isVencida) g.Vigente += saldo;
-        else g.Atrasado += saldo;
+        if (isVencida) g.Atrasado += saldo;
+        else g.Vigente += saldo;
       }
-      g.facturas.push(f);
+            g.facturas.push(f);
       map.set(id, g);
     }
     // sort opcional por nombre de agente
@@ -356,7 +377,7 @@ const renderers = {
   },
 };
 
-  // ====== filas para Table5 AHORA SON RESÚMENES POR AGENTE ======
+  // ====== filas para Table5 AHORA SON RESÚMENES POR AGENTE ====== 
   const rows = useMemo(() => {
     return grupos.map((g) => ({
       detalles: { grupo: g }, // renderer "detalles" muestra el desplegable
