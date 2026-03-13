@@ -171,7 +171,6 @@ function getEstatusFacturas(diferencia: any, costo_proveedor: any): EstatusFactu
 function toConciliacionRow(raw: any, index: number): AnyRow {
   const row_id = getRowId(raw, index);
 
-
   const id_solicitud_proveedor =
     raw?.solicitud_proveedor?.id_solicitud_proveedor ??
     raw?.id_solicitud_proveedor ??
@@ -237,7 +236,7 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
 
     creado: raw?.created_at ?? null,
     hotel: hotel ? hotel.toUpperCase() : "",
-    codigo_hotel: raw?.codigo_confirmacion ?? "",
+codigo_hotel: raw?.codigo_confirmacion ?? "",
     viajero: viajero ? viajero.toUpperCase() : "",
     check_in: raw?.check_in ?? null,
     check_out: raw?.check_out ?? null,
@@ -358,7 +357,8 @@ export default function ConciliacionPage() {
   const [todos, setTodos] = useState<any[]>([]);
 
   // UI (corto)
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const [appliedSearchTerm, setAppliedSearchTerm] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Draft edits (corto)
@@ -368,7 +368,7 @@ export default function ConciliacionPage() {
   const [selectedForFactura, setSelectedForFactura] = useState<ProveedorSeleccionado[]>([]);
   const [selectedRfc, setSelectedRfc] = useState<string>("");
 
-  const endpoint = `${URL}/mia/pago_proveedor/solicitud`;
+  const endpoint = `${URL}/mia/pago_proveedor/solicitud_conciliacion`;
   const editEndpoint = `${URL}/mia/pago_proveedor/edit`;
 
   // ✅ comprobante (antigua) - ajusta al endpoint real de tu backend
@@ -393,47 +393,70 @@ export default function ConciliacionPage() {
     setSelectedForFactura([]);
   }, []);
 
+  const EMPTY_FILTERS = {
+  folio: "",
+  cliente: "",
+  viajero: "",
+  hotel: "",
+  estado_solicitud: "",
+  forma_pago: "",
+  created_start: "",
+  created_end: "",
+  check_in_start: "",
+  check_in_end: "",
+  check_out_start: "",
+  check_out_end: "",
+};
+
+const [filters, setFilters] = useState(EMPTY_FILTERS);
+
+useEffect(() => {
+  void load(EMPTY_FILTERS);
+}, []);
+
   // ✅ FETCH
-const load = useCallback(async () => {
-  const controller = new AbortController();
-  setIsLoading(true);
+const load = useCallback(
+  async (overrideFilters = filters) => {
+    const controller = new AbortController();
+    setIsLoading(true);
 
-  
-  try {
-    const response = await fetch(endpoint, {
-      method: "GET",
-      signal: controller.signal,
-      headers: {
-        "x-api-key": API_KEY || "",
-        "Content-Type": "application/json",
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-      },
-    });
+    try {
+      const params = new URLSearchParams();
 
-    if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
+      Object.entries(overrideFilters).forEach(([key, value]) => {
+        const v = String(value ?? "").trim();
+        if (v) params.append(key, v);
+      });
 
-    const json = await response.json();
-    const data = json?.data ?? {};
+      const url = `${endpoint}${params.toString() ? `?${params.toString()}` : ""}`;
 
-    // ✅ tomar todas las solicitudes menos las canceladas
-    const list = Object.entries(data)
-      .filter(([key, value]) => key !== "canceladas" && Array.isArray(value))
-      .flatMap(([, value]) => value as any[]);
+      const response = await fetch(url, {
+        method: "GET",
+        signal: controller.signal,
+        headers: {
+          "x-api-key": API_KEY || "",
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+        },
+      });
 
-    setTodos(list);
-  } catch (err) {
-    console.error("Error cargando conciliación:", err);
-    setTodos([]);
-  } finally {
-    setIsLoading(false);
-  }
+      if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
 
-  return () => controller.abort();
-}, [endpoint]);
+      const json = await response.json();
+      const list = Array.isArray(json?.data) ? json.data : [];
 
-  useEffect(() => {
-    load();
-  }, [load]);
+      setTodos(list);
+    } catch (err) {
+      console.error("Error cargando conciliación:", err);
+      setTodos([]);
+    } finally {
+      setIsLoading(false);
+    }
+
+    return () => controller.abort();
+  },
+  [endpoint, filters]
+);
 
   /**
    * ✅ KEY estable para selección/edición
@@ -466,6 +489,18 @@ const load = useCallback(async () => {
     field: "comentarios_ops",
     value: "",
   });
+
+const applyFilters = useCallback(() => {
+  setAppliedSearchTerm(searchInput);
+  void load(filters);
+}, [filters, load, searchInput]);
+
+const clearAllFilters = useCallback(() => {
+  setFilters(EMPTY_FILTERS);
+  setSearchInput("");
+  setAppliedSearchTerm("");
+  void load(EMPTY_FILTERS);
+}, [load]);
 
   const openEditModal = useCallback(
     (rowIdSolicitudProveedor: string, idServicio: any, field: EditableField, currentValue: any) => {
@@ -544,13 +579,13 @@ const load = useCallback(async () => {
    * ✅ filteredData
    */
   const filteredData = useMemo(() => {
-    const q = (searchTerm || "").toUpperCase().trim();
+  const q = (appliedSearchTerm || "").toUpperCase().trim();
 
     const filteredItems = todos.filter((raw) => {
       if (!q) return true;
 
       const hotel = String(raw?.hotel ?? "").toUpperCase();
-      const codigo = String(raw?.codigo_reservacion_hotel ?? "").toUpperCase();
+      const codigo = String(raw?.codigo_confirmacion ?? "").toUpperCase();
       const viajero = String(raw?.nombre_viajero_completo ?? raw?.nombre_viajero ?? "").toUpperCase();
 
       return (
@@ -563,7 +598,7 @@ const load = useCallback(async () => {
 console.log(filteredItems,"😒😒😒😒😒")
 
     return filteredItems.map((raw, i) => toConciliacionRow(raw, i));
-  }, [todos, searchTerm]);
+ }, [todos, appliedSearchTerm]);
 
   // ---------------- RFC VALIDATION (se mantiene) ----------------
   const rfcByKey = useMemo(() => {
@@ -1291,9 +1326,9 @@ console.log("informacion de pago",disableSolicitarPago,"🤬🤬🤬",facturado,
               <div className="relative">
                 <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Buscar por código, hotel, viajero..."
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  placeholder="Buscar por código confirmación, proveedor, viajero..."
                   className="w-full border border-gray-200 rounded-lg pl-9 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
                 />
               </div>
@@ -1314,7 +1349,7 @@ console.log("informacion de pago",disableSolicitarPago,"🤬🤬🤬",facturado,
                 variant="secondary"
                 size="md"
                 className="border border-gray-200 bg-white hover:bg-gray-50 text-gray-800"
-                onClick={() => setSearchTerm("")}
+                onClick={clearAllFilters}
               >
                 <X className="w-4 h-4" />
                 Limpiar
@@ -1323,30 +1358,122 @@ console.log("informacion de pago",disableSolicitarPago,"🤬🤬🤬",facturado,
           </div>
 
           {filtersOpen && (
-            <div className="mt-4 border-t border-gray-100 pt-4">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Folio / ID reserva</label>
-                  <input placeholder="Ej. ser-e36b2f32..." className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-                </div>
+  <div className="mt-4 border-t border-gray-100 pt-4">
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-1">
+  Código confirmación
+</label>
+<input
+  value={filters.folio}
+  onChange={(e) =>
+    setFilters((prev) => ({ ...prev, folio: e.target.value }))
+  }
+  placeholder="Buscar código confirmación..."
+  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+/>
+      </div>
 
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Cliente</label>
-                  <input placeholder="Buscar cliente..." className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-                </div>
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-1">
+          Cliente
+        </label>
+        <input
+          value={filters.cliente}
+          onChange={(e) =>
+            setFilters((prev) => ({ ...prev, cliente: e.target.value }))
+          }
+          placeholder="Buscar cliente..."
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+        />
+      </div>
 
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Viajero</label>
-                  <input placeholder="Buscar viajero..." className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-                </div>
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-1">
+          Viajero
+        </label>
+        <input
+          value={filters.viajero}
+          onChange={(e) =>
+            setFilters((prev) => ({ ...prev, viajero: e.target.value }))
+          }
+          placeholder="Buscar viajero..."
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+        />
+      </div>
 
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Rango de fechas</label>
-                  <input placeholder="Check-in / Check-out" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-                </div>
-              </div>
-            </div>
-          )}
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-1">
+  Proveedor
+</label>
+<input
+  value={filters.hotel}
+  onChange={(e) =>
+    setFilters((prev) => ({ ...prev, hotel: e.target.value }))
+  }
+  placeholder="Buscar proveedor..."
+  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+/>
+      </div>
+
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-1">
+          Creado desde
+        </label>
+        <input
+          type="date"
+          value={filters.created_start}
+          onChange={(e) =>
+            setFilters((prev) => ({ ...prev, created_start: e.target.value }))
+          }
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+        />
+      </div>
+
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-1">
+          Creado hasta
+        </label>
+        <input
+          type="date"
+          value={filters.created_end}
+          onChange={(e) =>
+            setFilters((prev) => ({ ...prev, created_end: e.target.value }))
+          }
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+        />
+      </div>
+
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-1">
+          Check-in desde
+        </label>
+        <input
+          type="date"
+          value={filters.check_in_start}
+          onChange={(e) =>
+            setFilters((prev) => ({ ...prev, check_in_start: e.target.value }))
+          }
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+        />
+      </div>
+
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-1">
+          Check-in hasta
+        </label>
+        <input
+          type="date"
+          value={filters.check_in_end}
+          onChange={(e) =>
+            setFilters((prev) => ({ ...prev, check_in_end: e.target.value }))
+          }
+          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+        />
+      </div>
+    </div>
+  </div>
+)}
         </div>
 
         {/* Barra de selección masiva (UI nueva) + lógica subir factura (antigua) */}
@@ -1373,6 +1500,15 @@ console.log("informacion de pago",disableSolicitarPago,"🤬🤬🤬",facturado,
             >
               Limpiar selección
             </Button>
+            <Button
+  variant="secondary"
+  size="md"
+  className="border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-800"
+  onClick={applyFilters}
+>
+  <Search className="w-4 h-4" />
+  Aplicar filtros
+</Button>
 
             <Button
               variant="secondary"
