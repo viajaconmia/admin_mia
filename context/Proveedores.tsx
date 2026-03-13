@@ -34,6 +34,7 @@ export function ProveedorProvider({ children }: { children: ReactNode }) {
 
   const getProveedores = async () => {
     try {
+      console.log("Obteniendo proveedores");
       if (proveedores) return proveedores;
       const response = await ProveedoresService.getInstance().getProveedores();
       const mapProv = response.data.map((prov) => mapProveedor(prov));
