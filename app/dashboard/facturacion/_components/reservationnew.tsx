@@ -186,26 +186,21 @@ const LazyItemsTable = React.memo(function LazyItemsTable({
 });
 
 const DEFAULT_RESERVA_FILTERS: TypeFilters = {
-  // texto
-  id_agente: null, // id_cliente en la tabla (mapea a id_usuario_generador)
-  nombre_agente: null, // cliente en la tabla (mapea a razon_social)
-  hotel: null, // hotel
-  codigo_reservacion: null, // codigo_hotel (mapea a codigo_reservacion_hotel)
-  traveler: null, // viajero (mapea a nombre_viajero)
-  tipo_hospedaje: null, // opcional - tú lo mapeas si aplica
+  id_agente: null,
+  nombre_agente: null,
+  hotel: null,
+  codigo_reservacion: null,
+  traveler: null,
+  tipo_hospedaje: null,
 
-  // fechas (rango) y qué fecha usar
-  filterType: null,
+  filterType: "Creacion",
   startDate: null,
   endDate: null,
 
-  // rangos numéricos útiles en columnas mostradas
   markup_start: null,
   markup_end: null,
-  startCantidad: null, // para noches mínimas
-  endCantidad: null, // para noches máximas
-
-  // otros campos de tu TypeFilters los dejamos fuera para no saturar el modal
+  startCantidad: null,
+  endCantidad: null,
 };
 
 // ---------- Componente ----------
@@ -372,20 +367,14 @@ const ReservationsWithTable4: React.FC = () => {
 }, [filters, searchTerm]);
 
 const fetchReservations = useCallback(async () => {
-  if (!hasActiveFilters) {
-    setReservations([]);
-    setLoading(false);
-    setError(null);
-    return;
-  }
-
   setLoading(true);
   setError(null);
 
   try {
     const data = await fetchReservationsFacturacion({
       ...filters,
-      search: searchTerm || null,
+      filterType: filters.filterType || "Creacion",
+      search: searchTerm?.trim() || null,
       onlyPending,
     });
 
@@ -393,10 +382,11 @@ const fetchReservations = useCallback(async () => {
   } catch (err) {
     console.error(err);
     setError("Error al cargar las reservaciones");
+    setReservations([]);
   } finally {
     setLoading(false);
   }
-}, [filters, searchTerm, onlyPending, hasActiveFilters]);
+}, [filters, searchTerm, onlyPending]);
 
 useEffect(() => {
   fetchReservations();

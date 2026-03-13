@@ -139,8 +139,7 @@ export default function ResumenAgentesPage() {
   // Fetch de datos
   useEffect(() => {
     const fetchDatosAgentes = async () => {
-      const endpoint = `${URL}/mia/factura/getfacturasPagoPendienteByAgente`;
-
+const endpoint = `${URL}/mia/factura/resumen`;
       try {
         const response = await fetch(endpoint, {
           method: "POST",
@@ -160,90 +159,43 @@ export default function ResumenAgentesPage() {
         console.log("Respuesta POST recibida:", data);
 
         if (Array.isArray(data)) {
-          const grupos: GrupoAgente[] = data.map(
-            (agenteData: any): GrupoAgente => {
-              const facturas = agenteData.facturas_json || [];
+  const grupos: GrupoAgente[] = data.map((row: any) => ({
+  id_cliente: row.id_cliente,
+  nombre_cliente: row.nombre_cliente || "Sin asignar",
+  total_facturas: Number(row.total_facturas || 0),
 
-              const grupo: GrupoAgente = {
-                id_cliente: agenteData.id_agente,
-                nombre_cliente: getAgentName(agenteData.nombre_agente),
-                total_facturas: facturas.length,
-                facturas_credito: [],
-                vigentes: 0,
-                facturas_vig:[],
-                dia_7: 0,
-                dia_7_saldo: 0,
-                facturas_7_dias: [],
-                dia_15: 0,
-                dia_15_saldo: 0,
-                facturas_15_dias: [],
-                dia_20: 0,
-                dia_20_saldo: 0,
-                facturas_20_dias: [],
-                dias_30: 0,
-                dia_30_saldo: 0,
-                facturas_30_dias: [],
-                mas_30: 0,
-                mas_30_saldo: 0,
-                facturas_mas_30_dias: [],
-                adeudo_total: 0,
-                facturas,
-                adeudo_vencido: 0,
-                adeudo_vigente: 0,
-              };
+  vigentes: Number(row.vigentes || 0),
+  dia_7: Number(row.total1a7 || 0),
+  dia_7_saldo: Number(row.dia_7 || 0),
 
-              facturas.forEach((factura: any) => {
-                const saldo = parseFloat(factura.saldo) || 0;
-                grupo.adeudo_total += saldo;
-                grupo.adeudo_vencido +=
-                  getDiasVencida(factura.fecha_vencimiento)! > 0 ? saldo : 0;
-                grupo.adeudo_vigente +=
-                  getDiasVencida(factura.fecha_vencimiento)! <= 0 ? saldo : 0;
+  dia_15: Number(row.total8a15 || 0),
+  dia_15_saldo: Number(row.dia_15 || 0),
 
-                const dias = getDiasVencida(factura.fecha_vencimiento);
+  dia_20: Number(row.total16a20 || 0),
+  dia_20_saldo: Number(row.dia_20 || 0),
 
-                if (dias === null) {
-                  // si no hay fecha de vencimiento, la podemos tratar como vigente
-                  grupo.vigentes++;
-                  grupo.facturas_vig.push(factura);
+  dias_30: Number(row.total21a30 || 0),
+  dia_30_saldo: Number(row.dias_30 || 0),
 
-                  return;
-                }
-                grupo.facturas_credito.push(factura);
-                if (dias <= 0) {
-                  // aún no llega o justo hoy
-                  console.log("factura", factura);
-                  grupo.vigentes++;
-                  grupo.facturas_vig.push(factura);
-                } else if (dias <= 7) {
-                  grupo.dia_7_saldo += factura.saldo;
-                  grupo.dia_7++;
-                  grupo.facturas_7_dias.push(factura);
-                } else if (dias <= 15) {
-                  grupo.dia_15++;
-                  grupo.dia_15_saldo += factura.saldo;
-                  grupo.facturas_15_dias.push(factura);
-                } else if (dias <= 20) {
-                  grupo.dia_20++;
-                  grupo.dia_20_saldo += factura.saldo;
-                  grupo.facturas_20_dias.push(factura);
-                } else if (dias <= 30) {
-                  grupo.dias_30++;
-                  grupo.dia_30_saldo += factura.saldo;
-                  grupo.facturas_30_dias.push(factura);
-                } else {
-                  grupo.mas_30++;
-                  grupo.mas_30_saldo += factura.saldo;
-                  grupo.facturas_mas_30_dias.push(factura);
-                }
-              });
+  mas_30: Number(row.totalMas30 || 0),
+  mas_30_saldo: Number(row.mas_30 || 0),
 
-              return grupo;
-            }
-          );
+  adeudo_total: Number(row.adeudo_total || 0),
+  adeudo_vigente: Number(row.total_vigente || 0),
+  adeudo_vencido: Number(row.total_vencido || 0),
 
-          setDatosAgentes(grupos);
-        } else {
+  facturas: [],
+  facturas_credito: [],
+  facturas_vig: [],
+  facturas_7_dias: [],
+  facturas_15_dias: [],
+  facturas_20_dias: [],
+  facturas_30_dias: [],
+  facturas_mas_30_dias: [],
+}));
+
+  setDatosAgentes(grupos);
+}else {
           throw new Error("Formato de respuesta inválido");
         }
       } catch (err: any) {
@@ -256,6 +208,61 @@ export default function ResumenAgentesPage() {
 
     fetchDatosAgentes();
   }, []);
+
+
+  const fetchDetalleFacturas = async ({
+  bucket = "all",
+  id_agente = null,
+  fecha_vencimiento_inicio = null,
+  fecha_vencimiento_fin = null,
+}) => {
+  const response = await fetch(`${URL}/mia/factura/detalle`, {
+    method: "POST",
+    headers: {
+      "x-api-key": API_KEY || "",
+      "Content-Type": "application/json",
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+    },
+    body: JSON.stringify({
+      bucket,
+      id_agente,
+      fecha_vencimiento_inicio,
+      fecha_vencimiento_fin,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Error HTTP: ${response.status}`);
+  }
+
+  return await response.json();
+};
+
+const openDetalle = async ({
+  bucket,
+  id_agente = null,
+  label,
+}: {
+  bucket: "all" | "vigentes" | "1_7" | "8_15" | "16_20" | "21_30" | "mas_30";
+  id_agente?: string | null;
+  label: string;
+}) => {
+  try {
+    const data = await fetchDetalleFacturas({ bucket, id_agente });
+
+    const mapped = (data || []).map((factura: any) => ({
+      ...factura,
+      ...getDatosFac(factura),
+    }));
+
+    setAgenteSeleccionado(label);
+    setFacturasModal(mapped);
+    setIsModalOpen(true);
+  } catch (error) {
+    console.error(error);
+  }
+};
+
 
   // Abrir modal con TODAS las facturas del agente (botón de acciones)
   const handleVerFacturas = (agente: GrupoAgente) => {
@@ -343,154 +350,112 @@ export default function ResumenAgentesPage() {
     ),
 
     // 🔹 total vigente (monto), derecha
-    total_vigente: ({ value,item }: { value: number, item:any }) => {
-      const handleClick = () => {
-        console.log("Facturas 1–7 días:", item);
-        setAgenteSeleccionado(item.id_cliente);
-        const facturas = (item.facturas_vig || []).map((factura: any) => ({
-          ...factura,
-          ...getDatosFac(factura),
-        }));
-        setFacturasModal(facturas);
-        setIsModalOpen(true);
-      };
-
-      return (
-        <button
-          onClick={handleClick}
-          className="w-full flex justify-end text-left"
-        >
-          <span className="font-semibold text-emerald-700 text-xs underline">
-            {money(Number(value) || 0)}
-          </span>
-        </button>
-      );
-    },
+    total_vigente: ({ value, item }: { value: number; item: any }) => (
+  <button
+    onClick={() =>
+      openDetalle({
+        bucket: "vigentes",
+        id_agente: item.id_cliente,
+        label: item.nombre_cliente,
+      })
+    }
+    className="w-full flex justify-end text-left"
+  >
+    <span className="font-semibold text-emerald-700 text-xs underline">
+      {money(Number(value) || 0)}
+    </span>
+  </button>
+),
 
     // 🔸 1–7 días -> botón que loguea y abre modal con fac_7_dias
-    dia_7: ({ value, item }: { value: number; item: any }) => {
-      const handleClick = () => {
-        console.log("Facturas 1–7 días:", item);
-        setAgenteSeleccionado(item.id_cliente);
-        const facturas = (item.facturas_7_dias || []).map((factura: any) => ({
-          ...factura,
-          ...getDatosFac(factura),
-        }));
-        setFacturasModal(facturas);
-        setIsModalOpen(true);
-      };
-
-      return (
-        <button
-          onClick={handleClick}
-          className="w-full flex justify-end text-left"
-        >
-          <span className="font-semibold text-yellow-400 text-xs underline">
-            {money(Number(value) || 0)}
-          </span>
-        </button>
-      );
-    },
+    dia_7: ({ value, item }: { value: number; item: any }) => (
+  <button
+    onClick={() =>
+      openDetalle({
+        bucket: "1_7",
+        id_agente: item.id_cliente,
+        label: item.nombre_cliente,
+      })
+    }
+    className="w-full flex justify-end text-left"
+  >
+    <span className="font-semibold text-yellow-400 text-xs underline">
+      {money(Number(value) || 0)}
+    </span>
+  </button>
+),
 
     // 🔸 8–15 días
-    dia_15: ({ value, item }: { value: number; item: any }) => {
-      const handleClick = () => {
-        console.log("Facturas 8–15 días:", item.facturas_15_dias);
-        setAgenteSeleccionado(item.id_cliente);
-        const facturas = (item.facturas_15_dias || []).map((factura: any) => ({
-          ...factura,
-          ...getDatosFac(factura),
-        }));
-        setFacturasModal(facturas);
-        setIsModalOpen(true);
-      };
-
-      return (
-        <button
-          onClick={handleClick}
-          className="w-full flex justify-end text-left"
-        >
-          <span className="font-semibold text-yellow-600 text-xs underline">
-            {money(Number(value) || 0)}
-          </span>
-        </button>
-      );
-    },
+   dia_15: ({ value, item }: { value: number; item: any }) => (
+  <button
+    onClick={() =>
+      openDetalle({
+        bucket: "8_15",
+        id_agente: item.id_cliente,
+        label: item.nombre_cliente,
+      })
+    }
+    className="w-full flex justify-end text-left"
+  >
+    <span className="font-semibold text-yellow-600 text-xs underline">
+      {money(Number(value) || 0)}
+    </span>
+  </button>
+),
 
     // 🔸 16–20 días
-    dia_20: ({ value, item }: { value: number; item: any }) => {
-      const handleClick = () => {
-        console.log("Facturas 16–20 días:", item.facturas_20_dias);
-        setAgenteSeleccionado(item.id_cliente);
-        const facturas = (item.facturas_20_dias || []).map((factura: any) => ({
-          ...factura,
-          ...getDatosFac(factura),
-        }));
-        setFacturasModal(facturas);
-        setIsModalOpen(true);
-      };
-
-      return (
-        <button
-          onClick={handleClick}
-          className="w-full flex justify-end text-left"
-        >
-          <span className="font-semibold text-orange-400 text-xs underline">
-            {money(Number(value) || 0)}
-          </span>
-        </button>
-      );
-    },
+dia_20: ({ value, item }: { value: number; item: any }) => (
+  <button
+    onClick={() =>
+      openDetalle({
+        bucket: "16_20",
+        id_agente: item.id_cliente,
+        label: item.nombre_cliente,
+      })
+    }
+    className="w-full flex justify-end text-left"
+  >
+    <span className="font-semibold text-orange-400 text-xs underline">
+      {money(Number(value) || 0)}
+    </span>
+  </button>
+),
 
     // 🔸 21–30 días
-    dias_30: ({ value, item }: { value: number; item: any }) => {
-      const handleClick = () => {
-        console.log("Facturas 21–30 días:", item.facturas_30_dias);
-        setAgenteSeleccionado(item.id_cliente);
-        const facturas = (item.facturas_30_dias || []).map((factura: any) => ({
-          ...factura,
-          ...getDatosFac(factura),
-        }));
-        setFacturasModal(facturas);
-        setIsModalOpen(true);
-      };
-
-      return (
-        <button
-          onClick={handleClick}
-          className="w-full flex justify-end text-left"
-        >
-          <span className="font-semibold text-orange-500 text-xs underline">
-            {money(Number(value) || 0)}
-          </span>
-        </button>
-      );
-    },
+dias_30: ({ value, item }: { value: number; item: any }) => (
+  <button
+    onClick={() =>
+      openDetalle({
+        bucket: "21_30",
+        id_agente: item.id_cliente,
+        label: item.nombre_cliente,
+      })
+    }
+    className="w-full flex justify-end text-left"
+  >
+    <span className="font-semibold text-orange-500 text-xs underline">
+      {money(Number(value) || 0)}
+    </span>
+  </button>
+),
 
     // 🔸 > 30 días
-    mas_30: ({ value, item }: { value: number; item: any }) => {
-      const handleClick = () => {
-        console.log("Facturas >30 días:", item.facturas_mas_30_dias);
-        setAgenteSeleccionado(item.id_cliente);
-        const facturas = (item.facturas_mas_30_dias || []).map((factura: any) => ({
-          ...factura,
-          ...getDatosFac(factura),
-        }));
-        setFacturasModal(facturas);
-        setIsModalOpen(true);
-      };
-
-      return (
-        <button
-          onClick={handleClick}
-          className="w-full flex justify-end text-left"
-        >
-          <span className="font-semibold text-red-600 text-xs underline">
-            {money(Number(value) || 0)}
-          </span>
-        </button>
-      );
-    },
+mas_30: ({ value, item }: { value: number; item: any }) => (
+  <button
+    onClick={() =>
+      openDetalle({
+        bucket: "mas_30",
+        id_agente: item.id_cliente,
+        label: item.nombre_cliente,
+      })
+    }
+    className="w-full flex justify-end text-left"
+  >
+    <span className="font-semibold text-red-600 text-xs underline">
+      {money(Number(value) || 0)}
+    </span>
+  </button>
+),
 
     adeudo_total: ({ value, item }: { value: number; item: any }) => (
       <div className="flex justify-end">
@@ -535,6 +500,26 @@ export default function ResumenAgentesPage() {
   setIsModalOpen(true);
 };
 
+
+const openFacturasGlobalByBucket = async (
+  bucket: "vigentes" | "1_7" | "8_15" | "16_20" | "21_30" | "mas_30",
+  label: string
+) => {
+  try {
+    const data = await fetchDetalleFacturas({ bucket, id_agente: null });
+
+    const mapped = (data || []).map((factura: any) => ({
+      ...factura,
+      ...getDatosFac(factura),
+    }));
+
+    setAgenteSeleccionado(label);
+    setFacturasModal(mapped);
+    setIsModalOpen(true);
+  } catch (error) {
+    console.error(error);
+  }
+};
   // Totales generales para los cuadros de arriba
 const totales = useMemo(() => {
   return {
@@ -699,9 +684,7 @@ const totales = useMemo(() => {
       <div className="text-gray-600">Vigentes</div>
 
       <button
-        onClick={() =>
-          openFacturasGlobal(totales.facturas_total_vigentes || [], "Vigentes")
-        }
+        onClick={() => openFacturasGlobalByBucket("vigentes", "Vigentes")}
         className="text-lg font-bold text-emerald-600 underline hover:opacity-80"
         type="button"
       >
@@ -715,7 +698,7 @@ const totales = useMemo(() => {
       <div className="text-gray-600">1–7 días</div>
 
       <button
-        onClick={() => openFacturasGlobal(totales.facturas_total_7, "1–7 días")}
+        onClick={() => openFacturasGlobalByBucket("1_7", "1–7 días")}
         className="text-lg font-bold text-yellow-400 underline hover:opacity-80"
         type="button"
       >
@@ -729,7 +712,7 @@ const totales = useMemo(() => {
       <div className="text-gray-600">8–15 días</div>
 
       <button
-        onClick={() => openFacturasGlobal(totales.facturas_total_15, "8–15 días")}
+        onClick={() => openFacturasGlobalByBucket("8_15", "8–15 días")}
         className="text-lg font-bold text-yellow-600 underline hover:opacity-80"
         type="button"
       >
@@ -743,7 +726,7 @@ const totales = useMemo(() => {
       <div className="text-gray-600">16–20 días</div>
 
       <button
-        onClick={() => openFacturasGlobal(totales.facturas_total_20, "16–20 días")}
+        onClick={() => openFacturasGlobalByBucket("16_20", "16–20 días")}
         className="text-lg font-bold text-orange-400 underline hover:opacity-80"
         type="button"
       >
@@ -757,7 +740,7 @@ const totales = useMemo(() => {
       <div className="text-gray-600">21–30 días</div>
 
       <button
-        onClick={() => openFacturasGlobal(totales.facturas_total_30, "21–30 días")}
+        onClick={() => openFacturasGlobalByBucket("21_30", "21–30 días")}
         className="text-lg font-bold text-orange-600 underline hover:opacity-80"
         type="button"
       >
@@ -771,9 +754,7 @@ const totales = useMemo(() => {
       <div className="text-gray-600">&gt; 30 días</div>
 
       <button
-        onClick={() =>
-          openFacturasGlobal(totales.facturas_total_mas_30, "> 30 días")
-        }
+        onClick={() => openFacturasGlobalByBucket("mas_30", "> 30 días")}
         className="text-lg font-bold text-red-600 underline hover:opacity-80"
         type="button"
       >
