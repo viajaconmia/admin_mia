@@ -186,26 +186,21 @@ const LazyItemsTable = React.memo(function LazyItemsTable({
 });
 
 const DEFAULT_RESERVA_FILTERS: TypeFilters = {
-  // texto
-  id_agente: null, // id_cliente en la tabla (mapea a id_usuario_generador)
-  nombre_agente: null, // cliente en la tabla (mapea a razon_social)
-  hotel: null, // hotel
-  codigo_reservacion: null, // codigo_hotel (mapea a codigo_reservacion_hotel)
-  traveler: null, // viajero (mapea a nombre_viajero)
-  tipo_hospedaje: null, // opcional - tú lo mapeas si aplica
+  id_agente: null,
+  nombre_agente: null,
+  hotel: null,
+  codigo_reservacion: null,
+  traveler: null,
+  tipo_hospedaje: null,
 
-  // fechas (rango) y qué fecha usar
   filterType: null,
   startDate: null,
   endDate: null,
 
-  // rangos numéricos útiles en columnas mostradas
   markup_start: null,
   markup_end: null,
-  startCantidad: null, // para noches mínimas
-  endCantidad: null, // para noches máximas
-
-  // otros campos de tu TypeFilters los dejamos fuera para no saturar el modal
+  startCantidad: null,
+  endCantidad: null,
 };
 
 // ---------- Componente ----------
@@ -371,36 +366,57 @@ const ReservationsWithTable4: React.FC = () => {
     return hasSearch || hasFilters;
   }, [filters, searchTerm]);
 
-  const fetchReservations = useCallback(async () => {
-    if (!hasActiveFilters) {
-      setReservations([]);
-      setLoading(false);
-      setError(null);
-      return;
-    }
+const fetchReservations = useCallback(async () => {
+  setLoading(true);
+  setError(null);
 
-    setLoading(true);
-    setError(null);
+  try {
+    const data = await fetchReservationsFacturacion({
+      ...filters,
+      onlyPending,
+    });
 
-    try {
-      const data = await fetchReservationsFacturacion({
-        ...filters,
-        search: searchTerm || null,
-        onlyPending,
-      });
+    setReservations(Array.isArray(data) ? data : []);
+  } catch (err) {
+    console.error(err);
+    setError("Error al cargar las reservaciones");
+    setReservations([]);
+  } finally {
+    setLoading(false);
+  }
+}, [filters, onlyPending]);
 
-      setReservations(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error(err);
-      setError("Error al cargar las reservaciones");
-    } finally {
-      setLoading(false);
-    }
-  }, [filters, searchTerm, onlyPending, hasActiveFilters]);
+const applySearchReservation = (
+  list: ReservationWithItems[],
+  q: string,
+) => {
+  const qTokens = tokens(q);
 
-  useEffect(() => {
-    fetchReservations();
-  }, [fetchReservations]);
+  if (!qTokens.length) return list;
+
+  return list.filter((r) => {
+    const haystack = [
+      r.codigo_reservacion_hotel,
+      r.id_usuario_generador,
+      r.razon_social,
+      r.hotel,
+      r.nombre_viajero,
+      r.id_servicio,
+      r.room,
+      r.id_booking,
+      r.correo,
+      r.rfc,
+    ]
+      .map(norm)
+      .join(" | ");
+
+    return qTokens.every((t) => haystack.includes(t));
+  });
+};
+
+useEffect(() => {
+  fetchReservations();
+}, [fetchReservations]);
 
   const [showAsignarModal, setShowAsignarModal] = useState(false);
   const [asignarData, setAsignarData] = useState<{
@@ -733,54 +749,56 @@ const ReservationsWithTable4: React.FC = () => {
 
   //   // 2) Mapea a rows de la tabla creando nuevos objetos para React
   //   return filtradas.map((r, index) => {
-  const rows = useMemo(() => {
-    const base = onlyPending
-      ? reservations.filter(hasPendingItems)
-      : reservations;
+const rows = useMemo(() => {
+  const base = onlyPending
+    ? reservations.filter(hasPendingItems)
+    : reservations;
 
-    return base.map((r, index) => {
-      const noches = Math.max(
-        0,
-        Math.ceil(
-          (new Date(r.check_out).getTime() - new Date(r.check_in).getTime()) /
-            (1000 * 60 * 60 * 24),
-        ),
-      );
+  const searched = applySearchReservation(base, searchTerm);
 
-      const costoProveedor = Number(r.costo_total || 0);
-      const precioVenta = Number(r.total || 0);
-      const markUp = Math.max(0, precioVenta - costoProveedor);
+  return searched.map((r) => {
+    const noches = Math.max(
+      0,
+      Math.ceil(
+        (new Date(r.check_out).getTime() - new Date(r.check_in).getTime()) /
+          (1000 * 60 * 60 * 24),
+      ),
+    );
 
-      const items = r.items ?? [];
-      const totalFacturado = items
-        .filter((it) => it?.id_factura != null)
-        .reduce((acc, it) => acc + Number((it as any).total || 0), 0);
+    const costoProveedor = Number(r.costo_total || 0);
+    const precioVenta = Number(r.total || 0);
+    const markUp = Math.max(0, precioVenta - costoProveedor);
 
-      const pendientePorFacturar = Math.max(0, precioVenta - totalFacturado);
+    const items = r.items ?? [];
+    const totalFacturado = items
+      .filter((it) => it?.id_factura != null)
+      .reduce((acc, it) => acc + Number((it as any).total || 0), 0);
 
-      return {
-        id: `${r.id_booking}`, // 🔑 clave única
-        seleccionado: { ...r }, // ⚡ nuevo objeto para React
-        id_cliente: r.id_usuario_generador,
-        cliente: r.razon_social ?? "",
-        creado: r.created_at,
-        hotel: r.hotel,
-        codigo_hotel: r.codigo_reservacion_hotel ?? "",
-        viajero: r.nombre_viajero ?? "",
-        check_in: r.check_in,
-        check_out: r.check_out,
-        noches,
-        tipo_cuarto: r.tipo_cuarto ?? "",
-        mark_up: markUp,
-        precio_de_venta: precioVenta,
-        pendiente_por_facturar: pendientePorFacturar,
-        total_facturado: totalFacturado,
-        detalles: {
-          reservaId: r.id_booking,
-        },
-      };
-    });
-  }, [reservations, onlyPending, filters, searchTerm]);
+    const pendientePorFacturar = Math.max(0, precioVenta - totalFacturado);
+
+    return {
+      id: `${r.id_booking}`,
+      seleccionado: { ...r },
+      id_cliente: r.id_usuario_generador,
+      cliente: r.razon_social ?? "",
+      creado: r.created_at,
+      hotel: r.hotel,
+      codigo_hotel: r.codigo_reservacion_hotel ?? "",
+      viajero: r.nombre_viajero ?? "",
+      check_in: r.check_in,
+      check_out: r.check_out,
+      noches,
+      tipo_cuarto: r.tipo_cuarto ?? "",
+      mark_up: markUp,
+      precio_de_venta: precioVenta,
+      pendiente_por_facturar: pendientePorFacturar,
+      total_facturado: totalFacturado,
+      detalles: {
+        reservaId: r.id_booking,
+      },
+    };
+  });
+}, [reservations, onlyPending, searchTerm]);
 
   useEffect(() => {
     if (!rows.length) return;
