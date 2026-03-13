@@ -366,7 +366,6 @@ const ReservationsWithTable4: React.FC = () => {
     return hasSearch || hasFilters;
   }, [filters, searchTerm]);
 
-<<<<<<< HEAD
 const fetchReservations = useCallback(async () => {
   setLoading(true);
   setError(null);
@@ -382,7 +381,7 @@ const fetchReservations = useCallback(async () => {
     setReservations(Array.isArray(data) ? data : []);
   } catch (err) {
     console.error(err);
-    setError("Error al cargar las reservaciones");
+    setError("Error al cargar las reservaciones");   
     setReservations([]);
   } finally {
     setLoading(false);
@@ -392,38 +391,6 @@ const fetchReservations = useCallback(async () => {
 useEffect(() => {
   fetchReservations();
 }, [fetchReservations]);
-=======
-  const fetchReservations = useCallback(async () => {
-    if (!hasActiveFilters) {
-      setReservations([]);
-      setLoading(false);
-      setError(null);
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const data = await fetchReservationsFacturacion({
-        ...filters,
-        search: searchTerm || null,
-        onlyPending,
-      });
-
-      setReservations(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error(err);
-      setError("Error al cargar las reservaciones");
-    } finally {
-      setLoading(false);
-    }
-  }, [filters, searchTerm, onlyPending, hasActiveFilters]);
-
-  useEffect(() => {
-    fetchReservations();
-  }, [fetchReservations]);
->>>>>>> b88781baeccc4cc110d5a4375d9f79191a653a93
 
   const [showAsignarModal, setShowAsignarModal] = useState(false);
   const [asignarData, setAsignarData] = useState<{
