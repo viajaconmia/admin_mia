@@ -234,7 +234,7 @@ const fetchDetalleFacturas = async ({
       "Content-Type": "application/json",
       "Cache-Control": "no-cache, no-store, must-revalidate",
     },
-    body: JSON.stringify({
+    body: JSON.stringify({  
       bucket,
       id_agente,
       fecha_vencimiento_inicio,
