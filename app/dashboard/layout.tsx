@@ -110,6 +110,17 @@ const links: NavGroup[] = [
     ],
   },
   {
+    title: "Finanzas",
+    icon: CreditCard,
+    items: [
+      {
+        title: "Reservas",
+        href: "/dashboard/finanza_reserva",
+        icon: Building2,
+      },
+    ],
+  },
+  {
     title: "Pagos",
     icon: CreditCard,
     items: [{ title: "Pagos", href: "/dashboard/payments", icon: CreditCard }],
@@ -157,7 +168,6 @@ const links: NavGroup[] = [
         icon: BookOpen,
       },
       { title: "Reporte", href: "/dashboard/detalles_facturas", icon: Receipt },
-      
     ],
   },
   {
