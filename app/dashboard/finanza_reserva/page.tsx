@@ -103,7 +103,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
             ? calcularNoches(reserva.check_in, reserva.check_out)
             : "",
         tipo: reserva.tipo_cuarto_vuelo,
-        costo_proveedor: reserva.costo_total,
+        costo_proveedor: Number(reserva.costo_total || 0),
         markup:
           ((Number(reserva.total || 0) - Number(reserva.costo_total || 0)) /
             Number(reserva.total || 0)) *
@@ -116,7 +116,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
         estado_pago: reserva.estado_pago,
         estado_facturacion: reserva.estado_facturacion,
         id_booking: reserva.id_booking,
-        uuid: reserva.uuid_factura || "",
+        uuid_emitido: reserva.uuid_factura || "",
         total_factura: reserva.total_factura,
       }));
 
@@ -173,7 +173,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
         ? calcularNoches(reserva.check_in, reserva.check_out)
         : "",
     tipo: reserva.tipo_cuarto_vuelo,
-    costo_proveedor: reserva.costo_total,
+    costo_proveedor: Number(reserva.costo_total || 0),
     markup:
       ((Number(reserva.total || 0) - Number(reserva.costo_total || 0)) /
         Number(reserva.total || 0)) *
@@ -186,7 +186,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     estado_pago: reserva.estado_pago,
     estado_facturacion: reserva.estado_facturacion,
     intermediario: reserva.intermediario,
-    uuid: reserva.uuid_factura || "",
+    uuid_emitido: reserva.uuid_factura || "",
     total_factura: reserva.total_factura,
   }));
 
