@@ -189,6 +189,8 @@ export function ReservationForm2({
 
   const handleSaldosSubmit = async (saldos, restante, usado) => {
     try {
+      if (form.check_in > form.check_out)
+        throw new Error("Las fechas son invalidas");
       const validateReservation = await codigo_reserva(
         form.codigo_reservacion_hotel,
         solicitud.id_booking,
@@ -1241,7 +1243,16 @@ export function ReservationForm2({
               <Button
                 type="button"
                 icon={CheckCircle}
-                onClick={() => setOpen(true)}
+                onClick={() => {
+                  try {
+                    if (form.check_in > form.check_out) {
+                      throw new Error("Las fechas son invalidas");
+                    }
+                    setOpen(true);
+                  } catch (error) {
+                    showNotification("error", (error as Error).message);
+                  }
+                }}
               >
                 Confirmar cambios
               </Button>

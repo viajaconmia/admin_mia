@@ -68,9 +68,11 @@ export const DateInput = ({
   onChange,
   disabled,
   className,
+  min,
 }: {
   label?: string;
   value: string;
+  min?: string;
   onChange: (value: string) => void;
   disabled?: boolean;
   className?: string;
@@ -82,6 +84,7 @@ export const DateInput = ({
     <div className="relative">
       <input
         type="date"
+        min={min}
         value={value || ""}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
