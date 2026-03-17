@@ -39,7 +39,7 @@ import {
   RefreshCwIcon,
   Trash2,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Dispatch, useEffect, useState } from "react";
 import CrearReserva from "./CrearReserva";
 import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
@@ -190,6 +190,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
         id_booking: string;
       };
     }) => {
+      const [load, setLoad] = useState(false);
       const { id, type, estado, agente, id_booking } = value;
       return (
         <>
@@ -211,9 +212,10 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
             <Can permiso={PERMISOS.COMPONENTES.BOTON.CANCELAR_RESERVA}>
               <Button
                 icon={Trash2}
+                disabled={load}
                 size="sm"
                 variant="warning"
-                onClick={() => handleCancel(id_booking)}
+                onClick={() => handleCancel(id_booking, setLoad)}
               >
                 Cancelar
               </Button>
@@ -242,8 +244,12 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     ),
   };
 
-  const handleCancel = async (value: string) => {
+  const handleCancel = async (
+    value: string,
+    loading: Dispatch<React.SetStateAction<boolean>>,
+  ) => {
     try {
+      loading(true);
       const confirmed = confirm(
         "¿Estás seguro que quieres cancelar esta reserva?",
       );
@@ -253,6 +259,8 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
       handleFetchSolicitudes();
     } catch (error) {
       showNotification("error", error.message || "error");
+    } finally {
+      loading(false);
     }
   };
 
