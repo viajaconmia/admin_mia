@@ -160,7 +160,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     cliente: (valor) => {
       return <h1>{valor.value}</h1>;
     },
-    creado: ({ value }) => <p>{formatDate(value)}</>,
+    creado: ({ value }) => <p>{formatDate(value)}</p>,
     proveedor: ({ value }: { value: string }) => <p>{value || ""}</p>,
     codigo: ({ value }) => <p>{value || ""}</p>,
     markup: ({ value }) => <MarginPercent value={value} />,
