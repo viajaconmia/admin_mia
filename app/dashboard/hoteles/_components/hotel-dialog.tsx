@@ -37,6 +37,20 @@ import { API_KEY } from "@/lib/constants";
 import { Pencil, Trash2, ArrowLeft, Plus, Search } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { URL } from "@/lib/constants";
+import { Table } from "@/component/molecule/Table";
+import { PERMISOS } from "@/constant/permisos";
+import {
+  DatosFiscales,
+  mapProveedor,
+  mapProveedorRentaCarro,
+  Proveedor,
+  ProveedoresService,
+} from "@/services/ProveedoresService";
+import { usePermiso } from "@/hooks/usePermission";
+import { ApiResponse } from "@/services/ApiService";
+import { useAlert } from "@/context/useAlert";
+import { ModalCrearDatosFiscales } from "../../proveedores/[id]/_components";
+import { Loader } from "@/components/atom/Loader";
 
 const sanitizeUrl = (url: string) => {
   return url.replace(/^httpss:\/\//, "https://");
@@ -394,7 +408,7 @@ const buscarCodigoPostal = async (CodigoPostal: string) => {
           "x-api-key": API_KEY || "",
           "Content-Type": "application/json",
         },
-      }
+      },
     );
     if (!response.ok) {
       throw new Error(`ERROR ${response.status}: ${response.statusText}`);
@@ -412,7 +426,7 @@ const buscarAgentes = async (nombre: string, correo: string) => {
   try {
     const response = await fetch(
       `${URL}/mia/agentes/get-agente-id?nombre=${encodeURIComponent(
-        nombre
+        nombre,
       )}&correo=${encodeURIComponent(correo)}`,
       //`http://localhost:3001/v1/mia/agentes/get-agente-id?nombre=${encodeURIComponent(nombre)}&correo=${encodeURIComponent(correo)}`
       {
@@ -421,7 +435,7 @@ const buscarAgentes = async (nombre: string, correo: string) => {
           "x-api-key": API_KEY || "",
           "Content-Type": "application/json",
         },
-      }
+      },
     );
 
     if (!response.ok) {
@@ -468,14 +482,22 @@ export function HotelDialog({
   const [activeTab, setActiveTab] = useState("datosBasicos");
   const [colonias, setColonias] = useState<CodigoPostalData[]>([]);
   const [buscandoCP, setBuscandoCP] = useState(false);
+  const [datosFiscales, setDatosFiscales] = useState<DatosFiscales[]>([]);
   const [tarifasPreferenciales, setTarifasPreferenciales] = useState<
     TarifaPreferencial[]
   >([]);
+  const [proveedor, setProveedor] = useState<Proveedor | null>(null);
   const [hotelRates, setHotelRates] = useState<HotelRate | null>(null);
   const [editingTarifaId, setEditingTarifaId] = useState<number | null>(null);
   const [deleteTarifaDialogOpen, setDeleteTarifaDialogOpen] = useState(false);
   const [selectedTarifaToDelete, setSelectedTarifaToDelete] =
     useState<DeleteTarifaPreferencialProps | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedFiscal, setSelectedFiscal] = useState<DatosFiscales | null>(
+    null,
+  );
+  const { showNotification } = useAlert();
+  const { Can } = usePermiso();
 
   const defaultFormData: FormData = {
     id_cadena: "",
@@ -573,6 +595,32 @@ export function HotelDialog({
     mode,
   ]);
 
+  const handleSave = async (
+    datos: DatosFiscales & { id_proveedor: number },
+  ) => {
+    try {
+      let response: ApiResponse<DatosFiscales[]>;
+      if (selectedFiscal) {
+        response =
+          await ProveedoresService.getInstance().editarFiscalData(datos);
+      } else {
+        response =
+          await ProveedoresService.getInstance().crearFiscalData(datos);
+      }
+      console.log(response);
+      setDatosFiscales(response.data);
+      showNotification("success", response.message);
+    } catch (error) {
+      showNotification(
+        "error",
+        error.message || "Error al isModalOpen datos fiscales",
+      );
+    } finally {
+      setSelectedFiscal(null);
+      setIsModalOpen(false);
+    }
+  };
+
   useEffect(() => {
     if (open && hotel?.id_hotel) {
       if (hasFetched.current !== hotel.id_hotel) {
@@ -599,6 +647,16 @@ export function HotelDialog({
       setBuscandoCP(false);
     }
   }, [open, hotel?.id_hotel]);
+
+  const handleEditClick = (fiscal: DatosFiscales) => {
+    setSelectedFiscal(fiscal); // Guardamos el registro a editar
+    setIsModalOpen(true); // Abrimos el mismo modal
+  };
+
+  const handleAddNewClick = () => {
+    setSelectedFiscal(null); // Limpiamos para que sea un registro nuevo
+    setIsModalOpen(true);
+  };
 
   useEffect(() => {
     if (hotel && open) {
@@ -627,7 +685,7 @@ export function HotelDialog({
 
       // Verificamos si existe una sección explícita de 'NOTAS GENERALES'
       const tieneNotasGenerales = /##\s*NOTAS GENERALES\s*##/.test(
-        rawComentarios
+        rawComentarios,
       );
 
       // Si tiene encabezados y hay sección de notas generales, extraerla
@@ -771,6 +829,37 @@ export function HotelDialog({
 
       return newFormData;
     });
+
+    const fetchData = async () => {
+      try {
+        const service = ProveedoresService.getInstance();
+
+        const proveedorRes = await service.getProveedores({
+          id_hotel: hotel.id_hotel,
+        });
+
+        if (!proveedorRes.data.length) {
+          throw new Error("No hay proveedor");
+        }
+
+        setProveedor({
+          ...mapProveedor(proveedorRes.data[0]),
+        });
+        const datosFiscalesRes = await service.getDatosFiscales(
+          proveedorRes.data[0].id,
+        );
+        console.log(proveedorRes);
+        console.log(datosFiscalesRes);
+        setDatosFiscales(datosFiscalesRes.data);
+      } catch (err: any) {
+        showNotification(
+          "error",
+          err?.message || "Error al obtener el proveedor",
+        );
+      }
+    };
+    console.log(hotel);
+    if (hotel.id_hotel) fetchData();
   }, [hotelRates, hotel?.id_hotel]);
 
   const fetchHotelRates = async (idHotel: string) => {
@@ -784,7 +873,7 @@ export function HotelDialog({
           headers: {
             "x-api-key": API_KEY,
           },
-        }
+        },
       );
 
       if (!response.ok) {
@@ -796,10 +885,10 @@ export function HotelDialog({
 
       if (result.tarifas && Array.isArray(result.tarifas)) {
         const standardRates = result.tarifas.filter(
-          (t: TarifaData) => t.id_agente === null
+          (t: TarifaData) => t.id_agente === null,
         );
         const preferentialRates = result.tarifas.filter(
-          (t: TarifaData) => t.id_agente !== null
+          (t: TarifaData) => t.id_agente !== null,
         );
 
         const processedRates: HotelRate = {
@@ -984,7 +1073,7 @@ export function HotelDialog({
   // Handler for Colonia selection
   const handleColoniaChange = (coloniaId: string) => {
     const coloniaSeleccionada = colonias.find(
-      (c) => c.id.toString() === coloniaId
+      (c) => c.id.toString() === coloniaId,
     );
     if (coloniaSeleccionada) {
       setFormData((prev) => ({
@@ -1060,7 +1149,7 @@ export function HotelDialog({
     try {
       const agentes = await buscarAgentes(
         tarifa.busqueda.nombre,
-        tarifa.busqueda.correo
+        tarifa.busqueda.correo,
       );
       newTarifas[index].busqueda.resultados = agentes;
       newTarifas[index].busqueda.buscando = false;
@@ -1076,7 +1165,7 @@ export function HotelDialog({
   const handleSearchInputChange = (
     index: number,
     field: "nombre" | "correo",
-    value: string
+    value: string,
   ) => {
     const newTarifas = [...tarifasPreferenciales];
     newTarifas[index].busqueda[field] =
@@ -1100,7 +1189,7 @@ export function HotelDialog({
   const handleTarifaPreferencialChange = (
     index: number,
     field: string,
-    value: any
+    value: any,
   ) => {
     if (mode === "view" && editingTarifaId !== index) return;
 
@@ -1115,7 +1204,7 @@ export function HotelDialog({
     if (field.includes(".")) {
       const [parent, child] = field.split(".") as [
         keyof TarifaPreferencial,
-        string
+        string,
       ];
       if (parent === "sencilla" || parent === "doble") {
         newTarifas[index][parent] = {
@@ -1165,14 +1254,14 @@ export function HotelDialog({
 
       const res = await fetch(
         `${URL}/mia/hoteles/carga-imagen?filename=${encodeURIComponent(
-          file.name
+          file.name,
         )}&filetype=${file.type}`,
         {
           method: "GET",
           headers: {
             "x-api-key": API_KEY || "",
           },
-        }
+        },
       );
 
       const { url, publicUrl } = await res.json();
@@ -1292,14 +1381,14 @@ export function HotelDialog({
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ id_hotel }),
-        }
+        },
       );
 
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
           errorData.message ||
-            `ERROR ${response.status}: ${response.statusText}`
+            `ERROR ${response.status}: ${response.statusText}`,
         );
       }
 
@@ -1338,7 +1427,7 @@ export function HotelDialog({
           headers: {
             "x-api-key": API_KEY,
           },
-        }
+        },
       );
 
       if (!response.ok) {
@@ -1352,7 +1441,7 @@ export function HotelDialog({
       const findRateId = (agentId: string | null, roomType: number) => {
         return currentRates.find(
           (rate: TarifaData) =>
-            rate.id_agente === agentId && rate.id_tipos_cuartos === roomType
+            rate.id_agente === agentId && rate.id_tipos_cuartos === roomType,
         )?.id_tarifa;
       };
 
@@ -1438,14 +1527,14 @@ export function HotelDialog({
             "Content-Type": "application/json",
           },
           body: JSON.stringify(holtelPayloadUpper),
-        }
+        },
       );
 
       if (!hotelResponse.ok) {
         const errorData = await hotelResponse.json();
         throw new Error(
           errorData.message ||
-            `ERROR ${hotelResponse.status}: ${hotelResponse.statusText}`
+            `ERROR ${hotelResponse.status}: ${hotelResponse.statusText}`,
         );
       }
 
@@ -1516,7 +1605,7 @@ export function HotelDialog({
                 ? null
                 : formatNumber(tarifa.sencilla.precio),
               precio_noche_extra: formatNumber(
-                tarifa.sencilla.precio_noche_extra
+                tarifa.sencilla.precio_noche_extra,
               ),
               comentario_desayuno: tarifa.sencilla.comentarios,
               tipo_desayuno: tarifa.sencilla.tipo_desayuno,
@@ -1538,11 +1627,11 @@ export function HotelDialog({
               comentario_desayuno: tarifa.doble.comentarios,
               tipo_desayuno: tarifa.doble.tipo_desayuno,
               precio_persona_extra: formatNumber(
-                tarifa.doble.precio_persona_extra
+                tarifa.doble.precio_persona_extra,
               ),
             },
           ];
-        }
+        },
       );
 
       // 4. Execute all rate updates
@@ -1563,8 +1652,8 @@ export function HotelDialog({
               "Content-Type": "application/json",
             },
             body: JSON.stringify(payload),
-          }
-        )
+          },
+        ),
       );
 
       const tarifasResults = await Promise.all(tarifasPromises);
@@ -1615,14 +1704,14 @@ export function HotelDialog({
             id_tarifa_preferencial_doble:
               selectedTarifaToDelete.id_tarifa_preferencial_doble,
           }),
-        }
+        },
       );
 
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
           errorData.message ||
-            `ERROR ${response.status}: ${response.statusText}`
+            `ERROR ${response.status}: ${response.statusText}`,
         );
       }
 
@@ -1638,7 +1727,7 @@ export function HotelDialog({
       setSelectedTarifaToDelete(null);
     } catch (error: any) {
       setErrorMessage(
-        error.message || "ERROR AL INACTIVAR LA TARIFA PREFERENCIAL"
+        error.message || "ERROR AL INACTIVAR LA TARIFA PREFERENCIAL",
       );
     } finally {
       setIsLoading(false);
@@ -1712,6 +1801,17 @@ export function HotelDialog({
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className=" uppercase max-w-5xl max-h-[90vh] overflow-y-auto">
+          {!!proveedor && (
+            <ModalCrearDatosFiscales
+              isOpen={isModalOpen}
+              onClose={function (): void {
+                setIsModalOpen(false);
+              }}
+              selectedFiscal={selectedFiscal}
+              onSave={handleSave}
+              id_proveedor={proveedor?.id}
+            />
+          )}
           <DialogHeader className=" uppercase flex flex-row items-center justify-between">
             <DialogTitle className=" uppercase text-xl font-semibold">
               {mode === "view" ? "DETALLE DEL HOTEL" : "EDITAR HOTEL"}
@@ -1912,7 +2012,7 @@ export function HotelDialog({
                       onChange={(e) =>
                         handleChange(
                           "vigencia_convenio",
-                          convertToDateInputFormat(e.target.value)
+                          convertToDateInputFormat(e.target.value),
                         )
                       }
                       disabled={mode === "view"}
@@ -2556,7 +2656,7 @@ export function HotelDialog({
                       onChange={(e) =>
                         handleChange(
                           "doble.precio_persona_extra",
-                          e.target.value
+                          e.target.value,
                         )
                       }
                       disabled={mode === "view"}
@@ -3034,7 +3134,7 @@ export function HotelDialog({
                                       handleSearchInputChange(
                                         index,
                                         "nombre",
-                                        e.target.value
+                                        e.target.value,
                                       )
                                     }
                                     className=" uppercase font-medium"
@@ -3055,7 +3155,7 @@ export function HotelDialog({
                                       handleSearchInputChange(
                                         index,
                                         "correo",
-                                        e.target.value
+                                        e.target.value,
                                       )
                                     }
                                     className=" uppercase font-medium"
@@ -3136,7 +3236,7 @@ export function HotelDialog({
                                 handleTarifaPreferencialChange(
                                   index,
                                   "costo_q",
-                                  e.target.value
+                                  e.target.value,
                                 )
                               }
                               disabled={
@@ -3157,7 +3257,7 @@ export function HotelDialog({
                                 handleTarifaPreferencialChange(
                                   index,
                                   "precio_q",
-                                  e.target.value
+                                  e.target.value,
                                 )
                               }
                               disabled={
@@ -3178,7 +3278,7 @@ export function HotelDialog({
                                 handleTarifaPreferencialChange(
                                   index,
                                   "costo_qq",
-                                  e.target.value
+                                  e.target.value,
                                 )
                               }
                               disabled={
@@ -3199,7 +3299,7 @@ export function HotelDialog({
                                 handleTarifaPreferencialChange(
                                   index,
                                   "precio_qq",
-                                  e.target.value
+                                  e.target.value,
                                 )
                               }
                               disabled={
@@ -3221,7 +3321,7 @@ export function HotelDialog({
                                 handleTarifaPreferencialChange(
                                   index,
                                   "sencilla.incluye",
-                                  e.target.checked
+                                  e.target.checked,
                                 )
                               }
                               disabled={
@@ -3251,7 +3351,7 @@ export function HotelDialog({
                                   handleTarifaPreferencialChange(
                                     index,
                                     "sencilla.tipo_desayuno",
-                                    e.target.value
+                                    e.target.value,
                                   )
                                 }
                                 disabled={
@@ -3276,7 +3376,7 @@ export function HotelDialog({
                                     handleTarifaPreferencialChange(
                                       index,
                                       "sencilla.precio",
-                                      e.target.value
+                                      e.target.value,
                                     )
                                   }
                                   disabled={
@@ -3298,7 +3398,7 @@ export function HotelDialog({
                                   handleTarifaPreferencialChange(
                                     index,
                                     "sencilla.comentarios",
-                                    e.target.value
+                                    e.target.value,
                                   )
                                 }
                                 disabled={
@@ -3322,7 +3422,7 @@ export function HotelDialog({
                                 handleTarifaPreferencialChange(
                                   index,
                                   "doble.incluye",
-                                  e.target.checked
+                                  e.target.checked,
                                 )
                               }
                               disabled={
@@ -3350,7 +3450,7 @@ export function HotelDialog({
                                   handleTarifaPreferencialChange(
                                     index,
                                     "doble.tipo_desayuno",
-                                    e.target.value
+                                    e.target.value,
                                   )
                                 }
                                 disabled={
@@ -3375,7 +3475,7 @@ export function HotelDialog({
                                     handleTarifaPreferencialChange(
                                       index,
                                       "doble.precio",
-                                      e.target.value
+                                      e.target.value,
                                     )
                                   }
                                   disabled={
@@ -3397,7 +3497,7 @@ export function HotelDialog({
                                   handleTarifaPreferencialChange(
                                     index,
                                     "doble.comentarios",
-                                    e.target.value
+                                    e.target.value,
                                   )
                                 }
                                 disabled={
@@ -3511,7 +3611,60 @@ export function HotelDialog({
                     placeholder="INFORMACION ADICIONAL SOBRE EL PAGO"
                   />
                 </div>
+                {!proveedor ? (
+                  <>
+                    <Loader></Loader>
+                  </>
+                ) : (
+                  <div className="flex flex-col gap-2 justify-end items-end h-full max-w-7xl mx-auto w-full col-span-2">
+                    <div className="w-full flex justify-center bg-blue-50 dark:bg-blue-900 p-4 rounded border border-blue-200 dark:border-blue-800 font-medium">
+                      <h1 className="px-4 py-1 bg-gray-200 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 w-full text-center">
+                        Datos Fiscales
+                      </h1>
+                    </div>
 
+                    <Can
+                      permiso={
+                        PERMISOS.COMPONENTES.GROUP
+                          .PROVEEDORES_EDICIONES_FINANZAS
+                      }
+                    >
+                      <Button
+                        onClick={() => {
+                          handleAddNewClick();
+                        }}
+                        size="sm"
+                      >
+                        Crear Datos Fiscales
+                      </Button>
+                    </Can>
+                    <Table
+                      registros={datosFiscales.map(({ ...rest }) => ({
+                        ...rest,
+                        edit: { ...rest, id_proveedor: proveedor.id },
+                      }))}
+                      renderers={{
+                        edit: ({ value }: { value: DatosFiscales }) => (
+                          <Can
+                            permiso={
+                              PERMISOS.COMPONENTES.GROUP
+                                .PROVEEDORES_EDICIONES_FINANZAS
+                            }
+                          >
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleEditClick(value)}
+                            >
+                              Editar
+                            </Button>
+                          </Can>
+                        ),
+                      }}
+                    ></Table>
+                  </div>
+                )}
+                {/* 
                 <div className=" uppercase flex flex-col space-y-1">
                   <Label htmlFor="razon_social">RAZON SOCIAL</Label>
                   <Input
@@ -3554,9 +3707,8 @@ export function HotelDialog({
                     className=" uppercase font-medium"
                     placeholder="REGISTRO FEDERAL DE CONTRIBUYENTES"
                   />
-                </div>
+                </div> */}
 
-                {/* Notes field for this tab */}
                 <div className=" uppercase col-span-1 md:col-span-2 flex flex-col space-y-1 mt-4 border-t pt-4">
                   <Label htmlFor="notas_informacionPagos">
                     NOTAS INFORMACIÓN DE PAGOS
@@ -3689,7 +3841,7 @@ export function HotelDialog({
                     onChange={(e) =>
                       handleChange(
                         "notas_informacion_adicional",
-                        e.target.value
+                        e.target.value,
                       )
                     }
                     disabled={mode === "view"}
