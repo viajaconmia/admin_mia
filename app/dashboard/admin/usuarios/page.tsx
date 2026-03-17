@@ -12,7 +12,7 @@ import { TableFromMia } from "@/components/organism/TableFromMia";
 import { useAlert } from "@/context/useAlert";
 import { AuthService } from "@/services/AuthService";
 import { Permission, Role, User } from "@/types/auth";
-import { CheckCircle2, Plus } from "lucide-react";
+import { CheckCircle2, Plus, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 
 type UserWithPermission = User &
@@ -23,6 +23,7 @@ export default function AdministracionUsuarios() {
   const [selectedUser, setSelectedUser] = useState<UserWithPermission | null>(
     null,
   );
+  const [search, setSearch] = useState<string>("");
   const [create, setCreate] = useState<boolean>(false);
   const [roles, setRoles] = useState<Role[]>([]);
   const { showNotification } = useAlert();
@@ -34,7 +35,7 @@ export default function AdministracionUsuarios() {
   const fetchUsers = async () => {
     try {
       const { data } = await AuthService.getInstance().getUsers();
-      setUsers(data);
+      setUsers(data.sort((a, b) => a.name.localeCompare(b.name)));
     } catch (error) {
       showNotification(
         "error",
@@ -89,13 +90,24 @@ export default function AdministracionUsuarios() {
   return (
     <>
       <div className="pt-4 space-y-2 bg-gray-50 rounded-b-xl">
+        <div className="p-2">
+          <TextInput
+            value={search}
+            onChange={setSearch}
+            placeholder="Buscar usuario..."
+          />
+        </div>
         <div className="px-2 flex justify-end">
           <Button onClick={handleOpenAddUser} icon={Plus} size="sm">
             Agregar usuario
           </Button>
         </div>
         <TableFromMia
-          data={users}
+          data={users.filter(
+            (user) =>
+              user.name.toLowerCase().includes(search.toLowerCase()) ||
+              user.email.toLowerCase().includes(search.toLowerCase()),
+          )}
           columns={[
             { component: "profile_image", key: "name", header: "" },
             // { component: "copiar_and_button", key: "id", header: "" },
