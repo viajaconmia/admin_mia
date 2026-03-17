@@ -113,26 +113,28 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
         servicio: reserva.type,
         id_cliente: reserva.id_agente,
         cliente: reserva.agente,
-        creado: `${reserva.created_at.split("T")[0]} : ${reserva.created_at.split("T")[1]}`,
+        creado: reserva.created_at
+          ? `${reserva.created_at.split("T")[0]} : ${reserva.created_at.split("T")[1]}`
+          : "",
         proveedor: reserva.proveedor,
         intermediario: reserva.intermediario,
         codigo: reserva.codigo_confirmacion,
         viajero: reserva.viajero,
-        check_in: reserva.check_in.split("T")[0],
+        check_in: reserva.check_in ? reserva.check_in.split("T")[0] : "",
         horario_salida: reserva.horario_salida,
-        check_out: reserva.check_out.split("T")[0],
+        check_out: reserva.check_out ? reserva.check_out.split("T")[0] : "",
         horario_llegada: reserva.horario_llegada,
         noches:
           reserva.check_in && reserva.check_out
             ? calcularNoches(reserva.check_in, reserva.check_out)
             : "",
         tipo: reserva.tipo_cuarto_vuelo,
-        costo_proveedor: reserva.costo_total,
+        costo_proveedor: Number(reserva.costo_total || 0),
         markup:
           ((Number(reserva.total || 0) - Number(reserva.costo_total || 0)) /
             Number(reserva.total || 0)) *
           100,
-        precio_de_venta: reserva.total,
+        precio_de_venta: Number(reserva.total || 0),
         metodo_de_pago: reserva.metodo_pago,
         reservante: reserva.reservante,
         etapa_reservacion: reserva.etapa_reservacion,
