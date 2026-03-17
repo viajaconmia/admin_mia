@@ -20,7 +20,7 @@ interface SubirFacturaProps {
   id_proveedor?: string;
   pagoData?: Pago | null; // datos del pago
   proveedoresData?: any | null; // puede ser object o array
-  isBatch?: boolean;
+  isBatch?: boolean; 
   onSuccess: () => void; // callback al subir factura
   agentId?: string; // id del agente a precargar
   initialItems?: string[]; // ids de items seleccionados desde la tabla
@@ -570,7 +570,8 @@ const subirArchivosAS3 = async (): Promise<{
   };
 
   // Cargar empresas fiscales del agente / proveedor (single)
-  const cargarEmpresasAgente = async (id: string) => {
+  const 
+  cargarEmpresasAgente = async (id: string) => {
     if (!id) {
       console.error("ID no proporcionado");
       return;
@@ -845,6 +846,9 @@ const subirArchivosAS3 = async (): Promise<{
         items: items,
         fecha_vencimiento: fecha_vencimiento || null,
         ...(proveedoresPayloadFinal != null ? { proveedoresData: proveedoresPayloadFinal } : {}),
+        facturas:{
+          facturaData
+        }
       };
 
       const ENDPOINT = !proveedoresData
@@ -991,7 +995,7 @@ const validationErrors = validateFacturaForm({
       const empresaCoincidente = empresasAgente.find(
         (emp) => emp.rfc === rfcReceptor
       );
-
+      console.log(rfcReceptor,"cambios",rfcReceptor)
       if (!empresaCoincidente) {
         confirm(
           `No se encontró una empresa con RFC ${rfcReceptor} para este cliente. Deberas crear empresa`

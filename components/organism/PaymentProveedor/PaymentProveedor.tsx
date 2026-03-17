@@ -345,11 +345,50 @@ useEffect(() => {
     (card: any) => String(card.id) === String(selectedCard),
   );
 
-  const selectFiles = creditCards.map((card: any) => ({
-    label: card.nombre_titular,
-    value: card.url_identificacion,
-    item: card,
+  const titularFromSelectedCard = useMemo(() => {
+  if (!currentSelectedCard || !Array.isArray(titularesData)) return null;
+
+  const possibleId =
+    currentSelectedCard?.idTitular ??
+    currentSelectedCard?.id_titular ??
+    currentSelectedCard?.titular_id ??
+    null;
+
+  const possibleName = String(
+    currentSelectedCard?.Titular ??
+      currentSelectedCard?.titular ??
+      currentSelectedCard?.nombre_titular ??
+      "",
+  )
+    .trim()
+    .toLowerCase();
+
+  return (
+    titularesData.find((t: any) => {
+      const sameId =
+        possibleId != null &&
+        String(t?.idTitular ?? "") === String(possibleId);
+
+      const sameName =
+        possibleName &&
+        String(t?.Titular ?? "")
+          .trim()
+          .toLowerCase() === possibleName;
+
+      return sameId || sameName;
+    }) || null
+  );
+}, [currentSelectedCard, titularesData]);
+
+const selectFiles = useMemo(() => {
+  if (!Array.isArray(titularesData)) return [];
+
+  return titularesData.map((titular: any) => ({
+    label: titular.Titular,
+    value: titular.identificacion,
+    item: titular,
   }));
+}, [titularesData]);
 
   useEffect(() => {
     fetchData();
@@ -482,7 +521,7 @@ useEffect(() => {
       secureToken,
       logoUrl: "https://luiscastaneda-tos.github.io/log/files/nokt.png",
       empresa: {
-        codigoPostal: "11570",
+        codigoPostal: "11560",
         direccion:
           "Presidente Masaryk #29, Interior P-4, CDMX, colonia: Chapultepec Morales, Alcaldía: Miguel Hidalgo",
         nombre: "noktos",
@@ -491,9 +530,17 @@ useEffect(() => {
       },
       bancoEmisor: currentSelectedCard.banco_emisor,
       fechaExpiracion: currentSelectedCard.fecha_vencimiento,
-      nombreTarjeta: currentSelectedCard.nombre_titular,
+      nombreTarjeta:
+  titularFromSelectedCard?.Titular ||
+  currentSelectedCard?.Titular ||
+  currentSelectedCard?.titular ||
+  currentSelectedCard?.nombre_titular ||
+  "",
+documento:
+  titularFromSelectedCard?.identificacion ||
+  document ||
+  "",
       numeroTarjeta: currentSelectedCard.numero_completo,
-      documento: document,
       cvv: currentSelectedCard.cvv,
       reservations: [
         {
@@ -1289,21 +1336,65 @@ useEffect(() => {
             {(paymentMethod === "card" || paymentMethod === "link") && (
               <div className="space-y-4">
                 <DropdownValues
-                  onChange={(value: any) => {
-                    dispatch({
-                      type: "SET_FIELD",
-                      field: "selectedCard",
-                      payload: value?.item?.id ?? "",
-                    });
-                  }}
-                  value={selectedCard || ""}
-                  options={creditCards.map((item: any) => ({
-                    value: item.id,
-                    label: item.name,
-                    item,
-                  }))}
-                  label="Seleccionar tarjeta"
-                />
+  onChange={(value: any) => {
+    const selectedId = value?.item?.id ?? "";
+
+    dispatch({
+      type: "SET_FIELD",
+      field: "selectedCard",
+      payload: selectedId,
+    });
+
+    const selectedCardItem = value?.item;
+
+    if (Array.isArray(titularesData) && selectedCardItem) {
+      const possibleId =
+        selectedCardItem?.idTitular ??
+        selectedCardItem?.id_titular ??
+        selectedCardItem?.titular_id ??
+        null;
+
+      const possibleName = String(
+        selectedCardItem?.Titular ??
+          selectedCardItem?.titular ??
+          selectedCardItem?.nombre_titular ??
+          "",
+      )
+        .trim()
+        .toLowerCase();
+
+      const titularMatch =
+        titularesData.find((t: any) => {
+          const sameId =
+            possibleId != null &&
+            String(t?.idTitular ?? "") === String(possibleId);
+
+          const sameName =
+            possibleName &&
+            String(t?.Titular ?? "")
+              .trim()
+              .toLowerCase() === possibleName;
+
+          return sameId || sameName;
+        }) || null;
+
+      if (titularMatch?.identificacion) {
+        dispatch({
+          type: "SET_FIELD",
+          field: "document",
+          payload: titularMatch.identificacion,
+        });
+      }
+    }
+  }}
+  value={selectedCard || ""}
+  options={creditCards.map((item: any) => ({
+    value: item.id,
+    label: item.name,
+    item,
+  }))}
+  label="Seleccionar tarjeta"
+/>
               </div>
             )}
 

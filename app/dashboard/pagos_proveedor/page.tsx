@@ -187,8 +187,8 @@ type CategoriaEstatus =
   | "spei"
   | "pago_tdc"
   | "pago_link"
-  | "carta_enviada"
-  | "carta_garantia"
+  | "pendiente_credito"
+  | "ap_credito"
   | "pagada"
   | "notificados"
   | "canceladas";
@@ -270,7 +270,7 @@ const tabTheme: Record<
     badge: "bg-amber-50 text-amber-900 border-amber-200",
     badgeActive: "bg-amber-100 text-amber-950 border-amber-300",
   },
-  carta_enviada: {
+  pendiente_credito: {
     ring: "focus:ring-violet-500",
     bg: "bg-white",
     text: "text-slate-700",
@@ -279,7 +279,7 @@ const tabTheme: Record<
     badge: "bg-violet-50 text-violet-800 border-violet-200",
     badgeActive: "bg-violet-100 text-violet-900 border-violet-300",
   },
-  carta_garantia: {
+  ap_credito: {
     ring: "focus:ring-emerald-500",
     bg: "bg-white",
     text: "text-slate-700",
@@ -829,11 +829,11 @@ const [solicitudesPago, setSolicitudesPago] = useState<SolicitudesPorFiltro>({
   spei: [],
   pago_tdc: [],
   pago_link: [],
-  carta_enviada: [],
-  carta_garantia: [],
+  pendiente_credito: [],
+  ap_credito: [],
   pagada: [],
   notificados: [],
-  canceladas: [],
+  canceladas: [], 
 });
 
   const [showDispersionModal, setShowDispersionModal] = useState(false);
@@ -971,7 +971,7 @@ const canSelect = categoria !== "pagada" && categoria !== "canceladas";
       ...(data?.spei_solicitado ?? []),
       ...(data?.pago_tdc ?? []),
       ...(data?.cupon_enviado ?? []),
-      ...(data?.carta_garantia ?? []),
+      ...(data?.ap_credito ?? []),
       ...(data?.notificados??[]),
       ...(data?.pagada ?? []),
     ].filter(Boolean);
@@ -1036,8 +1036,8 @@ const normalizeApiBuckets = (data: any) => {
   const spei = Array.isArray(data?.spei_solicitado) ? data.spei_solicitado : [];
   const pago_tdc = Array.isArray(data?.pago_tdc) ? data.pago_tdc : [];
   const pago_link = Array.isArray(data?.pago_link) ? data.pago_link : [];
-  const carta_enviada = Array.isArray(data?.carta_enviada) ? data.carta_enviada : [];
-  const carta_garantia = Array.isArray(data?.carta_garantia) ? data.carta_garantia : [];
+  const pendiente_credito = Array.isArray(data?.carta_enviada) ? data.carta_enviada : [];
+  const ap_credito = Array.isArray(data?.carta_garantia) ? data.carta_garantia : [];
   const pagada = Array.isArray(data?.pagada) ? data.pagada : [];
   const notificados = Array.isArray(data?.notificados) ? data.notificados : [];
   const canceladas = Array.isArray(data?.canceladas) ? data.canceladas : [];
@@ -1046,8 +1046,8 @@ const normalizeApiBuckets = (data: any) => {
     ...spei,
     ...pago_tdc,
     ...pago_link,
-    ...carta_enviada,
-    ...carta_garantia,
+    ...pendiente_credito,
+    ...ap_credito,
     ...pagada,
     ...notificados,
     ...canceladas,
@@ -1058,8 +1058,8 @@ const normalizeApiBuckets = (data: any) => {
     spei,
     pago_tdc,
     pago_link,
-    carta_enviada,
-    carta_garantia,
+    pendiente_credito,
+    ap_credito,
     pagada,
     notificados,
     canceladas,
@@ -1080,8 +1080,8 @@ const handleFetchSolicitudesPago = useCallback(() => {
         spei: buckets.spei,
         pago_tdc: buckets.pago_tdc,
         pago_link: buckets.pago_link,
-        carta_enviada: buckets.carta_enviada,
-        carta_garantia: buckets.carta_garantia,
+        pendiente_credito: buckets.pendiente_credito,
+        ap_credito: buckets.ap_credito,
         pagada: buckets.pagada,
         notificados: buckets.notificados,
         canceladas: buckets.canceladas,
@@ -1115,10 +1115,10 @@ const baseList: SolicitudProveedor[] =
         ? solicitudesPago.pago_tdc
         : categoria === "pago_link"
           ? solicitudesPago.pago_link
-          : categoria === "carta_enviada"
-            ? solicitudesPago.carta_enviada
-            : categoria === "carta_garantia"
-              ? solicitudesPago.carta_garantia
+          : categoria === "pendiente_credito"
+            ? solicitudesPago.pendiente_credito
+            : categoria === "ap_credito"
+              ? solicitudesPago.ap_credito
               : categoria === "pagada"
                 ? solicitudesPago.pagada
                 : categoria === "notificados"
@@ -1242,47 +1242,82 @@ const baseList: SolicitudProveedor[] =
 
   const registrosVisibles = formatedSolicitudes;
 
+const getProveedorCuentas = (raw: any) => {
+  const cuentas = normalizeToArray(
+    raw?.cuentas_proveedor ??
+      raw?.proveedor?.cuentas ??
+      raw?.proveedor?.cuentas_proveedor ??
+      []
+  );
+
+  return cuentas.filter(
+    (c) => c && typeof c === "object" && Object.keys(c).length > 0
+  );
+};
+
   // ---------- HANDLERS ----------
   const handleDispersion = () => {
-    if (!solicitud.length) {
-      showNotification(
-        "info",
-        "No hay solicitudes seleccionadas para dispersión",
-      );
-      return;
-    }
+  if (!solicitud.length) {
+    showNotification(
+      "info",
+      "No hay solicitudes seleccionadas para dispersión",
+    );
+    return;
+  }
 
-    const seleccion = solicitud.map((s) => {
-      const anyS = s as any;
+  const seleccion = solicitud.map((s) => {
+    const anyS = s as any;
+    const cuentasProveedor = getProveedorCuentas(s);
+    const cuentaDefault = cuentasProveedor[0] ?? null;
 
-      return {
-        id_solicitud: anyS.id_solicitud ?? anyS.id ?? "",
-        id_pago: anyS.id_pago ?? null,
-        hotel: s.hotel ?? null,
-        codigo_reservacion_hotel: s.codigo_reservacion_hotel ?? null,
-        costo_total:
-          s.costo_total ?? s.solicitud_proveedor?.monto_solicitado ?? "0",
-        check_out: s.check_out ?? null,
-        codigo_dispersion: anyS.codigo_dispersion ?? null,
-        cuenta_de_deposito: (s as any).cuenta_de_deposito ?? null,
+    const idProveedor =
+      anyS.id_proveedor ??
+      anyS.proveedor?.id ??
+      null;
 
-        solicitud_proveedor: s.solicitud_proveedor
-          ? {
-              id_solicitud_proveedor:
-                s.solicitud_proveedor.id_solicitud_proveedor,
-              fecha_solicitud: s.solicitud_proveedor.fecha_solicitud ?? null,
-              monto_solicitado: s.solicitud_proveedor.monto_solicitado ?? null,
-            }
-          : null,
+    return {
+      id_solicitud: anyS.id_solicitud ?? anyS.id ?? "",
+      id_pago: anyS.id_pago ?? null,
+      id_proveedor: idProveedor,
+      hotel: s.hotel ?? null,
+      codigo_reservacion_hotel: s.codigo_reservacion_hotel ?? null,
+      costo_total:
+        s.costo_total ?? s.solicitud_proveedor?.monto_solicitado ?? "0",
+      check_out: s.check_out ?? null,
+      codigo_dispersion: anyS.codigo_dispersion ?? null,
 
-        razon_social: s.proveedor?.razon_social ?? null,
-        rfc: s.proveedor?.rfc ?? null,
-      } as SolicitudProveedorRaw;
-    });
+      // cuentas del proveedor
+      cuentas_proveedor: cuentasProveedor,
+      cuenta_de_deposito:
+        anyS.cuenta_de_deposito ??
+        cuentaDefault?.cuenta ??
+        null,
 
-    setSolicitudesSeleccionadasModal(seleccion);
-    setShowDispersionModal(true);
-  };
+      tipo_cuenta:
+        anyS.tipo_cuenta ??
+        (cuentaDefault?.cuenta?.length === 18 ? "Cta Clabe" : "Cta"),
+
+      clave_proveedor:
+        idProveedor != null ? String(idProveedor) : null,
+
+      solicitud_proveedor: s.solicitud_proveedor
+        ? {
+            id_solicitud_proveedor:
+              s.solicitud_proveedor.id_solicitud_proveedor,
+            fecha_solicitud: s.solicitud_proveedor.fecha_solicitud ?? null,
+            monto_solicitado: s.solicitud_proveedor.monto_solicitado ?? null,
+            saldo: (s.solicitud_proveedor as any)?.saldo ?? null,
+          }
+        : null,
+
+      razon_social: s.proveedor?.razon_social ?? null,
+      rfc: s.proveedor?.rfc ?? null,
+    } as SolicitudProveedorRaw;
+  });
+
+  setSolicitudesSeleccionadasModal(seleccion);
+  setShowDispersionModal(true);
+};
 
   const handleCsv = () => setShowComprobanteModal(true);
 
@@ -1623,7 +1658,7 @@ const marcarNotificadoPagado = useCallback(
               .replace("transfer", "Transferencia")
               .replace("card", "Tarjeta")
               .replace("link", "Link")
-              .replace("credit", "Carta garantía")
+              .replace("credit", "Ap Credito")
               .toUpperCase()
           : ""}
       </span>
@@ -1809,7 +1844,7 @@ const marcarNotificadoPagado = useCallback(
       const cancelDisabled = pagado || isCancelada || categoria === "pagada";
 
       // ✅ si es CUPON, oculta acciones en todas las carpetas MENOS en carta_garantia
-      if (estadoSolicitud.includes("CUPON") && categoria !== "carta_garantia")
+      if (estadoSolicitud.includes("CUPON") && categoria !== "ap_credito")
         return null;
 
       const costoActual = Number((raw as any)?.costo_total ?? 0) || 0;
@@ -1817,7 +1852,7 @@ const marcarNotificadoPagado = useCallback(
       return (
         <div className="flex items-center gap-2">
           {/* ✅ MÉTODO SOLO PARA carta_garantia */}
-          {categoria === "carta_garantia" && (
+          {categoria === "ap_credito" && (
           <MetodoPagoModal
             idSolProv={idSolProv}
             currentMethod={forma}
@@ -1917,7 +1952,7 @@ const marcarNotificadoPagado = useCallback(
   </button>
 )}
           {/* Botón marcar pagado (solo si no es transfer) */}
-          {forma !== "transfer" && categoria !== "carta_garantia" && categoria !== "notificados" && (
+          {forma !== "transfer" && categoria !== "ap_credito" && categoria !== "notificados" && (
   <button
     type="button"
     className={[
@@ -2035,14 +2070,14 @@ const marcarNotificadoPagado = useCallback(
           count: solicitudesPago.pago_link.length,
         },
         {
-          key: "carta_enviada",
-          label: "Carta enviada",
-          count: solicitudesPago.carta_enviada.length,
+          key: "pendiente_credito",
+          label: "Pendiente credito",
+          count: solicitudesPago.pendiente_credito.length,
         },
         {
-          key: "carta_garantia",
-          label: "Carta garantía",
-          count: solicitudesPago.carta_garantia.length,
+          key: "ap_credito",
+          label: "Ap Credito",
+          count: solicitudesPago.ap_credito.length,
         },
         {
           key: "pagada",
