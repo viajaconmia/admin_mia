@@ -610,7 +610,7 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
                 label="Código de reservación"
                 placeholder="HJK1243..."
                 onChange={(value: string) =>
-                  handleUpdateCarRental("codigo", value)
+                  handleUpdateCarRental("codigo", value.replaceAll(" ", ""))
                 }
               />
 

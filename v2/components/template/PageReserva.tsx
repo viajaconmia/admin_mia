@@ -187,9 +187,10 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
         id: string;
         estado: string;
         agente: { id_agente: string; nombre: string };
+        id_booking: string;
       };
     }) => {
-      const { id, type, estado, agente } = value;
+      const { id, type, estado, agente, id_booking } = value;
       return (
         <>
           {type != "car_rental" && estado != "Cancelada" && (
@@ -206,13 +207,13 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
               </Button>
             </Can>
           )}
-          {type != "hotel" && estado != "Cancelada" && (
+          {estado != "Cancelada" && (
             <Can permiso={PERMISOS.COMPONENTES.BOTON.CANCELAR_RESERVA}>
               <Button
                 icon={Trash2}
                 size="sm"
                 variant="warning"
-                onClick={() => handleCancel(id)}
+                onClick={() => handleCancel(id_booking)}
               >
                 Cancelar
               </Button>
@@ -306,6 +307,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     editar: {
       type: reserva.type,
       id: reserva.type == "hotel" ? reserva.id_solicitud : reserva.id_booking,
+      id_booking: reserva.id_booking,
       estado: reserva.estado,
       agente: { id_agente: reserva.id_agente, nombre: reserva.agente },
     },

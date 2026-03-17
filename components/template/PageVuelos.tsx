@@ -336,7 +336,10 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
             label="Código de reservación"
             placeholder="PNR / Código..."
             onChange={(value: string) =>
-              setDetails((prev) => ({ ...prev, codigo: value }))
+              setDetails((prev) => ({
+                ...prev,
+                codigo: value.replaceAll(" ", ""),
+              }))
             }
           />
 
