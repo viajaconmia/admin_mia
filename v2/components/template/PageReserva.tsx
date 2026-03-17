@@ -39,7 +39,7 @@ import {
   RefreshCwIcon,
   Trash2,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Dispatch, useEffect, useState } from "react";
 import CrearReserva from "./CrearReserva";
 import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
@@ -113,26 +113,28 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
         servicio: reserva.type,
         id_cliente: reserva.id_agente,
         cliente: reserva.agente,
-        creado: `${reserva.created_at.split("T")[0]} : ${reserva.created_at.split("T")[1]}`,
+        creado: reserva.created_at
+          ? `${reserva.created_at.split("T")[0]} : ${reserva.created_at.split("T")[1]}`
+          : "",
         proveedor: reserva.proveedor,
         intermediario: reserva.intermediario,
         codigo: reserva.codigo_confirmacion,
         viajero: reserva.viajero,
-        check_in: reserva.check_in.split("T")[0],
+        check_in: reserva.check_in ? reserva.check_in.split("T")[0] : "",
         horario_salida: reserva.horario_salida,
-        check_out: reserva.check_out.split("T")[0],
+        check_out: reserva.check_out ? reserva.check_out.split("T")[0] : "",
         horario_llegada: reserva.horario_llegada,
         noches:
           reserva.check_in && reserva.check_out
             ? calcularNoches(reserva.check_in, reserva.check_out)
             : "",
         tipo: reserva.tipo_cuarto_vuelo,
-        costo_proveedor: reserva.costo_total,
+        costo_proveedor: Number(reserva.costo_total || 0),
         markup:
           ((Number(reserva.total || 0) - Number(reserva.costo_total || 0)) /
             Number(reserva.total || 0)) *
           100,
-        precio_de_venta: reserva.total,
+        precio_de_venta: Number(reserva.total || 0),
         metodo_de_pago: reserva.metodo_pago,
         reservante: reserva.reservante,
         etapa_reservacion: reserva.etapa_reservacion,
@@ -158,11 +160,9 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     cliente: (valor) => {
       return <h1>{valor.value}</h1>;
     },
-    creado: ({ value }) => <>{formatDate(value)}</>,
-    proveedor: ({ value }: { value: string }) => (
-      <Tooltip content={value}>{value || ""}</Tooltip>
-    ),
-    codigo: ({ value }) => <Tooltip content={value}>{value || ""}</Tooltip>,
+    creado: ({ value }) => <p>{formatDate(value)}</p>,
+    proveedor: ({ value }: { value: string }) => <p>{value || ""}</p>,
+    codigo: ({ value }) => <p>{value || ""}</p>,
     markup: ({ value }) => <MarginPercent value={value} />,
     viajero: ({ value }) => <>{value}</>,
     check_in: ({ value }) => <>{formatDate(value)}</>,
@@ -187,9 +187,11 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
         id: string;
         estado: string;
         agente: { id_agente: string; nombre: string };
+        id_booking: string;
       };
     }) => {
-      const { id, type, estado, agente } = value;
+      const [load, setLoad] = useState(false);
+      const { id, type, estado, agente, id_booking } = value;
       return (
         <>
           {type != "car_rental" && estado != "Cancelada" && (
@@ -206,13 +208,14 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
               </Button>
             </Can>
           )}
-          {type != "hotel" && estado != "Cancelada" && (
+          {estado != "Cancelada" && (
             <Can permiso={PERMISOS.COMPONENTES.BOTON.CANCELAR_RESERVA}>
               <Button
                 icon={Trash2}
+                disabled={load}
                 size="sm"
                 variant="warning"
-                onClick={() => handleCancel(id)}
+                onClick={() => handleCancel(id_booking, setLoad)}
               >
                 Cancelar
               </Button>
@@ -241,8 +244,12 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     ),
   };
 
-  const handleCancel = async (value: string) => {
+  const handleCancel = async (
+    value: string,
+    loading: Dispatch<React.SetStateAction<boolean>>,
+  ) => {
     try {
+      loading(true);
       const confirmed = confirm(
         "¿Estás seguro que quieres cancelar esta reserva?",
       );
@@ -252,6 +259,8 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
       handleFetchSolicitudes();
     } catch (error) {
       showNotification("error", error.message || "error");
+    } finally {
+      loading(false);
     }
   };
 
@@ -306,6 +315,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     editar: {
       type: reserva.type,
       id: reserva.type == "hotel" ? reserva.id_solicitud : reserva.id_booking,
+      id_booking: reserva.id_booking,
       estado: reserva.estado,
       agente: { id_agente: reserva.id_agente, nombre: reserva.agente },
     },
