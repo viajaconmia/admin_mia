@@ -259,7 +259,7 @@ codigo_hotel: raw?.codigo_confirmacion ?? "",
 
     comentarios_ops: comentariosOps,
     comentarios_cxp: raw?.comentario_CXP ?? raw?.comentarios_cxp ?? "",
-
+    usuario_creador: raw?.solicitud_proveedor.usuario_generador,
     // ✅ botón Detalles (UI nueva)
     detalles: raw,
     estado_solicitud: raw?.solicitud_proveedor?.estado_solicitud ?? "",
@@ -595,7 +595,7 @@ const clearAllFilters = useCallback(() => {
         String(raw?.id_servicio ?? "").toUpperCase().includes(q)
       );
     });
-console.log(filteredItems,"😒😒😒😒😒")
+console.log(filteredItems,"😒😒😒😒😒")  
 
     return filteredItems.map((raw, i) => toConciliacionRow(raw, i));
  }, [todos, appliedSearchTerm]);
@@ -740,6 +740,7 @@ const solicitarPagoCredito = useCallback(
       "subir_factura", // ✅ lógica subir factura (antigua)
       "acciones", // ✅ comprobante + conciliar (antigua)
       "total_factura",
+      "usuario_creador",
     ],
     []
   );

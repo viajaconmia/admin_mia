@@ -149,7 +149,7 @@ export function drawBillingInfoOnLastPage(
   const comunes = [
     "Razón social: NOKTOS ALIANZA",
     "RFC: NAL190807BU2",
-    "Código postal: 11570",
+    "Código postal: 11560",
     "Dirección: Presidente Masarik No. 29, Interior E-3, Col. Chapultepec Morales, Alcaldía Miguel Hidalgo, CDMX.",
     "E-mail: operaciones@noktos.com",
     "Régimen Fiscal: 601 - General de Ley Personas Morales",

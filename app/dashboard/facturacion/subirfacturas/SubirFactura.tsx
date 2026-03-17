@@ -20,7 +20,7 @@ interface SubirFacturaProps {
   id_proveedor?: string;
   pagoData?: Pago | null; // datos del pago
   proveedoresData?: any | null; // puede ser object o array
-  isBatch?: boolean;
+  isBatch?: boolean; 
   onSuccess: () => void; // callback al subir factura
   agentId?: string; // id del agente a precargar
   initialItems?: string[]; // ids de items seleccionados desde la tabla
