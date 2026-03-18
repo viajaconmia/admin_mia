@@ -14,15 +14,14 @@ interface VistaPreviaProps {
   facturaData: any;
   pagoData: any;
   itemsTotal?: number;
-
-  // ✅ PDF opcional (si viene, se usa; si no, se genera)
   archivoPDF?: File | null;
 
-  // ✅ batch UI en vista previa
   isProveedorBatch?: boolean;
   batchAsociaciones?: AsociacionSolicitudProveedor[];
   updateMontoBatch?: (index: number, raw: string) => void;
   batchTotalAsociar?: number;
+
+  showFechaVencimiento?: boolean;
 
   onClose: () => void;
   onConfirm: (pdfUrl?: string | null, fecha_vencimiento?: string) => void;
@@ -38,6 +37,7 @@ export default function VistaPreviaModal({
   batchAsociaciones = [],
   updateMontoBatch,
   batchTotalAsociar = 0,
+  showFechaVencimiento = true,
   onClose,
   onConfirm,
   isLoading = false
@@ -156,34 +156,35 @@ export default function VistaPreviaModal({
   }, [facturaData, archivoPDF]);
 
   const handleConfirm = () => {
-    // ✅ Validación items vs total
-    if (typeof itemsTotal === 'number' && itemsTotal > 0 && itemsTotal > totalFactura) {
-      alert('El total de los ítems es mayor al total de la factura.');
+  if (typeof itemsTotal === 'number' && itemsTotal > 0 && itemsTotal > totalFactura) {
+    alert('El total de los ítems es mayor al total de la factura.');
+    return;
+  }
+
+  if (isProveedorBatch) {
+    const invalid = batchAsociaciones.some(
+      (x) => !x.monto_asociar || Number(x.monto_asociar) <= 0
+    );
+    if (invalid) {
+      alert("Debes capturar un monto válido para cada solicitud.");
       return;
     }
-
-    // ✅ Validación batch
-    if (isProveedorBatch) {
-      const invalid = batchAsociaciones.some(
-        (x) => !x.monto_asociar || Number(x.monto_asociar) <= 0
-      );
-      if (invalid) {
-        alert("Debes capturar un monto válido para cada solicitud.");
-        return;
-      }
-      if (batchTotalAsociar > totalFactura) {
-        alert("El total asociado por proveedor excede el total de la factura.");
-        return;
-      }
-    }
-
-    if (!fechaVencimiento) {
-      alert("Selecciona la fecha de vencimiento.");
+    if (batchTotalAsociar > totalFactura) {
+      alert("El total asociado por proveedor excede el total de la factura.");
       return;
     }
+  }
 
-    onConfirm(pdfUrl, fechaVencimiento);
-  };
+  if (showFechaVencimiento && !fechaVencimiento) {
+    alert("Selecciona la fecha de vencimiento.");
+    return;
+  }
+
+  onConfirm(
+    pdfUrl,
+    showFechaVencimiento ? fechaVencimiento : undefined
+  );
+};
 
   const formatCurrency = (value: string) =>
     parseFloat(value).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
@@ -359,21 +360,23 @@ export default function VistaPreviaModal({
         )}
 
         {/* Fecha de vencimiento */}
-        <div className="mt-6 p-4 bg-gray-50 rounded border">
-          <label className="block text-sm font-semibold mb-2" htmlFor="fecha-venc">
-            Fecha de vencimiento
-          </label>
-          <input
-            id="fecha-venc"
-            type="date"
-            className="border rounded p-2"
-            value={fechaVencimiento}
-            onChange={(e) => setFechaVencimiento(e.target.value)}
-          />
-          <p className="text-xs text-gray-500 mt-1">
-            Define la fecha límite de pago para esta factura.
-          </p>
-        </div>
+        {showFechaVencimiento && (
+  <div className="mt-6 p-4 bg-gray-50 rounded border">
+    <label className="block text-sm font-semibold mb-2" htmlFor="fecha-venc">
+      Fecha de vencimiento
+    </label>
+    <input
+      id="fecha-venc"
+      type="date"
+      className="border rounded p-2"
+      value={fechaVencimiento}
+      onChange={(e) => setFechaVencimiento(e.target.value)}
+    />
+    <p className="text-xs text-gray-500 mt-1">
+      Define la fecha límite de pago para esta factura.
+    </p>
+  </div>
+)}
 
         <div className="flex justify-end gap-2 mt-6">
           <button
@@ -387,7 +390,13 @@ export default function VistaPreviaModal({
           <button
             className="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
             onClick={handleConfirm}
-            disabled={isLoading || uploadingPdf || !pdfUrl || !okItems || !fechaVencimiento}
+            disabled={
+              isLoading ||
+              uploadingPdf ||
+              !pdfUrl ||
+              !okItems ||
+            (showFechaVencimiento && !fechaVencimiento)
+            }
           >
             {(isLoading || uploadingPdf) ? "Procesando..." : "Aceptar y Continuar"}
           </button>
@@ -456,7 +465,7 @@ const FacturaEstructurada = ({ facturaData, formatCurrency, formatDate }: any) =
         <div className="flex justify-between py-2 font-bold text-lg">
           <span>Total:</span>
           <span className="text-green-600">{formatCurrency(facturaData.comprobante.total)}</span>
-        </div>
+        </div> 
       </div>
     </div>
 
