@@ -53,7 +53,7 @@ export const ModalCrearDatosFiscales = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
         {/* Header con estilo más limpio */}
         <div className="p-5 border-b flex justify-between items-center bg-white">
@@ -146,7 +146,7 @@ export const ModalCuentasCRUD = ({
   const handleConfirm = () => {
     if (!formData.cuenta || !formData.titular || !formData.banco) {
       alert(
-        "El numero de cuenta, el titular y el banco son obligatorios es obligatorio"
+        "El numero de cuenta, el titular y el banco son obligatorios es obligatorio",
       );
       return;
     }

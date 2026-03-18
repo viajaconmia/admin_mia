@@ -66,11 +66,10 @@ export function HotelContainer() {
 
     fetchHotelesFiltro_Avanzado(apiFilters, (data) => {
       const fetchedHotels = data || [];
-      // Array.isArray(data) && Array.isArray(data[0]) ? data[0] : [];
 
       if (infoCompletaFilter !== null && infoCompletaFilter !== undefined) {
         const filtered = fetchedHotels.filter(
-          (hotel) => isHotelComplete(hotel) === infoCompletaFilter
+          (hotel) => isHotelComplete(hotel) === infoCompletaFilter,
         );
         setHotels(filtered);
       } else {
@@ -125,7 +124,7 @@ export function HotelContainer() {
       item.precio_doble?.includes(searchTerm) ||
       item.precio_sencilla?.includes(searchTerm) ||
       item.costo_sencilla?.includes(searchTerm) ||
-      item.costo_doble?.includes(searchTerm)
+      item.costo_doble?.includes(searchTerm),
   );
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
   const currentHotels = filteredData.slice(indexOfFirstItem, indexOfLastItem);
@@ -136,7 +135,7 @@ export function HotelContainer() {
   };
 
   const hayFiltrosAplicados = Object.values(activeFilters).some(
-    (v) => v !== null
+    (v) => v !== null,
   );
 
   const exportToCSV = (data, filename = "hoteles.csv") => {
@@ -150,7 +149,7 @@ export function HotelContainer() {
             const val = row[field];
             return `"${(val ?? "").toString().replace(/"/g, '""')}"`;
           })
-          .join(",")
+          .join(","),
       ),
     ].join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -242,7 +241,7 @@ export function HotelContainer() {
                     onSort={(field) => {
                       if (sortField === field) {
                         setSortDirection((prev) =>
-                          prev === "asc" ? "desc" : "asc"
+                          prev === "asc" ? "desc" : "asc",
                         );
                       } else {
                         setSortField(field);
