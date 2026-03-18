@@ -40,6 +40,10 @@ interface TableProps<T> {
 
   /** NUEVA PROPIEDAD: Columnas que contienen arrays y pueden expandirse */
   expandableColumns?: string[];
+    horizontalScroll?: boolean;
+  stickyRightColumns?: string[];
+  columnMinWidths?: Record<string, string>;
+  respectCustomColumnOrder?: boolean;
 }
 
 export const Table5 = <T,>({
@@ -57,6 +61,10 @@ export const Table5 = <T,>({
   splitColumns,
   isExport = true,
   expandableColumns = [], // Nueva prop
+    horizontalScroll = false,
+  stickyRightColumns = [],
+  columnMinWidths = {},
+  respectCustomColumnOrder = false,
 }: TableProps<T>) => {
   const [displayData, setDisplayData] = useState<Registro[]>(registros);
   const [loading, setLoading] = useState<boolean>(false);
@@ -110,6 +118,22 @@ export const Table5 = <T,>({
     }
     return [];
   }, [registros]);
+
+  const orderedColumnKeys = useMemo(() => {
+  if (respectCustomColumnOrder && customColumns && customColumns.length > 0) {
+    const existingCustom = customColumns.filter((key) =>
+      columnKeys.includes(key)
+    );
+    const rest = columnKeys.filter((key) => !existingCustom.includes(key));
+    return [...existingCustom, ...rest];
+  }
+
+  return columnKeys;
+}, [columnKeys, customColumns, respectCustomColumnOrder]);
+
+const visibleOrderedColumns = useMemo(() => {
+  return orderedColumnKeys.filter((key) => visibleColumns.has(key));
+}, [orderedColumnKeys, visibleColumns]);
 
   const toggleColumn = (key: string) => {
     setVisibleColumns((prev) => {
@@ -437,7 +461,7 @@ export const Table5 = <T,>({
                         Mostrar todas
                       </button>
                     </div>
-                    {columnKeys.map((key) => (
+                    {orderedColumnKeys.map((key) => (
                       <div
                         key={key}
                         className="flex items-center p-1 hover:bg-gray-50"
@@ -474,43 +498,58 @@ export const Table5 = <T,>({
 
       {displayData.length > 0 && !loading ? (
         <div
-          className="flex-1 min-h-0 overflow-y-auto relative border border-gray-200 rounded-sm w-full"
-          style={!fillHeight ? { maxHeight } : undefined}
-        >
-          <table className="min-w-full divide-y divide-gray-200">
+  className={`flex-1 min-h-0 relative border border-gray-200 rounded-sm w-full ${
+    horizontalScroll ? "overflow-auto" : "overflow-y-auto"
+  }`}
+  style={!fillHeight ? { maxHeight } : undefined}
+>
+  <table
+    className={`divide-y divide-gray-200 ${
+      horizontalScroll ? "w-max min-w-full" : "min-w-full"
+    }`}
+  >
             <thead className="sticky z-10 bg-gray-50 top-0">
               <tr>
-                {columnKeys
-                  .filter((key) => visibleColumns.has(key))
-                  .map((key) => (
-                    <th
-                      key={key}
-                      scope="col"
-                      onClick={() => {
-                        setLoading(true);
-                        handleSort(key);
-                      }}
-                      className="px-3 min-w-fit whitespace-nowrap py-2 text-left cursor-pointer text-[11px] font-medium text-gray-600 uppercase tracking-wider"
-                    >
-                      <span className="flex flex-col items-start gap-1">
-                        {key === (currentSort.key || "") && (
-                          <ArrowDown
-                            className={`w-3 h-3 transition-transform self-center ${
-                              !currentSort.sort ? "" : "rotate-180"
-                            }`}
-                          />
-                        )}
-                        <div className="whitespace-pre-line text-center w-full leading-tight">
-                          {formatColumnTitle(key)}
-                          {expandableColumns.includes(key) && (
-                            <div className="text-xs font-normal text-blue-600 mt-1">
-                              (Expandible)
-                            </div>
-                          )}
-                        </div>
-                      </span>
-                    </th>
-                  ))}
+                {visibleOrderedColumns.map((key) => {
+  const isStickyRight = stickyRightColumns.includes(key);
+
+  return (
+    <th
+      key={key}
+      scope="col"
+      onClick={() => {
+        setLoading(true);
+        handleSort(key);
+      }}
+      className={`px-3 min-w-fit whitespace-nowrap py-2 text-left cursor-pointer text-[11px] font-medium text-gray-600 uppercase tracking-wider ${
+        isStickyRight
+          ? "sticky right-0 z-20 border-l border-gray-200 bg-gray-50 shadow-[-8px_0_12px_-10px_rgba(0,0,0,0.15)]"
+          : ""
+      }`}
+      style={{
+        minWidth: columnMinWidths[key] || undefined,
+      }}
+    >
+      <span className="flex flex-col items-start gap-1">
+        {key === (currentSort.key || "") && (
+          <ArrowDown
+            className={`w-3 h-3 transition-transform self-center ${
+              !currentSort.sort ? "" : "rotate-180"
+            }`}
+          />
+        )}
+        <div className="whitespace-pre-line text-center w-full leading-tight">
+          {formatColumnTitle(key)}
+          {expandableColumns.includes(key) && (
+            <div className="text-xs font-normal text-blue-600 mt-1">
+              (Expandible)
+            </div>
+          )}
+        </div>
+      </span>
+    </th>
+  );
+})}
               </tr>
             </thead>
 
@@ -528,24 +567,31 @@ export const Table5 = <T,>({
 
                 return (
                   <tr
-                    key={`row-${item.id !== undefined ? item.id : index}`}
-                    className={`${baseBgClass} cursor-pointer hover:bg-blue-50 transition-colors`}
-                  >
-                    {columnKeys
-                      .filter((key) => visibleColumns.has(key))
-                      .map((colKey) => {
-                        const Renderer = renderers[colKey];
-                        const value = item[colKey];
+  key={`row-${item.id !== undefined ? item.id : index}`}
+  className={`${baseBgClass} group cursor-pointer hover:bg-blue-50 transition-colors`}
+>
+  {visibleOrderedColumns.map((colKey) => {
+    const Renderer = renderers[colKey];
+    const value = item[colKey];
+    const isStickyRight = stickyRightColumns.includes(colKey);
+    const stickyBg = index % 2 === 0 ? "bg-white" : "bg-gray-50";
 
-                        return (
-                          <td
-                            key={`${item.id !== undefined ? item.id : index}-${colKey}`}
-                            className={`px-2 py-1 text-[11px] text-gray-900 align-middle ${
-                              expandableColumns.includes(colKey)
-                                ? "align-top w-72"
-                                : ""
-                            }`}
-                          >
+    return (
+      <td
+        key={`${item.id !== undefined ? item.id : index}-${colKey}`}
+        className={`px-2 py-1 text-[11px] text-gray-900 align-middle ${
+          expandableColumns.includes(colKey) ? "align-top w-72" : ""
+        } ${
+          isStickyRight
+            ? `sticky right-0 z-10 border-l border-gray-200 ${stickyBg} group-hover:bg-blue-50 shadow-[-8px_0_12px_-10px_rgba(0,0,0,0.12)]`
+            : ""
+        }`}
+        style={{
+          minWidth:
+            columnMinWidths[colKey] ||
+            (isStickyRight ? "140px" : undefined),
+        }}
+      >
                             {Renderer ? (
                               <Renderer
                                 value={value}
