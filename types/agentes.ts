@@ -1,8 +1,3 @@
-interface Empresa {
-  id_empresa: string;
-  razon_social: string;
-}
-
 interface Agente {
   created_viajero: string;
   id_agente: string;
@@ -18,7 +13,10 @@ interface Agente {
   nacionalidad: string | null;
   numero_pasaporte: string | null;
   numero_empleado: string | null;
-  empresas: Empresa[];
+  empresas: {
+    id_empresa: string;
+    razon_social: string;
+  }[];
   nombre_agente_completo: string;
   created_at: string;
   updated_at: string;
@@ -28,7 +26,7 @@ interface Agente {
   nombre: string;
   notas: string | null;
   vendedor: string | null;
-  wallet?: string|null;
+  wallet?: string | null;
 }
 
 interface EmpresaFromAgent {

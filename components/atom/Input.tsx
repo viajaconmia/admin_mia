@@ -156,7 +156,7 @@ export const NumberInput = ({
 export const TextInput = ({
   label,
   value,
-  onChange,
+  onChange = () => {},
   className,
   disabled = false,
   placeholder = "",
@@ -165,7 +165,7 @@ export const TextInput = ({
   value: string;
   className?: string;
   disabled?: boolean;
-  onChange: (value: string) => void;
+  onChange?: (value: string) => void;
   placeholder?: string;
 }) => (
   <div className={`flex flex-col space-y-1 ${className}`}>
@@ -616,6 +616,7 @@ export const ComboBox2 = <T,>({
 
   // Memoizar opciones filtradas según inputValue
   const filteredOptions = useMemo(() => {
+    console.log(inputValue);
     const lower = inputValue.toLowerCase();
     return options.filter((o) => o?.name?.toLowerCase().includes(lower));
   }, [inputValue, options]);

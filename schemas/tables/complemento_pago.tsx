@@ -4,8 +4,10 @@ import { DateTime, Precio } from "@/v3/atom/TableItemsComponent";
 
 export type SaldoItem = Pick<Saldo, "banco_tarjeta" | "monto"> & {
   acciones: number;
+  id_agente: string;
   creado_en: string;
   cliente: string;
+  rfc: string;
 };
 
 export const mapSaldo = (pago: any): any => {
@@ -29,7 +31,7 @@ export const mapSaldo = (pago: any): any => {
 export const createRenderers = ({
   onVerDetalles,
 }: {
-  onVerDetalles: (id: number) => void;
+  onVerDetalles: (id: SaldoItem) => void;
 }) => {
   return {
     monto: ({ value }: { value: string }) => <Precio value={value} />,
@@ -47,7 +49,7 @@ export const createRenderers = ({
     fecha_creacion_factura: ({ value }: { value: string }) => (
       <DateTime value={value} />
     ),
-    acciones: ({ value }: { value: number }) => (
+    acciones: ({ value }: { value: SaldoItem }) => (
       <Button
         size="sm"
         variant="secondary"
