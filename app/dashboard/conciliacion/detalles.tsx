@@ -9,17 +9,9 @@ import {
   FileText,
   Code2,
   ExternalLink,
-  CalendarDays,
-  CreditCard,
-  Wallet,
-  Receipt,
-  Building2,
-  User,
-  FileSpreadsheet,
 } from "lucide-react";
-import { URL, API_KEY } from "@/lib/constants/index";
 import { Table5 } from "@/components/Table5";
-import Button from "@/components/atom/Button";
+import { URL, API_KEY } from "@/lib/constants/index";
 
 interface ModalDetallesProp {
   solicitud: any | null;
@@ -52,18 +44,13 @@ function openUrl(url?: string | null) {
   window.open(u, "_blank", "noopener,noreferrer");
 }
 
-function getToneByDiff(diff: number) {
-  if (diff === 0) return "green";
-  return "amber";
-}
-
 /** ---------- UI atoms ---------- */
 function Badge({
   text,
   tone = "gray",
 }: {
   text: string;
-  tone?: "gray" | "green" | "red" | "blue" | "amber" | "violet";
+  tone?: "gray" | "green" | "red" | "blue" | "amber";
 }) {
   const toneMap: Record<string, string> = {
     gray: "bg-gray-100 text-gray-700 border-gray-200",
@@ -71,55 +58,33 @@ function Badge({
     red: "bg-red-50 text-red-700 border-red-200",
     blue: "bg-blue-50 text-blue-700 border-blue-200",
     amber: "bg-amber-50 text-amber-700 border-amber-200",
-    violet: "bg-violet-50 text-violet-700 border-violet-200",
   };
 
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${toneMap[tone]}`}
+      className={`inline-flex items-center px-2 py-0.5 text-[11px] font-semibold rounded-full border ${toneMap[tone]}`}
     >
       {text}
     </span>
   );
 }
 
-function InfoCard({
-  icon,
+function StatCard({
   label,
   value,
-  tone = "gray",
+  sub,
 }: {
-  icon?: React.ReactNode;
   label: string;
   value: React.ReactNode;
-  tone?: "gray" | "green" | "blue" | "amber" | "violet";
+  sub?: React.ReactNode;
 }) {
-  const toneMap: Record<string, string> = {
-    gray: "border-gray-200 bg-white",
-    green: "border-green-200 bg-green-50/40",
-    blue: "border-blue-200 bg-blue-50/40",
-    amber: "border-amber-200 bg-amber-50/40",
-    violet: "border-violet-200 bg-violet-50/40",
-  };
-
   return (
-    <div className={`rounded-xl border p-4 shadow-sm ${toneMap[tone]}`}>
-      <div className="flex items-start gap-3">
-        {icon ? (
-          <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white">
-            {icon}
-          </div>
-        ) : null}
-
-        <div className="min-w-0">
-          <p className="text-[11px] uppercase tracking-wide text-gray-500">
-            {label}
-          </p>
-          <div className="mt-1 break-words text-sm font-semibold text-gray-900">
-            {value}
-          </div>
-        </div>
-      </div>
+    <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+      <p className="text-[11px] uppercase tracking-wide text-gray-500">
+        {label}
+      </p>
+      <div className="mt-1 text-sm font-semibold text-gray-900">{value}</div>
+      {sub ? <div className="mt-1 text-xs text-gray-500">{sub}</div> : null}
     </div>
   );
 }
@@ -132,7 +97,7 @@ function SectionTitle({
   right?: React.ReactNode;
 }) {
   return (
-    <div className="mb-3 flex items-center justify-between gap-3">
+    <div className="flex items-center justify-between gap-3 mb-2">
       <p className="text-sm font-semibold text-gray-900">{title}</p>
       {right}
     </div>
@@ -140,7 +105,11 @@ function SectionTitle({
 }
 
 /**
- * Payload fijo
+ * ✅ Payload fijo para TU forma actual de solicitud
+ * - id_solicitud_proveedor: solicitud.id_solicitud_proveedor
+ * - id_facturas: solicitud.asociaciones.id_facturas[]
+ * - id_pagos: solicitud.asociaciones.id_pagos[]
+ * - id_proveedor: informacion_completa.id_proveedor_resuelto (si existe)
  */
 function buildPayloadFromSolicitud(solicitud: any) {
   const raw = solicitud ?? {};
@@ -148,9 +117,7 @@ function buildPayloadFromSolicitud(solicitud: any) {
   const info = raw?.informacion_completa ?? {};
 
   const id_solicitud_proveedor = safeString(raw?.id_solicitud_proveedor ?? "");
-  const id_proveedor = safeString(
-    info?.id_proveedor_resuelto ?? info?.id_proveedor ?? ""
-  );
+  const id_proveedor = safeString(info?.id_proveedor_resuelto ?? info?.id_proveedor ?? "");
 
   const id_facturas = Array.isArray(asociaciones?.id_facturas)
     ? asociaciones.id_facturas.map((x: any) => safeString(x)).filter(Boolean)
@@ -170,12 +137,14 @@ function buildPayloadFromSolicitud(solicitud: any) {
 
 const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose }) => {
   const endpoint = `${URL}/mia/pago_proveedor/detalles`;
+
   const payload = useMemo(() => buildPayloadFromSolicitud(solicitud), [solicitud]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
   const [data, setData] = useState<any>(null);
 
+  // Cerrar con ESC
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -184,6 +153,7 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose }) => {
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  // Fetch detalles (con abort real)
   useEffect(() => {
     if (!solicitud) return;
 
@@ -209,9 +179,7 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose }) => {
         const json = await resp.json().catch(() => null);
 
         if (!resp.ok) {
-          throw new Error(
-            json?.message || json?.error || `Error HTTP: ${resp.status}`
-          );
+          throw new Error(json?.message || `Error HTTP: ${resp.status}`);
         }
 
         setData(json);
@@ -227,568 +195,487 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose }) => {
     return () => controller.abort();
   }, [endpoint, payload, solicitud]);
 
-  /** --------- Datos --------- */
+  /** --------- Datos base de la solicitud (tu objeto fijo) --------- */
   const raw = solicitud ?? {};
   const info = raw?.informacion_completa ?? {};
 
-  const api = data?.data ?? data ?? {};
+  /** --------- Respuesta backend --------- */
+  const api = data?.data ?? {};
   const solicitudApi = api?.solicitud ?? info?.solicitud_proveedor ?? {};
-  const facturas = Array.isArray(api?.facturas) ? api.facturas : [];
-  const pagos = Array.isArray(api?.pagos) ? api.pagos : [];
+  const facturasApi = Array.isArray(api?.facturas) ? api.facturas : [];
+  const pagosApi = Array.isArray(api?.pagos) ? api.pagos : [];
   const resumen = api?.resumen_validacion ?? null;
 
+  /** --------- Header info --------- */
   const hotel = safeString(info?.hotel);
   const viajero = safeString(info?.nombre_viajero_completo);
-  const proveedorNombre =
-    safeString(info?.proveedor?.razon_social) ||
-    safeString(info?.proveedor_nombre) ||
-    safeString(solicitudApi?.proveedor_nombre);
-
+  const proveedorNombre = safeString(info?.proveedor?.razon_social);
   const rfcProveedor = safeString(info?.rfc_proveedor);
+
   const checkIn = formatDateSimple(info?.check_in);
   const checkOut = formatDateSimple(info?.check_out);
 
-  const totalPagado = Number(resumen?.total_pagado ?? 0);
-  const totalFacturado = Number(resumen?.total_facturado ?? 0);
-  const diferencia = Number(resumen?.diferencia_total ?? 0);
-  const esCuadrado = diferencia === 0;
-
-  /** =========================================================
-   * FACTURAS con Table5
-   * ========================================================= */
+  /** --------- Cols/Renderers Table5 --------- */
   const facturasTable = useMemo(() => {
-    return facturas.map((f: any) => ({
-      // ✅ PRIMERO para que sí aparezca en tu Table5 actual
-      acciones: "",
-      id_factura_proveedor: safeString(f?.id_factura_proveedor) || "—",
-      uuid_cfdi: safeString(f?.uuid_cfdi) || "—",
-      monto_facturado: f?.monto_facturado,
-      fecha_factura: f?.fecha_factura,
-      fecha_vencimiento: f?.fecha_vencimiento,
-      estado_factura: safeString(f?.estado_factura) || "—",
-      rfc_emisor: safeString(f?.rfc_emisor) || "—",
-      total: f?.total,
-      item: f, // ✅ Table5 usa item.item
+    return facturasApi.map((f: any) => ({
+      ...f,
+      acciones: "acciones",
     }));
-  }, [facturas]);
+  }, [facturasApi]);
+
+  const pagosTable = useMemo(() => {
+    return pagosApi.map((p: any) => ({
+      ...p,
+      acciones: "acciones",
+    }));
+  }, [pagosApi]);
 
   const facturasCols = useMemo(
     () => [
-      "acciones",
       "id_factura_proveedor",
       "uuid_cfdi",
       "monto_facturado",
       "fecha_factura",
-      "fecha_vencimiento",
       "estado_factura",
-      "rfc_emisor",
-      "total",
+      "acciones",
+    ],
+    []
+  );
+
+  const pagosCols = useMemo(
+    () => [
+      "id_pago_proveedores",
+      "metodo_de_pago",
+      "monto_pagado",
+      "fecha_pago",
+      "numero_comprobante",
+      "concepto",
+      "acciones",
     ],
     []
   );
 
   const facturasRenderers = useMemo(
     () => ({
-      acciones: ({ item }: any) => (
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            className={[
-              "px-2 py-1 text-xs border",
-              !safeString(item?.url_pdf)
-                ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
-                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
-            ].join(" ")}
-            disabled={!safeString(item?.url_pdf)}
-            onClick={() => openUrl(item?.url_pdf)}
-            title={item?.url_pdf ? "Descargar PDF" : "Sin PDF"}
-          >
-            <span className="inline-flex items-center gap-1">
-              <FileText className="w-4 h-4" />
-              <span className="hidden xl:inline">PDF</span>
-            </span>
-          </Button>
-
-          <Button
-            variant="secondary"
-            size="sm"
-            className={[
-              "px-2 py-1 text-xs border",
-              !safeString(item?.url_xml)
-                ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
-                : "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100",
-            ].join(" ")}
-            disabled={!safeString(item?.url_xml)}
-            onClick={() => openUrl(item?.url_xml)}
-            title={item?.url_xml ? "Descargar XML" : "Sin XML"}
-          >
-            <span className="inline-flex items-center gap-1">
-              <Code2 className="w-4 h-4" />
-              <span className="hidden xl:inline">XML</span>
-            </span>
-          </Button>
-        </div>
-      ),
-
-      id_factura_proveedor: ({ value }: any) => (
-        <span className="font-mono text-xs" title={safeString(value)}>
-          {safeString(value)}
-        </span>
-      ),
-
       uuid_cfdi: ({ value }: any) => (
-        <span className="font-mono text-xs" title={safeString(value)}>
-          {safeString(value) ? `${safeString(value).slice(0, 12)}…` : "—"}
+        <span className="font-mono text-[11px] text-gray-700">
+          {safeString(value).slice(0, 10)}…
         </span>
       ),
-
       monto_facturado: ({ value }: any) => (
-        <span title={String(value)}>{formatMoney(value)}</span>
+        <span className="font-semibold">{formatMoney(value)}</span>
       ),
-
-      fecha_factura: ({ value }: any) => (
-        <span title={String(value)}>{formatDateSimple(value)}</span>
-      ),
-
-      fecha_vencimiento: ({ value }: any) => (
-        <span title={String(value)}>{formatDateSimple(value)}</span>
-      ),
-
+      fecha_factura: ({ value }: any) => <span>{formatDateSimple(value)}</span>,
       estado_factura: ({ value }: any) => (
         <Badge
           text={safeString(value) || "—"}
-          tone={
-            safeString(value).toLowerCase().includes("confirm")
-              ? "green"
-              : "gray"
-          }
+          tone={safeString(value).toLowerCase().includes("confirm")
+            ? "green"
+            : "gray"}
         />
       ),
+      acciones: ({ item }: any) => (
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => openUrl(item?.url_pdf)}
+            className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50"
+            title="Abrir PDF"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            PDF
+            <ExternalLink className="w-3.5 h-3.5" />
+          </button>
 
-      rfc_emisor: ({ value }: any) => (
-        <span className="font-mono text-xs">{safeString(value) || "—"}</span>
+          <button
+            type="button"
+            onClick={() => openUrl(item?.url_xml)}
+            className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50"
+            title="Abrir XML"
+          >
+            <Code2 className="w-3.5 h-3.5" />
+            XML
+            <ExternalLink className="w-3.5 h-3.5" />
+          </button>
+        </div>
       ),
-
-      total: ({ value }: any) => <span title={String(value)}>{formatMoney(value)}</span>,
     }),
-    []
-  );
-
-  /** =========================================================
-   * PAGOS con Table5
-   * ========================================================= */
-  const pagosTable = useMemo(() => {
-    return pagos.map((p: any) => ({
-      // ✅ PRIMERO para que sí aparezca
-      acciones: "",
-      id_pago_proveedores: safeString(p?.id_pago_proveedores) || "—",
-      fecha_pago: p?.fecha_pago,
-      monto_pagado: p?.monto_pagado ?? p?.monto,
-      metodo_de_pago: safeString(p?.metodo_de_pago) || "—",
-      referencia_pago: safeString(p?.referencia_pago) || "—",
-      concepto: safeString(p?.concepto) || "—",
-      item: p, // ✅ Table5 usa item.item
-    }));
-  }, [pagos]);
-
-  const pagosCols = useMemo(
-    () => [
-      "acciones",
-      "id_pago_proveedores",
-      "fecha_pago",
-      "monto_pagado",
-      "metodo_de_pago",
-      "referencia_pago",
-      "concepto",
-    ],
     []
   );
 
   const pagosRenderers = useMemo(
     () => ({
-      acciones: ({ item }: any) => (
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            className={[
-              "px-2 py-1 text-xs border",
-              !safeString(item?.url_pdf)
-                ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
-                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
-            ].join(" ")}
-            disabled={!safeString(item?.url_pdf)}
-            onClick={() => openUrl(item?.url_pdf)}
-            title={item?.url_pdf ? "Descargar comprobante" : "Sin comprobante"}
-          >
-            <span className="inline-flex items-center gap-1">
-              <FileText className="w-4 h-4" />
-              <span className="hidden xl:inline">Comprobante</span>
-            </span>
-          </Button>
-        </div>
-      ),
-
-      id_pago_proveedores: ({ value }: any) => (
-        <span className="font-mono text-xs">{safeString(value)}</span>
-      ),
-
-      fecha_pago: ({ value }: any) => (
-        <span title={String(value)}>{formatDateSimple(value)}</span>
-      ),
-
       monto_pagado: ({ value }: any) => (
-        <span title={String(value)}>{formatMoney(value)}</span>
+        <span className="font-semibold">{formatMoney(value)}</span>
       ),
-
-      metodo_de_pago: ({ value }: any) => (
-        <Badge text={safeString(value) || "—"} tone="gray" />
-      ),
-
-      referencia_pago: ({ value }: any) => (
-        <span className="font-mono text-xs" title={safeString(value)}>
-          {safeString(value) ? `${safeString(value).slice(0, 12)}…` : "—"}
-        </span>
-      ),
-
-      concepto: ({ value }: any) => (
-        <span title={safeString(value)}>{safeString(value) || "—"}</span>
+      fecha_pago: ({ value }: any) => <span>{formatDateSimple(value)}</span>,
+      acciones: ({ item }: any) => (
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => openUrl(item?.url_pdf)}
+            className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            disabled={!safeString(item?.url_pdf)}
+            title={item?.url_pdf ? "Abrir comprobante PDF" : "Sin comprobante"}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            Comprobante
+            <ExternalLink className="w-3.5 h-3.5" />
+          </button>
+        </div>
       ),
     }),
     []
   );
 
+  /** --------- Validación visual --------- */
+  const totalPagado = resumen?.total_pagado ?? null;
+  const totalFacturado = resumen?.total_facturado ?? null;
+  const diferencia = resumen?.diferencia_total ?? null;
+  const esCuadrado = Number(diferencia) === 0;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-5">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* overlay */}
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
+      {/* modal */}
       <div
-        className="relative h-[94vh] w-[98vw] max-w-[1600px] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
+        className="relative w-full max-w-6xl max-h-[90vh] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="sticky top-0 z-20 border-b border-gray-200 bg-white/95 px-5 py-4 backdrop-blur">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-lg font-semibold text-gray-900">
-                  Detalles de conciliación
-                </p>
-
-                <Badge
-                  text={`Solicitud #${payload.id_solicitud_proveedor || "—"}`}
-                  tone="blue"
-                />
-
-                {safeString(solicitudApi?.estado_solicitud) ? (
-                  <Badge
-                    text={safeString(solicitudApi?.estado_solicitud)}
-                    tone="gray"
-                  />
-                ) : null}
-
-                {proveedorNombre ? (
-                  <Badge text={proveedorNombre} tone="violet" />
-                ) : null}
-              </div>
-
-              <p className="mt-1 text-sm text-gray-500">
-                {hotel ? `Hotel: ${hotel}` : "Hotel: —"}
-                {" • "}
-                {viajero ? `Viajero: ${viajero}` : "Viajero: —"}
+        {/* header */}
+        <div className="sticky top-0 z-20 border-b border-gray-100 bg-white/95 backdrop-blur px-5 py-4 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-sm font-semibold text-gray-900">
+                Solicitud #{payload.id_solicitud_proveedor || "—"}
               </p>
+
+              {proveedorNombre ? (
+                <Badge text={proveedorNombre} tone="blue" />
+              ) : (
+                <Badge text="PROVEEDOR NO IDENTIFICADO" tone="gray" />
+              )}
+
+              {rfcProveedor ? (
+                <Badge text={`RFC: ${rfcProveedor}`} tone="gray" />
+              ) : null}
             </div>
 
-            <button
-              type="button"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white hover:bg-gray-50"
-              onClick={onClose}
-              title="Cerrar"
-            >
-              <X className="h-4 w-4 text-gray-700" />
-            </button>
+            <p className="text-xs text-gray-500 mt-1">
+              {hotel ? `Hotel: ${hotel}` : "Hotel: —"}
+              {"  "}•{"  "}
+              {viajero ? `Viajero: ${viajero}` : "Viajero: —"}
+            </p>
+
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              <Badge
+                text={`Facturas: ${payload.id_facturas.length}`}
+                tone="gray"
+              />
+              <Badge text={`Pagos: ${payload.id_pagos.length}`} tone="gray" />
+
+              {resumen ? (
+                <Badge
+                  text={esCuadrado ? "VALIDACIÓN: CUADRADO" : "VALIDACIÓN: DIFERENCIA"}
+                  tone={esCuadrado ? "green" : "amber"}
+                />
+              ) : null}
+            </div>
           </div>
+
+          <button
+            type="button"
+            className="inline-flex items-center justify-center w-10 h-10 rounded-xl border border-gray-200 bg-white hover:bg-gray-50"
+            onClick={onClose}
+            title="Cerrar"
+          >
+            <X className="w-4 h-4 text-gray-700" />
+          </button>
         </div>
 
-        {/* Body */}
-        <div className="h-[calc(94vh-76px)] overflow-y-auto p-5">
-          {loading && (
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Cargando detalles...
-            </div>
-          )}
-
-          {error && (
-            <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-              <p className="font-semibold">Error</p>
-              <p className="mt-1">{error}</p>
-            </div>
-          )}
-
-          {!loading && !error && (
-            <div className="space-y-5">
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <InfoCard
-                  icon={<CalendarDays className="h-4 w-4 text-gray-600" />}
-                  label="Fecha solicitud"
-                  value={formatDateSimple(solicitudApi?.fecha_solicitud)}
-                />
-
-                <InfoCard
-                  icon={<Wallet className="h-4 w-4 text-blue-600" />}
-                  label="Monto solicitado"
-                  value={formatMoney(solicitudApi?.monto_solicitado)}
-                  tone="blue"
-                />
-
-                <InfoCard
-                  icon={<Receipt className="h-4 w-4 text-gray-600" />}
-                  label="Saldo"
-                  value={formatMoney(solicitudApi?.saldo)}
-                />
-
-                <InfoCard
-                  icon={<CreditCard className="h-4 w-4 text-gray-600" />}
-                  label="Forma de pago"
-                  value={
-                    <Badge
-                      text={safeString(
-                        solicitudApi?.forma_pago_solicitada || "—"
-                      )}
-                      tone="gray"
-                    />
-                  }
-                />
+        {/* content */}
+        <div className="max-h-[calc(90vh-72px)] overflow-y-auto">
+          <div className="p-5">
+            {/* loading */}
+            {loading && (
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Cargando detalles...
               </div>
+            )}
 
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <InfoCard
-                  icon={<FileSpreadsheet className="h-4 w-4 text-gray-600" />}
-                  label="Estado solicitud"
-                  value={
-                    <Badge
-                      text={safeString(solicitudApi?.estado_solicitud || "—")}
-                      tone="blue"
+            {/* error */}
+            {error && (
+              <div className="mt-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl p-4">
+                <p className="font-semibold">Error</p>
+                <p className="mt-1">{error}</p>
+              </div>
+            )}
+
+            {!loading && !error && (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                {/* MAIN */}
+                <div className="lg:col-span-8 space-y-4">
+                  {/* Overview cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <StatCard label="Check-in" value={checkIn} />
+                    <StatCard label="Check-out" value={checkOut} />
+                    <StatCard
+                      label="Costo proveedor"
+                      value={formatMoney(info?.costo_total)}
                     />
-                  }
-                />
+                    <StatCard label="Total venta" value={formatMoney(info?.total)} />
+                  </div>
 
-                <InfoCard
-                  icon={<FileText className="h-4 w-4 text-gray-600" />}
-                  label="Estado facturación"
-                  value={
-                    <Badge
-                      text={safeString(solicitudApi?.estado_facturacion || "—")}
-                      tone={
-                        safeString(solicitudApi?.estado_facturacion)
-                          .toLowerCase()
-                          .includes("pendiente")
-                          ? "amber"
-                          : "green"
+                  {/* Resumen validación */}
+                  <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                    <SectionTitle
+                      title="Resumen de validación"
+                      right={
+                        resumen ? (
+                          esCuadrado ? (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-700">
+                              <CheckCircle2 className="w-4 h-4" />
+                              Cuadrado
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700">
+                              <AlertTriangle className="w-4 h-4" />
+                              Revisar diferencia
+                            </span>
+                          )
+                        ) : null
                       }
                     />
-                  }
-                />
 
-                <InfoCard
-                  icon={<CheckCircle2 className="h-4 w-4 text-green-600" />}
-                  label="Estatus pagos"
-                  value={
-                    <Badge
-                      text={safeString(solicitudApi?.estatus_pagos || "—")}
-                      tone="green"
-                    />
-                  }
-                  tone="green"
-                />
+                    {!resumen ? (
+                      <p className="text-xs text-gray-500">
+                        No llegó resumen de validación en la respuesta.
+                      </p>
+                    ) : (
+                      <>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <StatCard
+                            label="Total pagado"
+                            value={formatMoney(totalPagado)}
+                          />
+                          <StatCard
+                            label="Total facturado"
+                            value={formatMoney(totalFacturado)}
+                          />
+                          <StatCard
+                            label="Diferencia"
+                            value={
+                              <span
+                                className={`font-bold ${
+                                  esCuadrado ? "text-green-700" : "text-amber-700"
+                                }`}
+                              >
+                                {formatMoney(diferencia)}
+                              </span>
+                            }
+                            sub={
+                              esCuadrado
+                                ? "Todo cuadra correctamente."
+                                : "Hay diferencia entre pagos y facturas."
+                            }
+                          />
+                        </div>
 
-                <InfoCard
-                  icon={<Building2 className="h-4 w-4 text-gray-600" />}
-                  label="Proveedor ID"
-                  value={safeString(
-                    solicitudApi?.id_proveedor || payload.id_proveedor || "—"
-                  )}
-                />
-              </div>
+                        {/* Por factura */}
+                        {Array.isArray(resumen?.por_factura) &&
+                        resumen.por_factura.length > 0 ? (
+                          <div className="mt-4">
+                            <p className="text-xs font-semibold text-gray-700 mb-2">
+                              Validación por factura
+                            </p>
 
-              <div className="grid grid-cols-1 gap-3 xl:grid-cols-3">
-                <InfoCard
-                  icon={<User className="h-4 w-4 text-gray-600" />}
-                  label="Proveedor"
-                  value={proveedorNombre || "—"}
-                />
-                <InfoCard
-                  icon={<FileText className="h-4 w-4 text-gray-600" />}
-                  label="RFC proveedor"
-                  value={rfcProveedor || "—"}
-                />
-                <InfoCard
-                  icon={<CalendarDays className="h-4 w-4 text-gray-600" />}
-                  label="Estancia"
-                  value={`${checkIn} — ${checkOut}`}
-                />
-              </div>
+                            <div className="space-y-2">
+                              {resumen.por_factura.map((x: any, idx: number) => {
+                                const ok = safeString(x?.estatus).toUpperCase() === "CUADRADO";
+                                return (
+                                  <div
+                                    key={idx}
+                                    className="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-3 py-2"
+                                  >
+                                    <div className="min-w-0">
+                                      <p className="text-xs font-semibold text-gray-900 truncate">
+                                        {safeString(x?.id_factura)}
+                                      </p>
+                                      <p className="text-[11px] text-gray-600">
+                                        Pagado: {formatMoney(x?.pagado)} • Facturado:{" "}
+                                        {formatMoney(x?.facturado)} • Dif:{" "}
+                                        <span
+                                          className={`font-semibold ${
+                                            Number(x?.diferencia) === 0
+                                              ? "text-green-700"
+                                              : "text-amber-700"
+                                          }`}
+                                        >
+                                          {formatMoney(x?.diferencia)}
+                                        </span>
+                                      </p>
+                                    </div>
 
-              <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-                <SectionTitle title="Comentarios" />
-                <p className="whitespace-pre-wrap text-sm text-gray-800">
-                  {safeString(solicitudApi?.comentarios) || "—"}
-                </p>
-
-                <div className="mt-4 border-t border-gray-100 pt-4">
-                  <p className="mb-2 text-sm font-semibold text-gray-900">
-                    Comentario CXP
-                  </p>
-                  <p className="whitespace-pre-wrap text-sm text-gray-800">
-                    {safeString(solicitudApi?.comentario_CXP) || "—"}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-                <div className="rounded-xl border border-blue-200 bg-blue-50/40 p-4 shadow-sm">
-                  <SectionTitle title="Resumen financiero" />
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-gray-600">Monto solicitado</span>
-                      <span className="font-semibold text-gray-900">
-                        {formatMoney(solicitudApi?.monto_solicitado)}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-gray-600">Monto facturado</span>
-                      <span className="font-semibold text-blue-700">
-                        {formatMoney(totalFacturado)}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-gray-600">Por facturar</span>
-                      <span className="font-semibold text-gray-900">
-                        {formatMoney(
-                          Number(solicitudApi?.monto_por_facturar ?? 0)
-                        )}
-                      </span>
-                    </div>
+                                    <Badge
+                                      text={safeString(x?.estatus) || "—"}
+                                      tone={ok ? "green" : "amber"}
+                                    />
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ) : null}
+                      </>
+                    )}
                   </div>
-                </div>
 
-                <div className="rounded-xl border border-green-200 bg-green-50/40 p-4 shadow-sm">
-                  <SectionTitle title="Pagos" />
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-gray-600">Total pagado</span>
-                      <span className="font-semibold text-green-700">
-                        {formatMoney(totalPagado)}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-gray-600">Total facturado</span>
-                      <span className="font-semibold text-green-700">
-                        {formatMoney(totalFacturado)}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-gray-600">Número de pagos</span>
-                      <span className="font-semibold text-gray-900">
-                        {pagos.length}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+                  {/* Facturas */}
+                  <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                    <SectionTitle title={`Facturas (${facturasTable.length})`} />
 
-                <div className="rounded-xl border border-violet-200 bg-violet-50/40 p-4 shadow-sm">
-                  <SectionTitle
-                    title="Validación"
-                    right={
-                      <Badge
-                        text={esCuadrado ? "CUADRADO" : "DIFERENCIA"}
-                        tone={getToneByDiff(diferencia) as any}
+                    {facturasTable.length === 0 ? (
+                      <p className="text-xs text-gray-500">
+                        No hay facturas disponibles.
+                      </p>
+                    ) : (
+                      <Table5<any>
+                        registros={facturasTable as any}
+                        customColumns={facturasCols as any}
+                        renderers={facturasRenderers as any}
+                        exportButton={false} // ✅ sin botones
+                        fillHeight={false}
+                        maxHeight="320px"
                       />
-                    }
-                  />
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-gray-600">Diferencia total</span>
-                      <span
-                        className={`font-semibold ${
-                          esCuadrado ? "text-green-700" : "text-amber-700"
-                        }`}
-                      >
-                        {formatMoney(diferencia)}
-                      </span>
+                    )}
+                  </div>
+
+                  {/* Pagos */}
+                  <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                    <SectionTitle title={`Pagos (${pagosTable.length})`} />
+
+                    {pagosTable.length === 0 ? (
+                      <p className="text-xs text-gray-500">
+                        No hay pagos disponibles.
+                      </p>
+                    ) : (
+                      <Table5<any>
+                        registros={pagosTable as any}
+                        customColumns={pagosCols as any}
+                        renderers={pagosRenderers as any}
+                        exportButton={false} // ✅ sin botones
+                        fillHeight={false}
+                        maxHeight="320px"
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {/* SIDEBAR */}
+                <div className="lg:col-span-4 space-y-4">
+                  <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                    <SectionTitle title="Datos de la solicitud" />
+
+                    <div className="space-y-3 text-xs">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-gray-500">Monto solicitado</p>
+                        <p className="font-semibold text-gray-900">
+                          {formatMoney(solicitudApi?.monto_solicitado)}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-gray-500">Saldo</p>
+                        <p className="font-semibold text-gray-900">
+                          {formatMoney(solicitudApi?.saldo)}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-gray-500">Forma de pago</p>
+                        <Badge
+                          text={safeString(solicitudApi?.forma_pago_solicitada || "—")}
+                          tone="gray"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-gray-500">Estado solicitud</p>
+                        <Badge
+                          text={safeString(solicitudApi?.estado_solicitud || "—")}
+                          tone="blue"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-gray-500">Estado facturación</p>
+                        <Badge
+                          text={safeString(solicitudApi?.estado_facturacion || "—")}
+                          tone={
+                            safeString(solicitudApi?.estado_facturacion)
+                              .toLowerCase()
+                              .includes("pendiente")
+                              ? "amber"
+                              : "green"
+                          }
+                        />
+                      </div>
+
+                      <div className="pt-2 border-t border-gray-100">
+                        <p className="text-gray-500">Comentarios</p>
+                        <p className="mt-1 text-gray-900 whitespace-pre-wrap">
+                          {safeString(solicitudApi?.comentarios) || "—"}
+                        </p>
+                      </div>
+
+                      <div className="pt-2 border-t border-gray-100">
+                        <p className="text-gray-500">Comentario CXP</p>
+                        <p className="mt-1 text-gray-900 whitespace-pre-wrap">
+                          {safeString(solicitudApi?.comentario_CXP) || "—"}
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-500">
-                      {esCuadrado
-                        ? "Los pagos y las facturas cuadran correctamente."
-                        : "Existe diferencia entre el total pagado y el total facturado."}
+                  </div>
+
+                  <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                    <p className="text-xs font-semibold text-gray-700">
+                      Identificadores
+                    </p>
+                    <div className="mt-2 space-y-2 text-[11px] text-gray-600">
+                      <div className="flex justify-between gap-3">
+                        <span>Proveedor ID</span>
+                        <span className="font-mono text-gray-800">
+                          {payload.id_proveedor || "—"}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between gap-3">
+                        <span>Facturas</span>
+                        <span className="font-mono text-gray-800">
+                          {payload.id_facturas.length}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between gap-3">
+                        <span>Pagos</span>
+                        <span className="font-mono text-gray-800">
+                          {payload.id_pagos.length}
+                        </span>
+                      </div>
                     </div>
+                  </div>
+
+                  <div className="text-[11px] text-gray-500">
+                    Tip: Puedes cerrar con <span className="font-semibold">ESC</span>
+                    .
                   </div>
                 </div>
               </div>
-
-              {/* Facturas */}
-              <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-                <SectionTitle
-                  title={`Facturas (${facturas.length})`}
-                  right={
-                    <Badge
-                      text={`${facturas.length} factura${
-                        facturas.length === 1 ? "" : "s"
-                      }`}
-                      tone="blue"
-                    />
-                  }
-                />
-
-                {facturas.length === 0 ? (
-                  <p className="text-sm text-gray-500">
-                    No hay facturas disponibles.
-                  </p>
-                ) : (
-                  <Table5<any>
-                    registros={facturasTable as any}
-                    renderers={facturasRenderers as any}
-                    customColumns={facturasCols as any}
-                    exportButton={false}
-                    isExport={false}
-                    fillHeight={false}
-                    maxHeight="320px"
-                  />
-                )}
-              </div>
-
-              {/* Pagos */}
-              <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-                <SectionTitle
-                  title={`Pagos (${pagos.length})`}
-                  right={
-                    <Badge
-                      text={`${pagos.length} pago${pagos.length === 1 ? "" : "s"}`}
-                      tone="green"
-                    />
-                  }
-                />
-
-                {pagos.length === 0 ? (
-                  <p className="text-sm text-gray-500">
-                    No hay pagos disponibles.
-                  </p>
-                ) : (
-                  <Table5<any>
-                    registros={pagosTable as any}
-                    renderers={pagosRenderers as any}
-                    customColumns={pagosCols as any}
-                    exportButton={false}
-                    isExport={false}
-                    fillHeight={false}
-                    maxHeight="320px"
-                  />
-                )}
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>

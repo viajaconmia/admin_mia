@@ -782,33 +782,26 @@ const subirArchivosAS3 = async (): Promise<{
       // ===========================
       let proveedoresPayloadFinal: any = null;
 
-      if (isProveedorBatch) {
-        // Validar montos batch
-        const invalid = batchAsociaciones.some(
-          (x) => !x.monto_asociar || Number(x.monto_asociar) <= 0
-        );
-        if (invalid) {
-          alert("Debes capturar un monto válido para cada solicitud.");
-          return;
-        }
-
-        console.log("informacion",batchAsociaciones)
-
-        proveedoresPayloadFinal = batchAsociaciones.map((x) => ({
-          id_solicitud: x.id_solicitud,
-          id_proveedor: x.id_proveedor,
-          monto_asociar: Number(x.monto_asociar || 0),
-          monto_solicitado:x.raw.costo_proveedor,
-        }));
-      } else if (isProveedorMode) {
-        // proveedor single: mantenemos tu objeto original y agregamos monto
-        proveedoresPayloadFinal = {
-          ...(proveedoresData ?? {}),
-          monto_asociar: facturado ? Number(facturado) : null,
-        };
-      } else {
-        proveedoresPayloadFinal = null;
-      }
+if (isProveedorBatch) {
+  proveedoresPayloadFinal = batchAsociaciones.map((x) => ({
+    id_solicitud: x.id_solicitud,
+    id_proveedor: x.id_proveedor,
+    monto_asociar: Number(x.monto_asociar || 0), // ✅ vacío = 0
+    monto_solicitado: Number(
+      x.raw?.monto_solicitado ??
+      x.raw?.costo_proveedor ??
+      x.raw?.monto_por_facturar ??
+      0
+    ),
+  }));
+} else if (isProveedorMode) {
+  proveedoresPayloadFinal = {
+    ...(proveedoresData ?? {}),
+    monto_asociar: Number(facturado || 0), // ✅ vacío = 0
+  };
+} else {
+  proveedoresPayloadFinal = null;
+}
 
       const totalFactura = parseFloat(facturaData?.comprobante?.total || "0");
 
@@ -921,24 +914,13 @@ const validationErrors = validateFacturaForm({
 
     if (!archivoXML) return;
 
-    // Validación extra: batch montos
-    // if (isProveedorBatch) {
-    //   const invalid = batchAsociaciones.some(
-    //     (x) => !x.monto_asociar || Number(x.monto_asociar) <= 0
-    //   );
-    //   if (invalid) {
-    //     alert("Debes capturar un monto válido para cada solicitud.");
-    //     return;
-    //   }
-    // }
-
     try {
       setSubiendoArchivos(true);
       setErrors({});
 
       // 1) Parsear XML
       const data = await parsearXML(archivoXML);
-
+      const totalXml = Number(data?.comprobante?.total ?? 0);
       console.log("🚓🚓🚓🚓🚓informacion de xml",data)
       console.log("informacion🔽🔽🔽🔽🔽",data.emisor.rfc)
 
@@ -946,46 +928,52 @@ const validationErrors = validateFacturaForm({
       // NUEVO: Batch NO usa selección de cliente ni empresas aquí
       // El back se encargará del automatch + datos fiscales.
       // ==========================
-      if (isProveedorBatch) {
-  // 1) Parseo del XML ya lo tienes: const data = await parsearXML(archivoXML);
-
+if (isProveedorBatch) {
   const rfcXml = String(data?.emisor?.rfc ?? "").trim().toUpperCase();
 
-  // 2) Tomar ids de proveedor de tus filas batchAsociaciones (ya las armas arriba)
   const proveedorIds = Array.from(
     new Set(batchAsociaciones.map((x) => String(x.id_proveedor)).filter(Boolean))
   );
 
-  // 3) Llamar al back por cada proveedor y juntar RFCs
+  
+  if (isProveedorMode) {
+  const montoSingle = Number(facturado || 0);
+
+  if (montoSingle > totalXml) {
+    alert(
+      `El monto a asociar (${montoSingle.toFixed(2)}) no puede ser mayor al total de la factura (${totalXml.toFixed(2)}).`
+    );
+    return;
+  }
+}
+
   const rfcDBs = new Set<string>();
 
   for (const idProv of proveedorIds) {
     const dfs = await fetchDatosFiscalesProveedor(idProv);
-    // dfs son rows de proveedores_datos_fiscales (df.*)
     for (const row of dfs) {
       const r = String(row?.rfc ?? "").trim().toUpperCase();
       if (r) rfcDBs.add(r);
     }
   }
 
-  // 4) Comparación: RFC XML debe existir en los RFCs de la(s) empresa(s) fiscal(es)
   const coincideRfc = rfcDBs.has(rfcXml);
 
   if (!coincideRfc) {
-    confirm(
+    alert(
       `No hubo coincidencia de RFC.\nRFC XML(emisor): ${rfcXml}\nRFCs en DB: ${Array.from(rfcDBs).join(", ")}`
     );
     return;
   }
 
-  // 5) Tu validación de montos sigue igual
-  const totalXml = Number(data?.comprobante?.total ?? 0);
-  if (totalXml < batchTotalAsociar) {
-    confirm(`No pueden ser esos montos`);
+  // ✅ Solo validamos que la suma no exceda el total de la factura
+  if (batchTotalAsociar > totalXml) {
+    alert(
+      `La suma de montos a asociar (${batchTotalAsociar.toFixed(2)}) no puede ser mayor al total de la factura (${totalXml.toFixed(2)}).`
+    );
     return;
   }
 
-  // 6) Continúas flujo normal
   setFacturaData(data);
   setMostrarModal(false);
   setMostrarVistaPrevia(true);

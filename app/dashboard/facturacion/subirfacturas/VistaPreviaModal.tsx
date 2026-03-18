@@ -155,24 +155,21 @@ export default function VistaPreviaModal({
     };
   }, [facturaData, archivoPDF]);
 
-  const handleConfirm = () => {
-  if (typeof itemsTotal === 'number' && itemsTotal > 0 && itemsTotal > totalFactura) {
-    alert('El total de los ítems es mayor al total de la factura.');
+const handleConfirm = () => {
+  if (
+    typeof itemsTotal === "number" &&
+    itemsTotal > 0 &&
+    itemsTotal > totalFactura
+  ) {
+    alert("El total de los ítems es mayor al total de la factura.");
     return;
   }
 
-  if (isProveedorBatch) {
-    const invalid = batchAsociaciones.some(
-      (x) => !x.monto_asociar || Number(x.monto_asociar) <= 0
-    );
-    if (invalid) {
-      alert("Debes capturar un monto válido para cada solicitud.");
-      return;
-    }
-    if (batchTotalAsociar > totalFactura) {
-      alert("El total asociado por proveedor excede el total de la factura.");
-      return;
-    }
+  // ✅ Ya NO obligamos capturar monto por cada solicitud.
+  // Solo validamos que lo capturado no exceda el total de la factura.
+  if (isProveedorBatch && batchTotalAsociar > totalFactura) {
+    alert("El total asociado por proveedor excede el total de la factura.");
+    return;
   }
 
   if (showFechaVencimiento && !fechaVencimiento) {
