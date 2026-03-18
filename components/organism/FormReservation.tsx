@@ -739,18 +739,6 @@ export function ReservationForm({
                 <Dropdown
                   label="Estado de la reserva"
                   onChange={(value) => {
-                    if (edicion) {
-                      setEdicionForm((prev) => ({
-                        ...prev,
-                        estado_reserva: {
-                          before: form.estado_reserva,
-                          current: value as
-                            | "Confirmada"
-                            | "Cancelada"
-                            | "En proceso",
-                        },
-                      }));
-                    }
                     setForm((prev) => ({
                       ...prev,
                       estado_reserva: value as
@@ -775,7 +763,9 @@ export function ReservationForm({
                     }
                     setForm((prev) => ({
                       ...prev,
-                      codigo_reservacion_hotel: (value || "").trim(),
+                      codigo_reservacion_hotel: (value || "")
+                        .replaceAll(" ", "")
+                        .trim(),
                     }));
                   }}
                   value={form.codigo_reservacion_hotel}
