@@ -15,8 +15,9 @@ export default async function EmpresasSection({
   disabled?: boolean;
   initState?: (e: Empresa) => boolean;
 }) {
+  if (!id_agente) return;
   const empresas: Empresa[] = await fetchEmpresas(id_agente);
-  if (!!initState) {
+  if (!!initState && !select) {
     const [initialSelect] = empresas.filter(initState);
     if (initState) setSelect(initialSelect);
   }

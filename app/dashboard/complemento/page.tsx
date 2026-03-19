@@ -6,7 +6,7 @@ import * as track from "@/app/dashboard/invoices/_components/tracker_false";
 import * as schema from "@/schemas/tables/complemento_pago";
 import { CompleteTable } from "@/v3/template/Table";
 import Modal from "@/components/organism/Modal";
-import { ComboBox2, TextInput } from "@/components/atom/Input";
+import { ComboBox2, ComboBoxOption2, TextInput } from "@/components/atom/Input";
 import { Loader } from "@/components/atom/Loader";
 
 type FiltrosComplementos = { proveedor?: string };
@@ -66,11 +66,11 @@ export default function ReservationsPage() {
 import { useReducer } from "react";
 import { environment } from "@/lib/constants";
 import { currencies } from "@/constant/moneda";
-import { useAlert } from "@/context/useAlert";
 import { lazy, Suspense } from "react";
 import { Empresa } from "@/services/ExtraServices";
 import { SectionForm } from "@/components/atom/SectionForm";
-import { Building2, File } from "lucide-react";
+import { Building2, CreditCard, File } from "lucide-react";
+import { usosCFDI } from "@/constant";
 
 const EmpresasSection = lazy(
   () => import("@/components/molecule/EmpresasSection"),
@@ -90,6 +90,18 @@ const ModalDetallesComplemento = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
   };
+
+  const setState = <T,>(path: keyof T, value: any) => {
+    dispatcher({
+      type: "SET_FIELD",
+      path: path as string,
+      value,
+    });
+  };
+
+  useEffect(() => {
+    console.log(state);
+  }, [state]);
 
   return (
     <>
@@ -113,27 +125,27 @@ const ModalDetallesComplemento = ({
                     label="Lugar de expedición:"
                   />
                   <ComboBox2
-                    options={mapOptions(currencies)}
+                    options={mapOptions(currencies as unknown as string[])}
                     label="Divisa:"
-                    value={
-                      state.Currency
-                        ? {
-                            name: state.Currency,
-                            content: state.Currency,
-                          }
-                        : {
-                            name: "",
-                            content: null,
-                          }
-                    }
+                    value={mapValueComboBox(state.Currency)}
+                    onChange={({ content }) => setState("Currency", content)}
+                  />
+                  <ComboBox2
+                    options={mapOptions(usosCFDI, "label")}
+                    label="Uso de CFDI:"
+                    value={mapValueComboBox<{ label: string; value: string }>(
+                      usosCFDI.filter(
+                        (uc) => uc.value == state.Receiver.CfdiUse,
+                      )[0],
+                      "label",
+                    )}
                     onChange={({ content }) =>
-                      dispatcher({
-                        type: "SET_FIELD",
-                        path: "Currency",
-                        value: content,
-                      })
+                      setState(
+                        "Receiver.CfdiUse",
+                        typeof content === "string" ? content : content.value,
+                      )
                     }
-                  ></ComboBox2>
+                  />
                 </div>
               </SectionForm>
               <Suspense fallback={<Loader />}>
@@ -152,13 +164,7 @@ const ModalDetallesComplemento = ({
                 </SectionForm>
               </Suspense>
               <form onSubmit={handleSubmit}>
-                <TextInput
-                  label="Nombre"
-                  value={""}
-                  onChange={function (value: string): void {
-                    throw new Error("Function not implemented.");
-                  }}
-                />
+                <SectionForm legend={"Pago"} icon={CreditCard}></SectionForm>
               </form>
             </div>
           </div>
@@ -319,11 +325,11 @@ export const initialState: CfdiState = {
 
   //Estos los saco de la empresa que seleccionen
   Receiver: {
-    Rfc: "ZUÑ920208KL4",
-    Name: "ZAPATERIA URTADO ÑERI",
-    // CfdiUse: "CP01", // Creo que este si cambia
-    FiscalRegime: "601",
-    TaxZipCode: "77060",
+    // Rfc: "ZUÑ920208KL4",
+    // Name: "ZAPATERIA URTADO ÑERI",
+    CfdiUse: "CP01", // Creo que este si cambia
+    // FiscalRegime: "601",
+    // TaxZipCode: "77060",
   },
 
   Complemento: {
@@ -337,7 +343,7 @@ export const initialState: CfdiState = {
           {
             TaxObject: "01",
             Uuid: "C94C8AF3-C774-4D4C-802E-781411934A6E",
-            Serie: "C", //Mandamos null
+            Serie: null, //Mandamos null
             Folio: "300",
             Currency: "MXN",
             PaymentMethod: "PUE",
@@ -362,9 +368,34 @@ export const initialState: CfdiState = {
   },
 };
 
-function mapOptions<T>(list: T[] | string[], propiedad?: keyof T) {
-  return list.map((item:T|string) => ({
-    name: propiedad && typeof item === 'object' ? (item as T)[propiedad] : item,
+function mapOptions<T extends any>(
+  list: T[] | string[],
+  propiedad?: keyof T,
+): { name: string; content: T | string }[] {
+  return list.map((item: T | string) => ({
+    name: String(
+      propiedad && typeof item === "object" ? (item as T)[propiedad] : item,
+    ),
     content: item,
   }));
+}
+function mapValueComboBox<T extends any>(
+  value: T | string,
+  propiedad?: keyof T,
+): { name: string; content: T | string | null } {
+  console.log(value);
+  return typeof value == "string"
+    ? {
+        name: value,
+        content: value,
+      }
+    : !!value && !!value[propiedad]
+      ? {
+          name: value[propiedad] as string,
+          content: value,
+        }
+      : {
+          name: "",
+          content: null,
+        };
 }
