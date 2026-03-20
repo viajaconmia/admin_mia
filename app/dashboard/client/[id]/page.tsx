@@ -27,12 +27,19 @@ import {
   PageTracker,
   TrackingPage,
 } from "@/v2/components/molecule/PageTracking";
-import { Download, RefreshCwIcon, Trash2 } from "lucide-react";
+import {
+  Building2,
+  Download,
+  Plane,
+  RefreshCwIcon,
+  Trash2,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { useFile } from "@/hooks/useFile";
 import { useParams } from "next/navigation";
 import { generatePdf } from "@/lib/pdf/cupon_vuelo";
 import { downloadPdfSafely } from "@/lib/pdf/descarga";
+import { generatePdfHotel } from "@/lib/pdf/cupon_hotel";
 
 const PageReservas = () => {
   const [loading, setLoading] = useState(false);
@@ -144,10 +151,23 @@ const PageReservas = () => {
       <>
         {value.type == "flyght" && (
           <Button
+            icon={Plane}
             onClick={async () => {
               console.log(value);
               const pdf = await generatePdf(value.id_solicitud);
               const filename = `VUELO-${value.viajero.toUpperCase()}-${value.codigo_confirmacion}.pdf`;
+              downloadPdfSafely(pdf, filename);
+            }}
+          >
+            Ver
+          </Button>
+        )}
+        {value.type == "hotel" && (
+          <Button
+            icon={Building2}
+            onClick={async () => {
+              const pdf = await generatePdfHotel(value.id_solicitud);
+              const filename = `HOTEL-${value.viajero.toUpperCase()}-${value.codigo_confirmacion}.pdf`;
               downloadPdfSafely(pdf, filename);
             }}
           >
