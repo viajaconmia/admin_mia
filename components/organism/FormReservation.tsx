@@ -420,6 +420,9 @@ export function ReservationForm({
     setLoading(true);
 
     try {
+      if (form.check_in > form.check_out)
+        throw new Error("Las fechas son invalidas");
+
       const validateReservation = await codigo_reserva(
         form.codigo_reservacion_hotel,
       );
@@ -484,6 +487,8 @@ export function ReservationForm({
 
   const handleprocesar = async () => {
     //agregar funcion
+    if (form.check_in > form.check_out)
+      throw new Error("Las fechas son invalidas");
     fetchCreateReservaFromSolicitud(
       { ...form, nuevo_incluye_desayuno, acompanantes, meta: { ...solicitud } },
       (data) => {
@@ -502,6 +507,8 @@ export function ReservationForm({
   const handleCreditPayment = async () => {
     setLoading(true);
     try {
+      if (form.check_in > form.check_out)
+        throw new Error("Las fechas son invalidas");
       const validateReservation = await codigo_reserva(
         form.codigo_reservacion_hotel,
       );
@@ -732,18 +739,6 @@ export function ReservationForm({
                 <Dropdown
                   label="Estado de la reserva"
                   onChange={(value) => {
-                    if (edicion) {
-                      setEdicionForm((prev) => ({
-                        ...prev,
-                        estado_reserva: {
-                          before: form.estado_reserva,
-                          current: value as
-                            | "Confirmada"
-                            | "Cancelada"
-                            | "En proceso",
-                        },
-                      }));
-                    }
                     setForm((prev) => ({
                       ...prev,
                       estado_reserva: value as
@@ -768,7 +763,9 @@ export function ReservationForm({
                     }
                     setForm((prev) => ({
                       ...prev,
-                      codigo_reservacion_hotel: (value || "").trim(),
+                      codigo_reservacion_hotel: (value || "")
+                        .replaceAll(" ", "")
+                        .trim(),
                     }));
                   }}
                   value={form.codigo_reservacion_hotel}
@@ -797,6 +794,7 @@ export function ReservationForm({
                 <DateInput
                   label="Check-out"
                   value={form.check_out}
+                  min={form.check_in} // Asegura que el check-out no sea antes del check-in
                   onChange={(value) => {
                     setIsCostoManual(false);
                     if (edicion) {

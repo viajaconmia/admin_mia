@@ -20,7 +20,7 @@ interface SubirFacturaProps {
   id_proveedor?: string;
   pagoData?: Pago | null; // datos del pago
   proveedoresData?: any | null; // puede ser object o array
-  isBatch?: boolean;
+  isBatch?: boolean; 
   onSuccess: () => void; // callback al subir factura
   agentId?: string; // id del agente a precargar
   initialItems?: string[]; // ids de items seleccionados desde la tabla
@@ -195,6 +195,7 @@ export default function SubirFactura({
   // ================================
   const isProveedorBatch = Array.isArray(proveedoresData); // NUEVO
   const isProveedorMode = !!proveedoresData && !isProveedorBatch; // proveedor single
+  const shouldIncludeFechaVencimiento = !pagoData && !proveedoresData;
   const isNormalAgenteMode = !proveedoresData; // flujo actual
   const nombre = proveedoresData ? "Proveedor" : "cliente";
   const text = proveedoresData
@@ -266,6 +267,7 @@ export default function SubirFactura({
       prev.map((it, i) => (i === index ? { ...it, monto_asociar: normalized } : it))
     );
   };
+
 
   // ========== calcular total items ==========
   const getItemsTotal = useCallback((): number => {
@@ -570,7 +572,8 @@ const subirArchivosAS3 = async (): Promise<{
   };
 
   // Cargar empresas fiscales del agente / proveedor (single)
-  const cargarEmpresasAgente = async (id: string) => {
+  const 
+  cargarEmpresasAgente = async (id: string) => {
     if (!id) {
       console.error("ID no proporcionado");
       return;
@@ -631,24 +634,26 @@ const subirArchivosAS3 = async (): Promise<{
 
       if (raw_Ids.length < 2) {
         const basePayload = {
-          fecha_emision: facturaData.comprobante.fecha.split("T")[0],
-          estado: "Confirmada",
-          usuario_creador: clienteSeleccionado.id_agente,
-          id_agente: clienteSeleccionado.id_agente,
-          total: parseFloat(facturaData.comprobante.total),
-          subtotal: parseFloat(facturaData.comprobante.subtotal),
-          impuestos: parseFloat(
-            facturaData.impuestos?.traslado?.importe || "0.00"
-          ),
-          saldo: restante,
-          rfc: facturaData.receptor.rfc,
-          id_empresa: empresaSeleccionada?.id_empresa || null,
-          uuid_factura: facturaData.timbreFiscal.uuid,
-          rfc_emisor: facturaData.emisor.rfc,
-          url_pdf: url ? url : archivoPDFUrl,
-          url_xml: xmlUrl,
-          fecha_vencimiento: fecha_vencimiento || null,
-        };
+  fecha_emision: facturaData.comprobante.fecha.split("T")[0],
+  estado: "Confirmada",
+  usuario_creador: clienteSeleccionado.id_agente,
+  id_agente: clienteSeleccionado.id_agente,
+  total: parseFloat(facturaData.comprobante.total),
+  subtotal: parseFloat(facturaData.comprobante.subtotal),
+  impuestos: parseFloat(
+    facturaData.impuestos?.traslado?.importe || "0.00"
+  ),
+  saldo: restante,
+  rfc: facturaData.receptor.rfc,
+  id_empresa: empresaSeleccionada?.id_empresa || null,
+  uuid_factura: facturaData.timbreFiscal.uuid,
+  rfc_emisor: facturaData.emisor.rfc,
+  url_pdf: url ? url : archivoPDFUrl,
+  url_xml: xmlUrl,
+  ...(shouldIncludeFechaVencimiento
+    ? { fecha_vencimiento: fecha_vencimiento || null }
+    : {}),
+};
 
         const pagoPayload = {
           ...basePayload,
@@ -674,24 +679,26 @@ const subirArchivosAS3 = async (): Promise<{
         cerrarVistaPrevia();
       } else {
         const facturaPayload = {
-          fecha_emision: facturaData.comprobante.fecha.split("T")[0],
-          estado: "Confirmada",
-          usuario_creador: clienteSeleccionado.id_agente,
-          id_agente: clienteSeleccionado.id_agente,
-          total: totalFactura,
-          subtotal: parseFloat(facturaData.comprobante.subtotal),
-          impuestos: parseFloat(
-            facturaData.impuestos?.traslado?.importe || "0.00"
-          ),
-          saldo: 0,
-          rfc: facturaData.receptor.rfc,
-          id_empresa: empresaSeleccionada?.id_empresa || null,
-          uuid_factura: facturaData.timbreFiscal.uuid,
-          rfc_emisor: facturaData.emisor.rfc,
-          url_pdf: url ? url : archivoPDFUrl,
-          url_xml: xmlUrl,
-          fecha_vencimiento: fecha_vencimiento || null,
-        };
+  fecha_emision: facturaData.comprobante.fecha.split("T")[0],
+  estado: "Confirmada",
+  usuario_creador: clienteSeleccionado.id_agente,
+  id_agente: clienteSeleccionado.id_agente,
+  total: totalFactura,
+  subtotal: parseFloat(facturaData.comprobante.subtotal),
+  impuestos: parseFloat(
+    facturaData.impuestos?.traslado?.importe || "0.00"
+  ),
+  saldo: 0,
+  rfc: facturaData.receptor.rfc,
+  id_empresa: empresaSeleccionada?.id_empresa || null,
+  uuid_factura: facturaData.timbreFiscal.uuid,
+  rfc_emisor: facturaData.emisor.rfc,
+  url_pdf: url ? url : archivoPDFUrl,
+  url_xml: xmlUrl,
+  ...(shouldIncludeFechaVencimiento
+    ? { fecha_vencimiento: fecha_vencimiento || null }
+    : {}),
+};
 
         const payloadCompleto = {
           factura: facturaPayload,
@@ -775,33 +782,26 @@ const subirArchivosAS3 = async (): Promise<{
       // ===========================
       let proveedoresPayloadFinal: any = null;
 
-      if (isProveedorBatch) {
-        // Validar montos batch
-        const invalid = batchAsociaciones.some(
-          (x) => !x.monto_asociar || Number(x.monto_asociar) <= 0
-        );
-        if (invalid) {
-          alert("Debes capturar un monto válido para cada solicitud.");
-          return;
-        }
-
-        console.log("informacion",batchAsociaciones)
-
-        proveedoresPayloadFinal = batchAsociaciones.map((x) => ({
-          id_solicitud: x.id_solicitud,
-          id_proveedor: x.id_proveedor,
-          monto_asociar: Number(x.monto_asociar || 0),
-          monto_solicitado:x.raw.costo_proveedor,
-        }));
-      } else if (isProveedorMode) {
-        // proveedor single: mantenemos tu objeto original y agregamos monto
-        proveedoresPayloadFinal = {
-          ...(proveedoresData ?? {}),
-          monto_asociar: facturado ? Number(facturado) : null,
-        };
-      } else {
-        proveedoresPayloadFinal = null;
-      }
+if (isProveedorBatch) {
+  proveedoresPayloadFinal = batchAsociaciones.map((x) => ({
+    id_solicitud: x.id_solicitud,
+    id_proveedor: x.id_proveedor,
+    monto_asociar: Number(x.monto_asociar || 0), // ✅ vacío = 0
+    monto_solicitado: Number(
+      x.raw?.monto_solicitado ??
+      x.raw?.costo_proveedor ??
+      x.raw?.monto_por_facturar ??
+      0
+    ),
+  }));
+} else if (isProveedorMode) {
+  proveedoresPayloadFinal = {
+    ...(proveedoresData ?? {}),
+    monto_asociar: Number(facturado || 0), // ✅ vacío = 0
+  };
+} else {
+  proveedoresPayloadFinal = null;
+}
 
       const totalFactura = parseFloat(facturaData?.comprobante?.total || "0");
 
@@ -828,24 +828,31 @@ const subirArchivosAS3 = async (): Promise<{
         clienteSeleccionado?.id_agente || agentId || pagoData?.id_agente || "";
 
       const basePayload: any = {
-        fecha_emision: facturaData.comprobante.fecha.split("T")[0],
-        estado: "Confirmada",
-        usuario_creador: usuarioCreadorFinal,
-        id_agente: idAgenteFinal,
-        total: totalFactura,
-        subtotal: parseFloat(facturaData.comprobante.subtotal),
-        impuestos: parseFloat(facturaData.impuestos?.traslado?.importe || "0.00"),
-        saldo: Math.round((saldoCalculado + Number.EPSILON) * 100) / 100,
-        rfc: facturaData.receptor.rfc,
-        id_empresa: empresaSeleccionada?.id_empresa || null,
-        uuid_factura: facturaData.timbreFiscal.uuid,
-        rfc_emisor: facturaData.emisor.rfc,
-        url_pdf: url ? url : archivoPDFUrl,
-        url_xml: xmlUrl || null,
-        items: items,
-        fecha_vencimiento: fecha_vencimiento || null,
-        ...(proveedoresPayloadFinal != null ? { proveedoresData: proveedoresPayloadFinal } : {}),
-      };
+  fecha_emision: facturaData.comprobante.fecha.split("T")[0],
+  estado: "Confirmada",
+  usuario_creador: usuarioCreadorFinal,
+  id_agente: idAgenteFinal,
+  total: totalFactura,
+  subtotal: parseFloat(facturaData.comprobante.subtotal),
+  impuestos: parseFloat(facturaData.impuestos?.traslado?.importe || "0.00"),
+  saldo: Math.round((saldoCalculado + Number.EPSILON) * 100) / 100,
+  rfc: facturaData.receptor.rfc,
+  id_empresa: empresaSeleccionada?.id_empresa || null,
+  uuid_factura: facturaData.timbreFiscal.uuid,
+  rfc_emisor: facturaData.emisor.rfc,
+  url_pdf: url ? url : archivoPDFUrl,
+  url_xml: xmlUrl || null,
+  items: items,
+  ...(shouldIncludeFechaVencimiento
+    ? { fecha_vencimiento: fecha_vencimiento || null }
+    : {}),
+  ...(proveedoresPayloadFinal != null
+    ? { proveedoresData: proveedoresPayloadFinal }
+    : {}),
+  facturas: {
+    facturaData,
+  },
+};
 
       const ENDPOINT = !proveedoresData
         ? `${URL}/mia/factura/CrearFacturaDesdeCarga`
@@ -907,24 +914,13 @@ const validationErrors = validateFacturaForm({
 
     if (!archivoXML) return;
 
-    // Validación extra: batch montos
-    // if (isProveedorBatch) {
-    //   const invalid = batchAsociaciones.some(
-    //     (x) => !x.monto_asociar || Number(x.monto_asociar) <= 0
-    //   );
-    //   if (invalid) {
-    //     alert("Debes capturar un monto válido para cada solicitud.");
-    //     return;
-    //   }
-    // }
-
     try {
       setSubiendoArchivos(true);
       setErrors({});
 
       // 1) Parsear XML
       const data = await parsearXML(archivoXML);
-
+      const totalXml = Number(data?.comprobante?.total ?? 0);
       console.log("🚓🚓🚓🚓🚓informacion de xml",data)
       console.log("informacion🔽🔽🔽🔽🔽",data.emisor.rfc)
 
@@ -932,46 +928,52 @@ const validationErrors = validateFacturaForm({
       // NUEVO: Batch NO usa selección de cliente ni empresas aquí
       // El back se encargará del automatch + datos fiscales.
       // ==========================
-      if (isProveedorBatch) {
-  // 1) Parseo del XML ya lo tienes: const data = await parsearXML(archivoXML);
-
+if (isProveedorBatch) {
   const rfcXml = String(data?.emisor?.rfc ?? "").trim().toUpperCase();
 
-  // 2) Tomar ids de proveedor de tus filas batchAsociaciones (ya las armas arriba)
   const proveedorIds = Array.from(
     new Set(batchAsociaciones.map((x) => String(x.id_proveedor)).filter(Boolean))
   );
 
-  // 3) Llamar al back por cada proveedor y juntar RFCs
+  
+  if (isProveedorMode) {
+  const montoSingle = Number(facturado || 0);
+
+  if (montoSingle > totalXml) {
+    alert(
+      `El monto a asociar (${montoSingle.toFixed(2)}) no puede ser mayor al total de la factura (${totalXml.toFixed(2)}).`
+    );
+    return;
+  }
+}
+
   const rfcDBs = new Set<string>();
 
   for (const idProv of proveedorIds) {
     const dfs = await fetchDatosFiscalesProveedor(idProv);
-    // dfs son rows de proveedores_datos_fiscales (df.*)
     for (const row of dfs) {
       const r = String(row?.rfc ?? "").trim().toUpperCase();
       if (r) rfcDBs.add(r);
     }
   }
 
-  // 4) Comparación: RFC XML debe existir en los RFCs de la(s) empresa(s) fiscal(es)
   const coincideRfc = rfcDBs.has(rfcXml);
 
   if (!coincideRfc) {
-    confirm(
+    alert(
       `No hubo coincidencia de RFC.\nRFC XML(emisor): ${rfcXml}\nRFCs en DB: ${Array.from(rfcDBs).join(", ")}`
     );
     return;
   }
 
-  // 5) Tu validación de montos sigue igual
-  const totalXml = Number(data?.comprobante?.total ?? 0);
-  if (totalXml < batchTotalAsociar) {
-    confirm(`No pueden ser esos montos`);
+  // ✅ Solo validamos que la suma no exceda el total de la factura
+  if (batchTotalAsociar > totalXml) {
+    alert(
+      `La suma de montos a asociar (${batchTotalAsociar.toFixed(2)}) no puede ser mayor al total de la factura (${totalXml.toFixed(2)}).`
+    );
     return;
   }
 
-  // 6) Continúas flujo normal
   setFacturaData(data);
   setMostrarModal(false);
   setMostrarVistaPrevia(true);
@@ -991,7 +993,7 @@ const validationErrors = validateFacturaForm({
       const empresaCoincidente = empresasAgente.find(
         (emp) => emp.rfc === rfcReceptor
       );
-
+      console.log(rfcReceptor,"cambios",rfcReceptor)
       if (!empresaCoincidente) {
         confirm(
           `No se encontró una empresa con RFC ${rfcReceptor} para este cliente. Deberas crear empresa`
@@ -1340,41 +1342,36 @@ const validationErrors = validateFacturaForm({
         />
       )} */}
       {mostrarVistaPrevia && (
-  <VistaPreviaModal
-    facturaData={facturaData}
-    pagoData={pagoData}
-    itemsTotal={getItemsTotal()}
+ <VistaPreviaModal
+  facturaData={facturaData}
+  pagoData={pagoData}
+  itemsTotal={getItemsTotal()}
+  archivoPDF={archivoPDF}
+  isProveedorBatch={isProveedorBatch}
+  batchAsociaciones={batchAsociaciones}
+  updateMontoBatch={updateMontoBatch}
+  batchTotalAsociar={batchTotalAsociar}
+  showFechaVencimiento={!pagoData && !proveedoresData}
+  onConfirm={(pdfUrl, fecha_vencimiento) => {
+    setArchivoPDFUrl(pdfUrl);
 
-    // ✅ si llega PDF se usa; si no, VistaPrevia lo genera
-    archivoPDF={archivoPDF}
+    if (hasItems) {
+      setFacturaPagada(false);
+      handleConfirmarFactura({ url: pdfUrl ?? undefined, fecha_vencimiento });
+      return;
+    }
 
-    // ✅ batch
-    isProveedorBatch={isProveedorBatch}
-    batchAsociaciones={batchAsociaciones}
-    updateMontoBatch={updateMontoBatch}
-    batchTotalAsociar={batchTotalAsociar}
-
-    onConfirm={(pdfUrl, fecha_vencimiento) => {
-      setArchivoPDFUrl(pdfUrl);
-
-      if (hasItems) {
-        setFacturaPagada(false);
-        handleConfirmarFactura({ url: pdfUrl ?? undefined, fecha_vencimiento });
-        return;
-      }
-
-      setFacturaPagada(true);
-      if (pagoData && facturaData) {
-        handlePagos({ url: pdfUrl ?? undefined, fecha_vencimiento });
-      } else {
-        handleConfirmarFactura({ url: pdfUrl ?? undefined, fecha_vencimiento });
-      }
-    }}
-    onClose={cerrarVistaPrevia}
-    isLoading={subiendoArchivos}
-  />
+    setFacturaPagada(true);
+    if (pagoData && facturaData) {
+      handlePagos({ url: pdfUrl ?? undefined, fecha_vencimiento });
+    } else {
+      handleConfirmarFactura({ url: pdfUrl ?? undefined, fecha_vencimiento });
+    }
+  }}
+  onClose={cerrarVistaPrevia}
+  isLoading={subiendoArchivos}
+/>
 )}
-
 
       {/* Totales de Ítems vs Factura */}
       {facturaData && getItemsTotal() > 0 && (

@@ -610,7 +610,7 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
                 label="Código de reservación"
                 placeholder="HJK1243..."
                 onChange={(value: string) =>
-                  handleUpdateCarRental("codigo", value)
+                  handleUpdateCarRental("codigo", value.replaceAll(" ", ""))
                 }
               />
 
@@ -779,10 +779,12 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
                   onChange={(value: ComboBoxOption2<Sucursal>) =>
                     handleUpdateCarRental("recogida_lugar", value.content)
                   }
-                  options={sucursales.map((s) => ({
-                    name: `${s.nombre} - ${s.direccion}`,
-                    content: s,
-                  }))}
+                  options={sucursales
+                    .filter((s) => s.id_proveedor == state?.proveedor?.id)
+                    .map((s) => ({
+                      name: `${s.nombre} - ${s.direccion}`,
+                      content: s,
+                    }))}
                 />
                 <Button
                   icon={Plus}
@@ -825,10 +827,12 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
                     onChange={(value: ComboBoxOption2<Sucursal>) =>
                       handleUpdateCarRental("devuelta_lugar", value.content)
                     }
-                    options={sucursales.map((s) => ({
-                      name: `${s.nombre} - ${s.direccion}`,
-                      content: s,
-                    }))}
+                    options={sucursales
+                      .filter((s) => s.id_proveedor == state?.proveedor?.id)
+                      .map((s) => ({
+                        name: `${s.nombre} - ${s.direccion}`,
+                        content: s,
+                      }))}
                   />
                   <Button
                     icon={Plus}

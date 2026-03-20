@@ -4,16 +4,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Table5 } from "@/components/Table5";
 import { URL, API_KEY } from "@/lib/constants/index";
-import { Filter, X, Search, Handshake, Upload,Send } from "lucide-react";
+import { Filter, X, Search, Handshake, Send , RefreshCw } from "lucide-react";
 
 import Button from "@/components/atom/Button";
 import SubirFactura from "@/app/dashboard/facturacion/subirfacturas/SubirFactura";
 import ModalDetalle from "@/app/dashboard/conciliacion/compponents/detalles";
 import { formatDate } from "@/helpers/formater";
 
-
 type AnyRow = Record<string, any>;
-
 
 function formatMoney(n: any) {
   const num = Number(n);
@@ -43,9 +41,6 @@ function truncateText(v: any, max = 28) {
   return s.length > max ? s.slice(0, max) + "…" : s;
 }
 
-/**
- * ✅ RowId SIEMPRE = id_solicitud_proveedor
- */
 function getRowId(raw: any, index: number) {
   const id =
     raw?.solicitud_proveedor?.id_solicitud_proveedor ??
@@ -120,7 +115,6 @@ function getTipoPago(raw: any): string {
   }
 }
 
-
 type TipoReservaInferida = "PREPAGO" | "CREDITO" | "";
 
 function inferTipoReserva(raw: any): TipoReservaInferida {
@@ -165,9 +159,6 @@ function getEstatusFacturas(diferencia: any, costo_proveedor: any): EstatusFactu
   return "PARCIAL";
 }
 
-/**
- * ✅ TRANSFORMACIÓN: raw -> row final
-*/
 function toConciliacionRow(raw: any, index: number): AnyRow {
   const row_id = getRowId(raw, index);
 
@@ -202,9 +193,9 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
   const total_facturado = Number(raw?.total_facturado_en_pfp ?? raw?.total_facturado ?? 0) || 0;
   const total_factura = Number(raw?.monto_facturado ?? 0) || 0;
 
-  const total_aplicable = raw?.total_aplicable ?? "";
-  const impuestos = raw?.impuestos ?? "";
-  const subtotal = raw?.subtotal ?? "";
+  const total_aplicable = raw?.facturas_proveedor?.facturas[0]?.monto_facturado ?? "";
+  const impuestos = raw?.facturas_proveedor?.facturas[0]?.impuestos ?? "";
+  const subtotal = raw?.facturas_proveedor?.facturas[0]?.subtotal ?? "";
 
   const baseFactura = Number(total_aplicable) || total_facturado || total_factura || 0;
   const diferencia = Number((costo_proveedor - baseFactura).toFixed(2));
@@ -213,30 +204,24 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
 
   const tarjeta = raw?.tarjeta?.ultimos_4 ?? raw?.ultimos_4 ?? "";
 
-  const razon_social =
-    raw?.proveedor?.razon_social ?? raw?.razon_social_hotel ?? raw?.razon_social ?? "";
-
-  // ✅ RFC se mantiene para validación/flujo, pero NO se muestra como columna (UI nueva)
+  const razon_social = raw?.proveedor?.razon_social ?? "";
   const rfc = raw?.rfc_proveedor ?? raw?.proveedor?.rfc ?? raw?.rfc ?? "";
-
   const id_servicio = raw?.id_servicio ?? null;
 
   const asociaciones = extractFacturasYPagosFromPFP(raw);
 
-  // ✅ de la versión antigua (conciliar real)
   const consolidado =
-   Number(raw?.consolidado ?? raw?.estatus_conciliado ?? raw?.conciliado ?? 0) || 0;
+    Number(raw?.consolidado ?? raw?.estatus_conciliado ?? raw?.conciliado ?? 0) || 0;
+
   return {
     row_id,
-    seleccionar: row_id,
-
     id_solicitud_proveedor,
     id_proveedor,
     id_servicio,
 
     creado: raw?.created_at ?? null,
     hotel: hotel ? hotel.toUpperCase() : "",
-codigo_hotel: raw?.codigo_confirmacion ?? "",
+    codigo_hotel: raw?.codigo_confirmacion ?? "",
     viajero: viajero ? viajero.toUpperCase() : "",
     check_in: raw?.check_in ?? null,
     check_out: raw?.check_out ?? null,
@@ -259,13 +244,12 @@ codigo_hotel: raw?.codigo_confirmacion ?? "",
 
     comentarios_ops: comentariosOps,
     comentarios_cxp: raw?.comentario_CXP ?? raw?.comentarios_cxp ?? "",
-
-    // ✅ botón Detalles (UI nueva)
+    usuario_creador: raw?.solicitud_proveedor?.usuario_generador,
     detalles: raw,
     estado_solicitud: raw?.solicitud_proveedor?.estado_solicitud ?? "",
     estatus_facturas: estatusFacturas,
     estatus_pago: estatusPagoObj.label ? estatusPagoObj.label.toUpperCase() : "",
-    __estatus_pago: estatusPagoObj, // ✅ usado por conciliar (antigua)
+    __estatus_pago: estatusPagoObj,
 
     total_facturado,
     diferencia_costo_proveedor_vs_factura: diferencia,
@@ -273,13 +257,9 @@ codigo_hotel: raw?.codigo_confirmacion ?? "",
     uuid_factura: raw?.uuid_factura ?? null,
     total_factura,
 
-    // ✅ subir factura (antigua)
     subir_factura: raw,
-
-    // ✅ acciones (antigua): comprobante + conciliar
     acciones: "",
 
-    // se mantienen (aunque no se muestren) por si tu backend los usa
     total_aplicable,
     impuestos,
     subtotal,
@@ -296,12 +276,17 @@ codigo_hotel: raw?.codigo_confirmacion ?? "",
       id_proveedor,
     },
 
+    informacion_completa: raw,
     __raw: raw,
   };
 }
 
-// ✅ Editables (UI nueva / corto): solo comentarios + totales
-type EditableField = "comentarios_ops" | "comentarios_cxp" | "total_aplicable" | "impuestos" | "subtotal";
+type EditableField =
+  | "comentarios_ops"
+  | "comentarios_cxp"
+  | "total_aplicable"
+  | "impuestos"
+  | "subtotal";
 
 const MONEY_FIELDS: EditableField[] = ["total_aplicable", "impuestos", "subtotal"];
 
@@ -321,28 +306,10 @@ type EditModalState = {
   value: string;
 };
 
-// ✅ Subir factura (LÓGICA ANTIGUA)
 type ProveedorSeleccionado = {
   id_solicitud: string;
   id_proveedor: string;
 };
-
-/** =========================
- *  ✅ COMPROBANTE (ANTIGUA) - PDF only
- *  ========================= */
-type ComprobanteModalState = {
-  open: boolean;
-  id_solicitud_proveedor: string;
-  id_proveedor?: string;
-};
-
-function isPdfFile(file?: File | null) {
-  if (!file) return false;
-  const nameOk = (file.name || "").toLowerCase().endsWith(".pdf");
-  const typeOk = file.type === "application/pdf" || file.type === "application/x-pdf";
-  return nameOk || typeOk;
-}
-
 
 export default function ConciliacionPage() {
   const EPS = 0.01;
@@ -353,28 +320,19 @@ export default function ConciliacionPage() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [showSubirFactura, setShowSubirFactura] = useState(false);
+  const [selectedForFactura, setSelectedForFactura] = useState<ProveedorSeleccionado[]>([]);
+  const [selectedFacturaRfc, setSelectedFacturaRfc] = useState("");
 
   const [todos, setTodos] = useState<any[]>([]);
 
-  // UI (corto)
   const [searchInput, setSearchInput] = useState("");
-  const [appliedSearchTerm, setAppliedSearchTerm] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  // Draft edits (corto)
   const [draftEdits, setDraftEdits] = useState<Record<string, Partial<AnyRow>>>({});
-
-  // ✅ subir factura (antigua)
-  const [selectedForFactura, setSelectedForFactura] = useState<ProveedorSeleccionado[]>([]);
-  const [selectedRfc, setSelectedRfc] = useState<string>("");
 
   const endpoint = `${URL}/mia/pago_proveedor/solicitud_conciliacion`;
   const editEndpoint = `${URL}/mia/pago_proveedor/edit`;
 
-  // ✅ comprobante (antigua) - ajusta al endpoint real de tu backend
-  const comprobanteEndpoint = `${URL}/mia/pago_proveedor/comprobante`;
-
-  // ✅ Detalles (UI nueva)
   const [detalleOpen, setDetalleOpen] = useState(false);
   const [detalleSolicitud, setDetalleSolicitud] = useState<any | null>(null);
 
@@ -391,76 +349,79 @@ export default function ConciliacionPage() {
   const closeSubirFactura = useCallback(() => {
     setShowSubirFactura(false);
     setSelectedForFactura([]);
+    setSelectedFacturaRfc("");
   }, []);
 
   const EMPTY_FILTERS = {
-  folio: "",
-  cliente: "",
-  viajero: "",
-  hotel: "",
-  estado_solicitud: "",
-  forma_pago: "",
-  created_start: "",
-  created_end: "",
-  check_in_start: "",
-  check_in_end: "",
-  check_out_start: "",
-  check_out_end: "",
-};
+    folio: "",
+    cliente: "",
+    viajero: "",
+    hotel: "",
+    estado_solicitud: "",
+    estado_facturacion: "",
+    forma_pago: "",
+    created_start: "",
+    created_end: "",
+    check_in_start: "",
+    check_in_end: "",
+    check_out_start: "",
+    check_out_end: "",
+  };
 
-const [filters, setFilters] = useState(EMPTY_FILTERS);
+  const [filters, setFilters] = useState(EMPTY_FILTERS);
 
-useEffect(() => {
-  void load(EMPTY_FILTERS);
-}, []);
+  const load = useCallback(
+    async (overrideFilters = filters) => {
+      const controller = new AbortController();
+      setIsLoading(true);
 
-  // ✅ FETCH
-const load = useCallback(
-  async (overrideFilters = filters) => {
-    const controller = new AbortController();
-    setIsLoading(true);
+      try {
+        const params = new URLSearchParams();
 
-    try {
-      const params = new URLSearchParams();
+        Object.entries(overrideFilters).forEach(([key, value]) => {
+          const v = String(value ?? "").trim();
+          if (v) params.append(key, v);
+        });
 
-      Object.entries(overrideFilters).forEach(([key, value]) => {
-        const v = String(value ?? "").trim();
-        if (v) params.append(key, v);
-      });
+        const url = `${endpoint}${params.toString() ? `?${params.toString()}` : ""}`;
 
-      const url = `${endpoint}${params.toString() ? `?${params.toString()}` : ""}`;
+        const response = await fetch(url, {
+          method: "GET",
+          signal: controller.signal,
+          headers: {
+            "x-api-key": API_KEY || "",
+            "Content-Type": "application/json",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+          },
+        });
 
-      const response = await fetch(url, {
-        method: "GET",
-        signal: controller.signal,
-        headers: {
-          "x-api-key": API_KEY || "",
-          "Content-Type": "application/json",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-        },
-      });
+        if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
 
-      if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
+        const json = await response.json();
+        const list = Array.isArray(json?.data) ? json.data : [];
 
-      const json = await response.json();
-      const list = Array.isArray(json?.data) ? json.data : [];
+        setTodos(list);
+      } catch (err) {
+        console.error("Error cargando conciliación:", err);
+        setTodos([]);
+      } finally {
+        setIsLoading(false);
+      }
 
-      setTodos(list);
-    } catch (err) {
-      console.error("Error cargando conciliación:", err);
-      setTodos([]);
-    } finally {
-      setIsLoading(false);
-    }
+      return () => controller.abort();
+    },
+    [endpoint, filters]
+  );
 
-    return () => controller.abort();
-  },
-  [endpoint, filters]
-);
+  const refreshData = useCallback(() => {
+    void load(filters);
+  }, [load, filters]);
 
-  /**
-   * ✅ KEY estable para selección/edición
-   */
+
+  useEffect(() => {
+    void load(EMPTY_FILTERS);
+  }, []);
+
   const getSelectionKey = (rowOrValue: any, index?: number) => {
     if (typeof rowOrValue === "string" || typeof rowOrValue === "number") {
       const s = String(rowOrValue).trim();
@@ -481,7 +442,6 @@ const load = useCallback(
     return String(index ?? "");
   };
 
-  // ---- Modal de edición (corto) ----
   const [editModal, setEditModal] = useState<EditModalState>({
     open: false,
     rowId: "",
@@ -491,14 +451,12 @@ const load = useCallback(
   });
 
 const applyFilters = useCallback(() => {
-  setAppliedSearchTerm(searchInput);
   void load(filters);
-}, [filters, load, searchInput]);
+}, [filters, load]);
 
 const clearAllFilters = useCallback(() => {
   setFilters(EMPTY_FILTERS);
   setSearchInput("");
-  setAppliedSearchTerm("");
   void load(EMPTY_FILTERS);
 }, [load]);
 
@@ -521,7 +479,6 @@ const clearAllFilters = useCallback(() => {
 
   const handleEdit = useCallback(
     async (rowIdSolicitudProveedor: string, field: EditableField | "consolidado", value: any) => {
-      // draft UI
       setDraftEdits((prev) => ({
         ...prev,
         [rowIdSolicitudProveedor]: {
@@ -575,141 +532,105 @@ const clearAllFilters = useCallback(() => {
     void load();
   }, [editModal, handleEdit, closeEditModal, load]);
 
-  /**
-   * ✅ filteredData
-   */
-  const filteredData = useMemo(() => {
-  const q = (appliedSearchTerm || "").toUpperCase().trim();
+const filteredData = useMemo(() => {
+  const q = (searchInput || "").toUpperCase().trim();
 
-    const filteredItems = todos.filter((raw) => {
-      if (!q) return true;
+  const filteredItems = todos.filter((raw) => {
+    if (!q) return true;
 
-      const hotel = String(raw?.hotel ?? "").toUpperCase();
-      const codigo = String(raw?.codigo_confirmacion ?? "").toUpperCase();
-      const viajero = String(raw?.nombre_viajero_completo ?? raw?.nombre_viajero ?? "").toUpperCase();
+    const hotel = String(raw?.hotel ?? "").toUpperCase();
+    const codigo = String(raw?.codigo_confirmacion ?? "").toUpperCase();
+    const viajero = String(raw?.nombre_viajero_completo ?? raw?.nombre_viajero ?? "").toUpperCase();
+    const proveedor = String(raw?.proveedor?.razon_social ?? raw?.razon_social ?? "").toUpperCase();
+    const idServicio = String(raw?.id_servicio ?? "").toUpperCase();
 
-      return (
-        hotel.includes(q) ||
-        codigo.includes(q) ||
-        viajero.includes(q) ||
-        String(raw?.id_servicio ?? "").toUpperCase().includes(q)
-      );
-    });
-console.log(filteredItems,"😒😒😒😒😒")
+    return (
+      hotel.includes(q) ||
+      codigo.includes(q) ||
+      viajero.includes(q) ||
+      proveedor.includes(q) ||
+      idServicio.includes(q)
+    );
+  });
 
-    return filteredItems.map((raw, i) => toConciliacionRow(raw, i));
- }, [todos, appliedSearchTerm]);
-
-  // ---------------- RFC VALIDATION (se mantiene) ----------------
-  const rfcByKey = useMemo(() => {
-    const m = new Map<string, string>();
-    (filteredData || []).forEach((row: AnyRow, index: number) => {
-      const key = getSelectionKey(row, index);
-      const rfc = normRfc(row?.rfc ?? row?.__raw?.rfc_proveedor ?? "");
-      m.set(key, rfc);
-    });
-    return m;
-  }, [filteredData]);
-
-  const getSelectedRfcInfo = useCallback(
-    (map: Record<string, boolean>) => {
-      const set = new Set<string>();
-
-      for (const [key, isSelected] of Object.entries(map)) {
-        if (!isSelected) continue;
-        const rfc = normRfc(rfcByKey.get(key) ?? "");
-        if (rfc) set.add(rfc);
-        if (set.size > 1) break;
-      }
-
-      const list = Array.from(set);
-      return {
-        ok: list.length <= 1,
-        rfc: list[0] ?? "",
-        rfcs: list,
-      };
-    },
-    [rfcByKey]
-  );
+  return filteredItems.map((raw, i) => toConciliacionRow(raw, i));
+}, [todos, searchInput]);
 
   const cancelSolicitud = useCallback(
-  async (id_solicitud_proveedor: string) => {
-    const id = String(id_solicitud_proveedor ?? "").trim();
-    if (!id) return false;
+    async (id_solicitud_proveedor: string) => {
+      const id = String(id_solicitud_proveedor ?? "").trim();
+      if (!id) return false;
 
-    const payload = {
-      id_solicitud_proveedor: id,
-      estado_solicitud: "CANCELADA",
-    };
+      const payload = {
+        id_solicitud_proveedor: id,
+        estado_solicitud: "CANCELADA",
+      };
 
-    try {
-      const resp = await fetch(editEndpoint, {
-        method: "PATCH",
-        headers: {
-          "x-api-key": API_KEY || "",
-          "Content-Type": "application/json",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-        },
-        body: JSON.stringify(payload),
-      });
+      try {
+        const resp = await fetch(editEndpoint, {
+          method: "PATCH",
+          headers: {
+            "x-api-key": API_KEY || "",
+            "Content-Type": "application/json",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+          },
+          body: JSON.stringify(payload),
+        });
 
-      const json = await resp.json().catch(() => null);
-      if (!resp.ok) throw new Error(json?.message || `Error HTTP: ${resp.status}`);
+        const json = await resp.json().catch(() => null);
+        if (!resp.ok) throw new Error(json?.message || `Error HTTP: ${resp.status}`);
 
-      return true;
-    } catch (err) {
-      console.error("❌ cancelar solicitud fail", err);
-      alert((err as any)?.message || "Error al cancelar la solicitud");
-      return false;
-    }
-  },
-  [editEndpoint]
-);
+        return true;
+      } catch (err) {
+        console.error("❌ cancelar solicitud fail", err);
+        alert((err as any)?.message || "Error al cancelar la solicitud");
+        return false;
+      }
+    },
+    [editEndpoint]
+  );
 
-const solicitarPagoCredito = useCallback(
-  async (row: AnyRow) => {
-    const id = String(row?.id_solicitud_proveedor ?? "").trim();
-    if (!id) return false;
+  const solicitarPagoCredito = useCallback(
+    async (row: AnyRow) => {
+      const id = String(row?.id_solicitud_proveedor ?? "").trim();
+      if (!id) return false;
 
-    const ok = confirm(`¿Solicitar pago para la solicitud ${id}?`);
-    if (!ok) return false;
+      const ok = confirm(`¿Solicitar pago para la solicitud ${id}?`);
+      if (!ok) return false;
 
-    const payload = {
-      id_solicitud_proveedor: id,
-      is_ajuste: 1,
-      comentario_ajuste: "pago solicitado",
-    };
+      const payload = {
+        id_solicitud_proveedor: id,
+        is_ajuste: 1,
+        comentario_ajuste: "pago solicitado",
+      };
 
-    try {
-      const resp = await fetch(editEndpoint, {
-        method: "PATCH",
-        headers: {
-          "x-api-key": API_KEY || "",
-          "Content-Type": "application/json",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-        },
-        body: JSON.stringify(payload),
-      });
+      try {
+        const resp = await fetch(editEndpoint, {
+          method: "PATCH",
+          headers: {
+            "x-api-key": API_KEY || "",
+            "Content-Type": "application/json",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+          },
+          body: JSON.stringify(payload),
+        });
 
-      const json = await resp.json().catch(() => null);
-      if (!resp.ok) throw new Error(json?.message || `Error HTTP: ${resp.status}`);
+        const json = await resp.json().catch(() => null);
+        if (!resp.ok) throw new Error(json?.message || `Error HTTP: ${resp.status}`);
 
-      await load();
-      return true;
-    } catch (err: any) {
-      console.error("❌ solicitar pago fail", err);
-      alert(err?.message || "Error al solicitar el pago");
-      return false;
-    }
-  },
-  [editEndpoint, load]
-);
+        await load();
+        return true;
+      } catch (err: any) {
+        console.error("❌ solicitar pago fail", err);
+        alert(err?.message || "Error al solicitar el pago");
+        return false;
+      }
+    },
+    [editEndpoint, load]
+  );
 
-
-  // ✅ Columnas (UI NUEVA / corto) + acciones antiguas
   const customColumns = useMemo(
     () => [
-      "seleccionar",
       "creado",
       "proveedor",
       "codigo_reserva",
@@ -724,100 +645,27 @@ const solicitarPagoCredito = useCallback(
       "costo_proveedor",
       "markup",
       "precio_de_venta",
-      "canal_de_reservacion", // se muestra, NO editable
-      "nombre_intermediario", // se muestra, NO editable
+      "canal_de_reservacion",
+      "nombre_intermediario",
       "tipo_de_reserva",
       "tipo_de_pago",
       "tarjeta",
       "id_enviado",
       "comentarios_ops",
       "comentarios_cxp",
-      "detalles", // ✅ botón detalles (nuevo)
+      "detalles",
       "estatus_facturas",
       "estatus_pago",
       "total_facturado",
       "diferencia_costo_proveedor_vs_factura",
-      "subir_factura", // ✅ lógica subir factura (antigua)
-      "acciones", // ✅ comprobante + conciliar (antigua)
+      "subir_factura",
+      "acciones",
       "total_factura",
+      "usuario_creador",
     ],
     []
   );
 
-  // ✅ selección
-  const [selectedMap, setSelectedMap] = useState<Record<string, boolean>>({});
-
-  const selectedIds = useMemo(() => Object.keys(selectedMap).filter((k) => selectedMap[k]), [selectedMap]);
-
-  const selectedRows = useMemo(() => {
-    return filteredData.filter((r: AnyRow, index: number) => {
-      const key = getSelectionKey(r, index);
-      if (!key) return false;
-
-      const diff = Number(r?.diferencia_costo_proveedor_vs_factura ?? 0) || 0;
-      if (isZero(diff)) return false; // ✅ NO seleccionables
-
-      return !!selectedMap[key];
-    });
-  }, [filteredData, selectedMap]);
-
-  const clearSelection = useCallback(() => setSelectedMap({}), []);
-
-  const selectAllFiltered = useCallback(() => {
-    setSelectedMap((prev) => {
-      const next = { ...prev };
-
-      const current = getSelectedRfcInfo(prev);
-      let baseRfc = current.rfc;
-
-      if (!baseRfc) {
-        const firstWithRfc = filteredData.find((r: AnyRow) => normRfc(r?.rfc));
-        baseRfc = normRfc(firstWithRfc?.rfc ?? "");
-      }
-
-      filteredData.forEach((r: AnyRow, index: number) => {
-        const diff = Number(r?.diferencia_costo_proveedor_vs_factura ?? 0) || 0;
-        if (isZero(diff)) return;
-
-        const key = getSelectionKey(r, index);
-        const rowRfc = normRfc(r?.rfc ?? "");
-        const ok = baseRfc ? rowRfc === baseRfc : !rowRfc;
-
-        if (ok) next[key] = true;
-      });
-
-      return next;
-    });
-  }, [filteredData, getSelectedRfcInfo]);
-
-  // ✅ Subir factura (antigua): data para bulk (id_solicitud + id_proveedor)
-  const selectedProveedorData = useMemo(() => {
-    const arr = selectedRows
-      .map((r: AnyRow) => ({
-        id_solicitud: String(r?.id_solicitud_proveedor ?? "").trim(),
-        id_proveedor: String(r?.id_proveedor ?? "").trim(),
-      }))
-      .filter(
-        (x) =>
-          x.id_solicitud !== "" &&
-          x.id_solicitud !== "null" &&
-          x.id_solicitud !== "undefined" &&
-          x.id_proveedor !== "" &&
-          x.id_proveedor !== "null" &&
-          x.id_proveedor !== "undefined"
-      );
-
-    return arr;
-  }, [selectedRows]);
-
-  useEffect(() => {
-    const info = getSelectedRfcInfo(selectedMap);
-    setSelectedRfc(info.rfc || "");
-  }, [selectedMap, getSelectedRfcInfo]);
-
-  // =========================
-  // ✅ Conciliar (ANTIGUA): consolidado=1
-  // =========================
   const isPagadoRow = useCallback(
     (row: AnyRow) => {
       const label = normUpper(row?.estatus_pago);
@@ -832,18 +680,6 @@ const solicitarPagoCredito = useCallback(
     },
     [EPS]
   );
-
-  const isDispersionRow = useCallback((row: AnyRow) => {
-  const estado = normUpper(
-    row?.estado_solicitud ??
-    row?.__raw?.solicitud_proveedor?.estado_solicitud ??
-    row?.__raw?.estado_solicitud ??
-    row?.informacion_completa?.solicitud_proveedor?.estado_solicitud ??
-    ""
-  );
-
-  return estado === "DISPERSION";
-}, []);
 
   const isConsolidadoRow = (row: AnyRow) => Number(row?.consolidado ?? 0) === 1;
 
@@ -861,82 +697,27 @@ const solicitarPagoCredito = useCallback(
     [handleEdit, load]
   );
 
-  // =========================
-  // ✅ Comprobante (ANTIGUA): modal + upload PDF
-  // =========================
-  const [comprobanteModal, setComprobanteModal] = useState<ComprobanteModalState>({
-    open: false,
-    id_solicitud_proveedor: "",
-    id_proveedor: "",
-  });
-
-  const openComprobanteModal = useCallback((row: AnyRow) => {
-    setComprobanteModal({
-      open: true,
-      id_solicitud_proveedor: String(row?.id_solicitud_proveedor ?? "").trim(),
-      id_proveedor: String(row?.id_proveedor ?? "").trim(),
-    });
-  }, []);
-
-  const closeComprobanteModal = useCallback(() => {
-    setComprobanteModal({ open: false, id_solicitud_proveedor: "", id_proveedor: "" });
-  }, []);
-
-  const uploadComprobantePdf = useCallback(
-    async (id_solicitud_proveedor: string, file: File) => {
-      const fd = new FormData();
-      fd.append("id_solicitud_proveedor", id_solicitud_proveedor);
-      fd.append("file", file);
-
-      try {
-        const resp = await fetch(comprobanteEndpoint, {
-          method: "POST",
-          headers: {
-            "x-api-key": API_KEY || "",
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-          },
-          body: fd,
-        });
-
-        const json = await resp.json().catch(() => null);
-        if (!resp.ok) throw new Error(json?.message || `Error HTTP: ${resp.status}`);
-
-        return { ok: true, data: json };
-      } catch (err: any) {
-        console.error("❌ upload comprobante fail", err);
-        alert(err?.message || "Error subiendo comprobante");
-        return { ok: false, data: null };
-      }
-    },
-    [comprobanteEndpoint]
-  );
-
-  // ✅ opcional: pinta fila azul si consolidado=1 (si tu Table5 lo soporta)
   const getRowClassName = useCallback((row: AnyRow) => {
     const consolidado = Number((row as any)?.consolidado ?? (row as any)?.__raw?.consolidado ?? 0) || 0;
     return consolidado === 1 ? "bg-blue-50" : "";
   }, []);
 
-const TOLERANCIA_FACTURA_PAGO = 20;
+  const TOLERANCIA_FACTURA_PAGO = 20;
 
-const getFacturaPagoDiffInfo = useCallback((row: AnyRow) => {
-  const pagado = Number(row?.__estatus_pago?.pagado ?? 0) || 0;
+  const getFacturaPagoDiffInfo = useCallback((row: AnyRow) => {
+    const pagado = Number(row?.__estatus_pago?.pagado ?? 0) || 0;
 
-  // FACTURA: prioriza total_aplicable si existe, si no total_facturado / total_factura
-  const factura =
-    (String(row?.total_aplicable ?? "").trim() !== "" ? Number(row?.total_aplicable) : 0) ||
-    (Number(row?.total_facturado ?? 0) || 0) ||
-    (Number(row?.total_factura ?? 0) || 0);
+    const factura =
+      (String(row?.total_aplicable ?? "").trim() !== "" ? Number(row?.total_aplicable) : 0) ||
+      (Number(row?.total_facturado ?? 0) || 0) ||
+      (Number(row?.total_factura ?? 0) || 0);
 
-  const diff = Number((factura - pagado).toFixed(2));
-  const ok = Math.abs(diff) <= TOLERANCIA_FACTURA_PAGO;
+    const diff = Number((factura - pagado).toFixed(2));
+    const ok = Math.abs(diff) <= TOLERANCIA_FACTURA_PAGO;
 
-  return { factura, pagado, diff, ok };
-}, []);
+    return { factura, pagado, diff, ok };
+  }, []);
 
-
-
-  // ✅ renderers
   const tableRenderers = useMemo<
     Record<string, React.FC<{ value: any; item: any; index: number }>>
   >(
@@ -969,10 +750,10 @@ const getFacturaPagoDiffInfo = useCallback((row: AnyRow) => {
         );
       },
 
-      // ✅ YA NO EDITABLES (UI nueva): solo texto
       canal_de_reservacion: ({ value }) => (
         <span className="text-xs">{String(value ?? "—").toUpperCase()}</span>
       ),
+
       nombre_intermediario: ({ value }) => (
         <span className="text-xs" title={String(value ?? "")}>
           {truncateText(value, 30)}
@@ -1021,61 +802,6 @@ const getFacturaPagoDiffInfo = useCallback((row: AnyRow) => {
         );
       },
 
-      // ✅ SELECCIÓN
-      seleccionar: ({ value, item, index }) => {
-        const diff = Number(item?.diferencia_costo_proveedor_vs_factura ?? 0) || 0;
-        if (isZero(diff)) return <div className="w-4 h-4" />;
-
-        const key = getSelectionKey(item && typeof item === "object" ? item : value, index);
-        const checked = !!selectedMap[key];
-
-        return (
-          <div className="flex items-center justify-center">
-            <input
-              type="checkbox"
-              className="w-4 h-4"
-              checked={checked}
-              onChange={(e) => {
-                const isChecked = e.target.checked;
-
-                setSelectedMap((prev) => {
-                  const next = { ...prev };
-
-                  if (!isChecked) {
-                    delete next[key];
-                    return next;
-                  }
-
-                  const current = getSelectedRfcInfo(prev);
-                  const candidateRfc = normRfc(rfcByKey.get(key) ?? "");
-
-                  if (current.rfc && !candidateRfc) {
-                    alert(`No puedes mezclar seleccionados sin RFC.\nRFC seleccionado: ${current.rfc}`);
-                    return prev;
-                  }
-
-                  if (current.rfc && candidateRfc && candidateRfc !== current.rfc) {
-                    alert(
-                      `No puedes seleccionar filas con RFC diferente.\nRFC seleccionado: ${current.rfc}\nRFC nuevo: ${candidateRfc}`
-                    );
-                    return prev;
-                  }
-
-                  if (!current.ok) {
-                    alert(`Tienes seleccionados con RFC mezclado: ${current.rfcs.join(", ")}`);
-                    return prev;
-                  }
-
-                  next[key] = true;
-                  return next;
-                });
-              }}
-            />
-          </div>
-        );
-      },
-
-      // ✅ BOTÓN DETALLES (de la nueva)
       detalles: ({ item }) => {
         return (
           <Button
@@ -1089,25 +815,33 @@ const getFacturaPagoDiffInfo = useCallback((row: AnyRow) => {
         );
       },
 
-      // ✅ Subir factura (LÓGICA ANTIGUA)
       subir_factura: ({ item }) => {
         const diff = Number(item?.diferencia_costo_proveedor_vs_factura ?? 0) || 0;
         if (isZero(diff)) return <span className="text-xs text-gray-300">—</span>;
+
+        const idSolicitud = String(item?.id_solicitud_proveedor ?? "").trim();
+        const idProveedor = String(item?.id_proveedor ?? "").trim();
+
         return (
           <Button
             variant="secondary"
             size="sm"
             className="px-2 py-1 text-xs border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
             onClick={() => {
+              if (!idSolicitud || !idProveedor) {
+                alert("Falta id_solicitud o id_proveedor para subir factura");
+                return;
+              }
+
               const payload = [
                 {
-                  id_solicitud: String(item?.id_solicitud_proveedor ?? "").trim(),
-                  id_proveedor: String(item.id_proveedor).trim(),
+                  id_solicitud: idSolicitud,
+                  id_proveedor: idProveedor,
                 },
-              ]
-              console.log(payload,"payload a llegar😢😢😢😢😢")
-              clearSelection();
+              ];
+
               setSelectedForFactura(payload);
+              setSelectedFacturaRfc(normRfc(item?.rfc ?? item?.__raw?.rfc_proveedor ?? ""));
               setShowSubirFactura(true);
             }}
           >
@@ -1116,162 +850,136 @@ const getFacturaPagoDiffInfo = useCallback((row: AnyRow) => {
         );
       },
 
-      // ✅ Acciones (ANTIGUA): comprobante + conciliar consolidado=1 (si pagado)
-acciones: ({ item }) => {
-  const row = item as AnyRow;
+      acciones: ({ item }) => {
+        const row = item as AnyRow;
 
-  const pagado = isPagadoRow(row);
-  const consolidado = isConsolidadoRow(row);
+        const pagado = isPagadoRow(row);
+        const consolidado = isConsolidadoRow(row);
 
-  // ✅ Validación nueva: factura vs pago (±20)
-  const { ok: okFacturaPago, diff } = getFacturaPagoDiffInfo(row);
+        const { ok: okFacturaPago, diff } = getFacturaPagoDiffInfo(row);
+        const mostrarConciliar = pagado && okFacturaPago;
 
-  // ✅ Conciliar solo si: pagado && dentro de tolerancia
-  const mostrarConciliar = pagado && okFacturaPago;
+        const idSolProv = String(row?.id_solicitud_proveedor ?? "").trim();
 
-  // ✅ Cancelar
-  const idSolProv = String(row?.id_solicitud_proveedor ?? "").trim();
+        const estadoSolicitud = normUpper(
+          row?.__raw?.solicitud_proveedor?.estado_solicitud ??
+            row?.__raw?.estado_solicitud ??
+            ""
+        );
 
-  const estadoSolicitud = normUpper(
-    row?.__raw?.solicitud_proveedor?.estado_solicitud ??
-      row?.__raw?.estado_solicitud ??
-      ""
-  );
+        const yaCancelada =
+          estadoSolicitud === "CANCELADA" || estadoSolicitud.includes("CANCEL");
 
-  const yaCancelada =
-    estadoSolicitud === "CANCELADA" || estadoSolicitud.includes("CANCEL");
+        const disableCancelar = yaCancelada || pagado;
 
-  const disableCancelar = yaCancelada || pagado;
+        const formaPago = String(
+          row?.informacion_completa?.solicitud_proveedor?.forma_pago_solicitada ??
+            row?.__raw?.forma_pago_solicitada ??
+            ""
+        ).toLowerCase();
 
-  const formaPago = String(
-  row?.informacion_completa.solicitud_proveedor?.forma_pago_solicitada ??
-    row?.__raw?.forma_pago_solicitada ??
-    ""
-).toLowerCase();
+        const esCredito = formaPago === "credit";
 
-const esCredito = formaPago === "credit";
+        const yaSolicitoPago =
+          Number(
+            row?.informacion_completa?.solicitud_proveedor?.is_ajuste ??
+              row?.__raw?.is_ajuste ??
+              0
+          ) === 1;
 
-const yaSolicitoPago =
-Number(
-  row?.informacion_completa?.solicitud_proveedor?.is_ajuste ??
-  row?.__raw?.is_ajuste ??
-  0
-) === 1;
+        const facturado = Number(row?.informacion_completa?.total_facturado_en_pfp) > 0;
+        const disableSolicitarPago = yaSolicitoPago || !facturado;
 
-const facturado = (Number(row?.informacion_completa?.total_facturado_en_pfp)) > 0;
-console.log(((row?.informacion_completa?.total_facturado_en_pfp)))
+        return (
+          <div className="flex flex-wrap items-center gap-2">
+            {mostrarConciliar && (
+              <Button
+                variant="secondary"
+                size="sm"
+                className={[
+                  "px-2 py-1 text-xs border",
+                  consolidado
+                    ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+                    : "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100",
+                ].join(" ")}
+                disabled={consolidado}
+                onClick={() => void handleConciliar(row)}
+                title={
+                  consolidado
+                    ? "Ya está conciliado (consolidado=1)"
+                    : `Conciliar (dif factura-pago: ${diff})`
+                }
+              >
+                <span className="inline-flex items-center gap-1">
+                  <Handshake className="w-4 h-4" />
+                  <span className="hidden xl:inline">Conciliar</span>
+                </span>
+              </Button>
+            )}
 
-const disableSolicitarPago = yaSolicitoPago || !facturado;
-console.log("informacion de pago",disableSolicitarPago,"🤬🤬🤬",facturado,row?.informacion_completa?.solicitud_proveedor?.id_solicitud_proveedor)
+            {esCredito && (
+              <Button
+                variant="secondary"
+                size="sm"
+                className={[
+                  "px-2 py-1 text-xs border",
+                  disableSolicitarPago
+                    ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+                    : "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100",
+                ].join(" ")}
+                disabled={disableSolicitarPago}
+                onClick={() => {
+                  if (disableSolicitarPago) return;
+                  void solicitarPagoCredito(row);
+                }}
+                title={
+                  yaSolicitoPago
+                    ? "Ya fue solicitado (is_ajuste=1)"
+                    : "Solicitar pago (is_ajuste=1 / comentario_ajuste='pago solicitado')"
+                }
+              >
+                <span className="inline-flex items-center gap-1">
+                  <Send className="w-4 h-4" />
+                  <span className="hidden xl:inline">Solicitar pago</span>
+                </span>
+              </Button>
+            )}
 
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      {/* Comprobante */}
-      <Button
-        variant="secondary"
-        size="sm"
-        className="px-2 py-1 text-xs border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-        onClick={() => openComprobanteModal(row)}
-        title="Subir comprobante (PDF)"
-      >
-        <span className="inline-flex items-center gap-1">
-          <Upload className="w-4 h-4" />
-          <span className="hidden xl:inline">Comprobante</span>
-        </span>
-      </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              className={[
+                "px-2 py-1 text-xs border",
+                disableCancelar
+                  ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+                  : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100",
+              ].join(" ")}
+              disabled={disableCancelar}
+              onClick={async () => {
+                if (disableCancelar) return;
 
-      {/* Conciliar (solo si pagado y |factura-pago|<=20) */}
-      {mostrarConciliar && (
-        <Button
-          variant="secondary"
-          size="sm"
-          className={[
-            "px-2 py-1 text-xs border",
-            consolidado
-              ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
-              : "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100",
-          ].join(" ")}
-          disabled={consolidado}
-          onClick={() => void handleConciliar(row)}
-          title={
-            consolidado
-              ? "Ya está conciliado (consolidado=1)"
-              : `Conciliar (dif factura-pago: ${diff})`
-          }
-        >
-          <span className="inline-flex items-center gap-1">
-            <Handshake className="w-4 h-4" />
-            <span className="hidden xl:inline">Conciliar</span>
-          </span>
-        </Button>
-      )}
+                const ok = confirm(`¿Cancelar la solicitud ${idSolProv}?`);
+                if (!ok) return;
 
-      {/* Solicitar pago (solo CREDIT) */}
-{esCredito && (
-  <Button
-    variant="secondary"
-    size="sm"
-    className={[
-      "px-2 py-1 text-xs border",
-      disableSolicitarPago
-        ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
-        : "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100",
-    ].join(" ")}
-    disabled={disableSolicitarPago}
-    onClick={() => {
-      if (disableSolicitarPago) return;
-      void solicitarPagoCredito(row);
-    }}
-    title={
-      yaSolicitoPago
-        ? "Ya fue solicitado (is_ajuste=1)"
-        : "Solicitar pago (is_ajuste=1 / comentario_ajuste='pago solicitado')"
-    }
-  >
-    <span className="inline-flex items-center gap-1">
-      {/* puedes cambiar el icono si quieres */}
-      <Send className="w-4 h-4" />
-      <span className="hidden xl:inline">Solicitar pago</span>
-    </span>
-  </Button>
-)}
-
-      {/* Cancelar (si no pagado y no cancelada) */}
-      <Button
-        variant="secondary"
-        size="sm"
-        className={[
-          "px-2 py-1 text-xs border",
-          disableCancelar
-            ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
-            : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100",
-        ].join(" ")}
-        disabled={disableCancelar}
-        onClick={async () => {
-          if (disableCancelar) return;
-
-          const ok = confirm(`¿Cancelar la solicitud ${idSolProv}?`);
-          if (!ok) return;
-
-          const done = await cancelSolicitud(idSolProv);
-          if (done) await load();
-        }}
-        title={
-          yaCancelada
-            ? "Esta solicitud ya está cancelada"
-            : pagado
-              ? "No se puede cancelar una solicitud pagada"
-              : "Cancelar solicitud (estado_solicitud = CANCELADA)"
-        }
-      >
-        <span className="inline-flex items-center gap-1">
-          <X className="w-4 h-4" />
-          <span className="hidden xl:inline">Cancelar</span>
-        </span>
-      </Button>
-    </div>
-  );
-},
+                const done = await cancelSolicitud(idSolProv);
+                if (done) await load();
+              }}
+              title={
+                yaCancelada
+                  ? "Esta solicitud ya está cancelada"
+                  : pagado
+                    ? "No se puede cancelar una solicitud pagada"
+                    : "Cancelar solicitud (estado_solicitud = CANCELADA)"
+              }
+            >
+              <span className="inline-flex items-center gap-1">
+                <X className="w-4 h-4" />
+                <span className="hidden xl:inline">Cancelar</span>
+              </span>
+            </Button>
+          </div>
+        );
+      },
 
       total_facturado: ({ value }) => <span title={String(value)}>{formatMoney(value)}</span>,
 
@@ -1300,17 +1008,12 @@ console.log("informacion de pago",disableSolicitarPago,"🤬🤬🤬",facturado,
     [
       draftEdits,
       openEditModal,
-      selectedMap,
       openDetalle,
-      clearSelection,
       solicitarPagoCredito,
-      rfcByKey,
-      getSelectedRfcInfo,
       isPagadoRow,
       handleConciliar,
-      openComprobanteModal,
-        cancelSolicitud, // ✅
-  load,      
+      cancelSolicitud,
+      load,
     ]
   );
 
@@ -1319,7 +1022,6 @@ console.log("informacion de pago",disableSolicitarPago,"🤬🤬🤬",facturado,
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-[1400px] mx-auto px-4 py-4 space-y-4">
-        {/* Barra de búsqueda + botones (UI nueva) */}
         <div className="bg-white border border-gray-200 rounded-lg p-3">
           <div className="flex flex-col md:flex-row md:items-center gap-3">
             <div className="flex-1">
@@ -1339,6 +1041,16 @@ console.log("informacion de pago",disableSolicitarPago,"🤬🤬🤬",facturado,
                 variant="secondary"
                 size="md"
                 className="border border-gray-200 bg-white hover:bg-gray-50 text-gray-800"
+                onClick={refreshData}
+                disabled={isLoading}
+              >
+                <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
+              <Button
+                variant="secondary"
+                size="md"
+                className="border border-gray-200 bg-white hover:bg-gray-50 text-gray-800"
                 onClick={() => setFiltersOpen((s) => !s)}
               >
                 <Filter className="w-4 h-4" />
@@ -1354,189 +1066,178 @@ console.log("informacion de pago",disableSolicitarPago,"🤬🤬🤬",facturado,
                 <X className="w-4 h-4" />
                 Limpiar
               </Button>
+
+              <Button
+                variant="secondary"
+                size="md"
+                className="border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-800"
+                onClick={applyFilters}
+              >
+                <Search className="w-4 h-4" />
+                Aplicar filtros
+              </Button>
+
             </div>
           </div>
 
           {filtersOpen && (
-  <div className="mt-4 border-t border-gray-100 pt-4">
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-      <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">
-  Código confirmación
-</label>
-<input
-  value={filters.folio}
-  onChange={(e) =>
-    setFilters((prev) => ({ ...prev, folio: e.target.value }))
-  }
-  placeholder="Buscar código confirmación..."
-  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-/>
-      </div>
+            <div className="mt-4 border-t border-gray-100 pt-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Código confirmación
+                  </label>
+                  <input
+                    value={filters.folio}
+                    onChange={(e) =>
+                      setFilters((prev) => ({ ...prev, folio: e.target.value }))
+                    }
+                    placeholder="Buscar código confirmación..."
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                  />
+                </div>
 
-      <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">
-          Cliente
-        </label>
-        <input
-          value={filters.cliente}
-          onChange={(e) =>
-            setFilters((prev) => ({ ...prev, cliente: e.target.value }))
-          }
-          placeholder="Buscar cliente..."
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-        />
-      </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Cliente
+                  </label>
+                  <input
+                    value={filters.cliente}
+                    onChange={(e) =>
+                      setFilters((prev) => ({ ...prev, cliente: e.target.value }))
+                    }
+                    placeholder="Buscar cliente..."
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                  />
+                </div>
 
-      <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">
-          Viajero
-        </label>
-        <input
-          value={filters.viajero}
-          onChange={(e) =>
-            setFilters((prev) => ({ ...prev, viajero: e.target.value }))
-          }
-          placeholder="Buscar viajero..."
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-        />
-      </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Viajero
+                  </label>
+                  <input
+                    value={filters.viajero}
+                    onChange={(e) =>
+                      setFilters((prev) => ({ ...prev, viajero: e.target.value }))
+                    }
+                    placeholder="Buscar viajero..."
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                  />
+                </div>
 
-      <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">
-  Proveedor
-</label>
-<input
-  value={filters.hotel}
-  onChange={(e) =>
-    setFilters((prev) => ({ ...prev, hotel: e.target.value }))
-  }
-  placeholder="Buscar proveedor..."
-  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-/>
-      </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Proveedor
+                  </label>
+                  <input
+                    value={filters.hotel}
+                    onChange={(e) =>
+                      setFilters((prev) => ({ ...prev, hotel: e.target.value }))
+                    }
+                    placeholder="Buscar proveedor..."
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                  />
+                </div>
 
-      <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">
-          Creado desde
-        </label>
-        <input
-          type="date"
-          value={filters.created_start}
-          onChange={(e) =>
-            setFilters((prev) => ({ ...prev, created_start: e.target.value }))
-          }
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-        />
-      </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Creado desde
+                  </label>
+                  <input
+                    type="date"
+                    value={filters.created_start}
+                    onChange={(e) =>
+                      setFilters((prev) => ({ ...prev, created_start: e.target.value }))
+                    }
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                  />
+                </div>
 
-      <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">
-          Creado hasta
-        </label>
-        <input
-          type="date"
-          value={filters.created_end}
-          onChange={(e) =>
-            setFilters((prev) => ({ ...prev, created_end: e.target.value }))
-          }
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-        />
-      </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Creado hasta
+                  </label>
+                  <input
+                    type="date"
+                    value={filters.created_end}
+                    onChange={(e) =>
+                      setFilters((prev) => ({ ...prev, created_end: e.target.value }))
+                    }
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                  />
+                </div>
 
-      <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">
-          Check-in desde
-        </label>
-        <input
-          type="date"
-          value={filters.check_in_start}
-          onChange={(e) =>
-            setFilters((prev) => ({ ...prev, check_in_start: e.target.value }))
-          }
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-        />
-      </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Check-in desde
+                  </label>
+                  <input
+                    type="date"
+                    value={filters.check_in_start}
+                    onChange={(e) =>
+                      setFilters((prev) => ({ ...prev, check_in_start: e.target.value }))
+                    }
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                  />
+                </div>
 
-      <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">
-          Check-in hasta
-        </label>
-        <input
-          type="date"
-          value={filters.check_in_end}
-          onChange={(e) =>
-            setFilters((prev) => ({ ...prev, check_in_end: e.target.value }))
-          }
-          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-        />
-      </div>
-    </div>
-  </div>
-)}
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Check-in hasta
+                  </label>
+                  <input
+                    type="date"
+                    value={filters.check_in_end}
+                    onChange={(e) =>
+                      setFilters((prev) => ({ ...prev, check_in_end: e.target.value }))
+                    }
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+  <label className="block text-xs font-medium text-gray-600 mb-1">
+    Estatus facturación
+  </label>
+  <select
+    value={filters.estado_facturacion}
+    onChange={(e) =>
+      setFilters((prev) => ({ ...prev, estado_facturacion: e.target.value }))
+    }
+    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+  >
+    <option value="">Todos</option>
+    <option value="pendiente">Pendiente</option>
+    <option value="parcial">Parcial</option>
+    <option value="completo">Completo</option>
+  </select>
+</div>
+<div>
+  <label className="block text-xs font-medium text-gray-600 mb-1">
+    Estatus solicitud
+  </label>
+  <select
+    value={filters.estado_solicitud}
+    onChange={(e) =>
+      setFilters((prev) => ({ ...prev, estado_solicitud: e.target.value }))
+    }
+    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
+  >
+    <option value="">Todos</option>
+    <option value="CARTA_ENVIADA">Carta enviada</option>
+    <option value="PAGADO TARJETA">Pagado tarjeta</option>
+    <option value="TRANSFERENCIA_SOLICITADA">Transferencia solicitada</option>
+    <option value="PAGADO TRANSFERENCIA">Pagado transferencia</option>
+    <option value="PAGADO LINK">Pagado link</option>
+    <option value="CUPON ENVIADO">Cupón enviado</option>
+    <option value="CANCELADA">Cancelada</option>
+    <option value="DISPERSION">Dispersión</option>
+  </select>
+</div>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Barra de selección masiva (UI nueva) + lógica subir factura (antigua) */}
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <div className="text-xs text-gray-600">
-            Seleccionados: <span className="font-semibold">{selectedIds.length}</span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button
-              variant="secondary"
-              size="md"
-              className="px-3 py-2 text-sm border border-gray-200 bg-white hover:bg-gray-50 text-gray-800"
-              onClick={selectAllFiltered}
-            >
-              Seleccionar filtrados ({filteredData.length})
-            </Button>
-
-            <Button
-              variant="secondary"
-              size="md"
-              className="px-3 py-2 text-sm border border-gray-200 bg-white hover:bg-gray-50 text-gray-800"
-              onClick={clearSelection}
-            >
-              Limpiar selección
-            </Button>
-            <Button
-  variant="secondary"
-  size="md"
-  className="border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-800"
-  onClick={applyFilters}
->
-  <Search className="w-4 h-4" />
-  Aplicar filtros
-</Button>
-
-            <Button
-              variant="secondary"
-              size="md"
-              disabled={selectedRows.length === 0}
-              className={[
-                "px-3 py-2 text-sm border",
-                selectedRows.length === 0
-                  ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
-                  : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
-              ].join(" ")}
-              onClick={() => {
-                const rfcs = Array.from(new Set(selectedRows.map((r: AnyRow) => normRfc(r?.rfc)).filter(Boolean)));
-                if (rfcs.length > 1) {
-                  alert(`No puedes subir facturas con RFC diferente.\nRFCs: ${rfcs.join(", ")}`);
-                  return;
-                }
-
-                setSelectedForFactura(selectedProveedorData);
-                setShowSubirFactura(true);
-              }}
-            >
-              Subir factura ({selectedRows.length})
-            </Button>
-          </div>
-        </div>
-
-        {/* Tabla principal */}
         <div className="bg-white border border-gray-200 rounded-lg p-3 flex flex-col">
           <Table5<any>
             registros={filteredData as any}
@@ -1550,7 +1251,6 @@ console.log("informacion de pago",disableSolicitarPago,"🤬🤬🤬",facturado,
           />
         </div>
 
-        {/* MODAL EXPANSIVO PARA EDITABLES (UI nueva/corto) */}
         {editModal.open && (
           <div className="fixed inset-0 z-50 flex items-center justify-center">
             <div className="absolute inset-0 bg-black/40 z-0" onClick={closeEditModal} />
@@ -1619,7 +1319,6 @@ console.log("informacion de pago",disableSolicitarPago,"🤬🤬🤬",facturado,
           </div>
         )}
 
-        
         {showSubirFactura && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
@@ -1632,13 +1331,13 @@ console.log("informacion de pago",disableSolicitarPago,"🤬🤬🤬",facturado,
 
               <div className="p-6">
                 <SubirFactura
-                  proveedoresData={selectedRows.length==0? selectedForFactura:selectedRows} // ✅ array [{id_solicitud,id_proveedor}]
-                  id_proveedor={selectedRows.length === 1 ? selectedRows[0]?.id_proveedor : undefined}
-                  proveedoresRfc={selectedRfc}
+                  proveedoresData={selectedForFactura}
+                  id_proveedor={selectedForFactura.length === 1 ? selectedForFactura[0]?.id_proveedor : undefined}
+                  proveedoresRfc={selectedFacturaRfc}
                   autoOpen={true}
                   onSuccess={() => {
                     closeSubirFactura();
-                    // load();
+                    // void load();
                   }}
                 />
               </div>
@@ -1646,149 +1345,9 @@ console.log("informacion de pago",disableSolicitarPago,"🤬🤬🤬",facturado,
           </div>
         )}
 
-        {/* ✅ Detalles (ModalDetalle) */}
         {detalleOpen && <ModalDetalle solicitud={detalleSolicitud} onClose={closeDetalle} />}
 
-        {/* ✅ Comprobante (ANTIGUA) */}
-        {comprobanteModal.open && (
-          <ComprobantePagoModal
-            id_solicitud_proveedor={comprobanteModal.id_solicitud_proveedor}
-            onClose={closeComprobanteModal}
-            onSubmit={async (file) => {
-              const id = comprobanteModal.id_solicitud_proveedor;
-              if (!id) return;
-
-              const res = await uploadComprobantePdf(id, file);
-              if (res.ok) {
-                closeComprobanteModal();
-                await load();
-              }
-            }}
-          />
-        )}
-
         {isLoading && <div className="text-sm text-gray-500 px-2">Cargando información...</div>}
-      </div>
-    </div>
-  );
-}
-
-/** =========================
- *  ✅ Componente Modal Comprobante (ANTIGUA)
- *  ========================= */
-function ComprobantePagoModal({
-  id_solicitud_proveedor,
-  onClose,
-  onSubmit,
-}: {
-  id_solicitud_proveedor: string;
-  onClose: () => void;
-  onSubmit: (file: File) => Promise<void>;
-}) {
-  const [file, setFile] = useState<File | null>(null);
-  const [error, setError] = useState<string>("");
-  const [saving, setSaving] = useState(false);
-
-  const canSubmit = !!file && isPdfFile(file) && !saving;
-
-  const handlePick = (f?: File | null) => {
-    setError("");
-    setFile(null);
-
-    if (!f) return;
-
-    if (!isPdfFile(f)) {
-      setError("Solo se permite PDF.");
-      return;
-    }
-
-    setFile(f);
-  };
-
-  const submit = async () => {
-    if (!file) return;
-    if (!isPdfFile(file)) {
-      setError("Solo se permite PDF.");
-      return;
-    }
-
-    setSaving(true);
-    try {
-      await onSubmit(file);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div
-        className="relative z-10 w-[min(720px,92vw)] bg-white rounded-xl shadow-lg border border-gray-200"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-          <div>
-            <p className="text-sm font-semibold text-gray-900">Subir comprobante de pago (PDF)</p>
-            <p className="text-xs text-gray-500">
-              id_solicitud_proveedor: <span className="font-mono">{id_solicitud_proveedor || "—"}</span>
-            </p>
-          </div>
-
-          <button
-            type="button"
-            className="inline-flex items-center justify-center w-9 h-9 rounded-md border border-gray-200 bg-white hover:bg-gray-50"
-            onClick={onClose}
-            title="Cerrar"
-          >
-            <X className="w-4 h-4 text-gray-700" />
-          </button>
-        </div>
-
-        <div className="p-4 space-y-3">
-          <div className="space-y-2">
-            <label className="block text-xs font-medium text-gray-700">Archivo (PDF)</label>
-
-            <input
-              type="file"
-              accept="application/pdf,.pdf"
-              onChange={(e) => handlePick(e.target.files?.[0] ?? null)}
-              className="block w-full text-sm"
-              disabled={saving}
-            />
-
-            {file && (
-              <div className="text-xs text-gray-600">
-                Seleccionado: <span className="font-semibold">{file.name}</span>
-              </div>
-            )}
-
-            {error && <div className="text-xs text-red-600">{error}</div>}
-
-            <div className="text-[11px] text-gray-500">* Se valida por extensión/tipo. Solo PDF.</div>
-          </div>
-
-          <div className="flex items-center justify-end gap-2 pt-2">
-            <button
-              type="button"
-              className="px-3 py-2 rounded-lg text-sm border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-50"
-              onClick={onClose}
-              disabled={saving}
-            >
-              Cancelar
-            </button>
-
-            <button
-              type="button"
-              className="px-3 py-2 rounded-lg text-sm border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
-              onClick={() => void submit()}
-              disabled={!canSubmit}
-              title={!file ? "Selecciona un PDF" : ""}
-            >
-              {saving ? "Subiendo..." : "Subir PDF"}
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );

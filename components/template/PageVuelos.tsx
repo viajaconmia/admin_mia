@@ -29,9 +29,17 @@ import { ForSave, GuardadoRapido } from "./GuardadoRapido";
 import { Proveedor } from "@/services/ProveedoresService";
 import { useProveedor } from "@/context/Proveedores";
 import { Loader } from "../atom/Loader";
-import { ViajeAereoDetails } from "./EditarVuelos";
 import { verificar } from "@/lib/utils";
-import { set } from "date-fns";
+
+export type ViajeAereoDetails = {
+  codigo: string | null;
+  viajero: ViajeroService | null;
+  costo: number | null;
+  precio: number | null;
+  status: string | null;
+  id_booking?: string;
+  vuelos: Vuelo[];
+};
 
 type VuelosFormProps = {
   agente: Agente;
@@ -328,7 +336,10 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
             label="Código de reservación"
             placeholder="PNR / Código..."
             onChange={(value: string) =>
-              setDetails((prev) => ({ ...prev, codigo: value }))
+              setDetails((prev) => ({
+                ...prev,
+                codigo: value.replaceAll(" ", ""),
+              }))
             }
           />
 
@@ -631,7 +642,6 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
             <NumberInput
               label="Costo proveedor"
               value={details.costo}
-              disabled={!!onConfirm}
               onChange={(value: string) =>
                 setDetails((prev) => ({ ...prev, costo: Number(value) }))
               }

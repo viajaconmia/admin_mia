@@ -3,9 +3,21 @@ import { Send, X, Info } from "lucide-react";
 import { URL as API_URL, API_KEY } from "@/lib/constants/index";
 import { es } from "date-fns/locale";
 
+export type ProveedorCuentaRaw = {
+  id?: number | string | null;
+  id_proveedor?: number | string | null;
+  cuenta?: string | null;
+  banco?: string | null;
+  titular?: string | null;
+  comentarios?: string | null;
+  alias?: string | null;
+};
+
 export type SolicitudProveedorRaw = {
   id_solicitud: string;
   id_pago?: string | null;
+  id_proveedor?: number | string | null;
+
   hotel?: string | null;
   codigo_reservacion_hotel?: string | null;
   costo_total?: string | null;
@@ -13,12 +25,14 @@ export type SolicitudProveedorRaw = {
   codigo_dispersion?: string | null;
   razon_social?: string | null;
   rfc?: string | null;
+
   solicitud_proveedor?: {
     id_solicitud_proveedor: number | string;
     fecha_solicitud?: string | null;
     monto_solicitado?: string | null;
+    saldo?: string | null;
   } | null;
-  // Campos adicionales para CSV (antes XML)
+
   tipo_operacion?: string | null;
   cuenta_cargo?: string | null;
   clave_proveedor?: string | null;
@@ -27,6 +41,7 @@ export type SolicitudProveedorRaw = {
   texto_libre?: string | null;
   cuenta_de_deposito?: string | null;
 
+  cuentas_proveedor?: ProveedorCuentaRaw[];
 };
 
 type DispersionModalProps = {
@@ -109,7 +124,7 @@ const generateDispersionId = () => {
 
   // "D" + 6 chars base36
   return "D" + (n % (36 ** 8)).toString(36).padStart(6, "0").toUpperCase();
-};
+}; 
 
   // Esta función solo genera y descarga el CSV
 const generarCSV = (idPago, dispersionId: string) => {
@@ -144,39 +159,50 @@ const generarCSV = (idPago, dispersionId: string) => {
       .join(",");
 
     const csvLines = solicitudesSeleccionadas.map((solicitud, idx) => {
-      const tipoOperacion = solicitud.tipo_operacion || "SPEI";
-      const fechaPago = formatDateForCSV(
-        solicitud.solicitud_proveedor?.fecha_solicitud || ""
-      );
+  const tipoOperacion = solicitud.tipo_operacion || "SPEI";
 
-      const id_pago = idPago[idx]; // Usamos idPago por índice
-      const cuentaCargo = solicitud.cuenta_cargo;
-      const claveProveedor =
-        solicitud.clave_proveedor;
-      const tipoCuenta = solicitud.cuenta_de_deposito || "Cta Clabe";
-      const moneda = solicitud.moneda || "Pesos";
-      const importe = parseFloat(
-        solicitud.solicitud_proveedor?.monto_solicitado || "0"
-      ).toFixed(2);
-      const textoLibre =
-        solicitud.texto_libre || solicitud.razon_social || solicitud.hotel || "";
-      const referencia = referenciaNumerica + " "+`wx${dispersionId}xw${id_pago}`
-      console.log("fefef",referencia)
-      return [
-        escapeCsv(id_pago),
-        escapeCsv(dispersionId),
-        escapeCsv(tipoOperacion),
-        escapeCsv(fechaPago),
-        escapeCsv(cuentaCargo),
-        escapeCsv(claveProveedor),
-        escapeCsv(tipoCuenta),
-        escapeCsv(moneda),
-        escapeCsv(importe),
-        escapeCsv(motivoPago || "Pago servicios"),
-        escapeCsv(referencia || `REF${solicitud.id_solicitud}`),
-        escapeCsv(textoLibre),
-      ].join(",");
-    });
+  const fechaPago = formatDateForCSV(
+    solicitud.solicitud_proveedor?.fecha_solicitud || ""
+  );
+
+  const id_pago = idPago[idx];
+  const cuentaCargo = solicitud.cuenta_cargo || "";
+
+  const claveProveedor =
+    solicitud.clave_proveedor ||
+    (solicitud.id_proveedor != null ? String(solicitud.id_proveedor) : "");
+
+  const tipoCuenta = solicitud.tipo_cuenta || "Cta Clabe";
+  const moneda = solicitud.moneda || "Pesos";
+
+  const importe = parseFloat(
+    solicitud.solicitud_proveedor?.monto_solicitado || "0"
+  ).toFixed(2);
+
+  const textoLibre =
+    solicitud.texto_libre ||
+    solicitud.razon_social ||
+    solicitud.hotel ||
+    "";
+
+  const referencia =
+    referenciaNumerica + " " + `wx${dispersionId}xw${id_pago}`;
+
+  return [
+    escapeCsv(id_pago),
+    escapeCsv(dispersionId),
+    escapeCsv(tipoOperacion),
+    escapeCsv(fechaPago),
+    escapeCsv(cuentaCargo),
+    escapeCsv(claveProveedor), // <- aquí ya va id_proveedor
+    escapeCsv(tipoCuenta),
+    escapeCsv(moneda),
+    escapeCsv(importe),
+    escapeCsv(motivoPago || "Pago servicios"),
+    escapeCsv(referencia || `REF${solicitud.id_solicitud}`),
+    escapeCsv(textoLibre),
+  ].join(",");
+});
 
     const csvContent = [header, ...csvLines].join("\n");
 const cleanedIdDispersion = cleanInput(dispersionId);
@@ -227,25 +253,34 @@ useEffect(() => {
     console.log("seleccionadas", solicitudesSeleccionadas)
     // Armar payload
     const payload = {
-      id_dispersion: cleanedIdDispersion,
-      referencia_numerica: referenciaNumerica,
-      motivo_pago: motivoPago,
-      layoutUrl: "example-url-to-layout-file.txt",
-      solicitudes: solicitudesSeleccionadas.map((s) => {
-        return {
-          id_solicitud: s.id_solicitud,
-          id_solicitud_proveedor:
-            s.solicitud_proveedor?.id_solicitud_proveedor ?? null,
-          id_pago: s.id_pago ?? null,
-          costo_proveedor: parseFloat(
-            s.solicitud_proveedor?.saldo || "0"
-          ),
-          codigo_hotel: s.codigo_reservacion_hotel ?? null,
-          fecha_pago:
-            s.solicitud_proveedor?.fecha_solicitud ?? s.check_out ?? null,
-        };
-      }),
+  id_dispersion: cleanedIdDispersion,
+  referencia_numerica: referenciaNumerica,
+  motivo_pago: motivoPago,
+  layoutUrl: "example-url-to-layout-file.txt",
+  solicitudes: solicitudesSeleccionadas.map((s) => {
+    return {
+      id_solicitud: s.id_solicitud,
+      id_solicitud_proveedor:
+        s.solicitud_proveedor?.id_solicitud_proveedor ?? null,
+      id_pago: s.id_pago ?? null,
+      id_proveedor: s.id_proveedor ?? null,
+      clave_proveedor:
+        s.clave_proveedor ??
+        (s.id_proveedor != null ? String(s.id_proveedor) : null),
+      cuenta_de_deposito: s.cuenta_de_deposito ?? null,
+      tipo_cuenta: s.tipo_cuenta ?? null,
+      costo_proveedor: parseFloat(
+        s.solicitud_proveedor?.saldo ??
+          s.solicitud_proveedor?.monto_solicitado ??
+          s.costo_total ??
+          "0"
+      ),
+      codigo_hotel: s.codigo_reservacion_hotel ?? null,
+      fecha_pago:
+        s.solicitud_proveedor?.fecha_solicitud ?? s.check_out ?? null,
     };
+  }),
+};
 
     try {
       setIsSubmitting(true);

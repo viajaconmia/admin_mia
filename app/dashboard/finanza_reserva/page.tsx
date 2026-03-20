@@ -4,20 +4,18 @@ import { FilterInput } from "@/component/atom/FilterInput";
 import {
   ServiceIcon,
   ButtonCopiar,
-  LinkCopiar,
   Tooltip,
   MarginPercent,
 } from "@/component/atom/ItemTable";
 import { Table } from "@/component/molecule/Table";
 import Button from "@/components/atom/Button";
-import { ROUTES } from "@/constant/routes";
 import { useAlert } from "@/context/useAlert";
 import {
   formatDate,
   formatNumberWithCommas,
   formatTime,
 } from "@/helpers/formater";
-import { getStatusBadge } from "@/helpers/utils";
+import { calcularNoches, getStatusBadge } from "@/helpers/utils";
 import { currentDate } from "@/lib/utils";
 import { BookingAll, BookingsService } from "@/services/BookingService";
 import { TypeFilters } from "@/types";
@@ -27,21 +25,12 @@ import {
   PageTracker,
   TrackingPage,
 } from "@/v2/components/molecule/PageTracking";
-import {
-  Building2,
-  Download,
-  Plane,
-  RefreshCwIcon,
-  Trash2,
-} from "lucide-react";
+import { Download, RefreshCwIcon, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { usePermiso } from "@/hooks/usePermission";
 import { useFile } from "@/hooks/useFile";
-import { useParams } from "next/navigation";
-import { generatePdf } from "@/lib/pdf/cupon_vuelo";
-import { downloadPdfSafely } from "@/lib/pdf/descarga";
-import { generatePdfHotel } from "@/lib/pdf/cupon_hotel";
 
-const PageReservas = () => {
+const PageReservas = ({ agente }: { agente?: Agente }) => {
   const [loading, setLoading] = useState(false);
   const [tracking, setTracking] = useState<TrackingPage>({
     page: 1,
@@ -49,22 +38,19 @@ const PageReservas = () => {
     total_pages: 1,
   });
   const [reservas, setReservas] = useState<BookingAll[]>([]);
-  const [filters, setFilters] = useState<TypeFilters>(
+  const [filters, setFilters] = useState<TypeFilters & { monto?: string }>(
     defaultFiltersSolicitudes,
   );
-  const { showNotification, error } = useAlert();
+  const { showNotification } = useAlert();
   const { csv, loadingFile, setLoadingFile } = useFile();
-  const { id } = useParams();
-  const agente = { id_agente: Array.isArray(id) ? id[0] : id };
 
   const booking_service = new BookingsService();
   const handleFetchSolicitudes = async (page = tracking.page) => {
     setLoading(true);
-    let extras = agente?.id_agente
-      ? { id_client: agente.id_agente, status: "Confirmada" }
-      : {};
+    let extras = agente?.id_agente ? { id_client: agente.id_agente } : {};
     const response = await booking_service.obtenerReservas({
       page,
+      finanzas: true,
       length: MAX_REGISTERS,
       ...filters,
       ...extras,
@@ -96,24 +82,42 @@ const PageReservas = () => {
       const response = await booking_service.obtenerReservas({
         ...filters,
         ...extras,
+        finanzas: true,
       });
 
       const formatData = response.data.map((reserva) => ({
         servicio: reserva.type,
+        id_cliente: reserva.id_agente,
         cliente: reserva.agente,
         creado: `${reserva.created_at.split("T")[0]} : ${reserva.created_at.split("T")[1]}`,
         proveedor: reserva.proveedor,
+        intermediario: reserva.intermediario,
         codigo: reserva.codigo_confirmacion,
         viajero: reserva.viajero,
         check_in: reserva.check_in.split("T")[0],
         horario_salida: reserva.horario_salida,
         check_out: reserva.check_out.split("T")[0],
         horario_llegada: reserva.horario_llegada,
+        noches:
+          reserva.check_in && reserva.check_out
+            ? calcularNoches(reserva.check_in, reserva.check_out)
+            : "",
         tipo: reserva.tipo_cuarto_vuelo,
+        costo_proveedor: Number(reserva.costo_total || 0),
+        markup:
+          ((Number(reserva.total || 0) - Number(reserva.costo_total || 0)) /
+            Number(reserva.total || 0)) *
+          100,
         precio_de_venta: reserva.total,
         metodo_de_pago: reserva.metodo_pago,
+        reservante: reserva.reservante,
         etapa_reservacion: reserva.etapa_reservacion,
         estado: reserva.estado,
+        estado_pago: reserva.estado_pago,
+        estado_facturacion: reserva.estado_facturacion,
+        id_booking: reserva.id_booking,
+        uuid_emitido: reserva.uuid_factura || "",
+        total_factura: reserva.total_factura,
       }));
 
       csv(formatData, fileName);
@@ -125,95 +129,68 @@ const PageReservas = () => {
   };
 
   const renderers = {
-    servicio: ({ value }) => <ServiceIcon type={value} />,
+    serv: ({ value }) => <ServiceIcon type={value} />,
     id: ({ value }: { value: string }) => (
       <ButtonCopiar copy_value={value} label={value.slice(0, 12)} />
     ),
     cliente: (valor) => {
       return <h1>{valor.value}</h1>;
     },
-    creado: ({ value }) => <>{formatDate(value)}</>,
-    proveedor: ({ value }: { value: string }) => <p>{value || ""}</p>,
-    codigo: ({ value }) => <p>{value || ""}</p>,
+    creado: ({ value }) => <>{value ? formatDate(value) : ""}</>,
+    proveedor: ({ value }: { value: string }) => (
+      <Tooltip content={value}>{value || ""}</Tooltip>
+    ),
+    codigo: ({ value }) => <Tooltip content={value}>{value || ""}</Tooltip>,
+    markup: ({ value }) => <MarginPercent value={value} />,
     viajero: ({ value }) => <>{value}</>,
-    check_in: ({ value }) => <>{formatDate(value)}</>,
+    check_in: ({ value }) => <>{value ? formatDate(value) : ""}</>,
     horario_salida: ({ value }) => <>{value ? formatTime(value) : ""}</>,
-    check_out: ({ value }) => <>{formatDate(value)}</>,
+    check_out: ({ value }) => <>{value ? formatDate(value) : ""}</>,
     horario_llegada: ({ value }) => <>{value ? formatTime(value) : ""}</>,
+    costo_proveedor: ({ value }) => (
+      <>{value ? "$" + formatNumberWithCommas(value) : ""}</>
+    ),
     estado: ({ value }) => <span title={value}>{getStatusBadge(value)}</span>,
     precio_de_venta: ({ value }) => (
       <>{value ? "$" + formatNumberWithCommas(value) : ""}</>
     ),
-    detalles_cliente: ({ value }) => (
-      <LinkCopiar link={ROUTES.BOOKING.ID_SOLICITUD(value) || ""} />
-    ),
-    cupon: ({ value }: { value: BookingAll }) => (
-      <>
-        {value.type == "flyght" && (
-          <Button
-            icon={Plane}
-            onClick={async () => {
-              console.log(value);
-              const pdf = await generatePdf(value.id_solicitud);
-              const filename = `VUELO-${value.viajero.toUpperCase()}-${value.codigo_confirmacion}.pdf`;
-              downloadPdfSafely(pdf, filename);
-            }}
-          >
-            Ver
-          </Button>
-        )}
-        {value.type == "hotel" && (
-          <Button
-            icon={Building2}
-            onClick={async () => {
-              try {
-                const pdf = await generatePdfHotel(value.id_solicitud);
-                const filename = `reservacion-${value.viajero.toUpperCase()}-${value.codigo_confirmacion}.pdf`;
-                downloadPdfSafely(pdf, filename);
-              } catch (err) {
-                console.log(err);
-                error(err.message || "Error al realizar este pedouw");
-              }
-            }}
-          >
-            Ver
-          </Button>
-        )}
-      </>
-    ),
   };
 
   const data = reservas.map((reserva) => ({
-    servicio: reserva.type,
-    // id_cliente: reserva.id_agente,
+    serv: reserva.type,
+    id: reserva.id_agente || "",
     cliente: reserva.agente,
-    creado: `${reserva.created_at.split("T")[0]}`,
+    creado: reserva.created_at,
     proveedor: reserva.proveedor,
-    cupon: reserva,
     codigo: reserva.codigo_confirmacion,
-    // intermediario: reserva.intermediario,
     viajero: reserva.viajero,
-    check_in: reserva.check_in.split("T")[0],
+    check_in: reserva.check_in,
     horario_salida: reserva.horario_salida,
-    check_out: reserva.check_out.split("T")[0],
+    check_out: reserva.check_out,
     horario_llegada: reserva.horario_llegada,
+    noches:
+      reserva.check_in && reserva.check_out
+        ? calcularNoches(reserva.check_in, reserva.check_out)
+        : "",
     tipo: reserva.tipo_cuarto_vuelo,
-    costo_proveedor: reserva.costo_total,
+    costo_proveedor: Number(reserva.costo_total || 0),
     markup:
       ((Number(reserva.total || 0) - Number(reserva.costo_total || 0)) /
         Number(reserva.total || 0)) *
       100,
-    precio_de_venta: reserva.total,
+    precio_de_venta: Number(reserva?.total || 0),
     metodo_de_pago: reserva.metodo_pago,
     reservante: reserva.reservante,
     etapa_reservacion: reserva.etapa_reservacion,
     estado: reserva.estado,
     estado_pago: reserva.estado_pago,
     estado_facturacion: reserva.estado_facturacion,
-    detalles_cliente: reserva.id_solicitud,
+    intermediario: reserva.intermediario,
+    uuid_emitido: reserva.uuid_factura || "",
+    total_factura: reserva.total_factura,
   }));
 
-  const handleFilterChange = (value, propiedad) => {
+  const handleFilterChange = (value: string | null, propiedad: string) => {
     if (value == null) {
       const newObj = Object.fromEntries(
         Object.entries({ ...filters }).filter(([key]) => key != propiedad),
@@ -229,9 +206,9 @@ const PageReservas = () => {
   }, [filters]);
 
   return (
-    <>
+    <div className="w-full bg-white">
       <div className="grid md:grid-cols-2 gap-4 p-4 pb-0">
-        <Dropdown label="Filtros" onConfirm={() => handleFetchSolicitudes()}>
+        <Dropdown label="Filtros" onConfirm={handleFetchSolicitudes}>
           <div className="w-full p-8 grid md:grid-cols-4 gap-4">
             <FilterInput
               type="text"
@@ -322,6 +299,13 @@ const PageReservas = () => {
               label="Filtrar fecha por:"
               options={["transaccion", "Check in", "Check out"]}
             />
+            <FilterInput
+              type="text"
+              onChange={handleFilterChange}
+              propiedad="monto"
+              value={filters.monto || null}
+              label="Monto"
+            />
           </div>
         </Dropdown>
         <Button onClick={() => setFilters({})} icon={Trash2} variant="ghost">
@@ -357,6 +341,9 @@ const PageReservas = () => {
       </div>
 
       <div className="overflow-hidden flex gap-2 flex-col">
+        <p className="font-semibold text-gray-600 text-xs">
+          Total de reservas: {tracking.total}
+        </p>
         <Table
           maxHeight="25rem"
           registros={data}
@@ -376,11 +363,11 @@ const PageReservas = () => {
           ></PageTracker>
         )}
       </div>
-    </>
+    </div>
   );
 };
 
-const MAX_REGISTERS = 20;
+const MAX_REGISTERS = 50;
 
 const defaultFiltersSolicitudes: TypeFilters = {
   codigo_reservacion: null,
@@ -396,8 +383,6 @@ const defaultFiltersSolicitudes: TypeFilters = {
   id_client: null,
   statusPagoProveedor: null,
   filterType: "Transaccion",
-  // markup_end: null,
-  // markup_start: null,
 };
 
 export default PageReservas;

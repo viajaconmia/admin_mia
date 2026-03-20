@@ -189,6 +189,8 @@ export function ReservationForm2({
 
   const handleSaldosSubmit = async (saldos, restante, usado) => {
     try {
+      if (form.check_in > form.check_out)
+        throw new Error("Las fechas son invalidas");
       const validateReservation = await codigo_reserva(
         form.codigo_reservacion_hotel,
         solicitud.id_booking,
@@ -688,32 +690,7 @@ export function ReservationForm2({
                 </div>
               </div>
               <div className="space-y-2">
-                <Dropdown
-                  label="Estado de la reserva"
-                  onChange={(value) => {
-                    if (edicion) {
-                      setEdicionForm((prev) => ({
-                        ...prev,
-                        estado_reserva: {
-                          before: form.estado_reserva,
-                          current: value as
-                            | "Confirmada"
-                            | "Cancelada"
-                            | "En proceso",
-                        },
-                      }));
-                    }
-                    setForm((prev) => ({
-                      ...prev,
-                      estado_reserva: value as
-                        | "Confirmada"
-                        | "Cancelada"
-                        | "En proceso",
-                    }));
-                  }}
-                  options={["Confirmada", "Cancelada", "En proceso"]}
-                  value={form.estado_reserva}
-                />
+                <div className="h-16"></div>
                 <TextInput
                   onChange={(value) => {
                     if (edicion) {
@@ -1241,7 +1218,16 @@ export function ReservationForm2({
               <Button
                 type="button"
                 icon={CheckCircle}
-                onClick={() => setOpen(true)}
+                onClick={() => {
+                  try {
+                    if (form.check_in > form.check_out) {
+                      throw new Error("Las fechas son invalidas");
+                    }
+                    setOpen(true);
+                  } catch (error) {
+                    showNotification("error", (error as Error).message);
+                  }
+                }}
               >
                 Confirmar cambios
               </Button>
