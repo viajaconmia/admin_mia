@@ -176,7 +176,11 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
   const hotel = (raw?.hotel ?? "").toString();
   const viajero = (raw?.nombre_viajero_completo ?? raw?.nombre_viajero ?? "").toString();
 
-  const costo_proveedor = Number(raw?.costo_total ?? 0) || 0;
+  const costo_proveedor =
+  Number(
+    raw?.solicitud_proveedor?.monto_solicitado ??
+    0
+  ) || 0;
   const precio_de_venta = Number(raw?.total ?? 0) || 0;
 
   const markup =
@@ -256,6 +260,7 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
 
     uuid_factura: raw?.uuid_factura ?? null,
     total_factura,
+    seleccionar_factura: "",
 
     subir_factura: raw,
     acciones: "",
@@ -281,14 +286,22 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
   };
 }
 
+
+
 type EditableField =
   | "comentarios_ops"
   | "comentarios_cxp"
   | "total_aplicable"
   | "impuestos"
-  | "subtotal";
+  | "subtotal"
+  | "costo_proveedor";
 
-const MONEY_FIELDS: EditableField[] = ["total_aplicable", "impuestos", "subtotal"];
+const MONEY_FIELDS: EditableField[] = [
+  "total_aplicable",
+  "impuestos",
+  "subtotal",
+  "costo_proveedor",
+];
 
 const FIELD_TO_API: Record<string, string> = {
   comentarios_ops: "comentarios_ops",
@@ -296,6 +309,7 @@ const FIELD_TO_API: Record<string, string> = {
   total_aplicable: "total_aplicable",
   impuestos: "impuestos",
   subtotal: "subtotal",
+  costo_proveedor: "monto_solicitado",
 };
 
 type EditModalState = {
@@ -307,6 +321,7 @@ type EditModalState = {
 };
 
 type ProveedorSeleccionado = {
+  row_id: string;
   id_solicitud: string;
   id_proveedor: string;
 };
@@ -320,8 +335,8 @@ export default function ConciliacionPage() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [showSubirFactura, setShowSubirFactura] = useState(false);
-  const [selectedForFactura, setSelectedForFactura] = useState<ProveedorSeleccionado[]>([]);
-  const [selectedFacturaRfc, setSelectedFacturaRfc] = useState("");
+const [selectedForFactura, setSelectedForFactura] = useState<ProveedorSeleccionado[]>([]);
+const [facturaSelection, setFacturaSelection] = useState<Record<string, ProveedorSeleccionado>>({});
 
   const [todos, setTodos] = useState<any[]>([]);
 
@@ -329,6 +344,7 @@ export default function ConciliacionPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const [draftEdits, setDraftEdits] = useState<Record<string, Partial<AnyRow>>>({});
+  
 
   const endpoint = `${URL}/mia/pago_proveedor/solicitud_conciliacion`;
   const editEndpoint = `${URL}/mia/pago_proveedor/edit`;
@@ -346,11 +362,13 @@ export default function ConciliacionPage() {
     setDetalleSolicitud(null);
   }, []);
 
-  const closeSubirFactura = useCallback(() => {
-    setShowSubirFactura(false);
-    setSelectedForFactura([]);
-    setSelectedFacturaRfc("");
-  }, []);
+ const closeSubirFactura = useCallback(() => {
+  setShowSubirFactura(false);
+  setSelectedForFactura([]);
+  setFacturaSelection({});
+}, []);
+
+
 
   const EMPTY_FILTERS = {
     folio: "",
@@ -590,6 +608,91 @@ const filteredData = useMemo(() => {
     [editEndpoint]
   );
 
+
+ const toggleFacturaSelection = useCallback((row: AnyRow) => {
+  const rowId = String(getSelectionKey(row)).trim();
+  const idSolicitud = String(row?.id_solicitud_proveedor ?? "").trim();
+  const idProveedor = String(row?.id_proveedor ?? "").trim();
+
+  if (!rowId || !idSolicitud || !idProveedor) {
+    alert("Faltan datos para seleccionar la solicitud");
+    return;
+  }
+
+  setFacturaSelection((prev) => {
+    const exists = !!prev[rowId];
+
+    if (exists) {
+      const next = { ...prev };
+      delete next[rowId];
+      return next;
+    }
+
+    const current = Object.values(prev);
+    if (current.length > 0) {
+      const first = current[0];
+      const sameProveedor =
+        String(first.id_proveedor).trim() === String(idProveedor).trim();
+
+      if (!sameProveedor) {
+        alert("Solo puedes seleccionar solicitudes del mismo proveedor");
+        return prev;
+      }
+    }
+
+    return {
+      ...prev,
+      [rowId]: {
+        row_id: rowId,
+        id_solicitud: idSolicitud,
+        id_proveedor: idProveedor,
+      },
+    };
+  });
+}, []);
+
+const openSubirFacturaSingle = useCallback((item: AnyRow) => {
+  const idSolicitud = String(item?.id_solicitud_proveedor ?? "").trim();
+  const idProveedor = String(item?.id_proveedor ?? "").trim();
+
+  if (!idSolicitud || !idProveedor) {
+    alert("Falta id_solicitud o id_proveedor para subir factura");
+    return;
+  }
+
+  setSelectedForFactura([
+    {
+      row_id: String(getSelectionKey(item)).trim(),
+      id_solicitud: idSolicitud,
+      id_proveedor: idProveedor,
+    },
+  ]);
+
+  setShowSubirFactura(true);
+}, []);
+
+const openSubirFacturaSelected = useCallback(() => {
+  const selected = Object.values(facturaSelection);
+
+  if (selected.length === 0) {
+    alert("No has seleccionado solicitudes");
+    return;
+  }
+
+  const first = selected[0];
+  const sameProvider = selected.every(
+    (x) => String(x.id_proveedor).trim() === String(first.id_proveedor).trim()
+  );
+
+  if (!sameProvider) {
+    alert("Las solicitudes seleccionadas deben pertenecer al mismo proveedor");
+    return;
+  }
+
+  setSelectedForFactura(selected);
+  setShowSubirFactura(true);
+}, [facturaSelection]);
+
   const solicitarPagoCredito = useCallback(
     async (row: AnyRow) => {
       const id = String(row?.id_solicitud_proveedor ?? "").trim();
@@ -644,6 +747,7 @@ const filteredData = useMemo(() => {
       "estado_solicitud",
       "costo_proveedor",
       "markup",
+      "seleccionar_factura",
       "precio_de_venta",
       "canal_de_reservacion",
       "nombre_intermediario",
@@ -718,6 +822,49 @@ const filteredData = useMemo(() => {
     return { factura, pagado, diff, ok };
   }, []);
 
+const getFacturaInfo = useCallback((row: AnyRow) => {
+  const facturaPrincipal =
+    row?.informacion_completa?.facturas_proveedor?.facturas?.[0] ?? null;
+
+  const uuidFactura = String(
+    facturaPrincipal?.uuid_factura ??
+      row?.informacion_completa?.facturas_proveedor?.uuid_factura_principal ??
+      row?.uuid_factura ??
+      ""
+  ).trim();
+
+  const idFactura = String(
+    facturaPrincipal?.id_factura ??
+      row?.informacion_completa?.facturas_proveedor?.facturas?.[0]?.id_factura ??
+      ""
+  ).trim();
+
+  const montoFacturadoRaw = facturaPrincipal?.monto_facturado;
+
+  const montoFacturadoNum = Number(montoFacturadoRaw);
+
+  // ✅ cuenta como factura si hay uuid o id_factura
+  const hasFactura = uuidFactura !== "" || idFactura !== "";
+
+  // ✅ cuenta como "sí tiene monto" solo si es numérico y > 0
+  const hasMontoFacturado =
+    montoFacturadoRaw !== undefined &&
+    montoFacturadoRaw !== null &&
+    String(montoFacturadoRaw).trim() !== "" &&
+    String(montoFacturadoRaw).trim().toLowerCase() !== "null" &&
+    Number.isFinite(montoFacturadoNum) &&
+    montoFacturadoNum > 0;
+
+  return {
+    hasFactura,
+    hasMontoFacturado,
+    uuidFactura,
+    idFactura,
+    montoFacturadoRaw,
+    montoFacturadoNum,
+  };
+}, []);
+
   const tableRenderers = useMemo<
     Record<string, React.FC<{ value: any; item: any; index: number }>>
   >(
@@ -730,7 +877,24 @@ const filteredData = useMemo(() => {
         <span className="font-semibold">{value ? String(value).toUpperCase() : ""}</span>
       ),
 
-      costo_proveedor: ({ value }) => <span title={String(value)}>{formatMoney(value)}</span>,
+      costo_proveedor: ({ value, item }) => {
+  const rowId = getSelectionKey(item);
+  const v = draftEdits[rowId]?.costo_proveedor ?? value ?? "";
+
+  return (
+    <div className="flex items-center gap-2">
+      <span title={String(v)}>{formatMoney(v)}</span>
+      <Button
+        variant="secondary"
+        size="sm"
+        className="w-8 h-8 px-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-700"
+        onClick={() => openEditModal(rowId, item?.id_servicio, "costo_proveedor", v)}
+      >
+        …
+      </Button>
+    </div>
+  );
+},
       precio_de_venta: ({ value }) => <span title={String(value)}>{formatMoney(value)}</span>,
 
       markup: ({ value }) => {
@@ -781,6 +945,34 @@ const filteredData = useMemo(() => {
         );
       },
 
+      seleccionar_factura: ({ item }) => {
+  const diff = Number(item?.diferencia_costo_proveedor_vs_factura ?? 0) || 0;
+  const facturaInfo = getFacturaInfo(item);
+
+  // Si ya existe factura pero solo falta asignar monto, no entra a selección de subida
+  if (facturaInfo.hasFactura && !facturaInfo.hasMontoFacturado) {
+    return <span className="text-xs text-gray-300">—</span>;
+  }
+
+  if (isZero(diff)) {
+    return <span className="text-xs text-gray-300">—</span>;
+  }
+
+  const rowId = String(getSelectionKey(item)).trim();
+  const checked = !!facturaSelection[rowId];
+
+  return (
+    <label className="inline-flex items-center justify-center cursor-pointer">
+      <input
+        type="checkbox"
+        className="w-4 h-4 accent-blue-600"
+        checked={checked}
+        onChange={() => toggleFacturaSelection(item)}
+      />
+    </label>
+  );
+},
+
       comentarios_cxp: ({ value, item }) => {
         const rowId = getSelectionKey(item);
         const v = draftEdits[rowId]?.comentarios_cxp ?? value ?? "";
@@ -815,40 +1007,26 @@ const filteredData = useMemo(() => {
         );
       },
 
-      subir_factura: ({ item }) => {
-        const diff = Number(item?.diferencia_costo_proveedor_vs_factura ?? 0) || 0;
-        if (isZero(diff)) return <span className="text-xs text-gray-300">—</span>;
+subir_factura: ({ item }) => {
+  const diff = Number(item?.diferencia_costo_proveedor_vs_factura ?? 0) || 0;
 
-        const idSolicitud = String(item?.id_solicitud_proveedor ?? "").trim();
-        const idProveedor = String(item?.id_proveedor ?? "").trim();
+  const facturaInfo = getFacturaInfo(item);
 
-        return (
-          <Button
-            variant="secondary"
-            size="sm"
-            className="px-2 py-1 text-xs border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-            onClick={() => {
-              if (!idSolicitud || !idProveedor) {
-                alert("Falta id_solicitud o id_proveedor para subir factura");
-                return;
-              }
 
-              const payload = [
-                {
-                  id_solicitud: idSolicitud,
-                  id_proveedor: idProveedor,
-                },
-              ];
 
-              setSelectedForFactura(payload);
-              setSelectedFacturaRfc(normRfc(item?.rfc ?? item?.__raw?.rfc_proveedor ?? ""));
-              setShowSubirFactura(true);
-            }}
-          >
-            Subir
-          </Button>
-        );
-      },
+  if (isZero(diff)) return <span className="text-xs text-gray-300">—</span>;
+
+  return (
+    <Button
+      variant="secondary"
+      size="sm"
+      className="px-2 py-1 text-xs border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+      onClick={() => openSubirFacturaSingle(item)}
+    >
+      Subir
+    </Button>
+  );
+},
 
       acciones: ({ item }) => {
         const row = item as AnyRow;
@@ -1005,19 +1183,30 @@ const filteredData = useMemo(() => {
 
       total_factura: ({ value }) => <span title={String(value)}>{formatMoney(value)}</span>,
     }),
-    [
-      draftEdits,
-      openEditModal,
-      openDetalle,
-      solicitarPagoCredito,
-      isPagadoRow,
-      handleConciliar,
-      cancelSolicitud,
-      load,
-    ]
+   [
+  draftEdits,
+  openEditModal,
+  openDetalle,
+  solicitarPagoCredito,
+  isPagadoRow,
+  handleConciliar,
+  cancelSolicitud,
+  load,
+  getFacturaInfo,
+  
+  facturaSelection,
+  toggleFacturaSelection,
+  openSubirFacturaSingle,
+]
   );
 
+
+  
   const defaultSort = useMemo(() => ({ key: "creado", sort: false }), []);
+
+
+
+const selectedFacturaItems = useMemo(() => Object.values(facturaSelection), [facturaSelection]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -1076,7 +1265,25 @@ const filteredData = useMemo(() => {
                 <Search className="w-4 h-4" />
                 Aplicar filtros
               </Button>
-
+              <Button
+  variant="secondary"
+  size="md"
+  className={[
+    "border text-gray-800",
+    selectedFacturaItems.length === 0
+      ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+      : "border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800",
+  ].join(" ")}
+  onClick={openSubirFacturaSelected}
+  disabled={selectedFacturaItems.length === 0}
+>
+  <span className="inline-flex items-center gap-2">
+    <span>Facturar seleccionadas</span>
+    <span className="px-2 py-0.5 rounded-full text-xs bg-white/80 border border-current">
+      {selectedFacturaItems.length}
+    </span>
+  </span>
+</Button>
             </div>
           </div>
 
@@ -1330,20 +1537,25 @@ const filteredData = useMemo(() => {
               </div>
 
               <div className="p-6">
-                <SubirFactura
-                  proveedoresData={selectedForFactura}
-                  id_proveedor={selectedForFactura.length === 1 ? selectedForFactura[0]?.id_proveedor : undefined}
-                  proveedoresRfc={selectedFacturaRfc}
-                  autoOpen={true}
-                  onSuccess={() => {
-                    closeSubirFactura();
-                    // void load();
-                  }}
-                />
+               <SubirFactura
+  proveedoresData={selectedForFactura}
+  id_proveedor={
+    selectedForFactura.length === 1
+      ? selectedForFactura[0]?.id_proveedor
+      : undefined
+  }
+  autoOpen={true}
+  onSuccess={() => {
+    closeSubirFactura();
+    // void load();
+  }}
+/>
               </div>
             </div>
           </div>
         )}
+
+
 
         {detalleOpen && <ModalDetalle solicitud={detalleSolicitud} onClose={closeDetalle} />}
 

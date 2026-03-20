@@ -66,6 +66,7 @@ export async function parsearXML(xmlFile: File): Promise<any> {
             subtotal: getAttr(comprobante, "SubTotal"),
             total: getAttr(comprobante, "Total"),
             moneda: getAttr(comprobante, "Moneda"),
+            tipoCambio: getAttr(comprobante, "TipoCambio"), // 👈 NUEVO
             tipoDeComprobante: getAttr(comprobante, "TipoDeComprobante"),
             formaPago: getAttr(comprobante, "FormaPago"),
             metodoPago: getAttr(comprobante, "MetodoPago"),

@@ -15,7 +15,7 @@ import AsignarFacturaModal from "./AsignarFactura";
 import { obtenerPresignedUrl, subirArchivoAS3 } from "@/helpers/utils";
 
 interface SubirFacturaProps {
-  proveedoresRfc:String;
+  proveedoresRfc?: string | null;
   pagoId?: string; // id del saldo tomado
   id_proveedor?: string;
   pagoData?: Pago | null; // datos del pago
@@ -173,6 +173,42 @@ const getCodigoHotelFromRow = (row: any): string => {
   return String(row?.codigo_hotel ?? row?.proveedor_id ?? row?.id ?? "");
 };
 
+const normalizeRfc = (value: any) => String(value ?? "").trim().toUpperCase();
+
+
+const round2 = (n: any) => {
+  const num = Number(n || 0);
+  if (!Number.isFinite(num)) return 0;
+  return Math.round((num + Number.EPSILON) * 100) / 100;
+};
+
+const normalizeCurrency = (value: any) =>
+  String(value ?? "").trim().toUpperCase();
+
+const isMXNCurrency = (value: any) => {
+  const c = normalizeCurrency(value);
+  return c === "MXN" || c === "MN" || c === "MXP" || c === "PESO" || c === "PESOS";
+};
+
+const getTipoCambioFactura = (facturaData: any) => {
+  const moneda = normalizeCurrency(facturaData?.comprobante?.moneda || "MXN");
+  const tc = Number(facturaData?.comprobante?.tipoCambio || 1);
+
+  if (isMXNCurrency(moneda)) return 1;
+  return Number.isFinite(tc) && tc > 0 ? tc : 0;
+};
+
+const convertAmountToMXN = (
+  amount: any,
+  facturaData: any,
+  applyConversion: boolean
+) => {
+  const n = Number(amount || 0);
+  if (!Number.isFinite(n)) return 0;
+
+  const factor = applyConversion ? getTipoCambioFactura(facturaData) : 1;
+  return round2(n * factor);
+};
 
 
 export default function SubirFactura({
@@ -755,7 +791,6 @@ const subirArchivosAS3 = async (): Promise<{
   return Array.isArray(json?.data) ? json.data : [];
 };
 
-
   const handleConfirmarFactura = async ({
     payload,
     url,
@@ -780,41 +815,110 @@ const subirArchivosAS3 = async (): Promise<{
       // ===========================
       // NUEVO: proveedores payload
       // ===========================
-      let proveedoresPayloadFinal: any = null;
+     const isProveedorFlow = !!proveedoresData;
+const monedaFactura = normalizeCurrency(facturaData?.comprobante?.moneda || "MXN");
+const tipoCambioFactura = getTipoCambioFactura(facturaData);
+const requiereConversionProveedor =
+  isProveedorFlow && !isMXNCurrency(monedaFactura);
+
+const totalFacturaOriginal = parseFloat(facturaData?.comprobante?.total || "0");
+const subtotalFacturaOriginal = parseFloat(facturaData?.comprobante?.subtotal || "0");
+const impuestosFacturaOriginal = parseFloat(
+  facturaData?.impuestos?.traslado?.importe || "0.00"
+);
+
+const totalFacturaMXN = convertAmountToMXN(
+  totalFacturaOriginal,
+  facturaData,
+  requiereConversionProveedor
+);
+
+const subtotalFacturaMXN = convertAmountToMXN(
+  subtotalFacturaOriginal,
+  facturaData,
+  requiereConversionProveedor
+);
+
+const impuestosFacturaMXN = convertAmountToMXN(
+  impuestosFacturaOriginal,
+  facturaData,
+  requiereConversionProveedor
+);
+
+let proveedoresPayloadFinal: any = null;
 
 if (isProveedorBatch) {
-  proveedoresPayloadFinal = batchAsociaciones.map((x) => ({
-    id_solicitud: x.id_solicitud,
-    id_proveedor: x.id_proveedor,
-    monto_asociar: Number(x.monto_asociar || 0), // ✅ vacío = 0
-    monto_solicitado: Number(
-      x.raw?.monto_solicitado ??
-      x.raw?.costo_proveedor ??
-      x.raw?.monto_por_facturar ??
-      0
-    ),
-  }));
+  proveedoresPayloadFinal = batchAsociaciones.map((x) => {
+    const montoOriginal = Number(x.monto_asociar || 0);
+    const montoMXN = convertAmountToMXN(
+      montoOriginal,
+      facturaData,
+      requiereConversionProveedor
+    );
+
+    return {
+      id_solicitud: x.id_solicitud,
+      id_proveedor: x.id_proveedor,
+      monto_asociar: montoMXN, // 👈 convertido a MXN
+      monto_solicitado: Number(
+        x.raw?.monto_solicitado ??
+        x.raw?.costo_proveedor ??
+        x.raw?.monto_por_facturar ??
+        0
+      ),
+      montos_originales: {
+        moneda: monedaFactura,
+        tipo_cambio: tipoCambioFactura,
+        monto_asociar: montoOriginal,
+      },
+    };
+  });
 } else if (isProveedorMode) {
+  const montoOriginal = Number(facturado || 0);
+  const montoMXN = convertAmountToMXN(
+    montoOriginal,
+    facturaData,
+    requiereConversionProveedor
+  );
+
   proveedoresPayloadFinal = {
     ...(proveedoresData ?? {}),
-    monto_asociar: Number(facturado || 0), // ✅ vacío = 0
+    monto_asociar: montoMXN, // 👈 convertido a MXN
+    montos_originales: {
+      moneda: monedaFactura,
+      tipo_cambio: tipoCambioFactura,
+      monto_asociar: montoOriginal,
+    },
   };
 } else {
   proveedoresPayloadFinal = null;
 }
 
-      const totalFactura = parseFloat(facturaData?.comprobante?.total || "0");
+const totalAsociadoProveedor = isProveedorBatch
+  ? round2(
+      batchAsociaciones.reduce((acc, x) => {
+        return (
+          acc +
+          convertAmountToMXN(
+            Number(x.monto_asociar || 0),
+            facturaData,
+            requiereConversionProveedor
+          )
+        );
+      }, 0)
+    )
+  : facturado
+  ? convertAmountToMXN(
+      Number(facturado || 0),
+      facturaData,
+      requiereConversionProveedor
+    )
+  : 0;
 
-      const totalAsociadoProveedor = isProveedorBatch
-        ? batchTotalAsociar
-        : facturado
-        ? Number(facturado || 0)
-        : 0;
-
-      const saldoCalculado =
-        isProveedorBatch || isProveedorMode
-          ? totalFactura - totalAsociadoProveedor
-          : totalFactura - initialItemsTotal;
+const saldoCalculado =
+  isProveedorFlow
+    ? round2(totalFacturaMXN - totalAsociadoProveedor)
+    : round2(totalFacturaOriginal - initialItemsTotal);
 
       // id_agente:
       // - normal: clienteSeleccionado.id_agente
@@ -827,15 +931,17 @@ if (isProveedorBatch) {
       const usuarioCreadorFinal =
         clienteSeleccionado?.id_agente || agentId || pagoData?.id_agente || "";
 
-      const basePayload: any = {
+const basePayload: any = {
   fecha_emision: facturaData.comprobante.fecha.split("T")[0],
   estado: "Confirmada",
   usuario_creador: usuarioCreadorFinal,
   id_agente: idAgenteFinal,
-  total: totalFactura,
-  subtotal: parseFloat(facturaData.comprobante.subtotal),
-  impuestos: parseFloat(facturaData.impuestos?.traslado?.importe || "0.00"),
-  saldo: Math.round((saldoCalculado + Number.EPSILON) * 100) / 100,
+
+  total: isProveedorFlow ? totalFacturaMXN : totalFacturaOriginal,
+  subtotal: isProveedorFlow ? subtotalFacturaMXN : subtotalFacturaOriginal,
+  impuestos: isProveedorFlow ? impuestosFacturaMXN : impuestosFacturaOriginal,
+  saldo: round2(saldoCalculado),
+
   rfc: facturaData.receptor.rfc,
   id_empresa: empresaSeleccionada?.id_empresa || null,
   uuid_factura: facturaData.timbreFiscal.uuid,
@@ -843,12 +949,27 @@ if (isProveedorBatch) {
   url_pdf: url ? url : archivoPDFUrl,
   url_xml: xmlUrl || null,
   items: items,
+
   ...(shouldIncludeFechaVencimiento
     ? { fecha_vencimiento: fecha_vencimiento || null }
     : {}),
+
   ...(proveedoresPayloadFinal != null
     ? { proveedoresData: proveedoresPayloadFinal }
     : {}),
+
+  ...(isProveedorFlow
+    ? {
+        montos_originales_factura: {
+          moneda: monedaFactura,
+          tipo_cambio: tipoCambioFactura,
+          total: totalFacturaOriginal,
+          subtotal: subtotalFacturaOriginal,
+          impuestos: impuestosFacturaOriginal,
+        },
+      }
+    : {}),
+
   facturas: {
     facturaData,
   },
@@ -928,6 +1049,27 @@ const validationErrors = validateFacturaForm({
       // NUEVO: Batch NO usa selección de cliente ni empresas aquí
       // El back se encargará del automatch + datos fiscales.
       // ==========================
+
+const monedaXml = normalizeCurrency(data?.comprobante?.moneda || "MXN");
+const tipoCambioXml = Number(data?.comprobante?.tipoCambio || 0);
+
+if (!!proveedoresData && !isMXNCurrency(monedaXml) && (!Number.isFinite(tipoCambioXml) || tipoCambioXml <= 0)) {
+  alert(`La factura viene en ${monedaXml} y no trae un TipoCambio válido en el XML.`);
+  return;
+}
+
+if (isProveedorMode) {
+  const montoSingle = Number(facturado || 0);
+
+  if (montoSingle > totalXml) {
+    alert(
+      `El monto a asociar (${montoSingle.toFixed(2)}) no puede ser mayor al total de la factura (${totalXml.toFixed(2)}).`
+    );
+    return;
+  }
+}
+
+
 if (isProveedorBatch) {
   const rfcXml = String(data?.emisor?.rfc ?? "").trim().toUpperCase();
 
@@ -1305,42 +1447,7 @@ if (isProveedorBatch) {
         </div>
       )}
 
-      {/* {mostrarVistaPrevia && (
-        <VistaPreviaModal
-          facturaData={facturaData}
-          pagoData={pagoData}
-          itemsTotal={getItemsTotal()}
-          onConfirm={(pdfUrl, fecha_vencimiento) => {
-            setArchivoPDFUrl(pdfUrl);
-
-            // Rama 1: Hay ítems => flujo normal (no pagada)
-            if (hasItems) {
-              setFacturaPagada(false);
-              handleConfirmarFactura({
-                url: pdfUrl,
-                fecha_vencimiento: fecha_vencimiento,
-              });
-              return;
-            }
-
-            // Rama 2: NO hay ítems => flujo "pagada"
-            setFacturaPagada(true);
-            if (pagoData && facturaData) {
-              handlePagos({
-                url: pdfUrl,
-                fecha_vencimiento: fecha_vencimiento,
-              });
-            } else {
-              handleConfirmarFactura({
-                url: pdfUrl,
-                fecha_vencimiento: fecha_vencimiento,
-              });
-            }
-          }}
-          onClose={cerrarVistaPrevia}
-          isLoading={subiendoArchivos}
-        />
-      )} */}
+      
       {mostrarVistaPrevia && (
  <VistaPreviaModal
   facturaData={facturaData}
@@ -1352,6 +1459,7 @@ if (isProveedorBatch) {
   updateMontoBatch={updateMontoBatch}
   batchTotalAsociar={batchTotalAsociar}
   showFechaVencimiento={!pagoData && !proveedoresData}
+    proveedoresData={proveedoresData} // 👈 NUEVO
   onConfirm={(pdfUrl, fecha_vencimiento) => {
     setArchivoPDFUrl(pdfUrl);
 

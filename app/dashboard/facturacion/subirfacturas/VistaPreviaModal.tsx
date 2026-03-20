@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { generarFacturaPDF } from "./parsePdf";
 import { obtenerPresignedUrl, subirArchivoAS3 } from "@/helpers/utils";
+import { URL as FECTH, API_KEY } from "@/lib/constants/index";
 
 type AsociacionSolicitudProveedor = {
   id_solicitud: string;
@@ -23,10 +24,72 @@ interface VistaPreviaProps {
 
   showFechaVencimiento?: boolean;
 
+  proveedoresData?: any | null; // 👈 agregar
+
   onClose: () => void;
   onConfirm: (pdfUrl?: string | null, fecha_vencimiento?: string) => void;
   isLoading?: boolean;
 }
+
+
+const AUTH = {
+  "x-api-key": API_KEY,
+};
+
+const round2 = (n: any) => {
+  const num = Number(n || 0);
+  if (!Number.isFinite(num)) return 0;
+  return Math.round((num + Number.EPSILON) * 100) / 100;
+};
+
+const normalizeCurrency = (value: any) =>
+  String(value ?? "").trim().toUpperCase();
+
+const isMXNCurrency = (value: any) => {
+  const c = normalizeCurrency(value);
+  return c === "MXN" || c === "MN" || c === "MXP" || c === "PESO" || c === "PESOS";
+};
+
+const safeCurrency = (value: any) => {
+  const c = normalizeCurrency(value);
+  return c || "MXN";
+};
+
+export const consultarFacturadoSolicitudes = async (
+  idsSolicitud: string[]
+) => {
+  try {
+    const idsLimpios = Array.from(
+      new Set(
+        (idsSolicitud || [])
+          .map((id) => String(id ?? "").trim())
+          .filter(Boolean)
+      )
+    );
+
+    if (!idsLimpios.length) return null;
+
+    const params = new URLSearchParams();
+    idsLimpios.forEach((id) => params.append("id_solicitud", id));
+
+    const response = await fetch(
+      `${FECTH}/mia/pago_proveedor/consultar_facturado?${params.toString()}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...AUTH,
+        },
+      }
+    );
+
+    const json = await response.json();
+    return json;
+  } catch (error) {
+    console.error("Error al consultar facturado por solicitudes:", error);
+    throw error;
+  }
+};
 
 export default function VistaPreviaModal({
   facturaData,
@@ -38,15 +101,18 @@ export default function VistaPreviaModal({
   updateMontoBatch,
   batchTotalAsociar = 0,
   showFechaVencimiento = true,
+  proveedoresData = null, // 👈 agregar
   onClose,
   onConfirm,
   isLoading = false
-}: VistaPreviaProps) {
+}: VistaPreviaProps)  {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [pdfObjectUrl, setPdfObjectUrl] = useState<string | null>(null);
   const [showPdf, setShowPdf] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [fechaVencimiento, setFechaVencimiento] = useState<string>("");
+  const [facturadoData, setFacturadoData] = useState<any>(null);
+const [loadingFacturado, setLoadingFacturado] = useState(false);
 
   const toggleView = () => setShowPdf(!showPdf);
 
@@ -54,6 +120,88 @@ export default function VistaPreviaModal({
     () => parseFloat(facturaData?.comprobante?.total || "0"),
     [facturaData]
   );
+
+  const subtotalFactura = useMemo(
+  () => parseFloat(facturaData?.comprobante?.subtotal || "0"),
+  [facturaData]
+);
+
+const impuestosFactura = useMemo(
+  () => parseFloat(facturaData?.impuestos?.traslado?.importe || "0"),
+  [facturaData]
+);
+
+  const monedaFactura = useMemo(
+  () => safeCurrency(facturaData?.comprobante?.moneda || "MXN"),
+  [facturaData]
+);
+const tipoCambioFactura = useMemo(() => {
+  if (isMXNCurrency(monedaFactura)) return 1;
+
+  const rawTc = facturaData?.comprobante?.tipoCambio;
+  const tc = Number(rawTc);
+
+  return Number.isFinite(tc) && tc > 0 ? tc : 0;
+}, [facturaData, monedaFactura]);
+
+const totalFacturaMXN = useMemo(() => {
+  if (isMXNCurrency(monedaFactura)) return totalFactura;
+  if (!tipoCambioFactura) return 0;
+  return round2(totalFactura * tipoCambioFactura);
+}, [totalFactura, monedaFactura, tipoCambioFactura]);
+
+const subtotalFacturaMXN = useMemo(() => {
+  if (isMXNCurrency(monedaFactura)) return subtotalFactura;
+  if (!tipoCambioFactura) return 0;
+  return round2(subtotalFactura * tipoCambioFactura);
+}, [subtotalFactura, monedaFactura, tipoCambioFactura]);
+
+const impuestosFacturaMXN = useMemo(() => {
+  if (isMXNCurrency(monedaFactura)) return impuestosFactura;
+  if (!tipoCambioFactura) return 0;
+  return round2(impuestosFactura * tipoCambioFactura);
+}, [impuestosFactura, monedaFactura, tipoCambioFactura]);
+
+
+const isProveedorFlow = isProveedorBatch || !!proveedoresData;
+
+
+const requiereConversionProveedor =
+  isProveedorFlow && !isMXNCurrency(monedaFactura);
+
+  const canConvertProveedor = requiereConversionProveedor && tipoCambioFactura > 0;
+
+const convertProveedorAmount = (
+  amount: any,
+  direction: "toMXN" | "toOriginal" = "toMXN"
+) => {
+  const n = Number(amount || 0);
+  if (!Number.isFinite(n)) return 0;
+
+  if (!requiereConversionProveedor) return round2(n);
+  if (!tipoCambioFactura || tipoCambioFactura <= 0) return 0;
+
+  if (direction === "toMXN") {
+    return round2(n * tipoCambioFactura);
+  }
+
+  return round2(n / tipoCambioFactura);
+};
+
+const toMXN = (amount: any) => convertProveedorAmount(amount, "toMXN");
+const fromMXNToOriginal = (amount: any) =>
+  convertProveedorAmount(amount, "toOriginal");
+
+const getPreviewConversion = (amount: any) => {
+  const original = round2(amount);
+
+  return {
+    original,
+    currencyOriginal: monedaFactura,
+    mxn: convertProveedorAmount(original, "toMXN"),
+    hasConversion: canConvertProveedor,
+  };
+};
 
   const okItems = ((itemsTotal || 0) <= totalFactura);
 
@@ -74,25 +222,41 @@ export default function VistaPreviaModal({
   };
 
   // ✅ clamp por input para que el total batch nunca exceda totalFactura
-  const handleChangeMontoBatch = (idx: number, raw: string) => {
-    const normalized = safeNumStr(raw);
-    const val = Number(normalized || 0);
+const handleChangeMontoBatch = (idx: number, raw: string) => {
+  const normalized = safeNumStr(raw);
+  const val = Number(normalized || 0);
 
-    const sumOthers = batchAsociaciones.reduce((acc, it, i) => {
-      if (i === idx) return acc;
-      const n = Number(it.monto_asociar || 0);
-      return acc + (Number.isFinite(n) ? n : 0);
-    }, 0);
+  const row = batchAsociaciones[idx];
+  const idSolicitud = String(row?.id_solicitud ?? "").trim();
 
-    const maxThis = Math.max(0, totalFactura - sumOthers);
+  const maxBackendMXN = Number(
+    facturadoMap?.[idSolicitud]?.maximo_asignar ?? 0
+  );
 
-    if (val > maxThis) {
-      updateMontoBatch?.(idx, maxThis.toFixed(2));
-      return;
-    }
+  // 👇 el usuario captura en moneda original, así que convertimos el tope MXN a moneda original
+  const maxBackendOriginal = fromMXNToOriginal(maxBackendMXN);
 
-    updateMontoBatch?.(idx, normalized);
-  };
+  const sumOthersOriginal = batchAsociaciones.reduce((acc, it, i) => {
+    if (i === idx) return acc;
+    const n = Number(it.monto_asociar || 0);
+    return acc + (Number.isFinite(n) ? n : 0);
+  }, 0);
+
+  const maxPorFacturaOriginal = Math.max(0, totalFactura - sumOthersOriginal);
+
+  const maxThisOriginal = Math.max(
+    0,
+    Math.min(maxBackendOriginal, maxPorFacturaOriginal)
+  );
+  
+
+  if (val > maxThisOriginal) {
+    updateMontoBatch?.(idx, maxThisOriginal.toFixed(2));
+    return;
+  }
+
+  updateMontoBatch?.(idx, normalized);
+};
 
   // ✅ Genera o usa PDF y lo sube a S3
   useEffect(() => {
@@ -155,6 +319,50 @@ export default function VistaPreviaModal({
     };
   }, [facturaData, archivoPDF]);
 
+  const facturadoMap = useMemo(() => {
+  const out: Record<string, any> = {};
+
+  if (facturadoData?.data_by_id && typeof facturadoData.data_by_id === "object") {
+    return facturadoData.data_by_id;
+  }
+
+  if (Array.isArray(facturadoData?.data)) {
+    for (const row of facturadoData.data) {
+      const id = String(row?.id_solicitud ?? "").trim();
+      if (id) out[id] = row;
+    }
+  }
+
+  return out;
+}, [facturadoData]);
+
+  const idsSolicitud = useMemo(() => {
+  const idsDesdeBatch = (batchAsociaciones || [])
+    .map((it) => String(it?.id_solicitud ?? "").trim())
+    .filter(Boolean);
+
+  if (idsDesdeBatch.length > 0) {
+    return Array.from(new Set(idsDesdeBatch));
+  }
+
+  // respaldo por si proveedoresData trae los ids
+  if (Array.isArray(proveedoresData)) {
+    return Array.from(
+      new Set(
+        proveedoresData
+          .map((it) => String(it?.id_solicitud ?? "").trim())
+          .filter(Boolean)
+      )
+    );
+  }
+
+  if (proveedoresData?.id_solicitud) {
+    return [String(proveedoresData.id_solicitud).trim()];
+  }
+
+  return [];
+}, [batchAsociaciones, proveedoresData]);
+
 const handleConfirm = () => {
   if (
     typeof itemsTotal === "number" &&
@@ -172,6 +380,27 @@ const handleConfirm = () => {
     return;
   }
 
+if (isProveedorBatch) {
+  for (let i = 0; i < batchAsociaciones.length; i++) {
+    const it = batchAsociaciones[i];
+    const idSolicitud = String(it?.id_solicitud ?? "").trim();
+
+    const capturadoOriginal = Number(it?.monto_asociar || 0);
+    const capturadoMXN = toMXN(capturadoOriginal);
+
+    const maxBackendMXN = Number(
+      facturadoMap?.[idSolicitud]?.maximo_asignar ?? 0
+    );
+
+    if (capturadoMXN > maxBackendMXN) {
+      alert(
+        `El monto capturado para la solicitud ${idSolicitud} excede el máximo permitido.`
+      );
+      return;
+    }
+  }
+}
+
   if (showFechaVencimiento && !fechaVencimiento) {
     alert("Selecciona la fecha de vencimiento.");
     return;
@@ -183,8 +412,21 @@ const handleConfirm = () => {
   );
 };
 
-  const formatCurrency = (value: string) =>
-    parseFloat(value).toLocaleString('es-MX', { style: 'currency', currency: 'MXN' });
+ const formatCurrency = (value: string | number, currency: string = monedaFactura) => {
+  const num = Number(value || 0);
+
+  try {
+    return new Intl.NumberFormat("es-MX", {
+      style: "currency",
+      currency: safeCurrency(currency),
+    }).format(num);
+  } catch {
+    return new Intl.NumberFormat("es-MX", {
+      style: "currency",
+      currency: "MXN",
+    }).format(num);
+  }
+};
 
   const formatDate = (dateString: string) =>
     new Date(dateString).toLocaleDateString('es-MX', {
@@ -192,6 +434,54 @@ const handleConfirm = () => {
     });
 
   const diferenciaItems = totalFactura - (itemsTotal || 0);
+
+  useEffect(() => {
+  let cancelled = false;
+
+  async function consultarFacturado() {
+    try {
+      if (!isProveedorBatch) return;
+      if (!idsSolicitud.length) return;
+
+      console.log("Consultando facturado para ids:", idsSolicitud);
+
+      setLoadingFacturado(true);
+
+      const resp = await consultarFacturadoSolicitudes(idsSolicitud);
+
+      if (cancelled) return;
+
+      console.log("Respuesta consultar_facturado:", resp);
+      setFacturadoData(resp);
+    } catch (error) {
+      if (!cancelled) {
+        console.error("Error consultando facturado:", error);
+        setFacturadoData(null);
+      }
+    } finally {
+      if (!cancelled) setLoadingFacturado(false);
+    }
+  }
+
+  consultarFacturado();
+
+  return () => {
+    cancelled = true;
+  };
+}, []);
+
+const batchTotalAsociarMXN = useMemo(() => {
+  return round2(
+    (batchAsociaciones || []).reduce((acc, it) => {
+      return acc + convertProveedorAmount(it?.monto_asociar || 0, "toMXN");
+    }, 0)
+  );
+}, [batchAsociaciones, tipoCambioFactura, requiereConversionProveedor]);
+
+const restanteFacturaMXN = useMemo(() => {
+  return Math.max(0, round2(totalFacturaMXN - batchTotalAsociarMXN));
+}, [totalFacturaMXN, batchTotalAsociarMXN]);
+
 
   return (
     <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
@@ -260,14 +550,25 @@ const handleConfirm = () => {
           </div>
         )}
 
+        {loadingFacturado && isProveedorBatch && (
+  <div className="mb-4 p-3 rounded border bg-blue-50 text-blue-700 text-sm">
+    Consultando montos disponibles por solicitud...
+  </div>
+)}
+
         {/* ==============================
             ✅ BATCH proveedor: N inputs montos (en vista previa)
            ============================== */}
         {isProveedorBatch && (
+          
           <div className="mt-4 mb-4">
-            <label className="block mb-2 font-medium">
-              Montos a asociar por solicitud (MXN)
-            </label>
+            <p className="text-xs text-gray-500 mb-2">
+  Captura en {monedaFactura}
+  {requiereConversionProveedor ? ` · se convertirá a MXN con TC ${tipoCambioFactura}` : ""}
+</p>
+           <label className="block mb-2 font-medium">
+            Montos a asociar por solicitud ({monedaFactura})
+          </label>
 
             <div className="space-y-3">
               {batchAsociaciones.map((it, idx) => {
@@ -276,13 +577,28 @@ const handleConfirm = () => {
                   it.raw?.hotel ||
                   `Proveedor ${it.id_proveedor}`;
 
-                const sumOthers = batchAsociaciones.reduce((acc, x, i) => {
-                  if (i === idx) return acc;
-                  const n = Number(x.monto_asociar || 0);
-                  return acc + (Number.isFinite(n) ? n : 0);
-                }, 0);
+                const idSolicitud = String(it?.id_solicitud ?? "").trim();
 
-                const maxThis = Math.max(0, totalFactura - sumOthers);
+const infoFacturado = facturadoMap?.[idSolicitud] ?? null;
+
+const maxBackendMXN = Number(infoFacturado?.maximo_asignar ?? 0);
+const montoSolicitadoMXN = Number(infoFacturado?.monto_solicitado ?? 0);
+const totalFacturadoMXN = Number(infoFacturado?.total_facturado ?? 0);
+
+const sumOthersOriginal = batchAsociaciones.reduce((acc, x, i) => {
+  if (i === idx) return acc;
+  const n = Number(x.monto_asociar || 0);
+  return acc + (Number.isFinite(n) ? n : 0);
+}, 0);
+
+const maxPorFacturaOriginal = Math.max(0, totalFactura - sumOthersOriginal);
+const maxBackendOriginal = fromMXNToOriginal(maxBackendMXN);
+
+const maxThisOriginal = Math.max(
+  0,
+  Math.min(maxBackendOriginal, maxPorFacturaOriginal)
+);
+const montoPreview = getPreviewConversion(it.monto_asociar || 0);
 
                 return (
                   <div
@@ -290,40 +606,91 @@ const handleConfirm = () => {
                     className="p-3 rounded border bg-white"
                   >
                     <div className="text-xs text-gray-600 mb-2">
-                      <div><strong>Solicitud:</strong> {it.id_solicitud}</div>
-                      <div><strong>Proveedor:</strong> {proveedorLabel}</div>
-                      <div className="mt-1">
-                        <strong>Máximo para esta fila:</strong>{" "}
-                        {new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" })
-                          .format(maxThis)}
-                      </div>
-                    </div>
+  <div><strong>Solicitud:</strong> {it.id_solicitud}</div>
+  <div><strong>Proveedor:</strong> {proveedorLabel}</div>
+
+<div className="mt-1">
+  <strong>Monto solicitado:</strong>{" "}
+  {formatCurrency(montoSolicitadoMXN, "MXN")}
+</div>
+
+<div>
+  <strong>Ya facturado:</strong>{" "}
+  {formatCurrency(totalFacturadoMXN, "MXN")}
+</div>
+
+<div>
+  <strong>Máximo asignable:</strong>{" "}
+  {requiereConversionProveedor
+    ? `${formatCurrency(maxThisOriginal, monedaFactura)} (${formatCurrency(
+        maxBackendMXN,
+        "MXN"
+      )})`
+    : formatCurrency(maxThisOriginal, "MXN")}
+</div>
+</div>
 
                     <input
-                      type="text"
-                      inputMode="decimal"
-                      placeholder="0.00"
-                      value={it.monto_asociar}
-                      onChange={(e) => handleChangeMontoBatch(idx, e.target.value)}
-                      className="w-full p-2 border rounded border-gray-300"
-                    />
+  type="text"
+  inputMode="decimal"
+  placeholder="0.00"
+  value={it.monto_asociar}
+  onChange={(e) => handleChangeMontoBatch(idx, e.target.value)}
+  className="w-full p-2 border rounded border-gray-300"
+  disabled={loadingFacturado || !facturadoMap?.[idSolicitud]}
+/>
+
+{Number(it.monto_asociar || 0) > 0 && (
+  <div className="mt-2 text-xs text-gray-600">
+    <div>
+      <strong>Capturado:</strong>{" "}
+      {formatCurrency(montoPreview.original, monedaFactura)}
+    </div>
+
+    {montoPreview.hasConversion && (
+      <div>
+        <strong>Equivalente en MXN:</strong>{" "}
+        {formatCurrency(montoPreview.mxn, "MXN")}
+      </div>
+    )}
+  </div>
+)}
                   </div>
                 );
               })}
             </div>
 
-            <div className="mt-3 text-sm text-gray-700">
-              <strong>Total asociado:</strong>{" "}
-              {new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" })
-                .format(batchTotalAsociar)}
+          <div className="mt-3 text-sm text-gray-700">
+            <strong>Total asociado:</strong>{" "}
+            {formatCurrency(batchTotalAsociar, monedaFactura)}
+
+            {requiereConversionProveedor && (
               <span className="ml-3">
-                <strong>Restante:</strong>{" "}
-                {new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" })
-                  .format(Math.max(0, totalFactura - batchTotalAsociar))}
+                <strong>Equivalente MXN:</strong>{" "}
+                {formatCurrency(batchTotalAsociarMXN, "MXN")}
               </span>
-            </div>
+            )}
+
+            <span className="ml-3">
+              <strong>Restante:</strong>{" "}
+              {formatCurrency(Math.max(0, totalFactura - batchTotalAsociar), monedaFactura)}
+            </span>
+
+            {requiereConversionProveedor && (
+              <span className="ml-3">
+                <strong>Restante MXN:</strong>{" "}
+                {formatCurrency(restanteFacturaMXN, "MXN")}
+              </span>
+            )}
+          </div>
           </div>
         )}
+
+        {isProveedorBatch && !loadingFacturado && idsSolicitud.length > 0 && Object.keys(facturadoMap).length === 0 && (
+  <div className="mb-4 p-3 rounded border bg-yellow-50 text-yellow-700 text-sm">
+    No se encontraron montos disponibles para las solicitudes seleccionadas.
+  </div>
+)}
 
         {/* Nuevo bloque para mostrar información de pago (si existe) */}
         {pagoData?.monto != null && (
@@ -372,6 +739,19 @@ const handleConfirm = () => {
     <p className="text-xs text-gray-500 mt-1">
       Define la fecha límite de pago para esta factura.
     </p>
+  </div>
+)}
+
+{requiereConversionProveedor && (
+  <div className="mb-4 p-4 bg-indigo-50 border border-indigo-200 rounded-lg text-sm">
+    <h3 className="font-bold text-indigo-800 mb-2">Conversión de moneda</h3>
+
+    <div><strong>Moneda original:</strong> {monedaFactura}</div>
+    <div><strong>Tipo de cambio:</strong> {tipoCambioFactura || "No disponible"}</div>
+    <div><strong>Total original:</strong> {formatCurrency(totalFactura, monedaFactura)}</div>
+    <div><strong>Total en MXN:</strong> {formatCurrency(totalFacturaMXN, "MXN")}</div>
+    <div><strong>Subtotal en MXN:</strong> {formatCurrency(subtotalFacturaMXN, "MXN")}</div>
+    <div><strong>Impuestos en MXN:</strong> {formatCurrency(impuestosFacturaMXN, "MXN")}</div>
   </div>
 )}
 
@@ -471,5 +851,9 @@ const FacturaEstructurada = ({ facturaData, formatCurrency, formatDate }: any) =
       <p>UUID: <span className="text-blue-500">{facturaData.timbreFiscal.uuid}</span></p>
       <p>Fecha de timbrado: {formatDate(facturaData.timbreFiscal.fechaTimbrado)}</p>
     </div>
+
+    
   </div>
+
+  
 );

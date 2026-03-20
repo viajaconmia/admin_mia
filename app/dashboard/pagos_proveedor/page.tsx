@@ -35,6 +35,7 @@ import {
   Handshake,
   Eye,
   Ban,
+  Download,
 } from "lucide-react";
 import { URL, API_KEY } from "@/lib/constants/index";
 import PaymentMethodSelector from "./Components/PaymentMethodSelector";
@@ -97,21 +98,72 @@ const hasPagosAsociados = (raw: any) => extractPagosAsociados(raw).length > 0;
 // Facturas: soporta `facturas`, `facturas_json`, etc.
 const extractFacturas = (raw: any): any[] => {
   const candidates: any[] = [];
-  if (Array.isArray((raw as any)?.facturas))
-    candidates.push((raw as any).facturas);
-  if ((raw as any)?.facturas_json != null)
-    candidates.push((raw as any).facturas_json);
-  if ((raw as any)?.facturas_proveedor_json != null)
-    candidates.push((raw as any).facturas_proveedor_json);
+
+  if (Array.isArray(raw?.facturas)) candidates.push(raw.facturas);
+  if (raw?.facturas_json != null) candidates.push(raw.facturas_json);
+  if (raw?.facturas_proveedor_json != null)
+    candidates.push(raw.facturas_proveedor_json);
+
+  // respaldo por si algún registro viene anidado tal cual del SP
+  if (raw?.sp_obtener_pagos_proveedor?.facturas_json != null)
+    candidates.push(raw.sp_obtener_pagos_proveedor.facturas_json);
 
   const out: any[] = [];
   for (const c of candidates) {
     if (Array.isArray(c)) out.push(...c.flatMap((x) => normalizeToArray(x)));
     else out.push(...normalizeToArray(c));
   }
+
   return out.filter(
     (f) => f && typeof f === "object" && Object.keys(f).length > 0,
   );
+};
+
+const openFacturaFile = (url?: string | null) => {
+  if (!url) return;
+  window.open(url, "_blank", "noopener,noreferrer");
+};
+
+const getFileNameFromUrl = (
+  url?: string | null,
+  fallback: string = "factura.pdf",
+) => {
+  if (!url) return fallback;
+
+  try {
+    const cleanUrl = url.split("?")[0];
+    const last = cleanUrl.substring(cleanUrl.lastIndexOf("/") + 1);
+    return last || fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const downloadFacturaFile = async (
+  url?: string | null,
+  fallbackName: string = "factura.pdf",
+) => {
+  if (!url) return;
+
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const blob = await response.blob();
+    const blobUrl = window.URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = blobUrl;
+    a.download = getFileNameFromUrl(url, fallbackName);
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    window.URL.revokeObjectURL(blobUrl);
+  } catch (error) {
+    console.error("No se pudo descargar el archivo, abriendo en nueva pestaña", error);
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
 };
 
 const getMontoSolicitado = (raw: any) =>
@@ -491,10 +543,12 @@ function getFacturaInfoFromRaw(raw: any) {
   // UUID (si existe en facturas)
   const facturas = extractFacturas(raw);
   const uuid =
-    facturas?.[0]?.uuid_cfdi ||
-    facturas?.[0]?.uuid ||
-    (raw as any)?.uuid_cfdi ||
-    "";
+  facturas?.[0]?.uuid_factura ||
+  facturas?.[0]?.uuid_cfdi ||
+  facturas?.[0]?.uuid ||
+  (raw as any)?.uuid_factura ||
+  (raw as any)?.uuid_cfdi ||
+  "";
 
   // Fecha última factura
   const fechas = facturas
@@ -1157,87 +1211,83 @@ const baseList: SolicitudProveedor[] =
       const porFacturar = facInfo.porFacturar;
 
       return {
-        // ✅ columnas “SP base”
-        id_solicitud_proveedor,
-        fecha_solicitud: item?.solicitud_proveedor?.fecha_solicitud ?? null,
-        monto_solicitado: montoSolicitado,
-        saldo: saldo,
-        forma_pago_solicitada: forma,
-        id_tarjeta_solicitada:
-          item?.solicitud_proveedor?.id_tarjeta_solicitada ?? null,
-        usuario_solicitante:
-          item?.solicitud_proveedor?.usuario_solicitante ?? "",
-        usuario_generador: item?.solicitud_proveedor?.usuario_generador ?? "",
-        comentarios_sp: item?.solicitud_proveedor?.comentarios ?? "",
-        estado_solicitud: item?.solicitud_proveedor?.estado_solicitud ?? "",
-        estado_facturacion: item?.solicitud_proveedor?.estado_facturacion ?? "",
-        estatus_pagos: item?.estatus_pagos ?? "",
-        comentario_sistema: getComentarioSistema(item),
-        // UI
-        seleccionar: "",
-        carpeta: categoria,
+  // ✅ columnas “SP base”
+  id_solicitud_proveedor,
+  fecha_solicitud: item?.solicitud_proveedor?.fecha_solicitud ?? null,
+  monto_solicitado: montoSolicitado,
+  saldo: saldo,
+  forma_pago_solicitada: forma,
+  id_tarjeta_solicitada:
+    item?.solicitud_proveedor?.id_tarjeta_solicitada ?? null,
+  usuario_solicitante:
+    item?.solicitud_proveedor?.usuario_solicitante ?? "",
+  usuario_generador: item?.solicitud_proveedor?.usuario_generador ?? "",
+  comentarios_sp: item?.solicitud_proveedor?.comentarios ?? "",
+  estado_solicitud: item?.solicitud_proveedor?.estado_solicitud ?? "",
+  estado_facturacion: item?.solicitud_proveedor?.estado_facturacion ?? "",
+  estatus_pagos: item?.estatus_pagos ?? "",
+  comentario_sistema: getComentarioSistema(item),
 
-        // reserva
-        codigo_confirmacion: item.codigo_confirmacion,
-        creado: item.created_at,
-        proveedor: (item.hotel || "").toUpperCase(),
-        razon_social: item.proveedor?.razon_social,
-        rfc: item.proveedor?.rfc,
-        viajero: (
-          item.nombre_viajero_completo ||
-          item.nombre_viajero ||
-          ""
-        ).toUpperCase(),
-        check_in: item.check_in,
-        check_out: item.check_out,
-        noches: calcularNoches(item.check_in, item.check_out),
-        habitacion: formatRoom(item.room),
-        costo_proveedor: Number((item as any).costo_total) || 0,
-        markup:
-          ((Number(item.total || 0) - Number((item as any).costo_total || 0)) /
-            Number(item.total || 0)) *
-          100,
-        precio_de_venta: parseFloat(item.total),
-        metodo_de_pago: item.id_credito ? "credito" : "contado",
-        etapa_reservacion: item.estado_reserva,
-        estado: item.status,
-        reservante: item.id_usuario_generador ? "Cliente" : "Operaciones",
+  // UI
+  seleccionar: "",
+  carpeta: categoria,
+  facturas_acciones: "",
 
-        // cliente
-        id_cliente: item.id_agente,
-        cliente: (item.nombre_agente_completo || "").toUpperCase(),
+  // reserva
+  codigo_confirmacion: item.codigo_confirmacion,
+  creado: item.created_at,
+  proveedor: (item.hotel || "").toUpperCase(),
+  razon_social: item.proveedor?.razon_social,
+  rfc: item.proveedor?.rfc,
+  viajero: (
+    item.nombre_viajero_completo ||
+    item.nombre_viajero ||
+    ""
+  ).toUpperCase(),
+  check_in: item.check_in,
+  check_out: item.check_out,
+  noches: calcularNoches(item.check_in, item.check_out),
+  habitacion: formatRoom(item.room),
+  costo_proveedor: Number((item as any).costo_total) || 0,
+  markup:
+    ((Number(item.total || 0) - Number((item as any).costo_total || 0)) /
+      Number(item.total || 0)) *
+    100,
+  precio_de_venta: parseFloat(item.total),
+  metodo_de_pago: item.id_credito ? "credito" : "contado",
+  etapa_reservacion: item.estado_reserva,
+  estado: item.status,
+  reservante: item.id_usuario_generador ? "Cliente" : "Operaciones",
 
-        // solicitud / pagos / facturación (UX)
-        fecha_de_pago: item.solicitud_proveedor?.fecha_solicitud,
-        forma_de_pago_solicitada:
-          item.solicitud_proveedor?.forma_pago_solicitada,
-        digitos_tajeta: item.tarjeta?.ultimos_4,
-        banco: item.tarjeta?.banco_emisor,
-        tipo_tarjeta: item.tarjeta?.tipo_tarjeta,
+  // cliente
+  id_cliente: item.id_agente,
+  cliente: (item.nombre_agente_completo || "").toUpperCase(),
 
-        // ✅ CXP comments (solo lectura)
-        comentarios_cxp:
-          (item as any).comentario_CXP ?? (item as any).comments_cxp ?? "",
+  // solicitud / pagos / facturación (UX)
+  fecha_de_pago: item.solicitud_proveedor?.fecha_solicitud,
+  forma_de_pago_solicitada:
+    item.solicitud_proveedor?.forma_pago_solicitada,
+  digitos_tajeta: item.tarjeta?.ultimos_4,
+  banco: item.tarjeta?.banco_emisor,
+  tipo_tarjeta: item.tarjeta?.tipo_tarjeta,
 
-        // pago proveedor
-        estado_pago: pagoInfo.estado_pago,
-        pendiente_a_pagar: pagoInfo.pendientePago,
-        monto_pagado_proveedor: pagoInfo.totalPagado,
-        fecha_pagado: pagoInfo.fechaUltimoPago,
+  comentarios_cxp:
+    (item as any).comentario_CXP ?? (item as any).comments_cxp ?? "",
 
-        // factura
-        estado_factura_proveedor: facInfo.estado,
-        total_facturado: facInfo.totalFacturado,
-        monto_por_facturar: porFacturar,
-        fecha_facturacion: facInfo.fechaUltimaFactura,
-        UUID: facInfo.uuid,
+  estado_pago: pagoInfo.estado_pago,
+  pendiente_a_pagar: pagoInfo.pendientePago,
+  monto_pagado_proveedor: pagoInfo.totalPagado,
+  fecha_pagado: pagoInfo.fechaUltimoPago,
 
-        // acciones / raw
-        acciones: "",
+  estado_factura_proveedor: facInfo.estado,
+  total_facturado: facInfo.totalFacturado,
+  monto_por_facturar: porFacturar,
+  fecha_facturacion: facInfo.fechaUltimaFactura,
+  UUID: facInfo.uuid,
 
-        // raw
-        item: raw,
-      };
+  acciones: "",
+  item: raw,
+};
     });
 
   const registrosVisibles = formatedSolicitudes;
@@ -1328,11 +1378,10 @@ const clearSelection = useCallback(() => {
 }, []);
 
   // ---------- COLUMNAS (para orden estable + mostrar SP) ----------
-  const customColumns = useMemo(() => {
+const customColumns = useMemo(() => {
   const cols = [
     "seleccionar",
 
-    // ✅ SP base / control
     "id_solicitud_proveedor",
     "fecha_solicitud",
     "monto_solicitado",
@@ -1345,7 +1394,6 @@ const clearSelection = useCallback(() => {
     "usuario_generador",
     "comentarios_sp",
 
-    // reserva/negocio
     "codigo_confirmacion",
     "creado",
     "proveedor",
@@ -1360,7 +1408,6 @@ const clearSelection = useCallback(() => {
     "razon_social",
     "rfc",
 
-    // pagos / facturas
     "estado_pago",
     "pendiente_a_pagar",
     "monto_pagado_proveedor",
@@ -1370,8 +1417,8 @@ const clearSelection = useCallback(() => {
     "monto_por_facturar",
     "fecha_facturacion",
     "UUID",
+    "facturas_acciones",
 
-    // actuales
     "comentarios_cxp",
   ];
 
@@ -1678,6 +1725,77 @@ const marcarNotificadoPagado = useCallback(
       />
     ),
 
+    facturas_acciones: ({ item }) => {
+  const raw = (item as any)?.item ?? item;
+  const facturas = extractFacturas(raw);
+
+  if (!facturas.length) {
+    return <span className="text-gray-400">—</span>;
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      {facturas.map((factura, idx) => {
+        const pdfUrl = factura?.url_pdf || null;
+        const xmlUrl = factura?.url_xml || null;
+
+        // prioridad al PDF
+        const viewUrl = pdfUrl || xmlUrl;
+        const downloadUrl = pdfUrl || xmlUrl;
+
+        const uuid =
+          factura?.uuid_factura ||
+          factura?.uuid_cfdi ||
+          factura?.uuid ||
+          `factura_${idx + 1}`;
+
+        const extension = pdfUrl ? "pdf" : xmlUrl ? "xml" : "file";
+
+        return (
+          <div
+            key={`${uuid}-${idx}`}
+            className="flex items-center gap-2 flex-wrap"
+          >
+            <span
+              className="font-mono text-[11px] text-slate-600"
+              title={String(uuid)}
+            >
+              {String(uuid).slice(0, 8)}...
+            </span>
+
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium border border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 hover:border-sky-300 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!viewUrl}
+              onClick={() => openFacturaFile(viewUrl)}
+              title={pdfUrl ? "Ver PDF" : "Ver XML"}
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span>Ver</span>
+            </button>
+
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!downloadUrl}
+              onClick={() =>
+                downloadFacturaFile(
+                  downloadUrl,
+                  `${uuid}.${extension}`,
+                )
+              }
+              title={pdfUrl ? "Descargar PDF" : "Descargar XML"}
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Descargar</span>
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+},
+
     estado_solicitud: ({ value }) => (
       <span className="text-xs">{String(value ?? "—")}</span>
     ),
@@ -1818,11 +1936,36 @@ const marcarNotificadoPagado = useCallback(
         <span className="text-gray-400">—</span>
       ),
 
-    UUID: ({ value }) => (
-      <span className="font-mono text-xs" title={value}>
-        {value ? "CFDI: " + String(value).slice(0, 8) + "…" : "—"}
-      </span>
-    ),
+    UUID: ({ item }) => {
+  const raw = (item as any)?.item ?? item;
+  const facturas = extractFacturas(raw);
+
+  if (!facturas.length) {
+    return <span className="text-gray-400">—</span>;
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      {facturas.map((f, idx) => {
+        const uuid =
+          f?.uuid_factura ||
+          f?.uuid_cfdi ||
+          f?.uuid ||
+          `factura_${idx + 1}`;
+
+        return (
+          <span
+            key={`${uuid}-${idx}`}
+            className="font-mono text-xs"
+            title={String(uuid)}
+          >
+            CFDI: {String(uuid).slice(0, 8)}...
+          </span>
+        );
+      })}
+    </div>
+  );
+},
 
     // ✅ ACCIONES: 3 botones según reglas
     acciones: ({ item }) => {

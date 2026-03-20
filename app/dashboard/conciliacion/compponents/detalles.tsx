@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   X,
   Loader2,
@@ -9,17 +9,11 @@ import {
   FileText,
   Code2,
   ExternalLink,
-  CalendarDays,
-  CreditCard,
-  Wallet,
-  Receipt,
-  Building2,
-  User,
-  FileSpreadsheet,
+  Save,
+  Trash2,
 } from "lucide-react";
-import { URL, API_KEY } from "@/lib/constants/index";
 import { Table5 } from "@/components/Table5";
-import Button from "@/components/atom/Button";
+import { URL, API_KEY } from "@/lib/constants/index";
 
 interface ModalDetallesProp {
   solicitud: any | null;
@@ -35,15 +29,22 @@ function formatMoney(n: any) {
   return `$${num.toFixed(2)}`;
 }
 
-function formatDateSimple(dateStr?: string) {
-  if (!dateStr) return "—";
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("es-MX", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+function toInputMoney(v: any) {
+  if (v === null || v === undefined || String(v).trim() === "") return "";
+  const num = Number(v);
+  return Number.isFinite(num) ? String(num) : "";
+}
+
+function toApiNumber(v: any) {
+  const s = String(v ?? "").trim();
+  if (!s) return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+
+function toNum(v: any) {
+  const n = Number(String(v ?? "").trim());
+  return Number.isFinite(n) ? n : 0;
 }
 
 function openUrl(url?: string | null) {
@@ -52,18 +53,12 @@ function openUrl(url?: string | null) {
   window.open(u, "_blank", "noopener,noreferrer");
 }
 
-function getToneByDiff(diff: number) {
-  if (diff === 0) return "green";
-  return "amber";
-}
-
-/** ---------- UI atoms ---------- */
 function Badge({
   text,
   tone = "gray",
 }: {
   text: string;
-  tone?: "gray" | "green" | "red" | "blue" | "amber" | "violet";
+  tone?: "gray" | "green" | "red" | "blue" | "amber";
 }) {
   const toneMap: Record<string, string> = {
     gray: "bg-gray-100 text-gray-700 border-gray-200",
@@ -71,77 +66,37 @@ function Badge({
     red: "bg-red-50 text-red-700 border-red-200",
     blue: "bg-blue-50 text-blue-700 border-blue-200",
     amber: "bg-amber-50 text-amber-700 border-amber-200",
-    violet: "bg-violet-50 text-violet-700 border-violet-200",
   };
 
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold ${toneMap[tone]}`}
+      className={`inline-flex items-center px-2 py-0.5 text-[11px] font-semibold rounded-full border ${toneMap[tone]}`}
     >
       {text}
     </span>
   );
 }
 
-function InfoCard({
-  icon,
+function StatCard({
   label,
   value,
-  tone = "gray",
+  sub,
 }: {
-  icon?: React.ReactNode;
   label: string;
   value: React.ReactNode;
-  tone?: "gray" | "green" | "blue" | "amber" | "violet";
+  sub?: React.ReactNode;
 }) {
-  const toneMap: Record<string, string> = {
-    gray: "border-gray-200 bg-white",
-    green: "border-green-200 bg-green-50/40",
-    blue: "border-blue-200 bg-blue-50/40",
-    amber: "border-amber-200 bg-amber-50/40",
-    violet: "border-violet-200 bg-violet-50/40",
-  };
-
   return (
-    <div className={`rounded-xl border p-4 shadow-sm ${toneMap[tone]}`}>
-      <div className="flex items-start gap-3">
-        {icon ? (
-          <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 bg-white">
-            {icon}
-          </div>
-        ) : null}
-
-        <div className="min-w-0">
-          <p className="text-[11px] uppercase tracking-wide text-gray-500">
-            {label}
-          </p>
-          <div className="mt-1 break-words text-sm font-semibold text-gray-900">
-            {value}
-          </div>
-        </div>
-      </div>
+    <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+      <p className="text-[11px] uppercase tracking-wide text-gray-500">
+        {label}
+      </p>
+      <div className="mt-1 text-sm font-semibold text-gray-900">{value}</div>
+      {sub ? <div className="mt-1 text-xs text-gray-500">{sub}</div> : null}
     </div>
   );
 }
 
-function SectionTitle({
-  title,
-  right,
-}: {
-  title: string;
-  right?: React.ReactNode;
-}) {
-  return (
-    <div className="mb-3 flex items-center justify-between gap-3">
-      <p className="text-sm font-semibold text-gray-900">{title}</p>
-      {right}
-    </div>
-  );
-}
-
-/**
- * Payload fijo
- */
 function buildPayloadFromSolicitud(solicitud: any) {
   const raw = solicitud ?? {};
   const asociaciones = raw?.asociaciones ?? {};
@@ -168,36 +123,122 @@ function buildPayloadFromSolicitud(solicitud: any) {
   };
 }
 
+type FacturaDraft = {
+  subtotal: string;
+  impuestos: string;
+  monto_asociar: string;
+};
+
+function getFacturaKey(f: any) {
+  return (
+    safeString(f?.id_factura_proveedor) ||
+    safeString(f?.uuid_cfdi) ||
+    safeString(f?.uuid_factura)
+  );
+}
+
+function round2(n: number) {
+  return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
+function toFixedInput(n: number) {
+  return Number.isFinite(n) ? round2(n).toFixed(2) : "";
+}
+
+function getTaxRateDecimal(f: any) {
+  const pct = toNum(
+    f?.porcentaje_impuesto ??
+      f?.tasa_impuesto ??
+      f?.iva_porcentaje ??
+      f?.tax_percent ??
+      0
+  );
+
+  return pct > 0 ? pct / 100 : 0;
+}
+
+function recalcDraftFromField(
+  field: "subtotal" | "impuestos" | "monto_asociar",
+  rawValue: string,
+  current: FacturaDraft,
+  taxRateDecimal: number
+): FacturaDraft {
+  if (String(rawValue ?? "").trim() === "") {
+    return {
+      ...current,
+      [field]: "",
+    };
+  }
+
+  let subtotal = toNum(current.subtotal);
+  let impuestos = toNum(current.impuestos);
+  let monto_asociar = toNum(current.monto_asociar);
+  const value = toNum(rawValue);
+
+  if (field === "monto_asociar") {
+    monto_asociar = value;
+
+    if (taxRateDecimal > 0) {
+      subtotal = round2(monto_asociar / (1 + taxRateDecimal));
+      impuestos = round2(monto_asociar - subtotal);
+    } else {
+      subtotal = round2(monto_asociar);
+      impuestos = 0;
+    }
+  }
+
+  if (field === "subtotal") {
+    subtotal = value;
+    impuestos = round2(subtotal * taxRateDecimal);
+    monto_asociar = round2(subtotal + impuestos);
+  }
+
+  if (field === "impuestos") {
+    impuestos = value;
+
+    if (taxRateDecimal > 0) {
+      subtotal = round2(impuestos / taxRateDecimal);
+    } else {
+      subtotal = 0;
+    }
+
+    monto_asociar = round2(subtotal + impuestos);
+  }
+
+  return {
+    subtotal: toFixedInput(subtotal),
+    impuestos: toFixedInput(impuestos),
+    monto_asociar: toFixedInput(monto_asociar),
+  };
+}
+
 const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose }) => {
   const endpoint = `${URL}/mia/pago_proveedor/detalles`;
+  const editEndpoint = `${URL}/mia/pago_proveedor/edit`;
+  const asignarMontoFactEndpoint = `${URL}/mia/pago_proveedor/asignar_monto_fact`;
+  const deleteFacturaEndpoint = `${URL}/mia/pago_proveedor/edit_factura`;
+
   const payload = useMemo(() => buildPayloadFromSolicitud(solicitud), [solicitud]);
 
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string>("");
+  const [error, setError] = useState("");
   const [data, setData] = useState<any>(null);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  const [drafts, setDrafts] = useState<Record<string, FacturaDraft>>({});
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [deletingKey, setDeletingKey] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!solicitud) return;
+  const fetchDetalles = useCallback(
+    async (signal?: AbortSignal) => {
+      if (!solicitud) return;
 
-    const controller = new AbortController();
-
-    (async () => {
       setLoading(true);
       setError("");
-      setData(null);
 
       try {
         const resp = await fetch(endpoint, {
           method: "POST",
-          signal: controller.signal,
+          signal,
           headers: {
             "x-api-key": API_KEY || "",
             "Content-Type": "application/json",
@@ -209,9 +250,7 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose }) => {
         const json = await resp.json().catch(() => null);
 
         if (!resp.ok) {
-          throw new Error(
-            json?.message || json?.error || `Error HTTP: ${resp.status}`
-          );
+          throw new Error(json?.message || json?.error || `Error HTTP: ${resp.status}`);
         }
 
         setData(json);
@@ -222,531 +261,636 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose }) => {
       } finally {
         setLoading(false);
       }
-    })();
+    },
+    [endpoint, payload, solicitud]
+  );
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetchDetalles(controller.signal);
     return () => controller.abort();
-  }, [endpoint, payload, solicitud]);
+  }, [fetchDetalles]);
 
-  /** --------- Datos --------- */
-  const raw = solicitud ?? {};
-  const info = raw?.informacion_completa ?? {};
-
-  const api = data?.data ?? data ?? {};
-  const solicitudApi = api?.solicitud ?? info?.solicitud_proveedor ?? {};
-  const facturas = Array.isArray(api?.facturas) ? api.facturas : [];
-  const pagos = Array.isArray(api?.pagos) ? api.pagos : [];
+  const api = data?.data ?? {};
+  const solicitudApi = api?.solicitud ?? null;
+  const facturasApi = Array.isArray(api?.facturas) ? api.facturas : [];
   const resumen = api?.resumen_validacion ?? null;
 
-  const hotel = safeString(info?.hotel);
-  const viajero = safeString(info?.nombre_viajero_completo);
-  const proveedorNombre =
-    safeString(info?.proveedor?.razon_social) ||
-    safeString(info?.proveedor_nombre) ||
-    safeString(solicitudApi?.proveedor_nombre);
+useEffect(() => {
+  const next: Record<string, FacturaDraft> = {};
 
-  const rfcProveedor = safeString(info?.rfc_proveedor);
-  const checkIn = formatDateSimple(info?.check_in);
-  const checkOut = formatDateSimple(info?.check_out);
+  for (const f of facturasApi) {
+    const key = getFacturaKey(f);
+    if (!key) continue;
 
-  const totalPagado = Number(resumen?.total_pagado ?? 0);
-  const totalFacturado = Number(resumen?.total_facturado ?? 0);
-  const diferencia = Number(resumen?.diferencia_total ?? 0);
-  const esCuadrado = diferencia === 0;
-const estadoFacturacionUI = getEstadoFacturacionUI(
-  solicitudApi?.estado_facturacion
+    const maximo = toNum(f?.maximo_a_asociar);
+    const asociado = toNum(f?.total_asociado_factura);
+    const montoDefault = asociado > 0 ? asociado : maximo;
+
+    next[key] = {
+      subtotal: toInputMoney(f?.subtotal),
+      impuestos: toInputMoney(f?.impuestos),
+      monto_asociar: toInputMoney(montoDefault),
+    };
+  }
+
+  setDrafts(next);
+}, [facturasApi]);
+
+const setDraftField = useCallback(
+  (
+    factura: any,
+    facturaKey: string,
+    field: "subtotal" | "impuestos" | "monto_asociar",
+    value: string
+  ) => {
+    const taxRateDecimal = getTaxRateDecimal(factura);
+
+    setDrafts((prev) => {
+      const current = prev[facturaKey] || {
+        subtotal: "",
+        impuestos: "",
+        monto_asociar: "",
+      };
+
+      return {
+        ...prev,
+        [facturaKey]: recalcDraftFromField(
+          field,
+          value,
+          current,
+          taxRateDecimal
+        ),
+      };
+    });
+  },
+  []
 );
 
-  /** =========================================================
-   * FACTURAS con Table5
-   * ========================================================= */
-  const facturasTable = useMemo(() => {
-    return facturas.map((f: any) => ({
-      // ✅ PRIMERO para que sí aparezca en tu Table5 actual
-      acciones: "",
-      id_factura_proveedor: safeString(f?.id_factura_proveedor) || "—",
-      uuid_cfdi: safeString(f?.uuid_cfdi) || "—",
-      monto_facturado: f?.monto_facturado,
-      fecha_factura: f?.fecha_factura,
-      fecha_vencimiento: f?.fecha_vencimiento,
-      estado_factura: safeString(f?.estado_factura) || "—",
-      rfc_emisor: safeString(f?.rfc_emisor) || "—",
-      total: f?.total,
-      item: f, // ✅ Table5 usa item.item
-    }));
-  }, [facturas]);
+
+useEffect(() => {
+  const next: Record<string, FacturaDraft> = {};
+
+  for (const f of facturasApi) {
+    const key = getFacturaKey(f);
+    if (!key) continue;
+
+    const taxRateDecimal = getTaxRateDecimal(f);
+
+    const subtotalBase = toNum(
+      f?.subtotal_facturado ?? f?.subtotal_asociado ?? 0
+    );
+    const impuestosBase = toNum(
+      f?.impuestos_facturado ?? f?.impuestos_asociados ?? 0
+    );
+    const montoBase =
+      subtotalBase > 0 || impuestosBase > 0
+        ? round2(subtotalBase + impuestosBase)
+        : toNum(f?.monto_facturado_relacion ?? 0);
+
+    if (montoBase > 0 && subtotalBase === 0 && impuestosBase === 0) {
+      const draft = recalcDraftFromField(
+        "monto_asociar",
+        String(montoBase),
+        { subtotal: "", impuestos: "", monto_asociar: "" },
+        taxRateDecimal
+      );
+
+      next[key] = draft;
+    } else {
+      next[key] = {
+        subtotal: toFixedInput(subtotalBase),
+        impuestos: toFixedInput(impuestosBase),
+        monto_asociar: toFixedInput(montoBase),
+      };
+    }
+  }
+
+  setDrafts(next);
+}, [facturasApi]);
+
+
+
+const saveFactura = useCallback(
+  async (factura: any) => {
+    const facturaKey = getFacturaKey(factura);
+    if (!facturaKey) {
+      alert("No se encontró identificador de la factura");
+      return;
+    }
+
+    const draft = drafts[facturaKey];
+    if (!draft) return;
+
+    const id_solicitud_proveedor = safeString(payload.id_solicitud_proveedor);
+    const id_factura_proveedor = safeString(factura?.id_factura_proveedor);
+    const uuid_factura = safeString(factura?.uuid_cfdi ?? factura?.uuid_factura);
+
+    const subtotalFacturado = toApiNumber(draft.subtotal) ?? 0;
+    const impuestosFacturado = toApiNumber(draft.impuestos) ?? 0;
+    const montoAsociar = round2(subtotalFacturado + impuestosFacturado);
+    const maximo = toNum(factura?.maximo_a_asociar);
+
+    if (subtotalFacturado < 0 || impuestosFacturado < 0) {
+      alert("Subtotal e impuestos deben ser mayores o iguales a 0");
+      return;
+    }
+
+    if (montoAsociar <= 0) {
+      alert("El monto a asociar debe ser mayor a 0");
+      return;
+    }
+
+    if (montoAsociar > maximo) {
+      alert(`El monto a asociar no puede ser mayor a ${formatMoney(maximo)}`);
+      return;
+    }
+
+    try {
+      setSavingKey(facturaKey);
+
+      const body = {
+        id_solicitud_proveedor,
+        id_factura_proveedor,
+        uuid_factura,
+        subtotal_facturado: subtotalFacturado,
+        impuestos_facturado: impuestosFacturado,
+      };
+
+      const resp = await fetch(asignarMontoFactEndpoint, {
+        method: "POST",
+        headers: {
+          "x-api-key": API_KEY || "",
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+        },
+        body: JSON.stringify(body),
+      });
+
+      const json = await resp.json().catch(() => null);
+
+      if (!resp.ok) {
+        throw new Error(json?.message || json?.error || `Error HTTP: ${resp.status}`);
+      }
+
+      await fetchDetalles();
+    } catch (e: any) {
+      console.error("❌ Error guardando factura:", e);
+      alert(e?.message || "Error al guardar la factura");
+    } finally {
+      setSavingKey(null);
+    }
+  },
+  [drafts, asignarMontoFactEndpoint, fetchDetalles, payload.id_solicitud_proveedor]
+);
+
+  const deleteFactura = useCallback(
+    async (factura: any) => {
+      const facturaKey = getFacturaKey(factura);
+      if (!facturaKey) {
+        alert("No se encontró identificador de la factura");
+        return;
+      }
+
+      const id_solicitud_proveedor = safeString(payload.id_solicitud_proveedor);
+      const id_factura_proveedor = safeString(factura?.id_factura_proveedor);
+      const uuid_factura = safeString(factura?.uuid_cfdi ?? factura?.uuid_factura);
+
+      const ok = window.confirm(
+        `¿Seguro que deseas eliminar esta factura?\n\nUUID: ${uuid_factura || "—"}`
+      );
+      if (!ok) return;
+
+      try {
+        setDeletingKey(facturaKey);
+
+        const resp = await fetch(deleteFacturaEndpoint, {
+          method: "DELETE",
+          headers: {
+            "x-api-key": API_KEY || "",
+            "Content-Type": "application/json",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+          },
+          body: JSON.stringify({
+            id_solicitud_proveedor,
+            id_factura_proveedor,
+            uuid_factura,
+          }),
+        });
+
+        const json = await resp.json().catch(() => null);
+
+        if (!resp.ok) {
+          throw new Error(json?.message || json?.error || `Error HTTP: ${resp.status}`);
+        }
+
+        await fetchDetalles();
+      } catch (e: any) {
+        console.error("❌ Error eliminando factura:", e);
+        alert(e?.message || "Error al eliminar la factura");
+      } finally {
+  setDeletingKey(null);
+}
+    },
+    [deleteFacturaEndpoint, fetchDetalles, payload.id_solicitud_proveedor]
+  );
+
+  const montoSolicitado = resumen?.monto_solicitado ?? solicitudApi?.monto_solicitado ?? 0;
+  const totalAsociadoSolicitud = resumen?.total_asociado_solicitud ?? 0;
+  const restanteSolicitud = resumen?.restante_solicitud ?? 0;
+  const totalPagado = resumen?.total_pagado ?? 0;
+  const totalFacturas = resumen?.total_facturado ?? 0;
+  const diferencia = resumen?.diferencia_total ?? 0;
+  const esCuadrado = Number(diferencia) === 0;
+
+const facturasTable = useMemo(() => {
+  return facturasApi.map((f: any, idx: number) => {
+    const facturaKey = getFacturaKey(f) || String(idx);
+    const draft = drafts[facturaKey] || {
+      subtotal: "",
+      impuestos: "",
+      monto_asociar: "",
+    };
+
+    return {
+      ...f,
+      row_id: facturaKey,
+      facturaKey,
+      uuid_factura_full:
+        safeString(f?.uuid_cfdi) || safeString(f?.uuid_factura) || "—",
+      razon_social_view:
+        safeString(f?.razon_social_fiscal) ||
+        safeString(f?.razon_social_emisor) ||
+        safeString(f?.razon_social) ||
+        "—",
+      rfc_view: safeString(f?.rfc_emisor) || safeString(f?.rfc) || "—",
+
+      porcentaje_impuesto_view: `${toNum(
+        f?.porcentaje_impuesto ?? f?.tasa_impuesto ?? 0
+      )}%`,
+
+      subtotal_edit: draft.subtotal,
+      impuestos_edit: draft.impuestos,
+      monto_asociar_edit: draft.monto_asociar,
+
+      total_factura_view: toNum(f?.total_factura || f?.total),
+      total_asociado_factura_view: toNum(f?.total_asociado_factura),
+      restante_factura_view: toNum(f?.restante_factura),
+      maximo_a_asociar_view: toNum(f?.maximo_a_asociar),
+
+      acciones: "acciones",
+    };
+  });
+}, [facturasApi, drafts]);
 
   const facturasCols = useMemo(
     () => [
+      "uuid_factura_full",
+      "razon_social_view",
+      "rfc_view",
+      "total_factura_view",
+      "total_asociado_factura_view",
+      "restante_factura_view",
+      "maximo_a_asociar_view",
+      "subtotal_edit",
+      "impuestos_edit",
+      "monto_asociar_edit",
       "acciones",
-      "id_factura_proveedor",
-      "uuid_cfdi",
-      "monto_facturado",
-      "fecha_factura",
-      "fecha_vencimiento",
-      "estado_factura",
-      "rfc_emisor",
-      "total",
     ],
     []
   );
-
-  function getEstadoFacturacionUI(value: any): {
-  text: string;
-  tone: "gray" | "green" | "blue" | "amber" | "red";
-  cardTone: "gray" | "green" | "blue" | "amber" | "violet";
-} {
-  const v = String(value ?? "").trim().toLowerCase();
-
-  if (!v) {
-    return {
-      text: "SIN ESTATUS",
-      tone: "gray",
-      cardTone: "gray",
-    };
-  }
-
-  if (v === "pendiente") {
-    return {
-      text: "PENDIENTE",
-      tone: "amber",
-      cardTone: "amber",
-    };
-  }
-
-  if (v === "parcial") {
-    return {
-      text: "PARCIAL",
-      tone: "blue",
-      cardTone: "blue",
-    };
-  }
-
-  if (v === "completado") {
-    return {
-      text: "COMPLETADO",
-      tone: "green",
-      cardTone: "green",
-    };
-  }
-
-  return {
-    text: v.toUpperCase(),
-    tone: "gray",
-    cardTone: "gray",
-  };
-}
 
   const facturasRenderers = useMemo(
     () => ({
-      acciones: ({ item }: any) => (
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            className={[
-              "px-2 py-1 text-xs border",
-              !safeString(item?.url_pdf)
-                ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
-                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
-            ].join(" ")}
-            disabled={!safeString(item?.url_pdf)}
-            onClick={() => openUrl(item?.url_pdf)}
-            title={item?.url_pdf ? "Descargar PDF" : "Sin PDF"}
-          >
-            <span className="inline-flex items-center gap-1">
-              <FileText className="w-4 h-4" />
-              <span className="hidden xl:inline">PDF</span>
-            </span>
-          </Button>
-
-          <Button
-            variant="secondary"
-            size="sm"
-            className={[
-              "px-2 py-1 text-xs border",
-              !safeString(item?.url_xml)
-                ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
-                : "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100",
-            ].join(" ")}
-            disabled={!safeString(item?.url_xml)}
-            onClick={() => openUrl(item?.url_xml)}
-            title={item?.url_xml ? "Descargar XML" : "Sin XML"}
-          >
-            <span className="inline-flex items-center gap-1">
-              <Code2 className="w-4 h-4" />
-              <span className="hidden xl:inline">XML</span>
-            </span>
-          </Button>
-        </div>
-      ),
-
-      id_factura_proveedor: ({ value }: any) => (
-        <span className="font-mono text-xs" title={safeString(value)}>
-          {safeString(value)}
+      uuid_factura_full: ({ value }: any) => (
+        <span className="font-mono text-xs text-gray-800 break-all whitespace-normal">
+          {value || "—"}
         </span>
       ),
 
-      uuid_cfdi: ({ value }: any) => (
-        <span className="font-mono text-xs" title={safeString(value)}>
-          {safeString(value) ? `${safeString(value).slice(0, 12)}…` : "—"}
+      razon_social_view: ({ value }: any) => (
+        <span className="text-xs text-gray-800">{value || "—"}</span>
+      ),
+
+      rfc_view: ({ value }: any) => (
+        <span className="font-mono text-xs text-gray-800">{value || "—"}</span>
+      ),
+
+      total_factura_view: ({ value }: any) => (
+        <span className="text-xs font-semibold text-gray-800">
+          {formatMoney(value)}
         </span>
       ),
 
-      monto_facturado: ({ value }: any) => (
-        <span title={String(value)}>{formatMoney(value)}</span>
+      total_asociado_factura_view: ({ value }: any) => (
+        <span className="text-xs text-blue-700 font-semibold">
+          {formatMoney(value)}
+        </span>
       ),
 
-      fecha_factura: ({ value }: any) => (
-        <span title={String(value)}>{formatDateSimple(value)}</span>
+      restante_factura_view: ({ value }: any) => (
+        <span className="text-xs text-amber-700 font-semibold">
+          {formatMoney(value)}
+        </span>
       ),
 
-      fecha_vencimiento: ({ value }: any) => (
-        <span title={String(value)}>{formatDateSimple(value)}</span>
+      maximo_a_asociar_view: ({ value }: any) => (
+        <span className="text-xs text-green-700 font-semibold">
+          {formatMoney(value)}
+        </span>
       ),
 
-      estado_factura: ({ value }: any) => (
-        <Badge
-          text={safeString(value) || "—"}
-          tone={
-            safeString(value).toLowerCase().includes("confirm")
-              ? "green"
-              : "gray"
+subtotal_edit: ({ item }: any) => {
+      const facturaKey = String(item?.facturaKey ?? "");
+      return (
+        <input
+          type="number"
+          step="0.01"
+          value={drafts[facturaKey]?.subtotal ?? ""}
+          onChange={(e) =>
+            setDraftField(item, facturaKey, "subtotal", e.target.value)
           }
+          className="w-full min-w-[110px] border border-gray-200 rounded-lg px-2 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
+          placeholder="0.00"
         />
-      ),
+      );
+    },
 
-      rfc_emisor: ({ value }: any) => (
-        <span className="font-mono text-xs">{safeString(value) || "—"}</span>
-      ),
+    impuestos_edit: ({ item }: any) => {
+      const facturaKey = String(item?.facturaKey ?? "");
+      return (
+        <input
+          type="number"
+          step="0.01"
+          value={drafts[facturaKey]?.impuestos ?? ""}
+          onChange={(e) =>
+            setDraftField(item, facturaKey, "impuestos", e.target.value)
+          }
+          className="w-full min-w-[110px] border border-gray-200 rounded-lg px-2 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
+          placeholder="0.00"
+        />
+      );
+    },
 
-      total: ({ value }: any) => <span title={String(value)}>{formatMoney(value)}</span>,
-    }),
-    []
-  );
+      monto_asociar_edit: ({ item }: any) => {
+      const facturaKey = String(item?.facturaKey ?? "");
+      const maximo = toNum(item?.maximo_a_asociar_view);
+      const monto = toNum(drafts[facturaKey]?.monto_asociar ?? 0);
+      const excedido = monto > maximo;
 
-  /** =========================================================
-   * PAGOS con Table5
-   * ========================================================= */
-  const pagosTable = useMemo(() => {
-    return pagos.map((p: any) => ({
-      // ✅ PRIMERO para que sí aparezca
-      acciones: "",
-      id_pago_proveedores: safeString(p?.id_pago_proveedores) || "—",
-      fecha_pago: p?.fecha_pago,
-      monto_pagado: p?.monto_pagado ?? p?.monto,
-      metodo_de_pago: safeString(p?.metodo_de_pago) || "—",
-      referencia_pago: safeString(p?.referencia_pago) || "—",
-      concepto: safeString(p?.concepto) || "—",
-      item: p, // ✅ Table5 usa item.item
-    }));
-  }, [pagos]);
-
-  const pagosCols = useMemo(
-    () => [
-      "acciones",
-      "id_pago_proveedores",
-      "fecha_pago",
-      "monto_pagado",
-      "metodo_de_pago",
-      "referencia_pago",
-      "concepto",
-    ],
-    []
-  );
-
-  const pagosRenderers = useMemo(
-    () => ({
-      acciones: ({ item }: any) => (
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="secondary"
-            size="sm"
-            className={[
-              "px-2 py-1 text-xs border",
-              !safeString(item?.url_pdf)
-                ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
-                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
-            ].join(" ")}
-            disabled={!safeString(item?.url_pdf)}
-            onClick={() => openUrl(item?.url_pdf)}
-            title={item?.url_pdf ? "Descargar comprobante" : "Sin comprobante"}
-          >
-            <span className="inline-flex items-center gap-1">
-              <FileText className="w-4 h-4" />
-              <span className="hidden xl:inline">Comprobante</span>
-            </span>
-          </Button>
+      return (
+        <div className="min-w-[150px]">
+          <input
+            type="number"
+            step="0.01"
+            value={drafts[facturaKey]?.monto_asociar ?? ""}
+            onChange={(e) =>
+              setDraftField(item, facturaKey, "monto_asociar", e.target.value)
+            }
+            className={`w-full border rounded-lg px-2 py-2 text-sm outline-none focus:ring-2 ${
+              excedido
+                ? "border-red-300 focus:ring-red-100 text-red-700"
+                : "border-gray-200 focus:ring-blue-100"
+            }`}
+            placeholder="0.00"
+          />
+          <p className="mt-1 text-[10px] text-gray-500">
+            Máximo: {formatMoney(maximo)}
+          </p>
         </div>
-      ),
+      );
+    },
 
-      id_pago_proveedores: ({ value }: any) => (
-        <span className="font-mono text-xs">{safeString(value)}</span>
-      ),
+      acciones: ({ item }: any) => {
+        const facturaKey =
+  safeString(item?.facturaKey) ||
+  safeString(item?.row_id) ||
+  safeString(item?.id_factura_proveedor);
 
-      fecha_pago: ({ value }: any) => (
-        <span title={String(value)}>{formatDateSimple(value)}</span>
-      ),
+const isSaving = !!facturaKey && savingKey === facturaKey;
+const isDeleting = !!facturaKey && deletingKey === facturaKey;
 
-      monto_pagado: ({ value }: any) => (
-        <span title={String(value)}>{formatMoney(value)}</span>
-      ),
-
-      metodo_de_pago: ({ value }: any) => (
-        <Badge text={safeString(value) || "—"} tone="gray" />
-      ),
-
-      referencia_pago: ({ value }: any) => (
-        <span className="font-mono text-xs" title={safeString(value)}>
-          {safeString(value) ? `${safeString(value).slice(0, 12)}…` : "—"}
-        </span>
-      ), 
-
-      concepto: ({ value }: any) => (
-        <span title={safeString(value)}>{safeString(value) || "—"}</span>
-      ),
-    }),
-    []
-  );
-console.log(solicitudApi)
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-5">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-
-      <div
-        className="relative h-[94vh] w-[98vw] max-w-[1600px] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="sticky top-0 z-20 border-b border-gray-200 bg-white/95 px-5 py-4 backdrop-blur">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-lg font-semibold text-gray-900">
-                  Detalles de conciliación
-                </p>
-
-                <Badge
-                  text={`Solicitud #${payload.id_solicitud_proveedor || "—"}`}
-                  tone="blue"
-                />
-
-                {safeString(solicitudApi?.estado_solicitud) ? (
-                  <Badge
-                    text={safeString(solicitudApi?.estado_solicitud)}
-                    tone="gray"
-                  />
-                ) : null}
-
-                {proveedorNombre ? (
-                  <Badge text={proveedorNombre} tone="violet" />
-                ) : null}
-              </div>
-
-              <p className="mt-1 text-sm text-gray-500">
-                {hotel ? `Hotel: ${hotel}` : "Hotel: —"}
-                {" • "}
-                {viajero ? `Viajero: ${viajero}` : "Viajero: —"}
-              </p>
-            </div>
+        return (
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => openUrl(item?.url_pdf)}
+              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50"
+              title="Abrir PDF"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              PDF
+              <ExternalLink className="w-3.5 h-3.5" />
+            </button>
 
             <button
               type="button"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white hover:bg-gray-50"
-              onClick={onClose}
-              title="Cerrar"
+              onClick={() => openUrl(item?.url_xml)}
+              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50"
+              title="Abrir XML"
             >
-              <X className="h-4 w-4 text-gray-700" />
+              <Code2 className="w-3.5 h-3.5" />
+              XML
+              <ExternalLink className="w-3.5 h-3.5" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => void saveFactura(item)}
+              disabled={isSaving || isDeleting}
+              className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+              title="Guardar cambios"
+            >
+              {isSaving ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Save className="w-3.5 h-3.5" />
+              )}
+              Guardar
+            </button>
+
+            <button
+              type="button"
+              onClick={() => void deleteFactura(item)}
+              disabled={isSaving || isDeleting}
+              className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[11px] text-red-700 hover:bg-red-100 disabled:opacity-50"
+              title="Eliminar factura"
+            >
+              {isDeleting ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Trash2 className="w-3.5 h-3.5" />
+              )}
+              Eliminar
             </button>
           </div>
+        );
+      },
+    }),
+    [drafts, savingKey, deletingKey, setDraftField, saveFactura, deleteFactura]
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+
+      <div
+        className="relative w-full max-w-7xl max-h-[90vh] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="sticky top-0 z-20 border-b border-gray-100 bg-white/95 backdrop-blur px-5 py-4 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-sm font-semibold text-gray-900">
+                Solicitud #{payload.id_solicitud_proveedor || "—"}
+              </p>
+
+              {resumen ? (
+                <Badge
+                  text={esCuadrado ? "VALIDACIÓN: CUADRADO" : "VALIDACIÓN: DIFERENCIA"}
+                  tone={esCuadrado ? "green" : "amber"}
+                />
+              ) : null}
+            </div>
+
+            <p className="text-xs text-gray-500 mt-1">
+              Validación de solicitud, facturas y monto máximo asociable.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            className="inline-flex items-center justify-center w-10 h-10 rounded-xl border border-gray-200 bg-white hover:bg-gray-50"
+            onClick={onClose}
+            title="Cerrar"
+          >
+            <X className="w-4 h-4 text-gray-700" />
+          </button>
         </div>
 
-        {/* Body */}
-        <div className="h-[calc(94vh-76px)] overflow-y-auto p-5">
-          {loading && (
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Cargando detalles...
-            </div>
-          )}
+        <div className="max-h-[calc(90vh-72px)] overflow-y-auto">
+          <div className="p-5 space-y-4">
+            {loading && (
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Cargando detalles...
+              </div>
+            )}
 
-          {error && (
-            <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-              <p className="font-semibold">Error</p>
-              <p className="mt-1">{error}</p>
-            </div>
-          )}
+            {error && (
+              <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl p-4">
+                <p className="font-semibold">Error</p>
+                <p className="mt-1">{error}</p>
+              </div>
+            )}
 
-          {!loading && !error && (
-            <div className="space-y-3">
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-                <InfoCard
-                  icon={<CalendarDays className="h-3 w-3 text-gray-600" />}
-                  label="Fecha solicitud"
-                  value={formatDateSimple(solicitudApi?.fecha_solicitud)}
-                />
+            {!loading && !error && (
+              <>
+                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <p className="text-sm font-semibold text-gray-900">
+                      Resumen de validación
+                    </p>
 
-                <InfoCard
-                  icon={<Wallet className="h-3 w-3 text-blue-600" />}
-                  label="Monto solicitado"
-                  value={formatMoney(solicitudApi?.monto_solicitado)}
-                  tone="blue"
-                />
-                <InfoCard
-                  icon={<FileSpreadsheet className="h-3 w-3 text-gray-600" />}
-                  label="Estado facturación"
-                  tone={estadoFacturacionUI.cardTone}
-                  value={
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        text={estadoFacturacionUI.text}
-                        tone={estadoFacturacionUI.tone}
+                    {resumen ? (
+                      esCuadrado ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-700">
+                          <CheckCircle2 className="w-4 h-4" />
+                          Cuadrado
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700">
+                          <AlertTriangle className="w-4 h-4" />
+                          Revisar diferencia
+                        </span>
+                      )
+                    ) : null}
+                  </div>
+
+                  {!resumen ? (
+                    <p className="text-xs text-gray-500">
+                      No llegó resumen de validación en la respuesta.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-3">
+                      <StatCard
+                        label="Monto solicitado"
+                        value={formatMoney(montoSolicitado)}
+                      />
+                      <StatCard
+                        label="Total asociado solicitud"
+                        value={formatMoney(totalAsociadoSolicitud)}
+                      />
+                      <StatCard
+                        label="Restante solicitud"
+                        value={
+                          <span className="text-amber-700 font-bold">
+                            {formatMoney(restanteSolicitud)}
+                          </span>
+                        }
+                      />
+                      <StatCard
+                        label="Total pagado"
+                        value={formatMoney(totalPagado)}
+                      />
+                      <StatCard
+                        label="Total facturas"
+                        value={formatMoney(totalFacturas)}
+                      />
+                      <StatCard
+                        label="Diferencia"
+                        value={
+                          <span
+                            className={`font-bold ${
+                              esCuadrado ? "text-green-700" : "text-amber-700"
+                            }`}
+                          >
+                            {formatMoney(diferencia)}
+                          </span>
+                        }
+                        sub={
+                          esCuadrado
+                            ? "Pagos y facturas cuadran."
+                            : "Hay diferencia entre pago y total de facturas."
+                        }
                       />
                     </div>
-                  }
-                />
-              </div>
-              <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
-                <div className="rounded-xl border border-blue-200 bg-blue-50/40 p-4 shadow-sm">
-                  <SectionTitle title="Resumen financiero" />
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-gray-600">Monto solicitado</span>
-                      <span className="font-semibold text-gray-900">
-                        {formatMoney(solicitudApi?.monto_solicitado)}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-gray-600">Monto facturado</span>
-                      <span className="font-semibold text-blue-700">
-                        {formatMoney(totalFacturado)}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-gray-600">Por facturar</span>
-                      <span className="font-semibold text-gray-900">
-                        {formatMoney(
-                          Number(solicitudApi?.monto_por_facturar ?? 0)
-                        )}
-                      </span>
-                    </div>
-                  </div>
+                  )}
                 </div>
 
-                <div className="rounded-xl border border-green-200 bg-green-50/40 p-4 shadow-sm">
-                  <SectionTitle title="Pagos" />
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-gray-600">Total pagado</span>
-                      <span className="font-semibold text-green-700">
-                        {formatMoney(totalPagado)}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-gray-600">Total facturado</span>
-                      <span className="font-semibold text-green-700">
-                        {formatMoney(totalFacturado)}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-gray-600">Número de pagos</span>
-                      <span className="font-semibold text-gray-900">
-                        {pagos.length}
-                      </span>
-                    </div>
+                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <p className="text-sm font-semibold text-gray-900">
+                      Facturas ({facturasApi.length})
+                    </p>
                   </div>
-                </div>
 
-                <div className="rounded-xl border border-violet-200 bg-violet-50/40 p-4 shadow-sm">
-                  <SectionTitle
-                    title="Validación"
-                    right={
-                      <Badge
-                        text={esCuadrado ? "CUADRADO" : "DIFERENCIA"}
-                        tone={getToneByDiff(diferencia) as any}
-                      />
-                    }
-                  />
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-gray-600">Diferencia total</span>
-                      <span
-                        className={`font-semibold ${
-                          esCuadrado ? "text-green-700" : "text-amber-700"
-                        }`}
-                      >
-                        {formatMoney(diferencia)}
-                      </span>
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {esCuadrado
-                        ? "Los pagos y las facturas cuadran correctamente."
-                        : "Existe diferencia entre el total pagado y el total facturado."}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Facturas */}
-              <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-                <SectionTitle
-                  title={`Facturas (${facturas.length})`}
-                  right={
-                    <Badge
-                      text={`${facturas.length} factura${
-                        facturas.length === 1 ? "" : "s"
-                      }`}
-                      tone="blue"
+                  {facturasApi.length === 0 ? (
+                    <p className="text-xs text-gray-500">
+                      No hay facturas disponibles.
+                    </p>
+                  ) : (
+                    <Table5<any>
+                      registros={facturasTable as any}
+                      customColumns={facturasCols as any}
+                      renderers={facturasRenderers as any}
+                      exportButton={false}
+                      fillHeight={false}
+                      maxHeight="420px"
                     />
-                  }
-                />
-
-                {facturas.length === 0 ? (
-                  <p className="text-sm text-gray-500">
-                    No hay facturas disponibles.
-                  </p>
-                ) : (
-                  <Table5<any>
-                    registros={facturasTable as any}
-                    renderers={facturasRenderers as any}
-                    customColumns={facturasCols as any}
-                    exportButton={false}
-                    isExport={false}
-                    fillHeight={false}
-                    maxHeight="320px"
-                  />
-                )}
-              </div>
-
-              {/* Pagos */}
-              <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-                <SectionTitle
-                  title={`Pagos (${pagos.length})`}
-                  right={
-                    <Badge
-                      text={`${pagos.length} pago${pagos.length === 1 ? "" : "s"}`}
-                      tone="green"
-                    />
-                  }
-                />
-
-                {pagos.length === 0 ? (
-                  <p className="text-sm text-gray-500">
-                    No hay pagos disponibles.
-                  </p>
-                ) : (
-                  <Table5<any>
-                    registros={pagosTable as any}
-                    renderers={pagosRenderers as any}
-                    customColumns={pagosCols as any}
-                    exportButton={false}
-                    isExport={false}
-                    fillHeight={false}
-                    maxHeight="320px"
-                  />
-                )}
-              </div>
-            </div>
-          )}
+                  )}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
