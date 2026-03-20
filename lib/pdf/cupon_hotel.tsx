@@ -118,185 +118,190 @@ function buildGoogleMapsUrl(
 }
 
 export async function generatePdfHotel(id_solicitud: string): Promise<jsPDF> {
-  const book = new BookingsService();
-  const solicitud = (await book.obtenerCupon(id_solicitud))
-    .data as SolicitudHotel;
-  let ubicacion: UbicacionType = solicitud?.direccion ?? null;
-  const idHotel = solicitud?.id_hotel_resuelto;
-  if (!ubicacion) {
-    const data = await getUbicacion(String(idHotel));
-    const raw = data?.res?.[0]?.ubicacion_o_direccion ?? null; // puede venir "lat,lng" o texto
-    // Parseo "lat,lng"
-    if (typeof raw === "string" && raw.includes(",")) {
-      const [a, b] = raw.split(",").map((s) => Number(s.trim()));
-      if (!Number.isNaN(a) && !Number.isNaN(b)) {
-        const obj = { lat: a, lng: b };
-        ubicacion = obj;
+  try {
+    const book = new BookingsService();
+    const solicitud = (await book.obtenerCupon(id_solicitud))
+      .data as SolicitudHotel;
+    let ubicacion: UbicacionType = solicitud?.direccion ?? null;
+    const idHotel = solicitud?.id_hotel_resuelto;
+    if (!ubicacion) {
+      const data = await getUbicacion(String(idHotel));
+      const raw = data?.res?.[0]?.ubicacion_o_direccion ?? null; // puede venir "lat,lng" o texto
+      // Parseo "lat,lng"
+      if (typeof raw === "string" && raw.includes(",")) {
+        const [a, b] = raw.split(",").map((s) => Number(s.trim()));
+        if (!Number.isNaN(a) && !Number.isNaN(b)) {
+          const obj = { lat: a, lng: b };
+          ubicacion = obj;
+        }
       }
+      ubicacion = raw;
     }
-    ubicacion = raw;
-  }
-  const mapsUrl = buildGoogleMapsUrl(
-    ubicacion,
-    solicitud?.hotel || "",
-    solicitud?.direccion || "",
-  );
-
-  console.log(mapsUrl);
-  console.log(solicitud);
-
-  const doc = new jsPDF("p", "mm", "a4");
-
-  const pageW = doc.internal.pageSize.getWidth();
-  const height = doc.internal.pageSize.getHeight();
-
-  doc.setFillColor(...STYLES.COLORS.PRIMARY);
-  doc.setFont("helvetica", "bold");
-  doc.rect(0, 0, pageW, height, "F");
-
-  let y = STYLES.MARGINS.TOP - 4;
-
-  doc.setTextColor(30, 58, 138);
-  doc.setFontSize(12);
-  drawImage(
-    doc,
-    "https://luiscastaneda-tos.github.io/log/files/nokt.png",
-    STYLES.MARGINS.LEFT,
-    STYLES.SPACING.SECTION,
-    26,
-    18,
-  );
-  drawImage(
-    doc,
-    "https://luiscastaneda-tos.github.io/log/files/mia.png",
-    pageW - 20 - STYLES.MARGINS.LEFT,
-    STYLES.SPACING.SECTION,
-    20,
-    20,
-  );
-  doc.text("Detalles de la reservación", pageW / 2, y, { align: "center" });
-  y += 4;
-  doc.setFont("helvetica", "normal");
-  if (solicitud.codigo_confirmacion) {
-    doc.setTextColor(44, 104, 234);
-    doc.setFontSize(8);
-    doc.text(
-      "Codigo de confirmación: " + solicitud.codigo_confirmacion,
-      pageW / 2,
-      y,
-      { align: "center" },
+    const mapsUrl = buildGoogleMapsUrl(
+      ubicacion,
+      solicitud?.hotel || "",
+      solicitud?.direccion || "",
     );
-  }
-  doc.setTextColor(0, 0, 0);
-  doc.setFontSize(6);
-  y += 16;
-  drawCardBox(doc, {
-    text: solicitud.huesped,
-    label: "Huesped",
-    width: pageW / 2 - STYLES.MARGINS.LEFT - 2,
-    x: STYLES.MARGINS.LEFT,
-    y,
-    padding: 5,
-  });
-  y = drawCardBox(doc, {
-    text: solicitud.hotel,
-    label: "Hotel",
-    width: pageW / 2 - STYLES.MARGINS.LEFT - 2,
-    x: 2 + pageW / 2,
-    y,
-    padding: 5,
-    link: mapsUrl,
-    placeholder: solicitud.direccion,
-  });
-  y += 4;
-  drawCardBox(doc, {
-    text: solicitud.incluye_desayuno
-      ? "Incluye desayuno"
-      : "No incluye desayuno",
-    label: "Desayuno",
-    width: pageW / 2 - STYLES.MARGINS.LEFT - 2,
-    x: STYLES.MARGINS.LEFT,
-    y,
-    padding: 5,
-  });
-  y = drawCardBox(doc, {
-    text:
-      solicitud.acompañantes != ""
-        ? solicitud.acompañantes.toUpperCase().replaceAll("  ", " ")
-        : "Sin acompañantes",
-    label: "Acompañantes",
-    width: pageW / 2 - STYLES.MARGINS.LEFT - 2,
-    x: 2 + pageW / 2,
-    y,
-    padding: 5,
-  });
-  y += 4;
-  drawCardBox(doc, {
-    text: solicitud.check_in ? formatLargeDate(solicitud.check_in) : "",
-    label: "Check in",
-    width: pageW / 2 - STYLES.MARGINS.LEFT - 2,
-    x: STYLES.MARGINS.LEFT,
-    y,
-    padding: 5,
-  });
-  y = drawCardBox(doc, {
-    text: solicitud.check_out ? formatLargeDate(solicitud.check_out) : "",
-    label: "Check out",
-    width: pageW / 2 - STYLES.MARGINS.LEFT - 2,
-    x: 2 + pageW / 2,
-    y,
-    padding: 5,
-  });
-  y += 4;
-  drawCardBox(doc, {
-    text: solicitud.room ? solicitud.room.toUpperCase() : "",
-    label: "Habitación",
-    width: pageW / 2 - STYLES.MARGINS.LEFT - 2,
-    x: STYLES.MARGINS.LEFT,
-    y,
-    padding: 5,
-  });
-  y = drawCardBox(doc, {
-    text: solicitud.comentarios ? solicitud.comentarios : "",
-    label: "Comentarios",
-    width: pageW / 2 - STYLES.MARGINS.LEFT - 2,
-    x: 2 + pageW / 2,
-    y,
-    padding: 5,
-  });
-  y += 4;
 
-  y = drawTextBox(doc, {
-    text: "Politicas",
-    width: pageW - STYLES.MARGINS.LEFT * 2,
-    x: STYLES.MARGINS.LEFT,
-    y,
-    bgColor: STYLES.COLORS.DARK,
-    fontSize: 10,
-    lineHeight: 5,
-    textColor: STYLES.COLORS.WHITE,
-  });
-  y += 3;
-  y = drawList(
-    doc,
-    politicas,
-    STYLES.MARGINS.LEFT * 2,
-    y,
-    pageW - STYLES.MARGINS.LEFT * 4,
-    { fontSize: STYLES.FONTS.XS, lineHeight: 4 },
-  );
-  y = drawTextBox(doc, {
-    text: "Datos de contacto 24/7",
-    width: pageW - STYLES.MARGINS.LEFT * 2,
-    x: STYLES.MARGINS.LEFT,
-    bgColor: STYLES.COLORS.DARK,
-    fontSize: 10,
-    lineHeight: 5,
-    textColor: STYLES.COLORS.WHITE,
-    y,
-  });
-  drawContacto(doc, y);
-  return doc;
+    console.log(mapsUrl);
+    console.log(solicitud);
+
+    const doc = new jsPDF("p", "mm", "a4");
+
+    const pageW = doc.internal.pageSize.getWidth();
+    const height = doc.internal.pageSize.getHeight();
+
+    doc.setFillColor(...STYLES.COLORS.PRIMARY);
+    doc.setFont("helvetica", "bold");
+    doc.rect(0, 0, pageW, height, "F");
+
+    let y = STYLES.MARGINS.TOP - 4;
+
+    doc.setTextColor(30, 58, 138);
+    doc.setFontSize(12);
+    drawImage(
+      doc,
+      "https://luiscastaneda-tos.github.io/log/files/nokt.png",
+      STYLES.MARGINS.LEFT,
+      STYLES.SPACING.SECTION,
+      26,
+      18,
+    );
+    drawImage(
+      doc,
+      "https://luiscastaneda-tos.github.io/log/files/mia.png",
+      pageW - 20 - STYLES.MARGINS.LEFT,
+      STYLES.SPACING.SECTION,
+      20,
+      20,
+    );
+    doc.text("Detalles de la reservación", pageW / 2, y, { align: "center" });
+    y += 4;
+    doc.setFont("helvetica", "normal");
+    if (solicitud.codigo_confirmacion) {
+      doc.setTextColor(44, 104, 234);
+      doc.setFontSize(8);
+      doc.text(
+        "Codigo de confirmación: " + solicitud.codigo_confirmacion,
+        pageW / 2,
+        y,
+        { align: "center" },
+      );
+    }
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(6);
+    y += 16;
+    drawCardBox(doc, {
+      text: solicitud.huesped,
+      label: "Huesped",
+      width: pageW / 2 - STYLES.MARGINS.LEFT - 2,
+      x: STYLES.MARGINS.LEFT,
+      y,
+      padding: 5,
+    });
+    y = drawCardBox(doc, {
+      text: solicitud.hotel,
+      label: "Hotel",
+      width: pageW / 2 - STYLES.MARGINS.LEFT - 2,
+      x: 2 + pageW / 2,
+      y,
+      padding: 5,
+      link: mapsUrl,
+      placeholder: solicitud.direccion,
+    });
+    y += 4;
+    drawCardBox(doc, {
+      text: solicitud.incluye_desayuno
+        ? "Incluye desayuno"
+        : "No incluye desayuno",
+      label: "Desayuno",
+      width: pageW / 2 - STYLES.MARGINS.LEFT - 2,
+      x: STYLES.MARGINS.LEFT,
+      y,
+      padding: 5,
+    });
+    y = drawCardBox(doc, {
+      text:
+        solicitud.acompañantes != ""
+          ? solicitud.acompañantes.toUpperCase().replaceAll("  ", " ")
+          : "Sin acompañantes",
+      label: "Acompañantes",
+      width: pageW / 2 - STYLES.MARGINS.LEFT - 2,
+      x: 2 + pageW / 2,
+      y,
+      padding: 5,
+    });
+    y += 4;
+    drawCardBox(doc, {
+      text: solicitud.check_in ? formatLargeDate(solicitud.check_in) : "",
+      label: "Check in",
+      width: pageW / 2 - STYLES.MARGINS.LEFT - 2,
+      x: STYLES.MARGINS.LEFT,
+      y,
+      padding: 5,
+    });
+    y = drawCardBox(doc, {
+      text: solicitud.check_out ? formatLargeDate(solicitud.check_out) : "",
+      label: "Check out",
+      width: pageW / 2 - STYLES.MARGINS.LEFT - 2,
+      x: 2 + pageW / 2,
+      y,
+      padding: 5,
+    });
+    y += 4;
+    drawCardBox(doc, {
+      text: solicitud.room ? solicitud.room.toUpperCase() : "",
+      label: "Habitación",
+      width: pageW / 2 - STYLES.MARGINS.LEFT - 2,
+      x: STYLES.MARGINS.LEFT,
+      y,
+      padding: 5,
+    });
+    y = drawCardBox(doc, {
+      text: solicitud.comentarios ? solicitud.comentarios : "",
+      label: "Comentarios",
+      width: pageW / 2 - STYLES.MARGINS.LEFT - 2,
+      x: 2 + pageW / 2,
+      y,
+      padding: 5,
+    });
+    y += 4;
+
+    y = drawTextBox(doc, {
+      text: "Politicas",
+      width: pageW - STYLES.MARGINS.LEFT * 2,
+      x: STYLES.MARGINS.LEFT,
+      y,
+      bgColor: STYLES.COLORS.DARK,
+      fontSize: 10,
+      lineHeight: 5,
+      textColor: STYLES.COLORS.WHITE,
+    });
+    y += 3;
+    y = drawList(
+      doc,
+      politicas,
+      STYLES.MARGINS.LEFT * 2,
+      y,
+      pageW - STYLES.MARGINS.LEFT * 4,
+      { fontSize: STYLES.FONTS.XS, lineHeight: 4 },
+    );
+    y = drawTextBox(doc, {
+      text: "Datos de contacto 24/7",
+      width: pageW - STYLES.MARGINS.LEFT * 2,
+      x: STYLES.MARGINS.LEFT,
+      bgColor: STYLES.COLORS.DARK,
+      fontSize: 10,
+      lineHeight: 5,
+      textColor: STYLES.COLORS.WHITE,
+      y,
+    });
+    drawContacto(doc, y);
+    return doc;
+  } catch (error) {
+    console.log(error);
+    throw new Error(error);
+  }
 }
 
 function drawTextBox(
