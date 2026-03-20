@@ -27,12 +27,19 @@ import {
   PageTracker,
   TrackingPage,
 } from "@/v2/components/molecule/PageTracking";
-import { Download, RefreshCwIcon, Trash2 } from "lucide-react";
+import {
+  Building2,
+  Download,
+  Plane,
+  RefreshCwIcon,
+  Trash2,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { useFile } from "@/hooks/useFile";
 import { useParams } from "next/navigation";
 import { generatePdf } from "@/lib/pdf/cupon_vuelo";
 import { downloadPdfSafely } from "@/lib/pdf/descarga";
+import { generatePdfHotel } from "@/lib/pdf/cupon_hotel";
 
 const PageReservas = () => {
   const [loading, setLoading] = useState(false);
@@ -45,7 +52,7 @@ const PageReservas = () => {
   const [filters, setFilters] = useState<TypeFilters>(
     defaultFiltersSolicitudes,
   );
-  const { showNotification } = useAlert();
+  const { showNotification, error } = useAlert();
   const { csv, loadingFile, setLoadingFile } = useFile();
   const { id } = useParams();
   const agente = { id_agente: Array.isArray(id) ? id[0] : id };
@@ -118,7 +125,7 @@ const PageReservas = () => {
   };
 
   const renderers = {
-    serv: ({ value }) => <ServiceIcon type={value} />,
+    servicio: ({ value }) => <ServiceIcon type={value} />,
     id: ({ value }: { value: string }) => (
       <ButtonCopiar copy_value={value} label={value.slice(0, 12)} />
     ),
@@ -144,11 +151,29 @@ const PageReservas = () => {
       <>
         {value.type == "flyght" && (
           <Button
+            icon={Plane}
             onClick={async () => {
               console.log(value);
               const pdf = await generatePdf(value.id_solicitud);
               const filename = `VUELO-${value.viajero.toUpperCase()}-${value.codigo_confirmacion}.pdf`;
               downloadPdfSafely(pdf, filename);
+            }}
+          >
+            Ver
+          </Button>
+        )}
+        {value.type == "hotel" && (
+          <Button
+            icon={Building2}
+            onClick={async () => {
+              try {
+                const pdf = await generatePdfHotel(value.id_solicitud);
+                const filename = `reservacion-${value.viajero.toUpperCase()}-${value.codigo_confirmacion}.pdf`;
+                downloadPdfSafely(pdf, filename);
+              } catch (err) {
+                console.log(err);
+                error(err.message || "Error al realizar este pedouw");
+              }
             }}
           >
             Ver
@@ -160,12 +185,13 @@ const PageReservas = () => {
 
   const data = reservas.map((reserva) => ({
     servicio: reserva.type,
-    id_cliente: reserva.id_agente,
+    // id_cliente: reserva.id_agente,
     cliente: reserva.agente,
-    creado: `${reserva.created_at.split("T")[0]} : ${reserva.created_at.split("T")[1]}`,
+    creado: `${reserva.created_at.split("T")[0]}`,
     proveedor: reserva.proveedor,
-    intermediario: reserva.intermediario,
+    cupon: reserva,
     codigo: reserva.codigo_confirmacion,
+    // intermediario: reserva.intermediario,
     viajero: reserva.viajero,
     check_in: reserva.check_in.split("T")[0],
     horario_salida: reserva.horario_salida,
@@ -185,7 +211,6 @@ const PageReservas = () => {
     estado_pago: reserva.estado_pago,
     estado_facturacion: reserva.estado_facturacion,
     detalles_cliente: reserva.id_solicitud,
-    cupon: reserva,
   }));
 
   const handleFilterChange = (value, propiedad) => {

@@ -74,6 +74,29 @@ export const formatDate = (dateString: string) => {
     year: "numeric",
   });
 };
+export const formatLargeDate = (dateString: string) => {
+  if (!dateString || typeof dateString !== "string") {
+    console.error("dateString inválido:", dateString);
+    return "";
+  }
+
+  // Tomar solo la parte de fecha aunque venga "YYYY-MM-DD HH:mm:ss" o "YYYY-MM-DDTHH:mm:ss"
+  const onlyDate = dateString.split(" ")[0].split("T")[0];
+
+  const [year, month, day] = onlyDate.split("-");
+  if (!year || !month || !day) {
+    console.error("No se pudo parsear la fecha:", dateString);
+    return "";
+  }
+
+  const date = new Date(+year, +month - 1, +day);
+  return date.toLocaleDateString("es-MX", {
+    day: "numeric",
+    weekday: "long",
+    month: "short",
+    year: "numeric",
+  });
+};
 
 export const formatRoom = (room: string) => {
   let response = room;
