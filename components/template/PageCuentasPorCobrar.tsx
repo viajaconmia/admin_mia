@@ -754,26 +754,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   };
 
   const tableRenderers = {
-    // fecha_De_Pago: ({ value }: { value: string | null }) => {
-    //   if (!value) return <div className="text-gray-400 italic">Sin fecha</div>;
-
-    //   return (
-    //     <div className="whitespace-nowrap text-sm text-blue-900">
-    //       {formatDate(value)}
-    //     </div>
-    //   );
-    // },
-
-    // // Renderizador para creado
-    // creado: ({ value }: { value: Date | null }) => {
-    //   if (!value) return <div className="text-gray-400">N/A</div>;
-
-    //   return (
-    //     <div className="whitespace-nowrap text-sm text-blue-900">
-    //       {format(new Date(value), "dd 'de' MMMM yyyy", { locale: es })}
-    //     </div>
-    //   );
-    // },
 
     fecha_De_Pago: ({ value }: { value: Date | null }) => {
       if (!value) return <div className="text-gray-400">N/A</div>;

@@ -74,6 +74,7 @@ export const formatDate = (dateString: string) => {
     year: "numeric",
   });
 };
+
 export const formatLargeDate = (dateString: string) => {
   if (!dateString || typeof dateString !== "string") {
     console.error("dateString inválido:", dateString);
