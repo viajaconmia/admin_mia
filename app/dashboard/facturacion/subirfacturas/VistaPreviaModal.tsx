@@ -3,6 +3,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { generarFacturaPDF } from "./parsePdf";
 import { obtenerPresignedUrl, subirArchivoAS3 } from "@/helpers/utils";
 import { URL as FECTH, API_KEY } from "@/lib/constants/index";
+import {
+  resolveTipoCambioToMXN,
+  convertToMXN,
+  convertFromMXN,
+} from "./currency-mxn";
 
 type AsociacionSolicitudProveedor = {
   id_solicitud: string;
@@ -27,7 +32,16 @@ interface VistaPreviaProps {
   proveedoresData?: any | null; // 👈 agregar
 
   onClose: () => void;
-  onConfirm: (pdfUrl?: string | null, fecha_vencimiento?: string) => void;
+  onConfirm: (
+  pdfUrl?: string | null,
+  fecha_vencimiento?: string,
+  tipoCambioData?: {
+    moneda: string;
+    tipo_cambio: number;
+    source: string;
+    manual: boolean;
+  }
+) => void;
   isLoading?: boolean;
 }
 
@@ -112,7 +126,16 @@ export default function VistaPreviaModal({
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [fechaVencimiento, setFechaVencimiento] = useState<string>("");
   const [facturadoData, setFacturadoData] = useState<any>(null);
-const [loadingFacturado, setLoadingFacturado] = useState(false);
+  const [loadingFacturado, setLoadingFacturado] = useState(false);
+  const [tipoCambioResuelto, setTipoCambioResuelto] = useState<number>(0);
+  const [tipoCambioSource, setTipoCambioSource] = useState<string>("pending");
+  const [modoTipoCambioManual, setModoTipoCambioManual] = useState(false);
+  const [tipoCambioManualInput, setTipoCambioManualInput] = useState("");
+
+const tipoCambioManual = useMemo(() => {
+  const n = Number(tipoCambioManualInput || 0);
+  return Number.isFinite(n) ? Math.max(1, n) : 1;
+}, [tipoCambioManualInput]);
 
   const toggleView = () => setShowPdf(!showPdf);
 
@@ -135,14 +158,12 @@ const impuestosFactura = useMemo(
   () => safeCurrency(facturaData?.comprobante?.moneda || "MXN"),
   [facturaData]
 );
+
 const tipoCambioFactura = useMemo(() => {
   if (isMXNCurrency(monedaFactura)) return 1;
-
-  const rawTc = facturaData?.comprobante?.tipoCambio;
-  const tc = Number(rawTc);
-
-  return Number.isFinite(tc) && tc > 0 ? tc : 0;
-}, [facturaData, monedaFactura]);
+  const tc = modoTipoCambioManual ? tipoCambioManual : tipoCambioResuelto;
+  return clampTipoCambioMin1(tc);
+}, [monedaFactura, modoTipoCambioManual, tipoCambioManual, tipoCambioResuelto]);
 
 const totalFacturaMXN = useMemo(() => {
   if (isMXNCurrency(monedaFactura)) return totalFactura;
@@ -169,7 +190,9 @@ const isProveedorFlow = isProveedorBatch || !!proveedoresData;
 const requiereConversionProveedor =
   isProveedorFlow && !isMXNCurrency(monedaFactura);
 
-  const canConvertProveedor = requiereConversionProveedor && tipoCambioFactura > 0;
+const canConvertProveedor = requiereConversionProveedor
+  ? tipoCambioFactura > 0
+  : true;
 
 const convertProveedorAmount = (
   amount: any,
@@ -188,9 +211,15 @@ const convertProveedorAmount = (
   return round2(n / tipoCambioFactura);
 };
 
-const toMXN = (amount: any) => convertProveedorAmount(amount, "toMXN");
-const fromMXNToOriginal = (amount: any) =>
-  convertProveedorAmount(amount, "toOriginal");
+const toMXN = (amount: any) => {
+  if (!requiereConversionProveedor) return round2(Number(amount || 0));
+  return convertToMXN(amount, tipoCambioFactura);
+};
+
+const fromMXNToOriginal = (amount: any) => {
+  if (!requiereConversionProveedor) return round2(Number(amount || 0));
+  return convertFromMXN(amount, tipoCambioFactura);
+};
 
 const getPreviewConversion = (amount: any) => {
   const original = round2(amount);
@@ -203,7 +232,17 @@ const getPreviewConversion = (amount: any) => {
   };
 };
 
-  const okItems = ((itemsTotal || 0) <= totalFactura);
+const clampTipoCambioMin1 = (value: any) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 1;
+  return Math.max(1, n);
+};
+  const totalFacturaComparable = isMXNCurrency(monedaFactura)
+  ? totalFactura
+  : totalFacturaMXN;
+
+  const okItems = (itemsTotal || 0) <= totalFacturaComparable;
+  const diferenciaItems = round2(totalFacturaComparable - (itemsTotal || 0));
 
   useEffect(() => {
     if (facturaData?.comprobante?.fecha) {
@@ -220,6 +259,33 @@ const getPreviewConversion = (amount: any) => {
       ? parts[0]
       : `${parts[0]}.${parts.slice(1).join("").slice(0, 2)}`;
   };
+
+const safeTcStr = (raw: string) => {
+  const cleaned = String(raw ?? "").replace(/[^\d.]/g, "");
+  const parts = cleaned.split(".");
+  return parts.length <= 1
+    ? parts[0]
+    : `${parts[0]}.${parts.slice(1).join("").slice(0, 6)}`;
+};
+
+const handleToggleTipoCambioManual = () => {
+  setModoTipoCambioManual((prev) => {
+    const next = !prev;
+
+    if (next) {
+      setTipoCambioManualInput((current) => {
+        if (current) return current;
+        if (tipoCambioResuelto > 0) return String(tipoCambioResuelto);
+        return "";
+      });
+      setTipoCambioSource("manual");
+    } else {
+      setTipoCambioSource("pending");
+    }
+
+    return next;
+  });
+};
 
   // ✅ clamp por input para que el total batch nunca exceda totalFactura
 const handleChangeMontoBatch = (idx: number, raw: string) => {
@@ -364,21 +430,28 @@ const handleChangeMontoBatch = (idx: number, raw: string) => {
 }, [batchAsociaciones, proveedoresData]);
 
 const handleConfirm = () => {
-  if (
-    typeof itemsTotal === "number" &&
-    itemsTotal > 0 &&
-    itemsTotal > totalFactura
-  ) {
-    alert("El total de los ítems es mayor al total de la factura.");
-    return;
-  }
+  if (requiereConversionProveedor && !canConvertProveedor) {
+  alert("No se pudo resolver el tipo de cambio para esta factura.");
+  return;
+}
+  const totalValidacion = totalFacturaComparable;
+const batchTotalValidacion = requiereConversionProveedor
+  ? batchTotalAsociarMXN
+  : batchTotalAsociar;
 
-  // ✅ Ya NO obligamos capturar monto por cada solicitud.
-  // Solo validamos que lo capturado no exceda el total de la factura.
-  if (isProveedorBatch && batchTotalAsociar > totalFactura) {
-    alert("El total asociado por proveedor excede el total de la factura.");
-    return;
-  }
+if (
+  typeof itemsTotal === "number" &&
+  itemsTotal > 0 &&
+  itemsTotal > totalValidacion
+) {
+  alert("El total de los ítems es mayor al total de la factura.");
+  return;
+}
+
+if (isProveedorBatch && batchTotalValidacion > totalValidacion) {
+  alert("El total asociado por proveedor excede el total de la factura.");
+  return;
+}
 
 if (isProveedorBatch) {
   for (let i = 0; i < batchAsociaciones.length; i++) {
@@ -407,9 +480,15 @@ if (isProveedorBatch) {
   }
 
   onConfirm(
-    pdfUrl,
-    showFechaVencimiento ? fechaVencimiento : undefined
-  );
+  pdfUrl,
+  showFechaVencimiento ? fechaVencimiento : undefined,
+  {
+    moneda: monedaFactura,
+    tipo_cambio: tipoCambioFactura,
+    source: tipoCambioSource,
+    manual: modoTipoCambioManual,
+  }
+);
 };
 
  const formatCurrency = (value: string | number, currency: string = monedaFactura) => {
@@ -433,9 +512,99 @@ if (isProveedorBatch) {
       year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
     });
 
-  const diferenciaItems = totalFactura - (itemsTotal || 0);
-
   useEffect(() => {
+  let cancelled = false;
+
+  async function loadTipoCambio() {
+    try {
+      if (isMXNCurrency(facturaData?.comprobante?.moneda)) {
+        if (!cancelled) {
+          setTipoCambioResuelto(1);
+          setTipoCambioSource("identity");
+        }
+        return;
+      }
+
+      if (modoTipoCambioManual) {
+        if (!cancelled) {
+          setTipoCambioSource("manual");
+        }
+        return;
+      }
+
+      console.log("[TC] moneda factura:", facturaData?.comprobante?.moneda);
+      console.log("[TC] fecha factura:", facturaData?.comprobante?.fecha);
+
+      const result = await resolveTipoCambioToMXN({
+        moneda: facturaData?.comprobante?.moneda,
+        fecha: facturaData?.comprobante?.fecha,
+      });
+
+      console.log("[TC] resultado resuelto:", result);
+
+      if (!cancelled) {
+        setTipoCambioResuelto(clampTipoCambioMin1(result.rate));
+        setTipoCambioSource(result.source);
+      }
+    } catch (error) {
+      console.error("[TC] Error resolviendo tipo de cambio:", error);
+      if (!cancelled) {
+        setTipoCambioResuelto(0);
+        setTipoCambioSource("error");
+      }
+    }
+  }
+
+  loadTipoCambio();
+
+  return () => {
+    cancelled = true;
+  };
+}, [
+  facturaData?.comprobante?.moneda,
+  facturaData?.comprobante?.fecha,
+  modoTipoCambioManual,
+]);
+
+useEffect(() => {
+  console.log("[CONVERSION] monedaFactura:", monedaFactura);
+  console.log("[CONVERSION] tipoCambioFactura:", tipoCambioFactura);
+  console.log("[CONVERSION] tipoCambioSource:", tipoCambioSource);
+  console.log("[CONVERSION] totalFactura original:", totalFactura);
+  console.log("[CONVERSION] totalFactura MXN:", totalFacturaMXN);
+  console.log("[CONVERSION] subtotalFactura MXN:", subtotalFacturaMXN);
+  console.log("[CONVERSION] impuestosFactura MXN:", impuestosFacturaMXN);
+}, [
+  monedaFactura,
+  tipoCambioFactura,
+  tipoCambioSource,
+  totalFactura,
+  totalFacturaMXN,
+  subtotalFacturaMXN,
+  impuestosFacturaMXN,
+]);
+
+useEffect(() => {
+  if (!isProveedorBatch) return;
+
+  const debug = (batchAsociaciones || []).map((it) => {
+    const original = Number(it?.monto_asociar || 0);
+    const mxn = toMXN(original);
+
+    return {
+      id_solicitud: it?.id_solicitud,
+      id_proveedor: it?.id_proveedor,
+      monedaOriginal: monedaFactura,
+      capturadoOriginal: original,
+      tipoCambioFactura,
+      equivalenteMXN: mxn,
+    };
+  });
+
+  console.log("[BATCH CONVERSION]", debug);
+}, [batchAsociaciones, isProveedorBatch, monedaFactura, tipoCambioFactura]);
+
+useEffect(() => {
   let cancelled = false;
 
   async function consultarFacturado() {
@@ -443,16 +612,10 @@ if (isProveedorBatch) {
       if (!isProveedorBatch) return;
       if (!idsSolicitud.length) return;
 
-      console.log("Consultando facturado para ids:", idsSolicitud);
-
       setLoadingFacturado(true);
-
       const resp = await consultarFacturadoSolicitudes(idsSolicitud);
 
-      if (cancelled) return;
-
-      console.log("Respuesta consultar_facturado:", resp);
-      setFacturadoData(resp);
+      if (!cancelled) setFacturadoData(resp);
     } catch (error) {
       if (!cancelled) {
         console.error("Error consultando facturado:", error);
@@ -468,7 +631,7 @@ if (isProveedorBatch) {
   return () => {
     cancelled = true;
   };
-}, []);
+}, [isProveedorBatch, idsSolicitud.join("|")]);
 
 const batchTotalAsociarMXN = useMemo(() => {
   return round2(
@@ -529,8 +692,14 @@ const restanteFacturaMXN = useMemo(() => {
               <div>
                 <p className="text-sm">Total de la factura:</p>
                 <p className="font-semibold">
-                  {formatCurrency(String(totalFactura))}
-                </p>
+  {formatCurrency(String(totalFactura), monedaFactura)}
+</p>
+
+{!isMXNCurrency(monedaFactura) && (
+  <p className="font-semibold text-sm text-gray-600">
+    {formatCurrency(totalFacturaComparable, "MXN")}
+  </p>
+)}
               </div>
             </div>
 
@@ -539,7 +708,7 @@ const restanteFacturaMXN = useMemo(() => {
             >
               {okItems ? (
                 <p className="font-semibold">
-                  Diferencia (factura - ítems): {formatCurrency(diferenciaItems.toFixed(2))}
+                  Diferencia (factura - ítems): {formatCurrency(diferenciaItems.toFixed(2), "MXN")}
                 </p>
               ) : (
                 <p className="font-semibold">
@@ -742,18 +911,71 @@ const montoPreview = getPreviewConversion(it.monto_asociar || 0);
   </div>
 )}
 
-{requiereConversionProveedor && (
-  <div className="mb-4 p-4 bg-indigo-50 border border-indigo-200 rounded-lg text-sm">
-    <h3 className="font-bold text-indigo-800 mb-2">Conversión de moneda</h3>
+        {requiereConversionProveedor && (
+          <div className="mb-4 p-4 bg-indigo-50 border border-indigo-200 rounded-lg text-sm">
+            <h3 className="font-bold text-indigo-800 mb-2">Conversión de moneda</h3>
 
-    <div><strong>Moneda original:</strong> {monedaFactura}</div>
-    <div><strong>Tipo de cambio:</strong> {tipoCambioFactura || "No disponible"}</div>
-    <div><strong>Total original:</strong> {formatCurrency(totalFactura, monedaFactura)}</div>
-    <div><strong>Total en MXN:</strong> {formatCurrency(totalFacturaMXN, "MXN")}</div>
-    <div><strong>Subtotal en MXN:</strong> {formatCurrency(subtotalFacturaMXN, "MXN")}</div>
-    <div><strong>Impuestos en MXN:</strong> {formatCurrency(impuestosFacturaMXN, "MXN")}</div>
+            <div><strong>Moneda original:</strong> {monedaFactura}</div>
+
+            <div className="flex items-center justify-between mb-3">
+  <div>
+    <div className="font-semibold text-indigo-900">Modo de tipo de cambio</div>
+    <div className="text-xs text-indigo-700">
+      {modoTipoCambioManual ? "Manual" : "Automático con Banxico"}
+    </div>
+  </div>
+
+  <button
+    type="button"
+    onClick={handleToggleTipoCambioManual}
+    className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
+      modoTipoCambioManual ? "bg-indigo-600" : "bg-gray-300"
+    }`}
+  >
+    <span
+      className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
+        modoTipoCambioManual ? "translate-x-6" : "translate-x-1"
+      }`}
+    />
+  </button>
+</div>
+            <div><strong>Tipo de cambio:</strong> {tipoCambioFactura || "No disponible"}</div>
+            {modoTipoCambioManual && (
+  <div className="mb-3">
+    <label className="block text-xs font-medium text-indigo-900 mb-1">
+      Tipo de cambio manual
+    </label>
+    <input
+      type="text"
+      inputMode="decimal"
+      placeholder="Ej. 20.1456"
+      value={tipoCambioManualInput}
+      onChange={(e) => setTipoCambioManualInput(safeTcStr(e.target.value))}
+      className="w-full p-2 border rounded border-indigo-300 bg-white"
+    />
+    <p className="text-xs text-indigo-700 mt-1">
+      Captura el tipo de cambio MXN por {monedaFactura}.
+    </p>
   </div>
 )}
+            <div>
+              <strong>Fuente:</strong>{" "}
+              {tipoCambioSource === "manual"
+  ? "Manual"
+  : tipoCambioSource === "banxico"
+  ? "Banxico"
+  : tipoCambioSource === "identity"
+  ? "MXN"
+  : tipoCambioSource === "pending"
+  ? "Pendiente"
+  : "No disponible"}
+            </div>
+            <div><strong>Total original:</strong> {formatCurrency(totalFactura, monedaFactura)}</div>
+            <div><strong>Total en MXN:</strong> {formatCurrency(totalFacturaMXN, "MXN")}</div>
+            <div><strong>Subtotal en MXN:</strong> {formatCurrency(subtotalFacturaMXN, "MXN")}</div>
+            <div><strong>Impuestos en MXN:</strong> {formatCurrency(impuestosFacturaMXN, "MXN")}</div>
+          </div>
+        )}
 
         <div className="flex justify-end gap-2 mt-6">
           <button
@@ -772,7 +994,8 @@ const montoPreview = getPreviewConversion(it.monto_asociar || 0);
               uploadingPdf ||
               !pdfUrl ||
               !okItems ||
-            (showFechaVencimiento && !fechaVencimiento)
+              (showFechaVencimiento && !fechaVencimiento)||
+              (requiereConversionProveedor && !canConvertProveedor)
             }
           >
             {(isLoading || uploadingPdf) ? "Procesando..." : "Aceptar y Continuar"}

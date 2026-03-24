@@ -1,190 +1,132 @@
-// app/api/tipo-cambio/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { URL as FECTH, API_KEY } from "@/lib/constants/index";
 
-const SERIES_MAP: Record<string, string> = {
-  USD: "SF43718", // FIX
-  EUR: "SF46410",
-  JPY: "SF46406",
-  GBP: "SF46407",
-  CAD: "SF60632",
+const AUTH = {
+  "x-api-key": API_KEY,
 };
 
-const memoryCache = new Map<
-  string,
-  { expiresAt: number; payload: Record<string, unknown> }
->();
+const SESSION_PREFIX = "tc_mxn_";
 
-const CACHE_TTL_MS = 1000 * 60 * 60; // 1 hora
+export const round2 = (n) => {
+  const num = Number(n || 0);
+  if (!Number.isFinite(num)) return 0;
+  return Math.round((num + Number.EPSILON) * 100) / 100;
+};
 
-const normalizeCurrency = (value: unknown) =>
+export const normalizeCurrency = (value) =>
   String(value ?? "").trim().toUpperCase();
 
-const isMXNCurrency = (value: unknown) => {
+export const isMXNCurrency = (value) => {
   const c = normalizeCurrency(value);
   return ["MXN", "MN", "MXP", "PESO", "PESOS"].includes(c);
 };
 
-const toBanxicoDate = (value: string | Date) => {
-  const d = value instanceof Date ? value : new Date(`${value}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return null;
+export const safeCurrency = (value) =>
+  normalizeCurrency(value) || "MXN";
 
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yyyy = d.getFullYear();
-
-  return `${dd}/${mm}/${yyyy}`;
+const toIsoDate = (value) => {
+  if (!value) return "";
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toISOString().slice(0, 10);
 };
 
-const addDays = (value: string | Date, days: number) => {
-  const d = value instanceof Date ? new Date(value) : new Date(`${value}T00:00:00`);
-  d.setDate(d.getDate() + days);
-  return d;
+const readSessionRate = (key) => {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    const rate = Number(parsed?.rate);
+
+    return Number.isFinite(rate) && rate > 0 ? rate : null;
+  } catch {
+    return null;
+  }
 };
 
-const parseRate = (value: unknown): number | null => {
-  const str = String(value ?? "").replace(/,/g, "").trim();
-  const n = Number(str);
-  return Number.isFinite(n) && n > 0 ? n : null;
+const writeSessionRate = (key, rate) => {
+  if (typeof window === "undefined") return;
+
+  try {
+    sessionStorage.setItem(key, JSON.stringify({ rate, savedAt: Date.now() }));
+  } catch {}
 };
 
-const extractLastValidRate = (json: any) => {
-  const datos = json?.bmx?.series?.[0]?.datos;
-  if (!Array.isArray(datos)) return null;
+export const resolveTipoCambioToMXN = async ({ moneda, fecha }) => {
+  const currency = safeCurrency(moneda);
 
-  const valid = datos
-    .map((x: any) => ({
-      fecha: x?.fecha ?? null,
-      rate: parseRate(x?.dato),
-    }))
-    .filter((x: any) => x.rate !== null);
+  console.log("[currency-mxn] moneda:", currency);
+  console.log("[currency-mxn] fecha:", fecha);
 
-  if (!valid.length) return null;
-  return valid[valid.length - 1];
-};
+  if (isMXNCurrency(currency)) {
+    return {
+      currency: "MXN",
+      rate: 1,
+      source: "identity",
+    };
+  }
 
-async function fetchBanxico(url: string, token: string) {
+  const isoDate = toIsoDate(fecha);
+  const cacheKey = `${SESSION_PREFIX}${currency}_${isoDate || "latest"}`;
+
+  const cached = readSessionRate(cacheKey);
+  if (cached) {
+    console.log("[currency-mxn] usando session cache:", cached);
+    return {
+      currency,
+      rate: cached,
+      source: "banxico",
+    };
+  }
+
+  const qs = new URLSearchParams({ currency });
+  if (isoDate) qs.set("date", isoDate);
+
+  const url = `${FECTH}/mia/pago_proveedor/tipo-cambio?${qs.toString()}`;
+  console.log("[currency-mxn] consultando:", url);
+
   const resp = await fetch(url, {
     method: "GET",
     headers: {
-      "Bmx-Token": token,
-      Accept: "application/json",
+      "Content-Type": "application/json",
+      ...AUTH,
     },
-    cache: "no-store",
   });
 
-  if (!resp.ok) {
-    const text = await resp.text().catch(() => "");
-    throw new Error(text || `Banxico respondió ${resp.status}`);
+  const json = await resp.json();
+
+  if (!resp.ok || !json?.ok) {
+    console.error("[currency-mxn] error:", json);
+    throw new Error(json?.error || "No se pudo consultar tipo de cambio");
   }
 
-  return resp.json();
-}
+  const rate = Number(json?.rate);
 
-export async function GET(req: NextRequest) {
-  try {
-    const currency = normalizeCurrency(req.nextUrl.searchParams.get("currency"));
-    const date = req.nextUrl.searchParams.get("date"); // YYYY-MM-DD opcional
-
-    if (!currency) {
-      return NextResponse.json(
-        { error: "Falta currency." },
-        { status: 400 }
-      );
-    }
-
-    if (isMXNCurrency(currency)) {
-      return NextResponse.json({
-        currency: "MXN",
-        rate: 1,
-        source: "identity",
-      });
-    }
-
-    const seriesId = SERIES_MAP[currency];
-    if (!seriesId) {
-      return NextResponse.json(
-        { error: `Moneda no soportada por Banxico: ${currency}` },
-        { status: 400 }
-      );
-    }
-
-    const token = process.env.BANXICO_TOKEN;
-    if (!token) {
-      return NextResponse.json(
-        { error: "Falta configurar BANXICO_TOKEN en el servidor." },
-        { status: 500 }
-      );
-    }
-
-    const cacheKey = `${currency}:${date || "latest"}`;
-    const now = Date.now();
-
-    const cached = memoryCache.get(cacheKey);
-    if (cached && cached.expiresAt > now) {
-      return NextResponse.json(cached.payload);
-    }
-
-    let payload: Record<string, unknown>;
-
-    if (date) {
-      const end = toBanxicoDate(date);
-      const start = toBanxicoDate(addDays(date, -7));
-
-      if (!start || !end) {
-        return NextResponse.json(
-          { error: "Fecha inválida." },
-          { status: 400 }
-        );
-      }
-
-      const url = `https://www.banxico.org.mx/SieAPIRest/service/v1/series/${seriesId}/datos/${start}/${end}?mediaType=json`;
-      const json = await fetchBanxico(url, token);
-      const lastValid = extractLastValidRate(json);
-
-      if (!lastValid) {
-        return NextResponse.json(
-          { error: `No hubo tipo de cambio disponible para ${currency}.` },
-          { status: 404 }
-        );
-      }
-
-      payload = {
-        currency,
-        rate: lastValid.rate,
-        source: "banxico",
-        requestedDate: date,
-        appliedDate: lastValid.fecha,
-      };
-    } else {
-      const url = `https://www.banxico.org.mx/SieAPIRest/service/v1/series/${seriesId}/datos/oportuno?mediaType=json`;
-      const json = await fetchBanxico(url, token);
-      const lastValid = extractLastValidRate(json);
-
-      if (!lastValid) {
-        return NextResponse.json(
-          { error: `No hubo tipo de cambio oportuno para ${currency}.` },
-          { status: 404 }
-        );
-      }
-
-      payload = {
-        currency,
-        rate: lastValid.rate,
-        source: "banxico",
-        appliedDate: lastValid.fecha,
-      };
-    }
-
-    memoryCache.set(cacheKey, {
-      expiresAt: now + CACHE_TTL_MS,
-      payload,
-    });
-
-    return NextResponse.json(payload);
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error?.message || "Error resolviendo tipo de cambio." },
-      { status: 500 }
-    );
+  if (!Number.isFinite(rate) || rate <= 0) {
+    throw new Error("Tipo de cambio inválido");
   }
-}
+
+  writeSessionRate(cacheKey, rate);
+
+  return {
+    currency,
+    rate: round2(rate),
+    source: "banxico",
+  };
+};
+
+export const convertToMXN = (amount, rate) => {
+  const n = Number(amount ?? 0);
+  if (!Number.isFinite(n)) return 0;
+  if (!Number.isFinite(rate) || rate <= 0) return 0;
+  return round2(n * rate);
+};
+
+export const convertFromMXN = (amountMXN, rate) => {
+  const n = Number(amountMXN ?? 0);
+  if (!Number.isFinite(n)) return 0;
+  if (!Number.isFinite(rate) || rate <= 0) return 0;
+  return round2(n / rate);
+};
