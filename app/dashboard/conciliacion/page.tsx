@@ -10,6 +10,9 @@ import Button from "@/components/atom/Button";
 import SubirFactura from "@/app/dashboard/facturacion/subirfacturas/SubirFactura";
 import ModalDetalle from "@/app/dashboard/conciliacion/compponents/detalles";
 import { formatDate } from "@/helpers/formater";
+import FiltrosConciliacionModal, {
+  type ConciliacionFilters,
+} from "@/app/dashboard/conciliacion/compponents/FiltrosReservaModal";
 
 type AnyRow = Record<string, any>;
 
@@ -177,10 +180,7 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
   const viajero = (raw?.nombre_viajero_completo ?? raw?.nombre_viajero ?? "").toString();
 
   const costo_proveedor =
-  Number(
-    raw?.solicitud_proveedor?.monto_solicitado ??
-    0
-  ) || 0;
+    Number(raw?.solicitud_proveedor?.monto_solicitado ?? 0) || 0;
   const precio_de_venta = Number(raw?.total ?? 0) || 0;
 
   const markup =
@@ -201,7 +201,7 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
   const impuestos = raw?.facturas_proveedor?.facturas[0]?.impuestos ?? "";
   const subtotal = raw?.facturas_proveedor?.facturas[0]?.subtotal ?? "";
 
-  const baseFactura = Number(total_aplicable) || total_facturado || total_factura || 0;
+  const baseFactura = total_facturado || 0;
   const diferencia = Number((costo_proveedor - baseFactura).toFixed(2));
 
   const estatusFacturas = getEstatusFacturas(diferencia, costo_proveedor);
@@ -216,6 +216,17 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
 
   const consolidado =
     Number(raw?.consolidado ?? raw?.estatus_conciliado ?? raw?.conciliado ?? 0) || 0;
+
+  const idIntermediario =
+    raw?.id_inermediario ?? raw?.id_intermediario ?? raw?.informacion_completa?.id_intermediario ?? null;
+
+  const nombreIntermediario =
+    raw?.intermediario ??
+    raw?.nombre_intermediario ??
+    raw?.informacion_completa?.intermediario ??
+    "";
+
+  const canalDeReservacion = idIntermediario ? "INTERMEDIARIO" : (raw?.canal_de_reservacion ?? "DIRECTO");
 
   return {
     row_id,
@@ -237,8 +248,8 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
     markup,
     precio_de_venta,
 
-    canal_de_reservacion: raw?.canal_de_reservacion ?? "",
-    nombre_intermediario: raw?.nombre_intermediario ?? "",
+    canal_de_reservacion: canalDeReservacion,
+    nombre_intermediario: idIntermediario ? nombreIntermediario : (raw?.nombre_intermediario ?? ""),
 
     tipo_de_reserva: tipoReserva,
     tipo_de_pago: tipoPago,
@@ -259,7 +270,6 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
     diferencia_costo_proveedor_vs_factura: diferencia,
 
     uuid_factura: raw?.uuid_factura ?? null,
-    total_factura,
     seleccionar_factura: "",
 
     subir_factura: raw,
@@ -341,7 +351,7 @@ const [facturaSelection, setFacturaSelection] = useState<Record<string, Proveedo
   const [todos, setTodos] = useState<any[]>([]);
 
   const [searchInput, setSearchInput] = useState("");
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [showFiltersModal, setShowFiltersModal] = useState(false);
 
   const [draftEdits, setDraftEdits] = useState<Record<string, Partial<AnyRow>>>({});
   
@@ -370,23 +380,47 @@ const [facturaSelection, setFacturaSelection] = useState<Record<string, Proveedo
 
 
 
-  const EMPTY_FILTERS = {
-    folio: "",
-    cliente: "",
-    viajero: "",
-    hotel: "",
-    estado_solicitud: "",
-    estado_facturacion: "",
-    forma_pago: "",
-    created_start: "",
-    created_end: "",
-    check_in_start: "",
-    check_in_end: "",
-    check_out_start: "",
-    check_out_end: "",
-  };
+const EMPTY_FILTERS: ConciliacionFilters = {
+  folio: "",
+  cliente: "",
+  viajero: "",
+  hotel: "",
+  estado_solicitud: "",
+  estado_facturacion: "",
+  forma_pago: "",
+  created_start: "",
+  created_end: "",
+  check_in_start: "",
+  check_in_end: "",
+  check_out_start: "",
+  check_out_end: "",
+
+  id_cliente: "",
+  estado_reserva: "",
+  etapa_reservacion: "",
+  reservante: "",
+  metodo_pago_reserva: "",
+  fecha_reserva_start: "",
+  fecha_reserva_end: "",
+  filtrar_fecha_por_reserva: "",
+};
 
   const [filters, setFilters] = useState(EMPTY_FILTERS);
+
+const uniqueOptions = useCallback((arr: any[]) => {
+  return Array.from(
+    new Set(arr.map((x) => String(x ?? "").trim()).filter(Boolean))
+  ).sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
+}, []);
+
+const filterOptions = useMemo(() => {
+  return {
+    estadoReserva: uniqueOptions(todos.map((r) => r?.estado)),
+    etapaReservacion: uniqueOptions(todos.map((r) => r?.etapa_reservacion)),
+    reservante: uniqueOptions(todos.map((r) => r?.reservante)),
+    metodoPagoReserva: uniqueOptions(todos.map((r) => r?.metodo_pago)),
+  };
+}, [todos, uniqueOptions]);
 
   const load = useCallback(
     async (overrideFilters = filters) => {
@@ -469,12 +503,14 @@ const [facturaSelection, setFacturaSelection] = useState<Record<string, Proveedo
   });
 
 const applyFilters = useCallback(() => {
+  setShowFiltersModal(false);
   void load(filters);
 }, [filters, load]);
 
 const clearAllFilters = useCallback(() => {
   setFilters(EMPTY_FILTERS);
   setSearchInput("");
+  setShowFiltersModal(false);
   void load(EMPTY_FILTERS);
 }, [load]);
 
@@ -764,7 +800,6 @@ const openSubirFacturaSelected = useCallback(() => {
       "diferencia_costo_proveedor_vs_factura",
       "subir_factura",
       "acciones",
-      "total_factura",
       "usuario_creador",
     ],
     []
@@ -813,8 +848,7 @@ const openSubirFacturaSelected = useCallback(() => {
 
     const factura =
       (String(row?.total_aplicable ?? "").trim() !== "" ? Number(row?.total_aplicable) : 0) ||
-      (Number(row?.total_facturado ?? 0) || 0) ||
-      (Number(row?.total_factura ?? 0) || 0);
+      (Number(row?.total_facturado ?? 0) || 0) ;
 
     const diff = Number((factura - pagado).toFixed(2));
     const ok = Math.abs(diff) <= TOLERANCIA_FACTURA_PAGO;
@@ -945,16 +979,16 @@ const getFacturaInfo = useCallback((row: AnyRow) => {
         );
       },
 
-      seleccionar_factura: ({ item }) => {
+seleccionar_factura: ({ item }) => {
   const diff = Number(item?.diferencia_costo_proveedor_vs_factura ?? 0) || 0;
   const facturaInfo = getFacturaInfo(item);
 
-  // Si ya existe factura pero solo falta asignar monto, no entra a selección de subida
   if (facturaInfo.hasFactura && !facturaInfo.hasMontoFacturado) {
     return <span className="text-xs text-gray-300">—</span>;
   }
 
-  if (isZero(diff)) {
+  // ✅ si la diferencia es 0 o negativa, no mostrar select
+  if (diff <= 0) {
     return <span className="text-xs text-gray-300">—</span>;
   }
 
@@ -1181,7 +1215,6 @@ subir_factura: ({ item }) => {
         </span>
       ),
 
-      total_factura: ({ value }) => <span title={String(value)}>{formatMoney(value)}</span>,
     }),
    [
   draftEdits,
@@ -1237,14 +1270,14 @@ const selectedFacturaItems = useMemo(() => Object.values(facturaSelection), [fac
                 Refresh
               </Button>
               <Button
-                variant="secondary"
-                size="md"
-                className="border border-gray-200 bg-white hover:bg-gray-50 text-gray-800"
-                onClick={() => setFiltersOpen((s) => !s)}
-              >
-                <Filter className="w-4 h-4" />
-                Filtros
-              </Button>
+  variant="secondary"
+  size="md"
+  className="border border-gray-200 bg-white hover:bg-gray-50 text-gray-800"
+  onClick={() => setShowFiltersModal(true)}
+>
+  <Filter className="w-4 h-4" />
+  Filtros
+</Button>
 
               <Button
                 variant="secondary"
@@ -1287,162 +1320,20 @@ const selectedFacturaItems = useMemo(() => Object.values(facturaSelection), [fac
             </div>
           </div>
 
-          {filtersOpen && (
-            <div className="mt-4 border-t border-gray-100 pt-4">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Código confirmación
-                  </label>
-                  <input
-                    value={filters.folio}
-                    onChange={(e) =>
-                      setFilters((prev) => ({ ...prev, folio: e.target.value }))
-                    }
-                    placeholder="Buscar código confirmación..."
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Cliente
-                  </label>
-                  <input
-                    value={filters.cliente}
-                    onChange={(e) =>
-                      setFilters((prev) => ({ ...prev, cliente: e.target.value }))
-                    }
-                    placeholder="Buscar cliente..."
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Viajero
-                  </label>
-                  <input
-                    value={filters.viajero}
-                    onChange={(e) =>
-                      setFilters((prev) => ({ ...prev, viajero: e.target.value }))
-                    }
-                    placeholder="Buscar viajero..."
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Proveedor
-                  </label>
-                  <input
-                    value={filters.hotel}
-                    onChange={(e) =>
-                      setFilters((prev) => ({ ...prev, hotel: e.target.value }))
-                    }
-                    placeholder="Buscar proveedor..."
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Creado desde
-                  </label>
-                  <input
-                    type="date"
-                    value={filters.created_start}
-                    onChange={(e) =>
-                      setFilters((prev) => ({ ...prev, created_start: e.target.value }))
-                    }
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Creado hasta
-                  </label>
-                  <input
-                    type="date"
-                    value={filters.created_end}
-                    onChange={(e) =>
-                      setFilters((prev) => ({ ...prev, created_end: e.target.value }))
-                    }
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Check-in desde
-                  </label>
-                  <input
-                    type="date"
-                    value={filters.check_in_start}
-                    onChange={(e) =>
-                      setFilters((prev) => ({ ...prev, check_in_start: e.target.value }))
-                    }
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Check-in hasta
-                  </label>
-                  <input
-                    type="date"
-                    value={filters.check_in_end}
-                    onChange={(e) =>
-                      setFilters((prev) => ({ ...prev, check_in_end: e.target.value }))
-                    }
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-                  />
-                </div>
-                <div>
-  <label className="block text-xs font-medium text-gray-600 mb-1">
-    Estatus facturación
-  </label>
-  <select
-    value={filters.estado_facturacion}
-    onChange={(e) =>
-      setFilters((prev) => ({ ...prev, estado_facturacion: e.target.value }))
-    }
-    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-  >
-    <option value="">Todos</option>
-    <option value="pendiente">Pendiente</option>
-    <option value="parcial">Parcial</option>
-    <option value="completo">Completo</option>
-  </select>
-</div>
-<div>
-  <label className="block text-xs font-medium text-gray-600 mb-1">
-    Estatus solicitud
-  </label>
-  <select
-    value={filters.estado_solicitud}
-    onChange={(e) =>
-      setFilters((prev) => ({ ...prev, estado_solicitud: e.target.value }))
-    }
-    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm"
-  >
-    <option value="">Todos</option>
-    <option value="CARTA_ENVIADA">Carta enviada</option>
-    <option value="PAGADO TARJETA">Pagado tarjeta</option>
-    <option value="TRANSFERENCIA_SOLICITADA">Transferencia solicitada</option>
-    <option value="PAGADO TRANSFERENCIA">Pagado transferencia</option>
-    <option value="PAGADO LINK">Pagado link</option>
-    <option value="CUPON ENVIADO">Cupón enviado</option>
-    <option value="CANCELADA">Cancelada</option>
-    <option value="DISPERSION">Dispersión</option>
-  </select>
-</div>
-              </div>
-            </div>
-          )}
+<FiltrosConciliacionModal
+  open={showFiltersModal}
+  filters={filters}
+  options={filterOptions}
+  onChange={(field, value) =>
+    setFilters((prev) => ({
+      ...prev,
+      [field]: value,
+    }))
+  }
+  onApply={applyFilters}
+  onClear={clearAllFilters}
+  onClose={() => setShowFiltersModal(false)}
+/>
         </div>
 
         <div className="bg-white border border-gray-200 rounded-lg p-3 flex flex-col">
@@ -1558,6 +1449,8 @@ const selectedFacturaItems = useMemo(() => Object.values(facturaSelection), [fac
 
 
         {detalleOpen && <ModalDetalle solicitud={detalleSolicitud} onClose={closeDetalle} />}
+
+        
 
         {isLoading && <div className="text-sm text-gray-500 px-2">Cargando información...</div>}
       </div>

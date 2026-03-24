@@ -132,6 +132,12 @@ export default function VistaPreviaModal({
   const [modoTipoCambioManual, setModoTipoCambioManual] = useState(false);
   const [tipoCambioManualInput, setTipoCambioManualInput] = useState("");
 
+  const clampTipoCambioMin1 = (value: any) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 1;
+  return Math.max(1, n);
+};
+
 const tipoCambioManual = useMemo(() => {
   const n = Number(tipoCambioManualInput || 0);
   return Number.isFinite(n) ? Math.max(1, n) : 1;
@@ -232,11 +238,7 @@ const getPreviewConversion = (amount: any) => {
   };
 };
 
-const clampTipoCambioMin1 = (value: any) => {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return 1;
-  return Math.max(1, n);
-};
+
   const totalFacturaComparable = isMXNCurrency(monedaFactura)
   ? totalFactura
   : totalFacturaMXN;

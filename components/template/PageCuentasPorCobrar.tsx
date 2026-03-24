@@ -33,6 +33,7 @@ import { SaldoFavor, NuevoSaldoAFavor, Saldo } from "@/services/SaldoAFavor";
 import { fetchAgenteById, fetchPagosByAgente } from "@/services/agentes";
 import { Loader } from "@/components/atom/Loader";
 import { API_KEY, URL } from "@/lib/constants/index";
+import { formatLargeDate } from "@/helpers/utils";
 import { formatDate } from "@/helpers/utils";
 import { PagarModalComponent } from "./pagar_saldo";
 import ModalDetallePago from "@/app/dashboard/payments/_components/detalles_pago";
@@ -754,33 +755,13 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   };
 
   const tableRenderers = {
-    // fecha_De_Pago: ({ value }: { value: string | null }) => {
-    //   if (!value) return <div className="text-gray-400 italic">Sin fecha</div>;
-
-    //   return (
-    //     <div className="whitespace-nowrap text-sm text-blue-900">
-    //       {formatDate(value)}
-    //     </div>
-    //   );
-    // },
-
-    // // Renderizador para creado
-    // creado: ({ value }: { value: Date | null }) => {
-    //   if (!value) return <div className="text-gray-400">N/A</div>;
-
-    //   return (
-    //     <div className="whitespace-nowrap text-sm text-blue-900">
-    //       {format(new Date(value), "dd 'de' MMMM yyyy", { locale: es })}
-    //     </div>
-    //   );
-    // },
 
     fecha_De_Pago: ({ value }: { value: Date | null }) => {
       if (!value) return <div className="text-gray-400">N/A</div>;
 
       return (
         <div className="whitespace-nowrap text-sm text-blue-900">
-          {format(new Date(value), "dd 'de' MMMM yyyy", { locale: es })}
+          {formatLargeDate(new Date(value))}
         </div>
       );
     },
@@ -789,7 +770,7 @@ creado: ({ value }: { value: Date | null }) => {
 
       return (
         <div className="whitespace-nowrap text-sm text-blue-900">
-          {format(new Date(value), "dd 'de' MMMM yyyy", { locale: es })}
+          {formatLargeDate(new Date(value))}
         </div>
       );
     },
