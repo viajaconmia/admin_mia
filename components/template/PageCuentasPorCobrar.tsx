@@ -670,7 +670,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       tipo_tarjeta: saldo.tipo_tarjeta || "",
       referencia: saldo.referencia || "",
       link_stripe: saldo.link_stripe || null,
-      fecha_De_Pago: saldo.fecha_pago ? new Date(saldo.fecha_pago) : null,
+      fecha_De_Pago: saldo.fecha_pago || null,
       aplicable: saldo.is_descuento ? "Si" : "No",
       comentario: saldo.notas || saldo.comentario || null,
       wallet_credito: saldo.is_wallet_credito,
@@ -769,19 +769,43 @@ const formatDateMxLong = (dateValue: Date | string | null) => {
   }).format(date);
 };
 
+const formatDateWithoutTZ = (dateValue: Date | string | null) => {
+  if (!dateValue) return "N/A";
+
+  if (typeof dateValue === "string") {
+    const onlyDate = dateValue.split("T")[0].split(" ")[0];
+    const [year, month, day] = onlyDate.split("-").map(Number);
+
+    if (!year || !month || !day) return "N/A";
+
+    const localDate = new Date(year, month - 1, day);
+
+    return new Intl.DateTimeFormat("es-MX", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    }).format(localDate);
+  }
+
+  return new Intl.DateTimeFormat("es-MX", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(dateValue.getFullYear(), dateValue.getMonth(), dateValue.getDate()));
+};
+
 
   const tableRenderers = {
 
-    fecha_De_Pago: ({ value }: { value: Date | null }) => {
-    if (!value) return <div className="text-gray-400">N/A</div>;
+  fecha_De_Pago: ({ value }: { value: string | Date | null }) => {
+  if (!value) return <div className="text-gray-400">N/A</div>;
 
-    return (
-      <div className="whitespace-nowrap text-sm text-blue-900">
-        {formatDateMxLong(value)}
-      </div>
-    );
-  },
-
+  return (
+    <div className="whitespace-nowrap text-sm text-blue-900">
+      {formatDateWithoutTZ(value)}
+    </div>
+  );
+},
   creado: ({ value }: { value: Date | null }) => {
     if (!value) return <div className="text-gray-400">N/A</div>;
 

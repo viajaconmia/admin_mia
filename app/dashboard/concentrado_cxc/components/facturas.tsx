@@ -61,6 +61,8 @@ export interface DetallesFacturasProps {
 
 const normalizeAgent = (a: any) => String(a ?? "");
 
+
+
 export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
   open,
   onClose,
@@ -89,6 +91,12 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
   const [montosAsignar, setMontosAsignar] = useState<Record<string, string>>({});
   const [busquedaUuid, setBusquedaUuid] = useState("");
   
+  
+const [csvFeedback, setCsvFeedback] = useState<{
+  type: "success" | "warning" | "error";
+  text: string;
+} | null>(null);
+
   /* ────────────────
      Fetch de datos cuando hay pagoData
   ───────────────── */
@@ -175,6 +183,166 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
       String(factura.uuid_factura || "").toLowerCase().includes(q)
     );
   }, [facturas, busquedaUuid]);
+
+
+  //helper para csv
+
+  const detectCsvDelimiter = (line: string) => {
+  const commas = (line.match(/,/g) || []).length;
+  const semicolons = (line.match(/;/g) || []).length;
+  return semicolons > commas ? ";" : ",";
+};
+
+const splitCsvLine = (line: string, delimiter: string) => {
+  const result: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === delimiter && !inQuotes) {
+      result.push(current.trim());
+      current = "";
+      continue;
+    }
+
+    current += char;
+  }
+
+  result.push(current.trim());
+  return result.map((v) => v.replace(/^\uFEFF/, "").trim());
+};
+
+const handleImportCsv = async (file: File | null) => {
+  if (!file) return;
+
+  try {
+    setCsvFeedback(null);
+
+    const text = (await file.text()).replace(/^\uFEFF/, "");
+    const lines = text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    if (!lines.length) {
+      setCsvFeedback({
+        type: "error",
+        text: "El CSV está vacío.",
+      });
+      return;
+    }
+
+    const delimiter = detectCsvDelimiter(lines[0]);
+    const rows = lines.map((line) => splitCsvLine(line, delimiter));
+
+    const firstCol = String(rows[0]?.[0] || "").toLowerCase();
+    const secondCol = String(rows[0]?.[1] || "").toLowerCase();
+
+    const hasHeader =
+      firstCol.includes("uuid") ||
+      secondCol.includes("monto") ||
+      firstCol.includes("factura");
+
+    const dataRows = hasHeader ? rows.slice(1) : rows;
+
+    const facturasByUuid = new Map(
+      facturas.map((f) => [
+        String(f.uuid_factura || "").trim().toLowerCase(),
+        f,
+      ])
+    );
+
+    const nextSelected = new Set<string>();
+    const nextMontos: Record<string, string> = {};
+    const notFound: string[] = [];
+    const invalidAmount: string[] = [];
+
+    for (const row of dataRows) {
+      const uuidRaw = String(row[0] ?? "").trim();
+      const montoRaw = String(row[1] ?? "").trim();
+
+      if (!uuidRaw) continue;
+
+      const factura = facturasByUuid.get(uuidRaw.toLowerCase());
+
+      if (!factura) {
+        notFound.push(uuidRaw);
+        continue;
+      }
+
+      const saldoMaximo = Number(factura.saldo || 0);
+      let montoAsignado = saldoMaximo;
+
+      if (montoRaw !== "") {
+        const parsed = Number(montoRaw.replace(/,/g, "."));
+
+        if (!Number.isFinite(parsed) || parsed < 0) {
+          invalidAmount.push(uuidRaw);
+          continue;
+        }
+
+        montoAsignado = Math.min(parsed, saldoMaximo);
+      }
+
+      nextSelected.add(factura.id_factura);
+      nextMontos[factura.id_factura] = String(montoAsignado);
+    }
+
+    setSelectedFacturas(nextSelected);
+    setMontosAsignar(nextMontos);
+
+    if (nextSelected.size === 0) {
+      setCsvFeedback({
+        type: "error",
+        text: notFound.length
+          ? `No se encontró ninguna factura del CSV. UUID no encontrados: ${notFound.join(", ")}`
+          : "No se encontró ninguna factura válida en el CSV.",
+      });
+      return;
+    }
+
+    let message = `CSV cargado. Se seleccionaron ${nextSelected.size} factura(s).`;
+
+    if (notFound.length) {
+      message += ` UUID no encontrados: ${notFound.join(", ")}.`;
+    }
+
+    if (invalidAmount.length) {
+      message += ` Monto inválido en: ${invalidAmount.join(", ")}.`;
+    }
+
+    setCsvFeedback({
+      type: notFound.length || invalidAmount.length ? "warning" : "success",
+      text: message,
+    });
+  } catch (error) {
+    console.error("Error al importar CSV:", error);
+    setCsvFeedback({
+      type: "error",
+      text: "No se pudo leer el archivo CSV.",
+    });
+  }
+};
+
+const handleCsvInputChange = async (
+  e: React.ChangeEvent<HTMLInputElement>
+) => {
+  const file = e.target.files?.[0] || null;
+  await handleImportCsv(file);
+  e.target.value = "";
+};
 
   // MOVER ESTO DESPUÉS DE TODOS LOS HOOKS
   if (!open) return null;
@@ -675,16 +843,50 @@ if (!pagoData) {
                   : "Este agente no tiene facturas pendientes."}
               </p>
             ) : (
+
+              
   <div className="border rounded-lg overflow-hidden">
+    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+  <div className="flex flex-col md:flex-row gap-3 w-full">
+    <input
+      type="text"
+      value={busquedaUuid}
+      onChange={(e) => setBusquedaUuid(e.target.value)}
+      placeholder="Buscar por UUID de factura"
+      className="w-full md:max-w-md border rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+    />
+
+    <input
+      type="file"
+      accept=".csv,text/csv"
+      onChange={handleCsvInputChange}
+      className="block w-full md:w-auto border rounded px-3 py-2 text-sm"
+    />
+  </div>
+
+  <div className="text-sm font-semibold text-gray-700 flex flex-col items-end">
+    <span>
+      Total saldo seleccionado:{" "}
+      <span className="text-green-600">
+        {money
+          ? money(totalSaldoSeleccionado)
+          : `$${totalSaldoSeleccionado.toFixed(2)}`}
+      </span>
+    </span>
+
+    <span>
+      Total a asignar:{" "}
+      <span className="text-blue-600">
+        {money
+          ? money(totalMontoAsignado)
+          : `$${totalMontoAsignado.toFixed(2)}`}
+      </span>
+    </span>
+  </div>
+</div>
     <div className="p-2 space-y-3">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        <input
-          type="text"
-          value={busquedaUuid}
-          onChange={(e) => setBusquedaUuid(e.target.value)}
-          placeholder="Buscar por UUID de factura"
-          className="w-full md:max-w-md border rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-        />
+        
 
         <div className="text-sm font-semibold text-gray-700">
           Total saldo seleccionado:{" "}
@@ -748,6 +950,25 @@ if (!pagoData) {
         money={money}
         downloadFile={downloadFile}
       />
+
+      {csvFeedback && (
+  <div
+    className={`rounded border px-3 py-2 text-sm ${
+      csvFeedback.type === "error"
+        ? "bg-red-50 border-red-200 text-red-700"
+        : csvFeedback.type === "warning"
+        ? "bg-yellow-50 border-yellow-200 text-yellow-700"
+        : "bg-green-50 border-green-200 text-green-700"
+    }`}
+  >
+    {csvFeedback.text}
+  </div>
+)}
+
+<p className="text-xs text-gray-500">
+  CSV: primera columna = UUID, segunda columna = monto a asignar. Si el monto
+  viene vacío, se toma el saldo completo.
+</p>
 
       {/* Modal de pago usando facturaData */}
       {showPagarModal && facturaData && (

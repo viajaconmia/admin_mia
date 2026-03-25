@@ -109,82 +109,80 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
   // console.log("facturas recibida:", facturaData);
   const { showNotification } = useAlert();
   // Helper global para dinero
-  // ✅ Dinero seguro: operar en centavos (int), mostrar en pesos (2 decimales)
-  const toCents = (v: any): number => {
-    const n = Number(v);
-    if (!Number.isFinite(n)) return 0;
-    return Math.round(n * 100);
-  };
+const MONEY_TOLERANCE_CENTS = 1;
 
-  const fromCents = (c: number): number => {
-    return Number((c / 100).toFixed(2));
-  };
+const toCents = (v: any): number => {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 0;
+  return Math.round(n * 100);
+};
 
-  const toMoney = (v: any): number => fromCents(toCents(v));
+const fromCents = (c: number): number => Number((c / 100).toFixed(2));
 
-  // “cero” real a nivel centavo
-  const isZeroMoney = (v: any): boolean => Math.abs(toCents(v)) < 1;
+const toMoney = (v: any): number => fromCents(toCents(v));
+
+const isZeroMoney = (v: any): boolean =>
+  Math.abs(toCents(v)) <= MONEY_TOLERANCE_CENTS;
+
+const exceedsMoney = (
+  a: any,
+  b: any,
+  toleranceCents = MONEY_TOLERANCE_CENTS,
+): boolean => {
+  return toCents(a) > toCents(b) + toleranceCents;
+};
+
+const sumMoney = (values: any[] = []): number => {
+  const totalCents = values.reduce((acc, value) => acc + toCents(value), 0);
+  return fromCents(totalCents);
+};
 
   // Funciones para manejar las facturas
-  function obtenerMontosFacturas(facturas_Data) {
-    return facturas_Data.map((factura) => factura.monto);
-  }
+const facturas = Array.isArray(facturaData) ? facturaData : [];
 
-  function obtenerSaldosFacturas(facturas_Data) {
-    return facturas_Data.map((factura) => factura.saldo);
-  }
+const montos = facturas.map((factura) => Number(factura.monto || 0));
+const saldos = facturas.map((factura) => Number(factura.saldo || 0));
 
-  function sumarMontos(montosArray) {
-    return montosArray.reduce((total, monto) => total + parseFloat(monto), 0);
-  }
+const totalMonto = sumMoney(montos);
+const totalSaldo = sumMoney(saldos);
 
-  let montos = 0;
-  let saldos = 0;
-  let totalMonto = 0;
-  let totalSaldo = 0;
+console.log("Total saldos:", saldos);
+console.log("Total saldo exacto:", totalSaldo);
 
-  if (facturaData != null) {
-    montos = obtenerMontosFacturas(facturaData);
-    saldos = obtenerSaldosFacturas(facturaData);
-    console.log("Total :", saldos);
 
-    totalMonto = sumarMontos(montos);
-    totalSaldo = sumarMontos(saldos);
-
-    console.log("Total sum😢😢😢😢😢ado:", saldoData);
-    console.log("Total sumad do:", totalSaldo);
-  }
-  const id_agente =
-    reservaData?.id_agente ||
-    saldoData?.id_agente ||
-    facturaData[0]?.id_agente ||
-    "desconocido";
   // Si no hay saldoData pero hay reservaData, crear un saldoData básico
-  const effectiveSaldoData =
-    saldoData ||
-    (reservaData || facturaData
-      ? {
-          id_saldos: "temporal",
-          id_agente: id_agente,
-          nombre:
-            reservaData?.solicitud.agente.nombre ||
-            facturaData?.nombre_agente ||
-            "Agente",
-          monto:
-            reservaData?.Total || // Si existe, úsalo (máxima prioridad)
-            (Array.isArray(montos) && montos.length > 1 ? totalMonto : montos), // Si hay más de 1 en el array, usa totalMonto. Si no, usa el array 'montos'.
+const id_agente =
+  reservaData?.id_agente ||
+  saldoData?.id_agente ||
+  facturas[0]?.id_agente ||
+  "desconocido";
 
-          saldo:
-            reservaData?.Total || // Si existe, úsalo (máxima prioridad)
-            (Array.isArray(saldos) && saldos.length > 1 ? totalSaldo : saldos),
-        }
-      : {
-          id_saldos: "",
-          id_agente: "",
-          nombre: "",
-          monto: 0,
-          saldo: 0,
-        });
+const effectiveSaldoData =
+  saldoData ||
+  (reservaData || facturas.length
+    ? {
+        id_saldos: "temporal",
+        id_agente,
+        nombre:
+          reservaData?.solicitud?.agente?.nombre ||
+          facturas[0]?.nombre_agente ||
+          "Agente",
+        monto: toMoney(
+          reservaData?.Total ??
+            (facturas.length > 1 ? totalMonto : montos[0] ?? 0),
+        ),
+        saldo: toMoney(
+          reservaData?.Total ??
+            (facturas.length > 1 ? totalSaldo : saldos[0] ?? 0),
+        ),
+      }
+    : {
+        id_saldos: "",
+        id_agente: "",
+        nombre: "",
+        monto: 0,
+        saldo: 0,
+      });
 
   console.log(effectiveSaldoData, "paornvr iv to");
 
@@ -232,7 +230,7 @@ const [busquedaReserva, setBusquedaReserva] = useState("");
       setLoading(true);
       setError(null);
 
-      const agente = reservaData?.id_agente || facturaData[0]?.id_agente;
+      const agente = reservaData?.id_agente ||facturas[0]?.id_agente;
       if (!agente) {
         throw new Error(
           "ID de agente no disponible en reservaData ni facturaData",
@@ -501,9 +499,9 @@ const [busquedaReserva, setBusquedaReserva] = useState("");
 
         // Armamos el payload para facturas
         console.log(facturaData, "fnvonvorv");
-        const ids_facturas = facturaData.map(
-          (f) => f.facturaSeleccionada.id_factura,
-        );
+       const ids_facturas = facturas.map(
+  (f) => f.facturaSeleccionada?.id_factura || f.id_factura,
+);
         console.log(ids_facturas);
 
         payload = {
@@ -870,7 +868,8 @@ const buscarYSeleccionarReserva = () => {
 
   // Selecciona saldos en orden y auto-llama handleSubmit cuando cubre el total
   // Selecciona saldos en orden FIFO y deja todo redondeado a 2 decimales
-
+  
+  console.log(facturaData,"1️⃣1️⃣1️⃣1️⃣1️⃣1️⃣1️⃣")
   const seleccionarSaldosEnOrdenYAutoPagar = async () => {
     try {
       const agente = reservaData?.id_agente || facturaData[0]?.id_agente;
@@ -1050,7 +1049,7 @@ const buscarYSeleccionarReserva = () => {
                     <p className="text-sm text-gray-600">Monto seleccionado:</p>
                     <p
                       className={`text-lg font-semibold ${
-                        Number(montoSeleccionado) > effectiveSaldoData.saldo
+                        exceedsMoney(montoSeleccionado, effectiveSaldoData.saldo)
                           ? "text-red-600"
                           : "text-blue-600"
                       }`}
@@ -1132,7 +1131,7 @@ const buscarYSeleccionarReserva = () => {
             <Button
               onClick={handleSubmit}
               variant="primary"
-              disabled={montoSeleccionado > effectiveSaldoData.saldo || loading}
+              disabled={exceedsMoney(montoSeleccionado, effectiveSaldoData.saldo) || loading}
               icon={DollarSign}
             >
               Registrar Pago
