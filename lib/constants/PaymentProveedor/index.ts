@@ -29,7 +29,7 @@ export const CREDIT_CARDS: CreditCardInfo[] = [
 export const COMPANY_DATA = {
   codigoPostal: "11570",
   direccion:
-    "Presidente Masaryk #29, Interior P-4, CDMX, colonia: Chapultepec Morales, Alcaldía: Miguel Hidalgo",
+    "Av. Presidente Masaryk 29, Interior E-3, Col.  Polanco V Sección, Alcaldía Miguel Hidalgo, CDMX",
   nombre: "noktos",
   razonSocial: "Noktos Alianza S.A. de C.V.",
   rfc: "NAL190807BU2",

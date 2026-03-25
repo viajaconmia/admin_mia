@@ -1,9 +1,24 @@
 "use client";
 
 import React, {
-  useEffect, useState, useRef, forwardRef, useImperativeHandle
+  useEffect,
+  useState,
+  useRef,
+  forwardRef,
+  useImperativeHandle,
 } from "react";
-import { Calendar, Hotel, User, Bed, ArrowRight, MessageCircle, Users, CupSoda, FileDown, X } from "lucide-react";
+import {
+  Calendar,
+  Hotel,
+  User,
+  Bed,
+  ArrowRight,
+  MessageCircle,
+  Users,
+  CupSoda,
+  FileDown,
+  X,
+} from "lucide-react";
 import { SupportModal } from "./superModal";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
@@ -11,11 +26,11 @@ import { getUbicacion } from "./reservas";
 
 // ↑ Encima del componente Reserva()
 type LogoAsset = { key: string; src: string };
- 
+
 type LogoLoaded = {
   dataUrl: string;
   ar: number; // aspect ratio = width/height
-};   
+};
 
 export type ReservaHandle = {
   download: () => Promise<void>;
@@ -42,7 +57,8 @@ async function loadImageAsDataURL(src: string): Promise<LogoLoaded> {
         reject(e);
       }
     };
-    img.onerror = () => reject(new Error(`No se pudo cargar la imagen: ${src}`));
+    img.onerror = () =>
+      reject(new Error(`No se pudo cargar la imagen: ${src}`));
     img.src = src;
   });
 }
@@ -86,25 +102,33 @@ async function loadSvgStringAsPngDataURL(svg: string): Promise<LogoLoaded> {
 type ReservaProps = {
   isOpen: boolean;
   onClose: () => void;
-  reservation?: any;                // ⬅️ nuevo: objeto directo
-  reservationIdBase64?: string;     // ⬅️ opcional: por si mantienes la vía anterior
+  reservation?: any; // ⬅️ nuevo: objeto directo
+  reservationIdBase64?: string; // ⬅️ opcional: por si mantienes la vía anterior
   mountHidden?: boolean;
 };
 
 export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
-  { isOpen, onClose, reservation, reservationIdBase64, mountHidden = false }: ReservaProps,
-  ref
+  {
+    isOpen,
+    onClose,
+    reservation,
+    reservationIdBase64,
+    mountHidden = false,
+  }: ReservaProps,
+  ref,
 ) {
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
-  const [reservationDetails, setReservationDetails] = useState<any | null>(reservation ?? null);
+  const [reservationDetails, setReservationDetails] = useState<any | null>(
+    reservation ?? null,
+  );
   const [loading, setLoading] = useState<boolean>(!reservation); // si ya viene por props, no cargamos
   const pageRef = useRef<HTMLDivElement>(null);
   const [logos, setLogos] = useState<Record<string, LogoLoaded>>({});
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  console.log("arreglar",reservation)
+  console.log("arreglar", reservation);
 
-  const handleUbicacion = async (): Promise<UbicacionType> => { 
+  const handleUbicacion = async (): Promise<UbicacionType> => {
     try {
       const idHotel = reservationDetails?.id_hotel;
       if (!idHotel) {
@@ -116,7 +140,7 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
       const raw = data?.res?.[0]?.ubicacion_o_direccion ?? null; // puede venir "lat,lng" o texto
       // Parseo "lat,lng"
       if (typeof raw === "string" && raw.includes(",")) {
-        const [a, b] = raw.split(",").map(s => Number(s.trim()));
+        const [a, b] = raw.split(",").map((s) => Number(s.trim()));
         if (!Number.isNaN(a) && !Number.isNaN(b)) {
           const obj = { lat: a, lng: b };
           setUbicacionState(obj);
@@ -134,9 +158,12 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
   };
 
   // --- NUEVO: para guardar texto/coords de ubicación
-  type UbicacionType = { lat?: number; lng?: number } | string | null | undefined;
+  type UbicacionType =
+    | { lat?: number; lng?: number }
+    | string
+    | null
+    | undefined;
   const [ubicacionState, setUbicacionState] = useState<UbicacionType>(null);
-
 
   useEffect(() => {
     setReservationDetails(reservation ?? null);
@@ -150,13 +177,20 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
     (async () => {
       try {
         const fromAssets = await Promise.all(
-          [{ key: "noktos", src: "https://luiscastaneda-tos.github.io/log/files/nokt.png" }].map(async (a) => {
+          [
+            {
+              key: "noktos",
+              src: "https://luiscastaneda-tos.github.io/log/files/nokt.png",
+            },
+          ].map(async (a) => {
             const data = await loadImageAsDataURL(a.src);
             return [a.key, data] as const;
-          })
+          }),
         );
         const miaData = await loadSvgStringAsPngDataURL(MIA_SVG);
-        setLogos(Object.fromEntries([...fromAssets, ["mia", miaData] as const]));
+        setLogos(
+          Object.fromEntries([...fromAssets, ["mia", miaData] as const]),
+        );
       } catch (e) {
         console.warn("Fallo precarga de logos:", e);
       }
@@ -164,7 +198,10 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
   }, []);
 
   const logoAssets: LogoAsset[] = [
-    { key: "noktos", src: "https://luiscastaneda-tos.github.io/log/files/nokt.png" },
+    {
+      key: "noktos",
+      src: "https://luiscastaneda-tos.github.io/log/files/nokt.png",
+    },
     // { key: "hotel", src: "https://tudominio.com/assets/hotel_logo.png" },
   ];
 
@@ -176,7 +213,7 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
           logoAssets.map(async (a) => {
             const data = await loadImageAsDataURL(a.src);
             return [a.key, data] as const;
-          })
+          }),
         );
 
         // MIA desde SVG
@@ -198,14 +235,19 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
     ubicacion: UbicacionType,
     hotelName?: string | null,
     direccionFallback?: string | null,
-    soloHotel: boolean = false
+    soloHotel: boolean = false,
   ) {
     const hotel = (hotelName ?? "").trim();
     if (soloHotel && hotel) {
       return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(hotel)}`;
     }
 
-    if (ubicacion && typeof ubicacion === "object" && "lat" in ubicacion && "lng" in ubicacion) {
+    if (
+      ubicacion &&
+      typeof ubicacion === "object" &&
+      "lat" in ubicacion &&
+      "lng" in ubicacion
+    ) {
       const lat = Number(ubicacion.lat);
       const lng = Number(ubicacion.lng);
       if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
@@ -235,11 +277,11 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
     const pageW = pdf.internal.pageSize.getWidth();
 
     // ── Tuning del header lateral ───────────────────────────────────────
-    const TOP_Y = 3;      // posición Y (mm) de los logos
-    const PADDING_X = 10;  // margen lateral (mm)
-    const HEADER_H = 16;   // altura base de cada logo (mm)
+    const TOP_Y = 3; // posición Y (mm) de los logos
+    const PADDING_X = 10; // margen lateral (mm)
+    const HEADER_H = 16; // altura base de cada logo (mm)
     const MAX_W_RATIO = 0.28; // % máx. del ancho de página por logo (evita corte)
-    const FOOTER_H = 8;    // altura del logo del pie (si lo usas)
+    const FOOTER_H = 8; // altura del logo del pie (si lo usas)
     // ───────────────────────────────────────────────────────────────────
 
     // NOKTOS → izquierda
@@ -313,7 +355,9 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
     const titleBarH = 9;
     const maxTextWidth = sideW - paddingX * 2;
 
-    const wrapped = politicas.flatMap(p => pdf.splitTextToSize(p, maxTextWidth));
+    const wrapped = politicas.flatMap((p) =>
+      pdf.splitTextToSize(p, maxTextWidth),
+    );
     const lineH = 5;
     const contentH = wrapped.length * lineH;
     const boxH = paddingY + titleBarH + paddingY + contentH + paddingY;
@@ -353,7 +397,6 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
     pdf.setDrawColor(0, 0, 0);
   }
 
-
   function drawContactInfoOnCurrentPage(pdf: jsPDF) {
     const pageW = pdf.internal.pageSize.getWidth();
     const pageH = pdf.internal.pageSize.getHeight();
@@ -366,8 +409,8 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
     const TEXT_DARK = { r: 30, g: 41, b: 59 }; // gris oscuro legible
 
     // — Layout —
-    const marginX = 12;            // margen lateral
-    const bottomMargin = 12;       // margen inferior
+    const marginX = 12; // margen lateral
+    const bottomMargin = 12; // margen inferior
     const boxW = pageW - marginX * 2;
 
     const title = "DATOS DE CONTACTO 24/7";
@@ -466,9 +509,14 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
     drawValue(phone, textX + phoneLabelW, cursorY);
     // Si quieres link "tel:" (algunos viewers lo respetan)
     pdf.setTextColor(BLUE_600.r, BLUE_600.g, BLUE_600.b);
-    pdf.textWithLink(" Llamar", textX + phoneLabelW + pdf.getTextWidth(phone) + 1, cursorY, {
-      url: "tel:+528006665867",
-    });
+    pdf.textWithLink(
+      " Llamar",
+      textX + phoneLabelW + pdf.getTextWidth(phone) + 1,
+      cursorY,
+      {
+        url: "tel:+528006665867",
+      },
+    );
 
     // — Reset de estilos
     pdf.setTextColor(0, 0, 0);
@@ -476,7 +524,7 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
   }
   function drawBillingInfoOnLastPage(
     pdf: jsPDF,
-    mode: "full" | "credito" = "full" // ← nuevo
+    mode: "full" | "credito" = "full", // ← nuevo
   ) {
     // Siempre agregamos una página dedicada a facturación
     pdf.addPage();
@@ -504,7 +552,9 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
 
     // === Título principal (ajustado cuando es solo CRÉDITO) ===
     const titleText =
-      mode === "credito" ? "FACTURACIÓN (CRÉDITO)" : "FACTURACIÓN DE RESERVACIONES";
+      mode === "credito"
+        ? "FACTURACIÓN (CRÉDITO)"
+        : "FACTURACIÓN DE RESERVACIONES";
     pdf.setFillColor(BLUE_600.r, BLUE_600.g, BLUE_600.b);
     pdf.rect(marginX, y, boxW, titleBarH, "F");
     pdf.setTextColor(255, 255, 255);
@@ -581,7 +631,7 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
       "Razón social: NOKTOS ALIANZA",
       "RFC: NAL190807BU2",
       "Código postal: 11570",
-      "Dirección: Presidente Masarik No. 29, Interior E-3, Col. Chapultepec Morales, Alcaldía Miguel Hidalgo, CDMX.",
+      "Dirección: Presidente Masaryk No. 29, Interior E-3, Col. Chapultepec Morales, Alcaldía Miguel Hidalgo, CDMX.",
       "E-mail: operaciones@noktos.com",
       "Régimen Fiscal: 601 - General de Ley Personas Morales",
       "Uso de CFDI: G03 - Gastos en general",
@@ -617,7 +667,6 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
     ]);
   }
 
-
   function paintFullBluePage(pdf: jsPDF) {
     const w = pdf.internal.pageSize.getWidth();
     const h = pdf.internal.pageSize.getHeight();
@@ -625,19 +674,18 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
     pdf.rect(0, 0, w, h, "F");
   }
 
-
   // ====== GENERACIÓN DE PDF (devuelve Blob y opcionalmente guarda) ======
   const buildPdf = async (opts?: { save?: boolean }) => {
     const content = pageRef.current;
     const scroller = scrollRef.current;
     if (!content) return null;
 
-    // 1) Asegura tener ubicación para el link  
+    // 1) Asegura tener ubicación para el link
     const ubic = await handleUbicacion();
     const mapsUrl = buildGoogleMapsUrl(
       ubic,
       reservationDetails?.hotel || "",
-      reservationDetails?.direccion || ""
+      reservationDetails?.direccion || "",
     );
 
     // Guarda estilos originales
@@ -652,13 +700,15 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
 
     const scrollerOriginal = scroller
       ? {
-        overflow: scroller.style.overflow,
-        maxHeight: scroller.style.maxHeight,
-      }
+          overflow: scroller.style.overflow,
+          maxHeight: scroller.style.maxHeight,
+        }
       : null;
 
     // Elementos que se ocultan en PDF (botones/header, etc.)
-    const elementsToHide = content.querySelectorAll('[data-hide-in-pdf], .no-print');
+    const elementsToHide = content.querySelectorAll(
+      "[data-hide-in-pdf], .no-print",
+    );
     const originalDisplay: string[] = [];
 
     try {
@@ -677,7 +727,7 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
 
       elementsToHide.forEach((el) => {
         originalDisplay.push((el as HTMLElement).style.display);
-        (el as HTMLElement).style.display = 'none';
+        (el as HTMLElement).style.display = "none";
       });
 
       await new Promise((r) => requestAnimationFrame(r));
@@ -694,15 +744,17 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
         scrollY: 0,
         windowWidth: document.documentElement.scrollWidth,
         windowHeight: document.documentElement.scrollHeight,
-        ignoreElements: (el) => el.hasAttribute('data-hide-in-pdf') || el.classList.contains('no-print'),
+        ignoreElements: (el) =>
+          el.hasAttribute("data-hide-in-pdf") ||
+          el.classList.contains("no-print"),
       });
 
       const imgData = canvas.toDataURL("image/png");
 
       // ======== PDF =========
       const pdf = new jsPDF("p", "mm", "a4");
-      const pageW = pdf.internal.pageSize.getWidth();   // 210
-      const pageH = pdf.internal.pageSize.getHeight();  // 297
+      const pageW = pdf.internal.pageSize.getWidth(); // 210
+      const pageH = pdf.internal.pageSize.getHeight(); // 297
 
       // Queremos TODO (HTML) en la página 1: escalar a alto de página,
       // dejando un margen inferior “visual” para que no tape políticas/contacto.
@@ -734,15 +786,15 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
       // --- Link invisible sobre la tarjeta del hotel (en página 1) ---
 
       // === Config de depuración / posicionamiento del link ===
-      const LINK_DEBUG = false;                  // ← pinta el borde rojo si true
+      const LINK_DEBUG = false; // ← pinta el borde rojo si true
       const LINK_BORDER_COLOR: [number, number, number] = [0, 0, 0]; // rojo
-      const LINK_STROKE_WIDTH = 0.6;           // grosor del borde (mm)
+      const LINK_STROKE_WIDTH = 0.6; // grosor del borde (mm)
 
       // Offsets en MILÍMETROS sobre el resultado final (tras escalar canvas → PDF):
-      const LINK_OFFSET_MM = { x: 36, y: 12.5 };   // mueve el rectángulo a la derecha/abajo (+) o izquierda/arriba (-)
+      const LINK_OFFSET_MM = { x: 36, y: 12.5 }; // mueve el rectángulo a la derecha/abajo (+) o izquierda/arriba (-)
 
       // “Crecer/encoger” el área de click en MILÍMETROS (útil si quieres darle aire)
-      const LINK_GROW_MM = { w: 0, h: 0 };     // se aplica de forma simétrica a los lados (ver fórmula)
+      const LINK_GROW_MM = { w: 0, h: 0 }; // se aplica de forma simétrica a los lados (ver fórmula)
 
       // --- Link invisible (con borde rojo opcional) y label "Ver ubicación" ---
 
@@ -777,7 +829,7 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
         // === NUEVO: texto "Ver ubicación" encima del cuadro ===
         const labelText = "Ver ubicación";
         const labelFontSize = 7;
-        const labelOffsetY = .5; // mm de separación del borde superior
+        const labelOffsetY = 0.5; // mm de separación del borde superior
 
         pdf.setFont("helvetica", "bold");
         pdf.setFontSize(labelFontSize);
@@ -831,7 +883,7 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
       content.style.padding = original.padding;
 
       elementsToHide.forEach((el, i) => {
-        (el as HTMLElement).style.display = originalDisplay[i] || '';
+        (el as HTMLElement).style.display = originalDisplay[i] || "";
       });
 
       if (scroller && scrollerOriginal) {
@@ -842,30 +894,44 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
   };
 
   // ====== Exponer métodos al padre ======
-  useImperativeHandle(ref, () => ({
-    download: async () => {
-      await buildPdf({ save: true });
-    },
-    getPdfBlob: async () => {
-      const blob = await buildPdf({ save: false });
-      return blob;
-    },
-  }), [reservationDetails, logos]);
+  useImperativeHandle(
+    ref,
+    () => ({
+      download: async () => {
+        await buildPdf({ save: true });
+      },
+      getPdfBlob: async () => {
+        const blob = await buildPdf({ save: false });
+        return blob;
+      },
+    }),
+    [reservationDetails, logos],
+  );
 
   // Si no está abierto y no queremos montarla oculta, no renderizamos nada
   if (!isOpen && !mountHidden) return null;
 
   // Estilo para “ocultar pero con layout” cuando mountHidden=true y isOpen=false
-  const hiddenStyle = !isOpen && mountHidden
-    ? { position: "absolute" as const, left: "-10000px", top: 0, width: "1000px" }
-    : undefined;
+  const hiddenStyle =
+    !isOpen && mountHidden
+      ? {
+          position: "absolute" as const,
+          left: "-10000px",
+          top: 0,
+          width: "1000px",
+        }
+      : undefined;
 
   return (
     <div
-      className={isOpen ? "fixed inset-0 z-[999] flex items-center justify-center" : ""}
+      className={
+        isOpen ? "fixed inset-0 z-[999] flex items-center justify-center" : ""
+      }
       style={hiddenStyle}
     >
-      {isOpen && <div className="absolute inset-0 bg-black/50" onClick={onClose} />}
+      {isOpen && (
+        <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      )}
 
       <div className="relative bg-white rounded-xl shadow-2xl w-[95vw] max-w-[1100px] h-[95vh] flex flex-col mx-4 my-4">
         {/* Header fijo - FUERA del área de scroll */}
@@ -903,17 +969,25 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
           ref={scrollRef}
           className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-gradient-to-br from-blue-50 via-blue-100 to-blue-50"
           style={{
-            scrollbarWidth: 'thin',
-            scrollbarColor: '#3b82f6 #e0f2fe',
+            scrollbarWidth: "thin",
+            scrollbarColor: "#3b82f6 #e0f2fe",
           }}
         >
-          <div ref={pageRef} className="max-w-5xl mx-auto px-4 py-6 relative scroll-improved">
-            <SupportModal isOpen={isSupportModalOpen} onClose={() => setIsSupportModalOpen(false)} />
+          <div
+            ref={pageRef}
+            className="max-w-5xl mx-auto px-4 py-6 relative scroll-improved"
+          >
+            <SupportModal
+              isOpen={isSupportModalOpen}
+              onClose={() => setIsSupportModalOpen(false)}
+            />
 
             {reservationDetails ? (
               <>
                 <div className="text-center mb-6">
-                  <h1 className="text-2xl font-bold text-blue-900">Resumen de reservación</h1>
+                  <h1 className="text-2xl font-bold text-blue-900">
+                    Resumen de reservación
+                  </h1>
                   {reservationDetails?.codigo_confirmacion && (
                     <p className="text-blue-600 mt-2 break-words tracking-normal">
                       Confirmación #{reservationDetails?.codigo_confirmacion}
@@ -925,7 +999,11 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
                 <div className="bg-white/30 backdrop-blur-md rounded-2xl p-6 shadow-xl shadow-blue-100 mb-6">
                   <div className="grid gap-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <InfoCard icon={User} label="Huésped" value={reservationDetails.huesped || ""} />
+                      <InfoCard
+                        icon={User}
+                        label="Huésped"
+                        value={reservationDetails.huesped || ""}
+                      />
                       <div ref={hotelCardRef} data-role="hotel-card">
                         <InfoCard
                           icon={Hotel}
@@ -937,28 +1015,44 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
                     </div>
 
                     <div className="space-y-4">
-                      {reservationDetails.acompañantes && reservationDetails.acompañantes.length > 0 && (
-                        <InfoCard
-                          icon={Users}
-                          label="Acompañantes"
-                          value={getAcompanantesValue(reservationDetails.acompañantes)}
-                        />
-                      )}
+                      {reservationDetails.acompañantes &&
+                        reservationDetails.acompañantes.length > 0 && (
+                          <InfoCard
+                            icon={Users}
+                            label="Acompañantes"
+                            value={getAcompanantesValue(
+                              reservationDetails.acompañantes,
+                            )}
+                          />
+                        )}
                       <InfoCard
                         icon={CupSoda}
                         label="Desayuno incluido"
-                        value={reservationDetails.incluye_desayuno ? "Desayuno incluido" : "No incluye desayuno"}
+                        value={
+                          reservationDetails.incluye_desayuno
+                            ? "Desayuno incluido"
+                            : "No incluye desayuno"
+                        }
                       />
                     </div>
 
-                    <DateCard check_in={reservationDetails.check_in} check_out={reservationDetails.check_out} />
+                    <DateCard
+                      check_in={reservationDetails.check_in}
+                      check_out={reservationDetails.check_out}
+                    />
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <InfoCard icon={Bed} label="Tipo de Habitación" value={cambiarLenguaje(reservationDetails.room || "")} />
+                      <InfoCard
+                        icon={Bed}
+                        label="Tipo de Habitación"
+                        value={cambiarLenguaje(reservationDetails.room || "")}
+                      />
                       <InfoCard
                         icon={MessageCircle}
                         label="Comentarios"
-                        value={reservationDetails.comentarios || "No hay comentarios"}
+                        value={
+                          reservationDetails.comentarios || "No hay comentarios"
+                        }
                       />
                     </div>
                   </div>
@@ -1004,16 +1098,24 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
               <>
                 {loading ? (
                   <div className="text-center mt-20 animate-pulse">
-                    <h1 className="text-3xl font-bold text-blue-900 mb-4">Cargando reservación...</h1>
-                    <p className="text-gray-500 text-lg">Por favor espera un momento.</p>
+                    <h1 className="text-3xl font-bold text-blue-900 mb-4">
+                      Cargando reservación...
+                    </h1>
+                    <p className="text-gray-500 text-lg">
+                      Por favor espera un momento.
+                    </p>
                     <div className="mt-10 flex justify-center">
                       <div className="w-12 h-12 border-4 border-blue-300 border-t-transparent rounded-full animate-spin" />
                     </div>
                   </div>
                 ) : (
                   <div className="text-center mt-20">
-                    <h1 className="text-3xl font-bold text-blue-900 mb-4">No se encontró información</h1>
-                    <p className="text-gray-600 text-lg">Revisa el objeto de la reservación que envías al modal.</p>
+                    <h1 className="text-3xl font-bold text-blue-900 mb-4">
+                      No se encontró información
+                    </h1>
+                    <p className="text-gray-600 text-lg">
+                      Revisa el objeto de la reservación que envías al modal.
+                    </p>
                     <button
                       data-hide-in-pdf="true"
                       onClick={onClose}
