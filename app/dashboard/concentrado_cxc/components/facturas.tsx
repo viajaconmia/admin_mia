@@ -86,6 +86,7 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
   const [isApplying, setIsApplying] = useState(false); // State para loading
   const [datosAgentes, setDatosAgentes] = useState<any[]>([]); // Datos de los agentes
   const [isLoading, setIsLoading] = useState(false);
+  const [montosAsignar, setMontosAsignar] = useState<Record<string, string>>({});
   const [busquedaUuid, setBusquedaUuid] = useState("");
   
   /* ────────────────
@@ -152,21 +153,28 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
   const facturas = pagoData ? datosAgentes : (propFacturas || []);
   const mostrarFacturas = pagoData ? datosAgentes : propFacturas;
 
-const totalSaldoSeleccionado = useMemo(() => {
-  return facturas.reduce((acc, factura) => {
-    if (!selectedFacturas.has(factura.id_factura)) return acc;
-    return acc + Number(factura.saldo || 0);
-  }, 0);
-}, [facturas, selectedFacturas]);
+  const totalMontoAsignado = useMemo(() => {
+    return facturas.reduce((acc, factura) => {
+      if (!selectedFacturas.has(factura.id_factura)) return acc;
+      return acc + Number(montosAsignar[factura.id_factura] || 0);
+    }, 0);
+  }, [facturas, selectedFacturas, montosAsignar]);
 
-const facturasFiltradas = useMemo(() => {
-  const q = busquedaUuid.trim().toLowerCase();
-  if (!q) return facturas;
+  const totalSaldoSeleccionado = useMemo(() => {
+    return facturas.reduce((acc, factura) => {
+      if (!selectedFacturas.has(factura.id_factura)) return acc;
+      return acc + Number(factura.saldo || 0);
+    }, 0);
+  }, [facturas, selectedFacturas]);
 
-  return facturas.filter((factura) =>
-    String(factura.uuid_factura || "").toLowerCase().includes(q)
-  );
-}, [facturas, busquedaUuid]);
+  const facturasFiltradas = useMemo(() => {
+    const q = busquedaUuid.trim().toLowerCase();
+    if (!q) return facturas;
+
+    return facturas.filter((factura) =>
+      String(factura.uuid_factura || "").toLowerCase().includes(q)
+    );
+  }, [facturas, busquedaUuid]);
 
   // MOVER ESTO DESPUÉS DE TODOS LOS HOOKS
   if (!open) return null;
@@ -199,43 +207,122 @@ const facturasFiltradas = useMemo(() => {
   ───────────────── */
 
   const handleSelectFactura = (id: string, idAgente: string) => {
-    setSelectedFacturas((prevSelected) => {
-      const newSelected = new Set(prevSelected);
-      const wasSelected = newSelected.has(id);
+  const factura = facturas.find((f) => f.id_factura === id);
+  if (!factura) return;
 
-      if (wasSelected) newSelected.delete(id);
-      else newSelected.add(id);
+  const saldoFactura = Number(factura.saldo || 0);
 
-      const seleccionadas = facturas.filter((f) => newSelected.has(f.id_factura));
-      const agentKey = normalizeAgent(idAgente);
+  setSelectedFacturas((prevSelected) => {
+    const newSelected = new Set(prevSelected);
+    const wasSelected = newSelected.has(id);
 
-      const allSameAgent = seleccionadas.every(
-        (f) => normalizeAgent(f.id_agente) === agentKey
-      );
+    if (wasSelected) {
+      newSelected.delete(id);
 
-      if (!allSameAgent) {
-        if (!wasSelected) newSelected.delete(id);
-        return new Set(newSelected);
-      }
+      setMontosAsignar((prev) => {
+        const copy = { ...prev };
+        delete copy[id];
+        return copy;
+      });
 
       return newSelected;
-    });
-  };
+    }
+
+    newSelected.add(id);
+
+    const seleccionadas = facturas.filter((f) => newSelected.has(f.id_factura));
+    const agentKey = normalizeAgent(idAgente);
+
+    const allSameAgent = seleccionadas.every(
+      (f) => normalizeAgent(f.id_agente) === agentKey
+    );
+
+    if (!allSameAgent) {
+      newSelected.delete(id);
+      return new Set(newSelected);
+    }
+
+    setMontosAsignar((prev) => ({
+      ...prev,
+      [id]: prev[id] ?? String(saldoFactura),
+    }));
+
+    return newSelected;
+  });
+};
 
   const handleDeseleccionarPagos = () => {
-    setSelectedFacturas(new Set());
-    setFacturaData(null);
-    setShowPagarModal(false);
-  };
+  setSelectedFacturas(new Set());
+  setMontosAsignar({});
+  setFacturaData(null);
+  setShowPagarModal(false);
+};
 
   /* ────────────────
      Crear facturaData y abrir modal de pago
   ───────────────── */
 
+const handleMontoAsignarChange = (idFactura: string, rawValue: string) => {
+  const factura = facturas.find((f) => f.id_factura === idFactura);
+  if (!factura) return;
+
+  const saldoMaximo = Number(factura.saldo || 0);
+
+  if (rawValue === "") {
+    setMontosAsignar((prev) => ({
+      ...prev,
+      [idFactura]: "",
+    }));
+    return;
+  }
+
+  let value = rawValue.replace(/,/g, ".");
+  let monto = Number(value);
+
+  if (!Number.isFinite(monto)) monto = 0;
+  if (monto < 0) monto = 0;
+  if (monto > saldoMaximo) monto = saldoMaximo;
+
+  setMontosAsignar((prev) => ({
+    ...prev,
+    [idFactura]: String(monto),
+  }));
+};
+
   const handlePagos = async () => {
-  const facturasSeleccionadas = facturas.filter((f) =>
-    selectedFacturas.has(f.id_factura)
-  );
+  const facturasSeleccionadas = facturas.filter(
+  (f) =>
+    selectedFacturas.has(f.id_factura) &&
+    Number(montosAsignar[f.id_factura] || 0) > 0
+);
+
+if (facturasSeleccionadas.length === 0) return;
+
+// ✅ Si NO hay pagoData -> abre modal normal
+if (!pagoData) {
+  const datosFacturas = facturasSeleccionadas.map((f) => {
+    const montoAsignado = Math.min(
+      Number(montosAsignar[f.id_factura] || 0),
+      Number(f.saldo || 0)
+    );
+
+    return {
+      monto: montoAsignado,
+      monto_asignado: montoAsignado,
+      saldo: Number(f.saldo ?? 0),
+      total: Number(f.total ?? 0),
+      facturaSeleccionada: f,
+      id_factura: f.id_factura,
+      uuid_factura: f.uuid_factura,
+      id_agente: f.id_agente,
+      agente: f.nombre_agente || f.nombre || "Sin nombre",
+    };
+  });
+
+  setFacturaData(datosFacturas);
+  setShowPagarModal(true);
+  return;
+}
 
   if (facturasSeleccionadas.length === 0) return;
 
@@ -378,7 +465,7 @@ const facturasFiltradas = useMemo(() => {
         item: f,
       }))
     : (facturasFiltradas || []).map((f) => ({
-        d_factura: f.id_factura,
+        id_factura: f.id_factura,
         uuid_factura: f.uuid_factura,
         fecha_emision: f.fecha_emision,
         fecha_vencimiento: f.fecha_vencimiento,
@@ -387,6 +474,7 @@ const facturasFiltradas = useMemo(() => {
         saldo: f.saldo,
         dias_a_credito: f.diasCredito || 0,
         dias_restantes: f.diasRestantes || 0,
+        monto_asignar: f,
         seleccionar: f,
         item: f,
       }));
@@ -429,6 +517,35 @@ const facturasFiltradas = useMemo(() => {
         <span>{value}</span>
       </button>
     ),
+
+    monto_asignar: ({ item }) => {
+  const selected = selectedFacturas.has(item.id_factura);
+  const saldoMaximo = Number(item.saldo || 0);
+
+  if (!selected) {
+    return (
+      <div className="flex justify-center">
+        <span className="text-xs text-gray-400">—</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex justify-center">
+      <input
+        type="number"
+        min="0"
+        max={saldoMaximo}
+        step="0.01"
+        value={montosAsignar[item.id_factura] ?? ""}
+        onChange={(e) =>
+          handleMontoAsignarChange(item.id_factura, e.target.value)
+        }
+        className="w-28 border rounded px-2 py-1 text-sm text-right"
+      />
+    </div>
+  );
+},
 
     rfc: ({ value }) => (
       <div className="flex justify-center">
@@ -583,16 +700,17 @@ const facturasFiltradas = useMemo(() => {
                     leyenda={`Mostrando ${registros.length} factura(s)`}
                     maxHeight="60vh"
                     customColumns={[
-                      "seleccionar", // 👈 botón Seleccionar
-                      "rfc",
-                      "uuid_factura",
-                      "fecha_emision",
-                      "total",
-                      "saldo",
-                      "dias_a_credito",
-                      "dias_restantes",
-                      "fecha_vencimiento",
-                    ]}
+                    "seleccionar",
+                    "monto_asignar",
+                    "rfc",
+                    "uuid_factura",
+                    "fecha_emision",
+                    "total",
+                    "saldo",
+                    "dias_a_credito",
+                    "dias_restantes",
+                    "fecha_vencimiento",
+                  ]}
                   >
                     <button
                       className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
