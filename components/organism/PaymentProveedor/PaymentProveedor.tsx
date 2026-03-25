@@ -1310,7 +1310,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                 />
 
                 <DropdownValues
-                  label="Documento"
+                  label="Titular"
                   value={document}
                   onChange={(
                     value: { value: string; label: string; item: any } | null,

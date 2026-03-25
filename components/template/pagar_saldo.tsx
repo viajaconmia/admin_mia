@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { DollarSign, X, Moon, Shuffle } from "lucide-react";
+import { DollarSign, X, Moon, Shuffle, Search } from "lucide-react";
 import { URL, API_KEY } from "@/lib/constants/index";
 import { Table3 } from "@/components/organism/Table3";
 import { format } from "date-fns";
@@ -12,7 +12,7 @@ import { useAlert } from "@/context/useAlert";
 interface TableRow {
   id_item: string;
   total: number;
-  codigo: string;
+  codigo: string; 
   descripcion: string;
   fecha_uso: string;
   checkout: string;
@@ -109,82 +109,80 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
   // console.log("facturas recibida:", facturaData);
   const { showNotification } = useAlert();
   // Helper global para dinero
-  // ✅ Dinero seguro: operar en centavos (int), mostrar en pesos (2 decimales)
-  const toCents = (v: any): number => {
-    const n = Number(v);
-    if (!Number.isFinite(n)) return 0;
-    return Math.round(n * 100);
-  };
+const MONEY_TOLERANCE_CENTS = 1;
 
-  const fromCents = (c: number): number => {
-    return Number((c / 100).toFixed(2));
-  };
+const toCents = (v: any): number => {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return 0;
+  return Math.round(n * 100);
+};
 
-  const toMoney = (v: any): number => fromCents(toCents(v));
+const fromCents = (c: number): number => Number((c / 100).toFixed(2));
 
-  // “cero” real a nivel centavo
-  const isZeroMoney = (v: any): boolean => Math.abs(toCents(v)) < 1;
+const toMoney = (v: any): number => fromCents(toCents(v));
+
+const isZeroMoney = (v: any): boolean =>
+  Math.abs(toCents(v)) <= MONEY_TOLERANCE_CENTS;
+
+const exceedsMoney = (
+  a: any,
+  b: any,
+  toleranceCents = MONEY_TOLERANCE_CENTS,
+): boolean => {
+  return toCents(a) > toCents(b) + toleranceCents;
+};
+
+const sumMoney = (values: any[] = []): number => {
+  const totalCents = values.reduce((acc, value) => acc + toCents(value), 0);
+  return fromCents(totalCents);
+};
 
   // Funciones para manejar las facturas
-  function obtenerMontosFacturas(facturas_Data) {
-    return facturas_Data.map((factura) => factura.monto);
-  }
+const facturas = Array.isArray(facturaData) ? facturaData : [];
 
-  function obtenerSaldosFacturas(facturas_Data) {
-    return facturas_Data.map((factura) => factura.saldo);
-  }
+const montos = facturas.map((factura) => Number(factura.monto || 0));
+const saldos = facturas.map((factura) => Number(factura.saldo || 0));
 
-  function sumarMontos(montosArray) {
-    return montosArray.reduce((total, monto) => total + parseFloat(monto), 0);
-  }
+const totalMonto = sumMoney(montos);
+const totalSaldo = sumMoney(saldos);
 
-  let montos = 0;
-  let saldos = 0;
-  let totalMonto = 0;
-  let totalSaldo = 0;
+console.log("Total saldos:", saldos);
+console.log("Total saldo exacto:", totalSaldo);
 
-  if (facturaData != null) {
-    montos = obtenerMontosFacturas(facturaData);
-    saldos = obtenerSaldosFacturas(facturaData);
-    console.log("Total :", saldos);
 
-    totalMonto = sumarMontos(montos);
-    totalSaldo = sumarMontos(saldos);
-
-    console.log("Total sum😢😢😢😢😢ado:", saldoData);
-    console.log("Total sumad do:", totalSaldo);
-  }
-  const id_agente =
-    reservaData?.id_agente ||
-    saldoData?.id_agente ||
-    facturaData[0]?.id_agente ||
-    "desconocido";
   // Si no hay saldoData pero hay reservaData, crear un saldoData básico
-  const effectiveSaldoData =
-    saldoData ||
-    (reservaData || facturaData
-      ? {
-          id_saldos: "temporal",
-          id_agente: id_agente,
-          nombre:
-            reservaData?.solicitud.agente.nombre ||
-            facturaData?.nombre_agente ||
-            "Agente",
-          monto:
-            reservaData?.Total || // Si existe, úsalo (máxima prioridad)
-            (Array.isArray(montos) && montos.length > 1 ? totalMonto : montos), // Si hay más de 1 en el array, usa totalMonto. Si no, usa el array 'montos'.
+const id_agente =
+  reservaData?.id_agente ||
+  saldoData?.id_agente ||
+  facturas[0]?.id_agente ||
+  "desconocido";
 
-          saldo:
-            reservaData?.Total || // Si existe, úsalo (máxima prioridad)
-            (Array.isArray(saldos) && saldos.length > 1 ? totalSaldo : saldos),
-        }
-      : {
-          id_saldos: "",
-          id_agente: "",
-          nombre: "",
-          monto: 0,
-          saldo: 0,
-        });
+const effectiveSaldoData =
+  saldoData ||
+  (reservaData || facturas.length
+    ? {
+        id_saldos: "temporal",
+        id_agente,
+        nombre:
+          reservaData?.solicitud?.agente?.nombre ||
+          facturas[0]?.nombre_agente ||
+          "Agente",
+        monto: toMoney(
+          reservaData?.Total ??
+            (facturas.length > 1 ? totalMonto : montos[0] ?? 0),
+        ),
+        saldo: toMoney(
+          reservaData?.Total ??
+            (facturas.length > 1 ? totalSaldo : saldos[0] ?? 0),
+        ),
+      }
+    : {
+        id_saldos: "",
+        id_agente: "",
+        nombre: "",
+        monto: 0,
+        saldo: 0,
+      });
 
   console.log(effectiveSaldoData, "paornvr iv to");
 
@@ -214,7 +212,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
     Record<string, number>
   >({});
   const [saldoFavorData, setSaldoFavorData] = useState<any[]>([]);
-
+const [busquedaReserva, setBusquedaReserva] = useState("");
   useEffect(() => {
     if (reservaData || facturaData) {
       console.log("ENTRANDO A FACTURA");
@@ -232,7 +230,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
       setLoading(true);
       setError(null);
 
-      const agente = reservaData?.id_agente || facturaData[0]?.id_agente;
+      const agente = reservaData?.id_agente ||facturas[0]?.id_agente;
       if (!agente) {
         throw new Error(
           "ID de agente no disponible en reservaData ni facturaData",
@@ -501,9 +499,9 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
 
         // Armamos el payload para facturas
         console.log(facturaData, "fnvonvorv");
-        const ids_facturas = facturaData.map(
-          (f) => f.facturaSeleccionada.id_factura,
-        );
+       const ids_facturas = facturas.map(
+  (f) => f.facturaSeleccionada?.id_factura || f.id_factura,
+);
         console.log(ids_facturas);
 
         payload = {
@@ -672,6 +670,49 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
           })),
         );
 
+  const mostrarBuscadorReservas =
+  !reservaData && !facturaData && reservas.length > 5;
+
+const tableDataFiltrada =
+  mostrarBuscadorReservas && busquedaReserva.trim()
+    ? tableData.filter((row) =>
+        String(row.codigo_reservacion || "")
+          .toLowerCase()
+          .includes(busquedaReserva.trim().toLowerCase()),
+      )
+    : tableData;
+
+const buscarYSeleccionarReserva = () => {
+  const termino = busquedaReserva.trim().toLowerCase();
+  if (!termino) return;
+
+  const reservasEncontradas = reservas.filter((reserva) =>
+    String(
+      reserva.codigo_reservacion_hotel ||
+        reserva.codigo_reserva ||
+        reserva.codigo_confirmacion ||
+        "",
+    )
+      .toLowerCase()
+      .includes(termino),
+  );
+
+  if (!reservasEncontradas.length) {
+    showNotification("error", "No se encontró ninguna reserva con ese código");
+    return;
+  }
+
+  reservasEncontradas.forEach((reserva) => {
+    (reserva.items_info?.items || []).forEach((item) => {
+      if (!isItemSelected(item.id_item)) {
+        handleItemSelection(item.id_item, item.saldo);
+      }
+    });
+  });
+
+  setBusquedaReserva("");
+};
+
   // Renderers para la tabla - diferentes según el flujo
   const renderers =
     reservaData || facturaData
@@ -827,7 +868,8 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
 
   // Selecciona saldos en orden y auto-llama handleSubmit cuando cubre el total
   // Selecciona saldos en orden FIFO y deja todo redondeado a 2 decimales
-
+  
+  console.log(facturaData,"1️⃣1️⃣1️⃣1️⃣1️⃣1️⃣1️⃣")
   const seleccionarSaldosEnOrdenYAutoPagar = async () => {
     try {
       const agente = reservaData?.id_agente || facturaData[0]?.id_agente;
@@ -1007,7 +1049,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
                     <p className="text-sm text-gray-600">Monto seleccionado:</p>
                     <p
                       className={`text-lg font-semibold ${
-                        Number(montoSeleccionado) > effectiveSaldoData.saldo
+                        exceedsMoney(montoSeleccionado, effectiveSaldoData.saldo)
                           ? "text-red-600"
                           : "text-blue-600"
                       }`}
@@ -1028,13 +1070,43 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
 
           {/* Sección de Tabla */}
           <div className="mb-6">
+            {mostrarBuscadorReservas && (
+  <div className="mb-4 flex gap-2">
+    <div className="relative flex-1">
+      <Search
+        size={18}
+        className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+      />
+      <input
+        type="text"
+        value={busquedaReserva}
+        onChange={(e) => setBusquedaReserva(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            buscarYSeleccionarReserva();
+          }
+        }}
+        placeholder="Buscar por código de reservación hotel"
+        className="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+    </div>
+
+    <Button
+      onClick={buscarYSeleccionarReserva}
+      variant="secondary"
+      disabled={loading || !busquedaReserva.trim()}
+    >
+      Buscar y seleccionar
+    </Button>
+  </div>
+)}
             {loading ? (
               <div className="text-center py-8">
                 <p>Cargando {reservaData ? "datos de saldo" : "reservas"}...</p>
               </div>
             ) : error ? (
               <div className="text-red-500 p-4 bg-red-50 rounded">{error}</div>
-            ) : tableData.length === 0 ? (
+            ) : tableDataFiltrada.length === 0 ? (
               <div className="text-gray-500 p-4 bg-gray-50 rounded">
                 No hay{" "}
                 {reservaData ? "saldos disponibles" : "reservas con items"}{" "}
@@ -1043,7 +1115,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
             ) : (
               <div className="min-h-[300px] max-h-[400px] overflow-auto">
                 <Table3
-                  registros={tableData}
+                    registros={tableDataFiltrada}
                   renderers={renderers}
                   maxHeight="h-14"
                   customColumns={customColumns}
@@ -1059,7 +1131,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
             <Button
               onClick={handleSubmit}
               variant="primary"
-              disabled={montoSeleccionado > effectiveSaldoData.saldo || loading}
+              disabled={exceedsMoney(montoSeleccionado, effectiveSaldoData.saldo) || loading}
               icon={DollarSign}
             >
               Registrar Pago

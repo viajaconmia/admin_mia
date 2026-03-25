@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
 import { Table5 } from "@/components/Table5";
 import { DetalleFacturaModal } from "./detalles_modal";
+import React, { useState, useEffect, useMemo } from "react";
 import { formatDate } from "@/helpers/utils";
 import { PagarModalComponent } from "@/components/template/pagar_saldo";
 import { URL, API_KEY } from "@/lib/constants/index";
@@ -61,6 +61,8 @@ export interface DetallesFacturasProps {
 
 const normalizeAgent = (a: any) => String(a ?? "");
 
+
+
 export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
   open,
   onClose,
@@ -86,6 +88,14 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
   const [isApplying, setIsApplying] = useState(false); // State para loading
   const [datosAgentes, setDatosAgentes] = useState<any[]>([]); // Datos de los agentes
   const [isLoading, setIsLoading] = useState(false);
+  const [montosAsignar, setMontosAsignar] = useState<Record<string, string>>({});
+  const [busquedaUuid, setBusquedaUuid] = useState("");
+  
+  
+const [csvFeedback, setCsvFeedback] = useState<{
+  type: "success" | "warning" | "error";
+  text: string;
+} | null>(null);
 
   /* ────────────────
      Fetch de datos cuando hay pagoData
@@ -151,6 +161,189 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
   const facturas = pagoData ? datosAgentes : (propFacturas || []);
   const mostrarFacturas = pagoData ? datosAgentes : propFacturas;
 
+  const totalMontoAsignado = useMemo(() => {
+    return facturas.reduce((acc, factura) => {
+      if (!selectedFacturas.has(factura.id_factura)) return acc;
+      return acc + Number(montosAsignar[factura.id_factura] || 0);
+    }, 0);
+  }, [facturas, selectedFacturas, montosAsignar]);
+
+  const totalSaldoSeleccionado = useMemo(() => {
+    return facturas.reduce((acc, factura) => {
+      if (!selectedFacturas.has(factura.id_factura)) return acc;
+      return acc + Number(factura.saldo || 0);
+    }, 0);
+  }, [facturas, selectedFacturas]);
+
+  const facturasFiltradas = useMemo(() => {
+    const q = busquedaUuid.trim().toLowerCase();
+    if (!q) return facturas;
+
+    return facturas.filter((factura) =>
+      String(factura.uuid_factura || "").toLowerCase().includes(q)
+    );
+  }, [facturas, busquedaUuid]);
+
+
+  //helper para csv
+
+  const detectCsvDelimiter = (line: string) => {
+  const commas = (line.match(/,/g) || []).length;
+  const semicolons = (line.match(/;/g) || []).length;
+  return semicolons > commas ? ";" : ",";
+};
+
+const splitCsvLine = (line: string, delimiter: string) => {
+  const result: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === delimiter && !inQuotes) {
+      result.push(current.trim());
+      current = "";
+      continue;
+    }
+
+    current += char;
+  }
+
+  result.push(current.trim());
+  return result.map((v) => v.replace(/^\uFEFF/, "").trim());
+};
+
+const handleImportCsv = async (file: File | null) => {
+  if (!file) return;
+
+  try {
+    setCsvFeedback(null);
+
+    const text = (await file.text()).replace(/^\uFEFF/, "");
+    const lines = text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    if (!lines.length) {
+      setCsvFeedback({
+        type: "error",
+        text: "El CSV está vacío.",
+      });
+      return;
+    }
+
+    const delimiter = detectCsvDelimiter(lines[0]);
+    const rows = lines.map((line) => splitCsvLine(line, delimiter));
+
+    const firstCol = String(rows[0]?.[0] || "").toLowerCase();
+    const secondCol = String(rows[0]?.[1] || "").toLowerCase();
+
+    const hasHeader =
+      firstCol.includes("uuid") ||
+      secondCol.includes("monto") ||
+      firstCol.includes("factura");
+
+    const dataRows = hasHeader ? rows.slice(1) : rows;
+
+    const facturasByUuid = new Map(
+      facturas.map((f) => [
+        String(f.uuid_factura || "").trim().toLowerCase(),
+        f,
+      ])
+    );
+
+    const nextSelected = new Set<string>();
+    const nextMontos: Record<string, string> = {};
+    const notFound: string[] = [];
+    const invalidAmount: string[] = [];
+
+    for (const row of dataRows) {
+      const uuidRaw = String(row[0] ?? "").trim();
+      const montoRaw = String(row[1] ?? "").trim();
+
+      if (!uuidRaw) continue;
+
+      const factura = facturasByUuid.get(uuidRaw.toLowerCase());
+
+      if (!factura) {
+        notFound.push(uuidRaw);
+        continue;
+      }
+
+      const saldoMaximo = Number(factura.saldo || 0);
+      let montoAsignado = saldoMaximo;
+
+      if (montoRaw !== "") {
+        const parsed = Number(montoRaw.replace(/,/g, "."));
+
+        if (!Number.isFinite(parsed) || parsed < 0) {
+          invalidAmount.push(uuidRaw);
+          continue;
+        }
+
+        montoAsignado = Math.min(parsed, saldoMaximo);
+      }
+
+      nextSelected.add(factura.id_factura);
+      nextMontos[factura.id_factura] = String(montoAsignado);
+    }
+
+    setSelectedFacturas(nextSelected);
+    setMontosAsignar(nextMontos);
+
+    if (nextSelected.size === 0) {
+      setCsvFeedback({
+        type: "error",
+        text: notFound.length
+          ? `No se encontró ninguna factura del CSV. UUID no encontrados: ${notFound.join(", ")}`
+          : "No se encontró ninguna factura válida en el CSV.",
+      });
+      return;
+    }
+
+    let message = `CSV cargado. Se seleccionaron ${nextSelected.size} factura(s).`;
+
+    if (notFound.length) {
+      message += ` UUID no encontrados: ${notFound.join(", ")}.`;
+    }
+
+    if (invalidAmount.length) {
+      message += ` Monto inválido en: ${invalidAmount.join(", ")}.`;
+    }
+
+    setCsvFeedback({
+      type: notFound.length || invalidAmount.length ? "warning" : "success",
+      text: message,
+    });
+  } catch (error) {
+    console.error("Error al importar CSV:", error);
+    setCsvFeedback({
+      type: "error",
+      text: "No se pudo leer el archivo CSV.",
+    });
+  }
+};
+
+const handleCsvInputChange = async (
+  e: React.ChangeEvent<HTMLInputElement>
+) => {
+  const file = e.target.files?.[0] || null;
+  await handleImportCsv(file);
+  e.target.value = "";
+};
+
   // MOVER ESTO DESPUÉS DE TODOS LOS HOOKS
   if (!open) return null;
 
@@ -182,43 +375,122 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
   ───────────────── */
 
   const handleSelectFactura = (id: string, idAgente: string) => {
-    setSelectedFacturas((prevSelected) => {
-      const newSelected = new Set(prevSelected);
-      const wasSelected = newSelected.has(id);
+  const factura = facturas.find((f) => f.id_factura === id);
+  if (!factura) return;
 
-      if (wasSelected) newSelected.delete(id);
-      else newSelected.add(id);
+  const saldoFactura = Number(factura.saldo || 0);
 
-      const seleccionadas = facturas.filter((f) => newSelected.has(f.id_factura));
-      const agentKey = normalizeAgent(idAgente);
+  setSelectedFacturas((prevSelected) => {
+    const newSelected = new Set(prevSelected);
+    const wasSelected = newSelected.has(id);
 
-      const allSameAgent = seleccionadas.every(
-        (f) => normalizeAgent(f.id_agente) === agentKey
-      );
+    if (wasSelected) {
+      newSelected.delete(id);
 
-      if (!allSameAgent) {
-        if (!wasSelected) newSelected.delete(id);
-        return new Set(newSelected);
-      }
+      setMontosAsignar((prev) => {
+        const copy = { ...prev };
+        delete copy[id];
+        return copy;
+      });
 
       return newSelected;
-    });
-  };
+    }
+
+    newSelected.add(id);
+
+    const seleccionadas = facturas.filter((f) => newSelected.has(f.id_factura));
+    const agentKey = normalizeAgent(idAgente);
+
+    const allSameAgent = seleccionadas.every(
+      (f) => normalizeAgent(f.id_agente) === agentKey
+    );
+
+    if (!allSameAgent) {
+      newSelected.delete(id);
+      return new Set(newSelected);
+    }
+
+    setMontosAsignar((prev) => ({
+      ...prev,
+      [id]: prev[id] ?? String(saldoFactura),
+    }));
+
+    return newSelected;
+  });
+};
 
   const handleDeseleccionarPagos = () => {
-    setSelectedFacturas(new Set());
-    setFacturaData(null);
-    setShowPagarModal(false);
-  };
+  setSelectedFacturas(new Set());
+  setMontosAsignar({});
+  setFacturaData(null);
+  setShowPagarModal(false);
+};
 
   /* ────────────────
      Crear facturaData y abrir modal de pago
   ───────────────── */
 
+const handleMontoAsignarChange = (idFactura: string, rawValue: string) => {
+  const factura = facturas.find((f) => f.id_factura === idFactura);
+  if (!factura) return;
+
+  const saldoMaximo = Number(factura.saldo || 0);
+
+  if (rawValue === "") {
+    setMontosAsignar((prev) => ({
+      ...prev,
+      [idFactura]: "",
+    }));
+    return;
+  }
+
+  let value = rawValue.replace(/,/g, ".");
+  let monto = Number(value);
+
+  if (!Number.isFinite(monto)) monto = 0;
+  if (monto < 0) monto = 0;
+  if (monto > saldoMaximo) monto = saldoMaximo;
+
+  setMontosAsignar((prev) => ({
+    ...prev,
+    [idFactura]: String(monto),
+  }));
+};
+
   const handlePagos = async () => {
-  const facturasSeleccionadas = facturas.filter((f) =>
-    selectedFacturas.has(f.id_factura)
-  );
+  const facturasSeleccionadas = facturas.filter(
+  (f) =>
+    selectedFacturas.has(f.id_factura) &&
+    Number(montosAsignar[f.id_factura] || 0) > 0
+);
+
+if (facturasSeleccionadas.length === 0) return;
+
+// ✅ Si NO hay pagoData -> abre modal normal
+if (!pagoData) {
+  const datosFacturas = facturasSeleccionadas.map((f) => {
+    const montoAsignado = Math.min(
+      Number(montosAsignar[f.id_factura] || 0),
+      Number(f.saldo || 0)
+    );
+
+    return {
+      monto: montoAsignado,
+      monto_asignado: montoAsignado,
+      saldo: Number(f.saldo ?? 0),
+      total: Number(f.total ?? 0),
+      facturaSeleccionada: f,
+      id_factura: f.id_factura,
+      uuid_factura: f.uuid_factura,
+      id_agente: f.id_agente,
+      agente: f.nombre_agente || f.nombre || "Sin nombre",
+    };
+  });
+
+  setFacturaData(datosFacturas);
+  setShowPagarModal(true);
+  return;
+}
 
   if (facturasSeleccionadas.length === 0) return;
 
@@ -360,7 +632,7 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
         seleccionar: f,
         item: f,
       }))
-    : (propFacturas || []).map((f) => ({
+    : (facturasFiltradas || []).map((f) => ({
         id_factura: f.id_factura,
         uuid_factura: f.uuid_factura,
         fecha_emision: f.fecha_emision,
@@ -368,8 +640,9 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
         rfc: f.rfc,
         total: f.total,
         saldo: f.saldo,
-        dias_a_credito: f.diasCredito,
-        dias_restantes: f.diasRestantes,
+        dias_a_credito: f.diasCredito || 0,
+        dias_restantes: f.diasRestantes || 0,
+        monto_asignar: f,
         seleccionar: f,
         item: f,
       }));
@@ -412,6 +685,35 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
         <span>{value}</span>
       </button>
     ),
+
+    monto_asignar: ({ item }) => {
+  const selected = selectedFacturas.has(item.id_factura);
+  const saldoMaximo = Number(item.saldo || 0);
+
+  if (!selected) {
+    return (
+      <div className="flex justify-center">
+        <span className="text-xs text-gray-400">—</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex justify-center">
+      <input
+        type="number"
+        min="0"
+        max={saldoMaximo}
+        step="0.01"
+        value={montosAsignar[item.id_factura] ?? ""}
+        onChange={(e) =>
+          handleMontoAsignarChange(item.id_factura, e.target.value)
+        }
+        className="w-28 border rounded px-2 py-1 text-sm text-right"
+      />
+    </div>
+  );
+},
 
     rfc: ({ value }) => (
       <div className="flex justify-center">
@@ -541,8 +843,58 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
                   : "Este agente no tiene facturas pendientes."}
               </p>
             ) : (
-              <div className="border rounded-lg overflow-hidden">
-                <div className="p-2">
+
+              
+  <div className="border rounded-lg overflow-hidden">
+    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+  <div className="flex flex-col md:flex-row gap-3 w-full">
+    <input
+      type="text"
+      value={busquedaUuid}
+      onChange={(e) => setBusquedaUuid(e.target.value)}
+      placeholder="Buscar por UUID de factura"
+      className="w-full md:max-w-md border rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+    />
+
+    <input
+      type="file"
+      accept=".csv,text/csv"
+      onChange={handleCsvInputChange}
+      className="block w-full md:w-auto border rounded px-3 py-2 text-sm"
+    />
+  </div>
+
+  <div className="text-sm font-semibold text-gray-700 flex flex-col items-end">
+    <span>
+      Total saldo seleccionado:{" "}
+      <span className="text-green-600">
+        {money
+          ? money(totalSaldoSeleccionado)
+          : `$${totalSaldoSeleccionado.toFixed(2)}`}
+      </span>
+    </span>
+
+    <span>
+      Total a asignar:{" "}
+      <span className="text-blue-600">
+        {money
+          ? money(totalMontoAsignado)
+          : `$${totalMontoAsignado.toFixed(2)}`}
+      </span>
+    </span>
+  </div>
+</div>
+    <div className="p-2 space-y-3">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        
+
+        <div className="text-sm font-semibold text-gray-700">
+          Total saldo seleccionado:{" "}
+          <span className="text-green-600">
+            {money ? money(totalSaldoSeleccionado) : `$${totalSaldoSeleccionado.toFixed(2)}`}
+          </span>
+        </div>
+      </div>
                   <Table5<any>
                     registros={registros}
                     renderers={renderers}
@@ -550,16 +902,17 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
                     leyenda={`Mostrando ${registros.length} factura(s)`}
                     maxHeight="60vh"
                     customColumns={[
-                      "seleccionar", // 👈 botón Seleccionar
-                      "rfc",
-                      "uuid_factura",
-                      "fecha_emision",
-                      "total",
-                      "saldo",
-                      "dias_a_credito",
-                      "dias_restantes",
-                      "fecha_vencimiento",
-                    ]}
+                    "seleccionar",
+                    "monto_asignar",
+                    "rfc",
+                    "uuid_factura",
+                    "fecha_emision",
+                    "total",
+                    "saldo",
+                    "dias_a_credito",
+                    "dias_restantes",
+                    "fecha_vencimiento",
+                  ]}
                   >
                     <button
                       className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-sm"
@@ -597,6 +950,25 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
         money={money}
         downloadFile={downloadFile}
       />
+
+      {csvFeedback && (
+  <div
+    className={`rounded border px-3 py-2 text-sm ${
+      csvFeedback.type === "error"
+        ? "bg-red-50 border-red-200 text-red-700"
+        : csvFeedback.type === "warning"
+        ? "bg-yellow-50 border-yellow-200 text-yellow-700"
+        : "bg-green-50 border-green-200 text-green-700"
+    }`}
+  >
+    {csvFeedback.text}
+  </div>
+)}
+
+<p className="text-xs text-gray-500">
+  CSV: primera columna = UUID, segunda columna = monto a asignar. Si el monto
+  viene vacío, se toma el saldo completo.
+</p>
 
       {/* Modal de pago usando facturaData */}
       {showPagarModal && facturaData && (
