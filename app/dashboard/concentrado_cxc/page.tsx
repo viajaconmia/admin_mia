@@ -6,7 +6,7 @@ import { Eye } from "lucide-react";
 import { Table5 } from "@/components/Table5";
 import { formatNumberWithCommas, formatDate } from "@/helpers/utils";
 import DetallesFacturas from "./components/facturas";
-
+ 
 // Función para formatear dinero
 const money = (n: number) =>
   `$${formatNumberWithCommas(Number(n || 0).toFixed(2))}`;
