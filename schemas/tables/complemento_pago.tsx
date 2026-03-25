@@ -1,29 +1,23 @@
 import Button from "@/components/atom/Button";
-import { Saldo } from "@/types/database_tables";
+import { Saldo, SaldoFacturaItem } from "@/types/database_tables";
 import { DateTime, Precio } from "@/v3/atom/TableItemsComponent";
 
-export type SaldoItem = Pick<Saldo, "banco_tarjeta" | "monto"> & {
-  acciones: number;
-  id_agente: string;
-  creado_en: string;
+export type SaldoItem = Pick<
+  SaldoFacturaItem,
+  "total" | "id_agente" | "agente" | "rfc" | "id_saldos"
+> & {
+  acciones: SaldoFacturaItem;
   cliente: string;
-  rfc: string;
 };
 
-export const mapSaldo = (pago: any): any => {
+export const mapSaldo = (pago: SaldoFacturaItem): SaldoItem => {
   return {
     agente: pago.agente,
-    codigo_confirmacion: pago.codigo_confirmacion,
-    fecha_creacion_factura: pago.fecha_creacion_factura,
-    fecha_creacion_pago: pago.fecha_creacion_pago,
-    fecha_creacion_reserva: pago.fecha_creacion_reserva,
+    id_agente: pago.id_agente,
+    rfc: pago.rfc,
+    total: pago.total,
     id_saldos: pago.id_saldos,
-    monto: pago.monto,
-    monto_pago_asignado_a_factura: pago.monto_pago_asignado_a_factura,
-    tipo_servicio: pago.tipo_servicio,
-    total_factura: pago.total_factura,
-    total_reserva: pago.total_reserva,
-    uuid_factura: pago.uuid_factura,
+    cliente: pago.rfc,
     acciones: pago,
   };
 };

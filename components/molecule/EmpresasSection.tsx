@@ -1,6 +1,9 @@
+"use client";
 import { Empresa, ExtraService } from "@/services/ExtraServices";
+import { Loader } from "lucide-react";
+import { useEffect, useState } from "react";
 
-export default async function EmpresasSection({
+export default function EmpresasSection({
   id_agente,
   select,
   setSelect,
@@ -16,11 +19,17 @@ export default async function EmpresasSection({
   initState?: (e: Empresa) => boolean;
 }) {
   if (!id_agente) return;
-  const empresas: Empresa[] = await fetchEmpresas(id_agente);
-  if (!!initState && !select) {
-    const [initialSelect] = empresas.filter(initState);
-    if (initState) setSelect(initialSelect);
-  }
+  const [empresas, setEmpresas] = useState<Empresa[]>([]);
+  useEffect(() => {
+    console.log("renderizando");
+    fetchEmpresas(id_agente).then((empresas: Empresa[]) => {
+      setEmpresas(empresas);
+      if (!!initState && !select) {
+        const [initialSelect] = empresas.filter(initState);
+        if (initState) setSelect(initialSelect);
+      }
+    });
+  }, [id_agente]);
 
   const handleClick = (e: Empresa) => {
     if (disabled) return;
@@ -33,6 +42,7 @@ export default async function EmpresasSection({
 
   return (
     <div className="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 auto-rows-fr">
+      {empresas.length == 0 && <Loader />}
       {empresas.map((e: Empresa) => (
         <div
           key={e.id_empresa}
@@ -54,24 +64,13 @@ export default async function EmpresasSection({
           </div>
 
           {/* Extra info (opcional pero recomendado) */}
-          <div className="mt-2 text-sm text-gray-600 space-y-1 min-w-0">
-            {e.empresa_municipio && e.empresa_colonia && (
-              <p className="truncate">
-                {e.empresa_municipio}, {e.empresa_estado}
-              </p>
-            )}
-            {e.codigo_postal_fiscal && (
-              <p className="truncate">CP: {e.codigo_postal_fiscal}</p>
-            )}
-          </div>
-
-          {/* Footer */}
-          <div className="mt-3 flex justify-end">
-            {select?.id_empresa === e.id_empresa && (
-              <span className="text-xs text-blue-600 font-medium">
-                Seleccionado
-              </span>
-            )}
+          <div className="mt-2 text-sm text-gray-600 space-y-1 min-w-0 flex justify-between">
+            <p className="truncate">
+              {e.codigo_postal_fiscal && <>CP: {e.codigo_postal_fiscal}</>}
+            </p>
+            <p className="truncate">
+              {e.regimen_fiscal && <>Regimen: {e.regimen_fiscal}</>}
+            </p>
           </div>
         </div>
       ))}
@@ -81,16 +80,12 @@ export default async function EmpresasSection({
 
 const cache = new Map();
 
-export const fetchEmpresas = (id_agente: string) => {
-  if (!cache.has(id_agente)) {
-    const promise = ExtraService.getInstance()
-      .getEmpresas(id_agente)
-      .then((res) => {
-        cache.set(id_agente, res.data);
-      });
-
-    throw promise;
+export const fetchEmpresas = async (id_agente: string): Promise<Empresa[]> => {
+  if (cache.has(id_agente)) {
+    return cache.get(id_agente);
   }
 
-  return cache.get(id_agente);
+  const res = await ExtraService.getInstance().getEmpresas(id_agente);
+  cache.set(id_agente, res.data);
+  return res.data;
 };

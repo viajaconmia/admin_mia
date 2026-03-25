@@ -47,7 +47,6 @@ export function HotelProvider({ children }: HotelProviderProps) {
 
   useEffect(() => {
     if (isAuthenticated && !loading) {
-      console.log("Jalando hoteles");
       actualizarHoteles();
     }
   }, [isAuthenticated]);

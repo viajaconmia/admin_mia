@@ -10,6 +10,7 @@ export class PagosService extends ApiService {
     POST: {
       pagoConSaldoAjusteCuenta: "/crearItemdeAjuste",
     },
+    GET: { complemento: "/complemento" },
   };
 
   constructor() {
@@ -22,6 +23,14 @@ export class PagosService extends ApiService {
     }
     return this.instance;
   }
+
+  public obtenerPagoParaComplemento = async (
+    id,
+  ): Promise<ApiResponse<SaldoFacturado>> =>
+    this.get({
+      path: this.formatPath(this.ENDPOINTS.GET.complemento),
+      params: { id },
+    });
 
   public actualizarContadoRegresarSaldo = async (body: {
     id_agente: string;
@@ -51,3 +60,26 @@ export class PagosService extends ApiService {
     });
   };
 }
+
+export type SaldoFacturado = {
+  id_saldos: number;
+  monto: string;
+  metodo_pago: MetodoPago;
+  referencia: string;
+  tipo_tarjeta: TipoTarjeta | null;
+  fecha_pago: string; // ISO date
+  facturas: FacturaSaldo[];
+};
+
+export type FacturaSaldo = {
+  monto_asignado: string;
+  folio: string;
+  total: string;
+  uuid_factura: string;
+  saldo_insoluto: string;
+  parcialidad: number;
+  pagos_complemento: any[];
+};
+
+export type MetodoPago = "transferencia" | "efectivo" | "tarjeta";
+export type TipoTarjeta = "credito" | "debito";

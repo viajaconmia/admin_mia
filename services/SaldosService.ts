@@ -1,4 +1,9 @@
-import { Item, Saldo, TypesSaldoWallet } from "@/types/database_tables";
+import {
+  Item,
+  Saldo,
+  SaldoFacturaItem,
+  TypesSaldoWallet,
+} from "@/types/database_tables";
 import { ApiResponse, ApiService } from "./ApiService";
 
 export class SaldosService extends ApiService {
@@ -18,8 +23,10 @@ export class SaldosService extends ApiService {
     return this.instancia;
   }
 
-  public async obtenerSaldos(params:{page?: number}): Promise<ApiResponse<Saldo[]>> {
-    return this.get<Saldo[]>({
+  public async obtenerSaldos(params: {
+    page?: number;
+  }): Promise<ApiResponse<SaldoFacturaItem[]>> {
+    return this.get<SaldoFacturaItem[]>({
       path: this.formatPath(this.ENDPOINTS.GET.usados),
       params,
     });

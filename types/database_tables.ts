@@ -24,6 +24,19 @@ export type Saldo = {
   banco_tarjeta: string;
 };
 
+export type SaldoFacturaItem = {
+  id_saldos: number;
+  rfc: string;
+  id_agente: string;
+  agente: string;
+  monto_asignado: string; // viene como string (decimal)
+  total: string; // string decimal
+  uuid_factura: string;
+  saldo_insoluto: string; // string decimal
+  parcialidad: number;
+  pagos_complemento: any[]; // puedes tiparlo después si sabes la estructura
+};
+
 export type Item = {
   id_item: string;
   id_catalogo_item: string | null;
