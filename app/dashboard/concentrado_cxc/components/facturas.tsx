@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
 import { Table5 } from "@/components/Table5";
 import { DetalleFacturaModal } from "./detalles_modal";
+import React, { useState, useEffect, useMemo } from "react";
 import { formatDate } from "@/helpers/utils";
 import { PagarModalComponent } from "@/components/template/pagar_saldo";
 import { URL, API_KEY } from "@/lib/constants/index";
@@ -86,7 +86,8 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
   const [isApplying, setIsApplying] = useState(false); // State para loading
   const [datosAgentes, setDatosAgentes] = useState<any[]>([]); // Datos de los agentes
   const [isLoading, setIsLoading] = useState(false);
-
+  const [busquedaUuid, setBusquedaUuid] = useState("");
+  
   /* ────────────────
      Fetch de datos cuando hay pagoData
   ───────────────── */
@@ -150,6 +151,22 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
   // Determinar qué facturas usar
   const facturas = pagoData ? datosAgentes : (propFacturas || []);
   const mostrarFacturas = pagoData ? datosAgentes : propFacturas;
+
+const totalSaldoSeleccionado = useMemo(() => {
+  return facturas.reduce((acc, factura) => {
+    if (!selectedFacturas.has(factura.id_factura)) return acc;
+    return acc + Number(factura.saldo || 0);
+  }, 0);
+}, [facturas, selectedFacturas]);
+
+const facturasFiltradas = useMemo(() => {
+  const q = busquedaUuid.trim().toLowerCase();
+  if (!q) return facturas;
+
+  return facturas.filter((factura) =>
+    String(factura.uuid_factura || "").toLowerCase().includes(q)
+  );
+}, [facturas, busquedaUuid]);
 
   // MOVER ESTO DESPUÉS DE TODOS LOS HOOKS
   if (!open) return null;
@@ -360,16 +377,16 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
         seleccionar: f,
         item: f,
       }))
-    : (propFacturas || []).map((f) => ({
-        id_factura: f.id_factura,
+    : (facturasFiltradas || []).map((f) => ({
+        d_factura: f.id_factura,
         uuid_factura: f.uuid_factura,
         fecha_emision: f.fecha_emision,
         fecha_vencimiento: f.fecha_vencimiento,
         rfc: f.rfc,
         total: f.total,
         saldo: f.saldo,
-        dias_a_credito: f.diasCredito,
-        dias_restantes: f.diasRestantes,
+        dias_a_credito: f.diasCredito || 0,
+        dias_restantes: f.diasRestantes || 0,
         seleccionar: f,
         item: f,
       }));
@@ -541,8 +558,24 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
                   : "Este agente no tiene facturas pendientes."}
               </p>
             ) : (
-              <div className="border rounded-lg overflow-hidden">
-                <div className="p-2">
+  <div className="border rounded-lg overflow-hidden">
+    <div className="p-2 space-y-3">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <input
+          type="text"
+          value={busquedaUuid}
+          onChange={(e) => setBusquedaUuid(e.target.value)}
+          placeholder="Buscar por UUID de factura"
+          className="w-full md:max-w-md border rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+        />
+
+        <div className="text-sm font-semibold text-gray-700">
+          Total saldo seleccionado:{" "}
+          <span className="text-green-600">
+            {money ? money(totalSaldoSeleccionado) : `$${totalSaldoSeleccionado.toFixed(2)}`}
+          </span>
+        </div>
+      </div>
                   <Table5<any>
                     registros={registros}
                     renderers={renderers}

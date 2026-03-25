@@ -753,27 +753,44 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       );
     }
   };
+const formatDateMxLong = (dateValue: Date | string | null) => {
+  if (!dateValue) return "N/A";
+
+  const date =
+    dateValue instanceof Date ? dateValue : new Date(dateValue);
+
+  if (isNaN(date.getTime())) return "N/A";
+
+  return new Intl.DateTimeFormat("es-MX", {
+    timeZone: "America/Mexico_City",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  }).format(date);
+};
+
 
   const tableRenderers = {
 
     fecha_De_Pago: ({ value }: { value: Date | null }) => {
-      if (!value) return <div className="text-gray-400">N/A</div>;
+    if (!value) return <div className="text-gray-400">N/A</div>;
 
-      return (
-        <div className="whitespace-nowrap text-sm text-blue-900">
-          {formatLargeDate(new Date(value))}
-        </div>
-      );
-    },
-creado: ({ value }: { value: Date | null }) => {
-      if (!value) return <div className="text-gray-400">N/A</div>;
+    return (
+      <div className="whitespace-nowrap text-sm text-blue-900">
+        {formatDateMxLong(value)}
+      </div>
+    );
+  },
 
-      return (
-        <div className="whitespace-nowrap text-sm text-blue-900">
-          {formatLargeDate(new Date(value))}
-        </div>
-      );
-    },
+  creado: ({ value }: { value: Date | null }) => {
+    if (!value) return <div className="text-gray-400">N/A</div>;
+
+    return (
+      <div className="whitespace-nowrap text-sm text-blue-900">
+        {formatDateMxLong(value)}
+      </div>
+    );
+  },
     monto_pagado: ({ value, item }: { value: string; item: Saldo }) => {
       const isActive = Boolean(item?.activo);
       const formatted = formatNumberWithCommas(parseFloat(value).toFixed(2));

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { DollarSign, X, Moon, Shuffle } from "lucide-react";
+import { DollarSign, X, Moon, Shuffle, Search } from "lucide-react";
 import { URL, API_KEY } from "@/lib/constants/index";
 import { Table3 } from "@/components/organism/Table3";
 import { format } from "date-fns";
@@ -12,7 +12,7 @@ import { useAlert } from "@/context/useAlert";
 interface TableRow {
   id_item: string;
   total: number;
-  codigo: string;
+  codigo: string; 
   descripcion: string;
   fecha_uso: string;
   checkout: string;
@@ -214,7 +214,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
     Record<string, number>
   >({});
   const [saldoFavorData, setSaldoFavorData] = useState<any[]>([]);
-
+const [busquedaReserva, setBusquedaReserva] = useState("");
   useEffect(() => {
     if (reservaData || facturaData) {
       console.log("ENTRANDO A FACTURA");
@@ -672,6 +672,49 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
           })),
         );
 
+  const mostrarBuscadorReservas =
+  !reservaData && !facturaData && reservas.length > 5;
+
+const tableDataFiltrada =
+  mostrarBuscadorReservas && busquedaReserva.trim()
+    ? tableData.filter((row) =>
+        String(row.codigo_reservacion || "")
+          .toLowerCase()
+          .includes(busquedaReserva.trim().toLowerCase()),
+      )
+    : tableData;
+
+const buscarYSeleccionarReserva = () => {
+  const termino = busquedaReserva.trim().toLowerCase();
+  if (!termino) return;
+
+  const reservasEncontradas = reservas.filter((reserva) =>
+    String(
+      reserva.codigo_reservacion_hotel ||
+        reserva.codigo_reserva ||
+        reserva.codigo_confirmacion ||
+        "",
+    )
+      .toLowerCase()
+      .includes(termino),
+  );
+
+  if (!reservasEncontradas.length) {
+    showNotification("error", "No se encontró ninguna reserva con ese código");
+    return;
+  }
+
+  reservasEncontradas.forEach((reserva) => {
+    (reserva.items_info?.items || []).forEach((item) => {
+      if (!isItemSelected(item.id_item)) {
+        handleItemSelection(item.id_item, item.saldo);
+      }
+    });
+  });
+
+  setBusquedaReserva("");
+};
+
   // Renderers para la tabla - diferentes según el flujo
   const renderers =
     reservaData || facturaData
@@ -1028,13 +1071,43 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
 
           {/* Sección de Tabla */}
           <div className="mb-6">
+            {mostrarBuscadorReservas && (
+  <div className="mb-4 flex gap-2">
+    <div className="relative flex-1">
+      <Search
+        size={18}
+        className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+      />
+      <input
+        type="text"
+        value={busquedaReserva}
+        onChange={(e) => setBusquedaReserva(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            buscarYSeleccionarReserva();
+          }
+        }}
+        placeholder="Buscar por código de reservación hotel"
+        className="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+    </div>
+
+    <Button
+      onClick={buscarYSeleccionarReserva}
+      variant="secondary"
+      disabled={loading || !busquedaReserva.trim()}
+    >
+      Buscar y seleccionar
+    </Button>
+  </div>
+)}
             {loading ? (
               <div className="text-center py-8">
                 <p>Cargando {reservaData ? "datos de saldo" : "reservas"}...</p>
               </div>
             ) : error ? (
               <div className="text-red-500 p-4 bg-red-50 rounded">{error}</div>
-            ) : tableData.length === 0 ? (
+            ) : tableDataFiltrada.length === 0 ? (
               <div className="text-gray-500 p-4 bg-gray-50 rounded">
                 No hay{" "}
                 {reservaData ? "saldos disponibles" : "reservas con items"}{" "}
@@ -1043,7 +1116,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
             ) : (
               <div className="min-h-[300px] max-h-[400px] overflow-auto">
                 <Table3
-                  registros={tableData}
+                    registros={tableDataFiltrada}
                   renderers={renderers}
                   maxHeight="h-14"
                   customColumns={customColumns}
