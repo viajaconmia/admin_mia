@@ -752,6 +752,18 @@ const handleChangeMontoBatchFacturaPrevia = (idx: number, raw: string) => {
   updateMontoBatch(idx, normalized);
 };
 
+const normalizeUUIDInput = (value: string) => {
+  return String(value ?? "")
+    .trim()
+    .toUpperCase()
+    // cambia distintos tipos de guiones Unicode por "-"
+    .replace(/[\u2010\u2011\u2012\u2013\u2014\u2015\u2212\u2043\uFE58\uFE63\uFF0D]/g, "-")
+    // quita espacios raros
+    .replace(/\s+/g, "")
+    // deja solo hex y guiones
+    .replace(/[^A-F0-9-]/g, "");
+};
+
 const asignarFacturaPrevia = async () => {
   try {
     if (!facturaEncontrada?.uuid_cfdi) {
@@ -895,7 +907,7 @@ const asignarFacturaPrevia = async () => {
 };
 
 const buscarFacturaPorUUID = async () => {
-  const uuid = uuidBusqueda.trim();
+  const uuid = normalizeUUIDInput(uuidBusqueda);
 
   if (!uuid) {
     alert("Debes ingresar el UUID de la factura");
@@ -1861,7 +1873,7 @@ useEffect(() => {
       type="text"
       placeholder="Ej. 123E4567-E89B-12D3-A456-426614174000"
       value={uuidBusqueda}
-      onChange={(e) => setUuidBusqueda(e.target.value.toUpperCase().trim())}
+      onChange={(e) => setUuidBusqueda(normalizeUUIDInput(e.target.value))}
       className="w-full p-2 border rounded border-gray-300"
     />
 
