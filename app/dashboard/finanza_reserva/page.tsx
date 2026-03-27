@@ -27,7 +27,6 @@ import {
 } from "@/v2/components/molecule/PageTracking";
 import { Download, RefreshCwIcon, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { usePermiso } from "@/hooks/usePermission";
 import { useFile } from "@/hooks/useFile";
 
 const PageReservas = ({ agente }: { agente?: Agente }) => {
@@ -89,14 +88,16 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
         servicio: reserva.type,
         id_cliente: reserva.id_agente,
         cliente: reserva.agente,
-        creado: `${reserva.created_at.split("T")[0]} : ${reserva.created_at.split("T")[1]}`,
+        creado: reserva.created_at
+          ? `${reserva.created_at.split("T")[0]} : ${reserva.created_at.split("T")[1]}`
+          : "",
         proveedor: reserva.proveedor,
         intermediario: reserva.intermediario,
         codigo: reserva.codigo_confirmacion,
         viajero: reserva.viajero,
-        check_in: reserva.check_in.split("T")[0],
+        check_in: reserva.check_in ? reserva.check_in.split("T")[0] : "",
         horario_salida: reserva.horario_salida,
-        check_out: reserva.check_out.split("T")[0],
+        check_out: reserva.check_out ? reserva.check_out.split("T")[0] : "",
         horario_llegada: reserva.horario_llegada,
         noches:
           reserva.check_in && reserva.check_out
