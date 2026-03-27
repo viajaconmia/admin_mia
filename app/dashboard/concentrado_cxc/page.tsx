@@ -92,6 +92,8 @@ type GrupoAgente = {
   adeudo_vencido?: number;
 };
 
+
+
 export default function ResumenAgentesPage() {
   const [datosAgentes, setDatosAgentes] = useState<GrupoAgente[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
