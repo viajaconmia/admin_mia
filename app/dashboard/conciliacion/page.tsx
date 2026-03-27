@@ -335,6 +335,20 @@ type ProveedorSeleccionado = {
   id_solicitud: string;
   id_proveedor: string;
 };
+function getStartOfMonthLocalDate() {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  return `${yyyy}-${mm}-01`;
+}
+
+function getTodayLocalDate() {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
 
 export default function ConciliacionPage() {
   const EPS = 0.01;
@@ -405,7 +419,63 @@ const EMPTY_FILTERS: ConciliacionFilters = {
   filtrar_fecha_por_reserva: "",
 };
 
-  const [filters, setFilters] = useState(EMPTY_FILTERS);
+const DEFAULT_OPEN_FILTERS: ConciliacionFilters = {
+  ...EMPTY_FILTERS,
+  created_start: getStartOfMonthLocalDate(),
+  created_end: getTodayLocalDate(),
+};
+
+const FILTER_LABELS: Record<keyof ConciliacionFilters, string> = {
+  folio: "Código de reservación",
+  cliente: "Cliente",
+  viajero: "Viajero",
+  hotel: "Proveedor",
+  estado_solicitud: "Estatus solicitud",
+  estado_facturacion: "Estatus facturación",
+  forma_pago: "Forma de pago solicitud",
+  created_start: "Creado desde",
+  created_end: "Creado hasta",
+  check_in_start: "Check-in desde",
+  check_in_end: "Check-in hasta",
+  check_out_start: "Check-out desde",
+  check_out_end: "Check-out hasta",
+  id_cliente: "ID cliente",
+  estado_reserva: "Estado reserva",
+  etapa_reservacion: "Etapa reservación",
+  reservante: "Reservante",
+  metodo_pago_reserva: "Método pago reserva",
+  fecha_reserva_start: "Fecha reserva desde",
+  fecha_reserva_end: "Fecha reserva hasta",
+  filtrar_fecha_por_reserva: "Filtrar fecha por",
+};
+
+function normalizeFiltersForRequest(
+  incoming: ConciliacionFilters
+): ConciliacionFilters {
+  const next = { ...incoming };
+
+  const hasAnyOtherFilter = NON_DATE_FILTER_KEYS.some((key) => {
+    return String(next[key] ?? "").trim() !== "";
+  });
+
+  if (hasAnyOtherFilter) {
+    next.created_start = "";
+    next.created_end = "";
+    next.check_in_start = "";
+    next.check_in_end = "";
+    next.check_out_start = "";
+    next.check_out_end = "";
+    next.fecha_reserva_start = "";
+    next.fecha_reserva_end = "";
+    next.filtrar_fecha_por_reserva = "";
+  }
+
+  return next;
+}
+
+const [filters, setFilters] = useState<ConciliacionFilters>(DEFAULT_OPEN_FILTERS);
+const [appliedFilters, setAppliedFilters] =
+  useState<ConciliacionFilters>(DEFAULT_OPEN_FILTERS);
 
 const uniqueOptions = useCallback((arr: any[]) => {
   return Array.from(
@@ -422,57 +492,86 @@ const filterOptions = useMemo(() => {
   };
 }, [todos, uniqueOptions]);
 
-  const load = useCallback(
-    async (overrideFilters = filters) => {
-      const controller = new AbortController();
-      setIsLoading(true);
+const DATE_FILTER_KEYS: (keyof ConciliacionFilters)[] = [
+  "created_start",
+  "created_end",
+  "check_in_start",
+  "check_in_end",
+  "check_out_start",
+  "check_out_end",
+  "fecha_reserva_start",
+  "fecha_reserva_end",
+  "filtrar_fecha_por_reserva",
+];
 
-      try {
-        const params = new URLSearchParams();
+const NON_DATE_FILTER_KEYS = (
+  Object.keys(EMPTY_FILTERS) as (keyof ConciliacionFilters)[]
+).filter((key) => !DATE_FILTER_KEYS.includes(key));
 
-        Object.entries(overrideFilters).forEach(([key, value]) => {
-          const v = String(value ?? "").trim();
-          if (v) params.append(key, v);
-        });
+const load = useCallback(
+  async (overrideFilters: ConciliacionFilters) => {
+    const controller = new AbortController();
+    setIsLoading(true);
 
-        const url = `${endpoint}${params.toString() ? `?${params.toString()}` : ""}`;
+    try {
+      const params = new URLSearchParams();
 
-        const response = await fetch(url, {
-          method: "GET",
-          signal: controller.signal,
-          headers: {
-            "x-api-key": API_KEY || "",
-            "Content-Type": "application/json",
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-          },
-        });
+      const hasAnyOtherFilter = NON_DATE_FILTER_KEYS.some((key) => {
+        return String(overrideFilters[key] ?? "").trim() !== "";
+      });
 
-        if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
+      Object.entries(overrideFilters).forEach(([key, value]) => {
+        const v = String(value ?? "").trim();
+        if (!v) return;
 
-        const json = await response.json();
-        const list = Array.isArray(json?.data) ? json.data : [];
+        const isDateFilter = DATE_FILTER_KEYS.includes(
+          key as keyof ConciliacionFilters
+        );
 
-        setTodos(list);
-      } catch (err) {
-        console.error("Error cargando conciliación:", err);
-        setTodos([]);
-      } finally {
-        setIsLoading(false);
-      }
+        if (hasAnyOtherFilter && isDateFilter) return;
 
-      return () => controller.abort();
-    },
-    [endpoint, filters]
-  );
+        params.append(key, v);
+      });
+
+      const url = `${endpoint}${params.toString() ? `?${params.toString()}` : ""}`;
+
+      const response = await fetch(url, {
+        method: "GET",
+        signal: controller.signal,
+        headers: {
+          "x-api-key": API_KEY || "",
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+        },
+      });
+
+      if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
+
+      const json = await response.json();
+      const list = Array.isArray(json?.data) ? json.data : [];
+
+      setTodos(list);
+    } catch (err) {
+      console.error("Error cargando conciliación:", err);
+      setTodos([]);
+    } finally {
+      setIsLoading(false);
+    }
+
+    return () => controller.abort();
+  },
+  [endpoint]
+);
 
   const refreshData = useCallback(() => {
-    void load(filters);
-  }, [load, filters]);
+  void load(appliedFilters);
+}, [load, appliedFilters]);
 
+ useEffect(() => {
+  setAppliedFilters(DEFAULT_OPEN_FILTERS);
+  void load(DEFAULT_OPEN_FILTERS);
+}, [load]);
 
-  useEffect(() => {
-    void load(EMPTY_FILTERS);
-  }, []);
 
   const getSelectionKey = (rowOrValue: any, index?: number) => {
     if (typeof rowOrValue === "string" || typeof rowOrValue === "number") {
@@ -503,12 +602,16 @@ const filterOptions = useMemo(() => {
   });
 
 const applyFilters = useCallback(() => {
+  const normalized = normalizeFiltersForRequest(filters);
+  setFilters(normalized);
+  setAppliedFilters(normalized);
   setShowFiltersModal(false);
-  void load(filters);
+  void load(normalized);
 }, [filters, load]);
 
 const clearAllFilters = useCallback(() => {
   setFilters(EMPTY_FILTERS);
+  setAppliedFilters(EMPTY_FILTERS);
   setSearchInput("");
   setShowFiltersModal(false);
   void load(EMPTY_FILTERS);
@@ -583,7 +686,7 @@ const clearAllFilters = useCallback(() => {
     if (!rowId) return;
     await handleEdit(rowId, field, value);
     closeEditModal();
-    void load();
+    void load(appliedFilters);
   }, [editModal, handleEdit, closeEditModal, load]);
 
 const filteredData = useMemo(() => {
@@ -757,7 +860,7 @@ const openSubirFacturaSelected = useCallback(() => {
         const json = await resp.json().catch(() => null);
         if (!resp.ok) throw new Error(json?.message || `Error HTTP: ${resp.status}`);
 
-        await load();
+        await load(appliedFilters);
         return true;
       } catch (err: any) {
         console.error("❌ solicitar pago fail", err);
@@ -767,6 +870,16 @@ const openSubirFacturaSelected = useCallback(() => {
     },
     [editEndpoint, load]
   );
+
+  const activeAppliedFilters = useMemo(() => {
+  return (Object.entries(appliedFilters) as [keyof ConciliacionFilters, string][])
+    .map(([key, value]) => ({
+      key,
+      label: FILTER_LABELS[key],
+      value: String(value ?? "").trim(),
+    }))
+    .filter((item) => item.value !== "");
+}, [appliedFilters]);
 
   const customColumns = useMemo(
     () => [
@@ -831,7 +944,7 @@ const openSubirFacturaSelected = useCallback(() => {
       if (!ok) return;
 
       const done = await handleEdit(id, "consolidado", 1);
-      if (done) await load();
+      if (done) await load(appliedFilters);
     },
     [handleEdit, load]
   );
@@ -1174,7 +1287,7 @@ subir_factura: ({ item }) => {
                 if (!ok) return;
 
                 const done = await cancelSolicitud(idSolProv);
-                if (done) await load();
+                if (done) await load(appliedFilters);
               }}
               title={
                 yaCancelada
@@ -1334,6 +1447,26 @@ const selectedFacturaItems = useMemo(() => Object.values(facturaSelection), [fac
   onClear={clearAllFilters}
   onClose={() => setShowFiltersModal(false)}
 />
+{(searchInput.trim() || activeAppliedFilters.length > 0) && (
+  <div className="mt-3 flex flex-wrap gap-2">
+    {searchInput.trim() !== "" && (
+      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs border border-sky-200 bg-sky-50 text-sky-700">
+        <span className="font-semibold">Búsqueda:</span>
+        <span>{searchInput.trim()}</span>
+      </span>
+    )}
+
+    {activeAppliedFilters.map((item) => (
+      <span
+        key={item.key}
+        className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs border border-gray-200 bg-gray-50 text-gray-700"
+      >
+        <span className="font-semibold">{item.label}:</span>
+        <span>{item.value}</span>
+      </span>
+    ))}
+  </div>
+)}
         </div>
 
         <div className="bg-white border border-gray-200 rounded-lg p-3 flex flex-col">
