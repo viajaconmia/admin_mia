@@ -116,7 +116,7 @@ export const ModalDetallesComplemento = ({
         >
           <div className="w-[90vw] max-w-5xl min-h-[200px]">
             <div className="flex flex-col gap-6">
-              <div className="flex flex-col gap-2 bg-blue-100">
+              <div className="flex flex-col gap-2">
                 {!empresa ? (
                   <EmpresasSection
                     id_agente={payment.id_agente}
@@ -128,13 +128,18 @@ export const ModalDetallesComplemento = ({
                   <SectionForm
                     legend={"Cliente"}
                     icon={User2}
-                    className="bg-white mt-4 shadow-lg"
+                    className="bg-blue-50 mt-4 shadow-lg"
                   >
                     <div className=" grid grid-cols-1 md:grid-cols-5 gap-2">
                       <TextInput
                         value={state.Receiver.Name}
                         disabled
                         label="Razon social:"
+                      />
+                      <TextInput
+                        value={state.Receiver.Rfc}
+                        disabled
+                        label="RFC:"
                       />
                       <ComboBox2
                         options={mapOptions(usosCFDI, "label")}
@@ -158,11 +163,6 @@ export const ModalDetallesComplemento = ({
                         }
                       />
                       <TextInput
-                        value={state.Receiver.Rfc}
-                        disabled
-                        label="RFC:"
-                      />
-                      <TextInput
                         value={state.Receiver.FiscalRegime}
                         disabled
                         label="Regimen fiscal:"
@@ -178,7 +178,7 @@ export const ModalDetallesComplemento = ({
                 <SectionForm
                   legend={"Datos de la factura"}
                   icon={File}
-                  className="bg-white shadow-lg flex flex-col gap-4"
+                  className="bg-blue-50 shadow-lg flex flex-col gap-4"
                 >
                   <div className="w-full grid grid-cols-3 gap-2">
                     <TextInput
@@ -203,7 +203,7 @@ export const ModalDetallesComplemento = ({
               <SectionForm
                 legend={"Pagos"}
                 icon={CreditCard}
-                className="bg-gray-50"
+                className="bg-white"
               >
                 <form onSubmit={handleSubmit} className="w-full">
                   {state.Complemento.Payments.map((pago, index) => (

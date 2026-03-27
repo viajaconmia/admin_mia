@@ -87,7 +87,7 @@ export const cfdiReducer = (
 export const initialState: CfdiState = {
   // NameId: "14", //Este es el mismo siempre
   // Folio: "CP-100", // Este debo generarlo en la base de datos para que sea consecutivo
-  // CfdiType: "P", // Este se queda igual
+  CfdiType: "P", // Este se queda igual
   //Estos van asi alv
   // PaymentForm: null,
   // PaymentMethod: null,

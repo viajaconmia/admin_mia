@@ -45,7 +45,6 @@ export default function ReservationsPage() {
           setSelectedPayment(null);
         }}
         payment={selectedPayment as schema.SaldoItem}
-        // agente={selectedPayment.agente}
       />
       <CompleteTable<schema.SaldoItem>
         pageTracking={tracking}
