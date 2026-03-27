@@ -176,6 +176,24 @@ const getCodigoHotelFromRow = (row: any): string => {
 
 const normalizeRfc = (value: any) => String(value ?? "").trim().toUpperCase();
 
+const getResponseErrorMessage = async (response: Response) => {
+  const contentType = response.headers.get("content-type") || "";
+
+  if (contentType.includes("application/json")) {
+    const json = await response.json().catch(() => null);
+
+    return (
+      json?.message ||
+      json?.details ||
+      json?.error ||
+      (typeof json === "string" ? json : null) ||
+      `Error ${response.status}`
+    );
+  }
+
+  const text = await response.text().catch(() => "");
+  return text || `Error ${response.status}`;
+};
 
 const round2 = (n: any) => {
   const num = Number(n || 0);
@@ -899,12 +917,12 @@ const asignarFacturaPrevia = async () => {
 
     alert("Factura asignada exitosamente");
     cerrarModal();
-  } catch (error) {
-    console.error("Error asignando factura previa:", error);
-    alert("Ocurrió un error al asignar la factura previa.");
-  } finally {
-    setAsignandoFacturaPrevia(false);
-  }
+  } catch (error: any) {
+  console.error("Error asignando factura previa:", error);
+  alert(error?.message || "Ocurrió un error al asignar la factura previa.");
+} finally {
+  setAsignandoFacturaPrevia(false);
+}
 };
 
 const buscarFacturaPorUUID = async () => {
@@ -1422,25 +1440,23 @@ const basePayload: any = {
         console.log(ENDPOINT,"endpoint")
 
       if (basePayload.items !== "1") {
-        const response = await fetch(ENDPOINT, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": API_KEY,
-          },
-          body: JSON.stringify(basePayload),
-        });
-        console.log("info",response)
+  const response = await fetch(ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": API_KEY,
+    },
+    body: JSON.stringify(basePayload),
+  });
 
+  if (!response.ok) {
+    const backendMessage = await getResponseErrorMessage(response);
+    throw new Error(backendMessage);
+  }
 
-
-        if (!response.ok) {
-          throw new Error("Error al asignar la factura");
-        }
-
-        const facturaResponse = await response.json();
-        setFacturaCreada(facturaResponse);
-      }
+  const facturaResponse = await response.json();
+  setFacturaCreada(facturaResponse);
+}
 
       if (payload ||proveedoresData) {
         alert("Factura asignada exitosamente");
@@ -1451,12 +1467,12 @@ const basePayload: any = {
         alert("Documento guardado exitosamente");
         cerrarVistaPrevia();
       }
-    } catch (error) {
-      console.error(error);
-      alert("Ocurrió un error al guardar la factura.");
-    } finally {
-      setSubiendoArchivos(false);
-    }
+    } catch (error: any) {
+  console.error(error);
+  alert(error?.message || "Ocurrió un error al guardar la factura.");
+} finally {
+  setSubiendoArchivos(false);
+} 
   };
 
   const handleEnviar = async () => {
