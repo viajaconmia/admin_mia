@@ -41,6 +41,72 @@ import { URL, API_KEY } from "@/lib/constants/index";
 import PaymentMethodSelector from "./Components/PaymentMethodSelector";
 
 // ---------- HELPERS GENERALES ----------
+const CFDI_USO_LABELS: Record<string, string> = {
+  G01: "Adquisición de mercancías",
+  G02: "Devoluciones, descuentos o bonificaciones",
+  G03: "Gastos en general",
+  I01: "Construcciones",
+  I02: "Mobiliario y equipo de oficina por inversiones",
+  I03: "Equipo de transporte",
+  I04: "Equipo de cómputo y accesorios",
+  I05: "Dados, troqueles, moldes, matrices y herramental",
+  I06: "Comunicaciones telefónicas",
+  I07: "Comunicaciones satelitales",
+  I08: "Otra maquinaria y equipo",
+  D01: "Honorarios médicos, dentales y gastos hospitalarios",
+  D02: "Gastos médicos por incapacidad o discapacidad",
+  D03: "Gastos funerales",
+  D04: "Donativos",
+  D05: "Intereses reales efectivamente pagados por créditos hipotecarios",
+  D06: "Aportaciones voluntarias al SAR",
+  D07: "Primas por seguros de gastos médicos",
+  D08: "Gastos de transportación escolar obligatoria",
+  D09: "Depósitos en cuentas para el ahorro, primas con base en planes de pensiones",
+  D10: "Pagos por servicios educativos (colegiaturas)",
+  S01: "Sin efectos fiscales",
+  CP01: "Pagos",
+  CN01: "Nómina",
+};
+
+const CFDI_FORMA_PAGO_LABELS: Record<string, string> = {
+  "01": "Efectivo",
+  "02": "Cheque nominativo",
+  "03": "Transferencia electrónica de fondos",
+  "04": "Tarjeta de crédito",
+  "05": "Monedero electrónico",
+  "06": "Dinero electrónico",
+  "08": "Vales de despensa",
+  "12": "Dación en pago",
+  "13": "Pago por subrogación",
+  "14": "Pago por consignación",
+  "15": "Condonación",
+  "17": "Compensación",
+  "23": "Novación",
+  "24": "Confusión",
+  "25": "Remisión de deuda",
+  "26": "Prescripción o caducidad",
+  "27": "A satisfacción del acreedor",
+  "28": "Tarjeta de débito",
+  "29": "Tarjeta de servicios",
+  "30": "Aplicación de anticipos",
+  "31": "Intermediario pagos",
+  "99": "Por definir",
+};
+
+const CFDI_METODO_PAGO_LABELS: Record<string, string> = {
+  PUE: "Pago en una sola exhibición",
+  PPD: "Pago en parcialidades o diferido",
+};
+
+const formatSatValue = (
+  value: any,
+  catalog: Record<string, string>,
+) => {
+  const code = String(value ?? "").trim().toUpperCase();
+  if (!code) return "—";
+  return catalog[code] ? `${code} - ${catalog[code]}` : code;
+};
+
 const parseNum = (v: any) => (v == null || v === "" ? 0 : Number(v));
 const norm = (s?: string | null) => (s ?? "").trim().toLowerCase();
 const normUpper = (s?: string | null) => (s ?? "").trim().toUpperCase();
@@ -1284,6 +1350,10 @@ const baseList: SolicitudProveedor[] =
   monto_por_facturar: porFacturar,
   fecha_facturacion: facInfo.fechaUltimaFactura,
   UUID: facInfo.uuid,
+  uso_cfdi_factura: "",
+forma_pago_factura: "",
+metodo_pago_factura: "",
+moneda_factura: "",
 
   acciones: "",
   item: raw,
@@ -1417,6 +1487,11 @@ const customColumns = useMemo(() => {
     "monto_por_facturar",
     "fecha_facturacion",
     "UUID",
+    "uso_cfdi_factura",
+"forma_pago_factura",
+"metodo_pago_factura",
+"moneda_factura",
+"facturas_acciones",
     "facturas_acciones",
 
     "comentarios_cxp",
@@ -1698,6 +1773,110 @@ const marcarNotificadoPagado = useCallback(
       <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>
     ),
 
+    uso_cfdi_factura: ({ item }) => {
+  const raw = (item as any)?.item ?? item;
+  const facturas = extractFacturas(raw);
+
+  if (!facturas.length) {
+    return <span className="text-gray-400">—</span>;
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      {facturas.map((f, idx) => {
+        const value = f?.uso_cfdi;
+        return (
+          <span
+            key={`uso-cfdi-${idx}`}
+            className="text-xs break-words whitespace-normal"
+            title={value ? formatSatValue(value, CFDI_USO_LABELS) : "—"}
+          >
+            {value ? formatSatValue(value, CFDI_USO_LABELS) : "—"}
+          </span>
+        );
+      })}
+    </div>
+  );
+},
+
+forma_pago_factura: ({ item }) => {
+  const raw = (item as any)?.item ?? item;
+  const facturas = extractFacturas(raw);
+
+  if (!facturas.length) {
+    return <span className="text-gray-400">—</span>;
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      {facturas.map((f, idx) => {
+        const value = f?.forma_pago;
+        return (
+          <span
+            key={`forma-pago-${idx}`}
+            className="text-xs break-words whitespace-normal"
+            title={value ? formatSatValue(value, CFDI_FORMA_PAGO_LABELS) : "—"}
+          >
+            {value ? formatSatValue(value, CFDI_FORMA_PAGO_LABELS) : "—"}
+          </span>
+        );
+      })}
+    </div>
+  );
+},
+
+metodo_pago_factura: ({ item }) => {
+  const raw = (item as any)?.item ?? item;
+  const facturas = extractFacturas(raw);
+
+  if (!facturas.length) {
+    return <span className="text-gray-400">—</span>;
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      {facturas.map((f, idx) => {
+        const value = f?.metodo_pago;
+        return (
+          <span
+            key={`metodo-pago-${idx}`}
+            className="text-xs break-words whitespace-normal"
+            title={value ? formatSatValue(value, CFDI_METODO_PAGO_LABELS) : "—"}
+          >
+            {value ? formatSatValue(value, CFDI_METODO_PAGO_LABELS) : "—"}
+          </span>
+        );
+      })}
+    </div>
+  );
+},
+
+moneda_factura: ({ item }) => {
+  const raw = (item as any)?.item ?? item;
+  const facturas = extractFacturas(raw);
+
+  if (!facturas.length) {
+    return <span className="text-gray-400">—</span>;
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      {facturas.map((f, idx) => {
+        const value = String(f?.moneda ?? "").trim().toUpperCase();
+        return (
+          <span
+            key={`moneda-${idx}`}
+            className="text-xs break-words whitespace-normal"
+            title={value || "—"}
+          >
+            {value || "—"}
+          </span>
+        );
+      })}
+    </div>
+  );
+},
+
     forma_pago_solicitada: ({ value }) => (
       <span className="font-semibold">
         {value
@@ -1758,7 +1937,7 @@ const marcarNotificadoPagado = useCallback(
           >
             <span
               className="font-mono text-[11px] text-slate-600"
-              title={String(uuid)}
+              title={""}
             >
               {String(uuid).slice(0, 8)}...
             </span>
@@ -1936,7 +2115,7 @@ const marcarNotificadoPagado = useCallback(
         <span className="text-gray-400">—</span>
       ),
 
-    UUID: ({ item }) => {
+UUID: ({ item }) => {
   const raw = (item as any)?.item ?? item;
   const facturas = extractFacturas(raw);
 
@@ -1956,10 +2135,10 @@ const marcarNotificadoPagado = useCallback(
         return (
           <span
             key={`${uuid}-${idx}`}
-            className="font-mono text-xs"
-            title={String(uuid)}
+            className="font-mono text-xs break-all whitespace-normal"
+            title={"cfdi"}
           >
-            CFDI: {String(uuid).slice(0, 8)}...
+            CFDI: {String(uuid)}
           </span>
         );
       })}
