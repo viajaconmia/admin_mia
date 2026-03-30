@@ -101,6 +101,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
   const { data, fetchData } = useFetchCards();
   const { data: titularesData, fetchTitulares } = useFetchTitulares();
 
+
   const [isReservaOpen, setIsReservaOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [cupon, setCupon] = useState<Boolean | null>(null);
@@ -140,6 +141,9 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
       return estado === "approved" && restante > 0;
     });
   }, [saldosProveedor]);
+
+    const getTitularId = (titular: any) =>
+    titular?.id_titular ?? titular?.idTitular ?? titular?.titular_id ?? null;
 
   const saldoFavorDisponible = useMemo(() => {
     return to2(
@@ -345,6 +349,8 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
   );
 
   const titularFromSelectedCard = useMemo(() => {
+
+      console.log(titularesData,"😎😎😎")
     if (!currentSelectedCard || !Array.isArray(titularesData)) return null;
 
     const possibleId =
@@ -362,22 +368,24 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
       .trim()
       .toLowerCase();
 
-    return (
-      titularesData.find((t: any) => {
-        const sameId =
-          possibleId != null &&
-          String(t?.idTitular ?? "") === String(possibleId);
+   return (
+  titularesData.find((t: any) => {
+    const sameId =
+      possibleId != null &&
+      String(getTitularId(t) ?? "") === String(possibleId);
 
-        const sameName =
-          possibleName &&
-          String(t?.Titular ?? "")
-            .trim()
-            .toLowerCase() === possibleName;
+    const sameName =
+      possibleName &&
+      String(t?.Titular ?? "")
+        .trim()
+        .toLowerCase() === possibleName;
 
-        return sameId || sameName;
-      }) || null
-    );
+    return sameId || sameName;
+  }) || null
+);
   }, [currentSelectedCard, titularesData]);
+
+  
 
   const selectFiles = useMemo(() => {
     if (!Array.isArray(titularesData)) return [];
@@ -385,6 +393,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
     return titularesData.map((titular: any) => ({
       label: titular.Titular,
       value: titular.identificacion,
+      id:titular.idTitular,
       item: titular,
     }));
   }, [titularesData]);
@@ -392,14 +401,15 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
   useEffect(() => {
     fetchData();
     fetchTitulares();
+    console.log(titularesData,"🤬🤬🤬🤬🤬")
   }, [fetchData, fetchTitulares]);
 
   /** ===== Titulares ===== */
   const currentTitular = Array.isArray(titularesData)
-    ? titularesData.find(
-        (t: any) => String(t.idTitular) === String(selectedTitularId),
-      )
-    : null;
+  ? titularesData.find(
+      (t: any) => String(getTitularId(t)) === String(selectedTitularId),
+    )
+  : null;
 
   const mappedReservation = useMemo(() => {
     if (!reservation) return null;
@@ -665,6 +675,8 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
       // --------------------
       if (paymentType === "credit") {
         if (!reservation) throw new Error("No hay reservación.");
+        
+        
 
         fetchCreateSolicitud(
           {
@@ -726,8 +738,16 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
             throw new Error(err?.message || "No se pudo generar el PDF.");
           }
         }
-
         if (paymentMethod === "link" || paymentMethod === "card") {
+          const documentoTitularId =
+          getTitularId(currentTitular) ||
+          getTitularId(titularFromSelectedCard) ||
+          document ||
+          "";
+          console.log("informacion del titular1",currentTitular)
+          console.log("informacion del titular2",titularFromSelectedCard)
+          console.log("informacion del titular3",documentoTitularId)
+
           fetchCreateSolicitud(
             {
               selectedCard,
@@ -736,6 +756,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
               comments_cxp: commentsCxp,
               paymentMethod,
               paymentType,
+              documento: documentoTitularId,
               monto_a_pagar,
               id_hospedaje: (reservation as any).id_booking,
               paymentStatus: derivedStatus,
@@ -1316,10 +1337,22 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                     value: { value: string; label: string; item: any } | null,
                   ) => {
                     if (!value) return;
+
+                    const titularSeleccionado = value?.item ?? null;
+                    const documentoSeleccionado = value?.value ?? "";
+                    const idTitularSeleccionado = getTitularId(titularSeleccionado);
+
+                    console.log("📄 Identificación seleccionada:", {
+                      label: value?.label,
+                      documento_para_qr_pdf: documentoSeleccionado,
+                      id_titular_para_payload: idTitularSeleccionado,
+                      titular_completo: titularSeleccionado,
+                    });
+
                     dispatch({
                       type: "SET_FIELD",
                       field: "document",
-                      payload: value.value,
+                      payload: documentoSeleccionado,
                     });
                   }}
                   options={selectFiles}
@@ -1420,11 +1453,15 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                   <option value="">-- Selecciona un titular --</option>
 
                   {Array.isArray(titularesData) &&
-                    titularesData.map((t: any) => (
-                      <option key={t.idTitular} value={String(t.idTitular)}>
+                  titularesData.map((t: any) => {
+                    const titularId = getTitularId(t);
+
+                    return (
+                      <option key={String(titularId)} value={String(titularId)}>
                         {t.Titular}
                       </option>
-                    ))}
+                    );
+                  })}
                 </select>
 
                 {currentTitular?.identificacion && (
