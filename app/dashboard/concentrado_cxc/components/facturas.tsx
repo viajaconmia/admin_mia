@@ -458,7 +458,7 @@
   };
 
     const handlePagos = async () => {
-    const facturasSeleccionadas = facturas.filter(
+  const facturasSeleccionadas = facturas.filter(
     (f) =>
       selectedFacturas.has(f.id_factura) &&
       Number(montosAsignar[f.id_factura] || 0) > 0
@@ -466,7 +466,7 @@
 
   if (facturasSeleccionadas.length === 0) return;
 
-  // ✅ Si NO hay pagoData -> abre modal normal
+  // flujo normal
   if (!pagoData) {
     const datosFacturas = facturasSeleccionadas.map((f) => {
       const montoAsignado = Math.min(
@@ -492,160 +492,141 @@
     return;
   }
 
-    if (facturasSeleccionadas.length === 0) return;
+  // flujo saldo a favor: usar lo capturado en monto_asignar
+  const montoSaldoFavor = Number(pagoData.monto || 0);
 
-    // ✅ Si NO hay pagoData -> abre modal normal
-    if (!pagoData) {
-      const datosFacturas = facturasSeleccionadas.map((f) => ({
-        monto: Number(f.total ?? 0),
-        saldo: Number(f.saldo ?? 0),
-        facturaSeleccionada: f,
-        id_agente: f.id_agente,
-        agente: f.nombre_agente || f.nombre || "Sin nombre",
-      }));
-
-      setFacturaData(datosFacturas);
-      setShowPagarModal(true);
-      return;
-    }
-
-    // ✅ Si hay pagoData -> aplica por saldo a favor
-    const idsFacturasSeleccionadas = facturasSeleccionadas.map(factura => factura.id_factura);
-    
-    // Calcular total del saldo pendiente de las facturas seleccionadas
-    const totalSaldoFacturasSeleccionadas = facturasSeleccionadas.reduce(
-      (total, factura) => total + Number(factura.saldo || 0),
-      0
-    );
-
-    // Obtener el monto total del saldo a favor desde pagoData
-    const montoSaldoFavor = Number(pagoData.monto || 0);
-    const montoAplicable = Math.min(montoSaldoFavor, totalSaldoFacturasSeleccionadas);
-    
-    // Calcular cuánto se aplica a cada factura (proporcionalmente)
-    const aplicacionesPorFactura = facturasSeleccionadas.map((factura, index, array) => {
+  const aplicacionesPorFactura = facturasSeleccionadas
+    .map((factura) => {
       const saldoFactura = Number(factura.saldo || 0);
-      
-      // Para la última factura, aplicar el restante
-      if (index === array.length - 1) {
-        return {
-          id_factura: factura.id_factura,
-          monto_aplicado: montoAplicable,
-          saldo_restante_factura: Math.max(0, saldoFactura - montoAplicable)
-        };
-      }
-      
-      // Para las demás, aplicar proporcional al saldo
-      const proporcion = saldoFactura / totalSaldoFacturasSeleccionadas;
-      const montoAplicado = montoAplicable * proporcion;
-      
+      const montoCapturado = Number(montosAsignar[factura.id_factura] || 0);
+      const montoAplicado = Math.min(montoCapturado, saldoFactura);
+
       return {
         id_factura: factura.id_factura,
         monto_aplicado: montoAplicado,
-        saldo_restante_factura: Math.max(0, saldoFactura - montoAplicado)
+        saldo_restante_factura: Math.max(0, saldoFactura - montoAplicado),
       };
+    })
+    .filter((x) => x.monto_aplicado > 0);
+
+  const montoAplicable = aplicacionesPorFactura.reduce(
+    (acc, item) => acc + item.monto_aplicado,
+    0
+  );
+
+  if (montoAplicable <= 0) return;
+
+  if (montoAplicable > montoSaldoFavor) {
+    alert(
+      `El total a asignar (${money ? money(montoAplicable) : `$${montoAplicable}`}) no puede ser mayor al saldo a favor (${money ? money(montoSaldoFavor) : `$${montoSaldoFavor}`}).`
+    );
+    return;
+  }
+
+  const idsFacturasSeleccionadas = aplicacionesPorFactura.map(
+    (item) => item.id_factura
+  );
+
+  const payload = {
+    ejemplo_saldos: [
+      {
+        id_saldo: pagoData.id_saldos,
+        saldo_original: montoSaldoFavor,
+        saldo_actual: montoSaldoFavor - montoAplicable,
+        aplicado: montoAplicable,
+        id_agente: id_agente,
+        metodo_de_pago: pagoData.metodo_pago?.toLowerCase() || "wallet",
+        fecha_pago: pagoData.fecha_pago,
+        concepto: pagoData.concepto,
+        referencia: pagoData.referencia,
+        currency: (pagoData.currency || "MXN").toLowerCase(),
+        tipo_de_tarjeta: pagoData.tipo_tarjeta,
+        link_pago: pagoData.link_stripe,
+        last_digits: pagoData.ult_digits,
+      },
+    ],
+    id_agente: id_agente,
+    id_factura: idsFacturasSeleccionadas,
+    detalle_aplicacion: aplicacionesPorFactura,
+  };
+
+  console.log("Payload a enviar:", payload);
+
+  try {
+    setIsApplying(true);
+
+    const response = await fetch(`${URL}/mia/factura/AsignarFacturaPagos`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": API_KEY,
+      },
+      credentials: "include",
+      body: JSON.stringify(payload),
     });
 
-    // Crear el payload en la estructura requerida
-    const payload = {
-      ejemplo_saldos: [
-        {
-          id_saldo: pagoData.id_saldos,
-          saldo_original: montoSaldoFavor,
-          saldo_actual: montoSaldoFavor - montoAplicable, // Lo que queda después de aplicar
-          aplicado: montoAplicable, // Total aplicado a todas las facturas
-          id_agente: id_agente,
-          metodo_de_pago: pagoData.metodo_pago?.toLowerCase() || 'wallet',
-          fecha_pago: pagoData.fecha_pago,
-          concepto: pagoData.concepto,
-          referencia: pagoData.referencia,
-          currency: (pagoData.currency || 'MXN').toLowerCase(),
-          tipo_de_tarjeta: pagoData.tipo_tarjeta,
-          link_pago: pagoData.link_stripe,
-          last_digits: pagoData.ult_digits
-        }
-      ],
-      id_agente: id_agente,
-      id_factura: idsFacturasSeleccionadas,
-      detalle_aplicacion: aplicacionesPorFactura // Opcional: para llevar control detallado
-    };
-
-    console.log("Payload a enviar:", payload);
-
-    try {
-      setIsApplying(true);
-
-      const response = await fetch(
-        `${URL}/mia/factura/AsignarFacturaPagos`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": API_KEY,
-          },
-          credentials: "include",
-          body: JSON.stringify(payload),
-        }
-      );
-
-      if (!response.ok) {
-        const errText = await response.text().catch(() => "");
-        throw new Error(errText || "Error al aplicar el pago por saldo a favor");
-      }
-
-      const data = await response.json().catch(() => null);
-      console.log("Respuesta del servidor:", data);
-
-      // Mostrar mensaje de éxito
-      alert(`Saldo a favor aplicado exitosamente:\nMonto aplicado: ${money ? money(montoAplicable) : `$${montoAplicable}`}\nSaldo restante: ${money ? money(montoSaldoFavor - montoAplicable) : `$${montoSaldoFavor - montoAplicable}`}`);
-
-      // Limpia selección y cierra
-      handleDeseleccionarPagos();
-      onClose();
-      
-      // Opcional: refrescar datos
-      fetchDatosAgentes();
-      
-    } catch (error) {
-      console.error("Error en la petición:", error);
-      alert("Error al aplicar el saldo a favor. Por favor, intente nuevamente.");
-    } finally {
-      setIsApplying(false);
+    if (!response.ok) {
+      const errText = await response.text().catch(() => "");
+      throw new Error(errText || "Error al aplicar el pago por saldo a favor");
     }
-  };
+
+    const data = await response.json().catch(() => null);
+    console.log("Respuesta del servidor:", data);
+
+    alert(
+      `Saldo a favor aplicado exitosamente:\nMonto aplicado: ${
+        money ? money(montoAplicable) : `$${montoAplicable}`
+      }\nSaldo restante: ${
+        money
+          ? money(montoSaldoFavor - montoAplicable)
+          : `$${montoSaldoFavor - montoAplicable}`
+      }`
+    );
+
+    handleDeseleccionarPagos();
+    onClose();
+    fetchDatosAgentes();
+  } catch (error) {
+    console.error("Error en la petición:", error);
+    alert("Error al aplicar el saldo a favor. Por favor, intente nuevamente.");
+  } finally {
+    setIsApplying(false);
+  }
+};
 
     /* ────────────────
       Registros para Table5 - DEPENDE DE SI HAY PAGODATA O NO
     ───────────────── */
 
     const registros = pagoData 
-      ? datosAgentes.map((f) => ({
-          id_factura: f.id_factura,
-          uuid_factura: f.uuid_factura,
-          fecha_emision: f.fecha_emision,
-          fecha_vencimiento: f.fecha_vencimiento,
-          rfc: f.rfc,
-          total: f.total,
-          saldo: f.saldo,
-          dias_a_credito: f.diasCredito || f.diasCredito || 0,
-          dias_restantes: f.diasRestantes || f.diasRestantes || 0,
-          seleccionar: f,
-          item: f,
-        }))
-      : (facturasFiltradas || []).map((f) => ({
-          id_factura: f.id_factura,
-          uuid_factura: f.uuid_factura,
-          fecha_emision: f.fecha_emision,
-          fecha_vencimiento: f.fecha_vencimiento,
-          rfc: f.rfc,
-          total: f.total,
-          saldo: f.saldo,
-          dias_a_credito: f.diasCredito || 0,
-          dias_restantes: f.diasRestantes || 0,
-          monto_asignar: f,
-          seleccionar: f,
-          item: f,
-        }));
+  ? datosAgentes.map((f) => ({
+      id_factura: f.id_factura,
+      uuid_factura: f.uuid_factura,
+      fecha_emision: f.fecha_emision,
+      fecha_vencimiento: f.fecha_vencimiento,
+      rfc: f.rfc,
+      total: f.total,
+      saldo: f.saldo,
+      dias_a_credito: f.diasCredito || 0,
+      dias_restantes: f.diasRestantes || 0,
+      monto_asignar: f,
+      seleccionar: f,
+      item: f,
+    }))
+  : (facturasFiltradas || []).map((f) => ({
+      id_factura: f.id_factura,
+      uuid_factura: f.uuid_factura,
+      fecha_emision: f.fecha_emision,
+      fecha_vencimiento: f.fecha_vencimiento,
+      rfc: f.rfc,
+      total: f.total,
+      saldo: f.saldo,
+      dias_a_credito: f.diasCredito || 0,
+      dias_restantes: f.diasRestantes || 0,
+      monto_asignar: f,
+      seleccionar: f,
+      item: f,
+    }));
 
     /* ────────────────
       Renderers de columnas
@@ -705,8 +686,8 @@
           min="0"
           max={saldoMaximo}
           step="0.01"
-          value={montosAsignar[item.id_factura] ?? ""}
-          onChange={(e) =>
+          defaultValue={montosAsignar[item.id_factura] ?? ""}
+          onBlur={(e) =>
             handleMontoAsignarChange(item.id_factura, e.target.value)
           }
           className="w-28 border rounded px-2 py-1 text-sm text-right"

@@ -505,6 +505,7 @@ const [busquedaReserva, setBusquedaReserva] = useState("");
         console.log(ids_facturas);
 
         payload = {
+          facturaData,
           // Incluye el identificador de la factura y el agente
           id_factura: ids_facturas,
           id_agente: effectiveSaldoData.id_agente,

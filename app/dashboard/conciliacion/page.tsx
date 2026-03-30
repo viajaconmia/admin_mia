@@ -259,7 +259,7 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
 
     comentarios_ops: comentariosOps,
     comentarios_cxp: raw?.comentario_CXP ?? raw?.comentarios_cxp ?? "",
-    usuario_creador: raw?.solicitud_proveedor?.usuario_generador,
+    usuario_creador: raw?.id_creador,
     detalles: raw,
     estado_solicitud: raw?.solicitud_proveedor?.estado_solicitud ?? "",
     estatus_facturas: estatusFacturas,
