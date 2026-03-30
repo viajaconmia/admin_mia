@@ -14,6 +14,8 @@ type TablesProps<T> = {
   renderers?: Record<string, (value: any) => React.ReactNode>;
 };
 
+export type { TrackingPage };
+
 export const CompleteTable = <T,>({
   pageTracking,
   fetchData,
