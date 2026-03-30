@@ -148,7 +148,7 @@ export const NumberInput = ({
     <input
       disabled={disabled}
       type="number"
-      value={value || ""}
+      value={value == null ? "" : value}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
       className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground placeholder:text-gray-400 focus-visible:outline-1 focus-visible:outline-gray-950 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-90"
@@ -159,7 +159,7 @@ export const NumberInput = ({
 export const TextInput = ({
   label,
   value,
-  onChange,
+  onChange = () => {},
   className,
   disabled = false,
   placeholder = "",
@@ -168,7 +168,7 @@ export const TextInput = ({
   value: string;
   className?: string;
   disabled?: boolean;
-  onChange: (value: string) => void;
+  onChange?: (value: string) => void;
   placeholder?: string;
 }) => (
   <div className={`flex flex-col space-y-1 ${className}`}>
@@ -181,7 +181,7 @@ export const TextInput = ({
       onChange={(e) => onChange(e.target.value)}
       disabled={disabled}
       placeholder={placeholder}
-      className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-90 disabled:text-black"
+      className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:text-black"
     />
   </div>
 );

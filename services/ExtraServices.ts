@@ -20,6 +20,11 @@ export class ExtraService extends ApiService {
         AEROPUERTO: "/aeropuerto/",
       },
     },
+    AGENTES: {
+      GET: {
+        EMPRESAS: "/agentes/empresas-con-datos-fiscales",
+      },
+    },
     SUCURSAL: {
       POST: {
         SUCURSAL: "/proveedores/sucursal",
@@ -59,6 +64,12 @@ export class ExtraService extends ApiService {
   public getSucursales = (): Promise<ApiResponse<Sucursal[]>> =>
     this.get<Sucursal[]>({
       path: this.formatPath(this.ENDPOINTS.SUCURSAL.GET.SUCURSAL),
+    });
+
+  public getEmpresas = (id_agente: string): Promise<ApiResponse<Empresa[]>> =>
+    this.get({
+      path: this.formatPath(this.ENDPOINTS.AGENTES.GET.EMPRESAS),
+      params: { id_agente },
     });
 
   public createProveedor = (body: {
@@ -148,3 +159,51 @@ export type Sucursal = {
 };
 
 export type Sucursales = Sucursal[];
+
+export interface Empresa {
+  id_empresa: string;
+  razon_social: string;
+  tipo_persona: "fisica" | "moral";
+  nombre_comercial: string;
+
+  // Dirección empresa
+  empresa_direccion: string;
+  empresa_municipio: string;
+  empresa_estado: string;
+  empresa_cp: string;
+  empresa_colonia: string;
+
+  // Datos fiscales
+  id_datos_fiscales: string;
+  rfc: string;
+  calle: string;
+  colonia: string;
+  estado: string;
+  municipio: string;
+  codigo_postal_fiscal: string;
+  regimen_fiscal: string;
+  razon_social_df: string;
+
+  datos_fiscales_created_at: string;
+  datos_fiscales_updated_at: string;
+
+  // Relación agente
+  id_agente: string;
+  empresa_agente_created_at: string;
+  empresa_agente_updated_at: string;
+
+  // Usuario / contacto
+  nombre: string;
+
+  created_at: string;
+  updated_at: string;
+
+  // Crédito
+  tiene_credito: 0 | 1;
+  monto_credito: number | null;
+
+  // Otros
+  codigo_postal: string;
+  active: 0 | 1;
+  rn: number;
+}

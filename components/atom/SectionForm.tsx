@@ -14,8 +14,8 @@ export function SectionForm({
   className,
 }: FieldSetProps) {
   return (
-    <div className={`rounded-md p-4 bg-sky-50 w-full ${className || ""}`}>
-      <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+    <div className={`rounded-md p-4 w-full ${className || "bg-sky-50"} border`}>
+      <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center">
         <Icon className="w-4 h-4 mr-2 text-gray-800" />
         {legend}
       </h3>
