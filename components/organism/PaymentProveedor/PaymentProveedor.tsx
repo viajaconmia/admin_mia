@@ -101,7 +101,6 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
   const { data, fetchData } = useFetchCards();
   const { data: titularesData, fetchTitulares } = useFetchTitulares();
 
-
   const [isReservaOpen, setIsReservaOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [cupon, setCupon] = useState<Boolean | null>(null);
@@ -142,7 +141,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
     });
   }, [saldosProveedor]);
 
-    const getTitularId = (titular: any) =>
+  const getTitularId = (titular: any) =>
     titular?.id_titular ?? titular?.idTitular ?? titular?.titular_id ?? null;
 
   const saldoFavorDisponible = useMemo(() => {
@@ -349,8 +348,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
   );
 
   const titularFromSelectedCard = useMemo(() => {
-
-      console.log(titularesData,"😎😎😎")
+    console.log(titularesData, "😎😎😎");
     if (!currentSelectedCard || !Array.isArray(titularesData)) return null;
 
     const possibleId =
@@ -368,24 +366,22 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
       .trim()
       .toLowerCase();
 
-   return (
-  titularesData.find((t: any) => {
-    const sameId =
-      possibleId != null &&
-      String(getTitularId(t) ?? "") === String(possibleId);
+    return (
+      titularesData.find((t: any) => {
+        const sameId =
+          possibleId != null &&
+          String(getTitularId(t) ?? "") === String(possibleId);
 
-    const sameName =
-      possibleName &&
-      String(t?.Titular ?? "")
-        .trim()
-        .toLowerCase() === possibleName;
+        const sameName =
+          possibleName &&
+          String(t?.Titular ?? "")
+            .trim()
+            .toLowerCase() === possibleName;
 
-    return sameId || sameName;
-  }) || null
-);
+        return sameId || sameName;
+      }) || null
+    );
   }, [currentSelectedCard, titularesData]);
-
-  
 
   const selectFiles = useMemo(() => {
     if (!Array.isArray(titularesData)) return [];
@@ -393,7 +389,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
     return titularesData.map((titular: any) => ({
       label: titular.Titular,
       value: titular.identificacion,
-      id:titular.idTitular,
+      id: titular.idTitular,
       item: titular,
     }));
   }, [titularesData]);
@@ -401,15 +397,15 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
   useEffect(() => {
     fetchData();
     fetchTitulares();
-    console.log(titularesData,"🤬🤬🤬🤬🤬")
+    console.log(titularesData, "🤬🤬🤬🤬🤬");
   }, [fetchData, fetchTitulares]);
 
   /** ===== Titulares ===== */
   const currentTitular = Array.isArray(titularesData)
-  ? titularesData.find(
-      (t: any) => String(getTitularId(t)) === String(selectedTitularId),
-    )
-  : null;
+    ? titularesData.find(
+        (t: any) => String(getTitularId(t)) === String(selectedTitularId),
+      )
+    : null;
 
   const mappedReservation = useMemo(() => {
     if (!reservation) return null;
@@ -675,8 +671,6 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
       // --------------------
       if (paymentType === "credit") {
         if (!reservation) throw new Error("No hay reservación.");
-        
-        
 
         fetchCreateSolicitud(
           {
@@ -740,13 +734,13 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
         }
         if (paymentMethod === "link" || paymentMethod === "card") {
           const documentoTitularId =
-          getTitularId(currentTitular) ||
-          getTitularId(titularFromSelectedCard) ||
-          document ||
-          "";
-          console.log("informacion del titular1",currentTitular)
-          console.log("informacion del titular2",titularFromSelectedCard)
-          console.log("informacion del titular3",documentoTitularId)
+            getTitularId(currentTitular) ||
+            getTitularId(titularFromSelectedCard) ||
+            document ||
+            "";
+          console.log("informacion del titular1", currentTitular);
+          console.log("informacion del titular2", titularFromSelectedCard);
+          console.log("informacion del titular3", documentoTitularId);
 
           fetchCreateSolicitud(
             {
@@ -1340,7 +1334,8 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
 
                     const titularSeleccionado = value?.item ?? null;
                     const documentoSeleccionado = value?.value ?? "";
-                    const idTitularSeleccionado = getTitularId(titularSeleccionado);
+                    const idTitularSeleccionado =
+                      getTitularId(titularSeleccionado);
 
                     console.log("📄 Identificación seleccionada:", {
                       label: value?.label,
@@ -1428,11 +1423,17 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                     }
                   }}
                   value={selectedCard || ""}
-                  options={creditCards.map((item: any) => ({
-                    value: item.id,
-                    label: item.name,
-                    item,
-                  }))}
+                  options={creditCards
+                    .sort((a: any, b: any) => {
+                      const nameA = (a?.name ?? "").toLowerCase();
+                      const nameB = (b?.name ?? "").toLowerCase();
+                      return nameA.localeCompare(nameB);
+                    })
+                    .map((item: any) => ({
+                      value: item.id,
+                      label: item.name,
+                      item,
+                    }))}
                   label="Seleccionar tarjeta"
                 />
               </div>
@@ -1453,15 +1454,18 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                   <option value="">-- Selecciona un titular --</option>
 
                   {Array.isArray(titularesData) &&
-                  titularesData.map((t: any) => {
-                    const titularId = getTitularId(t);
+                    titularesData.map((t: any) => {
+                      const titularId = getTitularId(t);
 
-                    return (
-                      <option key={String(titularId)} value={String(titularId)}>
-                        {t.Titular}
-                      </option>
-                    );
-                  })}
+                      return (
+                        <option
+                          key={String(titularId)}
+                          value={String(titularId)}
+                        >
+                          {t.Titular}
+                        </option>
+                      );
+                    })}
                 </select>
 
                 {currentTitular?.identificacion && (
