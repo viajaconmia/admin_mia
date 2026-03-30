@@ -5,7 +5,6 @@ import {
   ServiceIcon,
   ButtonCopiar,
   LinkCopiar,
-  Tooltip,
   MarginPercent,
 } from "@/component/atom/ItemTable";
 import { Table } from "@/component/molecule/Table";
@@ -33,7 +32,6 @@ import {
 import {
   DollarSign,
   Download,
-  ExternalLink,
   Pencil,
   Plus,
   RefreshCwIcon,
@@ -44,7 +42,6 @@ import CrearReserva from "./CrearReserva";
 import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
 import { useFile } from "@/hooks/useFile";
-import Link from "next/link";
 import { PageVuelos } from "@/components/template/PageVuelos";
 
 const PageReservas = ({ agente }: { agente?: Agente }) => {

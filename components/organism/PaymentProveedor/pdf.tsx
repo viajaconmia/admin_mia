@@ -2,7 +2,11 @@
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
-export type UbicacionType = { lat?: number; lng?: number } | string | null | undefined;
+export type UbicacionType =
+  | { lat?: number; lng?: number }
+  | string
+  | null
+  | undefined;
 
 export type BuildMapsUrlOpts = {
   ubicacion: UbicacionType;
@@ -26,7 +30,12 @@ export function buildGoogleMapsUrl({
   if (soloHotel && hotel) {
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(hotel)}`;
   }
-  if (ubicacion && typeof ubicacion === "object" && "lat" in ubicacion && "lng" in ubicacion) {
+  if (
+    ubicacion &&
+    typeof ubicacion === "object" &&
+    "lat" in ubicacion &&
+    "lng" in ubicacion
+  ) {
     const lat = Number(ubicacion.lat);
     const lng = Number(ubicacion.lng);
     if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
@@ -47,7 +56,7 @@ export function buildGoogleMapsUrl({
 export function drawBillingInfoOnLastPage(
   pdf: jsPDF,
   paintFullBluePage?: (pdf: jsPDF) => void,
-  mode: "full" | "credito" = "full"
+  mode: "full" | "credito" = "full",
 ) {
   // Siempre agregamos una página dedicada a facturación
   pdf.addPage();
@@ -74,7 +83,10 @@ export function drawBillingInfoOnLastPage(
   const lineGap = 3;
 
   // Título principal
-  const titleText = mode === "credito" ? "FACTURACIÓN (CRÉDITO)" : "FACTURACIÓN DE RESERVACIONES";
+  const titleText =
+    mode === "credito"
+      ? "FACTURACIÓN (CRÉDITO)"
+      : "FACTURACIÓN DE RESERVACIONES";
   pdf.setFillColor(BLUE_600.r, BLUE_600.g, BLUE_600.b);
   pdf.rect(marginX, y, boxW, titleBarH, "F");
   pdf.setTextColor(255, 255, 255);
@@ -88,7 +100,8 @@ export function drawBillingInfoOnLastPage(
     pdf.setTextColor(TEXT_DARK.r, TEXT_DARK.g, TEXT_DARK.b);
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(11);
-    const aviso = "Recuerda que la facturación de cada reservación debe hacerse por habitación y con esta información:";
+    const aviso =
+      "Recuerda que la facturación de cada reservación debe hacerse por habitación y con esta información:";
     const avisoWrapped = pdf.splitTextToSize(aviso, boxW);
     pdf.text(avisoWrapped, marginX, y);
     y += avisoWrapped.length * 5 + 6;
@@ -150,7 +163,7 @@ export function drawBillingInfoOnLastPage(
     "Razón social: NOKTOS ALIANZA",
     "RFC: NAL190807BU2",
     "Código postal: 11560",
-    "Dirección: Presidente Masarik No. 29, Interior E-3, Col. Chapultepec Morales, Alcaldía Miguel Hidalgo, CDMX.",
+    "Dirección: Presidente Masaryk No. 29, Interior E-3, Col. Chapultepec Morales, Alcaldía Miguel Hidalgo, CDMX.",
     "E-mail: operaciones@noktos.com",
     "Régimen Fiscal: 601 - General de Ley Personas Morales",
     "Uso de CFDI: G03 - Gastos en general",
@@ -176,26 +189,32 @@ export function drawBillingInfoOnLastPage(
   ]);
 }
 
-
 export type GeneratePdfOptions = {
   // necesarios
   contentRef: React.RefObject<HTMLDivElement>;
   hotelCardRef?: React.RefObject<HTMLDivElement>;
   logos?: Record<string, { dataUrl: string; ar: number }>;
-  reservationDetails?: { codigo_confirmacion?: string | number; hotel?: string | null; direccion?: string | null };
+  reservationDetails?: {
+    codigo_confirmacion?: string | number;
+    hotel?: string | null;
+    direccion?: string | null;
+  };
 
   // ubicacion / maps
-  ubicacion?: UbicacionType;                    // si ya la tienes
+  ubicacion?: UbicacionType; // si ya la tienes
   fetchUbicacion?: () => Promise<UbicacionType>; // o pásame una función (se usará si no das 'ubicacion')
   buildMapsUrlParams?: Partial<BuildMapsUrlOpts>; // para soloHotel, etc.
-  addHotelLink?: boolean;                       // dibujar link clicable sobre la tarjeta
-  linkOffsetsMm?: { x?: number; y?: number };   // ajuste fino (derecha/abajo) en mm
-  linkExtraShiftPx?: { x?: number; y?: number };// ajuste fino adicional en px (antes de convertir)
+  addHotelLink?: boolean; // dibujar link clicable sobre la tarjeta
+  linkOffsetsMm?: { x?: number; y?: number }; // ajuste fino (derecha/abajo) en mm
+  linkExtraShiftPx?: { x?: number; y?: number }; // ajuste fino adicional en px (antes de convertir)
 
   // layout/canvas
-  hideSelectors?: string;      // CSS selector de elementos a ocultar antes de capturar
+  hideSelectors?: string; // CSS selector de elementos a ocultar antes de capturar
   addLogosOnEachPage?: boolean;
-  drawLogosOnPage?: (pdf: jsPDF, logosMap: Record<string, { dataUrl: string; ar: number }>) => void;
+  drawLogosOnPage?: (
+    pdf: jsPDF,
+    logosMap: Record<string, { dataUrl: string; ar: number }>,
+  ) => void;
   paintFullBluePage?: (pdf: jsPDF) => void;
 
   // última página
@@ -203,16 +222,22 @@ export type GeneratePdfOptions = {
   drawContactInfoOnCurrentPage?: (pdf: jsPDF) => void;
 
   // NUEVO: facturación
-  addBillingPage?: boolean;                    // activar página de facturación
-  billingMode?: "full" | "credito";           // modo
-  drawBillingInfoOnLastPage?: (pdf: jsPDF, paintFullBluePage?: (pdf: jsPDF) => void, mode?: "full" | "credito") => void;
+  addBillingPage?: boolean; // activar página de facturación
+  billingMode?: "full" | "credito"; // modo
+  drawBillingInfoOnLastPage?: (
+    pdf: jsPDF,
+    paintFullBluePage?: (pdf: jsPDF) => void,
+    mode?: "full" | "credito",
+  ) => void;
 
   // salida
   filename?: string;
   save?: boolean;
 };
 
-export async function generateReservationPdf(opts: GeneratePdfOptions): Promise<Blob | null> {
+export async function generateReservationPdf(
+  opts: GeneratePdfOptions,
+): Promise<Blob | null> {
   const {
     contentRef,
     hotelCardRef,
@@ -224,7 +249,7 @@ export async function generateReservationPdf(opts: GeneratePdfOptions): Promise<
     addHotelLink = true,
     linkOffsetsMm = { x: 39, y: 18 },
     linkExtraShiftPx = { x: 19, y: 0 },
-    hideSelectors = '[data-hide-in-pdf], .no-print',
+    hideSelectors = "[data-hide-in-pdf], .no-print",
     addLogosOnEachPage = true,
     drawLogosOnPage,
     paintFullBluePage,
@@ -267,7 +292,9 @@ export async function generateReservationPdf(opts: GeneratePdfOptions): Promise<
     padding: content.style.padding,
   };
 
-  const toHide = Array.from(content.querySelectorAll(hideSelectors)) as HTMLElement[];
+  const toHide = Array.from(
+    content.querySelectorAll(hideSelectors),
+  ) as HTMLElement[];
   const originalDisplay = toHide.map((el) => el.style.display);
 
   try {
@@ -296,9 +323,10 @@ export async function generateReservationPdf(opts: GeneratePdfOptions): Promise<
       scrollY: 0,
       windowWidth: document.documentElement.scrollWidth,
       windowHeight: document.documentElement.scrollHeight,
-      ignoreElements: (el) => el.hasAttribute?.("data-hide-in-pdf") || el.classList?.contains("no-print"),
+      ignoreElements: (el) =>
+        el.hasAttribute?.("data-hide-in-pdf") ||
+        el.classList?.contains("no-print"),
     });
-
 
     const imgData = canvas.toDataURL("image/png");
 
@@ -330,8 +358,10 @@ export async function generateReservationPdf(opts: GeneratePdfOptions): Promise<
     // 6) Link sobre la tarjeta del hotel
     if (addHotelLink && hotelRect && mapsUrl) {
       // Relativo al contenedor
-      const relXpx = (hotelRect.left - contentRect.left) + (linkExtraShiftPx.x || 0);
-      const relYpx = (hotelRect.top - contentRect.top) + (linkExtraShiftPx.y || 0);
+      const relXpx =
+        hotelRect.left - contentRect.left + (linkExtraShiftPx.x || 0);
+      const relYpx =
+        hotelRect.top - contentRect.top + (linkExtraShiftPx.y || 0);
       const wpx = hotelRect.width;
       const hpx = hotelRect.height;
 
@@ -366,7 +396,11 @@ export async function generateReservationPdf(opts: GeneratePdfOptions): Promise<
     const total = (pdf as any).getNumberOfPages
       ? (pdf as any).getNumberOfPages()
       : pdf.getNumberOfPages?.();
-    if (total && total > 0 && (drawPoliciesOnCurrentPage || drawContactInfoOnCurrentPage)) {
+    if (
+      total &&
+      total > 0 &&
+      (drawPoliciesOnCurrentPage || drawContactInfoOnCurrentPage)
+    ) {
       pdf.setPage(total);
       drawPoliciesOnCurrentPage?.(pdf);
       drawContactInfoOnCurrentPage?.(pdf);

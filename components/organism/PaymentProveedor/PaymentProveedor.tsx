@@ -50,23 +50,22 @@ type PaymentStatus =
   | "spei_solicitado"
   | "cupon_enviado";
 
-  
-  function computePaymentStatus(opts: {
-    paymentType: "prepaid" | "credit";
-    paymentMethod?: "transfer" | "card" | "link";
-    useQR?: "qr" | "code";
-  }): PaymentStatus {
-    const { paymentType, paymentMethod, useQR } = opts;
-    
-    if (paymentType === "credit") return "cupon_enviado";
-    
-    if (paymentMethod === "link") return "pagada";
-    if (paymentMethod === "transfer") return "spei_solicitado";
-    if (paymentMethod === "card") {
-      if (useQR === "qr") return "enviada_para_cobro";
+function computePaymentStatus(opts: {
+  paymentType: "prepaid" | "credit";
+  paymentMethod?: "transfer" | "card" | "link";
+  useQR?: "qr" | "code";
+}): PaymentStatus {
+  const { paymentType, paymentMethod, useQR } = opts;
+
+  if (paymentType === "credit") return "cupon_enviado";
+
+  if (paymentMethod === "link") return "pagada";
+  if (paymentMethod === "transfer") return "spei_solicitado";
+  if (paymentMethod === "card") {
+    if (useQR === "qr") return "enviada_para_cobro";
     return "pago_tdc";
   }
-  
+
   return "pendiente";
 }
 
@@ -93,14 +92,12 @@ type Props = {
   onClose?: () => void; // ✅ para cerrar el modal desde el padre
 };
 
-
-
 export const PaymentModal = ({ reservation, onClose }: Props) => {
   // const { hasAccess } = usePermiso();
   // hasAccess(PERMISOS.COMPONENTES.BOTON.SALDO_A_FAVOR);
   const { Can } = usePermiso();
   const reservaRef = useRef<ReservaHandle>(null);
-  
+
   const { data, fetchData } = useFetchCards();
   const { data: titularesData, fetchTitulares } = useFetchTitulares();
 
@@ -109,7 +106,6 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
   const [cupon, setCupon] = useState<Boolean | null>(null);
   const [loading, setLoading] = useState<Boolean | null>(true);
   const [selectedFavorSaldoId, setSelectedFavorSaldoId] = useState<string>("");
-  
 
   const [state, dispatch] = useReducer(
     paymentReducer,
@@ -138,33 +134,35 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
   const [saldosProveedor, setSaldosProveedor] = useState<any[]>([]);
 
   const saldosFavorAplicables = useMemo(() => {
-  return (saldosProveedor || []).filter((item) => {
-    const estado = String(item?.estado ?? "").toLowerCase();
-    const restante = Number(item?.restante ?? 0) || 0;
-    return estado === "approved" && restante > 0;
-  });
-}, [saldosProveedor]);
+    return (saldosProveedor || []).filter((item) => {
+      const estado = String(item?.estado ?? "").toLowerCase();
+      const restante = Number(item?.restante ?? 0) || 0;
+      return estado === "approved" && restante > 0;
+    });
+  }, [saldosProveedor]);
 
-const saldoFavorDisponible = useMemo(() => {
-  return to2(
-    saldosFavorAplicables.reduce((acc, item) => {
-      const restante = Number(item?.restante) || 0;
-      return acc + Math.max(0, restante);
-    }, 0),
-  );
-}, [saldosFavorAplicables]);
+  const saldoFavorDisponible = useMemo(() => {
+    return to2(
+      saldosFavorAplicables.reduce((acc, item) => {
+        const restante = Number(item?.restante) || 0;
+        return acc + Math.max(0, restante);
+      }, 0),
+    );
+  }, [saldosFavorAplicables]);
 
-const selectedFavorSaldo = useMemo(() => {
-  return saldosFavorAplicables.find(
-    (item) => String(item.id_saldo) === String(selectedFavorSaldoId),
-  ) || null;
-}, [saldosFavorAplicables, selectedFavorSaldoId]);
+  const selectedFavorSaldo = useMemo(() => {
+    return (
+      saldosFavorAplicables.find(
+        (item) => String(item.id_saldo) === String(selectedFavorSaldoId),
+      ) || null
+    );
+  }, [saldosFavorAplicables, selectedFavorSaldoId]);
 
-const saldoFavorMaximoSeleccionado = useMemo(() => {
-  return Number(selectedFavorSaldo?.restante ?? 0) || 0;
-}, [selectedFavorSaldo]);
+  const saldoFavorMaximoSeleccionado = useMemo(() => {
+    return Number(selectedFavorSaldo?.restante ?? 0) || 0;
+  }, [selectedFavorSaldo]);
 
-const canUseFavorBalance = saldoFavorDisponible > 0;
+  const canUseFavorBalance = saldoFavorDisponible > 0;
 
   const notificationCtx = useAlert(); // puede ser undefined si no hay Provider
   const showNotification = (
@@ -180,32 +178,33 @@ const canUseFavorBalance = saldoFavorDisponible > 0;
 
   const reservationTotal = Number((reservation as any).costo_total) || 0;
 
-    const maxSaldoAplicable = useMemo(() => {
-  // pago proveedor = reservationTotal
-  // saldo seleccionado = saldoFavorMaximoSeleccionado
-  return to2(Math.max(0, Math.min(reservationTotal, saldoFavorMaximoSeleccionado)));
-}, [reservationTotal, saldoFavorMaximoSeleccionado]);
+  const maxSaldoAplicable = useMemo(() => {
+    // pago proveedor = reservationTotal
+    // saldo seleccionado = saldoFavorMaximoSeleccionado
+    return to2(
+      Math.max(0, Math.min(reservationTotal, saldoFavorMaximoSeleccionado)),
+    );
+  }, [reservationTotal, saldoFavorMaximoSeleccionado]);
 
-useEffect(() => {
-  if (!hasFavorBalance) return;
+  useEffect(() => {
+    if (!hasFavorBalance) return;
 
-  const current = Number(favorBalance) || 0;
+    const current = Number(favorBalance) || 0;
 
-  if (current > maxSaldoAplicable) {
-    dispatch({
-      type: "SET_FIELD",
-      field: "favorBalance",
-      payload: maxSaldoAplicable,
-    });
-  }
-}, [hasFavorBalance, maxSaldoAplicable, favorBalance]);
+    if (current > maxSaldoAplicable) {
+      dispatch({
+        type: "SET_FIELD",
+        field: "favorBalance",
+        payload: maxSaldoAplicable,
+      });
+    }
+  }, [hasFavorBalance, maxSaldoAplicable, favorBalance]);
 
-const balanceToApply = hasFavorBalance
-  ? Math.min(Number(favorBalance) || 0, maxSaldoAplicable)
-  : 0;
+  const balanceToApply = hasFavorBalance
+    ? Math.min(Number(favorBalance) || 0, maxSaldoAplicable)
+    : 0;
 
-const monto_a_pagar = to2(Math.max(0, reservationTotal - balanceToApply));
-
+  const monto_a_pagar = to2(Math.max(0, reservationTotal - balanceToApply));
 
   const todayISO = useMemo(() => {
     const d = new Date();
@@ -227,22 +226,22 @@ const monto_a_pagar = to2(Math.max(0, reservationTotal - balanceToApply));
   );
 
   useEffect(() => {
-  if (!hasFavorBalance) return;
+    if (!hasFavorBalance) return;
 
-  const exists = saldosFavorAplicables.some(
-    (s) => String(s.id_saldo) === String(selectedFavorSaldoId),
-  );
+    const exists = saldosFavorAplicables.some(
+      (s) => String(s.id_saldo) === String(selectedFavorSaldoId),
+    );
 
-  if (!exists) {
-    setSelectedFavorSaldoId(saldosFavorAplicables[0]?.id_saldo ?? "");
-  }
-}, [hasFavorBalance, saldosFavorAplicables, selectedFavorSaldoId]);
+    if (!exists) {
+      setSelectedFavorSaldoId(saldosFavorAplicables[0]?.id_saldo ?? "");
+    }
+  }, [hasFavorBalance, saldosFavorAplicables, selectedFavorSaldoId]);
 
-useEffect(() => {
-  if (!hasFavorBalance) {
-    setSelectedFavorSaldoId("");
-  }
-}, [hasFavorBalance]);
+  useEffect(() => {
+    if (!hasFavorBalance) {
+      setSelectedFavorSaldoId("");
+    }
+  }, [hasFavorBalance]);
 
   // Si cambia el monto (saldo a favor, etc) y el schedule tiene 1 fila, lo sincronizamos
   useEffect(() => {
@@ -346,49 +345,49 @@ useEffect(() => {
   );
 
   const titularFromSelectedCard = useMemo(() => {
-  if (!currentSelectedCard || !Array.isArray(titularesData)) return null;
+    if (!currentSelectedCard || !Array.isArray(titularesData)) return null;
 
-  const possibleId =
-    currentSelectedCard?.idTitular ??
-    currentSelectedCard?.id_titular ??
-    currentSelectedCard?.titular_id ??
-    null;
+    const possibleId =
+      currentSelectedCard?.idTitular ??
+      currentSelectedCard?.id_titular ??
+      currentSelectedCard?.titular_id ??
+      null;
 
-  const possibleName = String(
-    currentSelectedCard?.Titular ??
-      currentSelectedCard?.titular ??
-      currentSelectedCard?.nombre_titular ??
-      "",
-  )
-    .trim()
-    .toLowerCase();
+    const possibleName = String(
+      currentSelectedCard?.Titular ??
+        currentSelectedCard?.titular ??
+        currentSelectedCard?.nombre_titular ??
+        "",
+    )
+      .trim()
+      .toLowerCase();
 
-  return (
-    titularesData.find((t: any) => {
-      const sameId =
-        possibleId != null &&
-        String(t?.idTitular ?? "") === String(possibleId);
+    return (
+      titularesData.find((t: any) => {
+        const sameId =
+          possibleId != null &&
+          String(t?.idTitular ?? "") === String(possibleId);
 
-      const sameName =
-        possibleName &&
-        String(t?.Titular ?? "")
-          .trim()
-          .toLowerCase() === possibleName;
+        const sameName =
+          possibleName &&
+          String(t?.Titular ?? "")
+            .trim()
+            .toLowerCase() === possibleName;
 
-      return sameId || sameName;
-    }) || null
-  );
-}, [currentSelectedCard, titularesData]);
+        return sameId || sameName;
+      }) || null
+    );
+  }, [currentSelectedCard, titularesData]);
 
-const selectFiles = useMemo(() => {
-  if (!Array.isArray(titularesData)) return [];
+  const selectFiles = useMemo(() => {
+    if (!Array.isArray(titularesData)) return [];
 
-  return titularesData.map((titular: any) => ({
-    label: titular.Titular,
-    value: titular.identificacion,
-    item: titular,
-  }));
-}, [titularesData]);
+    return titularesData.map((titular: any) => ({
+      label: titular.Titular,
+      value: titular.identificacion,
+      item: titular,
+    }));
+  }, [titularesData]);
 
   useEffect(() => {
     fetchData();
@@ -523,7 +522,7 @@ const selectFiles = useMemo(() => {
       empresa: {
         codigoPostal: "11560",
         direccion:
-          "Presidente Masaryk #29, Interior P-4, CDMX, colonia: Chapultepec Morales, Alcaldía: Miguel Hidalgo",
+          "Av. Presidente Masaryk 29, Interior E-3, Col.  Polanco V Sección, Alcaldía Miguel Hidalgo, CDMX",
         nombre: "noktos",
         razonSocial: "Noktos Alianza S.A. de C.V.",
         rfc: "NAL190807BU2",
@@ -531,15 +530,12 @@ const selectFiles = useMemo(() => {
       bancoEmisor: currentSelectedCard.banco_emisor,
       fechaExpiracion: currentSelectedCard.fecha_vencimiento,
       nombreTarjeta:
-  titularFromSelectedCard?.Titular ||
-  currentSelectedCard?.Titular ||
-  currentSelectedCard?.titular ||
-  currentSelectedCard?.nombre_titular ||
-  "",
-documento:
-  titularFromSelectedCard?.identificacion ||
-  document ||
-  "",
+        titularFromSelectedCard?.Titular ||
+        currentSelectedCard?.Titular ||
+        currentSelectedCard?.titular ||
+        currentSelectedCard?.nombre_titular ||
+        "",
+      documento: titularFromSelectedCard?.identificacion || document || "",
       numeroTarjeta: currentSelectedCard.numero_completo,
       cvv: currentSelectedCard.cvv,
       reservations: [
@@ -624,40 +620,45 @@ documento:
         }
       }
 
-      console.log("informacion", reservaRef,"informacion",reservation)
+      console.log("informacion", reservaRef, "informacion", reservation);
 
-      let saldoFavorPayload:
-  | { id_saldo: string; monto_aplicado: number }
-  | null = null;
+      let saldoFavorPayload: {
+        id_saldo: string;
+        monto_aplicado: number;
+      } | null = null;
 
-if (hasFavorBalance) {
-  if (!selectedFavorSaldoId) {
-    throw new Error("Selecciona el saldo a favor que deseas aplicar."); 
-  }
+      if (hasFavorBalance) {
+        if (!selectedFavorSaldoId) {
+          throw new Error("Selecciona el saldo a favor que deseas aplicar.");
+        }
 
-  const montoSaldoAplicar = Number(favorBalance) || 0;
+        const montoSaldoAplicar = Number(favorBalance) || 0;
 
-  if (montoSaldoAplicar <= 0) {
-    throw new Error("El monto de saldo a favor debe ser mayor a 0.");
-  }
+        if (montoSaldoAplicar <= 0) {
+          throw new Error("El monto de saldo a favor debe ser mayor a 0.");
+        }
 
-  if (montoSaldoAplicar > saldoFavorMaximoSeleccionado) {
-    throw new Error("El monto excede el saldo a favor seleccionado.");
-  }
+        if (montoSaldoAplicar > saldoFavorMaximoSeleccionado) {
+          throw new Error("El monto excede el saldo a favor seleccionado.");
+        }
 
-  if (montoSaldoAplicar > reservationTotal) {
-  throw new Error("El saldo a favor no puede exceder el pago al proveedor.");
-}
+        if (montoSaldoAplicar > reservationTotal) {
+          throw new Error(
+            "El saldo a favor no puede exceder el pago al proveedor.",
+          );
+        }
 
-if (montoSaldoAplicar > maxSaldoAplicable) {
-  throw new Error("El monto excede el máximo aplicable para esta reservación.");
-}
+        if (montoSaldoAplicar > maxSaldoAplicable) {
+          throw new Error(
+            "El monto excede el máximo aplicable para esta reservación.",
+          );
+        }
 
-  saldoFavorPayload = {
-    id_saldo: selectedFavorSaldoId,
-    monto_aplicado: montoSaldoAplicar,
-  };
-}
+        saldoFavorPayload = {
+          id_saldo: selectedFavorSaldoId,
+          monto_aplicado: montoSaldoAplicar,
+        };
+      }
 
       // --------------------
       // CRÉDITO
@@ -677,13 +678,15 @@ if (montoSaldoAplicar > maxSaldoAplicable) {
             paymentStatus: derivedStatus,
             paymentSchedule: undefined,
             usuario_creador: (reservation as any).usuario_creador,
-            id_proveedor:(reservation as any).id_proveedor,
+            id_proveedor: (reservation as any).id_proveedor,
             selectedCard: null,
             idTitular: null,
             titular: "",
             identificacion: "",
             saldo_a_favor: hasFavorBalance,
-            monto_saldo_a_favor: hasFavorBalance ? Number(favorBalance) || 0 : 0,
+            monto_saldo_a_favor: hasFavorBalance
+              ? Number(favorBalance) || 0
+              : 0,
             id_saldo_a_favor: hasFavorBalance ? selectedFavorSaldoId : null,
           },
           (response: any) => {
@@ -738,7 +741,7 @@ if (montoSaldoAplicar > maxSaldoAplicable) {
               paymentStatus: derivedStatus,
               paymentSchedule: paymentSchedulePayload,
               usuario_creador: (reservation as any).usuario_creador,
-              id_proveedor:(reservation as any).id_proveedor,
+              id_proveedor: (reservation as any).id_proveedor,
               idTitular:
                 paymentMethod === "link" ? Number(selectedTitularId) : null,
               titular:
@@ -748,7 +751,9 @@ if (montoSaldoAplicar > maxSaldoAplicable) {
                   ? (currentTitular?.identificacion ?? "")
                   : "",
               saldo_a_favor: hasFavorBalance,
-              monto_saldo_a_favor: hasFavorBalance ? Number(favorBalance) || 0 : 0,
+              monto_saldo_a_favor: hasFavorBalance
+                ? Number(favorBalance) || 0
+                : 0,
               id_saldo_a_favor: hasFavorBalance ? selectedFavorSaldoId : null,
             },
             (response: any) => {
@@ -769,13 +774,15 @@ if (montoSaldoAplicar > maxSaldoAplicable) {
               paymentMethod,
               paymentType,
               monto_a_pagar,
-              id_proveedor:(reservation as any).id_proveedor,
+              id_proveedor: (reservation as any).id_proveedor,
               id_hospedaje: (reservation as any).id_booking,
               paymentStatus: derivedStatus,
               paymentSchedule: paymentSchedulePayload,
               usuario_creador: (reservation as any).usuario_creador,
               saldo_a_favor: hasFavorBalance,
-             monto_saldo_a_favor: hasFavorBalance ? Number(favorBalance) || 0 : 0,
+              monto_saldo_a_favor: hasFavorBalance
+                ? Number(favorBalance) || 0
+                : 0,
               id_saldo_a_favor: hasFavorBalance ? selectedFavorSaldoId : null,
             },
             (response: any) => {
@@ -801,115 +808,113 @@ if (montoSaldoAplicar > maxSaldoAplicable) {
     }
   };
 
-
   const handleConfirmCredit = async () => {
     await handlePayment();
   };
 
-useEffect(() => {
-  const fn = async () => {
-    try {
-      setLoading(true);
+  useEffect(() => {
+    const fn = async () => {
+      try {
+        setLoading(true);
 
-      const endpoint = `${API_URL}/mia/reservas/v2/cupon?id=${reservation.id_solicitud}`;
-      const fecthsaldos = `${API_URL}/mia/pago_proveedor/saldos?id=${reservation.id_proveedor}`;
+        const endpoint = `${API_URL}/mia/reservas/v2/cupon?id=${reservation.id_solicitud}`;
+        const fecthsaldos = `${API_URL}/mia/pago_proveedor/saldos?id=${reservation.id_proveedor}`;
 
-      console.log(reservation);
+        console.log(reservation);
 
-      const [resp, saldosResp] = await Promise.all([
-        fetch(endpoint, {
-          method: "GET",
-          headers: {
-            "x-api-key": API_KEY || "",
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            "Content-Type": "application/json",
-          },
-          cache: "no-store",
-        }),
-        fetch(fecthsaldos, {
-          method: "GET",
-          headers: {
-            "x-api-key": API_KEY || "",
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            "Content-Type": "application/json",
-          },
-          cache: "no-store",
-        }),
-      ]);
+        const [resp, saldosResp] = await Promise.all([
+          fetch(endpoint, {
+            method: "GET",
+            headers: {
+              "x-api-key": API_KEY || "",
+              "Cache-Control": "no-cache, no-store, must-revalidate",
+              "Content-Type": "application/json",
+            },
+            cache: "no-store",
+          }),
+          fetch(fecthsaldos, {
+            method: "GET",
+            headers: {
+              "x-api-key": API_KEY || "",
+              "Cache-Control": "no-cache, no-store, must-revalidate",
+              "Content-Type": "application/json",
+            },
+            cache: "no-store",
+          }),
+        ]);
 
-      if (!resp.ok) {
-        const text = await resp.text().catch(() => "");
-        throw new Error(`HTTP ${resp.status} ${resp.statusText} :: ${text}`);
-      }
+        if (!resp.ok) {
+          const text = await resp.text().catch(() => "");
+          throw new Error(`HTTP ${resp.status} ${resp.statusText} :: ${text}`);
+        }
 
-      if (!saldosResp.ok) {
-        const text = await saldosResp.text().catch(() => "");
-        throw new Error(
-          `HTTP ${saldosResp.status} ${saldosResp.statusText} :: ${text}`,
+        if (!saldosResp.ok) {
+          const text = await saldosResp.text().catch(() => "");
+          throw new Error(
+            `HTTP ${saldosResp.status} ${saldosResp.statusText} :: ${text}`,
+          );
+        }
+
+        const json = await resp.json();
+        const saldosJson = await saldosResp.json();
+
+        setCupon(Boolean(json?.data?.incluye_desayuno));
+
+        // el endpoint de saldos viene como array según tu ejemplo
+        const saldosArray = Array.isArray(saldosJson)
+          ? saldosJson
+          : Array.isArray(saldosJson?.data)
+            ? saldosJson.data
+            : [];
+
+        setSaldosProveedor(saldosArray);
+
+        console.log("✅ CUPON RESPONSE:", json);
+        console.log("✅ SALDOS RESPONSE:", saldosArray);
+      } catch (e: any) {
+        console.error("❌ Error cargando cupón/saldos:", e);
+        setSaldosProveedor([]);
+        showNotification(
+          "error",
+          "Pasó un error. Si la reserva tiene desayuno el cupón no va a salir con desayuno.",
         );
+      } finally {
+        setLoading(false);
       }
+    };
 
-      const json = await resp.json();
-      const saldosJson = await saldosResp.json();
-
-      setCupon(Boolean(json?.data?.incluye_desayuno));
-
-      // el endpoint de saldos viene como array según tu ejemplo
-      const saldosArray = Array.isArray(saldosJson)
-        ? saldosJson
-        : Array.isArray(saldosJson?.data)
-        ? saldosJson.data
-        : [];
-
-      setSaldosProveedor(saldosArray);
-
-      console.log("✅ CUPON RESPONSE:", json);
-      console.log("✅ SALDOS RESPONSE:", saldosArray);
-    } catch (e: any) {
-      console.error("❌ Error cargando cupón/saldos:", e);
-      setSaldosProveedor([]);
-      showNotification(
-        "error",
-        "Pasó un error. Si la reserva tiene desayuno el cupón no va a salir con desayuno.",
-      );
-    } finally {
-      setLoading(false);
+    if (reservation?.id_solicitud && reservation?.id_proveedor) {
+      fn();
     }
-  };
+  }, [reservation?.id_solicitud, reservation?.id_proveedor]);
 
-  if (reservation?.id_solicitud && reservation?.id_proveedor) {
-    fn();
-  }
-}, [reservation?.id_solicitud, reservation?.id_proveedor]);
+  useEffect(() => {
+    if (!canUseFavorBalance) {
+      dispatch({
+        type: "SET_FIELD",
+        field: "hasFavorBalance",
+        payload: false,
+      });
 
+      dispatch({
+        type: "SET_FIELD",
+        field: "favorBalance",
+        payload: 0,
+      });
+    }
+  }, [canUseFavorBalance]);
 
-useEffect(() => {
-  if (!canUseFavorBalance) {
-    dispatch({
-      type: "SET_FIELD",
-      field: "hasFavorBalance",
-      payload: false,
-    });
+  useEffect(() => {
+    const currentFavorBalance = Number(favorBalance) || 0;
 
-    dispatch({
-      type: "SET_FIELD",
-      field: "favorBalance",
-      payload: 0,
-    });
-  }
-}, [canUseFavorBalance]);
-
-useEffect(() => {
-  const currentFavorBalance = Number(favorBalance) || 0;
-
-  if (currentFavorBalance > saldoFavorMaximoSeleccionado) {
-    dispatch({
-      type: "SET_FIELD",
-      field: "favorBalance",
-      payload: saldoFavorMaximoSeleccionado,
-    });
-  }
-}, [saldoFavorMaximoSeleccionado, favorBalance]);
+    if (currentFavorBalance > saldoFavorMaximoSeleccionado) {
+      dispatch({
+        type: "SET_FIELD",
+        field: "favorBalance",
+        payload: saldoFavorMaximoSeleccionado,
+      });
+    }
+  }, [saldoFavorMaximoSeleccionado, favorBalance]);
 
   return (
     <div className="max-w-[85vw] w-screen p-2 pt-0 max-h-[90vh] grid grid-cols-2">
@@ -941,7 +946,6 @@ useEffect(() => {
       <div className="px-4 border-r">
         <ReservationDetails reservation={reservation} />
 
-
         <div className="space-y-2">
           {/* Saldo a Favor + Fechas SOLO en PREPAGO */}
           {paymentType === "prepaid" && (
@@ -967,31 +971,34 @@ useEffect(() => {
               {hasFavorBalance && (
                 <>
                   <NumberInput
-  onChange={(value) => {
-    const numericValue = Number(value) || 0;
-    dispatch({
-      type: "SET_FIELD",
-      field: "favorBalance",
-      payload: Math.min(numericValue, maxSaldoAplicable),
-    });
-  }}
-  value={Number(favorBalance) || null}
-  label={`Monto Saldo a Favor a Aplicar (máx. $${maxSaldoAplicable.toFixed(2)})`}
-  placeholder="0.00"
-/>
+                    onChange={(value) => {
+                      const numericValue = Number(value) || 0;
+                      dispatch({
+                        type: "SET_FIELD",
+                        field: "favorBalance",
+                        payload: Math.min(numericValue, maxSaldoAplicable),
+                      });
+                    }}
+                    value={Number(favorBalance) || null}
+                    label={`Monto Saldo a Favor a Aplicar (máx. $${maxSaldoAplicable.toFixed(2)})`}
+                    placeholder="0.00"
+                  />
                   <select
-  className="w-full h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-  value={selectedFavorSaldoId}
-  onChange={(e) => setSelectedFavorSaldoId(e.target.value)}
->
-  <option value="">-- Selecciona un saldo a favor --</option>
+                    className="w-full h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={selectedFavorSaldoId}
+                    onChange={(e) => setSelectedFavorSaldoId(e.target.value)}
+                  >
+                    <option value="">-- Selecciona un saldo a favor --</option>
 
-  {saldosFavorAplicables.map((saldo: any) => (
-    <option key={saldo.id_saldo} value={String(saldo.id_saldo)}>
-      {` Disponible: $${Number(saldo.restante).toFixed(2)} `}
-    </option>
-  ))}
-</select>
+                    {saldosFavorAplicables.map((saldo: any) => (
+                      <option
+                        key={saldo.id_saldo}
+                        value={String(saldo.id_saldo)}
+                      >
+                        {` Disponible: $${Number(saldo.restante).toFixed(2)} `}
+                      </option>
+                    ))}
+                  </select>
                   <div className="p-4 bg-green-50 border rounded-md border-green-200">
                     <div className="flex justify-between items-center">
                       <span className="text-slate-700 text-sm">
@@ -1336,65 +1343,65 @@ useEffect(() => {
             {(paymentMethod === "card" || paymentMethod === "link") && (
               <div className="space-y-4">
                 <DropdownValues
-  onChange={(value: any) => {
-    const selectedId = value?.item?.id ?? "";
+                  onChange={(value: any) => {
+                    const selectedId = value?.item?.id ?? "";
 
-    dispatch({
-      type: "SET_FIELD",
-      field: "selectedCard",
-      payload: selectedId,
-    });
+                    dispatch({
+                      type: "SET_FIELD",
+                      field: "selectedCard",
+                      payload: selectedId,
+                    });
 
-    const selectedCardItem = value?.item;
+                    const selectedCardItem = value?.item;
 
-    if (Array.isArray(titularesData) && selectedCardItem) {
-      const possibleId =
-        selectedCardItem?.idTitular ??
-        selectedCardItem?.id_titular ??
-        selectedCardItem?.titular_id ??
-        null;
+                    if (Array.isArray(titularesData) && selectedCardItem) {
+                      const possibleId =
+                        selectedCardItem?.idTitular ??
+                        selectedCardItem?.id_titular ??
+                        selectedCardItem?.titular_id ??
+                        null;
 
-      const possibleName = String(
-        selectedCardItem?.Titular ??
-          selectedCardItem?.titular ??
-          selectedCardItem?.nombre_titular ??
-          "",
-      )
-        .trim()
-        .toLowerCase();
+                      const possibleName = String(
+                        selectedCardItem?.Titular ??
+                          selectedCardItem?.titular ??
+                          selectedCardItem?.nombre_titular ??
+                          "",
+                      )
+                        .trim()
+                        .toLowerCase();
 
-      const titularMatch =
-        titularesData.find((t: any) => {
-          const sameId =
-            possibleId != null &&
-            String(t?.idTitular ?? "") === String(possibleId);
+                      const titularMatch =
+                        titularesData.find((t: any) => {
+                          const sameId =
+                            possibleId != null &&
+                            String(t?.idTitular ?? "") === String(possibleId);
 
-          const sameName =
-            possibleName &&
-            String(t?.Titular ?? "")
-              .trim()
-              .toLowerCase() === possibleName;
+                          const sameName =
+                            possibleName &&
+                            String(t?.Titular ?? "")
+                              .trim()
+                              .toLowerCase() === possibleName;
 
-          return sameId || sameName;
-        }) || null;
+                          return sameId || sameName;
+                        }) || null;
 
-      if (titularMatch?.identificacion) {
-        dispatch({
-          type: "SET_FIELD",
-          field: "document",
-          payload: titularMatch.identificacion,
-        });
-      }
-    }
-  }}
-  value={selectedCard || ""}
-  options={creditCards.map((item: any) => ({
-    value: item.id,
-    label: item.name,
-    item,
-  }))}
-  label="Seleccionar tarjeta"
-/>
+                      if (titularMatch?.identificacion) {
+                        dispatch({
+                          type: "SET_FIELD",
+                          field: "document",
+                          payload: titularMatch.identificacion,
+                        });
+                      }
+                    }
+                  }}
+                  value={selectedCard || ""}
+                  options={creditCards.map((item: any) => ({
+                    value: item.id,
+                    label: item.name,
+                    item,
+                  }))}
+                  label="Seleccionar tarjeta"
+                />
               </div>
             )}
 
@@ -1491,7 +1498,7 @@ useEffect(() => {
               <Button
                 type="button"
                 onClick={() => setIsReservaOpen(true)}
-                disabled={!mappedReservation || isSubmitting||!!loading}
+                disabled={!mappedReservation || isSubmitting || !!loading}
                 className="w-full bg-emerald-600 hover:bg-emerald-700"
                 title={
                   !mappedReservation
@@ -1546,7 +1553,7 @@ useEffect(() => {
             <Reserva
               isOpen={isReservaOpen}
               onClose={() => setIsReservaOpen(false)}
-              reservation={{...mappedReservation, incluye_desayuno:cupon}}
+              reservation={{ ...mappedReservation, incluye_desayuno: cupon }}
             />
           </div>
         )}
@@ -1557,7 +1564,7 @@ useEffect(() => {
         ref={reservaRef}
         isOpen={false}
         onClose={() => {}}
-        reservation={{...mappedReservation, incluye_desayuno:cupon}}
+        reservation={{ ...mappedReservation, incluye_desayuno: cupon }}
         mountHidden
       />
     </div>

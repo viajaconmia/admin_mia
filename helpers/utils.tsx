@@ -128,7 +128,7 @@ export function calcularNoches(
   const diferenciaMs = salida.getTime() - entrada.getTime();
   const noches = diferenciaMs / (1000 * 60 * 60 * 24);
 
-  return Math.max(0, noches); // Nunca devolver negativo
+  return Math.max(1, noches); // Nunca devolver negativo
 }
 
 export const getStatusBadge = (status: string) => {

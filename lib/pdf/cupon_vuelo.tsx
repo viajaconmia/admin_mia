@@ -84,7 +84,7 @@ export async function generatePdf(id_solicitud: string): Promise<jsPDF> {
   );
   y = drawParagraph(
     doc,
-    `Noktos Alianza, S.A. de C.V., mejor conocido como Noktos, con domicilio en calle Av. presidente Masarik No. 29 Int. P-4, colonia Chapultepec Morales, ciudad México, municipio o delegación Miguel Hidalgo, cp. 11570, en la entidad de Ciudad de México, país México, es el responsable del uso y protección de sus datos personales, puede verificar más información en nuestro portal de internet https://www.noktos.com`,
+    `Noktos Alianza, S.A. de C.V., mejor conocido como Noktos, con domicilio en calle Av. Presidente Masaryk 29, Interior E-3, Col.  Polanco V Sección, Alcaldía Miguel Hidalgo, CDMX, cp. 11570, en la entidad de Ciudad de México, país México, es el responsable del uso y protección de sus datos personales, puede verificar más información en nuestro portal de internet https://www.noktos.com`,
     STYLES.MARGINS.LEFT,
     y,
     pageW - STYLES.MARGINS.LEFT * 2,
@@ -218,7 +218,7 @@ function drawEmitidoPor(doc: jsPDF, y: number) {
   y = drawTextBox(doc, {
     x,
     y,
-    text: "Presidente Masaryk #29, int. E3, Col. Chapultepec Morales 11570, Miguel Hidalgo, CDMX",
+    text: "Av. Presidente Masaryk 29, Interior E-3, Col.  Polanco V Sección, Alcaldía Miguel Hidalgo, CDMX",
     width,
     bgColor: STYLES.COLORS.WHITE,
   });
