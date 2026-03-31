@@ -690,7 +690,27 @@ export function ReservationForm2({
                 </div>
               </div>
               <div className="space-y-2">
-                <div className="h-16"></div>
+                {/* <div className="h-16"></div> */}
+                <Dropdown
+                  label="Estado de la reserva"
+                  onChange={(value) => {
+                    setForm((prev) => ({
+                      ...prev,
+                      estado_reserva: value as "Confirmada" | "En proceso",
+                    }));
+                    if (edicion) {
+                      setEdicionForm((prev) => ({
+                        ...prev,
+                        estado_reserva: {
+                          before: solicitud.status_reserva,
+                          current: value as "Confirmada" | "En proceso",
+                        },
+                      }));
+                    }
+                  }}
+                  options={["Confirmada", "En proceso"]}
+                  value={form.estado_reserva}
+                />
                 <TextInput
                   onChange={(value) => {
                     if (edicion) {
