@@ -25,6 +25,11 @@ export class ExtraService extends ApiService {
         EMPRESAS: "/agentes/empresas-con-datos-fiscales",
       },
     },
+    HOTELES: {
+      GET: {
+        PERMITIDOS: "/hoteles/allowed",
+      },
+    },
     SUCURSAL: {
       POST: {
         SUCURSAL: "/proveedores/sucursal",
@@ -46,6 +51,11 @@ export class ExtraService extends ApiService {
     }
     return this.instance;
   }
+
+  public getHotelesPermitidos = (): Promise<ApiResponse<Proveedor[]>> =>
+    this.get<Proveedor[]>({
+      path: this.formatPath(this.ENDPOINTS.HOTELES.GET.PERMITIDOS),
+    });
 
   public getProveedores = (): Promise<ApiResponse<Proveedor[]>> =>
     this.get<Proveedor[]>({
