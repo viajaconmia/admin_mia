@@ -453,55 +453,56 @@ const saveFactura = useCallback(
 );
 
   const deleteFactura = useCallback(
-    async (factura: any) => {
-      const facturaKey = getFacturaKey(factura);
-      if (!facturaKey) {
-        alert("No se encontró identificador de la factura");
-        return;
+  async (factura: any) => {
+    const facturaKey = getFacturaKey(factura);
+    console.log("informacion data",factura)
+
+    const id_solicitud_proveedor = safeString(payload.id_solicitud_proveedor);
+    const id_factura_proveedor = safeString(factura?.id_factura_proveedor);
+    const uuid_factura = safeString(
+      factura?.uuid_cfdi ??
+      factura?.uuid_factura ??
+      factura?.uuid_factura_full
+    );
+
+    const ok = window.confirm(
+      `¿Seguro que deseas eliminar esta factura?\n\nUUID: ${uuid_factura || "—"}`
+    );
+    if (!ok) return;
+
+    try {
+      setDeletingKey(facturaKey);
+
+      const resp = await fetch(deleteFacturaEndpoint, {
+        method: "DELETE",
+        headers: {
+          "x-api-key": API_KEY || "",
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+        },
+        body: JSON.stringify({
+          id_solicitud_proveedor,
+          id_factura_proveedor,
+          uuid_factura,
+        }),
+      });
+
+      const json = await resp.json().catch(() => null);
+
+      if (!resp.ok) {
+        throw new Error(json?.message || json?.error || `Error HTTP: ${resp.status}`);
       }
 
-      const id_solicitud_proveedor = safeString(payload.id_solicitud_proveedor);
-      const id_factura_proveedor = safeString(factura?.id_factura_proveedor);
-      const uuid_factura = safeString(factura?.uuid_cfdi ?? factura?.uuid_factura);
-
-      const ok = window.confirm(
-        `¿Seguro que deseas eliminar esta factura?\n\nUUID: ${uuid_factura || "—"}`
-      );
-      if (!ok) return;
-
-      try {
-        setDeletingKey(facturaKey);
-
-        const resp = await fetch(deleteFacturaEndpoint, {
-          method: "DELETE",
-          headers: {
-            "x-api-key": API_KEY || "",
-            "Content-Type": "application/json",
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-          },
-          body: JSON.stringify({
-            id_solicitud_proveedor,
-            id_factura_proveedor,
-            uuid_factura,
-          }),
-        });
-
-        const json = await resp.json().catch(() => null);
-
-        if (!resp.ok) {
-          throw new Error(json?.message || json?.error || `Error HTTP: ${resp.status}`);
-        }
-
-        await fetchDetalles();
-      } catch (e: any) {
-        console.error("❌ Error eliminando factura:", e);
-        alert(e?.message || "Error al eliminar la factura");
-      } finally {
-  setDeletingKey(null);
-}
-    },
-    [deleteFacturaEndpoint, fetchDetalles, payload.id_solicitud_proveedor]
-  );
+      await fetchDetalles();
+    } catch (e: any) {
+      console.error("❌ Error eliminando factura:", e);
+      alert(e?.message || "Error al eliminar la factura");
+    } finally {
+      setDeletingKey(null);
+    }
+  },
+  [deleteFacturaEndpoint, fetchDetalles, payload.id_solicitud_proveedor]
+);
 
   const montoSolicitado = resumen?.monto_solicitado ?? solicitudApi?.monto_solicitado ?? 0;
   const totalAsociadoSolicitud = resumen?.total_asociado_solicitud ?? 0;
@@ -510,6 +511,18 @@ const saveFactura = useCallback(
   const totalFacturas = resumen?.total_facturado ?? 0;
   const diferencia = resumen?.diferencia_total ?? 0;
   const esCuadrado = Number(diferencia) === 0;
+
+const facturasMap = useMemo(() => {
+  const map: Record<string, any> = {};
+
+  for (const f of facturasApi) {
+    const key = getFacturaKey(f);
+    if (!key) continue;
+    map[key] = f;
+  }
+
+  return map;
+}, [facturasApi]);
 
 const facturasTable = useMemo(() => {
   return facturasApi.map((f: any, idx: number) => {
@@ -546,7 +559,7 @@ const facturasTable = useMemo(() => {
       restante_factura_view: toNum(f?.restante_factura),
       maximo_a_asociar_view: toNum(f?.maximo_a_asociar),
 
-      acciones: "acciones",
+      acciones: f,
     };
   });
 }, [facturasApi, drafts]);
@@ -669,71 +682,74 @@ subtotal_edit: ({ item }: any) => {
       );
     },
 
-      acciones: ({ item }: any) => {
-        const facturaKey =
-  safeString(item?.facturaKey) ||
-  safeString(item?.row_id) ||
-  safeString(item?.id_factura_proveedor);
+      acciones: ({ value }: any) => {
+  const facturaKey =
+    safeString(value?.facturaKey) ||
+    safeString(value?.row_id) ||
+    safeString(value?.id_factura_proveedor);
+    console.log("informacion value",value)
 
-const isSaving = !!facturaKey && savingKey === facturaKey;
-const isDeleting = !!facturaKey && deletingKey === facturaKey;
+  const rawFactura = facturasMap[facturaKey] ?? value;
 
-        return (
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => openUrl(item?.url_pdf)}
-              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50"
-              title="Abrir PDF"
-            >
-              <FileText className="w-3.5 h-3.5" />
-              PDF
-              <ExternalLink className="w-3.5 h-3.5" />
-            </button>
+  const isSaving = !!facturaKey && savingKey === facturaKey;
+  const isDeleting = !!facturaKey && deletingKey === facturaKey;
 
-            <button
-              type="button"
-              onClick={() => openUrl(item?.url_xml)}
-              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50"
-              title="Abrir XML"
-            >
-              <Code2 className="w-3.5 h-3.5" />
-              XML
-              <ExternalLink className="w-3.5 h-3.5" />
-            </button>
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        onClick={() => openUrl(rawFactura?.url_pdf)}
+        className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50"
+        title="Abrir PDF"
+      >
+        <FileText className="w-3.5 h-3.5" />
+        PDF
+        <ExternalLink className="w-3.5 h-3.5" />
+      </button>
 
-            <button
-              type="button"
-              onClick={() => void saveFactura(item)}
-              disabled={isSaving || isDeleting}
-              className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] text-blue-700 hover:bg-blue-100 disabled:opacity-50"
-              title="Guardar cambios"
-            >
-              {isSaving ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Save className="w-3.5 h-3.5" />
-              )}
-              Guardar
-            </button>
+      <button
+        type="button"
+        onClick={() => openUrl(rawFactura?.url_xml)}
+        className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50"
+        title="Abrir XML"
+      >
+        <Code2 className="w-3.5 h-3.5" />
+        XML
+        <ExternalLink className="w-3.5 h-3.5" />
+      </button>
 
-            <button
-              type="button"
-              onClick={() => void deleteFactura(item)}
-              disabled={isSaving || isDeleting}
-              className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[11px] text-red-700 hover:bg-red-100 disabled:opacity-50"
-              title="Eliminar factura"
-            >
-              {isDeleting ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Trash2 className="w-3.5 h-3.5" />
-              )}
-              Eliminar
-            </button>
-          </div>
-        );
-      },
+      <button
+        type="button"
+        onClick={() => void saveFactura(rawFactura)}
+        disabled={isSaving || isDeleting}
+        className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+        title="Guardar cambios"
+      >
+        {isSaving ? (
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+        ) : (
+          <Save className="w-3.5 h-3.5" />
+        )}
+        Guardar
+      </button>
+
+      <button
+        type="button"
+        onClick={() => void deleteFactura(rawFactura)}
+        disabled={isSaving || isDeleting}
+        className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[11px] text-red-700 hover:bg-red-100 disabled:opacity-50"
+        title="Eliminar factura"
+      >
+        {isDeleting ? (
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+        ) : (
+          <Trash2 className="w-3.5 h-3.5" />
+        )}
+        Eliminar
+      </button>
+    </div>
+  );
+},
     }),
     [drafts, savingKey, deletingKey, setDraftField, saveFactura, deleteFactura]
   );
