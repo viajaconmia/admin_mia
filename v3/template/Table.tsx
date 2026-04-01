@@ -1,6 +1,7 @@
 import {
   PageTracker,
   TrackingPage,
+  initial,
 } from "@/app/dashboard/invoices/_components/tracker_false";
 import { Table } from "@/component/molecule/Table";
 import Button from "@/components/atom/Button";
@@ -15,6 +16,7 @@ type TablesProps<T> = {
 };
 
 export type { TrackingPage };
+export { initial };
 
 export const CompleteTable = <T,>({
   pageTracking,

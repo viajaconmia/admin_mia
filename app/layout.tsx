@@ -2,6 +2,7 @@ import { environment } from "@/lib/constants";
 import "./globals.css";
 import { Providers } from "@/context/providers";
 import ProtectedRoute from "@/components/ProtectedLogin";
+import "leaflet/dist/leaflet.css";
 
 export const metadata = {
   title: "MIA Admin",

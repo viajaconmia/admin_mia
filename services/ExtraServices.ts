@@ -52,9 +52,12 @@ export class ExtraService extends ApiService {
     return this.instance;
   }
 
-  public getHotelesPermitidos = (): Promise<ApiResponse<Proveedor[]>> =>
-    this.get<Proveedor[]>({
+  public getHotelesPermitidos = (
+    params: any,
+  ): Promise<ApiResponse<HotelPermitidoDTO[]>> =>
+    this.get<HotelPermitidoDTO[]>({
       path: this.formatPath(this.ENDPOINTS.HOTELES.GET.PERMITIDOS),
+      params,
     });
 
   public getProveedores = (): Promise<ApiResponse<Proveedor[]>> =>
@@ -217,3 +220,42 @@ export interface Empresa {
   active: 0 | 1;
   rn: number;
 }
+
+export type HotelPermitido = Omit<
+  HotelPermitidoDTO,
+  "is_allowed" | "activo" | "precio_sencilla"
+> & {
+  is_allowed: boolean;
+  activo: boolean;
+  precio_sencilla: number;
+};
+
+export type HotelPermitidoDTO = {
+  id: number;
+  id_agente: string;
+  cliente_nombre: string;
+  nombre_comercial: string;
+  razon_social: string;
+  rfc: string;
+  zona: string;
+  priority: number;
+  is_allowed: number;
+  id_hotel: string;
+  hotel_nombre: string;
+  estado: string;
+  Ciudad_Zona: string;
+  tipo_hospedaje: string;
+  calificacion: number | null;
+  score_operaciones: number;
+  precio_sencilla: string;
+  activo: number;
+};
+
+export const mapHotelPermitido = (dto: HotelPermitidoDTO): HotelPermitido => {
+  return {
+    ...dto,
+    is_allowed: dto.is_allowed === 1,
+    activo: dto.activo === 1,
+    precio_sencilla: Number(dto.precio_sencilla),
+  };
+};
