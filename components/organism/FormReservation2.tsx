@@ -189,24 +189,9 @@ export function ReservationForm2({
 
   const handleSaldosSubmit = async (saldos, restante, usado) => {
     try {
+      setLoading(true);
       if (form.check_in > form.check_out)
         throw new Error("Las fechas son invalidas");
-      const validateReservation = await codigo_reserva(
-        form.codigo_reservacion_hotel,
-        solicitud.id_booking,
-      );
-      console.log("validacion", validateReservation);
-
-      // 1) Si falta código (tu fetch regresa { error: true, message: "Falta codigo_reserva" })
-      if (validateReservation?.error || validateReservation.exists) {
-        showNotification(
-          "error",
-          validateReservation.message || "Falta código de reservación",
-        );
-        setLoading(false);
-        return;
-      }
-      setLoading(true);
       console.log(
         Number(solicitud.total).toFixed(2) != Number(precio).toFixed(2),
         solicitud.total,
@@ -690,7 +675,27 @@ export function ReservationForm2({
                 </div>
               </div>
               <div className="space-y-2">
-                <div className="h-16"></div>
+                {/* <div className="h-16"></div> */}
+                <Dropdown
+                  label="Estado de la reserva"
+                  onChange={(value) => {
+                    setForm((prev) => ({
+                      ...prev,
+                      estado_reserva: value as "Confirmada" | "En proceso",
+                    }));
+                    if (edicion) {
+                      setEdicionForm((prev) => ({
+                        ...prev,
+                        estado_reserva: {
+                          before: solicitud.status_reserva,
+                          current: value as "Confirmada" | "En proceso",
+                        },
+                      }));
+                    }
+                  }}
+                  options={["Confirmada", "En proceso"]}
+                  value={form.estado_reserva}
+                />
                 <TextInput
                   onChange={(value) => {
                     if (edicion) {
@@ -1053,7 +1058,7 @@ export function ReservationForm2({
               <div className="grid grid-cols-4 gap-4">
                 <div className="col-span-4">
                   <NumberInput
-                    value={form.proveedor.total}
+                    value={form.proveedor.total || 0}
                     onChange={(value) => {
                       setIsCostoManual(true); // El usuario editó manualmente
                       const items = calculateItems(Number(value));
