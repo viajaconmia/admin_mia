@@ -5,7 +5,7 @@ export interface TypeFilters {
   id_movimiento?: number | null;
   raw_id?: string | null;
   proveedor?: string | null;
-  traveler?: string | null; 
+  traveler?: string | null;
   hotel?: string | null;
   nombre?: string | null;
   nombre_agente?: string | null;
@@ -304,6 +304,10 @@ export interface Hotel {
   nombre_hotel: string;
   Estado: string;
   Ciudad_Zona: string;
+  geo: {
+    latitud: string | null;
+    longitud: string | null;
+  };
   impuestos: HotelTax[]; // Usando la HotelTax definida arriba
   imagenes: (string | null)[]; // El JSON muestra "" que puede ser string vacío o null
   tipos_cuartos: Room[];

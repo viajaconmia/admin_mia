@@ -19,12 +19,11 @@ const UserMark = dynamic(
   { ssr: false },
 );
 
-const Restaurant = dynamic(
+const HotelMark = dynamic(
   () =>
     import("leaflet").then((L) => {
       const customIcon = L.icon({
-        iconUrl:
-          "https://cdn.iconscout.com/icon/premium/png-512-thumb/restaurant-icon-svg-download-png-9247417.png",
+        iconUrl: "https://cdn-icons-png.freepik.com/256/16977/16977350.png",
         iconSize: [32, 32],
         iconAnchor: [16, 32],
         popupAnchor: [0, -32],
@@ -47,7 +46,7 @@ const Restaurant = dynamic(
 export const MarkerUser = ({ position }: { position: [number, number] }) => (
   <UserMark position={position} />
 );
-export const MarkerRestaurant = (props: {
+export const MarkerHotel = (props: {
   position: [number, number];
   label?: string;
-}) => <Restaurant {...props} />;
+}) => <HotelMark {...props} />;

@@ -42,8 +42,10 @@ export function GeoProvider({ children }: GeoProviderProps) {
   const { hoteles } = useHoteles();
 
   useEffect(() => {
-    // const visibleHotels = filterWithinRadius(hoteles, center, range);
-    setFiltrados(hoteles);
+    if (!hoteles) return;
+    const visibleHotels = filterWithinRadius(hoteles, center, range);
+    console.log("this is visible", visibleHotels);
+    setFiltrados(visibleHotels);
   }, [center, range, hoteles]);
 
   const order = (callback: (a: Hotel, b: Hotel) => boolean) => {

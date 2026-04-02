@@ -21,12 +21,17 @@ function getDistanceInMeters(
 }
 
 export function filterWithinRadius<
-  T extends { address: { location: { lat: number; lng: number } } },
+  T extends { geo: { latitud: string; longitud: string } },
 >(items: T[], center: [number, number], radius: number): T[] {
   return items.filter((item) => {
-    const { lat, lng } = item.address.location;
+    const { latitud, longitud } = item.geo;
 
-    const distance = getDistanceInMeters(center[0], center[1], lat, lng);
+    const distance = getDistanceInMeters(
+      center[0],
+      center[1],
+      Number(latitud),
+      Number(longitud),
+    );
 
     return distance <= radius;
   });

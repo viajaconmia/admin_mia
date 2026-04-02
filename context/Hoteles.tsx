@@ -10,10 +10,11 @@ import {
 import { useAlert } from "./useAlert";
 import { fetchHoteles, newFetchHoteles } from "@/services/hoteles";
 import { useAuth } from "./AuthContext";
+import { Hotel } from "@/types";
 
 type HotelContextType = {
   actualizarHoteles: () => void;
-  hoteles: any[] | null;
+  hoteles: Hotel[] | null;
 };
 
 const HotelContext = createContext<HotelContextType>({
@@ -26,7 +27,7 @@ type HotelProviderProps = {
 };
 
 export function HotelProvider({ children }: HotelProviderProps) {
-  const [hoteles, setHoteles] = useState<any[] | null>(null);
+  const [hoteles, setHoteles] = useState<Hotel[] | null>(null);
   const { showNotification } = useAlert();
   const { isAuthenticated, loading } = useAuth();
 

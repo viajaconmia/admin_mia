@@ -5,13 +5,14 @@ export function useWindowHeight() {
 
   useEffect(() => {
     function update() {
-      if (window.innerHeight > 700) {
-        setHeight(700);
-      } else if (window.innerHeight < 500) {
-        setHeight(500);
-      } else {
-        setHeight(window.innerHeight);
-      }
+      // if (window.innerHeight > 700) {
+      //   setHeight(700);
+      // } else if (window.innerHeight < 500) {
+      //   setHeight(500);
+      // } else {
+      //   setHeight(window.innerHeight);
+      // }
+      setHeight(window.innerHeight - 250);
     }
 
     update();
