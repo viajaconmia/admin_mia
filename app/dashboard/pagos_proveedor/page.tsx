@@ -167,12 +167,12 @@ const extractFacturas = (raw: any): any[] => {
 
   if (Array.isArray(raw?.facturas)) candidates.push(raw.facturas);
   if (raw?.facturas_json != null) candidates.push(raw.facturas_json);
-  if (raw?.facturas_proveedor_json != null)
+  if (raw?.facturas_proveedor_json != null) {
     candidates.push(raw.facturas_proveedor_json);
-
-  // respaldo por si algún registro viene anidado tal cual del SP
-  if (raw?.sp_obtener_pagos_proveedor?.facturas_json != null)
+  }
+  if (raw?.sp_obtener_pagos_proveedor?.facturas_json != null) {
     candidates.push(raw.sp_obtener_pagos_proveedor.facturas_json);
+  }
 
   const out: any[] = [];
   for (const c of candidates) {
@@ -180,9 +180,29 @@ const extractFacturas = (raw: any): any[] => {
     else out.push(...normalizeToArray(c));
   }
 
-  return out.filter(
-    (f) => f && typeof f === "object" && Object.keys(f).length > 0,
+  const limpias = out.filter(
+    (f) => f && typeof f === "object" && Object.keys(f).length > 0
   );
+
+  const seen = new Set<string>();
+
+  return limpias.filter((f, idx) => {
+    const key = String(
+      f?.uuid_factura ??
+      f?.uuid_cfdi ??
+      f?.uuid ??
+      f?.id_factura_proveedor ??
+      f?.url_pdf ??
+      f?.url_xml ??
+      `idx-${idx}`
+    )
+      .trim()
+      .toUpperCase();
+
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 };
 
 const openFacturaFile = (url?: string | null) => {
@@ -1451,7 +1471,6 @@ const clearSelection = useCallback(() => {
 const customColumns = useMemo(() => {
   const cols = [
     "seleccionar",
-
     "id_solicitud_proveedor",
     "fecha_solicitud",
     "monto_solicitado",
@@ -1488,10 +1507,9 @@ const customColumns = useMemo(() => {
     "fecha_facturacion",
     "UUID",
     "uso_cfdi_factura",
-"forma_pago_factura",
-"metodo_pago_factura",
-"moneda_factura",
-"facturas_acciones",
+    "forma_pago_factura",
+    "metodo_pago_factura",
+    "moneda_factura",
     "facturas_acciones",
 
     "comentarios_cxp",
@@ -1502,7 +1520,6 @@ const customColumns = useMemo(() => {
   }
 
   cols.push("acciones");
-
   return cols;
 }, [categoria]);
 

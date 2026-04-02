@@ -770,11 +770,20 @@ const rows = useMemo(() => {
     const markUp = Math.max(0, precioVenta - costoProveedor);
 
     const items = r.items ?? [];
-    const totalFacturado = items
-      .filter((it) => it?.id_factura != null)
-      .reduce((acc, it) => acc + Number((it as any).total || 0), 0);
 
-    const pendientePorFacturar = Math.max(0, precioVenta - totalFacturado);
+const totalFacturado = items
+  .filter((it) => it?.id_factura != null)
+  .reduce((acc, it) => acc + Number((it as any).total || 0), 0);
+
+const totalItems = items
+  .reduce((acc, it) => acc + Number((it as any).total || 0), 0);
+
+const pendientePorFacturar = Math.max(
+  0,
+   (totalFacturado === 0 ? totalItems : totalFacturado)
+);
+    console.log(pendientePorFacturar,"=",precioVenta,"-",totalFacturado )
+    console.log(items )
 
     return {
       id: `${r.id_booking}`,
