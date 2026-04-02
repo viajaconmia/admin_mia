@@ -1463,7 +1463,7 @@ const customColumns = useMemo(() => {
   const cols = [
     "seleccionar",
     "id_solicitud_proveedor",
-    "fecha_solicitud",
+    "fecha_pago",
     "monto_solicitado",
     "saldo",
     "forma_pago_solicitada",
