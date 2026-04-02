@@ -1058,7 +1058,7 @@ export function ReservationForm2({
               <div className="grid grid-cols-4 gap-4">
                 <div className="col-span-4">
                   <NumberInput
-                    value={form.proveedor.total}
+                    value={form.proveedor.total || 0}
                     onChange={(value) => {
                       setIsCostoManual(true); // El usuario editó manualmente
                       const items = calculateItems(Number(value));

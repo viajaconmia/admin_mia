@@ -148,7 +148,9 @@ export const NumberInput = ({
     <input
       disabled={disabled}
       type="number"
-      value={value || ""}
+      value={value == null? 0
+        :value
+      }
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
       className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground placeholder:text-gray-400 focus-visible:outline-1 focus-visible:outline-gray-950 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-90"
