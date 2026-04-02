@@ -17,6 +17,7 @@ import { currentDate } from "@/lib/utils";
 import { fetchGetSolicitudesProveedores1 } from "@/services/pago_proveedor";
 import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
+
 import {
   DispersionModal,
   SolicitudProveedorRaw,
@@ -39,6 +40,7 @@ import {
 } from "lucide-react";
 import { URL, API_KEY } from "@/lib/constants/index";
 import PaymentMethodSelector from "./Components/PaymentMethodSelector";
+import { formatDate } from "@/helpers/formater";
 
 // ---------- HELPERS GENERALES ----------
 const CFDI_USO_LABELS: Record<string, string> = {
@@ -167,12 +169,12 @@ const extractFacturas = (raw: any): any[] => {
 
   if (Array.isArray(raw?.facturas)) candidates.push(raw.facturas);
   if (raw?.facturas_json != null) candidates.push(raw.facturas_json);
-  if (raw?.facturas_proveedor_json != null)
+  if (raw?.facturas_proveedor_json != null) {
     candidates.push(raw.facturas_proveedor_json);
-
-  // respaldo por si algún registro viene anidado tal cual del SP
-  if (raw?.sp_obtener_pagos_proveedor?.facturas_json != null)
+  }
+  if (raw?.sp_obtener_pagos_proveedor?.facturas_json != null) {
     candidates.push(raw.sp_obtener_pagos_proveedor.facturas_json);
+  }
 
   const out: any[] = [];
   for (const c of candidates) {
@@ -180,9 +182,29 @@ const extractFacturas = (raw: any): any[] => {
     else out.push(...normalizeToArray(c));
   }
 
-  return out.filter(
-    (f) => f && typeof f === "object" && Object.keys(f).length > 0,
+  const limpias = out.filter(
+    (f) => f && typeof f === "object" && Object.keys(f).length > 0
   );
+
+  const seen = new Set<string>();
+
+  return limpias.filter((f, idx) => {
+    const key = String(
+      f?.uuid_factura ??
+      f?.uuid_cfdi ??
+      f?.uuid ??
+      f?.id_factura_proveedor ??
+      f?.url_pdf ??
+      f?.url_xml ??
+      `idx-${idx}`
+    )
+      .trim()
+      .toUpperCase();
+
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 };
 
 const openFacturaFile = (url?: string | null) => {
@@ -500,16 +522,6 @@ const facturaTone = (estado: string) =>
         ? "red"
         : "gray";
 
-const formatDateSimple = (date: string | Date) => {
-  if (!date) return "—";
-  const localDate = new Date(date);
-  if (Number.isNaN(localDate.getTime())) return "—";
-  return localDate.toLocaleDateString("es-MX", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-};
 
 // -----helper para asignar color en fechas ----
 const getFechaPagoColor = (dateStr?: string | Date | null | number) => {
@@ -1279,7 +1291,7 @@ const baseList: SolicitudProveedor[] =
       return {
   // ✅ columnas “SP base”
   id_solicitud_proveedor,
-  fecha_solicitud: item?.solicitud_proveedor?.fecha_solicitud ?? null,
+  fecha_de_pago: item.solicitud_proveedor?.fecha_solicitud,
   monto_solicitado: montoSolicitado,
   saldo: saldo,
   forma_pago_solicitada: forma,
@@ -1330,7 +1342,6 @@ const baseList: SolicitudProveedor[] =
   cliente: (item.nombre_agente_completo || "").toUpperCase(),
 
   // solicitud / pagos / facturación (UX)
-  fecha_de_pago: item.solicitud_proveedor?.fecha_solicitud,
   forma_de_pago_solicitada:
     item.solicitud_proveedor?.forma_pago_solicitada,
   digitos_tajeta: item.tarjeta?.ultimos_4,
@@ -1451,7 +1462,6 @@ const clearSelection = useCallback(() => {
 const customColumns = useMemo(() => {
   const cols = [
     "seleccionar",
-
     "id_solicitud_proveedor",
     "fecha_solicitud",
     "monto_solicitado",
@@ -1488,10 +1498,9 @@ const customColumns = useMemo(() => {
     "fecha_facturacion",
     "UUID",
     "uso_cfdi_factura",
-"forma_pago_factura",
-"metodo_pago_factura",
-"moneda_factura",
-"facturas_acciones",
+    "forma_pago_factura",
+    "metodo_pago_factura",
+    "moneda_factura",
     "facturas_acciones",
 
     "comentarios_cxp",
@@ -1502,7 +1511,6 @@ const customColumns = useMemo(() => {
   }
 
   cols.push("acciones");
-
   return cols;
 }, [categoria]);
 
@@ -1751,7 +1759,7 @@ const marcarNotificadoPagado = useCallback(
     ),
 
     fecha_solicitud: ({ value }) => (
-      <span title={value}>{formatDateSimple(value)}</span>
+      <span title={value}>{formatDate(value)}</span>
     ),
 
     monto_solicitado: ({ value, item }) => {
@@ -1998,17 +2006,17 @@ moneda_factura: ({ item }) => {
       );
     },
 
-    creado: ({ value }) => <span title={value}>{formatDateSimple(value)}</span>,
+    creado: ({ value }) => <span title={value}>{formatDate(value)}</span>,
     codigo_hotel: ({ value }) => (
       <span className="font-semibold">
         {value ? String(value).toUpperCase() : ""}
       </span>
     ),
     check_in: ({ value }) => (
-      <span title={value}>{formatDateSimple(value)}</span>
+      <span title={value}>{formatDate(value)}</span>
     ),
     check_out: ({ value }) => (
-      <span title={value}>{formatDateSimple(value)}</span>
+      <span title={value}>{formatDate(value)}</span>
     ),
 
     costo_proveedor: ({ value }) => {
@@ -2074,7 +2082,7 @@ moneda_factura: ({ item }) => {
     ),
     fecha_pagado: ({ value }) =>
       value ? (
-        <span title={value}>{formatDateSimple(value)}</span>
+        <span title={value}>{formatDate(value)}</span>
       ) : (
         <span className="text-gray-400">—</span>
       ),
@@ -2110,7 +2118,7 @@ moneda_factura: ({ item }) => {
     },
     fecha_facturacion: ({ value }) =>
       value ? (
-        <span title={value}>{formatDateSimple(value)}</span>
+        <span title={value}>{formatDate(value)}</span>
       ) : (
         <span className="text-gray-400">—</span>
       ),
@@ -2369,7 +2377,7 @@ UUID: ({ item }) => {
           title={value}
           className={`px-2 py-1 rounded-full text-xs font-semibold border ${colorClasses}`}
         >
-          {formatDateSimple(value)}
+          {formatDate(value)}
         </span>
       );
     },
