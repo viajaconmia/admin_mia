@@ -2,6 +2,25 @@
 
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import Filters from "@/components/Filters";
+import { VistaCarpeta,CarpetasTabs } from "./Components/CarpetasTabs";
+import {
+  CFDI_USO_LABELS,
+  CFDI_FORMA_PAGO_LABELS,
+  CFDI_METODO_PAGO_LABELS,
+  formatSatValue,
+  parseNum,
+  norm,
+  normUpper,
+  EPS,
+  isZero,
+  extractPagosAsociados,
+  hasPagosAsociados,
+  extractFacturas,
+  openFacturaFile,
+  downloadFacturaFile,
+} from "@/helpers/cfdiHelpers"; 
+import { EditModal, EditableField } from "./Components/EditModal";      // ✅ nuevo
+
 import {
   calcularNoches,
   formatRoom,
@@ -41,80 +60,11 @@ import {
 import { URL, API_KEY } from "@/lib/constants/index";
 import PaymentMethodSelector from "./Components/PaymentMethodSelector";
 import { formatDate } from "@/helpers/formater";
-
-// ---------- HELPERS GENERALES ----------
-const CFDI_USO_LABELS: Record<string, string> = {
-  G01: "Adquisición de mercancías",
-  G02: "Devoluciones, descuentos o bonificaciones",
-  G03: "Gastos en general",
-  I01: "Construcciones",
-  I02: "Mobiliario y equipo de oficina por inversiones",
-  I03: "Equipo de transporte",
-  I04: "Equipo de cómputo y accesorios",
-  I05: "Dados, troqueles, moldes, matrices y herramental",
-  I06: "Comunicaciones telefónicas",
-  I07: "Comunicaciones satelitales",
-  I08: "Otra maquinaria y equipo",
-  D01: "Honorarios médicos, dentales y gastos hospitalarios",
-  D02: "Gastos médicos por incapacidad o discapacidad",
-  D03: "Gastos funerales",
-  D04: "Donativos",
-  D05: "Intereses reales efectivamente pagados por créditos hipotecarios",
-  D06: "Aportaciones voluntarias al SAR",
-  D07: "Primas por seguros de gastos médicos",
-  D08: "Gastos de transportación escolar obligatoria",
-  D09: "Depósitos en cuentas para el ahorro, primas con base en planes de pensiones",
-  D10: "Pagos por servicios educativos (colegiaturas)",
-  S01: "Sin efectos fiscales",
-  CP01: "Pagos",
-  CN01: "Nómina",
-};
-
-const CFDI_FORMA_PAGO_LABELS: Record<string, string> = {
-  "01": "Efectivo",
-  "02": "Cheque nominativo",
-  "03": "Transferencia electrónica de fondos",
-  "04": "Tarjeta de crédito",
-  "05": "Monedero electrónico",
-  "06": "Dinero electrónico",
-  "08": "Vales de despensa",
-  "12": "Dación en pago",
-  "13": "Pago por subrogación",
-  "14": "Pago por consignación",
-  "15": "Condonación",
-  "17": "Compensación",
-  "23": "Novación",
-  "24": "Confusión",
-  "25": "Remisión de deuda",
-  "26": "Prescripción o caducidad",
-  "27": "A satisfacción del acreedor",
-  "28": "Tarjeta de débito",
-  "29": "Tarjeta de servicios",
-  "30": "Aplicación de anticipos",
-  "31": "Intermediario pagos",
-  "99": "Por definir",
-};
-
-const CFDI_METODO_PAGO_LABELS: Record<string, string> = {
-  PUE: "Pago en una sola exhibición",
-  PPD: "Pago en parcialidades o diferido",
-};
-
-const formatSatValue = (
-  value: any,
-  catalog: Record<string, string>,
-) => {
-  const code = String(value ?? "").trim().toUpperCase();
-  if (!code) return "—";
-  return catalog[code] ? `${code} - ${catalog[code]}` : code;
-};
-
-const parseNum = (v: any) => (v == null || v === "" ? 0 : Number(v));
-const norm = (s?: string | null) => (s ?? "").trim().toLowerCase();
-const normUpper = (s?: string | null) => (s ?? "").trim().toUpperCase();
-
-const EPS = 0.01;
-const isZero = (n: any) => Math.abs(Number(n) || 0) < EPS;
+import {
+  defaultSort,
+  defaultFiltersSolicitudes,
+  FIELD_TO_API,
+} from "@/constant/solicitudConstants"; 
 
 const tryParseJson = (v: any) => {
   if (typeof v !== "string") return v;
@@ -133,125 +83,6 @@ const normalizeToArray = (v: any): any[] => {
   if (Array.isArray(parsed)) return parsed;
   if (parsed && typeof parsed === "object") return [parsed];
   return [];
-};
-
-// Extrae pagos “reales” aunque vengan como: array, string JSON, o mezclados
-const extractPagosAsociados = (raw: any): any[] => {
-  // Back actual manda `pagos` como array que contiene dispersiones_json y pagos_json mezclados
-  // y/o podría venir `pagos_json` / `dispersiones_json` directo en rest.
-  const candidates: any[] = [];
-
-  if (Array.isArray(raw?.pagos)) candidates.push(...raw.pagos);
-  if (raw?.pagos_json != null) candidates.push(raw.pagos_json);
-  if (raw?.dispersiones_json != null) candidates.push(raw.dispersiones_json);
-
-  // Aplana y parsea strings JSON
-  const out: any[] = [];
-  for (const c of candidates) {
-    if (Array.isArray(c)) {
-      out.push(...c.flatMap((x) => normalizeToArray(x)));
-    } else {
-      out.push(...normalizeToArray(c));
-    }
-  }
-
-  // Filtra basura (objetos vacíos)
-  return out.filter(
-    (p) => p && typeof p === "object" && Object.keys(p).length > 0,
-  );
-};
-
-const hasPagosAsociados = (raw: any) => extractPagosAsociados(raw).length > 0;
-
-// Facturas: soporta `facturas`, `facturas_json`, etc.
-const extractFacturas = (raw: any): any[] => {
-  const candidates: any[] = [];
-
-  if (Array.isArray(raw?.facturas)) candidates.push(raw.facturas);
-  if (raw?.facturas_json != null) candidates.push(raw.facturas_json);
-  if (raw?.facturas_proveedor_json != null) {
-    candidates.push(raw.facturas_proveedor_json);
-  }
-  if (raw?.sp_obtener_pagos_proveedor?.facturas_json != null) {
-    candidates.push(raw.sp_obtener_pagos_proveedor.facturas_json);
-  }
-
-  const out: any[] = [];
-  for (const c of candidates) {
-    if (Array.isArray(c)) out.push(...c.flatMap((x) => normalizeToArray(x)));
-    else out.push(...normalizeToArray(c));
-  }
-
-  const limpias = out.filter(
-    (f) => f && typeof f === "object" && Object.keys(f).length > 0
-  );
-
-  const seen = new Set<string>();
-
-  return limpias.filter((f, idx) => {
-    const key = String(
-      f?.uuid_factura ??
-      f?.uuid_cfdi ??
-      f?.uuid ??
-      f?.id_factura_proveedor ??
-      f?.url_pdf ??
-      f?.url_xml ??
-      `idx-${idx}`
-    )
-      .trim()
-      .toUpperCase();
-
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-};
-
-const openFacturaFile = (url?: string | null) => {
-  if (!url) return;
-  window.open(url, "_blank", "noopener,noreferrer");
-};
-
-const getFileNameFromUrl = (
-  url?: string | null,
-  fallback: string = "factura.pdf",
-) => {
-  if (!url) return fallback;
-
-  try {
-    const cleanUrl = url.split("?")[0];
-    const last = cleanUrl.substring(cleanUrl.lastIndexOf("/") + 1);
-    return last || fallback;
-  } catch {
-    return fallback;
-  }
-};
-
-const downloadFacturaFile = async (
-  url?: string | null,
-  fallbackName: string = "factura.pdf",
-) => {
-  if (!url) return;
-
-  try {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-    const blob = await response.blob();
-    const blobUrl = window.URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = blobUrl;
-    a.download = getFileNameFromUrl(url, fallbackName);
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-
-    window.URL.revokeObjectURL(blobUrl);
-  } catch (error) {
-    console.error("No se pudo descargar el archivo, abriendo en nueva pestaña", error);
-    window.open(url, "_blank", "noopener,noreferrer");
-  }
 };
 
 const getMontoSolicitado = (raw: any) =>
@@ -333,7 +164,6 @@ type CategoriaEstatus =
   | "notificados"
   | "canceladas";
 
-type VistaCarpeta = CategoriaEstatus | "all";
 
 type SolicitudesPorFiltro = Record<CategoriaEstatus, SolicitudProveedor[]> & {
   todos: SolicitudProveedor[];
@@ -358,129 +188,6 @@ type DatosDispersion = {
   cuenta_banco: string | null;
   rfc: string | null;
 };
-
-// --- Tabs UI helpers ---
-type TabKey = VistaCarpeta;
-
-const tabTheme: Record<
-  TabKey,
-  {
-    ring: string;
-    bg: string;
-    text: string;
-    border: string;
-    dot: string;
-    badge: string;
-    badgeActive: string;
-  }
-> = {
-  all: {
-    ring: "focus:ring-blue-500",
-    bg: "bg-white",
-    text: "text-slate-700",
-    border: "border-slate-200",
-    dot: "bg-blue-500",
-    badge: "bg-slate-50 text-slate-600 border-slate-200",
-    badgeActive: "bg-blue-50 text-blue-700 border-blue-200",
-  },
-  spei: {
-    ring: "focus:ring-cyan-500",
-    bg: "bg-white",
-    text: "text-slate-700",
-    border: "border-slate-200",
-    dot: "bg-cyan-500",
-    badge: "bg-cyan-50 text-cyan-800 border-cyan-200",
-    badgeActive: "bg-cyan-100 text-cyan-900 border-cyan-300",
-  },
-  pago_tdc: {
-    ring: "focus:ring-indigo-500",
-    bg: "bg-white",
-    text: "text-slate-700",
-    border: "border-slate-200",
-    dot: "bg-indigo-500",
-    badge: "bg-indigo-50 text-indigo-800 border-indigo-200",
-    badgeActive: "bg-indigo-100 text-indigo-900 border-indigo-300",
-  },
-  pago_link: {
-    ring: "focus:ring-amber-500",
-    bg: "bg-white",
-    text: "text-slate-700",
-    border: "border-slate-200",
-    dot: "bg-amber-500",
-    badge: "bg-amber-50 text-amber-900 border-amber-200",
-    badgeActive: "bg-amber-100 text-amber-950 border-amber-300",
-  },
-  pendiente_credito: {
-    ring: "focus:ring-violet-500",
-    bg: "bg-white",
-    text: "text-slate-700",
-    border: "border-slate-200",
-    dot: "bg-violet-500",
-    badge: "bg-violet-50 text-violet-800 border-violet-200",
-    badgeActive: "bg-violet-100 text-violet-900 border-violet-300",
-  },
-  ap_credito: {
-    ring: "focus:ring-emerald-500",
-    bg: "bg-white",
-    text: "text-slate-700",
-    border: "border-slate-200",
-    dot: "bg-emerald-500",
-    badge: "bg-emerald-50 text-emerald-800 border-emerald-200",
-    badgeActive: "bg-emerald-100 text-emerald-900 border-emerald-300",
-  },
-  pagada: {
-    ring: "focus:ring-green-500",
-    bg: "bg-white",
-    text: "text-slate-700",
-    border: "border-slate-200",
-    dot: "bg-green-500",
-    badge: "bg-green-50 text-green-800 border-green-200",
-    badgeActive: "bg-green-100 text-green-900 border-green-300",
-  },
-  notificados: {
-  ring: "focus:ring-sky-500",
-  bg: "bg-white",
-  text: "text-slate-700",
-  border: "border-slate-200",
-  dot: "bg-sky-500",
-  badge: "bg-sky-50 text-sky-800 border-sky-200",
-  badgeActive: "bg-sky-100 text-sky-900 border-sky-300",
-},
-    canceladas: {
-    ring: "focus:ring-rose-500",
-    bg: "bg-white",
-    text: "text-slate-700",
-    border: "border-slate-200",
-    dot: "bg-rose-500",
-    badge: "bg-rose-50 text-rose-800 border-rose-200",
-    badgeActive: "bg-rose-100 text-rose-900 border-rose-300",
-  },
-};
-
-const tabBase =
-  "relative select-none group !rounded-xl border px-3 py-2 " +
-  "transition-all duration-200 " +
-  "hover:-translate-y-[1px] active:translate-y-0 " +
-  "focus:outline-none focus:ring-2 focus:ring-offset-2";
-
-function getTabClass(key: TabKey, active: boolean) {
-  const t = tabTheme[key];
-  const activeCls = active
-    ? `bg-gradient-to-b from-white to-slate-50 border-slate-300 shadow-sm`
-    : `${t.bg} ${t.border} hover:border-slate-300 hover:bg-slate-50`;
-  return `${tabBase} ${t.ring} ${activeCls}`;
-}
-
-function getActiveUnderline(key: TabKey) {
-  const dot = tabTheme[key].dot;
-  return (
-    <span className="absolute -bottom-[2px] left-2 right-2 h-[3px] rounded-full bg-slate-900/0">
-      <span
-        className={`block h-full rounded-full ${dot} opacity-80 blur-[0.2px]`}
-      />
-    </span>
-  );
-}
 
 // ---------- UI HELPERS ----------
 const Pill = ({
@@ -641,39 +348,7 @@ function getFacturaInfoFromRaw(raw: any) {
   return { estado, totalFacturado, porFacturar, fechaUltimaFactura, uuid };
 }
 
-// ---------- DEFAULTS ----------
-const defaultSort = { key: "creado", sort: false };
-
-const defaultFiltersSolicitudes: TypeFilters = {
-  codigo_reservacion: null,
-  client: null,
-  reservante: null,
-  reservationStage: null,
-  hotel: null,
-  status: "Confirmada",
-  startDate: currentDate(),
-  endDate: currentDate(),
-  traveler: null,
-  paymentMethod: null,
-  id_client: null,
-  statusPagoProveedor: null,
-  filterType: "Transaccion",
-  markup_end: null,
-  markup_start: null,
-};
-
 // ---------- PATCH / EDIT ----------
-type EditableField =
-  | "costo_proveedor"
-  | "estatus_pagos"
-  | "monto_solicitado"
-  | "consolidado";
-const FIELD_TO_API: Record<EditableField, string> = {
-  costo_proveedor: "costo_total",
-  estatus_pagos: "estatus_pagos",
-  monto_solicitado: "monto_solicitado",
-  consolidado: "consolidado",
-};
 
 type EditModalState = {
   open: boolean;
@@ -1006,7 +681,12 @@ const canSelect = categoria !== "pagada" && categoria !== "canceladas";
     !canSelect || selectedCount === 0 ? "No hay selección para limpiar" : "";
 
   // ---- Modal de edición ----
-  const [editModal, setEditModal] = useState<EditModalState>({
+  const [editModal, setEditModal] = useState<{
+    open: boolean;
+    id_solicitud_proveedor: string;
+    field: EditableField;
+    value: string;
+  }>({
     open: false,
     id_solicitud_proveedor: "",
     field: "costo_proveedor",
@@ -1026,7 +706,7 @@ const canSelect = categoria !== "pagada" && categoria !== "canceladas";
     [],
   );
 
-  const closeEditModal = useCallback(
+    const closeEditModal = useCallback(
     () => setEditModal((s) => ({ ...s, open: false })),
     [],
   );
@@ -1090,7 +770,6 @@ const canSelect = categoria !== "pagada" && categoria !== "canceladas";
     );
     if (ok) {
       closeEditModal();
-      // refresca
       handleFetchSolicitudesPago();
     }
   }, [editModal, patchSolicitudProveedor, closeEditModal]);
@@ -1263,18 +942,38 @@ const baseList: SolicitudProveedor[] =
   // 2) búsqueda + mapeo a registros de tabla
   const formatedSolicitudes = filteredSolicitudes
     .filter((item) => {
-      const q = (searchTerm || "").toUpperCase();
-      return (
-        (item.hotel || "").toUpperCase().includes(q) ||
-        (item.nombre_agente_completo || "").toUpperCase().includes(q) ||
-        (item.nombre_viajero_completo || item.nombre_viajero || "")
-          .toUpperCase()
-          .includes(q) ||
-        String((item as any)?.solicitud_proveedor?.id_solicitud_proveedor ?? "")
-          .toUpperCase()
-          .includes(q)
-      );
-    })
+  const q = (searchTerm || "").toUpperCase();
+  
+  // Existing fields
+  const hotel = (item.hotel || "").toUpperCase();
+  const agente = (item.nombre_agente_completo || "").toUpperCase();
+  const viajero = (item.nombre_viajero_completo || item.nombre_viajero || "").toUpperCase();
+  const idSolicitud = String((item as any)?.solicitud_proveedor?.id_solicitud_proveedor ?? "").toUpperCase();
+  
+  // New fields
+  const codigoConfirmacion = (item.codigo_confirmacion || "").toUpperCase();
+  
+  // Extract UUID from facturas
+  let uuidFactura = "";
+  const facturas = extractFacturas(item);
+  if (facturas.length) {
+    uuidFactura = (
+      facturas[0].uuid_factura ||
+      facturas[0].uuid_cfdi ||
+      facturas[0].uuid ||
+      ""
+    ).toUpperCase();
+  }
+  
+  return (
+    hotel.includes(q) ||
+    agente.includes(q) ||
+    viajero.includes(q) ||
+    idSolicitud.includes(q) ||
+    codigoConfirmacion.includes(q) ||
+    uuidFactura.includes(q)
+  );
+})
     .map((raw) => {
       const item = raw as ItemSolicitud;
 
@@ -2389,41 +2088,13 @@ UUID: ({ item }) => {
       [
         { key: "all", label: "Todos", count: solicitudesPago.todos.length },
         { key: "spei", label: "SPEI", count: solicitudesPago.spei.length },
-        {
-          key: "pago_tdc",
-          label: "Pago TDC",
-          count: solicitudesPago.pago_tdc.length,
-        },
-        {
-          key: "pago_link",
-          label: "Pago Link",
-          count: solicitudesPago.pago_link.length,
-        },
-        {
-          key: "pendiente_credito",
-          label: "Pendiente credito",
-          count: solicitudesPago.pendiente_credito.length,
-        },
-        {
-          key: "ap_credito",
-          label: "Ap Credito",
-          count: solicitudesPago.ap_credito.length,
-        },
-        {
-          key: "pagada",
-          label: "Pagada",
-          count: solicitudesPago.pagada.length,
-        },
-        {
-          key: "notificados",
-          label: "Notificados",
-          count: solicitudesPago.notificados.length,
-        },
-                {
-          key: "canceladas",
-          label: "Canceladas",
-          count: solicitudesPago.canceladas.length,
-        },
+        { key: "pago_tdc", label: "Pago TDC", count: solicitudesPago.pago_tdc.length },
+        { key: "pago_link", label: "Pago Link", count: solicitudesPago.pago_link.length },
+        { key: "pendiente_credito", label: "Pendiente credito", count: solicitudesPago.pendiente_credito.length },
+        { key: "ap_credito", label: "Ap Credito", count: solicitudesPago.ap_credito.length },
+        { key: "pagada", label: "Pagada", count: solicitudesPago.pagada.length },
+        { key: "notificados", label: "Notificados", count: solicitudesPago.notificados.length },
+        { key: "canceladas", label: "Canceladas", count: solicitudesPago.canceladas.length },
       ] as Array<{ key: VistaCarpeta; label: string; count: number }>,
     [solicitudesPago],
   );
@@ -2442,41 +2113,11 @@ UUID: ({ item }) => {
           setSearchTerm={setSearchTerm}
         />
 
-        {/* Tabs tipo carpetas */}
-        <div className="flex flex-wrap gap-2 border-b border-slate-200 pb-3 mb-3">
-          {tabs.map((btn) => {
-            const isActive = categoria === btn.key;
-            const theme = tabTheme[btn.key];
-
-            return (
-              <Button
-                key={btn.key}
-                onClick={() => setCategoria(btn.key)}
-                variant="ghost"
-                size="md"
-                className={getTabClass(btn.key, isActive)}
-              >
-                <span
-                  className={`mr-2 h-2.5 w-2.5 rounded-full ${theme.dot} shadow-sm`}
-                />
-                <span
-                  className={`font-semibold ${isActive ? "text-slate-900" : theme.text}`}
-                >
-                  {btn.label}
-                </span>
-                <span
-                  className={
-                    "ml-2 text-[11px] px-2 py-0.5 rounded-full border font-semibold " +
-                    (isActive ? theme.badgeActive : theme.badge)
-                  }
-                >
-                  {btn.count}
-                </span>
-                {isActive && getActiveUnderline(btn.key)}
-              </Button>
-            );
-          })}
-        </div>
+        <CarpetasTabs
+          activeTab={categoria}
+          onTabChange={setCategoria}
+          tabs={tabs}
+        />
 
         {/* Barra de acciones */}
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
@@ -2592,80 +2233,17 @@ getRowClassName={(row) => {
       </div>
 
       {/* MODAL EDIT (costo proveedor) */}
-      {editModal.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div
-            className="absolute inset-0 bg-black/40 z-0"
-            onClick={closeEditModal}
-          />
-          <div
-            className="relative z-10 w-[min(720px,92vw)] bg-white rounded-xl shadow-lg border border-gray-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-              <div>
-                <p className="text-sm font-semibold text-gray-900">
-                  Editar campo
-                </p>
-                <p className="text-xs text-gray-500">
-                  id_solicitud_proveedor: {editModal.id_solicitud_proveedor}
-                </p>
-                <p className="text-xs text-gray-500">
-                  Campo: {editModal.field}
-                </p>
-              </div>
-              <button
-                type="button"
-                className="inline-flex items-center justify-center w-9 h-9 rounded-md border border-gray-200 bg-white hover:bg-gray-50"
-                onClick={closeEditModal}
-                title="Cerrar"
-              >
-                <X className="w-4 h-4 text-gray-700" />
-              </button>
-            </div>
-
-            <div className="p-4">
-              {editModal.field === "costo_proveedor" ? (
-                <input
-                  type="number"
-                  step="0.01"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
-                  value={editModal.value}
-                  onChange={(e) =>
-                    setEditModal((s) => ({ ...s, value: e.target.value }))
-                  }
-                  placeholder="0.00"
-                />
-              ) : (
-                <input
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
-                  value={editModal.value}
-                  onChange={(e) =>
-                    setEditModal((s) => ({ ...s, value: e.target.value }))
-                  }
-                />
-              )}
-
-              <div className="mt-3 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  className="px-3 py-2 rounded-lg text-sm border border-gray-200 bg-white hover:bg-gray-50"
-                  onClick={closeEditModal}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  className="px-3 py-2 rounded-lg text-sm border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
-                  onClick={() => void saveEditModal()}
-                >
-                  Cambiar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <EditModal
+        open={editModal.open}
+        idSolicitudProveedor={editModal.id_solicitud_proveedor}
+        field={editModal.field}
+        value={editModal.value}
+        onClose={closeEditModal}
+        onSave={saveEditModal}
+        onValueChange={(val) =>
+          setEditModal((prev) => ({ ...prev, value: val }))
+        }
+      />  
 
       {showDispersionModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
