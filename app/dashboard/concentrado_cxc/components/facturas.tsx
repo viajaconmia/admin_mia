@@ -548,6 +548,7 @@
     id_agente: id_agente,
     id_factura: idsFacturasSeleccionadas,
     detalle_aplicacion: aplicacionesPorFactura,
+    facturaData:aplicacionesPorFactura,
   };
 
   console.log("Payload a enviar:", payload);

@@ -450,20 +450,20 @@ export default function VistaPreviaModal({
       canConvertProveedor,
     });
 
-    if (
-      isLoading ||
-      uploadingPdf ||
-      !pdfUrl ||
-      !okItems ||
-      (showFechaVencimiento && !fechaVencimiento) ||
-      (requiereConversionProveedor && !canConvertProveedor)
-    ) {
-      showNotification(
-        "error",
-        "No se pudo resolver el tipo de cambio para esta factura.",
-      );
-      return;
-    }
+    // if (
+    //   isLoading ||
+    //   uploadingPdf ||
+    //   !pdfUrl ||
+    //   !okItems ||
+    //   (showFechaVencimiento && !fechaVencimiento) ||
+    //   (requiereConversionProveedor && !canConvertProveedor)
+    // ) {
+    //   showNotification(
+    //     "error",
+    //     "No se pudo resolver el tipo de cambio para esta factura.",
+    //   );
+    //   return;
+    // }
 
     if (requiereConversionProveedor && !canConvertProveedor) {
       alert("No se pudo resolver el tipo de cambio para esta factura.");
@@ -474,19 +474,19 @@ export default function VistaPreviaModal({
       ? batchTotalAsociarMXN
       : batchTotalAsociar;
 
-    if (
-      typeof itemsTotal === "number" &&
-      itemsTotal > 0 &&
-      itemsTotal > totalValidacion
-    ) {
-      alert("El total de los ítems es mayor al total de la factura.");
-      return;
-    }
+    // if (
+    //   typeof itemsTotal === "number" &&
+    //   itemsTotal > 0 &&
+    //   itemsTotal > totalValidacion
+    // ) {
+    //   alert("El total de los ítems es mayor al total de la factura.");
+    //   return;
+    // }
 
-    if (isProveedorBatch && batchTotalValidacion > totalValidacion) {
-      alert("El total asociado por proveedor excede el total de la factura.");
-      return;
-    }
+    // if (isProveedorBatch && batchTotalValidacion > totalValidacion) {
+    //   alert("El total asociado por proveedor excede el total de la factura.");
+    //   return;
+    // }
 
     if (isProveedorBatch) {
       for (let i = 0; i < batchAsociaciones.length; i++) {
