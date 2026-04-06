@@ -485,6 +485,10 @@ const subirArchivosAS3 = async (): Promise<{
     await obtenerPresignedUrl(archivoPDF.name, archivoPDF.type, folder);
   await subirArchivoAS3(archivoPDF, urlPDF);
 
+
+  console.log(urlXML, publicUrlXML,"🚓🚓🚓🚓🚓🚓" )
+  console.log(urlPDF, publicUrlPDF,"😎😎😎" )
+
   // Guarda URLs por si las ocupas después
   setArchivoXMLUrl(publicUrlXML);
   setArchivoPDFUrl(publicUrlPDF);

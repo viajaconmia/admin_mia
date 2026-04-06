@@ -770,11 +770,20 @@ const rows = useMemo(() => {
     const markUp = Math.max(0, precioVenta - costoProveedor);
 
     const items = r.items ?? [];
-    const totalFacturado = items
-      .filter((it) => it?.id_factura != null)
-      .reduce((acc, it) => acc + Number((it as any).total || 0), 0);
 
-    const pendientePorFacturar = Math.max(0, precioVenta - totalFacturado);
+const totalFacturado = items
+  .filter((it) => it?.id_factura != null)
+  .reduce((acc, it) => acc + Number((it as any).total || 0), 0);
+
+const totalItems = items
+  .reduce((acc, it) => acc + Number((it as any).total || 0), 0);
+
+const pendientePorFacturar = Math.max(
+  0,
+   (totalFacturado === 0 ? totalItems : totalFacturado)
+);
+    console.log(pendientePorFacturar,"=",precioVenta,"-",totalFacturado )
+    console.log(items )
 
     return {
       id: `${r.id_booking}`,
@@ -782,8 +791,8 @@ const rows = useMemo(() => {
       id_cliente: r.id_usuario_generador,
       cliente: r.razon_social ?? "",
       creado: r.created_at,
-      hotel: r.hotel,
-      codigo_hotel: r.codigo_reservacion_hotel ?? "",
+      proveedor: r.hotel,
+      codigo_confirmacion: r.codigo_reservacion_hotel ?? "",
       viajero: r.nombre_viajero ?? "",
       check_in: r.check_in,
       check_out: r.check_out,
@@ -924,8 +933,8 @@ const rows = useMemo(() => {
     "id_cliente",
     "cliente",
     "creado",
-    "hotel",
-    "codigo_hotel",
+    "proveedor",
+    "codigo_confirmacion",
     "viajero",
     "check_in",
     "check_out",
