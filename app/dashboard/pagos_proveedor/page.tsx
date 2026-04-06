@@ -19,7 +19,7 @@ import {
   openFacturaFile,
   downloadFacturaFile,
 } from "@/helpers/cfdiHelpers"; 
-import { EditModal, EditableField } from "./Components/EditModal";      // ✅ nuevo
+import { EditModal, EditableField } from "./Components/EditModal";   
 
 import {
   calcularNoches,
