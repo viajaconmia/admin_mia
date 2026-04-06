@@ -420,7 +420,7 @@ export default function ConciliacionPage() {
   );
 
   const endpoint = `${URL}/mia/pago_proveedor/solicitud_conciliacion`;
-  const editEndpoint = `${URL}/mia/pago_proveedowr/edit`;
+  const editEndpoint = `${URL}/mia/pago_proveedor/edit`;
 
   const [detalleOpen, setDetalleOpen] = useState(false);
   const [detalleSolicitud, setDetalleSolicitud] = useState<any | null>(null);
@@ -897,45 +897,45 @@ export default function ConciliacionPage() {
   }, [facturaSelection]);
 
   const solicitarPagoCredito = useCallback(
-  async (row: AnyRow) => {
-    const id = String(row?.id_solicitud_proveedor ?? "").trim();
-    if (!id) return false;
+    async (row: AnyRow) => {
+      const id = String(row?.id_solicitud_proveedor ?? "").trim();
+      if (!id) return false;
 
-    const ok = confirm(`¿Solicitar pago para la solicitud ${id}?`);
-    if (!ok) return false;
+      const ok = confirm(`¿Solicitar pago para la solicitud ${id}?`);
+      if (!ok) return false;
 
-    const payload = {
-      id_solicitud_proveedor: id,
-      estado_solicitud: "SOLICITADA",
-      is_ajuste: 1,
-      comentario_ajuste: "pago solicitado",
-    };
+      const payload = {
+        id_solicitud_proveedor: id,
+        estado_solicitud: "SOLICITADA",
+        is_ajuste: 1,
+        comentario_ajuste: "pago solicitado",
+      };
 
-    try {
-      const resp = await fetch(editEndpoint, {
-        method: "PATCH",
-        headers: {
-          "x-api-key": API_KEY || "",
-          "Content-Type": "application/json",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-        },
-        body: JSON.stringify(payload),
-      });
+      try {
+        const resp = await fetch(editEndpoint, {
+          method: "PATCH",
+          headers: {
+            "x-api-key": API_KEY || "",
+            "Content-Type": "application/json",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+          },
+          body: JSON.stringify(payload),
+        });
 
-      const json = await resp.json().catch(() => null);
-      if (!resp.ok)
-        throw new Error(json?.message || `Error HTTP: ${resp.status}`);
+        const json = await resp.json().catch(() => null);
+        if (!resp.ok)
+          throw new Error(json?.message || `Error HTTP: ${resp.status}`);
 
-      await load(appliedFilters);
-      return true;
-    } catch (err: any) {
-      console.error("❌ solicitar pago fail", err);
-      alert(err?.message || "Error al solicitar el pago");
-      return false;
-    }
-  },
-  [editEndpoint, load, appliedFilters],
-);
+        await load(appliedFilters);
+        return true;
+      } catch (err: any) {
+        console.error("❌ solicitar pago fail", err);
+        alert(err?.message || "Error al solicitar el pago");
+        return false;
+      }
+    },
+    [editEndpoint, load, appliedFilters],
+  );
 
   const activeAppliedFilters = useMemo(() => {
     return (
