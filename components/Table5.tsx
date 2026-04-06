@@ -593,12 +593,12 @@ const visibleOrderedColumns = useMemo(() => {
         }}
       >
                             {Renderer ? (
-                              <Renderer
-                                value={value}
-                                item={item.item}
-                                index={index}
-                              />
-                            ) : (
+  <Renderer
+    value={value}
+    item={item.item ?? item}
+    index={index}
+  />
+) : (
                               <div className="whitespace-pre-line break-words">
                                 {renderValue(colKey, value, index)}
                               </div>

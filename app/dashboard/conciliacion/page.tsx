@@ -10,6 +10,7 @@ import Button from "@/components/atom/Button";
 import SubirFactura from "@/app/dashboard/facturacion/subirfacturas/SubirFactura";
 import ModalDetalle from "@/app/dashboard/conciliacion/compponents/detalles";
 import { formatDate } from "@/helpers/formater";
+import BuscarUuidFacturaModal from "@/app/dashboard/conciliacion/compponents/BuscarUuidFacturaModal";
 import FiltrosConciliacionModal, {
   type ConciliacionFilters,
 } from "@/app/dashboard/conciliacion/compponents/FiltrosReservaModal";
@@ -465,6 +466,102 @@ export default function ConciliacionPage() {
     fecha_reserva_end: "",
     filtrar_fecha_por_reserva: "",
   };
+
+  type BuscarUuidMatchRow = {
+  codigo_confirmacion: string;
+  uuid_factura: string;
+  id_solicitud: string | number;
+  monto: number;
+};
+
+const [buscarUuidModal, setBuscarUuidModal] = useState<{
+  open: boolean;
+  loading: boolean;
+  uuid_factura: string;
+  rows: BuscarUuidMatchRow[];
+}>({
+  open: false,
+  loading: false,
+  uuid_factura: "",
+  rows: [],
+});
+
+const buscarUuidEndpoint = `${URL}/mia/pago_proveedor/buscaruuid`;
+
+const closeBuscarUuidModal = useCallback(() => {
+  setBuscarUuidModal({
+    open: false,
+    loading: false,
+    uuid_factura: "",
+    rows: [],
+  });
+}, []);
+
+const openBuscarUuidModal = useCallback(
+  async (row: AnyRow) => {
+    const uuid = String(row?.uuid_factura ?? "").trim();
+
+    if (!uuid) {
+      alert("Esta fila no tiene uuid_factura");
+      return;
+    }
+
+    setBuscarUuidModal({
+      open: true,
+      loading: true,
+      uuid_factura: uuid,
+      rows: [],
+    });
+
+    try {
+      const resp = await fetch(buscarUuidEndpoint, {
+        method: "POST",
+        headers: {
+          "x-api-key": API_KEY || "",
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+        },
+        body: JSON.stringify({
+          uuid_factura: uuid,
+        }),
+      });
+
+      const json = await resp.json().catch(() => null);
+
+      if (!resp.ok) {
+        throw new Error(json?.message || `Error HTTP: ${resp.status}`);
+      }
+
+      const list = Array.isArray(json?.data) ? json.data : [];
+
+      const rows: BuscarUuidMatchRow[] = list.map((r: any) => ({
+        codigo_confirmacion: r?.codigo_confirmacion ?? "",
+        uuid_factura: r?.uuid_factura ?? "",
+        id_solicitud: r?.id_solicitud ?? "",
+        monto: Number(r?.monto_facturado ?? r?.monto_solicitado ?? 0) || 0,
+      }));
+
+      setBuscarUuidModal({
+        open: true,
+        loading: false,
+        uuid_factura: uuid,
+        rows,
+      });
+    } catch (err: any) {
+      console.error("❌ buscaruuid fail", err);
+
+      setBuscarUuidModal({
+        open: true,
+        loading: false,
+        uuid_factura: uuid,
+        rows: [],
+      });
+
+      alert(err?.message || "Error al buscar coincidencias por uuid");
+    }
+  },
+  [buscarUuidEndpoint],
+);
 
   const DEFAULT_OPEN_FILTERS: ConciliacionFilters = {
     ...EMPTY_FILTERS,
@@ -1463,6 +1560,8 @@ export default function ConciliacionPage() {
               </div>
             </div>
 
+            
+
             <div className="flex items-center justify-end gap-2">
               <Button
                 variant="secondary"
@@ -1524,6 +1623,8 @@ export default function ConciliacionPage() {
                   </span>
                 </span>
               </Button>
+
+              
             </div>
           </div>
 

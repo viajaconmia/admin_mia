@@ -12,15 +12,15 @@ import {
   norm,
   normUpper,
   EPS,
-  isZero,
+  isZero, 
   extractPagosAsociados,
   hasPagosAsociados,
   extractFacturas,
   openFacturaFile,
-  downloadFacturaFile,
+  downloadFacturaFile, 
 } from "@/helpers/cfdiHelpers"; 
 import { EditModal, EditableField } from "./Components/EditModal";   
-
+import { createSolicitudesRenderers } from "./Components/renders";
 import {
   calcularNoches,
   formatRoom,
@@ -36,7 +36,7 @@ import { currentDate } from "@/lib/utils";
 import { fetchGetSolicitudesProveedores1 } from "@/services/pago_proveedor";
 import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
-
+import {OtrosMetodosPagoModal} from "./Components/OtrosMetodosPagoModal";
 import {
   DispersionModal,
   SolicitudProveedorRaw,
@@ -645,6 +645,7 @@ const [solicitudesPago, setSolicitudesPago] = useState<SolicitudesPorFiltro>({
 
   const [showDispersionModal, setShowDispersionModal] = useState(false);
   const [showComprobanteModal, setShowComprobanteModal] = useState(false);
+  const [showComprobanteModal2, setShowComprobanteModal2] = useState(false);
 
   const [solicitudesSeleccionadasModal, setSolicitudesSeleccionadasModal] =
     useState<SolicitudProveedorRaw[]>([]);
@@ -1000,6 +1001,16 @@ const baseList: SolicitudProveedor[] =
     item?.solicitud_proveedor?.usuario_solicitante ?? "",
   usuario_generador: item?.solicitud_proveedor?.usuario_generador ?? "",
   comentarios_sp: item?.solicitud_proveedor?.comentarios ?? "",
+  notas_internas:
+    item?.solicitud_proveedor?.notas_internas ??
+    (item as any)?.notas_internas ??
+    "",
+
+  comentarios_Ap:
+    item?.solicitud_proveedor?.comentarios_Ap ??
+    (item as any)?.comentarios_Ap ??
+    (item as any)?.comentarios_ap ??
+    "",
   estado_solicitud: item?.solicitud_proveedor?.estado_solicitud ?? "",
   estado_facturacion: item?.solicitud_proveedor?.estado_facturacion ?? "",
   estatus_pagos: item?.estatus_pagos ?? "",
@@ -1150,6 +1161,7 @@ const getProveedorCuentas = (raw: any) => {
 };
 
   const handleCsv = () => setShowComprobanteModal(true);
+  const handleCsvnospei = () => setShowComprobanteModal2(true);
 
 const clearSelection = useCallback(() => {
   setSelectedSolicitudesMap({});
@@ -1172,6 +1184,8 @@ const customColumns = useMemo(() => {
     "usuario_solicitante",
     "usuario_generador",
     "comentarios_sp",
+    "notas_internas",
+    "comentarios_Ap",
 
     "codigo_confirmacion",
     "creado",
@@ -1328,759 +1342,49 @@ const marcarNotificadoPagado = useCallback(
   [patchSolicitudProveedorFields, clearSelection, handleFetchSolicitudesPago],
 );
   // ---------- RENDERERS ----------
-  const renderers: Record<
-    string,
-    React.FC<{ value: any; item: any; index: number }>
-  > = {
-    comentario_sistema: ({ value }) => {
-  const texto = String(value ?? "").trim();
-  const preview = texto.length > 42 ? texto.slice(0, 42) + "…" : texto;
-
-  return (
-    <span className="text-xs text-sky-800" title={texto || "—"}>
-      {texto ? preview : <span className="text-gray-400">—</span>}
-    </span>
-  );
-},
-    seleccionar: ({ item, index }) => {
-      const row = item as any;
-      const raw: SolicitudProveedor | undefined =
-        (row.item as SolicitudProveedor) || row;
-      // ✅ SOLO transfer puede seleccionarse (dispersión)
-      const forma = getFormaPago(raw);
-      const estadoSolicitud = normUpper(raw?.solicitud_proveedor?.estado_solicitud ?? "");
-      const isCancelada = estadoSolicitud.includes("CANCEL");
-      if (forma !== "transfer") {
-        return (
-          <span
-            className="text-gray-300"
-            title="Solo Transferencia se puede seleccionar"
-          >
-            —
-          </span>
-        );
-      }
-      if (isCancelada) {
-  return (
-    <span className="text-gray-300" title="Solicitud cancelada">
-      —
-    </span>
-  );
-}
-
-      if (!raw) return null;
-
-      // mejoramos “tieneDispersion” con pagos asociados
-      const saldo = getSaldo(raw);
-      const tieneDispersion = hasPagosAsociados(raw) || isZero(saldo);
-
-      const key = String(
-        (raw as any).id_solicitud ??
-          (raw as any).id ??
-          raw.solicitud_proveedor?.id_solicitud_proveedor ??
-          index,
-      );
-      const isSelected = !!selectedSolicitudesMap[key];
-
-      if (categoria === "pagada")
-        return <span className="text-gray-300">—</span>;
-
-      if (tieneDispersion) {
-        return (
-          <input
-            type="checkbox"
-            checked={false}
-            disabled
-            title="Esta solicitud ya tiene pagos/dispersiones asociadas o saldo 0"
-          />
-        );
-      }
-
-      return (
-        <input
-          type="checkbox"
-          checked={isSelected}
-          onChange={(e) => {
-            setSelectedSolicitudesMap((prev) => {
-              const next = { ...prev };
-              if (e.target.checked) next[key] = raw;
-              else delete next[key];
-              return next;
-            });
-
-            setSolicitud((prev) => {
-              const rawId = (raw as any).id_solicitud ?? (raw as any).id;
-              if (e.target.checked) return [...prev, raw];
-              return prev.filter(
-                (s) => ((s as any).id_solicitud ?? (s as any).id) !== rawId,
-              );
-            });
-
-            setDatosDispersion((prev) => {
-              const idSolProv =
-                raw.solicitud_proveedor?.id_solicitud_proveedor ?? null;
-              const idSol =
-                (raw as any).id_solicitud ?? (raw as any).id ?? null;
-
-              if (e.target.checked) {
-                const nuevo: DatosDispersion = {
-                  codigo_reservacion_hotel:
-                    raw.codigo_reservacion_hotel ?? null,
-                  costo_proveedor: Number((raw as any).costo_total) || 0,
-                  id_solicitud: idSol,
-                  id_solicitud_proveedor: idSolProv,
-                  monto_solicitado:
-                    Number(raw.solicitud_proveedor?.monto_solicitado) || 0,
-                  razon_social: raw.proveedor?.razon_social ?? null,
-                  rfc: raw.proveedor?.rfc ?? null,
-                  cuenta_banco: (raw as any).cuenta_de_deposito ?? null,
-                };
-
-                const exists = prev.some(
-                  (d) => d.id_solicitud === nuevo.id_solicitud,
-                );
-                return exists ? prev : [...prev, nuevo];
-              } else {
-                return prev.filter((d) => d.id_solicitud !== idSol);
-              }
-            });
-          }}
-        />
-      );
-    },
-
-    id_solicitud_proveedor: ({ value }) => (
-      <div className="px-1 py-0.5">
-        <span className="font-mono text-xs" title={String(value)}>
-          {String(value || "").slice(0, 10)}
-        </span>
-      </div>
-    ),
-
-    fecha_solicitud: ({ value }) => (
-      <span title={value}>{formatDate(value)}</span>
-    ),
-
-    monto_solicitado: ({ value, item }) => {
-      const raw = (item as any)?.item ?? item;
-      const id = getIdSolProv(raw);
-
-      return (
-        <InlineMoneyEdit
-          id={id}
-          value={Number(value || 0)}
-          onSave={async (next) => {
-            return await patchSolicitudProveedor(id, "monto_solicitado", next);
-          }}
-        />
-      );
-    },
-
-    saldo: ({ value }) => (
-      <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>
-    ),
-
-    uso_cfdi_factura: ({ item }) => {
-  const raw = (item as any)?.item ?? item;
-  const facturas = extractFacturas(raw);
-
-  if (!facturas.length) {
-    return <span className="text-gray-400">—</span>;
-  }
-
-  return (
-    <div className="flex flex-col gap-1">
-      {facturas.map((f, idx) => {
-        const value = f?.uso_cfdi;
-        return (
-          <span
-            key={`uso-cfdi-${idx}`}
-            className="text-xs break-words whitespace-normal"
-            title={value ? formatSatValue(value, CFDI_USO_LABELS) : "—"}
-          >
-            {value ? formatSatValue(value, CFDI_USO_LABELS) : "—"}
-          </span>
-        );
-      })}
-    </div>
-  );
-},
-
-forma_pago_factura: ({ item }) => {
-  const raw = (item as any)?.item ?? item;
-  const facturas = extractFacturas(raw);
-
-  if (!facturas.length) {
-    return <span className="text-gray-400">—</span>;
-  }
-
-  return (
-    <div className="flex flex-col gap-1">
-      {facturas.map((f, idx) => {
-        const value = f?.forma_pago;
-        return (
-          <span
-            key={`forma-pago-${idx}`}
-            className="text-xs break-words whitespace-normal"
-            title={value ? formatSatValue(value, CFDI_FORMA_PAGO_LABELS) : "—"}
-          >
-            {value ? formatSatValue(value, CFDI_FORMA_PAGO_LABELS) : "—"}
-          </span>
-        );
-      })}
-    </div>
-  );
-},
-
-metodo_pago_factura: ({ item }) => {
-  const raw = (item as any)?.item ?? item;
-  const facturas = extractFacturas(raw);
-
-  if (!facturas.length) {
-    return <span className="text-gray-400">—</span>;
-  }
-
-  return (
-    <div className="flex flex-col gap-1">
-      {facturas.map((f, idx) => {
-        const value = f?.metodo_pago;
-        return (
-          <span
-            key={`metodo-pago-${idx}`}
-            className="text-xs break-words whitespace-normal"
-            title={value ? formatSatValue(value, CFDI_METODO_PAGO_LABELS) : "—"}
-          >
-            {value ? formatSatValue(value, CFDI_METODO_PAGO_LABELS) : "—"}
-          </span>
-        );
-      })}
-    </div>
-  );
-},
-
-moneda_factura: ({ item }) => {
-  const raw = (item as any)?.item ?? item;
-  const facturas = extractFacturas(raw);
-
-  if (!facturas.length) {
-    return <span className="text-gray-400">—</span>;
-  }
-
-  return (
-    <div className="flex flex-col gap-1">
-      {facturas.map((f, idx) => {
-        const value = String(f?.moneda ?? "").trim().toUpperCase();
-        return (
-          <span
-            key={`moneda-${idx}`}
-            className="text-xs break-words whitespace-normal"
-            title={value || "—"}
-          >
-            {value || "—"}
-          </span>
-        );
-      })}
-    </div>
-  );
-},
-
-    forma_pago_solicitada: ({ value }) => (
-      <span className="font-semibold">
-        {value
-          ? String(value)
-              .replace("transfer", "Transferencia")
-              .replace("card", "Tarjeta")
-              .replace("link", "Link")
-              .replace("credit", "Ap Credito")
-              .toUpperCase()
-          : ""}
-      </span>
-    ),
-
-    estatus_pagos: ({ value }) => (
-      <Pill
-        text={
-          value
-            ? String(value)
-                .replace("enviado_a_pago", "Enviado a Pago")
-                .replace("pagado", "Pagado")
-                .toUpperCase()
-            : "—"
-        }
-        tone="blue"
-      />
-    ),
-
-    facturas_acciones: ({ item }) => {
-  const raw = (item as any)?.item ?? item;
-  const facturas = extractFacturas(raw);
-
-  if (!facturas.length) {
-    return <span className="text-gray-400">—</span>;
-  }
-
-  return (
-    <div className="flex flex-col gap-2">
-      {facturas.map((factura, idx) => {
-        const pdfUrl = factura?.url_pdf || null;
-        const xmlUrl = factura?.url_xml || null;
-
-        // prioridad al PDF
-        const viewUrl = pdfUrl || xmlUrl;
-        const downloadUrl = pdfUrl || xmlUrl;
-
-        const uuid =
-          factura?.uuid_factura ||
-          factura?.uuid_cfdi ||
-          factura?.uuid ||
-          `factura_${idx + 1}`;
-
-        const extension = pdfUrl ? "pdf" : xmlUrl ? "xml" : "file";
-
-        return (
-          <div
-            key={`${uuid}-${idx}`}
-            className="flex items-center gap-2 flex-wrap"
-          >
-            <span
-              className="font-mono text-[11px] text-slate-600"
-              title={""}
-            >
-              {String(uuid).slice(0, 8)}...
-            </span>
-
-            <button
-              type="button"
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium border border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-100 hover:border-sky-300 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={!viewUrl}
-              onClick={() => openFacturaFile(viewUrl)}
-              title={pdfUrl ? "Ver PDF" : "Ver XML"}
-            >
-              <Eye className="w-3.5 h-3.5" />
-              <span>Ver</span>
-            </button>
-
-            <button
-              type="button"
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={!downloadUrl}
-              onClick={() =>
-                downloadFacturaFile(
-                  downloadUrl,
-                  `${uuid}.${extension}`,
-                )
-              }
-              title={pdfUrl ? "Descargar PDF" : "Descargar XML"}
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Descargar</span>
-            </button>
-          </div>
-        );
-      })}
-    </div>
-  );
-},
-
-    estado_solicitud: ({ value }) => (
-      <span className="text-xs">{String(value ?? "—")}</span>
-    ),
-    estado_facturacion: ({ value }) => (
-      <span className="text-xs">{String(value ?? "—")}</span>
-    ),
-    usuario_solicitante: ({ value }) => (
-      <span className="text-xs">{String(value ?? "—")}</span>
-    ),
-    usuario_generador: ({ value }) => (
-      <span className="text-xs">{String(value ?? "—")}</span>
-    ),
-
-    comentarios_sp: ({ value }) => {
-      const t = String(value ?? "").trim();
-      const prev = t.length > 40 ? t.slice(0, 40) + "…" : t;
-      return (
-        <span className="text-xs" title={t || "—"}>
-          {t ? prev : <span className="text-gray-400">—</span>}
-        </span>
-      );
-    },
-
-    creado: ({ value }) => <span title={value}>{formatDate(value)}</span>,
-    codigo_hotel: ({ value }) => (
-      <span className="font-semibold">
-        {value ? String(value).toUpperCase() : ""}
-      </span>
-    ),
-    check_in: ({ value }) => (
-      <span title={value}>{formatDate(value)}</span>
-    ),
-    check_out: ({ value }) => (
-      <span title={value}>{formatDate(value)}</span>
-    ),
-
-    costo_proveedor: ({ value }) => {
-      const monto = Number(value || 0);
-      return (
-        <span className="inline-flex items-center px-2 py-1 rounded-full bg-gray-100 text-xs font-medium text-gray-800 border border-gray-200">
-          ${monto.toFixed(2)}
-        </span>
-      );
-    },
-
-    // ✅ comentarios CXP SOLO LECTURA
-    comentarios_cxp: ({ value }) => {
-      const texto = String(value ?? "").trim();
-      const preview = texto.length > 34 ? texto.slice(0, 34) + "…" : texto;
-
-      return (
-        <span className="text-xs text-gray-800" title={texto || "—"}>
-          {texto ? preview : <span className="text-gray-400">—</span>}
-        </span>
-      );
-    },
-
-    markup: ({ value }) => (
-      <span
-        className={`font-semibold border px-2 py-1 rounded-full ${
-          value == "Infinity"
-            ? "text-gray-700 bg-gray-100 border-gray-300"
-            : value > 0
-              ? "text-green-600 bg-green-100 border-green-300"
-              : "text-red-600 bg-red-100 border-red-300"
-        }`}
-      >
-        {value == "Infinity" ? "0%" : `${Number(value).toFixed(2)}%`}
-      </span>
-    ),
-
-    precio_de_venta: ({ value }) => (
-      <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>
-    ),
-
-    metodo_de_pago: ({ value }) => getPaymentBadge(value),
-    reservante: ({ value }) => getWhoCreateBadge(value),
-    etapa_reservacion: ({ value }) => getStageBadge(value),
-    estado: ({ value }) => getStatusBadge(value),
-
-    // ----------- PAGO -----------
-    estado_pago: ({ value }) => (
-      <Pill
-        text={(value ?? "—")
-          .replace("pagado", "Pagado")
-          .replace("enviado_a_pago", "Enviado a Pago")
-          .toUpperCase()}
-        tone={pagoTone3(value) as any}
-      />
-    ),
-
-    pendiente_a_pagar: ({ value }) => (
-      <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>
-    ),
-    monto_pagado_proveedor: ({ value }) => (
-      <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>
-    ),
-    fecha_pagado: ({ value }) =>
-      value ? (
-        <span title={value}>{formatDate(value)}</span>
-      ) : (
-        <span className="text-gray-400">—</span>
-      ),
-
-    // ----------- FACTURA -----------
-    estado_factura_proveedor: ({ value }) => (
-      <Pill
-        text={(value || "—")
-          .replace("facturado", "Facturado")
-          .replace("parcial", "Parcial")
-          .replace("pendiente", "Pendiente")
-          .toUpperCase()}
-        tone={facturaTone((value || "").toLowerCase()) as any}
-      />
-    ),
-
-    total_facturado: ({ value }) => (
-      <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>
-    ),
-    monto_por_facturar: ({ value }) => {
-      const n = Number(value || 0);
-      return (
-        <span
-          className={
-            n <= EPS
-              ? "text-green-700 font-semibold"
-              : "text-amber-700 font-semibold"
-          }
-        >
-          ${n.toFixed(2)}
-        </span>
-      );
-    },
-    fecha_facturacion: ({ value }) =>
-      value ? (
-        <span title={value}>{formatDate(value)}</span>
-      ) : (
-        <span className="text-gray-400">—</span>
-      ),
-
-UUID: ({ item }) => {
-  const raw = (item as any)?.item ?? item;
-  const facturas = extractFacturas(raw);
-
-  if (!facturas.length) {
-    return <span className="text-gray-400">—</span>;
-  }
-
-  return (
-    <div className="flex flex-col gap-1">
-      {facturas.map((f, idx) => {
-        const uuid =
-          f?.uuid_factura ||
-          f?.uuid_cfdi ||
-          f?.uuid ||
-          `factura_${idx + 1}`;
-
-        return (
-          <span
-            key={`${uuid}-${idx}`}
-            className="font-mono text-xs break-all whitespace-normal"
-            title={"cfdi"}
-          >
-            CFDI: {String(uuid)}
-          </span>
-        );
-      })}
-    </div>
-  );
-},
-
-    // ✅ ACCIONES: 3 botones según reglas
-    acciones: ({ item }) => {
-      const row = item as any;
-      const raw = row?.item ?? row;
-
-      const idSolProv = getIdSolProv(raw);
-      const forma = getFormaPago(raw);
-      const pagado = isPagado(raw);
-      if (categoria === "canceladas") return null;
-
-      // ✅ lee bien el estado (viene de raw.solicitud_proveedor o del row ya mapeado)
-      const estadoSolicitud = normUpper(
-        raw?.solicitud_proveedor?.estado_solicitud ??
-          row?.estado_solicitud ??
-          "",
-      );
-      const isCancelada = estadoSolicitud.includes("CANCEL");
-      const cancelDisabled = pagado || isCancelada || categoria === "pagada";
-
-      // ✅ si es CUPON, oculta acciones en todas las carpetas MENOS en carta_garantia
-      if (estadoSolicitud.includes("CUPON") && categoria !== "ap_credito")
-        return null;
-
-      const costoActual = Number((raw as any)?.costo_total ?? 0) || 0;
-
-      return (
-        <div className="flex items-center gap-2">
-          {/* ✅ MÉTODO SOLO PARA carta_garantia */}
-          {categoria === "ap_credito" && (
-          <MetodoPagoModal
-            idSolProv={idSolProv}
-            currentMethod={forma}
-            currentCardId={raw?.solicitud_proveedor?.id_tarjeta_solicitada ?? null}
-            onSetMethod={async (next) => {
-              const ok = await patchSolicitudProveedor(idSolProv, "forma_pago_solicitada", next);
-              if (ok) handleFetchSolicitudesPago();
-              return ok;
-            }}
-            onSetCard={async ({ id_tarjeta_solicitada }) => {
-              const ok = await patchSolicitudProveedor(idSolProv, "id_tarjeta_solicitada", id_tarjeta_solicitada);
-              if (ok) handleFetchSolicitudesPago();
-              return ok;
-            }}
-          />
-          )}
-
-
-          {/* Editar costo proveedor (SIEMPRE) */}
-          <button
-            type="button"
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors shadow-sm"
-            onClick={() => openEditModal(raw, "costo_proveedor", costoActual)}
-            title="Editar costo proveedor"
-          >
-            <Maximize2 className="w-3.5 h-3.5" />
-            <span>Costo</span>
-          </button>
-
-{categoria === "notificados" ? (
-  <select
-    className="px-2.5 py-1.5 rounded-md text-xs font-medium border border-sky-200 bg-sky-50 text-sky-800 shadow-sm outline-none focus:ring-2 focus:ring-sky-300"
-    defaultValue=""
-    onChange={async (e) => {
-      const value = e.target.value;
-
-      if (!value) return;
-
-      const pagadoValue = value === "1" ? 1 : 0;
-
-      const okConfirm = window.confirm(
-        `¿Seguro que deseas actualizar la solicitud ${idSolProv}?\n\n` +
-          `Se enviará:\n` +
-          `- estado_solicitud: CANCELADA\n` +
-          `- pagado: ${pagadoValue}`
-      );
-      if (!okConfirm) {
-        e.target.value = "";
-        return;
-      }
-
-      const ok = await marcarNotificadoPagado(
-        idSolProv,
-        pagadoValue as 0 | 1
-      );
-
-      if (!ok) {
-        e.target.value = "";
-      }
-    }}
-    title="Actualizar pagado/no pagado"
-  >
-    <option value="">Pagado / No pagado</option>
-    <option value="1">Pagado</option>
-    <option value="0">No pagado</option>
-  </select>
-) : (
-  <button
-    type="button"
-    className={[
-      "inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors shadow-sm",
-      cancelDisabled
-        ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
-        : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:border-rose-300",
-    ].join(" ")}
-    disabled={cancelDisabled}
-    onClick={async () => {
-      const okConfirm = window.confirm(
-        `¿Seguro que deseas CANCELAR la solicitud ${idSolProv}?`,
-      );
-      if (!okConfirm) return;
-
-      await cancelSolicitud(idSolProv);
-    }}
-    title={
-      categoria === "pagada"
-        ? "En carpeta pagada no se puede cancelar"
-        : isCancelada
-          ? "Ya está cancelada"
-          : pagado
-            ? "No se puede cancelar una solicitud pagada"
-            : "Cancelar solicitud"
-    }
-  >
-    <Ban className="w-3.5 h-3.5" />
-    <span>Cancelar</span>
-  </button>
-)}
-          {/* Botón marcar pagado (solo si no es transfer) */}
-          {forma !== "transfer" && categoria !== "ap_credito" && categoria !== "notificados" && (
-  <button
-    type="button"
-    className={[
-      "inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors shadow-sm",
-      pagado
-        ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
-        : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300",
-    ].join(" ")}
-    disabled={pagado}
-    onClick={async () => {
-      if (pagado) return;
-
-      const estadoSolicitudPagado = getEstadoSolicitudPagado(raw, categoria);
-
-      const ok = window.confirm(
-        `¿Marcar como PAGADO la solicitud ${idSolProv}?\n\n` +
-          `Se enviará:\n` +
-          `- estatus_pagos: pagado\n` +
-          `- estado_solicitud: ${estadoSolicitudPagado ?? "N/D"}`
-      );
-      if (!ok) return;
-
-      await marcarSolicitudPagada(raw);
-    }}
-    title={pagado ? "Ya está pagado" : "Marcar como pagado"}
-  >
-    <CheckCircle2 className="w-3.5 h-3.5" />
-    <span>Pagado</span>
-  </button>
-)}
-
-          {/* Conciliar (solo en pagados) */}
-          {/* Botón conciliar (solo pagados) */}
-          {(() => {
-  const consolidado = Number(
-    (raw as any)?.consolidado ??
-      (raw as any)?.estatus_conciliado ??
-      (raw as any)?.conciliado ??
-      0,
-  );
-
-  const { diferencia, totalPagado, totalFacturado, puedeConciliar } =
-    getConciliacionInfo(raw);
-
-  if (!pagado) return null;
-
-  const disabled = consolidado === 1 || !puedeConciliar;
-
-  return (
-    <button
-      type="button"
-      className={[
-        "inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors shadow-sm",
-        disabled
-          ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
-          : "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-300",
-      ].join(" ")}
-      disabled={disabled}
-      onClick={async () => {
-        if (disabled) return;
-        await conciliarSolicitud(raw);
-      }}
-      title={
-        consolidado === 1
-          ? "Ya está conciliada"
-          : !puedeConciliar
-            ? `No se puede conciliar. Diferencia actual: $${diferencia.toFixed(
-                2,
-              )} (pagado: $${totalPagado.toFixed(
-                2,
-              )}, facturado: $${totalFacturado.toFixed(2)})`
-            : "Conciliar (marca consolidado=1)"
-      }
-    >
-      <Handshake className="w-3.5 h-3.5" />
-      <span>Conciliar</span>
-    </button>
-  );
-})()}
-        </div>
-      );
-    },
-
-    // ✅ Mostrar TODOS los campos del SP (raw)
-
-    // ----------- SOLICITUD -----------
-    fecha_de_pago: ({ value }) => {
-      if (!value) return <span className="text-gray-400">—</span>;
-      const colorClasses = getFechaPagoColor(value);
-      return (
-        <span
-          title={value}
-          className={`px-2 py-1 rounded-full text-xs font-semibold border ${colorClasses}`}
-        >
-          {formatDate(value)}
-        </span>
-      );
-    },
-  };
+  const renderers = useMemo(
+  () =>
+    createSolicitudesRenderers({
+      categoria,
+      selectedSolicitudesMap,
+      setSelectedSolicitudesMap,
+      setSolicitud,
+      setDatosDispersion,
+
+      getIdSolProv,
+      getFormaPago,
+      getSaldo,
+      isPagado,
+      hasPagosAsociados,
+
+      pagoTone3,
+      facturaTone,
+
+      openEditModal,
+      patchSolicitudProveedor,
+      handleFetchSolicitudesPago,
+      marcarSolicitudPagada,
+      cancelSolicitud,
+      conciliarSolicitud,
+      marcarNotificadoPagado,
+      getEstadoSolicitudPagado,
+      getConciliacionInfo,
+    }),
+  [
+    categoria,
+    selectedSolicitudesMap,
+    setSelectedSolicitudesMap,
+    setSolicitud,
+    setDatosDispersion,
+    openEditModal,
+    patchSolicitudProveedor,
+    handleFetchSolicitudesPago,
+    marcarSolicitudPagada,
+    cancelSolicitud,
+    conciliarSolicitud,
+    marcarNotificadoPagado,
+  ]
+);
 
   // ---------- Tabs config (carpetas) ----------
   const tabs = useMemo(
@@ -2190,6 +1494,24 @@ getRowClassName={(row) => {
                 Subir comprobante
               </Button>
 
+              <Button
+                onClick={handleCsvnospei}
+                icon={Upload}
+                variant="ghost"
+                size="md"
+                className={[
+                  "h-10 !rounded-xl px-3",
+                  "border border-slate-200 bg-white text-slate-800",
+                  "shadow-sm hover:shadow",
+                  "hover:bg-slate-50 hover:border-slate-300",
+                  "active:translate-y-[1px] transition-all",
+                  "focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2",
+                ].join(" ")}
+                title="Subir comprobante"
+              >
+                Subir comprobante no spei
+              </Button>
+
               {/* Generar dispersión */}
               <Button
                 onClick={handleDispersion}
@@ -2240,10 +1562,10 @@ getRowClassName={(row) => {
         value={editModal.value}
         onClose={closeEditModal}
         onSave={saveEditModal}
-        onValueChange={(val) =>
-          setEditModal((prev) => ({ ...prev, value: val }))
+        onValueChange={(value) =>
+          setEditModal((prev) => ({ ...prev, value }))
         }
-      />  
+      />
 
       {showDispersionModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
@@ -2265,6 +1587,17 @@ getRowClassName={(row) => {
             onSubmit={async (payload) => {
               console.log("Payload de comprobante listo para API:", payload);
               setShowComprobanteModal(false);
+            }}
+          />
+        </div>
+      )}
+      {showComprobanteModal2 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <OtrosMetodosPagoModal
+            onClose={() => setShowComprobanteModal2(false)}
+            onSubmit={async (payload) => {
+              console.log("Payload de comprobante listo para API:", payload);
+              setShowComprobanteModal2(false);
             }}
           />
         </div>
