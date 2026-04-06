@@ -15,6 +15,7 @@ import {
   Star,
   Users2,
   User,
+  Wallet,
 } from "lucide-react";
 
 import NavContainer from "@/components/organism/NavContainer"; // <- aquí importas el nuevo
@@ -133,6 +134,11 @@ const links: NavGroup[] = [
         title: "Pagos proveedor",
         href: "/dashboard/pagos_proveedor",
         icon: CreditCard,
+      },
+      {
+        title: "Saldos Proveedor",
+        href: "/dashboard/saldo_a_favor_proveedor",
+        icon: Wallet,
       },
     ],
   },

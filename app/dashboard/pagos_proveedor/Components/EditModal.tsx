@@ -6,7 +6,9 @@ export type EditableField =
   | "costo_proveedor"
   | "estatus_pagos"
   | "monto_solicitado"
-  | "consolidado";
+  | "consolidado"
+  | "notas_internas"
+  | "comentarios_Ap";
 
 interface EditModalProps {
   open: boolean;
@@ -28,6 +30,9 @@ export const EditModal: React.FC<EditModalProps> = ({
   onValueChange,
 }) => {
   if (!open) return null;
+
+  const isLongTextField =
+    field === "notas_internas" || field === "comentarios_Ap";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -63,6 +68,14 @@ export const EditModal: React.FC<EditModalProps> = ({
               value={value}
               onChange={(e) => onValueChange(e.target.value)}
               placeholder="0.00"
+            />
+          ) : isLongTextField ? (
+            <textarea
+              rows={6}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100 resize-y"
+              value={value}
+              onChange={(e) => onValueChange(e.target.value)}
+              placeholder="Escribe aquí..."
             />
           ) : (
             <input
