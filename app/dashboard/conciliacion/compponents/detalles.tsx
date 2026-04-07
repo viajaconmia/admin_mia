@@ -168,6 +168,90 @@ function getTaxRateDecimal(f: any) {
   return pct > 0 ? pct / 100 : 0;
 }
 
+function getFacturaBaseAmounts(f: any) {
+  const subtotalFactura = toNum(
+    f?.subtotal_factura ??
+      f?.subtotal_moneda_O ??
+      f?.sub_total_moneda_O ??
+      f?.subtotal ??
+      0
+  );
+
+  const impuestosFactura = toNum(
+    f?.impuestos_factura ??
+      f?.impuestos_moneda_O ??
+      f?.impuestos ??
+      0
+  );
+
+  const totalFactura = toNum(
+    f?.total_factura ??
+      f?.total_moneda_O ??
+      f?.total ??
+      subtotalFactura + impuestosFactura
+  );
+
+  const baseTotal =
+    subtotalFactura > 0 || impuestosFactura > 0
+      ? round2(subtotalFactura + impuestosFactura)
+      : round2(totalFactura);
+
+  return {
+    subtotalFactura: round2(subtotalFactura),
+    impuestosFactura: round2(impuestosFactura),
+    totalFactura: round2(baseTotal),
+  };
+}
+
+function getFacturaRatios(f: any) {
+  const { subtotalFactura, impuestosFactura, totalFactura } =
+    getFacturaBaseAmounts(f);
+
+  if (totalFactura > 0 && (subtotalFactura > 0 || impuestosFactura > 0)) {
+    return {
+      subtotalRatio: subtotalFactura / totalFactura,
+      impuestosRatio: impuestosFactura / totalFactura,
+    };
+  }
+
+  const taxRateDecimal = getTaxRateDecimal(f);
+
+  if (taxRateDecimal > 0) {
+    return {
+      subtotalRatio: 1 / (1 + taxRateDecimal),
+      impuestosRatio: taxRateDecimal / (1 + taxRateDecimal),
+    };
+  }
+
+  return {
+    subtotalRatio: 1,
+    impuestosRatio: 0,
+  };
+}
+
+function splitMontoAsociadoProporcional(monto: number, factura: any) {
+  const montoAsociar = round2(monto);
+
+  if (montoAsociar <= 0) {
+    return {
+      subtotal: 0,
+      impuestos: 0,
+      monto_asociar: 0,
+    };
+  }
+
+  const { subtotalRatio, impuestosRatio } = getFacturaRatios(factura);
+
+  const subtotal = round2(montoAsociar * subtotalRatio);
+  const impuestos = round2(montoAsociar - subtotal);
+
+  return {
+    subtotal,
+    impuestos: impuestosRatio > 0 ? impuestos : 0,
+    monto_asociar: montoAsociar,
+  };
+}
+
 function toDraftString(n: number) {
   return Number.isFinite(n) ? String(round2(n)) : "";
 }
@@ -176,7 +260,7 @@ function recalcDraftFromField(
   field: "subtotal" | "impuestos" | "monto_asociar",
   rawValue: string,
   current: FacturaDraft,
-  taxRateDecimal: number
+  factura: any
 ): FacturaDraft {
   const raw = String(rawValue ?? "");
 
@@ -195,55 +279,41 @@ function recalcDraftFromField(
     };
   }
 
-  let subtotal = toNum(current.subtotal);
-  let impuestos = toNum(current.impuestos);
-  let monto_asociar = toNum(current.monto_asociar);
   const value = toNum(raw);
+  const { subtotalRatio, impuestosRatio } = getFacturaRatios(factura);
 
   if (field === "monto_asociar") {
-    monto_asociar = value;
-
-    if (taxRateDecimal > 0) {
-      subtotal = round2(monto_asociar / (1 + taxRateDecimal));
-      impuestos = round2(monto_asociar - subtotal);
-    } else {
-      subtotal = round2(monto_asociar);
-      impuestos = 0;
-    }
+    const next = splitMontoAsociadoProporcional(value, factura);
 
     return {
-      subtotal: toDraftString(subtotal),
-      impuestos: toDraftString(impuestos),
-      monto_asociar: raw, // <- conservar exactamente lo que escribe
+      subtotal: toDraftString(next.subtotal),
+      impuestos: toDraftString(next.impuestos),
+      monto_asociar: raw,
     };
   }
 
   if (field === "subtotal") {
-    subtotal = value;
-    impuestos = round2(subtotal * taxRateDecimal);
-    monto_asociar = round2(subtotal + impuestos);
+    const monto_asociar =
+      subtotalRatio > 0 ? round2(value / subtotalRatio) : round2(value);
+
+    const next = splitMontoAsociadoProporcional(monto_asociar, factura);
 
     return {
-      subtotal: raw, // <- conservar exactamente lo que escribe
-      impuestos: toDraftString(impuestos),
-      monto_asociar: toDraftString(monto_asociar),
+      subtotal: raw,
+      impuestos: toDraftString(next.impuestos),
+      monto_asociar: toDraftString(next.monto_asociar),
     };
   }
 
-  impuestos = value;
+  const monto_asociar =
+    impuestosRatio > 0 ? round2(value / impuestosRatio) : round2(value);
 
-  if (taxRateDecimal > 0) {
-    subtotal = round2(impuestos / taxRateDecimal);
-  } else {
-    subtotal = 0;
-  }
-
-  monto_asociar = round2(subtotal + impuestos);
+  const next = splitMontoAsociadoProporcional(monto_asociar, factura);
 
   return {
-    subtotal: toDraftString(subtotal),
-    impuestos: raw, // <- conservar exactamente lo que escribe
-    monto_asociar: toDraftString(monto_asociar),
+    subtotal: toDraftString(next.subtotal),
+    impuestos: raw,
+    monto_asociar: toDraftString(next.monto_asociar),
   };
 }
 
@@ -252,38 +322,42 @@ function buildDraftsFromFacturas(facturas: any[]): Record<string, FacturaDraft> 
 
   facturas.forEach((f: any, idx: number) => {
     const key = getFacturaRowKey(f, idx);
-    const taxRateDecimal = getTaxRateDecimal(f);
 
-    const subtotalBase = toNum(
-      f?.subtotal_facturado ?? f?.subtotal_asociado ?? f?.subtotal ?? 0
-    );
-    const impuestosBase = toNum(
-      f?.impuestos_facturado ?? f?.impuestos_asociados ?? f?.impuestos ?? 0
+    const subtotalAsociado = toNum(
+      f?.subtotal_facturado ?? f?.subtotal_asociado ?? 0
     );
 
-    const montoRelacionado = toNum(
-      f?.monto_facturado_relacion ?? f?.total_asociado_factura ?? 0
+    const impuestosAsociado = toNum(
+      f?.impuestos_facturado ?? f?.impuestos_asociados ?? 0
     );
 
-    const montoBase =
-      subtotalBase > 0 || impuestosBase > 0
-        ? round2(subtotalBase + impuestosBase)
-        : montoRelacionado;
+    const montoAsociado = round2(
+      subtotalAsociado > 0 || impuestosAsociado > 0
+        ? subtotalAsociado + impuestosAsociado
+        : toNum(f?.monto_facturado_relacion ?? f?.total_asociado_factura ?? 0)
+    );
 
-    if (montoBase > 0 && subtotalBase === 0 && impuestosBase === 0) {
-      next[key] = recalcDraftFromField(
-        "monto_asociar",
-        String(montoBase),
-        { subtotal: "", impuestos: "", monto_asociar: "" },
-        taxRateDecimal
-      );
+    if (montoAsociado > 0) {
+      if (subtotalAsociado > 0 || impuestosAsociado > 0) {
+        next[key] = {
+          subtotal: toFixedInput(subtotalAsociado),
+          impuestos: toFixedInput(impuestosAsociado),
+          monto_asociar: toFixedInput(montoAsociado),
+        };
+      } else {
+        const parts = splitMontoAsociadoProporcional(montoAsociado, f);
+
+        next[key] = {
+          subtotal: toFixedInput(parts.subtotal),
+          impuestos: toFixedInput(parts.impuestos),
+          monto_asociar: toFixedInput(parts.monto_asociar),
+        };
+      }
     } else {
       next[key] = {
-        subtotal:
-          subtotalBase > 0 ? toFixedInput(subtotalBase) : toInputMoney(""),
-        impuestos:
-          impuestosBase > 0 ? toFixedInput(impuestosBase) : toInputMoney(""),
-        monto_asociar: montoBase > 0 ? toFixedInput(montoBase) : "",
+        subtotal: "",
+        impuestos: "",
+        monto_asociar: "",
       };
     }
   });
@@ -367,15 +441,13 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose }) => {
   const facturasApi = Array.isArray(api?.facturas) ? api.facturas : [];
   const resumen = api?.resumen_validacion ?? null;
 
-  const setDraftField = useCallback(
+const setDraftField = useCallback(
   (
     factura: any,
     facturaKey: string,
     field: "subtotal" | "impuestos" | "monto_asociar",
     value: string
   ) => {
-    const taxRateDecimal = getTaxRateDecimal(factura);
-
     setDrafts((prev) => {
       const current = prev[facturaKey] || {
         subtotal: "",
@@ -385,12 +457,7 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose }) => {
 
       return {
         ...prev,
-        [facturaKey]: recalcDraftFromField(
-          field,
-          value,
-          current,
-          taxRateDecimal
-        ),
+        [facturaKey]: recalcDraftFromField(field, value, current, factura),
       };
     });
   },
@@ -414,10 +481,18 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose }) => {
         factura?.uuid_cfdi ?? factura?.uuid_factura
       );
 
-      const subtotalFacturado = toApiNumber(draft.subtotal) ?? 0;
-      const impuestosFacturado = toApiNumber(draft.impuestos) ?? 0;
-      const montoAsociar = round2(subtotalFacturado + impuestosFacturado);
-      const maximo = toNum(factura?.maximo_a_asociar);
+     const montoAsociar = toApiNumber(draft.monto_asociar) ?? 0;
+
+const partesAsociadas = splitMontoAsociadoProporcional(montoAsociar, factura);
+const subtotalFacturado = partesAsociadas.subtotal;
+const impuestosFacturado = partesAsociadas.impuestos;
+
+const totalYaAsociado = toNum(
+  factura?.monto_facturado_relacion ?? factura?.total_asociado_factura ?? 0
+);
+
+const maximoAdicional = toNum(factura?.maximo_a_asociar);
+const maximoTotalPermitido = round2(totalYaAsociado + maximoAdicional);
 
       if (subtotalFacturado < 0 || impuestosFacturado < 0) {
         alert("Subtotal e impuestos deben ser mayores o iguales a 0");
@@ -429,10 +504,16 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose }) => {
         return;
       }
 
-      if (montoAsociar > maximo) {
-        alert(`El monto a asociar no puede ser mayor a ${formatMoney(maximo)}`);
-        return;
-      }
+      if (montoAsociar > maximoTotalPermitido) {
+  alert(
+    `El monto a asociar no puede ser mayor a ${formatMoney(
+      maximoTotalPermitido
+    )} (asociado actual ${formatMoney(
+      totalYaAsociado
+    )} + adicional disponible ${formatMoney(maximoAdicional)})`
+  );
+  return;
+}
 
       try {
         setSavingKey(facturaKey);
@@ -544,6 +625,12 @@ const facturasTable = useMemo(() => {
       monto_asociar: "",
     };
 
+    const totalAsociado = toNum(
+      f?.monto_facturado_relacion ?? f?.total_asociado_factura ?? 0
+    );
+    const maximoAdicional = toNum(f?.maximo_a_asociar);
+    const maximoTotalPermitido = round2(totalAsociado + maximoAdicional);
+
     return {
       id: facturaKey,
       facturaKey,
@@ -559,9 +646,10 @@ const facturasTable = useMemo(() => {
       rfc_view: safeString(f?.rfc_emisor) || safeString(f?.rfc) || "—",
 
       total_factura_view: toNum(f?.total_factura || f?.total),
-      total_asociado_factura_view: toNum(f?.total_asociado_factura),
+      total_asociado_factura_view: totalAsociado,
       restante_factura_view: toNum(f?.restante_factura),
-      maximo_a_asociar_view: toNum(f?.maximo_a_asociar),
+      maximo_a_asociar_view: maximoAdicional,
+      maximo_total_permitido_view: maximoTotalPermitido,
 
       subtotal_edit: draft.subtotal,
       impuestos_edit: draft.impuestos,
@@ -627,11 +715,44 @@ const facturasTable = useMemo(() => {
         </span>
       ),
 
-      maximo_a_asociar_view: ({ value }: any) => (
-        <span className="text-xs text-green-700 font-semibold">
-          {formatMoney(value)}
-        </span>
-      ),
+      monto_asociar_edit: ({ item }: any) => {
+  const facturaKey = String(item?.facturaKey ?? "");
+  const maximo = toNum(item?.maximo_total_permitido_view);
+  const adicional = toNum(item?.maximo_a_asociar_view);
+  const asociadoActual = toNum(item?.total_asociado_factura_view);
+  const monto = toNum(drafts[facturaKey]?.monto_asociar ?? 0);
+  const excedido = monto > maximo;
+
+  return (
+    <div key={`${facturaKey}-monto`} className="min-w-[170px]">
+      <input
+        type="number"
+        step="0.01"
+        value={drafts[facturaKey]?.monto_asociar ?? ""}
+        onChange={(e) =>
+          setDraftField(
+            item?.rawFactura ?? item,
+            facturaKey,
+            "monto_asociar",
+            e.target.value
+          )
+        }
+        className={`w-full border rounded-lg px-2 py-2 text-sm outline-none focus:ring-2 ${
+          excedido
+            ? "border-red-300 focus:ring-red-100 text-red-700"
+            : "border-gray-200 focus:ring-blue-100"
+        }`}
+        placeholder="0.00"
+      />
+      <p className="mt-1 text-[10px] text-gray-500">
+        Máximo total: {formatMoney(maximo)}
+      </p>
+      <p className="text-[10px] text-gray-400">
+        Asociado: {formatMoney(asociadoActual)} + adicional: {formatMoney(adicional)}
+      </p>
+    </div>
+  );
+},
 
       subtotal_edit: ({ item }: any) => {
   const facturaKey = String(item?.facturaKey ?? "");

@@ -294,6 +294,7 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
     tipo_de_pago: tipoPago,
 
     tarjeta,
+    fecha_solicitud : raw?.fecha_solicitud,
     id_enviado: raw?.titular_tarjeta ?? "",
 
     comentarios_ops: comentariosOps,
@@ -488,30 +489,22 @@ const [buscarUuidModal, setBuscarUuidModal] = useState<{
 
 const buscarUuidEndpoint = `${URL}/mia/pago_proveedor/buscaruuid`;
 
-const closeBuscarUuidModal = useCallback(() => {
-  setBuscarUuidModal({
-    open: false,
-    loading: false,
-    uuid_factura: "",
-    rows: [],
-  });
-}, []);
-
-const openBuscarUuidModal = useCallback(
-  async (row: AnyRow) => {
-    const uuid = String(row?.uuid_factura ?? "").trim();
+const buscarUuid = useCallback(
+  async (uuidParam?: string) => {
+    const uuid = String(uuidParam ?? buscarUuidModal.uuid_factura ?? "").trim();
 
     if (!uuid) {
-      alert("Esta fila no tiene uuid_factura");
+      alert("Escribe un UUID");
       return;
     }
 
-    setBuscarUuidModal({
+    setBuscarUuidModal((prev) => ({
+      ...prev,
       open: true,
       loading: true,
       uuid_factura: uuid,
       rows: [],
-    });
+    }));
 
     try {
       const resp = await fetch(buscarUuidEndpoint, {
@@ -521,9 +514,7 @@ const openBuscarUuidModal = useCallback(
           "Content-Type": "application/json",
           "Cache-Control": "no-cache, no-store, must-revalidate",
         },
-        body: JSON.stringify({
-          uuid_factura: uuid,
-        }),
+        body: JSON.stringify({ uuid_factura: uuid }),
       });
 
       const json = await resp.json().catch(() => null);
@@ -550,18 +541,36 @@ const openBuscarUuidModal = useCallback(
     } catch (err: any) {
       console.error("❌ buscaruuid fail", err);
 
-      setBuscarUuidModal({
+      setBuscarUuidModal((prev) => ({
+        ...prev,
         open: true,
         loading: false,
-        uuid_factura: uuid,
         rows: [],
-      });
+      }));
 
       alert(err?.message || "Error al buscar coincidencias por uuid");
     }
   },
-  [buscarUuidEndpoint],
+  [buscarUuidEndpoint, buscarUuidModal.uuid_factura],
 );
+const closeBuscarUuidModal = useCallback(() => {
+  setBuscarUuidModal({
+    open: false,
+    loading: false,
+    uuid_factura: "",
+    rows: [],
+  });
+}, []);
+
+const openBuscarUuidModal = useCallback(() => {
+  setBuscarUuidModal({
+    open: true,
+    loading: false,
+    uuid_factura: "",
+    rows: [],
+  });
+}, []);
+
 
   const DEFAULT_OPEN_FILTERS: ConciliacionFilters = {
     ...EMPTY_FILTERS,
@@ -1079,6 +1088,7 @@ const openBuscarUuidModal = useCallback(
       "subir_factura",
       "acciones",
       "usuario_creador",
+      "fecha_solicitud",
     ],
     [],
   );
@@ -1191,6 +1201,7 @@ const openBuscarUuidModal = useCallback(
       creado: ({ value }) => <span title={value}>{formatDate(value)}</span>,
       check_in: ({ value }) => <span title={value}>{formatDate(value)}</span>,
       check_out: ({ value }) => <span title={value}>{formatDate(value)}</span>,
+      fecha_solicitud: ({ value }) => <span title={value}>{formatDate(value)}</span>,
 
       codigo_hotel: ({ value }) => (
         <span className="font-semibold">
@@ -1560,7 +1571,6 @@ const openBuscarUuidModal = useCallback(
               </div>
             </div>
 
-            
 
             <div className="flex items-center justify-end gap-2">
               <Button
@@ -1674,7 +1684,17 @@ const openBuscarUuidModal = useCallback(
             fillHeight
             maxHeight="calc(100vh - 220px)"
             getRowClassName={getRowClassName as any}
-          />
+          >
+            <Button
+  variant="secondary"
+  size="md"
+  className="border border-violet-200 bg-violet-50 hover:bg-violet-100 text-violet-800"
+  onClick={openBuscarUuidModal}
+>
+  <Search className="w-4 h-4" />
+  Buscar UUID
+</Button>
+            </Table5>
         </div>
 
         {editModal.open && (
@@ -1794,7 +1814,20 @@ const openBuscarUuidModal = useCallback(
         {detalleOpen && (
           <ModalDetalle solicitud={detalleSolicitud} onClose={closeDetalle} />
         )}
-
+<BuscarUuidFacturaModal
+  open={buscarUuidModal.open}
+  loading={buscarUuidModal.loading}
+  uuidFactura={buscarUuidModal.uuid_factura}
+  rows={buscarUuidModal.rows}
+  onClose={closeBuscarUuidModal}
+  onUuidChange={(value) =>
+    setBuscarUuidModal((prev) => ({
+      ...prev,
+      uuid_factura: value,
+    }))
+  }
+  onSearch={() => void buscarUuid()}
+/>
         {isLoading && (
           <div className="text-sm text-gray-500 px-2">
             Cargando información...

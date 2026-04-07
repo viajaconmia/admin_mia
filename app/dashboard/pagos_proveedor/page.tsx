@@ -4,10 +4,6 @@ import React, { useEffect, useMemo, useState, useCallback } from "react";
 import Filters from "@/components/Filters";
 import { VistaCarpeta,CarpetasTabs } from "./Components/CarpetasTabs";
 import {
-  CFDI_USO_LABELS,
-  CFDI_FORMA_PAGO_LABELS,
-  CFDI_METODO_PAGO_LABELS,
-  formatSatValue,
   parseNum,
   norm,
   normUpper,
@@ -16,23 +12,16 @@ import {
   extractPagosAsociados,
   hasPagosAsociados,
   extractFacturas,
-  openFacturaFile,
-  downloadFacturaFile, 
 } from "@/helpers/cfdiHelpers"; 
 import { EditModal, EditableField } from "./Components/EditModal";   
 import { createSolicitudesRenderers } from "./Components/renders";
 import {
   calcularNoches,
   formatRoom,
-  getPaymentBadge,
-  getStageBadge,
-  getStatusBadge,
-  getWhoCreateBadge,
 } from "@/helpers/utils";
 import { Table5 } from "@/components/Table5";
 import { TypeFilters, SolicitudProveedor } from "@/types";
 import { Loader } from "@/components/atom/Loader";
-import { currentDate } from "@/lib/utils";
 import { fetchGetSolicitudesProveedores1 } from "@/services/pago_proveedor";
 import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
@@ -41,25 +30,15 @@ import {
   DispersionModal,
   SolicitudProveedorRaw,
 } from "./Components/dispersion";
-import MetodoPagoModal from "@/app/dashboard/pagos_proveedor/Components/MetodoPagoModal";
-import { ComprobanteModal } from "./Components/comprobantes";
+import {ComprobanteModal } from "./Components/comprobantes";
 import { useAlert } from "@/context/useAlert";
 import Button from "@/components/atom/Button";
 import {
   Brush,
   File,
   Upload,
-  X,
-  Maximize2,
-  CheckCircle2,
-  Handshake,
-  Eye,
-  Ban,
-  Download,
 } from "lucide-react";
 import { URL, API_KEY } from "@/lib/constants/index";
-import PaymentMethodSelector from "./Components/PaymentMethodSelector";
-import { formatDate } from "@/helpers/formater";
 import {
   defaultSort,
   defaultFiltersSolicitudes,
@@ -151,6 +130,12 @@ const isPagado = (raw: any) => {
   if (montoSolicitado > 0 && totalPagado >= montoSolicitado - EPS) return true;
 
   return false;
+};
+
+type SolicitudSeleccionadaComprobante = {
+  id_solicitud_proveedor: string;
+  monto_solicitado: number;
+  monto_pagado: string;
 };
 
 // ---------- CATEGORÍAS (carpetas base) ----------
@@ -252,27 +237,6 @@ const getFechaPagoColor = (dateStr?: string | Date | null | number) => {
   return "bg-green-100 text-green-800 border-green-300";
 };
 
-const getFechaPagoRowClass = (dateStr?: string | Date | null) => {
-  if (!dateStr) return "";
-  const pagoDate = new Date(dateStr as any);
-  if (isNaN(pagoDate.getTime())) return "";
-
-  const hoy = new Date();
-  const hoySinHora = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate());
-  const pagoSinHora = new Date(
-    pagoDate.getFullYear(),
-    pagoDate.getMonth(),
-    pagoDate.getDate(),
-  );
-
-  const diffMs = pagoSinHora.getTime() - hoySinHora.getTime();
-  const diffDays = diffMs / (1000 * 60 * 60 * 24);
-
-  if (diffDays < 0) return "bg-red-200";
-  if (diffDays <= 2) return "bg-yellow-200";
-  return "bg-green-200";
-};
-
 // ---------- INFO DE PAGOS / FACTURAS ----------
 function getPagoInfoFromRaw(raw: any) {
   const pagos = extractPagosAsociados(raw)
@@ -350,108 +314,10 @@ function getFacturaInfoFromRaw(raw: any) {
 
 // ---------- PATCH / EDIT ----------
 
-type EditModalState = {
-  open: boolean;
-  id_solicitud_proveedor: string;
-  field: EditableField;
-  value: string;
-};
-
 type ComprobantePagoFlowState = {
   open: boolean;
   raw: any | null;
   id_solicitud_proveedor: string;
-};
-
-function isPdfFile(file?: File | null) {
-  if (!file) return false;
-  const nameOk = (file.name || "").toLowerCase().endsWith(".pdf");
-  const typeOk =
-    file.type === "application/pdf" || file.type === "application/x-pdf";
-  return nameOk || typeOk;
-}
-
-const InlineMoneyEdit = ({
-  id,
-  value,
-  disabled,
-  onSave,
-}: {
-  id: string;
-  value: number;
-  disabled?: boolean;
-  onSave: (next: number) => Promise<boolean>;
-}) => {
-  const [editing, setEditing] = React.useState(false);
-  const [draft, setDraft] = React.useState(String(value ?? 0));
-  const [saving, setSaving] = React.useState(false);
-
-  React.useEffect(() => {
-    if (!editing) setDraft(String(value ?? 0));
-  }, [value, editing]);
-
-  const commit = async () => {
-    const n = Number(draft);
-    if (!Number.isFinite(n)) return;
-
-    setSaving(true);
-    const ok = await onSave(n);
-    setSaving(false);
-
-    if (ok) setEditing(false);
-  };
-
-  if (disabled) {
-    return <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>;
-  }
-
-  if (!editing) {
-    return (
-      <button
-        type="button"
-        className="inline-flex items-center gap-2 hover:bg-slate-50 px-2 py-1 rounded-md border border-transparent hover:border-slate-200"
-        onClick={() => setEditing(true)}
-        title="Editar monto solicitado"
-      >
-        <span>${Number(value || 0).toFixed(2)}</span>
-        <span className="text-[10px] text-slate-500">✎</span>
-      </button>
-    );
-  }
-
-  return (
-    <div className="inline-flex items-center gap-2">
-      <input
-        type="number"
-        step="0.01"
-        className="w-28 border border-slate-200 rounded-md px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-blue-200"
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") void commit();
-          if (e.key === "Escape") setEditing(false);
-        }}
-        disabled={saving}
-        autoFocus
-      />
-      <button
-        type="button"
-        className="text-xs px-2 py-1 rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
-        onClick={() => void commit()}
-        disabled={saving}
-      >
-        OK
-      </button>
-      <button
-        type="button"
-        className="text-xs px-2 py-1 rounded-md border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50"
-        onClick={() => setEditing(false)}
-        disabled={saving}
-      >
-        Cancelar
-      </button>
-    </div>
-  );
 };
 
 type MetodoPagoPopoverProps = {
@@ -460,7 +326,6 @@ type MetodoPagoPopoverProps = {
   onSetMethod: (nextMethod: "transfer" | "card") => Promise<boolean>;
   onSetCard: (data: { id_tarjeta_solicitada: string | null }) => Promise<boolean>;
 };
-
 
 const getSolicitudSemaforoRowClass = ({
   categoria,
@@ -506,63 +371,6 @@ const getSolicitudSemaforoRowClass = ({
 
   // 🟢 más de 3 días
   return "bg-green-200";
-};
-
-const MetodoPagoPopover: React.FC<MetodoPagoPopoverProps> = ({
-  idSolProv,
-  currentMethod,
-  onSetMethod,
-  onSetCard,
-}) => {
-  const [open, setOpen] = React.useState(false);
-
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100"
-        onClick={() => setOpen((v) => !v)}
-        title="Cambiar método de pago"
-      >
-        Método
-      </button>
-
-      {open && (
-        <div className="absolute right-0 mt-2 z-[70] w-[280px] rounded-xl border border-slate-200 bg-white shadow-lg p-2">
-          <div className="flex items-center justify-between mb-2">
-            <div className="text-xs font-semibold text-slate-700">
-              Solicitud: {idSolProv}
-            </div>
-            <button
-              type="button"
-              className="text-xs px-2 py-1 rounded-md border border-slate-200 hover:bg-slate-50"
-              onClick={() => setOpen(false)}
-            >
-              Cerrar
-            </button>
-          </div>
-
-          {/* ✅ aquí montamos tu selector SOLO cuando se abre */}
-          <PaymentMethodSelector
-            idSolProv={idSolProv}
-            currentMethod={currentMethod}
-            onSetMethod={async (next) => {
-              const ok = await onSetMethod(next);
-              // opcional: si cambian a transfer, puedes limpiar tarjeta en backend
-              // if (ok && next === "transfer") await onSetCard({ id_tarjeta_solicitada: 0 }); // si tu back lo interpreta como null/clear
-              if (ok) setOpen(false); // si quieres que se cierre al guardar método
-              return ok;
-            }}
-            onSetCard={async (payload) => {
-              const ok = await onSetCard(payload);
-              if (ok) setOpen(false);
-              return ok;
-            }}
-          />
-        </div>
-      )}
-    </div>
-  );
 };
 
 const getEstadoSolicitudPagado = (
@@ -621,15 +429,7 @@ function App() {
   const { hasAccess } = usePermiso();
   hasAccess(PERMISOS.VISTAS.PROVEEDOR_PAGOS);
 
-  const editEndpoint = `${URL}/mia/pago_proveedor/edit`;
-  const comprobantePagoEndpoint = `${URL}/mia/pago_proveedor/comprobante`;
-
-const [comprobantePagoModal, setComprobantePagoModal] =
-  useState<ComprobantePagoFlowState>({
-    open: false,
-    raw: null,
-    id_solicitud_proveedor: "",
-  });
+const editEndpoint = `${URL}/mia/pago_proveedor/edit`;
 
 const [solicitudesPago, setSolicitudesPago] = useState<SolicitudesPorFiltro>({
   todos: [],
@@ -668,6 +468,23 @@ const [solicitudesPago, setSolicitudesPago] = useState<SolicitudesPorFiltro>({
   const selectedCount = solicitud.length;
 const canSelect = categoria !== "pagada" && categoria !== "canceladas";
   const canDispersion = canSelect && selectedCount > 0;
+
+  const solicitudesSeleccionadasComprobante = useMemo<SolicitudSeleccionadaComprobante[]>(
+  () =>
+    solicitud
+      .map((raw) => {
+        const id_solicitud_proveedor = getIdSolProv(raw);
+        const monto_solicitado = getMontoSolicitado(raw);
+
+        return {
+          id_solicitud_proveedor,
+          monto_solicitado,
+          monto_pagado: Number(monto_solicitado || 0).toFixed(2),
+        };
+      })
+      .filter((row) => row.id_solicitud_proveedor),
+  [solicitud],
+);
 
   const dispersionDisabledReason =
   categoria === "pagada"
@@ -1592,16 +1409,17 @@ getRowClassName={(row) => {
         </div>
       )}
       {showComprobanteModal2 && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <OtrosMetodosPagoModal
-            onClose={() => setShowComprobanteModal2(false)}
-            onSubmit={async (payload) => {
-              console.log("Payload de comprobante listo para API:", payload);
-              setShowComprobanteModal2(false);
-            }}
-          />
-        </div>
-      )}
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+    <OtrosMetodosPagoModal
+      selectedSolicitudes={solicitudesSeleccionadasComprobante}
+      onClose={() => setShowComprobanteModal2(false)}
+      onSubmit={async (payload) => {
+        console.log("Payload de comprobante listo para API:", payload);
+        setShowComprobanteModal2(false);
+      }}
+    />
+  </div>
+)}
     </div>
   );
 }
