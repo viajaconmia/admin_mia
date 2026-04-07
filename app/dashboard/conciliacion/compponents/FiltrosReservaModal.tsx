@@ -28,6 +28,9 @@ export type ConciliacionFilters = {
   fecha_reserva_start: string;
   fecha_reserva_end: string;
   filtrar_fecha_por_reserva: string;
+
+  comentarios: string;
+  comentario_CXP: string;
 };
 
 type Props = {
@@ -269,6 +272,7 @@ export default function FiltrosConciliacionModal({
                     "TRANSFERENCIA_SOLICITADA",
                     "PAGADO TRANSFERENCIA",
                     "PAGADO LINK",
+                    "SOLICITADA",
                     "CUPON ENVIADO",
                     "CANCELADA",
                     "DISPERSION",
@@ -282,6 +286,23 @@ export default function FiltrosConciliacionModal({
                   onChange={(v) => onChange("forma_pago", v)}
                   onClear={() => onChange("forma_pago", "")}
                   options={["card", "transfer", "link", "credit"]}
+                />
+              </Field>
+              <Field label="Comentarios Ops">
+                <InputWithClear
+                  value={filters.comentarios}
+                  onChange={(v) => onChange("comentarios", v)}
+                  onClear={() => onChange("comentarios", "")}
+                  placeholder="Buscar en comentarios"
+                />
+              </Field>
+
+              <Field label="Comentario CXP">
+                <InputWithClear
+                  value={filters.comentario_CXP}
+                  onChange={(v) => onChange("comentario_CXP", v)}
+                  onClear={() => onChange("comentario_CXP", "")}
+                  placeholder="Buscar en comentario CXP"
                 />
               </Field>
             </div>

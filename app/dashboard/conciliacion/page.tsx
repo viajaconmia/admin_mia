@@ -443,30 +443,33 @@ export default function ConciliacionPage() {
     setFacturaSelection({});
   }, []);
 
-  const EMPTY_FILTERS: ConciliacionFilters = {
-    folio: "",
-    cliente: "",
-    viajero: "",
-    hotel: "",
-    estado_solicitud: "",
-    estado_facturacion: "",
-    forma_pago: "",
-    created_start: "",
-    created_end: "",
-    check_in_start: "",
-    check_in_end: "",
-    check_out_start: "",
-    check_out_end: "",
+ const EMPTY_FILTERS: ConciliacionFilters = {
+  folio: "",
+  cliente: "",
+  viajero: "",
+  hotel: "",
+  estado_solicitud: "",
+  estado_facturacion: "",
+  forma_pago: "",
+  created_start: "",
+  created_end: "",
+  check_in_start: "",
+  check_in_end: "",
+  check_out_start: "",
+  check_out_end: "",
 
-    id_cliente: "",
-    estado_reserva: "",
-    etapa_reservacion: "",
-    reservante: "",
-    metodo_pago_reserva: "",
-    fecha_reserva_start: "",
-    fecha_reserva_end: "",
-    filtrar_fecha_por_reserva: "",
-  };
+  id_cliente: "",
+  estado_reserva: "",
+  etapa_reservacion: "",
+  reservante: "",
+  metodo_pago_reserva: "",
+  fecha_reserva_start: "",
+  fecha_reserva_end: "",
+  filtrar_fecha_por_reserva: "",
+
+  comentarios: "",
+  comentario_CXP: "",
+};
 
   type BuscarUuidMatchRow = {
   codigo_confirmacion: string;
@@ -579,28 +582,31 @@ const openBuscarUuidModal = useCallback(() => {
   };
 
   const FILTER_LABELS: Record<keyof ConciliacionFilters, string> = {
-    folio: "Código de reservación",
-    cliente: "Cliente",
-    viajero: "Viajero",
-    hotel: "Proveedor",
-    estado_solicitud: "Estatus solicitud",
-    estado_facturacion: "Estatus facturación",
-    forma_pago: "Forma de pago solicitud",
-    created_start: "Creado desde",
-    created_end: "Creado hasta",
-    check_in_start: "Check-in desde",
-    check_in_end: "Check-in hasta",
-    check_out_start: "Check-out desde",
-    check_out_end: "Check-out hasta",
-    id_cliente: "ID cliente",
-    estado_reserva: "Estado reserva",
-    etapa_reservacion: "Etapa reservación",
-    reservante: "Reservante",
-    metodo_pago_reserva: "Método pago reserva",
-    fecha_reserva_start: "Fecha reserva desde",
-    fecha_reserva_end: "Fecha reserva hasta",
-    filtrar_fecha_por_reserva: "Filtrar fecha por",
-  };
+  folio: "Código de reservación",
+  cliente: "Cliente",
+  viajero: "Viajero",
+  hotel: "Proveedor",
+  estado_solicitud: "Estatus solicitud",
+  estado_facturacion: "Estatus facturación",
+  forma_pago: "Forma de pago solicitud",
+  created_start: "Creado desde",
+  created_end: "Creado hasta",
+  check_in_start: "Check-in desde",
+  check_in_end: "Check-in hasta",
+  check_out_start: "Check-out desde",
+  check_out_end: "Check-out hasta",
+  id_cliente: "ID cliente",
+  estado_reserva: "Estado reserva",
+  etapa_reservacion: "Etapa reservación",
+  reservante: "Reservante",
+  metodo_pago_reserva: "Método pago reserva",
+  fecha_reserva_start: "Fecha reserva desde",
+  fecha_reserva_end: "Fecha reserva hasta",
+  filtrar_fecha_por_reserva: "Filtrar fecha por",
+
+  comentarios: "Comentarios Ops",
+  comentario_CXP: "Comentario CXP",
+};
 
   function normalizeFiltersForRequest(
     incoming: ConciliacionFilters,
