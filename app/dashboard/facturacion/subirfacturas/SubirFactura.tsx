@@ -987,13 +987,6 @@ const buscarFacturaPorUUID = async () => {
           ""
       ).trim();
 
-      if (!idProveedorFactura || !proveedoresPermitidos.has(idProveedorFactura)) {
-        alert(
-          `La factura encontrada no pertenece a los proveedores permitidos.\n` +
-            `Proveedor factura: ${idProveedorFactura || "N/D"}`
-        );
-        return;
-      }
     } else if (isProveedorMode) {
       const idProveedorEsperado = String(
         id_proveedor ??
@@ -1671,7 +1664,10 @@ useEffect(() => {
           <div className="bg-white rounded-lg p-6 w-full max-w-3xl shadow-xl">
             <h2 className="text-xl font-semibold mb-1">{text}</h2>
             <p className="text-sm text-gray-500 mb-4">
-              Sube los archivos PDF y XML de la factura
+              Sube los archivos PDF y XML de la factura 
+            </p>
+            <p className="text-sm text-gray-500 mb-4">
+              Recuerda el nombre de los archivos no debe de contener @ # . 
             </p>
                   {mostrarSwitchFacturaProveedor && (
   <div className="mb-4">
