@@ -1424,6 +1424,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                   }}
                   value={selectedCard || ""}
                   options={creditCards
+                    .filter((item: any) => item.activa === true)
                     .sort((a: any, b: any) => {
                       const nameA = (a?.name ?? "").toLowerCase();
                       const nameB = (b?.name ?? "").toLowerCase();
