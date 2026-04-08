@@ -5,7 +5,8 @@ import { TableHotelesPermitidos } from "@/components/tables/HotelesPermitidosTab
 import { Plus, X } from "lucide-react";
 import { useState } from "react";
 
-export default function PageHoteles() {
+export default function PageHoteles(props) {
+  console.log(props);
   const [section, setSection] = useState<"hoteles" | "agregar">("hoteles");
   return (
     <section>

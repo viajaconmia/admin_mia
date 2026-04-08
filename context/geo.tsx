@@ -15,8 +15,10 @@ type GeoContextType = {
   filtrados: Hotel[];
   center: [number, number];
   range: number;
+  search: string;
   setCenter: (center: [number, number]) => void;
   setRange: (range: number) => void;
+  setSearch: (search: string) => void;
   order: (callback: (a: Hotel, b: Hotel) => boolean) => void;
 };
 
@@ -24,8 +26,10 @@ const GeoContext = createContext<GeoContextType>({
   filtrados: [],
   center: [0, 0],
   range: 0,
+  search: "",
   setCenter: () => {},
   setRange: () => {},
+  setSearch: () => {},
   order: () => {},
 });
 
@@ -39,14 +43,17 @@ export function GeoProvider({ children }: GeoProviderProps) {
     19.435404276995, -99.131177233551,
   ]);
   const [range, setRange] = useState<number>(200);
+  const [search, setSearch] = useState<string>("");
   const { hoteles } = useHoteles();
 
   useEffect(() => {
     if (!hoteles) return;
-    const visibleHotels = filterWithinRadius(hoteles, center, range);
-    console.log("this is visible", visibleHotels);
+    const visibleHotelsDistance = filterWithinRadius(hoteles, center, range);
+    const visibleHotels = visibleHotelsDistance.filter((hotel) =>
+      hotel.nombre_hotel.toLowerCase().includes(search.toLowerCase()),
+    );
     setFiltrados(visibleHotels);
-  }, [center, range, hoteles]);
+  }, [center, range, hoteles, search]);
 
   const order = (callback: (a: Hotel, b: Hotel) => boolean) => {
     const sorted = [...filtrados].sort((a, b) => (callback(a, b) ? -1 : 1));
@@ -59,6 +66,8 @@ export function GeoProvider({ children }: GeoProviderProps) {
     range,
     setCenter,
     order,
+    search,
+    setSearch,
     setRange,
   };
 

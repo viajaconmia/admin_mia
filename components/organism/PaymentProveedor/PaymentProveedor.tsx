@@ -1395,11 +1395,13 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                     }
                   }}
                   value={selectedCard || ""}
-                  options={creditCards.map((item: any) => ({
-                    value: item.id,
-                    label: item.name,
-                    item,
-                  }))}
+                  options={creditCards
+                    .filter((item: any) => item.activa === true)
+                    .map((item: any) => ({
+                      value: item.id,
+                      label: item.name,
+                      item,
+                    }))}
                   label="Seleccionar tarjeta"
                 />
               </div>

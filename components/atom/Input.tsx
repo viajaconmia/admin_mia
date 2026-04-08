@@ -896,8 +896,10 @@ export type PlaceMaps = {
 
 export function InputGoogle({
   onChange,
+  size = "md",
 }: {
   onChange: (place: PlaceMaps) => void;
+  size?: Size;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const loaded = useGoogleMaps(api_google);
@@ -920,15 +922,23 @@ export function InputGoogle({
     });
   }, [loaded]);
 
+  const sizes: Record<Size, string> = {
+    sm: "w-64",
+    md: "w-96",
+    lg: "w-full",
+  };
+
   return (
     <input
       ref={inputRef}
       type="text"
       placeholder="Buscar ubicación..."
-      className="w-96 px-4 py-2 border rounded-full shadow-sm focus:outline-none"
+      className={`px-4 py-2 border border-white shadow-xl rounded-full placeholder:text-gray-700 focus:outline-none ${sizes[size]}`}
     />
   );
 }
+
+type Size = "sm" | "md" | "lg";
 
 /**
  *

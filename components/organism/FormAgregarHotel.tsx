@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { useGeo } from "@/context/geo";
-import { InputGoogle, PlaceMaps, RangeInput } from "@/components/atom/Input";
+import {
+  InputGoogle,
+  PlaceMaps,
+  RangeInput,
+  TextInput,
+} from "@/components/atom/Input";
 import { formatNumberWithCommas } from "@/helpers/formater";
 import { Map } from "@/components/atom/Map";
 import { MarkerHotel, MarkerUser } from "@/components/atom/Marker";
@@ -10,23 +15,18 @@ import { Plus } from "lucide-react";
 
 export const FormAgregarHotel = () => {
   const [loading, setLoading] = useState(false);
-  const { center, range, setRange, setCenter, filtrados } = useGeo();
+  const { center, range, setRange, setCenter, filtrados, search, setSearch } =
+    useGeo();
 
   return (
     <div className="min-w-screen grid md:grid-cols-[auto_1fr] grid-rows-[1fr] pt-4">
       {/* CONTROLS */}
       <div className="h-[calc(100vh-250px)] overflow-y-auto p-4 border rounded-l-lg min-w-[300px] flex flex-col gap-4">
-        <InputGoogle
-          onChange={(place: PlaceMaps) => {
-            const lat = place.geometry.location.lat();
-            const lng = place.geometry.location.lng();
-            setCenter([lat, lng]);
-          }}
-        />
+        <TextInput label="Buscar hotel" value={search} onChange={setSearch} />
         <RangeInput
           label="Radio de busqueda"
           value={range}
-          onChange={(e) => setRange(e)}
+          onChange={setRange}
           min={100}
           max={5000}
           step={100}
@@ -80,7 +80,18 @@ export const FormAgregarHotel = () => {
       </div>
 
       {/* MAPA */}
-      <div className="relative col-start-1 md:col-start-2 row-start-1">
+      <div className="relative col-start-1 md:col-start-2 row-start-1 flex flex-col">
+        {/* <div className="absolute top-0 left-0 w-full h-full bg-white/10 p-2 flex items-center justify-center z-10"> */}
+        {/* </div> */}
+        <div className="absolute top-0 left-0 w-full p-2 flex items-center justify-center z-10">
+          <InputGoogle
+            onChange={(place: PlaceMaps) => {
+              const lat = place.geometry.location.lat();
+              const lng = place.geometry.location.lng();
+              setCenter([lat, lng]);
+            }}
+          />
+        </div>
         <Map>
           {filtrados.map(({ geo, nombre_hotel, id_hotel }) => (
             <MarkerHotel
