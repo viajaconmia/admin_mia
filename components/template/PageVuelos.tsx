@@ -189,7 +189,7 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
         onConfirm?.();
         setLoading(false);
       } else {
-        if ((details.precio ?? 0) <= 0)
+        if ((details.precio ?? 0) < -1)
           throw new Error("El precio debe ser mayor a 0");
 
         const res = state
