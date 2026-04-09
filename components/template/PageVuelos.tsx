@@ -208,9 +208,18 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
           )
           .some(Boolean);
 
-        if (res || isSomeNull(details as any, ["intermediario"])) {
+        if (
+          res ||
+          isSomeNull(details as any, ["intermediario", "precio", "costo"])
+        ) {
           throw new Error("Parece ser que dejaste algunos campos vacíos");
         }
+
+        if (typeof details.precio !== "number")
+          throw new Error("El precio debe ser un número");
+
+        if (typeof details.costo !== "number")
+          throw new Error("El costo debe ser un número");
 
         setOpenPago(true);
       }
