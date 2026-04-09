@@ -486,7 +486,7 @@ export default function VistaPreviaModal({
     // if (isProveedorBatch && batchTotalValidacion > totalValidacion) {
     //   alert("El total asociado por proveedor excede el total de la factura.");
     //   return;
-    // }
+    // } 
 
     if (isProveedorBatch) {
       for (let i = 0; i < batchAsociaciones.length; i++) {
@@ -788,7 +788,7 @@ export default function VistaPreviaModal({
               Montos a asociar por solicitud ({monedaFactura})
             </label>
 
-            <div className="space-y-3">
+            <div className="max-h-[400px] overflow-y-auto space-y-3 pr-2 border-t pt-3">
               {batchAsociaciones.map((it, idx) => {
                 const proveedorLabel =
                   it.raw?.proveedor ||
