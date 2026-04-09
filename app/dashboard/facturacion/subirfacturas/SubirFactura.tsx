@@ -966,7 +966,7 @@ const buscarFacturaPorUUID = async () => {
       return;
     }
 
-    const saldoDisponible = Number(factura?.saldo_x_aplicar_items ?? 0);
+    const saldoDisponible = Number(factura?.restante_por_facturar ?? 0);
 
     if (!Number.isFinite(saldoDisponible) || saldoDisponible <= 0) {
       alert("La factura encontrada ya no tiene saldo disponible para asignar.");
