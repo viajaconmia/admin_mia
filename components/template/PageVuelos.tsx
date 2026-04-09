@@ -730,8 +730,8 @@ const emptyVuelo: Vuelo = {
 const initialDetails: Details = {
   codigo: null,
   viajero: null,
-  costo: null,
-  precio: null,
+  costo: 0,
+  precio: 0,
   status: "confirmada",
 };
 
