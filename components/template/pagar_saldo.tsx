@@ -503,7 +503,7 @@ const [busquedaReserva, setBusquedaReserva] = useState("");
   (f) => f.facturaSeleccionada?.id_factura || f.id_factura,
 );
         console.log(ids_facturas);
-
+ 
         payload = {
           facturaData,
           // Incluye el identificador de la factura y el agente
