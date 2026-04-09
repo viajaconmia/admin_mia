@@ -10,7 +10,6 @@ import {
   CreditCard,
   ExternalLink,
 } from "lucide-react";
-import { createNewEmpresa, updateViajero } from "@/hooks/useDatabase";
 import { formatDate } from "@/helpers/utils";
 import {
   CheckboxInput,
@@ -369,8 +368,8 @@ export function AgentDetailsCard({ agente }: { agente: Agente }) {
                           previus.map((current_company, current_id) =>
                             current_id == id
                               ? { ...company, tiene_credito: value ? 1 : 0 }
-                              : current_company
-                          )
+                              : current_company,
+                          ),
                         );
                       }}
                       label=""
@@ -421,8 +420,8 @@ export function AgentDetailsCard({ agente }: { agente: Agente }) {
                             previus.map((current_company, current_id) =>
                               current_id == id
                                 ? { ...company, monto_credito: Number(value) }
-                                : current_company
-                            )
+                                : current_company,
+                            ),
                           );
                         }}
                         value={company.monto_credito}
