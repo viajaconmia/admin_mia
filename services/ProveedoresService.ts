@@ -19,6 +19,9 @@ export class ProveedoresService extends ApiService {
       DATOS_FISCALES: "/datos_fiscales",
       CUENTAS: "/cuentas",
     },
+    DELETE: {
+      DATOS_FISCALES: "/datos_fiscales",
+    },
   };
   static instancia: ProveedoresService = null;
 
@@ -39,7 +42,7 @@ export class ProveedoresService extends ApiService {
       id?: number;
       page?: number;
       size?: number;
-    } = {}
+    } = {},
   ): Promise<ApiResponse<ProveedorRaw[]>> =>
     this.get<ProveedorRaw[]>({
       path: this.formatPath(this.ENDPOINTS.GET.PROVEEDORES),
@@ -47,7 +50,7 @@ export class ProveedoresService extends ApiService {
     });
 
   public get_data_fiscal = async (
-    id: number
+    id: number,
   ): Promise<ApiResponse<DatosFiscales>> =>
     this.get({
       path: this.formatPath(this.ENDPOINTS.GET.DATA_FISCAL_ALL),
@@ -55,7 +58,7 @@ export class ProveedoresService extends ApiService {
     });
 
   public getDatosFiscales = async (
-    id_proveedor
+    id_proveedor,
   ): Promise<ApiResponse<DatosFiscales[]>> =>
     this.get<DatosFiscales[]>({
       path: this.formatPath(this.ENDPOINTS.GET.DATOS_FISCALES),
@@ -66,15 +69,22 @@ export class ProveedoresService extends ApiService {
     this.put({ path: this.formatPath(this.ENDPOINTS.PUT.PROVEEDOR), body });
 
   public crearFiscalData = async (
-    body: Omit<DatosFiscales, "cuentas" | "id"> & { id_proveedor: number }
+    body: Omit<DatosFiscales, "cuentas" | "id"> & { id_proveedor: number },
   ): Promise<ApiResponse<DatosFiscales[]>> =>
     this.post<DatosFiscales[]>({
       path: this.formatPath(this.ENDPOINTS.POST.DATOS_FISCALES),
       body: keysToLower(body),
     });
 
+  public dropDataFiscal = async (id: number) => {
+    this.delete({
+      path: this.formatPath(this.ENDPOINTS.DELETE.DATOS_FISCALES),
+      params: { id },
+    });
+  };
+
   public editarFiscalData = async (
-    body: DatosFiscales & { id_proveedor: number }
+    body: DatosFiscales & { id_proveedor: number },
   ): Promise<ApiResponse<DatosFiscales[]>> =>
     this.put<DatosFiscales[]>({
       path: this.formatPath(this.ENDPOINTS.PUT.DATOS_FISCALES),
@@ -83,7 +93,7 @@ export class ProveedoresService extends ApiService {
 
   //CUENTAS
   public getCuentasByProveedor = async (
-    id_proveedor: number
+    id_proveedor: number,
   ): Promise<ApiResponse<ProveedorCuenta[]>> =>
     this.get<ProveedorCuenta[]>({
       path: this.formatPath(this.ENDPOINTS.GET.CUENTAS),
@@ -91,18 +101,18 @@ export class ProveedoresService extends ApiService {
     });
 
   public updateCuentasProveedor = async (
-    body: ProveedorCuenta
+    body: ProveedorCuenta,
   ): Promise<ApiResponse<ProveedorCuenta[]>> =>
     this.put({ path: this.formatPath(this.ENDPOINTS.PUT.CUENTAS), body });
 
   public createCuentasProveedor = async (
-    body: Partial<ProveedorCuenta>
+    body: Partial<ProveedorCuenta>,
   ): Promise<ApiResponse<ProveedorCuenta[]>> =>
     this.post({ path: this.formatPath(this.ENDPOINTS.POST.CUENTAS), body });
 
   //PROVEEDOR TYPE
   public getProveedorType = async (
-    params: Pick<Proveedor, "type" | "id">
+    params: Pick<Proveedor, "type" | "id">,
   ): Promise<ApiResponse<ProveedorRentaCarroRaw>> =>
     this.get<ProveedorRentaCarroRaw>({
       path: this.formatPath(this.ENDPOINTS.GET.TYPE),
@@ -111,12 +121,12 @@ export class ProveedoresService extends ApiService {
 
   //VUELO
   public updateProveedorVuelo = async (
-    body: ProveedorVuelo
+    body: ProveedorVuelo,
   ): Promise<ApiResponse<ProveedorVuelo[]>> =>
     this.put({ path: this.formatPath(this.ENDPOINTS.PUT.VUELO), body });
 
   public createProveedorVuelo = async (
-    body: Omit<ProveedorVuelo, "id" | "created_at" | "updated_at">
+    body: Omit<ProveedorVuelo, "id" | "created_at" | "updated_at">,
   ): Promise<ApiResponse<ProveedorVuelo[]>> =>
     this.post({ path: this.formatPath(this.ENDPOINTS.PUT.VUELO), body });
 }
@@ -129,6 +139,7 @@ export interface DatosFiscales {
   alias: string | null;
   razon_social: string;
   numero_cuentas?: number;
+  id_relacion: number;
   cuentas?: {}[];
 }
 
@@ -172,11 +183,10 @@ export interface ProveedorRaw {
   hotel?: ProveedorHotel;
 }
 
-export interface Proveedor
-  extends Omit<
-    ProveedorRaw,
-    "convenio" | "estatus" | "internacional" | "bilingue" | "intermediario"
-  > {
+export interface Proveedor extends Omit<
+  ProveedorRaw,
+  "convenio" | "estatus" | "internacional" | "bilingue" | "intermediario"
+> {
   convenio: boolean;
   estatus: boolean;
   internacional: boolean;
@@ -217,18 +227,17 @@ export interface ProveedorRentaCarroRaw {
   incidencia?: string;
   notas_generales?: string;
 }
-export interface ProveedorRentaCarro
-  extends Omit<
-    ProveedorRentaCarroRaw,
-    "is_chofer_bilingue" | "is_con_chofer" | "is_sin_chofer"
-  > {
+export interface ProveedorRentaCarro extends Omit<
+  ProveedorRentaCarroRaw,
+  "is_chofer_bilingue" | "is_con_chofer" | "is_sin_chofer"
+> {
   is_sin_chofer?: boolean;
   is_con_chofer?: boolean;
   is_chofer_bilingue?: boolean;
 }
 
 export const mapProveedorRentaCarro = (
-  raw: ProveedorRentaCarroRaw
+  raw: ProveedorRentaCarroRaw,
 ): ProveedorRentaCarro => ({
   ...raw,
   is_sin_chofer: toBoolean(raw.is_sin_chofer),
@@ -261,7 +270,7 @@ export type ProveedorHotel = {
 
 const keysToLower = (obj) => {
   return Object.fromEntries(
-    Object.entries(obj).map(([key, value]) => [key.toLowerCase(), value])
+    Object.entries(obj).map(([key, value]) => [key.toLowerCase(), value]),
   );
 };
 
