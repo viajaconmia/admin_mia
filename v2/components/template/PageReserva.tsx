@@ -138,6 +138,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
         estado: reserva.estado,
         estado_pago: reserva.estado_pago,
         estado_facturacion: reserva.estado_facturacion,
+        detalles_cliente: ROUTES.BOOKING.ID_SOLICITUD(reserva.id_solicitud),
         id_booking: reserva.id_booking,
       }));
 
