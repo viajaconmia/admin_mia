@@ -9,6 +9,8 @@ import {
   convertFromMXN,
 } from "./currency-mxn";
 import { useAlert } from "@/context/useAlert";
+import VistaPreviaSolicitudesBatch from "./solicitudes_proveedor";
+
 
 type AsociacionSolicitudProveedor = {
   id_solicitud: string;
@@ -777,153 +779,23 @@ export default function VistaPreviaModal({
             ✅ BATCH proveedor: N inputs montos (en vista previa)
            ============================== */}
         {isProveedorBatch && (
-          <div className="mt-4 mb-4">
-            <p className="text-xs text-gray-500 mb-2">
-              Captura en {monedaFactura}
-              {requiereConversionProveedor
-                ? ` · se convertirá a MXN con TC ${tipoCambioFactura}`
-                : ""}
-            </p>
-            <label className="block mb-2 font-medium">
-              Montos a asociar por solicitud ({monedaFactura})
-            </label>
-
-            <div className="max-h-[400px] overflow-y-auto space-y-3 pr-2 border-t pt-3">
-              {batchAsociaciones.map((it, idx) => {
-                const proveedorLabel =
-                  it.raw?.proveedor ||
-                  it.raw?.hotel ||
-                  `Proveedor ${it.id_proveedor}`;
-
-                const idSolicitud = String(it?.id_solicitud ?? "").trim();
-
-                const infoFacturado = facturadoMap?.[idSolicitud] ?? null;
-
-                const maxBackendMXN = Number(
-                  infoFacturado?.maximo_asignar ?? 0,
-                );
-                const montoSolicitadoMXN = Number(
-                  infoFacturado?.monto_solicitado ?? 0,
-                );
-                const totalFacturadoMXN = Number(
-                  infoFacturado?.total_facturado ?? 0,
-                );
-
-                const sumOthersOriginal = batchAsociaciones.reduce(
-                  (acc, x, i) => {
-                    if (i === idx) return acc;
-                    const n = Number(x.monto_asociar || 0);
-                    return acc + (Number.isFinite(n) ? n : 0);
-                  },
-                  0,
-                );
-
-                const maxPorFacturaOriginal = Math.max(
-                  0,
-                  totalFactura - sumOthersOriginal,
-                );
-                const maxBackendOriginal = fromMXNToOriginal(maxBackendMXN);
-
-                const maxThisOriginal = Math.max(
-                  0,
-                  Math.min(maxBackendOriginal, maxPorFacturaOriginal),
-                );
-                const montoPreview = getPreviewConversion(
-                  it.monto_asociar || 0,
-                );
-
-                return (
-                  <div
-                    key={`${it.id_solicitud}-${it.id_proveedor}-${idx}`}
-                    className="p-3 rounded border bg-white"
-                  >
-                    <div className="text-xs text-gray-600 mb-2">
-                      <div>
-                        <strong>Solicitud:</strong> {it.id_solicitud}
-                      </div>
-                      <div>
-                        <strong>Proveedor:</strong> {proveedorLabel}
-                      </div>
-
-                      <div className="mt-1">
-                        <strong>Monto solicitado:</strong>{" "}
-                        {formatCurrency(montoSolicitadoMXN, "MXN")}
-                      </div>
-
-                      <div>
-                        <strong>Ya facturado:</strong>{" "}
-                        {formatCurrency(totalFacturadoMXN, "MXN")}
-                      </div>
-
-                      <div>
-                        <strong>Máximo asignable:</strong>{" "}
-                        {requiereConversionProveedor
-                          ? `${formatCurrency(maxThisOriginal, monedaFactura)} (${formatCurrency(
-                              maxBackendMXN,
-                              "MXN",
-                            )})`
-                          : formatCurrency(maxThisOriginal, "MXN")}
-                      </div>
-                    </div>
-
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      placeholder="0.00"
-                      value={it.monto_asociar}
-                      onChange={(e) =>
-                        handleChangeMontoBatch(idx, e.target.value)
-                      }
-                      className="w-full p-2 border rounded border-gray-300"
-                      disabled={
-                        loadingFacturado || !facturadoMap?.[idSolicitud]
-                      }
-                    />
-
-                    {Number(it.monto_asociar || 0) > 0 && (
-                      <div className="mt-2 text-xs text-gray-600">
-                        <div>
-                          <strong>Capturado:</strong>{" "}
-                          {formatCurrency(montoPreview.original, monedaFactura)}
-                        </div>
-
-                        {montoPreview.hasConversion && (
-                          <div>
-                            <strong>Equivalente en MXN:</strong>{" "}
-                            {formatCurrency(montoPreview.mxn, "MXN")}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="mt-3 text-sm text-gray-700">
-              <strong>Total asociado:</strong>{" "}
-              {formatCurrency(batchTotalAsociar, monedaFactura)}
-              {requiereConversionProveedor && (
-                <span className="ml-3">
-                  <strong>Equivalente MXN:</strong>{" "}
-                  {formatCurrency(batchTotalAsociarMXN, "MXN")}
-                </span>
-              )}
-              <span className="ml-3">
-                <strong>Restante:</strong>{" "}
-                {formatCurrency(
-                  Math.max(0, totalFactura - batchTotalAsociar),
-                  monedaFactura,
-                )}
-              </span>
-              {requiereConversionProveedor && (
-                <span className="ml-3">
-                  <strong>Restante MXN:</strong>{" "}
-                  {formatCurrency(restanteFacturaMXN, "MXN")}
-                </span>
-              )}
-            </div>
-          </div>
+          <VistaPreviaSolicitudesBatch
+  isProveedorBatch={isProveedorBatch}
+  monedaFactura={monedaFactura}
+  requiereConversionProveedor={requiereConversionProveedor}
+  tipoCambioFactura={tipoCambioFactura}
+  totalFactura={totalFactura}
+  batchAsociaciones={batchAsociaciones}
+  batchTotalAsociar={batchTotalAsociar}
+  batchTotalAsociarMXN={batchTotalAsociarMXN}
+  restanteFacturaMXN={restanteFacturaMXN}
+  loadingFacturado={loadingFacturado}
+  facturadoMap={facturadoMap}
+  handleChangeMontoBatch={handleChangeMontoBatch}
+  formatCurrency={formatCurrency}
+  fromMXNToOriginal={fromMXNToOriginal}
+  getPreviewConversion={getPreviewConversion}
+/>
         )}
 
         {isProveedorBatch &&

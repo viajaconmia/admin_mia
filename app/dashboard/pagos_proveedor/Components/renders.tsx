@@ -654,6 +654,12 @@ export function createSolicitudesRenderers({
       ) : (
         <span className="text-gray-400">—</span>
       ),
+      fecha_de_pago: ({ value }) =>
+      value ? (
+        <span title={value}>{formatDate(value)}</span>
+      ) : (
+        <span className="text-gray-400">—</span>
+      ),
 
 
     estado_factura_proveedor: ({ value }) => (
