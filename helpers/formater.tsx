@@ -1,3 +1,5 @@
+import { type } from "node:os";
+
 export function capitalizarTexto(texto: string) {
   const palabras = texto.toLowerCase().split(" ");
 
@@ -31,7 +33,7 @@ export function obtenerIniciales(nombreCompleto: string) {
 }
 
 export function formatNumberWithCommas(
-  numberStr: string | number | undefined | null
+  numberStr: string | number | undefined | null,
 ): string {
   if (numberStr == null) return "";
 
@@ -76,6 +78,8 @@ export function formatNumberWithCommas(
 }
 
 export const formatDate = (dateString: string) => {
+  if (!dateString) return "";
+  if (typeof dateString !== "string") return "";
   const [year, month, day] = dateString.split("T")[0].split("-");
   const date = new Date(+year, +month - 1, +day);
   return date.toLocaleDateString("es-MX", {
@@ -88,13 +92,13 @@ export const formatDate = (dateString: string) => {
 // ✅ Recomendado: usa Intl (respeta es-MX: 1,234,567.89)
 export const formatNumber = (
   value: number | string,
-  opts: Intl.NumberFormatOptions = {}
+  opts: Intl.NumberFormatOptions = {},
 ) => {
   if (value === null || value === undefined || value === "") return "";
   const n = typeof value === "string" ? Number(value) : value;
   if (Number.isNaN(n)) return String(value);
   return new Intl.NumberFormat("es-MX", { useGrouping: true, ...opts }).format(
-    n
+    n,
   );
 };
 
