@@ -25,6 +25,9 @@ import {
   fetchUpdateEmpresasAgentes,
 } from "@/services/agentes";
 import Modal from "@/components/organism/Modal";
+import { usePermiso } from "@/hooks/usePermission";
+import { PERMISOS } from "@/constant/permisos";
+import { useAlert } from "@/context/useAlert";
 
 export function AgentDetailsCard({ agente }: { agente: Agente }) {
   const [edicion, setEdicion] = useState({
@@ -33,7 +36,9 @@ export function AgentDetailsCard({ agente }: { agente: Agente }) {
     agente: {},
   });
   const [empresas, setEmpresas] = useState<EmpresaFromAgent[]>([]);
+  const { info } = useAlert();
   const [link, setLink] = useState<null | string>(null);
+  const { hasPermission } = usePermiso();
   const [form, setForm] = useState({
     numero_empleado: agente.numero_empleado || "",
     vendedor: agente.vendedor || "",
@@ -152,6 +157,10 @@ export function AgentDetailsCard({ agente }: { agente: Agente }) {
               />
               <NumberInput
                 onChange={(value) => {
+                  if (!hasPermission(PERMISOS.ACCIONES.EDITAR_SALDO_CLIENTE)) {
+                    info("No tienes permiso para editar el saldo del cliente");
+                    return;
+                  }
                   setEdicion((prev) => ({
                     ...prev,
                     agente: {
