@@ -95,13 +95,14 @@ interface PagarModalProps {
   } | null;
 }
 
+
+
 export const PagarModalComponent: React.FC<PagarModalProps> = ({
   saldoData,
   rowData,
   onClose,
   onSubmit, 
   open = true,
-  onEnd = () => {},
   reservaData = null,
   facturaData = null,
 }) => {
@@ -135,6 +136,36 @@ const exceedsMoney = (
 const sumMoney = (values: any[] = []): number => {
   const totalCents = values.reduce((acc, value) => acc + toCents(value), 0);
   return fromCents(totalCents);
+};
+
+const getSaldoMonto = (saldo: any, isFacturaMode: boolean) => {
+  return isFacturaMode
+    ? Number(saldo?.monto_por_facturar ?? 0)
+    : Number(saldo?.saldo ?? 0);
+};
+
+const isWalletCredito = (saldo: any) =>
+  Number(saldo?.is_wallet_credito ?? 0) === 1;
+
+const isSaldoActivoVisible = (saldo: any, isFacturaMode: boolean) => {
+  if (!saldo) return false;
+  if (Number(saldo?.is_cancelado ?? 0) === 1) return false;
+  if (isWalletCredito(saldo)) return false;
+
+  const monto = getSaldoMonto(saldo, isFacturaMode);
+
+  if (isFacturaMode) {
+    return Number(monto) > 0 && !isZeroMoney(monto);
+  }
+
+  return saldo?.activo !== 0 && !isZeroMoney(monto);
+};
+
+const normalizeSaldoFavorData = (
+  saldos: any[] = [],
+  isFacturaMode: boolean,
+) => {
+  return saldos.filter((saldo) => isSaldoActivoVisible(saldo, isFacturaMode));
 };
 
   // Funciones para manejar las facturas
@@ -226,50 +257,45 @@ const [busquedaReserva, setBusquedaReserva] = useState("");
 
   // Función para obtener datos del nuevo flujo (SaldoFavor)
   const fetchSaldoFavorData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+  try {
+    setLoading(true);
+    setError(null);
 
-      const agente = reservaData?.id_agente ||facturas[0]?.id_agente;
-      if (!agente) {
-        throw new Error(
-          "ID de agente no disponible en reservaData ni facturaData",
-        );
-      }
-      console.log("euuuuuuuuuuuuuuuuuuuuubbbuuuuuuufe", agente);
-
-      const response = await SaldoFavor.getPagos(agente);
-      console.log("Datos de SaldoFavor:", response.data);
-      setSaldoFavorData(response.data || []);
-
-      // Procesar datos para la tabla
-      const initialOriginalSaldo: Record<string, number> = {};
-      const initialSaldo: Record<string, number> = {};
-
-      // Adaptar según la estructura real de los datos de SaldoFavor
-      response.data?.forEach((saldo: any) => {
-        // Para el nuevo flujo, usamos el saldo completo como "item"
-        const idItem = `saldo-${saldo.id_saldos}`;
-        const saldoValor = facturaData
-          ? Number(saldo.monto_por_facturar)
-          : Number(saldo.saldo);
-
-        initialOriginalSaldo[idItem] = saldoValor;
-        initialSaldo[idItem] = saldoValor;
-      });
-
-      setOriginalSaldoItems(initialOriginalSaldo);
-      setItemsSaldo(initialSaldo);
-      // if (reservaData) {
-      //   seleccionarSaldosEnOrdenYAutoPagar(response.data || []);
-      // }
-    } catch (err) {
-      console.error("Error fetching SaldoFavor data:", err);
-      setError(err.message || "Error al cargar los datos de saldo a favor");
-    } finally {
-      setLoading(false);
+    const agente = reservaData?.id_agente || facturas[0]?.id_agente;
+    if (!agente) {
+      throw new Error(
+        "ID de agente no disponible en reservaData ni facturaData",
+      );
     }
-  };
+
+    const response = await SaldoFavor.getPagos(agente);
+    const saldosFiltrados = normalizeSaldoFavorData(
+      response.data || [],
+      !!facturaData,
+    );
+
+    setSaldoFavorData(saldosFiltrados);
+
+    const initialOriginalSaldo: Record<string, number> = {};
+    const initialSaldo: Record<string, number> = {};
+
+    saldosFiltrados.forEach((saldo: any) => {
+      const idItem = `saldo-${saldo.id_saldos}`;
+      const saldoValor = getSaldoMonto(saldo, !!facturaData);
+
+      initialOriginalSaldo[idItem] = saldoValor;
+      initialSaldo[idItem] = saldoValor;
+    });
+
+    setOriginalSaldoItems(initialOriginalSaldo);
+    setItemsSaldo(initialSaldo);
+  } catch (err: any) {
+    console.error("Error fetching SaldoFavor data:", err);
+    setError(err.message || "Error al cargar los datos de saldo a favor");
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Función para el flujo existente
   const fetchReservasConItems = async () => {

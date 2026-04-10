@@ -1032,6 +1032,7 @@ const customColumns = useMemo(() => {
     "metodo_pago_factura",
     "moneda_factura",
     "facturas_acciones",
+    "fecha_de_pago",
 
     "comentarios_cxp",
   ];
