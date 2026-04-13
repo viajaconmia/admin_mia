@@ -142,7 +142,7 @@ export default function FiltrosConciliacionModal({
   onApply,
   onClear,
   onClose,
-  options,
+  options, 
 }: Props) {
   if (!open) return null;
 

@@ -833,13 +833,13 @@ const isProveedorMode = proveedorFlowType === "single";
 
   const asignarFacturaPrevia = async () => {
     try {
-      if (!facturaEncontrada?.uuid_cfdi) {
+      if (!facturaEncontrada?.uuid_factura) {
         alert("No hay una factura encontrada válida");
         return;
       }
 
       const saldoDisponible = Number(
-        facturaEncontrada?.saldo_x_aplicar_items ?? 0,
+        facturaEncontrada?.restante_por_facturar ?? 0,
       );
 
       if (!Number.isFinite(saldoDisponible) || saldoDisponible <= 0) {
@@ -1804,6 +1804,7 @@ const handleChangeMontoSingleFacturaPrevia = (raw: string) => {
     idsSolicitudFacturaPrevia.join("|"),
   ]);
 
+
   return (
     <>
       <button
@@ -1986,7 +1987,7 @@ const handleChangeMontoSingleFacturaPrevia = (raw: string) => {
                       <div>
                         <strong>Saldo disponible:</strong>{" "}
                         {formatMoneyMXN(
-                          facturaEncontrada?.saldo_x_aplicar_items,
+                          facturaEncontrada?.restante_por_facturar,
                         )}
                       </div>
                     </div>
