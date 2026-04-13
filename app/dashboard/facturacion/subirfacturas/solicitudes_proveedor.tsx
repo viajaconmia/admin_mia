@@ -116,16 +116,28 @@ export default function VistaPreviaSolicitudesBatch({
           const maxPorFacturaOriginal = Math.max(0, totalFactura - sumOthersOriginal);
           const maxBackendOriginal = fromMXNToOriginal(maxBackendMXN);
 
-          const maxThisOriginal = Math.max(
-            0,
-            Math.min(maxBackendOriginal, maxPorFacturaOriginal)
-          );
-
+          const maxThisOriginal = Number(infoFacturado?.maximo_asignar ?? 0);
+          
           const montoActual = isProveedorBatch
             ? it.monto_asociar || 0
             : singleMontoAsociar || 0;
 
           const montoPreview = getPreviewConversion(montoActual);
+
+          console.log("DEBUG maximo asignable", {
+  idSolicitud,
+  infoFacturado,
+  maxBackendMXN,
+  montoSolicitadoMXN,
+  totalFacturadoMXN,
+  totalFactura,
+  sumOthersOriginal,
+  maxPorFacturaOriginal,
+  maxBackendOriginal,
+  maxThisOriginal,
+  facturadoMap,
+  asociaciones,
+});
 
           return (
             <div
