@@ -943,7 +943,7 @@ const isProveedorMode = proveedorFlowType === "single";
       }
 
       const payload = {
-        uuid_cfdi: facturaEncontrada.uuid_cfdi,
+        uuid_cfdi: facturaEncontrada.uuid_factura,
         proveedoresData: proveedoresPayloadFinal,
       };
 
@@ -1978,7 +1978,7 @@ const handleChangeMontoSingleFacturaPrevia = (raw: string) => {
                   <div className="mt-4 p-4 rounded border bg-blue-50">
                     <div className="mb-3 text-sm text-gray-700">
                       <div>
-                        <strong>UUID:</strong> {facturaEncontrada?.uuid_cfdi}
+                        <strong>UUID:</strong> {facturaEncontrada?.uuid_factura}
                       </div>
                       <div>
                         <strong>Total factura:</strong>{" "}

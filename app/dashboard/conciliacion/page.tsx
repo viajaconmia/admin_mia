@@ -609,28 +609,10 @@ const openBuscarUuidModal = useCallback(() => {
 };
 
   function normalizeFiltersForRequest(
-    incoming: ConciliacionFilters,
-  ): ConciliacionFilters {
-    const next = { ...incoming };
-
-    const hasAnyOtherFilter = NON_DATE_FILTER_KEYS.some((key) => {
-      return String(next[key] ?? "").trim() !== "";
-    });
-
-    if (hasAnyOtherFilter) {
-      next.created_start = "";
-      next.created_end = "";
-      next.check_in_start = "";
-      next.check_in_end = "";
-      next.check_out_start = "";
-      next.check_out_end = "";
-      next.fecha_reserva_start = "";
-      next.fecha_reserva_end = "";
-      next.filtrar_fecha_por_reserva = "";
-    }
-
-    return next;
-  }
+  incoming: ConciliacionFilters,
+): ConciliacionFilters {
+  return { ...incoming };
+}
 
   const [filters, setFilters] =
     useState<ConciliacionFilters>(DEFAULT_OPEN_FILTERS);
@@ -669,59 +651,48 @@ const openBuscarUuidModal = useCallback(() => {
   ).filter((key) => !DATE_FILTER_KEYS.includes(key));
 
   const load = useCallback(
-    async (overrideFilters: ConciliacionFilters) => {
-      const controller = new AbortController();
-      setIsLoading(true);
+  async (overrideFilters: ConciliacionFilters) => {
+    const controller = new AbortController();
+    setIsLoading(true);
 
-      try {
-        const params = new URLSearchParams();
+    try {
+      const params = new URLSearchParams();
 
-        const hasAnyOtherFilter = NON_DATE_FILTER_KEYS.some((key) => {
-          return String(overrideFilters[key] ?? "").trim() !== "";
-        });
+      Object.entries(overrideFilters).forEach(([key, value]) => {
+        const v = String(value ?? "").trim();
+        if (!v) return;
+        params.append(key, v);
+      });
 
-        Object.entries(overrideFilters).forEach(([key, value]) => {
-          const v = String(value ?? "").trim();
-          if (!v) return;
+      const url = `${endpoint}${params.toString() ? `?${params.toString()}` : ""}`;
 
-          const isDateFilter = DATE_FILTER_KEYS.includes(
-            key as keyof ConciliacionFilters,
-          );
+      const response = await fetch(url, {
+        method: "GET",
+        signal: controller.signal,
+        headers: {
+          "x-api-key": API_KEY || "",
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+        },
+      });
 
-          if (hasAnyOtherFilter && isDateFilter) return;
+      if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
 
-          params.append(key, v);
-        });
+      const json = await response.json();
+      const list = Array.isArray(json?.data) ? json.data : [];
 
-        const url = `${endpoint}${params.toString() ? `?${params.toString()}` : ""}`;
+      setTodos(list);
+    } catch (err) {
+      console.error("Error cargando conciliación:", err);
+      setTodos([]);
+    } finally {
+      setIsLoading(false);
+    }
 
-        const response = await fetch(url, {
-          method: "GET",
-          signal: controller.signal,
-          headers: {
-            "x-api-key": API_KEY || "",
-            "Content-Type": "application/json",
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-          },
-        });
-
-        if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
-
-        const json = await response.json();
-        const list = Array.isArray(json?.data) ? json.data : [];
-
-        setTodos(list);
-      } catch (err) {
-        console.error("Error cargando conciliación:", err);
-        setTodos([]);
-      } finally {
-        setIsLoading(false);
-      }
-
-      return () => controller.abort();
-    },
-    [endpoint],
-  );
+    return () => controller.abort();
+  },
+  [endpoint],
+);
 
   const refreshData = useCallback(() => {
     void load(appliedFilters);
@@ -762,12 +733,12 @@ const openBuscarUuidModal = useCallback(() => {
   });
 
   const applyFilters = useCallback(() => {
-    const normalized = normalizeFiltersForRequest(filters);
-    setFilters(normalized);
-    setAppliedFilters(normalized);
-    setShowFiltersModal(false);
-    void load(normalized);
-  }, [filters, load]);
+  const next = { ...filters };
+  setFilters(next);
+  setAppliedFilters(next);
+  setShowFiltersModal(false);
+  void load(next);
+}, [filters, load]);
 
   const clearAllFilters = useCallback(() => {
     setFilters(EMPTY_FILTERS);
