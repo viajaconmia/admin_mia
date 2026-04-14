@@ -22,17 +22,33 @@ function getDistanceInMeters(
 
 export function filterWithinRadius<
   T extends { geo: { latitud: string; longitud: string } },
->(items: T[], center: [number, number], radius: number): T[] {
-  return items.filter((item) => {
-    const { latitud, longitud } = item.geo;
+>(
+  items: T[],
+  center: [number, number],
+  radius: number,
+): (T & { distance: number })[] {
+  return items
+    .filter((item) => {
+      const { latitud, longitud } = item.geo;
 
-    const distance = getDistanceInMeters(
-      center[0],
-      center[1],
-      Number(latitud),
-      Number(longitud),
-    );
+      const distance = getDistanceInMeters(
+        center[0],
+        center[1],
+        Number(latitud),
+        Number(longitud),
+      );
 
-    return distance <= radius;
-  });
+      return distance <= radius;
+    })
+    .map((item) => {
+      return {
+        ...item,
+        distance: getDistanceInMeters(
+          center[0],
+          center[1],
+          Number(item.geo.latitud),
+          Number(item.geo.longitud),
+        ),
+      };
+    });
 }

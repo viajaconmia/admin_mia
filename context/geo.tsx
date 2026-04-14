@@ -7,6 +7,8 @@ import {
   useContext,
   useEffect,
   ReactNode,
+  SetStateAction,
+  Dispatch,
 } from "react";
 import { useHoteles } from "./Hoteles";
 import { Hotel } from "@/types";
@@ -19,7 +21,7 @@ type GeoContextType = {
   setCenter: (center: [number, number]) => void;
   setRange: (range: number) => void;
   setSearch: (search: string) => void;
-  order: (callback: (a: Hotel, b: Hotel) => boolean) => void;
+  setOrder: Dispatch<SetStateAction<"distancia" | "precio">>;
 };
 
 const GeoContext = createContext<GeoContextType>({
@@ -30,34 +32,49 @@ const GeoContext = createContext<GeoContextType>({
   setCenter: () => {},
   setRange: () => {},
   setSearch: () => {},
-  order: () => {},
+  setOrder: () => {},
 });
 
 type GeoProviderProps = {
   children: ReactNode;
 };
 
+type HotelWithDistance = Hotel & { distance: number };
+
 export function GeoProvider({ children }: GeoProviderProps) {
-  const [filtrados, setFiltrados] = useState<Hotel[]>([]);
+  const [filtrados, setFiltrados] = useState<(Hotel & { distance: number })[]>(
+    [],
+  );
   const [center, setCenter] = useState<[number, number]>([
     19.435404276995, -99.131177233551,
   ]);
   const [range, setRange] = useState<number>(200);
   const [search, setSearch] = useState<string>("");
+  const [orderBy, setOrderBy] = useState<"distancia" | "precio">("distancia");
   const { hoteles } = useHoteles();
 
   useEffect(() => {
     if (!hoteles) return;
-    const visibleHotelsDistance = filterWithinRadius(hoteles, center, range);
+    const visibleHotelsDistance: (Hotel & { distance: number })[] =
+      filterWithinRadius(hoteles, center, range);
     const visibleHotels = visibleHotelsDistance.filter((hotel) =>
       hotel.nombre_hotel.toLowerCase().includes(search.toLowerCase()),
     );
-    setFiltrados(visibleHotels);
-  }, [center, range, hoteles, search]);
+    const ordered = order(visibleHotels);
+    setFiltrados(ordered);
+  }, [center, range, hoteles, search, orderBy]);
 
-  const order = (callback: (a: Hotel, b: Hotel) => boolean) => {
-    const sorted = [...filtrados].sort((a, b) => (callback(a, b) ? -1 : 1));
-    setFiltrados(sorted);
+  const order = (data: (Hotel & { distance: number })[]) => {
+    if (orderBy === "distancia") {
+      return data.sort((a, b) => (a.distance || 0) - (b.distance || 0));
+    }
+    if (orderBy === "precio") {
+      return data.sort(
+        (a, b) =>
+          Number(a.tipos_cuartos[0]?.precio || 0) -
+          Number(b.tipos_cuartos[0]?.precio || 0),
+      );
+    }
   };
 
   const value: GeoContextType = {
@@ -65,7 +82,7 @@ export function GeoProvider({ children }: GeoProviderProps) {
     center,
     range,
     setCenter,
-    order,
+    setOrder: setOrderBy,
     search,
     setSearch,
     setRange,

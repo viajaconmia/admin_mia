@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 
 export function useWindowHeight() {
-  const [height, setHeight] = useState(0);
+  const [height, setHeight] = useState(() =>
+    typeof window !== "undefined" ? window.innerHeight - 250 : 600,
+  );
 
   useEffect(() => {
     function update() {

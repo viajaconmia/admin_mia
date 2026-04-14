@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useId } from "react";
 import dynamic from "next/dynamic";
 import { useMap, useMapEvents } from "react-leaflet";
 import { useWindowHeight } from "@/hooks/useWindowWidth";
@@ -10,7 +10,8 @@ const TileLayer = dynamic(
   () => import("react-leaflet").then((m) => m.TileLayer),
   { ssr: false },
 );
-const MapContainer = dynamic(
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const MapContainer = dynamic<any>(
   () => import("react-leaflet").then((mod) => ({ default: mod.MapContainer })),
   { ssr: false },
 );
@@ -19,6 +20,10 @@ const MapContainer = dynamic(
 const MapLogic = ({ children }: { children?: React.ReactNode }) => {
   const map = useMap();
   const { center, setCenter } = useGeo();
+
+  useEffect(() => {
+    map.invalidateSize();
+  }, [map]);
 
   useEffect(() => {
     map.setView(center);
@@ -41,8 +46,10 @@ const MapLogic = ({ children }: { children?: React.ReactNode }) => {
 export const Map = ({ children, ...props }: { children?: React.ReactNode }) => {
   const height = useWindowHeight();
   const { center } = useGeo();
+  const mapKey = useId();
   return (
     <MapContainer
+      key={mapKey}
       center={center}
       zoom={14}
       style={{ height: height, width: "100%", zIndex: 0 }}

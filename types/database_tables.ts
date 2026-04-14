@@ -37,6 +37,20 @@ export type SaldoFacturaItem = {
   pagos_complemento: any[]; // puedes tiparlo después si sabes la estructura
 };
 
+export type CorreoProcesado = {
+  id: number;
+  id_correo: string;
+  thread_id: string | null;
+  subject: string | null;
+  from_email: string | null;
+  procesado: 0 | 1;
+  fecha_procesado: string | null;
+  status: string;
+  error: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Item = {
   id_item: string;
   id_catalogo_item: string | null;
