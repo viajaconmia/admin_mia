@@ -362,6 +362,10 @@ export function ReservationForm({
   const [reservaData, setReservaData] = useState<any>(null);
   const isTotalZero = form.venta.total === 0;
 
+  useEffect(() => {
+    console.log(loading || solicitud.agente.saldo < form.venta.total);
+  }, [form]);
+
   const isFormPrepopulated =
     solicitud.hotel !== null &&
     solicitud.hotel !== undefined &&
@@ -1516,9 +1520,7 @@ export function ReservationForm({
                   <Button
                     type="button"
                     disabled={
-                      loading ||
-                      isTotalZero ||
-                      solicitud.agente.saldo < form.venta.total
+                      loading || solicitud.agente.saldo < form.venta.total
                     }
                     onClick={handleCreditPayment}
                     className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"
