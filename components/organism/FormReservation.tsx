@@ -362,10 +362,6 @@ export function ReservationForm({
   const [reservaData, setReservaData] = useState<any>(null);
   const isTotalZero = form.venta.total === 0;
 
-  useEffect(() => {
-    console.log(loading || solicitud.agente.saldo < form.venta.total);
-  }, [form]);
-
   const isFormPrepopulated =
     solicitud.hotel !== null &&
     solicitud.hotel !== undefined &&
