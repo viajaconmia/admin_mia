@@ -58,11 +58,9 @@ export default function ProveedoresPage() {
   const fetchProveedores = async (page = pageTracking.page) => {
     setIsLoading(true);
     try {
-      const response = await ProveedoresService.getInstance().getProveedores({
-        ...filtros,
-        page,
-        size: PAGE_SIZE,
-      });
+      const params = { ...filtros, ...(page ? { page, size: PAGE_SIZE } : {}) };
+      const response =
+        await ProveedoresService.getInstance().getProveedores(params);
 
       setProveedores(response.data.map((i) => mapProveedor(i)));
       setPageTraking((prev) => ({
@@ -164,8 +162,14 @@ export default function ProveedoresPage() {
                   ? "Buscar resultados"
                   : "Refrescar"}
             </Button>
-
-            {/* Placeholder para creación */}
+            <Button
+              onClick={() => fetchProveedores()}
+              disabled={isLoading}
+              size="sm"
+              icon={RefreshCwIcon}
+            >
+              Exportar
+            </Button>
             <Can permiso={PERMISOS.COMPONENTES.GROUP.PROVEEDORES_EDICIONES}>
               <Button
                 size="sm"

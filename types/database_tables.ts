@@ -49,7 +49,18 @@ export type CorreoProcesado = {
   error: string | null;
   created_at: string;
   updated_at: string;
+  agent_process: AgentProcess;
 };
+
+export type AgentProcess =
+  | {
+      hotel: string | null;
+      ciudad: string | null;
+      check_in: string | null;
+      check_out: string | null;
+      codigo_postal: string | null;
+    }
+  | {};
 
 export type Item = {
   id_item: string;

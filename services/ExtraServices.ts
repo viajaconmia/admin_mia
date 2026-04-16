@@ -53,7 +53,7 @@ export class ExtraService extends ApiService {
   }
 
   public getHotelesPermitidos = (
-    params: any,
+    params?: any,
   ): Promise<ApiResponse<HotelPermitidoDTO[]>> =>
     this.get<HotelPermitidoDTO[]>({
       path: this.formatPath(this.ENDPOINTS.HOTELES.GET.PERMITIDOS),

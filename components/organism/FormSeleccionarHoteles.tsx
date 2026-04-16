@@ -19,15 +19,16 @@ import Circle from "@/components/atom/Circle";
 import Button from "@/components/atom/Button";
 import { Hotel } from "@/types";
 import { Check, CheckCircle2, Plus, SlidersHorizontal, X } from "lucide-react";
+import React from "react";
 
 type HotelWithDistance = Hotel & { distance: number };
 type SortType = "distancia" | "precio";
 
 type Props = {
-  onChange?: (hoteles: Hotel[]) => void;
+  onSubmit?: (hoteles: Hotel[]) => void;
 };
 
-export const FormSeleccionarHoteles = ({ onChange }: Props) => {
+export const FormSeleccionarHoteles = ({ onSubmit }: Props) => {
   const {
     center,
     range,
@@ -47,13 +48,11 @@ export const FormSeleccionarHoteles = ({ onChange }: Props) => {
     if (seleccionados.some((h) => h.id_hotel === hotel.id_hotel)) return;
     const nuevos = [...seleccionados, hotel];
     setSeleccionados(nuevos);
-    onChange?.(nuevos);
   };
 
   const quitar = (id_hotel: string) => {
     const nuevos = seleccionados.filter((h) => h.id_hotel !== id_hotel);
     setSeleccionados(nuevos);
-    onChange?.(nuevos);
   };
 
   const handleSort = (tipo: SortType) => {
@@ -62,8 +61,7 @@ export const FormSeleccionarHoteles = ({ onChange }: Props) => {
   };
 
   const handleClick = () => {
-    // const
-    console.log(seleccionados);
+    onSubmit?.(seleccionados);
   };
 
   useEffect(() => {
@@ -243,7 +241,7 @@ export const FormSeleccionarHoteles = ({ onChange }: Props) => {
         {!loading && (
           <Map>
             {filtrados.map(({ geo, nombre_hotel, id_hotel }) => (
-              <>
+              <React.Fragment key={id_hotel}>
                 {seleccionados.some((h) => h.id_hotel === id_hotel) ? (
                   <MarkerHotelSelect
                     key={id_hotel}
@@ -257,7 +255,7 @@ export const FormSeleccionarHoteles = ({ onChange }: Props) => {
                     position={[Number(geo.latitud), Number(geo.longitud)]}
                   />
                 )}
-              </>
+              </React.Fragment>
             ))}
             <MarkerUser position={center} />
             <Circle center={center} range={range} />

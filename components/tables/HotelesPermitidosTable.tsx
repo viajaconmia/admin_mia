@@ -65,50 +65,10 @@ export const TableHotelesPermitidos = () => {
         <FilterInput
           type="text"
           onChange={handleFilterChange}
-          propiedad="id_agente"
-          value={filtros.id_agente || null}
-          label="ID Cliente"
-        />
-
-        <FilterInput
-          type="text"
-          onChange={handleFilterChange}
-          propiedad="cliente"
-          value={filtros.cliente || null}
-          label="Cliente"
-        />
-
-        <FilterInput
-          type="text"
-          onChange={handleFilterChange}
-          propiedad="nombre_comercial"
-          value={filtros.nombre_comercial || null}
-          label="Nombre comercial"
-        />
-
-        <FilterInput
-          type="text"
-          onChange={handleFilterChange}
-          propiedad="rfc"
-          value={filtros.rfc || null}
-          label="RFC"
-        />
-
-        {/* =========================
-   HOTEL
-========================= */}
-
-        <FilterInput
-          type="text"
-          onChange={handleFilterChange}
           propiedad="hotel"
           value={filtros.hotel || null}
           label="Hotel"
         />
-
-        {/* =========================
-   UBICACIÓN
-========================= */}
 
         <FilterInput
           type="text"
@@ -124,18 +84,6 @@ export const TableHotelesPermitidos = () => {
           propiedad="estado"
           value={filtros.estado || null}
           label="Estado"
-        />
-
-        {/* =========================
-   CONFIGURACIÓN
-========================= */}
-
-        <AdvancedFilterInput
-          type="number"
-          onChange={handleFilterChange}
-          propiedad="priority"
-          value={filtros.priority || null}
-          label="Prioridad"
         />
 
         <AdvancedFilterInput
@@ -161,10 +109,6 @@ export const TableHotelesPermitidos = () => {
             { label: "No", value: 0 },
           ]}
         />
-
-        {/* =========================
-   PRECIO
-========================= */}
 
         <AdvancedFilterInput
           type="number"
