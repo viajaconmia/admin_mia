@@ -1865,7 +1865,82 @@ const handleChangeMontoSingleFacturaPrevia = (raw: string) => {
                 </div>
               </div>
             )}
+{/* ==============================
+                NUEVO: si batch => NO mostrar input cliente
+               ============================== */}
+            {!isProveedorBatch && (
+              <div className="relative mb-4">
+                <label className="block mb-2 font-medium">{nombre}</label>
 
+                {isClienteBloqueado ? (
+                  <>
+                    <div className="w-full p-2 border rounded bg-gray-100 text-gray-700">
+                      {clienteSeleccionado?.nombre_agente_completo ||
+                        cliente ||
+                        "Cargando cliente..."}
+                    </div>
+
+                    <input
+                      type="hidden"
+                      name="id_agente"
+                      value={
+                        clienteSeleccionado?.id_agente ||
+                        agentId ||
+                        pagoData?.id_agente ||
+                        ""
+                      }
+                    />
+                  </>
+                ) : (
+                  <>
+                    <input
+                      type="text"
+                      placeholder="Buscar cliente por nombre, email o RFC..."
+                      className={`w-full p-2 border rounded ${
+                        errors.clienteSeleccionado
+                          ? "border-red-500"
+                          : "border-gray-300"
+                      }`}
+                      value={cliente}
+                      onChange={handleBuscarCliente}
+                      onFocus={() =>
+                        cliente.length > 2 && setMostrarSugerencias(true)
+                      }
+                      onBlur={() =>
+                        setTimeout(() => setMostrarSugerencias(false), 200)
+                      }
+                    />
+
+                    {mostrarSugerencias && clientesFiltrados.length > 0 && (
+                      <ul className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                        {clientesFiltrados.map((c) => (
+                          <li
+                            key={c.id_agente}
+                            className="p-2 mb-2 hover:bg-gray-100 cursor-pointer"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => {
+                              setCliente(c.nombre_agente_completo);
+                              setClienteSeleccionado(c);
+                              setMostrarSugerencias(false);
+                              cargarEmpresasAgente(c.id_agente);
+                            }}
+                          >
+                            {c.nombre_agente_completo} - {c.correo}
+                            {c.rfc && ` - ${c.rfc}`}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    {errors.clienteSeleccionado && (
+                      <p className="text-red-500 text-sm mt-1">
+                        {errors.clienteSeleccionado}
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
             {esFacturaNuevaMode && (
               <>
                 {/* XML */}
