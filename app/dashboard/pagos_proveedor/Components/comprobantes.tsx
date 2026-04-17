@@ -29,8 +29,7 @@ const extractDispersionInfo = (referencia?: string): DispersionInfo | null => {
   const ref = referencia.trim();
 
   // FORMATO NUEVO (el que me indicas):
-  // ... wx<codigo>xw<id>
-  // Ej: "852 wxDZQIH7Cxw107"
+
   const reNew = /wx"?\s*([A-Za-z0-9]+)\s*"?xw\s*(\d+)/i;
   const mNew = ref.match(reNew);
 

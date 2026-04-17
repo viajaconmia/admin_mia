@@ -257,7 +257,7 @@ export async function generateSecureQRPaymentPDF(
     y += splitAnuncioText1.length * STYLES.SPACING.LINE;
   }
   let y_contact;
-  // --- Datos de la Tarjeta o Codigo QR---
+  // --- Datos de la Tarjeta o Codigo QR---z
   if (data.type == "code") {
     doc.setFont("helvetica", "normal");
     doc.setTextColor(
