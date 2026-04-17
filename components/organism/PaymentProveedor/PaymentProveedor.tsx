@@ -103,6 +103,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
 
   const [isReservaOpen, setIsReservaOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [SelectedTtular,setSelectedTitular] = useState(null);
   const [cupon, setCupon] = useState<Boolean | null>(null);
   const [loading, setLoading] = useState<Boolean | null>(true);
   const [selectedFavorSaldoId, setSelectedFavorSaldoId] = useState<string>("");
@@ -505,20 +506,19 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
     // fallback clásico
     pdf?.save?.(filename);
   };
-
   const generateQRPaymentPDF = async () => {
     if (!document)
       throw new Error("Falta seleccionar el documento que aparecerá");
     if (!currentSelectedCard) throw new Error("Falta seleccionar tarjeta");
     if (!useQR) throw new Error("Selecciona si es Con QR o En archivo");
-
+    
     const secureToken = generateSecureToken(
       reservation.codigo_confirmacion.replaceAll("-", "."),
       monto_a_pagar,
       currentSelectedCard.id,
       isSecureCode,
     );
-
+    
     const qrData: QRPaymentData = {
       isSecureCode,
       cargo,
@@ -535,13 +535,8 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
       },
       bancoEmisor: currentSelectedCard.banco_emisor,
       fechaExpiracion: currentSelectedCard.fecha_vencimiento,
-      nombreTarjeta:
-        titularFromSelectedCard?.Titular ||
-        currentSelectedCard?.Titular ||
-        currentSelectedCard?.titular ||
-        currentSelectedCard?.nombre_titular ||
-        "",
       documento: titularFromSelectedCard?.identificacion || document || "",
+      nombreTarjeta:SelectedTtular.titular,
       numeroTarjeta: currentSelectedCard.numero_completo,
       cvv: currentSelectedCard.cvv,
       reservations: [
@@ -1343,6 +1338,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                       id_titular_para_payload: idTitularSeleccionado,
                       titular_completo: titularSeleccionado,
                     });
+                    setSelectedTitular(titularSeleccionado)
 
                     dispatch({
                       type: "SET_FIELD",

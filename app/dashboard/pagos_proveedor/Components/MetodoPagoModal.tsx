@@ -1,545 +1,897 @@
 "use client";
 
-import React from "react";
-import { X, CreditCard, ArrowLeftRight, Loader2 } from "lucide-react";
-import { URL, API_KEY } from "@/lib/constants/index";
+import React, { useState } from "react";
+import { Send, X, Info, Upload } from "lucide-react";
+import { URL as API_URL, API_KEY } from "@/lib/constants/index";
+import { useAuth } from "@/context/AuthContext";
+import { subirArchivoAS3Seguro } from "@/lib/utils";
 
-type Metodo = "transfer" | "card";
-
-/** /mia/pagar/tarjetas */
-type TarjetaApi = {
-  id: string; // UUID
-  alias: string;
-  nombre_titular: string | null;
-  ultimos_4: string;
-  banco_emisor: string;
-  tipo_tarjeta: string;
-  fecha_vencimiento: string;
-  activa: boolean;
-  url_identificacion: string | null;
-
-  // NO usar en UI
-  numero_completo?: string;
-  cvv?: string;
+type Comprobante = {
+  onClose: () => void;
+  onSubmit?: (payload: any) => Promise<void> | void;
 };
 
-/** /mia/pagar/titulares */
-type TitularApi = {
-  idTitular: number;
-  Titular: string;
-  identificacion: string | null;
-  activa: boolean;
-};
-
-type TitularOption = {
-  key: string;              // "all" | "none" | "id:4" | "name:xxxx"
-  label: string;
-  idTitular?: number;
-  nombre?: string;
-  identificacion?: string | null;
-  source: "api" | "synthetic";
-};
-
-type TarjetaUI = {
-  id: string; // UUID
-  alias: string;
-  ultimos_4: string;
-  banco_emisor: string;
-  tipo_tarjeta: string;
-  fecha_vencimiento: string;
-  activa: boolean;
-
-  // info para UI y matching
-  nombre_titular: string;        // lo que venga en tarjeta (si hay)
-  titularKey: string;            // "id:4" | "name:xxx" | "none"
-  titularLabel: string;          // texto visible del titular
-  identificacion?: string | null;
-};
-
-const normName = (s?: string | null) =>
-  (s ?? "")
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, ""); // quita acentos
-
-const normUrl = (s?: string | null) => (s ?? "").trim();
-
-function normalizeTarjetas(payload: any): TarjetaApi[] {
-  if (Array.isArray(payload)) return payload;
-  if (Array.isArray(payload?.data)) return payload.data;
-  return [];
+// Interface para datos del CSV
+interface CSVData {
+  [key: string]: string;
 }
 
-function normalizeTitulares(payload: any): TitularApi[] {
-  if (Array.isArray(payload)) return payload;
-  if (Array.isArray(payload?.data)) return payload.data;
-  return [];
-}
+type DispersionInfo = {
+  codigo_dispersion: string;
+  id_dispersion: string;
+};
 
-/**
- * Construye:
- * - opciones de titulares: All, None, API titulares, + titulares "no registrados" encontrados en tarjetas
- * - tarjetas enriquecidas: con titularKey y label
- */
-function buildModel(tarjetas: TarjetaApi[], titulares: TitularApi[]) {
-  // Maps para match
-  const byUrl = new Map<string, TitularApi>();
-  const byName = new Map<string, TitularApi>();
+type SingleFormData = {
+  codigo_dispersion: string;
+  id_dispersion: string;
+  cargo: string;
+  referencia: string;
+  fecha_operacion: string;
+  concepto: string;
+};
 
-  for (const t of titulares) {
-    const u = normUrl(t.identificacion);
-    if (u) byUrl.set(u, t);
+const extractDispersionInfo = (referencia?: string): DispersionInfo | null => {
+  if (!referencia) return null;
 
-    const k = normName(t.Titular);
-    if (k && !byName.has(k)) byName.set(k, t);
+  const ref = referencia.trim();
+
+  const reNew = /wx"?\s*([A-Za-z0-9]+)\s*"?xw\s*(\d+)/i;
+  const mNew = ref.match(reNew);
+
+  if (mNew) {
+    const info = {
+      codigo_dispersion: mNew[1].trim(),
+      id_dispersion: mNew[2].trim(),
+    };
+    console.log("🧩 extractDispersionInfo (NEW):", info, "ref:", referencia);
+    return info;
   }
 
-  // Base options
-  const options: TitularOption[] = [
-    { key: "all", label: "Todos", source: "synthetic" },
-    { key: "none", label: "Sin titular", source: "synthetic" },
-  ];
+  const reOld = /wx"?\s*([A-Za-z0-9]+?)\s*(\d+)\s*"?xw/i;
+  const mOld = ref.match(reOld);
 
-  // API titulares
-  for (const t of titulares) {
-    options.push({
-      key: `id:${t.idTitular}`,
-      label: t.Titular,
-      idTitular: t.idTitular,
-      nombre: t.Titular,
-      identificacion: t.identificacion,
-      source: "api",
-    });
+  if (mOld) {
+    const info = {
+      codigo_dispersion: mOld[1].trim(),
+      id_dispersion: mOld[2].trim(),
+    };
+    console.log("🧩 extractDispersionInfo (OLD):", info, "ref:", referencia);
+    return info;
   }
 
-  // Crear tarjetas enriquecidas y colectar titulares "no registrados"
-  const seenSynthetic = new Set<string>();
-  const tarjetasUI: TarjetaUI[] = tarjetas.map((c) => {
-    const url = normUrl(c.url_identificacion);
-    const hitUrl = url ? byUrl.get(url) : undefined;
+  return null;
+};
 
-    const nt = (c.nombre_titular ?? "").trim();
-    const hitName = nt ? byName.get(normName(nt)) : undefined;
+// =========================
+// Helpers: PDF / CSV
+// =========================
+const validatePDFFiles = (
+  files: FileList
+): { isValid: boolean; error?: string; validFiles?: File[] } => {
+  const validFiles: File[] = [];
 
-    const hit = hitUrl ?? hitName;
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
 
-    let titularKey = "none";
-    let titularLabel = nt || "";
-
-    if (hit) {
-      titularKey = `id:${hit.idTitular}`;
-      titularLabel = hit.Titular;
-    } else if (nt) {
-      titularKey = `name:${normName(nt)}`;
-      titularLabel = nt;
-
-      // agrega opción synthetic si no existe en titulares
-      if (!seenSynthetic.has(titularKey)) {
-        seenSynthetic.add(titularKey);
-        options.push({
-          key: titularKey,
-          label: `${nt} (no registrado)`,
-          nombre: nt,
-          identificacion: c.url_identificacion ?? null,
-          source: "synthetic",
-        });
-      }
+    if (file.type !== "application/pdf") {
+      return {
+        isValid: false,
+        error: `El archivo "${file.name}" no es un PDF válido. Solo se permiten archivos PDF.`,
+      };
     }
 
-    return {
-      id: String(c.id),
-      alias: String(c.alias ?? ""),
-      ultimos_4: String(c.ultimos_4 ?? ""),
-      banco_emisor: String(c.banco_emisor ?? ""),
-      tipo_tarjeta: String(c.tipo_tarjeta ?? ""),
-      fecha_vencimiento: String(c.fecha_vencimiento ?? ""),
-      activa: !!c.activa,
+    const fileName = file.name.toLowerCase();
+    if (!fileName.endsWith(".pdf")) {
+      return {
+        isValid: false,
+        error: `El archivo "${file.name}" debe tener extensión .pdf`,
+      };
+    }
 
-      nombre_titular: nt,
-      titularKey,
-      titularLabel,
-      identificacion: c.url_identificacion ?? hit?.identificacion ?? null,
-    };
-  });
+    validFiles.push(file);
+  }
 
-  // Orden opcional: API titulares primero, luego synthetics
-  const optionsOrdered = options.sort((a, b) => {
-    const aRank = a.key === "all" ? 0 : a.key === "none" ? 1 : a.source === "api" ? 2 : 3;
-    const bRank = b.key === "all" ? 0 : b.key === "none" ? 1 : b.source === "api" ? 2 : 3;
-    if (aRank !== bRank) return aRank - bRank;
-    return a.label.localeCompare(b.label, "es");
-  });
+  return { isValid: true, validFiles };
+};
 
-  return { options: optionsOrdered, tarjetas: tarjetasUI };
-}
+const validateCSVFile = (file: File): { isValid: boolean; error?: string } => {
+  const fileName = file.name.toLowerCase();
 
-async function fetchBoth(
-  signal?: AbortSignal,
-  endpoints?: { tarjetas?: string; titulares?: string },
-) {
-  const endpointTarjetas = endpoints?.tarjetas ?? `${URL}/mia/pagar/`;
-  const endpointTitulares = endpoints?.titulares ?? `${URL}/mia/pagar/titulares`;
+  if (!fileName.endsWith(".csv")) {
+    return { isValid: false, error: `El archivo debe tener extensión .csv` };
+  }
 
-  const common: RequestInit = {
-    method: "GET",
-    headers: {
-      "x-api-key": API_KEY || "",
-      "Content-Type": "application/json",
-      "Cache-Control": "no-cache, no-store, must-revalidate",
-    },
-    signal,
-  };
+  const maxSize = 10 * 1024 * 1024;
+  if (file.size > maxSize) {
+    return { isValid: false, error: `El archivo es demasiado grande. Máximo permitido: 10MB` };
+  }
 
-  const [rTar, rTit] = await Promise.all([
-    fetch(endpointTarjetas, common),
-    fetch(endpointTitulares, common),
-  ]);
+  return { isValid: true };
+};
 
-  const [jTar, jTit] = await Promise.all([
-    rTar.json().catch(() => null),
-    rTit.json().catch(() => null),
-  ]);
+// =========================
+// Helpers: dinero / cargo
+// =========================
+const cleanMoney = (v?: string) => {
+  const s = (v ?? "").replace(/[^\d.-]/g, "").trim();
+  if (!s) return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+};
 
-  if (!rTar.ok) throw new Error(jTar?.message || `Tarjetas HTTP ${rTar.status}`);
-  if (!rTit.ok) throw new Error(jTit?.message || `Titulares HTTP ${rTit.status}`);
+const getCargoFromCSVRow = (row: CSVData) => {
+  const cargo = cleanMoney(row["Cargo"]);
+  const abono = cleanMoney(row["Abono"]);
+  const monto = cleanMoney(row["Monto"]);
+  return cargo ?? abono ?? monto;
+};
+
+// =========================
+// Parse CSV (simple)
+// =========================
+const parseCSV = (csvText: string): string[][] => {
+  const lines = csvText.split("\n");
+  const result: string[][] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+
+    const regex = /(?:,|\n|^)(?:"([^"]*(?:""[^"]*)*)"|([^",\n]*))/g;
+    const row: string[] = [];
+    let match: RegExpExecArray | null;
+
+    while ((match = regex.exec(line + ",")) !== null) {
+      const value = match[1] !== undefined ? match[1].replace(/""/g, '"') : match[2];
+      row.push((value ?? "").trim());
+    }
+
+    result.push(row);
+  }
+
+  return result;
+};
+
+// =========================
+// Procesar CSV a objetos
+// =========================
+const procesarTodosLosDatosCSV = (parsedData: string[][]): CSVData[] => {
+  if (parsedData.length < 1) return [];
+
+  const result: CSVData[] = [];
+
+  let headerIndex = 0;
+  for (let i = 0; i < parsedData.length; i++) {
+    const rowLower = parsedData[i].map((cell) => (cell ?? "").trim().toLowerCase());
+    if (rowLower.includes("referencia ampliada") || rowLower.includes("referencia")) {
+      headerIndex = i;
+      break;
+    }
+  }
+
+  const headers = parsedData[headerIndex].map((h) => (h ?? "").trim());
+  const dataRows = parsedData.slice(headerIndex + 1);
+
+  for (const row of dataRows) {
+    if (!row || row.length === 0 || row.every((cell) => (cell ?? "").trim() === "")) continue;
+
+    const csvData: CSVData = {};
+
+    headers.forEach((header, idx) => {
+      if (!header) return;
+      csvData[header] = (row[idx] ?? "").trim();
+    });
+
+    const referenciaAmpliada = csvData["Referencia Ampliada"];
+    const referenciaSimple = csvData["Referencia"];
+
+    const info =
+      extractDispersionInfo(referenciaAmpliada) || extractDispersionInfo(referenciaSimple);
+
+    if (info) {
+      csvData["codigo_dispersion"] = info.codigo_dispersion;
+      csvData["id_dispersion"] = info.id_dispersion;
+    }
+
+    const cargoNum = getCargoFromCSVRow(csvData);
+    if (cargoNum !== null) {
+      csvData["cargo"] = cargoNum.toFixed(2);
+    }
+
+    result.push(csvData);
+  }
+
+  return result;
+};
+
+// =========================
+// Helpers individual
+// =========================
+const buildSingleCSVRow = (form: SingleFormData): CSVData => {
+  const cargoNum = cleanMoney(form.cargo);
 
   return {
-    tarjetas: normalizeTarjetas(jTar),
-    titulares: normalizeTitulares(jTit),
-  };
-}
-
-export type MetodoPagoModalProps = {
-  idSolProv: string;
-
-  /** puede venir como estado_solicitud o como método */
-  currentMethod: string;
-
-  currentCardId?: string | null;
-  onSetMethod: (next: Metodo) => Promise<boolean>;
-  onSetCard: (payload: { id_tarjeta_solicitada: string | null }) => Promise<boolean>;
-  endpoints?: {
-    tarjetas?: string;
-    titulares?: string;
+    "Referencia Ampliada": form.referencia?.trim() || "",
+    "Referencia": form.referencia?.trim() || "",
+    "Fecha Operación": form.fecha_operacion?.trim() || "",
+    "Concepto": form.concepto?.trim() || "",
+    "Cargo": cargoNum !== null ? cargoNum.toFixed(2) : "",
+    "codigo_dispersion": form.codigo_dispersion?.trim(),
+    "id_dispersion": form.id_dispersion?.trim(),
+    "cargo": cargoNum !== null ? cargoNum.toFixed(2) : "",
   };
 };
 
-export default function MetodoPagoModal({
-  idSolProv,
-  currentMethod,
-  currentCardId,
-  onSetMethod,
-  onSetCard,
-  endpoints,
-}: MetodoPagoModalProps) {
-  const [open, setOpen] = React.useState(false);
+const validateSingleForm = (form: SingleFormData) => {
+  if (!form.codigo_dispersion.trim()) return "Falta codigo_dispersion";
+  if (!form.id_dispersion.trim()) return "Falta id_dispersion";
+  if (!form.cargo.trim()) return "Falta cargo";
 
-  const statusOrMethod = String(currentMethod || "").trim().toUpperCase();
+  const cargoNum = cleanMoney(form.cargo);
+  if (cargoNum === null || cargoNum <= 0) return "El cargo debe ser mayor a 0";
 
-const initialMetodo: Metodo =
-  statusOrMethod === "CARD" ||
-  statusOrMethod === "CARTA_ENVIADA" ||
-  statusOrMethod === "PAGADO TARJETA"
-    ? "card"
-    : "transfer";
+  return null;
+};
 
-  const [metodo, setMetodo] = React.useState<Metodo>(initialMetodo);
+// =========================
+// Read file helper
+// =========================
+const readFileAsText = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve((e.target?.result as string) ?? "");
+    reader.onerror = reject;
+    reader.readAsText(file, "UTF-8");
+  });
+};
 
-  // ✅ aquí guardamos elección independiente
-  const [titularKey, setTitularKey] = React.useState<string>("all");
-  const [cardId, setCardId] = React.useState<string>(String(currentCardId ?? ""));
+export const ComprobanteModal: React.FC<Comprobante> = ({ onClose, onSubmit }) => {
+  const { user } = useAuth();
 
-  const [titularesOpts, setTitularesOpts] = React.useState<TitularOption[]>([
-    { key: "all", label: "Todos", source: "synthetic" },
-    { key: "none", label: "Sin titular", source: "synthetic" },
-  ]);
+  const [modoCarga, setModoCarga] = useState<"masivo" | "individual">("masivo");
 
-  const [cards, setCards] = React.useState<TarjetaUI[]>([]);
-  const [loadingCards, setLoadingCards] = React.useState(false);
-  const [saving, setSaving] = React.useState(false);
-  const [error, setError] = React.useState<string>("");
+  const [pdfFiles, setPdfFiles] = useState<File[]>([]);
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [pdfUploading, setPdfUploading] = useState(false);
+  const [pdfUploadProgress, setPdfUploadProgress] = useState<{ done: number; total: number } | null>(
+    null
+  );
 
-  // Reset al abrir
-  React.useEffect(() => {
-    if (!open) return;
-    setMetodo(initialMetodo);
-    setCardId(String(currentCardId ?? ""));
-    setTitularKey("all");
-    setError("");
-  }, [open, initialMetodo, currentCardId]);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const [csvLoading, setCsvLoading] = useState(false);
 
-  // Fetch cuando abre y método es card
-  React.useEffect(() => {
-    if (!open) return;
-    if (metodo !== "card") return;
+  const [csvPreview, setCsvPreview] = useState<CSVData[]>([]);
 
-    const ac = new AbortController();
-    setLoadingCards(true);
+  const [singleForm, setSingleForm] = useState<SingleFormData>({
+    codigo_dispersion: "",
+    id_dispersion: "",
+    cargo: "",
+    referencia: "",
+    fecha_operacion: "",
+    concepto: "",
+  });
 
-    (async () => {
-      try {
-        const { tarjetas, titulares } = await fetchBoth(ac.signal, endpoints);
-        const model = buildModel(tarjetas, titulares);
+  const isMasivo = modoCarga === "masivo";
 
-        // Orden cards: activas primero
-        const orderedCards = [...model.tarjetas].sort(
-          (a, b) => Number(b.activa) - Number(a.activa),
-        );
-
-        setTitularesOpts(model.options);
-        setCards(orderedCards);
-
-        // ✅ Si ya hay tarjeta guardada, setea titularKey acorde (solo una vez)
-        const cur = String(currentCardId ?? "").trim();
-        if (cur) {
-          const found = orderedCards.find((c) => c.id === cur);
-          if (found) setTitularKey(found.titularKey === "none" ? "none" : found.titularKey);
-        }
-      } catch (e: any) {
-        setCards([]);
-        setError(e?.message || "No se pudieron cargar titulares/tarjetas");
-      } finally {
-        setLoadingCards(false);
-      }
-    })();
-
-    return () => ac.abort();
-  }, [open, metodo, endpoints, currentCardId]);
-
-  // Filtrado de tarjetas según titular elegido
-  const filteredCards = React.useMemo(() => {
-    if (titularKey === "all") return cards;
-    if (titularKey === "none") return cards.filter((c) => c.titularKey === "none");
-    return cards.filter((c) => c.titularKey === titularKey);
-  }, [cards, titularKey]);
-
-  // Si cambian titular y la tarjeta seleccionada ya no está en el filtro, la reseteamos
-  React.useEffect(() => {
-    if (metodo !== "card") return;
-    if (!cardId) return;
-    const exists = filteredCards.some((c) => c.id === cardId);
-    if (!exists) setCardId("");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [titularKey]);
-
-  const canSave =
-    !saving &&
-    (metodo === "transfer" || (metodo === "card" && cardId.trim().length > 0));
-
-  const handleSave = async () => {
-    setError("");
-
-    if (!canSave) {
-      setError(metodo === "card" ? "Selecciona una tarjeta." : "Completa la información.");
-      return;
-    }
-
-    setSaving(true);
-
-    const okMethod = await onSetMethod(metodo);
-    if (!okMethod) {
-      setSaving(false);
-      return;
-    }
-
-    const okCard =
-      metodo === "card"
-        ? await onSetCard({ id_tarjeta_solicitada: cardId })
-        : await onSetCard({ id_tarjeta_solicitada: null });
-
-    setSaving(false);
-    if (okCard) setOpen(false);
+  const updateSingleForm = (field: keyof SingleFormData, value: string) => {
+    setSingleForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
   };
 
+  const handleChangeModo = (modo: "masivo" | "individual") => {
+    setModoCarga(modo);
+    setFormError(null);
+    setFileError(null);
+
+    if (modo === "individual") {
+      setCsvFile(null);
+      setCsvPreview([]);
+      setCsvLoading(false);
+      const csvInput = document.getElementById("csv-file") as HTMLInputElement | null;
+      if (csvInput) csvInput.value = "";
+    }
+  };
+
+  const handlePdfChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setFileError(null);
+
+    if (event.target.files && event.target.files.length > 0) {
+      const validation = validatePDFFiles(event.target.files);
+
+      if (!validation.isValid) {
+        setFileError(validation.error || "Error al validar archivos PDF");
+        event.target.value = "";
+        return;
+      }
+
+      setPdfFiles(validation.validFiles || []);
+    }
+  };
+
+  const handleCsvChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setFileError(null);
+    setCsvFile(null);
+    setCsvPreview([]);
+
+    if (event.target.files && event.target.files[0]) {
+      const file = event.target.files[0];
+      const validation = validateCSVFile(file);
+
+      if (!validation.isValid) {
+        setFileError(validation.error || "Error al validar archivo CSV");
+        event.target.value = "";
+        return;
+      }
+
+      setCsvFile(file);
+      setCsvLoading(true);
+
+      const reader = new FileReader();
+      reader.onload = (e: ProgressEvent<FileReader>) => {
+        const csvText = e.target?.result;
+        try {
+          if (typeof csvText !== "string" || !csvText.trim()) {
+            throw new Error("CSV vacío");
+          }
+
+          const parsed = parseCSV(csvText);
+          const processed = procesarTodosLosDatosCSV(parsed);
+
+          if (processed.length === 0) {
+            throw new Error("El CSV no tiene filas válidas");
+          }
+
+          setCsvPreview(processed.slice(0, 20));
+          console.log("✅ CSV filas procesadas:", processed.length);
+        } catch (err) {
+          console.error(err);
+          setFileError("Error al leer el archivo CSV. Verifica el formato.");
+          setCsvFile(null);
+          event.target.value = "";
+        } finally {
+          setCsvLoading(false);
+        }
+      };
+
+      reader.onerror = () => {
+        setFileError("Error al leer el archivo CSV");
+        setCsvFile(null);
+        setCsvLoading(false);
+        event.target.value = "";
+      };
+
+      reader.readAsText(file, "UTF-8");
+    }
+  };
+
+  const clearPdfFiles = () => {
+    setPdfFiles([]);
+    const pdfInput = document.getElementById("pdf-file") as HTMLInputElement | null;
+    if (pdfInput) pdfInput.value = "";
+  };
+
+  const clearCsvFile = () => {
+    setCsvFile(null);
+    setCsvPreview([]);
+    const csvInput = document.getElementById("csv-file") as HTMLInputElement | null;
+    if (csvInput) csvInput.value = "";
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+    setFileError(null);
+
+    if (pdfFiles.length === 0) {
+      setFormError("Por favor, sube al menos un comprobante PDF.");
+      return;
+    }
+
+    if (modoCarga === "masivo") {
+      if (!csvFile) {
+        setFormError("Por favor, sube el archivo CSV.");
+        return;
+      }
+
+      if (csvLoading) {
+        setFormError("El CSV se está procesando. Intenta nuevamente en unos segundos.");
+        return;
+      }
+    }
+
+    try {
+      let csvDataArray: CSVData[] = [];
+
+      // ==========================
+      // 1) Procesar origen de datos
+      // ==========================
+      if (modoCarga === "masivo") {
+        const csvText = await readFileAsText(csvFile as File);
+        const parsed = parseCSV(csvText);
+        csvDataArray = procesarTodosLosDatosCSV(parsed);
+
+        if (csvDataArray.length === 0) {
+          setFormError("No se pudieron procesar los datos del CSV o el archivo está vacío.");
+          return;
+        }
+      } else {
+        const singleError = validateSingleForm(singleForm);
+        if (singleError) {
+          setFormError(singleError);
+          return;
+        }
+
+        csvDataArray = [buildSingleCSVRow(singleForm)];
+      }
+
+      // ==========================
+      // 2) Validar filas
+      // ==========================
+      const invalidRows = csvDataArray
+        .map((r, idx) => ({ r, idx }))
+        .filter(({ r }) => !r["codigo_dispersion"] || !r["id_dispersion"] || !r["cargo"]);
+
+      if (invalidRows.length > 0) {
+        const sample = invalidRows.slice(0, 3).map(({ idx }) => idx + 1).join(", ");
+        setFormError(
+          `Hay filas sin "codigo_dispersion", "id_dispersion" o "Cargo". Filas (1-based) ejemplo: ${sample}.`
+        );
+        return;
+      }
+
+      // ==========================
+      // 3) Construir pagos + total cargo
+      // ==========================
+      const pagos = csvDataArray.map((r) => ({
+        codigo_dispersion: r["codigo_dispersion"],
+        id_dispersion: r["id_dispersion"],
+        cargo: Number(r["cargo"]),
+        referencia: r["Referencia Ampliada"] || r["Referencia"] || "",
+        fecha_operacion: r["Fecha Operación"] || "",
+        concepto: r["Concepto"] || "",
+      }));
+
+      const totalCargo = pagos.reduce(
+        (acc, p) => acc + (Number.isFinite(p.cargo) ? p.cargo : 0),
+        0
+      );
+
+      // ==========================
+      // 4) Código global único
+      // ==========================
+      const uniqueCodes = Array.from(
+        new Set(pagos.map((p) => p.codigo_dispersion).filter(Boolean))
+      );
+
+      if (uniqueCodes.length !== 1) {
+        setFormError(
+          `Se detectaron múltiples códigos de dispersión (${uniqueCodes.join(", ")}). Debe venir 1 solo código por carga.`
+        );
+        return;
+      }
+
+      const codigoDispersionGlobal = uniqueCodes[0];
+
+      // ==========================
+      // 5) Montos por key (codigo+id)
+      // ==========================
+      const montosByDispersionKey: Record<string, string> = {};
+      for (const p of pagos) {
+        const key = `${p.codigo_dispersion}${p.id_dispersion}`;
+        montosByDispersionKey[key] = Number(p.cargo).toFixed(2);
+      }
+
+      // ==========================
+      // 6) Subir PDFs a S3
+      // ==========================
+      setPdfUploading(true);
+      setPdfUploadProgress({ done: 0, total: pdfFiles.length });
+
+      const pdfsSubidos: Array<{
+        name: string;
+        size: number;
+        type: string;
+        url: string;
+      }> = [];
+
+      for (const file of pdfFiles) {
+        const url = await subirArchivoAS3Seguro(file);
+        pdfsSubidos.push({
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          url,
+        });
+
+        setPdfUploadProgress((prev) => {
+          if (!prev) return { done: 1, total: pdfFiles.length };
+          return { ...prev, done: prev.done + 1 };
+        });
+      }
+
+      setPdfUploading(false);
+
+      // ==========================
+      // 7) Frontend data
+      // ==========================
+      const frontendData = {
+        user_created: user?.email || "system",
+        user_update: user?.email || "system",
+        concepto: "Pago a proveedor",
+        descripcion: "Pago generado desde sistema",
+        fecha_emision: new Date().toISOString(),
+        id_solicitud_proveedor: null,
+        url_pdf: pdfsSubidos[0]?.url || null,
+      };
+
+      // ==========================
+      // 8) Payload final
+      // ==========================
+      const payload = {
+        frontendData,
+        isMasivo: modoCarga === "masivo",
+        csvData: csvDataArray,
+        pagos,
+        total_cargo: Number(totalCargo.toFixed(2)),
+        codigo_dispersion: codigoDispersionGlobal,
+        montos: montosByDispersionKey,
+        user: user?.id || null,
+        pdfs: pdfsSubidos,
+        url_pdf: pdfsSubidos[0]?.url || null,
+      };
+
+      console.log("📦 Payload a enviar:", payload);
+
+      const response = await fetch(`${API_URL}/mia/pago_proveedor/pago`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": API_KEY,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        console.log("✅ Respuesta del backend:", data);
+
+        if (onSubmit) {
+          await onSubmit(payload);
+        }
+
+        onClose();
+      } else {
+        console.error("❌ Error backend:", data?.message || data?.error || data);
+        setFormError(
+          data?.details || "Ocurrió un error al guardar la dispersión. Intenta nuevamente."
+        );
+      }
+    } catch (err) {
+      console.error("Error inesperado:", err);
+      setFormError("Ocurrió un error al procesar la solicitud.");
+    } finally {
+      setPdfUploading(false);
+      setPdfUploadProgress(null);
+    }
+  };
+
+  const isSubmitDisabled =
+    pdfUploading ||
+    pdfFiles.length === 0 ||
+    (modoCarga === "masivo"
+      ? !csvFile || csvLoading
+      : !singleForm.codigo_dispersion.trim() ||
+        !singleForm.id_dispersion.trim() ||
+        !singleForm.cargo.trim());
+
   return (
-    <div className="relative">
-      <button
-        type="button"
-        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100"
-        onClick={() => setOpen(true)}
-        title="Cambiar método de pago"
-      >
-        Método
-      </button>
+    <div className="h-fit w-[95vw] max-w-xl relative bg-white rounded-lg shadow-lg">
+      <div className="max-w-2xl mx-auto">
+        <div className="sticky top-0 z-10">
+          <div className="bg-blue-50 border-b border-blue-200 p-4 flex gap-3 items-start rounded-t-lg">
+            <Info className="w-5 h-5 text-blue-600 mt-0.5" />
+            <div className="w-full">
+              <h3 className="text-sm font-semibold text-blue-800">Crear dispersión</h3>
+              <p className="text-xs text-blue-700 mb-3">
+                Puedes subir por CSV o capturar una solicitud individual.
+              </p>
 
-      {open && (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
-          <div
-            className="relative w-[min(620px,92vw)] rounded-2xl border border-slate-200 bg-white shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-3 px-4 py-3 border-b border-slate-100">
-              <div>
-                <div className="text-sm font-semibold text-slate-900">Método de pago</div>
-                <div className="text-xs text-slate-500">
-                  Solicitud: <span className="font-mono">{idSolProv}</span>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                className="inline-flex items-center justify-center w-9 h-9 rounded-md border border-slate-200 hover:bg-slate-50"
-                onClick={() => setOpen(false)}
-                title="Cerrar"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="p-4 space-y-4">
-              {/* selector método */}
-              <div className="grid grid-cols-2 gap-2">
+              <div className="flex gap-2">
                 <button
                   type="button"
-                  className={[
-                    "flex items-center gap-2 rounded-xl border px-3 py-2 text-sm",
-                    metodo === "transfer"
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                      : "border-slate-200 hover:bg-slate-50",
-                  ].join(" ")}
-                  onClick={() => {
-                    setMetodo("transfer");
-                    setError("");
-                  }}
+                  onClick={() => handleChangeModo("masivo")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
+                    modoCarga === "masivo"
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "bg-white text-blue-700 border-blue-200"
+                  }`}
                 >
-                  <ArrowLeftRight className="w-4 h-4" />
-                  Transferencia
+                  Masivo
                 </button>
 
                 <button
                   type="button"
-                  className={[
-                    "flex items-center gap-2 rounded-xl border px-3 py-2 text-sm",
-                    metodo === "card"
-                      ? "border-indigo-200 bg-indigo-50 text-indigo-800"
-                      : "border-slate-200 hover:bg-slate-50",
-                  ].join(" ")}
-                  onClick={() => {
-                    setMetodo("card");
-                    setError("");
-                  }}
+                  onClick={() => handleChangeModo("individual")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${
+                    modoCarga === "individual"
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "bg-white text-blue-700 border-blue-200"
+                  }`}
                 >
-                  <CreditCard className="w-4 h-4" />
-                  Tarjeta
-                </button>
-              </div>
-
-              {/* Titular + Tarjeta */}
-              {metodo === "card" && (
-                <div className="space-y-3">
-                  <div className="text-xs font-semibold text-slate-700">
-                    Selecciona titular y tarjeta
-                  </div>
-
-                  {loadingCards ? (
-                    <div className="flex items-center gap-2 text-sm text-slate-600">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Cargando titulares y tarjetas…
-                    </div>
-                  ) : (
-                    <>
-                      {/* TITULAR */}
-                      <div className="space-y-1">
-                        <div className="text-[11px] font-semibold text-slate-600">
-                          Titular
-                        </div>
-                        <select
-                          className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
-                          value={titularKey}
-                          onChange={(e) => {
-                            setTitularKey(e.target.value);
-                            setError("");
-                          }}
-                        >
-                          {titularesOpts.map((t) => (
-                            <option key={t.key} value={t.key}>
-                              {t.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* TARJETA */}
-                      <div className="space-y-1">
-                        <div className="text-[11px] font-semibold text-slate-600">
-                          Tarjeta
-                        </div>
-
-                        {filteredCards.length === 0 ? (
-                          <div className="text-sm text-slate-600">
-                            No hay tarjetas para este titular.
-                          </div>
-                        ) : (
-                          <select
-                            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
-                            value={cardId}
-                            onChange={(e) => {
-                              setCardId(e.target.value);
-                              setError("");
-                            }}
-                          >
-                            <option value="">— Selecciona —</option>
-                            {filteredCards.map((c) => {
-                              const label =
-                                `•••• ${c.ultimos_4}` +
-                                (c.banco_emisor ? ` · ${c.banco_emisor}` : "") +
-                                (c.tipo_tarjeta ? ` · ${c.tipo_tarjeta}` : "") +
-                                (c.alias ? ` · ${c.alias}` : "") +
-                                (c.titularLabel ? ` · ${c.titularLabel}` : "") +
-                                (c.activa ? "" : " · (INACTIVA)");
-
-                              return (
-                                <option key={c.id} value={c.id}>
-                                  {label}
-                                </option>
-                              );
-                            })}
-                          </select>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-
-              {/* error */}
-              {error && (
-                <div className="text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
-                  {error}
-                </div>
-              )}
-
-              {/* acciones */}
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  className="px-3 py-2 rounded-xl text-sm border border-slate-200 hover:bg-slate-50"
-                  onClick={() => setOpen(false)}
-                  disabled={saving}
-                >
-                  Cancelar
-                </button>
-
-                <button
-                  type="button"
-                  className={[
-                    "px-3 py-2 rounded-xl text-sm border",
-                    canSave
-                      ? "border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
-                      : "border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed",
-                  ].join(" ")}
-                  onClick={handleSave}
-                  disabled={!canSave}
-                >
-                  {saving ? "Guardando…" : "Guardar"}
+                  Individual
                 </button>
               </div>
             </div>
           </div>
+
+          {formError && (
+            <div className="bg-red-50 border-b border-red-200 p-4 flex gap-3 items-start">
+              <X className="w-5 h-5 text-red-600 mt-0.5" />
+              <div>
+                <h3 className="text-sm font-semibold text-red-800">¡Ocurrió un error!</h3>
+                <p className="text-xs text-red-700">{formError}</p>
+              </div>
+            </div>
+          )}
+
+          {fileError && (
+            <div className="bg-red-50 border-b border-red-200 p-4 flex gap-3 items-start">
+              <X className="w-5 h-5 text-red-600 mt-0.5" />
+              <div>
+                <h3 className="text-sm font-semibold text-red-800">Error en archivo</h3>
+                <p className="text-xs text-red-700">{fileError}</p>
+              </div>
+            </div>
+          )}
         </div>
-      )}
+
+        <form onSubmit={handleSubmit} className="p-4 space-y-6">
+          {/* PDFs */}
+          <div className="space-y-2">
+            <label htmlFor="pdf-file" className="block text-sm font-medium text-gray-700">
+              Subir comprobantes PDF
+            </label>
+
+            <div className="relative">
+              <input
+                id="pdf-file"
+                type="file"
+                accept=".pdf,application/pdf"
+                multiple
+                onChange={handlePdfChange}
+                className="w-full text-sm text-gray-800 border-2 border-dashed border-gray-300 rounded-lg p-4 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+              />
+              <Upload className="absolute right-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            </div>
+
+            <div className="flex justify-between items-center">
+              <p className="text-xs text-gray-500">Solo PDF. Puedes subir uno o varios.</p>
+              {pdfFiles.length > 0 && (
+                <button
+                  type="button"
+                  onClick={clearPdfFiles}
+                  className="text-xs text-red-600 hover:text-red-800 font-medium"
+                >
+                  Limpiar PDFs
+                </button>
+              )}
+            </div>
+
+            {pdfFiles.length > 0 && (
+              <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                <p className="text-xs text-gray-700 mb-2">PDFs seleccionados: {pdfFiles.length}</p>
+                <div className="space-y-1 max-h-40 overflow-auto">
+                  {pdfFiles.map((f, i) => (
+                    <div key={i} className="flex justify-between text-xs bg-white p-2 rounded">
+                      <span className="truncate">{f.name}</span>
+                      <span className="text-gray-500">{(f.size / 1024).toFixed(1)} KB</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Modo masivo */}
+          {modoCarga === "masivo" && (
+            <div className="space-y-2">
+              <label htmlFor="csv-file" className="block text-sm font-medium text-gray-700">
+                Subir archivo CSV
+              </label>
+
+              <div className="relative">
+                <input
+                  id="csv-file"
+                  type="file"
+                  accept=".csv,text/csv"
+                  onChange={handleCsvChange}
+                  className="w-full text-sm text-gray-800 border-2 border-dashed border-gray-300 rounded-lg p-4 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                />
+                <Upload className="absolute right-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              </div>
+
+              <div className="flex justify-between items-center">
+                <p className="text-xs text-gray-500">Solo CSV. Máximo 10MB.</p>
+                {csvFile && (
+                  <button
+                    type="button"
+                    onClick={clearCsvFile}
+                    className="text-xs text-red-600 hover:text-red-800 font-medium"
+                  >
+                    Limpiar CSV
+                  </button>
+                )}
+              </div>
+
+              {csvFile && (
+                <div className="mt-2 p-3 bg-green-50 rounded border border-green-200">
+                  <p className="text-sm font-medium text-green-700">CSV cargado:</p>
+                  <p className="text-sm text-green-600 truncate">{csvFile.name}</p>
+                  <p className="text-xs text-green-500 mt-1">
+                    Tamaño: {(csvFile.size / 1024).toFixed(1)} KB
+                  </p>
+                  {csvLoading ? (
+                    <p className="text-xs text-gray-600 mt-1">Procesando CSV...</p>
+                  ) : (
+                    <p className="text-xs text-green-600 mt-1">Listo para enviar.</p>
+                  )}
+                </div>
+              )}
+
+              {csvPreview.length > 0 && !csvLoading && (
+                <div className="mt-2 border border-gray-200 rounded-lg p-3 bg-gray-50">
+                  <p className="text-xs text-gray-700 mb-2">
+                    Preview (hasta 20 filas): se extrae codigo/id y se normaliza cargo.
+                  </p>
+                  <div className="space-y-1 max-h-40 overflow-auto">
+                    {csvPreview.map((r, i) => (
+                      <div key={i} className="text-xs bg-white p-2 rounded">
+                        <div className="flex justify-between">
+                          <span className="text-gray-700">
+                            {r["codigo_dispersion"] ?? "—"}
+                            {r["id_dispersion"] ? r["id_dispersion"] : ""}
+                          </span>
+                          <span className="text-gray-500">${r["cargo"] ?? "—"}</span>
+                        </div>
+                        <div className="text-gray-500 truncate">
+                          {r["Referencia Ampliada"] || r["Referencia"] || ""}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Modo individual */}
+          {modoCarga === "individual" && (
+            <div className="space-y-4">
+              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                <h4 className="text-sm font-semibold text-gray-800 mb-3">
+                  Captura individual
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Código de dispersión
+                    </label>
+                    <input
+                      type="text"
+                      value={singleForm.codigo_dispersion}
+                      onChange={(e) => updateSingleForm("codigo_dispersion", e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      placeholder="Ej. DZQIH7C"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      ID dispersión
+                    </label>
+                    <input
+                      type="text"
+                      value={singleForm.id_dispersion}
+                      onChange={(e) => updateSingleForm("id_dispersion", e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      placeholder="Ej. 107"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Cargo
+                    </label>
+                    <input
+                      type="text"
+                      value={singleForm.cargo}
+                      onChange={(e) => updateSingleForm("cargo", e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      placeholder="Ej. 1800.00"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Fecha operación
+                    </label>
+                    <input
+                      type="date"
+                      value={singleForm.fecha_operacion}
+                      onChange={(e) => updateSingleForm("fecha_operacion", e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Referencia
+                    </label>
+                    <input
+                      type="text"
+                      value={singleForm.referencia}
+                      onChange={(e) => updateSingleForm("referencia", e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      placeholder='Ej. 852 wxDZQIH7Cxw107'
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Concepto
+                    </label>
+                    <input
+                      type="text"
+                      value={singleForm.concepto}
+                      onChange={(e) => updateSingleForm("concepto", e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                      placeholder="Ej. Pago individual"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-3 p-3 bg-white rounded border border-gray-200">
+                  <p className="text-xs text-gray-600">
+                    En modo individual se genera internamente un arreglo `csvData` de un solo
+                    elemento, para mandar el mismo payload que el flujo masivo.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Botones */}
+          <div className="flex gap-3 px-1 pb-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl font-medium text-gray-700 text-sm hover:bg-gray-50 transition-colors duration-200"
+            >
+              Cancelar
+            </button>
+
+            <button
+              type="submit"
+              disabled={isSubmitDisabled}
+              className={`flex-1 px-6 py-2.5 rounded-xl font-semibold text-white text-sm transition-all duration-200 flex items-center justify-center gap-2 ${
+                isSubmitDisabled
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-blue-600 hover:bg-blue-700 shadow-sm"
+              }`}
+            >
+              <Send className="w-4 h-4" />
+              {pdfUploading
+                ? `Subiendo PDFs... (${pdfUploadProgress?.done ?? 0}/${pdfUploadProgress?.total ?? 0})`
+                : "Subir comprobantes"}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
-}
+};

@@ -91,85 +91,80 @@ const limpiarFechas = () => {
 };
 
   const consultar = async () => {
-    setError("");
+  setError("");
 
-    const id = String(idAgente || "").trim();
-    if (!id) {
-      setError("Ingresa un id_agente.");
-      return;
+  const id = String(idAgente || "").trim();
+
+  // Solo validar UUID si sí mandaron algo
+  if (id && !isUUID(id)) {
+    setError(
+      "id_agente inválido. Debe ser UUID (ej. 765f610d-b793-407d-8341-7d1fc8a86c37)."
+    );
+    return;
+  }
+
+  const fDesde = String(fechaDesde || "").trim() || null;
+  const fHasta = String(fechaHasta || "").trim() || null;
+
+  if (fDesde && !isYYYYMMDD(fDesde)) {
+    setError("Fecha inicio inválida. Usa formato YYYY-MM-DD.");
+    return;
+  }
+  if (fHasta && !isYYYYMMDD(fHasta)) {
+    setError("Fecha fin inválida. Usa formato YYYY-MM-DD.");
+    return;
+  }
+  if (fDesde && fHasta && fDesde > fHasta) {
+    setError("Rango de fechas inválido: la fecha inicio es mayor que la fecha fin.");
+    return;
+  }
+
+  setLoading(true);
+  try {
+    const qs = new URLSearchParams();
+
+    // solo enviarlo si trae valor
+    if (id) qs.set("id_agente", id);
+    if (fDesde) qs.set("fecha_desde", fDesde);
+    if (fHasta) qs.set("fecha_hasta", fHasta);
+
+    const endpoint = `${URL}/mia/factura/agentes_report_fac?${qs.toString()}`;
+
+    const res = await fetch(endpoint, {
+      method: "GET",
+      headers: {
+        "x-api-key": API_KEY || "",
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
+
+    const json = await res.json().catch(() => null);
+
+    if (!res.ok) {
+      const msg = json?.message || json?.error || `HTTP ${res.status}`;
+      throw new Error(msg);
     }
-    if (!isUUID(id)) {
-      setError(
-        "id_agente inválido. Debe ser UUID (ej. 765f610d-b793-407d-8341-7d1fc8a86c37)."
-      );
-      return;
+
+    const arr = Array.isArray(json?.data) ? json.data : null;
+    if (!arr) {
+      throw new Error("Respuesta inválida: no existe data.data (json.data).");
     }
 
-    // Normaliza fechas: "" => null
-    const fDesde = String(fechaDesde || "").trim() || null;
-    const fHasta = String(fechaHasta || "").trim() || null;
-
-    // Validación básica (por si el navegador no respeta type="date")
-    if (fDesde && !isYYYYMMDD(fDesde)) {
-      setError("Fecha inicio inválida. Usa formato YYYY-MM-DD.");
-      return;
-    }
-    if (fHasta && !isYYYYMMDD(fHasta)) {
-      setError("Fecha fin inválida. Usa formato YYYY-MM-DD.");
-      return;
-    }
-    if (fDesde && fHasta && fDesde > fHasta) {
-      setError("Rango de fechas inválido: la fecha inicio es mayor que la fecha fin.");
-      return;
+    if (arr?.[0]?.error || arr?.[1]?.error) {
+      throw new Error("Error al cargar los datos (SP retornó error).");
     }
 
-    setLoading(true);
-    try {
-      // ✅ Construye query params (si no hay fechas, no las envía)
-      const qs = new URLSearchParams();
-      qs.set("id_agente", id);
-      if (fDesde) qs.set("fecha_desde", fDesde);
-      if (fHasta) qs.set("fecha_hasta", fHasta);
-
-      const endpoint = `${URL}/mia/factura/agentes_report_fac?${qs.toString()}`;
-
-      const res = await fetch(endpoint, {
-        method: "GET",
-        headers: {
-          "x-api-key": API_KEY || "",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-          "Content-Type": "application/json",
-        },
-        cache: "no-store",
-      });
-
-      const json = await res.json().catch(() => null);
-
-      console.log(json);
-      if (!res.ok) {
-        const msg = json?.message || json?.error || `HTTP ${res.status}`;
-        throw new Error(msg);
-      }
-
-      const arr = Array.isArray(json?.data) ? json.data : null;
-      if (!arr) {
-        throw new Error("Respuesta inválida: no existe data.data (json.data).");
-      }
-
-      if (arr?.[0]?.error || arr?.[1]?.error) {
-        throw new Error("Error al cargar los datos (SP retornó error).");
-      }
-
-      const mapped = arr.map((r: AnyRow) => ({ ...r, item: r }));
-      setRows(mapped);
-    } catch (e: any) {
-      console.log("❌ Error agentes_report_fac:", e);
-      setRows([]);
-      setError(e?.message || "Error al consultar.");
-    } finally {
-      setLoading(false);
-    }
-  };
+    const mapped = arr.map((r: AnyRow) => ({ ...r, item: r }));
+    setRows(mapped);
+  } catch (e: any) {
+    setRows([]);
+    setError(e?.message || "Error al consultar.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const renderers = useMemo(() => {
     return {

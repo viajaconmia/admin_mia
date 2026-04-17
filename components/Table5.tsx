@@ -179,6 +179,52 @@ const visibleOrderedColumns = useMemo(() => {
     });
   };
 
+  const isDateLikeKey = (key: string) => {
+  const k = key.toLowerCase();
+  return (
+    k.includes("fecha") ||
+    k.includes("date") ||
+    k.includes("check_in") ||
+    k.includes("check_out") ||
+    k.includes("chin") ||
+    k.includes("chout") ||
+    k.includes("created_at") ||
+    k.includes("updated_at")
+  );
+};
+
+const formatDateOnly = (value: any) => {
+  if (value === null || value === undefined || value === "") return value;
+
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    return value.toISOString().slice(0, 10);
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+
+    // ya viene como YYYY-MM-DD o YYYY-MM-DD HH:mm:ss o ISO
+    const isoMatch = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (isoMatch) return isoMatch[1];
+
+    const parsed = new Date(trimmed);
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toISOString().slice(0, 10);
+    }
+  }
+
+  return value;
+};
+
+const normalizeExportRow = (row: Registro) => {
+  return Object.fromEntries(
+    Object.entries(row)
+      .filter(([k]) => !EXPORT_EXCLUDE_COLS.has(k))
+      .map(([k, v]) => [k, isDateLikeKey(k) ? formatDateOnly(v) : v]),
+  );
+};
+
+
   // Verificar si una columna es expandible para una fila específica
   const isColumnExpandable = (colKey: string, value: any) => {
     // Verificar si la columna está en la lista de expandibleColumns
@@ -424,13 +470,8 @@ const visibleOrderedColumns = useMemo(() => {
               <button
                 onClick={() => {
                   const dataToExport = displayData.map(({ item, ...rest }) =>
-                    Object.fromEntries(
-                      Object.entries(rest).filter(
-                        ([k]) => !EXPORT_EXCLUDE_COLS.has(k),
-                      ),
-                    ),
+                    normalizeExportRow(rest),
                   );
-
                   exportToCSV(dataToExport, "Solicitudes.csv");
                 }}
                 className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2"
