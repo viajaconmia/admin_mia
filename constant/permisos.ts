@@ -27,6 +27,7 @@ export const PERMISOS = {
   },
   COMPONENTES: {
     BOTON: {
+      WALLET_CREDITO:"row.wallet_credito_mostrar",
       PAGAR_PROVEEDOR: "button.pagar-proveedor-reserva",
       SALDO_A_FAVOR: "button.saldo-favor-proveedor",
       CREAR_RESERVA: "button.crear-reserva",
