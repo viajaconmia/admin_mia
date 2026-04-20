@@ -8,6 +8,9 @@ import { SaldoFavor } from "@/services/SaldoAFavor";
 import Modal from "../organism/Modal";
 import Button from "../atom/Button";
 import { useAlert } from "@/context/useAlert";
+import { usePermiso } from "@/hooks/usePermission";
+import { PERMISOS } from "@/constant/permisos";
+
 
 interface TableRow {
   id_item: string;
@@ -109,6 +112,7 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
   // console.log("reservaData recibida:", reservaData);
   // console.log("facturas recibida:", facturaData);
   const { showNotification } = useAlert();
+  const { hasPermission } = usePermiso();
   // Helper global para dinero
 const MONEY_TOLERANCE_CENTS = 1;
 
@@ -145,12 +149,14 @@ const getSaldoMonto = (saldo: any, isFacturaMode: boolean) => {
 };
 
 const isWalletCredito = (saldo: any) =>
-  Number(saldo?.is_wallet_credito ?? 0) === 1;
+  hasPermission(PERMISOS.COMPONENTES.BOTON.WALLET_CREDITO) ? false : Number(saldo?.is_wallet_credito ?? 0) === 1;
 
 const isSaldoActivoVisible = (saldo: any, isFacturaMode: boolean) => {
   if (!saldo) return false;
   if (Number(saldo?.is_cancelado ?? 0) === 1) return false;
+  console.log(saldo)
   if (isWalletCredito(saldo)) return false;
+  console.log("paso",saldo)
 
   const monto = getSaldoMonto(saldo, isFacturaMode);
 
