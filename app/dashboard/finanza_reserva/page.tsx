@@ -119,6 +119,9 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
         id_booking: reserva.id_booking,
         uuid_emitido: reserva.uuid_factura || "",
         total_factura: reserva.total_factura,
+        uuid_recibido: reserva.uuid_recibido || "",
+        total_facturado_recibido:
+          reserva.monto_facturado_factura_recibida || "",
       }));
 
       csv(formatData, fileName);
@@ -189,6 +192,8 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     intermediario: reserva.intermediario,
     uuid_emitido: reserva.uuid_factura || "",
     total_factura: reserva.total_factura,
+    uuid_recibido: reserva.uuid_recibido || "",
+    total_facturado_recibido: reserva.monto_facturado_factura_recibida || "",
   }));
 
   const handleFilterChange = (value: string | null, propiedad: string) => {
