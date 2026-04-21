@@ -11,7 +11,7 @@ import {
   fetchProveedoresDataFiscal,
 } from "@/services/agentes";
 import { TypeFilters, EmpresaFromAgent } from "@/types";
-import AsignarFacturaModal from "./AsignarFactura"; 
+import AsignarFacturaModal from "./AsignarFactura";
 import { obtenerPresignedUrl, subirArchivoAS3 } from "@/helpers/utils";
 import { useAlert } from "@/context/useAlert";
 
@@ -21,7 +21,7 @@ interface SubirFacturaProps {
   id_proveedor?: string;
   pagoData?: Pago | null; // datos del pago
   proveedoresData?: any | null; // puede ser object o array
-  isBatch?: boolean; 
+  isBatch?: boolean;
   onSuccess: () => void; // callback al subir factura
   agentId?: string; // id del agente a precargar
   initialItems?: string[]; // ids de items seleccionados desde la tabla
@@ -78,7 +78,7 @@ export const getEmpresasDatosFiscales = async (agent_id: string) => {
   try {
     const response = await fetch(
       `${URL}/v1/mia/agentes/empresas-con-datos-fiscales?id_agente=${encodeURIComponent(
-        agent_id
+        agent_id,
       )}`,
       {
         method: "GET",
@@ -86,7 +86,7 @@ export const getEmpresasDatosFiscales = async (agent_id: string) => {
           "Content-Type": "application/json",
           ...AUTH,
         },
-      }
+      },
     );
     const json = await response.json();
     return json;
@@ -135,7 +135,9 @@ const normalizeProveedoresAsAgentes = (res: any): Agente[] => {
     .map((p: any) => ({
       id_agente: String(p?.id_proveedor ?? p?.id ?? ""),
       nombre_agente_completo: String(p?.proveedor ?? ""),
-      correo: String(p?.correo ?? extractFirstEmail(p?.contactos_convenio) ?? ""),
+      correo: String(
+        p?.correo ?? extractFirstEmail(p?.contactos_convenio) ?? "",
+      ),
       rfc: p?.rfc,
       razon_social: p?.razon_social,
     }))
@@ -152,29 +154,32 @@ const safeNumStr = (raw: string) => {
 
 const getIdSolicitudFromRow = (row: any): string => {
   // tolerante a campos variantes
-  console.log(row.id_solicitud_proveedor,"000000000🔽🔽🔽🔽")
+  console.log(row.id_solicitud_proveedor, "000000000🔽🔽🔽🔽");
   return String(
-      row?.id_solicitud_proveedor ??
-      row?.row_id??
+    row?.id_solicitud_proveedor ??
+      row?.row_id ??
       row?.id_solicitud ??
       row?.id_solicitud_pago_proveedor ??
       row?.id_solicitud_prov ??
       row?.id_solicitud_pp ??
-      ""
+      "",
   );
 };
 
 const getIdProveedorFromRow = (row: any): string => {
-  console.log(row,"🤬🤬🤬,informacion de hote")
+  console.log(row, "🤬🤬🤬,informacion de hote");
   return String(row?.id_proveedor ?? row?.proveedor_id ?? row?.id ?? "");
 };
 
 const getCodigoHotelFromRow = (row: any): string => {
-  console.log(row,"🤬🤬🤬,informacion de hote")
+  console.log(row, "🤬🤬🤬,informacion de hote");
   return String(row?.codigo_hotel ?? row?.proveedor_id ?? row?.id ?? "");
 };
 
-const normalizeRfc = (value: any) => String(value ?? "").trim().toUpperCase();
+const normalizeRfc = (value: any) =>
+  String(value ?? "")
+    .trim()
+    .toUpperCase();
 
 const getResponseErrorMessage = async (response: Response) => {
   const contentType = response.headers.get("content-type") || "";
@@ -202,11 +207,15 @@ const round2 = (n: any) => {
 };
 
 const normalizeCurrency = (value: any) =>
-  String(value ?? "").trim().toUpperCase();
+  String(value ?? "")
+    .trim()
+    .toUpperCase();
 
 const isMXNCurrency = (value: any) => {
   const c = normalizeCurrency(value);
-  return c === "MXN" || c === "MN" || c === "MXP" || c === "PESO" || c === "PESOS";
+  return (
+    c === "MXN" || c === "MN" || c === "MXP" || c === "PESO" || c === "PESOS"
+  );
 };
 
 const getTipoCambioFactura = (facturaData: any) => {
@@ -220,7 +229,7 @@ const getTipoCambioFactura = (facturaData: any) => {
 const convertAmountToMXN = (
   amount: any,
   tipoCambio: number,
-  applyConversion: boolean
+  applyConversion: boolean,
 ) => {
   const n = Number(amount || 0);
   if (!Number.isFinite(n)) return 0;
@@ -234,10 +243,8 @@ const convertAmountToMXN = (
 const consultarFacturadoSolicitudes = async (idsSolicitud: string[]) => {
   const idsLimpios = Array.from(
     new Set(
-      (idsSolicitud || [])
-        .map((id) => String(id ?? "").trim())
-        .filter(Boolean)
-    )
+      (idsSolicitud || []).map((id) => String(id ?? "").trim()).filter(Boolean),
+    ),
   );
 
   if (!idsLimpios.length) return null;
@@ -253,7 +260,7 @@ const consultarFacturadoSolicitudes = async (idsSolicitud: string[]) => {
         "Content-Type": "application/json",
         "x-api-key": API_KEY,
       },
-    }
+    },
   );
 
   if (!resp.ok) {
@@ -276,7 +283,7 @@ export default function SubirFactura({
   pagoId,
   pagoData,
   id_proveedor = null,
-  proveedoresRfc=null,
+  proveedoresRfc = null,
   id_servicio,
   proveedoresData = null,
   onSuccess,
@@ -313,8 +320,6 @@ export default function SubirFactura({
       return;
     }
 
-    
-
     const arr = toArray(proveedoresData);
     const normalized: AsociacionSolicitudProveedor[] = arr
       .map((row: any) => {
@@ -322,7 +327,7 @@ export default function SubirFactura({
         const id_proveedor = getIdProveedorFromRow(row);
         const codigo_hotel = getCodigoHotelFromRow(row);
 
-        console.log(id_solicitud,"🤬🤬🤬🤬",id_proveedor,"cam",row)
+        console.log(id_solicitud, "🤬🤬🤬🤬", id_proveedor, "cam", row);
 
         return {
           id_solicitud,
@@ -333,11 +338,9 @@ export default function SubirFactura({
         };
       })
       .filter((x) => x.id_solicitud);
-      console.log(normalized,"informacion",arr)
+    console.log(normalized, "informacion", arr);
     setBatchAsociaciones(normalized);
-
   }, [isProveedorBatch, proveedoresData]);
-
 
   const batchTotalAsociar = useMemo(() => {
     if (!isProveedorBatch) return 0;
@@ -349,22 +352,22 @@ export default function SubirFactura({
   }, [isProveedorBatch, batchAsociaciones]);
 
   useEffect(() => {
-  console.log("🟦 proveedoresData (prop) =>", proveedoresData);
-  console.log("🟦 isProveedorBatch/isProveedorMode =>", {
-    isProveedorBatch,
-    isProveedorMode,
-    isNormalAgenteMode,
-  });
-}, [proveedoresData, isProveedorBatch, isProveedorMode, isNormalAgenteMode]);
-
+    console.log("🟦 proveedoresData (prop) =>", proveedoresData);
+    console.log("🟦 isProveedorBatch/isProveedorMode =>", {
+      isProveedorBatch,
+      isProveedorMode,
+      isNormalAgenteMode,
+    });
+  }, [proveedoresData, isProveedorBatch, isProveedorMode, isNormalAgenteMode]);
 
   const updateMontoBatch = (index: number, raw: string) => {
     const normalized = safeNumStr(raw);
     setBatchAsociaciones((prev) =>
-      prev.map((it, i) => (i === index ? { ...it, monto_asociar: normalized } : it))
+      prev.map((it, i) =>
+        i === index ? { ...it, monto_asociar: normalized } : it,
+      ),
     );
   };
-
 
   // ========== calcular total items ==========
   const getItemsTotal = useCallback((): number => {
@@ -378,7 +381,7 @@ export default function SubirFactura({
     } else if (Array.isArray(initialItems)) {
       total = initialItems.reduce(
         (acc, it: any) => acc + Number(it?.monto || 0),
-        0
+        0,
       );
     }
 
@@ -408,13 +411,13 @@ export default function SubirFactura({
   const [mostrarVistaPrevia, setMostrarVistaPrevia] = useState(false);
   const [cliente, setCliente] = useState(initialStates.cliente);
   const [clienteSeleccionado, setClienteSeleccionado] = useState<Agente | null>(
-    initialStates.clienteSeleccionado
+    initialStates.clienteSeleccionado,
   );
   const [archivoPDF, setArchivoPDF] = useState<File | null>(
-    initialStates.archivoPDF
+    initialStates.archivoPDF,
   );
   const [archivoXML, setArchivoXML] = useState<File | null>(
-    initialStates.archivoXML
+    initialStates.archivoXML,
   );
   const [clientesFiltrados, setClientesFiltrados] = useState<any[]>([]);
   const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
@@ -433,25 +436,26 @@ export default function SubirFactura({
   const [mostrarAsignarFactura, setMostrarAsignarFactura] = useState(false);
 
   // Bloqueamos cliente en batch porque NO debe mostrarse / editarse
-  const isClienteBloqueado = !!agentId || !!pagoData?.id_agente || isProveedorBatch;
+  const isClienteBloqueado =
+    !!agentId || !!pagoData?.id_agente || isProveedorBatch;
 
   const [uuid, setUuid] = useState(false);
   const [facturado, setFacturado] = useState<string | null>(null);
 
   type ModoFacturaProveedor = "nueva" | "subida";
 
-const [modoFacturaProveedor, setModoFacturaProveedor] =
-  useState<ModoFacturaProveedor>("nueva");
+  const [modoFacturaProveedor, setModoFacturaProveedor] =
+    useState<ModoFacturaProveedor>("nueva");
 
-const [uuidBusqueda, setUuidBusqueda] = useState("");
-const [buscandoFactura, setBuscandoFactura] = useState(false);
-const [facturaEncontrada, setFacturaEncontrada] = useState<any>(null);
+  const [uuidBusqueda, setUuidBusqueda] = useState("");
+  const [buscandoFactura, setBuscandoFactura] = useState(false);
+  const [facturaEncontrada, setFacturaEncontrada] = useState<any>(null);
 
-const [facturadoPrevioData, setFacturadoPrevioData] = useState<any>(null);
-const [loadingFacturadoPrevio, setLoadingFacturadoPrevio] = useState(false);
-const [asignandoFacturaPrevia, setAsignandoFacturaPrevia] = useState(false);
+  const [facturadoPrevioData, setFacturadoPrevioData] = useState<any>(null);
+  const [loadingFacturadoPrevio, setLoadingFacturadoPrevio] = useState(false);
+  const [asignandoFacturaPrevia, setAsignandoFacturaPrevia] = useState(false);
 
-  console.log("proveedores",proveedoresData)
+  console.log("proveedores", proveedoresData);
 
   // Autoabrir el modal si hay pagoData
   useEffect(() => {
@@ -466,32 +470,37 @@ const [asignandoFacturaPrevia, setAsignandoFacturaPrevia] = useState(false);
     }
   }, [initialItems]);
 
-const subirArchivosAS3 = async (): Promise<{
-  pdfUrl: string;
-  xmlUrl: string;
-}> => {
-  if (!archivoXML) throw new Error("El archivo XML es requerido");
-  if (!archivoPDF) throw new Error("El archivo PDF es requerido");
+  const subirArchivosAS3 = async (): Promise<{
+    pdfUrl: string;
+    xmlUrl: string;
+  }> => {
+    if (!archivoXML) throw new Error("El archivo XML es requerido");
+    if (!archivoPDF) throw new Error("El archivo PDF es requerido");
 
-  const folder = "comprobantes";
+    const folder = "comprobantes";
 
-  // Subir XML (requerido)
-  const { url: urlXML, publicUrl: publicUrlXML } =
-    await obtenerPresignedUrl(archivoXML.name, archivoXML.type, folder);
-  await subirArchivoAS3(archivoXML, urlXML);
+    // Subir XML (requerido)
+    const { url: urlXML, publicUrl: publicUrlXML } = await obtenerPresignedUrl(
+      archivoXML.name,
+      archivoXML.type,
+      folder,
+    );
+    await subirArchivoAS3(archivoXML, urlXML);
 
-  // Subir PDF (requerido)
-  const { url: urlPDF, publicUrl: publicUrlPDF } =
-    await obtenerPresignedUrl(archivoPDF.name, archivoPDF.type, folder);
-  await subirArchivoAS3(archivoPDF, urlPDF);
+    // Subir PDF (requerido)
+    const { url: urlPDF, publicUrl: publicUrlPDF } = await obtenerPresignedUrl(
+      archivoPDF.name,
+      archivoPDF.type,
+      folder,
+    );
+    await subirArchivoAS3(archivoPDF, urlPDF);
 
-  // Guarda URLs por si las ocupas después
-  setArchivoXMLUrl(publicUrlXML);
-  setArchivoPDFUrl(publicUrlPDF);
+    // Guarda URLs por si las ocupas después
+    setArchivoXMLUrl(publicUrlXML);
+    setArchivoPDFUrl(publicUrlPDF);
 
-  return { pdfUrl: publicUrlPDF, xmlUrl: publicUrlXML };
-};
-
+    return { pdfUrl: publicUrlPDF, xmlUrl: publicUrlXML };
+  };
 
   // Función para buscar clientes / proveedores (single) por nombre
   const handleBuscarCliente = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -509,7 +518,11 @@ const subirArchivosAS3 = async (): Promise<{
         const id = String(c?.id_agente ?? "").toLowerCase();
 
         if (isProveedorMode) {
-          return nombre.includes(valor) || id.includes(valor) || correo.includes(valor);
+          return (
+            nombre.includes(valor) ||
+            id.includes(valor) ||
+            correo.includes(valor)
+          );
         }
 
         return (
@@ -534,11 +547,10 @@ const subirArchivosAS3 = async (): Promise<{
       const normalized = toArray(data) as Agente[];
       setClientes(normalized);
       setLoading(false);
-    })
-      .catch((error) => {
-        console.error("Error fetching agents:", error);
-        setLoading(false);
-      });
+    }).catch((error) => {
+      console.error("Error fetching agents:", error);
+      setLoading(false);
+    });
   }, []);
 
   const handlefecthProveedores = useCallback(() => {
@@ -547,11 +559,10 @@ const subirArchivosAS3 = async (): Promise<{
       const normalized = normalizeProveedoresAsAgentes(data);
       setClientes(normalized);
       setLoading(false);
-    })
-      .catch((error) => {
-        console.error("Error fetching proveedores:", error);
-        setLoading(false);
-      });
+    }).catch((error) => {
+      console.error("Error fetching proveedores:", error);
+      setLoading(false);
+    });
   }, []);
 
   // Auto seleccionar cliente/proveedor SOLO si NO es batch
@@ -563,10 +574,9 @@ const subirArchivosAS3 = async (): Promise<{
     if (isProveedorMode) {
       const targetId = id_proveedor ? String(id_proveedor) : "";
 
-      let matching: Agente | undefined =
-        targetId
-          ? clientes.find((c) => String(c.id_agente) === targetId)
-          : undefined;
+      let matching: Agente | undefined = targetId
+        ? clientes.find((c) => String(c.id_agente) === targetId)
+        : undefined;
 
       if (!matching) {
         const targetNameRaw =
@@ -584,7 +594,7 @@ const subirArchivosAS3 = async (): Promise<{
             (c) =>
               String(c.nombre_agente_completo ?? "")
                 .trim()
-                .toLowerCase() === targetName
+                .toLowerCase() === targetName,
           );
         }
       }
@@ -603,7 +613,7 @@ const subirArchivosAS3 = async (): Promise<{
     if (!targetId) return;
 
     const matching = clientes.find(
-      (c) => String(c.id_agente) === String(targetId)
+      (c) => String(c.id_agente) === String(targetId),
     );
     if (matching) {
       setCliente(matching.nombre_agente_completo);
@@ -630,8 +640,8 @@ const subirArchivosAS3 = async (): Promise<{
     setEmpresasAgente(initialStates.empresasAgente);
     setEmpresaSeleccionada(initialStates.empresaSeleccionada);
     setModoFacturaProveedor("nueva");
-setUuidBusqueda("");
-setFacturaEncontrada(null);
+    setUuidBusqueda("");
+    setFacturaEncontrada(null);
     setFacturaPagada(initialStates.facturaPagada);
     setClientesFiltrados([]);
     setMostrarSugerencias(false);
@@ -640,7 +650,7 @@ setFacturaEncontrada(null);
 
     // batch: no borramos ids, solo montos
     setBatchAsociaciones((prev) =>
-      prev.map((x) => ({ ...x, monto_asociar: "" }))
+      prev.map((x) => ({ ...x, monto_asociar: "" })),
     );
   }, []);
 
@@ -685,348 +695,366 @@ setFacturaEncontrada(null);
   };
 
   const idsSolicitudFacturaPrevia = useMemo(() => {
-  if (isProveedorBatch) {
-    return Array.from(
-      new Set(
-        batchAsociaciones
-          .map((x) => String(x?.id_solicitud ?? "").trim())
-          .filter(Boolean)
-      )
-    );
-  }
-
-  if (isProveedorMode && proveedoresData?.id_solicitud) {
-    return [String(proveedoresData.id_solicitud).trim()];
-  }
-
-  return [];
-}, [isProveedorBatch, isProveedorMode, batchAsociaciones, proveedoresData]);
-
-const facturadoPrevioMap = useMemo(() => {
-  const out: Record<string, any> = {};
-
-  if (
-    facturadoPrevioData?.data_by_id &&
-    typeof facturadoPrevioData.data_by_id === "object"
-  ) {
-    return facturadoPrevioData.data_by_id;
-  }
-
-  if (Array.isArray(facturadoPrevioData?.data)) {
-    for (const row of facturadoPrevioData.data) {
-      const id = String(row?.id_solicitud ?? "").trim();
-      if (id) out[id] = row;
-    }
-  }
-
-  return out;
-}, [facturadoPrevioData]);
-
-const saldoDisponibleFacturaPrevia = useMemo(() => {
-  return Number(facturaEncontrada?.saldo_x_aplicar_items ?? 0);
-}, [facturaEncontrada]);
-
-const totalAsignadoFacturaPrevia = useMemo(() => {
-  if (isProveedorBatch) {
-    return round2(
-      batchAsociaciones.reduce((acc, it) => {
-        const n = Number(it.monto_asociar || 0);
-        return acc + (Number.isFinite(n) ? n : 0);
-      }, 0)
-    );
-  }
-
-  if (isProveedorMode) {
-    return round2(Number(facturado || 0));
-  }
-
-  return 0;
-}, [isProveedorBatch, isProveedorMode, batchAsociaciones, facturado]);
-
-const handleChangeMontoBatchFacturaPrevia = (idx: number, raw: string) => {
-  const normalized = safeNumStr(raw);
-  const val = Number(normalized || 0);
-
-  const row = batchAsociaciones[idx];
-  const idSolicitud = String(row?.id_solicitud ?? "").trim();
-
-  const maxBackend = Number(
-    facturadoPrevioMap?.[idSolicitud]?.maximo_asignar ?? 0
-  );
-
-  const sumOthers = batchAsociaciones.reduce((acc, it, i) => {
-    if (i === idx) return acc;
-    const n = Number(it.monto_asociar || 0);
-    return acc + (Number.isFinite(n) ? n : 0);
-  }, 0);
-
-  const maxPorSaldoFactura = Math.max(0, saldoDisponibleFacturaPrevia - sumOthers);
-  const maxThis = Math.max(0, Math.min(maxBackend, maxPorSaldoFactura));
-
-  if (val > maxThis) {
-    updateMontoBatch(idx, maxThis.toFixed(2));
-    return;
-  }
-
-  updateMontoBatch(idx, normalized);
-};
-
-const normalizeUUIDInput = (value: string) => {
-  return String(value ?? "")
-    .trim()
-    .toUpperCase()
-    // cambia distintos tipos de guiones Unicode por "-"
-    .replace(/[\u2010\u2011\u2012\u2013\u2014\u2015\u2212\u2043\uFE58\uFE63\uFF0D]/g, "-")
-    // quita espacios raros
-    .replace(/\s+/g, "")
-    // deja solo hex y guiones
-    .replace(/[^A-F0-9-]/g, "");
-};
-
-const asignarFacturaPrevia = async () => {
-  try {
-    if (!facturaEncontrada?.uuid_cfdi) {
-      alert("No hay una factura encontrada válida");
-      return;
-    }
-
-    const saldoDisponible = Number(facturaEncontrada?.saldo_x_aplicar_items ?? 0);
-
-    if (!Number.isFinite(saldoDisponible) || saldoDisponible <= 0) {
-      alert("La factura ya no tiene saldo disponible para asignar.");
-      return;
-    }
-
-    let proveedoresPayloadFinal: any = null;
-    let totalAsignado = 0;
-
     if (isProveedorBatch) {
-      const rowsValidas = batchAsociaciones.filter(
-        (x) => Number(x.monto_asociar || 0) > 0
+      return Array.from(
+        new Set(
+          batchAsociaciones
+            .map((x) => String(x?.id_solicitud ?? "").trim())
+            .filter(Boolean),
+        ),
       );
+    }
 
-      if (!rowsValidas.length) {
-        alert("Debes capturar al menos un monto a asignar.");
+    if (isProveedorMode && proveedoresData?.id_solicitud) {
+      return [String(proveedoresData.id_solicitud).trim()];
+    }
+
+    return [];
+  }, [isProveedorBatch, isProveedorMode, batchAsociaciones, proveedoresData]);
+
+  const facturadoPrevioMap = useMemo(() => {
+    const out: Record<string, any> = {};
+
+    if (
+      facturadoPrevioData?.data_by_id &&
+      typeof facturadoPrevioData.data_by_id === "object"
+    ) {
+      return facturadoPrevioData.data_by_id;
+    }
+
+    if (Array.isArray(facturadoPrevioData?.data)) {
+      for (const row of facturadoPrevioData.data) {
+        const id = String(row?.id_solicitud ?? "").trim();
+        if (id) out[id] = row;
+      }
+    }
+
+    return out;
+  }, [facturadoPrevioData]);
+
+  const saldoDisponibleFacturaPrevia = useMemo(() => {
+    return Number(facturaEncontrada?.saldo_x_aplicar_items ?? 0);
+  }, [facturaEncontrada]);
+
+  const totalAsignadoFacturaPrevia = useMemo(() => {
+    if (isProveedorBatch) {
+      return round2(
+        batchAsociaciones.reduce((acc, it) => {
+          const n = Number(it.monto_asociar || 0);
+          return acc + (Number.isFinite(n) ? n : 0);
+        }, 0),
+      );
+    }
+
+    if (isProveedorMode) {
+      return round2(Number(facturado || 0));
+    }
+
+    return 0;
+  }, [isProveedorBatch, isProveedorMode, batchAsociaciones, facturado]);
+
+  const handleChangeMontoBatchFacturaPrevia = (idx: number, raw: string) => {
+    const normalized = safeNumStr(raw);
+    const val = Number(normalized || 0);
+
+    const row = batchAsociaciones[idx];
+    const idSolicitud = String(row?.id_solicitud ?? "").trim();
+
+    const maxBackend = Number(
+      facturadoPrevioMap?.[idSolicitud]?.maximo_asignar ?? 0,
+    );
+
+    const sumOthers = batchAsociaciones.reduce((acc, it, i) => {
+      if (i === idx) return acc;
+      const n = Number(it.monto_asociar || 0);
+      return acc + (Number.isFinite(n) ? n : 0);
+    }, 0);
+
+    const maxPorSaldoFactura = Math.max(
+      0,
+      saldoDisponibleFacturaPrevia - sumOthers,
+    );
+    const maxThis = Math.max(0, Math.min(maxBackend, maxPorSaldoFactura));
+
+    if (val > maxThis) {
+      updateMontoBatch(idx, maxThis.toFixed(2));
+      return;
+    }
+
+    updateMontoBatch(idx, normalized);
+  };
+
+  const normalizeUUIDInput = (value: string) => {
+    return (
+      String(value ?? "")
+        .trim()
+        .toUpperCase()
+        // cambia distintos tipos de guiones Unicode por "-"
+        .replace(
+          /[\u2010\u2011\u2012\u2013\u2014\u2015\u2212\u2043\uFE58\uFE63\uFF0D]/g,
+          "-",
+        )
+        // quita espacios raros
+        .replace(/\s+/g, "")
+        // deja solo hex y guiones
+        .replace(/[^A-F0-9-]/g, "")
+    );
+  };
+
+  const asignarFacturaPrevia = async () => {
+    try {
+      if (!facturaEncontrada?.uuid_cfdi) {
+        alert("No hay una factura encontrada válida");
         return;
       }
 
-      totalAsignado = round2(
-        rowsValidas.reduce((acc, x) => acc + Number(x.monto_asociar || 0), 0)
+      const saldoDisponible = Number(
+        facturaEncontrada?.saldo_x_aplicar_items ?? 0,
       );
 
-      if (totalAsignado > saldoDisponible) {
-        alert("El total a asignar excede el saldo disponible de la factura.");
+      if (!Number.isFinite(saldoDisponible) || saldoDisponible <= 0) {
+        alert("La factura ya no tiene saldo disponible para asignar.");
         return;
       }
 
-      for (const row of rowsValidas) {
-        const idSolicitud = String(row?.id_solicitud ?? "").trim();
-        const monto = Number(row?.monto_asociar || 0);
-        const maximoAsignar = Number(
-          facturadoPrevioMap?.[idSolicitud]?.maximo_asignar ?? 0
+      let proveedoresPayloadFinal: any = null;
+      let totalAsignado = 0;
+
+      if (isProveedorBatch) {
+        const rowsValidas = batchAsociaciones.filter(
+          (x) => Number(x.monto_asociar || 0) > 0,
         );
+
+        if (!rowsValidas.length) {
+          alert("Debes capturar al menos un monto a asignar.");
+          return;
+        }
+
+        totalAsignado = round2(
+          rowsValidas.reduce((acc, x) => acc + Number(x.monto_asociar || 0), 0),
+        );
+
+        if (totalAsignado > saldoDisponible) {
+          alert("El total a asignar excede el saldo disponible de la factura.");
+          return;
+        }
+
+        for (const row of rowsValidas) {
+          const idSolicitud = String(row?.id_solicitud ?? "").trim();
+          const monto = Number(row?.monto_asociar || 0);
+          const maximoAsignar = Number(
+            facturadoPrevioMap?.[idSolicitud]?.maximo_asignar ?? 0,
+          );
+
+          if (monto > maximoAsignar) {
+            alert(
+              `El monto de la solicitud ${idSolicitud} excede el máximo permitido.`,
+            );
+            return;
+          }
+        }
+
+        proveedoresPayloadFinal = rowsValidas.map((x) => {
+          const idSolicitud = String(x?.id_solicitud ?? "").trim();
+
+          return {
+            id_solicitud: x.id_solicitud,
+            id_proveedor: x.id_proveedor,
+            monto_asociar: Number(x.monto_asociar || 0),
+            monto_solicitado: Number(
+              facturadoPrevioMap?.[idSolicitud]?.monto_solicitado ??
+                x.raw?.monto_solicitado ??
+                x.raw?.costo_proveedor ??
+                x.raw?.monto_por_facturar ??
+                0,
+            ),
+          };
+        });
+      } else if (isProveedorMode) {
+        const monto = Number(facturado || 0);
+        const idSolicitud = String(proveedoresData?.id_solicitud ?? "").trim();
+        const maximoAsignar = Number(
+          facturadoPrevioMap?.[idSolicitud]?.maximo_asignar ?? saldoDisponible,
+        );
+
+        if (!monto || monto <= 0) {
+          alert("Debes capturar un monto a asignar.");
+          return;
+        }
+
+        if (monto > saldoDisponible) {
+          alert("El monto a asignar excede el saldo disponible de la factura.");
+          return;
+        }
 
         if (monto > maximoAsignar) {
           alert(
-            `El monto de la solicitud ${idSolicitud} excede el máximo permitido.`
+            "El monto a asignar excede el máximo permitido para la solicitud.",
+          );
+          return;
+        }
+
+        totalAsignado = monto;
+
+        proveedoresPayloadFinal = {
+          ...(proveedoresData ?? {}),
+          monto_asociar: monto,
+          monto_solicitado: Number(
+            facturadoPrevioMap?.[idSolicitud]?.monto_solicitado ??
+              proveedoresData?.monto_solicitado ??
+              proveedoresData?.costo_proveedor ??
+              proveedoresData?.monto_por_facturar ??
+              0,
+          ),
+        };
+      } else {
+        alert("Este flujo aplica solo para proveedor.");
+        return;
+      }
+
+      const payload = {
+        uuid_cfdi: facturaEncontrada.uuid_cfdi,
+        proveedoresData: proveedoresPayloadFinal,
+      };
+
+      setAsignandoFacturaPrevia(true);
+
+      const response = await fetch(
+        `${URL}/mia/pago_proveedor/asignar_factura_previa`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": API_KEY,
+          },
+          body: JSON.stringify(payload),
+        },
+      );
+
+      const json = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(
+          json?.message || "No se pudo asignar la factura previa",
+        );
+      }
+
+      alert("Factura asignada exitosamente");
+      cerrarModal();
+    } catch (error: any) {
+      console.error("Error asignando factura previa:", error);
+      alert(error?.message || "Ocurrió un error al asignar la factura previa.");
+    } finally {
+      setAsignandoFacturaPrevia(false);
+    }
+  };
+
+  const buscarFacturaPorUUID = async () => {
+    const uuid = normalizeUUIDInput(uuidBusqueda);
+
+    if (!uuid) {
+      alert("Debes ingresar el UUID de la factura");
+      return;
+    }
+
+    try {
+      setBuscandoFactura(true);
+      setFacturaEncontrada(null);
+      setFacturadoPrevioData(null);
+
+      const response = await fetch(
+        `${URL}/mia/pago_proveedor/buscar_factura?uuid=${encodeURIComponent(uuid)}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": API_KEY,
+          },
+        },
+      );
+
+      const json = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(json?.message || "No se pudo buscar la factura");
+      }
+
+      const factura = json?.data ?? json ?? null;
+
+      if (!factura) {
+        alert("No se encontró una factura con ese UUID");
+        return;
+      }
+
+      const saldoDisponible = Number(factura?.saldo_x_aplicar_items ?? 0);
+
+      if (!Number.isFinite(saldoDisponible) || saldoDisponible <= 0) {
+        alert(
+          "La factura encontrada ya no tiene saldo disponible para asignar.",
+        );
+        return;
+      }
+
+      if (isProveedorBatch) {
+        const proveedoresPermitidos = new Set(
+          batchAsociaciones
+            .map((x) => String(x.id_proveedor || "").trim())
+            .filter(Boolean),
+        );
+
+        const idProveedorFactura = String(
+          factura?.id_proveedor ??
+            factura?.id_agente ??
+            factura?.proveedoresData?.id_proveedor ??
+            "",
+        ).trim();
+
+        if (
+          !idProveedorFactura ||
+          !proveedoresPermitidos.has(idProveedorFactura)
+        ) {
+          alert(
+            `La factura encontrada no pertenece a los proveedores permitidos.\n` +
+              `Proveedor factura: ${idProveedorFactura || "N/D"}`,
+          );
+          return;
+        }
+      } else if (isProveedorMode) {
+        const idProveedorEsperado = String(
+          id_proveedor ??
+            proveedoresData?.id_proveedor ??
+            clienteSeleccionado?.id_agente ??
+            "",
+        ).trim();
+
+        const idProveedorFactura = String(
+          factura?.id_proveedor ??
+            factura?.id_agente ??
+            factura?.proveedoresData?.id_proveedor ??
+            "",
+        ).trim();
+
+        if (!idProveedorFactura || idProveedorFactura !== idProveedorEsperado) {
+          alert(
+            `La factura encontrada no corresponde al proveedor seleccionado.\n` +
+              `Esperado: ${idProveedorEsperado || "N/D"}\n` +
+              `Recibido: ${idProveedorFactura || "N/D"}`,
           );
           return;
         }
       }
 
-      proveedoresPayloadFinal = rowsValidas.map((x) => {
-        const idSolicitud = String(x?.id_solicitud ?? "").trim();
-
-        return {
-          id_solicitud: x.id_solicitud,
-          id_proveedor: x.id_proveedor,
-          monto_asociar: Number(x.monto_asociar || 0),
-          monto_solicitado: Number(
-            facturadoPrevioMap?.[idSolicitud]?.monto_solicitado ??
-              x.raw?.monto_solicitado ??
-              x.raw?.costo_proveedor ??
-              x.raw?.monto_por_facturar ??
-              0
-          ),
-        };
-      });
-    } else if (isProveedorMode) {
-      const monto = Number(facturado || 0);
-      const idSolicitud = String(proveedoresData?.id_solicitud ?? "").trim();
-      const maximoAsignar = Number(
-        facturadoPrevioMap?.[idSolicitud]?.maximo_asignar ?? saldoDisponible
-      );
-
-      if (!monto || monto <= 0) {
-        alert("Debes capturar un monto a asignar.");
-        return;
-      }
-
-      if (monto > saldoDisponible) {
-        alert("El monto a asignar excede el saldo disponible de la factura.");
-        return;
-      }
-
-      if (monto > maximoAsignar) {
-        alert("El monto a asignar excede el máximo permitido para la solicitud.");
-        return;
-      }
-
-      totalAsignado = monto;
-
-      proveedoresPayloadFinal = {
-        ...(proveedoresData ?? {}),
-        monto_asociar: monto,
-        monto_solicitado: Number(
-          facturadoPrevioMap?.[idSolicitud]?.monto_solicitado ??
-            proveedoresData?.monto_solicitado ??
-            proveedoresData?.costo_proveedor ??
-            proveedoresData?.monto_por_facturar ??
-            0
-        ),
-      };
-    } else {
-      alert("Este flujo aplica solo para proveedor.");
-      return;
+      setFacturaEncontrada(factura);
+      alert("Factura encontrada correctamente");
+    } catch (error) {
+      console.error("Error buscando factura por UUID:", error);
+      alert("Error al buscar la factura");
+    } finally {
+      setBuscandoFactura(false);
     }
-
-    const payload = {
-      uuid_cfdi: facturaEncontrada.uuid_cfdi,
-      proveedoresData: proveedoresPayloadFinal,
-    };
-
-    setAsignandoFacturaPrevia(true);
-
-    const response = await fetch(
-      `${URL}/mia/pago_proveedor/asignar_factura_previa`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": API_KEY,
-        },
-        body: JSON.stringify(payload),
-      }
-    );
-
-    const json = await response.json().catch(() => null);
-
-    if (!response.ok) {
-      throw new Error(json?.message || "No se pudo asignar la factura previa");
-    }
-
-    alert("Factura asignada exitosamente");
-    cerrarModal();
-  } catch (error: any) {
-  console.error("Error asignando factura previa:", error);
-  alert(error?.message || "Ocurrió un error al asignar la factura previa.");
-} finally {
-  setAsignandoFacturaPrevia(false);
-}
-};
-
-const buscarFacturaPorUUID = async () => {
-  const uuid = normalizeUUIDInput(uuidBusqueda);
-
-  if (!uuid) {
-    alert("Debes ingresar el UUID de la factura");
-    return;
-  }
-
-  try {
-    setBuscandoFactura(true);
-    setFacturaEncontrada(null);
-    setFacturadoPrevioData(null);
-
-    const response = await fetch(
-      `${URL}/mia/pago_proveedor/buscar_factura?uuid=${encodeURIComponent(uuid)}`,
-      {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": API_KEY,
-        },
-      }
-    );
-
-    const json = await response.json().catch(() => null);
-
-    if (!response.ok) {
-      throw new Error(json?.message || "No se pudo buscar la factura");
-    }
-
-    const factura = json?.data ?? json ?? null;
-
-    if (!factura) {
-      alert("No se encontró una factura con ese UUID");
-      return;
-    }
-
-    const saldoDisponible = Number(factura?.saldo_x_aplicar_items ?? 0);
-
-    if (!Number.isFinite(saldoDisponible) || saldoDisponible <= 0) {
-      alert("La factura encontrada ya no tiene saldo disponible para asignar.");
-      return;
-    }
-
-    if (isProveedorBatch) {
-      const proveedoresPermitidos = new Set(
-        batchAsociaciones
-          .map((x) => String(x.id_proveedor || "").trim())
-          .filter(Boolean)
-      );
-
-      const idProveedorFactura = String(
-        factura?.id_proveedor ??
-          factura?.id_agente ??
-          factura?.proveedoresData?.id_proveedor ??
-          ""
-      ).trim();
-
-      if (!idProveedorFactura || !proveedoresPermitidos.has(idProveedorFactura)) {
-        alert(
-          `La factura encontrada no pertenece a los proveedores permitidos.\n` +
-            `Proveedor factura: ${idProveedorFactura || "N/D"}`
-        );
-        return;
-      }
-    } else if (isProveedorMode) {
-      const idProveedorEsperado = String(
-        id_proveedor ??
-          proveedoresData?.id_proveedor ??
-          clienteSeleccionado?.id_agente ??
-          ""
-      ).trim();
-
-      const idProveedorFactura = String(
-        factura?.id_proveedor ??
-          factura?.id_agente ??
-          factura?.proveedoresData?.id_proveedor ??
-          ""
-      ).trim();
-
-      if (!idProveedorFactura || idProveedorFactura !== idProveedorEsperado) {
-        alert(
-          `La factura encontrada no corresponde al proveedor seleccionado.\n` +
-            `Esperado: ${idProveedorEsperado || "N/D"}\n` +
-            `Recibido: ${idProveedorFactura || "N/D"}`
-        );
-        return;
-      }
-    }
-
-    setFacturaEncontrada(factura);
-    alert("Factura encontrada correctamente");
-  } catch (error) {
-    console.error("Error buscando factura por UUID:", error);
-    alert("Error al buscar la factura");
-  } finally {
-    setBuscandoFactura(false);
-  }
-};
+  };
   // Cargar empresas fiscales del agente / proveedor (single)
-  const 
-  cargarEmpresasAgente = async (id: string) => {
+  const cargarEmpresasAgente = async (id: string) => {
     if (!id) {
       console.error("ID no proporcionado");
       return;
@@ -1049,25 +1077,25 @@ const buscarFacturaPorUUID = async () => {
     }
   };
 
-const mostrarSwitchFacturaProveedor = !!proveedoresData;
-const esFacturaSubidaMode =
-  mostrarSwitchFacturaProveedor && modoFacturaProveedor === "subida";
-const esFacturaNuevaMode =
-  !mostrarSwitchFacturaProveedor || modoFacturaProveedor === "nueva";
- const handlePagos = async ({
-  url,
-  fecha_vencimiento,
-  tipoCambioData,
-}: {
-  url?: string;
-  fecha_vencimiento?: string;
-  tipoCambioData?: {
-    moneda: string;
-    tipo_cambio: number;
-    source: string;
-    manual: boolean;
-  };
-}) => {
+  const mostrarSwitchFacturaProveedor = !!proveedoresData;
+  const esFacturaSubidaMode =
+    mostrarSwitchFacturaProveedor && modoFacturaProveedor === "subida";
+  const esFacturaNuevaMode =
+    !mostrarSwitchFacturaProveedor || modoFacturaProveedor === "nueva";
+  const handlePagos = async ({
+    url,
+    fecha_vencimiento,
+    tipoCambioData,
+  }: {
+    url?: string;
+    fecha_vencimiento?: string;
+    tipoCambioData?: {
+      moneda: string;
+      tipo_cambio: number;
+      source: string;
+      manual: boolean;
+    };
+  }) => {
     try {
       setSubiendoArchivos(true);
 
@@ -1099,26 +1127,26 @@ const esFacturaNuevaMode =
 
       if (raw_Ids.length < 2) {
         const basePayload = {
-  fecha_emision: facturaData.comprobante.fecha.split("T")[0],
-  estado: "Confirmada",
-  usuario_creador: clienteSeleccionado.id_agente,
-  id_agente: clienteSeleccionado.id_agente,
-  total: parseFloat(facturaData.comprobante.total),
-  subtotal: parseFloat(facturaData.comprobante.subtotal),
-  impuestos: parseFloat(
-    facturaData.impuestos?.traslado?.importe || "0.00"
-  ),
-  saldo: restante,
-  rfc: facturaData.receptor.rfc,
-  id_empresa: empresaSeleccionada?.id_empresa || null,
-  uuid_factura: facturaData.timbreFiscal.uuid,
-  rfc_emisor: facturaData.emisor.rfc,
-  url_pdf: url ? url : archivoPDFUrl,
-  url_xml: xmlUrl,
-  ...(shouldIncludeFechaVencimiento
-    ? { fecha_vencimiento: fecha_vencimiento || null }
-    : {}),
-};
+          fecha_emision: facturaData.comprobante.fecha.split("T")[0],
+          estado: "Confirmada",
+          usuario_creador: clienteSeleccionado.id_agente,
+          id_agente: clienteSeleccionado.id_agente,
+          total: parseFloat(facturaData.comprobante.total),
+          subtotal: parseFloat(facturaData.comprobante.subtotal),
+          impuestos: parseFloat(
+            facturaData.impuestos?.traslado?.importe || "0.00",
+          ),
+          saldo: restante,
+          rfc: facturaData.receptor.rfc,
+          id_empresa: empresaSeleccionada?.id_empresa || null,
+          uuid_factura: facturaData.timbreFiscal.uuid,
+          rfc_emisor: facturaData.emisor.rfc,
+          url_pdf: url ? url : archivoPDFUrl,
+          url_xml: xmlUrl,
+          ...(shouldIncludeFechaVencimiento
+            ? { fecha_vencimiento: fecha_vencimiento || null }
+            : {}),
+        };
 
         const pagoPayload = {
           ...basePayload,
@@ -1134,7 +1162,7 @@ const esFacturaNuevaMode =
               "x-api-key": API_KEY,
             },
             body: JSON.stringify(pagoPayload),
-          }
+          },
         );
         if (!response.ok) {
           throw new Error("Error al procesar el pago");
@@ -1144,26 +1172,26 @@ const esFacturaNuevaMode =
         cerrarVistaPrevia();
       } else {
         const facturaPayload = {
-  fecha_emision: facturaData.comprobante.fecha.split("T")[0],
-  estado: "Confirmada",
-  usuario_creador: clienteSeleccionado.id_agente,
-  id_agente: clienteSeleccionado.id_agente,
-  total: totalFactura,
-  subtotal: parseFloat(facturaData.comprobante.subtotal),
-  impuestos: parseFloat(
-    facturaData.impuestos?.traslado?.importe || "0.00"
-  ),
-  saldo: 0,
-  rfc: facturaData.receptor.rfc,
-  id_empresa: empresaSeleccionada?.id_empresa || null,
-  uuid_factura: facturaData.timbreFiscal.uuid,
-  rfc_emisor: facturaData.emisor.rfc,
-  url_pdf: url ? url : archivoPDFUrl,
-  url_xml: xmlUrl,
-  ...(shouldIncludeFechaVencimiento
-    ? { fecha_vencimiento: fecha_vencimiento || null }
-    : {}),
-};
+          fecha_emision: facturaData.comprobante.fecha.split("T")[0],
+          estado: "Confirmada",
+          usuario_creador: clienteSeleccionado.id_agente,
+          id_agente: clienteSeleccionado.id_agente,
+          total: totalFactura,
+          subtotal: parseFloat(facturaData.comprobante.subtotal),
+          impuestos: parseFloat(
+            facturaData.impuestos?.traslado?.importe || "0.00",
+          ),
+          saldo: 0,
+          rfc: facturaData.receptor.rfc,
+          id_empresa: empresaSeleccionada?.id_empresa || null,
+          uuid_factura: facturaData.timbreFiscal.uuid,
+          rfc_emisor: facturaData.emisor.rfc,
+          url_pdf: url ? url : archivoPDFUrl,
+          url_xml: xmlUrl,
+          ...(shouldIncludeFechaVencimiento
+            ? { fecha_vencimiento: fecha_vencimiento || null }
+            : {}),
+        };
 
         const payloadCompleto = {
           factura: facturaPayload,
@@ -1179,7 +1207,7 @@ const esFacturaNuevaMode =
               "x-api-key": API_KEY,
             },
             body: JSON.stringify(payloadCompleto),
-          }
+          },
         );
         if (!response.ok) {
           throw new Error("Error al procesar el pago");
@@ -1197,45 +1225,45 @@ const esFacturaNuevaMode =
   };
 
   const fetchDatosFiscalesProveedor = async (id_proveedor: string) => {
-  const resp = await fetch(
-    `${URL}/mia/pago_proveedor/datosFiscales?id_proveedor=${encodeURIComponent(
-      id_proveedor
-    )}`,
-    {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": API_KEY,
+    const resp = await fetch(
+      `${URL}/mia/pago_proveedor/datosFiscales?id_proveedor=${encodeURIComponent(
+        id_proveedor,
+      )}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": API_KEY,
+        },
       },
+    );
+
+    if (!resp.ok) {
+      const t = await resp.text().catch(() => "");
+      throw new Error(`Error datos fiscales proveedor (${resp.status}): ${t}`);
     }
-  );
 
-  if (!resp.ok) {
-    const t = await resp.text().catch(() => "");
-    throw new Error(`Error datos fiscales proveedor (${resp.status}): ${t}`);
-  }
-
-  const json = await resp.json();
-  // tu back devuelve: { data: [...] }
-  return Array.isArray(json?.data) ? json.data : [];
-};
-
-const handleConfirmarFactura = async ({
-  payload,
-  url,
-  fecha_vencimiento,
-  tipoCambioData,
-}: {
-  payload?: any;
-  url?: string;
-  fecha_vencimiento?: string;
-  tipoCambioData?: {
-    moneda: string;
-    tipo_cambio: number;
-    source: string;
-    manual: boolean;
+    const json = await resp.json();
+    // tu back devuelve: { data: [...] }
+    return Array.isArray(json?.data) ? json.data : [];
   };
-}) => {
+
+  const handleConfirmarFactura = async ({
+    payload,
+    url,
+    fecha_vencimiento,
+    tipoCambioData,
+  }: {
+    payload?: any;
+    url?: string;
+    fecha_vencimiento?: string;
+    tipoCambioData?: {
+      moneda: string;
+      tipo_cambio: number;
+      source: string;
+      manual: boolean;
+    };
+  }) => {
     try {
       setSubiendoArchivos(true);
 
@@ -1251,124 +1279,132 @@ const handleConfirmarFactura = async ({
       // ===========================
       // NUEVO: proveedores payload
       // ===========================
-     const isProveedorFlow = !!proveedoresData;
-const monedaFactura = normalizeCurrency(
-  tipoCambioData?.moneda || facturaData?.comprobante?.moneda || "MXN"
-);
+      const isProveedorFlow = !!proveedoresData;
+      const monedaFactura = normalizeCurrency(
+        tipoCambioData?.moneda || facturaData?.comprobante?.moneda || "MXN",
+      );
 
-const tipoCambioFactura = isMXNCurrency(monedaFactura)
-  ? 1
-  : Number(tipoCambioData?.tipo_cambio || 0);
+      const tipoCambioFactura = isMXNCurrency(monedaFactura)
+        ? 1
+        : Number(tipoCambioData?.tipo_cambio || 0);
 
-const requiereConversionProveedor =
-  isProveedorFlow && !isMXNCurrency(monedaFactura);
+      const requiereConversionProveedor =
+        isProveedorFlow && !isMXNCurrency(monedaFactura);
 
-if (requiereConversionProveedor && (!Number.isFinite(tipoCambioFactura) || tipoCambioFactura <= 0)) {
-  throw new Error("No se recibió un tipo de cambio válido desde la vista previa");
-}
-
-const totalFacturaOriginal = parseFloat(facturaData?.comprobante?.total || "0");
-const subtotalFacturaOriginal = parseFloat(facturaData?.comprobante?.subtotal || "0");
-const impuestosFacturaOriginal = parseFloat(
-  facturaData?.impuestos?.traslado?.importe || "0.00"
-);
-
-const totalFacturaMXN = convertAmountToMXN(
-  totalFacturaOriginal,
-  tipoCambioFactura,
-  requiereConversionProveedor
-);
-
-const subtotalFacturaMXN = convertAmountToMXN(
-  subtotalFacturaOriginal,
-  tipoCambioFactura,
-  requiereConversionProveedor
-);
-
-const impuestosFacturaMXN = convertAmountToMXN(
-  impuestosFacturaOriginal,
-  tipoCambioFactura,
-  requiereConversionProveedor
-);
-
-let proveedoresPayloadFinal: any = null;
-
-if (isProveedorBatch) {
-  proveedoresPayloadFinal = batchAsociaciones.map((x) => {
-    const montoOriginal = Number(x.monto_asociar || 0);
-    const montoMXN = convertAmountToMXN(
-  montoOriginal,
-  tipoCambioFactura,
-  requiereConversionProveedor
-);
-
-    return {
-      id_solicitud: x.id_solicitud,
-      id_proveedor: x.id_proveedor,
-      monto_asociar: montoMXN, // 👈 convertido a MXN
-      monto_solicitado: Number(
-        x.raw?.monto_solicitado ??
-        x.raw?.costo_proveedor ??
-        x.raw?.monto_por_facturar ??
-        0
-      ),
-      montos_originales: {
-  moneda: monedaFactura,
-  tipo_cambio: tipoCambioFactura,
-  tipo_cambio_source: tipoCambioData?.source || null,
-  tipo_cambio_manual: !!tipoCambioData?.manual,
-  monto_asociar: montoOriginal,
-},
-    };
-  });
-} else if (isProveedorMode) {
-  const montoOriginal = Number(facturado || 0);
-  const montoMXN = convertAmountToMXN(
-    montoOriginal,
-    facturaData,
-    requiereConversionProveedor
-  );
-
-  proveedoresPayloadFinal = {
-    ...(proveedoresData ?? {}),
-    monto_asociar: montoMXN, // 👈 convertido a MXN
-    montos_originales: {
-  moneda: monedaFactura,
-  tipo_cambio: tipoCambioFactura,
-  tipo_cambio_source: tipoCambioData?.source || null,
-  tipo_cambio_manual: !!tipoCambioData?.manual,
-  monto_asociar: montoOriginal,
-},
-  };
-} else {
-  proveedoresPayloadFinal = null;
-}
-
-const totalAsociadoProveedor = isProveedorBatch
-  ? round2(
-      batchAsociaciones.reduce((acc, x) => {
-        return (
-          acc +
-          convertAmountToMXN(
-            Number(x.monto_asociar || 0),
-            tipoCambioFactura,
-            requiereConversionProveedor
-          )
+      if (
+        requiereConversionProveedor &&
+        (!Number.isFinite(tipoCambioFactura) || tipoCambioFactura <= 0)
+      ) {
+        throw new Error(
+          "No se recibió un tipo de cambio válido desde la vista previa",
         );
-      }, 0)
-    )
-  : facturado
-  ? convertAmountToMXN(
-      Number(facturado || 0),
-      tipoCambioFactura,
-      requiereConversionProveedor
-    )
-  : 0;
+      }
 
-const saldoCalculado =
-  isProveedorFlow
-    ? round2(totalFacturaMXN - totalAsociadoProveedor)
-    : round2(totalFacturaOriginal - initialItemsTotal);
+      const totalFacturaOriginal = parseFloat(
+        facturaData?.comprobante?.total || "0",
+      );
+      const subtotalFacturaOriginal = parseFloat(
+        facturaData?.comprobante?.subtotal || "0",
+      );
+      const impuestosFacturaOriginal = parseFloat(
+        facturaData?.impuestos?.traslado?.importe || "0.00",
+      );
+
+      const totalFacturaMXN = convertAmountToMXN(
+        totalFacturaOriginal,
+        tipoCambioFactura,
+        requiereConversionProveedor,
+      );
+
+      const subtotalFacturaMXN = convertAmountToMXN(
+        subtotalFacturaOriginal,
+        tipoCambioFactura,
+        requiereConversionProveedor,
+      );
+
+      const impuestosFacturaMXN = convertAmountToMXN(
+        impuestosFacturaOriginal,
+        tipoCambioFactura,
+        requiereConversionProveedor,
+      );
+
+      let proveedoresPayloadFinal: any = null;
+
+      if (isProveedorBatch) {
+        proveedoresPayloadFinal = batchAsociaciones.map((x) => {
+          const montoOriginal = Number(x.monto_asociar || 0);
+          const montoMXN = convertAmountToMXN(
+            montoOriginal,
+            tipoCambioFactura,
+            requiereConversionProveedor,
+          );
+
+          return {
+            id_solicitud: x.id_solicitud,
+            id_proveedor: x.id_proveedor,
+            monto_asociar: montoMXN, // 👈 convertido a MXN
+            monto_solicitado: Number(
+              x.raw?.monto_solicitado ??
+                x.raw?.costo_proveedor ??
+                x.raw?.monto_por_facturar ??
+                0,
+            ),
+            montos_originales: {
+              moneda: monedaFactura,
+              tipo_cambio: tipoCambioFactura,
+              tipo_cambio_source: tipoCambioData?.source || null,
+              tipo_cambio_manual: !!tipoCambioData?.manual,
+              monto_asociar: montoOriginal,
+            },
+          };
+        });
+      } else if (isProveedorMode) {
+        const montoOriginal = Number(facturado || 0);
+        const montoMXN = convertAmountToMXN(
+          montoOriginal,
+          facturaData,
+          requiereConversionProveedor,
+        );
+
+        proveedoresPayloadFinal = {
+          ...(proveedoresData ?? {}),
+          monto_asociar: montoMXN, // 👈 convertido a MXN
+          montos_originales: {
+            moneda: monedaFactura,
+            tipo_cambio: tipoCambioFactura,
+            tipo_cambio_source: tipoCambioData?.source || null,
+            tipo_cambio_manual: !!tipoCambioData?.manual,
+            monto_asociar: montoOriginal,
+          },
+        };
+      } else {
+        proveedoresPayloadFinal = null;
+      }
+
+      const totalAsociadoProveedor = isProveedorBatch
+        ? round2(
+            batchAsociaciones.reduce((acc, x) => {
+              return (
+                acc +
+                convertAmountToMXN(
+                  Number(x.monto_asociar || 0),
+                  tipoCambioFactura,
+                  requiereConversionProveedor,
+                )
+              );
+            }, 0),
+          )
+        : facturado
+          ? convertAmountToMXN(
+              Number(facturado || 0),
+              tipoCambioFactura,
+              requiereConversionProveedor,
+            )
+          : 0;
+
+      const saldoCalculado = isProveedorFlow
+        ? round2(totalFacturaMXN - totalAsociadoProveedor)
+        : round2(totalFacturaOriginal - initialItemsTotal);
 
       // id_agente:
       // - normal: clienteSeleccionado.id_agente
@@ -1381,84 +1417,94 @@ const saldoCalculado =
       const usuarioCreadorFinal =
         clienteSeleccionado?.id_agente || agentId || pagoData?.id_agente || "";
 
-const basePayload: any = {
-  fecha_emision: facturaData.comprobante.fecha.split("T")[0],
-  estado: "Confirmada",
-  usuario_creador: usuarioCreadorFinal,
-  id_agente: idAgenteFinal,
+      const basePayload: any = {
+        fecha_emision: facturaData.comprobante.fecha.split("T")[0],
+        estado: "Confirmada",
+        usuario_creador: usuarioCreadorFinal,
+        id_agente: idAgenteFinal,
 
-  total: isProveedorFlow ? totalFacturaMXN : totalFacturaOriginal,
-  subtotal: isProveedorFlow ? subtotalFacturaMXN : subtotalFacturaOriginal,
-  impuestos: isProveedorFlow ? impuestosFacturaMXN : impuestosFacturaOriginal,
-  saldo: round2(saldoCalculado),
+        total: isProveedorFlow ? totalFacturaMXN : totalFacturaOriginal,
+        subtotal: isProveedorFlow
+          ? subtotalFacturaMXN
+          : subtotalFacturaOriginal,
+        impuestos: isProveedorFlow
+          ? impuestosFacturaMXN
+          : impuestosFacturaOriginal,
+        saldo: round2(saldoCalculado),
 
-  rfc: facturaData.receptor.rfc,
-  id_empresa: empresaSeleccionada?.id_empresa || null,
-  uuid_factura: facturaData.timbreFiscal.uuid,
-  rfc_emisor: facturaData.emisor.rfc,
-  url_pdf: url ? url : archivoPDFUrl,
-  url_xml: xmlUrl || null,
-  items: items,
+        rfc: facturaData.receptor.rfc,
+        id_empresa: empresaSeleccionada?.id_empresa || null,
+        uuid_factura: facturaData.timbreFiscal.uuid,
+        rfc_emisor: facturaData.emisor.rfc,
+        url_pdf: url ? url : archivoPDFUrl,
+        url_xml: xmlUrl || null,
+        items: items,
 
-  ...(shouldIncludeFechaVencimiento
-    ? { fecha_vencimiento: fecha_vencimiento || null }
-    : {}),
+        ...(shouldIncludeFechaVencimiento
+          ? { fecha_vencimiento: fecha_vencimiento || null }
+          : {}),
 
-  ...(proveedoresPayloadFinal != null
-    ? { proveedoresData: proveedoresPayloadFinal }
-    : {}),
+        ...(proveedoresPayloadFinal != null
+          ? { proveedoresData: proveedoresPayloadFinal }
+          : {}),
 
-  ...(isProveedorFlow
-    ? {
-        montos_originales_factura: {
-  moneda: normalizeCurrency(
-    tipoCambioData?.moneda || facturaData?.comprobante?.moneda || "MXN"
-  ),
-  tipo_cambio: isMXNCurrency(
-    tipoCambioData?.moneda || facturaData?.comprobante?.moneda || "MXN"
-  )
-    ? 1
-    : Number(tipoCambioData?.tipo_cambio || 0),
-  tipo_cambio_source: tipoCambioData?.source || null,
-  tipo_cambio_manual: !!tipoCambioData?.manual,
-  total: parseFloat(facturaData.comprobante.total),
-  subtotal: parseFloat(facturaData.comprobante.subtotal),
-  impuestos: parseFloat(facturaData.impuestos?.traslado?.importe || "0.00"),
-},
-      }
-    : {}),
+        ...(isProveedorFlow
+          ? {
+              montos_originales_factura: {
+                moneda: normalizeCurrency(
+                  tipoCambioData?.moneda ||
+                    facturaData?.comprobante?.moneda ||
+                    "MXN",
+                ),
+                tipo_cambio: isMXNCurrency(
+                  tipoCambioData?.moneda ||
+                    facturaData?.comprobante?.moneda ||
+                    "MXN",
+                )
+                  ? 1
+                  : Number(tipoCambioData?.tipo_cambio || 0),
+                tipo_cambio_source: tipoCambioData?.source || null,
+                tipo_cambio_manual: !!tipoCambioData?.manual,
+                total: parseFloat(facturaData.comprobante.total),
+                subtotal: parseFloat(facturaData.comprobante.subtotal),
+                impuestos: parseFloat(
+                  facturaData.impuestos?.traslado?.importe || "0.00",
+                ),
+              },
+            }
+          : {}),
 
-  facturas: {
-    facturaData,
-  },
-};
+        facturas: {
+          facturaData,
+        },
+      };
 
       const ENDPOINT = !proveedoresData
         ? `${URL}/mia/factura/CrearFacturaDesdeCarga`
         : `${URL}/mia/pago_proveedor/subir_factura`;
 
-        console.log(ENDPOINT,"endpoint")
+      console.log(ENDPOINT, "endpoint");
 
       if (basePayload.items !== "1") {
-  const response = await fetch(ENDPOINT, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": API_KEY,
-    },
-    body: JSON.stringify(basePayload),
-  });
+        const response = await fetch(ENDPOINT, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": API_KEY,
+          },
+          body: JSON.stringify(basePayload),
+        });
 
-  if (!response.ok) {
-    const backendMessage = await getResponseErrorMessage(response);
-    throw new Error(backendMessage);
-  }
+        if (!response.ok) {
+          const backendMessage = await getResponseErrorMessage(response);
+          throw new Error(backendMessage);
+        }
 
-  const facturaResponse = await response.json();
-  setFacturaCreada(facturaResponse);
-}
+        const facturaResponse = await response.json();
+        setFacturaCreada(facturaResponse);
+      }
 
-      if (payload ||proveedoresData) {
+      if (payload || proveedoresData) {
         alert("Factura asignada exitosamente");
         cerrarVistaPrevia();
       } else if (facturaPagada) {
@@ -1468,21 +1514,20 @@ const basePayload: any = {
         cerrarVistaPrevia();
       }
     } catch (error: any) {
-  console.error(error);
-  alert(error?.message || "Ocurrió un error al guardar la factura.");
-} finally {
-  setSubiendoArchivos(false);
-} 
+      console.error(error);
+      alert(error?.message || "Ocurrió un error al guardar la factura.");
+    } finally {
+      setSubiendoArchivos(false);
+    }
   };
 
   const handleEnviar = async () => {
     // ========== Validación ==========
-const validationErrors = validateFacturaForm({
-  clienteSeleccionado,
-  archivoXML,
-  isProveedorBatch,
-});
-
+    const validationErrors = validateFacturaForm({
+      clienteSeleccionado,
+      archivoXML,
+      isProveedorBatch,
+    });
 
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
@@ -1498,88 +1543,97 @@ const validationErrors = validateFacturaForm({
       // 1) Parsear XML
       const data = await parsearXML(archivoXML);
       const totalXml = Number(data?.comprobante?.total ?? 0);
-      console.log("🚓🚓🚓🚓🚓informacion de xml",data)
-      console.log("informacion🔽🔽🔽🔽🔽",data.emisor.rfc)
+      console.log("🚓🚓🚓🚓🚓informacion de xml", data);
+      console.log("informacion🔽🔽🔽🔽🔽", data.emisor.rfc);
 
       // ==========================
       // NUEVO: Batch NO usa selección de cliente ni empresas aquí
       // El back se encargará del automatch + datos fiscales.
       // ==========================
 
-const monedaXml = normalizeCurrency(data?.comprobante?.moneda || "MXN");
-const tipoCambioXml = Number(data?.comprobante?.tipoCambio || 0);
+      const monedaXml = normalizeCurrency(data?.comprobante?.moneda || "MXN");
+      const tipoCambioXml = Number(data?.comprobante?.tipoCambio || 0);
 
-if (!!proveedoresData && !isMXNCurrency(monedaXml) && (!Number.isFinite(tipoCambioXml) || tipoCambioXml <= 0)) {
-  alert(`La factura viene en ${monedaXml} y no trae un TipoCambio válido en el XML.`);
-  return;
-}
+      if (
+        !!proveedoresData &&
+        !isMXNCurrency(monedaXml) &&
+        (!Number.isFinite(tipoCambioXml) || tipoCambioXml <= 0)
+      ) {
+        alert(
+          `La factura viene en ${monedaXml} y no trae un TipoCambio válido en el XML.`,
+        );
+        return;
+      }
 
-if (isProveedorMode) {
-  const montoSingle = Number(facturado || 0);
+      if (isProveedorMode) {
+        const montoSingle = Number(facturado || 0);
 
-  if (montoSingle > totalXml) {
-    alert(
-      `El monto a asociar (${montoSingle.toFixed(2)}) no puede ser mayor al total de la factura (${totalXml.toFixed(2)}).`
-    );
-    return;
-  }
-}
+        if (montoSingle > totalXml) {
+          alert(
+            `El monto a asociar (${montoSingle.toFixed(2)}) no puede ser mayor al total de la factura (${totalXml.toFixed(2)}).`,
+          );
+          return;
+        }
+      }
 
+      if (isProveedorBatch) {
+        const rfcXml = String(data?.emisor?.rfc ?? "")
+          .trim()
+          .toUpperCase();
 
-if (isProveedorBatch) {
-  const rfcXml = String(data?.emisor?.rfc ?? "").trim().toUpperCase();
+        const proveedorIds = Array.from(
+          new Set(
+            batchAsociaciones
+              .map((x) => String(x.id_proveedor))
+              .filter(Boolean),
+          ),
+        );
 
-  const proveedorIds = Array.from(
-    new Set(batchAsociaciones.map((x) => String(x.id_proveedor)).filter(Boolean))
-  );
+        if (isProveedorMode) {
+          const montoSingle = Number(facturado || 0);
 
-  
-  if (isProveedorMode) {
-  const montoSingle = Number(facturado || 0);
+          if (montoSingle > totalXml) {
+            alert(
+              `El monto a asociar (${montoSingle.toFixed(2)}) no puede ser mayor al total de la factura (${totalXml.toFixed(2)}).`,
+            );
+            return;
+          }
+        }
 
-  if (montoSingle > totalXml) {
-    alert(
-      `El monto a asociar (${montoSingle.toFixed(2)}) no puede ser mayor al total de la factura (${totalXml.toFixed(2)}).`
-    );
-    return;
-  }
-}
+        const rfcDBs = new Set<string>();
 
-  const rfcDBs = new Set<string>();
+        for (const idProv of proveedorIds) {
+          const dfs = await fetchDatosFiscalesProveedor(idProv);
+          for (const row of dfs) {
+            const r = String(row?.rfc ?? "")
+              .trim()
+              .toUpperCase();
+            if (r) rfcDBs.add(r);
+          }
+        }
 
-  for (const idProv of proveedorIds) {
-    const dfs = await fetchDatosFiscalesProveedor(idProv);
-    for (const row of dfs) {
-      const r = String(row?.rfc ?? "").trim().toUpperCase();
-      if (r) rfcDBs.add(r);
-    }
-  }
+        const coincideRfc = rfcDBs.has(rfcXml);
 
-  const coincideRfc = rfcDBs.has(rfcXml);
+        if (!coincideRfc) {
+          alert(
+            `No hubo coincidencia de RFC.\nRFC XML(emisor): ${rfcXml}\nRFCs en DB: ${Array.from(rfcDBs).join(", ")}`,
+          );
+          return;
+        }
 
-  if (!coincideRfc) {
-    alert(
-      `No hubo coincidencia de RFC.\nRFC XML(emisor): ${rfcXml}\nRFCs en DB: ${Array.from(rfcDBs).join(", ")}`
-    );
-    return;
-  }
+        // ✅ Solo validamos que la suma no exceda el total de la factura
+        if (batchTotalAsociar > totalXml) {
+          alert(
+            `La suma de montos a asociar (${batchTotalAsociar.toFixed(2)}) no puede ser mayor al total de la factura (${totalXml.toFixed(2)}).`,
+          );
+          return;
+        }
 
-  // ✅ Solo validamos que la suma no exceda el total de la factura
-  if (batchTotalAsociar > totalXml) {
-    alert(
-      `La suma de montos a asociar (${batchTotalAsociar.toFixed(2)}) no puede ser mayor al total de la factura (${totalXml.toFixed(2)}).`
-    );
-    return;
-  }
-
-  setFacturaData(data);
-  setMostrarModal(false);
-  setMostrarVistaPrevia(true);
-  return;
-}
-
-
-      
+        setFacturaData(data);
+        setMostrarModal(false);
+        setMostrarVistaPrevia(true);
+        return;
+      }
 
       // 2) Cargar empresas del cliente / proveedor (single) si no están cargadas
       if (empresasAgente.length === 0 && clienteSeleccionado?.id_agente) {
@@ -1587,14 +1641,16 @@ if (isProveedorBatch) {
       }
 
       // 3) Buscar empresa por RFC del receptor
-      const rfcReceptor = !proveedoresData ? data.receptor.rfc:data.emisor.rfc;
+      const rfcReceptor = !proveedoresData
+        ? data.receptor.rfc
+        : data.emisor.rfc;
       const empresaCoincidente = empresasAgente.find(
-        (emp) => emp.rfc === rfcReceptor
+        (emp) => emp.rfc === rfcReceptor,
       );
-      console.log(rfcReceptor,"cambios",rfcReceptor)
+      console.log(rfcReceptor, "cambios", rfcReceptor);
       if (!empresaCoincidente) {
         confirm(
-          `No se encontró una empresa con RFC ${rfcReceptor} para este cliente. Deberas crear empresa`
+          `No se encontró una empresa con RFC ${rfcReceptor} para este cliente. Deberas crear empresa`,
         );
         return;
       } else {
@@ -1612,43 +1668,45 @@ if (isProveedorBatch) {
       setSubiendoArchivos(false);
     }
   };
-useEffect(() => {
-  let cancelled = false;
+  useEffect(() => {
+    let cancelled = false;
 
-  async function loadFacturadoPrevio() {
-    try {
-      if (!esFacturaSubidaMode) return;
-      if (!facturaEncontrada) return;
-      if (!idsSolicitudFacturaPrevia.length) return;
+    async function loadFacturadoPrevio() {
+      try {
+        if (!esFacturaSubidaMode) return;
+        if (!facturaEncontrada) return;
+        if (!idsSolicitudFacturaPrevia.length) return;
 
-      setLoadingFacturadoPrevio(true);
-      const resp = await consultarFacturadoSolicitudes(idsSolicitudFacturaPrevia);
+        setLoadingFacturadoPrevio(true);
+        const resp = await consultarFacturadoSolicitudes(
+          idsSolicitudFacturaPrevia,
+        );
 
-      if (!cancelled) {
-        setFacturadoPrevioData(resp);
-      }
-    } catch (error) {
-      console.error("Error consultando facturado previo:", error);
-      if (!cancelled) {
-        setFacturadoPrevioData(null);
-      }
-    } finally {
-      if (!cancelled) {
-        setLoadingFacturadoPrevio(false);
+        if (!cancelled) {
+          setFacturadoPrevioData(resp);
+        }
+      } catch (error) {
+        console.error("Error consultando facturado previo:", error);
+        if (!cancelled) {
+          setFacturadoPrevioData(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingFacturadoPrevio(false);
+        }
       }
     }
-  }
 
-  loadFacturadoPrevio();
+    loadFacturadoPrevio();
 
-  return () => {
-    cancelled = true;
-  };
-}, [
-  esFacturaSubidaMode,
-  facturaEncontrada,
-  idsSolicitudFacturaPrevia.join("|"),
-]);
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    esFacturaSubidaMode,
+    facturaEncontrada,
+    idsSolicitudFacturaPrevia.join("|"),
+  ]);
 
   return (
     <>
@@ -1659,55 +1717,54 @@ useEffect(() => {
         Subir Nueva Factura
       </button>
 
-
-
       {mostrarModal && (
-        
         <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
           <div className="bg-white rounded-lg p-6 w-full max-w-3xl shadow-xl">
             <h2 className="text-xl font-semibold mb-1">{text}</h2>
             <p className="text-sm text-gray-500 mb-4">
               Sube los archivos PDF y XML de la factura
             </p>
-                  {mostrarSwitchFacturaProveedor && (
-  <div className="mb-4">
-    <label className="block mb-2 font-medium">Tipo de factura</label>
+            {mostrarSwitchFacturaProveedor && (
+              <div className="mb-4">
+                <label className="block mb-2 font-medium">
+                  Tipo de factura
+                </label>
 
-    <div className="inline-flex rounded-md border overflow-hidden">
-      <button
-        type="button"
-        onClick={() => {
-          setModoFacturaProveedor("nueva");
-          setUuidBusqueda("");
-          setFacturaEncontrada(null);
-        }}
-        className={`px-4 py-2 text-sm ${
-          modoFacturaProveedor === "nueva"
-            ? "bg-blue-600 text-white"
-            : "bg-white text-gray-700"
-        }`}
-      >
-        Factura nueva
-      </button>
+                <div className="inline-flex rounded-md border overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModoFacturaProveedor("nueva");
+                      setUuidBusqueda("");
+                      setFacturaEncontrada(null);
+                    }}
+                    className={`px-4 py-2 text-sm ${
+                      modoFacturaProveedor === "nueva"
+                        ? "bg-blue-600 text-white"
+                        : "bg-white text-gray-700"
+                    }`}
+                  >
+                    Factura nueva
+                  </button>
 
-      <button
-        type="button"
-        onClick={() => {
-          setModoFacturaProveedor("subida");
-          setArchivoXML(null);
-          setArchivoPDF(null);
-        }}
-        className={`px-4 py-2 text-sm border-l ${
-          modoFacturaProveedor === "subida"
-            ? "bg-blue-600 text-white"
-            : "bg-white text-gray-700"
-        }`}
-      >
-        Factura subida
-      </button>
-    </div>
-  </div>
-)}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setModoFacturaProveedor("subida");
+                      setArchivoXML(null);
+                      setArchivoPDF(null);
+                    }}
+                    className={`px-4 py-2 text-sm border-l ${
+                      modoFacturaProveedor === "subida"
+                        ? "bg-blue-600 text-white"
+                        : "bg-white text-gray-700"
+                    }`}
+                  >
+                    Factura subida
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* ==============================
                 NUEVO: si batch => NO mostrar input cliente
@@ -1801,231 +1858,278 @@ useEffect(() => {
                 </p>
               </div>
             )}
-{esFacturaNuevaMode && (
-  <>
-    {/* XML */}
-    <div>
-      <div className="border-2 border-dashed border-gray-300 p-6 rounded-lg bg-gray-50 hover:bg-gray-100 transition">
-        <label className="block text-gray-700 font-semibold mb-2">
-          Archivo XML (Requerido) <span className="text-red-500">*</span>
-        </label>
+            {esFacturaNuevaMode && (
+              <>
+                {/* XML */}
+                <div>
+                  <div className="border-2 border-dashed border-gray-300 p-6 rounded-lg bg-gray-50 hover:bg-gray-100 transition">
+                    <label className="block text-gray-700 font-semibold mb-2">
+                      Archivo XML (Requerido){" "}
+                      <span className="text-red-500">*</span>
+                    </label>
 
-        <input
-          type="file"
-          id="xml-upload"
-          accept="text/xml,.xml,application/xml"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0] || null;
-            if (
-              file &&
-              !["text/xml", "application/xml"].includes(file.type)
-            ) {
-              alert("Por favor, sube solo archivos XML");
-              e.target.value = "";
-              setArchivoXML(null);
-              return;
-            }
-            setArchivoXML(file);
-          }}
-        />
+                    <input
+                      type="file"
+                      id="xml-upload"
+                      accept="text/xml,.xml,application/xml"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        if (
+                          file &&
+                          !["text/xml", "application/xml"].includes(file.type)
+                        ) {
+                          alert("Por favor, sube solo archivos XML");
+                          e.target.value = "";
+                          setArchivoXML(null);
+                          return;
+                        }
+                        setArchivoXML(file);
+                      }}
+                    />
 
-        <label
-          htmlFor="xml-upload"
-          className="inline-flex items-center px-4 py-2 bg-green-500 text-white rounded cursor-pointer hover:bg-green-600 transition"
-        >
-          Seleccionar archivo
-        </label>
+                    <label
+                      htmlFor="xml-upload"
+                      className="inline-flex items-center px-4 py-2 bg-green-500 text-white rounded cursor-pointer hover:bg-green-600 transition"
+                    >
+                      Seleccionar archivo
+                    </label>
 
-        <p className="text-sm text-gray-500 mt-2">
-          {archivoXML ? archivoXML.name : "Sin archivos seleccionados"}
-        </p>
-      </div>
-    </div>
+                    <p className="text-sm text-gray-500 mt-2">
+                      {archivoXML
+                        ? archivoXML.name
+                        : "Sin archivos seleccionados"}
+                    </p>
+                  </div>
+                </div>
 
-    {/* PDF */}
-    <div className="mt-4">
-      <div className="border-2 border-dashed border-gray-300 p-6 rounded-lg bg-gray-50 hover:bg-gray-100 transition">
-        <label className="block text-gray-700 font-semibold mb-2">
-          Archivo PDF (Requerido) <span className="text-red-500">*</span>
-        </label>
+                {/* PDF */}
+                <div className="mt-4">
+                  <div className="border-2 border-dashed border-gray-300 p-6 rounded-lg bg-gray-50 hover:bg-gray-100 transition">
+                    <label className="block text-gray-700 font-semibold mb-2">
+                      Archivo PDF (Requerido){" "}
+                      <span className="text-red-500">*</span>
+                    </label>
 
-        <input
-          type="file"
-          id="pdf-upload"
-          accept="application/pdf,.pdf"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0] || null;
-            if (file && file.type !== "application/pdf") {
-              alert("Por favor, sube solo archivos PDF");
-              e.target.value = "";
-              setArchivoPDF(null);
-              return;
-            }
-            setArchivoPDF(file);
-          }}
-        />
+                    <input
+                      type="file"
+                      id="pdf-upload"
+                      accept="application/pdf,.pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        if (file && file.type !== "application/pdf") {
+                          alert("Por favor, sube solo archivos PDF");
+                          e.target.value = "";
+                          setArchivoPDF(null);
+                          return;
+                        }
+                        setArchivoPDF(file);
+                      }}
+                    />
 
-        <label
-          htmlFor="pdf-upload"
-          className="inline-flex items-center px-4 py-2 bg-green-500 text-white rounded cursor-pointer hover:bg-green-600 transition"
-        >
-          Seleccionar archivo
-        </label>
+                    <label
+                      htmlFor="pdf-upload"
+                      className="inline-flex items-center px-4 py-2 bg-green-500 text-white rounded cursor-pointer hover:bg-green-600 transition"
+                    >
+                      Seleccionar archivo
+                    </label>
 
-        <p className="text-sm text-gray-500 mt-2">
-          {archivoPDF ? archivoPDF.name : "Sin archivos seleccionados"}
-        </p>
-      </div>
-    </div>
-  </>
-)}
-
-{esFacturaSubidaMode && (
-  <div className="mt-4">
-    <label className="block mb-2 font-medium">UUID de la factura</label>
-
-    <input
-      type="text"
-      placeholder="Ej. 123E4567-E89B-12D3-A456-426614174000"
-      value={uuidBusqueda}
-      onChange={(e) => setUuidBusqueda(normalizeUUIDInput(e.target.value))}
-      className="w-full p-2 border rounded border-gray-300"
-    />
-
-    <p className="text-xs text-gray-500 mt-1">
-      Ingresa el UUID de una factura ya subida para buscarla en sistema.
-    </p>
-
-    {facturaEncontrada && (
-      <div className="mt-3 p-3 border rounded bg-green-50 text-sm">
-        <p className="font-medium text-green-800">Factura encontrada</p>
-
-        <div className="mt-2 space-y-1 text-gray-700">
-          <p>
-            <strong>UUID:</strong>{" "}
-            {facturaEncontrada?.uuid_factura ||
-              facturaEncontrada?.uuid ||
-              uuidBusqueda}
-          </p>
-          <p>
-            <strong>Total:</strong>{" "}
-            {facturaEncontrada?.total ?? "N/D"}
-          </p>
-          <p>
-            <strong>RFC emisor:</strong>{" "}
-            {facturaEncontrada?.rfc_emisor ?? "N/D"}
-          </p>
-          <p>
-            <strong>Fecha:</strong>{" "}
-            {facturaEncontrada?.fecha_emision ?? "N/D"}
-          </p>
-        </div>
-      </div>
-    )}
-
-    {esFacturaSubidaMode && facturaEncontrada && (
-  <div className="mt-4 p-4 rounded border bg-blue-50">
-    <div className="mb-3 text-sm text-gray-700">
-      <div>
-        <strong>UUID:</strong> {facturaEncontrada?.uuid_cfdi}
-      </div>
-      <div>
-        <strong>Total factura:</strong> {formatMoneyMXN(facturaEncontrada?.total)}
-      </div>
-      <div>
-        <strong>Saldo disponible:</strong>{" "}
-        {formatMoneyMXN(facturaEncontrada?.saldo_x_aplicar_items)}
-      </div>
-    </div>
-
-    {loadingFacturadoPrevio && (
-      <div className="mb-3 text-sm text-blue-700">
-        Consultando montos disponibles por solicitud...
-      </div>
-    )}
-
-    {isProveedorBatch && (
-      <div className="space-y-3">
-        <label className="block font-medium">
-          Montos a asignar por solicitud (MXN)
-        </label>
-
-        {batchAsociaciones.map((it, idx) => {
-          const idSolicitud = String(it?.id_solicitud ?? "").trim();
-          const infoFacturado = facturadoPrevioMap?.[idSolicitud] ?? null;
-
-          const maximoAsignar = Number(infoFacturado?.maximo_asignar ?? 0);
-          const montoSolicitado = Number(infoFacturado?.monto_solicitado ?? 0);
-          const totalFacturado = Number(infoFacturado?.total_facturado ?? 0);
-
-          return (
-            <div
-              key={`${it.id_solicitud}-${it.id_proveedor}-${idx}`}
-              className="p-3 rounded border bg-white"
-            >
-              <div className="text-xs text-gray-600 mb-2">
-                <div><strong>Solicitud:</strong> {it.id_solicitud}</div>
-                <div><strong>Proveedor:</strong> {it.raw?.proveedor || it.raw?.hotel || it.id_proveedor}</div>
-                <div><strong>Monto solicitado:</strong> {formatMoneyMXN(montoSolicitado)}</div>
-                <div><strong>Ya facturado:</strong> {formatMoneyMXN(totalFacturado)}</div>
-                <div><strong>Máximo asignable:</strong> {formatMoneyMXN(maximoAsignar)}</div>
-              </div>
-
-              <input
-                type="text"
-                inputMode="decimal"
-                placeholder="0.00"
-                value={it.monto_asociar}
-                onChange={(e) =>
-                  handleChangeMontoBatchFacturaPrevia(idx, e.target.value)
-                }
-                className="w-full p-2 border rounded border-gray-300"
-                disabled={loadingFacturadoPrevio || !facturadoPrevioMap?.[idSolicitud]}
-              />
-            </div>
-          );
-        })}
-
-        <div className="text-sm text-gray-700">
-          <strong>Total a asignar:</strong>{" "}
-          {formatMoneyMXN(totalAsignadoFacturaPrevia)}
-        </div>
-      </div>
-    )}
-
-    {isProveedorMode && (
-      <div className="mt-3">
-        <label className="block mb-2 font-medium">
-          Monto a asignar a la solicitud (MXN)
-        </label>
-
-        <input
-          type="text"
-          inputMode="decimal"
-          placeholder="0.00"
-          value={facturado ?? ""}
-          onChange={handleFacturadoChange}
-          className="w-full p-2 border rounded border-gray-300"
-        />
-
-        {proveedoresData?.id_solicitud && (
-          <p className="text-xs text-gray-500 mt-1">
-            Máximo asignable:{" "}
-            {formatMoneyMXN(
-              facturadoPrevioMap?.[String(proveedoresData.id_solicitud).trim()]
-                ?.maximo_asignar ?? 0
+                    <p className="text-sm text-gray-500 mt-2">
+                      {archivoPDF
+                        ? archivoPDF.name
+                        : "Sin archivos seleccionados"}
+                    </p>
+                  </div>
+                </div>
+              </>
             )}
-          </p>
-        )}
-      </div>
-    )}
-  </div>
-)}
-  </div>
-)}
 
+            {esFacturaSubidaMode && (
+              <div className="mt-4">
+                <label className="block mb-2 font-medium">
+                  UUID de la factura
+                </label>
+
+                <input
+                  type="text"
+                  placeholder="Ej. 123E4567-E89B-12D3-A456-426614174000"
+                  value={uuidBusqueda}
+                  onChange={(e) =>
+                    setUuidBusqueda(normalizeUUIDInput(e.target.value))
+                  }
+                  className="w-full p-2 border rounded border-gray-300"
+                />
+
+                <p className="text-xs text-gray-500 mt-1">
+                  Ingresa el UUID de una factura ya subida para buscarla en
+                  sistema.
+                </p>
+
+                {facturaEncontrada && (
+                  <div className="mt-3 p-3 border rounded bg-green-50 text-sm">
+                    <p className="font-medium text-green-800">
+                      Factura encontrada
+                    </p>
+
+                    <div className="mt-2 space-y-1 text-gray-700">
+                      <p>
+                        <strong>UUID:</strong>{" "}
+                        {facturaEncontrada?.uuid_factura ||
+                          facturaEncontrada?.uuid ||
+                          uuidBusqueda}
+                      </p>
+                      <p>
+                        <strong>Total:</strong>{" "}
+                        {facturaEncontrada?.total ?? "N/D"}
+                      </p>
+                      <p>
+                        <strong>RFC emisor:</strong>{" "}
+                        {facturaEncontrada?.rfc_emisor ?? "N/D"}
+                      </p>
+                      <p>
+                        <strong>Fecha:</strong>{" "}
+                        {facturaEncontrada?.fecha_emision ?? "N/D"}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {esFacturaSubidaMode && facturaEncontrada && (
+                  <div className="mt-4 p-4 rounded border bg-blue-50">
+                    <div className="mb-3 text-sm text-gray-700">
+                      <div>
+                        <strong>UUID:</strong> {facturaEncontrada?.uuid_cfdi}
+                      </div>
+                      <div>
+                        <strong>Total factura:</strong>{" "}
+                        {formatMoneyMXN(facturaEncontrada?.total)}
+                      </div>
+                      <div>
+                        <strong>Saldo disponible:</strong>{" "}
+                        {formatMoneyMXN(
+                          facturaEncontrada?.saldo_x_aplicar_items,
+                        )}
+                      </div>
+                    </div>
+
+                    {loadingFacturadoPrevio && (
+                      <div className="mb-3 text-sm text-blue-700">
+                        Consultando montos disponibles por solicitud...
+                      </div>
+                    )}
+
+                    {isProveedorBatch && (
+                      <div className="space-y-3">
+                        <label className="block font-medium">
+                          Montos a asignar por solicitud (MXN)
+                        </label>
+
+                        {batchAsociaciones.map((it, idx) => {
+                          const idSolicitud = String(
+                            it?.id_solicitud ?? "",
+                          ).trim();
+                          const infoFacturado =
+                            facturadoPrevioMap?.[idSolicitud] ?? null;
+
+                          const maximoAsignar = Number(
+                            infoFacturado?.maximo_asignar ?? 0,
+                          );
+                          const montoSolicitado = Number(
+                            infoFacturado?.monto_solicitado ?? 0,
+                          );
+                          const totalFacturado = Number(
+                            infoFacturado?.total_facturado ?? 0,
+                          );
+
+                          return (
+                            <div
+                              key={`${it.id_solicitud}-${it.id_proveedor}-${idx}`}
+                              className="p-3 rounded border bg-white"
+                            >
+                              <div className="text-xs text-gray-600 mb-2">
+                                <div>
+                                  <strong>Solicitud:</strong> {it.id_solicitud}
+                                </div>
+                                <div>
+                                  <strong>Proveedor:</strong>{" "}
+                                  {it.raw?.proveedor ||
+                                    it.raw?.hotel ||
+                                    it.id_proveedor}
+                                </div>
+                                <div>
+                                  <strong>Monto solicitado:</strong>{" "}
+                                  {formatMoneyMXN(montoSolicitado)}
+                                </div>
+                                <div>
+                                  <strong>Ya facturado:</strong>{" "}
+                                  {formatMoneyMXN(totalFacturado)}
+                                </div>
+                                <div>
+                                  <strong>Máximo asignable:</strong>{" "}
+                                  {formatMoneyMXN(maximoAsignar)}
+                                </div>
+                              </div>
+
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                placeholder="0.00"
+                                value={it.monto_asociar}
+                                onChange={(e) =>
+                                  handleChangeMontoBatchFacturaPrevia(
+                                    idx,
+                                    e.target.value,
+                                  )
+                                }
+                                className="w-full p-2 border rounded border-gray-300"
+                                disabled={
+                                  loadingFacturadoPrevio ||
+                                  !facturadoPrevioMap?.[idSolicitud]
+                                }
+                              />
+                            </div>
+                          );
+                        })}
+
+                        <div className="text-sm text-gray-700">
+                          <strong>Total a asignar:</strong>{" "}
+                          {formatMoneyMXN(totalAsignadoFacturaPrevia)}
+                        </div>
+                      </div>
+                    )}
+
+                    {isProveedorMode && (
+                      <div className="mt-3">
+                        <label className="block mb-2 font-medium">
+                          Monto a asignar a la solicitud (MXN)
+                        </label>
+
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="0.00"
+                          value={facturado ?? ""}
+                          onChange={handleFacturadoChange}
+                          className="w-full p-2 border rounded border-gray-300"
+                        />
+
+                        {proveedoresData?.id_solicitud && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            Máximo asignable:{" "}
+                            {formatMoneyMXN(
+                              facturadoPrevioMap?.[
+                                String(proveedoresData.id_solicitud).trim()
+                              ]?.maximo_asignar ?? 0,
+                            )}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* ==============================
                 SINGLE proveedor: input monto único
@@ -2046,11 +2150,11 @@ useEffect(() => {
                 />
 
                 <p className="text-xs text-gray-500 mt-1">
-                  Este monto se guardará para usarlo en la asociación con la solicitud.
+                  Este monto se guardará para usarlo en la asociación con la
+                  solicitud.
                 </p>
               </div>
             )}
-
 
             {/* Checkbox factura pagada */}
             <div className="flex items-center mb-4">
@@ -2075,8 +2179,8 @@ useEffect(() => {
                 {pagoData
                   ? "Factura marcada como pagada (asociada a pago)"
                   : !hasItems
-                  ? "Factura marcada como pagada (sin ítems)"
-                  : "La factura está pagada"}
+                    ? "Factura marcada como pagada (sin ítems)"
+                    : "La factura está pagada"}
               </label>
             </div>
 
@@ -2088,87 +2192,86 @@ useEffect(() => {
                 Cancelar
               </button>
               <button
-  onClick={
-    esFacturaSubidaMode
-      ? facturaEncontrada
-        ? asignarFacturaPrevia
-        : buscarFacturaPorUUID
-      : handleEnviar
-  }
-  className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
-  disabled={
-    esFacturaSubidaMode
-      ? facturaEncontrada
-        ? asignandoFacturaPrevia || loadingFacturadoPrevio
-        : !uuidBusqueda || buscandoFactura
-      : ((!isProveedorBatch && !cliente) ||
-          !archivoXML ||
-          !archivoPDF ||
-          subiendoArchivos)
-  }
->
-  {esFacturaSubidaMode
-    ? facturaEncontrada
-      ? asignandoFacturaPrevia
-        ? "Asignando..."
-        : "Asignar factura"
-      : buscandoFactura
-      ? "Buscando..."
-      : "Buscar factura"
-    : subiendoArchivos
-    ? "Procesando..."
-    : "Datos de factura"}
-</button>
+                onClick={
+                  esFacturaSubidaMode
+                    ? facturaEncontrada
+                      ? asignarFacturaPrevia
+                      : buscarFacturaPorUUID
+                    : handleEnviar
+                }
+                className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
+                disabled={
+                  esFacturaSubidaMode
+                    ? facturaEncontrada
+                      ? asignandoFacturaPrevia || loadingFacturadoPrevio
+                      : !uuidBusqueda || buscandoFactura
+                    : (!isProveedorBatch && !cliente) ||
+                      !archivoXML ||
+                      !archivoPDF ||
+                      subiendoArchivos
+                }
+              >
+                {esFacturaSubidaMode
+                  ? facturaEncontrada
+                    ? asignandoFacturaPrevia
+                      ? "Asignando..."
+                      : "Asignar factura"
+                    : buscandoFactura
+                      ? "Buscando..."
+                      : "Buscar factura"
+                  : subiendoArchivos
+                    ? "Procesando..."
+                    : "Datos de factura"}
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      
       {mostrarVistaPrevia && (
- <VistaPreviaModal
-  facturaData={facturaData}
-  pagoData={pagoData}
-  itemsTotal={getItemsTotal()}
-  archivoPDF={archivoPDF}
-  isProveedorBatch={isProveedorBatch}
-  batchAsociaciones={batchAsociaciones}
-  updateMontoBatch={updateMontoBatch}
-  batchTotalAsociar={batchTotalAsociar}
-  showFechaVencimiento={!pagoData && !proveedoresData}
-    proveedoresData={proveedoresData} // 👈 NUEVO
-  onConfirm={(pdfUrl, fecha_vencimiento, tipoCambioData) => {
-  setArchivoPDFUrl(pdfUrl);
+        <VistaPreviaModal
+          facturaData={facturaData}
+          pagoData={pagoData}
+          itemsTotal={getItemsTotal()}
+          archivoPDF={archivoPDF}
+          isProveedorBatch={isProveedorBatch}
+          batchAsociaciones={batchAsociaciones}
+          updateMontoBatch={updateMontoBatch}
+          batchTotalAsociar={batchTotalAsociar}
+          showFechaVencimiento={!pagoData && !proveedoresData}
+          proveedoresData={proveedoresData} // 👈 NUEVO
+          onConfirm={(pdfUrl, fecha_vencimiento, tipoCambioData) => {
+            setArchivoPDFUrl(pdfUrl);
 
-  if (hasItems) {
-    setFacturaPagada(false);
-    handleConfirmarFactura({
-      url: pdfUrl ?? undefined,
-      fecha_vencimiento,
-      tipoCambioData,
-    });
-    return;
-  }
+            if (hasItems) {
+              setFacturaPagada(false);
+              handleConfirmarFactura({
+                url: pdfUrl ?? undefined,
+                fecha_vencimiento,
+                tipoCambioData,
+              });
+              return;
+            }
 
-  setFacturaPagada(true);
-  if (pagoData && facturaData) {
-    handlePagos({
-      url: pdfUrl ?? undefined,
-      fecha_vencimiento,
-      tipoCambioData,
-    });
-  } else {
-    handleConfirmarFactura({
-      url: pdfUrl ?? undefined,
-      fecha_vencimiento,
-      tipoCambioData,
-    });
-  }
-}}
-  onClose={cerrarVistaPrevia}
-  isLoading={subiendoArchivos}
-/>
-)}
+            setFacturaPagada(true);
+            if (pagoData && facturaData) {
+              handlePagos({
+                url: pdfUrl ?? undefined,
+                fecha_vencimiento,
+                tipoCambioData,
+              });
+            } else {
+              handleConfirmarFactura({
+                url: pdfUrl ?? undefined,
+                fecha_vencimiento,
+                tipoCambioData,
+              });
+            }
+          }}
+          onClose={cerrarVistaPrevia}
+          isLoading={subiendoArchivos}
+        />
+      )}
 
       {/* Totales de Ítems vs Factura */}
       {facturaData && getItemsTotal() > 0 && (

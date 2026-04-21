@@ -1,15 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { AgentProcess, CorreoProcesado } from "@/types/database_tables";
 import { DateTime } from "@/v3/atom/TableItemsComponent";
 import Modal from "@/components/organism/Modal";
 import Button from "@/components/atom/Button";
-import { AlertCircle, Brain, BrainCircuit, Hand } from "lucide-react";
-import { FormSeleccionarHoteles } from "@/components/organism/FormSeleccionarHoteles";
-import { Hotel } from "@/types";
-import { useAuth } from "@/context/AuthContext";
-import { useAlert } from "@/context/useAlert";
+import { AlertCircle, BrainCircuit, Hand } from "lucide-react";
 
 export type CorreoProcesadoItem = Pick<
   CorreoProcesado,
@@ -120,6 +117,8 @@ const ErrorCell = ({ value }: { value: string | null }) => {
 const AgentCell = ({ value }: { value: string | null }) => {
   const [open, setOpen] = useState(false);
 
+  console.log("AgentCell value:", value);
+
   let parsed;
   let display: React.ReactNode;
   try {
@@ -163,83 +162,49 @@ const AgentCell = ({ value }: { value: string | null }) => {
   );
 };
 
-const buildAgentSubtitle = (ap: AgentProcess): string => {
-  if (!ap || !Object.values(ap).some(Boolean)) return "";
-  const parts: string[] = [];
-  if ("hotel" in ap && ap.hotel) parts.push(`Hotel: ${ap.hotel}`);
-  if ("ciudad" in ap && ap.ciudad) parts.push(`Ciudad: ${ap.ciudad}`);
-  if ("check_in" in ap && ap.check_in) parts.push(`Check-in: ${ap.check_in}`);
-  if ("check_out" in ap && ap.check_out)
-    parts.push(`Check-out: ${ap.check_out}`);
-  if ("codigo_postal" in ap && ap.codigo_postal)
-    parts.push(`CP: ${ap.codigo_postal}`);
-  return parts.join(" · ");
-};
 
 const AccionesCell = ({ value }: { value: CorreoProcesado }) => {
-  const [open, setOpen] = useState(false);
-  const { error } = useAlert();
-  const { user } = useAuth();
+  const router = useRouter();
 
   if (value.procesado == 1) return <span className="text-gray-400">—</span>;
 
-  const agentInfo = buildAgentSubtitle(value.agent_process);
-  const subtitle = [
-    value?.subject.split("Solicitud cotizacion hospedaje ")[1] ?? "Sin asunto",
-    agentInfo,
-  ]
-    .filter(Boolean)
-    .join(" — ");
-
-  const handleSubmit = async (hoteles: Hotel[]) => {
-    if (!user?.id) {
-      error("Por favor actualiza la ventana y vuelve a intentarlo");
-      return;
-    }
-    const payload = {
-      correo: value,
-      hotel_ids: hoteles.map((h) => h.id_hotel),
-      user: { id: user?.id, name: user?.name },
+  const handleProcesarManual = () => {
+    const ap = value.agent_process as {
+      hotel?: string | null;
+      ciudad?: string | null;
+      check_in?: string | null;
+      check_out?: string | null;
+      codigo_postal?: string | null;
     };
 
-    try {
-      const res = await fetch(
-        "http://localhost:5678/webhook-test/e6f345aa-2be8-4c69-80fb-b7e46d5edfd8",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: "Bearer mi_super_key_segura",
-          },
-          body: JSON.stringify(payload),
-        },
-      );
-      const data = await res.json();
-      console.log(data);
-    } catch (err) {
-      console.error(err);
-    }
+    sessionStorage.setItem(
+      "cotizacion_correo",
+      JSON.stringify({
+        id_correo: value.id_correo,
+        subject: value.subject ?? null,
+        body_email: value.body_email ?? null,
+      }),
+    );
+
+    const params = new URLSearchParams();
+    if (ap.hotel) params.set("hotel", ap.hotel);
+    if (ap.ciudad) params.set("ciudad", ap.ciudad);
+    if (ap.check_in) params.set("check_in", ap.check_in);
+    if (ap.check_out) params.set("check_out", ap.check_out);
+    if (ap.codigo_postal) params.set("codigo_postal", ap.codigo_postal);
+
+    const query = params.toString();
+    router.push(`/dashboard/cotizacion/generar${query ? `?${query}` : ""}`);
   };
 
   return (
-    <>
-      {open && (
-        <Modal
-          onClose={() => setOpen(false)}
-          title="Procesar manualmente"
-          subtitle={subtitle}
-        >
-          <FormSeleccionarHoteles onSubmit={handleSubmit} />
-        </Modal>
-      )}
-      <Button
-        size="sm"
-        variant="secondary"
-        icon={Hand}
-        onClick={() => setOpen(true)}
-      >
-        Procesar manualmente
-      </Button>
-    </>
+    <Button
+      size="sm"
+      variant="secondary"
+      icon={Hand}
+      onClick={handleProcesarManual}
+    >
+      Procesar manualmente
+    </Button>
   );
 };

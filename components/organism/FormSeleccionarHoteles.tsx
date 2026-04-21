@@ -21,14 +21,14 @@ import { Hotel } from "@/types";
 import { Check, CheckCircle2, Plus, SlidersHorizontal, X } from "lucide-react";
 import React from "react";
 
-type HotelWithDistance = Hotel & { distance: number };
 type SortType = "distancia" | "precio";
 
 type Props = {
   onSubmit?: (hoteles: Hotel[]) => void;
+  mode?: "single" | "multi";
 };
 
-export const FormSeleccionarHoteles = ({ onSubmit }: Props) => {
+export const FormSeleccionarHoteles = ({ onSubmit, mode = "multi" }: Props) => {
   const {
     center,
     range,
@@ -45,6 +45,10 @@ export const FormSeleccionarHoteles = ({ onSubmit }: Props) => {
   const [sortBy, setSortBy] = useState<SortType>("distancia");
 
   const agregar = (hotel: Hotel) => {
+    if (mode === "single") {
+      onSubmit?.([hotel]);
+      return;
+    }
     if (seleccionados.some((h) => h.id_hotel === hotel.id_hotel)) return;
     const nuevos = [...seleccionados, hotel];
     setSeleccionados(nuevos);
@@ -174,10 +178,14 @@ export const FormSeleccionarHoteles = ({ onSubmit }: Props) => {
                       size="sm"
                       icon={yaAgregado ? Check : Plus}
                       variant={yaAgregado ? "secondary" : "primary"}
-                      disabled={yaAgregado || seleccionados.length >= 3}
+                      disabled={mode === "multi" && (yaAgregado || seleccionados.length >= 3)}
                       onClick={() => agregar(hotel)}
                     >
-                      {yaAgregado ? "Agregado" : "Agregar"}
+                      {mode === "single"
+                        ? "Seleccionar"
+                        : yaAgregado
+                          ? "Agregado"
+                          : "Agregar"}
                     </Button>
                   </div>
                 </div>
@@ -186,8 +194,8 @@ export const FormSeleccionarHoteles = ({ onSubmit }: Props) => {
           })}
         </div>
 
-        {/* Seleccionados */}
-        {seleccionados.length > 0 && (
+        {/* Seleccionados — solo en modo multi */}
+        {mode === "multi" && seleccionados.length > 0 && (
           <div className="border-t pt-3 flex flex-col gap-2 shrink-0">
             <div className="text-xs font-semibold text-gray-600 flex items-center justify-between">
               <p className="flex gap-2">

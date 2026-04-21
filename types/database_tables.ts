@@ -43,6 +43,7 @@ export type CorreoProcesado = {
   thread_id: string | null;
   subject: string | null;
   from_email: string | null;
+  body_email: string | null;
   procesado: 0 | 1;
   fecha_procesado: string | null;
   status: string;

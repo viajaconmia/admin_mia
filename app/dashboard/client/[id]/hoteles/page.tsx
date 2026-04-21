@@ -23,7 +23,7 @@ export default function PageHoteles(props) {
           </Button>
         </div>
         {section === "hoteles" && <TableHotelesPermitidos />}
-        {section === "agregar" && <FormAgregarHotel />}
+        {section === "agregar" && <FormAgregarHotel id_agente={props.params.id} />}
       </main>
     </section>
   );

@@ -1113,3 +1113,103 @@ export const ComboBoxValue2 = <T,>({
     </div>
   );
 };
+
+export const TextInputSuggestions = ({
+  label,
+  value,
+  onChange,
+  options = [],
+  placeholder,
+  disabled = false,
+  className = "",
+}: {
+  label?: string;
+  value: string;
+  onChange: (value: string) => void;
+  options?: string[];
+  placeholder?: string;
+  disabled?: boolean;
+  className?: string;
+}) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [focus, setFocus] = useState<number | null>(null);
+
+  const filteredOptions = useMemo(() => {
+    if (!value) return options;
+    const lower = value.toLowerCase();
+    return options.filter((o) => o.toLowerCase().includes(lower));
+  }, [value, options]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+        setFocus(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!isOpen || filteredOptions.length === 0) return;
+    if (e.key === "ArrowDown") {
+      setFocus((prev) => (prev === filteredOptions.length - 1 ? 0 : (prev ?? -1) + 1));
+      e.preventDefault();
+    } else if (e.key === "ArrowUp") {
+      setFocus((prev) => (prev === 0 ? filteredOptions.length - 1 : (prev ?? 0) - 1));
+      e.preventDefault();
+    } else if (e.key === "Enter" && focus !== null) {
+      onChange(filteredOptions[focus]);
+      setIsOpen(false);
+      setFocus(null);
+      e.preventDefault();
+    } else if (e.key === "Escape") {
+      setIsOpen(false);
+      setFocus(null);
+    }
+  };
+
+  return (
+    <div className={`flex flex-col space-y-1 ${className}`} ref={containerRef}>
+      {label && (
+        <label className="text-sm text-gray-900 font-medium">{label}</label>
+      )}
+      <div className="relative">
+        <input
+          type="text"
+          disabled={disabled}
+          value={value}
+          placeholder={placeholder}
+          onFocus={() => setIsOpen(true)}
+          onKeyDown={handleKeyDown}
+          onChange={(e) => {
+            onChange(e.target.value);
+            setIsOpen(true);
+            setFocus(null);
+          }}
+          className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground placeholder:text-gray-400 focus-visible:outline-1 focus-visible:outline-gray-950 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-90"
+        />
+        {isOpen && filteredOptions.length > 0 && (
+          <ul className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded shadow max-h-60 overflow-y-auto text-sm">
+            {filteredOptions.map((option, index) => (
+              <li
+                key={option + index}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  onChange(option);
+                  setIsOpen(false);
+                  setFocus(null);
+                }}
+                className={`px-3 py-2 cursor-pointer hover:bg-blue-100 ${focus === index ? "bg-blue-100" : ""}`}
+              >
+                {option}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+};

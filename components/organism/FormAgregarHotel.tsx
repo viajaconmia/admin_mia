@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import { useGeo } from "@/context/geo";
 import {
   InputGoogle,
+  NumberInput,
   PlaceMaps,
   RangeInput,
   TextInput,
+  TextInputSuggestions,
 } from "@/components/atom/Input";
 import { formatNumberWithCommas } from "@/helpers/formater";
 import { Map } from "@/components/atom/Map";
@@ -20,21 +22,31 @@ import { useHoteles } from "@/context/Hoteles";
 import { ExtraService } from "@/services/ExtraServices";
 import { useAlert } from "@/context/useAlert";
 import React from "react";
+import Modal from "@/components/organism/Modal";
 
-export const FormAgregarHotel = () => {
+export const FormAgregarHotel = ({ id_agente }: { id_agente: string }) => {
   const [loading, setLoading] = useState(false);
   const { center, range, setRange, setCenter, filtrados, search, setSearch } =
     useGeo();
   const { hoteles } = useHoteles();
   const [hotelesKone, setHotelesKone] = useState([]);
-  const { info } = useAlert();
+  const [zonasPermitidas, setZonasPermitidas] = useState<string[]>([]);
+  const { info, showNotification } = useAlert();
+  const [hotelSeleccionado, setHotelSeleccionado] = useState<{
+    id_hotel: string;
+    nombre_hotel: string;
+  } | null>(null);
+  const [zona, setZona] = useState("");
+  const [priority, setPriority] = useState<number | null>(null);
 
-  const fetchSaldos = async () => {
+  const fetchHotelesKone = async () => {
     setLoading(true);
     ExtraService.getInstance()
       .getHotelesPermitidos()
       .then(({ data }) => {
         const hoteles_permitidos = data.map((i) => i.id_hotel);
+        const zonas = [...new Set(data.map((i) => i.zona).filter(Boolean))];
+        setZonasPermitidas(zonas);
         setHotelesKone(
           hoteles.map((h) =>
             hoteles_permitidos.includes(h.id_hotel)
@@ -50,7 +62,7 @@ export const FormAgregarHotel = () => {
   };
 
   useEffect(() => {
-    fetchSaldos();
+    fetchHotelesKone();
     setHotelesKone(hoteles);
   }, []);
 
@@ -63,6 +75,33 @@ export const FormAgregarHotel = () => {
       ),
     );
   }, [hotelesKone, search]);
+
+  const handleAbrirModal = (hotel: {
+    id_hotel: string;
+    nombre_hotel: string;
+  }) => {
+    setZona("");
+    setPriority(null);
+    setHotelSeleccionado(hotel);
+  };
+
+  const handleSubmitPrioridad = async () => {
+    if (!hotelSeleccionado || !zona || priority === null) return;
+    setLoading(true);
+    try {
+      await ExtraService.getInstance().setHotelPrioridad({
+        id_agente,
+        id_hotel: hotelSeleccionado.id_hotel,
+        zona,
+        priority,
+      });
+      showNotification("success", "Hotel agregado correctamente");
+      fetchHotelesKone();
+      setHotelSeleccionado(null);
+    } catch (err) {
+      showNotification("error", "Error al agregar el hotel");
+    }
+  };
 
   return (
     <div className="min-w-screen grid md:grid-cols-[auto_1fr] grid-rows-[1fr] pt-4 relative">
@@ -116,12 +155,7 @@ export const FormAgregarHotel = () => {
                   <Button
                     size="sm"
                     icon={Plus}
-                    onClick={() => {
-                      setCenter([
-                        Number(hotel.geo.latitud),
-                        Number(hotel.geo.longitud),
-                      ]);
-                    }}
+                    onClick={() => handleAbrirModal(hotel)}
                   >
                     Agregar
                   </Button>
@@ -164,12 +198,7 @@ export const FormAgregarHotel = () => {
                     <Button
                       size="sm"
                       icon={Plus}
-                      onClick={() => {
-                        setCenter([
-                          Number(hotel.geo.latitud),
-                          Number(hotel.geo.longitud),
-                        ]);
-                      }}
+                      onClick={() => handleAbrirModal(hotel)}
                     >
                       Agregar
                     </Button>
@@ -214,6 +243,39 @@ export const FormAgregarHotel = () => {
           <Circle center={center} range={range} />
         </Map>
       </div>
+
+      {hotelSeleccionado && (
+        <Modal
+          onClose={() => setHotelSeleccionado(null)}
+          title="Agregar hotel"
+          subtitle={hotelSeleccionado.nombre_hotel}
+        >
+          <form
+            className="flex flex-col gap-4 p-6"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSubmitPrioridad();
+            }}
+          >
+            <TextInputSuggestions
+              label="Zona"
+              value={zona}
+              onChange={setZona}
+              options={zonasPermitidas}
+              placeholder="Ej. CDMX NORTE"
+            />
+            <NumberInput
+              label="Prioridad"
+              value={priority}
+              onChange={(v) => setPriority(Number(v))}
+              placeholder="Ej. 1"
+            />
+            <Button icon={Plus} type="submit" disabled={loading}>
+              {loading ? "Guardando..." : "Agregar"}
+            </Button>
+          </form>
+        </Modal>
+      )}
     </div>
   );
 };

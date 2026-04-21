@@ -28,6 +28,13 @@ export class ExtraService extends ApiService {
     HOTELES: {
       GET: {
         PERMITIDOS: "/hoteles/allowed",
+        COTIZACION: "/hoteles/cotizacion",
+      },
+      POST: {
+        PRIORIDAD: "/hoteles/prioridad",
+      },
+      PATCH: {
+        PRIORIDAD: "/hoteles/prioridad",
       },
     },
     SUCURSAL: {
@@ -51,6 +58,41 @@ export class ExtraService extends ApiService {
     }
     return this.instance;
   }
+
+  public getHotelesCotizacion = (params: {
+    checkin: string;
+    checkout: string;
+    id_hotel?: string;
+    ciudad?: string;
+    hotel?: string;
+    cp?: string;
+    lat?: number;
+    lng?: number;
+  }): Promise<ApiResponse<any[]>> =>
+    this.get<any[]>({
+      path: this.formatPath(this.ENDPOINTS.HOTELES.GET.COTIZACION),
+      params,
+    });
+
+  public editHotelPrioridad = (
+    id: number,
+    body: Partial<{ zona: string; priority: number; is_allowed: number }>,
+  ): Promise<ApiResponse<void>> =>
+    this.patch<void>({
+      path: this.formatPath(`${this.ENDPOINTS.HOTELES.PATCH.PRIORIDAD}/${id}`),
+      body,
+    });
+
+  public setHotelPrioridad = (body: {
+    id_agente: string;
+    id_hotel: string;
+    zona: string;
+    priority: number;
+  }): Promise<ApiResponse<void>> =>
+    this.post<void>({
+      path: this.formatPath(this.ENDPOINTS.HOTELES.POST.PRIORIDAD),
+      body,
+    });
 
   public getHotelesPermitidos = (
     params?: any,
