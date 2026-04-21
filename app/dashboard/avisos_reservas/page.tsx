@@ -5,8 +5,11 @@ import { Table5 } from "@/components/Table5";
 import { useAlert } from "@/context/useAlert";
 import Button from "@/components/atom/Button";
 import { Loader } from "@/components/atom/Loader";
-import { URL, API_KEY } from "@/lib/constants/index";
 import { CheckCircle, Unlink, FileText, RefreshCw } from "lucide-react";
+import {
+  fetchGetAvisosReservas,
+  postAvisosReservasAction,
+} from "@/services/avisos_reservas";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -99,7 +102,10 @@ function App() {
   const { showNotification } = useAlert();
 
   const [vista, setVista] = useState<VistaReservas>("reservas_completas");
-  const [reservas, setReservas] = useState<ReservaRaw[]>([]);
+  const [allData, setAllData] = useState<Record<VistaReservas, ReservaRaw[]>>({
+    reservas_completas: [],
+    reservas_ajustadas: [],
+  });
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -107,29 +113,45 @@ function App() {
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
 
-  const fetchReservas = useCallback(async () => {
-    setLoading(true);
-    try {
-      const resp = await fetch(`${URL}/mia/avisos_reservas/reservas`, {
-        method:"GET",
-        headers: {
-            "x-api-key": API_KEY || "",
-            "Content-Type": "application/json",
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-        },
-      });
-      const json = await resp.json().catch(() => null);
-      const data = json?.data ?? json;
-      setReservas(Array.isArray(data) ? data : []);
-    } catch {
-      showNotification("error", "Error al cargar reservas");
-    } finally {
-      setLoading(false);
-    }
-  }, [vista, showNotification]);
+  const toArray = (v: any): ReservaRaw[] =>
+    Array.isArray(v) ? v : [];
 
+  const fetchReservas = useCallback(() => {
+    setLoading(true);
+    fetchGetAvisosReservas((json) => {
+      try {
+        const data = json?.data ?? json;
+        if (Array.isArray(data)) {
+          setAllData({ reservas_completas: data, reservas_ajustadas: data });
+        } else if (data && typeof data === "object") {
+          setAllData({
+            reservas_completas: toArray(
+              data.reservas_completas ?? data.completas ?? data.reservas ?? [],
+            ),
+            reservas_ajustadas: toArray(
+              data.reservas_ajustadas ?? data.ajustadas ?? [],
+            ),
+          });
+        }
+      } finally {
+        setLoading(false);
+      }
+    });
+  }, []);
+
+  // Reservas activas según la vista seleccionada
+  const reservas = useMemo(
+    () => allData[vista] ?? [],
+    [allData, vista],
+  );
+
+  // Carga inicial (solo una vez)
   useEffect(() => {
     fetchReservas();
+  }, []);
+
+  // Limpia selección al cambiar de vista
+  useEffect(() => {
     setSelectedMap({});
     setSearchTerm("");
   }, [vista]);
@@ -160,28 +182,21 @@ function App() {
   // ── Acciones bulk ──────────────────────────────────────────────────────────
 
   const callAction = useCallback(
-    async (endpoint: string, ids: string[], label: string) => {
+    (endpoint: "prefacturar" | "desligar" | "aprobar", ids: string[], label: string) => {
       setActionLoading(true);
-      try {
-        const resp = await fetch(`${URL}/mia/avisos_reservas/${endpoint}`, {
-          method: "GET",
-          headers: {
-            "x-api-key": API_KEY || "",
-            "Content-Type": "application/json",
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-          },
-        });
-        const json = await resp.json().catch(() => null);
-        if (!resp.ok)
-          throw new Error(json?.message || `Error HTTP: ${resp.status}`);
-        showNotification("success", `${label} aplicado correctamente`);
-        clearSelection();
-        fetchReservas();
-      } catch (err: any) {
-        showNotification("error", err?.message || `Error al ${label}`);
-      } finally {
-        setActionLoading(false);
-      }
+      postAvisosReservasAction(endpoint, ids, (json) => {
+        try {
+          if (json?.ok === false)
+            throw new Error(json?.message || `Error al ${label}`);
+          showNotification("success", `${label} aplicado correctamente`);
+          clearSelection();
+          fetchReservas();
+        } catch (err: any) {
+          showNotification("error", err?.message || `Error al ${label}`);
+        } finally {
+          setActionLoading(false);
+        }
+      });
     },
     [showNotification, clearSelection, fetchReservas],
   );
