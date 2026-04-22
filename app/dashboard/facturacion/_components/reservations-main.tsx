@@ -181,14 +181,14 @@ interface Reservation {
   id_solicitud: string;
   confirmation_code: string;
   nombre: string;
-  hotel: string;
+  proveedor: string;
   check_in: string;
   check_out: string;
   room: string;
   total: string;
   id_usuario_generador: string;
   id_booking: string | null;
-  codigo_reservacion_hotel: string | null;
+  codigo_confirmacion: string | null;
   id_pago: string;
   pendiente_por_cobrar: number;
   monto_a_credito: string;
@@ -202,6 +202,7 @@ interface Reservation {
   id_relacion?: string | null;
   tipo_cuarto?: string | null;
   nombre_viajero?: string;
+  id_agente:string
 }
 
 interface FiscalData {
@@ -237,7 +238,6 @@ interface Item {
   costo_iva: string;
   id_booking?: string;
   id_hotel?: string;
-  nombre_hotel?: string;
   codigo_reservacion_hotel?: string;
   tipo_cuarto?: string;
   noches?: string;
@@ -513,7 +513,7 @@ export const FacturacionModal: React.FC<{
         .filter((r) => r.items != null)
         .map(
           (reserva) =>
-            `${!reserva.id_relacion.includes("vue") ? reserva.hotel : "Vuelo"} - ${formatDate(reserva.check_in)}`,
+            `${!reserva.id_relacion.includes("vue") ? reserva.proveedor : "Vuelo"} - ${formatDate(reserva.check_in)}`,
         )
         .join(" | "),
     [reservationsInit],
@@ -642,13 +642,13 @@ export const FacturacionModal: React.FC<{
 
       if (
         fiscalDataList.length === 0 &&
-        preparedReservations[0]?.id_usuario_generador
+        preparedReservations[0]?.id_agente
       ) {
         (async () => {
           try {
             setLoading(true);
             const data = await fetchEmpresasDatosFiscales(
-              preparedReservations[0].id_usuario_generador,
+              preparedReservations[0].id_agente,
             );
             setFiscalDataList(data);
             if (data.length > 0) setSelectedFiscalData(data[0]);
@@ -731,7 +731,7 @@ export const FacturacionModal: React.FC<{
             iva,
             fecha_uso: it.fecha_uso,
             reserva: {
-              hotel: r.hotel,
+              hotel: r.proveedor,
               check_in: r.check_in,
               check_out: r.check_out,
               nombre_viajero:
@@ -770,7 +770,7 @@ export const FacturacionModal: React.FC<{
         id_relacion: arrSorted[0]?.id_relacion ?? null,
         items: arrSorted,
         total: arrSorted.reduce((s, x) => s + Number(x.total || 0), 0),
-        hotel: arrSorted.find((x) => x.reserva?.hotel)?.reserva?.hotel ?? "",
+        hotel: arrSorted.find((x) => x.reserva?.proveedor)?.reserva?.proveedor ?? "",
         check_in:
           arrSorted.find((x) => x.reserva?.check_in)?.reserva?.check_in ?? "",
         check_out:
@@ -855,7 +855,7 @@ export const FacturacionModal: React.FC<{
         const { subtotal, iva, total } = splitIva(round2(g.total));
         const descRaw = [
           selectedDescription,
-          g.hotel ? `${g.id_relacion.includes("vue") ? "Vuelo" : g.hotel}` : "",
+          g.proveedor ? `${g.id_relacion.includes("vue") ? "Vuelo" : g.proveedor}` : "",
           g.check_in && g.check_out
             ? `${formatDate(g.check_in)} - ${formatDate(g.check_out)}`
             : "",
@@ -1038,7 +1038,7 @@ export const FacturacionModal: React.FC<{
             subtotal: sub,
             iva: tax,
             tipo_cuarto: it.tipo_cuarto,
-            codigo_reservacion_hotel: it.codigo_reservacion_hotel,
+            codigo_reservacion_hotel: it.codigo_confirmacion,
           };
         }),
         totales: { subtotal, iva, total: t },
@@ -1155,8 +1155,8 @@ export const FacturacionModal: React.FC<{
             console.log("this is the g point", g);
             const descRaw = [
               selectedDescription,
-              g.hotel
-                ? `${g.id_relacion.includes("vue-") ? "vuelo" : g.hotel}`
+              g.proveedor
+                ? `${g.id_relacion.includes("vue-") ? "vuelo" : g.proveedor}`
                 : "",
               g.check_in && g.check_out
                 ? `${formatDate(g.check_in)} - ${formatDate(g.check_out)}`
@@ -1198,7 +1198,7 @@ export const FacturacionModal: React.FC<{
 
           const descRaw = [
             selectedDescription,
-            `${it.id_relacion.includes("vue") ? "Vuelo" : it.reserva.hotel}`,
+            `${it.id_relacion.includes("vue") ? "Vuelo" : it.reserva.proveedor}`,
             it?.reserva?.check_in && it?.reserva?.check_out
               ? `${formatDate(it.reserva.check_in)} - ${formatDate(it.reserva.check_out)}`
               : "",
