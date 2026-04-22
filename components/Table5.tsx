@@ -44,6 +44,11 @@ interface TableProps<T> {
   stickyRightColumns?: string[];
   columnMinWidths?: Record<string, string>;
   respectCustomColumnOrder?: boolean;
+
+  /** Activa paginación. Si no se pasa (o es false) el comportamiento es idéntico al actual */
+  pagination?: boolean;
+  /** Filas por página cuando pagination=true. Default: 50 */
+  pageSize?: number;
 }
 
 export const Table5 = <T,>({
@@ -65,6 +70,8 @@ export const Table5 = <T,>({
   stickyRightColumns = [],
   columnMinWidths = {},
   respectCustomColumnOrder = false,
+  pagination = false,
+  pageSize = 50,
 }: TableProps<T>) => {
   const [displayData, setDisplayData] = useState<Registro[]>(registros);
   const [loading, setLoading] = useState<boolean>(false);
@@ -83,6 +90,7 @@ export const Table5 = <T,>({
   const [showColumnSelector, setShowColumnSelector] = useState(false);
   // Estado para las filas expandidas
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+  const [currentPage, setCurrentPage] = useState(0);
   const columnSelectorRef = useRef<HTMLDivElement | null>(null);
 
   const showAllColumns = () => {
@@ -103,8 +111,8 @@ export const Table5 = <T,>({
       );
       setVisibleColumns(new Set(allColumns));
     }
-    // Resetear expansiones cuando cambian los datos
     setExpandedRows(new Set());
+    setCurrentPage(0);
   }, [registros, customColumns]);
 
   const columnKeys = useMemo(() => {
@@ -162,9 +170,15 @@ const visibleOrderedColumns = useMemo(() => {
       );
       setDisplayData(sortedData);
       setCurrentSort(updateSort);
+      setCurrentPage(0);
       setLoading(false);
     }, 0);
   };
+
+  const totalPages = pagination ? Math.ceil(displayData.length / pageSize) : 1;
+  const pagedData = pagination
+    ? displayData.slice(currentPage * pageSize, (currentPage + 1) * pageSize)
+    : displayData;
 
   // Función para alternar expansión de fila
   const toggleRowExpansion = (index: number) => {
@@ -596,7 +610,8 @@ const normalizeExportRow = (row: Registro) => {
             </thead>
 
             <tbody className="bg-white divide-y divide-gray-200">
-              {displayData.map((item, index) => {
+              {pagedData.map((item, localIndex) => {
+                const index = pagination ? currentPage * pageSize + localIndex : localIndex;
                 const zebraClass = index % 2 === 0 ? "bg-white" : "bg-gray-50";
                 const rowExtraClass = getRowClassName
                   ? getRowClassName(item, index)
@@ -660,6 +675,46 @@ const normalizeExportRow = (row: Registro) => {
             No se encontraron registros
           </div>
         )
+      )}
+
+      {pagination && totalPages > 1 && !loading && (
+        <div className="flex items-center justify-between gap-2 mt-2 px-1">
+          <span className="text-xs text-gray-500">
+            Página {currentPage + 1} de {totalPages}
+            {" · "}
+            {displayData.length} registros
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setCurrentPage(0)}
+              disabled={currentPage === 0}
+              className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              «
+            </button>
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+              disabled={currentPage === 0}
+              className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              ‹
+            </button>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={currentPage >= totalPages - 1}
+              className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              ›
+            </button>
+            <button
+              onClick={() => setCurrentPage(totalPages - 1)}
+              disabled={currentPage >= totalPages - 1}
+              className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              »
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
