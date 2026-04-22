@@ -1259,7 +1259,7 @@ export const FacturacionModal: React.FC<{
         },
         info_user: {
           fecha_vencimiento: dueDate,
-          id_user: reservationsWithSelectedItems[0].id_usuario_generador,
+          id_user: reservationsWithSelectedItems[0].id_agente,
           id_solicitud: reservationsWithSelectedItems.map(
             (r) => r.id_solicitud,
           ),
