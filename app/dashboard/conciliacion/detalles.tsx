@@ -14,7 +14,7 @@ import { Table5 } from "@/components/Table5";
 import { URL, API_KEY } from "@/lib/constants/index";
 
 interface ModalDetallesProp {
-  solicitud: any | null;
+  id_solicitud_proveedor: string | null;
   onClose: () => void;
 }
 
@@ -104,45 +104,14 @@ function SectionTitle({
   );
 }
 
-/**
- * ✅ Payload fijo para TU forma actual de solicitud
- * - id_solicitud_proveedor: solicitud.id_solicitud_proveedor
- * - id_facturas: solicitud.asociaciones.id_facturas[]
- * - id_pagos: solicitud.asociaciones.id_pagos[]
- * - id_proveedor: informacion_completa.id_proveedor_resuelto (si existe)
- */
-function buildPayloadFromSolicitud(solicitud: any) {
-  const raw = solicitud ?? {};
-  const asociaciones = raw?.asociaciones ?? {};
-  const info = raw?.informacion_completa ?? {};
-
-  const id_solicitud_proveedor = safeString(raw?.id_solicitud_proveedor ?? "");
-  const id_proveedor = safeString(info?.id_proveedor_resuelto ?? info?.id_proveedor ?? "");
-
-  const id_facturas = Array.isArray(asociaciones?.id_facturas)
-    ? asociaciones.id_facturas.map((x: any) => safeString(x)).filter(Boolean)
-    : [];
-
-  const id_pagos = Array.isArray(asociaciones?.id_pagos)
-    ? asociaciones.id_pagos.map((x: any) => safeString(x)).filter(Boolean)
-    : [];
-
-  return {
-    id_solicitud_proveedor,
-    id_proveedor,
-    id_facturas,
-    id_pagos,
-  };
-}
-
-const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose }) => {
+const ModalDetalle: React.FC<ModalDetallesProp> = ({ id_solicitud_proveedor, onClose }) => {
   const endpoint = `${URL}/mia/pago_proveedor/detalles`;
-
-  const payload = useMemo(() => buildPayloadFromSolicitud(solicitud), [solicitud]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
   const [data, setData] = useState<any>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewTitle, setPreviewTitle] = useState<string>("");
 
   // Cerrar con ESC
   useEffect(() => {
@@ -155,7 +124,7 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose }) => {
 
   // Fetch detalles (con abort real)
   useEffect(() => {
-    if (!solicitud) return;
+    if (!id_solicitud_proveedor) return;
 
     const controller = new AbortController();
 
@@ -173,7 +142,7 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose }) => {
             "Content-Type": "application/json",
             "Cache-Control": "no-cache, no-store, must-revalidate",
           },
-          body: JSON.stringify(payload),
+          body: JSON.stringify({ id_solicitud_proveedor }),
         });
 
         const json = await resp.json().catch(() => null);
@@ -193,24 +162,21 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose }) => {
     })();
 
     return () => controller.abort();
-  }, [endpoint, payload, solicitud]);
-
-  /** --------- Datos base de la solicitud (tu objeto fijo) --------- */
-  const raw = solicitud ?? {};
-  const info = raw?.informacion_completa ?? {};
+  }, [endpoint, id_solicitud_proveedor]);
 
   /** --------- Respuesta backend --------- */
   const api = data?.data ?? {};
-  const solicitudApi = api?.solicitud ?? info?.solicitud_proveedor ?? {};
+  const info = api?.informacion_completa ?? api?.solicitud ?? {};
+  const solicitudApi = api?.solicitud ?? {};
   const facturasApi = Array.isArray(api?.facturas) ? api.facturas : [];
   const pagosApi = Array.isArray(api?.pagos) ? api.pagos : [];
   const resumen = api?.resumen_validacion ?? null;
 
-  /** --------- Header info --------- */
+  /** --------- Header info (desde la respuesta API) --------- */
   const hotel = safeString(info?.hotel);
-  const viajero = safeString(info?.nombre_viajero_completo);
-  const proveedorNombre = safeString(info?.proveedor?.razon_social);
-  const rfcProveedor = safeString(info?.rfc_proveedor);
+  const viajero = safeString(info?.nombre_viajero_completo ?? info?.viajero);
+  const proveedorNombre = safeString(info?.proveedor?.razon_social ?? info?.razon_social);
+  const rfcProveedor = safeString(info?.rfc_proveedor ?? info?.rfc);
 
   const checkIn = formatDateSimple(info?.check_in);
   const checkOut = formatDateSimple(info?.check_out);
@@ -275,32 +241,46 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose }) => {
         />
       ),
       acciones: ({ item }: any) => (
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => openUrl(item?.url_pdf)}
-            className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50"
-            title="Abrir PDF"
-          >
-            <FileText className="w-3.5 h-3.5" />
-            PDF
-            <ExternalLink className="w-3.5 h-3.5" />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => openUrl(item?.url_xml)}
-            className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50"
-            title="Abrir XML"
-          >
-            <Code2 className="w-3.5 h-3.5" />
-            XML
-            <ExternalLink className="w-3.5 h-3.5" />
-          </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {item?.url_pdf && (
+            <button
+              type="button"
+              onClick={() => {
+                setPreviewUrl(item.url_pdf);
+                setPreviewTitle(`Factura ${safeString(item?.uuid_cfdi).slice(0, 8)}…`);
+              }}
+              className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] text-blue-700 hover:bg-blue-100"
+              title="Vista previa PDF"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              Ver PDF
+            </button>
+          )}
+          {item?.url_pdf && (
+            <button
+              type="button"
+              onClick={() => openUrl(item?.url_pdf)}
+              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50"
+              title="Abrir PDF en nueva pestaña"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+            </button>
+          )}
+          {item?.url_xml && (
+            <button
+              type="button"
+              onClick={() => openUrl(item?.url_xml)}
+              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50"
+              title="Abrir XML"
+            >
+              <Code2 className="w-3.5 h-3.5" />
+              XML
+            </button>
+          )}
         </div>
       ),
     }),
-    []
+    [setPreviewUrl, setPreviewTitle]
   );
 
   const pagosRenderers = useMemo(
@@ -309,23 +289,36 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose }) => {
         <span className="font-semibold">{formatMoney(value)}</span>
       ),
       fecha_pago: ({ value }: any) => <span>{formatDateSimple(value)}</span>,
-      acciones: ({ item }: any) => (
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => openUrl(item?.url_pdf)}
-            className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-            disabled={!safeString(item?.url_pdf)}
-            title={item?.url_pdf ? "Abrir comprobante PDF" : "Sin comprobante"}
-          >
-            <FileText className="w-3.5 h-3.5" />
-            Comprobante
-            <ExternalLink className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      ),
+      acciones: ({ item }: any) => {
+        const url = safeString(item?.url_pdf);
+        if (!url) return <span className="text-[11px] text-gray-400">Sin comprobante</span>;
+        return (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setPreviewUrl(url);
+                setPreviewTitle(`Comprobante pago #${safeString(item?.id_pago_proveedores)}`);
+              }}
+              className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] text-blue-700 hover:bg-blue-100"
+              title="Vista previa comprobante"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              Ver PDF
+            </button>
+            <button
+              type="button"
+              onClick={() => openUrl(url)}
+              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50"
+              title="Abrir en nueva pestaña"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        );
+      },
     }),
-    []
+    [setPreviewUrl, setPreviewTitle]
   );
 
   /** --------- Validación visual --------- */
@@ -349,7 +342,7 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose }) => {
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <p className="text-sm font-semibold text-gray-900">
-                Solicitud #{payload.id_solicitud_proveedor || "—"}
+                Solicitud #{id_solicitud_proveedor || "—"}
               </p>
 
               {proveedorNombre ? (
@@ -371,10 +364,10 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose }) => {
 
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               <Badge
-                text={`Facturas: ${payload.id_facturas.length}`}
+                text={`Facturas: ${facturasApi.length}`}
                 tone="gray"
               />
-              <Badge text={`Pagos: ${payload.id_pagos.length}`} tone="gray" />
+              <Badge text={`Pagos: ${pagosApi.length}`} tone="gray" />
 
               {resumen ? (
                 <Badge
@@ -572,6 +565,42 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose }) => {
                       />
                     )}
                   </div>
+
+                  {/* PDF PREVIEW */}
+                  {previewUrl && (
+                    <div className="rounded-2xl border border-blue-200 bg-white shadow-sm overflow-hidden">
+                      <div className="flex items-center justify-between px-4 py-2 bg-blue-50 border-b border-blue-200">
+                        <p className="text-xs font-semibold text-blue-800 truncate">
+                          {previewTitle || "Vista previa"}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openUrl(previewUrl)}
+                            className="inline-flex items-center gap-1 text-[11px] text-blue-700 hover:text-blue-900"
+                            title="Abrir en nueva pestaña"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            Abrir
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setPreviewUrl(null); setPreviewTitle(""); }}
+                            className="inline-flex items-center justify-center w-6 h-6 rounded-full hover:bg-blue-200 text-blue-700"
+                            title="Cerrar preview"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                      <iframe
+                        src={previewUrl}
+                        title={previewTitle}
+                        className="w-full"
+                        style={{ height: "520px" }}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* SIDEBAR */}
@@ -646,23 +675,23 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose }) => {
                     </p>
                     <div className="mt-2 space-y-2 text-[11px] text-gray-600">
                       <div className="flex justify-between gap-3">
-                        <span>Proveedor ID</span>
+                        <span>ID Solicitud</span>
                         <span className="font-mono text-gray-800">
-                          {payload.id_proveedor || "—"}
+                          {id_solicitud_proveedor || "—"}
                         </span>
                       </div>
 
                       <div className="flex justify-between gap-3">
                         <span>Facturas</span>
                         <span className="font-mono text-gray-800">
-                          {payload.id_facturas.length}
+                          {facturasApi.length}
                         </span>
                       </div>
 
                       <div className="flex justify-between gap-3">
                         <span>Pagos</span>
                         <span className="font-mono text-gray-800">
-                          {payload.id_pagos.length}
+                          {pagosApi.length}
                         </span>
                       </div>
                     </div>

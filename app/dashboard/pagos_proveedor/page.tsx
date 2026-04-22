@@ -13,8 +13,9 @@ import {
   hasPagosAsociados,
   extractFacturas,
 } from "@/helpers/cfdiHelpers"; 
-import { EditModal, EditableField } from "./Components/EditModal";   
+import { EditModal, EditableField } from "./Components/EditModal";
 import { createSolicitudesRenderers } from "./Components/renders";
+import ModalDetalle from "@/app/dashboard/conciliacion/detalles";
 import {
   calcularNoches,
   formatRoom,
@@ -497,6 +498,9 @@ const canSelect = categoria !== "pagada" && categoria !== "canceladas";
 
   const clearDisabledReason =
     !canSelect || selectedCount === 0 ? "No hay selección para limpiar" : "";
+
+  // ---- Modal detalle ----
+  const [solicitudDetalle, setSolicitudDetalle] = useState<string | null>(null);
 
   // ---- Modal de edición ----
   const [editModal, setEditModal] = useState<{
@@ -1187,6 +1191,7 @@ const marcarNotificadoPagado = useCallback(
       marcarNotificadoPagado,
       getEstadoSolicitudPagado,
       getConciliacionInfo,
+      onOpenDetalle: setSolicitudDetalle,
     }),
   [
     categoria,
@@ -1201,6 +1206,7 @@ const marcarNotificadoPagado = useCallback(
     cancelSolicitud,
     conciliarSolicitud,
     marcarNotificadoPagado,
+    setSolicitudDetalle,
   ]
 );
 
@@ -1307,9 +1313,9 @@ getRowClassName={(row) => {
                   "active:translate-y-[1px] transition-all",
                   "focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2",
                 ].join(" ")}
-                title="Subir comprobante"
+                title="Subir comprobante dispersado"
               >
-                Subir comprobante
+                Subir comprobante dispersado
               </Button>
 
               <Button
@@ -1325,9 +1331,9 @@ getRowClassName={(row) => {
                   "active:translate-y-[1px] transition-all",
                   "focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2",
                 ].join(" ")}
-                title="Subir comprobante"
+                title="Subir comprobante no dispersado"
               >
-                Subir comprobante no spei
+                Subir comprobante no dispersado
               </Button>
 
               {/* Generar dispersión */}
@@ -1371,6 +1377,13 @@ getRowClassName={(row) => {
           )}
         </div>
       </div>
+
+      {solicitudDetalle !== null && (
+        <ModalDetalle
+          id_solicitud_proveedor={solicitudDetalle}
+          onClose={() => setSolicitudDetalle(null)}
+        />
+      )}
 
       {/* MODAL EDIT (costo proveedor) */}
       <EditModal

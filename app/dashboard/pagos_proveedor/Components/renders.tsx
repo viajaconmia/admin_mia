@@ -91,6 +91,7 @@ type CreateSolicitudesRenderersParams = {
     diferencia: number;
     puedeConciliar: boolean;
   };
+  onOpenDetalle: (id_solicitud_proveedor: string) => void;
 };
 
 const Pill = ({
@@ -222,6 +223,7 @@ export function createSolicitudesRenderers({
   marcarNotificadoPagado,
   getEstadoSolicitudPagado,
   getConciliacionInfo,
+  onOpenDetalle,
 }: CreateSolicitudesRenderersParams): Record<
   string,
   React.FC<{ value: any; item: any; index: number }>
@@ -702,32 +704,54 @@ markup: ({ value }) => {
       );
     },
     acciones: ({ item }) => {
-      const row = item as any;
-      const raw = row?.item ?? row;
+  const row = item as any;
+  const raw = row?.item ?? row;
 
-      const idSolProv = getIdSolProv(raw);
-      const forma = getFormaPago(raw);
-      const pagado = isPagado(raw);
+  const idSolProv = getIdSolProv(raw);
+  const forma = getFormaPago(raw);
+  const pagado = isPagado(raw);
 
-      if (categoria === "canceladas") return null;
+  const estadoSolicitud = normUpper(
+    raw?.solicitud_proveedor?.estado_solicitud ??
+      row?.estado_solicitud ??
+      ""
+  );
 
-      const estadoSolicitud = normUpper(
-        raw?.solicitud_proveedor?.estado_solicitud ??
-          row?.estado_solicitud ??
-          ""
-      );
+  const isCancelada = estadoSolicitud.includes("CANCEL");
+  const cancelDisabled = pagado || isCancelada || categoria === "pagada";
 
-      const isCancelada = estadoSolicitud.includes("CANCEL");
-      const cancelDisabled = pagado || isCancelada || categoria === "pagada";
+  if (estadoSolicitud.includes("CUPON") && categoria !== "ap_credito") {
+    return (
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition-colors shadow-sm"
+          onClick={() => onOpenDetalle(idSolProv)}
+          title="Ver detalle"
+        >
+          <Eye className="w-3.5 h-3.5" />
+          <span>Detalle</span>
+        </button>
+      </div>
+    );
+  }
 
-      if (estadoSolicitud.includes("CUPON") && categoria !== "ap_credito") {
-        return null;
-      }
+  const costoActual = Number((raw as any)?.costo_total ?? 0) || 0;
 
-      const costoActual = Number((raw as any)?.costo_total ?? 0) || 0;
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition-colors shadow-sm"
+        onClick={() => onOpenDetalle(idSolProv)}
+        title="Ver detalle"
+      >
+        <Eye className="w-3.5 h-3.5" />
+        <span>Detalle</span>
+      </button>
 
-      return (
-        <div className="flex items-center gap-2">
+      {categoria !== "canceladas" && (
+        <>
           {categoria === "ap_credito" && (
             <MetodoPagoModal
               idSolProv={idSolProv}
@@ -902,8 +926,10 @@ markup: ({ value }) => {
               </button>
             );
           })()}
-        </div>
-      );
-    },
+        </>
+      )}
+    </div>
+  );
+},
   };
 }
