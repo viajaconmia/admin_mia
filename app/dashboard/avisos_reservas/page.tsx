@@ -1,446 +1,253 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { Table5 } from "@/components/Table5";
-import { useAlert } from "@/context/useAlert";
-import Button from "@/components/atom/Button";
 import { Loader } from "@/components/atom/Loader";
-import { CheckCircle, Unlink, FileText, RefreshCw } from "lucide-react";
+import Button from "@/components/atom/Button";
 import {
   fetchGetAvisosReservas,
   postAvisosReservasAction,
 } from "@/services/avisos_reservas";
+import { useAlert } from "@/context/useAlert";
+import { CheckSquare, Square, CheckCircle2, Unlink, FileText } from "lucide-react";
 
-// ─── Tipos ────────────────────────────────────────────────────────────────────
+type AvisoReserva = {
+  [key: string]: any;
+};
 
-type VistaReservas = "reservas_completas" | "reservas_ajustadas";
+type SelectedMap = Record<string, AvisoReserva>;
 
-type ReservaRaw = { [key: string]: any };
-
-type SelectedMap = Record<string, ReservaRaw>;
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const getIdReserva = (raw: ReservaRaw, index: number): string =>
-  String(
-    raw?.id_reserva ??
-      raw?.id_solicitud ??
-      raw?.codigo_confirmacion ??
+function getRowId(row: AvisoReserva, index: number): string {
+  return String(
+    row?.id ??
+      row?.id_reserva ??
+      row?.codigo_confirmacion ??
+      row?.id_aviso ??
       index,
   );
-
-// ─── Renderer checkbox ────────────────────────────────────────────────────────
-
-const buildRenderers = (
-  selectedMap: SelectedMap,
-  onToggle: (raw: ReservaRaw, index: number) => void,
-  vista: VistaReservas,
-  onDesligar: (raw: ReservaRaw) => void,
-  onAprobar: (raw: ReservaRaw) => void,
-) => ({
-  seleccionar: ({
-    item,
-    index,
-  }: {
-    value: any;
-    item: ReservaRaw;
-    index: number;
-  }) => {
-    const id = getIdReserva(item, index);
-    const checked = !!selectedMap[id];
-    return (
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={() => onToggle(item, index)}
-        className="h-4 w-4 text-blue-600 border-gray-300 rounded cursor-pointer"
-        onClick={(e) => e.stopPropagation()}
-      />
-    );
-  },
-
-  acciones: ({
-    item,
-  }: {
-    value: any;
-    item: ReservaRaw;
-    index: number;
-  }) => {
-    if (vista !== "reservas_ajustadas") return null;
-    return (
-      <div className="flex gap-1 items-center">
-        <Button
-          size="sm"
-          variant="warning"
-          icon={Unlink}
-          onClick={(e: React.MouseEvent) => {
-            e.stopPropagation();
-            onDesligar(item);
-          }}
-        >
-          Desligar
-        </Button>
-        <Button
-          size="sm"
-          variant="primary"
-          icon={CheckCircle}
-          onClick={(e: React.MouseEvent) => {
-            e.stopPropagation();
-            onAprobar(item);
-          }}
-        >
-          Aprobar
-        </Button>
-      </div>
-    );
-  },
-});
-
-// ─── Página principal ─────────────────────────────────────────────────────────
+}
 
 function App() {
   const { showNotification } = useAlert();
 
-  const [vista, setVista] = useState<VistaReservas>("reservas_completas");
-  const [allData, setAllData] = useState<Record<VistaReservas, ReservaRaw[]>>({
-    reservas_completas: [],
-    reservas_ajustadas: [],
-  });
+  const [avisos, setAvisos] = useState<AvisoReserva[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMap, setSelectedMap] = useState<SelectedMap>({});
 
-  // ── Fetch ──────────────────────────────────────────────────────────────────
+  const selectedIds = useMemo(() => Object.keys(selectedMap), [selectedMap]);
+  const selectedCount = selectedIds.length;
 
-  const toArray = (v: any): ReservaRaw[] =>
-    Array.isArray(v) ? v : [];
-
-  const fetchReservas = useCallback(() => {
+  const handleFetch = useCallback(() => {
     setLoading(true);
-    fetchGetAvisosReservas((json) => {
+    fetchGetAvisosReservas((data) => {
       try {
-        const data = json?.data ?? json;
-        if (Array.isArray(data)) {
-          setAllData({ reservas_completas: data, reservas_ajustadas: data });
-        } else if (data && typeof data === "object") {
-          setAllData({
-            reservas_completas: toArray(
-              data.reservas_completas ?? data.completas ?? data.reservas ?? [],
-            ),
-            reservas_ajustadas: toArray(
-              data.reservas_ajustadas ?? data.ajustadas ?? [],
-            ),
-          });
-        }
+        const rows: AvisoReserva[] = Array.isArray(data?.data)
+          ? data.data
+          : Array.isArray(data)
+            ? data
+            : [];
+        setAvisos(rows);
       } finally {
         setLoading(false);
       }
     });
   }, []);
 
-  // Reservas activas según la vista seleccionada
-  const reservas = useMemo(
-    () => allData[vista] ?? [],
-    [allData, vista],
-  );
-
-  // Carga inicial (solo una vez)
   useEffect(() => {
-    fetchReservas();
-  }, []);
-
-  // Limpia selección al cambiar de vista
-  useEffect(() => {
-    setSelectedMap({});
-    setSearchTerm("");
-  }, [vista]);
-
-  // ── Selección ──────────────────────────────────────────────────────────────
-
-  const toggleSelect = useCallback((raw: ReservaRaw, index: number) => {
-    const id = getIdReserva(raw, index);
-    setSelectedMap((prev) => {
-      const next = { ...prev };
-      if (next[id]) {
-        delete next[id];
-      } else {
-        next[id] = raw;
-      }
-      return next;
-    });
-  }, []);
-
-  const selectedItems = useMemo(
-    () => Object.values(selectedMap),
-    [selectedMap],
-  );
-  const selectedCount = selectedItems.length;
+    handleFetch();
+  }, [handleFetch]);
 
   const clearSelection = useCallback(() => setSelectedMap({}), []);
 
-  // ── Acciones bulk ──────────────────────────────────────────────────────────
-
-  const callAction = useCallback(
-    (endpoint: "prefacturar" | "desligar" | "aprobar", ids: string[], label: string) => {
+  const handleAction = useCallback(
+    async (endpoint: "prefacturar" | "desligar" | "aprobar") => {
+      if (!selectedIds.length) {
+        showNotification("info", "Selecciona al menos 1 aviso");
+        return;
+      }
       setActionLoading(true);
-      postAvisosReservasAction(endpoint, ids, (json) => {
+      postAvisosReservasAction(endpoint, selectedIds, (data) => {
         try {
-          if (json?.ok === false)
-            throw new Error(json?.message || `Error al ${label}`);
-          showNotification("success", `${label} aplicado correctamente`);
-          clearSelection();
-          fetchReservas();
-        } catch (err: any) {
-          showNotification("error", err?.message || `Error al ${label}`);
+          if (data?.error) {
+            showNotification("error", data.error);
+          } else {
+            showNotification(
+              "success",
+              `${endpoint.charAt(0).toUpperCase() + endpoint.slice(1)} exitoso`,
+            );
+            clearSelection();
+            handleFetch();
+          }
         } finally {
           setActionLoading(false);
         }
       });
     },
-    [showNotification, clearSelection, fetchReservas],
+    [selectedIds, showNotification, clearSelection, handleFetch],
   );
 
-  const handlePrefacturar = useCallback(() => {
-    if (!selectedCount) {
-      showNotification("info", "Selecciona al menos una reserva");
-      return;
-    }
-    const ids = selectedItems.map((r, i) => getIdReserva(r, i));
-    callAction("prefacturar", ids, "Prefacturar");
-  }, [selectedCount, selectedItems, callAction, showNotification]);
+  const registros = useMemo(() => {
+    const q = searchTerm.toUpperCase();
 
-  const handleDesligarBulk = useCallback(() => {
-    if (!selectedCount) {
-      showNotification("info", "Selecciona al menos una reserva");
-      return;
-    }
-    const ids = selectedItems.map((r, i) => getIdReserva(r, i));
-    callAction("desligar", ids, "Desligar");
-  }, [selectedCount, selectedItems, callAction, showNotification]);
-
-  const handleAprobarBulk = useCallback(() => {
-    if (!selectedCount) {
-      showNotification("info", "Selecciona al menos una reserva");
-      return;
-    }
-    const ids = selectedItems.map((r, i) => getIdReserva(r, i));
-    callAction("aprobar", ids, "Aprobar");
-  }, [selectedCount, selectedItems, callAction, showNotification]);
-
-  // ── Acciones por fila ──────────────────────────────────────────────────────
-
-  const handleDesligarRow = useCallback(
-    (raw: ReservaRaw) => {
-      const id = getIdReserva(raw, 0);
-      callAction("desligar", [id], "Desligar");
-    },
-    [callAction],
-  );
-
-  const handleAprobarRow = useCallback(
-    (raw: ReservaRaw) => {
-      const id = getIdReserva(raw, 0);
-      callAction("aprobar", [id], "Aprobar");
-    },
-    [callAction],
-  );
-
-  // ── Filtro de búsqueda ─────────────────────────────────────────────────────
-
-  const filteredReservas = useMemo(() => {
-    const q = searchTerm.trim().toUpperCase();
-    if (!q) return reservas;
-    return reservas.filter((r) =>
-      Object.values(r).some((v) =>
-        String(v ?? "")
-          .toUpperCase()
-          .includes(q),
-      ),
-    );
-  }, [reservas, searchTerm]);
-
-  // ── Registros para Table5 ──────────────────────────────────────────────────
-
-  const registros = useMemo(
-    () =>
-      filteredReservas.map((r) => ({
-        seleccionar: "",
-        ...r,
-        ...(vista === "reservas_ajustadas" ? { acciones: "" } : {}),
-        item: r,
-      })),
-    [filteredReservas, vista],
-  );
-
-  const customColumns = useMemo<string[]>(() => {
-    if (!registros.length) return ["seleccionar"];
-    const base = Object.keys(registros[0]).filter(
-      (k) => k !== "item" && k !== "acciones" && k !== "seleccionar",
-    );
-    return [
-      "seleccionar",
-      ...base,
-      ...(vista === "reservas_ajustadas" ? ["acciones"] : []),
-    ];
-  }, [registros, vista]);
-
-  // ── Renderers ──────────────────────────────────────────────────────────────
+    return avisos
+      .filter((row) => {
+        if (!q) return true;
+        return Object.values(row).some((v) =>
+          String(v ?? "")
+            .toUpperCase()
+            .includes(q),
+        );
+      })
+      .map((row, index) => {
+        const rowId = getRowId(row, index);
+        return {
+          seleccionar: rowId,
+          ...row,
+          item: row,
+        };
+      });
+  }, [avisos, searchTerm]);
 
   const renderers = useMemo(
-    () =>
-      buildRenderers(
-        selectedMap,
-        toggleSelect,
-        vista,
-        handleDesligarRow,
-        handleAprobarRow,
-      ),
-    [selectedMap, toggleSelect, vista, handleDesligarRow, handleAprobarRow],
+    () => ({
+      seleccionar: ({
+        value,
+        item,
+      }: {
+        value: string;
+        item: AvisoReserva;
+        index: number;
+      }) => {
+        const id = value;
+        const isSelected = Boolean(selectedMap[id]);
+        return (
+          <button
+            onClick={() =>
+              setSelectedMap((prev) => {
+                const next = { ...prev };
+                if (next[id]) {
+                  delete next[id];
+                } else {
+                  next[id] = item;
+                }
+                return next;
+              })
+            }
+            className="flex items-center justify-center w-full"
+          >
+            {isSelected ? (
+              <CheckSquare className="w-4 h-4 text-blue-600" />
+            ) : (
+              <Square className="w-4 h-4 text-gray-400" />
+            )}
+          </button>
+        );
+      },
+    }),
+    [selectedMap],
   );
 
-  // ── UI ─────────────────────────────────────────────────────────────────────
-
-  const vistaMeta: Record<VistaReservas, { description: string }> = {
-    reservas_completas: {
-      description: "Reservas listas para asignar estatus de prefacturación",
-    },
-    reservas_ajustadas: {
-      description:
-        "Reservas editadas con facturas o pagos ligados — aprueba o desliga",
-    },
-  };
+  const customColumns = useMemo(() => {
+    if (!avisos.length) return ["seleccionar"];
+    const keys = Object.keys(avisos[0]).filter((k) => k !== "item");
+    return ["seleccionar", ...keys];
+  }, [avisos]);
 
   return (
-    <div className="p-4 flex flex-col gap-4 h-full">
-      {/* ── Encabezado ── */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-lg font-semibold text-gray-800">
-            Avisos de Reservas
-          </h1>
-          <p className="text-sm text-gray-500 mt-0.5">
-            {vistaMeta[vista].description}
-          </p>
+    <div className="h-fit">
+      <h1 className="text-2xl font-bold tracking-tight text-slate-900 my-4">
+        Avisos de Reservas
+      </h1>
+
+      <div className="w-full mx-auto bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+        {/* Buscador */}
+        <div className="mb-3">
+          <input
+            type="text"
+            placeholder="Buscar..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full max-w-sm px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
         </div>
 
-        {/* Select de vista */}
-        <select
-          value={vista}
-          onChange={(e) => setVista(e.target.value as VistaReservas)}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-        >
-          <option value="reservas_completas">Reservas Completas</option>
-          <option value="reservas_ajustadas">Reservas Ajustadas</option>
-        </select>
-      </div>
-
-      {/* ── Barra de herramientas ── */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        {/* Búsqueda */}
-        <input
-          type="text"
-          placeholder="Buscar reserva…"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-72 focus:outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
-        />
-
-        {/* Contador de selección */}
-        {selectedCount > 0 && (
-          <span className="text-xs text-gray-500 bg-gray-100 border border-gray-200 rounded-full px-2.5 py-1">
-            {selectedCount} seleccionada{selectedCount !== 1 ? "s" : ""}
+        {/* Barra de selección */}
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <span className="text-xs text-slate-600">
+            {selectedCount > 0
+              ? `Seleccionados: ${selectedCount}`
+              : "Sin selección"}
           </span>
-        )}
+        </div>
 
-        {/* Acciones */}
-        <div className="flex items-center gap-2 ml-auto">
-          <Button
-            size="sm"
-            variant="secondary"
-            icon={RefreshCw}
-            onClick={fetchReservas}
-            disabled={loading}
-            loading={loading}
+        {loading ? (
+          <Loader />
+        ) : (
+          <Table5<AvisoReserva>
+            registros={registros as any}
+            renderers={renderers as any}
+            customColumns={customColumns}
+            respectCustomColumnOrder
+            leyenda={`Mostrando ${registros.length} registros`}
+            maxHeight="calc(100vh - 260px)"
+            fillHeight
           >
-            Actualizar
-          </Button>
-
-          {/* ── Caso 1: Prefacturación ── */}
-          {vista === "reservas_completas" && (
             <Button
-              size="sm"
-              variant="primary"
-              icon={FileText}
-              onClick={handlePrefacturar}
+              onClick={() => handleAction("aprobar")}
               disabled={selectedCount === 0 || actionLoading}
-              loading={actionLoading}
+              icon={CheckCircle2}
+              variant="secondary"
+              size="md"
               title={
                 selectedCount === 0
-                  ? "Selecciona al menos una reserva"
-                  : undefined
+                  ? "Selecciona al menos 1 aviso"
+                  : `Aprobar (${selectedCount})`
+              }
+            >
+              Aprobar{selectedCount > 0 ? ` (${selectedCount})` : ""}
+            </Button>
+
+            <Button
+              onClick={() => handleAction("prefacturar")}
+              disabled={selectedCount === 0 || actionLoading}
+              icon={FileText}
+              variant="secondary"
+              size="md"
+              title={
+                selectedCount === 0
+                  ? "Selecciona al menos 1 aviso"
+                  : `Prefacturar (${selectedCount})`
               }
             >
               Prefacturar{selectedCount > 0 ? ` (${selectedCount})` : ""}
             </Button>
-          )}
 
-          {/* ── Caso 2: Desligar / Aprobar ── */}
-          {vista === "reservas_ajustadas" && (
-            <>
-              <Button
-                size="sm"
-                variant="warning"
-                icon={Unlink}
-                onClick={handleDesligarBulk}
-                disabled={selectedCount === 0 || actionLoading}
-                loading={actionLoading}
-                title={
-                  selectedCount === 0
-                    ? "Selecciona al menos una reserva"
-                    : undefined
-                }
-              >
-                Desligar{selectedCount > 0 ? ` (${selectedCount})` : ""}
-              </Button>
-
-              <Button
-                size="sm"
-                variant="primary"
-                icon={CheckCircle}
-                onClick={handleAprobarBulk}
-                disabled={selectedCount === 0 || actionLoading}
-                loading={actionLoading}
-                title={
-                  selectedCount === 0
-                    ? "Selecciona al menos una reserva"
-                    : undefined
-                }
-              >
-                Aprobar{selectedCount > 0 ? ` (${selectedCount})` : ""}
-              </Button>
-            </>
-          )}
-        </div>
+            <Button
+              onClick={() => handleAction("desligar")}
+              disabled={selectedCount === 0 || actionLoading}
+              icon={Unlink}
+              variant="ghost"
+              size="md"
+              className={[
+                "h-10 !rounded-xl px-3",
+                "border border-rose-200 bg-white text-rose-700",
+                "hover:bg-rose-50 hover:border-rose-300",
+                "active:translate-y-[1px] transition-all",
+                "disabled:opacity-50 disabled:cursor-not-allowed",
+              ].join(" ")}
+              title={
+                selectedCount === 0
+                  ? "Selecciona al menos 1 aviso"
+                  : `Desligar (${selectedCount})`
+              }
+            >
+              Desligar{selectedCount > 0 ? ` (${selectedCount})` : ""}
+            </Button>
+          </Table5>
+        )}
       </div>
-
-      {/* ── Tabla ── */}
-      {loading ? (
-        <div className="flex-1 flex items-center justify-center">
-          <Loader />
-        </div>
-      ) : (
-        <Table5
-          registros={registros}
-          renderers={renderers as any}
-          customColumns={customColumns}
-          respectCustomColumnOrder
-          maxHeight="calc(100vh - 16rem)"
-          horizontalScroll
-          leyenda={`${filteredReservas.length} registro${filteredReservas.length !== 1 ? "s" : ""}`}
-          exportButton
-        />
-      )}
     </div>
   );
 }
