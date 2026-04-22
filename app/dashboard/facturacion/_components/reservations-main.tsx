@@ -855,7 +855,7 @@ export const FacturacionModal: React.FC<{
       return groups.map((g) => {
         const { subtotal, iva, total } = splitIva(round2(g.total));
         const descRaw = [
-          selectedDescription,"cdce",
+          selectedDescription,
           g.hotel ? `${g.id_relacion.includes("vue") ? "Vuelo" : g.hotel}` : g.items[0].reserva.hotel,
           g.check_in && g.check_out
             ? `${formatDate(g.check_in)} - ${formatDate(g.check_out)}`
