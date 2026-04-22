@@ -32,7 +32,7 @@ interface Reservation {
   razon_social?: string;
   nombre_viajero?: string | null;
   hotel: string;
-  codigo_reservacion_hotel: string | null;
+  codigo_confirmacion: string | null;
   check_in: string;
   check_out: string;
   room: string;
@@ -396,7 +396,7 @@ const applySearchReservation = (
 
   return list.filter((r) => {
     const haystack = [
-      r.codigo_reservacion_hotel,
+      r.codigo_confirmacion,
       r.id_usuario_generador,
       r.razon_social,
       r.hotel,
@@ -476,7 +476,7 @@ useEffect(() => {
       // ---- 1) SEARCH global (AND por tokens en el "haystack") ----
       if (qTokens.length) {
         const haystack = [
-          r.codigo_reservacion_hotel,
+          r.codigo_confirmacion,
           r.id_usuario_generador,
           r.razon_social,
           r.hotel,
@@ -512,7 +512,7 @@ useEffect(() => {
 
       if (f.codigo_reservacion) {
         if (
-          !norm(r.codigo_reservacion_hotel).includes(norm(f.codigo_reservacion))
+          !norm(r.codigo_confirmacion).includes(norm(f.codigo_reservacion))
         )
           return false;
       }
@@ -788,11 +788,11 @@ const pendientePorFacturar = Math.max(
     return {
       id: `${r.id_booking}`,
       seleccionado: { ...r },
-      id_cliente: r.id_usuario_generador,
-      cliente: r.razon_social ?? "",
+      id_cliente: r.id_agente,
+      cliente: r.nombre_comercial ?? "",
       creado: r.created_at,
-      proveedor: r.hotel,
-      codigo_confirmacion: r.codigo_reservacion_hotel ?? "",
+      proveedor: r.proveedor,
+      codigo_confirmacion: r.codigo_confirmacion ?? "",
       viajero: r.nombre_viajero ?? "",
       check_in: r.check_in,
       check_out: r.check_out,
