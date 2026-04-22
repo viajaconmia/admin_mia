@@ -556,7 +556,7 @@ useEffect(() => {
     const agentIds = reservasSeleccionadas
       .map(
         (id) =>
-          reservations.find((r) => r.id_booking === id)?.id_usuario_generador,
+          reservations.find((r) => r.id_booking === id)?.id_agente,
       )
       .filter((v): v is string => !!v);
 
@@ -633,18 +633,7 @@ useEffect(() => {
     setShowSubirFacModal(false);
   };
 
-  // ---- filas para Table4 ----
-  // const rows = useMemo(() => {
-  //   // 0) Origen: pendientes o todas
-  //   const base = onlyPending
-  //     ? reservations.filter(hasPendingItems)
-  //     : reservations;
-
-  //   // 1) Aplica filtros + search
-  //   const filtradas = applyFiltersReservation(base, filters, searchTerm);
-
-  //   // 2) Mapea a rows de la tabla creando nuevos objetos para React
-  //   return filtradas.map((r, index) => {
+  
 const rows = useMemo(() => {
   const base = onlyPending
     ? reservations.filter(hasPendingItems)

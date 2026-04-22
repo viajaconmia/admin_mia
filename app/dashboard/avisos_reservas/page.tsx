@@ -6,7 +6,7 @@ import { Loader } from "@/components/atom/Loader";
 import Button from "@/components/atom/Button";
 import {
   fetchGetAvisosReservas,
-  fetchGetAvisosReservasEnviadas, // <-- nuevo
+  fetchGetAvisosReservasEnviadas,
   postAvisosReservasAction,
 } from "@/services/avisos_reservas";
 import { useAlert } from "@/context/useAlert";
@@ -45,41 +45,38 @@ function App() {
   const [selectedMap, setSelectedMap] = useState<SelectedMap>({});
   const [solicitudDetalle, setSolicitudDetalle] = useState<string | null>(null);
 
-  // false = Prefacturar (default) | true = Notificadas
+  // false = Prefacturar | true = Notificadas
   const [vistaNotificadas, setVistaNotificadas] = useState(false);
 
-  // nueva fuente para Table5
-const [fuenteTabla, setFuenteTabla] = useState<"default" | "enviadas" | null>(null);
+  // En prefacturar puedes cargar pendientes(default) o enviadas
+  const [fuenteTabla, setFuenteTabla] = useState<"default" | "enviadas">("default");
 
   const selectedIds = useMemo(() => Object.keys(selectedMap), [selectedMap]);
   const selectedCount = selectedIds.length;
 
-  const handleFetch = useCallback((fuente: "default" | "enviadas") => {
-  setLoading(true);
-  setFuenteTabla(fuente);
+  const handleFetch = useCallback((fuente: "default" | "enviadas" = "default") => {
+    setLoading(true);
+    setFuenteTabla(fuente);
 
-  const fetchFn =
-    fuente === "enviadas"
-      ? fetchGetAvisosReservasEnviadas
-      : fetchGetAvisosReservas;
+    const fetchFn =
+      fuente === "enviadas"
+        ? fetchGetAvisosReservasEnviadas
+        : fetchGetAvisosReservas;
 
-  fetchFn((data) => {
-    try {
-      const rows: AvisoReserva[] = Array.isArray(data?.data)
-        ? data.data
-        : Array.isArray(data)
-          ? data
-          : [];
-      setAvisos(rows);
-    } finally {
-      setLoading(false);
-    }
-  });
-}, []);
+    fetchFn((data) => {
+      try {
+        const rows: AvisoReserva[] = Array.isArray(data?.data)
+          ? data.data
+          : Array.isArray(data)
+            ? data
+            : [];
 
-  useEffect(() => {
-  setSelectedMap({});
-}, [fuenteTabla, searchTerm, vistaNotificadas]);
+        setAvisos(rows);
+      } finally {
+        setLoading(false);
+      }
+    });
+  }, []);
 
   const clearSelection = useCallback(() => setSelectedMap({}), []);
 
@@ -92,7 +89,9 @@ const [fuenteTabla, setFuenteTabla] = useState<"default" | "enviadas" | null>(nu
         showNotification("info", "Selecciona al menos 1 aviso");
         return;
       }
+
       setActionLoading(true);
+
       postAvisosReservasAction(endpoint, ids, (data) => {
         try {
           if (data?.error) {
@@ -102,22 +101,39 @@ const [fuenteTabla, setFuenteTabla] = useState<"default" | "enviadas" | null>(nu
               "success",
               `${endpoint.charAt(0).toUpperCase() + endpoint.slice(1)} exitoso`,
             );
+
             clearSelection();
-            handleFetch();
+
+            // si estás en notificadas, recarga enviadas
+            if (vistaNotificadas) {
+              handleFetch("enviadas");
+            } else {
+              handleFetch(fuenteTabla);
+            }
           }
         } finally {
           setActionLoading(false);
         }
       });
     },
-    [showNotification, clearSelection, handleFetch],
+    [showNotification, clearSelection, handleFetch, vistaNotificadas, fuenteTabla],
   );
 
+  // cargar automáticamente al cambiar entre Prefacturar y Notificadas
   useEffect(() => {
-  setSelectedMap({});
-  setAvisos([]);
-  setFuenteTabla(null);
-}, [vistaNotificadas]);
+    setSelectedMap({});
+    setSearchTerm("");
+
+    if (vistaNotificadas) {
+      handleFetch("enviadas");
+    } else {
+      handleFetch("default");
+    }
+  }, [vistaNotificadas, handleFetch]);
+
+  useEffect(() => {
+    setSelectedMap({});
+  }, [fuenteTabla, searchTerm]);
 
   const registros = useMemo(() => {
     const q = searchTerm.toUpperCase();
@@ -152,45 +168,39 @@ const [fuenteTabla, setFuenteTabla] = useState<"default" | "enviadas" | null>(nu
       });
   }, [avisos, searchTerm, vistaNotificadas]);
 
-const registrosSeleccionables = useMemo(() => {
-  if (vistaNotificadas) return [];
+  const registrosSeleccionables = useMemo(() => {
+    if (vistaNotificadas) return [];
 
-  return registros.map((row, index) => ({
-    id: getRowId(row.item ?? row, index),
-    item: row.item ?? row,
-  }));
-}, [registros, vistaNotificadas]);
+    return registros.map((row, index) => ({
+      id: getRowId(row.item ?? row, index),
+      item: row.item ?? row,
+    }));
+  }, [registros, vistaNotificadas]);
 
-const allFilteredSelected =
-  registrosSeleccionables.length > 0 &&
-  registrosSeleccionables.every(({ id }) => Boolean(selectedMap[id]));
+  const allFilteredSelected =
+    registrosSeleccionables.length > 0 &&
+    registrosSeleccionables.every(({ id }) => Boolean(selectedMap[id]));
 
-const toggleSelectAllFiltered = useCallback(() => {
-  setSelectedMap((prev) => {
-    const next = { ...prev };
+  const toggleSelectAllFiltered = useCallback(() => {
+    setSelectedMap((prev) => {
+      const next = { ...prev };
 
-    if (allFilteredSelected) {
-      registrosSeleccionables.forEach(({ id }) => {
-        delete next[id];
-      });
-    } else {
-      registrosSeleccionables.forEach(({ id, item }) => {
-        next[id] = item;
-      });
-    }
+      if (allFilteredSelected) {
+        registrosSeleccionables.forEach(({ id }) => {
+          delete next[id];
+        });
+      } else {
+        registrosSeleccionables.forEach(({ id, item }) => {
+          next[id] = item;
+        });
+      }
 
-    return next;
-  });
-}, [allFilteredSelected, registrosSeleccionables]);
+      return next;
+    });
+  }, [allFilteredSelected, registrosSeleccionables]);
 
   const detalleRenderer = {
-    detalle: ({
-      item,
-    }: {
-      value: string;
-      item: AvisoReserva;
-      index: number;
-    }) => (
+    detalle: ({ item }: { value: string; item: AvisoReserva; index: number }) => (
       <button
         onClick={() => setSolicitudDetalle(getRowId(item, 0))}
         className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors"
@@ -214,6 +224,7 @@ const toggleSelectAllFiltered = useCallback(() => {
       }) => {
         const id = value;
         const isSelected = Boolean(selectedMap[id]);
+
         return (
           <button
             onClick={() =>
@@ -284,10 +295,13 @@ const toggleSelectAllFiltered = useCallback(() => {
     if (!avisos.length) {
       return vistaNotificadas ? ["acciones", "detalle"] : ["seleccionar", "detalle"];
     }
+
     const keys = Object.keys(avisos[0]).filter((k) => k !== "item");
+
     if (vistaNotificadas) {
       return [...keys, "acciones", "detalle"];
     }
+
     return ["seleccionar", ...keys, "detalle"];
   }, [avisos, vistaNotificadas]);
 
@@ -336,36 +350,36 @@ const toggleSelectAllFiltered = useCallback(() => {
         </div>
 
         {!vistaNotificadas && (
-  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-    <div className="flex items-center gap-2">
-      <span className="text-xs text-slate-600">
-        {selectedCount > 0
-          ? `Seleccionados: ${selectedCount}`
-          : "Sin selección"}
-      </span>
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-600">
+                {selectedCount > 0
+                  ? `Seleccionados: ${selectedCount}`
+                  : "Sin selección"}
+              </span>
 
-      {registrosSeleccionables.length > 0 && (
-        <button
-          type="button"
-          onClick={toggleSelectAllFiltered}
-          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 transition-colors"
-        >
-          {allFilteredSelected ? (
-            <>
-              <CheckSquare className="w-3 h-3" />
-              Quitar selección filtrada
-            </>
-          ) : (
-            <>
-              <Square className="w-3 h-3" />
-              Seleccionar todo lo filtrado
-            </>
-          )}
-        </button>
-      )}
-    </div>
-  </div>
-)}
+              {registrosSeleccionables.length > 0 && (
+                <button
+                  type="button"
+                  onClick={toggleSelectAllFiltered}
+                  className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 transition-colors"
+                >
+                  {allFilteredSelected ? (
+                    <>
+                      <CheckSquare className="w-3 h-3" />
+                      Quitar selección filtrada
+                    </>
+                  ) : (
+                    <>
+                      <Square className="w-3 h-3" />
+                      Seleccionar todo lo filtrado
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <Loader />
@@ -384,45 +398,45 @@ const toggleSelectAllFiltered = useCallback(() => {
             fillHeight
           >
             <div className="flex items-center gap-2">
-  {!vistaNotificadas && (
-    <>
-      <Button
-        onClick={() => handleAction("prefacturar", selectedIds)}
-        disabled={selectedCount === 0 || actionLoading}
-        icon={FileText}
-        variant="secondary"
-        size="md"
-        title={
-          selectedCount === 0
-            ? "Selecciona al menos 1 aviso"
-            : `Prefacturar (${selectedCount})`
-        }
-      >
-        Prefacturar{selectedCount > 0 ? ` (${selectedCount})` : ""}
-      </Button>
+              {!vistaNotificadas && (
+                <>
+                  <Button
+                    onClick={() => handleAction("prefacturar", selectedIds)}
+                    disabled={selectedCount === 0 || actionLoading}
+                    icon={FileText}
+                    variant="secondary"
+                    size="md"
+                    title={
+                      selectedCount === 0
+                        ? "Selecciona al menos 1 aviso"
+                        : `Prefacturar (${selectedCount})`
+                    }
+                  >
+                    Prefacturar{selectedCount > 0 ? ` (${selectedCount})` : ""}
+                  </Button>
 
-      <Button
-        onClick={() => setFuenteTabla("enviadas")}
-        disabled={loading}
-        variant={fuenteTabla === "enviadas" ? "primary" : "secondary"}
-        size="md"
-        title="Cargar avisos enviadas"
-      >
-        Enviadas
-      </Button>
+                  <Button
+                    onClick={() => handleFetch("enviadas")}
+                    disabled={loading}
+                    variant={fuenteTabla === "enviadas" ? "primary" : "secondary"}
+                    size="md"
+                    title="Cargar avisos enviadas"
+                  >
+                    Enviadas
+                  </Button>
 
-      <Button
-        onClick={() => setFuenteTabla("default")}
-        disabled={loading}
-        variant={fuenteTabla === "default" ? "primary" : "secondary"}
-        size="md"
-        title="Cargar avisos pendientes"
-      >
-        Pendientes
-      </Button>
-    </>
-  )}
-</div>
+                  <Button
+                    onClick={() => handleFetch("default")}
+                    disabled={loading}
+                    variant={fuenteTabla === "default" ? "primary" : "secondary"}
+                    size="md"
+                    title="Cargar avisos pendientes"
+                  >
+                    Pendientes
+                  </Button>
+                </>
+              )}
+            </div>
           </Table5>
         )}
       </div>
