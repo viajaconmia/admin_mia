@@ -120,7 +120,7 @@ export const fetchGetSolicitudesFiltradas = async (
 
   params.set("pag", "1");
   // null o 0 → traer todos (999999 como sentinel)
-  params.set("limite", String(limit && limit > 0 ? limit : 50));
+  params.set("limite", String(limit && limit > 0 ? limit : 999999));
 
   const res = await fetch(
     `${URL}/mia/pago_proveedor/solicitud_conciliacion?${params.toString()}`,
