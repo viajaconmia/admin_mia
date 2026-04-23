@@ -6,6 +6,7 @@ import * as track from "@/app/dashboard/invoices/_components/tracker_false";
 import * as schema from "@/schemas/tables/correos_procesados";
 import { CompleteTable } from "@/v3/template/Table";
 import { FilterInput } from "@/component/atom/FilterInput";
+import { useAlert } from "@/context/useAlert";
 
 const PAGE_SIZE = 50;
 
@@ -24,6 +25,7 @@ export default function CotizacionPage() {
   const [loading, setLoading] = useState(false);
   const [filtros, setFiltros] = useState<FiltrosCorreos>({});
   const [tracking, setTracking] = useState<track.TypeTracking>(track.initial);
+  const { error } = useAlert();
 
   useEffect(() => {
     setTracking((prev) => ({ ...prev, page: 1 }));
@@ -44,14 +46,18 @@ export default function CotizacionPage() {
         length: PAGE_SIZE,
       })
       .then(({ data, metadata }) => {
-        setCorreos((data ?? []).map((correo) => schema.mapCorreoProcesado(correo)));
+        setCorreos(
+          (data ?? []).map((correo) => schema.mapCorreoProcesado(correo)),
+        );
         setTracking((prev) => ({
           ...prev,
           total: metadata?.total || 0,
           total_pages: Math.ceil((metadata?.total || 0) / PAGE_SIZE),
         }));
       })
-      .catch((error) => console.error(error))
+      .catch((er) =>
+        error(er.message || "Error al obtener los correos procesados"),
+      )
       .finally(() => setLoading(false));
   };
 

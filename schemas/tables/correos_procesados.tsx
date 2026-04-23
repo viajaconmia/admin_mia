@@ -117,8 +117,6 @@ const ErrorCell = ({ value }: { value: string | null }) => {
 const AgentCell = ({ value }: { value: string | null }) => {
   const [open, setOpen] = useState(false);
 
-  console.log("AgentCell value:", value);
-
   let parsed;
   let display: React.ReactNode;
   try {
@@ -162,7 +160,6 @@ const AgentCell = ({ value }: { value: string | null }) => {
   );
 };
 
-
 const AccionesCell = ({ value }: { value: CorreoProcesado }) => {
   const router = useRouter();
 
@@ -183,6 +180,7 @@ const AccionesCell = ({ value }: { value: CorreoProcesado }) => {
         id_correo: value.id_correo,
         subject: value.subject ?? null,
         body_email: value.body_email ?? null,
+        hoteles: value.hoteles ?? null,
       }),
     );
 

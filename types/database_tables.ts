@@ -37,6 +37,15 @@ export type SaldoFacturaItem = {
   pagos_complemento: any[]; // puedes tiparlo después si sabes la estructura
 };
 
+export type CorreoHotel = {
+  hotel_id: string;
+  hotel_name: string;
+  price_per_night: number;
+  raw_price: string;
+  source: string;
+  currency: string;
+};
+
 export type CorreoProcesado = {
   id: number;
   id_correo: string;
@@ -51,6 +60,7 @@ export type CorreoProcesado = {
   created_at: string;
   updated_at: string;
   agent_process: AgentProcess;
+  hoteles: CorreoHotel[] | null;
 };
 
 export type AgentProcess =

@@ -20,6 +20,8 @@ import { FormSeleccionarHoteles } from "@/components/organism/FormSeleccionarHot
 import { Hotel } from "@/types";
 import { useAuth } from "@/context/AuthContext";
 import { useAlert } from "@/context/useAlert";
+import { useHoteles } from "@/context/Hoteles";
+import { CorreoHotel } from "@/types/database_tables";
 
 type FormData = {
   hotel: string;
@@ -42,6 +44,10 @@ type HotelCotizacion = {
   distancia: number | null;
   checkin: string;
   checkout: string;
+  precio_referencia: number | null;
+  fuente_referencia: string | null;
+  precio_sistema: string | null;
+  costo_sistema: string | null;
 };
 
 const formatDate = (d: string) => {
@@ -84,6 +90,36 @@ const RowPrev = ({
   </div>
 );
 
+const RowEditable = ({
+  label,
+  value,
+  note,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  note?: string;
+  onChange: (v: string) => void;
+}) => (
+  <div className="flex border-b border-gray-200 last:border-0">
+    <div className="w-[42%] bg-[#f1f5ff] px-3 py-2 text-[11px] font-bold text-gray-700 flex items-center">
+      {label}
+    </div>
+    <div className="flex-1 px-2 py-1.5 flex flex-col items-center justify-center gap-0.5">
+      <div className="flex items-center gap-1 w-full">
+        <span className="text-[11px] text-gray-400">$</span>
+        <input
+          type="number"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full text-center text-[11px] border border-gray-200 rounded px-1 py-0.5 focus:outline-none focus:border-[#0b5fa5]"
+        />
+      </div>
+      {note && <span className="text-[9px] text-gray-400">{note}</span>}
+    </div>
+  </div>
+);
+
 const HotelCard = ({
   hotel,
   priority,
@@ -92,6 +128,9 @@ const HotelCard = ({
   onUp,
   onDown,
   onEdit,
+  onSubtotalChange,
+
+  onApplyPrice,
 }: {
   hotel: HotelCotizacion;
   priority: number;
@@ -100,6 +139,8 @@ const HotelCard = ({
   onUp: () => void;
   onDown: () => void;
   onEdit: () => void;
+  onSubtotalChange: (v: string) => void;
+  onApplyPrice: (source: "mia" | "web") => void;
 }) => (
   <div className="flex flex-col gap-2">
     <div className="flex items-center justify-between px-1">
@@ -140,20 +181,63 @@ const HotelCard = ({
         <RowPrev label="CHECK-IN:" value={formatDate(hotel.checkin)} />
         <RowPrev label="CHECK-OUT:" value={formatDate(hotel.checkout)} />
         <RowPrev
-          label="SUBTOTAL:"
-          value={hotel.subtotal ? `$ ${hotel.subtotal}` : "-"}
-          note="Precio sin impuestos por noche"
-        />
-        <RowPrev
-          label="PRECIO TOTAL:"
-          value={hotel.total ? `$ ${hotel.total}` : "-"}
-          note="Precio con impuestos por noche"
-        />
-        <RowPrev
           label="DESAYUNO INCLUIDO:"
           value={hotel.desayuno ? "SÍ" : "NO"}
         />
         <RowPrev label="DIRECCIÓN:" value={hotel.direccion} />
+      </div>
+
+      {!hotel.precio_sistema && (
+        <div className="border-t border-yellow-200 bg-yellow-50 px-3 py-2 flex items-start gap-2">
+          <span className="text-yellow-500 text-sm leading-none mt-0.5">⚠</span>
+          <p className="text-[10px] text-yellow-700 leading-snug">
+            No se encontró precio en MIA. Verifica este hotel antes de enviar.
+          </p>
+        </div>
+      )}
+
+      <div className="border-t border-gray-100 px-3 py-2 flex flex-col gap-1.5">
+        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wide">
+          Usar costo de
+        </p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => onApplyPrice("mia")}
+            disabled={!hotel.costo_sistema}
+            className="flex-1 flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg border border-[#0b5fa5] text-[#0b5fa5] hover:bg-[#f0f6ff] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          >
+            <span className="text-[10px] font-bold">MIA</span>
+            <span className="text-[9px] text-gray-500">
+              {hotel.costo_sistema ? `$${hotel.costo_sistema}` : "—"}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onApplyPrice("web")}
+            disabled={hotel.precio_referencia === null}
+            className="flex-1 flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg border border-[#00a3c4] text-[#00a3c4] hover:bg-[#f0fbff] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          >
+            <span className="text-[10px] font-bold">Web</span>
+            <span className="text-[9px] text-gray-500">
+              {hotel.precio_referencia !== null ? `$${hotel.precio_referencia}` : "—"}
+            </span>
+          </button>
+        </div>
+      </div>
+
+      <div className="divide-y divide-gray-100 border-t border-gray-200">
+        <RowEditable
+          label="COSTO:"
+          value={hotel.subtotal}
+          note="Sin impuestos / noche"
+          onChange={onSubtotalChange}
+        />
+        <RowPrev
+          label="PRECIO VENTA:"
+          value={hotel.precio_sistema ? `$ ${hotel.precio_sistema}` : "—"}
+          note="Precio MIA con impuestos"
+        />
       </div>
 
       <div className="bg-[#00a3c4] text-white px-4 py-2 text-[10px] font-bold flex items-center justify-between">
@@ -166,7 +250,7 @@ const HotelCard = ({
         size="sm"
         variant="secondary"
         onClick={onEdit}
-        title="modificar "
+        title="modificar"
       >
         modificar
       </Button>
@@ -216,13 +300,15 @@ const EmptySlotCard = ({
 
 export default function GenerarCotizacion() {
   const searchParams = useSearchParams();
-  const didAutoFetch = useRef(false);
+  const slotsInitialized = useRef(false);
   const { user } = useAuth();
+  const { hoteles: hotelesContext } = useHoteles();
 
   const [correoOrigen, setCorreoOrigen] = useState<{
     id_correo: string | null;
     subject: string | null;
     body_email: string | null;
+    hoteles: CorreoHotel[] | null;
   } | null>(null);
 
   const [form, setForm] = useState<FormData>({
@@ -259,12 +345,36 @@ export default function GenerarCotizacion() {
   }, []);
 
   useEffect(() => {
-    if (didAutoFetch.current) return;
-    if (!form.check_in || !form.check_out) return;
-    didAutoFetch.current = true;
-    handleGenerarVisualizaciones();
+    if (slotsInitialized.current) return;
+    if (!correoOrigen?.hoteles || !hotelesContext) return;
+    slotsInitialized.current = true;
+
+    const nuevosSlots: (HotelCotizacion | null)[] = correoOrigen.hoteles.map(
+      (ch, i) => {
+        const hotelCompleto = hotelesContext.find((h) => h.id_hotel === ch.hotel_id);
+        const room = hotelCompleto?.tipos_cuartos[0];
+        return {
+          id: ch.hotel_id,
+          hotel: ch.hotel_name,
+          total: room?.precio ?? String(ch.price_per_night),
+          subtotal: room?.costo ?? String(ch.price_per_night),
+          desayuno: room?.incluye_desayuno === 1 ? 1 : 0,
+          direccion: "",
+          zona: hotelCompleto?.Ciudad_Zona ?? "",
+          priority: i + 1,
+          distancia: null,
+          checkin: form.check_in,
+          checkout: form.check_out,
+          precio_referencia: ch.price_per_night,
+          fuente_referencia: ch.source,
+          precio_sistema: room?.precio ?? null,
+          costo_sistema: room?.costo ?? null,
+        };
+      },
+    );
+    setSlots(nuevosSlots);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [correoOrigen, hotelesContext]);
 
   const handleGenerarVisualizaciones = async () => {
     setLoadingVis(true);
@@ -310,6 +420,10 @@ export default function GenerarCotizacion() {
       distancia: null,
       checkin: form.check_in,
       checkout: form.check_out,
+      precio_referencia: null,
+      fuente_referencia: null,
+      precio_sistema: room?.precio ?? null,
+      costo_sistema: room?.costo ?? null,
     };
 
     const updated = [...slots];
@@ -317,6 +431,31 @@ export default function GenerarCotizacion() {
     setSlots(updated);
     setActiveSlot(null);
   };
+  const updateSlotPrice = (index: number, field: "total" | "subtotal", value: string) => {
+    setSlots((prev) => {
+      const updated = [...prev];
+      const slot = updated[index];
+      if (slot) updated[index] = { ...slot, [field]: value };
+      return updated;
+    });
+  };
+
+  const applySlotPrice = (index: number, source: "mia" | "web") => {
+    setSlots((prev) => {
+      const updated = [...prev];
+      const slot = updated[index];
+      if (!slot) return prev;
+      updated[index] = {
+        ...slot,
+        subtotal:
+          source === "mia"
+            ? (slot.costo_sistema ?? slot.subtotal)
+            : String(slot.precio_referencia ?? slot.subtotal),
+      };
+      return updated;
+    });
+  };
+
   const { error } = useAlert();
 
   const handleGenerarYEnviar = async () => {
@@ -324,6 +463,7 @@ export default function GenerarCotizacion() {
     try {
       const hotel_ids = slots
         .filter((s): s is HotelCotizacion => s !== null)
+        .slice(0, 3)
         .map((s) => s.id);
 
       await fetch(
@@ -486,11 +626,18 @@ export default function GenerarCotizacion() {
           </aside>
 
           <section className="flex-1 flex flex-col gap-4 bg-gray-50 border rounded-xl p-5 shadow-sm h-fit">
-            <h2 className="font-semibold text-gray-800 text-sm">
-              {hasAny
-                ? "Cotizaciones — usa las flechas para cambiar prioridad"
-                : "Las cotizaciones aparecerán aquí"}
-            </h2>
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-gray-800 text-sm">
+                {hasAny
+                  ? "Cotizaciones — usa las flechas para cambiar prioridad"
+                  : "Las cotizaciones aparecerán aquí"}
+              </h2>
+              {hasAny && (
+                <span className="text-[11px] text-gray-400">
+                  Solo las primeras 3 prioridades se enviarán
+                </span>
+              )}
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               {slots.map((hotel, index) =>
@@ -504,6 +651,9 @@ export default function GenerarCotizacion() {
                     onUp={() => move(index, "up")}
                     onDown={() => move(index, "down")}
                     onEdit={() => handleSlotAction(index)}
+                    onSubtotalChange={(v) => updateSlotPrice(index, "subtotal", v)}
+
+                    onApplyPrice={(source) => applySlotPrice(index, source)}
                   />
                 ) : (
                   <EmptySlotCard
