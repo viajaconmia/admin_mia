@@ -23,7 +23,7 @@ import {
 import { Table5 } from "@/components/Table5";
 import { TypeFilters, SolicitudProveedor } from "@/types";
 import { Loader } from "@/components/atom/Loader";
-import { fetchGetSolicitudesProveedores1 } from "@/services/pago_proveedor";
+import { fetchGetSolicitudesFiltradas } from "@/services/pago_proveedor";
 import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
 import {OtrosMetodosPagoModal} from "./Components/OtrosMetodosPagoModal";
@@ -455,6 +455,8 @@ const [solicitudesPago, setSolicitudesPago] = useState<SolicitudesPorFiltro>({
   const [filters, setFilters] = useState<TypeFilters>(
     defaultFiltersSolicitudes,
   );
+  // "" = traer todas; número = traer esa cantidad
+  const [limiteInput, setLimiteInput] = useState<string>("50");
 
   // tabs / carpeta activa
   const [categoria, setCategoria] = useState<VistaCarpeta>("all");
@@ -666,6 +668,38 @@ const patchSolicitudProveedorFields = useCallback(
 );
 
 const normalizeApiBuckets = (data: any) => {
+  // getSolicitudes2 devuelve un array plano con filtro_pago en cada fila
+  if (Array.isArray(data)) {
+    const spei: any[] = [];
+    const pago_tdc: any[] = [];
+    const pago_link: any[] = [];
+    const pendiente_credito: any[] = [];
+    const ap_credito: any[] = [];
+    const pagada: any[] = [];
+    const notificados: any[] = [];
+    const canceladas: any[] = [];
+
+    for (const row of data) {
+      const f = String(row?.filtro_pago ?? "").toLowerCase();
+      if (f === "spei_solicitado") spei.push(row);
+      else if (f === "pago_tdc") pago_tdc.push(row);
+      else if (f === "pago_link") pago_link.push(row);
+      else if (f === "carta_enviada") pendiente_credito.push(row);
+      else if (f === "carta_garantia") ap_credito.push(row);
+      else if (f === "pagada") pagada.push(row);
+      else if (f === "notificados") notificados.push(row);
+      else if (f === "canceladas") canceladas.push(row);
+    }
+
+    const todos = dedupeSolicitudes([
+      ...spei, ...pago_tdc, ...pago_link, ...pendiente_credito,
+      ...ap_credito, ...pagada, ...notificados, ...canceladas,
+    ]);
+
+    return { todos, spei, pago_tdc, pago_link, pendiente_credito, ap_credito, pagada, notificados, canceladas };
+  }
+
+  // Estructura de buckets original
   const spei = Array.isArray(data?.spei_solicitado) ? data.spei_solicitado : [];
   const pago_tdc = Array.isArray(data?.pago_tdc) ? data.pago_tdc : [];
   const pago_link = Array.isArray(data?.pago_link) ? data.pago_link : [];
@@ -676,57 +710,49 @@ const normalizeApiBuckets = (data: any) => {
   const canceladas = Array.isArray(data?.canceladas) ? data.canceladas : [];
 
   const todos = dedupeSolicitudes([
-    ...spei,
-    ...pago_tdc,
-    ...pago_link,
-    ...pendiente_credito,
-    ...ap_credito,
-    ...pagada,
-    ...notificados,
-    ...canceladas,
+    ...spei, ...pago_tdc, ...pago_link, ...pendiente_credito,
+    ...ap_credito, ...pagada, ...notificados, ...canceladas,
   ]);
 
-  return {
-    todos,
-    spei,
-    pago_tdc,
-    pago_link,
-    pendiente_credito,
-    ap_credito,
-    pagada,
-    notificados,
-    canceladas,
-  };
+  return { todos, spei, pago_tdc, pago_link, pendiente_credito, ap_credito, pagada, notificados, canceladas };
 };
 
-const handleFetchSolicitudesPago = useCallback(() => {
-  setLoading(true);
+const handleFetchSolicitudesPago = useCallback(
+  (filtersArg?: TypeFilters, limiteArg?: number | null) => {
+    const activeFilters = filtersArg ?? filters;
+    const activeLimite = limiteArg !== undefined ? limiteArg : (limiteInput ? Number(limiteInput) : null);
+    setLoading(true);
 
-  fetchGetSolicitudesProveedores1((data) => {
-    try {
-      const apiData = data?.data || {};
+    fetchGetSolicitudesFiltradas(
+      (data) => {
+        try {
+          const apiData = data?.data || {};
+          const buckets = normalizeApiBuckets(apiData);
 
-      const buckets = normalizeApiBuckets(apiData);
-
-      setSolicitudesPago({
-        todos: buckets.todos,
-        spei: buckets.spei,
-        pago_tdc: buckets.pago_tdc,
-        pago_link: buckets.pago_link,
-        pendiente_credito: buckets.pendiente_credito,
-        ap_credito: buckets.ap_credito,
-        pagada: buckets.pagada,
-        notificados: buckets.notificados,
-        canceladas: buckets.canceladas,
-      });
-    } finally {
-      setLoading(false);
-    }
-  });
-}, []);
+          setSolicitudesPago({
+            todos: buckets.todos,
+            spei: buckets.spei,
+            pago_tdc: buckets.pago_tdc,
+            pago_link: buckets.pago_link,
+            pendiente_credito: buckets.pendiente_credito,
+            ap_credito: buckets.ap_credito,
+            pagada: buckets.pagada,
+            notificados: buckets.notificados,
+            canceladas: buckets.canceladas,
+          });
+        } finally {
+          setLoading(false);
+        }
+      },
+      activeFilters as Record<string, any>,
+      activeLimite,
+    );
+  },
+  [filters, limiteInput],
+);
 
   useEffect(() => {
-    handleFetchSolicitudesPago();
+    handleFetchSolicitudesPago(filters, null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters]);
 
@@ -1373,6 +1399,30 @@ getRowClassName={(row) => {
               >
                 Limpiar
               </Button>
+
+              {/* Cantidad de registros a cargar */}
+              <div className="flex items-center gap-2 ml-1">
+                <input
+                  type="number"
+                  min="1"
+                  value={limiteInput}
+                  onChange={(e) => setLimiteInput(e.target.value)}
+                  placeholder="Todos"
+                  className="w-24 h-9 px-2 text-sm border border-gray-200 rounded-md outline-none focus:ring-2 focus:ring-blue-100"
+                />
+                <Button
+                  variant="secondary"
+                  size="md"
+                  disabled={loading}
+                  onClick={() => {
+                    const n = limiteInput ? Number(limiteInput) : 50;
+                    handleFetchSolicitudesPago(filters, n);
+                  }}
+                  className="border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-800"
+                >
+                  Cargar
+                </Button>
+              </div>
             </Table5>
           )}
         </div>

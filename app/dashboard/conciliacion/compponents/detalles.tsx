@@ -790,40 +790,6 @@ impuestos_edit: ({ item }: any) => {
   );
 },
 
-monto_asociar_edit: ({ item }: any) => {
-  const facturaKey = String(item?.facturaKey ?? "");
-  const maximo = toNum(item?.maximo_a_asociar_view);
-  const monto = toNum(drafts[facturaKey]?.monto_asociar ?? 0);
-  const excedido = monto > maximo;
-
-  return (
-    <div key={`${facturaKey}-monto`} className="min-w-[150px]">
-      <input
-        type="number"
-        step="0.01"
-        value={drafts[facturaKey]?.monto_asociar ?? ""}
-        onChange={(e) =>
-          setDraftField(
-            item?.rawFactura ?? item,
-            facturaKey,
-            "monto_asociar",
-            e.target.value
-          )
-        }
-        className={`w-full border rounded-lg px-2 py-2 text-sm outline-none focus:ring-2 ${
-          excedido
-            ? "border-red-300 focus:ring-red-100 text-red-700"
-            : "border-gray-200 focus:ring-blue-100"
-        }`}
-        placeholder="0.00"
-      />
-      <p className="mt-1 text-[10px] text-gray-500">
-        Máximo: {formatMoney(maximo)}
-      </p>
-    </div>
-  );
-},
-
       acciones: ({ value }: any) => {
         const facturaKey = safeString(value?.facturaKey);
         const rawFactura = value?.rawFactura ?? value;

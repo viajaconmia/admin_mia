@@ -33,4 +33,5 @@ export const defaultFiltersSolicitudes: TypeFilters = {
   filterType: "Transaccion",
   markup_end: null,
   markup_start: null,
+  uuid_factura: null,
 };
