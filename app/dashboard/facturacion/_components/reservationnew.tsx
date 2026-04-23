@@ -684,7 +684,7 @@ const pendientePorFacturar = Math.max(
       check_in: r.check_in,
       check_out: r.check_out,
       noches,
-      tipo_cuarto: r.tipo_cuarto ?? "",
+      tipo_cuarto: r.tipo_cuarto_vuelo ?? "",
       mark_up: markUp,
       precio_de_venta: precioVenta,
       pendiente_por_facturar: pendientePorFacturar,
