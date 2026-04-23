@@ -1,12 +1,27 @@
 import { API_KEY, URL } from "@/lib/constants";
+import type { AvisosFilters } from "@/app/dashboard/avisos_reservas/FiltrosAvisosModal";
 
-export const fetchGetAvisosReservas = async (cb: (data: any) => void) => {
+const LIMIT = 50;
+
+function buildBody(filters: AvisosFilters, page: number) {
+  return JSON.stringify({ ...filters, pag: page, cant: LIMIT });
+}
+
+const POST_HEADERS = {
+  "Content-Type": "application/json",
+  "x-api-key": API_KEY,
+  "Cache-Control": "no-cache, no-store, must-revalidate",
+};
+
+export const fetchGetAvisosReservas = async (
+  cb: (data: any) => void,
+  filters: AvisosFilters = { id_agente: "", nombre_agente: "", hotel: "", codigo_reservacion: "", traveler: "", tipo_hospedaje: "" },
+  page = 1,
+) => {
   const res = await fetch(`${URL}/mia/avisos_reservas/reservas`, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": API_KEY,
-    },
+    method: "POST",
+    headers: POST_HEADERS,
+    body: buildBody(filters, page),
     cache: "no-store",
   });
 
@@ -16,13 +31,29 @@ export const fetchGetAvisosReservas = async (cb: (data: any) => void) => {
 
 export const fetchGetAvisosReservasEnviadas = async (
   cb: (data: any) => void,
+  filters: AvisosFilters = { id_agente: "", nombre_agente: "", hotel: "", codigo_reservacion: "", traveler: "", tipo_hospedaje: "" },
+  page = 1,
 ) => {
   const res = await fetch(`${URL}/mia/avisos_reservas/enviadas`, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": API_KEY,
-    },
+    method: "POST",
+    headers: POST_HEADERS,
+    body: buildBody(filters, page),
+    cache: "no-store",
+  });
+
+  const data = await res.json();
+  cb(data);
+};
+
+export const fetchGetAvisosReservasnotificadas = async (
+  cb: (data: any) => void,
+  filters: AvisosFilters = { id_agente: "", nombre_agente: "", hotel: "", codigo_reservacion: "", traveler: "", tipo_hospedaje: "" },
+  page = 1,
+) => {
+  const res = await fetch(`${URL}/mia/avisos_reservas/notificadas`, {
+    method: "POST",
+    headers: POST_HEADERS,
+    body: buildBody(filters, page),
     cache: "no-store",
   });
 
@@ -37,11 +68,7 @@ export const postAvisosReservasAction = async (
 ) => {
   const res = await fetch(`${URL}/mia/avisos_reservas/${endpoint}`, {
     method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": API_KEY,
-      "Cache-Control": "no-cache, no-store, must-revalidate",
-    },
+    headers: POST_HEADERS,
     body: JSON.stringify({ ids }),
     cache: "no-store",
   });
