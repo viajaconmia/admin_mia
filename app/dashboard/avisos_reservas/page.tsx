@@ -39,10 +39,10 @@ type SelectedMap = Record<string, AvisoReserva>;
 function getRowId(row: AvisoReserva, index: number): string {
   return String(
     row?.id ??
-      row?.id_reserva ??
+      row?.id_relacion ??
+      row?.id_booking ??
       row?.codigo_confirmacion ??
-      row?.id_aviso ??
-      index,
+      index
   );
 }
 
@@ -79,8 +79,16 @@ function App() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
 
-  const selectedIds = useMemo(() => Object.keys(selectedMap), [selectedMap]);
-  const selectedCount = selectedIds.length;
+  const selectedItems = useMemo(
+  () =>
+    Object.values(selectedMap).map((row: AvisoReserva) => ({
+      id_relacion: row?.id_relacion,
+      id_booking: row?.id_booking,
+    })),
+  [selectedMap],
+);
+
+const selectedCount = selectedItems.length;
 
   const handleFetch = useCallback(
     (
@@ -123,10 +131,10 @@ function App() {
   const clearSelection = useCallback(() => setSelectedMap({}), []);
 
   const handleAction = useCallback(
-    async (
-      endpoint: "prefacturar" | "desligar" | "aprobar",
-      ids: string[],
-    ) => {
+  async (
+    endpoint: "prefacturar" | "desligar" | "aprobar",
+    ids: { id_relacion: string | number; id_booking: string | number }[],
+  ) => {
       if (!ids.length) {
         showNotification("info", "Selecciona al menos 1 aviso");
         return;
@@ -134,8 +142,7 @@ function App() {
 
       setActionLoading(true);
 
-      postAvisosReservasAction(endpoint, ids, (data) => {
-        try {
+postAvisosReservasAction(endpoint, ids, (data) => {        try {
           if (data?.error) {
             showNotification("error", data.error);
           } else {
@@ -318,41 +325,48 @@ function App() {
   );
 
   const renderersNotificadas = useMemo(
-    () => ({
-      acciones: ({
-        value,
-      }: {
-        value: string;
-        item: AvisoReserva;
-        index: number;
-      }) => {
-        const id = value;
-        return (
-          <div className="flex items-center gap-1">
-            <button
-              disabled={actionLoading}
-              onClick={() => handleAction("aprobar", [id])}
-              title="Aprobar"
-              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 disabled:opacity-50 transition-colors"
-            >
-              <CheckCircle2 className="w-3 h-3" />
-              Aprobar
-            </button>
-            <button
-              disabled={actionLoading}
-              onClick={() => handleAction("desligar", [id])}
-              title="Desligar"
-              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 disabled:opacity-50 transition-colors"
-            >
-              <Unlink className="w-3 h-3" />
-              Desligar
-            </button>
-          </div>
-        );
-      },
-    }),
-    [actionLoading, handleAction],
-  );
+  () => ({
+    acciones: ({
+      item,
+    }: {
+      value: string;
+      item: AvisoReserva;
+      index: number;
+    }) => {
+      const payload = [
+        {
+          id_relacion: item?.id_relacion,
+          id_booking: item?.id_booking,
+        },
+      ];
+
+      return (
+        <div className="flex items-center gap-1">
+          <button
+            disabled={actionLoading}
+            onClick={() => handleAction("aprobar", payload)}
+            title="Aprobar"
+            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 disabled:opacity-50 transition-colors"
+          >
+            <CheckCircle2 className="w-3 h-3" />
+            Aprobar
+          </button>
+
+          <button
+            disabled={actionLoading}
+            onClick={() => handleAction("desligar", payload)}
+            title="Desligar"
+            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 disabled:opacity-50 transition-colors"
+          >
+            <Unlink className="w-3 h-3" />
+            Desligar
+          </button>
+        </div>
+      );
+    },
+  }),
+  [actionLoading, handleAction],
+);
 
   const customColumns = useMemo(() => {
     if (!avisos.length) {
@@ -520,7 +534,7 @@ function App() {
               {!vistaNotificadas && (
                 <>
                   <Button
-                    onClick={() => handleAction("prefacturar", selectedIds)}
+                    onClick={() => handleAction("prefacturar", selectedItems)}
                     disabled={selectedCount === 0 || actionLoading}
                     icon={FileText}
                     variant="secondary"

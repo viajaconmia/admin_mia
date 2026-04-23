@@ -63,14 +63,18 @@ export const fetchGetAvisosReservasnotificadas = async (
 
 export const postAvisosReservasAction = async (
   endpoint: "prefacturar" | "desligar" | "aprobar",
-  ids: string[],
+  ids: { id_relacion: string | number; id_booking: string | number }[],
   cb: (data: any) => void,
 ) => {
   const res = await fetch(`${URL}/mia/avisos_reservas/${endpoint}`, {
     method: "PATCH",
-    headers: POST_HEADERS,
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": API_KEY,
+    },
     body: JSON.stringify({ ids }),
     cache: "no-store",
+    credentials :"include"
   });
 
   const data = await res.json();
