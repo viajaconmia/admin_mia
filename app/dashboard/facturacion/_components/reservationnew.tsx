@@ -414,6 +414,8 @@ const applySearchReservation = (
       r.correo,
       r.rfc,
       r.tipo_cuarto,
+      r.nombre_agente,
+      r.proveedor
     ]
       .map(norm)
       .join(" | ");
