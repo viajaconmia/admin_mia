@@ -376,6 +376,8 @@ export default function GenerarCotizacion() {
         };
       },
     );
+    const MIN_SLOTS = 3;
+    while (nuevosSlots.length < MIN_SLOTS) nuevosSlots.push(null);
     setSlots(nuevosSlots);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [correoOrigen, hotelesContext]);
@@ -499,17 +501,17 @@ export default function GenerarCotizacion() {
 
       console.log("Payload enviado a n8n:", payload);
 
-      // await fetch(
-      //   "http://localhost:5678/webhook-test/e6f345aa-2be8-4c69-80fb-b7e46d5edfd8",
-      //   {
-      //     method: "POST",
-      //     headers: {
-      //       "Content-Type": "application/json",
-      //       Authorization: "Bearer test_token_123456",
-      //     },
-      //     body: JSON.stringify(payload),
-      //   },
-      // );
+      await fetch(
+        "http://localhost:5678/webhook-test/e6f345aa-2be8-4c69-80fb-b7e46d5edfd8",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: "Bearer test_token_123456",
+          },
+          body: JSON.stringify(payload),
+        },
+      );
     } catch (err) {
       error(err.message || "Error al enviar cotización");
       console.error("Error al enviar cotización a n8n:", err);
