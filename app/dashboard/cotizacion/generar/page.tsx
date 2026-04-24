@@ -220,7 +220,9 @@ const HotelCard = ({
           >
             <span className="text-[10px] font-bold">Web</span>
             <span className="text-[9px] text-gray-500">
-              {hotel.precio_referencia !== null ? `$${hotel.precio_referencia}` : "—"}
+              {hotel.precio_referencia !== null
+                ? `$${hotel.precio_referencia}`
+                : "—"}
             </span>
           </button>
         </div>
@@ -351,7 +353,9 @@ export default function GenerarCotizacion() {
 
     const nuevosSlots: (HotelCotizacion | null)[] = correoOrigen.hoteles.map(
       (ch, i) => {
-        const hotelCompleto = hotelesContext.find((h) => h.id_hotel === ch.hotel_id);
+        const hotelCompleto = hotelesContext.find(
+          (h) => h.id_hotel === ch.hotel_id,
+        );
         const room = hotelCompleto?.tipos_cuartos[0];
         return {
           id: ch.hotel_id,
@@ -431,7 +435,11 @@ export default function GenerarCotizacion() {
     setSlots(updated);
     setActiveSlot(null);
   };
-  const updateSlotPrice = (index: number, field: "total" | "subtotal", value: string) => {
+  const updateSlotPrice = (
+    index: number,
+    field: "total" | "subtotal",
+    value: string,
+  ) => {
     setSlots((prev) => {
       const updated = [...prev];
       const slot = updated[index];
@@ -461,36 +469,47 @@ export default function GenerarCotizacion() {
   const handleGenerarYEnviar = async () => {
     setLoadingEnvio(true);
     try {
-      const hotel_ids = slots
+      const hoteles = slots
         .filter((s): s is HotelCotizacion => s !== null)
         .slice(0, 3)
-        .map((s) => s.id);
+        .map((s) => ({
+          id: s.id,
+          nombre: s.hotel,
+          precio_venta: s.precio_sistema ?? s.total,
+          costo: s.subtotal,
+          checkin: s.checkin,
+          checkout: s.checkout,
+        }));
 
-      await fetch(
-        "http://localhost:5678/webhook-test/e6f345aa-2be8-4c69-80fb-b7e46d5edfd8",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: "Bearer test_token_123456",
+      const payload = {
+        correo: {
+          id_correo: correoOrigen?.id_correo ?? null,
+          subject: correoOrigen?.subject ?? null,
+          agent_process: {
+            check_in: form.check_in,
+            check_out: form.check_out,
           },
-          body: JSON.stringify({
-            correo: {
-              id_correo: correoOrigen?.id_correo ?? null,
-              subject: correoOrigen?.subject ?? null,
-              agent_process: {
-                check_in: form.check_in,
-                check_out: form.check_out,
-              },
-            },
-            hotel_ids,
-            user: {
-              id: user?.id ?? null,
-              name: user?.name ?? null,
-            },
-          }),
         },
-      );
+        hoteles,
+        user: {
+          id: user?.id ?? null,
+          name: user?.name ?? null,
+        },
+      };
+
+      console.log("Payload enviado a n8n:", payload);
+
+      // await fetch(
+      //   "http://localhost:5678/webhook-test/e6f345aa-2be8-4c69-80fb-b7e46d5edfd8",
+      //   {
+      //     method: "POST",
+      //     headers: {
+      //       "Content-Type": "application/json",
+      //       Authorization: "Bearer test_token_123456",
+      //     },
+      //     body: JSON.stringify(payload),
+      //   },
+      // );
     } catch (err) {
       error(err.message || "Error al enviar cotización");
       console.error("Error al enviar cotización a n8n:", err);
@@ -651,8 +670,9 @@ export default function GenerarCotizacion() {
                     onUp={() => move(index, "up")}
                     onDown={() => move(index, "down")}
                     onEdit={() => handleSlotAction(index)}
-                    onSubtotalChange={(v) => updateSlotPrice(index, "subtotal", v)}
-
+                    onSubtotalChange={(v) =>
+                      updateSlotPrice(index, "subtotal", v)
+                    }
                     onApplyPrice={(source) => applySlotPrice(index, source)}
                   />
                 ) : (
