@@ -50,6 +50,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setUser(data);
       } catch (error) {
         console.log(error.message || "Error al verificar la sesion");
+        setUser(null);
       } finally {
         setLoading(false);
       }
@@ -68,6 +69,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUser(data || null);
       router.push("/dashboard");
     } catch (error) {
+      setUser(null);
       showNotification("error", error.message || "Error al hacer login");
       console.log(error.message || "Error al hacer login");
     } finally {
