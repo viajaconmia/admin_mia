@@ -49,6 +49,7 @@ export async function new_edit(
         id_booking,
       }),
       cache: "no-store",
+      credentials: "include"
     }).then((res) => res.json());
     if (callback) {
       callback(response);
