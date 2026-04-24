@@ -2,7 +2,7 @@
 
 import React, { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { fetchReservationsFacturacion } from "@/services/reservas";
-import { Table4 } from "@/components/organism/Table4";
+import { Table5 } from "@/components/Table5";
 import { format } from "date-fns";
 import { ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 import Filters from "@/components/Filters";
@@ -295,6 +295,11 @@ const ReservationsWithTable4: React.FC = () => {
   const [reservations, setReservations] = useState<ReservationWithItems[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Paginado servidor
+  const [pag, setPag] = useState<number>(1);
+  const [limiteInput, setLimiteInput] = useState<string>("50");
+  const [metaPag, setMetaPag] = useState<{ pag: number; limite: number; total: number; totalPaginas: number } | null>(null);
   const [onlyPending, setOnlyPending] = useState<boolean>(true);
 
   // selección por reservación -> ids de items
@@ -372,17 +377,25 @@ const ReservationsWithTable4: React.FC = () => {
     return hasSearch || hasFilters;
   }, [filters, searchTerm]);
 
-const fetchReservations = useCallback(async () => {
+const fetchReservations = useCallback(async (pagArg?: number, limiteArg?: number) => {
   setLoading(true);
   setError(null);
 
+  const activePag = pagArg ?? pag;
+  const activeLimite = limiteArg ?? (limiteInput ? Number(limiteInput) : 50);
+
   try {
-    const data = await fetchReservationsFacturacion({
+    const result = await fetchReservationsFacturacion({
       ...filters,
       onlyPending,
+      pag: activePag,
+      limite: activeLimite,
     });
 
-    setReservations(Array.isArray(data) ? data : []);
+    // Soporta respuesta { data, meta } y también array plano (backward compat)
+    const rows = Array.isArray(result) ? result : (result?.data ?? []);
+    setReservations(Array.isArray(rows) ? rows : []);
+    if (result?.meta) setMetaPag(result.meta);
   } catch (err) {
     console.error(err);
     setError("Error al cargar las reservaciones");
@@ -390,7 +403,7 @@ const fetchReservations = useCallback(async () => {
   } finally {
     setLoading(false);
   }
-}, [filters, onlyPending]);
+}, [filters, onlyPending, pag, limiteInput]);
 
 const applySearchReservation = (
   list: ReservationWithItems[],
@@ -425,8 +438,10 @@ const applySearchReservation = (
 };
 
 useEffect(() => {
-  fetchReservations();
-}, [fetchReservations]);
+  setPag(1);
+  fetchReservations(1);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [filters, onlyPending]);
 
   const [showAsignarModal, setShowAsignarModal] = useState(false);
   const [asignarData, setAsignarData] = useState<{
@@ -851,15 +866,17 @@ const pendientePorFacturar = Math.max(
         setSearchTerm={setSearchTerm}
       />
 
-      <Table4
+      <Table5
         registros={rows}
         renderers={renderers}
         customColumns={columns}
         filasExpandibles={expandedMap}
         expandedRenderer={expandedRenderer}
+        horizontalScroll
+        respectCustomColumnOrder
       >
-        {/* Botones en el header de Table4 */}
-        <div className="flex items-center gap-2">
+        {/* Botones en el header de Table5 */}
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setSelectedItems({})}
             disabled={selectedCount === 0}
@@ -908,8 +925,40 @@ const pendientePorFacturar = Math.max(
           >
             Subir factura
           </button>
+          {/* Controles de paginado */}
+          <div className="flex items-center gap-1 border border-gray-200 rounded-md px-1">
+            <input
+              type="number"
+              min="1"
+              value={limiteInput}
+              onChange={(e) => setLimiteInput(e.target.value)}
+              placeholder="50"
+              className="w-16 h-8 px-2 text-xs border border-gray-200 rounded-md outline-none focus:ring-2 focus:ring-blue-100"
+              title="Registros por página"
+            />
+            <button
+              onClick={() => { setPag(1); fetchReservations(1, limiteInput ? Number(limiteInput) : 50); }}
+              disabled={loading}
+              className="h-8 px-2 text-xs border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded-md disabled:opacity-50"
+            >
+              Cargar
+            </button>
+            <button
+              disabled={pag <= 1 || loading}
+              onClick={() => { const p = pag - 1; setPag(p); fetchReservations(p, limiteInput ? Number(limiteInput) : 50); }}
+              className="h-8 px-2 text-xs disabled:opacity-40 hover:bg-slate-50 rounded-l-md"
+            >←</button>
+            <span className="h-8 flex items-center px-2 text-xs text-slate-700 select-none min-w-[4rem] justify-center">
+              Pág. {pag}{metaPag ? ` / ${metaPag.totalPaginas}` : ""}
+            </span>
+            <button
+              disabled={loading || (metaPag !== null && pag >= (metaPag?.totalPaginas ?? pag))}
+              onClick={() => { const p = pag + 1; setPag(p); fetchReservations(p, limiteInput ? Number(limiteInput) : 50); }}
+              className="h-8 px-2 text-xs disabled:opacity-40 hover:bg-slate-50 rounded-r-md"
+            >→</button>
+          </div>
         </div>
-      </Table4>
+      </Table5>
 
       {showsubirFacModal && (
         <SubirFactura

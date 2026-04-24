@@ -3,6 +3,31 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { Table5 } from "@/components/Table5";
 import { Loader } from "@/components/atom/Loader";
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+type CambioRow = { campo: string; anterior: any; nuevo: any };
+
+function flattenCambios(cambios: any, prefix = ""): CambioRow[] {
+  if (!cambios || typeof cambios !== "object") return [];
+  const rows: CambioRow[] = [];
+  for (const [key, val] of Object.entries(cambios)) {
+    const campo = prefix ? `${prefix}.${key}` : key;
+    const v = val as any;
+    if (v && typeof v === "object" && "anterior" in v && "nuevo" in v) {
+      rows.push({ campo, anterior: v.anterior, nuevo: v.nuevo });
+    } else if (v && typeof v === "object") {
+      rows.push(...flattenCambios(v, campo));
+    }
+  }
+  return rows;
+}
+
+function formatVal(v: any): React.ReactNode {
+  if (v === null || v === undefined) return <span className="text-gray-400 italic">—</span>;
+  if (typeof v === "object") return <pre className="text-xs whitespace-pre-wrap max-w-xs">{JSON.stringify(v, null, 2)}</pre>;
+  return String(v);
+}
+// ─────────────────────────────────────────────────────────────────────────────
 import Button from "@/components/atom/Button";
 import {
   fetchGetAvisosReservas,
@@ -21,6 +46,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   RefreshCw,
 } from "lucide-react";
 import FiltrosAvisosModal, {
@@ -78,6 +104,13 @@ function App() {
   // Paginación
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
+
+  // Filas expandidas en vista Notificadas
+  const [expandedNotif, setExpandedNotif] = useState<Record<string, boolean>>({});
+
+  const toggleNotifRow = useCallback((id: string) => {
+    setExpandedNotif((prev) => ({ ...prev, [id]: !prev[id] }));
+  }, []);
 
   const selectedItems = useMemo(
   () =>
@@ -236,10 +269,16 @@ postAvisosReservasAction(endpoint, ids, (data) => {        try {
         const rowId = getRowId(row, index);
 
         if (vistaNotificadas) {
+          const id = String(row.id_notificacion ?? rowId);
           return {
-            ...row,
+            id,
+            expand_toggle: id,
+            codigo_confirmacion: row.codigo_confirmacion ?? "—",
+            viajero: row.viajero ?? "—",
+            agente: row.agente ?? "—",
+            id_booking: row.id_booking ?? "—",
+            proveedor: row.proveedor ?? "—",
             acciones: rowId,
-            detalle: rowId,
             item: row,
           };
         }
@@ -324,8 +363,64 @@ postAvisosReservasAction(endpoint, ids, (data) => {        try {
     [selectedMap],
   );
 
+  const expandedRendererNotif = useCallback((row: AvisoReserva): React.ReactNode => {
+    const raw = row.item?.detalle ?? row.detalle;
+    let detalle: any = null;
+    if (raw && typeof raw === "string") {
+      try { detalle = JSON.parse(raw); } catch { /* invalid json */ }
+    } else if (raw && typeof raw === "object") {
+      detalle = raw;
+    }
+    if (!detalle) return <p className="text-xs text-gray-500 px-4 py-2">Sin detalle disponible</p>;
+
+    const cambiosRows = flattenCambios(detalle.cambios ?? {});
+
+    return (
+      <div className="px-4 py-3 bg-blue-50 border-t border-blue-100">
+        <div className="flex flex-wrap gap-4 mb-2 text-xs text-gray-500">
+          {detalle.tipo && <span>Tipo: <b className="text-gray-700">{detalle.tipo}</b></span>}
+          {detalle.estatus && <span>Estatus: <b className="text-orange-600">{detalle.estatus}</b></span>}
+          {detalle.prefacturado && <span>Prefacturado: <b className="text-gray-700">{detalle.prefacturado}</b></span>}
+        </div>
+        {cambiosRows.length === 0 ? (
+          <p className="text-xs text-gray-400">Sin cambios registrados</p>
+        ) : (
+          <table className="text-xs w-full border-collapse rounded overflow-hidden">
+            <thead>
+              <tr>
+                <th className="border border-gray-200 px-3 py-1 bg-gray-100 text-left font-semibold text-gray-600">Campo</th>
+                <th className="border border-gray-200 px-3 py-1 bg-red-50 text-left font-semibold text-red-600">Anterior</th>
+                <th className="border border-gray-200 px-3 py-1 bg-green-50 text-left font-semibold text-green-600">Nuevo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cambiosRows.map(({ campo, anterior, nuevo }, i) => (
+                <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                  <td className="border border-gray-200 px-3 py-1 font-medium text-gray-700">{campo}</td>
+                  <td className="border border-gray-200 px-3 py-1 text-red-700">{formatVal(anterior)}</td>
+                  <td className="border border-gray-200 px-3 py-1 text-green-700">{formatVal(nuevo)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    );
+  }, []);
+
   const renderersNotificadas = useMemo(
   () => ({
+    expand_toggle: ({ value }: { value: string; item: AvisoReserva; index: number }) => (
+      <button
+        onClick={() => toggleNotifRow(value)}
+        className="flex items-center justify-center w-6 h-6 rounded hover:bg-blue-100 transition-colors"
+        title={expandedNotif[value] ? "Cerrar detalle" : "Ver cambios"}
+      >
+        {expandedNotif[value]
+          ? <ChevronDown className="w-4 h-4 text-blue-600" />
+          : <ChevronRight className="w-4 h-4 text-gray-500" />}
+      </button>
+    ),
     acciones: ({
       item,
     }: {
@@ -368,17 +463,14 @@ postAvisosReservasAction(endpoint, ids, (data) => {        try {
   [actionLoading, handleAction],
 );
 
+  const NOTIF_COLUMNS = ["expand_toggle", "codigo_confirmacion", "viajero", "agente", "id_booking", "proveedor", "acciones"];
+
   const customColumns = useMemo(() => {
-    if (!avisos.length) {
-      return vistaNotificadas ? ["acciones", "detalle"] : ["seleccionar", "detalle"];
-    }
+    if (vistaNotificadas) return NOTIF_COLUMNS;
+
+    if (!avisos.length) return ["seleccionar", "detalle"];
 
     const keys = Object.keys(avisos[0]).filter((k) => k !== "item");
-
-    if (vistaNotificadas) {
-      return [...keys, "acciones", "detalle"];
-    }
-
     return ["seleccionar", ...keys, "detalle"];
   }, [avisos, vistaNotificadas]);
 
@@ -527,8 +619,11 @@ postAvisosReservasAction(endpoint, ids, (data) => {        try {
             }
             customColumns={customColumns}
             respectCustomColumnOrder
+            horizontalScroll
             maxHeight="calc(100vh - 340px)"
             fillHeight
+            filasExpandibles={vistaNotificadas ? expandedNotif : undefined}
+            expandedRenderer={vistaNotificadas ? expandedRendererNotif : undefined}
           >
             <div className="flex items-center gap-2">
               {!vistaNotificadas && (

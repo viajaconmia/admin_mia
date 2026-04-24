@@ -5,6 +5,8 @@ import { TypeFilters } from "@/types";
 type FacturacionFetchParams = Partial<TypeFilters> & {
   search?: string | null;
   onlyPending?: boolean;
+  pag?: number;
+  limite?: number;
 };
 
 const buildQueryParams = (params?: FacturacionFetchParams) => {
