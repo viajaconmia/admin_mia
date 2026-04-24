@@ -457,6 +457,8 @@ const [solicitudesPago, setSolicitudesPago] = useState<SolicitudesPorFiltro>({
   );
   // "" = traer todas; número = traer esa cantidad
   const [limiteInput, setLimiteInput] = useState<string>("50");
+  const [pag, setPag] = useState<number>(1);
+  const [metaPag, setMetaPag] = useState<{ pag: number; limite: number; count: number } | null>(null);
 
   // tabs / carpeta activa
   const [categoria, setCategoria] = useState<VistaCarpeta>("all");
@@ -668,7 +670,7 @@ const patchSolicitudProveedorFields = useCallback(
 );
 
 const normalizeApiBuckets = (data: any) => {
-  // getSolicitudes2 devuelve un array plano con filtro_pago en cada fila
+  // getSolicitudes2 devuelve un array plano con filtro_pago en cada fila (legacy)
   if (Array.isArray(data)) {
     const spei: any[] = [];
     const pago_tdc: any[] = [];
@@ -681,11 +683,11 @@ const normalizeApiBuckets = (data: any) => {
 
     for (const row of data) {
       const f = String(row?.filtro_pago ?? "").toLowerCase();
-      if (f === "spei_solicitado") spei.push(row);
+      if (f === "spei" || f === "spei_solicitado") spei.push(row);
       else if (f === "pago_tdc") pago_tdc.push(row);
       else if (f === "pago_link") pago_link.push(row);
-      else if (f === "carta_enviada") pendiente_credito.push(row);
-      else if (f === "carta_garantia") ap_credito.push(row);
+      else if (f === "pendiente_credito" || f === "carta_enviada") pendiente_credito.push(row);
+      else if (f === "ap_credito" || f === "carta_garantia") ap_credito.push(row);
       else if (f === "pagada") pagada.push(row);
       else if (f === "notificados") notificados.push(row);
       else if (f === "canceladas") canceladas.push(row);
@@ -699,12 +701,12 @@ const normalizeApiBuckets = (data: any) => {
     return { todos, spei, pago_tdc, pago_link, pendiente_credito, ap_credito, pagada, notificados, canceladas };
   }
 
-  // Estructura de buckets original
-  const spei = Array.isArray(data?.spei_solicitado) ? data.spei_solicitado : [];
+  // Estructura de buckets del backend (nombres nuevos con backward compat)
+  const spei = Array.isArray(data?.spei) ? data.spei : (Array.isArray(data?.spei_solicitado) ? data.spei_solicitado : []);
   const pago_tdc = Array.isArray(data?.pago_tdc) ? data.pago_tdc : [];
   const pago_link = Array.isArray(data?.pago_link) ? data.pago_link : [];
-  const pendiente_credito = Array.isArray(data?.carta_enviada) ? data.carta_enviada : [];
-  const ap_credito = Array.isArray(data?.carta_garantia) ? data.carta_garantia : [];
+  const pendiente_credito = Array.isArray(data?.pendiente_credito) ? data.pendiente_credito : (Array.isArray(data?.carta_enviada) ? data.carta_enviada : []);
+  const ap_credito = Array.isArray(data?.ap_credito) ? data.ap_credito : (Array.isArray(data?.carta_garantia) ? data.carta_garantia : []);
   const pagada = Array.isArray(data?.pagada) ? data.pagada : [];
   const notificados = Array.isArray(data?.notificados) ? data.notificados : [];
   const canceladas = Array.isArray(data?.canceladas) ? data.canceladas : [];
@@ -718,9 +720,10 @@ const normalizeApiBuckets = (data: any) => {
 };
 
 const handleFetchSolicitudesPago = useCallback(
-  (filtersArg?: TypeFilters, limiteArg?: number | null) => {
+  (filtersArg?: TypeFilters, limiteArg?: number | null, pagArg?: number) => {
     const activeFilters = filtersArg ?? filters;
     const activeLimite = limiteArg !== undefined ? limiteArg : (limiteInput ? Number(limiteInput) : null);
+    const activePag = pagArg !== undefined ? pagArg : pag;
     setLoading(true);
 
     fetchGetSolicitudesFiltradas(
@@ -740,19 +743,23 @@ const handleFetchSolicitudesPago = useCallback(
             notificados: buckets.notificados,
             canceladas: buckets.canceladas,
           });
+
+          if (data?.meta) setMetaPag(data.meta);
         } finally {
           setLoading(false);
         }
       },
       activeFilters as Record<string, any>,
       activeLimite,
+      activePag,
     );
   },
-  [filters, limiteInput],
+  [filters, limiteInput, pag],
 );
 
   useEffect(() => {
-    handleFetchSolicitudesPago(filters, null);
+    setPag(1);
+    handleFetchSolicitudesPago(filters, null, 1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters]);
 
@@ -1400,14 +1407,14 @@ getRowClassName={(row) => {
                 Limpiar
               </Button>
 
-              {/* Cantidad de registros a cargar */}
-              <div className="flex items-center gap-2 ml-1">
+              {/* Cantidad de registros por página + paginado */}
+              <div className="flex items-center gap-2 ml-1 flex-wrap">
                 <input
                   type="number"
                   min="1"
                   value={limiteInput}
                   onChange={(e) => setLimiteInput(e.target.value)}
-                  placeholder="Todos"
+                  placeholder="50"
                   className="w-24 h-9 px-2 text-sm border border-gray-200 rounded-md outline-none focus:ring-2 focus:ring-blue-100"
                 />
                 <Button
@@ -1416,12 +1423,42 @@ getRowClassName={(row) => {
                   disabled={loading}
                   onClick={() => {
                     const n = limiteInput ? Number(limiteInput) : 50;
-                    handleFetchSolicitudesPago(filters, n);
+                    setPag(1);
+                    handleFetchSolicitudesPago(filters, n, 1);
                   }}
                   className="border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-800"
                 >
                   Cargar
                 </Button>
+
+                {/* Controles de página */}
+                <div className="flex items-center gap-1 border border-gray-200 rounded-md px-1">
+                  <button
+                    disabled={pag <= 1 || loading}
+                    onClick={() => {
+                      const newPag = pag - 1;
+                      setPag(newPag);
+                      handleFetchSolicitudesPago(filters, limiteInput ? Number(limiteInput) : 50, newPag);
+                    }}
+                    className="h-9 px-2 text-sm text-slate-600 disabled:opacity-40 hover:bg-slate-50 rounded-l-md transition-colors"
+                  >
+                    ←
+                  </button>
+                  <span className="h-9 flex items-center px-2 text-sm text-slate-700 select-none min-w-[4rem] justify-center">
+                    Pág. {pag}{metaPag && metaPag.count < metaPag.limite ? "" : ""}
+                  </span>
+                  <button
+                    disabled={loading || (metaPag !== null && metaPag.count < metaPag.limite)}
+                    onClick={() => {
+                      const newPag = pag + 1;
+                      setPag(newPag);
+                      handleFetchSolicitudesPago(filters, limiteInput ? Number(limiteInput) : 50, newPag);
+                    }}
+                    className="h-9 px-2 text-sm text-slate-600 disabled:opacity-40 hover:bg-slate-50 rounded-r-md transition-colors"
+                  >
+                    →
+                  </button>
+                </div>
               </div>
             </Table5>
           )}

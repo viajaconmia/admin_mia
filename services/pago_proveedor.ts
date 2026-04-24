@@ -110,6 +110,7 @@ export const fetchGetSolicitudesFiltradas = async (
   cb: (data: any) => void,
   filters: Record<string, any> = {},
   limit: number | null = null,
+  pag: number = 1,
 ) => {
   const params = new URLSearchParams();
 
@@ -118,8 +119,7 @@ export const fetchGetSolicitudesFiltradas = async (
     if (v) params.append(key, v);
   });
 
-  params.set("pag", "1");
-  // null o 0 → traer todos (999999 como sentinel)
+  params.set("pag", String(pag > 0 ? pag : 1));
   params.set("limite", String(limit && limit > 0 ? limit : 50));
 
   const res = await fetch(
