@@ -696,7 +696,8 @@ export const FacturacionModal: React.FC<{
     (sum, reserva) =>
       sum +
       (reserva.items?.reduce(
-        (itemSum, item) => itemSum + parseFloat(item.total),
+        (itemSum, item) =>
+          itemSum + Number((item as any).saldo_restante ?? item.total),
         0,
       ) || 0),
     0,
@@ -742,7 +743,7 @@ export const FacturacionModal: React.FC<{
       return (r.items ?? [])
         .filter((it) => ids.includes(it.id_item))
         .map((it) => {
-          const total = Number(it.total);
+          const total = Number((it as any).saldo_restante ?? it.total);
           const { subtotal, iva } = splitIva(total);
 
           return {
