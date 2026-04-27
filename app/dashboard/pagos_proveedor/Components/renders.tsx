@@ -10,7 +10,7 @@ import {
   Download,
 } from "lucide-react";
 
-import MetodoPagoModal from "@/app/dashboard/pagos_proveedor/Components/MetodoPagoModal";
+import MetodoPagoModal from "@/app/dashboard/pagos_proveedor/Components/PaymentMethodSelector";
 import { EditableField } from "./EditModal";
 import { SolicitudProveedor } from "@/types";
 import { formatDate } from "@/helpers/formater";
