@@ -1,4 +1,5 @@
 import { exportToCSV } from "@/helpers/utils";
+import { DEFAULT_RENDERERS } from "@/components/render_table5";
 import {
   ArrowDown,
   FileDown,
@@ -6,7 +7,7 @@ import {
   ChevronRight,
   ChevronDown,
 } from "lucide-react";
-import { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Loader } from "@/components/atom/Loader";
 
 type Registro = {
@@ -22,7 +23,7 @@ interface TableProps<T> {
   renderers?: RendererMap<T>;
   isExport?: boolean;
   defaultSort?: {
-    key: string;
+    key: string; 
     sort: boolean;
   };
   exportButton?: boolean;
@@ -49,6 +50,11 @@ interface TableProps<T> {
   pagination?: boolean;
   /** Filas por página cuando pagination=true. Default: 50 */
   pageSize?: number;
+
+  /** Mapa de filas expandidas (mismo formato que Table4): { [id | reservaId]: boolean } */
+  filasExpandibles?: { [id: string]: boolean };
+  /** Renderer del contenido expandido debajo de la fila */
+  expandedRenderer?: (row: Registro) => React.ReactNode;
 }
 
 export const Table5 = <T,>({
@@ -72,6 +78,8 @@ export const Table5 = <T,>({
   respectCustomColumnOrder = false,
   pagination = false,
   pageSize = 50,
+  filasExpandibles,
+  expandedRenderer,
 }: TableProps<T>) => {
   const [displayData, setDisplayData] = useState<Registro[]>(registros);
   const [loading, setLoading] = useState<boolean>(false);
@@ -612,6 +620,7 @@ const normalizeExportRow = (row: Registro) => {
             <tbody className="bg-white divide-y divide-gray-200">
               {pagedData.map((item, localIndex) => {
                 const index = pagination ? currentPage * pageSize + localIndex : localIndex;
+                const rowKey = item.id !== undefined ? item.id : index;
                 const zebraClass = index % 2 === 0 ? "bg-white" : "bg-gray-50";
                 const rowExtraClass = getRowClassName
                   ? getRowClassName(item, index)
@@ -620,42 +629,46 @@ const normalizeExportRow = (row: Registro) => {
                   rowExtraClass && rowExtraClass.includes("bg-")
                     ? rowExtraClass
                     : zebraClass + (rowExtraClass ? ` ${rowExtraClass}` : "");
-                const isExpanded = expandedRows.has(index);
+
+                // filasExpandibles tiene prioridad sobre el estado interno expandedRows
+                const isExpanded = filasExpandibles
+                  ? !!(filasExpandibles[item.detalles?.reservaId] || filasExpandibles[item.id])
+                  : expandedRows.has(index);
 
                 return (
-                  <tr
-  key={`row-${item.id !== undefined ? item.id : index}`}
-  className={`${baseBgClass} group cursor-pointer hover:bg-blue-50 transition-colors`}
->
-  {visibleOrderedColumns.map((colKey) => {
-    const Renderer = renderers[colKey];
-    const value = item[colKey];
-    const isStickyRight = stickyRightColumns.includes(colKey);
-    const stickyBg = index % 2 === 0 ? "bg-white" : "bg-gray-50";
+                  <React.Fragment key={`frag-${rowKey}`}>
+                    <tr
+                      className={`${baseBgClass} group cursor-pointer hover:bg-blue-50 transition-colors`}
+                    >
+                      {visibleOrderedColumns.map((colKey) => {
+                        const Renderer = renderers[colKey] ?? DEFAULT_RENDERERS[colKey];
+                        const value = item[colKey];
+                        const isStickyRight = stickyRightColumns.includes(colKey);
+                        const stickyBg = index % 2 === 0 ? "bg-white" : "bg-gray-50";
 
-    return (
-      <td
-        key={`${item.id !== undefined ? item.id : index}-${colKey}`}
-        className={`px-2 py-1 text-[11px] text-gray-900 align-middle ${
-          expandableColumns.includes(colKey) ? "align-top w-72" : ""
-        } ${
-          isStickyRight
-            ? `sticky right-0 z-10 border-l border-gray-200 ${stickyBg} group-hover:bg-blue-50 shadow-[-8px_0_12px_-10px_rgba(0,0,0,0.12)]`
-            : ""
-        }`}
-        style={{
-          minWidth:
-            columnMinWidths[colKey] ||
-            (isStickyRight ? "140px" : undefined),
-        }}
-      >
+                        return (
+                          <td
+                            key={`${rowKey}-${colKey}`}
+                            className={`px-2 py-1 text-[11px] text-gray-900 align-middle ${
+                              expandableColumns.includes(colKey) ? "align-top w-72" : ""
+                            } ${
+                              isStickyRight
+                                ? `sticky right-0 z-10 border-l border-gray-200 ${stickyBg} group-hover:bg-blue-50 shadow-[-8px_0_12px_-10px_rgba(0,0,0,0.12)]`
+                                : ""
+                            }`}
+                            style={{
+                              minWidth:
+                                columnMinWidths[colKey] ||
+                                (isStickyRight ? "140px" : undefined),
+                            }}
+                          >
                             {Renderer ? (
-  <Renderer
-    value={value}
-    item={item.item ?? item}
-    index={index}
-  />
-) : (
+                              <Renderer
+                                value={value}
+                                item={item.item ?? item}
+                                index={index}
+                              />
+                            ) : (
                               <div className="whitespace-pre-line break-words">
                                 {renderValue(colKey, value, index)}
                               </div>
@@ -663,7 +676,17 @@ const normalizeExportRow = (row: Registro) => {
                           </td>
                         );
                       })}
-                  </tr>
+                    </tr>
+
+                    {/* Fila expandida (expandedRenderer de Table4) */}
+                    {isExpanded && expandedRenderer && (
+                      <tr className="bg-gray-100">
+                        <td colSpan={visibleOrderedColumns.length}>
+                          {expandedRenderer(item)}
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 );
               })}
             </tbody>
