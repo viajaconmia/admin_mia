@@ -42,7 +42,7 @@ import {
 import { URL, API_KEY } from "@/lib/constants/index";
 import {
   defaultSort,
-  defaultFiltersSolicitudes,
+  defaultFiltersSolicitudes2,
   FIELD_TO_API,
 } from "@/constant/solicitudConstants"; 
 
@@ -453,7 +453,7 @@ const [solicitudesPago, setSolicitudesPago] = useState<SolicitudesPorFiltro>({
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState<TypeFilters>(
-    defaultFiltersSolicitudes,
+    defaultFiltersSolicitudes2,
   );
   // "" = traer todas; número = traer esa cantidad
   const [limiteInput, setLimiteInput] = useState<string>("50");

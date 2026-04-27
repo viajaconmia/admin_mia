@@ -35,3 +35,21 @@ export const defaultFiltersSolicitudes: TypeFilters = {
   markup_start: null,
   uuid_factura: null,
 };
+export const defaultFiltersSolicitudes2: TypeFilters = {
+  codigo_reservacion: null,
+  client: null,
+  reservante: null,
+  reservationStage: null,
+  hotel: null,
+  status: null,
+  startDate: null,
+  endDate: null,
+  traveler: null,
+  paymentMethod: null,
+  id_client: null,
+  statusPagoProveedor: null,
+  filterType: null,
+  markup_end: null,
+  markup_start: null,
+  uuid_factura: null,
+};

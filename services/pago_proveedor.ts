@@ -120,7 +120,7 @@ export const fetchGetSolicitudesFiltradas = async (
   });
 
   params.set("pag", String(pag > 0 ? pag : 1));
-  params.set("limite", String(limit && limit > 0 ? limit : 50));
+  params.set("limite", String(limit && limit > 0 ? limit : 5000));
 
   const res = await fetch(
     `${URL}/mia/pago_proveedor/solicitud?${params.toString()}`,
