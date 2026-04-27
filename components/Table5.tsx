@@ -1,4 +1,5 @@
 import { exportToCSV } from "@/helpers/utils";
+import { DEFAULT_RENDERERS } from "@/components/render_table5";
 import {
   ArrowDown,
   FileDown,
@@ -22,7 +23,7 @@ interface TableProps<T> {
   renderers?: RendererMap<T>;
   isExport?: boolean;
   defaultSort?: {
-    key: string;
+    key: string; 
     sort: boolean;
   };
   exportButton?: boolean;
@@ -640,7 +641,7 @@ const normalizeExportRow = (row: Registro) => {
                       className={`${baseBgClass} group cursor-pointer hover:bg-blue-50 transition-colors`}
                     >
                       {visibleOrderedColumns.map((colKey) => {
-                        const Renderer = renderers[colKey];
+                        const Renderer = renderers[colKey] ?? DEFAULT_RENDERERS[colKey];
                         const value = item[colKey];
                         const isStickyRight = stickyRightColumns.includes(colKey);
                         const stickyBg = index % 2 === 0 ? "bg-white" : "bg-gray-50";

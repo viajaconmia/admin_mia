@@ -3,7 +3,6 @@
 import React, { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { fetchReservationsFacturacion } from "@/services/reservas";
 import { Table5 } from "@/components/Table5";
-import { format } from "date-fns";
 import { ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 import Filters from "@/components/Filters";
 import { TypeFilters } from "@/types";
@@ -18,11 +17,14 @@ import { PERMISOS } from "@/constant/permisos";
 // ---------- Tipos mínimos ----------
 interface Item {
   id_item: string;
-  id_factura: string | null;
-  total: string;
-  subtotal: string;
-  impuestos: string;
-  fecha_uso: string;
+  id_factura?: string | null;
+  total: number | string;
+  subtotal?: number | string;
+  impuestos?: number | string;
+  total_facturado?: number | string;
+  total_pagado?: number | string;
+  saldo_restante?: number | string;
+  fecha_uso?: string;
 }
 
 interface Reservation {
@@ -56,13 +58,13 @@ interface ReservationWithItems extends Reservation {
 type SelectedMap = { [id_booking: string]: string[] };
 
 // ---------- Helpers selección ----------
-const isItemFacturable = (it: Item) => it?.id_factura == null;
+const isItemFacturable = (it: Item) => Number(it?.saldo_restante ?? 0) > 0;
 
 const getSelectableItemsOfReservation = (r: Reservation) =>
   (r.items ?? []).filter(isItemFacturable).map((i) => i.id_item);
 
 const hasPendingItems = (r: Reservation) =>
-  (r.items ?? []).some((it) => it?.id_factura == null);
+  (r.items ?? []).some(isItemFacturable);
 
 // --- Tabla perezosa de items (solo se monta si la fila está expandida) ---
 const LazyItemsTable = React.memo(function LazyItemsTable({
@@ -91,24 +93,24 @@ const LazyItemsTable = React.memo(function LazyItemsTable({
 
   const items: Item[] = reservationWithDates.items ?? [];
   const factPend = React.useMemo(
-    () => items.filter((i) => i.id_factura == null).length,
+    () => items.filter(isItemFacturable).length,
     [items],
   );
 
-  const fmtMoney = (s: string) =>
+  const fmtMoney = (v: number | string | undefined) =>
     new Intl.NumberFormat("es-MX", {
       style: "currency",
       currency: "MXN",
-    }).format(Number(s || "0"));
+    }).format(Number(v || 0));
 
   return (
     <div className="p-4 ml-8">
       <h4 className="text-xs font-medium text-gray-700 mb-2">
-        Items (Noches) de la reservación
+        Items de la reservación
       </h4>
       <div className="flex items-center mb-2">
         <span className="text-xs text-gray-500">
-          {factPend} noche(s) pendientes por facturar
+          {factPend} item(s) con saldo pendiente por facturar
         </span>
       </div>
 
@@ -119,61 +121,58 @@ const LazyItemsTable = React.memo(function LazyItemsTable({
               Selección
             </th>
             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Noche
-            </th>
-            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Subtotal
-            </th>
-            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Impuestos
-            </th>
-            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Total
             </th>
             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-              Estado facturación
+              Total facturado
+            </th>
+            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Total pagado
+            </th>
+            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Saldo restante
+            </th>
+            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Estado
             </th>
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
           {items.map((item) => {
-            const disabled = item.id_factura != null;
+            const saldo = Number(item.saldo_restante ?? 0);
+            const disabled = saldo <= 0;
             const checked = isItemSelected(reservationId, item.id_item);
 
             return (
               <tr
                 key={item.id_item}
-                className={`hover:bg-gray-50 ${
-                  disabled ? "bg-gray-100 text-gray-500" : ""
-                }`}
+                className={`hover:bg-gray-50 ${disabled ? "bg-gray-100 text-gray-500" : ""}`}
               >
                 <td className="px-4 py-2 whitespace-nowrap">
                   <input
                     type="checkbox"
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     checked={checked}
-                    onChange={() =>
-                      toggleItemSelection(reservationId, item.id_item)
-                    }
+                    onChange={() => toggleItemSelection(reservationId, item.id_item)}
                     disabled={disabled}
                   />
-                </td>
-                <td className="px-4 py-2 whitespace-nowrap text-xs">
-                  {format(new Date(item.fecha_uso), "dd/MM/yyyy")}
-                </td>
-                <td className="px-4 py-2 whitespace-nowrap text-xs">
-                  {fmtMoney(item.subtotal)}
-                </td>
-                <td className="px-4 py-2 whitespace-nowrap text-xs">
-                  {fmtMoney(item.impuestos)}
                 </td>
                 <td className="px-4 py-2 whitespace-nowrap text-xs">
                   {fmtMoney(item.total)}
                 </td>
                 <td className="px-4 py-2 whitespace-nowrap text-xs">
+                  {fmtMoney(item.total_facturado)}
+                </td>
+                <td className="px-4 py-2 whitespace-nowrap text-xs">
+                  {fmtMoney(item.total_pagado)}
+                </td>
+                <td className="px-4 py-2 whitespace-nowrap text-xs font-semibold text-amber-700">
+                  {fmtMoney(item.saldo_restante)}
+                </td>
+                <td className="px-4 py-2 whitespace-nowrap text-xs">
                   {disabled ? (
                     <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                      Facturado
+                      Saldado
                     </span>
                   ) : (
                     <span className="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
@@ -527,7 +526,7 @@ useEffect(() => {
       (r) => r.id_booking === reservationId,
     );
     const item = reservation?.items?.find((i) => i.id_item === itemId);
-    if (item?.id_factura != null || item?.id_factura == "") return; // item ya facturado
+    if (!isItemFacturable(item as Item)) return;
 
     setSelectedItems((prev) => {
       const currentSelected = prev[reservationId] || [];
@@ -551,7 +550,7 @@ useEffect(() => {
     if (!reservation) return false;
 
     const itemsFacturables = (reservation.items || [])
-      .filter((item) => item.id_factura == null)
+      .filter(isItemFacturable)
       .map((item) => item.id_item);
 
     const selected = selectedItems[reservationId] || [];
@@ -674,18 +673,10 @@ const rows = useMemo(() => {
     const items = r.items ?? [];
 
 const totalFacturado = items
-  .filter((it) => it?.id_factura != null)
-  .reduce((acc, it) => acc + Number((it as any).total || 0), 0);
+  .reduce((acc, it) => acc + Number(it.total_facturado || 0), 0);
 
-const totalItems = items
-  .reduce((acc, it) => acc + Number((it as any).total || 0), 0);
-
-const pendientePorFacturar = Math.max(
-  0,
-   (totalFacturado === 0 ? totalItems : totalFacturado)
-);
-    console.log(pendientePorFacturar,"=",precioVenta,"-",totalFacturado )
-    console.log(items )
+const pendientePorFacturar = items
+  .reduce((acc, it) => acc + Number(it.saldo_restante || 0), 0);
 
     return {
       id: `${r.id_booking}`,
