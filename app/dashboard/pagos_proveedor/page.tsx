@@ -65,6 +65,45 @@ const normalizeToArray = (v: any): any[] => {
   return [];
 };
 
+const getFacturasProveedor = (raw: any): any[] => {
+  const facturasHelper = normalizeToArray(extractFacturas(raw));
+
+  const facturasNested = normalizeToArray(
+    raw?.facturas_proveedor?.facturas,
+  );
+
+  const facturasDirectas = normalizeToArray(raw?.facturas);
+
+  const facturasPfp = normalizeToArray(
+    raw?.pagos_facturas_proveedores_json,
+  );
+
+  return [
+    ...facturasHelper,
+    ...facturasNested,
+    ...facturasDirectas,
+    ...facturasPfp,
+  ].filter(Boolean);
+};
+
+const getUuidFacturaProveedor = (raw: any): string => {
+  const facturas = getFacturasProveedor(raw);
+  const uuidsFromList = normalizeToArray(raw?.facturas_proveedor?.uuids_facturas);
+
+  const all = [
+    ...facturas.map((f: any) => f?.uuid_factura || f?.uuid_cfdi || f?.uuid),
+    ...uuidsFromList,
+    raw?.facturas_proveedor?.uuid_factura_principal,
+    raw?.uuid_factura,
+    raw?.uuid_cfdi,
+  ]
+    .filter(Boolean)
+    .map((u: any) => String(u).trim().toUpperCase());
+
+  const unique = [...new Set(all)];
+  return unique.join(", ");
+};
+
 const getMontoSolicitado = (raw: any) =>
   parseNum(raw?.solicitud_proveedor?.monto_solicitado ?? raw?.monto_solicitado);
 
@@ -105,8 +144,8 @@ const getTotalFacturadoLike = (raw: any) => {
   if (direct > 0) return direct;
 
   // 2) si viene como facturas array/json
-  const facturas = extractFacturas(raw);
-  if (!facturas.length) return 0;
+  const facturas = getFacturasProveedor(raw);
+if (!facturas.length) return 0;
 
   return facturas.reduce(
     (acc, f) =>
@@ -291,14 +330,10 @@ function getFacturaInfoFromRaw(raw: any) {
   }
 
   // UUID (si existe en facturas)
-  const facturas = extractFacturas(raw);
-  const uuid =
-  facturas?.[0]?.uuid_factura ||
-  facturas?.[0]?.uuid_cfdi ||
-  facturas?.[0]?.uuid ||
-  (raw as any)?.uuid_factura ||
-  (raw as any)?.uuid_cfdi ||
-  "";
+  // UUID (si existe en facturas)
+const facturas = getFacturasProveedor(raw);
+const uuid = getUuidFacturaProveedor(raw);
+const facturaPrincipal = facturas?.[0] ?? null;
 
   // Fecha última factura
   const fechas = facturas
@@ -310,7 +345,14 @@ function getFacturaInfoFromRaw(raw: any) {
     ? new Date(Math.max(...fechas.map((d) => d.getTime()))).toISOString()
     : "";
 
-  return { estado, totalFacturado, porFacturar, fechaUltimaFactura, uuid };
+return {
+  estado,
+  totalFacturado,
+  porFacturar,
+  fechaUltimaFactura,
+  uuid,
+  facturaPrincipal,
+};
 }
 
 // ---------- PATCH / EDIT ----------
@@ -808,17 +850,11 @@ const baseList: SolicitudProveedor[] =
   // New fields
   const codigoConfirmacion = (item.codigo_confirmacion || "").toUpperCase();
   
-  // Extract UUID from facturas
-  let uuidFactura = "";
-  const facturas = extractFacturas(item);
-  if (facturas.length) {
-    uuidFactura = (
-      facturas[0].uuid_factura ||
-      facturas[0].uuid_cfdi ||
-      facturas[0].uuid ||
-      ""
-    ).toUpperCase();
-  }
+  // Busca en todos los UUIDs de las facturas
+  const uuidFactura = extractFacturas(item)
+    .map((f: any) => (f?.uuid_factura || f?.uuid_cfdi || f?.uuid || "").toUpperCase())
+    .filter(Boolean)
+    .join(" ");
   
   return (
     hotel.includes(q) ||

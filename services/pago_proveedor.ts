@@ -106,6 +106,11 @@ export const fetchGetSolicitudesProveedores1 = async (cb: (data: any) => void) =
   cb(data);
 };
 
+// Mapea las claves del estado de filtros del front a los query params que espera el backend.
+const FILTER_KEY_MAP: Record<string, string> = {
+  codigo_reservacion: "folio",
+};
+
 export const fetchGetSolicitudesFiltradas = async (
   cb: (data: any) => void,
   filters: Record<string, any> = {},
@@ -116,11 +121,13 @@ export const fetchGetSolicitudesFiltradas = async (
 
   Object.entries(filters).forEach(([key, value]) => {
     const v = String(value ?? "").trim();
-    if (v) params.append(key, v);
+    if (!v) return;
+    const apiKey = FILTER_KEY_MAP[key] ?? key;
+    params.append(apiKey, v);
   });
 
   params.set("pag", String(pag > 0 ? pag : 1));
-  params.set("limite", String(limit && limit > 0 ? limit : 5000));
+  params.set("limite", String(limit && limit > 0 ? limit : 50));
 
   const res = await fetch(
     `${URL}/mia/pago_proveedor/solicitud?${params.toString()}`,
