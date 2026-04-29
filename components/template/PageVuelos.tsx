@@ -648,7 +648,6 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
             />
             <NumberInput
               label="Precio a cliente"
-              disabled={!!onConfirm}
               value={details.precio}
               onChange={(value: string) =>
                 setDetails((prev) => ({ ...prev, precio: Number(value) }))

@@ -3,7 +3,12 @@
 import DOMPurify from "dompurify";
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
-import { DateInput, TextInput } from "@/components/atom/Input";
+import {
+  DateInput,
+  TextInput,
+  Dropdown,
+  CheckboxInput,
+} from "@/components/atom/Input";
 import Button from "@/components/atom/Button";
 import {
   ChevronDown,
@@ -32,12 +37,15 @@ type FormData = {
   correo_cliente: string;
 };
 
+const OPCIONES_HABITACION = ["SENCILLA", "DOBLE"];
+
 type HotelCotizacion = {
   id: string;
   hotel: string;
   total: string;
   subtotal: string;
   desayuno: 0 | 1;
+  habitacion: string;
   direccion: string;
   zona: string;
   priority: number;
@@ -48,6 +56,7 @@ type HotelCotizacion = {
   fuente_referencia: string | null;
   precio_sistema: string | null;
   costo_sistema: string | null;
+  notas: string;
 };
 
 const formatDate = (d: string) => {
@@ -80,10 +89,10 @@ const RowPrev = ({
   note?: string;
 }) => (
   <div className="flex border-b border-gray-200 last:border-0">
-    <div className="w-[42%] bg-[#f1f5ff] px-3 py-2 text-[11px] font-bold text-gray-700 flex items-center">
+    <div className="w-[42%] bg-[#f1f5ff] px-2 py-1 text-[10px] font-bold text-gray-700 flex items-center">
       {label}
     </div>
-    <div className="flex-1 px-3 py-2 text-[11px] text-gray-800 flex flex-col items-center justify-center text-center">
+    <div className="flex-1 px-2 py-1 text-[10px] text-gray-800 flex flex-col items-center justify-center text-center">
       <span>{value || "-"}</span>
       {note && <span className="text-[9px] text-gray-400">{note}</span>}
     </div>
@@ -102,20 +111,86 @@ const RowEditable = ({
   onChange: (v: string) => void;
 }) => (
   <div className="flex border-b border-gray-200 last:border-0">
-    <div className="w-[42%] bg-[#f1f5ff] px-3 py-2 text-[11px] font-bold text-gray-700 flex items-center">
+    <div className="w-[42%] bg-[#f1f5ff] px-2 py-1 text-[10px] font-bold text-gray-700 flex items-center">
       {label}
     </div>
-    <div className="flex-1 px-2 py-1.5 flex flex-col items-center justify-center gap-0.5">
+    <div className="flex-1 px-2 py-1 flex flex-col items-center justify-center gap-0.5">
       <div className="flex items-center gap-1 w-full">
-        <span className="text-[11px] text-gray-400">$</span>
+        <span className="text-[10px] text-gray-400">$</span>
         <input
           type="number"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full text-center text-[11px] border border-gray-200 rounded px-1 py-0.5 focus:outline-none focus:border-[#0b5fa5]"
+          className="w-full text-center text-[10px] border border-gray-200 rounded px-1 py-0.5 focus:outline-none focus:border-[#0b5fa5]"
         />
       </div>
       {note && <span className="text-[9px] text-gray-400">{note}</span>}
+    </div>
+  </div>
+);
+
+const RowDesayunoToggle = ({
+  value,
+  onChange,
+}: {
+  value: 0 | 1;
+  onChange: (v: 0 | 1) => void;
+}) => (
+  <div className="flex border-b border-gray-200 last:border-0">
+    <div className="w-[42%] bg-[#f1f5ff] px-2 py-1 text-[10px] font-bold text-gray-700 flex items-center">
+      DESAYUNO:
+    </div>
+    <div className="flex-1 px-2 py-1 flex items-center">
+      <CheckboxInput
+        label={value === 1 ? "Sí" : "No"}
+        checked={value === 1}
+        onChange={(v) => onChange(v ? 1 : 0)}
+      />
+    </div>
+  </div>
+);
+
+const RowSelectHabitacion = ({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) => (
+  <div className="flex border-b border-gray-200 last:border-0">
+    <div className="w-[42%] bg-[#f1f5ff] px-2 py-1 text-[10px] font-bold text-gray-700 flex items-center">
+      HABITACIÓN:
+    </div>
+    <div className="flex-1 px-1.5 py-0.5">
+      <Dropdown
+        label=""
+        value={value}
+        onChange={onChange}
+        options={OPCIONES_HABITACION}
+      />
+    </div>
+  </div>
+);
+
+const RowNotas = ({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) => (
+  <div className="flex border-b border-gray-200 last:border-0">
+    <div className="w-[42%] bg-[#f1f5ff] px-2 py-1 text-[10px] font-bold text-gray-700 flex items-start pt-2">
+      NOTAS:
+    </div>
+    <div className="flex-1 px-1.5 py-1">
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={1}
+        placeholder="Notas adicionales..."
+        className="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 resize-none focus:outline-none focus:border-[#0b5fa5] placeholder:text-gray-300"
+      />
     </div>
   </div>
 );
@@ -128,9 +203,10 @@ const HotelCard = ({
   onUp,
   onDown,
   onEdit,
-  onSubtotalChange,
-
-  onApplyPrice,
+  onTotalChange,
+  onDesayunoChange,
+  onHabitacionChange,
+  onNotasChange,
 }: {
   hotel: HotelCotizacion;
   priority: number;
@@ -139,124 +215,88 @@ const HotelCard = ({
   onUp: () => void;
   onDown: () => void;
   onEdit: () => void;
-  onSubtotalChange: (v: string) => void;
-  onApplyPrice: (source: "mia" | "web") => void;
+  onTotalChange: (v: string) => void;
+  onDesayunoChange: (v: 0 | 1) => void;
+  onHabitacionChange: (v: string) => void;
+  onNotasChange: (v: string) => void;
 }) => (
-  <div className="flex flex-col gap-2">
+  <div className="flex flex-col gap-1">
     <div className="flex items-center justify-between px-1">
-      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-[#0b5fa5] px-2.5 py-0.5 rounded-full">
+      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-white bg-[#0b5fa5] px-2 py-0.5 rounded-full">
         Prioridad {priority}
       </span>
       <div className="flex gap-1 items-center">
-        <p className="text-xs text-gray-700">cambiar orden</p>
+        <p className="text-[10px] text-gray-500">orden</p>
         <button
           type="button"
           onClick={onUp}
           disabled={isFirst}
-          className="p-1 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-25 transition-colors"
+          className="p-0.5 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-25 transition-colors"
           title="Subir prioridad"
         >
-          <ChevronUp className="w-3.5 h-3.5 text-gray-600" />
+          <ChevronUp className="w-3 h-3 text-gray-600" />
         </button>
         <button
           type="button"
           onClick={onDown}
           disabled={isLast}
-          className="p-1 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-25 transition-colors"
+          className="p-0.5 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-25 transition-colors"
           title="Bajar prioridad"
         >
-          <ChevronDown className="w-3.5 h-3.5 text-gray-600" />
+          <ChevronDown className="w-3 h-3 text-gray-600" />
         </button>
       </div>
     </div>
 
     <div className="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-      <div className="bg-[#0b5fa5] text-white px-4 py-2.5 text-xs font-bold tracking-wide">
+      <div className="bg-[#0b5fa5] text-white px-3 py-1.5 text-[10px] font-bold tracking-wide">
         HOSPEDAJE 2026
       </div>
 
       <div className="divide-y divide-gray-100">
         <RowPrev label="HOTEL:" value={hotel.hotel} />
-        <RowPrev label="HABITACIÓN:" value="SENCILLA" />
+        <RowSelectHabitacion
+          value={hotel.habitacion}
+          onChange={onHabitacionChange}
+        />
         <RowPrev label="CHECK-IN:" value={formatDate(hotel.checkin)} />
         <RowPrev label="CHECK-OUT:" value={formatDate(hotel.checkout)} />
-        <RowPrev
-          label="DESAYUNO INCLUIDO:"
-          value={hotel.desayuno ? "SÍ" : "NO"}
-        />
+        <RowDesayunoToggle value={hotel.desayuno} onChange={onDesayunoChange} />
         <RowPrev label="DIRECCIÓN:" value={hotel.direccion} />
+        <RowNotas value={hotel.notas} onChange={onNotasChange} />
       </div>
 
-      {!hotel.precio_sistema && (
+      {hotel.precio_referencia !== null ? (
+        <div className="divide-y divide-gray-100 border-t border-gray-200">
+          <RowEditable
+            label="PRECIO VENTA:"
+            value={hotel.total}
+            onChange={onTotalChange}
+          />
+        </div>
+      ) : (
         <div className="border-t border-yellow-200 bg-yellow-50 px-3 py-2 flex items-start gap-2">
           <span className="text-yellow-500 text-sm leading-none mt-0.5">⚠</span>
           <p className="text-[10px] text-yellow-700 leading-snug">
-            No se encontró precio en MIA. Verifica este hotel antes de enviar.
+            Debe verificarse que tenga disponibilidad ya que no se encontró en
+            el proceso.
           </p>
         </div>
       )}
 
-      <div className="border-t border-gray-100 px-3 py-2 flex flex-col gap-1.5">
-        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wide">
-          Usar costo de
-        </p>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => onApplyPrice("mia")}
-            disabled={!hotel.costo_sistema}
-            className="flex-1 flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg border border-[#0b5fa5] text-[#0b5fa5] hover:bg-[#f0f6ff] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          >
-            <span className="text-[10px] font-bold">MIA</span>
-            <span className="text-[9px] text-gray-500">
-              {hotel.costo_sistema ? `$${hotel.costo_sistema}` : "—"}
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onApplyPrice("web")}
-            disabled={hotel.precio_referencia === null}
-            className="flex-1 flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg border border-[#00a3c4] text-[#00a3c4] hover:bg-[#f0fbff] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-          >
-            <span className="text-[10px] font-bold">Web</span>
-            <span className="text-[9px] text-gray-500">
-              {hotel.precio_referencia !== null
-                ? `$${hotel.precio_referencia}`
-                : "—"}
-            </span>
-          </button>
-        </div>
-      </div>
-
-      <div className="divide-y divide-gray-100 border-t border-gray-200">
-        <RowEditable
-          label="COSTO:"
-          value={hotel.subtotal}
-          note="Sin impuestos / noche"
-          onChange={onSubtotalChange}
-        />
-        <RowPrev
-          label="PRECIO VENTA:"
-          value={hotel.precio_sistema ? `$ ${hotel.precio_sistema}` : "—"}
-          note="Precio MIA con impuestos"
-        />
-      </div>
-
-      <div className="bg-[#00a3c4] text-white px-4 py-2 text-[10px] font-bold flex items-center justify-between">
+      <div className="bg-[#00a3c4] text-white px-3 py-1 text-[9px] font-bold flex items-center justify-between">
         <span>Tarifa no reembolsable</span>
       </div>
     </div>
-    <div>
-      <Button
-        icon={Pencil}
-        size="sm"
-        variant="secondary"
-        onClick={onEdit}
-        title="modificar"
-      >
-        modificar
-      </Button>
-    </div>
+    <Button
+      icon={Pencil}
+      size="sm"
+      variant="secondary"
+      onClick={onEdit}
+      title="modificar"
+    >
+      modificar
+    </Button>
   </div>
 );
 
@@ -363,6 +403,8 @@ export default function GenerarCotizacion() {
           total: room?.precio ?? String(ch.price_per_night),
           subtotal: room?.costo ?? String(ch.price_per_night),
           desayuno: room?.incluye_desayuno === 1 ? 1 : 0,
+          habitacion: "SENCILLA",
+          notas: "",
           direccion: "",
           zona: hotelCompleto?.Ciudad_Zona ?? "",
           priority: i + 1,
@@ -420,6 +462,8 @@ export default function GenerarCotizacion() {
       total,
       subtotal,
       desayuno: room?.incluye_desayuno === 1 ? 1 : 0,
+      habitacion: "SENCILLA",
+      notas: "",
       direccion: "",
       zona: hotel.Ciudad_Zona,
       priority: activeSlot + 1,
@@ -450,18 +494,29 @@ export default function GenerarCotizacion() {
     });
   };
 
-  const applySlotPrice = (index: number, source: "mia" | "web") => {
+  const updateSlotDesayuno = (index: number, value: 0 | 1) => {
     setSlots((prev) => {
       const updated = [...prev];
       const slot = updated[index];
-      if (!slot) return prev;
-      updated[index] = {
-        ...slot,
-        subtotal:
-          source === "mia"
-            ? (slot.costo_sistema ?? slot.subtotal)
-            : String(slot.precio_referencia ?? slot.subtotal),
-      };
+      if (slot) updated[index] = { ...slot, desayuno: value };
+      return updated;
+    });
+  };
+
+  const updateSlotHabitacion = (index: number, value: string) => {
+    setSlots((prev) => {
+      const updated = [...prev];
+      const slot = updated[index];
+      if (slot) updated[index] = { ...slot, habitacion: value };
+      return updated;
+    });
+  };
+
+  const updateSlotNotas = (index: number, value: string) => {
+    setSlots((prev) => {
+      const updated = [...prev];
+      const slot = updated[index];
+      if (slot) updated[index] = { ...slot, notas: value };
       return updated;
     });
   };
@@ -477,10 +532,11 @@ export default function GenerarCotizacion() {
         .map((s) => ({
           id: s.id,
           nombre: s.hotel,
-          precio_venta: s.precio_sistema ?? s.total,
+          precio_venta: s.total,
           costo: s.subtotal,
           checkin: s.checkin,
           checkout: s.checkout,
+          notas: s.notas,
         }));
 
       const payload = {
@@ -502,7 +558,7 @@ export default function GenerarCotizacion() {
       console.log("Payload enviado a n8n:", payload);
 
       await fetch(
-        "http://localhost:5678/webhook-test/e6f345aa-2be8-4c69-80fb-b7e46d5edfd8",
+        "https://n8n-iirj.srv1623687.hstgr.cloud/webhook/e6f345aa-2be8-4c69-80fb-b7e46d5edfd8",
         {
           method: "POST",
           headers: {
@@ -583,9 +639,9 @@ export default function GenerarCotizacion() {
             )}
           </div>
         )}
-        <div className="flex gap-6">
-          <aside className="w-72 flex-shrink-0 flex flex-col gap-4 bg-white border rounded-xl p-5 shadow-sm h-fit sticky top-4">
-            <h2 className="font-semibold text-gray-800 text-sm">
+        <div className="flex gap-4">
+          <aside className="w-56 flex-shrink-0 flex flex-col gap-2 bg-white border rounded-xl p-3 shadow-sm h-fit sticky top-4">
+            <h2 className="font-semibold text-gray-800 text-xs">
               Datos de búsqueda
             </h2>
 
@@ -594,48 +650,55 @@ export default function GenerarCotizacion() {
               value={form.hotel}
               onChange={set("hotel")}
               placeholder="Nombre del hotel"
+              className="text-xs"
             />
             <TextInput
               label="Ciudad"
               value={form.ciudad}
               onChange={set("ciudad")}
               placeholder="Ej. ORIZABA"
+              className="text-xs"
             />
             <DateInput
               label="Check-in *"
               value={form.check_in}
               onChange={set("check_in")}
+              className="text-xs"
             />
             <DateInput
               label="Check-out *"
               value={form.check_out}
               onChange={set("check_out")}
               min={form.check_in || undefined}
+              className="text-xs"
             />
             <TextInput
               label="Código postal"
               value={form.codigo_postal}
               onChange={set("codigo_postal")}
               placeholder="Ej. 94300"
+              className="text-xs"
             />
 
             <Button
+              size="sm"
               icon={loadingVis ? Loader2 : Eye}
               disabled={!canGenerate || loadingVis}
               onClick={handleGenerarVisualizaciones}
             >
-              {loadingVis ? "Buscando..." : "Generar visualizaciones"}
+              {loadingVis ? "Buscando..." : "Generar"}
             </Button>
 
             {!canGenerate && (
-              <p className="text-[11px] text-gray-400 text-center -mt-2">
+              <p className="text-[10px] text-gray-400 text-center -mt-1">
                 Check-in y check-out son obligatorios
               </p>
             )}
 
             {hasAny && (
-              <div className="border-t pt-4 flex flex-col gap-3">
+              <div className="border-t pt-2">
                 <Button
+                  size="sm"
                   icon={loadingEnvio ? Loader2 : Send}
                   disabled={loadingEnvio}
                   onClick={handleGenerarYEnviar}
@@ -646,21 +709,21 @@ export default function GenerarCotizacion() {
             )}
           </aside>
 
-          <section className="flex-1 flex flex-col gap-4 bg-gray-50 border rounded-xl p-5 shadow-sm h-fit">
+          <section className="flex-1 flex flex-col gap-3 bg-gray-50 border rounded-xl p-3 shadow-sm h-fit">
             <div className="flex items-center justify-between">
-              <h2 className="font-semibold text-gray-800 text-sm">
+              <h2 className="font-semibold text-gray-800 text-xs">
                 {hasAny
                   ? "Cotizaciones — usa las flechas para cambiar prioridad"
                   : "Las cotizaciones aparecerán aquí"}
               </h2>
               {hasAny && (
-                <span className="text-[11px] text-gray-400">
+                <span className="text-[10px] text-gray-400">
                   Solo las primeras 3 prioridades se enviarán
                 </span>
               )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {slots.map((hotel, index) =>
                 hotel ? (
                   <HotelCard
@@ -672,10 +735,10 @@ export default function GenerarCotizacion() {
                     onUp={() => move(index, "up")}
                     onDown={() => move(index, "down")}
                     onEdit={() => handleSlotAction(index)}
-                    onSubtotalChange={(v) =>
-                      updateSlotPrice(index, "subtotal", v)
-                    }
-                    onApplyPrice={(source) => applySlotPrice(index, source)}
+                    onTotalChange={(v) => updateSlotPrice(index, "total", v)}
+                    onDesayunoChange={(v) => updateSlotDesayuno(index, v)}
+                    onHabitacionChange={(v) => updateSlotHabitacion(index, v)}
+                    onNotasChange={(v) => updateSlotNotas(index, v)}
                   />
                 ) : (
                   <EmptySlotCard
