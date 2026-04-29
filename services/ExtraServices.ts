@@ -45,6 +45,11 @@ export class ExtraService extends ApiService {
         SUCURSAL: "/proveedores/sucursal",
       },
     },
+    VIAJEROS: {
+      DELETE: {
+        VIAJEROS: "/viajeros/delete",
+      },
+    },
   };
   private static instance: ExtraService;
 
@@ -125,6 +130,12 @@ export class ExtraService extends ApiService {
     this.get({
       path: this.formatPath(this.ENDPOINTS.AGENTES.GET.EMPRESAS),
       params: { id_agente },
+    });
+
+  public deleteTraveler = (id_viajero: string): Promise<ApiResponse<void>> =>
+    this.post<void>({
+      path: this.formatPath(this.ENDPOINTS.VIAJEROS.DELETE.VIAJEROS),
+      body: { id_viajero },
     });
 
   public createProveedor = (body: {

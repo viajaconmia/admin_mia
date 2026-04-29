@@ -44,6 +44,11 @@ interface TableProps<T> {
   stickyRightColumns?: string[];
   columnMinWidths?: Record<string, string>;
   respectCustomColumnOrder?: boolean;
+
+  /** Activa paginación. Si no se pasa (o es false) el comportamiento es idéntico al actual */
+  pagination?: boolean;
+  /** Filas por página cuando pagination=true. Default: 50 */
+  pageSize?: number;
 }
 
 export const Table5 = <T,>({
@@ -65,6 +70,8 @@ export const Table5 = <T,>({
   stickyRightColumns = [],
   columnMinWidths = {},
   respectCustomColumnOrder = false,
+  pagination = false,
+  pageSize = 50,
 }: TableProps<T>) => {
   const [displayData, setDisplayData] = useState<Registro[]>(registros);
   const [loading, setLoading] = useState<boolean>(false);
@@ -83,6 +90,7 @@ export const Table5 = <T,>({
   const [showColumnSelector, setShowColumnSelector] = useState(false);
   // Estado para las filas expandidas
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+  const [currentPage, setCurrentPage] = useState(0);
   const columnSelectorRef = useRef<HTMLDivElement | null>(null);
 
   const showAllColumns = () => {
@@ -103,8 +111,8 @@ export const Table5 = <T,>({
       );
       setVisibleColumns(new Set(allColumns));
     }
-    // Resetear expansiones cuando cambian los datos
     setExpandedRows(new Set());
+    setCurrentPage(0);
   }, [registros, customColumns]);
 
   const columnKeys = useMemo(() => {
@@ -162,9 +170,15 @@ const visibleOrderedColumns = useMemo(() => {
       );
       setDisplayData(sortedData);
       setCurrentSort(updateSort);
+      setCurrentPage(0);
       setLoading(false);
     }, 0);
   };
+
+  const totalPages = pagination ? Math.ceil(displayData.length / pageSize) : 1;
+  const pagedData = pagination
+    ? displayData.slice(currentPage * pageSize, (currentPage + 1) * pageSize)
+    : displayData;
 
   // Función para alternar expansión de fila
   const toggleRowExpansion = (index: number) => {
@@ -178,6 +192,53 @@ const visibleOrderedColumns = useMemo(() => {
       return newSet;
     });
   };
+
+  const isDateLikeKey = (key: string) => {
+  const k = key.toLowerCase();
+  return (
+    k.includes("fecha") ||
+    k.includes("date") ||
+    k.includes("check_in") ||
+    k.includes("check_out") ||
+    k.includes("chin") ||
+    k.includes("chout") ||
+    k.includes("created_at") ||
+    k.includes("creado")|| 
+    k.includes("updated_at")
+  );
+};
+
+const formatDateOnly = (value: any) => {
+  if (value === null || value === undefined || value === "") return value;
+
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    return value.toISOString().slice(0, 10);
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+
+    // ya viene como YYYY-MM-DD o YYYY-MM-DD HH:mm:ss o ISO
+    const isoMatch = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (isoMatch) return isoMatch[1];
+
+    const parsed = new Date(trimmed);
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toISOString().slice(0, 10);
+    }
+  }
+
+  return value;
+};
+
+const normalizeExportRow = (row: Registro) => {
+  return Object.fromEntries(
+    Object.entries(row)
+      .filter(([k]) => !EXPORT_EXCLUDE_COLS.has(k))
+      .map(([k, v]) => [k, isDateLikeKey(k) ? formatDateOnly(v) : v]),
+  );
+};
+
 
   // Verificar si una columna es expandible para una fila específica
   const isColumnExpandable = (colKey: string, value: any) => {
@@ -424,13 +485,8 @@ const visibleOrderedColumns = useMemo(() => {
               <button
                 onClick={() => {
                   const dataToExport = displayData.map(({ item, ...rest }) =>
-                    Object.fromEntries(
-                      Object.entries(rest).filter(
-                        ([k]) => !EXPORT_EXCLUDE_COLS.has(k),
-                      ),
-                    ),
+                    normalizeExportRow(rest),
                   );
-
                   exportToCSV(dataToExport, "Solicitudes.csv");
                 }}
                 className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2"
@@ -554,7 +610,8 @@ const visibleOrderedColumns = useMemo(() => {
             </thead>
 
             <tbody className="bg-white divide-y divide-gray-200">
-              {displayData.map((item, index) => {
+              {pagedData.map((item, localIndex) => {
+                const index = pagination ? currentPage * pageSize + localIndex : localIndex;
                 const zebraClass = index % 2 === 0 ? "bg-white" : "bg-gray-50";
                 const rowExtraClass = getRowClassName
                   ? getRowClassName(item, index)
@@ -593,12 +650,12 @@ const visibleOrderedColumns = useMemo(() => {
         }}
       >
                             {Renderer ? (
-                              <Renderer
-                                value={value}
-                                item={item.item}
-                                index={index}
-                              />
-                            ) : (
+  <Renderer
+    value={value}
+    item={item.item ?? item}
+    index={index}
+  />
+) : (
                               <div className="whitespace-pre-line break-words">
                                 {renderValue(colKey, value, index)}
                               </div>
@@ -618,6 +675,46 @@ const visibleOrderedColumns = useMemo(() => {
             No se encontraron registros
           </div>
         )
+      )}
+
+      {pagination && totalPages > 1 && !loading && (
+        <div className="flex items-center justify-between gap-2 mt-2 px-1">
+          <span className="text-xs text-gray-500">
+            Página {currentPage + 1} de {totalPages}
+            {" · "}
+            {displayData.length} registros
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setCurrentPage(0)}
+              disabled={currentPage === 0}
+              className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              «
+            </button>
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
+              disabled={currentPage === 0}
+              className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              ‹
+            </button>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={currentPage >= totalPages - 1}
+              className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              ›
+            </button>
+            <button
+              onClick={() => setCurrentPage(totalPages - 1)}
+              disabled={currentPage >= totalPages - 1}
+              className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              »
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

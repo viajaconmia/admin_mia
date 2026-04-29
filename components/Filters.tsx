@@ -286,6 +286,15 @@ const FiltersModal: React.FC<{
                   }
                 />
               )}
+              {"uuid_factura" in filters && (
+                <TextInput
+                  label="UUID Factura"
+                  value={filters.uuid_factura || ""}
+                  onChange={(value) =>
+                    setFilters((prev) => ({ ...prev, uuid_factura: value }))
+                  }
+                />
+              )}
 
               {"link_pago" in filters && (
                 <TextInput

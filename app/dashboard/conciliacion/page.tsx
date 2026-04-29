@@ -4,12 +4,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Table5 } from "@/components/Table5";
 import { URL, API_KEY } from "@/lib/constants/index";
-import { Filter, X, Search, Handshake, Send , RefreshCw } from "lucide-react";
+import { Filter, X, Search, Handshake, Send, RefreshCw } from "lucide-react";
 
 import Button from "@/components/atom/Button";
 import SubirFactura from "@/app/dashboard/facturacion/subirfacturas/SubirFactura";
 import ModalDetalle from "@/app/dashboard/conciliacion/compponents/detalles";
 import { formatDate } from "@/helpers/formater";
+import BuscarUuidFacturaModal from "@/app/dashboard/conciliacion/compponents/BuscarUuidFacturaModal";
 import FiltrosConciliacionModal, {
   type ConciliacionFilters,
 } from "@/app/dashboard/conciliacion/compponents/FiltrosReservaModal";
@@ -31,8 +32,16 @@ function calcNoches(checkIn?: string | null, checkOut?: string | null): number {
   const outD = new Date(checkOut);
   if (Number.isNaN(inD.getTime()) || Number.isNaN(outD.getTime())) return 0;
 
-  const startUTC = Date.UTC(inD.getUTCFullYear(), inD.getUTCMonth(), inD.getUTCDate());
-  const endUTC = Date.UTC(outD.getUTCFullYear(), outD.getUTCMonth(), outD.getUTCDate());
+  const startUTC = Date.UTC(
+    inD.getUTCFullYear(),
+    inD.getUTCMonth(),
+    inD.getUTCDate(),
+  );
+  const endUTC = Date.UTC(
+    outD.getUTCFullYear(),
+    outD.getUTCMonth(),
+    outD.getUTCDate(),
+  );
 
   const diffDays = Math.round((endUTC - startUTC) / MS_PER_DAY);
   return diffDays > 0 ? diffDays : 0;
@@ -93,7 +102,12 @@ function getEstatusPagoPayload(raw: any) {
     else computed = "PENDIENTE";
   }
 
-  const label = (estatusPayload || estadoSolicitud || computed || "").toString();
+  const label = (
+    estatusPayload ||
+    estadoSolicitud ||
+    computed ||
+    ""
+  ).toString();
 
   return {
     label,
@@ -140,11 +154,15 @@ function extractFacturasYPagosFromPFP(raw: any) {
   }
 
   const id_facturas = Array.from(
-    new Set(arr.map((x) => String(x?.id_factura ?? "").trim()).filter(Boolean))
+    new Set(arr.map((x) => String(x?.id_factura ?? "").trim()).filter(Boolean)),
   );
 
   const id_pagos = Array.from(
-    new Set(arr.map((x) => String(x?.id_pago_proveedor ?? x?.id_pago ?? "").trim()).filter(Boolean))
+    new Set(
+      arr
+        .map((x) => String(x?.id_pago_proveedor ?? x?.id_pago ?? "").trim())
+        .filter(Boolean),
+    ),
   );
 
   return { id_facturas, id_pagos };
@@ -152,7 +170,10 @@ function extractFacturasYPagosFromPFP(raw: any) {
 
 type EstatusFacturaInferido = "FACTURADO" | "PARCIAL" | "SIN FACTURAR";
 
-function getEstatusFacturas(diferencia: any, costo_proveedor: any): EstatusFacturaInferido {
+function getEstatusFacturas(
+  diferencia: any,
+  costo_proveedor: any,
+): EstatusFacturaInferido {
   const diff = Number(diferencia ?? 0) || 0;
   const costo = Number(costo_proveedor ?? 0) || 0;
   const EPS = 0.01;
@@ -177,27 +198,36 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
     null;
 
   const hotel = (raw?.hotel ?? "").toString();
-  const viajero = (raw?.nombre_viajero_completo ?? raw?.nombre_viajero ?? "").toString();
+  const viajero = (
+    raw?.nombre_viajero_completo ??
+    raw?.nombre_viajero ??
+    ""
+  ).toString();
 
   const costo_proveedor =
     Number(raw?.solicitud_proveedor?.monto_solicitado ?? 0) || 0;
   const precio_de_venta = Number(raw?.total ?? 0) || 0;
 
   const markup =
-    precio_de_venta > 0 ? ((precio_de_venta - costo_proveedor) / precio_de_venta) * 100 : 0;
+    precio_de_venta > 0
+      ? ((precio_de_venta - costo_proveedor) / precio_de_venta) * 100
+      : 0;
 
   const nochesCalc = calcNoches(raw?.check_in, raw?.check_out);
   const tipoPago = getTipoPago(raw);
   const tipoReserva = inferTipoReserva(raw);
 
-  const comentariosOps = raw?.solicitud_proveedor?.comentarios ?? raw?.comentarios_ops ?? "";
+  const comentariosOps =
+    raw?.solicitud_proveedor?.comentarios ?? raw?.comentarios_ops ?? "";
 
   const estatusPagoObj = getEstatusPagoPayload(raw);
 
-  const total_facturado = Number(raw?.total_facturado_en_pfp ?? raw?.total_facturado ?? 0) || 0;
+  const total_facturado =
+    Number(raw?.total_facturado_en_pfp ?? raw?.total_facturado ?? 0) || 0;
   const total_factura = Number(raw?.monto_facturado ?? 0) || 0;
 
-  const total_aplicable = raw?.facturas_proveedor?.facturas[0]?.monto_facturado ?? "";
+  const total_aplicable =
+    raw?.facturas_proveedor?.facturas[0]?.monto_facturado ?? "";
   const impuestos = raw?.facturas_proveedor?.facturas[0]?.impuestos ?? "";
   const subtotal = raw?.facturas_proveedor?.facturas[0]?.subtotal ?? "";
 
@@ -215,10 +245,15 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
   const asociaciones = extractFacturasYPagosFromPFP(raw);
 
   const consolidado =
-    Number(raw?.consolidado ?? raw?.estatus_conciliado ?? raw?.conciliado ?? 0) || 0;
+    Number(
+      raw?.consolidado ?? raw?.estatus_conciliado ?? raw?.conciliado ?? 0,
+    ) || 0;
 
   const idIntermediario =
-    raw?.id_inermediario ?? raw?.id_intermediario ?? raw?.informacion_completa?.id_intermediario ?? null;
+    raw?.id_inermediario ??
+    raw?.id_intermediario ??
+    raw?.informacion_completa?.id_intermediario ??
+    null;
 
   const nombreIntermediario =
     raw?.intermediario ??
@@ -226,7 +261,9 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
     raw?.informacion_completa?.intermediario ??
     "";
 
-  const canalDeReservacion = idIntermediario ? "INTERMEDIARIO" : (raw?.canal_de_reservacion ?? "DIRECTO");
+  const canalDeReservacion = idIntermediario
+    ? "INTERMEDIARIO"
+    : (raw?.canal_de_reservacion ?? "DIRECTO");
 
   return {
     row_id,
@@ -249,12 +286,15 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
     precio_de_venta,
 
     canal_de_reservacion: canalDeReservacion,
-    nombre_intermediario: idIntermediario ? nombreIntermediario : (raw?.nombre_intermediario ?? ""),
+    nombre_intermediario: idIntermediario
+      ? nombreIntermediario
+      : (raw?.nombre_intermediario ?? ""),
 
     tipo_de_reserva: tipoReserva,
     tipo_de_pago: tipoPago,
 
     tarjeta,
+    fecha_solicitud : raw?.fecha_solicitud,
     id_enviado: raw?.titular_tarjeta ?? "",
 
     comentarios_ops: comentariosOps,
@@ -263,7 +303,9 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
     detalles: raw,
     estado_solicitud: raw?.solicitud_proveedor?.estado_solicitud ?? "",
     estatus_facturas: estatusFacturas,
-    estatus_pago: estatusPagoObj.label ? estatusPagoObj.label.toUpperCase() : "",
+    estatus_pago: estatusPagoObj.label
+      ? estatusPagoObj.label.toUpperCase()
+      : "",
     __estatus_pago: estatusPagoObj,
 
     total_facturado,
@@ -295,8 +337,6 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
     __raw: raw,
   };
 }
-
-
 
 type EditableField =
   | "comentarios_ops"
@@ -354,21 +394,32 @@ export default function ConciliacionPage() {
   const EPS = 0.01;
   const isZero = (n: any) => Math.abs(Number(n) || 0) < EPS;
 
-  const normUpper = (v: any) => String(v ?? "").trim().toUpperCase();
-  const normRfc = (v: any) => String(v ?? "").trim().toUpperCase();
+  const normUpper = (v: any) =>
+    String(v ?? "")
+      .trim()
+      .toUpperCase();
+  const normRfc = (v: any) =>
+    String(v ?? "")
+      .trim()
+      .toUpperCase();
 
   const [isLoading, setIsLoading] = useState(false);
   const [showSubirFactura, setShowSubirFactura] = useState(false);
-const [selectedForFactura, setSelectedForFactura] = useState<ProveedorSeleccionado[]>([]);
-const [facturaSelection, setFacturaSelection] = useState<Record<string, ProveedorSeleccionado>>({});
+  const [selectedForFactura, setSelectedForFactura] = useState<
+    ProveedorSeleccionado[]
+  >([]);
+  const [facturaSelection, setFacturaSelection] = useState<
+    Record<string, ProveedorSeleccionado>
+  >({});
 
   const [todos, setTodos] = useState<any[]>([]);
 
   const [searchInput, setSearchInput] = useState("");
   const [showFiltersModal, setShowFiltersModal] = useState(false);
 
-  const [draftEdits, setDraftEdits] = useState<Record<string, Partial<AnyRow>>>({});
-  
+  const [draftEdits, setDraftEdits] = useState<Record<string, Partial<AnyRow>>>(
+    {},
+  );
 
   const endpoint = `${URL}/mia/pago_proveedor/solicitud_conciliacion`;
   const editEndpoint = `${URL}/mia/pago_proveedor/edit`;
@@ -386,15 +437,13 @@ const [facturaSelection, setFacturaSelection] = useState<Record<string, Proveedo
     setDetalleSolicitud(null);
   }, []);
 
- const closeSubirFactura = useCallback(() => {
-  setShowSubirFactura(false);
-  setSelectedForFactura([]);
-  setFacturaSelection({});
-}, []);
+  const closeSubirFactura = useCallback(() => {
+    setShowSubirFactura(false);
+    setSelectedForFactura([]);
+    setFacturaSelection({});
+  }, []);
 
-
-
-const EMPTY_FILTERS: ConciliacionFilters = {
+ const EMPTY_FILTERS: ConciliacionFilters = {
   folio: "",
   cliente: "",
   viajero: "",
@@ -417,15 +466,122 @@ const EMPTY_FILTERS: ConciliacionFilters = {
   fecha_reserva_start: "",
   fecha_reserva_end: "",
   filtrar_fecha_por_reserva: "",
+
+  comentarios: "",
+  comentario_CXP: "",
 };
 
-const DEFAULT_OPEN_FILTERS: ConciliacionFilters = {
-  ...EMPTY_FILTERS,
-  created_start: getStartOfMonthLocalDate(),
-  created_end: getTodayLocalDate(),
+  type BuscarUuidMatchRow = {
+  codigo_confirmacion: string;
+  uuid_factura: string;
+  id_solicitud: string | number;
+  monto: number;
 };
 
-const FILTER_LABELS: Record<keyof ConciliacionFilters, string> = {
+const [buscarUuidModal, setBuscarUuidModal] = useState<{
+  open: boolean;
+  loading: boolean;
+  uuid_factura: string;
+  rows: BuscarUuidMatchRow[];
+}>({
+  open: false,
+  loading: false,
+  uuid_factura: "",
+  rows: [],
+});
+
+const buscarUuidEndpoint = `${URL}/mia/pago_proveedor/buscaruuid`;
+
+const buscarUuid = useCallback(
+  async (uuidParam?: string) => {
+    const uuid = String(uuidParam ?? buscarUuidModal.uuid_factura ?? "").trim();
+
+    if (!uuid) {
+      alert("Escribe un UUID");
+      return;
+    }
+
+    setBuscarUuidModal((prev) => ({
+      ...prev,
+      open: true,
+      loading: true,
+      uuid_factura: uuid,
+      rows: [],
+    }));
+
+    try {
+      const resp = await fetch(buscarUuidEndpoint, {
+        method: "POST",
+        headers: {
+          "x-api-key": API_KEY || "",
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+        },
+        body: JSON.stringify({ uuid_factura: uuid }),
+      });
+
+      const json = await resp.json().catch(() => null);
+
+      if (!resp.ok) {
+        throw new Error(json?.message || `Error HTTP: ${resp.status}`);
+      }
+
+      const list = Array.isArray(json?.data) ? json.data : [];
+
+      const rows: BuscarUuidMatchRow[] = list.map((r: any) => ({
+        codigo_confirmacion: r?.codigo_confirmacion ?? "",
+        uuid_factura: r?.uuid_factura ?? "",
+        id_solicitud: r?.id_solicitud ?? "",
+        monto: Number(r?.monto_facturado ?? r?.monto_solicitado ?? 0) || 0,
+      }));
+
+      setBuscarUuidModal({
+        open: true,
+        loading: false,
+        uuid_factura: uuid,
+        rows,
+      });
+    } catch (err: any) {
+      console.error("❌ buscaruuid fail", err);
+
+      setBuscarUuidModal((prev) => ({
+        ...prev,
+        open: true,
+        loading: false,
+        rows: [],
+      }));
+
+      alert(err?.message || "Error al buscar coincidencias por uuid");
+    }
+  },
+  [buscarUuidEndpoint, buscarUuidModal.uuid_factura],
+);
+const closeBuscarUuidModal = useCallback(() => {
+  setBuscarUuidModal({
+    open: false,
+    loading: false,
+    uuid_factura: "",
+    rows: [],
+  });
+}, []);
+
+const openBuscarUuidModal = useCallback(() => {
+  setBuscarUuidModal({
+    open: true,
+    loading: false,
+    uuid_factura: "",
+    rows: [],
+  });
+}, []);
+
+
+  const DEFAULT_OPEN_FILTERS: ConciliacionFilters = {
+    ...EMPTY_FILTERS,
+    created_start: getStartOfMonthLocalDate(),
+    created_end: getTodayLocalDate(),
+  };
+
+  const FILTER_LABELS: Record<keyof ConciliacionFilters, string> = {
   folio: "Código de reservación",
   cliente: "Cliente",
   viajero: "Viajero",
@@ -447,68 +603,54 @@ const FILTER_LABELS: Record<keyof ConciliacionFilters, string> = {
   fecha_reserva_start: "Fecha reserva desde",
   fecha_reserva_end: "Fecha reserva hasta",
   filtrar_fecha_por_reserva: "Filtrar fecha por",
+
+  comentarios: "Comentarios Ops",
+  comentario_CXP: "Comentario CXP",
 };
 
-function normalizeFiltersForRequest(
-  incoming: ConciliacionFilters
+  function normalizeFiltersForRequest(
+  incoming: ConciliacionFilters,
 ): ConciliacionFilters {
-  const next = { ...incoming };
-
-  const hasAnyOtherFilter = NON_DATE_FILTER_KEYS.some((key) => {
-    return String(next[key] ?? "").trim() !== "";
-  });
-
-  if (hasAnyOtherFilter) {
-    next.created_start = "";
-    next.created_end = "";
-    next.check_in_start = "";
-    next.check_in_end = "";
-    next.check_out_start = "";
-    next.check_out_end = "";
-    next.fecha_reserva_start = "";
-    next.fecha_reserva_end = "";
-    next.filtrar_fecha_por_reserva = "";
-  }
-
-  return next;
+  return { ...incoming };
 }
 
-const [filters, setFilters] = useState<ConciliacionFilters>(DEFAULT_OPEN_FILTERS);
-const [appliedFilters, setAppliedFilters] =
-  useState<ConciliacionFilters>(DEFAULT_OPEN_FILTERS);
+  const [filters, setFilters] =
+    useState<ConciliacionFilters>(DEFAULT_OPEN_FILTERS);
+  const [appliedFilters, setAppliedFilters] =
+    useState<ConciliacionFilters>(DEFAULT_OPEN_FILTERS);
 
-const uniqueOptions = useCallback((arr: any[]) => {
-  return Array.from(
-    new Set(arr.map((x) => String(x ?? "").trim()).filter(Boolean))
-  ).sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
-}, []);
+  const uniqueOptions = useCallback((arr: any[]) => {
+    return Array.from(
+      new Set(arr.map((x) => String(x ?? "").trim()).filter(Boolean)),
+    ).sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
+  }, []);
 
-const filterOptions = useMemo(() => {
-  return {
-    estadoReserva: uniqueOptions(todos.map((r) => r?.estado)),
-    etapaReservacion: uniqueOptions(todos.map((r) => r?.etapa_reservacion)),
-    reservante: uniqueOptions(todos.map((r) => r?.reservante)),
-    metodoPagoReserva: uniqueOptions(todos.map((r) => r?.metodo_pago)),
-  };
-}, [todos, uniqueOptions]);
+  const filterOptions = useMemo(() => {
+    return {
+      estadoReserva: uniqueOptions(todos.map((r) => r?.estado)),
+      etapaReservacion: uniqueOptions(todos.map((r) => r?.etapa_reservacion)),
+      reservante: uniqueOptions(todos.map((r) => r?.reservante)),
+      metodoPagoReserva: uniqueOptions(todos.map((r) => r?.metodo_pago)),
+    };
+  }, [todos, uniqueOptions]);
 
-const DATE_FILTER_KEYS: (keyof ConciliacionFilters)[] = [
-  "created_start",
-  "created_end",
-  "check_in_start",
-  "check_in_end",
-  "check_out_start",
-  "check_out_end",
-  "fecha_reserva_start",
-  "fecha_reserva_end",
-  "filtrar_fecha_por_reserva",
-];
+  const DATE_FILTER_KEYS: (keyof ConciliacionFilters)[] = [
+    "created_start",
+    "created_end",
+    "check_in_start",
+    "check_in_end",
+    "check_out_start",
+    "check_out_end",
+    "fecha_reserva_start",
+    "fecha_reserva_end",
+    "filtrar_fecha_por_reserva",
+  ];
 
-const NON_DATE_FILTER_KEYS = (
-  Object.keys(EMPTY_FILTERS) as (keyof ConciliacionFilters)[]
-).filter((key) => !DATE_FILTER_KEYS.includes(key));
+  const NON_DATE_FILTER_KEYS = (
+    Object.keys(EMPTY_FILTERS) as (keyof ConciliacionFilters)[]
+  ).filter((key) => !DATE_FILTER_KEYS.includes(key));
 
-const load = useCallback(
+  const load = useCallback(
   async (overrideFilters: ConciliacionFilters) => {
     const controller = new AbortController();
     setIsLoading(true);
@@ -516,20 +658,9 @@ const load = useCallback(
     try {
       const params = new URLSearchParams();
 
-      const hasAnyOtherFilter = NON_DATE_FILTER_KEYS.some((key) => {
-        return String(overrideFilters[key] ?? "").trim() !== "";
-      });
-
       Object.entries(overrideFilters).forEach(([key, value]) => {
         const v = String(value ?? "").trim();
         if (!v) return;
-
-        const isDateFilter = DATE_FILTER_KEYS.includes(
-          key as keyof ConciliacionFilters
-        );
-
-        if (hasAnyOtherFilter && isDateFilter) return;
-
         params.append(key, v);
       });
 
@@ -560,18 +691,17 @@ const load = useCallback(
 
     return () => controller.abort();
   },
-  [endpoint]
+  [endpoint],
 );
 
   const refreshData = useCallback(() => {
-  void load(appliedFilters);
-}, [load, appliedFilters]);
+    void load(appliedFilters);
+  }, [load, appliedFilters]);
 
- useEffect(() => {
-  setAppliedFilters(DEFAULT_OPEN_FILTERS);
-  void load(DEFAULT_OPEN_FILTERS);
-}, [load]);
-
+  // useEffect(() => {
+  //   setAppliedFilters(DEFAULT_OPEN_FILTERS);
+  //   void load(DEFAULT_OPEN_FILTERS);
+  // }, [load]);
 
   const getSelectionKey = (rowOrValue: any, index?: number) => {
     if (typeof rowOrValue === "string" || typeof rowOrValue === "number") {
@@ -579,7 +709,8 @@ const load = useCallback(
       if (s !== "" && s !== "undefined" && s !== "null") return s;
     }
 
-    const row = rowOrValue && typeof rowOrValue === "object" ? rowOrValue : null;
+    const row =
+      rowOrValue && typeof rowOrValue === "object" ? rowOrValue : null;
 
     const id =
       row?.id_solicitud_proveedor ??
@@ -601,24 +732,29 @@ const load = useCallback(
     value: "",
   });
 
-const applyFilters = useCallback(() => {
-  const normalized = normalizeFiltersForRequest(filters);
-  setFilters(normalized);
-  setAppliedFilters(normalized);
+  const applyFilters = useCallback(() => {
+  const next = { ...filters };
+  setFilters(next);
+  setAppliedFilters(next);
   setShowFiltersModal(false);
-  void load(normalized);
+  void load(next);
 }, [filters, load]);
 
-const clearAllFilters = useCallback(() => {
-  setFilters(EMPTY_FILTERS);
-  setAppliedFilters(EMPTY_FILTERS);
-  setSearchInput("");
-  setShowFiltersModal(false);
-  void load(EMPTY_FILTERS);
-}, [load]);
+  const clearAllFilters = useCallback(() => {
+    setFilters(EMPTY_FILTERS);
+    setAppliedFilters(EMPTY_FILTERS);
+    setSearchInput("");
+    setShowFiltersModal(false);
+    void load(EMPTY_FILTERS);
+  }, [load]);
 
   const openEditModal = useCallback(
-    (rowIdSolicitudProveedor: string, idServicio: any, field: EditableField, currentValue: any) => {
+    (
+      rowIdSolicitudProveedor: string,
+      idServicio: any,
+      field: EditableField,
+      currentValue: any,
+    ) => {
       setEditModal({
         open: true,
         rowId: String(rowIdSolicitudProveedor),
@@ -627,7 +763,7 @@ const clearAllFilters = useCallback(() => {
         value: currentValue == null ? "" : String(currentValue),
       });
     },
-    []
+    [],
   );
 
   const closeEditModal = useCallback(() => {
@@ -635,7 +771,11 @@ const clearAllFilters = useCallback(() => {
   }, []);
 
   const handleEdit = useCallback(
-    async (rowIdSolicitudProveedor: string, field: EditableField | "consolidado", value: any) => {
+    async (
+      rowIdSolicitudProveedor: string,
+      field: EditableField | "consolidado",
+      value: any,
+    ) => {
       setDraftEdits((prev) => ({
         ...prev,
         [rowIdSolicitudProveedor]: {
@@ -644,12 +784,11 @@ const clearAllFilters = useCallback(() => {
         },
       }));
 
-      const normalizedValue =
-        MONEY_FIELDS.includes(field as EditableField)
-          ? String(value).trim() === ""
-            ? null
-            : Number(value)
-          : value;
+      const normalizedValue = MONEY_FIELDS.includes(field as EditableField)
+        ? String(value).trim() === ""
+          ? null
+          : Number(value)
+        : value;
 
       const apiField = FIELD_TO_API[field] ?? field;
 
@@ -670,7 +809,8 @@ const clearAllFilters = useCallback(() => {
         });
 
         const json = await resp.json().catch(() => null);
-        if (!resp.ok) throw new Error(json?.message || `Error HTTP: ${resp.status}`);
+        if (!resp.ok)
+          throw new Error(json?.message || `Error HTTP: ${resp.status}`);
 
         return true;
       } catch (err) {
@@ -678,7 +818,7 @@ const clearAllFilters = useCallback(() => {
         return false;
       }
     },
-    [editEndpoint]
+    [editEndpoint],
   );
 
   const saveEditModal = useCallback(async () => {
@@ -689,29 +829,33 @@ const clearAllFilters = useCallback(() => {
     void load(appliedFilters);
   }, [editModal, handleEdit, closeEditModal, load]);
 
-const filteredData = useMemo(() => {
-  const q = (searchInput || "").toUpperCase().trim();
+  const filteredData = useMemo(() => {
+    const q = (searchInput || "").toUpperCase().trim();
 
-  const filteredItems = todos.filter((raw) => {
-    if (!q) return true;
+    const filteredItems = todos.filter((raw) => {
+      if (!q) return true;
 
-    const hotel = String(raw?.hotel ?? "").toUpperCase();
-    const codigo = String(raw?.codigo_confirmacion ?? "").toUpperCase();
-    const viajero = String(raw?.nombre_viajero_completo ?? raw?.nombre_viajero ?? "").toUpperCase();
-    const proveedor = String(raw?.proveedor?.razon_social ?? raw?.razon_social ?? "").toUpperCase();
-    const idServicio = String(raw?.id_servicio ?? "").toUpperCase();
+      const hotel = String(raw?.hotel ?? "").toUpperCase();
+      const codigo = String(raw?.codigo_confirmacion ?? "").toUpperCase();
+      const viajero = String(
+        raw?.nombre_viajero_completo ?? raw?.nombre_viajero ?? "",
+      ).toUpperCase();
+      const proveedor = String(
+        raw?.proveedor?.razon_social ?? raw?.razon_social ?? "",
+      ).toUpperCase();
+      const idServicio = String(raw?.id_servicio ?? "").toUpperCase();
 
-    return (
-      hotel.includes(q) ||
-      codigo.includes(q) ||
-      viajero.includes(q) ||
-      proveedor.includes(q) ||
-      idServicio.includes(q)
-    );
-  });
+      return (
+        hotel.includes(q) ||
+        codigo.includes(q) ||
+        viajero.includes(q) ||
+        proveedor.includes(q) ||
+        idServicio.includes(q)
+      );
+    });
 
-  return filteredItems.map((raw, i) => toConciliacionRow(raw, i));
-}, [todos, searchInput]);
+    return filteredItems.map((raw, i) => toConciliacionRow(raw, i));
+  }, [todos, searchInput]);
 
   const cancelSolicitud = useCallback(
     async (id_solicitud_proveedor: string) => {
@@ -735,7 +879,8 @@ const filteredData = useMemo(() => {
         });
 
         const json = await resp.json().catch(() => null);
-        if (!resp.ok) throw new Error(json?.message || `Error HTTP: ${resp.status}`);
+        if (!resp.ok)
+          throw new Error(json?.message || `Error HTTP: ${resp.status}`);
 
         return true;
       } catch (err) {
@@ -744,93 +889,95 @@ const filteredData = useMemo(() => {
         return false;
       }
     },
-    [editEndpoint]
+    [editEndpoint],
   );
 
+  const toggleFacturaSelection = useCallback((row: AnyRow) => {
+    const rowId = String(getSelectionKey(row)).trim();
+    const idSolicitud = String(row?.id_solicitud_proveedor ?? "").trim();
+    const idProveedor = String(row?.id_proveedor ?? "").trim();
 
- const toggleFacturaSelection = useCallback((row: AnyRow) => {
-  const rowId = String(getSelectionKey(row)).trim();
-  const idSolicitud = String(row?.id_solicitud_proveedor ?? "").trim();
-  const idProveedor = String(row?.id_proveedor ?? "").trim();
-
-  if (!rowId || !idSolicitud || !idProveedor) {
-    alert("Faltan datos para seleccionar la solicitud");
-    return;
-  }
-
-  setFacturaSelection((prev) => {
-    const exists = !!prev[rowId];
-
-    if (exists) {
-      const next = { ...prev };
-      delete next[rowId];
-      return next;
+    if (!rowId || !idSolicitud || !idProveedor) {
+      alert("Faltan datos para seleccionar la solicitud");
+      return;
     }
 
-    const current = Object.values(prev);
-    if (current.length > 0) {
-      const first = current[0];
-      const sameProveedor =
-        String(first.id_proveedor).trim() === String(idProveedor).trim();
+    setFacturaSelection((prev) => {
+      const exists = !!prev[rowId];
 
-      if (!sameProveedor) {
-        alert("Solo puedes seleccionar solicitudes del mismo proveedor");
-        return prev;
+      if (exists) {
+        const next = { ...prev };
+        delete next[rowId];
+        return next;
       }
+
+      const current = Object.values(prev);
+      if (current.length > 0) {
+        const first = current[0];
+        const sameProveedor =
+          String(first.id_proveedor).trim() === String(idProveedor).trim();
+
+        if (!sameProveedor) {
+          alert("Solo puedes seleccionar solicitudes del mismo proveedor");
+          return prev;
+        }
+      }
+
+      return {
+        ...prev,
+        [rowId]: {
+          row_id: rowId,
+          id_solicitud: idSolicitud,
+          id_proveedor: idProveedor,
+        },
+      };
+    });
+  }, []);
+
+  const openSubirFacturaSingle = useCallback((item: AnyRow) => {
+    const idSolicitud = String(item?.id_solicitud_proveedor ?? "").trim();
+    const idProveedor = String(item?.id_proveedor ?? "").trim();
+
+    if (!idSolicitud || !idProveedor) {
+      alert("Falta id_solicitud o id_proveedor para subir factura");
+      return;
     }
 
-    return {
-      ...prev,
-      [rowId]: {
-        row_id: rowId,
+    setSelectedForFactura([
+      {
+        row_id: String(getSelectionKey(item)).trim(),
         id_solicitud: idSolicitud,
         id_proveedor: idProveedor,
       },
-    };
-  });
-}, []);
+    ]);
 
-const openSubirFacturaSingle = useCallback((item: AnyRow) => {
-  const idSolicitud = String(item?.id_solicitud_proveedor ?? "").trim();
-  const idProveedor = String(item?.id_proveedor ?? "").trim();
+    setShowSubirFactura(true);
+  }, []);
 
-  if (!idSolicitud || !idProveedor) {
-    alert("Falta id_solicitud o id_proveedor para subir factura");
-    return;
-  }
+  const openSubirFacturaSelected = useCallback(() => {
+    const selected = Object.values(facturaSelection);
 
-  setSelectedForFactura([
-    {
-      row_id: String(getSelectionKey(item)).trim(),
-      id_solicitud: idSolicitud,
-      id_proveedor: idProveedor,
-    },
-  ]);
+    if (selected.length === 0) {
+      alert("No has seleccionado solicitudes");
+      return;
+    }
 
-  setShowSubirFactura(true);
-}, []);
+    const first = selected[0];
+    const sameProvider = selected.every(
+      (x) =>
+        String(x.id_proveedor).trim() === String(first.id_proveedor).trim(),
+    );
 
-const openSubirFacturaSelected = useCallback(() => {
-  const selected = Object.values(facturaSelection);
+    if (!sameProvider) {
+      alert(
+        "Las solicitudes seleccionadas deben pertenecer al mismo proveedor",
+      );
+      return;
+    }
 
-  if (selected.length === 0) {
-    alert("No has seleccionado solicitudes");
-    return;
-  }
-
-  const first = selected[0];
-  const sameProvider = selected.every(
-    (x) => String(x.id_proveedor).trim() === String(first.id_proveedor).trim()
-  );
-
-  if (!sameProvider) {
-    alert("Las solicitudes seleccionadas deben pertenecer al mismo proveedor");
-    return;
-  }
-
-  setSelectedForFactura(selected);
-  setShowSubirFactura(true);
-}, [facturaSelection]);
+    setSelectedForFactura(selected);
+    setShowSubirFactura(true);
+  }, [facturaSelection]);
 
   const solicitarPagoCredito = useCallback(
     async (row: AnyRow) => {
@@ -842,6 +989,7 @@ const openSubirFacturaSelected = useCallback(() => {
 
       const payload = {
         id_solicitud_proveedor: id,
+        estado_solicitud: "SOLICITADA",
         is_ajuste: 1,
         comentario_ajuste: "pago solicitado",
       };
@@ -858,7 +1006,8 @@ const openSubirFacturaSelected = useCallback(() => {
         });
 
         const json = await resp.json().catch(() => null);
-        if (!resp.ok) throw new Error(json?.message || `Error HTTP: ${resp.status}`);
+        if (!resp.ok)
+          throw new Error(json?.message || `Error HTTP: ${resp.status}`);
 
         await load(appliedFilters);
         return true;
@@ -868,18 +1017,20 @@ const openSubirFacturaSelected = useCallback(() => {
         return false;
       }
     },
-    [editEndpoint, load]
+    [editEndpoint, load, appliedFilters],
   );
 
   const activeAppliedFilters = useMemo(() => {
-  return (Object.entries(appliedFilters) as [keyof ConciliacionFilters, string][])
-    .map(([key, value]) => ({
-      key,
-      label: FILTER_LABELS[key],
-      value: String(value ?? "").trim(),
-    }))
-    .filter((item) => item.value !== "");
-}, [appliedFilters]);
+    return (
+      Object.entries(appliedFilters) as [keyof ConciliacionFilters, string][]
+    )
+      .map(([key, value]) => ({
+        key,
+        label: FILTER_LABELS[key],
+        value: String(value ?? "").trim(),
+      }))
+      .filter((item) => item.value !== "");
+  }, [appliedFilters]);
 
   const customColumns = useMemo(
     () => [
@@ -914,8 +1065,9 @@ const openSubirFacturaSelected = useCallback(() => {
       "subir_factura",
       "acciones",
       "usuario_creador",
+      "fecha_solicitud",
     ],
-    []
+    [],
   );
 
   const isPagadoRow = useCallback(
@@ -930,7 +1082,7 @@ const openSubirFacturaSelected = useCallback(() => {
 
       return false;
     },
-    [EPS]
+    [EPS],
   );
 
   const isConsolidadoRow = (row: AnyRow) => Number(row?.consolidado ?? 0) === 1;
@@ -946,11 +1098,14 @@ const openSubirFacturaSelected = useCallback(() => {
       const done = await handleEdit(id, "consolidado", 1);
       if (done) await load(appliedFilters);
     },
-    [handleEdit, load]
+    [handleEdit, load],
   );
 
   const getRowClassName = useCallback((row: AnyRow) => {
-    const consolidado = Number((row as any)?.consolidado ?? (row as any)?.__raw?.consolidado ?? 0) || 0;
+    const consolidado =
+      Number(
+        (row as any)?.consolidado ?? (row as any)?.__raw?.consolidado ?? 0,
+      ) || 0;
     return consolidado === 1 ? "bg-blue-50" : "";
   }, []);
 
@@ -960,8 +1115,11 @@ const openSubirFacturaSelected = useCallback(() => {
     const pagado = Number(row?.__estatus_pago?.pagado ?? 0) || 0;
 
     const factura =
-      (String(row?.total_aplicable ?? "").trim() !== "" ? Number(row?.total_aplicable) : 0) ||
-      (Number(row?.total_facturado ?? 0) || 0) ;
+      (String(row?.total_aplicable ?? "").trim() !== ""
+        ? Number(row?.total_aplicable)
+        : 0) ||
+      Number(row?.total_facturado ?? 0) ||
+      0;
 
     const diff = Number((factura - pagado).toFixed(2));
     const ok = Math.abs(diff) <= TOLERANCIA_FACTURA_PAGO;
@@ -969,48 +1127,49 @@ const openSubirFacturaSelected = useCallback(() => {
     return { factura, pagado, diff, ok };
   }, []);
 
-const getFacturaInfo = useCallback((row: AnyRow) => {
-  const facturaPrincipal =
-    row?.informacion_completa?.facturas_proveedor?.facturas?.[0] ?? null;
+  const getFacturaInfo = useCallback((row: AnyRow) => {
+    const facturaPrincipal =
+      row?.informacion_completa?.facturas_proveedor?.facturas?.[0] ?? null;
 
-  const uuidFactura = String(
-    facturaPrincipal?.uuid_factura ??
-      row?.informacion_completa?.facturas_proveedor?.uuid_factura_principal ??
-      row?.uuid_factura ??
-      ""
-  ).trim();
+    const uuidFactura = String(
+      facturaPrincipal?.uuid_factura ??
+        row?.informacion_completa?.facturas_proveedor?.uuid_factura_principal ??
+        row?.uuid_factura ??
+        "",
+    ).trim();
 
-  const idFactura = String(
-    facturaPrincipal?.id_factura ??
-      row?.informacion_completa?.facturas_proveedor?.facturas?.[0]?.id_factura ??
-      ""
-  ).trim();
+    const idFactura = String(
+      facturaPrincipal?.id_factura ??
+        row?.informacion_completa?.facturas_proveedor?.facturas?.[0]
+          ?.id_factura ??
+        "",
+    ).trim();
 
-  const montoFacturadoRaw = facturaPrincipal?.monto_facturado;
+    const montoFacturadoRaw = facturaPrincipal?.monto_facturado;
 
-  const montoFacturadoNum = Number(montoFacturadoRaw);
+    const montoFacturadoNum = Number(montoFacturadoRaw);
 
-  // ✅ cuenta como factura si hay uuid o id_factura
-  const hasFactura = uuidFactura !== "" || idFactura !== "";
+    // ✅ cuenta como factura si hay uuid o id_factura
+    const hasFactura = uuidFactura !== "" || idFactura !== "";
 
-  // ✅ cuenta como "sí tiene monto" solo si es numérico y > 0
-  const hasMontoFacturado =
-    montoFacturadoRaw !== undefined &&
-    montoFacturadoRaw !== null &&
-    String(montoFacturadoRaw).trim() !== "" &&
-    String(montoFacturadoRaw).trim().toLowerCase() !== "null" &&
-    Number.isFinite(montoFacturadoNum) &&
-    montoFacturadoNum > 0;
+    // ✅ cuenta como "sí tiene monto" solo si es numérico y > 0
+    const hasMontoFacturado =
+      montoFacturadoRaw !== undefined &&
+      montoFacturadoRaw !== null &&
+      String(montoFacturadoRaw).trim() !== "" &&
+      String(montoFacturadoRaw).trim().toLowerCase() !== "null" &&
+      Number.isFinite(montoFacturadoNum) &&
+      montoFacturadoNum > 0;
 
-  return {
-    hasFactura,
-    hasMontoFacturado,
-    uuidFactura,
-    idFactura,
-    montoFacturadoRaw,
-    montoFacturadoNum,
-  };
-}, []);
+    return {
+      hasFactura,
+      hasMontoFacturado,
+      uuidFactura,
+      idFactura,
+      montoFacturadoRaw,
+      montoFacturadoNum,
+    };
+  }, []);
 
   const tableRenderers = useMemo<
     Record<string, React.FC<{ value: any; item: any; index: number }>>
@@ -1019,30 +1178,37 @@ const getFacturaInfo = useCallback((row: AnyRow) => {
       creado: ({ value }) => <span title={value}>{formatDate(value)}</span>,
       check_in: ({ value }) => <span title={value}>{formatDate(value)}</span>,
       check_out: ({ value }) => <span title={value}>{formatDate(value)}</span>,
+      fecha_solicitud: ({ value }) => <span title={value}>{formatDate(value)}</span>,
 
       codigo_hotel: ({ value }) => (
-        <span className="font-semibold">{value ? String(value).toUpperCase() : ""}</span>
+        <span className="font-semibold">
+          {value ? String(value).toUpperCase() : ""}
+        </span>
       ),
 
       costo_proveedor: ({ value, item }) => {
-  const rowId = getSelectionKey(item);
-  const v = draftEdits[rowId]?.costo_proveedor ?? value ?? "";
+        const rowId = getSelectionKey(item);
+        const v = draftEdits[rowId]?.costo_proveedor ?? value ?? "";
 
-  return (
-    <div className="flex items-center gap-2">
-      <span title={String(v)}>{formatMoney(v)}</span>
-      <Button
-        variant="secondary"
-        size="sm"
-        className="w-8 h-8 px-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-700"
-        onClick={() => openEditModal(rowId, item?.id_servicio, "costo_proveedor", v)}
-      >
-        …
-      </Button>
-    </div>
-  );
-},
-      precio_de_venta: ({ value }) => <span title={String(value)}>{formatMoney(value)}</span>,
+        return (
+          <div className="flex items-center gap-2">
+            <span title={String(v)}>{formatMoney(v)}</span>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="w-8 h-8 px-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-700"
+              onClick={() =>
+                openEditModal(rowId, item?.id_servicio, "costo_proveedor", v)
+              }
+            >
+              …
+            </Button>
+          </div>
+        );
+      },
+      precio_de_venta: ({ value }) => (
+        <span title={String(value)}>{formatMoney(value)}</span>
+      ),
 
       markup: ({ value }) => {
         const n = Number(value || 0);
@@ -1084,7 +1250,9 @@ const getFacturaInfo = useCallback((row: AnyRow) => {
               variant="secondary"
               size="sm"
               className="w-8 h-8 px-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-700"
-              onClick={() => openEditModal(rowId, item?.id_servicio, "comentarios_ops", v)}
+              onClick={() =>
+                openEditModal(rowId, item?.id_servicio, "comentarios_ops", v)
+              }
             >
               …
             </Button>
@@ -1092,33 +1260,34 @@ const getFacturaInfo = useCallback((row: AnyRow) => {
         );
       },
 
-seleccionar_factura: ({ item }) => {
-  const diff = Number(item?.diferencia_costo_proveedor_vs_factura ?? 0) || 0;
-  const facturaInfo = getFacturaInfo(item);
+      seleccionar_factura: ({ item }) => {
+        const diff =
+          Number(item?.diferencia_costo_proveedor_vs_factura ?? 0) || 0;
+        const facturaInfo = getFacturaInfo(item);
 
-  if (facturaInfo.hasFactura && !facturaInfo.hasMontoFacturado) {
-    return <span className="text-xs text-gray-300">—</span>;
-  }
+        if (facturaInfo.hasFactura && !facturaInfo.hasMontoFacturado) {
+          return <span className="text-xs text-gray-300">—</span>;
+        }
 
-  // ✅ si la diferencia es 0 o negativa, no mostrar select
-  if (diff <= 0) {
-    return <span className="text-xs text-gray-300">—</span>;
-  }
+        // ✅ si la diferencia es 0 o negativa, no mostrar select
+        if (diff <= 0) {
+          return <span className="text-xs text-gray-300">—</span>;
+        }
 
-  const rowId = String(getSelectionKey(item)).trim();
-  const checked = !!facturaSelection[rowId];
+        const rowId = String(getSelectionKey(item)).trim();
+        const checked = !!facturaSelection[rowId];
 
-  return (
-    <label className="inline-flex items-center justify-center cursor-pointer">
-      <input
-        type="checkbox"
-        className="w-4 h-4 accent-blue-600"
-        checked={checked}
-        onChange={() => toggleFacturaSelection(item)}
-      />
-    </label>
-  );
-},
+        return (
+          <label className="inline-flex items-center justify-center cursor-pointer">
+            <input
+              type="checkbox"
+              className="w-4 h-4 accent-blue-600"
+              checked={checked}
+              onChange={() => toggleFacturaSelection(item)}
+            />
+          </label>
+        );
+      },
 
       comentarios_cxp: ({ value, item }) => {
         const rowId = getSelectionKey(item);
@@ -1133,7 +1302,9 @@ seleccionar_factura: ({ item }) => {
               variant="secondary"
               size="sm"
               className="w-8 h-8 px-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-700"
-              onClick={() => openEditModal(rowId, item?.id_servicio, "comentarios_cxp", v)}
+              onClick={() =>
+                openEditModal(rowId, item?.id_servicio, "comentarios_cxp", v)
+              }
             >
               …
             </Button>
@@ -1154,26 +1325,26 @@ seleccionar_factura: ({ item }) => {
         );
       },
 
-subir_factura: ({ item }) => {
-  const diff = Number(item?.diferencia_costo_proveedor_vs_factura ?? 0) || 0;
+      subir_factura: ({ item }) => {
+        const diff =
+          Number(item?.diferencia_costo_proveedor_vs_factura ?? 0) || 0;
 
-  const facturaInfo = getFacturaInfo(item);
+        const facturaInfo = getFacturaInfo(item);
 
+        if (isZero(diff))
+          return <span className="text-xs text-gray-300">—</span>;
 
-
-  if (isZero(diff)) return <span className="text-xs text-gray-300">—</span>;
-
-  return (
-    <Button
-      variant="secondary"
-      size="sm"
-      className="px-2 py-1 text-xs border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-      onClick={() => openSubirFacturaSingle(item)}
-    >
-      Subir
-    </Button>
-  );
-},
+        return (
+          <Button
+            variant="secondary"
+            size="sm"
+            className="px-2 py-1 text-xs border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+            onClick={() => openSubirFacturaSingle(item)}
+          >
+            Subir
+          </Button>
+        );
+      },
 
       acciones: ({ item }) => {
         const row = item as AnyRow;
@@ -1189,7 +1360,7 @@ subir_factura: ({ item }) => {
         const estadoSolicitud = normUpper(
           row?.__raw?.solicitud_proveedor?.estado_solicitud ??
             row?.__raw?.estado_solicitud ??
-            ""
+            "",
         );
 
         const yaCancelada =
@@ -1198,9 +1369,10 @@ subir_factura: ({ item }) => {
         const disableCancelar = yaCancelada || pagado;
 
         const formaPago = String(
-          row?.informacion_completa?.solicitud_proveedor?.forma_pago_solicitada ??
+          row?.informacion_completa?.solicitud_proveedor
+            ?.forma_pago_solicitada ??
             row?.__raw?.forma_pago_solicitada ??
-            ""
+            "",
         ).toLowerCase();
 
         const esCredito = formaPago === "credit";
@@ -1209,10 +1381,11 @@ subir_factura: ({ item }) => {
           Number(
             row?.informacion_completa?.solicitud_proveedor?.is_ajuste ??
               row?.__raw?.is_ajuste ??
-              0
+              0,
           ) === 1;
 
-        const facturado = Number(row?.informacion_completa?.total_facturado_en_pfp) > 0;
+        const facturado =
+          Number(row?.informacion_completa?.total_facturado_en_pfp) > 0;
         const disableSolicitarPago = yaSolicitoPago || !facturado;
 
         return (
@@ -1306,14 +1479,20 @@ subir_factura: ({ item }) => {
         );
       },
 
-      total_facturado: ({ value }) => <span title={String(value)}>{formatMoney(value)}</span>,
+      total_facturado: ({ value }) => (
+        <span title={String(value)}>{formatMoney(value)}</span>
+      ),
 
       diferencia_costo_proveedor_vs_factura: ({ value }) => {
         const n = Number(value || 0);
         return (
           <span
             className={
-              n === 0 ? "text-gray-700" : n > 0 ? "text-amber-700 font-semibold" : "text-red-700 font-semibold"
+              n === 0
+                ? "text-gray-700"
+                : n > 0
+                  ? "text-amber-700 font-semibold"
+                  : "text-red-700 font-semibold"
             }
             title={String(value)}
           >
@@ -1327,32 +1506,30 @@ subir_factura: ({ item }) => {
           {value ? String(value).slice(0, 8) + "…" : "—"}
         </span>
       ),
-
     }),
-   [
-  draftEdits,
-  openEditModal,
-  openDetalle,
-  solicitarPagoCredito,
-  isPagadoRow,
-  handleConciliar,
-  cancelSolicitud,
-  load,
-  getFacturaInfo,
-  
-  facturaSelection,
-  toggleFacturaSelection,
-  openSubirFacturaSingle,
-]
+    [
+      draftEdits,
+      openEditModal,
+      openDetalle,
+      solicitarPagoCredito,
+      isPagadoRow,
+      handleConciliar,
+      cancelSolicitud,
+      load,
+      getFacturaInfo,
+
+      facturaSelection,
+      toggleFacturaSelection,
+      openSubirFacturaSingle,
+    ],
   );
 
-
-  
   const defaultSort = useMemo(() => ({ key: "creado", sort: false }), []);
 
-
-
-const selectedFacturaItems = useMemo(() => Object.values(facturaSelection), [facturaSelection]);
+  const selectedFacturaItems = useMemo(
+    () => Object.values(facturaSelection),
+    [facturaSelection],
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -1371,6 +1548,7 @@ const selectedFacturaItems = useMemo(() => Object.values(facturaSelection), [fac
               </div>
             </div>
 
+
             <div className="flex items-center justify-end gap-2">
               <Button
                 variant="secondary"
@@ -1379,18 +1557,20 @@ const selectedFacturaItems = useMemo(() => Object.values(facturaSelection), [fac
                 onClick={refreshData}
                 disabled={isLoading}
               >
-                <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
+                <RefreshCw
+                  className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`}
+                />
                 Refresh
               </Button>
               <Button
-  variant="secondary"
-  size="md"
-  className="border border-gray-200 bg-white hover:bg-gray-50 text-gray-800"
-  onClick={() => setShowFiltersModal(true)}
->
-  <Filter className="w-4 h-4" />
-  Filtros
-</Button>
+                variant="secondary"
+                size="md"
+                className="border border-gray-200 bg-white hover:bg-gray-50 text-gray-800"
+                onClick={() => setShowFiltersModal(true)}
+              >
+                <Filter className="w-4 h-4" />
+                Filtros
+              </Button>
 
               <Button
                 variant="secondary"
@@ -1412,61 +1592,63 @@ const selectedFacturaItems = useMemo(() => Object.values(facturaSelection), [fac
                 Aplicar filtros
               </Button>
               <Button
-  variant="secondary"
-  size="md"
-  className={[
-    "border text-gray-800",
-    selectedFacturaItems.length === 0
-      ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
-      : "border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800",
-  ].join(" ")}
-  onClick={openSubirFacturaSelected}
-  disabled={selectedFacturaItems.length === 0}
->
-  <span className="inline-flex items-center gap-2">
-    <span>Facturar seleccionadas</span>
-    <span className="px-2 py-0.5 rounded-full text-xs bg-white/80 border border-current">
-      {selectedFacturaItems.length}
-    </span>
-  </span>
-</Button>
+                variant="secondary"
+                size="md"
+                className={[
+                  "border text-gray-800",
+                  selectedFacturaItems.length === 0
+                    ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+                    : "border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800",
+                ].join(" ")}
+                onClick={openSubirFacturaSelected}
+                disabled={selectedFacturaItems.length === 0}
+              >
+                <span className="inline-flex items-center gap-2">
+                  <span>Facturar seleccionadas</span>
+                  <span className="px-2 py-0.5 rounded-full text-xs bg-white/80 border border-current">
+                    {selectedFacturaItems.length}
+                  </span>
+                </span>
+              </Button>
+
+              
             </div>
           </div>
 
-<FiltrosConciliacionModal
-  open={showFiltersModal}
-  filters={filters}
-  options={filterOptions}
-  onChange={(field, value) =>
-    setFilters((prev) => ({
-      ...prev,
-      [field]: value,
-    }))
-  }
-  onApply={applyFilters}
-  onClear={clearAllFilters}
-  onClose={() => setShowFiltersModal(false)}
-/>
-{(searchInput.trim() || activeAppliedFilters.length > 0) && (
-  <div className="mt-3 flex flex-wrap gap-2">
-    {searchInput.trim() !== "" && (
-      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs border border-sky-200 bg-sky-50 text-sky-700">
-        <span className="font-semibold">Búsqueda:</span>
-        <span>{searchInput.trim()}</span>
-      </span>
-    )}
+          <FiltrosConciliacionModal
+            open={showFiltersModal}
+            filters={filters}
+            options={filterOptions}
+            onChange={(field, value) =>
+              setFilters((prev) => ({
+                ...prev,
+                [field]: value,
+              }))
+            }
+            onApply={applyFilters}
+            onClear={clearAllFilters}
+            onClose={() => setShowFiltersModal(false)}
+          />
+          {(searchInput.trim() || activeAppliedFilters.length > 0) && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {searchInput.trim() !== "" && (
+                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs border border-sky-200 bg-sky-50 text-sky-700">
+                  <span className="font-semibold">Búsqueda:</span>
+                  <span>{searchInput.trim()}</span>
+                </span>
+              )}
 
-    {activeAppliedFilters.map((item) => (
-      <span
-        key={item.key}
-        className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs border border-gray-200 bg-gray-50 text-gray-700"
-      >
-        <span className="font-semibold">{item.label}:</span>
-        <span>{item.value}</span>
-      </span>
-    ))}
-  </div>
-)}
+              {activeAppliedFilters.map((item) => (
+                <span
+                  key={item.key}
+                  className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs border border-gray-200 bg-gray-50 text-gray-700"
+                >
+                  <span className="font-semibold">{item.label}:</span>
+                  <span>{item.value}</span>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="bg-white border border-gray-200 rounded-lg p-3 flex flex-col">
@@ -1479,12 +1661,25 @@ const selectedFacturaItems = useMemo(() => Object.values(facturaSelection), [fac
             fillHeight
             maxHeight="calc(100vh - 220px)"
             getRowClassName={getRowClassName as any}
-          />
+          >
+            <Button
+  variant="secondary"
+  size="md"
+  className="border border-violet-200 bg-violet-50 hover:bg-violet-100 text-violet-800"
+  onClick={openBuscarUuidModal}
+>
+  <Search className="w-4 h-4" />
+  Buscar UUID
+</Button>
+            </Table5>
         </div>
 
         {editModal.open && (
           <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div className="absolute inset-0 bg-black/40 z-0" onClick={closeEditModal} />
+            <div
+              className="absolute inset-0 bg-black/40 z-0"
+              onClick={closeEditModal}
+            />
 
             <div
               className="relative z-10 w-[min(720px,92vw)] bg-white rounded-xl shadow-lg border border-gray-200"
@@ -1492,9 +1687,15 @@ const selectedFacturaItems = useMemo(() => Object.values(facturaSelection), [fac
             >
               <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                 <div>
-                  <p className="text-sm font-semibold text-gray-900">Editar campo</p>
-                  <p className="text-xs text-gray-500">id_solicitud_proveedor: {editModal.rowId}</p>
-                  <p className="text-xs text-gray-500">Campo: {editModal.field}</p>
+                  <p className="text-sm font-semibold text-gray-900">
+                    Editar campo
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    id_solicitud_proveedor: {editModal.rowId}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Campo: {editModal.field}
+                  </p>
                 </div>
 
                 <Button
@@ -1508,11 +1709,14 @@ const selectedFacturaItems = useMemo(() => Object.values(facturaSelection), [fac
               </div>
 
               <div className="p-4">
-                {editModal.field === "comentarios_ops" || editModal.field === "comentarios_cxp" ? (
+                {editModal.field === "comentarios_ops" ||
+                editModal.field === "comentarios_cxp" ? (
                   <textarea
                     className="w-full min-h-[180px] border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
                     value={editModal.value}
-                    onChange={(e) => setEditModal((s) => ({ ...s, value: e.target.value }))}
+                    onChange={(e) =>
+                      setEditModal((s) => ({ ...s, value: e.target.value }))
+                    }
                     placeholder="Escribe el texto completo..."
                   />
                 ) : (
@@ -1521,7 +1725,9 @@ const selectedFacturaItems = useMemo(() => Object.values(facturaSelection), [fac
                     step="0.01"
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
                     value={editModal.value}
-                    onChange={(e) => setEditModal((s) => ({ ...s, value: e.target.value }))}
+                    onChange={(e) =>
+                      setEditModal((s) => ({ ...s, value: e.target.value }))
+                    }
                     placeholder="0.00"
                   />
                 )}
@@ -1555,37 +1761,55 @@ const selectedFacturaItems = useMemo(() => Object.values(facturaSelection), [fac
             <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
               <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
                 <h2 className="text-xl font-bold text-gray-800"></h2>
-                <button onClick={closeSubirFactura} className="text-gray-500 hover:text-gray-700">
+                <button
+                  onClick={closeSubirFactura}
+                  className="text-gray-500 hover:text-gray-700"
+                >
                   <X className="w-6 h-6" />
                 </button>
               </div>
 
               <div className="p-6">
-               <SubirFactura
-  proveedoresData={selectedForFactura}
-  id_proveedor={
-    selectedForFactura.length === 1
-      ? selectedForFactura[0]?.id_proveedor
-      : undefined
-  }
-  autoOpen={true}
-  onSuccess={() => {
-    closeSubirFactura();
-    // void load();
-  }}
-/>
+                <SubirFactura
+                  proveedoresData={selectedForFactura}
+                  id_proveedor={
+                    selectedForFactura.length === 1
+                      ? selectedForFactura[0]?.id_proveedor
+                      : undefined
+                  }
+                  autoOpen={true}
+                  onSuccess={() => {
+                    closeSubirFactura();
+                    // void load();
+                  }}
+                />
               </div>
             </div>
           </div>
         )}
 
-
-
-        {detalleOpen && <ModalDetalle solicitud={detalleSolicitud} onClose={closeDetalle} />}
-
-        
-
-        {isLoading && <div className="text-sm text-gray-500 px-2">Cargando información...</div>}
+        {detalleOpen && (
+          <ModalDetalle solicitud={detalleSolicitud} onClose={closeDetalle} />
+        )}
+<BuscarUuidFacturaModal
+  open={buscarUuidModal.open}
+  loading={buscarUuidModal.loading}
+  uuidFactura={buscarUuidModal.uuid_factura}
+  rows={buscarUuidModal.rows}
+  onClose={closeBuscarUuidModal}
+  onUuidChange={(value) =>
+    setBuscarUuidModal((prev) => ({
+      ...prev,
+      uuid_factura: value,
+    }))
+  }
+  onSearch={() => void buscarUuid()}
+/>
+        {isLoading && (
+          <div className="text-sm text-gray-500 px-2">
+            Cargando información...
+          </div>
+        )}
       </div>
     </div>
   );

@@ -6,6 +6,7 @@ import { Table5 } from "@/components/Table5";
 import { URL, API_KEY } from "@/lib/constants/index";
 import { Search, Filter, X, RefreshCw, Ban , CheckCircle} from "lucide-react";
 import Button from "@/components/atom/Button";
+import { ProveedorProvider } from "@/context/Proveedores";
 
 type AnyRow = Record<string, any>;
 type EstadoSaldo = "pending" | "applied" | "cancelled" | "";
@@ -62,7 +63,12 @@ function toSaldoFavorRow(raw: any, index: number): AnyRow {
 
     // saldos.*
     id_saldo: raw?.id_saldo ?? null,
-    id_proveedor: raw?.id_proveedor ?? null,
+
+    proveedor:raw.intermediario,
+    intermediario: Number(raw?.intermedirio ?? 0),
+    booking: raw?.reserva ?? null,
+    codigo_confirmacion: raw?.codigo_confirmacion ?? null,
+    negociacion: raw?.negociacion ?? null,
     monto: Number(raw?.monto ?? 0) || 0,
     restante: Number(raw?.restante ?? 0) || 0,
     forma_pago,
@@ -80,16 +86,13 @@ function toSaldoFavorRow(raw: any, index: number): AnyRow {
     // solicitudes_pago_proveedor (join)
     fecha_solicitud: raw?.fecha_solicitud ?? null,
     monto_solicitado: Number(raw?.monto_solicitado_solicitud ?? 0) || 0,
-    estatus_pagos: raw?.estatus_pagos ?? "",
     comentario_CXP: raw?.comentario_CXP ?? "",
 
     // proveedores (join)
-    proveedor_id: raw?.proveedor_id ?? null,
-    proveedor: raw?.proveedor ?? "",
+    // proveedor_id: raw?.proveedor_id ?? null,
+    // proveedor: raw?.proveedor ?? "",
     type: raw?.type ?? "",
     convenio: Number(raw?.convenio ?? 0) || 0,
-    negociacion: raw?.negociacion ?? "",
-    estatus_proveedor: Number(raw?.estatus_proveedor ?? 0) || 0,
     internacional: Number(raw?.internacional ?? 0) || 0,
     estado_proveedor: raw?.estado_proveedor ?? "",
     ciudad: raw?.ciudad ?? "",
@@ -239,18 +242,20 @@ export default function SaldoAFavorProveedoresPage() {
     () => [
       "id_saldo",
       "proveedor",
+      "intermediario",
+      "booking",
+      "codigo_confirmacion",
       "type",
       "restante",
       "monto",
       "forma_pago",
       "fecha_procesamiento",
-      "referencia",
+      "negociacion",
       "estado",
       "fecha_solicitud",
       "id_solicitud",
-      "estatus_pagos",
       "comentario_CXP",
-      "acciones", // ✅ solo Cancelar (pending)
+      "acciones",
     ],
     []
   );
@@ -272,9 +277,9 @@ export default function SaldoAFavorProveedoresPage() {
         );
       },
 
-      referencia: ({ value }) => (
-        <span className="text-xs" title={String(value ?? "")}>
-          {truncateText(value, 34)}
+      intermediario: ({ value }) => (
+        <span className="text-xs font-medium">
+          {Number(value) === 1 ? "Sí" : "No"}
         </span>
       ),
 

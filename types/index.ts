@@ -92,6 +92,7 @@ export interface TypeFilters {
     | "Sin Asignar"
     | null;
   id_factura?: string | null;
+  uuid_factura?: string | null;
 }
 
 export interface EmpresaFromAgent {

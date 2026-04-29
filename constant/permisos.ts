@@ -27,8 +27,9 @@ export const PERMISOS = {
   },
   COMPONENTES: {
     BOTON: {
+      WALLET_CREDITO:"row.wallet_credito_mostrar",
       PAGAR_PROVEEDOR: "button.pagar-proveedor-reserva",
-      SALDO_A_FAVOR:"button.saldo-favor-proveedor",
+      SALDO_A_FAVOR: "button.saldo-favor-proveedor",
       CREAR_RESERVA: "button.crear-reserva",
       EDITAR_PRECIO_RESERVA: "button.edit-price-booking",
       ACTUALIZAR_PDF_FACTURA: "button.actualizar_factura_pdf",
@@ -45,6 +46,9 @@ export const PERMISOS = {
       PROVEEDORES_EDICIONES: "button.proveedores.edicion",
       PROVEEDORES_EDICIONES_FINANZAS: "button.proveedores.fiscal",
     },
+  },
+  ACCIONES: {
+    EDITAR_SALDO_CLIENTE: "input.credito_cliente",
   },
   VERSION: {
     AGREGAR_WALLET_OPERACIONES: "modal.operaciones-agregar-wallet",

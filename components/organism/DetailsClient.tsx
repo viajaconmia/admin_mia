@@ -10,7 +10,6 @@ import {
   CreditCard,
   ExternalLink,
 } from "lucide-react";
-import { createNewEmpresa, updateViajero } from "@/hooks/useDatabase";
 import { formatDate } from "@/helpers/utils";
 import {
   CheckboxInput,
@@ -26,6 +25,9 @@ import {
   fetchUpdateEmpresasAgentes,
 } from "@/services/agentes";
 import Modal from "@/components/organism/Modal";
+import { usePermiso } from "@/hooks/usePermission";
+import { PERMISOS } from "@/constant/permisos";
+import { useAlert } from "@/context/useAlert";
 
 export function AgentDetailsCard({ agente }: { agente: Agente }) {
   const [edicion, setEdicion] = useState({
@@ -34,7 +36,9 @@ export function AgentDetailsCard({ agente }: { agente: Agente }) {
     agente: {},
   });
   const [empresas, setEmpresas] = useState<EmpresaFromAgent[]>([]);
+  const { info } = useAlert();
   const [link, setLink] = useState<null | string>(null);
+  const { hasPermission } = usePermiso();
   const [form, setForm] = useState({
     numero_empleado: agente.numero_empleado || "",
     vendedor: agente.vendedor || "",
@@ -153,6 +157,10 @@ export function AgentDetailsCard({ agente }: { agente: Agente }) {
               />
               <NumberInput
                 onChange={(value) => {
+                  if (!hasPermission(PERMISOS.ACCIONES.EDITAR_SALDO_CLIENTE)) {
+                    info("No tienes permiso para editar el saldo del cliente");
+                    return;
+                  }
                   setEdicion((prev) => ({
                     ...prev,
                     agente: {
@@ -369,8 +377,8 @@ export function AgentDetailsCard({ agente }: { agente: Agente }) {
                           previus.map((current_company, current_id) =>
                             current_id == id
                               ? { ...company, tiene_credito: value ? 1 : 0 }
-                              : current_company
-                          )
+                              : current_company,
+                          ),
                         );
                       }}
                       label=""
@@ -421,8 +429,8 @@ export function AgentDetailsCard({ agente }: { agente: Agente }) {
                             previus.map((current_company, current_id) =>
                               current_id == id
                                 ? { ...company, monto_credito: Number(value) }
-                                : current_company
-                            )
+                                : current_company,
+                            ),
                           );
                         }}
                         value={company.monto_credito}

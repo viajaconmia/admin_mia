@@ -103,6 +103,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
 
   const [isReservaOpen, setIsReservaOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [SelectedTtular, setSelectedTitular] = useState(null);
   const [cupon, setCupon] = useState<Boolean | null>(null);
   const [loading, setLoading] = useState<Boolean | null>(true);
   const [selectedFavorSaldoId, setSelectedFavorSaldoId] = useState<string>("");
@@ -140,6 +141,9 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
       return estado === "approved" && restante > 0;
     });
   }, [saldosProveedor]);
+
+  const getTitularId = (titular: any) =>
+    titular?.id_titular ?? titular?.idTitular ?? titular?.titular_id ?? null;
 
   const saldoFavorDisponible = useMemo(() => {
     return to2(
@@ -345,6 +349,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
   );
 
   const titularFromSelectedCard = useMemo(() => {
+    console.log(titularesData, "😎😎😎");
     if (!currentSelectedCard || !Array.isArray(titularesData)) return null;
 
     const possibleId =
@@ -366,7 +371,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
       titularesData.find((t: any) => {
         const sameId =
           possibleId != null &&
-          String(t?.idTitular ?? "") === String(possibleId);
+          String(getTitularId(t) ?? "") === String(possibleId);
 
         const sameName =
           possibleName &&
@@ -385,6 +390,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
     return titularesData.map((titular: any) => ({
       label: titular.Titular,
       value: titular.identificacion,
+      id: titular.idTitular,
       item: titular,
     }));
   }, [titularesData]);
@@ -392,12 +398,13 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
   useEffect(() => {
     fetchData();
     fetchTitulares();
+    console.log(titularesData, "🤬🤬🤬🤬🤬");
   }, [fetchData, fetchTitulares]);
 
   /** ===== Titulares ===== */
   const currentTitular = Array.isArray(titularesData)
     ? titularesData.find(
-        (t: any) => String(t.idTitular) === String(selectedTitularId),
+        (t: any) => String(getTitularId(t)) === String(selectedTitularId),
       )
     : null;
 
@@ -499,7 +506,6 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
     // fallback clásico
     pdf?.save?.(filename);
   };
-
   const generateQRPaymentPDF = async () => {
     if (!document)
       throw new Error("Falta seleccionar el documento que aparecerá");
@@ -529,13 +535,8 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
       },
       bancoEmisor: currentSelectedCard.banco_emisor,
       fechaExpiracion: currentSelectedCard.fecha_vencimiento,
-      nombreTarjeta:
-        titularFromSelectedCard?.Titular ||
-        currentSelectedCard?.Titular ||
-        currentSelectedCard?.titular ||
-        currentSelectedCard?.nombre_titular ||
-        "",
       documento: titularFromSelectedCard?.identificacion || document || "",
+      nombreTarjeta: SelectedTtular.titular,
       numeroTarjeta: currentSelectedCard.numero_completo,
       cvv: currentSelectedCard.cvv,
       reservations: [
@@ -726,8 +727,16 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
             throw new Error(err?.message || "No se pudo generar el PDF.");
           }
         }
-
         if (paymentMethod === "link" || paymentMethod === "card") {
+          const documentoTitularId =
+            getTitularId(currentTitular) ||
+            getTitularId(titularFromSelectedCard) ||
+            document ||
+            "";
+          console.log("informacion del titular1", currentTitular);
+          console.log("informacion del titular2", titularFromSelectedCard);
+          console.log("informacion del titular3", documentoTitularId);
+
           fetchCreateSolicitud(
             {
               selectedCard,
@@ -736,6 +745,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
               comments_cxp: commentsCxp,
               paymentMethod,
               paymentType,
+              documento: documentoTitularId,
               monto_a_pagar,
               id_hospedaje: (reservation as any).id_booking,
               paymentStatus: derivedStatus,
@@ -1316,10 +1326,24 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                     value: { value: string; label: string; item: any } | null,
                   ) => {
                     if (!value) return;
+
+                    const titularSeleccionado = value?.item ?? null;
+                    const documentoSeleccionado = value?.value ?? "";
+                    const idTitularSeleccionado =
+                      getTitularId(titularSeleccionado);
+
+                    console.log("📄 Identificación seleccionada:", {
+                      label: value?.label,
+                      documento_para_qr_pdf: documentoSeleccionado,
+                      id_titular_para_payload: idTitularSeleccionado,
+                      titular_completo: titularSeleccionado,
+                    });
+                    setSelectedTitular(titularSeleccionado);
+
                     dispatch({
                       type: "SET_FIELD",
                       field: "document",
-                      payload: value.value,
+                      payload: documentoSeleccionado,
                     });
                   }}
                   options={selectFiles}
@@ -1397,6 +1421,11 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                   value={selectedCard || ""}
                   options={creditCards
                     .filter((item: any) => item.activa === true)
+                    .sort((a: any, b: any) => {
+                      const nameA = (a?.name ?? "").toLowerCase();
+                      const nameB = (b?.name ?? "").toLowerCase();
+                      return nameA.localeCompare(nameB);
+                    })
                     .map((item: any) => ({
                       value: item.id,
                       label: item.name,
@@ -1422,11 +1451,18 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                   <option value="">-- Selecciona un titular --</option>
 
                   {Array.isArray(titularesData) &&
-                    titularesData.map((t: any) => (
-                      <option key={t.idTitular} value={String(t.idTitular)}>
-                        {t.Titular}
-                      </option>
-                    ))}
+                    titularesData.map((t: any) => {
+                      const titularId = getTitularId(t);
+
+                      return (
+                        <option
+                          key={String(titularId)}
+                          value={String(titularId)}
+                        >
+                          {t.Titular}
+                        </option>
+                      );
+                    })}
                 </select>
 
                 {currentTitular?.identificacion && (

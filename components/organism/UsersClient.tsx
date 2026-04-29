@@ -20,6 +20,8 @@ import { fetchCompaniesAgent } from "@/hooks/useFetch";
 import { createNewViajero, updateViajero } from "@/hooks/useDatabase";
 import { deleteTraveler } from "@/hooks/useDatabase";
 import { formatDate } from "@/helpers/formater";
+import { ExtraService } from "@/services/ExtraServices";
+import { useAlert } from "@/context/useAlert";
 
 // Types
 interface Company {
@@ -57,7 +59,7 @@ interface SortState {
 }
 
 const createTraveler = async (
-  traveler: Partial<Traveler>
+  traveler: Partial<Traveler>,
 ): Promise<Traveler> => {
   // Replace with actual API call
   const response = await fetch("/api/travelers", {
@@ -84,12 +86,13 @@ const updateTraveler = async (traveler: Traveler): Promise<Traveler> => {
 export function UsersClient({ agente }: { agente: Agente }) {
   const queryClient = useQueryClient();
   const client = agente.id_agente;
+  const { error, success } = useAlert();
 
   // Queries and Mutations
   const fetchCompaniesData = async () => {
     try {
       const response = await fetchViajerosByAgente(
-        Array.isArray(client) ? client[0] : client
+        Array.isArray(client) ? client[0] : client,
       );
       console.log(response);
       return response;
@@ -127,7 +130,7 @@ export function UsersClient({ agente }: { agente: Agente }) {
     try {
       const responseCompany = await createNewViajero(
         formData,
-        selectedEmpresas
+        selectedEmpresas,
       );
       if (!responseCompany.success) {
         throw new Error("No se pudo registrar al viajero");
@@ -143,7 +146,7 @@ export function UsersClient({ agente }: { agente: Agente }) {
       const responseCompany = await updateViajero(
         formData,
         selectedEmpresas,
-        selectedTraveler.id_viajero
+        selectedTraveler.id_viajero,
       );
       if (!responseCompany.success) {
         throw new Error("No se pudo actualizar al viajero");
@@ -166,11 +169,11 @@ export function UsersClient({ agente }: { agente: Agente }) {
   });
 
   const [selectedTraveler, setSelectedTraveler] = useState<Traveler | null>(
-    null
+    null,
   );
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<"view" | "edit" | "create">(
-    "view"
+    "view",
   );
   const [formData, setFormData] = useState<Partial<Traveler>>({});
 
@@ -221,7 +224,7 @@ export function UsersClient({ agente }: { agente: Agente }) {
     const nacionalidades = new Set(
       travelers
         .map((t) => t.nacionalidad)
-        .filter((nacionalidad): nacionalidad is string => !!nacionalidad)
+        .filter((nacionalidad): nacionalidad is string => !!nacionalidad),
     );
     return Array.from(nacionalidades).sort();
   }, [travelers]);
@@ -234,24 +237,24 @@ export function UsersClient({ agente }: { agente: Agente }) {
       });
     });
     return Array.from(empresasSet).sort((a, b) =>
-      a.razon_social.localeCompare(b.razon_social)
+      a.razon_social.localeCompare(b.razon_social),
     );
   }, [travelers]);
 
   const [empresas, setEmpresas] = useState<Company[]>([]);
   const [selectedEmpresas, setSelectedEmpresas] = useState(
-    selectedTraveler?.empresas?.map((e) => e.id_empresa) || []
+    selectedTraveler?.empresas?.map((e) => e.id_empresa) || [],
   );
   const handleCheckboxChange = (event: any) => {
     const { value, checked } = event.target;
     setSelectedEmpresas((prev) =>
-      checked ? [...prev, value] : prev.filter((id) => id !== value)
+      checked ? [...prev, value] : prev.filter((id) => id !== value),
     );
   };
 
   const fetchData = async () => {
     const data = await fetchCompaniesAgent(
-      Array.isArray(client) ? client[0] : client
+      Array.isArray(client) ? client[0] : client,
     );
     setEmpresas(data);
   };
@@ -270,7 +273,7 @@ export function UsersClient({ agente }: { agente: Agente }) {
   };
 
   const handleFilterChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
     const { name, value } = e.target;
     setFilters((prev) => ({ ...prev, [name]: value }));
@@ -278,7 +281,7 @@ export function UsersClient({ agente }: { agente: Agente }) {
 
   const handleOpenModal = (
     mode: "view" | "edit" | "create",
-    traveler?: Traveler
+    traveler?: Traveler,
   ) => {
     setModalMode(mode);
     fetchData();
@@ -475,7 +478,7 @@ export function UsersClient({ agente }: { agente: Agente }) {
                       <span
                         className={cn(
                           "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium",
-                          "bg-blue-100 text-blue-800"
+                          "bg-blue-100 text-blue-800",
                         )}
                       >
                         {traveler.nacionalidad || "—"}
@@ -496,7 +499,25 @@ export function UsersClient({ agente }: { agente: Agente }) {
                           <Edit className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => handleDelete(traveler.id_viajero)}
+                          onClick={() =>
+                            ExtraService.getInstance()
+                              .deleteTraveler(traveler.id_viajero)
+                              .then((res) => {
+                                if (res.message) {
+                                  success("Viajero eliminado correctamente");
+                                } else {
+                                  error("Error al eliminar viajero");
+                                }
+                              })
+                              .catch((err) => {
+                                error(
+                                  err.message || "Error al eliminar viajero",
+                                );
+                              })
+                              .finally(() => {
+                                refetchCompanies();
+                              })
+                          }
                           className="text-red-400 hover:text-red-500"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -520,8 +541,8 @@ export function UsersClient({ agente }: { agente: Agente }) {
                 {modalMode === "view"
                   ? "Detalles del Viajero"
                   : modalMode === "edit"
-                  ? "Editar Viajero"
-                  : "Nuevo Viajero"}
+                    ? "Editar Viajero"
+                    : "Nuevo Viajero"}
               </h2>
               <button
                 onClick={handleCloseModal}
@@ -844,7 +865,7 @@ export function UsersClient({ agente }: { agente: Agente }) {
                                 name="empresa"
                                 value={empresa.id_empresa}
                                 checked={selectedEmpresas.includes(
-                                  empresa.id_empresa
+                                  empresa.id_empresa,
                                 )}
                                 onChange={handleCheckboxChange}
                                 className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"

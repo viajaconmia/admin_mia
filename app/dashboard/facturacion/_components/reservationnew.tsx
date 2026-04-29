@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useDeferredValue, useEffect, useMemo, useState } from "react";
 import { fetchReservationsFacturacion } from "@/services/reservas";
 import { Table4 } from "@/components/organism/Table4";
 import { format } from "date-fns";
@@ -32,15 +32,20 @@ interface Reservation {
   razon_social?: string;
   nombre_viajero?: string | null;
   hotel: string;
-  codigo_reservacion_hotel: string | null;
+  codigo_confirmacion: string | null;
+  codigo_reservacion_hotel?: string | null;
   check_in: string;
   check_out: string;
   room: string;
+  tipo_cuarto?: string | null;
   total: string;
   costo_total?: string;
   pendiente_por_cobrar: number;
   id_booking: string | null;
   id_factura: string | null;
+  id_hospedaje?: string | null;
+  correo?: string | null;
+  rfc?: string | null;
   items?: Item[];
 }
 
@@ -285,6 +290,7 @@ const ReservationsWithTable4: React.FC = () => {
 
   const [filters, setFilters] = useState<TypeFilters>(DEFAULT_RESERVA_FILTERS);
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const deferredSearch = useDeferredValue(searchTerm);
 
   const [reservations, setReservations] = useState<ReservationWithItems[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -396,6 +402,7 @@ const applySearchReservation = (
 
   return list.filter((r) => {
     const haystack = [
+      r.codigo_confirmacion,
       r.codigo_reservacion_hotel,
       r.id_usuario_generador,
       r.razon_social,
@@ -406,6 +413,9 @@ const applySearchReservation = (
       r.id_booking,
       r.correo,
       r.rfc,
+      r.tipo_cuarto,
+      r.nombre_agente,
+      r.proveedor
     ]
       .map(norm)
       .join(" | ");
@@ -448,119 +458,7 @@ useEffect(() => {
     return map;
   }, [reservations]);
 
-  // Decide qué campo de fecha usar según filterType
-  const pickDate = (r: Reservation, filterType?: TypeFilters["filterType"]) => {
-    switch (filterType) {
-      case "Check-in":
-        return r.check_in;
-      case "Check-out":
-        return r.check_out;
-      case "Creacion":
-        return r.created_at;
-      default:
-        return r.check_in;
-    }
-  };
-
   const tokens = (s?: string | null) => norm(s).split(" ").filter(Boolean);
-
-  // Aplica todos los filtros soportados por las columnas de la tabla
-  const applyFiltersReservation = (
-    list: ReservationWithItems[],
-    f: TypeFilters,
-    q: string,
-  ) => {
-    const qTokens = tokens(q); // palabras buscadas (AND)
-
-    return list.filter((r) => {
-      // ---- 1) SEARCH global (AND por tokens en el "haystack") ----
-      if (qTokens.length) {
-        const haystack = [
-          r.codigo_reservacion_hotel,
-          r.id_usuario_generador,
-          r.razon_social,
-          r.hotel,
-          r.nombre_viajero,
-          r.id_servicio,
-          r.room,
-        ]
-          .map(norm)
-          .join(" | ");
-
-        const okAll = qTokens.every((t) => haystack.includes(t));
-        if (!okAll) return false;
-      }
-
-      // ---- 2) Filtros por texto exacto / contiene (normalizados) ----
-      // id_agente: suele ser id exacto -> igualdad estricta normalizada
-      if (f.id_agente) {
-        if (norm(r.id_usuario_generador) !== norm(f.id_agente)) return false;
-      }
-
-      // nombre_agente, hotel, traveler, codigo_reservacion: contiene (case/accents-insensitive)
-      if (f.nombre_agente) {
-        if (!norm(r.razon_social).includes(norm(f.nombre_agente))) return false;
-      }
-
-      if (f.hotel) {
-        if (!norm(r.hotel).includes(norm(f.hotel))) return false;
-      }
-
-      if (f.traveler) {
-        if (!norm(r.nombre_viajero).includes(norm(f.traveler))) return false;
-      }
-
-      if (f.codigo_reservacion) {
-        if (
-          !norm(r.codigo_reservacion_hotel).includes(norm(f.codigo_reservacion))
-        )
-          return false;
-      }
-
-      // ---- 3) Filtro por fechas (rango) ----
-      if (f.startDate || f.endDate) {
-        const dateStr = pickDate(r, f.filterType);
-        const d = new Date(dateStr);
-        if (Number.isNaN(d.getTime())) return false;
-
-        if (f.startDate) {
-          const sd = new Date(f.startDate as string);
-          sd.setHours(0, 0, 0, 0);
-          if (d < sd) return false;
-        }
-        if (f.endDate) {
-          const ed = new Date(f.endDate as string);
-          ed.setHours(23, 59, 59, 999);
-          if (d > ed) return false;
-        }
-      }
-
-      // ---- 4) Rango noches (startCantidad / endCantidad) ----
-      const nights = Math.max(
-        0,
-        Math.ceil(
-          (new Date(r.check_out).getTime() - new Date(r.check_in).getTime()) /
-            (1000 * 60 * 60 * 24),
-        ),
-      );
-      if (typeof f.startCantidad === "number" && nights < f.startCantidad)
-        return false;
-      if (typeof f.endCantidad === "number" && nights > f.endCantidad)
-        return false;
-
-      // ---- 5) Rango markup ----
-      const costoProveedor = Number(r.costo_total || 0);
-      const precioVenta = Number(r.total || 0);
-      const markUp = Math.max(0, precioVenta - costoProveedor);
-
-      if (typeof f.markup_start === "number" && markUp < f.markup_start)
-        return false;
-      if (typeof f.markup_end === "number" && markUp > f.markup_end)
-        return false;
-
-      return true;
-    });
-  };
 
   // ---- selección por RESERVA (todos los items facturables) ----
   const toggleReservationSelection = (reservationId: string) => {
@@ -660,7 +558,7 @@ useEffect(() => {
     const agentIds = reservasSeleccionadas
       .map(
         (id) =>
-          reservations.find((r) => r.id_booking === id)?.id_usuario_generador,
+          reservations.find((r) => r.id_booking === id)?.id_agente,
       )
       .filter((v): v is string => !!v);
 
@@ -737,24 +635,13 @@ useEffect(() => {
     setShowSubirFacModal(false);
   };
 
-  // ---- filas para Table4 ----
-  // const rows = useMemo(() => {
-  //   // 0) Origen: pendientes o todas
-  //   const base = onlyPending
-  //     ? reservations.filter(hasPendingItems)
-  //     : reservations;
-
-  //   // 1) Aplica filtros + search
-  //   const filtradas = applyFiltersReservation(base, filters, searchTerm);
-
-  //   // 2) Mapea a rows de la tabla creando nuevos objetos para React
-  //   return filtradas.map((r, index) => {
+  
 const rows = useMemo(() => {
   const base = onlyPending
     ? reservations.filter(hasPendingItems)
     : reservations;
 
-  const searched = applySearchReservation(base, searchTerm);
+  const searched = applySearchReservation(base, deferredSearch);
 
   return searched.map((r) => {
     const noches = Math.max(
@@ -770,25 +657,34 @@ const rows = useMemo(() => {
     const markUp = Math.max(0, precioVenta - costoProveedor);
 
     const items = r.items ?? [];
-    const totalFacturado = items
-      .filter((it) => it?.id_factura != null)
-      .reduce((acc, it) => acc + Number((it as any).total || 0), 0);
 
-    const pendientePorFacturar = Math.max(0, precioVenta - totalFacturado);
+const totalFacturado = items
+  .filter((it) => it?.id_factura != null)
+  .reduce((acc, it) => acc + Number((it as any).total || 0), 0);
+
+const totalItems = items
+  .reduce((acc, it) => acc + Number((it as any).total || 0), 0);
+
+const pendientePorFacturar = Math.max(
+  0,
+   (totalFacturado === 0 ? totalItems : totalFacturado)
+);
+    console.log(pendientePorFacturar,"=",precioVenta,"-",totalFacturado )
+    console.log(items )
 
     return {
       id: `${r.id_booking}`,
       seleccionado: { ...r },
-      id_cliente: r.id_usuario_generador,
-      cliente: r.razon_social ?? "",
+      id_cliente: r.id_agente,
+      cliente: r.nombre_comercial ?? "",
       creado: r.created_at,
-      hotel: r.hotel,
-      codigo_hotel: r.codigo_reservacion_hotel ?? "",
+      proveedor: r.proveedor,
+      codigo_confirmacion: r.codigo_confirmacion ?? "",
       viajero: r.nombre_viajero ?? "",
       check_in: r.check_in,
       check_out: r.check_out,
       noches,
-      tipo_cuarto: r.tipo_cuarto ?? "",
+      tipo_cuarto: r.tipo_cuarto_vuelo ?? "",
       mark_up: markUp,
       precio_de_venta: precioVenta,
       pendiente_por_facturar: pendientePorFacturar,
@@ -798,7 +694,7 @@ const rows = useMemo(() => {
       },
     };
   });
-}, [reservations, onlyPending, searchTerm]);
+}, [reservations, onlyPending, deferredSearch]);
 
   useEffect(() => {
     if (!rows.length) return;
@@ -924,8 +820,8 @@ const rows = useMemo(() => {
     "id_cliente",
     "cliente",
     "creado",
-    "hotel",
-    "codigo_hotel",
+    "proveedor",
+    "codigo_confirmacion",
     "viajero",
     "check_in",
     "check_out",
@@ -1030,7 +926,7 @@ const rows = useMemo(() => {
         <FacturacionModal
           selectedItems={selectedItems}
           selectedHospedaje={selectHospedaje} // 👈 NUEVO
-          reservationsInit={reservations}
+          reservationsInit={reservations as any}
           onClose={() => setShowFacturacionModal(false)}
           onConfirm={confirmFacturacion}
         />

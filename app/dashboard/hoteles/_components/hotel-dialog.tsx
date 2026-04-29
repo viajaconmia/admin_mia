@@ -832,6 +832,7 @@ export function HotelDialog({
 
     const fetchData = async () => {
       try {
+        if (!hotel.id_hotel) return;
         const service = ProveedoresService.getInstance();
 
         const proveedorRes = await service.getProveedores({
@@ -861,6 +862,35 @@ export function HotelDialog({
     console.log(hotel);
     if (hotel.id_hotel) fetchData();
   }, [hotelRates, hotel?.id_hotel]);
+  const fetchDataFiscal = async () => {
+    try {
+      if (!hotel.id_hotel) return;
+      const service = ProveedoresService.getInstance();
+
+      const proveedorRes = await service.getProveedores({
+        id_hotel: hotel.id_hotel,
+      });
+
+      if (!proveedorRes.data.length) {
+        throw new Error("No hay proveedor");
+      }
+
+      setProveedor({
+        ...mapProveedor(proveedorRes.data[0]),
+      });
+      const datosFiscalesRes = await service.getDatosFiscales(
+        proveedorRes.data[0].id,
+      );
+      console.log(proveedorRes);
+      console.log(datosFiscalesRes);
+      setDatosFiscales(datosFiscalesRes.data);
+    } catch (err: any) {
+      showNotification(
+        "error",
+        err?.message || "Error al obtener el proveedor",
+      );
+    }
+  };
 
   const fetchHotelRates = async (idHotel: string) => {
     try {
@@ -3642,6 +3672,7 @@ export function HotelDialog({
                       registros={datosFiscales.map(({ ...rest }) => ({
                         ...rest,
                         edit: { ...rest, id_proveedor: proveedor.id },
+                        delete: { ...rest },
                       }))}
                       renderers={{
                         edit: ({ value }: { value: DatosFiscales }) => (
@@ -3657,6 +3688,27 @@ export function HotelDialog({
                               onClick={() => handleEditClick(value)}
                             >
                               Editar
+                            </Button>
+                          </Can>
+                        ),
+                        delete: ({ value }: { value: DatosFiscales }) => (
+                          <Can
+                            permiso={
+                              PERMISOS.COMPONENTES.GROUP
+                                .PROVEEDORES_EDICIONES_FINANZAS
+                            }
+                          >
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={async () => {
+                                await ProveedoresService.getInstance().dropDataFiscal(
+                                  value.id_relacion,
+                                );
+                                await fetchDataFiscal();
+                              }}
+                            >
+                              Eliminar
                             </Button>
                           </Can>
                         ),

@@ -1143,7 +1143,10 @@ export const TextInputSuggestions = ({
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
         setIsOpen(false);
         setFocus(null);
       }
@@ -1155,10 +1158,14 @@ export const TextInputSuggestions = ({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!isOpen || filteredOptions.length === 0) return;
     if (e.key === "ArrowDown") {
-      setFocus((prev) => (prev === filteredOptions.length - 1 ? 0 : (prev ?? -1) + 1));
+      setFocus((prev) =>
+        prev === filteredOptions.length - 1 ? 0 : (prev ?? -1) + 1,
+      );
       e.preventDefault();
     } else if (e.key === "ArrowUp") {
-      setFocus((prev) => (prev === 0 ? filteredOptions.length - 1 : (prev ?? 0) - 1));
+      setFocus((prev) =>
+        prev === 0 ? filteredOptions.length - 1 : (prev ?? 0) - 1,
+      );
       e.preventDefault();
     } else if (e.key === "Enter" && focus !== null) {
       onChange(filteredOptions[focus]);

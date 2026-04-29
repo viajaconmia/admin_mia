@@ -1516,9 +1516,7 @@ export function ReservationForm({
                   <Button
                     type="button"
                     disabled={
-                      loading ||
-                      isTotalZero ||
-                      solicitud.agente.saldo < form.venta.total
+                      loading || solicitud.agente.saldo < form.venta.total
                     }
                     onClick={handleCreditPayment}
                     className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2"

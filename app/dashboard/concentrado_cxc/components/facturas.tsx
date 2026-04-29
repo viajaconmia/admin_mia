@@ -503,14 +503,14 @@
 
       return {
         id_factura: factura.id_factura,
-        monto_aplicado: montoAplicado,
+        monto_asignado: montoAplicado,
         saldo_restante_factura: Math.max(0, saldoFactura - montoAplicado),
       };
     })
-    .filter((x) => x.monto_aplicado > 0);
+    .filter((x) => x.monto_asignado > 0);
 
   const montoAplicable = aplicacionesPorFactura.reduce(
-    (acc, item) => acc + item.monto_aplicado,
+    (acc, item) => acc + item.monto_asignado,
     0
   );
 
@@ -548,6 +548,7 @@
     id_agente: id_agente,
     id_factura: idsFacturasSeleccionadas,
     detalle_aplicacion: aplicacionesPorFactura,
+    facturaData:aplicacionesPorFactura,
   };
 
   console.log("Payload a enviar:", payload);

@@ -189,7 +189,7 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
         onConfirm?.();
         setLoading(false);
       } else {
-        if ((details.precio ?? 0) <= 0)
+        if ((details.precio ?? 0) < -1)
           throw new Error("El precio debe ser mayor a 0");
 
         const res = state
@@ -204,13 +204,23 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
               "is_eq_personal",
               "is_eq_documentado",
               "ubicacion_asiento",
+              "asiento",
             ]),
           )
           .some(Boolean);
 
-        if (res || isSomeNull(details as any, ["intermediario"])) {
+        if (
+          res ||
+          isSomeNull(details as any, ["intermediario", "precio", "costo"])
+        ) {
           throw new Error("Parece ser que dejaste algunos campos vacíos");
         }
+
+        if (typeof details.precio !== "number")
+          throw new Error("El precio debe ser un número");
+
+        if (typeof details.costo !== "number")
+          throw new Error("El costo debe ser un número");
 
         setOpenPago(true);
       }
@@ -720,8 +730,8 @@ const emptyVuelo: Vuelo = {
 const initialDetails: Details = {
   codigo: null,
   viajero: null,
-  costo: null,
-  precio: null,
+  costo: 0,
+  precio: 0,
   status: "confirmada",
 };
 

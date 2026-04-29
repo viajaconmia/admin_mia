@@ -1718,17 +1718,7 @@ const formatDateWithoutTZ = (dateValue: Date | string | null) => {
                 return getWalletRowClass(row.wallet_credito, row.activo);
               }}
               renderers={tableRenderers}
-              customColumns={[
-                "saldo",
-                "fecha_De_Pago",
-                "tipo_tarjeta",
-                "forma_de_pago",
-                "creado",
-                "acciones",
-                "referencia",
-                "link_stripe",
-                "facturable",
-              ]}
+              
               defaultSort={{
                 key: "creado", // Default sort column
                 sort: false, // Default sort direction

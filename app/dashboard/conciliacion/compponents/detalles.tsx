@@ -129,12 +129,23 @@ type FacturaDraft = {
   monto_asociar: string;
 };
 
-function getFacturaKey(f: any) {
+function getFacturaBaseKey(f: any) {
   return (
     safeString(f?.id_factura_proveedor) ||
     safeString(f?.uuid_cfdi) ||
     safeString(f?.uuid_factura)
   );
+}
+
+function getFacturaRowKey(f: any, idx: number) {
+  return [
+    safeString(f?.id_factura_proveedor),
+    safeString(f?.uuid_cfdi),
+    safeString(f?.uuid_factura),
+    String(idx),
+  ]
+    .filter(Boolean)
+    .join("__");
 }
 
 function round2(n: number) {
@@ -157,64 +168,205 @@ function getTaxRateDecimal(f: any) {
   return pct > 0 ? pct / 100 : 0;
 }
 
+function getFacturaBaseAmounts(f: any) {
+  const subtotalFactura = toNum(
+    f?.subtotal_factura ??
+      f?.subtotal_moneda_O ??
+      f?.sub_total_moneda_O ??
+      f?.subtotal ??
+      0
+  );
+
+  const impuestosFactura = toNum(
+    f?.impuestos_factura ??
+      f?.impuestos_moneda_O ??
+      f?.impuestos ??
+      0
+  );
+
+  const totalFactura = toNum(
+    f?.total_factura ??
+      f?.total_moneda_O ??
+      f?.total ??
+      subtotalFactura + impuestosFactura
+  );
+
+  const baseTotal =
+    subtotalFactura > 0 || impuestosFactura > 0
+      ? round2(subtotalFactura + impuestosFactura)
+      : round2(totalFactura);
+
+  return {
+    subtotalFactura: round2(subtotalFactura),
+    impuestosFactura: round2(impuestosFactura),
+    totalFactura: round2(baseTotal),
+  };
+}
+
+function getFacturaRatios(f: any) {
+  const { subtotalFactura, impuestosFactura, totalFactura } =
+    getFacturaBaseAmounts(f);
+
+  if (totalFactura > 0 && (subtotalFactura > 0 || impuestosFactura > 0)) {
+    return {
+      subtotalRatio: subtotalFactura / totalFactura,
+      impuestosRatio: impuestosFactura / totalFactura,
+    };
+  }
+
+  const taxRateDecimal = getTaxRateDecimal(f);
+
+  if (taxRateDecimal > 0) {
+    return {
+      subtotalRatio: 1 / (1 + taxRateDecimal),
+      impuestosRatio: taxRateDecimal / (1 + taxRateDecimal),
+    };
+  }
+
+  return {
+    subtotalRatio: 1,
+    impuestosRatio: 0,
+  };
+}
+
+function splitMontoAsociadoProporcional(monto: number, factura: any) {
+  const montoAsociar = round2(monto);
+
+  if (montoAsociar <= 0) {
+    return {
+      subtotal: 0,
+      impuestos: 0,
+      monto_asociar: 0,
+    };
+  }
+
+  const { subtotalRatio, impuestosRatio } = getFacturaRatios(factura);
+
+  const subtotal = round2(montoAsociar * subtotalRatio);
+  const impuestos = round2(montoAsociar - subtotal);
+
+  return {
+    subtotal,
+    impuestos: impuestosRatio > 0 ? impuestos : 0,
+    monto_asociar: montoAsociar,
+  };
+}
+
+function toDraftString(n: number) {
+  return Number.isFinite(n) ? String(round2(n)) : "";
+}
+
 function recalcDraftFromField(
   field: "subtotal" | "impuestos" | "monto_asociar",
   rawValue: string,
   current: FacturaDraft,
-  taxRateDecimal: number
+  factura: any
 ): FacturaDraft {
-  if (String(rawValue ?? "").trim() === "") {
+  const raw = String(rawValue ?? "");
+
+  if (raw.trim() === "") {
+    if (field === "monto_asociar") {
+      return {
+        subtotal: "",
+        impuestos: "",
+        monto_asociar: "",
+      };
+    }
+
     return {
       ...current,
       [field]: "",
     };
   }
 
-  let subtotal = toNum(current.subtotal);
-  let impuestos = toNum(current.impuestos);
-  let monto_asociar = toNum(current.monto_asociar);
-  const value = toNum(rawValue);
+  const value = toNum(raw);
+  const { subtotalRatio, impuestosRatio } = getFacturaRatios(factura);
 
   if (field === "monto_asociar") {
-    monto_asociar = value;
+    const next = splitMontoAsociadoProporcional(value, factura);
 
-    if (taxRateDecimal > 0) {
-      subtotal = round2(monto_asociar / (1 + taxRateDecimal));
-      impuestos = round2(monto_asociar - subtotal);
-    } else {
-      subtotal = round2(monto_asociar);
-      impuestos = 0;
-    }
+    return {
+      subtotal: toDraftString(next.subtotal),
+      impuestos: toDraftString(next.impuestos),
+      monto_asociar: raw,
+    };
   }
 
   if (field === "subtotal") {
-    subtotal = value;
-    impuestos = round2(subtotal * taxRateDecimal);
-    monto_asociar = round2(subtotal + impuestos);
+    const monto_asociar =
+      subtotalRatio > 0 ? round2(value / subtotalRatio) : round2(value);
+
+    const next = splitMontoAsociadoProporcional(monto_asociar, factura);
+
+    return {
+      subtotal: raw,
+      impuestos: toDraftString(next.impuestos),
+      monto_asociar: toDraftString(next.monto_asociar),
+    };
   }
 
-  if (field === "impuestos") {
-    impuestos = value;
+  const monto_asociar =
+    impuestosRatio > 0 ? round2(value / impuestosRatio) : round2(value);
 
-    if (taxRateDecimal > 0) {
-      subtotal = round2(impuestos / taxRateDecimal);
-    } else {
-      subtotal = 0;
-    }
-
-    monto_asociar = round2(subtotal + impuestos);
-  }
+  const next = splitMontoAsociadoProporcional(monto_asociar, factura);
 
   return {
-    subtotal: toFixedInput(subtotal),
-    impuestos: toFixedInput(impuestos),
-    monto_asociar: toFixedInput(monto_asociar),
+    subtotal: toDraftString(next.subtotal),
+    impuestos: raw,
+    monto_asociar: toDraftString(next.monto_asociar),
   };
+}
+
+function buildDraftsFromFacturas(facturas: any[]): Record<string, FacturaDraft> {
+  const next: Record<string, FacturaDraft> = {};
+
+  facturas.forEach((f: any, idx: number) => {
+    const key = getFacturaRowKey(f, idx);
+
+    const subtotalAsociado = toNum(
+      f?.subtotal_facturado ?? f?.subtotal_asociado ?? 0
+    );
+
+    const impuestosAsociado = toNum(
+      f?.impuestos_facturado ?? f?.impuestos_asociados ?? 0
+    );
+
+    const montoAsociado = round2(
+      subtotalAsociado > 0 || impuestosAsociado > 0
+        ? subtotalAsociado + impuestosAsociado
+        : toNum(f?.monto_facturado_relacion ?? f?.total_asociado_factura ?? 0)
+    );
+
+    if (montoAsociado > 0) {
+      if (subtotalAsociado > 0 || impuestosAsociado > 0) {
+        next[key] = {
+          subtotal: toFixedInput(subtotalAsociado),
+          impuestos: toFixedInput(impuestosAsociado),
+          monto_asociar: toFixedInput(montoAsociado),
+        };
+      } else {
+        const parts = splitMontoAsociadoProporcional(montoAsociado, f);
+
+        next[key] = {
+          subtotal: toFixedInput(parts.subtotal),
+          impuestos: toFixedInput(parts.impuestos),
+          monto_asociar: toFixedInput(parts.monto_asociar),
+        };
+      }
+    } else {
+      next[key] = {
+        subtotal: "",
+        impuestos: "",
+        monto_asociar: "",
+      };
+    }
+  });
+
+  return next;
 }
 
 const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose }) => {
   const endpoint = `${URL}/mia/pago_proveedor/detalles`;
-  const editEndpoint = `${URL}/mia/pago_proveedor/edit`;
   const asignarMontoFactEndpoint = `${URL}/mia/pago_proveedor/asignar_monto_fact`;
   const deleteFacturaEndpoint = `${URL}/mia/pago_proveedor/edit_factura`;
 
@@ -250,10 +402,15 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose }) => {
         const json = await resp.json().catch(() => null);
 
         if (!resp.ok) {
-          throw new Error(json?.message || json?.error || `Error HTTP: ${resp.status}`);
+          throw new Error(
+            json?.message || json?.error || `Error HTTP: ${resp.status}`
+          );
         }
 
         setData(json);
+
+        const facturas = Array.isArray(json?.data?.facturas) ? json.data.facturas : [];
+        setDrafts(buildDraftsFromFacturas(facturas));
       } catch (e: any) {
         if (e?.name === "AbortError") return;
         console.error("❌ Error cargando detalles:", e);
@@ -284,27 +441,6 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose }) => {
   const facturasApi = Array.isArray(api?.facturas) ? api.facturas : [];
   const resumen = api?.resumen_validacion ?? null;
 
-useEffect(() => {
-  const next: Record<string, FacturaDraft> = {};
-
-  for (const f of facturasApi) {
-    const key = getFacturaKey(f);
-    if (!key) continue;
-
-    const maximo = toNum(f?.maximo_a_asociar);
-    const asociado = toNum(f?.total_asociado_factura);
-    const montoDefault = asociado > 0 ? asociado : maximo;
-
-    next[key] = {
-      subtotal: toInputMoney(f?.subtotal),
-      impuestos: toInputMoney(f?.impuestos),
-      monto_asociar: toInputMoney(montoDefault),
-    };
-  }
-
-  setDrafts(next);
-}, [facturasApi]);
-
 const setDraftField = useCallback(
   (
     factura: any,
@@ -312,8 +448,6 @@ const setDraftField = useCallback(
     field: "subtotal" | "impuestos" | "monto_asociar",
     value: string
   ) => {
-    const taxRateDecimal = getTaxRateDecimal(factura);
-
     setDrafts((prev) => {
       const current = prev[facturaKey] || {
         subtotal: "",
@@ -323,146 +457,114 @@ const setDraftField = useCallback(
 
       return {
         ...prev,
-        [facturaKey]: recalcDraftFromField(
-          field,
-          value,
-          current,
-          taxRateDecimal
-        ),
+        [facturaKey]: recalcDraftFromField(field, value, current, factura),
       };
     });
   },
   []
 );
 
-
-useEffect(() => {
-  const next: Record<string, FacturaDraft> = {};
-
-  for (const f of facturasApi) {
-    const key = getFacturaKey(f);
-    if (!key) continue;
-
-    const taxRateDecimal = getTaxRateDecimal(f);
-
-    const subtotalBase = toNum(
-      f?.subtotal_facturado ?? f?.subtotal_asociado ?? 0
-    );
-    const impuestosBase = toNum(
-      f?.impuestos_facturado ?? f?.impuestos_asociados ?? 0
-    );
-    const montoBase =
-      subtotalBase > 0 || impuestosBase > 0
-        ? round2(subtotalBase + impuestosBase)
-        : toNum(f?.monto_facturado_relacion ?? 0);
-
-    if (montoBase > 0 && subtotalBase === 0 && impuestosBase === 0) {
-      const draft = recalcDraftFromField(
-        "monto_asociar",
-        String(montoBase),
-        { subtotal: "", impuestos: "", monto_asociar: "" },
-        taxRateDecimal
-      );
-
-      next[key] = draft;
-    } else {
-      next[key] = {
-        subtotal: toFixedInput(subtotalBase),
-        impuestos: toFixedInput(impuestosBase),
-        monto_asociar: toFixedInput(montoBase),
-      };
-    }
-  }
-
-  setDrafts(next);
-}, [facturasApi]);
-
-
-
-const saveFactura = useCallback(
-  async (factura: any) => {
-    const facturaKey = getFacturaKey(factura);
-    if (!facturaKey) {
-      alert("No se encontró identificador de la factura");
-      return;
-    }
-
-    const draft = drafts[facturaKey];
-    if (!draft) return;
-
-    const id_solicitud_proveedor = safeString(payload.id_solicitud_proveedor);
-    const id_factura_proveedor = safeString(factura?.id_factura_proveedor);
-    const uuid_factura = safeString(factura?.uuid_cfdi ?? factura?.uuid_factura);
-
-    const subtotalFacturado = toApiNumber(draft.subtotal) ?? 0;
-    const impuestosFacturado = toApiNumber(draft.impuestos) ?? 0;
-    const montoAsociar = round2(subtotalFacturado + impuestosFacturado);
-    const maximo = toNum(factura?.maximo_a_asociar);
-
-    if (subtotalFacturado < 0 || impuestosFacturado < 0) {
-      alert("Subtotal e impuestos deben ser mayores o iguales a 0");
-      return;
-    }
-
-    if (montoAsociar <= 0) {
-      alert("El monto a asociar debe ser mayor a 0");
-      return;
-    }
-
-    if (montoAsociar > maximo) {
-      alert(`El monto a asociar no puede ser mayor a ${formatMoney(maximo)}`);
-      return;
-    }
-
-    try {
-      setSavingKey(facturaKey);
-
-      const body = {
-        id_solicitud_proveedor,
-        id_factura_proveedor,
-        uuid_factura,
-        subtotal_facturado: subtotalFacturado,
-        impuestos_facturado: impuestosFacturado,
-      };
-
-      const resp = await fetch(asignarMontoFactEndpoint, {
-        method: "POST",
-        headers: {
-          "x-api-key": API_KEY || "",
-          "Content-Type": "application/json",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-        },
-        body: JSON.stringify(body),
-      });
-
-      const json = await resp.json().catch(() => null);
-
-      if (!resp.ok) {
-        throw new Error(json?.message || json?.error || `Error HTTP: ${resp.status}`);
-      }
-
-      await fetchDetalles();
-    } catch (e: any) {
-      console.error("❌ Error guardando factura:", e);
-      alert(e?.message || "Error al guardar la factura");
-    } finally {
-      setSavingKey(null);
-    }
-  },
-  [drafts, asignarMontoFactEndpoint, fetchDetalles, payload.id_solicitud_proveedor]
-);
-
-  const deleteFactura = useCallback(
+  const saveFactura = useCallback(
     async (factura: any) => {
-      const facturaKey = getFacturaKey(factura);
+      const facturaKey = safeString(factura?.facturaKey);
       if (!facturaKey) {
-        alert("No se encontró identificador de la factura");
+        alert("No se encontró identificador de la fila");
         return;
       }
 
+      const draft = drafts[facturaKey];
+      if (!draft) return;
+
       const id_solicitud_proveedor = safeString(payload.id_solicitud_proveedor);
       const id_factura_proveedor = safeString(factura?.id_factura_proveedor);
-      const uuid_factura = safeString(factura?.uuid_cfdi ?? factura?.uuid_factura);
+      const uuid_factura = safeString(
+        factura?.uuid_cfdi ?? factura?.uuid_factura
+      );
+
+     const montoAsociar = toApiNumber(draft.monto_asociar) ?? 0;
+
+const partesAsociadas = splitMontoAsociadoProporcional(montoAsociar, factura);
+const subtotalFacturado = partesAsociadas.subtotal;
+const impuestosFacturado = partesAsociadas.impuestos;
+
+const totalYaAsociado = toNum(
+  factura?.monto_facturado_relacion ?? factura?.total_asociado_factura ?? 0
+);
+
+const maximoAdicional = toNum(factura?.maximo_a_asociar);
+const maximoTotalPermitido = round2(totalYaAsociado + maximoAdicional);
+
+      if (subtotalFacturado < 0 || impuestosFacturado < 0) {
+        alert("Subtotal e impuestos deben ser mayores o iguales a 0");
+        return;
+      }
+
+      if (montoAsociar <= 0) {
+        alert("El monto a asociar debe ser mayor a 0");
+        return;
+      }
+
+      if (montoAsociar > maximoTotalPermitido) {
+  alert(
+    `El monto a asociar no puede ser mayor a ${formatMoney(
+      maximoTotalPermitido
+    )} (asociado actual ${formatMoney(
+      totalYaAsociado
+    )} + adicional disponible ${formatMoney(maximoAdicional)})`
+  );
+  return;
+}
+
+      try {
+        setSavingKey(facturaKey);
+
+        const body = {
+          id_solicitud_proveedor,
+          id_factura_proveedor,
+          uuid_factura,
+          subtotal_facturado: subtotalFacturado,
+          impuestos_facturado: impuestosFacturado,
+        };
+
+        const resp = await fetch(asignarMontoFactEndpoint, {
+          method: "POST",
+          headers: {
+            "x-api-key": API_KEY || "",
+            "Content-Type": "application/json",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+          },
+          body: JSON.stringify(body),
+        });
+
+        const json = await resp.json().catch(() => null);
+
+        if (!resp.ok) {
+          throw new Error(
+            json?.message || json?.error || `Error HTTP: ${resp.status}`
+          );
+        }
+
+        await fetchDetalles();
+      } catch (e: any) {
+        console.error("❌ Error guardando factura:", e);
+        alert(e?.message || "Error al guardar la factura");
+      } finally {
+        setSavingKey(null);
+      }
+    },
+    [drafts, asignarMontoFactEndpoint, fetchDetalles, payload.id_solicitud_proveedor]
+  );
+
+  const deleteFactura = useCallback(
+    async (factura: any) => {
+      const facturaKey = safeString(factura?.facturaKey);
+      const id_solicitud_proveedor = safeString(payload.id_solicitud_proveedor);
+      const id_factura_proveedor = safeString(factura?.id_factura_proveedor);
+      const uuid_factura = safeString(
+        factura?.uuid_cfdi ??
+          factura?.uuid_factura ??
+          factura?.uuid_factura_full
+      );
 
       const ok = window.confirm(
         `¿Seguro que deseas eliminar esta factura?\n\nUUID: ${uuid_factura || "—"}`
@@ -489,7 +591,9 @@ const saveFactura = useCallback(
         const json = await resp.json().catch(() => null);
 
         if (!resp.ok) {
-          throw new Error(json?.message || json?.error || `Error HTTP: ${resp.status}`);
+          throw new Error(
+            json?.message || json?.error || `Error HTTP: ${resp.status}`
+          );
         }
 
         await fetchDetalles();
@@ -497,13 +601,14 @@ const saveFactura = useCallback(
         console.error("❌ Error eliminando factura:", e);
         alert(e?.message || "Error al eliminar la factura");
       } finally {
-  setDeletingKey(null);
-}
+        setDeletingKey(null);
+      }
     },
     [deleteFacturaEndpoint, fetchDetalles, payload.id_solicitud_proveedor]
   );
 
-  const montoSolicitado = resumen?.monto_solicitado ?? solicitudApi?.monto_solicitado ?? 0;
+  const montoSolicitado =
+    resumen?.monto_solicitado ?? solicitudApi?.monto_solicitado ?? 0;
   const totalAsociadoSolicitud = resumen?.total_asociado_solicitud ?? 0;
   const restanteSolicitud = resumen?.restante_solicitud ?? 0;
   const totalPagado = resumen?.total_pagado ?? 0;
@@ -513,17 +618,24 @@ const saveFactura = useCallback(
 
 const facturasTable = useMemo(() => {
   return facturasApi.map((f: any, idx: number) => {
-    const facturaKey = getFacturaKey(f) || String(idx);
+    const facturaKey = getFacturaRowKey(f, idx);
     const draft = drafts[facturaKey] || {
       subtotal: "",
       impuestos: "",
       monto_asociar: "",
     };
 
+    const totalAsociado = toNum(
+      f?.monto_facturado_relacion ?? f?.total_asociado_factura ?? 0
+    );
+    const maximoAdicional = toNum(f?.maximo_a_asociar);
+    const maximoTotalPermitido = round2(totalAsociado + maximoAdicional);
+
     return {
-      ...f,
-      row_id: facturaKey,
+      id: facturaKey,
       facturaKey,
+      rawFactura: f,
+
       uuid_factura_full:
         safeString(f?.uuid_cfdi) || safeString(f?.uuid_factura) || "—",
       razon_social_view:
@@ -533,20 +645,21 @@ const facturasTable = useMemo(() => {
         "—",
       rfc_view: safeString(f?.rfc_emisor) || safeString(f?.rfc) || "—",
 
-      porcentaje_impuesto_view: `${toNum(
-        f?.porcentaje_impuesto ?? f?.tasa_impuesto ?? 0
-      )}%`,
+      total_factura_view: toNum(f?.total_factura || f?.total),
+      total_asociado_factura_view: totalAsociado,
+      restante_factura_view: toNum(f?.restante_factura),
+      maximo_a_asociar_view: maximoAdicional,
+      maximo_total_permitido_view: maximoTotalPermitido,
 
       subtotal_edit: draft.subtotal,
       impuestos_edit: draft.impuestos,
       monto_asociar_edit: draft.monto_asociar,
 
-      total_factura_view: toNum(f?.total_factura || f?.total),
-      total_asociado_factura_view: toNum(f?.total_asociado_factura),
-      restante_factura_view: toNum(f?.restante_factura),
-      maximo_a_asociar_view: toNum(f?.maximo_a_asociar),
-
-      acciones: "acciones",
+      acciones: {
+        ...f,
+        facturaKey,
+        rawFactura: f,
+      },
     };
   });
 }, [facturasApi, drafts]);
@@ -602,87 +715,93 @@ const facturasTable = useMemo(() => {
         </span>
       ),
 
-      maximo_a_asociar_view: ({ value }: any) => (
-        <span className="text-xs text-green-700 font-semibold">
-          {formatMoney(value)}
-        </span>
-      ),
-
-subtotal_edit: ({ item }: any) => {
-      const facturaKey = String(item?.facturaKey ?? "");
-      return (
-        <input
-          type="number"
-          step="0.01"
-          value={drafts[facturaKey]?.subtotal ?? ""}
-          onChange={(e) =>
-            setDraftField(item, facturaKey, "subtotal", e.target.value)
-          }
-          className="w-full min-w-[110px] border border-gray-200 rounded-lg px-2 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
-          placeholder="0.00"
-        />
-      );
-    },
-
-    impuestos_edit: ({ item }: any) => {
-      const facturaKey = String(item?.facturaKey ?? "");
-      return (
-        <input
-          type="number"
-          step="0.01"
-          value={drafts[facturaKey]?.impuestos ?? ""}
-          onChange={(e) =>
-            setDraftField(item, facturaKey, "impuestos", e.target.value)
-          }
-          className="w-full min-w-[110px] border border-gray-200 rounded-lg px-2 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
-          placeholder="0.00"
-        />
-      );
-    },
-
       monto_asociar_edit: ({ item }: any) => {
-      const facturaKey = String(item?.facturaKey ?? "");
-      const maximo = toNum(item?.maximo_a_asociar_view);
-      const monto = toNum(drafts[facturaKey]?.monto_asociar ?? 0);
-      const excedido = monto > maximo;
+  const facturaKey = String(item?.facturaKey ?? "");
+  const maximo = toNum(item?.maximo_total_permitido_view);
+  const adicional = toNum(item?.maximo_a_asociar_view);
+  const asociadoActual = toNum(item?.total_asociado_factura_view);
+  const monto = toNum(drafts[facturaKey]?.monto_asociar ?? 0);
+  const excedido = monto > maximo;
 
-      return (
-        <div className="min-w-[150px]">
-          <input
-            type="number"
-            step="0.01"
-            value={drafts[facturaKey]?.monto_asociar ?? ""}
-            onChange={(e) =>
-              setDraftField(item, facturaKey, "monto_asociar", e.target.value)
-            }
-            className={`w-full border rounded-lg px-2 py-2 text-sm outline-none focus:ring-2 ${
-              excedido
-                ? "border-red-300 focus:ring-red-100 text-red-700"
-                : "border-gray-200 focus:ring-blue-100"
-            }`}
-            placeholder="0.00"
-          />
-          <p className="mt-1 text-[10px] text-gray-500">
-            Máximo: {formatMoney(maximo)}
-          </p>
-        </div>
-      );
-    },
+  return (
+    <div key={`${facturaKey}-monto`} className="min-w-[170px]">
+      <input
+        type="number"
+        step="0.01"
+        value={drafts[facturaKey]?.monto_asociar ?? ""}
+        onChange={(e) =>
+          setDraftField(
+            item?.rawFactura ?? item,
+            facturaKey,
+            "monto_asociar",
+            e.target.value
+          )
+        }
+        className={`w-full border rounded-lg px-2 py-2 text-sm outline-none focus:ring-2 ${
+          excedido
+            ? "border-red-300 focus:ring-red-100 text-red-700"
+            : "border-gray-200 focus:ring-blue-100"
+        }`}
+        placeholder="0.00"
+      />
+      <p className="mt-1 text-[10px] text-gray-500">
+        Máximo total: {formatMoney(maximo)}
+      </p>
+      <p className="text-[10px] text-gray-400">
+        Asociado: {formatMoney(asociadoActual)} + adicional: {formatMoney(adicional)}
+      </p>
+    </div>
+  );
+},
 
-      acciones: ({ item }: any) => {
-        const facturaKey =
-  safeString(item?.facturaKey) ||
-  safeString(item?.row_id) ||
-  safeString(item?.id_factura_proveedor);
+      subtotal_edit: ({ item }: any) => {
+  const facturaKey = String(item?.facturaKey ?? "");
+  return (
+    <div key={`${facturaKey}-subtotal`}>
+      <input
+        type="number"
+        step="0.01"
+        value={drafts[facturaKey]?.subtotal ?? ""}
+        onChange={(e) =>
+          setDraftField(item?.rawFactura ?? item, facturaKey, "subtotal", e.target.value)
+        }
+        className="w-full min-w-[110px] border border-gray-200 rounded-lg px-2 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
+        placeholder="0.00"
+      />
+    </div>
+  );
+},
 
-const isSaving = !!facturaKey && savingKey === facturaKey;
-const isDeleting = !!facturaKey && deletingKey === facturaKey;
+impuestos_edit: ({ item }: any) => {
+  const facturaKey = String(item?.facturaKey ?? "");
+  return (
+    <div key={`${facturaKey}-impuestos`}>
+      <input
+        type="number"
+        step="0.01"
+        value={drafts[facturaKey]?.impuestos ?? ""}
+        onChange={(e) =>
+          setDraftField(item?.rawFactura ?? item, facturaKey, "impuestos", e.target.value)
+        }
+        className="w-full min-w-[110px] border border-gray-200 rounded-lg px-2 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
+        placeholder="0.00"
+      />
+    </div>
+  );
+},
+
+      acciones: ({ value }: any) => {
+        const facturaKey = safeString(value?.facturaKey);
+        const rawFactura = value?.rawFactura ?? value;
+
+        const isSaving = !!facturaKey && savingKey === facturaKey;
+        const isDeleting = !!facturaKey && deletingKey === facturaKey;
 
         return (
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => openUrl(item?.url_pdf)}
+              onClick={() => openUrl(rawFactura?.url_pdf)}
               className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50"
               title="Abrir PDF"
             >
@@ -693,7 +812,7 @@ const isDeleting = !!facturaKey && deletingKey === facturaKey;
 
             <button
               type="button"
-              onClick={() => openUrl(item?.url_xml)}
+              onClick={() => openUrl(rawFactura?.url_xml)}
               className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50"
               title="Abrir XML"
             >
@@ -704,7 +823,7 @@ const isDeleting = !!facturaKey && deletingKey === facturaKey;
 
             <button
               type="button"
-              onClick={() => void saveFactura(item)}
+              onClick={() => void saveFactura({ ...rawFactura, facturaKey })}
               disabled={isSaving || isDeleting}
               className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] text-blue-700 hover:bg-blue-100 disabled:opacity-50"
               title="Guardar cambios"
@@ -719,7 +838,7 @@ const isDeleting = !!facturaKey && deletingKey === facturaKey;
 
             <button
               type="button"
-              onClick={() => void deleteFactura(item)}
+              onClick={() => void deleteFactura({ ...rawFactura, facturaKey })}
               disabled={isSaving || isDeleting}
               className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[11px] text-red-700 hover:bg-red-100 disabled:opacity-50"
               title="Eliminar factura"

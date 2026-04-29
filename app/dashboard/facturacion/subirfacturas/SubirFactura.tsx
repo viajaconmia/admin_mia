@@ -1,4 +1,5 @@
 "use client";
+
 import { URL, API_KEY } from "@/lib/constants/index";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { parsearXML } from "./parseXmlCliente";
@@ -14,6 +15,8 @@ import { TypeFilters, EmpresaFromAgent } from "@/types";
 import AsignarFacturaModal from "./AsignarFactura";
 import { obtenerPresignedUrl, subirArchivoAS3 } from "@/helpers/utils";
 import { useAlert } from "@/context/useAlert";
+// 1) IMPORTA EL COMPONENTE
+import VistaPreviaSolicitudesBatch from "./solicitudes_proveedor";
 
 interface SubirFacturaProps {
   proveedoresRfc?: string | null;
@@ -115,7 +118,6 @@ type AsociacionSolicitudProveedor = {
   // puedes conservar campos extra si quieres:
   raw?: any;
 };
-
 // helpers batch
 const toArray = (res: any): any[] => {
   if (Array.isArray(res)) return res;
@@ -297,8 +299,16 @@ export default function SubirFactura({
   // ================================
   // Flags de modo
   // ================================
-  const isProveedorBatch = Array.isArray(proveedoresData); // NUEVO
-  const isProveedorMode = !!proveedoresData && !isProveedorBatch; // proveedor single
+  // proveedor single
+
+  const proveedorFlowType = Array.isArray(proveedoresData)
+    ? "batch"
+    : proveedoresData
+      ? "single"
+      : "none";
+
+  const isProveedorBatch = proveedorFlowType === "batch";
+  const isProveedorMode = proveedorFlowType === "single";
   const shouldIncludeFechaVencimiento = !pagoData && !proveedoresData;
   const isNormalAgenteMode = !proveedoresData; // flujo actual
   const nombre = proveedoresData ? "Proveedor" : "cliente";
@@ -341,6 +351,31 @@ export default function SubirFactura({
     console.log(normalized, "informacion", arr);
     setBatchAsociaciones(normalized);
   }, [isProveedorBatch, proveedoresData]);
+
+  const getMaximoAsignableSolicitud = ({
+    idSolicitud,
+    excludeIndex = null,
+  }: {
+    idSolicitud: string;
+    excludeIndex?: number | null;
+  }) => {
+    const maxSolicitud = Number(
+      facturadoPrevioMap?.[idSolicitud]?.maximo_asignar ?? 0,
+    );
+
+    const sumOtros = batchAsociaciones.reduce((acc, it, i) => {
+      if (excludeIndex !== null && i === excludeIndex) return acc;
+      const n = Number(it.monto_asociar || 0);
+      return acc + (Number.isFinite(n) ? n : 0);
+    }, 0);
+
+    const disponibleFactura = Math.max(
+      0,
+      saldoDisponibleFacturaPrevia - sumOtros,
+    );
+
+    return Math.max(0, Math.min(maxSolicitud, disponibleFactura));
+  };
 
   const batchTotalAsociar = useMemo(() => {
     if (!isProveedorBatch) return 0;
@@ -494,6 +529,9 @@ export default function SubirFactura({
       folder,
     );
     await subirArchivoAS3(archivoPDF, urlPDF);
+
+    console.log(urlXML, publicUrlXML, "🚓🚓🚓🚓🚓🚓");
+    console.log(urlPDF, publicUrlPDF, "😎😎😎");
 
     // Guarda URLs por si las ocupas después
     setArchivoXMLUrl(publicUrlXML);
@@ -733,7 +771,11 @@ export default function SubirFactura({
   }, [facturadoPrevioData]);
 
   const saldoDisponibleFacturaPrevia = useMemo(() => {
-    return Number(facturaEncontrada?.saldo_x_aplicar_items ?? 0);
+    return Number(
+      facturaEncontrada?.restante_por_facturar ??
+        facturaEncontrada?.saldo_x_aplicar_items ??
+        0,
+    );
   }, [facturaEncontrada]);
 
   const totalAsignadoFacturaPrevia = useMemo(() => {
@@ -760,21 +802,10 @@ export default function SubirFactura({
     const row = batchAsociaciones[idx];
     const idSolicitud = String(row?.id_solicitud ?? "").trim();
 
-    const maxBackend = Number(
-      facturadoPrevioMap?.[idSolicitud]?.maximo_asignar ?? 0,
-    );
-
-    const sumOthers = batchAsociaciones.reduce((acc, it, i) => {
-      if (i === idx) return acc;
-      const n = Number(it.monto_asociar || 0);
-      return acc + (Number.isFinite(n) ? n : 0);
-    }, 0);
-
-    const maxPorSaldoFactura = Math.max(
-      0,
-      saldoDisponibleFacturaPrevia - sumOthers,
-    );
-    const maxThis = Math.max(0, Math.min(maxBackend, maxPorSaldoFactura));
+    const maxThis = getMaximoAsignableSolicitud({
+      idSolicitud,
+      excludeIndex: idx,
+    });
 
     if (val > maxThis) {
       updateMontoBatch(idx, maxThis.toFixed(2));
@@ -803,13 +834,13 @@ export default function SubirFactura({
 
   const asignarFacturaPrevia = async () => {
     try {
-      if (!facturaEncontrada?.uuid_cfdi) {
+      if (!facturaEncontrada?.uuid_factura) {
         alert("No hay una factura encontrada válida");
         return;
       }
 
       const saldoDisponible = Number(
-        facturaEncontrada?.saldo_x_aplicar_items ?? 0,
+        facturaEncontrada?.restante_por_facturar ?? 0,
       );
 
       if (!Number.isFinite(saldoDisponible) || saldoDisponible <= 0) {
@@ -913,7 +944,7 @@ export default function SubirFactura({
       }
 
       const payload = {
-        uuid_cfdi: facturaEncontrada.uuid_cfdi,
+        uuid_cfdi: facturaEncontrada.uuid_factura,
         proveedoresData: proveedoresPayloadFinal,
       };
 
@@ -947,6 +978,83 @@ export default function SubirFactura({
     } finally {
       setAsignandoFacturaPrevia(false);
     }
+  };
+
+  // 2) AGREGA ESTOS HELPERS DENTRO DE SubirFactura, antes del return
+
+  const monedaFacturaPrevia = "MXN";
+  const requiereConversionProveedorPrevia = false;
+  const tipoCambioFacturaPrevia = 1;
+
+  const formatCurrency = (value: string | number, currency = "MXN") => {
+    const n = Number(value || 0);
+    return new Intl.NumberFormat("es-MX", {
+      style: "currency",
+      currency,
+    }).format(n);
+  };
+
+  const fromMXNToOriginal = (amount: any) => {
+    const n = Number(amount || 0);
+    if (!Number.isFinite(n)) return 0;
+
+    if (!requiereConversionProveedorPrevia) return round2(n);
+
+    const tc = Number(tipoCambioFacturaPrevia || 0);
+    if (!Number.isFinite(tc) || tc <= 0) return 0;
+
+    return round2(n / tc);
+  };
+
+  const getPreviewConversion = (amount: any) => {
+    const original = Number(amount || 0);
+    const mxn = requiereConversionProveedorPrevia
+      ? convertAmountToMXN(original, tipoCambioFacturaPrevia, true)
+      : round2(original);
+
+    return {
+      original: round2(original),
+      currencyOriginal: monedaFacturaPrevia,
+      mxn,
+      hasConversion: requiereConversionProveedorPrevia,
+    };
+  };
+
+  const singleAsociacionProveedor = useMemo(() => {
+    if (!isProveedorMode || !proveedoresData) return null;
+
+    return {
+      id_solicitud: String(proveedoresData?.id_solicitud ?? "").trim(),
+      id_proveedor: String(
+        proveedoresData?.id_proveedor ?? id_proveedor ?? "",
+      ).trim(),
+      monto_asociar: facturado ?? "",
+      raw: proveedoresData,
+    };
+  }, [isProveedorMode, proveedoresData, id_proveedor, facturado]);
+
+  const handleChangeMontoSingleFacturaPrevia = (raw: string) => {
+    const normalized = safeNumStr(raw);
+    const val = Number(normalized || 0);
+
+    const idSolicitud = String(proveedoresData?.id_solicitud ?? "").trim();
+
+    const maxSolicitud = Number(
+      facturadoPrevioMap?.[idSolicitud]?.maximo_asignar ??
+        saldoDisponibleFacturaPrevia,
+    );
+
+    const maxThis = Math.max(
+      0,
+      Math.min(maxSolicitud, saldoDisponibleFacturaPrevia),
+    );
+
+    if (val > maxThis) {
+      setFacturado(maxThis.toFixed(2));
+      return;
+    }
+
+    setFacturado(normalized);
   };
 
   const buscarFacturaPorUUID = async () => {
@@ -986,7 +1094,7 @@ export default function SubirFactura({
         return;
       }
 
-      const saldoDisponible = Number(factura?.saldo_x_aplicar_items ?? 0);
+      const saldoDisponible = Number(factura?.restante_por_facturar ?? 0);
 
       if (!Number.isFinite(saldoDisponible) || saldoDisponible <= 0) {
         alert(
@@ -1008,17 +1116,6 @@ export default function SubirFactura({
             factura?.proveedoresData?.id_proveedor ??
             "",
         ).trim();
-
-        if (
-          !idProveedorFactura ||
-          !proveedoresPermitidos.has(idProveedorFactura)
-        ) {
-          alert(
-            `La factura encontrada no pertenece a los proveedores permitidos.\n` +
-              `Proveedor factura: ${idProveedorFactura || "N/D"}`,
-          );
-          return;
-        }
       } else if (isProveedorMode) {
         const idProveedorEsperado = String(
           id_proveedor ??
@@ -1724,6 +1821,9 @@ export default function SubirFactura({
             <p className="text-sm text-gray-500 mb-4">
               Sube los archivos PDF y XML de la factura
             </p>
+            <p className="text-sm text-gray-500 mb-4">
+              Recuerda el nombre de los archivos no debe de contener @ # .
+            </p>
             {mostrarSwitchFacturaProveedor && (
               <div className="mb-4">
                 <label className="block mb-2 font-medium">
@@ -1765,7 +1865,6 @@ export default function SubirFactura({
                 </div>
               </div>
             )}
-
             {/* ==============================
                 NUEVO: si batch => NO mostrar input cliente
                ============================== */}
@@ -1840,22 +1939,6 @@ export default function SubirFactura({
                     )}
                   </>
                 )}
-              </div>
-            )}
-
-            {/* ==============================
-                NUEVO: panel informativo batch
-               ============================== */}
-            {isProveedorBatch && (
-              <div className="mb-4 p-3 rounded border bg-gray-50">
-                <p className="text-sm text-gray-700">
-                  Asociación múltiple detectada:{" "}
-                  <strong>{batchAsociaciones.length}</strong> solicitudes.
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  No se selecciona proveedor en el front. Se enviarán los IDs al
-                  back para el automatch y carga de datos fiscales.
-                </p>
               </div>
             )}
             {esFacturaNuevaMode && (
@@ -1966,40 +2049,11 @@ export default function SubirFactura({
                   sistema.
                 </p>
 
-                {facturaEncontrada && (
-                  <div className="mt-3 p-3 border rounded bg-green-50 text-sm">
-                    <p className="font-medium text-green-800">
-                      Factura encontrada
-                    </p>
-
-                    <div className="mt-2 space-y-1 text-gray-700">
-                      <p>
-                        <strong>UUID:</strong>{" "}
-                        {facturaEncontrada?.uuid_factura ||
-                          facturaEncontrada?.uuid ||
-                          uuidBusqueda}
-                      </p>
-                      <p>
-                        <strong>Total:</strong>{" "}
-                        {facturaEncontrada?.total ?? "N/D"}
-                      </p>
-                      <p>
-                        <strong>RFC emisor:</strong>{" "}
-                        {facturaEncontrada?.rfc_emisor ?? "N/D"}
-                      </p>
-                      <p>
-                        <strong>Fecha:</strong>{" "}
-                        {facturaEncontrada?.fecha_emision ?? "N/D"}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
                 {esFacturaSubidaMode && facturaEncontrada && (
                   <div className="mt-4 p-4 rounded border bg-blue-50">
                     <div className="mb-3 text-sm text-gray-700">
                       <div>
-                        <strong>UUID:</strong> {facturaEncontrada?.uuid_cfdi}
+                        <strong>UUID:</strong> {facturaEncontrada?.uuid_factura}
                       </div>
                       <div>
                         <strong>Total factura:</strong>{" "}
@@ -2008,7 +2062,7 @@ export default function SubirFactura({
                       <div>
                         <strong>Saldo disponible:</strong>{" "}
                         {formatMoneyMXN(
-                          facturaEncontrada?.saldo_x_aplicar_items,
+                          facturaEncontrada?.restante_por_facturar,
                         )}
                       </div>
                     </div>
@@ -2016,114 +2070,6 @@ export default function SubirFactura({
                     {loadingFacturadoPrevio && (
                       <div className="mb-3 text-sm text-blue-700">
                         Consultando montos disponibles por solicitud...
-                      </div>
-                    )}
-
-                    {isProveedorBatch && (
-                      <div className="space-y-3">
-                        <label className="block font-medium">
-                          Montos a asignar por solicitud (MXN)
-                        </label>
-
-                        {batchAsociaciones.map((it, idx) => {
-                          const idSolicitud = String(
-                            it?.id_solicitud ?? "",
-                          ).trim();
-                          const infoFacturado =
-                            facturadoPrevioMap?.[idSolicitud] ?? null;
-
-                          const maximoAsignar = Number(
-                            infoFacturado?.maximo_asignar ?? 0,
-                          );
-                          const montoSolicitado = Number(
-                            infoFacturado?.monto_solicitado ?? 0,
-                          );
-                          const totalFacturado = Number(
-                            infoFacturado?.total_facturado ?? 0,
-                          );
-
-                          return (
-                            <div
-                              key={`${it.id_solicitud}-${it.id_proveedor}-${idx}`}
-                              className="p-3 rounded border bg-white"
-                            >
-                              <div className="text-xs text-gray-600 mb-2">
-                                <div>
-                                  <strong>Solicitud:</strong> {it.id_solicitud}
-                                </div>
-                                <div>
-                                  <strong>Proveedor:</strong>{" "}
-                                  {it.raw?.proveedor ||
-                                    it.raw?.hotel ||
-                                    it.id_proveedor}
-                                </div>
-                                <div>
-                                  <strong>Monto solicitado:</strong>{" "}
-                                  {formatMoneyMXN(montoSolicitado)}
-                                </div>
-                                <div>
-                                  <strong>Ya facturado:</strong>{" "}
-                                  {formatMoneyMXN(totalFacturado)}
-                                </div>
-                                <div>
-                                  <strong>Máximo asignable:</strong>{" "}
-                                  {formatMoneyMXN(maximoAsignar)}
-                                </div>
-                              </div>
-
-                              <input
-                                type="text"
-                                inputMode="decimal"
-                                placeholder="0.00"
-                                value={it.monto_asociar}
-                                onChange={(e) =>
-                                  handleChangeMontoBatchFacturaPrevia(
-                                    idx,
-                                    e.target.value,
-                                  )
-                                }
-                                className="w-full p-2 border rounded border-gray-300"
-                                disabled={
-                                  loadingFacturadoPrevio ||
-                                  !facturadoPrevioMap?.[idSolicitud]
-                                }
-                              />
-                            </div>
-                          );
-                        })}
-
-                        <div className="text-sm text-gray-700">
-                          <strong>Total a asignar:</strong>{" "}
-                          {formatMoneyMXN(totalAsignadoFacturaPrevia)}
-                        </div>
-                      </div>
-                    )}
-
-                    {isProveedorMode && (
-                      <div className="mt-3">
-                        <label className="block mb-2 font-medium">
-                          Monto a asignar a la solicitud (MXN)
-                        </label>
-
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          placeholder="0.00"
-                          value={facturado ?? ""}
-                          onChange={handleFacturadoChange}
-                          className="w-full p-2 border rounded border-gray-300"
-                        />
-
-                        {proveedoresData?.id_solicitud && (
-                          <p className="text-xs text-gray-500 mt-1">
-                            Máximo asignable:{" "}
-                            {formatMoneyMXN(
-                              facturadoPrevioMap?.[
-                                String(proveedoresData.id_solicitud).trim()
-                              ]?.maximo_asignar ?? 0,
-                            )}
-                          </p>
-                        )}
                       </div>
                     )}
                   </div>
@@ -2134,28 +2080,35 @@ export default function SubirFactura({
             {/* ==============================
                 SINGLE proveedor: input monto único
                ============================== */}
-            {isProveedorMode && (
-              <div className="mt-4 mb-4">
-                <label className="block mb-2 font-medium">
-                  Monto a asociar a la solicitud (MXN)
-                </label>
-
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  placeholder="0.00"
-                  value={facturado ?? ""}
-                  onChange={handleFacturadoChange}
-                  className="w-full p-2 border rounded border-gray-300"
-                />
-
-                <p className="text-xs text-gray-500 mt-1">
-                  Este monto se guardará para usarlo en la asociación con la
-                  solicitud.
-                </p>
-              </div>
+            {(isProveedorBatch || isProveedorMode) && facturaEncontrada && (
+              <VistaPreviaSolicitudesBatch
+                isProveedorBatch={isProveedorBatch}
+                isProveedorMode={isProveedorMode}
+                monedaFactura={monedaFacturaPrevia}
+                requiereConversionProveedor={requiereConversionProveedorPrevia}
+                tipoCambioFactura={tipoCambioFacturaPrevia}
+                totalFactura={Number(
+                  facturaEncontrada?.saldo_x_aplicar_items ?? 0,
+                )}
+                batchAsociaciones={batchAsociaciones}
+                batchTotalAsociar={batchTotalAsociar}
+                batchTotalAsociarMXN={batchTotalAsociar}
+                restanteFacturaMXN={Math.max(
+                  0,
+                  Number(facturaEncontrada?.saldo_x_aplicar_items ?? 0) -
+                    totalAsignadoFacturaPrevia,
+                )}
+                loadingFacturado={loadingFacturadoPrevio}
+                facturadoMap={facturadoPrevioMap}
+                handleChangeMontoBatch={handleChangeMontoBatchFacturaPrevia}
+                singleAsociacion={singleAsociacionProveedor}
+                singleMontoAsociar={facturado ?? ""}
+                handleChangeMontoSingle={handleChangeMontoSingleFacturaPrevia}
+                formatCurrency={formatCurrency}
+                fromMXNToOriginal={fromMXNToOriginal}
+                getPreviewConversion={getPreviewConversion}
+              />
             )}
-
             {/* Checkbox factura pagada */}
             <div className="flex items-center mb-4">
               <input

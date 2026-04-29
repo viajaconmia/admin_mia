@@ -105,3 +105,37 @@ export const fetchGetSolicitudesProveedores1 = async (cb: (data: any) => void) =
   const data = await res.json();
   cb(data);
 };
+
+export const fetchGetSolicitudesFiltradas = async (
+  cb: (data: any) => void,
+  filters: Record<string, any> = {},
+  limit: number | null = null,
+) => {
+  const params = new URLSearchParams();
+
+  Object.entries(filters).forEach(([key, value]) => {
+    const v = String(value ?? "").trim();
+    if (v) params.append(key, v);
+  });
+
+  params.set("pag", "1");
+  // null o 0 → traer todos (999999 como sentinel)
+  params.set("limite", String(limit && limit > 0 ? limit : 999999));
+
+  const res = await fetch(
+    `${URL}/mia/pago_proveedor/solicitud_conciliacion?${params.toString()}`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": API_KEY,
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+      },
+      cache: "no-store",
+    },
+  );
+
+  const data = await res.json();
+  cb(data);
+};
+ 
