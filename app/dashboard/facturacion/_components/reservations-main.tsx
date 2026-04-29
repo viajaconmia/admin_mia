@@ -199,7 +199,6 @@ interface Reservation {
   nombre_viajero_completo?: string | null;
   razon_social?: string;
   costo_total?: string;
-  id_relacion?: string | null;
   tipo_cuarto?: string | null;
   nombre_viajero?: string;
   id_agente:string
@@ -546,18 +545,43 @@ export const FacturacionModal: React.FC<{
     }
   };
 
-  // ✅ Nuevo: custom de CONCEPTO solo para consolidada
+  // Custom concepto: consolidada
   const [useCustomConceptConsolidada, setUseCustomConceptConsolidada] =
     useState(false);
   const [customConceptConsolidada, setCustomConceptConsolidada] = useState("");
 
-  const customConceptConsolidadaValid = useMemo(() => {
-    return (
+  const customConceptConsolidadaValid = useMemo(
+    () =>
       useCustomConceptConsolidada &&
-      customConceptConsolidada &&
-      /[a-zA-Z0-9\S]/.test(customConceptConsolidada.trim())
-    );
-  }, [useCustomConceptConsolidada, customConceptConsolidada]);
+      !!customConceptConsolidada &&
+      /[a-zA-Z0-9\S]/.test(customConceptConsolidada.trim()),
+    [useCustomConceptConsolidada, customConceptConsolidada],
+  );
+
+  // Custom concepto: detallada_por_hospedaje
+  const [useCustomConceptHospedaje, setUseCustomConceptHospedaje] =
+    useState(false);
+  const [customConceptHospedaje, setCustomConceptHospedaje] = useState("");
+
+  const customConceptHospedajeValid = useMemo(
+    () =>
+      useCustomConceptHospedaje &&
+      !!customConceptHospedaje &&
+      /[a-zA-Z0-9\S]/.test(customConceptHospedaje.trim()),
+    [useCustomConceptHospedaje, customConceptHospedaje],
+  );
+
+  // Custom concepto: detallada_por_item
+  const [useCustomConceptItem, setUseCustomConceptItem] = useState(false);
+  const [customConceptItem, setCustomConceptItem] = useState("");
+
+  const customConceptItemValid = useMemo(
+    () =>
+      useCustomConceptItem &&
+      !!customConceptItem &&
+      /[a-zA-Z0-9\S]/.test(customConceptItem.trim()),
+    [useCustomConceptItem, customConceptItem],
+  );
   console.log("😒😒😒😒😒😒",selectedItems,  "informacion de selected",selectedHospedaje,"informacion select reservation",
   reservationsInit)
 
@@ -672,7 +696,8 @@ export const FacturacionModal: React.FC<{
     (sum, reserva) =>
       sum +
       (reserva.items?.reduce(
-        (itemSum, item) => itemSum + parseFloat(item.total),
+        (itemSum, item) =>
+          itemSum + Number((item as any).saldo_restante ?? item.total),
         0,
       ) || 0),
     0,
@@ -718,7 +743,7 @@ export const FacturacionModal: React.FC<{
       return (r.items ?? [])
         .filter((it) => ids.includes(it.id_item))
         .map((it) => {
-          const total = Number(it.total);
+          const total = Number((it as any).saldo_restante ?? it.total);
           const { subtotal, iva } = splitIva(total);
 
           return {
@@ -732,6 +757,7 @@ export const FacturacionModal: React.FC<{
             iva,
             fecha_uso: it.fecha_uso,
             reserva: {
+              id_relacion:id_relacion,
               hotel: r.proveedor,
               check_in: r.check_in,
               check_out: r.check_out,
@@ -851,12 +877,17 @@ export const FacturacionModal: React.FC<{
 
     if (invoiceMode === "detallada_por_hospedaje") {
       const groups = groupByHospedaje(itemsFull);
-      console.log(groups,"ccc🚓🚓")
       return groups.map((g) => {
         const { subtotal, iva, total } = splitIva(round2(g.total));
+        const prefix = customConceptHospedajeValid
+          ? sanitizeFacturamaText(customConceptHospedaje, 500)
+          : selectedDescription;
+        const hotelName = g.id_relacion?.includes("vue")
+          ? "Vuelo"
+          : g.hotel || g.items[0]?.reserva?.hotel || "";
         const descRaw = [
-          selectedDescription,
-          g.hotel ? `${g.id_relacion.includes("vue") ? "Vuelo" : g.hotel}` : g.items[0].reserva.hotel,
+          prefix,
+          hotelName,
           g.check_in && g.check_out
             ? `${formatDate(g.check_in)} - ${formatDate(g.check_out)}`
             : "",
@@ -883,10 +914,15 @@ export const FacturacionModal: React.FC<{
     // detallada_por_item
     return itemsFull.map((it) => {
       const { subtotal, iva, total } = splitIva(round2(it.total));
-      console.log("-Thus is the it point", it);
+      const prefix = customConceptItemValid
+        ? sanitizeFacturamaText(customConceptItem, 500)
+        : selectedDescription;
+      const hotelName = it.id_relacion?.includes("vue")
+        ? "Vuelo"
+        : it.reserva?.hotel || "";
       const descRaw = [
-        selectedDescription,
-        `${it.id_relacion.includes("vue") ? "Vuelo" : it.reserva.hotel}`,
+        prefix,
+        hotelName,
         it?.reserva?.check_in && it?.reserva?.check_out
           ? `${formatDate(it.reserva.check_in)} - ${formatDate(it.reserva.check_out)}`
           : "",
@@ -920,7 +956,11 @@ export const FacturacionModal: React.FC<{
     selectedDescription,
     customConceptConsolidadaValid,
     customConceptConsolidada,
-    isPublicoGeneral, // ✅ dependencia
+    customConceptHospedajeValid,
+    customConceptHospedaje,
+    customConceptItemValid,
+    customConceptItem,
+    isPublicoGeneral,
   ]);
 
   const previewTotals = useMemo(() => {
@@ -1019,30 +1059,20 @@ export const FacturacionModal: React.FC<{
 
       const total = round2(itemsSel.reduce((s, it) => s + Number(it.total), 0));
       const { subtotal, iva, total: t } = splitIva(total);
-  
 
       return {
         id_servicio: r.id_booking,
         id_solicitud: r.id_solicitud,
-        confirmation_code: r.confirmation_code,
         hotel: r.proveedor,
         check_in: r.check_in,
         check_out: r.check_out,
         viajero: r.nombre_viajero_completo,
         noches: itemsSel.length,
-        items: itemsSel.map((it) => {
-          const tt = Number(it.total);
-          const { subtotal: sub, iva: tax } = splitIva(tt);
-          return {
-            id_item: it.id_item,
-            fecha_uso: it.fecha_uso,
-            total: tt,
-            subtotal: sub,
-            iva: tax,
-            tipo_cuarto: it.tipo_cuarto,
-            codigo_reservacion_hotel: it.codigo_confirmacion,
-          };
-        }),
+        items: itemsSel.map((it) => ({
+          id_item: it.id_item,
+          fecha_uso: it.fecha_uso,
+          total: Number(it.total),
+        })),
         totales: { subtotal, iva, total: t },
       };
     });
@@ -1154,11 +1184,15 @@ export const FacturacionModal: React.FC<{
 
           return groups.map((g) => {
             const { subtotal, iva, total } = splitIva(round2(g.total));
-            console.log("this is the g point", g);
+            const prefix = customConceptHospedajeValid
+              ? sanitizeFacturamaText(customConceptHospedaje, 500)
+              : selectedDescription;
+            const hotelName = g.id_relacion?.includes("vue")
+              ? "Vuelo"
+              : g.hotel || "";
             const descRaw = [
-              selectedDescription,
-              g.hotel? `${g.id_relacion.includes("vue-") ? "vuelo" : g.hotel}`
-                : "",
+              prefix,
+              hotelName,
               g.check_in && g.check_out
                 ? `${formatDate(g.check_in)} - ${formatDate(g.check_out)}`
                 : "",
@@ -1196,10 +1230,16 @@ export const FacturacionModal: React.FC<{
         // detallada_por_item
         return itemsFacturadosFull.map((it) => {
           const { subtotal, iva, total } = splitIva(round2(it.total));
+          const prefix = customConceptItemValid
+            ? sanitizeFacturamaText(customConceptItem, 500)
+            : selectedDescription;
+          const hotelName = it.id_relacion?.includes("vue")
+            ? "Vuelo"
+            : it.reserva?.hotel || "";
 
           const descRaw = [
-            selectedDescription,
-            `${it.id_relacion.includes("vue") ? "Vuelo" : it.reserva.hotel}`,
+            prefix,
+            hotelName,
             it?.reserva?.check_in && it?.reserva?.check_out
               ? `${formatDate(it.reserva.check_in)} - ${formatDate(it.reserva.check_out)}`
               : "",
@@ -1456,7 +1496,7 @@ export const FacturacionModal: React.FC<{
               </div>
             </div>
 
-            {/* ✅ Custom concepto SOLO consolidada */}
+            {/* Custom concepto: consolidada */}
             {invoiceMode === "consolidada" && (
               <div className="bg-white border rounded-md p-3 mb-4">
                 <div className="flex items-center justify-between gap-3">
@@ -1472,28 +1512,98 @@ export const FacturacionModal: React.FC<{
                         : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
                     }`}
                   >
-                    {useCustomConceptConsolidada
-                      ? "Custom activo"
-                      : "Activar custom"}
+                    {useCustomConceptConsolidada ? "Custom activo" : "Activar custom"}
                   </button>
                 </div>
-
                 <div className="mt-3">
                   <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Agregar nueva descripción del concepto
+                    Descripción del concepto
                   </label>
                   <input
                     value={customConceptConsolidada}
-                    onChange={(e) =>
-                      setCustomConceptConsolidada(e.target.value)
-                    }
+                    onChange={(e) => setCustomConceptConsolidada(e.target.value)}
                     disabled={!useCustomConceptConsolidada}
                     placeholder={selectedDescription}
                     className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-100"
                   />
                   <p className="text-[11px] text-gray-500 mt-1">
-                    Si está desactivado o vacío, se usa:{" "}
-                    <b>{selectedDescription}</b>
+                    Si está desactivado o vacío, se usa: <b>{selectedDescription}</b>
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Custom concepto: detallada por hospedaje */}
+            {invoiceMode === "detallada_por_hospedaje" && (
+              <div className="bg-white border rounded-md p-3 mb-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-sm font-medium text-gray-900">
+                    Prefijo de concepto (por hospedaje)
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setUseCustomConceptHospedaje((v) => !v)}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md border ${
+                      useCustomConceptHospedaje
+                        ? "border-blue-500 bg-blue-600 text-white hover:bg-blue-700"
+                        : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    {useCustomConceptHospedaje ? "Custom activo" : "Activar custom"}
+                  </button>
+                </div>
+                <div className="mt-3">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Prefijo del concepto (reemplaza la descripción base)
+                  </label>
+                  <input
+                    value={customConceptHospedaje}
+                    onChange={(e) => setCustomConceptHospedaje(e.target.value)}
+                    disabled={!useCustomConceptHospedaje}
+                    placeholder={selectedDescription}
+                    className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-100"
+                  />
+                  <p className="text-[11px] text-gray-500 mt-1">
+                    Se añadirá: <b>prefijo - Hotel/Vuelo - fechas - Viajero</b>.
+                    Si está desactivado, usa: <b>{selectedDescription}</b>
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Custom concepto: detallada por item */}
+            {invoiceMode === "detallada_por_item" && (
+              <div className="bg-white border rounded-md p-3 mb-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-sm font-medium text-gray-900">
+                    Prefijo de concepto (por ítem)
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setUseCustomConceptItem((v) => !v)}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md border ${
+                      useCustomConceptItem
+                        ? "border-blue-500 bg-blue-600 text-white hover:bg-blue-700"
+                        : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    {useCustomConceptItem ? "Custom activo" : "Activar custom"}
+                  </button>
+                </div>
+                <div className="mt-3">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Prefijo del concepto (reemplaza la descripción base)
+                  </label>
+                  <input
+                    value={customConceptItem}
+                    onChange={(e) => setCustomConceptItem(e.target.value)}
+                    disabled={!useCustomConceptItem}
+                    placeholder={selectedDescription}
+                    className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-100"
+                  />
+                  <p className="text-[11px] text-gray-500 mt-1">
+                    Se añadirá: <b>prefijo - Hotel/Vuelo - fechas - Viajero</b>.
+                    Si está desactivado, usa: <b>{selectedDescription}</b>
                   </p>
                 </div>
               </div>

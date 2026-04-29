@@ -399,13 +399,13 @@ setDetalleFacturaData?.(resolved);
   );
 
   const reservasCols = useMemo(
-    () => ["codigo_reservacion", "proveedor", "viajero", "total"],
+    () => ["codigo_confirmacion", "proveedor", "viajero", "total"],
     []
   );
 
   const reservasRenderers = useMemo(
     () => ({
-      codigo_reservacion_hotel: ({ value }: any) => (
+      codigo_confirmacion: ({ value }: any) => (
         <span className="font-mono text-[11px] text-gray-700">
           {safeString(value) || "—"}
         </span>
