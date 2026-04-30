@@ -836,6 +836,68 @@ export const FacturacionModal: React.FC<{
 
   const isPublicoGeneral = selectedFiscalData?.rfc === RFC_GENERICO;
 
+  const buildHospedajeDescription = useCallback(
+  (g: any) => {
+    if (customConceptHospedajeValid) {
+      return sanitizeFacturamaText(customConceptHospedaje, 1000);
+    }
+
+    const hotelName = g.id_relacion?.includes("vue")
+      ? "Vuelo"
+      : g.hotel || g.items?.[0]?.reserva?.hotel || "";
+
+    const descRaw = [
+      selectedDescription,
+      hotelName,
+      g.check_in && g.check_out
+        ? `${formatDate(g.check_in)} - ${formatDate(g.check_out)}`
+        : "",
+      g.viajero ? `Viajero: ${g.viajero}` : "",
+    ]
+      .filter(Boolean)
+      .join(" - ");
+
+    return sanitizeFacturamaText(descRaw, 1000);
+  },
+  [
+    customConceptHospedajeValid,
+    customConceptHospedaje,
+    selectedDescription,
+  ],
+);
+
+const buildItemDescription = useCallback(
+  (it: any) => {
+    if (customConceptItemValid) {
+      return sanitizeFacturamaText(customConceptItem, 1000);
+    }
+
+    const hotelName = it.id_relacion?.includes("vue")
+      ? "Vuelo"
+      : it.reserva?.hotel || "";
+
+    const descRaw = [
+      selectedDescription,
+      hotelName,
+      it?.reserva?.check_in && it?.reserva?.check_out
+        ? `${formatDate(it.reserva.check_in)} - ${formatDate(it.reserva.check_out)}`
+        : "",
+      it?.reserva?.nombre_viajero
+        ? `Viajero: ${it.reserva.nombre_viajero}`
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" - ");
+
+    return sanitizeFacturamaText(descRaw, 1000);
+  },
+  [
+    customConceptItemValid,
+    customConceptItem,
+    selectedDescription,
+  ],
+);
+
   const previewLines = useMemo<PreviewLine[]>(() => {
     const QTY_ONE = "1";
     const productCode = isPublicoGeneral ? "01010101" : "90121500"; // ✅ regla
@@ -878,23 +940,27 @@ export const FacturacionModal: React.FC<{
     if (invoiceMode === "detallada_por_hospedaje") {
       const groups = groupByHospedaje(itemsFull);
       return groups.map((g) => {
+
         const { subtotal, iva, total } = splitIva(round2(g.total));
-        const prefix = customConceptHospedajeValid
-          ? sanitizeFacturamaText(customConceptHospedaje, 500)
-          : selectedDescription;
-        const hotelName = g.id_relacion?.includes("vue")
-          ? "Vuelo"
-          : g.hotel || g.items[0]?.reserva?.hotel || "";
-        const descRaw = [
-          prefix,
-          hotelName,
-          g.check_in && g.check_out
-            ? `${formatDate(g.check_in)} - ${formatDate(g.check_out)}`
-            : "",
-          g.viajero ? `Viajero: ${g.viajero}` : "",
-        ]
-          .filter(Boolean)
-          .join(" - ");
+        const desc = buildHospedajeDescription(g);
+        // const prefix = customConceptHospedajeValid
+        //   ? sanitizeFacturamaText(customConceptHospedaje, 500)
+        //   : selectedDescription;
+
+        // const hotelName = g.id_relacion?.includes("vue")
+        //   ? "Vuelo"
+        //   : g.hotel || g.items[0]?.reserva?.hotel || "";
+
+        // const descRaw = [
+        //   prefix,
+        //   hotelName,
+        //   g.check_in && g.check_out
+        //     ? `${formatDate(g.check_in)} - ${formatDate(g.check_out)}`
+        //     : "",
+        //   g.viajero ? `Viajero: ${g.viajero}` : "",
+        // ]
+        //   .filter(Boolean)
+        //   .join(" - ");
 
         return {
           key: `hospedaje-${g.key}`,
@@ -902,7 +968,7 @@ export const FacturacionModal: React.FC<{
           UnitCode: unitCode,
           Unit: unit,
           Quantity: QTY_ONE,
-          Description: sanitizeFacturamaText(descRaw, 1000),
+          Description: desc,
           Base: subtotal,
           TaxRate: ivaRateStr,
           Tax: iva,
@@ -961,6 +1027,8 @@ export const FacturacionModal: React.FC<{
     customConceptItemValid,
     customConceptItem,
     isPublicoGeneral,
+    buildHospedajeDescription,
+  buildItemDescription,
   ]);
 
   const previewTotals = useMemo(() => {
@@ -1184,24 +1252,7 @@ export const FacturacionModal: React.FC<{
 
           return groups.map((g) => {
             const { subtotal, iva, total } = splitIva(round2(g.total));
-            const prefix = customConceptHospedajeValid
-              ? sanitizeFacturamaText(customConceptHospedaje, 500)
-              : selectedDescription;
-            const hotelName = g.id_relacion?.includes("vue")
-              ? "Vuelo"
-              : g.hotel || "";
-            const descRaw = [
-              prefix,
-              hotelName,
-              g.check_in && g.check_out
-                ? `${formatDate(g.check_in)} - ${formatDate(g.check_out)}`
-                : "",
-              g.viajero ? `Viajero: ${g.viajero}` : "",
-            ]
-              .filter(Boolean)
-              .join(" - ");
-
-            const desc = sanitizeFacturamaText(descRaw, 1000);
+            const desc = buildHospedajeDescription(g);
 
             return {
               Quantity: QTY_ONE,
@@ -1230,27 +1281,7 @@ export const FacturacionModal: React.FC<{
         // detallada_por_item
         return itemsFacturadosFull.map((it) => {
           const { subtotal, iva, total } = splitIva(round2(it.total));
-          const prefix = customConceptItemValid
-            ? sanitizeFacturamaText(customConceptItem, 500)
-            : selectedDescription;
-          const hotelName = it.id_relacion?.includes("vue")
-            ? "Vuelo"
-            : it.reserva?.hotel || "";
-
-          const descRaw = [
-            prefix,
-            hotelName,
-            it?.reserva?.check_in && it?.reserva?.check_out
-              ? `${formatDate(it.reserva.check_in)} - ${formatDate(it.reserva.check_out)}`
-              : "",
-            it?.reserva?.nombre_viajero
-              ? `Viajero: ${it.reserva.nombre_viajero}`
-              : "",
-          ]
-            .filter(Boolean)
-            .join(" - ");
-
-          const desc = sanitizeFacturamaText(descRaw, 1000);
+          const desc = buildHospedajeDescription(it);
 
           return {
             Quantity: QTY_ONE,
@@ -1564,8 +1595,7 @@ export const FacturacionModal: React.FC<{
                     className="block w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-100"
                   />
                   <p className="text-[11px] text-gray-500 mt-1">
-                    Se añadirá: <b>prefijo - Hotel/Vuelo - fechas - Viajero</b>.
-                    Si está desactivado, usa: <b>{selectedDescription}</b>
+                    Si está activo, se usará exactamente este texto como descripción del concepto.
                   </p>
                 </div>
               </div>

@@ -3,321 +3,20 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { Table5 } from "@/components/Table5";
 import { Loader } from "@/components/atom/Loader";
-
-// ── helpers ──────────────────────────────────────────────────────────────────
-type CambioRow = { campo: string; anterior: any; nuevo: any };
-
-function flattenCambios(cambios: any, prefix = ""): CambioRow[] {
-  if (!cambios || typeof cambios !== "object") return [];
-  const rows: CambioRow[] = [];
-  for (const [key, val] of Object.entries(cambios)) {
-    const campo = prefix ? `${prefix}.${key}` : key;
-    const v = val as any;
-    if (v && typeof v === "object" && "anterior" in v && "nuevo" in v) {
-      rows.push({ campo, anterior: v.anterior, nuevo: v.nuevo });
-    } else if (v && typeof v === "object") {
-      rows.push(...flattenCambios(v, campo));
-    }
-  }
-  return rows;
-}
-
-function flattenItemComparison(anterior: any, nuevo: any): CambioRow[] {
-  const rows: CambioRow[] = [];
-  const allKeys = new Set([
-    ...Object.keys(anterior ?? {}),
-    ...Object.keys(nuevo ?? {}),
-  ]);
-  for (const key of allKeys) {
-    if (key === "impuestos") continue;
-    const antVal = anterior?.[key];
-    const nvoVal = nuevo?.[key];
-    if (antVal !== null && typeof antVal === "object") {
-      const subKeys = new Set([
-        ...Object.keys(antVal ?? {}),
-        ...Object.keys(nvoVal ?? {}),
-      ]);
-      for (const sub of subKeys) {
-        if (antVal?.[sub] !== nvoVal?.[sub]) {
-          rows.push({
-            campo: `${key}.${sub}`,
-            anterior: antVal?.[sub],
-            nuevo: nvoVal?.[sub],
-          });
-        }
-      }
-    } else if (antVal !== nvoVal) {
-      rows.push({ campo: key, anterior: antVal, nuevo: nvoVal });
-    }
-  }
-  return rows;
-}
-
-function parseDetalle(raw: any): any {
-  if (!raw) return null;
-  if (typeof raw === "string") {
-    try {
-      return JSON.parse(raw);
-    } catch {
-      return null;
-    }
-  }
-  if (typeof raw === "object") return raw;
-  return null;
-}
-
-function formatVal(v: any): React.ReactNode {
-  if (v === null || v === undefined)
-    return <span className="text-gray-400 italic">—</span>;
-  if (typeof v === "object")
-    return (
-      <pre className="text-xs whitespace-pre-wrap max-w-xs">
-        {JSON.stringify(v, null, 2)}
-      </pre>
-    );
-  return String(v);
-}
-
-function CambiosTable({ rows }: { rows: CambioRow[] }) {
-  if (!rows.length) return null;
-  return (
-    <table className="text-xs w-full border-collapse rounded overflow-hidden">
-      <thead>
-        <tr>
-          <th className="border border-gray-200 px-3 py-1 bg-gray-100 text-left font-semibold text-gray-600">
-            Campo
-          </th>
-          <th className="border border-gray-200 px-3 py-1 bg-red-50 text-left font-semibold text-red-600">
-            Anterior
-          </th>
-          <th className="border border-gray-200 px-3 py-1 bg-green-50 text-left font-semibold text-green-600">
-            Nuevo
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map(({ campo, anterior, nuevo }, i) => (
-          <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
-            <td className="border border-gray-200 px-3 py-1 font-medium text-gray-700">
-              {campo}
-            </td>
-            <td className="border border-gray-200 px-3 py-1 text-red-700">
-              {formatVal(anterior)}
-            </td>
-            <td className="border border-gray-200 px-3 py-1 text-green-700">
-              {formatVal(nuevo)}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-}
-
-type ActionEndpoint = "prefacturar" | "desligar" | "aprobar" | "atendida";
-
-function DetalleModal({
-  row,
-  onClose,
-  onAction,
-  actionLoading,
-}: {
-  row: AvisoReserva;
-  onClose: () => void;
-  onAction: (
-    endpoint: ActionEndpoint,
-    ids: { id_relacion: any; id_booking: any }[],
-  ) => void;
-  actionLoading: boolean;
-}) {
-  const detalle = parseDetalle(row.item?.detalle ?? row.detalle);
-  const hasFactura = Boolean(detalle?.id_factura);
-  const payload = [
-    {
-      id_relacion: row.item?.id_relacion,
-      id_booking: row.item?.id_booking,
-    },
-  ];
-
-  const cambios = detalle?.cambios ?? {};
-  const { items: itemsCambios, ...otherCambios } = cambios;
-  const cambiosRows = flattenCambios(otherCambios);
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto mx-4 flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 shrink-0">
-          <h2 className="text-base font-semibold text-gray-800">
-            Detalle de cambios
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-1 rounded hover:bg-gray-100 transition-colors"
-          >
-            <X className="w-4 h-4 text-gray-500" />
-          </button>
-        </div>
-
-        {/* Body */}
-        <div className="px-5 py-4 space-y-5 overflow-y-auto flex-1">
-          {/* Meta chips */}
-          {detalle && (
-            <div className="flex flex-wrap gap-2 text-xs">
-              {detalle.tipo && (
-                <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded-md border border-blue-200">
-                  Tipo: <b>{detalle.tipo}</b>
-                </span>
-              )}
-              {detalle.estatus && (
-                <span className="px-2 py-1 bg-orange-50 text-orange-700 rounded-md border border-orange-200">
-                  Estatus: <b>{detalle.estatus}</b>
-                </span>
-              )}
-              {detalle.prefacturado && (
-                <span className="px-2 py-1 bg-gray-50 text-gray-700 rounded-md border border-gray-200">
-                  Prefacturado: <b>{detalle.prefacturado}</b>
-                </span>
-              )}
-              {detalle.id_factura && (
-                <span className="px-2 py-1 bg-purple-50 text-purple-700 rounded-md border border-purple-200">
-                  ID Factura: <b>{detalle.id_factura}</b>
-                </span>
-              )}
-              {detalle.id_confirmacion && (
-                <span className="px-2 py-1 bg-gray-50 text-gray-700 rounded-md border border-gray-200">
-                  Confirmación: <b>{detalle.id_confirmacion}</b>
-                </span>
-              )}
-            </div>
-          )}
-
-          {/* Noches ajustadas */}
-          {itemsCambios && Object.keys(itemsCambios).length > 0 && (
-            <div>
-              <h3 className="text-sm font-semibold text-gray-700 mb-2">
-                Noches ajustadas
-              </h3>
-              <div className="space-y-3">
-                {Object.entries(itemsCambios).map(
-                  ([key, item]: [string, any]) => {
-                    const ant = item?.anterior ?? {};
-                    const nvo = item?.nuevo ?? {};
-                    const rows = flattenItemComparison(ant, nvo);
-                    return (
-                      <div
-                        key={key}
-                        className="border border-gray-200 rounded-lg overflow-hidden"
-                      >
-                        <div className="px-3 py-2 bg-amber-50 border-b border-gray-200 text-xs font-semibold text-amber-800">
-                          Noche {Number(key) + 1}
-                        </div>
-                        {rows.length > 0 ? (
-                          <CambiosTable rows={rows} />
-                        ) : (
-                          <p className="text-xs text-gray-400 px-3 py-2">
-                            Sin diferencias
-                          </p>
-                        )}
-                      </div>
-                    );
-                  },
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Otros cambios */}
-          {cambiosRows.length > 0 && (
-            <div>
-              <h3 className="text-sm font-semibold text-gray-700 mb-2">
-                Cambios en la reserva
-              </h3>
-              <CambiosTable rows={cambiosRows} />
-            </div>
-          )}
-
-          {!detalle && (
-            <p className="text-xs text-gray-500">Sin detalle disponible</p>
-          )}
-
-          {detalle &&
-            !itemsCambios &&
-            cambiosRows.length === 0 && (
-              <p className="text-xs text-gray-400">Sin cambios registrados</p>
-            )}
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-gray-200 shrink-0">
-          <button
-            onClick={onClose}
-            className="px-3 py-1.5 text-sm rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
-          >
-            Cerrar
-          </button>
-          {hasFactura ? (
-            <>
-              <button
-                disabled={actionLoading}
-                onClick={() => {
-                  onAction("aprobar", payload);
-                  onClose();
-                }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 disabled:opacity-50 transition-colors"
-              >
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                Aprobar
-              </button>
-              <button
-                disabled={actionLoading}
-                onClick={() => {
-                  onAction("desligar", payload);
-                  onClose();
-                }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 disabled:opacity-50 transition-colors"
-              >
-                <Unlink className="w-3.5 h-3.5" />
-                Desligar
-              </button>
-            </>
-          ) : (
-            <button
-              disabled={actionLoading}
-              onClick={() => {
-                onAction("atendida", payload);
-                onClose();
-              }}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 disabled:opacity-50 transition-colors"
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              Atendida
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-// ─────────────────────────────────────────────────────────────────────────────
+import { DetalleModal, type ActionEndpoint } from "./detalle/avisos";
 import Button from "@/components/atom/Button";
 import {
   fetchGetAvisosReservas,
   fetchGetAvisosReservasEnviadas,
   postAvisosReservasAction,
   fetchGetAvisosReservasnotificadas,
+  fetchGenerarLayaut,
 } from "@/services/avisos_reservas";
+import useApi from "@/hooks/useApi";
 import { useAlert } from "@/context/useAlert";
 import {
   CheckSquare,
   Square,
-  CheckCircle2,
-  Unlink,
   FileText,
   Filter,
   X,
@@ -325,6 +24,10 @@ import {
   ChevronRight,
   Eye,
   RefreshCw,
+  Download,
+  DownloadCloud,
+  Copy,
+  Check,
 } from "lucide-react";
 import FiltrosAvisosModal, {
   type AvisosFilters,
@@ -358,10 +61,260 @@ const FILTER_LABELS: Record<keyof AvisosFilters, string> = {
   tipo_hospedaje: "Tipo hospedaje",
 };
 
+function calcularNoches(checkIn: any, checkOut: any): string {
+  if (!checkIn || !checkOut) return "";
+  const d1 = new Date(checkIn);
+  const d2 = new Date(checkOut);
+  if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return "";
+  const diff = Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
+  return diff > 0 ? String(diff) : "";
+}
+
+function buildCSV(reservas: any[], nombreAgente: string): string {
+  const headers = [
+    "CLIENTE",
+    "HOTEL",
+    "VIAJERO",
+    "CHECK IN",
+    "CHECK OUT",
+    "NOCHES",
+    "HABITACION",
+    "TOTAL",
+    "METODO DE PAGO",
+  ];
+  const rows = reservas.map((r) => {
+    const checkIn = r["CHECK IN"] ?? "";
+    const checkOut = r["CHECK OUT"] ?? "";
+    const noches = r["NOCHES"] ?? calcularNoches(checkIn, checkOut);
+    return [
+      nombreAgente,
+      r["HOTEL"] ?? "",
+      r["VIAJERO"] ?? "",
+      checkIn,
+      checkOut,
+      noches,
+      r["HABITACION"] ?? "",
+      r["TOTAL"] ?? "",
+      r["METODO DE PAGO"] ?? "",
+    ];
+  });
+  return [headers, ...rows]
+    .map((row) =>
+      row.map((cell) => `"${String(cell ?? "").replace(/"/g, '""')}"`).join(","),
+    )
+    .join("\n");
+}
+
+function downloadCSV(content: string, filename: string) {
+  const blob = new Blob(["﻿" + content], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 100);
+}
+
+
+function LayoutModal({
+  agente,
+  facturas,
+  onClose,
+}: {
+  agente: string;
+  facturas: any[];
+  onClose: () => void;
+}) {
+  const { descargarFactura, descargarFacturaXML } = useApi();
+  const layoutText = `${agente}\n\nGusto en saludarte, adjunto factura de las reservaciones que se realizaron por la plataforma VIAJA CON MIA, para que me apoyes con su ingreso y programación a pago por favor.\n\nMe confirmas de recibido por favor. Cualquier duda o comentario, estoy a tus órdenes.\n\nSaludos cordiales!!`;
+
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(layoutText).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  const handleDescargar = async (
+    idFacturama: string,
+    tipo: "pdf" | "xml",
+    nombre: string,
+  ) => {
+    try {
+      if (tipo === "pdf") {
+        const obj = await descargarFactura(idFacturama);
+        const a = document.createElement("a");
+        a.href = `data:application/pdf;base64,${obj.Content}`;
+        a.download = nombre.endsWith(".pdf") ? nombre : `${nombre}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => document.body.removeChild(a), 100);
+      } else {
+        const obj = await descargarFacturaXML(idFacturama);
+        const a = document.createElement("a");
+        a.href = `data:application/xml;base64,${obj.Content}`;
+        a.download = nombre.endsWith(".xml") ? nombre : `${nombre}.xml`;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => document.body.removeChild(a), 100);
+      }
+    } catch {
+      alert("Ha ocurrido un error al descargar la factura");
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 flex flex-col max-h-[85vh]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 shrink-0">
+          <h2 className="text-base font-semibold text-gray-800">Layout generado</h2>
+          <button
+            onClick={onClose}
+            className="p-1 rounded hover:bg-gray-100 transition-colors"
+          >
+            <X className="w-4 h-4 text-gray-500" />
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-4 overflow-y-auto flex-1">
+          {/* Texto del correo */}
+          <div>
+            <p className="text-xs text-gray-500 mb-2">
+              El CSV se descargó. Copia el siguiente texto para tu correo:
+            </p>
+            <textarea
+              readOnly
+              rows={7}
+              value={layoutText}
+              className="w-full text-sm border border-gray-200 rounded-lg p-3 resize-none focus:outline-none bg-gray-50 font-sans"
+            />
+          </div>
+
+          {/* Facturas */}
+          {facturas.length > 0 && (
+            <div>
+              <h3 className="text-sm font-semibold text-gray-700 mb-2">Facturas</h3>
+              <div className="space-y-2">
+                {facturas.map((f, i) => (
+                  <div
+                    key={i}
+                    className="border border-purple-200 rounded-lg bg-purple-50/30 p-3 flex flex-col gap-2"
+                  >
+                    <div className="flex items-center gap-2 text-purple-800">
+                      <FileText className="w-4 h-4" />
+                      <span className="text-xs font-semibold">
+                        Factura {i + 1}
+                        {f.id_factura ? ` — ID ${f.id_factura}` : ""}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {f.url_pdf ? (
+                        <a
+                          href={f.url_pdf}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded border border-blue-200"
+                        >
+                          <FileText className="w-3 h-3" />
+                          Ver PDF
+                        </a>
+                      ) : f.id_facturama ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleDescargar(
+                              f.id_facturama,
+                              "pdf",
+                              `Factura-${f.id_factura || f.id_facturama}`,
+                            )
+                          }
+                          className="inline-flex items-center gap-1 text-xs text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded border border-blue-200"
+                        >
+                          <DownloadCloud className="w-3 h-3" />
+                          Descargar PDF
+                        </button>
+                      ) : null}
+
+                      {f.url_xml ? (
+                        <a
+                          href={f.url_xml}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded border border-blue-200"
+                        >
+                          <FileText className="w-3 h-3" />
+                          Ver XML
+                        </a>
+                      ) : f.id_facturama ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleDescargar(
+                              f.id_facturama,
+                              "xml",
+                              `Factura-${f.id_factura || f.id_facturama}`,
+                            )
+                          }
+                          className="inline-flex items-center gap-1 text-xs text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded border border-blue-200"
+                        >
+                          <DownloadCloud className="w-3 h-3" />
+                          Descargar XML
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-gray-200 shrink-0">
+          <button
+            onClick={onClose}
+            className="px-3 py-1.5 text-sm rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            Cerrar
+          </button>
+          <button
+            onClick={handleCopy}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+          >
+            {copied ? (
+              <>
+                <Check className="w-3.5 h-3.5" />
+                ¡Copiado!
+              </>
+            ) : (
+              <>
+                <Copy className="w-3.5 h-3.5" />
+                Copiar texto
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const { showNotification } = useAlert();
 
   const [avisos, setAvisos] = useState<AvisoReserva[]>([]);
+  const [layoutLoading, setLayoutLoading] = useState(false);
+  const [layoutData, setLayoutData] = useState<{ agente: string; facturas: any[] } | null>(null);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -486,6 +439,59 @@ function App() {
       page,
     ],
   );
+
+  const handleGenerarLayaut = useCallback(async () => {
+    const items = Object.values(selectedMap);
+    if (!items.length) {
+      showNotification("info", "Selecciona al menos 1 aviso");
+      return;
+    }
+    console.log(items,"😎😎😎😎")
+    const id_relaciones = items.map((r) => r.id_relacion).filter(Boolean);
+    const id_agente = items[0]?.agente;
+
+    if (!id_agente) {
+      showNotification("error", "No se encontró id_agente en los registros seleccionados");
+      return;
+    }
+
+    setLayoutLoading(true);
+
+    fetchGenerarLayaut(
+      async (data) => {
+        try {
+          if (data?.error) {
+            showNotification("error", data.error);
+            return;
+          }
+
+          const { reservas = [], agente, facturas = [] } = data;
+          const nombreAgente: string = agente?.nombre ?? "";
+
+          // Descargar CSV
+          const csv = buildCSV(reservas, nombreAgente);
+          downloadCSV(
+            csv,
+            `layout_${nombreAgente.replace(/\s+/g, "_")}_${new Date().toISOString().slice(0, 10)}.csv`,
+          );
+
+          // Deduplicar facturas
+          const seen = new Set<string>();
+          const facturasUnicas = facturas.filter((f) => {
+            const key = String(f.id_factura ?? "");
+            if (!key || seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+
+          setLayoutData({ agente: nombreAgente, facturas: facturasUnicas });
+        } finally {
+          setLayoutLoading(false);
+        }
+      },
+      { id_relaciones, id_agente },
+    );
+  }, [selectedMap, showNotification]);
 
   // Al cambiar entre Prefacturar y Notificadas solo recarga si ya hay filtros aplicados
   useEffect(() => {
@@ -676,59 +682,6 @@ function App() {
           <Eye className="w-4 h-4 text-blue-500" />
         </button>
       ),
-      pendiente: ({
-        item,
-      }: {
-        value: string;
-        item: AvisoReserva;
-        index: number;
-      }) => {
-        const detalle = parseDetalle(item?.detalle);
-        const hasFactura = Boolean(detalle?.id_factura);
-        const payload = [
-          {
-            id_relacion: item?.id_relacion,
-            id_booking: item?.id_booking,
-          },
-        ];
-
-        if (hasFactura) {
-          return (
-            <div className="flex items-center gap-1">
-              <button
-                disabled={actionLoading}
-                onClick={() => handleAction("aprobar", payload)}
-                title="Aprobar"
-                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 disabled:opacity-50 transition-colors"
-              >
-                <CheckCircle2 className="w-3 h-3" />
-                Aprobar
-              </button>
-              <button
-                disabled={actionLoading}
-                onClick={() => handleAction("desligar", payload)}
-                title="Desligar"
-                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 disabled:opacity-50 transition-colors"
-              >
-                <Unlink className="w-3 h-3" />
-                Desligar
-              </button>
-            </div>
-          );
-        }
-
-        return (
-          <button
-            disabled={actionLoading}
-            onClick={() => handleAction("atendida", payload)}
-            title="Marcar como atendida"
-            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 disabled:opacity-50 transition-colors"
-          >
-            <CheckCircle2 className="w-3 h-3" />
-            Atendida
-          </button>
-        );
-      },
     }),
     [actionLoading, handleAction],
   );
@@ -740,7 +693,6 @@ function App() {
     "agente",
     "id_booking",
     "proveedor",
-    "pendiente",
   ];
 
   const customColumns = useMemo(() => {
@@ -904,20 +856,39 @@ function App() {
             <div className="flex items-center gap-2">
               {!vistaNotificadas && (
                 <>
-                  <Button
-                    onClick={() => handleAction("prefacturar", selectedItems)}
-                    disabled={selectedCount === 0 || actionLoading}
-                    icon={FileText}
-                    variant="secondary"
-                    size="md"
-                    title={
-                      selectedCount === 0
-                        ? "Selecciona al menos 1 aviso"
-                        : `Prefacturar (${selectedCount})`
-                    }
-                  >
-                    Prefacturar{selectedCount > 0 ? ` (${selectedCount})` : ""}
-                  </Button>
+                  {fuenteTabla === "enviadas" ? (
+                    <Button
+                      onClick={handleGenerarLayaut}
+                      disabled={selectedCount === 0 || layoutLoading}
+                      icon={Download}
+                      variant="secondary"
+                      size="md"
+                      title={
+                        selectedCount === 0
+                          ? "Selecciona al menos 1 aviso"
+                          : `Generar Layout (${selectedCount})`
+                      }
+                    >
+                      {layoutLoading
+                        ? "Generando..."
+                        : `Generar Layout${selectedCount > 0 ? ` (${selectedCount})` : ""}`}
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={() => handleAction("prefacturar", selectedItems)}
+                      disabled={selectedCount === 0 || actionLoading}
+                      icon={FileText}
+                      variant="secondary"
+                      size="md"
+                      title={
+                        selectedCount === 0
+                          ? "Selecciona al menos 1 aviso"
+                          : `Prefacturar (${selectedCount})`
+                      }
+                    >
+                      Prefacturar{selectedCount > 0 ? ` (${selectedCount})` : ""}
+                    </Button>
+                  )}
 
                   <Button
                     onClick={() => {
@@ -987,6 +958,14 @@ function App() {
           onClose={() => setDetailModalRow(null)}
           onAction={handleAction}
           actionLoading={actionLoading}
+        />
+      )}
+
+      {layoutData !== null && (
+        <LayoutModal
+          agente={layoutData.agente}
+          facturas={layoutData.facturas}
+          onClose={() => setLayoutData(null)}
         />
       )}
     </div>
