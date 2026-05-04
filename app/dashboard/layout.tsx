@@ -119,6 +119,11 @@ const links: NavGroup[] = [
         href: "/dashboard/finanza_reserva",
         icon: Building2,
       },
+      {
+        title: "Cambios en reservas",
+        href: "/dashboard/avisos_reservas",
+        icon: Building2,
+      }
     ],
   },
   {
