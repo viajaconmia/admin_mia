@@ -49,11 +49,12 @@ export const fetchGetAvisosReservasnotificadas = async (
   cb: (data: any) => void,
   filters: AvisosFilters = { id_agente: "", nombre_agente: "", hotel: "", codigo_reservacion: "", traveler: "", tipo_hospedaje: "" },
   page = 1,
+  atendida: number | null = 1,
 ) => {
   const res = await fetch(`${URL}/mia/avisos_reservas/notificadas`, {
     method: "POST",
     headers: POST_HEADERS,
-    body: buildBody(filters, page),
+    body: JSON.stringify({ ...filters, pag: page, cant: LIMIT, atendida }),
     cache: "no-store",
   });
 

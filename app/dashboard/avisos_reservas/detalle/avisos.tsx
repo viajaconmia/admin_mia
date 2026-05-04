@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { CheckCircle2, Unlink, X, Loader2, FileText,DownloadCloud } from "lucide-react";
+import { CheckCircle2, Unlink, X, Loader2, FileText, DownloadCloud, Copy } from "lucide-react";
 import { fetchFacturacionAviso } from "@/services/avisos_reservas";
 
 import useApi from "@/hooks/useApi";
@@ -167,6 +167,15 @@ export function DetalleModal({
   const [facturaData, setFacturaData] = useState<any[] | null>(null);
   const [facturaLoading, setFacturaLoading] = useState(false);
   const { descargarFactura, descargarFacturaXML } = useApi();
+
+  const copiarTexto = async (texto: string) => {
+  try {
+    await navigator.clipboard.writeText(texto);
+    alert("UUID copiado");
+  } catch {
+    alert("No se pudo copiar el UUID");
+  }
+};
   
   const handleDescargarFactura = async (
     idFacturama: string,
@@ -215,6 +224,10 @@ export function DetalleModal({
   const cambios = detalle?.cambios ?? {};
   const { items: itemsCambios, ...otherCambios } = cambios;
   const cambiosRows = flattenCambios(otherCambios);
+  const reduccion_venta = cambios?.venta?.total.nuevo > cambios?.venta?.total?.anterior || false;
+
+  console.log(cambios.venta?.total,"🤩🤩🤩🤩")
+  console.log(reduccion_venta)
 
 const facturaResumen = Array.isArray(facturaData) ? facturaData[0] : null;
 
@@ -235,13 +248,14 @@ const esActivaConFactura =
 hasFactura && (!estatus == false);
 
 console.log("estado",estatus)
+
 const mostrarAprobar =
 esActivaConFactura && detalle.tipo!="reserva_cancelada" &&
 totalReserva > totalFacturado;
 
-const mostrarDesligar = hasFactura;
+const mostrarDesligar = hasFactura && totalFacturado != 0;
 
-const mostrarAtendida = !hasFactura;
+const mostrarAtendida = !hasFactura || totalFacturado == 0;
 
 const hasCambios =
   (itemsCambios && Object.keys(itemsCambios).length > 0) ||
@@ -371,13 +385,22 @@ const hasCambios =
                               </span>
                             </div>
                             {f.uuid && (
-                              <div className="text-xs text-gray-600">
-                                <span className="font-medium">UUID:</span>{" "}
-                                <span className="font-mono break-all">
-                                  {f.uuid}
-                                </span>
-                              </div>
-                            )}
+  <div className="text-xs text-gray-600 flex items-center gap-2">
+    <span className="font-medium">UUID:</span>
+
+    <span className="font-mono break-all">{f.uuid}</span>
+
+    <button
+      type="button"
+      onClick={() => copiarTexto(f.uuid)}
+      className="inline-flex items-center gap-1 px-2 py-1 rounded border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100"
+      title="Copiar UUID"
+    >
+      <Copy className="w-3 h-3" />
+      Copiar
+    </button>
+  </div>
+)}
                             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mt-1">
                               {f.total_reserva != null && (
                                 <>
@@ -530,13 +553,22 @@ const hasCambios =
                               </span>
                             </div>
                             {f.uuid && (
-                              <div className="text-xs text-gray-600">
-                                <span className="font-medium">UUID:</span>{" "}
-                                <span className="font-mono break-all">
-                                  {f.uuid}
-                                </span>
-                              </div>
-                            )}
+  <div className="text-xs text-gray-600 flex items-center gap-2">
+    <span className="font-medium">UUID:</span>
+
+    <span className="font-mono break-all">{f.uuid}</span>
+
+    <button
+      type="button"
+      onClick={() => copiarTexto(f.uuid)}
+      className="inline-flex items-center gap-1 px-2 py-1 rounded border border-purple-200 bg-purple-50 text-purple-700 hover:bg-purple-100"
+      title="Copiar UUID"
+    >
+      <Copy className="w-3 h-3" />
+      Copiar
+    </button>
+  </div>
+)}
                             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs mt-1">
                               {f.total_reserva != null && (
                                 <>

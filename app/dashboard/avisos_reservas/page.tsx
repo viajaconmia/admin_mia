@@ -323,6 +323,9 @@ function App() {
   // false = Prefacturar | true = Notificadas
   const [vistaNotificadas, setVistaNotificadas] = useState(false);
 
+  // Filtro de estado en vista Notificadas: 1=atendidas, 0=no atendidas, null=todas
+  const [atendidaFilter, setAtendidaFilter] = useState<1 | 0 | null>(0);
+
   // En prefacturar puedes cargar pendientes(default) o enviadas
   const [fuenteTabla, setFuenteTabla] = useState<
     "notificadas" | "default" | "enviadas"
@@ -359,16 +362,37 @@ function App() {
       fuente: "notificadas" | "default" | "enviadas" = "default",
       filtersToUse: AvisosFilters = EMPTY_AVISOS_FILTERS,
       pageToUse = 1,
+      atendida: 1 | 0 | null = 0,
     ) => {
       setLoading(true);
       setFuenteTabla(fuente);
 
+      if (fuente === "notificadas") {
+        fetchGetAvisosReservasnotificadas(
+          (data) => {
+            try {
+              const rows: AvisoReserva[] = Array.isArray(data?.data)
+                ? data.data
+                : Array.isArray(data)
+                  ? data
+                  : [];
+              setAvisos(rows);
+              setHasMore(rows.length >= LIMIT);
+            } finally {
+              setLoading(false);
+            }
+          },
+          filtersToUse,
+          pageToUse,
+          atendida,
+        );
+        return;
+      }
+
       const fetchFn =
         fuente === "enviadas"
           ? fetchGetAvisosReservasEnviadas
-          : fuente === "notificadas"
-            ? fetchGetAvisosReservasnotificadas
-            : fetchGetAvisosReservas;
+          : fetchGetAvisosReservas;
 
       fetchFn(
         (data) => {
@@ -419,7 +443,7 @@ function App() {
             clearSelection();
 
             if (vistaNotificadas) {
-              handleFetch("notificadas", appliedFilters, page);
+              handleFetch("notificadas", appliedFilters, page, atendidaFilter);
             } else {
               handleFetch(fuenteTabla, appliedFilters, page);
             }
@@ -437,6 +461,7 @@ function App() {
       fuenteTabla,
       appliedFilters,
       page,
+      atendidaFilter,
     ],
   );
 
@@ -499,11 +524,15 @@ function App() {
     setSearchTerm("");
     setPage(1);
 
+    if (vistaNotificadas) {
+      setAtendidaFilter(0);
+    }
+
     const hasFilters = Object.values(appliedFilters).some((v) => String(v ?? "").trim() !== "");
     if (!hasFilters) return;
 
     if (vistaNotificadas) {
-      handleFetch("notificadas", appliedFilters, 1);
+      handleFetch("notificadas", appliedFilters, 1, 0);
     } else {
       handleFetch("default", appliedFilters, 1);
     }
@@ -520,8 +549,8 @@ function App() {
     setPage(1);
     setSelectedMap({});
     const fuente = vistaNotificadas ? "notificadas" : fuenteTabla;
-    handleFetch(fuente as any, next, 1);
-  }, [filters, vistaNotificadas, fuenteTabla, handleFetch]);
+    handleFetch(fuente as any, next, 1, atendidaFilter);
+  }, [filters, vistaNotificadas, fuenteTabla, handleFetch, atendidaFilter]);
 
   const clearAllFilters = useCallback(() => {
     setFilters(EMPTY_AVISOS_FILTERS);
@@ -530,17 +559,17 @@ function App() {
     setPage(1);
     setSelectedMap({});
     const fuente = vistaNotificadas ? "notificadas" : fuenteTabla;
-    handleFetch(fuente as any, EMPTY_AVISOS_FILTERS, 1);
-  }, [vistaNotificadas, fuenteTabla, handleFetch]);
+    handleFetch(fuente as any, EMPTY_AVISOS_FILTERS, 1, atendidaFilter);
+  }, [vistaNotificadas, fuenteTabla, handleFetch, atendidaFilter]);
 
   const goToPage = useCallback(
     (nextPage: number) => {
       setPage(nextPage);
       setSelectedMap({});
       const fuente = vistaNotificadas ? "notificadas" : fuenteTabla;
-      handleFetch(fuente as any, appliedFilters, nextPage);
+      handleFetch(fuente as any, appliedFilters, nextPage, atendidaFilter);
     },
-    [vistaNotificadas, fuenteTabla, appliedFilters, handleFetch],
+    [vistaNotificadas, fuenteTabla, appliedFilters, handleFetch, atendidaFilter],
   );
 
   const activeAppliedFilters = useMemo(() => {
@@ -804,6 +833,56 @@ function App() {
           </div>
         )}
 
+        {/* Notificadas sub-toolbar */}
+        {vistaNotificadas && (
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-xs text-slate-600">Estado:</span>
+            {(
+  [
+    {
+      label: "Atendidas",
+      value: 1,
+      activeClass: "bg-green-600 border-green-600 text-white",
+      inactiveClass: "bg-white border-green-200 text-green-700 hover:bg-green-50",
+    },
+    {
+      label: "No atendidas",
+      value: 0,
+      activeClass: "bg-blue-600 border-blue-600 text-white",
+      inactiveClass: "bg-white border-blue-200 text-blue-700 hover:bg-blue-50",
+    },
+    {
+      label: "Todas",
+      value: null,
+      activeClass: "bg-slate-700 border-slate-700 text-white",
+      inactiveClass: "bg-white border-gray-200 text-gray-700 hover:bg-gray-50",
+    },
+  ] as {
+    label: string;
+    value: 1 | 0 | null;
+    activeClass: string;
+    inactiveClass: string;
+  }[]
+).map(({ label, value, activeClass, inactiveClass }) => (
+  <button
+    key={label}
+    type="button"
+    onClick={() => {
+      setAtendidaFilter(value);
+      setPage(1);
+      setSelectedMap({});
+      handleFetch("notificadas", appliedFilters, 1, value);
+    }}
+    className={`px-3 py-1 text-xs font-medium rounded-md border transition-colors ${
+      atendidaFilter === value ? activeClass : inactiveClass
+    }`}
+  >
+    {label}
+  </button>
+))}
+          </div>
+        )}
+
         {/* Prefacturar sub-toolbar */}
         {!vistaNotificadas && (
           <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
@@ -852,6 +931,11 @@ function App() {
             horizontalScroll
             maxHeight="calc(100vh - 340px)"
             fillHeight
+            getRowClassName={
+              vistaNotificadas
+                ? (row) => (row.item?.pendiente === 1 ? "bg-green-100" : "")
+                : undefined
+            }
           >
             <div className="flex items-center gap-2">
               {!vistaNotificadas && (
