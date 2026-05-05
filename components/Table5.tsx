@@ -212,7 +212,10 @@ const visibleOrderedColumns = useMemo(() => {
     k.includes("chout") ||
     k.includes("created_at") ||
     k.includes("creado")|| 
-    k.includes("updated_at")
+    k.includes("updated_at")||
+    k.includes("fecha_creada") ||    
+    k.includes("fecha_solucion")
+
   );
 };
 
