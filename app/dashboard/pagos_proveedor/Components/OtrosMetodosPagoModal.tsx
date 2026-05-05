@@ -255,7 +255,7 @@ export const OtrosMetodosPagoModal: React.FC<OtrosMetodosPagoModalProps> = ({
     }
   }, [selectedSolicitudes]);
 
-  const hasSelectedRows = selectedForms.length > 0;
+  const hasSelectedRows = selectedForms.length > 1;
 
   const manualValid = useMemo(() => {
   if (hasSelectedRows) {
@@ -503,7 +503,7 @@ const buildSelectedRows = (): CSVRow[] => {
         csvDataArray.length === 1
           ? {
               frontendData: {
-                id_solicitud_proveedor: csvDataArray[0].id_solicitud_proveedor || "",
+                id_solicitud_proveedor: csvDataArray[0].id_solicitud_proveedor || "", 
                 codigo_confirmacion: csvDataArray[0].codigo_confirmacion || "",
                 monto_pagado: csvDataArray[0].monto_pagado
                   ? Number(csvDataArray[0].monto_pagado)

@@ -1641,7 +1641,7 @@ getRowClassName={(row) => {
       {showComprobanteModal2 && (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
     <OtrosMetodosPagoModal
-      selectedSolicitudes={solicitudesSeleccionadasComprobante}
+      selectedSolicitudes={solicitudesSeleccionadasComprobante.slice(0, 1)}
       onClose={() => setShowComprobanteModal2(false)}
       onSubmit={async (payload) => {
         console.log("Payload de comprobante listo para API:", payload);
