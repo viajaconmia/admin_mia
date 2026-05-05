@@ -583,7 +583,7 @@ export default function GenerarCotizacion() {
       console.log("Payload enviado a n8n:", payload);
 
       await fetch(
-        "https://n8n-iirj.srv1623687.hstgr.cloud/webhook-test/e6f345aa-2be8-4c69-80fb-b7e46d5edfd8",
+        "https://n8n-iirj.srv1623687.hstgr.cloud/webhook/e6f345aa-2be8-4c69-80fb-b7e46d5edfd8",
         {
           method: "POST",
           headers: {
