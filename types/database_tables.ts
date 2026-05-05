@@ -44,6 +44,7 @@ export type CorreoHotel = {
   raw_price: string;
   source: string;
   currency: string;
+  enviado?: boolean;
 };
 
 export type CorreoProcesado = {

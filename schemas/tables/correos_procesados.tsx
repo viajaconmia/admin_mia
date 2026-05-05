@@ -163,7 +163,11 @@ const AgentCell = ({ value }: { value: string | null }) => {
 const AccionesCell = ({ value }: { value: CorreoProcesado }) => {
   const router = useRouter();
 
-  if (value.procesado == 1) return <span className="text-gray-400">—</span>;
+  const pendingHoteles = (value.hoteles ?? []).filter((h) => !h.enviado);
+  const hasPending = value.hoteles !== null && pendingHoteles.length > 0;
+
+  if (value.procesado == 1 && !hasPending)
+    return <span className="text-gray-400">—</span>;
 
   const handleProcesarManual = () => {
     const ap = value.agent_process as {
@@ -174,13 +178,14 @@ const AccionesCell = ({ value }: { value: CorreoProcesado }) => {
       codigo_postal?: string | null;
     };
 
+    const hotelesPendientes = (value.hoteles ?? []).filter((h) => !h.enviado);
     sessionStorage.setItem(
       "cotizacion_correo",
       JSON.stringify({
         id_correo: value.id_correo,
         subject: value.subject ?? null,
         body_email: value.body_email ?? null,
-        hoteles: value.hoteles ?? null,
+        hoteles: hotelesPendientes.length > 0 ? hotelesPendientes : null,
       }),
     );
 

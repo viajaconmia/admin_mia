@@ -18,6 +18,7 @@ import {
   Pencil,
   Plus,
   Send,
+  Trash2,
 } from "lucide-react";
 import { ExtraService } from "@/services/ExtraServices";
 import Modal from "@/components/organism/Modal";
@@ -203,6 +204,7 @@ const HotelCard = ({
   onUp,
   onDown,
   onEdit,
+  onDelete,
   onTotalChange,
   onDesayunoChange,
   onHabitacionChange,
@@ -215,6 +217,7 @@ const HotelCard = ({
   onUp: () => void;
   onDown: () => void;
   onEdit: () => void;
+  onDelete: () => void;
   onTotalChange: (v: string) => void;
   onDesayunoChange: (v: 0 | 1) => void;
   onHabitacionChange: (v: string) => void;
@@ -288,15 +291,26 @@ const HotelCard = ({
         <span>Tarifa no reembolsable</span>
       </div>
     </div>
-    <Button
-      icon={Pencil}
-      size="sm"
-      variant="secondary"
-      onClick={onEdit}
-      title="modificar"
-    >
-      modificar
-    </Button>
+    <div className="flex gap-1">
+      <Button
+        icon={Pencil}
+        size="sm"
+        variant="secondary"
+        onClick={onEdit}
+        title="modificar"
+      >
+        modificar
+      </Button>
+      <Button
+        icon={Trash2}
+        size="sm"
+        variant="warning ghost"
+        onClick={onDelete}
+        title="eliminar"
+      >
+        eliminar
+      </Button>
+    </div>
   </div>
 );
 
@@ -391,8 +405,9 @@ export default function GenerarCotizacion() {
     if (!correoOrigen?.hoteles || !hotelesContext) return;
     slotsInitialized.current = true;
 
-    const nuevosSlots: (HotelCotizacion | null)[] = correoOrigen.hoteles.map(
-      (ch, i) => {
+    const nuevosSlots: (HotelCotizacion | null)[] = correoOrigen.hoteles
+      .filter((ch) => !ch.enviado)
+      .map((ch, i) => {
         const hotelCompleto = hotelesContext.find(
           (h) => h.id_hotel === ch.hotel_id,
         );
@@ -416,8 +431,7 @@ export default function GenerarCotizacion() {
           precio_sistema: room?.precio ?? null,
           costo_sistema: room?.costo ?? null,
         };
-      },
-    );
+      });
     const MIN_SLOTS = 3;
     while (nuevosSlots.length < MIN_SLOTS) nuevosSlots.push(null);
     setSlots(nuevosSlots);
@@ -436,7 +450,17 @@ export default function GenerarCotizacion() {
       });
       console.log("Respuesta del endpoint /v1/hoteles/cotizacion:", response);
       const data = (response.data ?? []) as HotelCotizacion[];
-      setSlots([data[0] ?? null, data[1] ?? null, data[2] ?? null]);
+      const sorted = [...data].sort(
+        (a, b) => parseFloat(a.total || "0") - parseFloat(b.total || "0"),
+      );
+      if (form.hotel) {
+        const needle = form.hotel.toLowerCase();
+        const idx = sorted.findIndex((h) =>
+          h.hotel.toLowerCase().includes(needle),
+        );
+        if (idx > 0) sorted.unshift(sorted.splice(idx, 1)[0]);
+      }
+      setSlots([sorted[0] ?? null, sorted[1] ?? null, sorted[2] ?? null]);
     } catch (error) {
       console.error("Error al obtener cotizaciones:", error);
     } finally {
@@ -537,6 +561,7 @@ export default function GenerarCotizacion() {
           checkin: s.checkin,
           checkout: s.checkout,
           notas: s.notas,
+          enviado: true,
         }));
 
       const payload = {
@@ -558,7 +583,7 @@ export default function GenerarCotizacion() {
       console.log("Payload enviado a n8n:", payload);
 
       await fetch(
-        "https://n8n-iirj.srv1623687.hstgr.cloud/webhook/e6f345aa-2be8-4c69-80fb-b7e46d5edfd8",
+        "https://n8n-iirj.srv1623687.hstgr.cloud/webhook-test/e6f345aa-2be8-4c69-80fb-b7e46d5edfd8",
         {
           method: "POST",
           headers: {
@@ -574,6 +599,14 @@ export default function GenerarCotizacion() {
     } finally {
       setLoadingEnvio(false);
     }
+  };
+
+  const deleteSlot = (index: number) => {
+    setSlots((prev) => {
+      const updated = [...prev];
+      updated[index] = null;
+      return updated;
+    });
   };
 
   const move = (index: number, dir: "up" | "down") => {
@@ -735,6 +768,7 @@ export default function GenerarCotizacion() {
                     onUp={() => move(index, "up")}
                     onDown={() => move(index, "down")}
                     onEdit={() => handleSlotAction(index)}
+                    onDelete={() => deleteSlot(index)}
                     onTotalChange={(v) => updateSlotPrice(index, "total", v)}
                     onDesayunoChange={(v) => updateSlotDesayuno(index, v)}
                     onHabitacionChange={(v) => updateSlotHabitacion(index, v)}

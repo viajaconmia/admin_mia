@@ -253,8 +253,19 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
       );
       if (!confirmed) return;
       const book = new BookingsService();
-      await book.cancelarBooking(value);
-      handleFetchSolicitudes();
+      const response = await book.cancelarBooking(value);
+      if (response.data.estatus == "required_confirmation") {
+        const confirmCancel = confirm(
+          "Esta reserva tiene facturas asociadas, ¿Quieres confirmar la cancelación?",
+        );
+        if (!confirmCancel) return;
+        await book.cancelarBooking(value, true);
+        handleFetchSolicitudes();
+        showNotification("success", "Reserva cancelada exitosamente.");
+      } else {
+        handleFetchSolicitudes();
+        showNotification("success", "Reserva cancelada exitosamente.");
+      }
     } catch (error) {
       showNotification("error", error.message || "error");
     } finally {

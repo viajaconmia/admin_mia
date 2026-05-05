@@ -53,10 +53,10 @@ export class BookingsService extends ApiService {
       params,
     });
 
-  public cancelarBooking = async (id_booking) =>
-    this.put<{}>({
+  public cancelarBooking = async (id_booking, confirm = false) =>
+    this.put<{ estatus: string }>({
       path: this.formatPath(this.ENDPOINTS.PUT.CANCELAR),
-      body: { id_booking },
+      body: { id_booking, confirm },
     });
 }
 
@@ -94,7 +94,7 @@ export type BookingAll = {
   id_agente: string;
   estado_pago: string;
   estado_facturacion: string;
-  id_proveedor:string;
+  id_proveedor: string;
 
   reservante: string;
   correo_cliente: string;
