@@ -529,7 +529,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
           <ReservationEditContainer
             id_solicitud={selectedEdit}
             onClose={() => {
-              setSelectedItem(null);
+              setSelectedEdit(null);
               handleFetchSolicitudes();
             }}
           />

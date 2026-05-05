@@ -49,14 +49,46 @@ export const fetchGetAvisosReservasnotificadas = async (
   cb: (data: any) => void,
   filters: AvisosFilters = { id_agente: "", nombre_agente: "", hotel: "", codigo_reservacion: "", traveler: "", tipo_hospedaje: "" },
   page = 1,
+  atendida: number | null = 1,
 ) => {
   const res = await fetch(`${URL}/mia/avisos_reservas/notificadas`, {
     method: "POST",
     headers: POST_HEADERS,
-    body: buildBody(filters, page),
+    body: JSON.stringify({ ...filters, pag: page, cant: LIMIT, atendida }),
     cache: "no-store",
   });
 
+  const data = await res.json();
+  cb(data);
+};
+
+export const fetchFacturacionAviso = async (
+  cb: (data: any) => void,
+  params: { id_factura: string | number; id_relacion: string | number },
+) => {
+  console.log("informacion", params);
+
+  const res = await fetch(`${URL}/mia/avisos_reservas/facturacion`, {
+    method: "POST",
+    headers: POST_HEADERS,
+    body: JSON.stringify(params),
+    cache: "no-store",
+  });
+
+  const data = await res.json();
+  cb(data);
+};
+
+export const fetchGenerarLayaut = async (
+  cb: (data: any) => void,
+  params: { id_relaciones: (string | number)[]; id_agente: string | number },
+) => {
+  const res = await fetch(`${URL}/mia/avisos_reservas/generar_layaut`, {
+    method: "POST",
+    headers: POST_HEADERS,
+    body: JSON.stringify(params),
+    cache: "no-store",
+  });
   const data = await res.json();
   cb(data);
 };

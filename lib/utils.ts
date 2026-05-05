@@ -90,6 +90,7 @@ export const downloadFile = async (url: string, filename: string) => {
     console.error("Error al descargar archivo:", error);
   }
 };
+
 export const getTodayDate = () => {
   return new Date().toISOString().split("T")[0];
 };
