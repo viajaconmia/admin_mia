@@ -55,6 +55,8 @@ interface TableProps<T> {
   filasExpandibles?: { [id: string]: boolean };
   /** Renderer del contenido expandido debajo de la fila */
   expandedRenderer?: (row: Registro) => React.ReactNode;
+  /** Renderers personalizados para las cabeceras de columna */
+  headerRenderers?: Record<string, () => React.ReactNode>;
 }
 
 export const Table5 = <T,>({
@@ -80,6 +82,7 @@ export const Table5 = <T,>({
   pageSize = 50,
   filasExpandibles,
   expandedRenderer,
+  headerRenderers = {},
 }: TableProps<T>) => {
   const [displayData, setDisplayData] = useState<Registro[]>(registros);
   const [loading, setLoading] = useState<boolean>(false);
@@ -598,21 +601,27 @@ const normalizeExportRow = (row: Registro) => {
       }}
     >
       <span className="flex flex-col items-start gap-1">
-        {key === (currentSort.key || "") && (
-          <ArrowDown
-            className={`w-3 h-3 transition-transform self-center ${
-              !currentSort.sort ? "" : "rotate-180"
-            }`}
-          />
-        )}
-        <div className="whitespace-pre-line text-center w-full leading-tight">
-          {formatColumnTitle(key)}
-          {expandableColumns.includes(key) && (
-            <div className="text-xs font-normal text-blue-600 mt-1">
-              (Expandible)
+        {headerRenderers[key] ? (
+          headerRenderers[key]()
+        ) : (
+          <>
+            {key === (currentSort.key || "") && (
+              <ArrowDown
+                className={`w-3 h-3 transition-transform self-center ${
+                  !currentSort.sort ? "" : "rotate-180"
+                }`}
+              />
+            )}
+            <div className="whitespace-pre-line text-center w-full leading-tight">
+              {formatColumnTitle(key)}
+              {expandableColumns.includes(key) && (
+                <div className="text-xs font-normal text-blue-600 mt-1">
+                  (Expandible)
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </>
+        )}
       </span>
     </th>
   );

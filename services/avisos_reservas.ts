@@ -93,6 +93,35 @@ export const fetchGenerarLayaut = async (
   cb(data);
 };
 
+export const postAvisosFactura = async (
+  id_relacion: string | number,
+): Promise<any> => {
+  const res = await fetch(`${URL}/mia/avisos_reservas/avisos_factura`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": API_KEY,
+    },
+    body: JSON.stringify({ id_relacion }),
+    cache: "no-store",
+  });
+
+  const data = await res.json();
+
+  if (!res.ok) {
+    throw new Error(data?.message || data?.error || "Error al facturar");
+  }
+
+  if (
+    data?.message === "Diferencia ya pagada" ||
+    data?.tipo === "DIFERENCIA_YA_PAGADA"
+  ) {
+    throw new Error("Diferencia ya pagada");
+  }
+
+  return data;
+};
+
 export const postAvisosReservasAction = async (
   endpoint: "prefacturar" | "desligar" | "aprobar",
   ids: { id_relacion: string | number; id_booking: string | number }[],
