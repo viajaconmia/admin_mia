@@ -610,6 +610,10 @@ function App() {
             id_booking: row.id_booking ?? "—",
             proveedor: row.proveedor ?? "—",
             pendiente: rowId,
+            creo : row.usuario_creador_notificacion,
+            fecha_creada:row.fecha_notificacion,
+            atendio:row.usuario_update_notificacion ?? "_",
+            fecha_solucion:row.fecha_atendida??"_",
             item: row,
           };
         }
