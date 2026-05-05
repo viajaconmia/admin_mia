@@ -574,9 +574,10 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
                     <CheckboxInput
                       label="Articulo personal"
                       checked={vuelo.is_eq_personal}
-                      onChange={(checked) =>
-                        handleUpdateVuelo(index, "is_eq_personal", checked)
-                      }
+                      onChange={(checked) => {
+                        handleUpdateVuelo(index, "is_eq_personal", checked);
+                        handleUpdateVuelo(index, "eq_personal", checked ? "incluye" : "");
+                      }}
                     />
                     <TextInput
                       value={vuelo.eq_personal}
@@ -590,9 +591,10 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
                     <CheckboxInput
                       label="Equipaje de mano"
                       checked={vuelo.is_eq_mano}
-                      onChange={(checked) =>
-                        handleUpdateVuelo(index, "is_eq_mano", checked)
-                      }
+                      onChange={(checked) => {
+                        handleUpdateVuelo(index, "is_eq_mano", checked);
+                        handleUpdateVuelo(index, "eq_mano", checked ? "incluye" : "");
+                      }}
                     />
                     <TextInput
                       value={vuelo.eq_mano}
@@ -606,9 +608,10 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
                     <CheckboxInput
                       label="Equipaje documentado"
                       checked={vuelo.is_eq_documentado}
-                      onChange={(checked) =>
-                        handleUpdateVuelo(index, "is_eq_documentado", checked)
-                      }
+                      onChange={(checked) => {
+                        handleUpdateVuelo(index, "is_eq_documentado", checked);
+                        handleUpdateVuelo(index, "eq_documentado", checked ? "incluye" : "");
+                      }}
                     />
                     <TextInput
                       value={vuelo.eq_documentado}
@@ -1805,9 +1808,10 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
                     <CheckboxInput
                       label="Articulo personal"
                       checked={vuelo.is_eq_personal}
-                      onChange={(checked) =>
-                        handleUpdateVuelo(index, "is_eq_personal", checked)
-                      }
+                      onChange={(checked) => {
+                        handleUpdateVuelo(index, "is_eq_personal", checked);
+                        handleUpdateVuelo(index, "eq_personal", checked ? "incluye" : "");
+                      }}
                     />
                     <TextInput
                       value={vuelo.eq_personal}
@@ -1821,9 +1825,10 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
                     <CheckboxInput
                       label="Equipaje de mano"
                       checked={vuelo.is_eq_mano}
-                      onChange={(checked) =>
-                        handleUpdateVuelo(index, "is_eq_mano", checked)
-                      }
+                      onChange={(checked) => {
+                        handleUpdateVuelo(index, "is_eq_mano", checked);
+                        handleUpdateVuelo(index, "eq_mano", checked ? "incluye" : "");
+                      }}
                     />
                     <TextInput
                       value={vuelo.eq_mano}
@@ -1837,9 +1842,10 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
                     <CheckboxInput
                       label="Equipaje documentado"
                       checked={vuelo.is_eq_documentado}
-                      onChange={(checked) =>
-                        handleUpdateVuelo(index, "is_eq_documentado", checked)
-                      }
+                      onChange={(checked) => {
+                        handleUpdateVuelo(index, "is_eq_documentado", checked);
+                        handleUpdateVuelo(index, "eq_documentado", checked ? "incluye" : "");
+                      }}
                     />
                     <TextInput
                       value={vuelo.eq_documentado}
