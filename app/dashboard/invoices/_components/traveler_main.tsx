@@ -45,7 +45,7 @@ import ModalDetalleFactura from "@/app/dashboard/invoices/_components/detalles";
 import { PageTracker, TrackingPage } from "./tracker_false";
 import { set } from "date-fns";
 import { useFile } from "@/hooks/useFile";
-import { downloadXML } from "@/helpers/utils";
+import { downloadXML, obtenerPresignedUrl, subirArchivoAS3 } from "@/helpers/utils";
 import {
   ComboBox2,
   ComboBoxOption2,
@@ -56,6 +56,60 @@ import {
 //   ComboBoxOption2,
 //   TextAreaInput,
 // } from "@/components/atom/Input";
+
+// ── Helpers S3 (espejo de reservations-main) ──────────────────────────────────
+
+const normalizeBase64S3 = (b64?: string | null) => {
+  if (!b64) return "";
+  const clean = b64.split("base64,").pop()!.replace(/[\r\n\s]/g, "");
+  return clean.replace(/-/g, "+").replace(/_/g, "/");
+};
+
+const base64ToFileS3 = (b64: string, fileName: string, mime: string): File => {
+  const clean = normalizeBase64S3(b64);
+  const byteChars = atob(clean);
+  const byteNumbers = new Array(byteChars.length);
+  for (let i = 0; i < byteChars.length; i++)
+    byteNumbers[i] = byteChars.charCodeAt(i);
+  const byteArray = new Uint8Array(byteNumbers);
+  return new File([byteArray], fileName, { type: mime });
+};
+
+const subirArchivoAS3Seguro = async (
+  file: File,
+  bucket = "comprobantes",
+): Promise<string> => {
+  const { url: presignedUrl, publicUrl } = await obtenerPresignedUrl(
+    file.name,
+    file.type,
+    bucket,
+  );
+  await subirArchivoAS3(file, presignedUrl);
+  return publicUrl;
+};
+
+const asignarURLSFactura = async (
+  id_factura: string,
+  url_pdf: string,
+  url_xml: string,
+  apiUrl: string,
+  apiKey: string,
+) => {
+  const resp = await fetch(
+    `${apiUrl}/mia/factura/asignarURLS_factura?id_factura=${encodeURIComponent(id_factura)}&url_pdf=${encodeURIComponent(url_pdf)}&url_xml=${encodeURIComponent(url_xml)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+    },
+  );
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err?.message || `Error asignarURLS_factura HTTP ${resp.status}`);
+  }
+  return resp.json();
+};
+
+// ── Formato moneda ─────────────────────────────────────────────────────────────
 
 // Formato moneda
 const fmtMoney = (n: any) =>
@@ -100,6 +154,152 @@ export function TravelersPage() {
   hasAccess(PERMISOS.VISTAS.FACTURAS);
 
   const { descargarFactura, descargarFacturaXML } = useApi();
+  const [subiendoS3, setSubiendoS3] = useState(false);
+
+  const handleSubirFacturasS3 = async () => {
+    setSubiendoS3(true);
+    let ok = 0;
+    let errores = 0;
+
+    try {
+      // ── 1. Obtener facturas pendientes de subir ───────────────────────────
+      console.log("📡 [S3-batch] Llamando POST /factura/facturas_completas...");
+      const resp = await fetch(`${URL}/mia/factura/facturas_completas`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": API_KEY },
+        cache: "no-store",
+      });
+
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err?.message || `HTTP ${resp.status} en facturas_completas`);
+      }
+
+      const data = await resp.json();
+      // Log completo para identificar la estructura real de la respuesta
+      console.log("📋 [S3-batch] RAW response:", JSON.stringify(data)?.slice(0, 500));
+      console.log("📋 [S3-batch] Keys del response:", data && typeof data === "object" ? Object.keys(data) : typeof data);
+
+      const listaRaw: any[] = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.data) ? data.data
+        : Array.isArray(data?.facturas) ? data.facturas
+        : Array.isArray(data?.result) ? data.result
+        : Array.isArray(data?.results) ? data.results
+        : [];
+
+      // Filtra items nulos/undefined para evitar "Cannot read properties of undefined"
+      const lista = listaRaw.filter(
+        (item) => item != null && typeof item === "object",
+      );
+
+      console.log(`📋 [S3-batch] Total facturas a procesar: ${lista.length} (raw: ${listaRaw.length})`);
+
+      if (!lista.length) {
+        showNotification("info", "No hay facturas pendientes de subir a S3");
+        return;
+      }
+
+      // ── 2. Procesar cada factura ─────────────────────────────────────────
+      for (const factura of lista) {
+        // Doble guard: el filter ya quitó nulls, pero por si acaso
+        if (!factura || typeof factura !== "object") {
+          console.warn("⚠️ [S3-batch] Item inválido en lista, se omite:", factura);
+          errores++;
+          continue;
+        }
+
+        const idFacturama: string | undefined = factura.id_facturama;
+        const idFactura: string | undefined = factura.id_factura;
+        console.log(`🔍 [S3-batch] Procesando — id_factura: ${idFactura} | id_facturama: ${idFacturama}`);
+
+        if (!idFacturama || !idFactura) {
+          console.warn("⚠️ [S3-batch] Sin id_facturama o id_factura, se omite:", factura);
+          errores++;
+          continue;
+        }
+
+        try {
+          console.log(`📥 [S3-batch] Descargando PDF y XML — id_factura: ${idFactura} | id_facturama: ${idFacturama}`);
+
+          const [pdfResponse, xmlResponse] = await Promise.all([
+            descargarFactura(idFacturama),
+            descargarFacturaXML(idFacturama),
+          ]);
+
+          console.log(`📄 [S3-batch] PDF Content: ${pdfResponse?.Content ? "✅ OK" : "❌ VACÍO"}`);
+          console.log(`📄 [S3-batch] XML Content: ${xmlResponse?.Content ? "✅ OK" : "❌ VACÍO"}`);
+
+          let pdfUrl = "";
+          let xmlUrl = "";
+
+          // ── 2a. Subir PDF ─────────────────────────────────────────────────
+          if (pdfResponse?.Content) {
+            try {
+              const pdfFile = base64ToFileS3(
+                pdfResponse.Content,
+                `factura_${idFacturama}.pdf`,
+                "application/pdf",
+              );
+              console.log(`⬆️ [S3-batch] Subiendo PDF de ${idFactura}...`);
+              pdfUrl = await subirArchivoAS3Seguro(pdfFile);
+              console.log(`✅ [S3-batch] PDF subido: ${pdfUrl}`);
+            } catch (err) {
+              console.error(`❌ [S3-batch] Error subiendo PDF de ${idFactura}:`, err);
+            }
+          } else {
+            console.warn(`⚠️ [S3-batch] PDF sin contenido para ${idFactura}`);
+          }
+
+          // ── 2b. Subir XML ─────────────────────────────────────────────────
+          if (xmlResponse?.Content) {
+            try {
+              const xmlFile = base64ToFileS3(
+                xmlResponse.Content,
+                `factura_${idFacturama}.xml`,
+                "application/xml",
+              );
+              console.log(`⬆️ [S3-batch] Subiendo XML de ${idFactura}...`);
+              xmlUrl = await subirArchivoAS3Seguro(xmlFile);
+              console.log(`✅ [S3-batch] XML subido: ${xmlUrl}`);
+            } catch (err) {
+              console.error(`❌ [S3-batch] Error subiendo XML de ${idFactura}:`, err);
+            }
+          } else {
+            console.warn(`⚠️ [S3-batch] XML sin contenido para ${idFactura}`);
+          }
+
+          // ── 2c. Asignar URLs en BD ────────────────────────────────────────
+          if (pdfUrl || xmlUrl) {
+            console.log(`🔗 [S3-batch] Asignando URLs en BD para ${idFactura} — pdf: ${pdfUrl} | xml: ${xmlUrl}`);
+            await asignarURLSFactura(idFactura, pdfUrl, xmlUrl, URL, API_KEY);
+            console.log(`✅ [S3-batch] URLs asignadas correctamente para ${idFactura}`);
+            ok++;
+          } else {
+            console.warn(`⚠️ [S3-batch] No se subió ningún archivo para ${idFactura}, se omite asignarURLS_factura`);
+            errores++;
+          }
+        } catch (err) {
+          console.error(`❌ [S3-batch] Error procesando factura ${idFactura}:`, err);
+          errores++;
+        }
+      }
+
+      // ── 3. Resultado final ───────────────────────────────────────────────
+      console.log(`📊 [S3-batch] Resultado final — OK: ${ok} | Errores: ${errores}`);
+      showNotification(
+        ok > 0 ? "success" : "error",
+        `S3 batch: ${ok} facturas subidas${errores > 0 ? `, ${errores} con error` : ""}`,
+      );
+
+      if (ok > 0) cargarFacturas();
+    } catch (err: any) {
+      console.error("❌ [S3-batch] Error general:", err);
+      showNotification("error", err?.message || "Error al procesar facturas S3");
+    } finally {
+      setSubiendoS3(false);
+    }
+  };
 
   // Estados
   const [searchTerm, setSearchTerm] = useState("");
@@ -939,6 +1139,15 @@ export function TravelersPage() {
             </Button>
             <Button size="sm" onClick={() => cargarFacturas()}>
               Cargar facturas
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={subiendoS3}
+              onClick={handleSubirFacturasS3}
+            >
+              <DownloadCloud className="w-4 h-4 mr-1" />
+              {subiendoS3 ? "Subiendo a S3..." : "Subir facturas a S3"}
             </Button>
           </Table5>
 

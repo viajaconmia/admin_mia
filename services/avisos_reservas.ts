@@ -64,7 +64,11 @@ export const fetchGetAvisosReservasnotificadas = async (
 
 export const fetchFacturacionAviso = async (
   cb: (data: any) => void,
-  params: { id_factura: string | number; id_relacion: string | number },
+  params: {
+    id_factura?: string | number;
+    id_facturas?: (string | number)[];
+    id_relacion: string | number;
+  },
 ) => {
   console.log("informacion", params);
 
@@ -95,14 +99,18 @@ export const fetchGenerarLayaut = async (
 
 export const postAvisosFactura = async (
   id_relacion: string | number,
+  id_facturas?: (string | number)[],
 ): Promise<any> => {
+  const body: Record<string, any> = { id_relacion };
+  if (id_facturas && id_facturas.length > 0) body.id_facturas = id_facturas;
+
   const res = await fetch(`${URL}/mia/avisos_reservas/avisos_factura`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "x-api-key": API_KEY,
     },
-    body: JSON.stringify({ id_relacion }),
+    body: JSON.stringify(body),
     cache: "no-store",
   });
 

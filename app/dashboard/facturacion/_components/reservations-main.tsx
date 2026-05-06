@@ -41,6 +41,35 @@ const subirArchivoAS3Seguro = async (
   }
 };
 
+const base64ToFile = (b64: string, fileName: string, mime: string): File => {
+  const clean = normalizeBase64(b64);
+  const byteChars = atob(clean);
+  const byteNumbers = new Array(byteChars.length);
+  for (let i = 0; i < byteChars.length; i++)
+    byteNumbers[i] = byteChars.charCodeAt(i);
+  const byteArray = new Uint8Array(byteNumbers);
+  return new File([byteArray], fileName, { type: mime });
+};
+
+const asignarURLS_factura = async (
+  id_factura: string,
+  url_pdf: string,
+  url_xml: string,
+) => {
+  const resp = await fetch(
+    `${API_URL}/mia/factura/asignarURLS_factura?id_factura=${encodeURIComponent(id_factura)}&url_pdf=${encodeURIComponent(url_pdf)}&url_xml=${encodeURIComponent(url_xml)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": API_KEY },
+    },
+  );
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err?.message || "Error al asignar URLs de factura");
+  }
+  return resp.json();
+};
+
 const base64ToBlob = (b64: string, mime: string) => {
   const clean = normalizeBase64(b64);
   const byteChars = atob(clean);
@@ -1359,17 +1388,86 @@ const buildItemDescription = useCallback(
       const response = await crearCfdi(payloadCFDI.cfdi, payloadCFDI.info_user);
       if ((response as any)?.error) throw new Error((response as any).error);
       console.log(response);
-      descargarFactura(response.Id)
-        .then((factura) => setDescarga(factura))
-        .catch((err) => console.error(err));
-      descargarFactura(response.Id, "xml")
-        .then((factura) => setDescargaxml(factura))
-        .catch((err) => console.error(err));
-      setIsInvoiceGenerated(response.data);
-      setIsInvoiceGenerated(response);
 
+      setIsInvoiceGenerated(response);
       showNotification("success", "Se ha generado con éxito la factura");
       onConfirm(selectedFiscalData, mode === "consolidada");
+
+      // Descarga, subida a S3 y asignación de URLs (no bloquea el éxito ya notificado)
+      console.log("🔍 [S3] response completo:", response);
+      console.log("🔍 [S3] response.Id:", response?.Id, "| response.id_factura:", response?.id_factura);
+
+      if (response?.Id) {
+        try {
+          console.log("📥 [S3] Descargando PDF y XML de Facturama...");
+          const [pdfResponse, xmlResponse] = await Promise.all([
+            descargarFactura(response.Id),
+            descargarFactura(response.Id, "xml"),
+          ]);
+
+          console.log("📄 [S3] pdfResponse.Content (primeros 30):", pdfResponse?.Content?.slice(0, 30));
+          console.log("📄 [S3] xmlResponse.Content (primeros 30):", xmlResponse?.Content?.slice(0, 30));
+
+          setDescarga(pdfResponse);
+          setDescargaxml(xmlResponse);
+
+          let pdfUrl = "";
+          let xmlUrl = "";
+
+          if (pdfResponse?.Content) {
+            try {
+              const pdfFile = base64ToFile(
+                pdfResponse.Content,
+                `factura_${response.Id}.pdf`,
+                "application/pdf",
+              );
+              console.log("⬆️ [S3] Subiendo PDF...");
+              pdfUrl = await subirArchivoAS3Seguro(pdfFile);
+              console.log("✅ [S3] PDF subido:", pdfUrl);
+            } catch (err) {
+              console.error("❌ [S3] Error al subir PDF:", err);
+            }
+          } else {
+            console.warn("⚠️ [S3] pdfResponse sin Content, no se sube PDF");
+          }
+
+          if (xmlResponse?.Content) {
+            try {
+              const xmlFile = base64ToFile(
+                xmlResponse.Content,
+                `factura_${response.Id}.xml`,
+                "application/xml",
+              );
+              console.log("⬆️ [S3] Subiendo XML...");
+              xmlUrl = await subirArchivoAS3Seguro(xmlFile);
+              console.log("✅ [S3] XML subido:", xmlUrl);
+            } catch (err) {
+              console.error("❌ [S3] Error al subir XML:", err);
+            }
+          } else {
+            console.warn("⚠️ [S3] xmlResponse sin Content, no se sube XML");
+          }
+
+          const idFactura =
+            response?.id_factura ?? (response as any)?.data?.id_factura;
+          console.log("🔑 [S3] idFactura:", idFactura, "| pdfUrl:", pdfUrl, "| xmlUrl:", xmlUrl);
+          const uuid_factura = response.Complement.TaxStamp.Uuid;
+          console.log(uuid_factura,"uuid",response);
+
+
+          if ((idFactura?? uuid_factura) && (pdfUrl || xmlUrl)) {
+            console.log("🔗 [S3] Llamando asignarURLS_factura...");
+            await asignarURLS_factura(idFactura ?? uuid_factura, pdfUrl, xmlUrl);
+            console.log("✅ [S3] URLs asignadas en BD");
+          } else {
+            console.warn("⚠️ [S3] No se llama asignarURLS_factura — idFactura:", idFactura, "pdfUrl:", pdfUrl, "xmlUrl:", xmlUrl,"uuid_factura_",uuid_factura);
+          }
+        } catch (err) {
+          console.error("❌ [S3] Error en proceso S3 post-factura:", err);
+        }
+      } else {
+        console.warn("⚠️ [S3] response.Id está vacío, se omite el proceso S3");
+      }
     } catch (error: any) {
       console.error(error);
       showNotification(
