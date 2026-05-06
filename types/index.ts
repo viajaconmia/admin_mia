@@ -304,6 +304,7 @@ export interface Hotel {
   id_hotel: string;
   nombre_hotel: string;
   Estado: string;
+  direccion: string;
   Ciudad_Zona: string;
   geo: {
     latitud: string | null;

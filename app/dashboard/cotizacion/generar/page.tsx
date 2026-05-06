@@ -13,6 +13,7 @@ import Button from "@/components/atom/Button";
 import {
   ChevronDown,
   ChevronUp,
+  Download,
   Eye,
   Loader2,
   Pencil,
@@ -209,6 +210,9 @@ const HotelCard = ({
   onDesayunoChange,
   onHabitacionChange,
   onNotasChange,
+  onDownload,
+  downloading,
+  canEdit,
 }: {
   hotel: HotelCotizacion;
   priority: number;
@@ -222,6 +226,9 @@ const HotelCard = ({
   onDesayunoChange: (v: 0 | 1) => void;
   onHabitacionChange: (v: string) => void;
   onNotasChange: (v: string) => void;
+  onDownload: () => void;
+  downloading: boolean;
+  canEdit: boolean;
 }) => (
   <div className="flex flex-col gap-1">
     <div className="flex items-center justify-between px-1">
@@ -269,15 +276,15 @@ const HotelCard = ({
         <RowNotas value={hotel.notas} onChange={onNotasChange} />
       </div>
 
-      {hotel.precio_referencia !== null ? (
-        <div className="divide-y divide-gray-100 border-t border-gray-200">
-          <RowEditable
-            label="PRECIO VENTA:"
-            value={hotel.total}
-            onChange={onTotalChange}
-          />
-        </div>
-      ) : (
+      <div className="divide-y divide-gray-100 border-t border-gray-200">
+        <RowEditable
+          label="PRECIO VENTA:"
+          value={hotel.total}
+          onChange={onTotalChange}
+        />
+      </div>
+
+      {hotel.precio_referencia === null && (
         <div className="border-t border-yellow-200 bg-yellow-50 px-3 py-2 flex items-start gap-2">
           <span className="text-yellow-500 text-sm leading-none mt-0.5">⚠</span>
           <p className="text-[10px] text-yellow-700 leading-snug">
@@ -297,7 +304,8 @@ const HotelCard = ({
         size="sm"
         variant="secondary"
         onClick={onEdit}
-        title="modificar"
+        disabled={!canEdit}
+        title={canEdit ? "modificar" : "Ingresa check-in y check-out primero"}
       >
         modificar
       </Button>
@@ -310,6 +318,16 @@ const HotelCard = ({
       >
         eliminar
       </Button>
+      <Button
+        icon={downloading ? Loader2 : Download}
+        size="sm"
+        variant="secondary"
+        onClick={onDownload}
+        disabled={downloading}
+        title="descargar cupón"
+      >
+        cupón
+      </Button>
     </div>
   </div>
 );
@@ -317,9 +335,11 @@ const HotelCard = ({
 const EmptySlotCard = ({
   priority,
   onAdd,
+  canAdd,
 }: {
   priority: number;
   onAdd: () => void;
+  canAdd: boolean;
 }) => (
   <div className="flex flex-col gap-2">
     <div className="flex items-center px-1">
@@ -335,12 +355,13 @@ const EmptySlotCard = ({
 
       <div className="flex flex-col items-center justify-center gap-3 py-10 px-4">
         <p className="text-xs text-gray-400 text-center">
-          Sin hotel asignado para esta prioridad
+          {canAdd ? "Sin hotel asignado para esta prioridad" : "Ingresa check-in y check-out para agregar un hotel"}
         </p>
         <button
           type="button"
           onClick={onAdd}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#0b5fa5] border border-[#0b5fa5] rounded-lg hover:bg-[#f0f6ff] transition-colors"
+          disabled={!canAdd}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#0b5fa5] border border-[#0b5fa5] rounded-lg hover:bg-[#f0f6ff] transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
         >
           <Plus className="w-3.5 h-3.5" />
           Agregar hotel
@@ -383,6 +404,7 @@ export default function GenerarCotizacion() {
   const [loadingVis, setLoadingVis] = useState(false);
   const [loadingEnvio, setLoadingEnvio] = useState(false);
   const [activeSlot, setActiveSlot] = useState<number | null>(null);
+  const [downloadingSlot, setDownloadingSlot] = useState<number | null>(null);
 
   const set = (field: keyof FormData) => (value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -420,7 +442,7 @@ export default function GenerarCotizacion() {
           desayuno: room?.incluye_desayuno === 1 ? 1 : 0,
           habitacion: "SENCILLA",
           notas: "",
-          direccion: "",
+          direccion: hotelCompleto?.direccion ?? "",
           zona: hotelCompleto?.Ciudad_Zona ?? "",
           priority: i + 1,
           distancia: null,
@@ -488,7 +510,7 @@ export default function GenerarCotizacion() {
       desayuno: room?.incluye_desayuno === 1 ? 1 : 0,
       habitacion: "SENCILLA",
       notas: "",
-      direccion: "",
+      direccion: hotel.direccion,
       zona: hotel.Ciudad_Zona,
       priority: activeSlot + 1,
       distancia: null,
@@ -598,6 +620,39 @@ export default function GenerarCotizacion() {
       console.error("Error al enviar cotización a n8n:", err);
     } finally {
       setLoadingEnvio(false);
+    }
+  };
+
+  const handleDownloadCupon = async (hotel: HotelCotizacion, index: number) => {
+    setDownloadingSlot(index);
+    try {
+      const backUrl = (process.env.NEXT_PUBLIC_URL ?? "").replace(/\/v1$/, "");
+      const params = new URLSearchParams({
+        hotel: JSON.stringify({
+          id: hotel.id,
+          nombre: hotel.hotel,
+          precio_venta: hotel.total,
+          checkin: hotel.checkin,
+          checkout: hotel.checkout,
+          iteracion: index,
+          notas: hotel.notas,
+          tiene_desayuno: hotel.desayuno === 1,
+          cuarto: hotel.habitacion,
+        }),
+      });
+      const res = await fetch(`${backUrl}/probando?${params}`);
+      if (!res.ok) throw new Error("Error al generar el cupón");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `cotizacion_opcion${index + 1}.pdf`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      error(err.message || "Error al descargar cupón");
+    } finally {
+      setDownloadingSlot(null);
     }
   };
 
@@ -730,14 +785,14 @@ export default function GenerarCotizacion() {
 
             {hasAny && (
               <div className="border-t pt-2">
-                <Button
+                {/* <Button
                   size="sm"
                   icon={loadingEnvio ? Loader2 : Send}
                   disabled={loadingEnvio}
                   onClick={handleGenerarYEnviar}
                 >
-                  {loadingEnvio ? "Enviando..." : "Enviar cotización"}
-                </Button>
+                   {loadingEnvio ? "Enviando..." : "Enviar cotización"}
+                </Button> */}
               </div>
             )}
           </aside>
@@ -773,12 +828,16 @@ export default function GenerarCotizacion() {
                     onDesayunoChange={(v) => updateSlotDesayuno(index, v)}
                     onHabitacionChange={(v) => updateSlotHabitacion(index, v)}
                     onNotasChange={(v) => updateSlotNotas(index, v)}
+                    onDownload={() => handleDownloadCupon(hotel, index)}
+                    downloading={downloadingSlot === index}
+                    canEdit={canGenerate}
                   />
                 ) : (
                   <EmptySlotCard
                     key={index}
                     priority={index + 1}
                     onAdd={() => handleSlotAction(index)}
+                    canAdd={canGenerate}
                   />
                 ),
               )}
