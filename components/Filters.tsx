@@ -296,6 +296,20 @@ const FiltersModal: React.FC<{
                 />
               )}
 
+              {"statusPagoProveedor" in filters && (
+                <Dropdown
+                  label="Estatus de pago proveedor"
+                  value={filters.statusPagoProveedor || ""}
+                  onChange={(value) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      statusPagoProveedor: value || null,
+                    }))
+                  }
+                  options={["pagado", "pendiente"]}
+                />
+              )}
+
               {"link_pago" in filters && (
                 <TextInput
                   label="Link de Pago"

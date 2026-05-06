@@ -813,6 +813,15 @@ const handleFetchSolicitudesPago = useCallback(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoria]);
 
+  useEffect(() => {
+    if (solicitud.length === 0) return;
+    console.group(`📋 Selección actual (${solicitud.length} elemento${solicitud.length !== 1 ? "s" : ""})`);
+    solicitud.forEach((item, i) => {
+      console.log(`#${i + 1}`, item);
+    });
+    console.groupEnd();
+  }, [solicitud]);
+
   // ------- Lista base por carpeta -------
 const baseList: SolicitudProveedor[] =
   categoria === "all"
@@ -837,7 +846,7 @@ const baseList: SolicitudProveedor[] =
   const filteredSolicitudes = baseList.filter(() => true);
 
   // 2) búsqueda + mapeo a registros de tabla
-  const formatedSolicitudes = filteredSolicitudes
+  const formatedSolicitudes = useMemo(() => filteredSolicitudes
     .filter((item) => {
   const q = (searchTerm || "").toUpperCase();
   
@@ -969,7 +978,7 @@ moneda_factura: "",
   acciones: "",
   item: raw,
 };
-    });
+    }), [baseList, searchTerm]);
 
   const registrosVisibles = formatedSolicitudes;
 
@@ -987,7 +996,7 @@ const getProveedorCuentas = (raw: any) => {
 };
 
   // ---------- HANDLERS ----------
-  const handleDispersion = () => {
+ const handleDispersion = () => {
   if (!solicitud.length) {
     showNotification(
       "info",
@@ -1017,7 +1026,6 @@ const getProveedorCuentas = (raw: any) => {
       check_out: s.check_out ?? null,
       codigo_dispersion: anyS.codigo_dispersion ?? null,
 
-      // cuentas del proveedor
       cuentas_proveedor: cuentasProveedor,
       cuenta_de_deposito:
         anyS.cuenta_de_deposito ??
@@ -1045,6 +1053,23 @@ const getProveedorCuentas = (raw: any) => {
       rfc: s.proveedor?.rfc ?? null,
     } as SolicitudProveedorRaw;
   });
+
+  console.group("📌 Elementos seleccionados antes de mandarse");
+  seleccion.forEach((item, index) => {
+    console.log(`Elemento seleccionado #${index + 1}:`, item);
+  });
+  console.table(
+    seleccion.map((item) => ({
+      id_solicitud: item.id_solicitud,
+      id_solicitud_proveedor: item.id_solicitud_proveedor,
+      hotel: item.hotel,
+      monto: item.costo_total,
+      razon_social: item.razon_social,
+      rfc: item.rfc,
+      cuenta: item.cuenta_de_deposito,
+    })),
+  );
+  console.groupEnd();
 
   setSolicitudesSeleccionadasModal(seleccion);
   setShowDispersionModal(true);
@@ -1617,13 +1642,24 @@ getRowClassName={(row) => {
       {showDispersionModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
           <DispersionModal
-            solicitudesSeleccionadas={solicitudesSeleccionadasModal}
-            onClose={() => setShowDispersionModal(false)}
-            onSubmit={async (payload) => {
-              console.log("Payload de dispersión listo para API:", payload);
-              setShowDispersionModal(false);
-            }}
-          />
+  solicitudesSeleccionadas={solicitudesSeleccionadasModal}
+  onClose={() => setShowDispersionModal(false)}
+  onSubmit={async (payload) => {
+    console.group("🚀 Payload final antes de mandarse a la API");
+
+    console.log("Payload completo:", payload);
+
+    if (Array.isArray(payload)) {
+      payload.forEach((item, index) => {
+        console.log(`Payload elemento #${index + 1}:`, item);
+      });
+    }
+
+    console.groupEnd();
+
+    setShowDispersionModal(false);
+  }}
+/>
         </div>
       )}
 
@@ -1641,7 +1677,7 @@ getRowClassName={(row) => {
       {showComprobanteModal2 && (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
     <OtrosMetodosPagoModal
-      selectedSolicitudes={solicitudesSeleccionadasComprobante.slice(0, 1)}
+      selectedSolicitudes={solicitudesSeleccionadasComprobante}
       onClose={() => setShowComprobanteModal2(false)}
       onSubmit={async (payload) => {
         console.log("Payload de comprobante listo para API:", payload);
