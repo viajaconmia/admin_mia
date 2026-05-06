@@ -109,6 +109,11 @@ const PageReservas = () => {
         horario_llegada: reserva.horario_llegada,
         tipo: reserva.tipo_cuarto_vuelo,
         precio_de_venta: reserva.total,
+        costo_proveedor: reserva.costo_total,
+        markup:
+          ((Number(reserva.total || 0) - Number(reserva.costo_total || 0)) /
+            Number(reserva.total || 0)) *
+          100,
         metodo_de_pago: reserva.metodo_pago,
         etapa_reservacion: reserva.etapa_reservacion,
         estado: reserva.estado,
