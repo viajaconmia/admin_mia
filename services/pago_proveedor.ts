@@ -109,6 +109,7 @@ export const fetchGetSolicitudesProveedores1 = async (cb: (data: any) => void) =
 // Mapea las claves del estado de filtros del front a los query params que espera el backend.
 const FILTER_KEY_MAP: Record<string, string> = {
   codigo_reservacion: "folio",
+  statusPagoProveedor: "estatus_pagos",
 };
 
 export const fetchGetSolicitudesFiltradas = async (

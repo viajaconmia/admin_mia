@@ -255,7 +255,7 @@ export const OtrosMetodosPagoModal: React.FC<OtrosMetodosPagoModalProps> = ({
     }
   }, [selectedSolicitudes]);
 
-  const hasSelectedRows = selectedForms.length > 0;
+  const hasSelectedRows = selectedForms.length > 1;
 
   const manualValid = useMemo(() => {
   if (hasSelectedRows) {
@@ -503,7 +503,7 @@ const buildSelectedRows = (): CSVRow[] => {
         csvDataArray.length === 1
           ? {
               frontendData: {
-                id_solicitud_proveedor: csvDataArray[0].id_solicitud_proveedor || "",
+                id_solicitud_proveedor: csvDataArray[0].id_solicitud_proveedor || "", 
                 codigo_confirmacion: csvDataArray[0].codigo_confirmacion || "",
                 monto_pagado: csvDataArray[0].monto_pagado
                   ? Number(csvDataArray[0].monto_pagado)
@@ -686,41 +686,51 @@ const buildSelectedRows = (): CSVRow[] => {
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-  <input
-    className="border rounded-lg p-3 text-sm"
-    placeholder="id_solicitud_proveedor"
-    value={formData.id_solicitud_proveedor}
-    onChange={(e) => updateField("id_solicitud_proveedor", e.target.value)}
-  />
+                      <input
+                        className="border rounded-lg p-3 text-sm bg-gray-100 text-gray-500 cursor-not-allowed"
+                        placeholder="id_solicitud_proveedor"
+                        value={row.id_solicitud_proveedor}
+                        readOnly
+                      />
 
-  <input
-    className="border rounded-lg p-3 text-sm"
-    placeholder="codigo_confirmacion"
-    value={formData.codigo_confirmacion}
-    onChange={(e) => updateField("codigo_confirmacion", e.target.value)}
-  />
+                      <input
+                        className="border rounded-lg p-3 text-sm"
+                        placeholder="codigo_confirmacion"
+                        value={row.codigo_confirmacion}
+                        onChange={(e) =>
+                          updateSelectedField(index, "codigo_confirmacion", e.target.value)
+                        }
+                      />
 
-  <input
-    className="border rounded-lg p-3 text-sm"
-    placeholder="monto_pagado"
-    value={formData.monto_pagado}
-    onChange={(e) => updateField("monto_pagado", e.target.value)}
-  />
+                      <input
+                        className="border rounded-lg p-3 text-sm"
+                        placeholder="monto_pagado"
+                        type="number"
+                        step="0.01"
+                        value={row.monto_pagado}
+                        onChange={(e) =>
+                          updateSelectedField(index, "monto_pagado", e.target.value)
+                        }
+                      />
 
-  <input
-    type="date"
-    className="border rounded-lg p-3 text-sm"
-    value={formData.fecha_pago}
-    onChange={(e) => updateField("fecha_pago", e.target.value)}
-  />
+                      <input
+                        type="date"
+                        className="border rounded-lg p-3 text-sm"
+                        value={row.fecha_pago}
+                        onChange={(e) =>
+                          updateSelectedField(index, "fecha_pago", e.target.value)
+                        }
+                      />
 
-  <input
-    className="border rounded-lg p-3 text-sm md:col-span-2"
-    placeholder="concepto"
-    value={formData.concepto}
-    onChange={(e) => updateField("concepto", e.target.value)}
-  />
-</div>
+                      <input
+                        className="border rounded-lg p-3 text-sm md:col-span-2"
+                        placeholder="concepto"
+                        value={row.concepto}
+                        onChange={(e) =>
+                          updateSelectedField(index, "concepto", e.target.value)
+                        }
+                      />
+                    </div>
                   </div>
                 ))}
               </div>

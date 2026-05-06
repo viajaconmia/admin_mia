@@ -2,9 +2,12 @@
 
 import React, { useEffect, useState } from "react";
 import { CheckCircle2, Unlink, X, Loader2, FileText, DownloadCloud, Copy } from "lucide-react";
-import { fetchFacturacionAviso } from "@/services/avisos_reservas";
+import { fetchFacturacionAviso, postAvisosFactura } from "@/services/avisos_reservas";
+import { FacturacionModal } from "@/app/dashboard/facturacion/_components/reservations-main";
+import SubirFactura from "@/app/dashboard/facturacion/subirfacturas/SubirFactura";
 
 import useApi from "@/hooks/useApi";
+import { useAlert } from "@/context/useAlert";
 
 // ── tipos ─────────────────────────────────────────────────────────────────────
 
@@ -167,15 +170,36 @@ export function DetalleModal({
   const [facturaData, setFacturaData] = useState<any[] | null>(null);
   const [facturaLoading, setFacturaLoading] = useState(false);
   const { descargarFactura, descargarFacturaXML } = useApi();
+  const { showNotification } = useAlert();
+
+  const [showFacturacionPrompt, setShowFacturacionPrompt] = useState(false);
+  const [showSubirFactura, setShowSubirFactura] = useState(false);
+  const [showFacturamaModal, setShowFacturamaModal] = useState(false);
+  const [showDiferenciaPagada, setShowDiferenciaPagada] = useState(false);
+  const [facturando, setFacturando] = useState(false);
+
+  const handle_facturar = async (): Promise<"ok" | "diferencia_pagada" | "error"> => {
+    try {
+      setFacturando(true);
+      await postAvisosFactura(row.id_relacion);
+      return "ok";
+    } catch (e: any) {
+      if (e?.message === "Diferencia ya pagada") return "diferencia_pagada";
+      showNotification("error", e?.message || "Error al facturar");
+      return "error";
+    } finally {
+      setFacturando(false);
+    }
+  };
 
   const copiarTexto = async (texto: string) => {
-  try {
-    await navigator.clipboard.writeText(texto);
-    alert("UUID copiado");
-  } catch {
-    alert("No se pudo copiar el UUID");
-  }
-};
+    try {
+      await navigator.clipboard.writeText(texto);
+      showNotification("success", "UUID copiado");
+    } catch {
+      showNotification("error", "No se pudo copiar el UUID");
+    }
+  };
   
   const handleDescargarFactura = async (
     idFacturama: string,
@@ -203,11 +227,10 @@ export function DetalleModal({
         setTimeout(() => document.body.removeChild(a), 100);
       }
     } catch {
-      alert("Ha ocurrido un error al descargar la factura");
+      showNotification("error", "Ha ocurrido un error al descargar la factura");
     }
   };
   
-  console.log("😒😒",row)
   useEffect(() => {
     if (!hasFactura) return;
     setFacturaLoading(true);
@@ -224,11 +247,6 @@ export function DetalleModal({
   const cambios = detalle?.cambios ?? {};
   const { items: itemsCambios, ...otherCambios } = cambios;
   const cambiosRows = flattenCambios(otherCambios);
-  const reduccion_venta = cambios?.venta?.total.nuevo > cambios?.venta?.total?.anterior || false;
-
-  console.log(cambios.venta?.total,"🤩🤩🤩🤩")
-  console.log(reduccion_venta)
-
 const facturaResumen = Array.isArray(facturaData) ? facturaData[0] : null;
 
 const estatus = normalizeText(
@@ -247,21 +265,19 @@ estatus === "cancelada";
 const esActivaConFactura =
 hasFactura && (!estatus == false);
 
-console.log("estado",estatus)
-
 const mostrarAprobar =
 esActivaConFactura && detalle.tipo!="reserva_cancelada" &&
 totalReserva > totalFacturado;
+const mostrarDesligar = hasFactura && totalFacturado != 0 && totalFacturado != totalReserva;
 
-const mostrarDesligar = hasFactura && totalFacturado != 0;
-
-const mostrarAtendida = !hasFactura || totalFacturado == 0;
+const mostrarAtendida = !hasFactura || (totalFacturado == 0 )|| totalFacturado == totalReserva;
 
 const hasCambios =
   (itemsCambios && Object.keys(itemsCambios).length > 0) ||
   cambiosRows.length > 0;
 
   return (
+  <>
   <div
     className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
     onClick={(e) => {
@@ -713,49 +729,186 @@ const hasCambios =
           Cerrar
         </button>
 
-        {mostrarAprobar && (
-          <button
-            disabled={actionLoading}
-            onClick={() => {
-              onAction("aprobar", payload);
-              onClose();
-            }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 disabled:opacity-50 transition-colors"
-          >
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            Aprobar
-          </button>
-        )}
+        {facturaLoading ? (
+          <div className="flex items-center gap-2 text-xs text-gray-500">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            Cargando...
+          </div>
+        ) : (
+          <>
+            {mostrarAprobar && (
+              <button
+                disabled={actionLoading || facturando}
+                onClick={async () => {
+                  const result = await handle_facturar();
+                  if (result === "ok") {
+                    setShowFacturacionPrompt(true);
+                  } else if (result === "diferencia_pagada") {
+                    onAction("aprobar", payload);
+                    setShowDiferenciaPagada(true);
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 disabled:opacity-50 transition-colors"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Aprobar
+              </button>
+            )}
 
-        {mostrarDesligar && (
-          <button
-            disabled={actionLoading}
-            onClick={() => {
-              onAction("desligar", payload);
-              onClose();
-            }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 disabled:opacity-50 transition-colors"
-          >
-            <Unlink className="w-3.5 h-3.5" />
-            Desligar
-          </button>
-        )}
+            {mostrarDesligar && (
+              <button
+                disabled={actionLoading}
+                onClick={() => {
+                  onAction("desligar", payload);
+                  onClose();
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 disabled:opacity-50 transition-colors"
+              >
+                <Unlink className="w-3.5 h-3.5" />
+                Desligar
+              </button>
+            )}
 
-        {mostrarAtendida && (
-          <button
-            disabled={actionLoading}
-            onClick={() => {
-              onAction("atendida", payload);
-              onClose();
-            }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 disabled:opacity-50 transition-colors"
-          >
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            Atendida
-          </button>
+            {mostrarAtendida && (
+              <button
+                disabled={actionLoading}
+                onClick={() => {
+                  onAction("atendida", payload);
+                  onClose();
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 disabled:opacity-50 transition-colors"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Atendida
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>
   </div>
+
+  {/* ── Mini-modal: Diferencia ya pagada ────────────────────────────── */}
+  {showDiferenciaPagada && (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50">
+      <div className="bg-white rounded-xl shadow-2xl p-6 max-w-xs w-full mx-4 flex flex-col gap-4">
+        <p className="text-sm text-center text-gray-700 font-medium">
+          Diferencia ya pagada — se aprobará el aviso automáticamente.
+        </p>
+        <button
+          onClick={() => {
+            setShowDiferenciaPagada(false);
+            onClose();
+          }}
+          className="px-4 py-2 text-sm font-medium rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+        >
+          Cerrar
+        </button>
+      </div>
+    </div>
+  )}
+
+  {/* ── Mini-modal: ¿Desea facturar? ─────────────────────────────────── */}
+  {showFacturacionPrompt && (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50">
+      <div className="bg-white rounded-xl shadow-2xl p-6 max-w-xs w-full mx-4 flex flex-col gap-4">
+        <h3 className="text-base font-semibold text-gray-800 text-center">
+          ¿Desea facturar?
+        </h3>
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={() => {
+              setShowFacturacionPrompt(false);
+              setShowSubirFactura(true);
+            }}
+            className="px-4 py-2 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+          >
+            Subir factura
+          </button>
+          <button
+            onClick={() => {
+              setShowFacturacionPrompt(false);
+              setShowFacturamaModal(true);
+            }}
+            className="px-4 py-2 text-sm font-medium rounded-md bg-purple-600 text-white hover:bg-purple-700 transition-colors"
+          >
+            Facturama
+          </button>
+          <button
+            onClick={() => {
+              setShowFacturacionPrompt(false);
+              onAction("aprobar", payload);
+              onClose();
+            }}
+            className="px-4 py-2 text-sm font-medium rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            Después
+          </button>
+        </div>
+      </div>
+    </div>
+  )}
+
+  {/* ── SubirFactura ─────────────────────────────────────────────────── */}
+  {showSubirFactura && (
+    <SubirFactura
+      autoOpen
+      agentId={row.id_agente}
+      onSuccess={() => {
+        setShowSubirFactura(false);
+        onClose();
+      }}
+      onCloseExternal={() => {
+        setShowSubirFactura(false);
+        onClose();
+      }}
+    />
+  )}
+
+  {/* ── FacturacionModal (Facturama) ──────────────────────────────────── */}
+  {showFacturamaModal && (
+    <FacturacionModal
+      selectedItems={{ [row.id_booking ?? ""]: [] }}
+      selectedHospedaje={{
+        [row.id_booking ?? ""]: row.id_relacion ? [row.id_relacion] : [],
+      }}
+      reservationsInit={[
+        {
+          id_servicio: row.id_booking ?? "",
+          created_at: row.created_at ?? "",
+          id_relacion: row.id_relacion ?? "",
+          is_credito: null,
+          id_solicitud: row.id_solicitud ?? "",
+          confirmation_code: detalle?.id_confirmacion ?? "",
+          nombre: row.nombre ?? "",
+          proveedor: detalle?.hotel ?? detalle?.proveedor ?? row.proveedor ?? "",
+          check_in: detalle?.check_in ?? row.check_in ?? "",
+          check_out: detalle?.check_out ?? row.check_out ?? "",
+          room: detalle?.tipo_cuarto ?? row.tipo_cuarto ?? "",
+          total: String(detalle?.venta?.total?.nuevo ?? row.total ?? 0),
+          id_usuario_generador: row.id_usuario_generador ?? row.id_agente ?? "",
+          id_booking: row.id_booking ?? "",
+          codigo_confirmacion: detalle?.id_confirmacion ?? null,
+          id_pago: row.id_pago ?? "",
+          pendiente_por_cobrar: row.pendiente_por_cobrar ?? 0,
+          monto_a_credito: row.monto_a_credito ?? "0",
+          id_factura: detalle?.id_factura ?? null,
+          primer_nombre: null,
+          apellido_paterno: null,
+          id_agente: row.id_agente ?? row.id_usuario_generador ?? "",
+          items: [],
+        } as any,
+      ]}
+      onClose={() => {
+        setShowFacturamaModal(false);
+        onClose();
+      }}
+      onConfirm={() => {
+        setShowFacturamaModal(false);
+        onClose();
+      }}
+    />
+  )}
+  </>
 );
 }

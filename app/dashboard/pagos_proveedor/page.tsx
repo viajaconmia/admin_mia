@@ -813,6 +813,15 @@ const handleFetchSolicitudesPago = useCallback(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoria]);
 
+  useEffect(() => {
+    if (solicitud.length === 0) return;
+    console.group(`📋 Selección actual (${solicitud.length} elemento${solicitud.length !== 1 ? "s" : ""})`);
+    solicitud.forEach((item, i) => {
+      console.log(`#${i + 1}`, item);
+    });
+    console.groupEnd();
+  }, [solicitud]);
+
   // ------- Lista base por carpeta -------
 const baseList: SolicitudProveedor[] =
   categoria === "all"
@@ -837,7 +846,7 @@ const baseList: SolicitudProveedor[] =
   const filteredSolicitudes = baseList.filter(() => true);
 
   // 2) búsqueda + mapeo a registros de tabla
-  const formatedSolicitudes = filteredSolicitudes
+  const formatedSolicitudes = useMemo(() => filteredSolicitudes
     .filter((item) => {
   const q = (searchTerm || "").toUpperCase();
   
@@ -969,7 +978,7 @@ moneda_factura: "",
   acciones: "",
   item: raw,
 };
-    });
+    }), [baseList, searchTerm]);
 
   const registrosVisibles = formatedSolicitudes;
 
@@ -987,7 +996,7 @@ const getProveedorCuentas = (raw: any) => {
 };
 
   // ---------- HANDLERS ----------
-  const handleDispersion = () => {
+ const handleDispersion = () => {
   if (!solicitud.length) {
     showNotification(
       "info",
@@ -1017,7 +1026,6 @@ const getProveedorCuentas = (raw: any) => {
       check_out: s.check_out ?? null,
       codigo_dispersion: anyS.codigo_dispersion ?? null,
 
-      // cuentas del proveedor
       cuentas_proveedor: cuentasProveedor,
       cuenta_de_deposito:
         anyS.cuenta_de_deposito ??
@@ -1046,6 +1054,23 @@ const getProveedorCuentas = (raw: any) => {
     } as SolicitudProveedorRaw;
   });
 
+  console.group("📌 Elementos seleccionados antes de mandarse");
+  seleccion.forEach((item, index) => {
+    console.log(`Elemento seleccionado #${index + 1}:`, item);
+  });
+  console.table(
+    seleccion.map((item) => ({
+      id_solicitud: item.id_solicitud,
+      id_solicitud_proveedor: item.id_solicitud_proveedor,
+      hotel: item.hotel,
+      monto: item.costo_total,
+      razon_social: item.razon_social,
+      rfc: item.rfc,
+      cuenta: item.cuenta_de_deposito,
+    })),
+  );
+  console.groupEnd();
+
   setSolicitudesSeleccionadasModal(seleccion);
   setShowDispersionModal(true);
 };
@@ -1058,6 +1083,82 @@ const clearSelection = useCallback(() => {
   setSolicitud([]);
   setDatosDispersion([]);
 }, []);
+
+const seleccionables = useMemo(() => {
+  return registrosVisibles.filter((row) => {
+    const raw = (row as any)?.item ?? row;
+    const forma = getFormaPago(raw);
+    const estadoSolicitud = normUpper(
+      raw?.solicitud_proveedor?.estado_solicitud ?? "",
+    );
+    const isCancelada = estadoSolicitud.includes("CANCEL");
+    const saldo = getSaldo(raw);
+    const tieneDispersion = hasPagosAsociados(raw) || isZero(saldo);
+    return (
+      forma === "transfer" &&
+      !isCancelada &&
+      !tieneDispersion &&
+      !isPagado(raw) &&
+      categoria !== "pagada"
+    );
+  });
+}, [registrosVisibles, categoria]);
+
+const allSelected =
+  seleccionables.length > 0 &&
+  seleccionables.every((row) => {
+    const raw = (row as any)?.item ?? row;
+    const key = String(
+      (raw as any).id_solicitud ??
+        (raw as any).id ??
+        raw?.solicitud_proveedor?.id_solicitud_proveedor ??
+        "",
+    );
+    return !!selectedSolicitudesMap[key];
+  });
+
+const handleSelectAll = useCallback(() => {
+  if (allSelected) {
+    clearSelection();
+    return;
+  }
+
+  const nextMap: Record<string, SolicitudProveedor> = {};
+  const nextSolicitud: SolicitudProveedor[] = [];
+  const nextDispersion: DatosDispersion[] = [];
+
+  seleccionables.forEach((row, idx) => {
+    const raw = (row as any)?.item ?? row;
+    const key = String(
+      (raw as any).id_solicitud ??
+        (raw as any).id ??
+        raw?.solicitud_proveedor?.id_solicitud_proveedor ??
+        idx,
+    );
+    nextMap[key] = raw;
+    nextSolicitud.push(raw);
+
+    const idSolProv = raw.solicitud_proveedor?.id_solicitud_proveedor ?? null;
+    const idSol = (raw as any).id_solicitud ?? (raw as any).id ?? null;
+    const exists = nextDispersion.some((d) => d.id_solicitud === idSol);
+    if (!exists) {
+      nextDispersion.push({
+        codigo_reservacion_hotel: (raw as any).codigo_reservacion_hotel ?? null,
+        costo_proveedor: Number((raw as any).costo_total) || 0,
+        id_solicitud: idSol,
+        id_solicitud_proveedor: idSolProv,
+        monto_solicitado: Number(raw.solicitud_proveedor?.monto_solicitado) || 0,
+        razon_social: (raw as any).proveedor?.razon_social ?? null,
+        rfc: (raw as any).proveedor?.rfc ?? null,
+        cuenta_banco: (raw as any).cuenta_de_deposito ?? null,
+      });
+    }
+  });
+
+  setSelectedSolicitudesMap(nextMap);
+  setSolicitud(nextSolicitud);
+  setDatosDispersion(nextDispersion);
+}, [allSelected, seleccionables, clearSelection]);
 
   // ---------- COLUMNAS (para orden estable + mostrar SP) ----------
 const customColumns = useMemo(() => {
@@ -1342,6 +1443,23 @@ const marcarNotificadoPagado = useCallback(
               renderers={renderers}
               defaultSort={defaultSort as any}
               customColumns={customColumns}
+              headerRenderers={{
+                seleccionar: () => (
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    disabled={seleccionables.length === 0}
+                    onChange={handleSelectAll}
+                    title={
+                      allSelected
+                        ? "Deseleccionar todo"
+                        : `Seleccionar todo (${seleccionables.length})`
+                    }
+                    className="h-4 w-4 accent-blue-600 cursor-pointer disabled:cursor-not-allowed"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                ),
+              }}
 getRowClassName={(row) => {
   const raw = (row as any)?.item ?? row;
 
@@ -1524,13 +1642,24 @@ getRowClassName={(row) => {
       {showDispersionModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
           <DispersionModal
-            solicitudesSeleccionadas={solicitudesSeleccionadasModal}
-            onClose={() => setShowDispersionModal(false)}
-            onSubmit={async (payload) => {
-              console.log("Payload de dispersión listo para API:", payload);
-              setShowDispersionModal(false);
-            }}
-          />
+  solicitudesSeleccionadas={solicitudesSeleccionadasModal}
+  onClose={() => setShowDispersionModal(false)}
+  onSubmit={async (payload) => {
+    console.group("🚀 Payload final antes de mandarse a la API");
+
+    console.log("Payload completo:", payload);
+
+    if (Array.isArray(payload)) {
+      payload.forEach((item, index) => {
+        console.log(`Payload elemento #${index + 1}:`, item);
+      });
+    }
+
+    console.groupEnd();
+
+    setShowDispersionModal(false);
+  }}
+/>
         </div>
       )}
 

@@ -32,10 +32,16 @@ export const DEFAULT_RENDERERS: Record<
 > = {
   viajero: ({ value }) => <>{upper(value)}</>,
   agente: ({ value }) => <>{upper(value)}</>,
+  usuario_creador_notificacion: ({ value }) => <>{upper(value)}</>,
+  usuario_update_notificacion: ({ value }) => <>{upper(value)}</>,
+  atendio: ({ value }) => <>{upper(value)}</>,
+  creo: ({ value }) => <>{upper(value)}</>,
   codigo_confirmacion: ({ value }) => <>{plain(value)}</>,
   proveedor: ({ value }) => <>{plain(value)}</>,
   total: ({ value }) => <>{money(value)}</>,
   check_in: ({ value }) => <>{date(value)}</>,
+  fecha_notificacion: ({ value }) => <>{date(value)}</>,
+  fecha_actualizacion_notificacion: ({ value }) => <>{date(value)}</>,
   check_out: ({ value }) => <>{date(value)}</>,
   numero_empleado: ({ value }) => <>{plain(value)}</>,
   etapa_reservacion: ({ value }) => <>{plain(value)}</>,
@@ -43,4 +49,6 @@ export const DEFAULT_RENDERERS: Record<
   tipo_cuarto_vuelo: ({ value }) => <>{plain(value)}</>,
   id_booking: ({ value }) => <>{plain(value)}</>,
   id_relacion: ({ value }) => <>{plain(value)}</>,
+  fecha_solucion:({value})=> <>{date(value)}</>,
+  fecha_creada:({value})=> <>{date(value)}</>
 };
