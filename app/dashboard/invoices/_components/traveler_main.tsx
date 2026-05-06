@@ -1140,7 +1140,7 @@ export function TravelersPage() {
             <Button size="sm" onClick={() => cargarFacturas()}>
               Cargar facturas
             </Button>
-            <Button
+            {/* <Button
               size="sm"
               variant="secondary"
               disabled={subiendoS3}
@@ -1148,7 +1148,7 @@ export function TravelersPage() {
             >
               <DownloadCloud className="w-4 h-4 mr-1" />
               {subiendoS3 ? "Subiendo a S3..." : "Subir facturas a S3"}
-            </Button>
+            </Button> */}
           </Table5>
 
           {facturas && (

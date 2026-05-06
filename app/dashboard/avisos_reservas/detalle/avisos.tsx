@@ -188,11 +188,15 @@ const getFacturaId = (f: any) =>
   const [showFacturamaModal, setShowFacturamaModal] = useState(false);
   const [showDiferenciaPagada, setShowDiferenciaPagada] = useState(false);
   const [facturando, setFacturando] = useState(false);
+  const [avisoItems, setAvisoItems] = useState<any[]>([]);
 
   const handle_facturar = async (): Promise<"ok" | "diferencia_pagada" | "error"> => {
     try {
       setFacturando(true);
-      await postAvisosFactura(row.id_relacion, detalle?.id_facturas);
+      const result = await postAvisosFactura(row.id_relacion, detalle?.id_facturas);
+      if (Array.isArray(result?.items) && result.items.length > 0) {
+        setAvisoItems(result.items);
+      }
       return "ok";
     } catch (e: any) {
       if (e?.message === "Diferencia ya pagada") return "diferencia_pagada";
@@ -310,13 +314,13 @@ estatus === "cancelada";
 
 const esActivaConFactura =
 hasFactura && (!estatus == false);
-
+const reserva_cancelada = detalle.tipo
 const mostrarAprobar =
 esActivaConFactura && detalle.tipo!="reserva_cancelada" &&
 totalReserva > totalFacturado;
-const mostrarDesligar = hasFactura && totalFacturado != 0 && totalFacturado != totalReserva;
+const mostrarDesligar = (detalle.estatus == "facturada" && totalFacturado!=0 && totalFacturado >totalReserva)|| hasFactura && totalFacturado != 0 && totalFacturado != totalReserva && reserva_cancelada == "reserva_cancelada";
 
-const mostrarAtendida = !hasFactura || (totalFacturado == 0 )|| totalFacturado == totalReserva;
+const mostrarAtendida = (totalFacturado == 0 )|| totalFacturado == totalReserva && detalle.estatus != "facturada";
 
 
 const hasCambios =
@@ -950,6 +954,12 @@ const hasCambios =
     <SubirFactura
       autoOpen
       agentId={row.id_agente}
+      initialItems={avisoItems.map((i) => i.id_item)}
+      itemsJson={JSON.stringify(avisoItems)}
+      initialItemsTotal={avisoItems.reduce(
+        (s, i) => s + Number(i.saldo_restante ?? i.total ?? 0),
+        0,
+      )}
       onSuccess={() => {
         setShowSubirFactura(false);
         onClose();
@@ -964,7 +974,9 @@ const hasCambios =
   {/* ── FacturacionModal (Facturama) ──────────────────────────────────── */}
   {showFacturamaModal && (
     <FacturacionModal
-      selectedItems={{ [row.id_booking ?? ""]: [] }}
+      selectedItems={{
+        [row.id_booking ?? ""]: avisoItems.map((i) => i.id_item),
+      }}
       selectedHospedaje={{
         [row.id_booking ?? ""]: row.id_relacion ? [row.id_relacion] : [],
       }}
@@ -992,7 +1004,25 @@ const hasCambios =
           primer_nombre: null,
           apellido_paterno: null,
           id_agente: row.id_agente ?? row.id_usuario_generador ?? "",
-          items: [],
+          items: avisoItems.map((i) => ({
+            id_item: i.id_item,
+            id_catalogo_item: null,
+            id_factura: null,
+            total: String(i.saldo_restante ?? i.total ?? 0),
+            subtotal: String(i.saldo_restante ?? i.total ?? 0),
+            impuestos: "0",
+            is_facturado: null,
+            fecha_uso: i.fecha_uso ?? "",
+            id_relacion: i.id_relacion ?? row.id_relacion ?? "",
+            created_at: "",
+            updated_at: "",
+            costo_total: String(i.total ?? 0),
+            costo_subtotal: "0",
+            costo_impuestos: "0",
+            saldo: String(i.saldo_restante ?? i.total ?? 0),
+            costo_iva: "0",
+            id_booking: row.id_booking ?? "",
+          })),
         } as any,
       ]}
       onClose={() => {
