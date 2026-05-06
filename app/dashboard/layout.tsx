@@ -108,6 +108,11 @@ const links: NavGroup[] = [
         href: "/dashboard/conciliacion",
         icon: CreditCard,
       },
+      {
+        title: "Generación cotización",
+        href: "/dashboard/cotizacion/generar",
+        icon: FileText,
+      },
     ],
   },
   {
@@ -123,7 +128,7 @@ const links: NavGroup[] = [
         title: "Cambios en reservas",
         href: "/dashboard/avisos_reservas",
         icon: Building2,
-      }
+      },
     ],
   },
   {

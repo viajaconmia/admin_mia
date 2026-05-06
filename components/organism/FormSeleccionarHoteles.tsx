@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useGeo } from "@/context/geo";
+import { useHoteles } from "@/context/Hoteles";
 import {
   InputGoogle,
   PlaceMaps,
@@ -39,7 +40,15 @@ export const FormSeleccionarHoteles = ({ onSubmit, mode = "multi" }: Props) => {
     setSearch,
     setOrder,
   } = useGeo();
+  const { hoteles: todosLosHoteles } = useHoteles();
   const [seleccionados, setSeleccionados] = useState<Hotel[]>([]);
+
+  const listaVisible: Hotel[] =
+    search.length >= 3
+      ? (todosLosHoteles ?? []).filter((h) =>
+          h.nombre_hotel.toLowerCase().includes(search.toLowerCase()),
+        )
+      : filtrados;
   const [loading, setLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const [sortBy, setSortBy] = useState<SortType>("distancia");
@@ -144,7 +153,12 @@ export const FormSeleccionarHoteles = ({ onSubmit, mode = "multi" }: Props) => {
         />
         {/* Lista de hoteles */}
         <div className="flex-1 overflow-y-auto flex flex-col gap-2 pr-1">
-          {filtrados.map((hotel) => {
+          {listaVisible.length === 0 && search.length < 3 && (
+            <p className="text-xs text-gray-400 text-center py-6">
+              No hay hoteles en este rango. Escribe 3 letras o más para buscar en todos.
+            </p>
+          )}
+          {listaVisible.map((hotel) => {
             const yaAgregado = seleccionados.some(
               (h) => h.id_hotel === hotel.id_hotel,
             );
@@ -248,7 +262,7 @@ export const FormSeleccionarHoteles = ({ onSubmit, mode = "multi" }: Props) => {
         </div>
         {!loading && (
           <Map>
-            {filtrados.map(({ geo, nombre_hotel, id_hotel }) => (
+            {listaVisible.map(({ geo, nombre_hotel, id_hotel }) => (
               <React.Fragment key={id_hotel}>
                 {seleccionados.some((h) => h.id_hotel === id_hotel) ? (
                   <MarkerHotelSelect
