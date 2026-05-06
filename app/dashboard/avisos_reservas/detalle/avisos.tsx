@@ -43,7 +43,9 @@ export function flattenItemComparison(anterior: any, nuevo: any): CambioRow[] {
     if (key === "impuestos") continue;
     const antVal = anterior?.[key];
     const nvoVal = nuevo?.[key];
-    if (antVal !== null && typeof antVal === "object") {
+    const antIsObj = antVal !== null && typeof antVal === "object" && !Array.isArray(antVal);
+    const nvoIsObj = nvoVal !== null && typeof nvoVal === "object" && !Array.isArray(nvoVal);
+    if (antIsObj || nvoIsObj) {
       const subKeys = new Set([
         ...Object.keys(antVal ?? {}),
         ...Object.keys(nvoVal ?? {}),
@@ -157,15 +159,24 @@ export function DetalleModal({
   actionLoading: boolean;
 }) {
   const detalle = parseDetalle(row.item?.detalle ?? row.detalle);
-  const hasFactura = Boolean(detalle?.id_factura);
-  const payload = [
-    {
-      id_relacion: row?.id_relacion,
-      id_booking: row?.id_booking,
-      id_notificacion: row?.id_notificacion,
-      id_factura: detalle?.id_factura ?? null,
-    },
-  ];
+  const hasFactura =
+    Boolean(detalle?.id_factura) ||
+    (Array.isArray(detalle?.id_facturas) && detalle.id_facturas.length > 0);
+
+  const buildPayload = (id_factura?: any) => [
+  {
+    id_relacion: row?.id_relacion,
+    id_booking: row?.id_booking,
+    id_notificacion: row?.id_notificacion,
+    id_factura: id_factura ?? detalle?.id_factura ?? null,
+  },
+];
+
+const payload = buildPayload();
+
+const getFacturaId = (f: any) =>
+  f?.id_factura ?? f?.idFactura ?? f?.id ?? null;
+  console.log(row,"✅✅✅✅✅")
   
   const [facturaData, setFacturaData] = useState<any[] | null>(null);
   const [facturaLoading, setFacturaLoading] = useState(false);
@@ -181,7 +192,7 @@ export function DetalleModal({
   const handle_facturar = async (): Promise<"ok" | "diferencia_pagada" | "error"> => {
     try {
       setFacturando(true);
-      await postAvisosFactura(row.id_relacion);
+      await postAvisosFactura(row.id_relacion, detalle?.id_facturas);
       return "ok";
     } catch (e: any) {
       if (e?.message === "Diferencia ya pagada") return "diferencia_pagada";
@@ -236,18 +247,53 @@ export function DetalleModal({
     setFacturaLoading(true);
     fetchFacturacionAviso(
       (data) => {
-        setFacturaData(Array.isArray(data) ? data : []);
+        let facturas: any[] = [];
+        if (Array.isArray(data)) {
+          facturas = data;
+        } else if (Array.isArray(data?.resultados)) {
+          facturas = data.resultados.flatMap((r: any) =>
+            Array.isArray(r.data) ? r.data : [],
+          );
+        }
+        setFacturaData(facturas);
         setFacturaLoading(false);
       },
-      { id_factura: detalle.id_factura, id_relacion: row.id_relacion },
+      {
+        id_factura: detalle.id_factura,
+        id_facturas: detalle.id_facturas,
+        id_relacion: row.id_relacion,
+      },
     );
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const cambios = detalle?.cambios ?? {};
-  const { items: itemsCambios, ...otherCambios } = cambios;
+  const { items: itemsCambios, before: _before, cambios: _cambiosNested, current: _current, ...otherCambios } = cambios;
+  const vuelosCambiosData = _cambiosNested?.vuelos;
+  const hasVuelosCambios = Boolean(
+    vuelosCambiosData &&
+      (Array.isArray(vuelosCambiosData.anterior) || Array.isArray(vuelosCambiosData.nuevo)),
+  );
   const cambiosRows = flattenCambios(otherCambios);
 const facturaResumen = Array.isArray(facturaData) ? facturaData[0] : null;
+
+const facturasVisibles = Array.isArray(facturaData) ? facturaData : [];
+
+const tieneMultiplesFacturas =
+  facturasVisibles.length > 1 ||
+  (Array.isArray(detalle?.id_facturas) && detalle.id_facturas.length > 1);
+
+const handleDesligarFactura = (factura: any) => {
+  const id_factura = getFacturaId(factura);
+
+  if (!id_factura) {
+    showNotification("error", "No se encontró el id de la factura");
+    return;
+  }
+
+  onAction("desligar", buildPayload(id_factura));
+  onClose();
+};
 
 const estatus = normalizeText(
   detalle?.estatus ?? detalle?.estado ?? row?.estatus ?? row?.estado,
@@ -272,9 +318,11 @@ const mostrarDesligar = hasFactura && totalFacturado != 0 && totalFacturado != t
 
 const mostrarAtendida = !hasFactura || (totalFacturado == 0 )|| totalFacturado == totalReserva;
 
+
 const hasCambios =
   (itemsCambios && Object.keys(itemsCambios).length > 0) ||
-  cambiosRows.length > 0;
+  cambiosRows.length > 0 ||
+  hasVuelosCambios;
 
   return (
   <>
@@ -350,6 +398,43 @@ const hasCambios =
                             >
                               <div className="px-3 py-2 bg-amber-50 border-b border-gray-200 text-xs font-semibold text-amber-800">
                                 Noche {Number(key) + 1}
+                              </div>
+                              {rows.length > 0 ? (
+                                <CambiosTable rows={rows} />
+                              ) : (
+                                <p className="text-xs text-gray-400 px-3 py-2">
+                                  Sin diferencias
+                                </p>
+                              )}
+                            </div>
+                          );
+                        },
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Vuelos modificados */}
+                {hasVuelosCambios && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-2">
+                      Vuelos modificados
+                    </h3>
+                    <div className="space-y-3">
+                      {(vuelosCambiosData.anterior ?? vuelosCambiosData.nuevo ?? []).map(
+                        (_: any, idx: number) => {
+                          const ant = vuelosCambiosData.anterior?.[idx] ?? {};
+                          const nvo = vuelosCambiosData.nuevo?.[idx] ?? {};
+                          const rows = flattenItemComparison(ant, nvo);
+                          const tipo = ant.tipo ?? nvo.tipo ?? `Vuelo ${idx + 1}`;
+                          const folio = ant.folio ?? nvo.folio ?? "";
+                          return (
+                            <div
+                              key={idx}
+                              className="border border-gray-200 rounded-lg overflow-hidden"
+                            >
+                              <div className="px-3 py-2 bg-sky-50 border-b border-gray-200 text-xs font-semibold text-sky-800 capitalize">
+                                {tipo}{folio ? ` — ${folio}` : ""}
                               </div>
                               {rows.length > 0 ? (
                                 <CambiosTable rows={rows} />
@@ -528,6 +613,17 @@ const hasCambios =
       ) : null}
     </span>
   </>
+)}
+{mostrarDesligar && tieneMultiplesFacturas && (
+  <button
+    type="button"
+    disabled={actionLoading}
+    onClick={() => handleDesligarFactura(f)}
+    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 disabled:opacity-50 transition-colors w-fit"
+  >
+    <Unlink className="w-3.5 h-3.5" />
+    Desligar esta factura
+  </button>
 )}
                           </div>
                         ))}
@@ -755,7 +851,7 @@ const hasCambios =
               </button>
             )}
 
-            {mostrarDesligar && (
+            {mostrarDesligar && !tieneMultiplesFacturas && (
               <button
                 disabled={actionLoading}
                 onClick={() => {
