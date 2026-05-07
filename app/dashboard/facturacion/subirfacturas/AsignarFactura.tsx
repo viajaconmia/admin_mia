@@ -2,7 +2,8 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { URL, API_KEY } from "@/lib/constants/index";
-import { Table2 } from "@/components/organism/Table2";
+import { Table5 } from "@/components/Table5";
+import { Search, X } from "lucide-react";
 
 interface AsignarFacturaProps {
   isOpen: boolean;
@@ -105,6 +106,7 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
+  const [searchCode, setSearchCode] = useState("");
 
   const [maxMontoPermitido, setMaxMontoPermitido] = useState<number>(() => {
     if (pagoData?.monto) return Number(pagoData.monto) || 0;
@@ -291,6 +293,20 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
     },
   });
 
+  const reservasFiltradas = useMemo(() => {
+    const q = searchCode.trim().toLowerCase();
+    const base = reservas.filter(
+      (r) => !isReservaCanceladaPorCodigo(r.codigo_reservacion_hotel),
+    );
+    if (!q) return base;
+    return base.filter(
+      (r) =>
+        r.confirmation_code?.toLowerCase().includes(q) ||
+        r.codigo_reservacion_hotel?.toLowerCase().includes(q) ||
+        r.nombre_hotel?.toLowerCase().includes(q),
+    );
+  }, [reservas, searchCode]);
+
   const SectionReserva: React.FC<{ reserva: ReservaConItems }> = ({ reserva }) => {
     const codigoHotel = sanitizeCodigoReservacionHotel(
       reserva.codigo_reservacion_hotel
@@ -298,7 +314,7 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
 
     const registros = (reserva.items_info?.items || []).map((item) => ({
       id_item: item.id_item,
-      codigo: codigoHotel, // ✅ muestra codigo_reservacion_hotel, vacío si trae _CANCEL_
+      codigo: codigoHotel,
       descripcion: reserva.nombre_hotel,
       fecha_uso: reserva.check_in,
       fecha_salida: reserva.check_out,
@@ -308,39 +324,32 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
     }));
 
     return (
-      <div className="border rounded-lg mb-5 overflow-hidden">
-        <div className="bg-gray-50 px-4 py-3 flex flex-wrap justify-between items-center">
+      <div className="border border-gray-200 rounded-xl mb-4 overflow-hidden shadow-sm">
+        <div className="bg-gray-50 px-4 py-3 grid grid-cols-1 sm:grid-cols-2 gap-2 border-b border-gray-200">
           <div className="space-y-0.5">
-            <div className="font-semibold">{reserva.nombre_hotel}</div>
-
-            <div className="text-sm text-gray-600">
-              {/* ✅ solo mostrar etiqueta si no está cancelado */}
+            <p className="font-semibold text-gray-900 text-sm">{reserva.nombre_hotel}</p>
+            <p className="text-xs text-gray-500">
               {codigoHotel ? (
-                <>
-                  Código hotel: <span className="font-mono">{codigoHotel}</span> ·{" "}
-                </>
+                <>Cód. hotel: <span className="font-mono text-gray-700">{codigoHotel}</span> · </>
               ) : null}
-              Check-in: {formatDate(reserva.check_in)} · Check-out:{" "}
-              {formatDate(reserva.check_out)} · Noches: {reserva.noches}
-            </div>
+              Check-in: {formatDate(reserva.check_in)} · Check-out: {formatDate(reserva.check_out)} · {reserva.noches} noche{reserva.noches !== 1 ? "s" : ""}
+            </p>
           </div>
-
-          <div className="text-sm text-gray-600">
-            Reserva: <span className="font-mono">{reserva.confirmation_code}</span>
+          <div className="flex sm:justify-end items-center gap-2">
+            <span className="text-xs text-gray-500">Confirmación:</span>
+            <span className="font-mono text-xs bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full">
+              {reserva.confirmation_code}
+            </span>
           </div>
         </div>
 
         <div className="p-3">
           {registros.length === 0 ? (
-            <div className="text-gray-500 p-4 bg-gray-50 rounded">
-              No hay items en esta reserva.
-            </div>
+            <p className="text-xs text-gray-400 px-2 py-3">No hay ítems en esta reserva.</p>
           ) : (
-            <Table2
-              registros={registros}
-              renderers={buildRenderers()}
-              showButtons={false}
-              maxHeight="260px"
+            <Table5
+              registros={registros as any}
+              renderers={buildRenderers() as any}
               customColumns={[
                 "seleccionado",
                 "id_item",
@@ -350,7 +359,9 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
                 "fecha_salida",
                 "precio",
               ]}
-              leyenda=""
+              maxHeight="260px"
+              fillHeight={false}
+              exportButton={false}
             />
           )}
         </div>
@@ -470,24 +481,48 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
               </div>
             </div>
 
+            {/* Buscador por código */}
+            {!loading && !error && reservas.length > 0 && (
+              <div className="relative mb-4">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchCode}
+                  onChange={(e) => setSearchCode(e.target.value)}
+                  placeholder="Buscar por código de confirmación, código hotel o nombre..."
+                  className="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+                {searchCode && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchCode("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            )}
+
             <div className="space-y-4">
               {loading ? (
-                <div className="text-center py-8">Cargando reservas...</div>
+                <div className="text-center py-8 text-sm text-gray-500">Cargando reservas...</div>
               ) : error ? (
-                <div className="text-red-500 p-4 bg-red-50 rounded">{error}</div>
+                <div className="text-red-600 text-sm p-4 bg-red-50 border border-red-200 rounded-lg">{error}</div>
               ) : reservas.length === 0 ? (
-                <div className="text-gray-500 p-4 bg-gray-50 rounded">
-                  No hay reservas con items pendientes de{" "}
+                <div className="text-gray-500 text-sm p-4 bg-gray-50 rounded-lg">
+                  No hay reservas con ítems pendientes de{" "}
                   {pagoData ? "pago" : "facturación"}
                 </div>
+              ) : reservasFiltradas.length === 0 ? (
+                <div className="text-gray-500 text-sm p-4 bg-gray-50 rounded-lg">
+                  No se encontraron reservas con el código <span className="font-mono font-semibold">{searchCode}</span>
+                </div>
               ) : (
-                <div className="space-y-4">
-                  {reservas
-  .filter((r) => !isReservaCanceladaPorCodigo(r.codigo_reservacion_hotel))
-  .map((res) => (
-    <SectionReserva key={res.id_booking || res.id_solicitud} reserva={res} />
-  ))}
-
+                <div className="space-y-2">
+                  {reservasFiltradas.map((res) => (
+                    <SectionReserva key={res.id_booking || res.id_solicitud} reserva={res} />
+                  ))}
                 </div>
               )}
             </div>

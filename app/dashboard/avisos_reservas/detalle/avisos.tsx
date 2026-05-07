@@ -314,13 +314,14 @@ estatus === "cancelada";
 
 const esActivaConFactura =
 hasFactura && (!estatus == false);
-const reserva_cancelada = detalle.tipo
+const reserva_cancelada = detalle?.tipo||null
+
 const mostrarAprobar =
 esActivaConFactura && detalle.tipo!="reserva_cancelada" &&
 totalReserva > totalFacturado;
 const mostrarDesligar = (detalle.estatus == "facturada" && totalFacturado!=0 && totalFacturado >totalReserva)|| hasFactura && totalFacturado != 0 && totalFacturado != totalReserva && reserva_cancelada == "reserva_cancelada";
 
-const mostrarAtendida = (totalFacturado == 0 )|| totalFacturado == totalReserva && detalle.estatus != "facturada";
+const mostrarAtendida = (totalFacturado == 0 )|| totalFacturado == totalReserva || detalle.estatus != "facturada";
 
 
 const hasCambios =
