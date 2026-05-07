@@ -4,7 +4,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Table5 } from "@/components/Table5";
 import { URL, API_KEY } from "@/lib/constants/index";
-import { Filter, X, Search, Handshake, Send, RefreshCw } from "lucide-react";
+import { Filter, X, Search, Handshake, Send, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
 
 import Button from "@/components/atom/Button";
 import SubirFactura from "@/app/dashboard/facturacion/subirfacturas/SubirFactura";
@@ -413,6 +413,9 @@ export default function ConciliacionPage() {
   >({});
 
   const [todos, setTodos] = useState<any[]>([]);
+  const [page, setPage] = useState(1);
+  const LIMIT = 50;
+  const [hasMore, setHasMore] = useState(false);
 
   const [searchInput, setSearchInput] = useState("");
   const [showFiltersModal, setShowFiltersModal] = useState(false);
@@ -651,7 +654,7 @@ const openBuscarUuidModal = useCallback(() => {
   ).filter((key) => !DATE_FILTER_KEYS.includes(key));
 
   const load = useCallback(
-  async (overrideFilters: ConciliacionFilters) => {
+  async (overrideFilters: ConciliacionFilters, pageToLoad = 1) => {
     const controller = new AbortController();
     setIsLoading(true);
 
@@ -664,7 +667,10 @@ const openBuscarUuidModal = useCallback(() => {
         params.append(key, v);
       });
 
-      const url = `${endpoint}${params.toString() ? `?${params.toString()}` : ""}`;
+      params.set("page", String(pageToLoad));
+      params.set("limit", String(LIMIT));
+
+      const url = `${endpoint}?${params.toString()}`;
 
       const response = await fetch(url, {
         method: "GET",
@@ -682,21 +688,24 @@ const openBuscarUuidModal = useCallback(() => {
       const list = Array.isArray(json?.data) ? json.data : [];
 
       setTodos(list);
+      setPage(pageToLoad);
+      setHasMore(json?.pagination?.has_more ?? list.length === LIMIT);
     } catch (err) {
       console.error("Error cargando conciliación:", err);
       setTodos([]);
+      setHasMore(false);
     } finally {
       setIsLoading(false);
     }
 
     return () => controller.abort();
   },
-  [endpoint],
+  [endpoint, LIMIT],
 );
 
   const refreshData = useCallback(() => {
-    void load(appliedFilters);
-  }, [load, appliedFilters]);
+    void load(appliedFilters, page);
+  }, [load, appliedFilters, page]);
 
   // useEffect(() => {
   //   setAppliedFilters(DEFAULT_OPEN_FILTERS);
@@ -737,7 +746,7 @@ const openBuscarUuidModal = useCallback(() => {
   setFilters(next);
   setAppliedFilters(next);
   setShowFiltersModal(false);
-  void load(next);
+  void load(next, 1);
 }, [filters, load]);
 
   const clearAllFilters = useCallback(() => {
@@ -745,7 +754,7 @@ const openBuscarUuidModal = useCallback(() => {
     setAppliedFilters(EMPTY_FILTERS);
     setSearchInput("");
     setShowFiltersModal(false);
-    void load(EMPTY_FILTERS);
+    void load(EMPTY_FILTERS, 1);
   }, [load]);
 
   const openEditModal = useCallback(
@@ -1663,14 +1672,35 @@ const openBuscarUuidModal = useCallback(() => {
             getRowClassName={getRowClassName as any}
           >
             <Button
-  variant="secondary"
-  size="md"
-  className="border border-violet-200 bg-violet-50 hover:bg-violet-100 text-violet-800"
-  onClick={openBuscarUuidModal}
->
-  <Search className="w-4 h-4" />
-  Buscar UUID
-</Button>
+              variant="secondary"
+              size="md"
+              className="border border-violet-200 bg-violet-50 hover:bg-violet-100 text-violet-800"
+              onClick={openBuscarUuidModal}
+            >
+              <Search className="w-4 h-4" />
+              Buscar UUID
+            </Button>
+
+            {/* Paginación */}
+            <div className="flex items-center gap-1 ml-2">
+              <button
+                disabled={page <= 1 || isLoading}
+                onClick={() => void load(appliedFilters, page - 1)}
+                className="inline-flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="text-xs text-gray-600 px-2 min-w-[60px] text-center">
+                Pág. {page}
+              </span>
+              <button
+                disabled={!hasMore || isLoading}
+                onClick={() => void load(appliedFilters, page + 1)}
+                className="inline-flex items-center justify-center w-8 h-8 rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
             </Table5>
         </div>
 

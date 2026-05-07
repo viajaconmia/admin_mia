@@ -19,6 +19,7 @@ export const PERMISOS = {
     PROVEEDORES: "view.proveedores",
     MIA_TARJETAS: "view.mia.tarjetas",
     MIA_TITULARES: "view.mia.titulares",
+    AVISOS_RESERVAS: "view.avisos-reservas",
   },
   COLUMNAS: {
     BOOKINGS: {

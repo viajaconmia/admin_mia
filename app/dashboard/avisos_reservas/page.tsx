@@ -33,6 +33,8 @@ import FiltrosAvisosModal, {
   type AvisosFilters,
   EMPTY_AVISOS_FILTERS,
 } from "./FiltrosAvisosModal";
+import { PERMISOS } from "@/constant/permisos";
+import { usePermiso } from "@/hooks/usePermission";
 
 const LIMIT = 50;
 
@@ -310,6 +312,9 @@ function LayoutModal({
 }
 
 function App() {
+  const { hasAccess } = usePermiso();
+  hasAccess(PERMISOS.VISTAS.AVISOS_RESERVAS);
+
   const { showNotification } = useAlert();
 
   const [avisos, setAvisos] = useState<AvisoReserva[]>([]);
@@ -473,7 +478,7 @@ function App() {
     }
     console.log(items,"😎😎😎😎")
     const id_relaciones = items.map((r) => r.id_relacion).filter(Boolean);
-    const id_agente = items[0]?.agente;
+    const id_agente = items[0]?.id_agente;
 
     if (!id_agente) {
       showNotification("error", "No se encontró id_agente en los registros seleccionados");
@@ -641,22 +646,39 @@ function App() {
     registrosSeleccionables.every(({ id }) => Boolean(selectedMap[id]));
 
   const toggleSelectAllFiltered = useCallback(() => {
+    if (allFilteredSelected) {
+      setSelectedMap((prev) => {
+        const next = { ...prev };
+        registrosSeleccionables.forEach(({ id }) => { delete next[id]; });
+        return next;
+      });
+      return;
+    }
+
+    // Al seleccionar todo: usa el id_agente de los ya seleccionados o del primer registro
+    const yaSeleccionados = Object.values(selectedMap);
+    const getAgente = (o: any) => o?.id_agente ?? o?.item?.id_agente ?? null;
+
+    const agenteBase =
+      yaSeleccionados.length > 0
+        ? getAgente(yaSeleccionados[0])
+        : getAgente(registrosSeleccionables[0]?.item);
+
+    const distintos = registrosSeleccionables.filter(
+      ({ item }) => agenteBase !== null && getAgente(item) !== agenteBase,
+    );
+
+    if (distintos.length > 0) {
+      showNotification("error", "No son del mismo agente — solo puedes seleccionar registros del mismo agente");
+      return;
+    }
+
     setSelectedMap((prev) => {
       const next = { ...prev };
-
-      if (allFilteredSelected) {
-        registrosSeleccionables.forEach(({ id }) => {
-          delete next[id];
-        });
-      } else {
-        registrosSeleccionables.forEach(({ id, item }) => {
-          next[id] = item;
-        });
-      }
-
+      registrosSeleccionables.forEach(({ id, item }) => { next[id] = item; });
       return next;
     });
-  }, [allFilteredSelected, registrosSeleccionables]);
+  }, [allFilteredSelected, registrosSeleccionables, selectedMap, showNotification]);
 
   const renderersPrefacturar = useMemo(
     () => ({
@@ -673,7 +695,21 @@ function App() {
 
         return (
           <button
-            onClick={() =>
+            onClick={() => {
+              const yaSeleccionados = Object.values(selectedMap);
+              if (!selectedMap[id] && yaSeleccionados.length > 0) {
+                const getAgente = (o: any) =>
+                  o?.id_agente ?? o?.item?.id_agente ?? null;
+                const agenteBase = getAgente(yaSeleccionados[0]);
+                const agenteItem = getAgente(item);
+                if (agenteBase !== null && agenteItem !== agenteBase) {
+                  showNotification(
+                    "error",
+                    "No son del mismo agente — solo puedes seleccionar registros del mismo agente",
+                  );
+                  return;
+                }
+              }
               setSelectedMap((prev) => {
                 const next = { ...prev };
                 if (next[id]) {
@@ -682,8 +718,8 @@ function App() {
                   next[id] = item;
                 }
                 return next;
-              })
-            }
+              });
+            }}
             className="flex items-center justify-center w-full"
           >
             {isSelected ? (
@@ -695,7 +731,7 @@ function App() {
         );
       },
     }),
-    [selectedMap],
+    [selectedMap, showNotification],
   );
 
   const renderersNotificadas = useMemo(
@@ -733,7 +769,9 @@ function App() {
 
     if (!avisos.length) return ["seleccionar", "detalle"];
 
-    const keys = Object.keys(avisos[0]).filter((k) => k !== "item");
+    const keys = Object.keys(avisos[0]).filter(
+      (k) => k !== "item" && !k.startsWith("id_") && k !== "id",
+    );
     return ["seleccionar", ...keys, "detalle"];
   }, [avisos, vistaNotificadas]);
 

@@ -439,6 +439,7 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose }) => {
   const api = data?.data ?? {};
   const solicitudApi = api?.solicitud ?? null;
   const facturasApi = Array.isArray(api?.facturas) ? api.facturas : [];
+  const pagosApi = Array.isArray(api?.pagos) ? api.pagos : [];
   const resumen = api?.resumen_validacion ?? null;
 
 const setDraftField = useCallback(
@@ -1005,6 +1006,73 @@ impuestos_edit: ({ item }: any) => {
                       fillHeight={false}
                       maxHeight="420px"
                     />
+                  )}
+                </div>
+
+                {/* ── Pagos y comprobantes ───────────────────────────────── */}
+                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                  <p className="text-sm font-semibold text-gray-900 mb-3">
+                    Pagos ({pagosApi.length})
+                  </p>
+
+                  {pagosApi.length === 0 ? (
+                    <p className="text-xs text-gray-500">No hay pagos registrados.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {pagosApi.map((pago: any, idx: number) => {
+                        const id = pago?.id_pago_proveedores ?? idx + 1;
+                        const monto = toNum(pago?.monto_pagado ?? pago?.monto ?? pago?.total);
+                        const fecha = pago?.fecha_pago ?? pago?.fecha_emision ?? null;
+                        const comprobante = pago?.url_pdf ?? null;
+
+                        return (
+                          <div
+                            key={id}
+                            className="grid grid-cols-1 md:grid-cols-4 gap-3 rounded-xl border border-gray-100 bg-gray-50 p-3"
+                          >
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wide text-gray-500 mb-0.5">ID Pago</p>
+                              <p className="text-xs font-mono text-gray-800">{id}</p>
+                            </div>
+
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wide text-gray-500 mb-0.5">Monto pagado</p>
+                              <p className="text-xs font-semibold text-green-700">{formatMoney(monto)}</p>
+                            </div>
+
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wide text-gray-500 mb-0.5">Fecha de pago</p>
+                              <p className="text-xs text-gray-800">
+                                {fecha
+                                  ? new Date(fecha).toLocaleDateString("es-MX", {
+                                      day: "2-digit",
+                                      month: "2-digit",
+                                      year: "numeric",
+                                    })
+                                  : "—"}
+                              </p>
+                            </div>
+
+                            <div>
+                              <p className="text-[10px] uppercase tracking-wide text-gray-500 mb-0.5">Comprobante</p>
+                              {comprobante ? (
+                                <button
+                                  type="button"
+                                  onClick={() => openUrl(comprobante)}
+                                  className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] text-blue-700 hover:bg-blue-100"
+                                >
+                                  <FileText className="w-3.5 h-3.5" />
+                                  Ver comprobante
+                                  <ExternalLink className="w-3 h-3" />
+                                </button>
+                              ) : (
+                                <span className="text-xs text-gray-400 italic">Sin comprobante</span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   )}
                 </div>
               </>
