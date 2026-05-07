@@ -138,7 +138,7 @@ export const createNewEmpresa = async (data: any, id: string) => {
 export const updateEmpresa = async (
   data: any,
   empresaId: string,
-  id: string
+  id: string,
 ) => {
   console.log(data);
   try {
@@ -246,7 +246,7 @@ export const createStripeUser = async (email: string, id_agente: string) => {
 
 export const createPaymentMethod = async (
   email: string,
-  id_customer: string
+  id_customer: string,
 ) => {
   try {
     const response = await fetch(`${URL}/stripe/create-payment-method`, {
@@ -279,7 +279,7 @@ export const createPaymentMethod = async (
 export const createLogPayment = async (
   amount: number,
   id: string,
-  response_payment: any
+  response_payment: any,
 ) => {
   try {
     const response = await fetch(`${URL}/stripe/payment-log-storage`, {
@@ -320,7 +320,7 @@ export const createNewPago = async (
   metodo_de_pago: string,
   concepto: string,
   autorizacion: string,
-  currency: string
+  currency: string,
 ) => {
   try {
     // Datos para crear el pago
@@ -420,6 +420,7 @@ export const createNewViajero = async (data: any, id_empresa: string[]) => {
     const response = await fetch(`${URL}/mia/viajeros`, {
       method: "POST",
       headers: {
+        credentials: "include",
         "Content-Type": "application/json",
         ...AUTH,
       },
@@ -505,7 +506,7 @@ export const createSaldo = async (data: any) => {
 export const updateViajero = async (
   data: any,
   id_empresa: string[],
-  id_viajero: string
+  id_viajero: string,
 ) => {
   let fechaFormateada = "";
   if (data.fecha_nacimiento) {
@@ -563,7 +564,7 @@ export const getCompaniesAgent = async (agent_id: string) => {
     console.log("En proceso de obtener empresas");
     const response = await fetch(
       `${URL}/mia/agentes/empresas-con-agentes?id_agente=${encodeURIComponent(
-        agent_id
+        agent_id,
       )}`,
       {
         method: "GET",
@@ -571,7 +572,7 @@ export const getCompaniesAgent = async (agent_id: string) => {
           "Content-Type": "application/json",
           ...AUTH,
         },
-      }
+      },
     );
 
     const json = await response.json();
@@ -586,7 +587,7 @@ export const getCompaniesAgentViajeros = async (agent_id: string) => {
     console.log("En proceso de obtener viajeros");
     const response = await fetch(
       `${URL}/mia/agentes/viajeros-con-empresas?id_agente=${encodeURIComponent(
-        agent_id
+        agent_id,
       )}`,
       {
         method: "GET",
@@ -594,7 +595,7 @@ export const getCompaniesAgentViajeros = async (agent_id: string) => {
           "Content-Type": "application/json",
           ...AUTH,
         },
-      }
+      },
     );
 
     const json = await response.json();
@@ -609,7 +610,7 @@ export const getEmpresasDatosFiscales = async (agent_id: string) => {
   try {
     const response = await fetch(
       `${URL}/mia/agentes/empresas-con-datos-fiscales?id_agente=${encodeURIComponent(
-        agent_id
+        agent_id,
       )}`,
       {
         method: "GET",
@@ -617,8 +618,8 @@ export const getEmpresasDatosFiscales = async (agent_id: string) => {
           "x-api-key": API_KEY || "",
           "Cache-Control": "no-cache, no-store, must-revalidate",
           "Content-Type": "application/json",
-        }, 
-      }
+        },
+      },
     );
     const json = await response.json();
     return json;
@@ -650,7 +651,7 @@ export const getPaymentMethods = async (agent_id: string) => {
     console.log("En proceso de obtener metodos de pago");
     const response = await fetch(
       `${URL}/stripe/get-payment-methods?id_agente=${encodeURIComponent(
-        agent_id
+        agent_id,
       )}`,
       {
         method: "GET",
@@ -658,7 +659,7 @@ export const getPaymentMethods = async (agent_id: string) => {
           "Content-Type": "application/json",
           ...AUTH,
         },
-      }
+      },
     );
     const json = await response.json();
     console.log(json);
@@ -679,7 +680,7 @@ export const getCreditAgent = async (agent_id: string) => {
           "Content-Type": "application/json",
           ...AUTH,
         },
-      }
+      },
     );
     const json = await response.json();
     console.log(json);
@@ -700,7 +701,7 @@ export const getPagosAgente = async (agent_id: string) => {
           "Content-Type": "application/json",
           ...AUTH,
         },
-      }
+      },
     );
     const json = await response.json();
     console.log(json);
@@ -715,7 +716,7 @@ export const getPendientesAgente = async (agent_id: string) => {
     console.log("En proceso de obtener metodos de pago");
     const response = await fetch(
       `${URL}/mia/pagos/pendientesAgente?id_agente=${encodeURIComponent(
-        agent_id
+        agent_id,
       )}`,
       {
         method: "GET",
@@ -723,7 +724,7 @@ export const getPendientesAgente = async (agent_id: string) => {
           "Content-Type": "application/json",
           ...AUTH,
         },
-      }
+      },
     );
     const json = await response.json();
     console.log(json);
@@ -779,7 +780,7 @@ export const deleteTraveler = async (id_viajero: string) => {
           "Content-Type": "application/json",
           ...AUTH,
         },
-      }
+      },
     );
 
     const json = await response.json();
