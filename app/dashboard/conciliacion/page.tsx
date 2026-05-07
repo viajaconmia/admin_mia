@@ -1,7 +1,7 @@
 // app/conciliacion/page.tsx
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Table5 } from "@/components/Table5";
 import { URL, API_KEY } from "@/lib/constants/index";
 import { Filter, X, Search, Handshake, Send, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
@@ -865,6 +865,34 @@ const openBuscarUuidModal = useCallback(() => {
 
     return filteredItems.map((raw, i) => toConciliacionRow(raw, i));
   }, [todos, searchInput]);
+
+  // Si la búsqueda local no encuentra resultados, llama la API con folio=searchInput
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastApiSearchRef = useRef<string>("");
+
+  useEffect(() => {
+    const q = searchInput.trim();
+
+    if (!q) {
+      lastApiSearchRef.current = "";
+      return;
+    }
+
+    // Ya hay resultados locales o ya se buscó este término en la API → no hacer nada
+    if (filteredData.length > 0) return;
+    if (lastApiSearchRef.current === q) return;
+
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+
+    searchDebounceRef.current = setTimeout(() => {
+      lastApiSearchRef.current = q;
+      void load({ ...appliedFilters, folio: q }, 1);
+    }, 600);
+
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, [searchInput, filteredData.length, appliedFilters, load]);
 
   const cancelSolicitud = useCallback(
     async (id_solicitud_proveedor: string) => {
