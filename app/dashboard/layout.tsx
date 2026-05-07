@@ -34,10 +34,16 @@ type NavItem = {
   icon?: any;
 };
 
-type NavGroup = {
+type NavSubGroup = {
   title: string;
   icon?: any;
   items: NavItem[];
+};
+
+type NavGroup = {
+  title: string;
+  icon?: any;
+  items: (NavItem | NavSubGroup)[];
 };
 
 export default function DashboardLayout({
@@ -120,6 +126,57 @@ const links: NavGroup[] = [
     icon: CreditCard,
     items: [
       {
+        title: "CXP",
+        icon: CreditCard,
+        items: [
+          {
+            title: "Pagos proveedor",
+            href: "/dashboard/pagos_proveedor",
+            icon: CreditCard,
+          },
+          {
+            title: "Saldos Proveedor",
+            href: "/dashboard/saldo_a_favor_proveedor",
+            icon: Wallet,
+          },
+          { title: "Pagos", href: "/dashboard/payments", icon: CreditCard },
+          { title: "Proveedores", href: "/dashboard/proveedores", icon: Truck },
+        ],
+      },
+      {
+        title: "CXC",
+        icon: FileText,
+        items: [
+          {
+            title: "Resumen",
+            href: "/dashboard/cuentas-cobrar",
+            icon: FileText,
+          },
+          {
+            title: "Detallado",
+            href: "/dashboard/concentrado_cxc",
+            icon: FileText,
+          },
+          { title: "Facturas", href: "/dashboard/invoices", icon: Receipt },
+          {
+            title: "Pend. Prepago",
+            href: "/dashboard/facturas-pendientes",
+            icon: Receipt,
+          },
+          {
+            title: "Pend. Crédito",
+            href: "/dashboard/facturacion",
+            icon: BookOpen,
+          },
+          {
+            title: "Reporte",
+            href: "/dashboard/detalles_facturas",
+            icon: Receipt,
+          },
+          { title: "Clientes", href: "/dashboard/clients", icon: Users },
+        ],
+      },
+      {
         title: "Reservas",
         href: "/dashboard/finanza_reserva",
         icon: Building2,
@@ -132,62 +189,7 @@ const links: NavGroup[] = [
     ],
   },
   {
-    title: "Pagos",
-    icon: CreditCard,
-    items: [{ title: "Pagos", href: "/dashboard/payments", icon: CreditCard }],
-  },
-  {
-    title: "CXP",
-    icon: CreditCard,
-    items: [
-      {
-        title: "Pagos proveedor",
-        href: "/dashboard/pagos_proveedor",
-        icon: CreditCard,
-      },
-      {
-        title: "Saldos Proveedor",
-        href: "/dashboard/saldo_a_favor_proveedor",
-        icon: Wallet,
-      },
-    ],
-  },
-  {
-    title: "CXC",
-    icon: FileText,
-    items: [
-      {
-        title: "Resumen",
-        href: "/dashboard/cuentas-cobrar",
-        icon: FileText,
-      },
-      {
-        title: "Detallado",
-        href: "/dashboard/concentrado_cxc",
-        icon: FileText,
-      },
-    ],
-  },
-  {
-    title: "Facturas",
-    icon: Receipt,
-    items: [
-      { title: "Facturas", href: "/dashboard/invoices", icon: Receipt },
-      {
-        title: "Pend. Prepago",
-        href: "/dashboard/facturas-pendientes",
-        icon: Receipt,
-      },
-      {
-        title: "Pend. Crédito",
-        href: "/dashboard/facturacion",
-        icon: BookOpen,
-      },
-      { title: "Reporte", href: "/dashboard/detalles_facturas", icon: Receipt },
-    ],
-  },
-  {
-    title: "Cliente especial",
+    title: "Comercial",
     icon: Star,
     items: [
       { title: "General", href: "/dashboard/client/", icon: Users2 },

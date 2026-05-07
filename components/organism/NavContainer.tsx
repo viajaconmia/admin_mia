@@ -11,13 +11,19 @@ import { ChevronDown } from "lucide-react";
 type LeafLink = {
   href: string;
   title: string;
-  icon: React.ElementType;
+  icon?: React.ElementType;
+};
+
+type SubGroup = {
+  title: string;
+  icon?: React.ElementType;
+  items: LeafLink[];
 };
 
 type GroupLink = {
   title: string;
-  icon: React.ElementType;
-  items: LeafLink[];
+  icon?: React.ElementType;
+  items: (LeafLink | SubGroup)[];
 };
 
 type NavLink = LeafLink | GroupLink;
@@ -43,6 +49,10 @@ function isGroup(item: NavLink): item is GroupLink {
   return "items" in item;
 }
 
+function isSubGroup(item: LeafLink | SubGroup): item is SubGroup {
+  return "items" in item;
+}
+
 export default function NavContainer({
   tabs = [],
   title,
@@ -55,20 +65,33 @@ export default function NavContainer({
   const [isOpen, setIsOpen] = useState(false);
   const [isHover, setIsHover] = useState(false);
   const [currentTab, setCurrentTab] = useState(
-    defaultTab || (tabs.length > 0 ? tabs[0].tab : "")
+    defaultTab || (tabs.length > 0 ? tabs[0].tab : ""),
   );
 
   const isExpanded = isOpen || isHover;
 
-  const isActiveHref = (href: string) =>
-    pathname === href || pathname?.startsWith(href + "/");
+  const isActiveHref = (href: string) => false;
+  // pathname === href || pathname?.startsWith(href + "/");
 
-  // abre por defecto el grupo que contenga la ruta actual
+  // abre por defecto el grupo/subgrupo que contenga la ruta actual
   const initialGroupsOpen = useMemo(() => {
     const open: Record<string, boolean> = {};
     links.forEach((l) => {
       if (isGroup(l)) {
-        open[l.title] = l.items.some((it) => isActiveHref(it.href));
+        const groupActive = l.items.some((it) =>
+          isSubGroup(it)
+            ? it.items.some((leaf) => isActiveHref(leaf.href))
+            : isActiveHref(it.href),
+        );
+        open[l.title] = groupActive;
+        l.items.forEach((it) => {
+          if (
+            isSubGroup(it) &&
+            it.items.some((leaf) => isActiveHref(leaf.href))
+          ) {
+            open[`${l.title}__${it.title}`] = true;
+          }
+        });
       }
     });
     return open;
@@ -87,7 +110,7 @@ export default function NavContainer({
       <div
         className={cn(
           "relative h-full transition-all duration-300",
-          isExpanded ? "w-52" : "w-16"
+          isExpanded ? "w-64" : "w-16",
         )}
       >
         <Button
@@ -96,7 +119,9 @@ export default function NavContainer({
           className="absolute w-full right-0 top-0 z-40 h-12 flex justify-end pr-5 items-center"
           onClick={() => setIsOpen(!isOpen)}
         >
-          <ArrowIcon className={cn("transition-transform", isOpen && "rotate-180")} />
+          <ArrowIcon
+            className={cn("transition-transform", isOpen && "rotate-180")}
+          />
         </Button>
 
         {/* Sidebar Content */}
@@ -114,7 +139,9 @@ export default function NavContainer({
                   </span>
                   {isExpanded && (
                     <span>
-                      <h2 className="text-xl font-semibold transition-all">{title}</h2>
+                      <h2 className="text-xl font-semibold transition-all">
+                        {title}
+                      </h2>
                     </span>
                   )}
                 </div>
@@ -132,12 +159,16 @@ export default function NavContainer({
                           className={cn(
                             "flex items-center justify-start w-full gap-3 rounded-lg px-3 py-2 text-sm transition-all",
                             "hover:bg-blue-50 hover:text-blue-900",
-                            active ? "bg-blue-100 text-blue-900" : "text-gray-500"
+                            active
+                              ? "bg-blue-100 text-blue-900"
+                              : "text-gray-500",
                           )}
                         >
                           <item.icon className="h-4 w-4" />
                           {isExpanded && (
-                            <span className="whitespace-nowrap">{item.title}</span>
+                            <span className="whitespace-nowrap">
+                              {item.title}
+                            </span>
                           )}
                         </Link>
                       );
@@ -145,7 +176,9 @@ export default function NavContainer({
 
                     // 2) GRUPO DESPLEGABLE (categorías)
                     const groupOpen = !!openGroups[item.title];
-                    const groupHasActive = item.items.some((it) => isActiveHref(it.href));
+                    const groupHasActive = item.items.some((it) =>
+                      isActiveHref(it.href),
+                    );
 
                     return (
                       <div key={item.title} className="space-y-1">
@@ -160,7 +193,9 @@ export default function NavContainer({
                           className={cn(
                             "flex items-center justify-start w-full gap-3 rounded-lg px-3 py-2 text-sm transition-all",
                             "hover:bg-blue-50 hover:text-blue-900",
-                            groupHasActive ? "bg-blue-100 text-blue-900" : "text-gray-500"
+                            groupHasActive
+                              ? "bg-blue-100 text-blue-900"
+                              : "text-gray-500",
                           )}
                         >
                           <item.icon className="h-4 w-4 shrink-0" />
@@ -173,17 +208,90 @@ export default function NavContainer({
                               <ChevronDown
                                 className={cn(
                                   "h-4 w-4 transition-transform",
-                                  groupOpen && "rotate-180"
+                                  groupOpen && "rotate-180",
                                 )}
                               />
                             </>
                           )}
                         </button>
 
-                        {/* Submenu: solo cuando sidebar está expandida/hover */}
+                        {/* Nivel 2: solo cuando sidebar está expandida/hover */}
                         {isExpanded && groupOpen && (
                           <div className="ml-4 pl-2 border-l border-blue-100 space-y-1">
                             {item.items.map((sub) => {
+                              // SubGroup → nivel 2 desplegable con nivel 3 dentro
+                              if (isSubGroup(sub)) {
+                                const subKey = `${item.title}__${sub.title}`;
+                                const subOpen = !!openGroups[subKey];
+                                const subHasActive = sub.items.some((leaf) =>
+                                  isActiveHref(leaf.href),
+                                );
+                                return (
+                                  <div key={sub.title} className="space-y-1">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setOpenGroups((p) => ({
+                                          ...p,
+                                          [subKey]: !p[subKey],
+                                        }))
+                                      }
+                                      className={cn(
+                                        "flex items-center justify-start w-full gap-3 rounded-lg px-3 py-2 text-sm transition-all",
+                                        "hover:bg-blue-50 hover:text-blue-900",
+                                        subHasActive
+                                          ? "bg-blue-100 text-blue-900"
+                                          : "text-gray-500",
+                                      )}
+                                    >
+                                      {sub.icon && (
+                                        <sub.icon className="h-4 w-4 shrink-0" />
+                                      )}
+                                      <span className="whitespace-nowrap flex-1 text-left">
+                                        {sub.title}
+                                      </span>
+                                      <ChevronDown
+                                        className={cn(
+                                          "h-4 w-4 transition-transform",
+                                          subOpen && "rotate-180",
+                                        )}
+                                      />
+                                    </button>
+                                    {/* Nivel 3 */}
+                                    {subOpen && (
+                                      <div className="ml-4 pl-2 border-l border-blue-100 space-y-1">
+                                        {sub.items.map((leaf) => {
+                                          const active = isActiveHref(
+                                            leaf.href,
+                                          );
+                                          return (
+                                            <Link
+                                              href={leaf.href}
+                                              key={leaf.href}
+                                              className={cn(
+                                                "flex items-center justify-start w-full gap-3 rounded-lg px-3 py-2 text-sm transition-all",
+                                                "hover:bg-blue-50 hover:text-blue-900",
+                                                active
+                                                  ? "bg-blue-100 text-blue-900"
+                                                  : "text-gray-500",
+                                              )}
+                                            >
+                                              {leaf.icon && (
+                                                <leaf.icon className="h-4 w-4" />
+                                              )}
+                                              <span className="whitespace-nowrap">
+                                                {leaf.title}
+                                              </span>
+                                            </Link>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              }
+
+                              // LeafLink normal → nivel 2
                               const active = isActiveHref(sub.href);
                               return (
                                 <Link
@@ -194,11 +302,13 @@ export default function NavContainer({
                                     "hover:bg-blue-50 hover:text-blue-900",
                                     active
                                       ? "bg-blue-100 text-blue-900"
-                                      : "text-gray-500"
+                                      : "text-gray-500",
                                   )}
                                 >
-                                  <sub.icon className="h-4 w-4" />
-                                  <span className="whitespace-nowrap">{sub.title}</span>
+                                  {sub.icon && <sub.icon className="h-4 w-4" />}
+                                  <span className="whitespace-nowrap">
+                                    {sub.title}
+                                  </span>
                                 </Link>
                               );
                             })}
@@ -218,7 +328,7 @@ export default function NavContainer({
                         "hover:bg-blue-50 hover:text-blue-900",
                         currentTab === item.tab
                           ? "bg-blue-100 text-blue-900"
-                          : "text-gray-500"
+                          : "text-gray-500",
                       )}
                     >
                       <item.icon className="h-4 w-4" />
