@@ -695,6 +695,7 @@ const pendientePorFacturar = items
       precio_de_venta: precioVenta,
       pendiente_por_facturar: pendientePorFacturar,
       total_facturado: totalFacturado,
+      type:r.type,
       detalles: {
         reservaId: r.id_booking,
       },
