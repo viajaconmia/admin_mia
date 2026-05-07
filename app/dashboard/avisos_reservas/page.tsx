@@ -33,6 +33,8 @@ import FiltrosAvisosModal, {
   type AvisosFilters,
   EMPTY_AVISOS_FILTERS,
 } from "./FiltrosAvisosModal";
+import { PERMISOS } from "@/constant/permisos";
+import { usePermiso } from "@/hooks/usePermission";
 
 const LIMIT = 50;
 
@@ -310,6 +312,9 @@ function LayoutModal({
 }
 
 function App() {
+  const { hasAccess } = usePermiso();
+  hasAccess(PERMISOS.VISTAS.AVISOS_RESERVAS);
+
   const { showNotification } = useAlert();
 
   const [avisos, setAvisos] = useState<AvisoReserva[]>([]);
