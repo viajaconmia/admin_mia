@@ -41,7 +41,7 @@ interface Pago {
 
 export const fetchInitSuperAgent = async (
   email: string,
-  callback: (data: { link: string }) => void
+  callback: (data: { link: string }) => void,
 ) => {
   const response = await fetch(`${URL}/mia/impersonate/impersonate-user`, {
     method: "POST",
@@ -67,7 +67,7 @@ export const fetchInitSuperAgent = async (
 
 export const fetchUpdateEmpresasAgentes = async (
   updateBody: UpdateRequestBody,
-  callback: (data) => void
+  callback: (data) => void,
 ) => {
   const response = await fetch(`${URL}/mia/agentes/`, {
     method: "PUT",
@@ -125,7 +125,7 @@ export const fetchUpdateEmpresasAgentes = async (
 // };
 export const fetchAgentesWithFacturableSaldos = async (
   filters: TypeFilters,
-  defaultFilters: TypeFilters
+  defaultFilters: TypeFilters,
 ): Promise<AgenteConSaldos[]> => {
   const queryParams = new URLSearchParams();
 
@@ -145,7 +145,7 @@ export const fetchAgentesWithFacturableSaldos = async (
         Expires: "0",
       },
       cache: "no-store",
-    }
+    },
   );
 
   if (!response.ok) {
@@ -167,7 +167,7 @@ export const fetchAgentesWithFacturableSaldos = async (
 
 export const fetchEmpresasAgentes = async (
   id_agente: string,
-  callback: (data: EmpresaFromAgent[]) => void
+  callback: (data: EmpresaFromAgent[]) => void,
 ) => {
   const response = await fetch(`${URL}/mia/agentes/empresas?id=${id_agente}`, {
     headers: {
@@ -237,7 +237,7 @@ export const fetchEmpresasAgentes = async (
 
 export const fetchEmpresasAgentesDataFiscal = async (
   id_agente: string,
-  callback?: (data: EmpresaFromAgent[]) => void
+  callback?: (data: EmpresaFromAgent[]) => void,
 ): Promise<EmpresaFromAgent[]> => {
   try {
     console.log(`Solicitando empresas para agente: ${id_agente}`);
@@ -251,7 +251,7 @@ export const fetchEmpresasAgentesDataFiscal = async (
           Expires: "0",
         },
         cache: "no-store",
-      }
+      },
     );
 
     if (!response.ok) {
@@ -273,11 +273,11 @@ export const fetchEmpresasAgentesDataFiscal = async (
     if (Array.isArray(data)) {
       // Validar estructura de cada elemento si es necesario
       const isValid = data.every(
-        (item) => item.id && item.razon_social && item.rfc
+        (item) => item.id && item.razon_social && item.rfc,
       );
       if (!isValid) {
         console.warn(
-          "Algunos elementos del array no tienen la estructura esperada"
+          "Algunos elementos del array no tienen la estructura esperada",
         );
       }
       if (callback) callback(data);
@@ -306,7 +306,7 @@ export const fetchEmpresasAgentesDataFiscal = async (
     // Si no coincide con ningún formato conocido
     console.error("Formato de respuesta no reconocido:", data);
     throw new Error(
-      `Formato de respuesta no reconocido. Tipo recibido: ${typeof data}`
+      `Formato de respuesta no reconocido. Tipo recibido: ${typeof data}`,
     );
   } catch (error) {
     console.error("Error en fetchEmpresasAgentesDataFiscal:", error);
@@ -317,7 +317,7 @@ export const fetchEmpresasAgentesDataFiscal = async (
 
 export const fetchProveedoresDataFiscal = async (
   id_proveedor: string,
-  callback?: (data: EmpresaFromAgent[]) => void
+  callback?: (data: EmpresaFromAgent[]) => void,
 ): Promise<EmpresaFromAgent[]> => {
   try {
     console.log(`Solicitando empresas para agente: ${id_proveedor}`);
@@ -331,7 +331,7 @@ export const fetchProveedoresDataFiscal = async (
           Expires: "0",
         },
         cache: "no-store",
-      }
+      },
     );
 
     if (!response.ok) {
@@ -353,11 +353,11 @@ export const fetchProveedoresDataFiscal = async (
     if (Array.isArray(data)) {
       // Validar estructura de cada elemento si es necesario
       const isValid = data.every(
-        (item) => item.id && item.razon_social && item.rfc
+        (item) => item.id && item.razon_social && item.rfc,
       );
       if (!isValid) {
         console.warn(
-          "Algunos elementos del array no tienen la estructura esperada"
+          "Algunos elementos del array no tienen la estructura esperada",
         );
       }
       if (callback) callback(data);
@@ -386,7 +386,7 @@ export const fetchProveedoresDataFiscal = async (
     // Si no coincide con ningún formato conocido
     console.error("Formato de respuesta no reconocido:", data);
     throw new Error(
-      `Formato de respuesta no reconocido. Tipo recibido: ${typeof data}`
+      `Formato de respuesta no reconocido. Tipo recibido: ${typeof data}`,
     );
   } catch (error) {
     console.error("Error en fetchEmpresasAgentesDataFiscal:", error);
@@ -398,7 +398,7 @@ export const fetchProveedoresDataFiscal = async (
 export const fetchAgentes = async (
   filters: TypeFilters,
   defaultFilters: TypeFilters,
-  callback: (data: Agente[]) => void
+  callback: (data: Agente[]) => void,
 ) => {
   const queryParams = new URLSearchParams();
 
@@ -419,7 +419,7 @@ export const fetchAgentes = async (
       },
       credentials: "include",
       cache: "no-store",
-    }
+    },
   );
   if (!response.ok) {
     throw new Error("Error al cargar los datos");
@@ -429,11 +429,10 @@ export const fetchAgentes = async (
   return data;
 };
 
-export const fecthProveedores = async(
-
+export const fecthProveedores = async (
   filters: TypeFilters,
   defaultFilters: TypeFilters,
-  callback: (data: Agente[]) => void
+  callback: (data: Agente[]) => void,
 ) => {
   const queryParams = new URLSearchParams();
 
@@ -443,27 +442,23 @@ export const fecthProveedores = async(
     }
   });
 
-  const response = await fetch(
-    `${URL}/mia/proveedores/`,
-    {
-      headers: {
-        "x-api-key": API_KEY,
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-        Pragma: "no-cache",
-        Expires: "0",
-      },
-      credentials: "include",
-      cache: "no-store",
-    }
-  );
+  const response = await fetch(`${URL}/mia/proveedores/`, {
+    headers: {
+      "x-api-key": API_KEY,
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+      Pragma: "no-cache",
+      Expires: "0",
+    },
+    credentials: "include",
+    cache: "no-store",
+  });
   if (!response.ok) {
     throw new Error("Error al cargar los datos");
   }
   const data = await response.json();
   callback(data);
   return data;
-
-}
+};
 
 export const fetchAgenteById = async (id: string) => {
   // Limpiar el ID de posibles parámetros de consulta
@@ -492,7 +487,7 @@ export const fetchAgenteById = async (id: string) => {
     // Verificación básica de consistencia
     if (data.id && data.id !== cleanId) {
       console.warn(
-        `ADVERTENCIA: El ID solicitado (${cleanId}) no coincide con el ID recibido (${data.id})`
+        `ADVERTENCIA: El ID solicitado (${cleanId}) no coincide con el ID recibido (${data.id})`,
       );
     }
 
@@ -536,6 +531,7 @@ export const fetchViajerosByAgente = async (id: string) => {
         "Cache-Control": "no-cache, no-store, must-revalidate",
         Pragma: "no-cache",
         Expires: "0",
+        credentials: "include",
       },
       cache: "no-store",
     });
