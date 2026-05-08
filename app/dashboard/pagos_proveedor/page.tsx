@@ -201,6 +201,7 @@ type ItemSolicitud = SolicitudProveedor & {
   estatus_pagos?: string | null;
   filtro_pago?: string | null;
   cuenta_de_deposito?: string | null;
+  codigo_confirmacion?:string | null;
 };
 
 type DatosDispersion = {

@@ -752,11 +752,12 @@ markup: ({ value }) => {
 
       {categoria !== "canceladas" && (
         <>
-          {categoria === "ap_credito" && (
+          {(categoria === "ap_credito" || forma === "card") && (
             <MetodoPagoModal
               idSolProv={idSolProv}
               currentMethod={forma}
               currentCardId={raw?.solicitud_proveedor?.id_tarjeta_solicitada ?? null}
+              cardOnly={categoria !== "ap_credito"}
               onSetMethod={async (next) => {
                 const ok = await patchSolicitudProveedor(
                   idSolProv,

@@ -28,23 +28,29 @@ interface Item {
 }
 
 interface Reservation {
-  id_servicio: string;
-  created_at: string;
-  id_usuario_generador: string;
+  id_servicio?: string;
+  id_agente?:string,
+  created_at?: string;
+  id_usuario_generador?: string;
   razon_social?: string;
   nombre_viajero?: string | null;
-  hotel: string;
-  codigo_confirmacion: string | null;
+  hotel?: string;
+  tipo_cuarto_vuelo?:string;
+  codigo_confirmacion?: string | null;
   codigo_reservacion_hotel?: string | null;
-  check_in: string;
-  check_out: string;
-  room: string;
+  check_in?: string;
+  check_out?: string;
+  room?: string;
   tipo_cuarto?: string | null;
-  total: string;
+  total?: string;
+  nombre_agente?:string;
+  proveedor?:string;
+  type?:string;
   costo_total?: string;
-  pendiente_por_cobrar: number;
-  id_booking: string | null;
-  id_factura: string | null;
+  nombre_comercial?:string;
+  pendiente_por_cobrar?: number;
+  id_booking?: string | null;
+  id_factura?: string | null;
   id_hospedaje?: string | null;
   correo?: string | null;
   rfc?: string | null;

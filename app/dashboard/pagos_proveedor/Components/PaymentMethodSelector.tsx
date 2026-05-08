@@ -1,17 +1,19 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { useFetchCards, useFetchTitulares } from "@/hooks/useFetchCard";
 
 type Props = {
   idSolProv: string;
-  currentMethod: string; // "credit" originalmente, pero nosotros lo movemos a "transfer" o "card"
+  currentMethod: string;
+  currentCardId?: number | null;
+  cardOnly?: boolean;
   onSetMethod: (nextMethod: "transfer" | "card") => Promise<boolean>;
   onSetCard: (data: { id_tarjeta_solicitada: number }) => Promise<boolean>;
 };
 
-export default function PaymentMethodSelector({ idSolProv, currentMethod, onSetMethod, onSetCard }: Props) {
+export default function PaymentMethodSelector({ idSolProv, currentMethod, currentCardId, cardOnly = false, onSetMethod, onSetCard }: Props) {
   const [method, setMethod] = useState<"transfer" | "card">(
     currentMethod === "card" ? "card" : "transfer"
   );
@@ -34,10 +36,6 @@ export default function PaymentMethodSelector({ idSolProv, currentMethod, onSetM
     return cardsList.filter((c: any) => String(c?.id_titular ?? c?.titular_id ?? "") === String(titularId));
   }, [cardsList, titularId]);
 
-  useEffect(() => {
-    // si cambias método a card, abre modal
-    if (method === "card") setOpen(true);
-  }, [method]);
 
   const changeMethod = async (next: "transfer" | "card") => {
     setMethod(next);
@@ -63,24 +61,26 @@ export default function PaymentMethodSelector({ idSolProv, currentMethod, onSetM
 
   return (
     <div className="flex items-center gap-2">
-      <select
-        className="h-8 rounded-md border border-slate-200 bg-white px-2 text-xs"
-        value={method}
-        onChange={(e) => void changeMethod(e.target.value as any)}
-        title="Cambiar forma de pago solicitada"
-      >
-        <option value="transfer">Transferencia</option>
-        <option value="card">Tarjeta</option>
-      </select>
+      {!cardOnly && (
+        <select
+          className="h-8 rounded-md border border-slate-200 bg-white px-2 text-xs"
+          value={method}
+          onChange={(e) => void changeMethod(e.target.value as any)}
+          title="Cambiar forma de pago solicitada"
+        >
+          <option value="transfer">Transferencia</option>
+          <option value="card">Tarjeta</option>
+        </select>
+      )}
 
-      {method === "card" && (
+      {(cardOnly || method === "card") && (
         <button
           type="button"
           className="h-8 rounded-md border border-blue-200 bg-blue-50 px-2 text-xs text-blue-700 hover:bg-blue-100"
           onClick={() => setOpen(true)}
-          title="Elegir tarjeta"
+          title="Cambiar tarjeta"
         >
-          Elegir tarjeta
+          {currentCardId ? "Cambiar tarjeta" : "Elegir tarjeta"}
         </button>
       )}
 

@@ -620,6 +620,8 @@ export type SolicitudProveedorCore = {
   estado_solicitud: string; // ENUM "pendiente","pagada", etc.
   estado_consolidado: "pendiente" | "parcial" | "completado" | string; // ENUM
   estado_facturacion: string; // Asumo string para este campo añadido
+  comentarios_Ap: string; // Asumo string para este campo añadido
+  notas_internas: string; // Asumo string para este campo añadido
 };
 
 export type TarjetaInfo = {
@@ -643,5 +645,7 @@ export type SolicitudProveedor = Solicitud & {
   pagos: PagoProveedor[];
   facturas: FacturaProveedor[];
   codigo_dispersion?: string | null;
+  codigo_confirmacion?: string | null;
   cuenta_de_deposito?: string | null;
+  comentarios_Ap?:string | null;
 };
