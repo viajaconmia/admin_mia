@@ -608,8 +608,8 @@ const canSelect = categoria !== "pagada" && categoria !== "canceladas";
             "x-api-key": API_KEY || "",
             "Content-Type": "application/json",
             "Cache-Control": "no-cache, no-store, must-revalidate",
-            "credentianls":"include",
           },
+          credentials:"include",
           body: JSON.stringify(payload),
         });
 
