@@ -492,7 +492,9 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
     try {
       if ((state.precio ?? 0) <= 0)
         throw new Error("El precio debe ser mayor a 0");
-      if (isSomeNull(state, ["comentarios", "intermediario"])) {
+      if (
+        isSomeNull(state, ["comentarios", "intermediario", "max_pasajeros"])
+      ) {
         throw new Error("Parece ser que dejaste algunos campos vacíos");
       }
       setOpenPago(true);
