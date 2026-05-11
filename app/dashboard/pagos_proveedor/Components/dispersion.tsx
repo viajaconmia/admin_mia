@@ -17,6 +17,7 @@ export type SolicitudProveedorRaw = {
   id_solicitud: string;
   id_pago?: string | null;
   id_proveedor?: number | string | null;
+  id_solicitud_proveedor?: number | string | null;
 
   hotel?: string | null;
   codigo_reservacion_hotel?: string | null;

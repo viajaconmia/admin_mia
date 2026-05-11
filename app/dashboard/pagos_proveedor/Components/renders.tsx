@@ -7,10 +7,11 @@ import {
   Handshake,
   Eye,
   Ban,
-  Download,
+  Download,  
 } from "lucide-react";
 
 import MetodoPagoModal from "@/app/dashboard/pagos_proveedor/Components/PaymentMethodSelector";
+import { ReasignarPagoModal } from "./ReasignarPagoModal";
 import { EditableField } from "./EditModal";
 import { SolicitudProveedor } from "@/types";
 import { formatDate } from "@/helpers/formater";
@@ -74,6 +75,11 @@ type CreateSolicitudesRenderersParams = {
     id_solicitud_proveedor: string,
     field: string,
     value: any
+  ) => Promise<boolean>;
+
+  patchSolicitudProveedorFields: (
+    id_solicitud_proveedor: string,
+    fields: Record<string, any>
   ) => Promise<boolean>;
 
   handleFetchSolicitudesPago: () => void;
@@ -216,6 +222,7 @@ export function createSolicitudesRenderers({
   facturaTone,
   openEditModal,
   patchSolicitudProveedor,
+  patchSolicitudProveedorFields,
   handleFetchSolicitudesPago,
   marcarSolicitudPagada,
   cancelSolicitud,
@@ -720,6 +727,17 @@ markup: ({ value }) => {
   const isCancelada = estadoSolicitud.includes("CANCEL");
   const cancelDisabled = pagado || isCancelada || categoria === "pagada";
 
+  const [reasignarOpen, setReasignarOpen] = React.useState(false);
+
+  const montoSolicitado = Number(
+    raw?.solicitud_proveedor?.monto_solicitado ?? raw?.monto_solicitado ?? 0,
+  );
+  const saldoNum = getSaldo(raw);
+  const estatusPagos = String(raw?.estatus_pagos ?? raw?.solicitud_proveedor?.estatus_pagos ?? "").toLowerCase();
+  const tieneReasignar =
+    categoria === "canceladas" &&
+    (saldoNum !== montoSolicitado || estatusPagos === "pagado");
+
   if (estadoSolicitud.includes("CUPON") && categoria !== "ap_credito") {
     return (
       <div className="flex items-center gap-2">
@@ -752,28 +770,43 @@ markup: ({ value }) => {
 
       {categoria !== "canceladas" && (
         <>
-          {categoria === "ap_credito" && (
+          {(categoria === "ap_credito" || forma === "card") && (
             <MetodoPagoModal
               idSolProv={idSolProv}
               currentMethod={forma}
               currentCardId={raw?.solicitud_proveedor?.id_tarjeta_solicitada ?? null}
+              cardOnly={categoria !== "ap_credito"}
               onSetMethod={async (next) => {
                 const ok = await patchSolicitudProveedor(
                   idSolProv,
                   "forma_pago_solicitada",
                   next
                 );
-                if (ok) handleFetchSolicitudesPago();
-                return ok;
+                if (!ok) return false;
+
+                if (categoria === "ap_credito") {
+                  const estadoSol =
+                    next === "transfer" ? "TRANSFERENCIA_SOLICITADA" : "CARTA_ENVIADA";
+                  await patchSolicitudProveedor(idSolProv, "estado_solicitud", estadoSol);
+                }
+
+                handleFetchSolicitudesPago();
+                return true;
               }}
-              onSetCard={async ({ id_tarjeta_solicitada }) => {
-                const ok = await patchSolicitudProveedor(
+              onSetCard={async ({ id_tarjeta_solicitada, id_titular }) => {
+                const ok1 = await patchSolicitudProveedor(
                   idSolProv,
                   "id_tarjeta_solicitada",
                   id_tarjeta_solicitada
                 );
-                if (ok) handleFetchSolicitudesPago();
-                return ok;
+                if (!ok1) return false;
+
+                if (id_titular) {
+                  await patchSolicitudProveedor(idSolProv, "id_titular", id_titular);
+                }
+
+                handleFetchSolicitudesPago();
+                return true;
               }}
             />
           )}
@@ -788,7 +821,7 @@ markup: ({ value }) => {
             <span>Costo</span>
           </button>
 
-          {categoria === "notificados" ? (
+          {categoria === "notificados" && estadoSolicitud === "DISPERSION" ? (
             <select
               className="px-2.5 py-1.5 rounded-md text-xs font-medium border border-sky-200 bg-sky-50 text-sky-800 shadow-sm outline-none focus:ring-2 focus:ring-sky-300"
               defaultValue=""
@@ -926,6 +959,51 @@ markup: ({ value }) => {
               </button>
             );
           })()}
+        </>
+      )}
+
+      {/* Quitar ajuste — canceladas y notificados */}
+      {(categoria === "canceladas" || categoria === "notificados") && (
+        <button
+          type="button"
+          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors shadow-sm"
+          title="Quitar ajuste (is_ajuste = 0 y borra comentario)"
+          onClick={async () => {
+            const ok = window.confirm(
+              `¿Quitar ajuste de la solicitud ${idSolProv}?\n\nEsto limpiará el campo is_ajuste y el comentario del sistema.`
+            );
+            if (!ok) return;
+            const success = await patchSolicitudProveedorFields(idSolProv, {
+              is_ajuste: 0,
+              comentario_ajuste: null,
+            });
+            if (success) handleFetchSolicitudesPago();
+          }}
+        >
+          Quitar ajuste
+        </button>
+      )}
+
+      {/* Reasignar pago — canceladas con pago parcial o pagado */}
+      {tieneReasignar && (
+        <>
+          <button
+            type="button"
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:border-amber-300 transition-colors shadow-sm"
+            onClick={() => setReasignarOpen(true)}
+            title="Reasignar pago a otra solicitud SPEI"
+          >
+            <span>Reasignar pago</span>
+          </button>
+          <ReasignarPagoModal
+            open={reasignarOpen}
+            onClose={() => setReasignarOpen(false)}
+            idSolicitudProveedor={idSolProv}
+            onSuccess={() => {
+              setReasignarOpen(false);
+              handleFetchSolicitudesPago();
+            }}
+          />
         </>
       )}
     </div>

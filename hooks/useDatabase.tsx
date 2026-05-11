@@ -420,10 +420,10 @@ export const createNewViajero = async (data: any, id_empresa: string[]) => {
     const response = await fetch(`${URL}/mia/viajeros`, {
       method: "POST",
       headers: {
-        credentials: "include",
         "Content-Type": "application/json",
         ...AUTH,
       },
+      credentials: "include",
       body: JSON.stringify({
         id_empresas: id_empresa,
         primer_nombre: data.primer_nombre.toUpperCase(),
