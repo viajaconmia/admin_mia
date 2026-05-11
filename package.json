@@ -61,6 +61,7 @@
     "eslint-config-next": "13.5.1",
     "fetch-cookie": "^3.2.0",
     "follow-redirects": "^1.15.11",
+    "html-to-image": "^1.11.13",
     "input-otp": "^1.2.4",
     "jspdf": "^3.0.1",
     "jspdf-autotable": "^5.0.2",

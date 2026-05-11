@@ -15,12 +15,14 @@ import {
   ChevronUp,
   Download,
   Eye,
+  Image as ImageIcon,
   Loader2,
   Pencil,
   Plus,
   Send,
   Trash2,
 } from "lucide-react";
+import { toPng } from "html-to-image";
 import { ExtraService } from "@/services/ExtraServices";
 import Modal from "@/components/organism/Modal";
 import { FormSeleccionarHoteles } from "@/components/organism/FormSeleccionarHoteles";
@@ -29,7 +31,13 @@ import { useAuth } from "@/context/AuthContext";
 import { useAlert } from "@/context/useAlert";
 import { useHoteles } from "@/context/Hoteles";
 import { CorreoHotel } from "@/types/database_tables";
+import React from "react";
 
+// ─── Constants ──────────────────────────────────────────────────────────────
+const NOKTO_CON_IVA = 168.2;
+const OPCIONES_HABITACION = ["SENCILLA", "DOBLE"];
+
+// ─── Types ──────────────────────────────────────────────────────────────────
 type FormData = {
   hotel: string;
   ciudad: string;
@@ -38,8 +46,6 @@ type FormData = {
   codigo_postal: string;
   correo_cliente: string;
 };
-
-const OPCIONES_HABITACION = ["SENCILLA", "DOBLE"];
 
 type HotelCotizacion = {
   id: string;
@@ -59,6 +65,16 @@ type HotelCotizacion = {
   precio_sistema: string | null;
   costo_sistema: string | null;
   notas: string;
+  noktos_noche: string;
+  noktos_estancia: string;
+  mostrar_total_estancia: boolean;
+};
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+const calcNoches = (checkin: string, checkout: string): number => {
+  if (!checkin || !checkout) return 0;
+  const diff = new Date(checkout).getTime() - new Date(checkin).getTime();
+  return Math.max(0, Math.round(diff / (1000 * 60 * 60 * 24)));
 };
 
 const formatDate = (d: string) => {
@@ -81,257 +97,434 @@ const formatDate = (d: string) => {
   return `${day} ${meses[+m - 1]} ${y}`;
 };
 
-const RowPrev = ({
+const formatNum = (n: number) =>
+  n.toLocaleString("es-MX", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
+const withNoktoDefaults = (h: Partial<HotelCotizacion>): HotelCotizacion =>
+  ({
+    noktos_noche: "0",
+    noktos_estancia: "0",
+    mostrar_total_estancia: false,
+    ...h,
+  }) as HotelCotizacion;
+
+// ─── CuponRow ───────────────────────────────────────────────────────────────
+const CuponRow = ({
   label,
   value,
   note,
+  alert,
 }: {
   label: string;
   value: string;
   note?: string;
+  alert?: boolean;
 }) => (
   <div className="flex border-b border-gray-200 last:border-0">
     <div className="w-[42%] bg-[#f1f5ff] px-2 py-1 text-[10px] font-bold text-gray-700 flex items-center">
       {label}
     </div>
-    <div className="flex-1 px-2 py-1 text-[10px] text-gray-800 flex flex-col items-center justify-center text-center">
+    <div
+      className={`flex-1 px-2 py-1 text-[10px] flex flex-col items-center justify-center text-center ${
+        alert ? "text-red-500 font-bold" : "text-gray-800"
+      }`}
+    >
       <span>{value || "-"}</span>
       {note && <span className="text-[9px] text-gray-400">{note}</span>}
     </div>
   </div>
 );
 
-const RowEditable = ({
-  label,
-  value,
-  note,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  note?: string;
-  onChange: (v: string) => void;
-}) => (
-  <div className="flex border-b border-gray-200 last:border-0">
-    <div className="w-[42%] bg-[#f1f5ff] px-2 py-1 text-[10px] font-bold text-gray-700 flex items-center">
-      {label}
+// ─── CuponCard (solo display, pensado para captura de pantalla) ─────────────
+const CuponCard = React.forwardRef<
+  HTMLDivElement,
+  { hotel: HotelCotizacion; priority: number }
+>(({ hotel, priority }, ref) => {
+  const noches = calcNoches(hotel.checkin, hotel.checkout);
+  const total = parseFloat(hotel.total) || 0;
+  const subtotalNoche = total > 0 ? total / 1.16 : 0;
+  const totalEstancia = total * noches;
+  const noktos = parseFloat(hotel.noktos_estancia) || 0;
+  const noktosPesos = noktos * NOKTO_CON_IVA;
+
+  return (
+    <div
+      ref={ref}
+      className="border border-gray-200 rounded-lg overflow-hidden shadow-sm"
+    >
+      <div className="bg-[#0b5fa5] text-white px-3 py-1.5 text-[10px] font-bold tracking-wide">
+        OPCIÓN {priority} — HOSPEDAJE
+      </div>
+
+      <div className="divide-y divide-gray-100">
+        <CuponRow label="HOTEL:" value={hotel.hotel} />
+        <CuponRow label="HABITACIÓN:" value={hotel.habitacion} />
+        <CuponRow label="CHECK-IN:" value={formatDate(hotel.checkin)} />
+        <CuponRow label="CHECK-OUT:" value={formatDate(hotel.checkout)} />
+        <CuponRow label="NOCHES:" value={noches > 0 ? String(noches) : "-"} />
+        <CuponRow
+          label="DESAYUNO:"
+          value={hotel.desayuno === 1 ? "SÍ" : "NO"}
+        />
+        <CuponRow label="DIRECCIÓN:" value={hotel.direccion} />
+
+        {total > 0 ? (
+          <>
+            <CuponRow
+              label="PRECIO / NOCHE:"
+              value={`$ ${formatNum(total)}`}
+              note="Con IVA"
+            />
+            <CuponRow
+              label="SUBTOTAL / NOCHE:"
+              value={`$ ${formatNum(subtotalNoche)}`}
+              note="Sin IVA"
+            />
+            {hotel.mostrar_total_estancia && noches > 0 && (
+              <CuponRow
+                label="TOTAL ESTANCIA:"
+                value={`$ ${formatNum(totalEstancia)}`}
+                note={`${noches} ${noches === 1 ? "noche" : "noches"}`}
+              />
+            )}
+          </>
+        ) : (
+          <CuponRow label="PRECIO / NOCHE:" value="SIN PRECIO" alert />
+        )}
+
+        {noktos > 0 && (
+          <CuponRow
+            label="NOKTOS:"
+            value={`$ ${formatNum(noktosPesos)}`}
+            note={`${formatNum(noktos)} noktos`}
+          />
+        )}
+      </div>
+
+      {hotel.notas ? (
+        <div className="px-3 py-2 border-t border-gray-100 flex gap-2">
+          <span className="text-[9px] font-bold text-[#0b5fa5] shrink-0">
+            NOTAS:
+          </span>
+          <span className="text-[9px] text-gray-600 break-words">
+            {hotel.notas}
+          </span>
+        </div>
+      ) : null}
+
+      <div className="bg-[#00a3c4] text-white px-3 py-1 text-[9px] font-bold">
+        Tarifa no reembolsable
+      </div>
     </div>
-    <div className="flex-1 px-2 py-1 flex flex-col items-center justify-center gap-0.5">
-      <div className="flex items-center gap-1 w-full">
-        <span className="text-[10px] text-gray-400">$</span>
-        <input
-          type="number"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-full text-center text-[10px] border border-gray-200 rounded px-1 py-0.5 focus:outline-none focus:border-[#0b5fa5]"
+  );
+});
+CuponCard.displayName = "CuponCard";
+
+// ─── ControlsPanel ──────────────────────────────────────────────────────────
+const ControlsPanel = ({
+  hotel,
+  isFirst,
+  isLast,
+  canEdit,
+  downloading,
+  downloadingImage,
+  onUp,
+  onDown,
+  onEdit,
+  onDelete,
+  onDownload,
+  onDownloadImagen,
+  onTotalChange,
+  onDesayunoChange,
+  onHabitacionChange,
+  onNotasChange,
+  onNoktoNocheChange,
+  onNoktoEstanciaChange,
+  onMostrarTotalEstanciaChange,
+}: {
+  hotel: HotelCotizacion;
+  isFirst: boolean;
+  isLast: boolean;
+  canEdit: boolean;
+  downloading: boolean;
+  downloadingImage: boolean;
+  onUp: () => void;
+  onDown: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  onDownload: () => void;
+  onDownloadImagen: () => void;
+  onTotalChange: (v: string) => void;
+  onDesayunoChange: (v: 0 | 1) => void;
+  onHabitacionChange: (v: string) => void;
+  onNotasChange: (v: string) => void;
+  onNoktoNocheChange: (v: string) => void;
+  onNoktoEstanciaChange: (v: string) => void;
+  onMostrarTotalEstanciaChange: (v: boolean) => void;
+}) => {
+  const noches = calcNoches(hotel.checkin, hotel.checkout);
+  const total = parseFloat(hotel.total) || 0;
+  const subtotalNoche = total > 0 ? total / 1.16 : 0;
+  const noktosPesos = (parseFloat(hotel.noktos_estancia) || 0) * NOKTO_CON_IVA;
+
+  const inputCls =
+    "w-full text-[10px] border border-gray-200 rounded px-2 py-1 focus:outline-none focus:border-[#0b5fa5]";
+  const labelCls = "text-[10px] font-bold text-gray-600 mb-0.5 block";
+
+  return (
+    <div className="flex flex-col gap-2.5 p-3 bg-white border border-gray-200 rounded-lg shadow-sm">
+      {/* Orden */}
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] text-gray-500">orden</span>
+        <div className="flex gap-1">
+          <button
+            type="button"
+            onClick={onUp}
+            disabled={isFirst}
+            className="p-0.5 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-25 transition-colors"
+            title="Subir prioridad"
+          >
+            <ChevronUp className="w-3 h-3 text-gray-600" />
+          </button>
+          <button
+            type="button"
+            onClick={onDown}
+            disabled={isLast}
+            className="p-0.5 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-25 transition-colors"
+            title="Bajar prioridad"
+          >
+            <ChevronDown className="w-3 h-3 text-gray-600" />
+          </button>
+        </div>
+      </div>
+
+      {/* Precio / noche */}
+      <div>
+        <label className={labelCls}>PRECIO / NOCHE</label>
+        <div className="flex items-center gap-1">
+          <span className="text-[10px] text-gray-400">$</span>
+          <input
+            type="number"
+            value={hotel.total}
+            onChange={(e) => onTotalChange(e.target.value)}
+            className={inputCls}
+          />
+        </div>
+        {subtotalNoche > 0 && (
+          <span className="text-[9px] text-gray-400 mt-0.5 block">
+            Subtotal s/IVA: ${formatNum(subtotalNoche)}
+          </span>
+        )}
+      </div>
+
+      {/* Noktos */}
+      <div className="border-t border-gray-100 pt-2">
+        <label className={labelCls}>NOKTOS</label>
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-1">
+            <span className="text-[9px] text-gray-400 w-[56px] shrink-0">
+              / noche
+            </span>
+            <input
+              type="number"
+              value={hotel.noktos_noche}
+              onChange={(e) => onNoktoNocheChange(e.target.value)}
+              className={inputCls}
+            />
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="text-[9px] text-gray-400 w-[56px] shrink-0">
+              estancia{noches > 0 ? ` (${noches}n)` : ""}
+            </span>
+            <input
+              type="number"
+              value={hotel.noktos_estancia}
+              onChange={(e) => onNoktoEstanciaChange(e.target.value)}
+              className={inputCls}
+            />
+          </div>
+        </div>
+        {noktosPesos > 0 && (
+          <span className="text-[9px] text-gray-400 mt-0.5 block">
+            Valor en pesos: ${formatNum(noktosPesos)}
+          </span>
+        )}
+      </div>
+
+      {/* Mostrar total de estancia en el cupón */}
+      <CheckboxInput
+        label="Mostrar total de estancia"
+        checked={hotel.mostrar_total_estancia}
+        onChange={onMostrarTotalEstanciaChange}
+      />
+
+      {/* Habitación */}
+      <div>
+        <label className={labelCls}>HABITACIÓN</label>
+        <Dropdown
+          label=""
+          value={hotel.habitacion}
+          onChange={onHabitacionChange}
+          options={OPCIONES_HABITACION}
         />
       </div>
-      {note && <span className="text-[9px] text-gray-400">{note}</span>}
-    </div>
-  </div>
-);
 
-const RowDesayunoToggle = ({
-  value,
-  onChange,
-}: {
-  value: 0 | 1;
-  onChange: (v: 0 | 1) => void;
-}) => (
-  <div className="flex border-b border-gray-200 last:border-0">
-    <div className="w-[42%] bg-[#f1f5ff] px-2 py-1 text-[10px] font-bold text-gray-700 flex items-center">
-      DESAYUNO:
-    </div>
-    <div className="flex-1 px-2 py-1 flex items-center">
+      {/* Desayuno */}
       <CheckboxInput
-        label={value === 1 ? "Sí" : "No"}
-        checked={value === 1}
-        onChange={(v) => onChange(v ? 1 : 0)}
+        label={`Desayuno: ${hotel.desayuno === 1 ? "Sí" : "No"}`}
+        checked={hotel.desayuno === 1}
+        onChange={(v) => onDesayunoChange(v ? 1 : 0)}
       />
-    </div>
-  </div>
-);
 
-const RowSelectHabitacion = ({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-}) => (
-  <div className="flex border-b border-gray-200 last:border-0">
-    <div className="w-[42%] bg-[#f1f5ff] px-2 py-1 text-[10px] font-bold text-gray-700 flex items-center">
-      HABITACIÓN:
-    </div>
-    <div className="flex-1 px-1.5 py-0.5">
-      <Dropdown
-        label=""
-        value={value}
-        onChange={onChange}
-        options={OPCIONES_HABITACION}
-      />
-    </div>
-  </div>
-);
+      {/* Notas */}
+      <div>
+        <label className={labelCls}>NOTAS</label>
+        <textarea
+          value={hotel.notas}
+          onChange={(e) => onNotasChange(e.target.value)}
+          rows={2}
+          placeholder="Notas adicionales..."
+          className="w-full text-[10px] border border-gray-200 rounded px-1.5 py-1 resize-none focus:outline-none focus:border-[#0b5fa5] placeholder:text-gray-300"
+        />
+      </div>
 
-const RowNotas = ({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-}) => (
-  <div className="flex border-b border-gray-200 last:border-0">
-    <div className="w-[42%] bg-[#f1f5ff] px-2 py-1 text-[10px] font-bold text-gray-700 flex items-start pt-2">
-      NOTAS:
-    </div>
-    <div className="flex-1 px-1.5 py-1">
-      <textarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        rows={1}
-        placeholder="Notas adicionales..."
-        className="w-full text-[10px] border border-gray-200 rounded px-1.5 py-0.5 resize-none focus:outline-none focus:border-[#0b5fa5] placeholder:text-gray-300"
-      />
-    </div>
-  </div>
-);
+      {/* Alerta sin precio */}
+      {total === 0 && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded px-2 py-1.5 flex gap-1.5">
+          <span className="text-yellow-500 text-xs leading-none mt-0.5">⚠</span>
+          <p className="text-[10px] text-yellow-700 leading-snug">
+            Sin precio registrado
+          </p>
+        </div>
+      )}
 
+      {/* Botones */}
+      <div className="flex gap-1 flex-wrap border-t border-gray-100 pt-2">
+        <Button
+          icon={Pencil}
+          size="sm"
+          variant="secondary"
+          onClick={onEdit}
+          disabled={!canEdit}
+          title={canEdit ? "modificar" : "Ingresa check-in y check-out primero"}
+        >
+          modificar
+        </Button>
+        <Button
+          icon={Trash2}
+          size="sm"
+          variant="warning ghost"
+          onClick={onDelete}
+          title="eliminar"
+        >
+          eliminar
+        </Button>
+        <Button
+          icon={downloading ? Loader2 : Download}
+          size="sm"
+          variant="secondary"
+          onClick={onDownload}
+          disabled={downloading}
+          title="descargar cupón PDF"
+        >
+          cupón
+        </Button>
+        <Button
+          icon={downloadingImage ? Loader2 : ImageIcon}
+          size="sm"
+          variant="secondary"
+          onClick={onDownloadImagen}
+          disabled={downloadingImage}
+          title="descargar imagen del cupón"
+        >
+          imagen
+        </Button>
+      </div>
+    </div>
+  );
+};
+
+// ─── HotelCard ──────────────────────────────────────────────────────────────
 const HotelCard = ({
   hotel,
   priority,
   isFirst,
   isLast,
+  canEdit,
+  downloading,
+  downloadingImage,
   onUp,
   onDown,
   onEdit,
   onDelete,
+  onDownload,
+  onDownloadImagen,
   onTotalChange,
   onDesayunoChange,
   onHabitacionChange,
   onNotasChange,
-  onDownload,
-  downloading,
-  canEdit,
+  onNoktoNocheChange,
+  onNoktoEstanciaChange,
+  onMostrarTotalEstanciaChange,
+  cuponRef,
 }: {
   hotel: HotelCotizacion;
   priority: number;
   isFirst: boolean;
   isLast: boolean;
+  canEdit: boolean;
+  downloading: boolean;
+  downloadingImage: boolean;
   onUp: () => void;
   onDown: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onDownload: () => void;
+  onDownloadImagen: () => void;
   onTotalChange: (v: string) => void;
   onDesayunoChange: (v: 0 | 1) => void;
   onHabitacionChange: (v: string) => void;
   onNotasChange: (v: string) => void;
-  onDownload: () => void;
-  downloading: boolean;
-  canEdit: boolean;
+  onNoktoNocheChange: (v: string) => void;
+  onNoktoEstanciaChange: (v: string) => void;
+  onMostrarTotalEstanciaChange: (v: boolean) => void;
+  cuponRef: React.Ref<HTMLDivElement>;
 }) => (
   <div className="flex flex-col gap-1">
-    <div className="flex items-center justify-between px-1">
-      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-white bg-[#0b5fa5] px-2 py-0.5 rounded-full">
-        Prioridad {priority}
-      </span>
-      <div className="flex gap-1 items-center">
-        <p className="text-[10px] text-gray-500">orden</p>
-        <button
-          type="button"
-          onClick={onUp}
-          disabled={isFirst}
-          className="p-0.5 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-25 transition-colors"
-          title="Subir prioridad"
-        >
-          <ChevronUp className="w-3 h-3 text-gray-600" />
-        </button>
-        <button
-          type="button"
-          onClick={onDown}
-          disabled={isLast}
-          className="p-0.5 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-25 transition-colors"
-          title="Bajar prioridad"
-        >
-          <ChevronDown className="w-3 h-3 text-gray-600" />
-        </button>
-      </div>
-    </div>
-
-    <div className="border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-      <div className="bg-[#0b5fa5] text-white px-3 py-1.5 text-[10px] font-bold tracking-wide">
-        HOSPEDAJE 2026
-      </div>
-
-      <div className="divide-y divide-gray-100">
-        <RowPrev label="HOTEL:" value={hotel.hotel} />
-        <RowSelectHabitacion
-          value={hotel.habitacion}
-          onChange={onHabitacionChange}
-        />
-        <RowPrev label="CHECK-IN:" value={formatDate(hotel.checkin)} />
-        <RowPrev label="CHECK-OUT:" value={formatDate(hotel.checkout)} />
-        <RowDesayunoToggle value={hotel.desayuno} onChange={onDesayunoChange} />
-        <RowPrev label="DIRECCIÓN:" value={hotel.direccion} />
-        <RowNotas value={hotel.notas} onChange={onNotasChange} />
-      </div>
-
-      <div className="divide-y divide-gray-100 border-t border-gray-200">
-        <RowEditable
-          label="PRECIO VENTA:"
-          value={hotel.total}
-          onChange={onTotalChange}
-        />
-      </div>
-
-      {hotel.precio_referencia === null && (
-        <div className="border-t border-yellow-200 bg-yellow-50 px-3 py-2 flex items-start gap-2">
-          <span className="text-yellow-500 text-sm leading-none mt-0.5">⚠</span>
-          <p className="text-[10px] text-yellow-700 leading-snug">
-            Debe verificarse que tenga disponibilidad ya que no se encontró en
-            el proceso.
-          </p>
-        </div>
-      )}
-
-      <div className="bg-[#00a3c4] text-white px-3 py-1 text-[9px] font-bold flex items-center justify-between">
-        <span>Tarifa no reembolsable</span>
-      </div>
-    </div>
-    <div className="flex gap-1">
-      <Button
-        icon={Pencil}
-        size="sm"
-        variant="secondary"
-        onClick={onEdit}
-        disabled={!canEdit}
-        title={canEdit ? "modificar" : "Ingresa check-in y check-out primero"}
-      >
-        modificar
-      </Button>
-      <Button
-        icon={Trash2}
-        size="sm"
-        variant="warning ghost"
-        onClick={onDelete}
-        title="eliminar"
-      >
-        eliminar
-      </Button>
-      <Button
-        icon={downloading ? Loader2 : Download}
-        size="sm"
-        variant="secondary"
-        onClick={onDownload}
-        disabled={downloading}
-        title="descargar cupón"
-      >
-        cupón
-      </Button>
+    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-white bg-[#0b5fa5] px-2 py-0.5 rounded-full w-fit">
+      Prioridad {priority}
+    </span>
+    <div className="grid grid-cols-[260px_1fr] gap-3 items-start">
+      <ControlsPanel
+        hotel={hotel}
+        isFirst={isFirst}
+        isLast={isLast}
+        canEdit={canEdit}
+        downloading={downloading}
+        downloadingImage={downloadingImage}
+        onUp={onUp}
+        onDown={onDown}
+        onEdit={onEdit}
+        onDelete={onDelete}
+        onDownload={onDownload}
+        onDownloadImagen={onDownloadImagen}
+        onTotalChange={onTotalChange}
+        onDesayunoChange={onDesayunoChange}
+        onHabitacionChange={onHabitacionChange}
+        onNotasChange={onNotasChange}
+        onNoktoNocheChange={onNoktoNocheChange}
+        onNoktoEstanciaChange={onNoktoEstanciaChange}
+        onMostrarTotalEstanciaChange={onMostrarTotalEstanciaChange}
+      />
+      <CuponCard ref={cuponRef} hotel={hotel} priority={priority} />
     </div>
   </div>
 );
 
+// ─── EmptySlotCard ──────────────────────────────────────────────────────────
 const EmptySlotCard = ({
   priority,
   onAdd,
@@ -341,21 +534,19 @@ const EmptySlotCard = ({
   onAdd: () => void;
   canAdd: boolean;
 }) => (
-  <div className="flex flex-col gap-2">
-    <div className="flex items-center px-1">
-      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-gray-300 px-2.5 py-0.5 rounded-full">
-        Prioridad {priority}
-      </span>
-    </div>
-
+  <div className="flex flex-col gap-1">
+    <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-white bg-gray-300 px-2 py-0.5 rounded-full w-fit">
+      Prioridad {priority}
+    </span>
     <div className="border-2 border-dashed border-gray-200 rounded-lg overflow-hidden">
       <div className="bg-gray-100 text-gray-400 px-4 py-2.5 text-xs font-bold tracking-wide">
-        HOSPEDAJE 2026
+        HOSPEDAJE
       </div>
-
       <div className="flex flex-col items-center justify-center gap-3 py-10 px-4">
         <p className="text-xs text-gray-400 text-center">
-          {canAdd ? "Sin hotel asignado para esta prioridad" : "Ingresa check-in y check-out para agregar un hotel"}
+          {canAdd
+            ? "Sin hotel asignado para esta prioridad"
+            : "Ingresa check-in y check-out para agregar un hotel"}
         </p>
         <button
           type="button"
@@ -367,7 +558,6 @@ const EmptySlotCard = ({
           Agregar hotel
         </button>
       </div>
-
       <div className="bg-gray-100 px-4 py-2 text-[10px] font-bold text-gray-300">
         Tarifa no reembolsable
       </div>
@@ -375,6 +565,7 @@ const EmptySlotCard = ({
   </div>
 );
 
+// ─── GenerarCotizacion ──────────────────────────────────────────────────────
 export default function GenerarCotizacion() {
   const searchParams = useSearchParams();
   const slotsInitialized = useRef(false);
@@ -405,6 +596,10 @@ export default function GenerarCotizacion() {
   const [loadingEnvio, setLoadingEnvio] = useState(false);
   const [activeSlot, setActiveSlot] = useState<number | null>(null);
   const [downloadingSlot, setDownloadingSlot] = useState<number | null>(null);
+  const [downloadingImageSlot, setDownloadingImageSlot] = useState<
+    number | null
+  >(null);
+  const cuponRefs = useRef<(HTMLDivElement | null)[]>([null, null, null]);
 
   const set = (field: keyof FormData) => (value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -417,7 +612,7 @@ export default function GenerarCotizacion() {
       try {
         setCorreoOrigen(JSON.parse(raw));
       } catch {
-        // ignorar si el JSON está corrupto
+        // ignorar JSON corrupto
       }
     }
   }, []);
@@ -434,10 +629,11 @@ export default function GenerarCotizacion() {
           (h) => h.id_hotel === ch.hotel_id,
         );
         const room = hotelCompleto?.tipos_cuartos[0];
-        return {
+        const total = room?.precio ?? String(ch.price_per_night);
+        return withNoktoDefaults({
           id: ch.hotel_id,
           hotel: ch.hotel_name,
-          total: room?.precio ?? String(ch.price_per_night),
+          total,
           subtotal: room?.costo ?? String(ch.price_per_night),
           desayuno: room?.incluye_desayuno === 1 ? 1 : 0,
           habitacion: "SENCILLA",
@@ -452,7 +648,7 @@ export default function GenerarCotizacion() {
           fuente_referencia: ch.source,
           precio_sistema: room?.precio ?? null,
           costo_sistema: room?.costo ?? null,
-        };
+        });
       });
     const MIN_SLOTS = 3;
     while (nuevosSlots.length < MIN_SLOTS) nuevosSlots.push(null);
@@ -470,8 +666,9 @@ export default function GenerarCotizacion() {
         ...(form.ciudad && { ciudad: form.ciudad }),
         ...(form.codigo_postal && { cp: form.codigo_postal }),
       });
-      console.log("Respuesta del endpoint /v1/hoteles/cotizacion:", response);
-      const data = (response.data ?? []) as HotelCotizacion[];
+      const data = ((response.data ?? []) as HotelCotizacion[]).map((h) =>
+        withNoktoDefaults(h),
+      );
       const sorted = [...data].sort(
         (a, b) => parseFloat(a.total || "0") - parseFloat(b.total || "0"),
       );
@@ -499,14 +696,13 @@ export default function GenerarCotizacion() {
     if (!hotel || activeSlot === null) return;
 
     const room = hotel.tipos_cuartos[0];
-    const subtotal = room?.costo ?? room?.precio ?? "0";
     const total = room?.precio ?? "0";
 
-    const nueva: HotelCotizacion = {
+    const nueva = withNoktoDefaults({
       id: hotel.id_hotel,
       hotel: hotel.nombre_hotel,
       total,
-      subtotal,
+      subtotal: room?.costo ?? room?.precio ?? "0",
       desayuno: room?.incluye_desayuno === 1 ? 1 : 0,
       habitacion: "SENCILLA",
       notas: "",
@@ -520,49 +716,59 @@ export default function GenerarCotizacion() {
       fuente_referencia: null,
       precio_sistema: room?.precio ?? null,
       costo_sistema: room?.costo ?? null,
-    };
+    });
 
     const updated = [...slots];
     updated[activeSlot] = nueva;
     setSlots(updated);
     setActiveSlot(null);
   };
-  const updateSlotPrice = (
-    index: number,
-    field: "total" | "subtotal",
-    value: string,
-  ) => {
+
+  const updateSlot = (index: number, patch: Partial<HotelCotizacion>) => {
     setSlots((prev) => {
       const updated = [...prev];
       const slot = updated[index];
-      if (slot) updated[index] = { ...slot, [field]: value };
+      if (slot) updated[index] = { ...slot, ...patch };
       return updated;
     });
   };
 
-  const updateSlotDesayuno = (index: number, value: 0 | 1) => {
+  const updateSlotTotal = (index: number, value: string) => {
+    const total = parseFloat(value) || 0;
+    updateSlot(index, {
+      total: value,
+      subtotal: total > 0 ? (total / 1.16).toFixed(2) : "0",
+    });
+  };
+
+  const updateSlotNoktoNoche = (index: number, value: string) => {
     setSlots((prev) => {
       const updated = [...prev];
       const slot = updated[index];
-      if (slot) updated[index] = { ...slot, desayuno: value };
+      if (!slot) return prev;
+      const noches = calcNoches(slot.checkin, slot.checkout);
+      const n = parseFloat(value) || 0;
+      updated[index] = {
+        ...slot,
+        noktos_noche: value,
+        noktos_estancia: noches > 0 ? (n * noches).toFixed(4) : "0",
+      };
       return updated;
     });
   };
 
-  const updateSlotHabitacion = (index: number, value: string) => {
+  const updateSlotNoktoEstancia = (index: number, value: string) => {
     setSlots((prev) => {
       const updated = [...prev];
       const slot = updated[index];
-      if (slot) updated[index] = { ...slot, habitacion: value };
-      return updated;
-    });
-  };
-
-  const updateSlotNotas = (index: number, value: string) => {
-    setSlots((prev) => {
-      const updated = [...prev];
-      const slot = updated[index];
-      if (slot) updated[index] = { ...slot, notas: value };
+      if (!slot) return prev;
+      const noches = calcNoches(slot.checkin, slot.checkout);
+      const n = parseFloat(value) || 0;
+      updated[index] = {
+        ...slot,
+        noktos_estancia: value,
+        noktos_noche: noches > 0 ? (n / noches).toFixed(4) : "0",
+      };
       return updated;
     });
   };
@@ -579,7 +785,7 @@ export default function GenerarCotizacion() {
           id: s.id,
           nombre: s.hotel,
           precio_venta: s.total,
-          costo: s.subtotal,
+          costo: (parseFloat(s.total) / 1.16).toFixed(2),
           checkin: s.checkin,
           checkout: s.checkout,
           notas: s.notas,
@@ -601,8 +807,6 @@ export default function GenerarCotizacion() {
           name: user?.name ?? null,
         },
       };
-
-      console.log("Payload enviado a n8n:", payload);
 
       await fetch(
         "https://n8n-iirj.srv1623687.hstgr.cloud/webhook/e6f345aa-2be8-4c69-80fb-b7e46d5edfd8",
@@ -656,6 +860,23 @@ export default function GenerarCotizacion() {
     }
   };
 
+  const handleDownloadImagen = async (index: number) => {
+    const node = cuponRefs.current[index];
+    if (!node) return;
+    setDownloadingImageSlot(index);
+    try {
+      const dataUrl = await toPng(node, { cacheBust: true, pixelRatio: 2 });
+      const a = document.createElement("a");
+      a.href = dataUrl;
+      a.download = `cupon_opcion${index + 1}.png`;
+      a.click();
+    } catch (err: any) {
+      error(err?.message ?? "Error al generar imagen del cupón");
+    } finally {
+      setDownloadingImageSlot(null);
+    }
+  };
+
   const deleteSlot = (index: number) => {
     setSlots((prev) => {
       const updated = [...prev];
@@ -700,6 +921,7 @@ export default function GenerarCotizacion() {
           />
         </Modal>
       )}
+
       <div className="flex flex-col gap-4 p-4">
         {correoOrigen && (
           <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
@@ -708,7 +930,7 @@ export default function GenerarCotizacion() {
                 Correo de origen
               </span>
               {correoOrigen.subject && (
-                <span className="text-xs text-gray-700 font-semiboldaho truncate">
+                <span className="text-xs text-gray-700 font-semibold truncate">
                   — {correoOrigen.subject}
                 </span>
               )}
@@ -727,12 +949,13 @@ export default function GenerarCotizacion() {
             )}
           </div>
         )}
+
         <div className="flex gap-4">
+          {/* Sidebar de búsqueda */}
           <aside className="w-56 flex-shrink-0 flex flex-col gap-2 bg-white border rounded-xl p-3 shadow-sm h-fit sticky top-4">
             <h2 className="font-semibold text-gray-800 text-xs">
               Datos de búsqueda
             </h2>
-
             <TextInput
               label="Hotel de referencia"
               value={form.hotel}
@@ -767,7 +990,6 @@ export default function GenerarCotizacion() {
               placeholder="Ej. 94300"
               className="text-xs"
             />
-
             <Button
               size="sm"
               icon={loadingVis ? Loader2 : Eye}
@@ -776,28 +998,27 @@ export default function GenerarCotizacion() {
             >
               {loadingVis ? "Buscando..." : "Generar"}
             </Button>
-
             {!canGenerate && (
               <p className="text-[10px] text-gray-400 text-center -mt-1">
                 Check-in y check-out son obligatorios
               </p>
             )}
-
             {hasAny && (
               <div className="border-t pt-2">
-                {/* <Button
+                <Button
                   size="sm"
                   icon={loadingEnvio ? Loader2 : Send}
                   disabled={loadingEnvio}
                   onClick={handleGenerarYEnviar}
                 >
-                   {loadingEnvio ? "Enviando..." : "Enviar cotización"}
-                </Button> */}
+                  {loadingEnvio ? "Enviando..." : "Enviar cotización"}
+                </Button>
               </div>
             )}
           </aside>
 
-          <section className="flex-1 flex flex-col gap-3 bg-gray-50 border rounded-xl p-3 shadow-sm h-fit">
+          {/* Slots */}
+          <section className="flex-1 flex flex-col gap-3 bg-gray-50 border rounded-xl p-3 shadow-sm">
             <div className="flex items-center justify-between">
               <h2 className="font-semibold text-gray-800 text-xs">
                 {hasAny
@@ -811,7 +1032,7 @@ export default function GenerarCotizacion() {
               )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="flex flex-col gap-4">
               {slots.map((hotel, index) =>
                 hotel ? (
                   <HotelCard
@@ -820,17 +1041,31 @@ export default function GenerarCotizacion() {
                     priority={index + 1}
                     isFirst={index === 0}
                     isLast={index === slots.length - 1}
+                    canEdit={canGenerate}
+                    downloading={downloadingSlot === index}
                     onUp={() => move(index, "up")}
                     onDown={() => move(index, "down")}
                     onEdit={() => handleSlotAction(index)}
                     onDelete={() => deleteSlot(index)}
-                    onTotalChange={(v) => updateSlotPrice(index, "total", v)}
-                    onDesayunoChange={(v) => updateSlotDesayuno(index, v)}
-                    onHabitacionChange={(v) => updateSlotHabitacion(index, v)}
-                    onNotasChange={(v) => updateSlotNotas(index, v)}
                     onDownload={() => handleDownloadCupon(hotel, index)}
-                    downloading={downloadingSlot === index}
-                    canEdit={canGenerate}
+                    downloadingImage={downloadingImageSlot === index}
+                    onDownloadImagen={() => handleDownloadImagen(index)}
+                    cuponRef={(el) => {
+                      cuponRefs.current[index] = el;
+                    }}
+                    onTotalChange={(v) => updateSlotTotal(index, v)}
+                    onDesayunoChange={(v) => updateSlot(index, { desayuno: v })}
+                    onHabitacionChange={(v) =>
+                      updateSlot(index, { habitacion: v })
+                    }
+                    onNotasChange={(v) => updateSlot(index, { notas: v })}
+                    onNoktoNocheChange={(v) => updateSlotNoktoNoche(index, v)}
+                    onNoktoEstanciaChange={(v) =>
+                      updateSlotNoktoEstancia(index, v)
+                    }
+                    onMostrarTotalEstanciaChange={(v) =>
+                      updateSlot(index, { mostrar_total_estancia: v })
+                    }
                   />
                 ) : (
                   <EmptySlotCard
