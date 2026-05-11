@@ -193,6 +193,35 @@ export function usePatchSolicitud(
     [patchSolicitudProveedor, clearSelection, handleFetchSolicitudesPago, showNotification],
   );
 
+  const cancelarDispersion = useCallback(
+    async (id_solicitud_proveedor: string) => {
+      const id = String(id_solicitud_proveedor ?? "").trim();
+      if (!id) return false;
+      try {
+        const resp = await fetch(`${URL}/mia/pago_proveedor/cancelar_dispersion`, {
+          method: "POST",
+          headers: {
+            "x-api-key": API_KEY || "",
+            "Content-Type": "application/json",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+          },
+          credentials: "include",
+          body: JSON.stringify({ id_solicitud_proveedor: id }),
+        });
+        const json = await resp.json().catch(() => null);
+        if (!resp.ok) throw new Error(json?.message || `Error HTTP: ${resp.status}`);
+        showNotification("success", "Dispersión cancelada correctamente");
+        clearSelection();
+        handleFetchSolicitudesPago();
+        return true;
+      } catch (err: any) {
+        showNotification("error", err?.message || "Error al cancelar dispersión");
+        return false;
+      }
+    },
+    [showNotification, clearSelection, handleFetchSolicitudesPago],
+  );
+
   const marcarNotificadoPagado = useCallback(
     async (id_solicitud_proveedor: string, pagado: 0 | 1) => {
       const id = String(id_solicitud_proveedor ?? "").trim();
@@ -223,5 +252,6 @@ export function usePatchSolicitud(
     cancelSolicitud,
     conciliarSolicitud,
     marcarNotificadoPagado,
+    cancelarDispersion,
   };
 }

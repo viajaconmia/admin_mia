@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Send, X, Info } from "lucide-react";
+import { Send, X, Info, Check, Copy, FileDown } from "lucide-react";
 import { URL as API_URL, API_KEY } from "@/lib/constants/index";
 import { es } from "date-fns/locale";
 
@@ -74,6 +74,14 @@ export const DispersionModal: React.FC<DispersionModalProps> = ({
   const [motivoPago, setMotivoPago] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  const [step, setStep] = useState<"form" | "success">("form");
+  const [successData, setSuccessData] = useState<{
+    codigoDispersion: string;
+    idPagos: any[];
+    payload: any;
+  } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const cleanInput = (input: string | undefined): string => {
     return (input ?? "")
@@ -299,30 +307,84 @@ useEffect(() => {
       const data = await response.json(); // Recibe la respuesta en formato JSON
 
       if (response.ok) {
-        // Si la respuesta es exitosa, actualizamos el estado de idPago
         console.log("Respuesta del backend:", data);
-        // Generar el CSV después de que se haya recibido la respuesta
-        generarCSV(data.data.id_pagos, cleanedIdDispersion);
-
         setIsSubmitting(false);
-
+        setStep("success");
+        setSuccessData({
+          codigoDispersion: cleanedIdDispersion,
+          idPagos: data.data.id_pagos ?? [],
+          payload,
+        });
       } else {
-        // Si no es exitosa, maneja el error
         console.error("Error al guardar la dispersión:", data.message);
         setIsSubmitting(false);
-        setFormError(
-          "Ocurrió un error al guardar la dispersión. Intenta nuevamente."
-        );
+        setFormError("Ocurrió un error al guardar la dispersión. Intenta nuevamente.");
       }
     } catch (err) {
       console.error("Error inesperado:", err);
       setIsSubmitting(false);
-      setFormError(
-        "Ocurrió un error al guardar la dispersión. Intenta nuevamente."
-      );
+      setFormError("Ocurrió un error al guardar la dispersión. Intenta nuevamente.");
     }
-    onClose();
   };
+
+  if (step === "success" && successData) {
+    return (
+      <div className="h-fit w-[95vw] max-w-xl relative bg-white rounded-xl">
+        <div className="p-6 space-y-5">
+          <div className="flex items-center gap-3 bg-green-50 border border-green-200 rounded-lg px-4 py-3">
+            <Check className="w-5 h-5 text-green-600 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-green-800">Dispersión generada correctamente</p>
+              <p className="text-xs text-green-700">Guarda el código antes de cerrar</p>
+            </div>
+          </div>
+
+          <div>
+            <p className="text-xs font-semibold text-slate-600 mb-1">Código de dispersión</p>
+            <div className="flex items-center gap-2">
+              <span className="flex-1 font-mono text-lg font-bold text-slate-900 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 select-all">
+                {successData.codigoDispersion}
+              </span>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
+                onClick={() => {
+                  navigator.clipboard.writeText(successData.codigoDispersion);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }}
+                title="Copiar código"
+              >
+                {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+                {copied ? "Copiado" : "Copiar"}
+              </button>
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              type="button"
+              className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-blue-200 bg-blue-50 text-sm font-semibold text-blue-700 hover:bg-blue-100 transition-colors shadow-sm"
+              onClick={() => generarCSV(successData.idPagos, successData.codigoDispersion)}
+            >
+              <FileDown className="w-4 h-4" />
+              Generar CSV
+            </button>
+            <button
+              type="button"
+              className="flex-1 px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
+              onClick={() => {
+                onSubmit(successData.payload);
+                onClose();
+              }}
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-fit w-[95vw] max-w-xl relative bg-white">

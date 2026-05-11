@@ -201,12 +201,26 @@ function App() {
     marcarSolicitudPagada,
     cancelSolicitud,
     conciliarSolicitud,
+    cancelarDispersion,
     marcarNotificadoPagado,
   } = usePatchSolicitud(categoria, clearSelection, handleFetchSolicitudesPago);
 
   const selectedCount = solicitud.length;
   const canSelect = categoria !== "pagada" && categoria !== "canceladas";
-  const canDispersion = canSelect && selectedCount > 0;
+
+  const selectedHasDispersion = useMemo(
+    () =>
+      solicitud.some((r: any) => {
+        const estado = String(
+          r?.solicitud_proveedor?.estado_solicitud ?? r?.estado_solicitud ?? "",
+        ).toUpperCase();
+        return estado === "DISPERSION" || estado === "DISPERSADO";
+      }),
+    [solicitud],
+  );
+
+  const canDispersion = canSelect && selectedCount > 0 && !selectedHasDispersion;
+  const canUploadComprobante = selectedHasDispersion;
 
   const solicitudesSeleccionadasComprobante = useMemo<SolicitudSeleccionadaComprobante[]>(
     () =>
@@ -341,6 +355,7 @@ function App() {
         getEstadoSolicitudPagado,
         getConciliacionInfo,
         onOpenDetalle: setSolicitudDetalle,
+        cancelarDispersion,
       }),
     [
       categoria,
@@ -357,6 +372,7 @@ function App() {
       conciliarSolicitud,
       marcarNotificadoPagado,
       setSolicitudDetalle,
+      cancelarDispersion,
     ],
   );
 
@@ -455,6 +471,7 @@ function App() {
             >
               <Button
                 onClick={handleCsv}
+                disabled={!canUploadComprobante}
                 icon={Upload}
                 variant="ghost"
                 size="md"
@@ -465,8 +482,9 @@ function App() {
                   "hover:bg-slate-50 hover:border-slate-300",
                   "active:translate-y-[1px] transition-all",
                   "focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2",
+                  "disabled:opacity-40 disabled:cursor-not-allowed",
                 ].join(" ")}
-                title="Subir comprobante dispersado"
+                title={canUploadComprobante ? "Subir comprobante dispersado" : "Selecciona solicitudes en estado DISPERSION"}
               >
                 Subir comprobante dispersado
               </Button>
