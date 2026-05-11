@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import { X } from "lucide-react";
-import { useFetchCards, useFetchTitulares } from "@/hooks/useFetchCard";
+import { useFetchCards } from "@/hooks/useFetchCard";
 
 type Props = {
   idSolProv: string;
@@ -10,52 +10,60 @@ type Props = {
   currentCardId?: number | null;
   cardOnly?: boolean;
   onSetMethod: (nextMethod: "transfer" | "card") => Promise<boolean>;
-  onSetCard: (data: { id_tarjeta_solicitada: number }) => Promise<boolean>;
+  onSetCard: (data: { id_tarjeta_solicitada: string | number; id_titular: number }) => Promise<boolean>;
 };
 
-export default function PaymentMethodSelector({ idSolProv, currentMethod, currentCardId, cardOnly = false, onSetMethod, onSetCard }: Props) {
-  const [method, setMethod] = useState<"transfer" | "card">(
-    currentMethod === "card" ? "card" : "transfer"
-  );
+export default function PaymentMethodSelector({
+  idSolProv,
+  currentMethod,
+  currentCardId,
+  cardOnly = false,
+  onSetMethod,
+  onSetCard,
+}: Props) {
+  const initialMethod =
+    currentMethod === "card" ? "card" : currentMethod === "credit" ? "credit" : "transfer";
 
+  const [method, setMethod] = useState<"transfer" | "card" | "credit">(initialMethod);
   const [open, setOpen] = useState(false);
-
-  // 👇 ejemplo usando tus hooks existentes
-  const { titulares, loading: loadingTitulares } = useFetchTitulares();
-  const { cards, loading: loadingCards } = useFetchCards();
-
-  const titularesList = useMemo(() => (Array.isArray(titulares) ? titulares : []), [titulares]);
-  const cardsList = useMemo(() => (Array.isArray(cards) ? cards : []), [cards]);
-
-  const [titularId, setTitularId] = useState<string>("");
   const [cardId, setCardId] = useState<string>("");
 
-  // Filtra tarjetas por titular (ajusta llaves si tu modelo usa otros nombres)
-  const cardsByTitular = useMemo(() => {
-    if (!titularId) return [];
-    return cardsList.filter((c: any) => String(c?.id_titular ?? c?.titular_id ?? "") === String(titularId));
-  }, [cardsList, titularId]);
+  const { data: cardsData, loading: loadingCards, fetchData: fetchCards } = useFetchCards();
 
+  // Solo tarjetas activas — soporta activa: true (boolean) o activa: "active" (string)
+  const activeCards = useMemo(() => {
+    const list = Array.isArray(cardsData) ? cardsData : [];
+    return list.filter((c: any) => c?.activa === true || c?.activa === "active");
+  }, [cardsData]);
+
+  const openCardModal = () => {
+    fetchCards();
+    setOpen(true);
+  };
 
   const changeMethod = async (next: "transfer" | "card") => {
+    const prev = method;
     setMethod(next);
 
-    // Persistimos el método inmediatamente
     const ok = await onSetMethod(next);
     if (!ok) {
-      // revert si falla
-      setMethod(method);
+      setMethod(prev as any);
       return;
     }
 
-    if (next === "card") setOpen(true);
+    if (next === "card") openCardModal();
   };
 
   const confirmCard = async () => {
-    const id = Number(cardId);
-    if (!id) return;
+    if (!cardId) return;
 
-    const ok = await onSetCard({ id_tarjeta_solicitada: id });
+    const selectedCard = activeCards.find(
+      (c: any) => String(c?.id ?? "") === cardId
+    ) as any;
+    const idTitular = Number(selectedCard?.id_titular ?? selectedCard?.titular_id ?? 0);
+
+    // cardId es el `id` que devuelve la ruta mia/pagar
+    const ok = await onSetCard({ id_tarjeta_solicitada: cardId, id_titular: idTitular });
     if (ok) setOpen(false);
   };
 
@@ -65,9 +73,14 @@ export default function PaymentMethodSelector({ idSolProv, currentMethod, curren
         <select
           className="h-8 rounded-md border border-slate-200 bg-white px-2 text-xs"
           value={method}
-          onChange={(e) => void changeMethod(e.target.value as any)}
+          onChange={(e) => void changeMethod(e.target.value as "transfer" | "card")}
           title="Cambiar forma de pago solicitada"
         >
+          {method === "credit" && (
+            <option value="credit" disabled>
+              Ap Crédito (Pendiente)
+            </option>
+          )}
           <option value="transfer">Transferencia</option>
           <option value="card">Tarjeta</option>
         </select>
@@ -77,18 +90,17 @@ export default function PaymentMethodSelector({ idSolProv, currentMethod, curren
         <button
           type="button"
           className="h-8 rounded-md border border-blue-200 bg-blue-50 px-2 text-xs text-blue-700 hover:bg-blue-100"
-          onClick={() => setOpen(true)}
+          onClick={openCardModal}
           title="Cambiar tarjeta"
         >
           {currentCardId ? "Cambiar tarjeta" : "Elegir tarjeta"}
         </button>
       )}
 
-      {/* MODAL */}
       {open && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
-          <div className="relative w-[min(720px,92vw)] rounded-xl border border-slate-200 bg-white shadow-lg">
+          <div className="relative w-[min(480px,92vw)] rounded-xl border border-slate-200 bg-white shadow-lg">
             <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
               <div>
                 <p className="text-sm font-semibold text-slate-900">Seleccionar tarjeta</p>
@@ -105,39 +117,29 @@ export default function PaymentMethodSelector({ idSolProv, currentMethod, curren
 
             <div className="p-4 space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Titular</label>
-                <select
-                  className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
-                  value={titularId}
-                  onChange={(e) => {
-                    setTitularId(e.target.value);
-                    setCardId("");
-                  }}
-                  disabled={loadingTitulares}
-                >
-                  <option value="">Selecciona un titular…</option>
-                  {titularesList.map((t: any) => (
-                    <option key={String(t?.id_titular ?? t?.id ?? t?.value)} value={String(t?.id_titular ?? t?.id ?? t?.value)}>
-                      {String(t?.nombre ?? t?.label ?? t?.titular ?? "Titular")}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">Tarjeta</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Tarjeta (solo activas)
+                </label>
                 <select
                   className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm"
                   value={cardId}
                   onChange={(e) => setCardId(e.target.value)}
-                  disabled={!titularId || loadingCards}
+                  disabled={loadingCards}
                 >
-                  <option value="">{!titularId ? "Primero selecciona un titular…" : "Selecciona una tarjeta…"}</option>
-                  {cardsByTitular.map((c: any) => (
-                    <option key={String(c?.id_tarjeta ?? c?.id ?? c?.value)} value={String(c?.id_tarjeta ?? c?.id ?? c?.value)}>
-                      {`${String(c?.banco_emisor ?? c?.banco ?? "Banco")} •••• ${String(c?.ultimos_4 ?? c?.last4 ?? "")}`}
-                    </option>
-                  ))}
+                  <option value="">
+                    {loadingCards ? "Cargando tarjetas…" : "Selecciona una tarjeta…"}
+                  </option>
+                  {activeCards.map((c: any) => {
+                    const id = String(c?.id ?? "");
+                    const banco = String(c?.banco_emisor ?? c?.banco ?? "Banco");
+                    const ultimos = String(c?.ultimos_4 ?? c?.last4 ?? "");
+                    const titular = String(c?.nombre_titular ?? c?.titular ?? "");
+                    return (
+                      <option key={id} value={id}>
+                        {`${banco} •••• ${ultimos}${titular ? ` — ${titular}` : ""}`}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
@@ -158,10 +160,6 @@ export default function PaymentMethodSelector({ idSolProv, currentMethod, curren
                   Guardar tarjeta
                 </button>
               </div>
-
-              <p className="text-[11px] text-slate-500">
-                Al guardar se setea <span className="font-mono">id_tarjeta_solicitada</span> en la solicitud.
-              </p>
             </div>
           </div>
         </div>
