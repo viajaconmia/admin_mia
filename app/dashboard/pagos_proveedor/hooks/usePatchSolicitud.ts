@@ -189,7 +189,7 @@ export function usePatchSolicitud(
         handleFetchSolicitudesPago();
       }
       return ok;
-    },
+    }, 
     [patchSolicitudProveedor, clearSelection, handleFetchSolicitudesPago, showNotification],
   );
 
