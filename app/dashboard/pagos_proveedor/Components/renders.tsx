@@ -98,6 +98,7 @@ type CreateSolicitudesRenderersParams = {
     puedeConciliar: boolean;
   };
   onOpenDetalle: (id_solicitud_proveedor: string) => void;
+  cancelarDispersion: (id_solicitud_proveedor: string) => Promise<boolean>;
 };
 
 const Pill = ({
@@ -125,12 +126,10 @@ const Pill = ({
 };
 
 const InlineMoneyEdit = ({
-  id,
   value,
   disabled,
   onSave,
 }: {
-  id: string;
   value: number;
   disabled?: boolean;
   onSave: (next: number) => Promise<boolean>;
@@ -231,6 +230,7 @@ export function createSolicitudesRenderers({
   getEstadoSolicitudPagado,
   getConciliacionInfo,
   onOpenDetalle,
+  cancelarDispersion,
 }: CreateSolicitudesRenderersParams): Record<
   string,
   React.FC<{ value: any; item: any; index: number }>
@@ -256,13 +256,20 @@ export function createSolicitudesRenderers({
         raw?.solicitud_proveedor?.estado_solicitud ?? ""
       );
       const isCancelada = estadoSolicitud.includes("CANCEL");
+      const isDispersionRow = estadoSolicitud === "DISPERSION" || estadoSolicitud === "DISPERSADO";
+      const estatusPagosSel = String(raw?.estatus_pagos ?? "").toLowerCase();
+
+      if (categoria === "pagada") {
+        return <span className="text-gray-300">—</span>;
+      }
+
+      if (estatusPagosSel === "pagado") {
+        return <span className="text-gray-300" title="Ya pagado">—</span>;
+      }
 
       if (forma !== "transfer") {
         return (
-          <span
-            className="text-gray-300"
-            title="Solo Transferencia se puede seleccionar"
-          >
+          <span className="text-gray-300" title="Solo Transferencia se puede seleccionar">
             —
           </span>
         );
@@ -290,11 +297,8 @@ export function createSolicitudesRenderers({
 
       const isSelected = !!selectedSolicitudesMap[key];
 
-      if (categoria === "pagada") {
-        return <span className="text-gray-300">—</span>;
-      }
-
-      if (tieneDispersion) {
+      // DISPERSION rows son seleccionables solo para subir comprobante
+      if (!isDispersionRow && tieneDispersion) {
         return (
           <input
             type="checkbox"
@@ -373,7 +377,6 @@ export function createSolicitudesRenderers({
 
       return (
         <InlineMoneyEdit
-          id={id}
           value={Number(value || 0)}
           onSave={async (next) =>
             patchSolicitudProveedor(id, "monto_solicitado", next)
@@ -821,7 +824,7 @@ markup: ({ value }) => {
             <span>Costo</span>
           </button>
 
-          {categoria === "notificados" && estadoSolicitud === "DISPERSION" ? (
+          {categoria === "notificados" && estadoSolicitud === "DISPERSION" && estatusPagos !== "pagado" ? (
             <select
               className="px-2.5 py-1.5 rounded-md text-xs font-medium border border-sky-200 bg-sky-50 text-sky-800 shadow-sm outline-none focus:ring-2 focus:ring-sky-300"
               defaultValue=""
@@ -960,6 +963,22 @@ markup: ({ value }) => {
             );
           })()}
         </>
+      )}
+
+      {/* Cancelar dispersión — solo SPEI en estado DISPERSION */}
+      {categoria === "spei" && estadoSolicitud === "DISPERSION" && (
+        <button
+          type="button"
+          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:border-rose-300 transition-colors shadow-sm"
+          title="Cancelar dispersión"
+          onClick={async () => {
+            const ok = window.confirm(`¿Cancelar la dispersión de la solicitud ${idSolProv}?`);
+            if (!ok) return;
+            await cancelarDispersion(idSolProv);
+          }}
+        >
+          Cancelar dispersión
+        </button>
       )}
 
       {/* Quitar ajuste — canceladas y notificados */}

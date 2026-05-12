@@ -538,7 +538,7 @@ function ProveedorCard({
                 <div className="flex flex-col gap-2 justify-end items-end h-full max-w-7xl mx-auto w-full col-span-2">
                   <Can
                     permiso={
-                      PERMISOS.COMPONENTES.GROUP.PROVEEDORES_EDICIONES_FINANZAS
+                      PERMISOS.VERSION.PROVEEDORES_FINANZAS
                     }
                   >
                     <Button
@@ -561,8 +561,7 @@ function ProveedorCard({
                       edit: ({ value }: { value: ProveedorCuenta }) => (
                         <Can
                           permiso={
-                            PERMISOS.COMPONENTES.GROUP
-                              .PROVEEDORES_EDICIONES_FINANZAS
+                            PERMISOS.VERSION.PROVEEDORES_FINANZAS
                           }
                         >
                           <Button
