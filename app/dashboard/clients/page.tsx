@@ -43,6 +43,8 @@ import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
 import { usePathname } from "next/navigation";
 import PageReservas from "@/v2/components/template/PageReserva";
+import { Button } from "@/components/ui/button";
+import { AgentesService } from "@/services/AgentesService";
 
 const getWalletBadge = (monto: string | null) => {
   // Convertir el string a número para la verificación
@@ -76,6 +78,8 @@ function App() {
   const [filters, setFilters] = useState<TypeFilters>(
     defaultFiltersSolicitudes,
   );
+  const [fichaItem, setFichaItem] = useState<Agente | null>(null);
+  const [loadingResumen, setLoadingResumen] = useState(false);
   const { hasAccess } = usePermiso();
 
   hasAccess(PERMISOS.VISTAS.CLIENTES);
@@ -102,6 +106,7 @@ function App() {
       vendedor: item.vendedor || "",
       // saldo_a_favor: item,
       soporte: item,
+      ficha: item,
       detalles: item,
     }));
   let componentes = {
@@ -133,9 +138,9 @@ function App() {
     wallet: (props: { value: string }) => getWalletBadge(props.value), // Modificado para aceptar string
     categoria: (props: { value: string }) => getRoleBadge(props.value),
     notas_internas: ({ value }: { value: string }) => (
-      <ToolTip content={value.toUpperCase()}>
+      <p className="max-w-sm truncate">
         <span>{value}</span>
-      </ToolTip>
+      </p>
     ),
 
     // saldo_a_favor: ({ value }: { value: Agente }) => (
@@ -151,6 +156,11 @@ function App() {
     //     </span>
     //   </button>
     // ),
+    ficha: ({ value }: { value: Agente }) => (
+      <Button variant="outline" size="sm" onClick={() => setFichaItem(value)}>
+        Ficha
+      </Button>
+    ),
     soporte: ({ value }: { value: Agente }) => (
       <button
         onClick={() => {
@@ -311,6 +321,15 @@ function App() {
           </div>
         </Modal>
       )}
+      {fichaItem && (
+        <Modal
+          onClose={() => setFichaItem(null)}
+          title={`Ficha — ${fichaItem.nombre_agente_completo}`}
+          subtitle="Resumen general del agente"
+        >
+          <FichaResumen id_agente={fichaItem.id_agente} />
+        </Modal>
+      )}
       {selectedItem && (
         <Modal
           onClose={() => {
@@ -328,6 +347,25 @@ function App() {
           ></NavContainer>
         </Modal>
       )}
+    </div>
+  );
+}
+
+function FichaResumen({ id_agente }: { id_agente: string }) {
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    AgentesService.getInstance()
+      .getResumen(id_agente)
+      .then((res) => {
+        console.log("Resumen agente:", res);
+      })
+      .finally(() => setLoading(false));
+  }, [id_agente]);
+
+  return (
+    <div className="flex justify-center items-center min-h-32 w-96">
+      {loading && <Loader />}
     </div>
   );
 }

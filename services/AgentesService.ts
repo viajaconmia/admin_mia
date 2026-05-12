@@ -26,16 +26,14 @@ export class AgentesService extends ApiService {
     GET: {
       HOTELES_CIUDAD_ZONA: "/hoteles-ciudad-zona",
       RESERVAS_CIUDAD_ZONA: "/reservas-ciudad-zona",
-      RESUMEN_TIPO_NEGOCIACION: "/resumen/tipo-negociacion",
-      RESUMEN_ESTADO_RESERVA: "/resumen/estado-reserva",
-      RESUMEN_GASTO_MENSUAL: "/resumen/gasto-mensual",
+      RESUMEN_ESTADO_RESERVA: "/resumen",
     },
   };
 
   private static instance: AgentesService;
 
   private constructor() {
-    super("/v1/mia/agentes/ficha");
+    super("/mia/agentes/ficha");
   }
 
   public static getInstance(): AgentesService {
@@ -48,7 +46,7 @@ export class AgentesService extends ApiService {
   public getHotelesCiudadZona = async (
     id_agente: string,
     estado: string,
-    zona: string
+    zona: string,
   ): Promise<ApiResponse<HotelFicha[]>> =>
     this.get<HotelFicha[]>({
       path: this.formatPath(this.ENDPOINTS.GET.HOTELES_CIUDAD_ZONA),
@@ -57,7 +55,7 @@ export class AgentesService extends ApiService {
 
   public getReservasCiudadZona = async (
     id_agente: string,
-    estado: string
+    estado: string,
   ): Promise<ApiResponse<ReservaCiudadZona[]>> =>
     this.get<ReservaCiudadZona[]>({
       path: this.formatPath(this.ENDPOINTS.GET.RESERVAS_CIUDAD_ZONA),
@@ -65,30 +63,10 @@ export class AgentesService extends ApiService {
     });
 
   public getResumen = async (
-    id_agente: string
-  ): Promise<ApiResponse<ResumenAgente>> => {
-    const [tipoNegociacion, estadoReserva, gastoMensual] = await Promise.all([
-      this.get<{ tipo: string; total: number }[]>({
-        path: this.formatPath(this.ENDPOINTS.GET.RESUMEN_TIPO_NEGOCIACION),
-        params: { id_agente },
-      }),
-      this.get<{ estado: string; total: number }[]>({
-        path: this.formatPath(this.ENDPOINTS.GET.RESUMEN_ESTADO_RESERVA),
-        params: { id_agente },
-      }),
-      this.get<{ mes: string; total: number }[]>({
-        path: this.formatPath(this.ENDPOINTS.GET.RESUMEN_GASTO_MENSUAL),
-        params: { id_agente },
-      }),
-    ]);
-
-    return {
-      message: "Resumen obtenido correctamente",
-      data: {
-        tipo_negociacion: tipoNegociacion.data ?? [],
-        estado_reserva: estadoReserva.data ?? [],
-        gasto_mensual: gastoMensual.data ?? [],
-      },
-    };
-  };
+    id_agente: string,
+  ): Promise<ApiResponse<ResumenAgente>> =>
+    this.get<ResumenAgente>({
+      path: this.formatPath(this.ENDPOINTS.GET.RESUMEN_ESTADO_RESERVA),
+      params: { id_agente },
+    });
 }
