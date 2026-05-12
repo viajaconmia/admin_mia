@@ -1,24 +1,44 @@
 import { ApiResponse, ApiService } from "./ApiService";
 
 export interface HotelFicha {
-  id: string;
-  nombre: string;
-  estado: string;
-  zona: string;
-  [key: string]: any;
+  id_hotel: string;
+  hotel: string;
+  total_reservas: number;
+  total_noches: string;
+  gasto_total: string;
 }
 
 export interface ReservaCiudadZona {
-  ciudad: string;
-  zona: string;
+  ciudad_zona: string;
   total_reservas: number;
-  [key: string]: any;
+  total_noches: string;
+}
+
+export interface TipoNegociacion {
+  tipo_negociacion: string;
+  total_reservas: number;
+  total_noches: string;
+}
+
+export interface EstadoResumen {
+  estado: string;
+  total_reservas: number;
+  total_noches: string;
+}
+
+export interface GastoMensual {
+  mes: string;
+  anio: number;
+  numero_mes: number;
+  total_reservas: number;
+  gasto_total: string;
+  noches: string;
 }
 
 export interface ResumenAgente {
-  tipo_negociacion: { tipo: string; total: number }[];
-  estado_reserva: { estado: string; total: number }[];
-  gasto_mensual: { mes: string; total: number }[];
+  tipo_negociacion: TipoNegociacion[];
+  estado: EstadoResumen[];
+  gasto_mensual: GastoMensual[];
 }
 
 export class AgentesService extends ApiService {
