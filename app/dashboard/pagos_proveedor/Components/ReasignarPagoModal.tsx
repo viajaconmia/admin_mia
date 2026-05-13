@@ -64,7 +64,7 @@ export function ReasignarPagoModal({ open, onClose, idSolicitudProveedor, onSucc
     ).then((r) => r.json());
 
     const fetchSpei = fetch(
-      `${URL}/mia/pago_proveedor/solicitud?limite=500`,
+      `${URL}/mia/pago_proveedor/solicitud?estado_solicitud=DISPERSION&forma_pago=transfer&limite=200`,
       { headers: HEADERS_API, credentials: "include" },
     ).then((r) => r.json());
 
@@ -85,14 +85,10 @@ export function ReasignarPagoModal({ open, onClose, idSolicitudProveedor, onSucc
         const speiRows: any[] = speiJson?.data?.spei ?? [];
         const filtradas: SolicitudSpei[] = speiRows
           .filter((r: any) => {
-            const estado = String(
-              r?.solicitud_proveedor?.estado_solicitud ?? r?.estado_solicitud ?? "",
-            ).toUpperCase();
             const estatusPagos = String(r?.estatus_pagos ?? "").toLowerCase();
             const saldo = Number(r?.solicitud_proveedor?.saldo ?? r?.saldo ?? 0);
             const idProv = String(r?.solicitud_proveedor?.id_proveedor ?? r?.id_proveedor ?? "").trim();
             return (
-              estado === "TRANSFERENCIA_SOLICITADA" &&
               estatusPagos !== "pagado" &&
               saldo !== 0 &&
               (!idProveedorCancelada || idProv === idProveedorCancelada)
@@ -246,7 +242,7 @@ export function ReasignarPagoModal({ open, onClose, idSolicitudProveedor, onSucc
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Solicitud SPEI destino{" "}
                   <span className="font-normal text-slate-400">
-                    (TRANSFERENCIA_SOLICITADA · saldo &gt; 0 · no pagada)
+                    (DISPERSION · transfer · saldo &gt; 0 · no pagada)
                   </span>
                 </label>
                 <select
