@@ -146,4 +146,53 @@ export const fetchGetSolicitudesFiltradas = async (
   const data = await res.json();
   cb(data);
 };
- 
+
+export const fetchConteosRapidos = async (
+  filters: Record<string, any> = {},
+): Promise<Record<string, number>> => {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    const v = String(value ?? "").trim();
+    if (!v) return;
+    params.append(FILTER_KEY_MAP[key] ?? key, v);
+  });
+  params.set("tipo", "conteos");
+  const res = await fetch(`${URL}/mia/pago_proveedor/solicitud?${params}`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": API_KEY,
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+    },
+    cache: "no-store",
+  });
+  const json = await res.json();
+  return json?.data?.[0] ?? json?.data ?? {};
+};
+
+export const fetchBucketSolicitudes = async (
+  bucket: string,
+  filters: Record<string, any> = {},
+  limit: number | null = null,
+  pag: number = 1,
+): Promise<any> => {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([key, value]) => {
+    const v = String(value ?? "").trim();
+    if (!v) return;
+    params.append(FILTER_KEY_MAP[key] ?? key, v);
+  });
+  params.set("bucket", bucket);
+  params.set("pag", String(pag > 0 ? pag : 1));
+  params.set("limite", String(limit && limit > 0 ? limit : 50));
+  const res = await fetch(`${URL}/mia/pago_proveedor/solicitud?${params}`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": API_KEY,
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+    },
+    cache: "no-store",
+  });
+  return res.json();
+};
