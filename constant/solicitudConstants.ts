@@ -52,4 +52,5 @@ export const defaultFiltersSolicitudes2: TypeFilters = {
   markup_end: null,
   markup_start: null,
   uuid_factura: null,
+  estado_facturacion: null,
 };
