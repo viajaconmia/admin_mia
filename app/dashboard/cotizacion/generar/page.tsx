@@ -147,9 +147,6 @@ const CuponCard = React.forwardRef<
   const total = parseFloat(hotel.total) || 0;
   const subtotalNoche = total > 0 ? total / 1.16 : 0;
   const totalEstancia = total * noches;
-  const noktos = parseFloat(hotel.noktos_estancia) || 0;
-  const noktosPesos = noktos * NOKTO_CON_IVA;
-
   return (
     <div
       ref={ref}
@@ -195,13 +192,6 @@ const CuponCard = React.forwardRef<
           <CuponRow label="PRECIO / NOCHE:" value="SIN PRECIO" alert />
         )}
 
-        {noktos > 0 && (
-          <CuponRow
-            label="NOKTOS:"
-            value={`$ ${formatNum(noktosPesos)}`}
-            note={`${formatNum(noktos)} noktos`}
-          />
-        )}
       </div>
 
       {hotel.notas ? (
@@ -268,8 +258,6 @@ const ControlsPanel = ({
   const noches = calcNoches(hotel.checkin, hotel.checkout);
   const total = parseFloat(hotel.total) || 0;
   const subtotalNoche = total > 0 ? total / 1.16 : 0;
-  const noktosPesos = (parseFloat(hotel.noktos_estancia) || 0) * NOKTO_CON_IVA;
-
   const inputCls =
     "w-full text-[10px] border border-gray-200 rounded px-2 py-1 focus:outline-none focus:border-[#0b5fa5]";
   const labelCls = "text-[10px] font-bold text-gray-600 mb-0.5 block";
@@ -318,6 +306,11 @@ const ControlsPanel = ({
             Subtotal s/IVA: ${formatNum(subtotalNoche)}
           </span>
         )}
+        {total > 0 && noches > 0 && (
+          <span className="text-[9px] text-blue-500 mt-0.5 block font-medium">
+            Total estancia: ${formatNum(total * noches)} ({noches}n)
+          </span>
+        )}
       </div>
 
       {/* Noktos */}
@@ -347,11 +340,6 @@ const ControlsPanel = ({
             />
           </div>
         </div>
-        {noktosPesos > 0 && (
-          <span className="text-[9px] text-gray-400 mt-0.5 block">
-            Valor en pesos: ${formatNum(noktosPesos)}
-          </span>
-        )}
       </div>
 
       {/* Mostrar total de estancia en el cupón */}
@@ -748,10 +736,13 @@ export default function GenerarCotizacion() {
       if (!slot) return prev;
       const noches = calcNoches(slot.checkin, slot.checkout);
       const n = parseFloat(value) || 0;
+      const precioNoche = (n * NOKTO_CON_IVA).toFixed(2);
       updated[index] = {
         ...slot,
         noktos_noche: value,
         noktos_estancia: noches > 0 ? (n * noches).toFixed(4) : "0",
+        total: precioNoche,
+        subtotal: (parseFloat(precioNoche) / 1.16).toFixed(2),
       };
       return updated;
     });
@@ -764,10 +755,14 @@ export default function GenerarCotizacion() {
       if (!slot) return prev;
       const noches = calcNoches(slot.checkin, slot.checkout);
       const n = parseFloat(value) || 0;
+      const noktosPorNoche = noches > 0 ? n / noches : 0;
+      const precioNoche = (noktosPorNoche * NOKTO_CON_IVA).toFixed(2);
       updated[index] = {
         ...slot,
         noktos_estancia: value,
-        noktos_noche: noches > 0 ? (n / noches).toFixed(4) : "0",
+        noktos_noche: noches > 0 ? noktosPorNoche.toFixed(4) : "0",
+        total: precioNoche,
+        subtotal: (parseFloat(precioNoche) / 1.16).toFixed(2),
       };
       return updated;
     });
