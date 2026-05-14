@@ -14,13 +14,19 @@ import { Loader } from "@/components/atom/Loader";
 import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
 import { OtrosMetodosPagoModal } from "./Components/OtrosMetodosPagoModal";
-import { DispersionModal, SolicitudProveedorRaw } from "./Components/dispersion";
+import {
+  DispersionModal,
+  SolicitudProveedorRaw,
+} from "./Components/dispersion";
 import { ComprobanteModal } from "./Components/comprobantes";
 import { useAlert } from "@/context/useAlert";
 import Button from "@/components/atom/Button";
 import { Brush, File, Upload } from "lucide-react";
 import { defaultSort } from "@/constant/solicitudConstants";
-import { SolicitudSeleccionadaComprobante, ItemSolicitud } from "./Components/types";
+import {
+  SolicitudSeleccionadaComprobante,
+  ItemSolicitud,
+} from "./Components/types";
 import {
   getIdSolProv,
   getFormaPago,
@@ -34,10 +40,15 @@ import {
   getConciliacionInfo,
   getProveedorCuentas,
 } from "./Components/helpers";
-import { pagoTone3, facturaTone, getSolicitudSemaforoRowClass } from "./Components/uiHelpers";
+import {
+  pagoTone3,
+  facturaTone,
+  getSolicitudSemaforoRowClass,
+} from "./Components/uiHelpers";
 import { useSolicitudesPago } from "./hooks/useSolicitudesPago";
 import { useSeleccion } from "./hooks/useSeleccion";
 import { usePatchSolicitud } from "./hooks/usePatchSolicitud";
+import { formatNumberWithCommas } from "@/helpers/formater";
 
 function App() {
   const { showNotification } = useAlert();
@@ -100,99 +111,137 @@ function App() {
   }, [searchTerm]);
 
   // PASO 1 — mapeo pesado, solo corre cuando cambia baseList
-  const mappedSolicitudes = useMemo(() =>
-    baseList.map((raw) => {
-      const item = raw as ItemSolicitud;
-      const id_solicitud_proveedor = getIdSolProv(item);
-      const forma = getFormaPago(item);
-      const montoSolicitado = getMontoSolicitado(item);
-      const saldo = getSaldo(item);
-      const pagoInfo = getPagoInfoFromRaw(item);
-      const facInfo = getFacturaInfoFromRaw(item);
-      const _searchHotel   = (item.hotel || "").toUpperCase();
-      const _searchAgente  = (item.nombre_agente_completo || "").toUpperCase();
-      const _searchViajero = (item.nombre_viajero_completo || item.nombre_viajero || "").toUpperCase();
-      const _searchId      = String((item as any)?.solicitud_proveedor?.id_solicitud_proveedor ?? "").toUpperCase();
-      const _searchFolio   = (item.codigo_confirmacion || "").toUpperCase();
-      const _searchUuid    = extractFacturas(item)
-        .map((f: any) => (f?.uuid_factura || f?.uuid_cfdi || f?.uuid || "").toUpperCase())
-        .filter(Boolean)
-        .join(" ");
+  const mappedSolicitudes = useMemo(
+    () =>
+      baseList.map((raw) => {
+        const item = raw as ItemSolicitud;
+        const id_solicitud_proveedor = getIdSolProv(item);
+        const forma = getFormaPago(item);
+        const montoSolicitado = getMontoSolicitado(item);
+        const saldo = getSaldo(item);
+        const pagoInfo = getPagoInfoFromRaw(item);
+        const facInfo = getFacturaInfoFromRaw(item);
+        const _searchHotel = (item.hotel || "").toUpperCase();
+        const _searchAgente = (item.nombre_agente_completo || "").toUpperCase();
+        const _searchViajero = (
+          item.nombre_viajero_completo ||
+          item.nombre_viajero ||
+          ""
+        ).toUpperCase();
+        const _searchId = String(
+          (item as any)?.solicitud_proveedor?.id_solicitud_proveedor ?? "",
+        ).toUpperCase();
+        const _searchFolio = (item.codigo_confirmacion || "").toUpperCase();
+        const _searchUuid = extractFacturas(item)
+          .map((f: any) =>
+            (f?.uuid_factura || f?.uuid_cfdi || f?.uuid || "").toUpperCase(),
+          )
+          .filter(Boolean)
+          .join(" ");
 
-      return {
-        id_solicitud_proveedor,
-        fecha_de_pago: item.solicitud_proveedor?.fecha_solicitud,
-        monto_solicitado: montoSolicitado,
-        saldo,
-        forma_pago_solicitada: forma,
-        id_tarjeta_solicitada: item?.solicitud_proveedor?.id_tarjeta_solicitada ?? null,
-        usuario_solicitante: item?.solicitud_proveedor?.usuario_solicitante ?? "",
-        usuario_generador: item?.solicitud_proveedor?.usuario_generador ?? "",
-        comentarios_sp: item?.solicitud_proveedor?.comentarios ?? "",
-        notas_internas: item?.solicitud_proveedor?.notas_internas ?? (item as any)?.notas_internas ?? "",
-        comentarios_Ap: item?.solicitud_proveedor?.comentarios_Ap ?? (item as any)?.comentarios_Ap ?? (item as any)?.comentarios_ap ?? "",
-        estado_solicitud: item?.solicitud_proveedor?.estado_solicitud ?? "",
-        estado_facturacion: item?.solicitud_proveedor?.estado_facturacion ?? "",
-        estatus_pagos: item?.estatus_pagos ?? "",
-        comentario_sistema: getComentarioSistema(item),
-        seleccionar: "",
-        carpeta: categoria,
-        facturas_acciones: "",
-        codigo_confirmacion: item.codigo_confirmacion,
-        creado: item.created_at,
-        proveedor: (item.hotel || "").toUpperCase(),
-        razon_social: item.proveedor?.razon_social,
-        rfc: item.proveedor?.rfc,
-        viajero: (item.nombre_viajero_completo || item.nombre_viajero || "").toUpperCase(),
-        check_in: item.check_in,
-        check_out: item.check_out,
-        noches: calcularNoches(item.check_in, item.check_out),
-        habitacion: formatRoom(item.room),
-        costo_proveedor: Number((item as any).costo_total) || 0,
-        markup: ((Number(item.total || 0) - Number((item as any).costo_total || 0)) / Number(item.total || 0)) * 100,
-        precio_de_venta: parseFloat(item.total),
-        metodo_de_pago: item.id_credito ? "credito" : "contado",
-        etapa_reservacion: item.estado_reserva,
-        estado: item.status,
-        reservante: item.id_usuario_generador ? "Cliente" : "Operaciones",
-        id_cliente: item.id_agente,
-        cliente: (item.nombre_agente_completo || "").toUpperCase(),
-        forma_de_pago_solicitada: item.solicitud_proveedor?.forma_pago_solicitada,
-        digitos_tajeta: item.tarjeta?.ultimos_4,
-        banco: item.tarjeta?.banco_emisor,
-        tipo_tarjeta: item.tarjeta?.tipo_tarjeta,
-        comentarios_cxp: (item as any).comentario_CXP ?? (item as any).comments_cxp ?? "",
-        estado_pago: pagoInfo.estado_pago,
-        pendiente_a_pagar: pagoInfo.pendientePago,
-        monto_pagado_proveedor: pagoInfo.totalPagado,
-        fecha_pagado: pagoInfo.fechaUltimoPago,
-        estado_factura_proveedor: facInfo.estado,
-        total_facturado: facInfo.totalFacturado,
-        monto_por_facturar: facInfo.porFacturar,
-        fecha_facturacion: facInfo.fechaUltimaFactura,
-        UUID: facInfo.uuid,
-        uso_cfdi_factura: "",
-        forma_pago_factura: "",
-        metodo_pago_factura: "",
-        moneda_factura: "",
-        acciones: "",
-        item: raw,
-        _searchHotel, _searchAgente, _searchViajero, _searchId, _searchFolio, _searchUuid,
-      };
-    }),
-  [baseList, categoria]);
+        return {
+          id_solicitud_proveedor,
+          fecha_de_pago: item.solicitud_proveedor?.fecha_solicitud,
+          monto_solicitado: montoSolicitado,
+          saldo,
+          forma_pago_solicitada: forma,
+          id_tarjeta_solicitada:
+            item?.solicitud_proveedor?.id_tarjeta_solicitada ?? null,
+          usuario_solicitante:
+            item?.solicitud_proveedor?.usuario_solicitante ?? "",
+          usuario_generador: item?.solicitud_proveedor?.usuario_generador ?? "",
+          comentarios_sp: item?.solicitud_proveedor?.comentarios ?? "",
+          notas_internas:
+            item?.solicitud_proveedor?.notas_internas ??
+            (item as any)?.notas_internas ??
+            "",
+          comentarios_Ap:
+            item?.solicitud_proveedor?.comentarios_Ap ??
+            (item as any)?.comentarios_Ap ??
+            (item as any)?.comentarios_ap ??
+            "",
+          estado_solicitud: item?.solicitud_proveedor?.estado_solicitud ?? "",
+          estado_facturacion:
+            item?.solicitud_proveedor?.estado_facturacion ?? "",
+          estatus_pagos: item?.estatus_pagos ?? "",
+          comentario_sistema: getComentarioSistema(item),
+          seleccionar: "",
+          carpeta: categoria,
+          facturas_acciones: "",
+          codigo_confirmacion: item.codigo_confirmacion,
+          creado: item.created_at,
+          proveedor: (item.hotel || "").toUpperCase(),
+          razon_social: item.proveedor?.razon_social,
+          rfc: item.proveedor?.rfc,
+          viajero: (
+            item.nombre_viajero_completo ||
+            item.nombre_viajero ||
+            ""
+          ).toUpperCase(),
+          check_in: item.check_in,
+          check_out: item.check_out,
+          noches: calcularNoches(item.check_in, item.check_out),
+          habitacion: formatRoom(item.room),
+          costo_proveedor: formatNumberWithCommas(
+            Number((item as any).costo_total) || 0,
+          ),
+          markup:
+            ((Number(item.total || 0) -
+              Number((item as any).costo_total || 0)) /
+              Number(item.total || 0)) *
+            100,
+          precio_de_venta: formatNumberWithCommas(parseFloat(item.total)),
+          metodo_de_pago: item.id_credito ? "credito" : "contado",
+          etapa_reservacion: item.estado_reserva,
+          estado: item.status,
+          reservante: item.id_usuario_generador ? "Cliente" : "Operaciones",
+          id_cliente: item.id_agente,
+          cliente: (item.nombre_agente_completo || "").toUpperCase(),
+          forma_de_pago_solicitada:
+            item.solicitud_proveedor?.forma_pago_solicitada,
+          digitos_tajeta: item.tarjeta?.ultimos_4,
+          banco: item.tarjeta?.banco_emisor,
+          tipo_tarjeta: item.tarjeta?.tipo_tarjeta,
+          comentarios_cxp:
+            (item as any).comentario_CXP ?? (item as any).comments_cxp ?? "",
+          estado_pago: pagoInfo.estado_pago,
+          pendiente_a_pagar: pagoInfo.pendientePago,
+          monto_pagado_proveedor: pagoInfo.totalPagado,
+          fecha_pagado: pagoInfo.fechaUltimoPago,
+          estado_factura_proveedor: facInfo.estado,
+          total_facturado: facInfo.totalFacturado,
+          monto_por_facturar: facInfo.porFacturar,
+          fecha_facturacion: facInfo.fechaUltimaFactura,
+          UUID: facInfo.uuid,
+          uso_cfdi_factura: "",
+          forma_pago_factura: "",
+          metodo_pago_factura: "",
+          moneda_factura: "",
+          acciones: "",
+          item: raw,
+          _searchHotel,
+          _searchAgente,
+          _searchViajero,
+          _searchId,
+          _searchFolio,
+          _searchUuid,
+        };
+      }),
+    [baseList, categoria],
+  );
 
   // PASO 2 — filtro rápido por búsqueda
   const formatedSolicitudes = useMemo(() => {
     if (!debouncedSearch) return mappedSolicitudes;
     const q = debouncedSearch.toUpperCase();
-    return mappedSolicitudes.filter((item) =>
-      item._searchHotel.includes(q) ||
-      item._searchAgente.includes(q) ||
-      item._searchViajero.includes(q) ||
-      item._searchId.includes(q) ||
-      item._searchFolio.includes(q) ||
-      item._searchUuid.includes(q),
+    return mappedSolicitudes.filter(
+      (item) =>
+        item._searchHotel.includes(q) ||
+        item._searchAgente.includes(q) ||
+        item._searchViajero.includes(q) ||
+        item._searchId.includes(q) ||
+        item._searchFolio.includes(q) ||
+        item._searchUuid.includes(q),
     );
   }, [mappedSolicitudes, debouncedSearch]);
 
@@ -239,10 +288,13 @@ function App() {
     [solicitud],
   );
 
-  const canDispersion = canSelect && selectedCount > 0 && !selectedHasDispersion;
+  const canDispersion =
+    canSelect && selectedCount > 0 && !selectedHasDispersion;
   const canUploadComprobante = selectedHasDispersion;
 
-  const solicitudesSeleccionadasComprobante = useMemo<SolicitudSeleccionadaComprobante[]>(
+  const solicitudesSeleccionadasComprobante = useMemo<
+    SolicitudSeleccionadaComprobante[]
+  >(
     () =>
       solicitud
         .map((raw) => {
@@ -272,7 +324,10 @@ function App() {
 
   const handleDispersion = () => {
     if (!solicitud.length) {
-      showNotification("info", "No hay solicitudes seleccionadas para dispersión");
+      showNotification(
+        "info",
+        "No hay solicitudes seleccionadas para dispersión",
+      );
       return;
     }
 
@@ -288,16 +343,21 @@ function App() {
         id_proveedor: idProveedor,
         hotel: s.hotel ?? null,
         codigo_reservacion_hotel: s.codigo_reservacion_hotel ?? null,
-        costo_total: s.costo_total ?? s.solicitud_proveedor?.monto_solicitado ?? "0",
+        costo_total:
+          s.costo_total ?? s.solicitud_proveedor?.monto_solicitado ?? "0",
         check_out: s.check_out ?? null,
         codigo_dispersion: anyS.codigo_dispersion ?? null,
         cuentas_proveedor: cuentasProveedor,
-        cuenta_de_deposito: anyS.cuenta_de_deposito ?? cuentaDefault?.cuenta ?? null,
-        tipo_cuenta: anyS.tipo_cuenta ?? (cuentaDefault?.cuenta?.length === 18 ? "Cta Clabe" : "Cta"),
+        cuenta_de_deposito:
+          anyS.cuenta_de_deposito ?? cuentaDefault?.cuenta ?? null,
+        tipo_cuenta:
+          anyS.tipo_cuenta ??
+          (cuentaDefault?.cuenta?.length === 18 ? "Cta Clabe" : "Cta"),
         clave_proveedor: idProveedor != null ? String(idProveedor) : null,
         solicitud_proveedor: s.solicitud_proveedor
           ? {
-              id_solicitud_proveedor: s.solicitud_proveedor.id_solicitud_proveedor,
+              id_solicitud_proveedor:
+                s.solicitud_proveedor.id_solicitud_proveedor,
               fecha_solicitud: s.solicitud_proveedor.fecha_solicitud ?? null,
               monto_solicitado: s.solicitud_proveedor.monto_solicitado ?? null,
               saldo: (s.solicitud_proveedor as any)?.saldo ?? null,
@@ -334,15 +394,49 @@ function App() {
 
   const customColumns = useMemo(() => {
     const cols = [
-      "seleccionar", "id_solicitud_proveedor", "fecha_solicitud", "monto_solicitado", "saldo",
-      "forma_pago_solicitada", "estatus_pagos", "estado_solicitud", "estado_facturacion",
-      "usuario_solicitante", "usuario_generador", "comentarios_sp", "notas_internas", "comentarios_Ap",
-      "codigo_confirmacion", "creado", "proveedor", "viajero", "check_in", "check_out",
-      "noches", "habitacion", "costo_proveedor", "markup", "precio_de_venta", "razon_social", "rfc",
-      "estado_pago", "pendiente_a_pagar", "monto_pagado_proveedor", "fecha_pagado",
-      "estado_factura_proveedor", "total_facturado", "monto_por_facturar", "fecha_facturacion",
-      "UUID", "uso_cfdi_factura", "forma_pago_factura", "metodo_pago_factura", "moneda_factura",
-      "facturas_acciones", "fecha_de_pago", "comentarios_cxp",
+      "seleccionar",
+      "id_solicitud_proveedor",
+      "fecha_solicitud",
+      "monto_solicitado",
+      "saldo",
+      "forma_pago_solicitada",
+      "estatus_pagos",
+      "estado_solicitud",
+      "estado_facturacion",
+      "usuario_solicitante",
+      "usuario_generador",
+      "comentarios_sp",
+      "notas_internas",
+      "comentarios_Ap",
+      "codigo_confirmacion",
+      "creado",
+      "proveedor",
+      "viajero",
+      "check_in",
+      "check_out",
+      "noches",
+      "habitacion",
+      "costo_proveedor",
+      "markup",
+      "precio_de_venta",
+      "razon_social",
+      "rfc",
+      "estado_pago",
+      "pendiente_a_pagar",
+      "monto_pagado_proveedor",
+      "fecha_pagado",
+      "estado_factura_proveedor",
+      "total_facturado",
+      "monto_por_facturar",
+      "fecha_facturacion",
+      "UUID",
+      "uso_cfdi_factura",
+      "forma_pago_factura",
+      "metodo_pago_factura",
+      "moneda_factura",
+      "facturas_acciones",
+      "fecha_de_pago",
+      "comentarios_cxp",
     ];
     if (categoria === "notificados") cols.push("comentario_sistema");
     cols.push("acciones");
@@ -399,15 +493,31 @@ function App() {
   const tabs = useMemo(
     () =>
       [
-        { key: "all",               label: "Todos",             count: counts.todos             ?? 0 },
-        { key: "spei",              label: "SPEI",              count: counts.spei              ?? 0 },
-        { key: "pago_tdc",          label: "Pago TDC",          count: counts.pago_tdc          ?? 0 },
-        { key: "pago_link",         label: "Pago Link",         count: counts.pago_link         ?? 0 },
-        { key: "pendiente_credito", label: "Pendiente credito", count: counts.pendiente_credito ?? 0 },
-        { key: "ap_credito",        label: "Ap Credito",        count: counts.ap_credito        ?? 0 },
-        { key: "pagada",            label: "Pagada",            count: counts.pagada            ?? 0 },
-        { key: "notificados",       label: "Notificados",       count: counts.notificados       ?? 0 },
-        { key: "canceladas",        label: "Canceladas",        count: counts.canceladas        ?? 0 },
+        { key: "all", label: "Todos", count: counts.todos ?? 0 },
+        { key: "spei", label: "SPEI", count: counts.spei ?? 0 },
+        { key: "pago_tdc", label: "Pago TDC", count: counts.pago_tdc ?? 0 },
+        { key: "pago_link", label: "Pago Link", count: counts.pago_link ?? 0 },
+        {
+          key: "pendiente_credito",
+          label: "Pendiente credito",
+          count: counts.pendiente_credito ?? 0,
+        },
+        {
+          key: "ap_credito",
+          label: "Ap Credito",
+          count: counts.ap_credito ?? 0,
+        },
+        { key: "pagada", label: "Pagada", count: counts.pagada ?? 0 },
+        {
+          key: "notificados",
+          label: "Notificados",
+          count: counts.notificados ?? 0,
+        },
+        {
+          key: "canceladas",
+          label: "Canceladas",
+          count: counts.canceladas ?? 0,
+        },
       ] as Array<{ key: VistaCarpeta; label: string; count: number }>,
     [counts],
   );
@@ -485,7 +595,12 @@ function App() {
                   raw?.solicitud_proveedor?.fecha_solicitud ??
                   (row as any)?.fecha_solicitud ??
                   null;
-                return getSolicitudSemaforoRowClass({ categoria, fechaSolicitud, pagado, consolidado });
+                return getSolicitudSemaforoRowClass({
+                  categoria,
+                  fechaSolicitud,
+                  pagado,
+                  consolidado,
+                });
               }}
               leyenda={`Mostrando ${registrosVisibles.length} registros (${categoria === "all" ? "todas" : `categoría: ${categoria}`})`}
             >
@@ -504,7 +619,11 @@ function App() {
                   "focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2",
                   "disabled:opacity-40 disabled:cursor-not-allowed",
                 ].join(" ")}
-                title={canUploadComprobante ? "Subir comprobante dispersado" : "Selecciona solicitudes en estado DISPERSION"}
+                title={
+                  canUploadComprobante
+                    ? "Subir comprobante dispersado"
+                    : "Selecciona solicitudes en estado DISPERSION"
+                }
               >
                 Subir comprobante dispersado
               </Button>
@@ -533,7 +652,10 @@ function App() {
                 icon={File}
                 variant="secondary"
                 size="md"
-                title={dispersionDisabledReason || `Generar dispersión (${selectedCount})`}
+                title={
+                  dispersionDisabledReason ||
+                  `Generar dispersión (${selectedCount})`
+                }
               >
                 Generar dispersión
                 {selectedCount > 0 ? ` (${selectedCount})` : ""}
@@ -553,7 +675,9 @@ function App() {
                   "disabled:opacity-50 disabled:cursor-not-allowed",
                   "focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-2",
                 ].join(" ")}
-                title={clearDisabledReason || `Limpiar selección (${selectedCount})`}
+                title={
+                  clearDisabledReason || `Limpiar selección (${selectedCount})`
+                }
               >
                 Limpiar
               </Button>
@@ -588,7 +712,11 @@ function App() {
                     onClick={() => {
                       const newPag = pag - 1;
                       setPag(newPag);
-                      handleFetchCurrentBucket(filters, limiteInput ? Number(limiteInput) : 50, newPag);
+                      handleFetchCurrentBucket(
+                        filters,
+                        limiteInput ? Number(limiteInput) : 50,
+                        newPag,
+                      );
                     }}
                     className="h-9 px-2 text-sm text-slate-600 disabled:opacity-40 hover:bg-slate-50 rounded-l-md transition-colors"
                   >
@@ -598,11 +726,18 @@ function App() {
                     Pág. {pag}
                   </span>
                   <button
-                    disabled={loading || (metaPag !== null && metaPag.count < metaPag.limite)}
+                    disabled={
+                      loading ||
+                      (metaPag !== null && metaPag.count < metaPag.limite)
+                    }
                     onClick={() => {
                       const newPag = pag + 1;
                       setPag(newPag);
-                      handleFetchCurrentBucket(filters, limiteInput ? Number(limiteInput) : 50, newPag);
+                      handleFetchCurrentBucket(
+                        filters,
+                        limiteInput ? Number(limiteInput) : 50,
+                        newPag,
+                      );
                     }}
                     className="h-9 px-2 text-sm text-slate-600 disabled:opacity-40 hover:bg-slate-50 rounded-r-md transition-colors"
                   >
@@ -629,9 +764,7 @@ function App() {
         value={editModal.value}
         onClose={closeEditModal}
         onSave={saveEditModal}
-        onValueChange={(value) =>
-          setEditModal((prev) => ({ ...prev, value }))
-        }
+        onValueChange={(value) => setEditModal((prev) => ({ ...prev, value }))}
       />
 
       {showDispersionModal && (
@@ -649,7 +782,11 @@ function App() {
               }
               console.groupEnd();
               setShowDispersionModal(false);
-              handleFetchCurrentBucket(filters, limiteInput ? Number(limiteInput) : 50, pag);
+              handleFetchCurrentBucket(
+                filters,
+                limiteInput ? Number(limiteInput) : 50,
+                pag,
+              );
             }}
           />
         </div>
@@ -662,7 +799,11 @@ function App() {
             onSubmit={async (payload) => {
               console.log("Payload de comprobante listo para API:", payload);
               setShowComprobanteModal(false);
-              handleFetchCurrentBucket(filters, limiteInput ? Number(limiteInput) : 50, pag);
+              handleFetchCurrentBucket(
+                filters,
+                limiteInput ? Number(limiteInput) : 50,
+                pag,
+              );
             }}
           />
         </div>
@@ -676,7 +817,11 @@ function App() {
             onSubmit={async (payload) => {
               console.log("Payload de comprobante listo para API:", payload);
               setShowComprobanteModal2(false);
-              handleFetchCurrentBucket(filters, limiteInput ? Number(limiteInput) : 50, pag);
+              handleFetchCurrentBucket(
+                filters,
+                limiteInput ? Number(limiteInput) : 50,
+                pag,
+              );
             }}
           />
         </div>

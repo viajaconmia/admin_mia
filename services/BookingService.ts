@@ -58,6 +58,12 @@ export class BookingsService extends ApiService {
       path: this.formatPath(this.ENDPOINTS.PUT.CANCELAR),
       body: { id_booking, confirm },
     });
+
+  public obtenerDetallesPagoProveedor = async (id_solicitud_proveedor: string) =>
+    this.post<any>({
+      path: "/mia/pago_proveedor/detalles",
+      body: { id_solicitud_proveedor },
+    });
 }
 
 export type Item = {
@@ -112,6 +118,7 @@ export type BookingAll = {
   horario_llegada: string | null;
   origen: string | null;
   destino: string | null;
+  id_solicitud_proveedor: string | null;
 
   proveedor: string;
   agente: string;

@@ -38,6 +38,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { Dispatch, useEffect, useState } from "react";
+import { Loader } from "@/components/atom/Loader";
 import CrearReserva from "./CrearReserva";
 import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
@@ -62,6 +63,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     agente: { id_agente: string; nombre: string };
   } | null>(null);
   const [selectedEdit, setSelectedEdit] = useState<string>(null);
+  const [comprobanteIdSolicitud, setComprobanteIdSolicitud] = useState<string | null>(null);
   const { Can } = usePermiso();
   const { showNotification } = useAlert();
   const { csv, loadingFile, setLoadingFile } = useFile();
@@ -171,6 +173,22 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
       <>{value ? "$" + formatNumberWithCommas(value) : ""}</>
     ),
     estado: ({ value }) => <span title={value}>{getStatusBadge(value)}</span>,
+    estado_pago: ({ value }: { value: { valor: string; id_solicitud_proveedor: string | null } }) => {
+      const PAGADOS_CON_COMPROBANTE = ["PAGADO TARJETA", "PAGADO TRANSFERENCIA", "PAGADO LINK"];
+      return (
+        <div className="flex flex-col gap-1 items-start">
+          <span className="text-xs">{value.valor || "—"}</span>
+          {PAGADOS_CON_COMPROBANTE.includes(value.valor) && value.id_solicitud_proveedor && (
+            <button
+              className="text-[11px] text-blue-600 underline hover:text-blue-800 whitespace-nowrap"
+              onClick={() => setComprobanteIdSolicitud(value.id_solicitud_proveedor)}
+            >
+              Ver comprobante
+            </button>
+          )}
+        </div>
+      );
+    },
     precio_de_venta: ({ value }) => (
       <>{value ? "$" + formatNumberWithCommas(value) : ""}</>
     ),
@@ -314,7 +332,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     reservante: reserva.reservante,
     etapa_reservacion: reserva.etapa_reservacion,
     estado: reserva.estado,
-    estado_pago: reserva.estado_pago,
+    estado_pago: { valor: reserva.estado_pago, id_solicitud_proveedor: reserva.id_solicitud_proveedor },
     estado_facturacion: reserva.estado_facturacion,
     intermediario: reserva.intermediario,
     ...(hasPermission(PERMISOS.COLUMNAS.BOOKINGS.USUARIO_CREADOR)
@@ -535,6 +553,14 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
           />
         </Modal>
       )}
+      {comprobanteIdSolicitud && (
+        <Modal
+          onClose={() => setComprobanteIdSolicitud(null)}
+          title="Comprobante de pago"
+        >
+          <ComprobanteDetalles id_solicitud_proveedor={comprobanteIdSolicitud} />
+        </Modal>
+      )}
       {creacion && (
         <Modal
           onClose={() => {
@@ -582,5 +608,79 @@ const defaultFiltersSolicitudes: TypeFilters = {
   statusPagoProveedor: null,
   filterType: "Transaccion",
 };
+
+type PagoProveedor = {
+  id_pago_proveedores: number;
+  monto_pagado: string;
+  fecha_pago: string | null;
+  url_pdf: string | null;
+};
+
+function ComprobanteDetalles({ id_solicitud_proveedor }: { id_solicitud_proveedor: string }) {
+  const [loading, setLoading] = useState(true);
+  const [pagos, setPagos] = useState<PagoProveedor[]>([]);
+
+  useEffect(() => {
+    new BookingsService()
+      .obtenerDetallesPagoProveedor(id_solicitud_proveedor)
+      .then((res) => {
+        console.log("Detalles pago proveedor:", res);
+        setPagos(res?.data?.pagos ?? []);
+      })
+      .finally(() => setLoading(false));
+  }, [id_solicitud_proveedor]);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-32 w-96">
+        <Loader />
+      </div>
+    );
+  }
+
+  if (pagos.length === 0) {
+    return (
+      <div className="flex justify-center items-center min-h-32 w-96 text-sm text-gray-400">
+        No hay pagos registrados.
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4 p-4 w-96 max-h-[70vh] overflow-y-auto">
+      {pagos.map((pago) => (
+        <div key={pago.id_pago_proveedores} className="border border-gray-200 rounded-lg p-3 flex flex-col gap-2">
+          <div className="flex justify-between text-xs text-gray-600">
+            <span className="font-semibold">$ {parseFloat(pago.monto_pagado).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+            {pago.fecha_pago && (
+              <span>{new Date(pago.fecha_pago).toLocaleDateString("es-MX")}</span>
+            )}
+          </div>
+
+          {pago.url_pdf ? (
+            pago.url_pdf.match(/\.(jpg|jpeg|png|webp)$/i) ? (
+              <img
+                src={pago.url_pdf}
+                alt="Comprobante"
+                className="w-full rounded border border-gray-100 object-contain max-h-64"
+              />
+            ) : (
+              <a
+                href={pago.url_pdf}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-[#0b5fa5] rounded hover:bg-[#0a4f8a] transition-colors"
+              >
+                Ver comprobante
+              </a>
+            )
+          ) : (
+            <span className="text-xs text-gray-400 italic">Sin comprobante aún.</span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default PageReservas;
