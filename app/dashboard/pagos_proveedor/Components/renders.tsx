@@ -12,6 +12,7 @@ import {
 
 import MetodoPagoModal from "@/app/dashboard/pagos_proveedor/Components/PaymentMethodSelector";
 import { ReasignarPagoModal } from "./ReasignarPagoModal";
+import { GenerarSaldoAFavorModal } from "./GenerarSaldoAFavorModal";
 import { EditableField } from "./EditModal";
 import { SolicitudProveedor } from "@/types";
 import { formatDate } from "@/helpers/formater";
@@ -731,6 +732,7 @@ markup: ({ value }) => {
   const cancelDisabled = pagado || isCancelada || categoria === "pagada";
 
   const [reasignarOpen, setReasignarOpen] = React.useState(false);
+  const [saldoAFavorOpen, setSaldoAFavorOpen] = React.useState(false);
 
   const montoSolicitado = Number(
     raw?.solicitud_proveedor?.monto_solicitado ?? raw?.monto_solicitado ?? 0,
@@ -1020,6 +1022,24 @@ markup: ({ value }) => {
             idSolicitudProveedor={idSolProv}
             onSuccess={() => {
               setReasignarOpen(false);
+              handleFetchSolicitudesPago();
+            }}
+          />
+
+          <button
+            type="button"
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300 transition-colors shadow-sm"
+            onClick={() => setSaldoAFavorOpen(true)}
+            title="Generar saldo a favor para el proveedor"
+          >
+            <span>Generar saldo a favor</span>
+          </button>
+          <GenerarSaldoAFavorModal
+            open={saldoAFavorOpen}
+            onClose={() => setSaldoAFavorOpen(false)}
+            idSolicitudProveedor={idSolProv}
+            onSuccess={() => {
+              setSaldoAFavorOpen(false);
               handleFetchSolicitudesPago();
             }}
           />
