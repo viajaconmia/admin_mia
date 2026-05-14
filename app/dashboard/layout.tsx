@@ -135,6 +135,11 @@ const links: NavGroup[] = [
             icon: CreditCard,
           },
           {
+            title: "Comprobante pago",
+            href: "/dashboard/pagos_proveedor_l",
+            icon: CreditCard,
+          },
+          {
             title: "Saldos Proveedor",
             href: "/dashboard/saldo_a_favor_proveedor",
             icon: Wallet,
