@@ -139,11 +139,9 @@ function useSolicitudes(tab: Tab) {
         await fetchGetSolicitudesFiltradas(
           (json) => {
             const rawList: any[] =
-              json?.data?.spei ??
-              json?.data?.dispersion ??
-              json?.data?.pagada ??
-              json?.data?.todos ??
-              (Array.isArray(json?.data) ? json.data : []);
+              tab === "dispersion"
+                ? (json?.data?.spei ?? [])
+                : (json?.data?.pagada ?? []);
             setRows(rawList.map(mapRaw));
           },
           { estado_solicitud: estado },
