@@ -70,6 +70,7 @@ export interface TypeFilters {
   id_agente?: string | null;
   id_cliente?: string | null;
   statusPagoProveedor?: null | string;
+  estado_facturacion?: string | null;
   markup_start?: null | number;
   markup_end?: null | number;
   telefono?: number | null;

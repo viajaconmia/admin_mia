@@ -310,6 +310,31 @@ const FiltersModal: React.FC<{
                 />
               )}
 
+              {"estado_facturacion" in filters && (
+                <Dropdown
+                  label="Estado de facturación"
+                  value={
+                    filters.estado_facturacion === "COMPLETO"
+                      ? "Facturado"
+                      : filters.estado_facturacion === "PENDIENTE"
+                      ? "Pendiente"
+                      : ""
+                  }
+                  onChange={(value) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      estado_facturacion:
+                        value === "Facturado"
+                          ? "COMPLETO"
+                          : value === "Pendiente"
+                          ? "PENDIENTE"
+                          : null,
+                    }))
+                  }
+                  options={["Pendiente", "Facturado"]}
+                />
+              )}
+
               {"link_pago" in filters && (
                 <TextInput
                   label="Link de Pago"
@@ -1064,7 +1089,11 @@ const FiltersModal: React.FC<{
                 key !== "comprobante" &&
                 `${key}: `}
 
-              {typeof value === "string"
+              {key === "estado_facturacion" && value === "COMPLETO"
+                ? "Facturado"
+                : key === "estado_facturacion" && value === "PENDIENTE"
+                ? "Pendiente"
+                : typeof value === "string"
                 ? value.toLowerCase()
                 : typeof value === "boolean"
                 ? value

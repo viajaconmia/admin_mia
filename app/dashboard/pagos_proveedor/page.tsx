@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Filters from "@/components/Filters";
 import { VistaCarpeta, CarpetasTabs } from "./Components/CarpetasTabs";
 import { extractFacturas, hasPagosAsociados } from "@/helpers/cfdiHelpers";
@@ -9,7 +9,7 @@ import { createSolicitudesRenderers } from "./Components/renders";
 import ModalDetalle from "@/app/dashboard/conciliacion/detalles";
 import { calcularNoches, formatRoom } from "@/helpers/utils";
 import { Table5 } from "@/components/Table5";
-import { SolicitudProveedor } from "@/types";
+import { SolicitudProveedor, TypeFilters } from "@/types";
 import { Loader } from "@/components/atom/Loader";
 import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
@@ -45,7 +45,9 @@ function App() {
   hasAccess(PERMISOS.VISTAS.PROVEEDOR_PAGOS);
 
   const {
-    solicitudesPago,
+    counts,
+    bucketData,
+    fetchBucket,
     loading,
     filters,
     setFilters,
@@ -54,7 +56,6 @@ function App() {
     pag,
     setPag,
     metaPag,
-    handleFetchSolicitudesPago,
   } = useSolicitudesPago();
 
   const [showDispersionModal, setShowDispersionModal] = useState(false);
@@ -66,11 +67,30 @@ function App() {
   const [categoria, setCategoria] = useState<VistaCarpeta>("all");
   const [solicitudDetalle, setSolicitudDetalle] = useState<string | null>(null);
 
+  // Carga perezosa: al cambiar de tab o de filtros trae solo ese bucket
+  useEffect(() => {
+    fetchBucket(categoria, filters, Number(limiteInput) || 50, pag);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoria, filters]);
+
+  // Callback compatible con usePatchSolicitud y los modales
+  const handleFetchCurrentBucket = useCallback(
+    (filtersArg?: TypeFilters, limiteArg?: number | null, pagArg?: number) => {
+      fetchBucket(
+        categoria,
+        filtersArg ?? filters,
+        limiteArg !== undefined ? limiteArg : Number(limiteInput) || 50,
+        pagArg ?? pag,
+      );
+    },
+    [categoria, filters, limiteInput, pag, fetchBucket],
+  );
+
   // ------- Lista base por carpeta -------
   const baseList = useMemo<SolicitudProveedor[]>(() => {
-    if (categoria === "all") return solicitudesPago.todos;
-    return (solicitudesPago as any)[categoria] ?? [];
-  }, [solicitudesPago, categoria]);
+    if (categoria === "all") return (bucketData as any).todos ?? [];
+    return (bucketData as any)[categoria] ?? [];
+  }, [bucketData, categoria]);
 
   // Debounce búsqueda
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -203,7 +223,7 @@ function App() {
     conciliarSolicitud,
     cancelarDispersion,
     marcarNotificadoPagado,
-  } = usePatchSolicitud(categoria, clearSelection, handleFetchSolicitudesPago);
+  } = usePatchSolicitud(categoria, clearSelection, handleFetchCurrentBucket);
 
   const selectedCount = solicitud.length;
   const canSelect = categoria !== "pagada" && categoria !== "canceladas";
@@ -347,7 +367,7 @@ function App() {
         openEditModal,
         patchSolicitudProveedor,
         patchSolicitudProveedorFields,
-        handleFetchSolicitudesPago,
+        handleFetchSolicitudesPago: handleFetchCurrentBucket,
         marcarSolicitudPagada,
         cancelSolicitud,
         conciliarSolicitud,
@@ -366,7 +386,7 @@ function App() {
       openEditModal,
       patchSolicitudProveedor,
       patchSolicitudProveedorFields,
-      handleFetchSolicitudesPago,
+      handleFetchCurrentBucket,
       marcarSolicitudPagada,
       cancelSolicitud,
       conciliarSolicitud,
@@ -379,17 +399,17 @@ function App() {
   const tabs = useMemo(
     () =>
       [
-        { key: "all", label: "Todos", count: solicitudesPago.todos.length },
-        { key: "spei", label: "SPEI", count: solicitudesPago.spei.length },
-        { key: "pago_tdc", label: "Pago TDC", count: solicitudesPago.pago_tdc.length },
-        { key: "pago_link", label: "Pago Link", count: solicitudesPago.pago_link.length },
-        { key: "pendiente_credito", label: "Pendiente credito", count: solicitudesPago.pendiente_credito.length },
-        { key: "ap_credito", label: "Ap Credito", count: solicitudesPago.ap_credito.length },
-        { key: "pagada", label: "Pagada", count: solicitudesPago.pagada.length },
-        { key: "notificados", label: "Notificados", count: solicitudesPago.notificados.length },
-        { key: "canceladas", label: "Canceladas", count: solicitudesPago.canceladas.length },
+        { key: "all",               label: "Todos",             count: counts.todos             ?? 0 },
+        { key: "spei",              label: "SPEI",              count: counts.spei              ?? 0 },
+        { key: "pago_tdc",          label: "Pago TDC",          count: counts.pago_tdc          ?? 0 },
+        { key: "pago_link",         label: "Pago Link",         count: counts.pago_link         ?? 0 },
+        { key: "pendiente_credito", label: "Pendiente credito", count: counts.pendiente_credito ?? 0 },
+        { key: "ap_credito",        label: "Ap Credito",        count: counts.ap_credito        ?? 0 },
+        { key: "pagada",            label: "Pagada",            count: counts.pagada            ?? 0 },
+        { key: "notificados",       label: "Notificados",       count: counts.notificados       ?? 0 },
+        { key: "canceladas",        label: "Canceladas",        count: counts.canceladas        ?? 0 },
       ] as Array<{ key: VistaCarpeta; label: string; count: number }>,
-    [solicitudesPago],
+    [counts],
   );
 
   return (
@@ -555,7 +575,7 @@ function App() {
                   onClick={() => {
                     const n = limiteInput ? Number(limiteInput) : 50;
                     setPag(1);
-                    handleFetchSolicitudesPago(filters, n, 1);
+                    handleFetchCurrentBucket(filters, n, 1);
                   }}
                   className="border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-800"
                 >
@@ -568,7 +588,7 @@ function App() {
                     onClick={() => {
                       const newPag = pag - 1;
                       setPag(newPag);
-                      handleFetchSolicitudesPago(filters, limiteInput ? Number(limiteInput) : 50, newPag);
+                      handleFetchCurrentBucket(filters, limiteInput ? Number(limiteInput) : 50, newPag);
                     }}
                     className="h-9 px-2 text-sm text-slate-600 disabled:opacity-40 hover:bg-slate-50 rounded-l-md transition-colors"
                   >
@@ -582,7 +602,7 @@ function App() {
                     onClick={() => {
                       const newPag = pag + 1;
                       setPag(newPag);
-                      handleFetchSolicitudesPago(filters, limiteInput ? Number(limiteInput) : 50, newPag);
+                      handleFetchCurrentBucket(filters, limiteInput ? Number(limiteInput) : 50, newPag);
                     }}
                     className="h-9 px-2 text-sm text-slate-600 disabled:opacity-40 hover:bg-slate-50 rounded-r-md transition-colors"
                   >
@@ -629,7 +649,7 @@ function App() {
               }
               console.groupEnd();
               setShowDispersionModal(false);
-              handleFetchSolicitudesPago(filters, limiteInput ? Number(limiteInput) : 50, pag);
+              handleFetchCurrentBucket(filters, limiteInput ? Number(limiteInput) : 50, pag);
             }}
           />
         </div>
@@ -642,7 +662,7 @@ function App() {
             onSubmit={async (payload) => {
               console.log("Payload de comprobante listo para API:", payload);
               setShowComprobanteModal(false);
-              handleFetchSolicitudesPago(filters, limiteInput ? Number(limiteInput) : 50, pag);
+              handleFetchCurrentBucket(filters, limiteInput ? Number(limiteInput) : 50, pag);
             }}
           />
         </div>
@@ -656,7 +676,7 @@ function App() {
             onSubmit={async (payload) => {
               console.log("Payload de comprobante listo para API:", payload);
               setShowComprobanteModal2(false);
-              handleFetchSolicitudesPago(filters, limiteInput ? Number(limiteInput) : 50, pag);
+              handleFetchCurrentBucket(filters, limiteInput ? Number(limiteInput) : 50, pag);
             }}
           />
         </div>
