@@ -289,6 +289,7 @@ const limpiarFechas = () => {
 
   return (
     <div className="w-full p-4">
+      <h1 className="text-xl font-bold text-slate-900 tracking-tight mb-4">Reporte hospedaje factura</h1>
       <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-4 space-y-3">
         <div className="flex flex-col gap-3">
           <div className="flex flex-col sm:flex-row gap-2 sm:items-end">

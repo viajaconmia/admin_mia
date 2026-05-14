@@ -1571,6 +1571,7 @@ const openBuscarUuidModal = useCallback(() => {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-[1400px] mx-auto px-4 py-4 space-y-4">
+        <h1 className="text-xl font-bold text-slate-900 tracking-tight">Conciliación</h1>
         <div className="bg-white border border-gray-200 rounded-lg p-3">
           <div className="flex flex-col md:flex-row md:items-center gap-3">
             <div className="flex-1">

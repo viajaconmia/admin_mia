@@ -847,6 +847,7 @@ const pendientePorFacturar = items
 
   return (
     <div className="bg-white rounded-lg p-4 w-full shadow-sm">
+      <h1 className="text-xl font-bold text-slate-900 tracking-tight mb-4">Facturación crédito</h1>
       {loading && <div className="mb-2 text-sm text-gray-600">Cargando…</div>}
       {error && <div className="mb-2 text-red-600 text-sm">{error}</div>}
       {balance && (
