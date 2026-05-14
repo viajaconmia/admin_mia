@@ -77,7 +77,7 @@ function App() {
   );
   const [fichaItem, setFichaItem] = useState<Agente | null>(null);
   const [loadingResumen, setLoadingResumen] = useState(false);
-  const { hasAccess } = usePermiso();
+  const { hasAccess, hasPermission } = usePermiso();
 
   hasAccess(PERMISOS.VISTAS.CLIENTES);
 
@@ -97,7 +97,9 @@ function App() {
       estado_verificacion: "",
       estado_credito: Boolean(item.tiene_credito_consolidado),
       credito: item.saldo ? Number(item.saldo) : 0,
-      wallet: item.wallet || "0", // Mantenemos como string para getWalletBadge
+      wallet: hasPermission(PERMISOS.COMPONENTES.BOTON.WALLET_CREDITO)
+        ? item.wallet_finanzas
+        : item.wallet, // Mantenemos como string para getWalletBadge
       categoria: "Administrador",
       notas_internas: item.notas || "",
       vendedor: item.vendedor || "",
@@ -132,7 +134,8 @@ function App() {
     ),
     estado_credito: (props) => getStatusCreditBadge(props.value),
     credito: (props: { value: number }) => getCreditoBadge(props.value),
-    wallet: (props: { value: string }) => getWalletBadge(props.value), // Modificado para aceptar string
+    wallet: (props: { value: string }) =>
+      getWalletBadge(Math.max(Number(props.value), 0).toString()), // Modificado para aceptar string
     categoria: (props: { value: string }) => getRoleBadge(props.value),
     notas_internas: ({ value }: { value: string }) => (
       <p className="max-w-sm truncate">

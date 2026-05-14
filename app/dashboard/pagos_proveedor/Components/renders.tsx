@@ -7,7 +7,7 @@ import {
   Handshake,
   Eye,
   Ban,
-  Download,  
+  Download,
 } from "lucide-react";
 
 import MetodoPagoModal from "@/app/dashboard/pagos_proveedor/Components/PaymentMethodSelector";
@@ -66,21 +66,17 @@ type CreateSolicitudesRenderersParams = {
   pagoTone3: (estado: string | null) => string;
   facturaTone: (estado: string) => string;
 
-  openEditModal: (
-    raw: any,
-    field: EditableField,
-    currentValue: any
-  ) => void;
+  openEditModal: (raw: any, field: EditableField, currentValue: any) => void;
 
   patchSolicitudProveedor: (
     id_solicitud_proveedor: string,
     field: string,
-    value: any
+    value: any,
   ) => Promise<boolean>;
 
   patchSolicitudProveedorFields: (
     id_solicitud_proveedor: string,
-    fields: Record<string, any>
+    fields: Record<string, any>,
   ) => Promise<boolean>;
 
   handleFetchSolicitudesPago: () => void;
@@ -89,7 +85,7 @@ type CreateSolicitudesRenderersParams = {
   conciliarSolicitud: (raw: any) => Promise<boolean>;
   marcarNotificadoPagado: (
     id_solicitud_proveedor: string,
-    pagado: 0 | 1
+    pagado: 0 | 1,
   ) => Promise<boolean>;
   getEstadoSolicitudPagado: (raw: any, categoria: string) => string | null;
   getConciliacionInfo: (raw: any) => {
@@ -254,10 +250,11 @@ export function createSolicitudesRenderers({
 
       const forma = getFormaPago(raw);
       const estadoSolicitud = normUpper(
-        raw?.solicitud_proveedor?.estado_solicitud ?? ""
+        raw?.solicitud_proveedor?.estado_solicitud ?? "",
       );
       const isCancelada = estadoSolicitud.includes("CANCEL");
-      const isDispersionRow = estadoSolicitud === "DISPERSION" || estadoSolicitud === "DISPERSADO";
+      const isDispersionRow =
+        estadoSolicitud === "DISPERSION" || estadoSolicitud === "DISPERSADO";
       const estatusPagosSel = String(raw?.estatus_pagos ?? "").toLowerCase();
 
       if (categoria === "pagada") {
@@ -265,12 +262,19 @@ export function createSolicitudesRenderers({
       }
 
       if (estatusPagosSel === "pagado") {
-        return <span className="text-gray-300" title="Ya pagado">—</span>;
+        return (
+          <span className="text-gray-300" title="Ya pagado">
+            —
+          </span>
+        );
       }
 
       if (forma !== "transfer") {
         return (
-          <span className="text-gray-300" title="Solo Transferencia se puede seleccionar">
+          <span
+            className="text-gray-300"
+            title="Solo Transferencia se puede seleccionar"
+          >
             —
           </span>
         );
@@ -293,7 +297,7 @@ export function createSolicitudesRenderers({
         (raw as any).id_solicitud ??
           (raw as any).id ??
           raw.solicitud_proveedor?.id_solicitud_proveedor ??
-          index
+          index,
       );
 
       const isSelected = !!selectedSolicitudesMap[key];
@@ -326,7 +330,7 @@ export function createSolicitudesRenderers({
               const rawId = (raw as any).id_solicitud ?? (raw as any).id;
               if (e.target.checked) return [...prev, raw];
               return prev.filter(
-                (s) => ((s as any).id_solicitud ?? (s as any).id) !== rawId
+                (s) => ((s as any).id_solicitud ?? (s as any).id) !== rawId,
               );
             });
 
@@ -351,7 +355,7 @@ export function createSolicitudesRenderers({
                 };
 
                 const exists = prev.some(
-                  (d) => d.id_solicitud === nuevo.id_solicitud
+                  (d) => d.id_solicitud === nuevo.id_solicitud,
                 );
 
                 return exists ? prev : [...prev, nuevo];
@@ -485,7 +489,9 @@ export function createSolicitudesRenderers({
               <span
                 key={`forma-pago-${idx}`}
                 className="text-xs break-words whitespace-normal"
-                title={value ? formatSatValue(value, CFDI_FORMA_PAGO_LABELS) : "—"}
+                title={
+                  value ? formatSatValue(value, CFDI_FORMA_PAGO_LABELS) : "—"
+                }
               >
                 {value ? formatSatValue(value, CFDI_FORMA_PAGO_LABELS) : "—"}
               </span>
@@ -509,7 +515,9 @@ export function createSolicitudesRenderers({
               <span
                 key={`metodo-pago-${idx}`}
                 className="text-xs break-words whitespace-normal"
-                title={value ? formatSatValue(value, CFDI_METODO_PAGO_LABELS) : "—"}
+                title={
+                  value ? formatSatValue(value, CFDI_METODO_PAGO_LABELS) : "—"
+                }
               >
                 {value ? formatSatValue(value, CFDI_METODO_PAGO_LABELS) : "—"}
               </span>
@@ -528,7 +536,9 @@ export function createSolicitudesRenderers({
       return (
         <div className="flex flex-col gap-1">
           {facturas.map((f, idx) => {
-            const value = String(f?.moneda ?? "").trim().toUpperCase();
+            const value = String(f?.moneda ?? "")
+              .trim()
+              .toUpperCase();
             return (
               <span
                 key={`moneda-${idx}`}
@@ -566,7 +576,10 @@ export function createSolicitudesRenderers({
             const extension = pdfUrl ? "pdf" : xmlUrl ? "xml" : "file";
 
             return (
-              <div key={`${uuid}-${idx}`} className="flex items-center gap-2 flex-wrap">
+              <div
+                key={`${uuid}-${idx}`}
+                className="flex items-center gap-2 flex-wrap"
+              >
                 <span className="font-mono text-[11px] text-slate-600">
                   {String(uuid).slice(0, 8)}...
                 </span>
@@ -661,19 +674,18 @@ export function createSolicitudesRenderers({
         <span className="text-gray-400">—</span>
       ),
 
-      fecha_pagado: ({ value }) =>
+    fecha_pagado: ({ value }) =>
       value ? (
         <span title={value}>{formatDate(value)}</span>
       ) : (
         <span className="text-gray-400">—</span>
       ),
-      fecha_de_pago: ({ value }) =>
+    fecha_de_pago: ({ value }) =>
       value ? (
         <span title={value}>{formatDate(value)}</span>
       ) : (
         <span className="text-gray-400">—</span>
       ),
-
 
     estado_factura_proveedor: ({ value }) => (
       <Pill
@@ -685,7 +697,8 @@ export function createSolicitudesRenderers({
         tone={facturaTone((value || "").toLowerCase()) as any}
       />
     ),
-
+    costo_proveedor: ({ value, item }) => <p>${value}</p>,
+    precio_de_venta: ({ value, item }) => <p>${value}</p>,
     monto_por_facturar: ({ value }) => {
       const n = Number(value || 0);
       return (
@@ -700,7 +713,7 @@ export function createSolicitudesRenderers({
         </span>
       );
     },
-markup: ({ value }) => {
+    markup: ({ value }) => {
       const n = Number(value || 0);
       return (
         <span
@@ -710,300 +723,328 @@ markup: ({ value }) => {
               : "text-amber-700 font-semibold"
           }
         >
-          ${n.toFixed(2)}
+          {n.toFixed(2)}%
         </span>
       );
     },
     acciones: ({ item }) => {
-  const row = item as any;
-  const raw = row?.item ?? row;
+      const row = item as any;
+      const raw = row?.item ?? row;
 
-  const idSolProv = getIdSolProv(raw);
-  const forma = getFormaPago(raw);
-  const pagado = isPagado(raw);
+      const idSolProv = getIdSolProv(raw);
+      const forma = getFormaPago(raw);
+      const pagado = isPagado(raw);
 
-  const estadoSolicitud = normUpper(
-    raw?.solicitud_proveedor?.estado_solicitud ??
-      row?.estado_solicitud ??
-      ""
-  );
+      const estadoSolicitud = normUpper(
+        raw?.solicitud_proveedor?.estado_solicitud ??
+          row?.estado_solicitud ??
+          "",
+      );
 
-  const isCancelada = estadoSolicitud.includes("CANCEL");
-  const cancelDisabled = pagado || isCancelada || categoria === "pagada";
+      const isCancelada = estadoSolicitud.includes("CANCEL");
+      const cancelDisabled = pagado || isCancelada || categoria === "pagada";
 
   const [reasignarOpen, setReasignarOpen] = React.useState(false);
   const [saldoAFavorOpen, setSaldoAFavorOpen] = React.useState(false);
 
-  const montoSolicitado = Number(
-    raw?.solicitud_proveedor?.monto_solicitado ?? raw?.monto_solicitado ?? 0,
-  );
-  const saldoNum = getSaldo(raw);
-  const estatusPagos = String(raw?.estatus_pagos ?? raw?.solicitud_proveedor?.estatus_pagos ?? "").toLowerCase();
-  const tieneReasignar =
-    categoria === "canceladas" &&
-    (saldoNum !== montoSolicitado || estatusPagos === "pagado");
+      const montoSolicitado = Number(
+        raw?.solicitud_proveedor?.monto_solicitado ??
+          raw?.monto_solicitado ??
+          0,
+      );
+      const saldoNum = getSaldo(raw);
+      const estatusPagos = String(
+        raw?.estatus_pagos ?? raw?.solicitud_proveedor?.estatus_pagos ?? "",
+      ).toLowerCase();
+      const tieneReasignar =
+        categoria === "canceladas" &&
+        (saldoNum !== montoSolicitado || estatusPagos === "pagado");
 
-  if (estadoSolicitud.includes("CUPON") && categoria !== "ap_credito") {
-    return (
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition-colors shadow-sm"
-          onClick={() => onOpenDetalle(idSolProv)}
-          title="Ver detalle"
-        >
-          <Eye className="w-3.5 h-3.5" />
-          <span>Detalle</span>
-        </button>
-      </div>
-    );
-  }
-
-  const costoActual = Number((raw as any)?.costo_total ?? 0) || 0;
-
-  return (
-    <div className="flex items-center gap-2">
-      <button
-        type="button"
-        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition-colors shadow-sm"
-        onClick={() => onOpenDetalle(idSolProv)}
-        title="Ver detalle"
-      >
-        <Eye className="w-3.5 h-3.5" />
-        <span>Detalle</span>
-      </button>
-
-      {categoria !== "canceladas" && (
-        <>
-          {(categoria === "ap_credito" || forma === "card") && (
-            <MetodoPagoModal
-              idSolProv={idSolProv}
-              currentMethod={forma}
-              currentCardId={raw?.solicitud_proveedor?.id_tarjeta_solicitada ?? null}
-              cardOnly={categoria !== "ap_credito"}
-              onSetMethod={async (next) => {
-                const ok = await patchSolicitudProveedor(
-                  idSolProv,
-                  "forma_pago_solicitada",
-                  next
-                );
-                if (!ok) return false;
-
-                if (categoria === "ap_credito") {
-                  const estadoSol =
-                    next === "transfer" ? "TRANSFERENCIA_SOLICITADA" : "CARTA_ENVIADA";
-                  await patchSolicitudProveedor(idSolProv, "estado_solicitud", estadoSol);
-                }
-
-                handleFetchSolicitudesPago();
-                return true;
-              }}
-              onSetCard={async ({ id_tarjeta_solicitada, id_titular }) => {
-                const ok1 = await patchSolicitudProveedor(
-                  idSolProv,
-                  "id_tarjeta_solicitada",
-                  id_tarjeta_solicitada
-                );
-                if (!ok1) return false;
-
-                if (id_titular) {
-                  await patchSolicitudProveedor(idSolProv, "id_titular", id_titular);
-                }
-
-                handleFetchSolicitudesPago();
-                return true;
-              }}
-            />
-          )}
-
-          <button
-            type="button"
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors shadow-sm"
-            onClick={() => openEditModal(raw, "costo_proveedor", costoActual)}
-            title="Editar costo proveedor"
-          >
-            <Maximize2 className="w-3.5 h-3.5" />
-            <span>Costo</span>
-          </button>
-
-          {categoria === "notificados" && estadoSolicitud === "DISPERSION" && estatusPagos !== "pagado" ? (
-            <select
-              className="px-2.5 py-1.5 rounded-md text-xs font-medium border border-sky-200 bg-sky-50 text-sky-800 shadow-sm outline-none focus:ring-2 focus:ring-sky-300"
-              defaultValue=""
-              onChange={async (e) => {
-                const value = e.target.value;
-                if (!value) return;
-
-                const pagadoValue = value === "1" ? 1 : 0;
-
-                const okConfirm = window.confirm(
-                  `¿Seguro que deseas actualizar la solicitud ${idSolProv}?\n\n` +
-                    `Se enviará:\n` +
-                    `- estado_solicitud: CANCELADA\n` +
-                    `- pagado: ${pagadoValue}`
-                );
-
-                if (!okConfirm) {
-                  e.target.value = "";
-                  return;
-                }
-
-                const ok = await marcarNotificadoPagado(
-                  idSolProv,
-                  pagadoValue as 0 | 1
-                );
-
-                if (!ok) e.target.value = "";
-              }}
-            >
-              <option value="">Pagado / No pagado</option>
-              <option value="1">Pagado</option>
-              <option value="0">No pagado</option>
-            </select>
-          ) : (
+      if (estadoSolicitud.includes("CUPON") && categoria !== "ap_credito") {
+        return (
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              className={[
-                "inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors shadow-sm",
-                cancelDisabled
-                  ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
-                  : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:border-rose-300",
-              ].join(" ")}
-              disabled={cancelDisabled}
-              onClick={async () => {
-                const okConfirm = window.confirm(
-                  `¿Seguro que deseas CANCELAR la solicitud ${idSolProv}?`
-                );
-                if (!okConfirm) return;
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition-colors shadow-sm"
+              onClick={() => onOpenDetalle(idSolProv)}
+              title="Ver detalle"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span>Detalle</span>
+            </button>
+          </div>
+        );
+      }
 
-                await cancelSolicitud(idSolProv);
+      const costoActual = Number((raw as any)?.costo_total ?? 0) || 0;
+
+      return (
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-300 transition-colors shadow-sm"
+            onClick={() => onOpenDetalle(idSolProv)}
+            title="Ver detalle"
+          >
+            <Eye className="w-3.5 h-3.5" />
+            <span>Detalle</span>
+          </button>
+
+          {categoria !== "canceladas" && (
+            <>
+              {(categoria === "ap_credito" || forma === "card") && (
+                <MetodoPagoModal
+                  idSolProv={idSolProv}
+                  currentMethod={forma}
+                  currentCardId={
+                    raw?.solicitud_proveedor?.id_tarjeta_solicitada ?? null
+                  }
+                  cardOnly={categoria !== "ap_credito"}
+                  onSetMethod={async (next) => {
+                    const ok = await patchSolicitudProveedor(
+                      idSolProv,
+                      "forma_pago_solicitada",
+                      next,
+                    );
+                    if (!ok) return false;
+
+                    if (categoria === "ap_credito") {
+                      const estadoSol =
+                        next === "transfer"
+                          ? "TRANSFERENCIA_SOLICITADA"
+                          : "CARTA_ENVIADA";
+                      await patchSolicitudProveedor(
+                        idSolProv,
+                        "estado_solicitud",
+                        estadoSol,
+                      );
+                    }
+
+                    handleFetchSolicitudesPago();
+                    return true;
+                  }}
+                  onSetCard={async ({ id_tarjeta_solicitada, id_titular }) => {
+                    const ok1 = await patchSolicitudProveedor(
+                      idSolProv,
+                      "id_tarjeta_solicitada",
+                      id_tarjeta_solicitada,
+                    );
+                    if (!ok1) return false;
+
+                    if (id_titular) {
+                      await patchSolicitudProveedor(
+                        idSolProv,
+                        "id_titular",
+                        id_titular,
+                      );
+                    }
+
+                    handleFetchSolicitudesPago();
+                    return true;
+                  }}
+                />
+              )}
+
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors shadow-sm"
+                onClick={() =>
+                  openEditModal(raw, "costo_proveedor", costoActual)
+                }
+                title="Editar costo proveedor"
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+                <span>Costo</span>
+              </button>
+
+              {categoria === "notificados" &&
+              estadoSolicitud === "DISPERSION" &&
+              estatusPagos !== "pagado" ? (
+                <select
+                  className="px-2.5 py-1.5 rounded-md text-xs font-medium border border-sky-200 bg-sky-50 text-sky-800 shadow-sm outline-none focus:ring-2 focus:ring-sky-300"
+                  defaultValue=""
+                  onChange={async (e) => {
+                    const value = e.target.value;
+                    if (!value) return;
+
+                    const pagadoValue = value === "1" ? 1 : 0;
+
+                    const okConfirm = window.confirm(
+                      `¿Seguro que deseas actualizar la solicitud ${idSolProv}?\n\n` +
+                        `Se enviará:\n` +
+                        `- estado_solicitud: CANCELADA\n` +
+                        `- pagado: ${pagadoValue}`,
+                    );
+
+                    if (!okConfirm) {
+                      e.target.value = "";
+                      return;
+                    }
+
+                    const ok = await marcarNotificadoPagado(
+                      idSolProv,
+                      pagadoValue as 0 | 1,
+                    );
+
+                    if (!ok) e.target.value = "";
+                  }}
+                >
+                  <option value="">Pagado / No pagado</option>
+                  <option value="1">Pagado</option>
+                  <option value="0">No pagado</option>
+                </select>
+              ) : (
+                <button
+                  type="button"
+                  className={[
+                    "inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors shadow-sm",
+                    cancelDisabled
+                      ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+                      : "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:border-rose-300",
+                  ].join(" ")}
+                  disabled={cancelDisabled}
+                  onClick={async () => {
+                    const okConfirm = window.confirm(
+                      `¿Seguro que deseas CANCELAR la solicitud ${idSolProv}?`,
+                    );
+                    if (!okConfirm) return;
+
+                    await cancelSolicitud(idSolProv);
+                  }}
+                >
+                  <Ban className="w-3.5 h-3.5" />
+                  <span>Cancelar</span>
+                </button>
+              )}
+
+              {forma !== "transfer" &&
+                categoria !== "ap_credito" &&
+                categoria !== "notificados" && (
+                  <button
+                    type="button"
+                    className={[
+                      "inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors shadow-sm",
+                      pagado
+                        ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+                        : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300",
+                    ].join(" ")}
+                    disabled={pagado}
+                    onClick={async () => {
+                      if (pagado) return;
+
+                      const estadoSolicitudPagado = getEstadoSolicitudPagado(
+                        raw,
+                        categoria,
+                      );
+
+                      const ok = window.confirm(
+                        `¿Marcar como PAGADO la solicitud ${idSolProv}?\n\n` +
+                          `Se enviará:\n` +
+                          `- estatus_pagos: pagado\n` +
+                          `- estado_solicitud: ${estadoSolicitudPagado ?? "N/D"}`,
+                      );
+                      if (!ok) return;
+
+                      await marcarSolicitudPagada(raw);
+                    }}
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Pagado</span>
+                  </button>
+                )}
+
+              {(() => {
+                const consolidado = Number(
+                  (raw as any)?.consolidado ??
+                    (raw as any)?.estatus_conciliado ??
+                    (raw as any)?.conciliado ??
+                    0,
+                );
+
+                const {
+                  diferencia,
+                  totalPagado,
+                  totalFacturado,
+                  puedeConciliar,
+                } = getConciliacionInfo(raw);
+
+                if (!pagado) return null;
+
+                const disabled = consolidado === 1 || !puedeConciliar;
+
+                return (
+                  <button
+                    type="button"
+                    className={[
+                      "inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors shadow-sm",
+                      disabled
+                        ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+                        : "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-300",
+                    ].join(" ")}
+                    disabled={disabled}
+                    onClick={async () => {
+                      if (disabled) return;
+                      await conciliarSolicitud(raw);
+                    }}
+                    title={
+                      consolidado === 1
+                        ? "Ya está conciliada"
+                        : !puedeConciliar
+                          ? `No se puede conciliar. Diferencia actual: $${diferencia.toFixed(
+                              2,
+                            )} (pagado: $${totalPagado.toFixed(
+                              2,
+                            )}, facturado: $${totalFacturado.toFixed(2)})`
+                          : "Conciliar (marca consolidado=1)"
+                    }
+                  >
+                    <Handshake className="w-3.5 h-3.5" />
+                    <span>Conciliar</span>
+                  </button>
+                );
+              })()}
+            </>
+          )}
+
+          {/* Cancelar dispersión — solo SPEI en estado DISPERSION */}
+          {categoria === "spei" && estadoSolicitud === "DISPERSION" && (
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:border-rose-300 transition-colors shadow-sm"
+              title="Cancelar dispersión"
+              onClick={async () => {
+                const ok = window.confirm(
+                  `¿Cancelar la dispersión de la solicitud ${idSolProv}?`,
+                );
+                if (!ok) return;
+                await cancelarDispersion(idSolProv);
               }}
             >
-              <Ban className="w-3.5 h-3.5" />
-              <span>Cancelar</span>
+              Cancelar dispersión
             </button>
           )}
 
-          {forma !== "transfer" &&
-            categoria !== "ap_credito" &&
-            categoria !== "notificados" && (
-              <button
-                type="button"
-                className={[
-                  "inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors shadow-sm",
-                  pagado
-                    ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
-                    : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300",
-                ].join(" ")}
-                disabled={pagado}
-                onClick={async () => {
-                  if (pagado) return;
-
-                  const estadoSolicitudPagado =
-                    getEstadoSolicitudPagado(raw, categoria);
-
-                  const ok = window.confirm(
-                    `¿Marcar como PAGADO la solicitud ${idSolProv}?\n\n` +
-                      `Se enviará:\n` +
-                      `- estatus_pagos: pagado\n` +
-                      `- estado_solicitud: ${estadoSolicitudPagado ?? "N/D"}`
-                  );
-                  if (!ok) return;
-
-                  await marcarSolicitudPagada(raw);
-                }}
-              >
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Pagado</span>
-              </button>
-            )}
-
-          {(() => {
-            const consolidado = Number(
-              (raw as any)?.consolidado ??
-                (raw as any)?.estatus_conciliado ??
-                (raw as any)?.conciliado ??
-                0
-            );
-
-            const { diferencia, totalPagado, totalFacturado, puedeConciliar } =
-              getConciliacionInfo(raw);
-
-            if (!pagado) return null;
-
-            const disabled = consolidado === 1 || !puedeConciliar;
-
-            return (
-              <button
-                type="button"
-                className={[
-                  "inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors shadow-sm",
-                  disabled
-                    ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
-                    : "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-300",
-                ].join(" ")}
-                disabled={disabled}
-                onClick={async () => {
-                  if (disabled) return;
-                  await conciliarSolicitud(raw);
-                }}
-                title={
-                  consolidado === 1
-                    ? "Ya está conciliada"
-                    : !puedeConciliar
-                      ? `No se puede conciliar. Diferencia actual: $${diferencia.toFixed(
-                          2
-                        )} (pagado: $${totalPagado.toFixed(
-                          2
-                        )}, facturado: $${totalFacturado.toFixed(2)})`
-                      : "Conciliar (marca consolidado=1)"
-                }
-              >
-                <Handshake className="w-3.5 h-3.5" />
-                <span>Conciliar</span>
-              </button>
-            );
-          })()}
-        </>
-      )}
-
-      {/* Cancelar dispersión — solo SPEI en estado DISPERSION */}
-      {categoria === "spei" && estadoSolicitud === "DISPERSION" && (
-        <button
-          type="button"
-          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 hover:border-rose-300 transition-colors shadow-sm"
-          title="Cancelar dispersión"
-          onClick={async () => {
-            const ok = window.confirm(`¿Cancelar la dispersión de la solicitud ${idSolProv}?`);
-            if (!ok) return;
-            await cancelarDispersion(idSolProv);
-          }}
-        >
-          Cancelar dispersión
-        </button>
-      )}
-
-      {/* Quitar ajuste — canceladas y notificados */}
-      {(categoria === "canceladas" || categoria === "notificados") && (
-        <button
-          type="button"
-          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors shadow-sm"
-          title="Quitar ajuste (is_ajuste = 0 y borra comentario)"
-          onClick={async () => {
-            const ok = window.confirm(
-              `¿Quitar ajuste de la solicitud ${idSolProv}?\n\nEsto limpiará el campo is_ajuste y el comentario del sistema.`
-            );
-            if (!ok) return;
-            const success = await patchSolicitudProveedorFields(idSolProv, {
-              is_ajuste: 0,
-              comentario_ajuste: null,
-            });
-            if (success) handleFetchSolicitudesPago();
-          }}
-        >
-          Quitar ajuste
-        </button>
-      )}
+          {/* Quitar ajuste — canceladas y notificados */}
+          {(categoria === "canceladas" || categoria === "notificados") && (
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors shadow-sm"
+              title="Quitar ajuste (is_ajuste = 0 y borra comentario)"
+              onClick={async () => {
+                const ok = window.confirm(
+                  `¿Quitar ajuste de la solicitud ${idSolProv}?\n\nEsto limpiará el campo is_ajuste y el comentario del sistema.`,
+                );
+                if (!ok) return;
+                const success = await patchSolicitudProveedorFields(idSolProv, {
+                  is_ajuste: 0,
+                  comentario_ajuste: null,
+                });
+                if (success) handleFetchSolicitudesPago();
+              }}
+            >
+              Quitar ajuste
+            </button>
+          )}
 
       {/* Reasignar pago — canceladas con pago parcial o pagado */}
       {tieneReasignar && (

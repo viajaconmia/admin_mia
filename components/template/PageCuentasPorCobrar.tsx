@@ -487,9 +487,20 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       const agenteActualizado = await fetchAgenteById(agente.id_agente);
 
       // Si la respuesta es un array (como en tu ejemplo), necesitas acceder al primer elemento
-      const walletAmount = Array.isArray(agenteActualizado)
-        ? parseFloat(agenteActualizado[0].wallet)
-        : parseFloat(agenteActualizado.wallet);
+      const agente_actual = Array.isArray(agenteActualizado)
+        ? agenteActualizado[0]
+        : agenteActualizado;
+      const finanzas_wallet = hasPermission(
+        PERMISOS.COMPONENTES.BOTON.WALLET_CREDITO,
+      )
+        ? Number(agente_actual.wallet_finanzas)
+        : 0;
+      const wallet_normal = Math.max(Number(agente_actual.wallet), 0); // Asegúrate de que walletAmount no sea negativo
+      const walletAmount = hasPermission(
+        PERMISOS.COMPONENTES.BOTON.WALLET_CREDITO,
+      )
+        ? finanzas_wallet + wallet_normal
+        : wallet_normal;
       setLocalWalletAmount(walletAmount);
       return walletAmount;
     } catch (error) {
@@ -682,7 +693,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       item: saldo,
     }));
 
-
     // Sort the data
     return transformedData.sort((a, b) => {
       const aValue = a[sortConfig.key];
@@ -713,7 +723,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       return 0;
     });
   }, [saldos, filters, searchTerm, sortConfig.key, sortConfig.sort]);
-    console.log(filteredData,"informoacniodnbiornvio😢😢😢😢😢")
+  console.log(filteredData, "informoacniodnbiornvio😢😢😢😢😢");
 
   // 👇 dentro de PageCuentasPorCobrar
   const actualizarSoloComentario = async (
@@ -753,68 +763,71 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       );
     }
   };
-const formatDateMxLong = (dateValue: Date | string | null) => {
-  if (!dateValue) return "N/A";
+  const formatDateMxLong = (dateValue: Date | string | null) => {
+    if (!dateValue) return "N/A";
 
-  const date =
-    dateValue instanceof Date ? dateValue : new Date(dateValue);
+    const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
 
-  if (isNaN(date.getTime())) return "N/A";
+    if (isNaN(date.getTime())) return "N/A";
 
-  return new Intl.DateTimeFormat("es-MX", {
-    timeZone: "America/Mexico_City",
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  }).format(date);
-};
+    return new Intl.DateTimeFormat("es-MX", {
+      timeZone: "America/Mexico_City",
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    }).format(date);
+  };
 
-const formatDateWithoutTZ = (dateValue: Date | string | null) => {
-  if (!dateValue) return "N/A";
+  const formatDateWithoutTZ = (dateValue: Date | string | null) => {
+    if (!dateValue) return "N/A";
 
-  if (typeof dateValue === "string") {
-    const onlyDate = dateValue.split("T")[0].split(" ")[0];
-    const [year, month, day] = onlyDate.split("-").map(Number);
+    if (typeof dateValue === "string") {
+      const onlyDate = dateValue.split("T")[0].split(" ")[0];
+      const [year, month, day] = onlyDate.split("-").map(Number);
 
-    if (!year || !month || !day) return "N/A";
+      if (!year || !month || !day) return "N/A";
 
-    const localDate = new Date(year, month - 1, day);
+      const localDate = new Date(year, month - 1, day);
+
+      return new Intl.DateTimeFormat("es-MX", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+      }).format(localDate);
+    }
 
     return new Intl.DateTimeFormat("es-MX", {
       day: "2-digit",
       month: "long",
       year: "numeric",
-    }).format(localDate);
-  }
-
-  return new Intl.DateTimeFormat("es-MX", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  }).format(new Date(dateValue.getFullYear(), dateValue.getMonth(), dateValue.getDate()));
-};
-
+    }).format(
+      new Date(
+        dateValue.getFullYear(),
+        dateValue.getMonth(),
+        dateValue.getDate(),
+      ),
+    );
+  };
 
   const tableRenderers = {
+    fecha_De_Pago: ({ value }: { value: string | Date | null }) => {
+      if (!value) return <div className="text-gray-400">N/A</div>;
 
-  fecha_De_Pago: ({ value }: { value: string | Date | null }) => {
-  if (!value) return <div className="text-gray-400">N/A</div>;
+      return (
+        <div className="whitespace-nowrap text-sm text-blue-900">
+          {formatDateWithoutTZ(value)}
+        </div>
+      );
+    },
+    creado: ({ value }: { value: Date | null }) => {
+      if (!value) return <div className="text-gray-400">N/A</div>;
 
-  return (
-    <div className="whitespace-nowrap text-sm text-blue-900">
-      {formatDateWithoutTZ(value)}
-    </div>
-  );
-},
-  creado: ({ value }: { value: Date | null }) => {
-    if (!value) return <div className="text-gray-400">N/A</div>;
-
-    return (
-      <div className="whitespace-nowrap text-sm text-blue-900">
-        {formatDateMxLong(value)}
-      </div>
-    );
-  },
+      return (
+        <div className="whitespace-nowrap text-sm text-blue-900">
+          {formatDateMxLong(value)}
+        </div>
+      );
+    },
     monto_pagado: ({ value, item }: { value: string; item: Saldo }) => {
       const isActive = Boolean(item?.activo);
       const formatted = formatNumberWithCommas(parseFloat(value).toFixed(2));
@@ -1218,7 +1231,7 @@ const formatDateWithoutTZ = (dateValue: Date | string | null) => {
       );
       const showDeleteButtons = isActive && !isDifferent;
       const showEditbuttosn = isActive && !isDifferent && !hasLink;
-      const showPagarButton = isActive && hasBalance ;
+      const showPagarButton = isActive && hasBalance;
       const showFacturasButton = isActive && montoPorFacturar > 0; // (ajusta si quieres otras reglas)
       if (item.saldo !== item.monto_pagado) {
         editar = false;
@@ -1718,7 +1731,6 @@ const formatDateWithoutTZ = (dateValue: Date | string | null) => {
                 return getWalletRowClass(row.wallet_credito, row.activo);
               }}
               renderers={tableRenderers}
-              
               defaultSort={{
                 key: "creado", // Default sort column
                 sort: false, // Default sort direction
