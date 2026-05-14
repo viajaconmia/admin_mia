@@ -98,6 +98,9 @@ type CreateSolicitudesRenderersParams = {
   cancelarDispersion: (id_solicitud_proveedor: string) => Promise<boolean>;
 };
 
+const fmtMoney = (n: number) =>
+  `$${Number(n || 0).toLocaleString("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
 const Pill = ({
   text,
   tone = "gray",
@@ -151,7 +154,7 @@ const InlineMoneyEdit = ({
   };
 
   if (disabled) {
-    return <span title={String(value)}>${Number(value || 0).toFixed(2)}</span>;
+    return <span title={String(value)}>{fmtMoney(Number(value || 0))}</span>;
   }
 
   if (!editing) {
@@ -162,7 +165,7 @@ const InlineMoneyEdit = ({
         onClick={() => setEditing(true)}
         title="Editar monto solicitado"
       >
-        <span>${Number(value || 0).toFixed(2)}</span>
+        <span>{fmtMoney(Number(value || 0))}</span>
         <span className="text-[10px] text-slate-500">✎</span>
       </button>
     );
@@ -697,8 +700,8 @@ export function createSolicitudesRenderers({
         tone={facturaTone((value || "").toLowerCase()) as any}
       />
     ),
-    costo_proveedor: ({ value, item }) => <p>${value}</p>,
-    precio_de_venta: ({ value, item }) => <p>${value}</p>,
+    costo_proveedor: ({ value }) => <p>{fmtMoney(Number(value || 0))}</p>,
+    precio_de_venta: ({ value }) => <p>{fmtMoney(Number(value || 0))}</p>,
     monto_por_facturar: ({ value }) => {
       const n = Number(value || 0);
       return (
@@ -709,7 +712,7 @@ export function createSolicitudesRenderers({
               : "text-amber-700 font-semibold"
           }
         >
-          ${n.toFixed(2)}
+          {fmtMoney(n)}
         </span>
       );
     },
@@ -990,11 +993,7 @@ export function createSolicitudesRenderers({
                       consolidado === 1
                         ? "Ya está conciliada"
                         : !puedeConciliar
-                          ? `No se puede conciliar. Diferencia actual: $${diferencia.toFixed(
-                              2,
-                            )} (pagado: $${totalPagado.toFixed(
-                              2,
-                            )}, facturado: $${totalFacturado.toFixed(2)})`
+                          ? `No se puede conciliar. Diferencia actual: ${fmtMoney(diferencia)} (pagado: ${fmtMoney(totalPagado)}, facturado: ${fmtMoney(totalFacturado)})`
                           : "Conciliar (marca consolidado=1)"
                     }
                   >

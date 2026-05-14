@@ -1,14 +1,22 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { URL as API_URL, HEADERS_API } from "@/lib/constants";
+
+import { fetchGetSolicitudesFiltradas } from "@/services/pago_proveedor";
 import { OtrosMetodosPagoModal } from "@/app/dashboard/pagos_proveedor/Components/OtrosMetodosPagoModal";
+import ModalDetalle from "@/app/dashboard/conciliacion/detalles";
 import { calcularNoches } from "@/helpers/utils";
-import { getIdSolProv, getMontoSolicitado, getProveedorCuentas } from "@/app/dashboard/pagos_proveedor/Components/helpers";
-import { ExternalLink, RefreshCw, Upload, X } from "lucide-react";
+import {
+  getIdSolProv,
+  getMontoSolicitado,
+  getProveedorCuentas,
+} from "@/app/dashboard/pagos_proveedor/Components/helpers";
+import { ExternalLink, RefreshCw, Upload, X, Eye } from "lucide-react";
 import { Loader } from "@/components/atom/Loader";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+type Tab = "dispersion" | "pagado_transferencia";
 
 type SolicitudRow = {
   id_solicitud_proveedor: string;
@@ -37,20 +45,29 @@ type SolicitudSeleccionada = {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const fmt = (n: number) => `$${Number(n || 0).toFixed(2)}`;
+const fmtMoney = (n: number) =>
+  `$${Number(n || 0).toLocaleString("es-MX", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+
 const fmtDate = (d: string | null) => {
   if (!d) return "—";
   const date = new Date(d);
   if (isNaN(date.getTime())) return d;
-  return date.toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" });
+  return date.toLocaleDateString("es-MX", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 };
 
 const getEstatus = (raw: any): string =>
   String(
     raw?.solicitud_proveedor?.estado_solicitud ??
-    raw?.estado_solicitud ??
-    raw?.estatus_pagos ??
-    "—",
+      raw?.estado_solicitud ??
+      raw?.estatus_pagos ??
+      "—",
   ).toUpperCase();
 
 const getDatosBancarios = (raw: any): string => {
@@ -73,73 +90,79 @@ const getCaratula = (raw: any): string | null => {
   return raw?.url_pdf ?? raw?.solicitud_proveedor?.url_pdf ?? null;
 };
 
-// ─── Hook fetch ───────────────────────────────────────────────────────────────
+const mapRaw = (raw: any): SolicitudRow => {
+  const id_solicitud_proveedor = getIdSolProv(raw);
+  const monto_solicitado = getMontoSolicitado(raw);
+  const costo_proveedor = Number(raw?.costo_total ?? 0);
+  const precio_de_venta = Number(raw?.total ?? 0);
+  const markup =
+    precio_de_venta > 0
+      ? ((precio_de_venta - costo_proveedor) / precio_de_venta) * 100
+      : 0;
 
-function useDispersionSolicitudes() {
+  return {
+    id_solicitud_proveedor,
+    proveedor: (raw?.hotel ?? "").toUpperCase(),
+    codigo_confirmacion: raw?.codigo_confirmacion ?? "—",
+    costo_proveedor,
+    monto_solicitado,
+    cliente: (raw?.nombre_agente_completo ?? "").toUpperCase(),
+    precio_de_venta,
+    check_in: raw?.check_in ?? null,
+    check_out: raw?.check_out ?? null,
+    noches: calcularNoches(raw?.check_in, raw?.check_out),
+    markup,
+    datos_bancarios: getDatosBancarios(raw),
+    caratula: getCaratula(raw),
+    estatus: getEstatus(raw),
+    raw,
+  };
+};
+
+// ─── Hook ─────────────────────────────────────────────────────────────────────
+
+function useSolicitudes(tab: Tab) {
   const [rows, setRows] = useState<SolicitudRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [limite, setLimite] = useState("100");
 
-  const fetchData = useCallback(async (limiteArg?: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const lim = limiteArg ?? limite;
-      const res = await fetch(
-        `${API_URL}/mia/pago_proveedor/solicitud?estado_solicitud=DISPERSION&limite=${lim}`,
-        { headers: HEADERS_API, credentials: "include" },
-      );
-      const json = await res.json();
+  const fetchData = useCallback(
+    async (limiteArg?: string) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const lim = Number(limiteArg ?? limite) || 100;
+        const estado =
+          tab === "dispersion" ? "DISPERSION" : "PAGADO TRANSFERENCIA";
 
-      // La API puede devolver el array en data.spei, data.dispersion o data directamente
-      const rawList: any[] =
-        json?.data?.spei ??
-        json?.data?.dispersion ??
-        json?.data?.todos ??
-        (Array.isArray(json?.data) ? json.data : []);
-
-      const mapped: SolicitudRow[] = rawList.map((raw) => {
-        const id_solicitud_proveedor = getIdSolProv(raw);
-        const monto_solicitado = getMontoSolicitado(raw);
-        const costo_proveedor = Number(raw?.costo_total ?? 0);
-        const precio_de_venta = Number(raw?.total ?? 0);
-        const markup =
-          precio_de_venta > 0
-            ? ((precio_de_venta - costo_proveedor) / precio_de_venta) * 100
-            : 0;
-
-        return {
-          id_solicitud_proveedor,
-          proveedor: (raw?.hotel ?? "").toUpperCase(),
-          codigo_confirmacion: raw?.codigo_confirmacion ?? "—",
-          costo_proveedor,
-          monto_solicitado,
-          cliente: (raw?.nombre_agente_completo ?? "").toUpperCase(),
-          precio_de_venta,
-          check_in: raw?.check_in ?? null,
-          check_out: raw?.check_out ?? null,
-          noches: calcularNoches(raw?.check_in, raw?.check_out),
-          markup,
-          datos_bancarios: getDatosBancarios(raw),
-          caratula: getCaratula(raw),
-          estatus: getEstatus(raw),
-          raw,
-        };
-      });
-
-      setRows(mapped);
-    } catch (e: any) {
-      setError(e?.message ?? "Error al cargar solicitudes");
-    } finally {
-      setLoading(false);
-    }
-  }, [limite]);
+        await fetchGetSolicitudesFiltradas(
+          (json) => {
+            const rawList: any[] =
+              json?.data?.spei ??
+              json?.data?.dispersion ??
+              json?.data?.pagada ??
+              json?.data?.todos ??
+              (Array.isArray(json?.data) ? json.data : []);
+            setRows(rawList.map(mapRaw));
+          },
+          { estado_solicitud: estado },
+          lim,
+          1,
+        );
+      } catch (e: any) {
+        setError(e?.message ?? "Error al cargar solicitudes");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [tab, limite],
+  );
 
   useEffect(() => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [tab]);
 
   return { rows, loading, error, fetchData, limite, setLimite };
 }
@@ -147,23 +170,37 @@ function useDispersionSolicitudes() {
 // ─── Status badge ─────────────────────────────────────────────────────────────
 
 function StatusBadge({ estatus }: { estatus: string }) {
-  const base = "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border";
-  const color =
-    estatus.includes("DISPERS") ? "bg-blue-50 text-blue-700 border-blue-200" :
-    estatus.includes("PAGAD") ? "bg-green-50 text-green-700 border-green-200" :
-    estatus.includes("CANCEL") ? "bg-red-50 text-red-700 border-red-200" :
-    "bg-slate-50 text-slate-600 border-slate-200";
+  const base =
+    "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border";
+  const color = estatus.includes("DISPERS")
+    ? "bg-blue-50 text-blue-700 border-blue-200"
+    : estatus.includes("PAGAD")
+      ? "bg-green-50 text-green-700 border-green-200"
+      : estatus.includes("CANCEL")
+        ? "bg-red-50 text-red-700 border-red-200"
+        : "bg-slate-50 text-slate-600 border-slate-200";
   return <span className={`${base} ${color}`}>{estatus || "—"}</span>;
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function PagosProveedorL() {
-  const { rows, loading, error, fetchData, limite, setLimite } = useDispersionSolicitudes();
+  const [tab, setTab] = useState<Tab>("dispersion");
+  const { rows, loading, error, fetchData, limite, setLimite } =
+    useSolicitudes(tab);
 
-  const [selectedMap, setSelectedMap] = useState<Record<string, SolicitudRow>>({});
+  const [selectedMap, setSelectedMap] = useState<Record<string, SolicitudRow>>(
+    {},
+  );
   const [showModal, setShowModal] = useState(false);
+  const [detalleId, setDetalleId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+
+  // Limpiar selección al cambiar tab
+  useEffect(() => {
+    setSelectedMap({});
+    setSearch("");
+  }, [tab]);
 
   const filteredRows = useMemo(() => {
     const q = search.trim().toUpperCase();
@@ -177,7 +214,10 @@ export default function PagosProveedorL() {
     );
   }, [rows, search]);
 
-  const allSelected = filteredRows.length > 0 && filteredRows.every((r) => !!selectedMap[r.id_solicitud_proveedor]);
+  const isDispersion = tab === "dispersion";
+  const allSelected =
+    filteredRows.length > 0 &&
+    filteredRows.every((r) => !!selectedMap[r.id_solicitud_proveedor]);
   const selectedCount = Object.keys(selectedMap).length;
 
   const toggleRow = (row: SolicitudRow) => {
@@ -197,7 +237,9 @@ export default function PagosProveedorL() {
       setSelectedMap({});
     } else {
       const next: Record<string, SolicitudRow> = {};
-      filteredRows.forEach((r) => { next[r.id_solicitud_proveedor] = r; });
+      filteredRows.forEach((r) => {
+        next[r.id_solicitud_proveedor] = r;
+      });
       setSelectedMap(next);
     }
   };
@@ -220,14 +262,28 @@ export default function PagosProveedorL() {
         <h1 className="text-xl font-bold text-slate-900 tracking-tight">
           Pagos a proveedor — Dispersión
         </h1>
-        <p className="text-xs text-slate-500 mt-0.5">
-          Solicitudes en estado DISPERSION
-        </p>
+      </div>
+
+      {/* Tabs */}
+      <div className="bg-white border-b border-slate-200 px-4 sm:px-6">
+        <div className="flex gap-1 py-2">
+          <TabBtn
+            active={tab === "dispersion"}
+            onClick={() => setTab("dispersion")}
+          >
+            Dispersión
+          </TabBtn>
+          <TabBtn
+            active={tab === "pagado_transferencia"}
+            onClick={() => setTab("pagado_transferencia")}
+          >
+            Pagado transferencia
+          </TabBtn>
+        </div>
       </div>
 
       {/* Toolbar */}
       <div className="px-4 sm:px-6 py-3 flex flex-wrap items-center gap-2 bg-white border-b border-slate-100">
-        {/* Búsqueda */}
         <input
           type="text"
           value={search}
@@ -236,7 +292,6 @@ export default function PagosProveedorL() {
           className="flex-1 min-w-[180px] max-w-xs h-9 px-3 text-sm border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-200"
         />
 
-        {/* Límite */}
         <div className="flex items-center gap-1">
           <input
             type="number"
@@ -251,38 +306,44 @@ export default function PagosProveedorL() {
             disabled={loading}
             className="h-9 px-3 rounded-lg border border-slate-200 bg-white text-slate-700 text-sm hover:bg-slate-50 disabled:opacity-50 flex items-center gap-1"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
+            <RefreshCw
+              className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`}
+            />
             <span className="hidden sm:inline">Cargar</span>
           </button>
         </div>
 
-        {/* Selección info */}
-        {selectedCount > 0 && (
-          <span className="text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded-md">
-            {selectedCount} seleccionada{selectedCount !== 1 ? "s" : ""}
-          </span>
-        )}
+        {/* Selección + limpiar + upload — solo en tab DISPERSION */}
+        {isDispersion && (
+          <>
+            {selectedCount > 0 && (
+              <span className="text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded-md">
+                {selectedCount} seleccionada{selectedCount !== 1 ? "s" : ""}
+              </span>
+            )}
 
-        {/* Limpiar selección */}
-        {selectedCount > 0 && (
-          <button
-            onClick={() => setSelectedMap({})}
-            className="h-9 px-3 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 text-sm hover:bg-rose-100 flex items-center gap-1"
-          >
-            <X className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Limpiar</span>
-          </button>
-        )}
+            {selectedCount > 0 && (
+              <button
+                onClick={() => setSelectedMap({})}
+                className="h-9 px-3 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 text-sm hover:bg-rose-100 flex items-center gap-1"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Limpiar</span>
+              </button>
+            )}
 
-        {/* Subir comprobante */}
-        <button
-          onClick={() => setShowModal(true)}
-          className="h-9 px-3 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-sm hover:bg-blue-100 flex items-center gap-1.5 ml-auto"
-        >
-          <Upload className="w-3.5 h-3.5" />
-          Subir comprobante
-          {selectedCount > 0 && <span className="font-semibold">({selectedCount})</span>}
-        </button>
+            <button
+              onClick={() => setShowModal(true)}
+              className="h-9 px-3 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-sm hover:bg-blue-100 flex items-center gap-1.5 ml-auto"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              Subir comprobante
+              {selectedCount > 0 && (
+                <span className="font-semibold">({selectedCount})</span>
+              )}
+            </button>
+          </>
+        )}
       </div>
 
       {/* Content */}
@@ -299,36 +360,41 @@ export default function PagosProveedorL() {
           </div>
         ) : filteredRows.length === 0 ? (
           <div className="text-center py-16 text-slate-400 text-sm">
-            {search ? "Sin resultados para esa búsqueda." : "No hay solicitudes en estado DISPERSION."}
+            {search
+              ? "Sin resultados para esa búsqueda."
+              : `No hay solicitudes en estado ${tab === "dispersion" ? "DISPERSION" : "PAGADO TRANSFERENCIA"}.`}
           </div>
         ) : (
           <>
-            {/* ── Tabla desktop ──────────────────────────────────── */}
+            {/* ── Tabla desktop ─────────────────────────────────── */}
             <div className="hidden lg:block overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
               <table className="min-w-full text-xs">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="px-3 py-3 text-left">
-                      <input
-                        type="checkbox"
-                        checked={allSelected}
-                        onChange={toggleAll}
-                        className="h-4 w-4 accent-blue-600 cursor-pointer"
-                      />
-                    </th>
-                    <th className="px-3 py-3 text-left font-semibold text-slate-600 whitespace-nowrap">ID SOL.</th>
-                    <th className="px-3 py-3 text-left font-semibold text-slate-600">PROVEEDOR</th>
-                    <th className="px-3 py-3 text-left font-semibold text-slate-600 whitespace-nowrap">CÓD. CONFIRM.</th>
-                    <th className="px-3 py-3 text-right font-semibold text-slate-600 whitespace-nowrap">COSTO PROV.</th>
-                    <th className="px-3 py-3 text-right font-semibold text-slate-600 whitespace-nowrap">MONTO SOL.</th>
-                    <th className="px-3 py-3 text-left font-semibold text-slate-600">CLIENTE</th>
-                    <th className="px-3 py-3 text-right font-semibold text-slate-600 whitespace-nowrap">PX VENTA</th>
-                    <th className="px-3 py-3 text-center font-semibold text-slate-600 whitespace-nowrap">CHECK IN</th>
-                    <th className="px-3 py-3 text-center font-semibold text-slate-600 whitespace-nowrap">CHECK OUT</th>
-                    <th className="px-3 py-3 text-right font-semibold text-slate-600">MARKUP</th>
-                    <th className="px-3 py-3 text-left font-semibold text-slate-600 whitespace-nowrap">DATOS BANCARIOS</th>
-                    <th className="px-3 py-3 text-center font-semibold text-slate-600">CARÁTULA</th>
-                    <th className="px-3 py-3 text-center font-semibold text-slate-600">ESTATUS</th>
+                    {isDispersion && (
+                      <th className="px-3 py-3 text-left">
+                        <input
+                          type="checkbox"
+                          checked={allSelected}
+                          onChange={toggleAll}
+                          className="h-4 w-4 accent-blue-600 cursor-pointer"
+                        />
+                      </th>
+                    )}
+                    <Th>ID SOL.</Th>
+                    <Th>PROVEEDOR</Th>
+                    <Th>CÓD. CONFIRM.</Th>
+                    <Th align="right">COSTO PROV.</Th>
+                    <Th align="right">MONTO SOL.</Th>
+                    <Th>CLIENTE</Th>
+                    <Th align="right">PX VENTA</Th>
+                    <Th align="center">CHECK IN</Th>
+                    <Th align="center">CHECK OUT</Th>
+                    <Th align="right">MARKUP</Th>
+                    <Th>DATOS BANCARIOS</Th>
+                    <Th align="center">CARÁTULA</Th>
+                    <Th align="center">ESTATUS</Th>
+                    {!isDispersion && <Th align="center">ACCIÓN</Th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -339,34 +405,42 @@ export default function PagosProveedorL() {
                         key={row.id_solicitud_proveedor}
                         className={`transition-colors ${selected ? "bg-blue-50" : "hover:bg-slate-50"}`}
                       >
-                        <td className="px-3 py-2.5">
-                          <input
-                            type="checkbox"
-                            checked={selected}
-                            onChange={() => toggleRow(row)}
-                            className="h-4 w-4 accent-blue-600 cursor-pointer"
-                          />
-                        </td>
+                        {isDispersion && (
+                          <td className="px-3 py-2.5">
+                            <input
+                              type="checkbox"
+                              checked={selected}
+                              onChange={() => toggleRow(row)}
+                              className="h-4 w-4 accent-blue-600 cursor-pointer"
+                            />
+                          </td>
+                        )}
                         <td className="px-3 py-2.5 font-mono text-slate-700 whitespace-nowrap">
                           {row.id_solicitud_proveedor}
                         </td>
-                        <td className="px-3 py-2.5 text-slate-800 max-w-[160px] truncate" title={row.proveedor}>
+                        <td
+                          className="px-3 py-2.5 text-slate-800 max-w-[150px] truncate"
+                          title={row.proveedor}
+                        >
                           {row.proveedor || "—"}
                         </td>
                         <td className="px-3 py-2.5 font-mono text-slate-600 whitespace-nowrap">
                           {row.codigo_confirmacion}
                         </td>
                         <td className="px-3 py-2.5 text-right text-slate-700 whitespace-nowrap">
-                          {fmt(row.costo_proveedor)}
+                          {fmtMoney(row.costo_proveedor)}
                         </td>
                         <td className="px-3 py-2.5 text-right font-semibold text-slate-800 whitespace-nowrap">
-                          {fmt(row.monto_solicitado)}
+                          {fmtMoney(row.monto_solicitado)}
                         </td>
-                        <td className="px-3 py-2.5 text-slate-700 max-w-[160px] truncate" title={row.cliente}>
+                        <td
+                          className="px-3 py-2.5 text-slate-700 max-w-[150px] truncate"
+                          title={row.cliente}
+                        >
                           {row.cliente || "—"}
                         </td>
                         <td className="px-3 py-2.5 text-right text-slate-700 whitespace-nowrap">
-                          {fmt(row.precio_de_venta)}
+                          {fmtMoney(row.precio_de_venta)}
                         </td>
                         <td className="px-3 py-2.5 text-center text-slate-600 whitespace-nowrap">
                           {fmtDate(row.check_in)}
@@ -374,11 +448,16 @@ export default function PagosProveedorL() {
                         <td className="px-3 py-2.5 text-center text-slate-600 whitespace-nowrap">
                           {fmtDate(row.check_out)}
                         </td>
-                        <td className={`px-3 py-2.5 text-right font-semibold whitespace-nowrap ${row.markup <= 0 ? "text-green-700" : "text-amber-700"}`}>
+                        <td
+                          className={`px-3 py-2.5 text-right font-semibold whitespace-nowrap ${row.markup <= 0 ? "text-green-700" : "text-amber-700"}`}
+                        >
                           {row.markup.toFixed(1)}%
                         </td>
-                        <td className="px-3 py-2.5 text-slate-600 max-w-[180px]">
-                          <span className="block truncate font-mono text-[11px]" title={row.datos_bancarios}>
+                        <td className="px-3 py-2.5 max-w-[180px]">
+                          <span
+                            className="block truncate font-mono text-[11px] text-slate-600"
+                            title={row.datos_bancarios}
+                          >
                             {row.datos_bancarios}
                           </span>
                         </td>
@@ -400,6 +479,20 @@ export default function PagosProveedorL() {
                         <td className="px-3 py-2.5 text-center">
                           <StatusBadge estatus={row.estatus} />
                         </td>
+                        {!isDispersion && (
+                          <td className="px-3 py-2.5 text-center">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setDetalleId(row.id_solicitud_proveedor)
+                              }
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              Detalle
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -407,18 +500,21 @@ export default function PagosProveedorL() {
               </table>
             </div>
 
-            {/* ── Cards mobile / tablet ───────────────────────────── */}
+            {/* ── Cards mobile / tablet ──────────────────────────── */}
             <div className="lg:hidden space-y-3">
-              {/* Select all mobile */}
-              <div className="flex items-center gap-2 px-1">
-                <input
-                  type="checkbox"
-                  checked={allSelected}
-                  onChange={toggleAll}
-                  className="h-4 w-4 accent-blue-600 cursor-pointer"
-                />
-                <span className="text-xs text-slate-500">Seleccionar todo</span>
-              </div>
+              {isDispersion && (
+                <div className="flex items-center gap-2 px-1">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleAll}
+                    className="h-4 w-4 accent-blue-600 cursor-pointer"
+                  />
+                  <span className="text-xs text-slate-500">
+                    Seleccionar todo
+                  </span>
+                </div>
+              )}
 
               {filteredRows.map((row) => {
                 const selected = !!selectedMap[row.id_solicitud_proveedor];
@@ -426,28 +522,48 @@ export default function PagosProveedorL() {
                   <div
                     key={row.id_solicitud_proveedor}
                     className={`rounded-xl border shadow-sm p-4 transition-colors ${
-                      selected ? "border-blue-300 bg-blue-50" : "border-slate-200 bg-white"
+                      selected
+                        ? "border-blue-300 bg-blue-50"
+                        : "border-slate-200 bg-white"
                     }`}
                   >
                     {/* Card header */}
                     <div className="flex items-start gap-3">
-                      <input
-                        type="checkbox"
-                        checked={selected}
-                        onChange={() => toggleRow(row)}
-                        className="h-4 w-4 accent-blue-600 cursor-pointer mt-0.5 shrink-0"
-                      />
+                      {isDispersion && (
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          onChange={() => toggleRow(row)}
+                          className="h-4 w-4 accent-blue-600 cursor-pointer mt-0.5 shrink-0"
+                        />
+                      )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2 flex-wrap">
                           <p className="text-sm font-semibold text-slate-900 truncate">
                             {row.proveedor || "—"}
                           </p>
-                          <StatusBadge estatus={row.estatus} />
+                          <div className="flex items-center gap-2">
+                            <StatusBadge estatus={row.estatus} />
+                            {!isDispersion && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setDetalleId(row.id_solicitud_proveedor)
+                                }
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                              >
+                                <Eye className="w-3 h-3" />
+                                Detalle
+                              </button>
+                            )}
+                          </div>
                         </div>
                         <p className="text-xs text-slate-500 font-mono mt-0.5">
                           #{row.id_solicitud_proveedor}
                           {row.codigo_confirmacion !== "—" && (
-                            <span className="ml-2 text-slate-400">· {row.codigo_confirmacion}</span>
+                            <span className="ml-2 text-slate-400">
+                              · {row.codigo_confirmacion}
+                            </span>
                           )}
                         </p>
                       </div>
@@ -456,13 +572,20 @@ export default function PagosProveedorL() {
                     {/* Card body */}
                     <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
                       <CardField label="Cliente" value={row.cliente || "—"} />
-                      <CardField label="Costo prov." value={fmt(row.costo_proveedor)} />
-                      <CardField label="Monto sol." value={fmt(row.monto_solicitado)} bold />
-                      <CardField label="Px venta" value={fmt(row.precio_de_venta)} />
                       <CardField
-                        label="Check in"
-                        value={fmtDate(row.check_in)}
+                        label="Costo prov."
+                        value={fmtMoney(row.costo_proveedor)}
                       />
+                      <CardField
+                        label="Monto sol."
+                        value={fmtMoney(row.monto_solicitado)}
+                        bold
+                      />
+                      <CardField
+                        label="Px venta"
+                        value={fmtMoney(row.precio_de_venta)}
+                      />
+                      <CardField label="Check in" value={fmtDate(row.check_in)} />
                       <CardField
                         label="Check out"
                         value={fmtDate(row.check_out)}
@@ -470,20 +593,29 @@ export default function PagosProveedorL() {
                       <CardField
                         label="Markup"
                         value={`${row.markup.toFixed(1)}%`}
-                        className={row.markup <= 0 ? "text-green-700 font-semibold" : "text-amber-700 font-semibold"}
+                        className={
+                          row.markup <= 0
+                            ? "text-green-700 font-semibold"
+                            : "text-amber-700 font-semibold"
+                        }
                       />
-                      <CardField label="Noches" value={String(row.noches || "—")} />
+                      <CardField
+                        label="Noches"
+                        value={String(row.noches || "—")}
+                      />
                     </div>
 
-                    {/* Datos bancarios */}
                     {row.datos_bancarios !== "—" && (
                       <div className="mt-2 px-2 py-1.5 bg-slate-100 rounded-md">
-                        <p className="text-[10px] text-slate-500 mb-0.5">Datos bancarios</p>
-                        <p className="text-xs font-mono text-slate-700 break-all">{row.datos_bancarios}</p>
+                        <p className="text-[10px] text-slate-500 mb-0.5">
+                          Datos bancarios
+                        </p>
+                        <p className="text-xs font-mono text-slate-700 break-all">
+                          {row.datos_bancarios}
+                        </p>
                       </div>
                     )}
 
-                    {/* Carátula */}
                     {row.caratula && (
                       <div className="mt-2">
                         <a
@@ -502,7 +634,6 @@ export default function PagosProveedorL() {
               })}
             </div>
 
-            {/* Footer count */}
             <p className="mt-3 text-xs text-slate-400 text-right">
               {filteredRows.length} registro{filteredRows.length !== 1 ? "s" : ""}
               {search ? ` (filtrados de ${rows.length})` : ""}
@@ -511,7 +642,7 @@ export default function PagosProveedorL() {
         )}
       </div>
 
-      {/* Modal subir comprobante no dispersado */}
+      {/* Modal subir comprobante — solo DISPERSION */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
           <OtrosMetodosPagoModal
@@ -525,11 +656,59 @@ export default function PagosProveedorL() {
           />
         </div>
       )}
+
+      {/* Modal detalle — solo PAGADO TRANSFERENCIA */}
+      {detalleId !== null && (
+        <ModalDetalle
+          id_solicitud_proveedor={detalleId}
+          onClose={() => setDetalleId(null)}
+        />
+      )}
     </div>
   );
 }
 
-// ─── Card field helper ────────────────────────────────────────────────────────
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function TabBtn({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`px-4 py-2 text-sm font-medium rounded-t-md border-b-2 transition-colors ${
+        active
+          ? "border-blue-600 text-blue-700 bg-blue-50"
+          : "border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Th({
+  children,
+  align = "left",
+}: {
+  children: React.ReactNode;
+  align?: "left" | "right" | "center";
+}) {
+  return (
+    <th
+      className={`px-3 py-3 font-semibold text-slate-600 whitespace-nowrap text-${align}`}
+    >
+      {children}
+    </th>
+  );
+}
 
 function CardField({
   label,
@@ -544,8 +723,12 @@ function CardField({
 }) {
   return (
     <div>
-      <p className="text-[10px] text-slate-400 uppercase tracking-wide">{label}</p>
-      <p className={`text-xs text-slate-800 truncate ${bold ? "font-semibold" : ""} ${className ?? ""}`}>
+      <p className="text-[10px] text-slate-400 uppercase tracking-wide">
+        {label}
+      </p>
+      <p
+        className={`text-xs text-slate-800 truncate ${bold ? "font-semibold" : ""} ${className ?? ""}`}
+      >
         {value}
       </p>
     </div>
