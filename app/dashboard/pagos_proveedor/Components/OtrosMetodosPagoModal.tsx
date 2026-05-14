@@ -9,6 +9,7 @@ type SolicitudSeleccionadaComprobante = {
   id_solicitud_proveedor: string;
   monto_solicitado: number;
   monto_pagado?: string;
+  codigo_confirmacion?: string | null;
 };
 
 type OtrosMetodosPagoModalProps = {
@@ -204,7 +205,7 @@ const buildSelectedForms = (
 ): ManualForm[] => {
   return selectedSolicitudes.map((item) => ({
     id_solicitud_proveedor: String(item.id_solicitud_proveedor ?? "").trim(),
-    codigo_confirmacion: "",
+    codigo_confirmacion: String(item.codigo_confirmacion ?? "").trim(),
     monto_pagado:
       item.monto_pagado != null
         ? String(item.monto_pagado).trim()

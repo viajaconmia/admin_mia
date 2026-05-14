@@ -4,6 +4,7 @@ export type SolicitudSeleccionadaComprobante = {
   id_solicitud_proveedor: string;
   monto_solicitado: number;
   monto_pagado: string;
+  codigo_confirmacion?: string | null;
 };
 
 export type CategoriaEstatus =

@@ -300,10 +300,16 @@ function App() {
         .map((raw) => {
           const id_solicitud_proveedor = getIdSolProv(raw);
           const monto_solicitado = getMontoSolicitado(raw);
+          const anyRaw = raw as any;
+          const codigo_confirmacion =
+            anyRaw?.codigo_confirmacion ??
+            anyRaw?.item?.codigo_confirmacion ??
+            null;
           return {
             id_solicitud_proveedor,
             monto_solicitado,
             monto_pagado: Number(monto_solicitado || 0).toFixed(2),
+            codigo_confirmacion,
           };
         })
         .filter((row) => row.id_solicitud_proveedor),
