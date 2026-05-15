@@ -400,49 +400,60 @@ function App() {
 
   const customColumns = useMemo(() => {
     const cols = [
-      "seleccionar",
-      "id_solicitud_proveedor",
-      "fecha_solicitud",
-      "monto_solicitado",
-      "saldo",
-      "forma_pago_solicitada",
-      "estatus_pagos",
-      "estado_solicitud",
-      "estado_facturacion",
-      "usuario_solicitante",
-      "usuario_generador",
-      "comentarios_sp",
-      "notas_internas",
-      "comentarios_Ap",
-      "codigo_confirmacion",
-      "creado",
-      "proveedor",
-      "viajero",
-      "check_in",
-      "check_out",
-      "noches",
-      "habitacion",
-      "costo_proveedor",
-      "markup",
-      "precio_de_venta",
-      "razon_social",
-      "rfc",
-      "estado_pago",
-      "pendiente_a_pagar",
-      "monto_pagado_proveedor",
-      "fecha_pagado",
-      "estado_factura_proveedor",
-      "total_facturado",
-      "monto_por_facturar",
-      "fecha_facturacion",
-      "UUID",
-      "uso_cfdi_factura",
-      "forma_pago_factura",
-      "metodo_pago_factura",
-      "moneda_factura",
-      "facturas_acciones",
-      "fecha_de_pago",
-      "comentarios_cxp",
+      "id_solicitud_proveedor",    // ID SOLICITUD PROVEEDOR
+      "creado",                     // CREADO
+      "monto_solicitado",          // MONTO SOLICITADO
+      "saldo",                     // SALDO
+      "fecha_de_pago",             // FECHA PROVISION CxP
+      "estado_solicitud",          // ESTADO SOLICITUD
+      "cliente",                   // CLIENTE
+      "codigo_confirmacion",       // CODIGO CONFIRMACION
+      "proveedor",                 // PROVEEDOR
+      "razon_social",              // RAZON SOCIAL
+      "viajero",                   // VIAJERO
+      "check_in",                  // CHECK IN
+      "check_out",                 // CHECK OUT
+      "noches",                    // NOCHES
+      "habitacion",                // HABITACION
+      "costo_proveedor",           // COSTO PROVEEDOR
+      "markup",                    // MARKUP
+      "precio_de_venta",           // PRECIO DE VENTA
+      "estatus_pagos",             // ESTATUS PAGOS
+      "seleccionar",               // SELECCIONAR
+      "metodo_de_pago",            // METODO DE PAGO
+      "etapa_reservacion",         // ETAPA RESERVACION
+      "estado",                    // ESTADO
+      "comentarios_sp",            // COMENTARIOS SP
+      "notas_internas",            // NOTAS INTERNAS
+      "comentarios_Ap",            // COMENTARIOS AP
+      "comentarios_cxp",           // COMENTARIOS CXP
+      "rfc",                       // RFC
+      "facturas_acciones",         // FACTURAS ACCIONES
+      "forma_pago_solicitada",     // FORMA PAGO SOLICITADA
+      "digitos_tajeta",            // DIGITOS TAJETA
+      "banco",                     // BANCO
+      "tipo_tarjeta",              // TIPO TARJETA
+      "pendiente_a_pagar",         // PENDIENTE A PAGAR
+      "monto_pagado_proveedor",    // MONTO PAGADO PROVEEDOR
+      "fecha_pagado",              // FECHA PAGADO
+      "estado_factura_proveedor",  // ESTADO FACTURA PROVEEDOR
+      "total_facturado",           // TOTAL FACTURADO
+      "monto_por_facturar",        // MONTO POR FACTURAR
+      "fecha_facturacion",         // FECHA FACTURACION
+      "UUID",                      // UUID
+      "uso_cfdi_factura",          // USO CFDI FACTURA
+      "forma_pago_factura",        // FORMA PAGO FACTURA
+      "metodo_pago_factura",       // METODO PAGO FACTURA
+      "moneda_factura",            // MONEDA FACTURA
+      "id_cliente",                // ID CLIENTE
+      "id_tarjeta_solicitada",     // ID TARJETA SOLICITADA
+      "usuario_solicitante",       // USUARIO SOLICITANTE
+      "usuario_generador",         // USUARIO GENERADOR
+      "estado_facturacion",        // ESTADO FACTURACION
+      "carpeta",                   // CARPETA
+      "reservante",                // RESERVANTE
+      "forma_de_pago_solicitada",  // FORMA DE PAGO SOLICITADA
+      "estado_pago",               // ESTADO PAGO
     ];
     if (categoria === "notificados") cols.push("comentario_sistema");
     cols.push("acciones");
@@ -571,6 +582,7 @@ function App() {
               renderers={renderers}
               defaultSort={defaultSort as any}
               customColumns={customColumns}
+              respectCustomColumnOrder
               headerRenderers={{
                 seleccionar: () => (
                   <input
@@ -771,6 +783,9 @@ function App() {
         onClose={closeEditModal}
         onSave={saveEditModal}
         onValueChange={(value) => setEditModal((prev) => ({ ...prev, value }))}
+        originalValue={editModal.originalValue}
+        comentarioAp={editModal.comentarioAp}
+        onComentarioApChange={(v) => setEditModal((prev) => ({ ...prev, comentarioAp: v }))}
       />
 
       {showDispersionModal && (

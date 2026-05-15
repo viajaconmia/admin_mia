@@ -19,6 +19,7 @@ export const PERMISOS = {
     PROVEEDORES: "view.proveedores",
     MIA_TARJETAS: "view.mia.tarjetas",
     MIA_TITULARES: "view.mia.titulares",
+    FINANZAS_TARJETAS: "view.finanzas.tarjetas",
     AVISOS_RESERVAS: "view.avisos-reservas",
   },
   COLUMNAS: {
@@ -41,6 +42,9 @@ export const PERMISOS = {
       MIA_TITULARES_CREAR: "button.mia.titulares.crear",
       MIA_TITULARES_EDITAR: "button.mia.titulares.editar",
       MIA_TITULARES_ELIMINAR: "button.mia.titulares.eliminar",
+      FINANZAS_TARJETAS_CREAR: "button.finanzas.tarjetas.crear",
+      FINANZAS_TARJETAS_EDITAR: "button.finanzas.tarjetas.editar",
+      FINANZAS_TARJETAS_ELIMINAR: "button.finanzas.tarjetas.eliminar",
       EDITAR_RESERVA: "button.edit-booking",
     },
     GROUP: {

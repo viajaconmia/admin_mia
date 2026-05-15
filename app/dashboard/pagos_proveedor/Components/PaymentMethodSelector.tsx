@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import { X } from "lucide-react";
-import { useFetchCards } from "@/hooks/useFetchCard";
+import { useFetchCardsFinanzas } from "@/hooks/useFetchCard";
 
 type Props = {
   idSolProv: string;
@@ -28,12 +28,16 @@ export default function PaymentMethodSelector({
   const [open, setOpen] = useState(false);
   const [cardId, setCardId] = useState<string>("");
 
-  const { data: cardsData, loading: loadingCards, fetchData: fetchCards } = useFetchCards();
+  const { data: cardsData, loading: loadingCards, fetchData: fetchCards } = useFetchCardsFinanzas();
 
-  // Solo tarjetas activas — soporta activa: true (boolean) o activa: "active" (string)
+  // Solo tarjetas activas para finanzas
   const activeCards = useMemo(() => {
     const list = Array.isArray(cardsData) ? cardsData : [];
-    return list.filter((c: any) => c?.activa === true || c?.activa === "active");
+    return list.filter(
+      (c: any) =>
+        (c?.activa === true || c?.activa === "active") &&
+        (c?.activa_finanzas === true || c?.activa_finanzas === 1),
+    );
   }, [cardsData]);
 
   const openCardModal = () => {

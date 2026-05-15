@@ -183,6 +183,7 @@ const links: NavGroup[] = [
             icon: Receipt,
           },
           { title: "Clientes", href: "/dashboard/clients", icon: Users },
+          { title: "Pagos", href: "/dashboard/payments", icon: CreditCard },
         ],
       },
       {
