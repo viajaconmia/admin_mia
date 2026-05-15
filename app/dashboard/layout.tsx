@@ -22,6 +22,7 @@ import NavContainer from "@/components/organism/NavContainer"; // <- aquí impor
 import { useAuth } from "@/context/AuthContext";
 import Button from "@/components/atom/Button";
 import { UserProfileImage } from "@/components/atom/UserProfileImage";
+import { Card } from "@/components/ui/card";
 
 /**
  * Si en tu NavContainer tipaste NavGroup internamente,
@@ -145,6 +146,7 @@ const links: NavGroup[] = [
             icon: Wallet,
           },
           { title: "Proveedores", href: "/dashboard/proveedores", icon: Truck },
+          { title: "Tarjetas", href: "/dashboard/tarjetas_finanzas", icon: CreditCard },
         ],
       },
       {
