@@ -145,7 +145,11 @@ const links: NavGroup[] = [
             icon: Wallet,
           },
           { title: "Pagos", href: "/dashboard/payments", icon: CreditCard },
-          { title: "Proveedores", href: "/dashboard/proveedores", icon: Truck },
+          {
+            title: "Proveedores",
+            href: "/dashboard/proveedores_finanzas",
+            icon: Truck,
+          },
         ],
       },
       {
