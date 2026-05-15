@@ -1,3 +1,4 @@
+import { API_KEY, URL as BASE_URL } from "@/lib/constants";
 import { ApiResponse, ApiService } from "./ApiService";
 
 export class ProveedoresService extends ApiService {
@@ -8,6 +9,7 @@ export class ProveedoresService extends ApiService {
       DATA_FISCAL_ALL: "/fiscal",
       CUENTAS: "/cuentas",
       TYPE: "/proveedor",
+      ARCHIVOS: "/archivos",
     },
     PUT: {
       PROVEEDOR: "/",
@@ -21,6 +23,7 @@ export class ProveedoresService extends ApiService {
     },
     DELETE: {
       DATOS_FISCALES: "/datos_fiscales",
+      ARCHIVOS: "/archivos",
     },
   };
   static instancia: ProveedoresService = null;
@@ -129,6 +132,45 @@ export class ProveedoresService extends ApiService {
     body: Omit<ProveedorVuelo, "id" | "created_at" | "updated_at">,
   ): Promise<ApiResponse<ProveedorVuelo[]>> =>
     this.post({ path: this.formatPath(this.ENDPOINTS.PUT.VUELO), body });
+
+  //ARCHIVOS
+  public getArchivos = async (
+    id_proveedor: number,
+  ): Promise<ApiResponse<ArchivoProveedor[]>> =>
+    this.get<ArchivoProveedor[]>({
+      path: this.formatPath(this.ENDPOINTS.GET.ARCHIVOS),
+      params: { id_proveedor },
+    });
+
+  public uploadArchivo = async (
+    id_proveedor: number,
+    nombre: string,
+    file: File,
+  ): Promise<ApiResponse<ArchivoProveedor[]>> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("nombre", nombre);
+    formData.append("id_proveedor", String(id_proveedor));
+    const response = await fetch(`${BASE_URL}/mia/proveedores/archivos`, {
+      method: "POST",
+      headers: { "x-api-key": API_KEY },
+      credentials: "include",
+      body: formData,
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.message || "Error al subir el archivo");
+    }
+    return response.json();
+  };
+
+  public deleteArchivo = async (
+    id: number,
+  ): Promise<ApiResponse<ArchivoProveedor[]>> =>
+    this.delete<ArchivoProveedor[]>({
+      path: this.formatPath(this.ENDPOINTS.DELETE.ARCHIVOS),
+      params: { id },
+    });
 }
 
 //DATOS FISCALES
@@ -178,6 +220,8 @@ export interface ProveedorRaw {
   notas_pagos: string | null;
   notas_tipo_pago: string | null;
   tipo_pago: "credito" | "prepago" | null;
+  vencimiento_credito: number | null;
+  rfcs: string | null;
   auto?: ProveedorRentaCarro;
   vuelo?: ProveedorVuelo[];
   hotel?: ProveedorHotel;
@@ -202,6 +246,17 @@ export const mapProveedor = (raw: ProveedorRaw): Proveedor => ({
   bilingue: toBoolean(raw.bilingue),
   intermediario: toBoolean(raw.intermediario),
 });
+
+//ARCHIVOS
+
+export interface ArchivoProveedor {
+  id: number;
+  id_proveedor: number;
+  nombre: string;
+  url: string;
+  mime_type: string | null;
+  created_at: string;
+}
 
 //CUENTAS
 
