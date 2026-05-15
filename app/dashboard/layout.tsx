@@ -144,7 +144,6 @@ const links: NavGroup[] = [
             href: "/dashboard/saldo_a_favor_proveedor",
             icon: Wallet,
           },
-          { title: "Pagos", href: "/dashboard/payments", icon: CreditCard },
           { title: "Proveedores", href: "/dashboard/proveedores", icon: Truck },
         ],
       },
@@ -179,6 +178,7 @@ const links: NavGroup[] = [
             icon: Receipt,
           },
           { title: "Clientes", href: "/dashboard/clients", icon: Users },
+          { title: "Pagos", href: "/dashboard/payments", icon: CreditCard },
         ],
       },
       {

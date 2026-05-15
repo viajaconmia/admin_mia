@@ -24,11 +24,15 @@ export function usePatchSolicitud(
     id_solicitud_proveedor: string;
     field: EditableField;
     value: string;
+    originalValue?: number;
+    comentarioAp: string;
   }>({
     open: false,
     id_solicitud_proveedor: "",
     field: "costo_proveedor",
     value: "",
+    originalValue: undefined,
+    comentarioAp: "",
   });
 
   const patchSolicitudProveedor = useCallback(
@@ -95,24 +99,46 @@ export function usePatchSolicitud(
   const openEditModal = useCallback(
     (raw: any, field: EditableField, currentValue: any) => {
       const idSolProv = getIdSolProv(raw);
+      const originalValue =
+        field === "costo_proveedor" && currentValue != null
+          ? Number(currentValue)
+          : undefined;
       setEditModal({
         open: true,
         id_solicitud_proveedor: idSolProv,
         field,
         value: currentValue == null ? "" : String(currentValue),
+        originalValue,
+        comentarioAp: "",
       });
     },
     [],
   );
 
   const closeEditModal = useCallback(
-    () => setEditModal((s) => ({ ...s, open: false })),
+    () => setEditModal((s) => ({ ...s, open: false, comentarioAp: "" })),
     [],
   );
 
   const saveEditModal = useCallback(async () => {
-    const { id_solicitud_proveedor, field, value } = editModal;
+    const { id_solicitud_proveedor, field, value, originalValue, comentarioAp } = editModal;
     if (!id_solicitud_proveedor) return;
+
+    if (field === "costo_proveedor") {
+      const diff = Math.abs(Number(value) - (originalValue ?? 0));
+      if (diff > 50) return;
+      if (!comentarioAp.trim()) return;
+      const ok = await patchSolicitudProveedorFields(id_solicitud_proveedor, {
+        costo_total: Number(value),
+        comentarios_Ap: comentarioAp.trim(),
+      });
+      if (ok) {
+        closeEditModal();
+        handleFetchSolicitudesPago();
+      }
+      return;
+    }
+
     const ok = await patchSolicitudProveedor(id_solicitud_proveedor, field, value);
     if (ok) {
       closeEditModal();
