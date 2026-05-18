@@ -136,6 +136,8 @@ const PageReservas = () => {
       return <h1>{valor.value}</h1>;
     },
     creado: ({ value }) => <>{formatDate(value)}</>,
+    actualizado: ({ value }) => <>{formatDate(value)}</>,
+    actualizado_servicio: ({ value }) => <>{formatDate(value)}</>,
     proveedor: ({ value }: { value: string }) => <p>{value || ""}</p>,
     codigo: ({ value }) => <p>{value || ""}</p>,
     viajero: ({ value }) => <>{value}</>,
@@ -191,6 +193,7 @@ const PageReservas = () => {
     // id_cliente: reserva.id_agente,
     cliente: reserva.agente,
     creado: `${reserva.created_at.split("T")[0]}`,
+
     proveedor: reserva.proveedor,
     cupon: reserva,
     codigo: reserva.codigo_confirmacion,
@@ -213,6 +216,8 @@ const PageReservas = () => {
     estado: reserva.estado,
     estado_pago: reserva.estado_pago,
     estado_facturacion: reserva.estado_facturacion,
+    actualizado: reserva.updated_at,
+    actualizado_servicio: reserva.updated_at_service,
     detalles_cliente: reserva.id_solicitud,
   }));
 

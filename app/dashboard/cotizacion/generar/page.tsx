@@ -68,6 +68,7 @@ type HotelCotizacion = {
   noktos_noche: string;
   noktos_estancia: string;
   mostrar_total_estancia: boolean;
+  convenio: 0 | 1 | null;
 };
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -128,7 +129,7 @@ const CuponRow = ({
       {label}
     </div>
     <div
-      className={`flex-1 px-2 py-1 text-[10px] flex flex-col items-center justify-center text-center ${
+      className={`flex-1 bg-white px-2 py-1 text-[10px] flex flex-col items-center justify-center text-center ${
         alert ? "text-red-500 font-bold" : "text-gray-800"
       }`}
     >
@@ -150,7 +151,7 @@ const CuponCard = React.forwardRef<
   return (
     <div
       ref={ref}
-      className="border border-gray-200 rounded-lg overflow-hidden shadow-sm"
+      className="border border-gray-200 rounded-lg overflow-hidden shadow-sm bg-white"
     >
       <div className="bg-[#0b5fa5] text-white px-3 py-1.5 text-[10px] font-bold tracking-wide">
         OPCIÓN {priority} — HOSPEDAJE
@@ -191,11 +192,10 @@ const CuponCard = React.forwardRef<
         ) : (
           <CuponRow label="PRECIO / NOCHE:" value="SIN PRECIO" alert />
         )}
-
       </div>
 
       {hotel.notas ? (
-        <div className="px-3 py-2 border-t border-gray-100 flex gap-2">
+        <div className="bg-white px-3 py-2 border-t border-gray-100 flex gap-2">
           <span className="text-[9px] font-bold text-[#0b5fa5] shrink-0">
             NOTAS:
           </span>
@@ -266,7 +266,9 @@ const ControlsPanel = ({
     <div className="flex flex-col gap-2.5 p-3 bg-white border border-gray-200 rounded-lg shadow-sm">
       {/* Orden */}
       <div className="flex items-center justify-between">
-        <span className="text-[10px] text-gray-500">orden</span>
+        <span className="text-[10px] text-gray-500">
+          ¿Quieres cambiar el lugar de esta opción?
+        </span>
         <div className="flex gap-1">
           <button
             type="button"
@@ -291,26 +293,34 @@ const ControlsPanel = ({
 
       {/* Precio / noche */}
       <div>
-        <label className={labelCls}>PRECIO / NOCHE</label>
+        <label
+          className={
+            hotel.convenio === 0 ? `${labelCls} text-red-600` : labelCls
+          }
+        >
+          PRECIO / NOCHE{hotel.convenio === 0 && " ⚠"}
+        </label>
         <div className="flex items-center gap-1">
-          <span className="text-[10px] text-gray-400">$</span>
+          <span
+            className={
+              hotel.convenio === 0
+                ? "text-[10px] text-red-400"
+                : "text-[10px] text-gray-400"
+            }
+          >
+            $
+          </span>
           <input
             type="number"
             value={hotel.total}
             onChange={(e) => onTotalChange(e.target.value)}
-            className={inputCls}
+            className={
+              hotel.convenio === 0
+                ? `${inputCls} border-red-300 text-red-600 focus:border-red-500`
+                : inputCls
+            }
           />
         </div>
-        {subtotalNoche > 0 && (
-          <span className="text-[9px] text-gray-400 mt-0.5 block">
-            Subtotal s/IVA: ${formatNum(subtotalNoche)}
-          </span>
-        )}
-        {total > 0 && noches > 0 && (
-          <span className="text-[9px] text-blue-500 mt-0.5 block font-medium">
-            Total estancia: ${formatNum(total * noches)} ({noches}n)
-          </span>
-        )}
       </div>
 
       {/* Noktos */}
@@ -330,7 +340,7 @@ const ControlsPanel = ({
           </div>
           <div className="flex items-center gap-1">
             <span className="text-[9px] text-gray-400 w-[56px] shrink-0">
-              estancia{noches > 0 ? ` (${noches}n)` : ""}
+              estancia
             </span>
             <input
               type="number"
@@ -481,10 +491,18 @@ const HotelCard = ({
   onMostrarTotalEstanciaChange: (v: boolean) => void;
   cuponRef: React.Ref<HTMLDivElement>;
 }) => (
-  <div className="flex flex-col gap-1">
+  <div className="flex flex-col gap-1 bg-white">
     <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-white bg-[#0b5fa5] px-2 py-0.5 rounded-full w-fit">
       Prioridad {priority}
     </span>
+    {hotel.convenio === 0 && (
+      <div className="flex items-center gap-2 bg-amber-50 border border-amber-300 text-amber-800 text-[11px] font-medium px-3 py-1.5 rounded-lg">
+        <span>⚠️</span>
+        <span>
+          Este hotel no tiene convenio — verifica el precio antes de cotizar.
+        </span>
+      </div>
+    )}
     <div className="grid grid-cols-[260px_1fr] gap-3 items-start">
       <ControlsPanel
         hotel={hotel}
@@ -684,7 +702,7 @@ export default function GenerarCotizacion() {
     if (!hotel || activeSlot === null) return;
 
     const room = hotel.tipos_cuartos[0];
-    const total = room?.precio ?? "0";
+    const total = hotel.convenio === 0 ? "" : (room?.precio ?? "0");
 
     const nueva = withNoktoDefaults({
       id: hotel.id_hotel,
@@ -693,7 +711,7 @@ export default function GenerarCotizacion() {
       subtotal: room?.costo ?? room?.precio ?? "0",
       desayuno: room?.incluye_desayuno === 1 ? 1 : 0,
       habitacion: "SENCILLA",
-      notas: "",
+      notas: hotel.convenio === 0 ? "TARIFA DINÁMICA" : "",
       direccion: hotel.direccion,
       zona: hotel.Ciudad_Zona,
       priority: activeSlot + 1,
@@ -704,6 +722,7 @@ export default function GenerarCotizacion() {
       fuente_referencia: null,
       precio_sistema: room?.precio ?? null,
       costo_sistema: room?.costo ?? null,
+      convenio: hotel.convenio,
     });
 
     const updated = [...slots];

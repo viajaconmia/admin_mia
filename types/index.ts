@@ -304,6 +304,7 @@ export interface Room {
 export interface Hotel {
   id_hotel: string;
   nombre_hotel: string;
+  convenio: 0 | 1;
   Estado: string;
   direccion: string;
   Ciudad_Zona: string;
