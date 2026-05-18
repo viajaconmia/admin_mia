@@ -193,8 +193,7 @@ const PageReservas = () => {
     servicio: reserva.type,
     // id_cliente: reserva.id_agente,
     cliente: reserva.agente,
-    creado: `${reserva.created_at.split("T")[0]}`,
-
+    creado: reserva.created_at,
     proveedor: reserva.proveedor,
     cupon: reserva,
     codigo: reserva.codigo_confirmacion,
