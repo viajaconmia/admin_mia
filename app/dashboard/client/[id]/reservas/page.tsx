@@ -38,6 +38,7 @@ import { useParams } from "next/navigation";
 import { generatePdf } from "@/lib/pdf/cupon_vuelo";
 import { downloadPdfSafely } from "@/lib/pdf/descarga";
 import { generatePdfHotel } from "@/lib/pdf/cupon_hotel";
+import { DateTime } from "@/v3/atom/TableItemsComponent";
 
 const PageReservas = () => {
   const [loading, setLoading] = useState(false);
@@ -135,9 +136,9 @@ const PageReservas = () => {
     cliente: (valor) => {
       return <h1>{valor.value}</h1>;
     },
-    creado: ({ value }) => <>{formatDate(value)}</>,
-    actualizado: ({ value }) => <>{formatDate(value)}</>,
-    actualizado_servicio: ({ value }) => <>{formatDate(value)}</>,
+    creado: ({ value }) => <DateTime value={value} />,
+    actualizado: ({ value }) => <DateTime value={value} />,
+    actualizado_servicio: ({ value }) => <DateTime value={value} />,
     proveedor: ({ value }: { value: string }) => <p>{value || ""}</p>,
     codigo: ({ value }) => <p>{value || ""}</p>,
     viajero: ({ value }) => <>{value}</>,
