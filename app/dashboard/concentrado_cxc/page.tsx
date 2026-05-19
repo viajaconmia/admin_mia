@@ -134,11 +134,10 @@ export default function ResumenAgentesPage() {
             id_cliente: row.id_agente ?? null,
             nombre_cliente: row.nombre_agente || "Sin asignar",
             alias_cliente: row.nombre_identificacion || "",
-            linea_de_credito: row.linea_credito,
-            diferencia: Math.max(
-              Number(row.linea_credito || 0) - Number(row.total_facturas || 0),
-              0,
-            ),
+            linea_credito: row.linea_credito,
+            diferencia: row.linea_credito
+              ? Number(row.linea_credito || 0) - Number(row.adeudo_total || 0)
+              : "no hay linea de credito",
             total_facturas: Number(row.total_facturas || 0),
 
             vigentes: Number(row.vigentes || 0),
@@ -269,7 +268,7 @@ export default function ResumenAgentesPage() {
         nombre_cliente: agente.nombre_cliente,
         alias_cliente: agente.alias_cliente,
         linea_credito: agente.linea_credito || "-",
-        diferencia: agente.diferencia,
+        disponible_o_sobregiro: agente.diferencia,
         total_facturas: agente.total_facturas,
         vigentes: agente.vigentes,
         vencidas: agente.total_facturas - agente.vigentes,
@@ -297,9 +296,7 @@ export default function ResumenAgentesPage() {
     ),
 
     nombre_cliente: ({ value }: { value: string }) => (
-      <div className="flex justify-center">
-        <span className="font-semibold text-xs text-gray-800">{value}</span>
-      </div>
+      <span className="font-semibold text-xs text-gray-800">{value}</span>
     ),
 
     id_cliente: ({ value }: { value: string }) => (
