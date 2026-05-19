@@ -30,6 +30,7 @@ type ManualForm = {
   monto_pagado: string;
   fecha_pago: string;
   concepto: string;
+  comentarios_ap: string;
 };
 
 const normalizeHeader = (value?: string) =>
@@ -198,6 +199,7 @@ const initialManualForm: ManualForm = {
   monto_pagado: "",
   fecha_pago: today(),
   concepto: "",
+  comentarios_ap: "",
 };
 
 const buildSelectedForms = (
@@ -212,6 +214,7 @@ const buildSelectedForms = (
         : Number(item.monto_solicitado ?? 0).toFixed(2),
     fecha_pago: today(),
     concepto: "",
+    comentarios_ap: "",
   }));
 };
 
@@ -257,6 +260,14 @@ export const OtrosMetodosPagoModal: React.FC<OtrosMetodosPagoModalProps> = ({
   }, [selectedSolicitudes]);
 
   const hasSelectedRows = selectedForms.length > 1;
+
+  const originalMontoMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    selectedSolicitudes.forEach((s) => {
+      map[String(s.id_solicitud_proveedor)] = Number(s.monto_solicitado ?? 0);
+    });
+    return map;
+  }, [selectedSolicitudes]);
 
   const manualValid = useMemo(() => {
   if (hasSelectedRows) {
@@ -387,6 +398,7 @@ const handlePdfChange = (event: React.ChangeEvent<HTMLInputElement>) => {
       monto !== null ? monto.toFixed(2) : formData.monto_pagado.trim(),
     fecha_pago: formData.fecha_pago.trim(),
     concepto: formData.concepto.trim(),
+    comentarios_ap: formData.comentarios_ap.trim(),
   };
 };
 
@@ -401,6 +413,7 @@ const buildSelectedRows = (): CSVRow[] => {
         monto !== null ? monto.toFixed(2) : row.monto_pagado.trim(),
       fecha_pago: row.fecha_pago.trim(),
       concepto: row.concepto.trim(),
+      comentarios_ap: row.comentarios_ap.trim(),
     };
   });
 };
@@ -456,12 +469,55 @@ const buildSelectedRows = (): CSVRow[] => {
             );
             return;
           }
+
+          // Validar cambios de monto en solicitudes seleccionadas
+          for (let i = 0; i < selectedForms.length; i++) {
+            const form = selectedForms[i];
+            const originalMonto = originalMontoMap[form.id_solicitud_proveedor];
+            if (originalMonto === undefined) continue;
+            const newMonto = cleanMoney(form.monto_pagado);
+            if (newMonto === null) continue;
+            const diff = Math.abs(newMonto - originalMonto);
+            if (diff > 50) {
+              setFormError(
+                `Solicitud ${i + 1} (${form.id_solicitud_proveedor}): el monto no puede cambiar más de $50.00 (original: $${originalMonto.toFixed(2)}, nuevo: $${newMonto.toFixed(2)}).`,
+              );
+              return;
+            }
+            if (diff > 0 && !form.comentarios_ap.trim()) {
+              setFormError(
+                `Solicitud ${i + 1} (${form.id_solicitud_proveedor}): se cambió el monto. Debes capturar un comentario en "Razón del ajuste".`,
+              );
+              return;
+            }
+          }
         } else {
           const row = buildManualRow();
 
           if (!row.id_solicitud_proveedor && !row.codigo_confirmacion) {
             setFormError("Debes capturar id_solicitud_proveedor o codigo_confirmacion.");
             return;
+          }
+
+          // Validar cambio de monto en formulario individual
+          const originalMonto = originalMontoMap[formData.id_solicitud_proveedor];
+          if (originalMonto !== undefined) {
+            const newMonto = cleanMoney(formData.monto_pagado);
+            if (newMonto !== null) {
+              const diff = Math.abs(newMonto - originalMonto);
+              if (diff > 50) {
+                setFormError(
+                  `El monto no puede cambiar más de $50.00 (original: $${originalMonto.toFixed(2)}, nuevo: $${newMonto.toFixed(2)}).`,
+                );
+                return;
+              }
+              if (diff > 0 && !formData.comentarios_ap.trim()) {
+                setFormError(
+                  "Se cambió el monto. Debes capturar un comentario en \"Razón del ajuste\".",
+                );
+                return;
+              }
+            }
           }
 
           csvDataArray = [row];
@@ -504,13 +560,14 @@ const buildSelectedRows = (): CSVRow[] => {
         csvDataArray.length === 1
           ? {
               frontendData: {
-                id_solicitud_proveedor: csvDataArray[0].id_solicitud_proveedor || "", 
+                id_solicitud_proveedor: csvDataArray[0].id_solicitud_proveedor || "",
                 codigo_confirmacion: csvDataArray[0].codigo_confirmacion || "",
                 monto_pagado: csvDataArray[0].monto_pagado
                   ? Number(csvDataArray[0].monto_pagado)
                   : null,
                 fecha_pago: csvDataArray[0].fecha_pago || "",
                 concepto: csvDataArray[0].concepto || "",
+                comentarios_ap: csvDataArray[0].comentarios_ap || "",
                 url_pdf: urlPdf,
               },
               isMasivo: false,
@@ -526,6 +583,7 @@ const buildSelectedRows = (): CSVRow[] => {
                 monto_pagado: row.monto_pagado || "",
                 fecha_pago: row.fecha_pago || "",
                 concepto: row.concepto || "",
+                comentarios_ap: row.comentarios_ap || "",
               })),
             };
 
@@ -703,16 +761,23 @@ const buildSelectedRows = (): CSVRow[] => {
                         }
                       />
 
-                      <input
-                        className="border rounded-lg p-3 text-sm"
-                        placeholder="monto_pagado"
-                        type="number"
-                        step="0.01"
-                        value={row.monto_pagado}
-                        onChange={(e) =>
-                          updateSelectedField(index, "monto_pagado", e.target.value)
-                        }
-                      />
+                      <div className="space-y-1">
+                        <input
+                          className="border rounded-lg p-3 text-sm w-full"
+                          placeholder="monto_pagado"
+                          type="number"
+                          step="0.01"
+                          value={row.monto_pagado}
+                          onChange={(e) =>
+                            updateSelectedField(index, "monto_pagado", e.target.value)
+                          }
+                        />
+                        {originalMontoMap[row.id_solicitud_proveedor] !== undefined && (
+                          <p className="text-[11px] text-slate-400">
+                            Original: ${Number(originalMontoMap[row.id_solicitud_proveedor]).toFixed(2)} · máx. ±$50.00
+                          </p>
+                        )}
+                      </div>
 
                       <input
                         type="date"
@@ -731,6 +796,23 @@ const buildSelectedRows = (): CSVRow[] => {
                           updateSelectedField(index, "concepto", e.target.value)
                         }
                       />
+
+                      {(() => {
+                        const original = originalMontoMap[row.id_solicitud_proveedor];
+                        const newMonto = cleanMoney(row.monto_pagado);
+                        const changed = original !== undefined && newMonto !== null && Math.abs(newMonto - original) > 0;
+                        return changed ? (
+                          <textarea
+                            className="border rounded-lg p-3 text-sm md:col-span-2 resize-none"
+                            placeholder="Razón del ajuste de monto (requerido) *"
+                            rows={2}
+                            value={row.comentarios_ap}
+                            onChange={(e) =>
+                              updateSelectedField(index, "comentarios_ap", e.target.value)
+                            }
+                          />
+                        ) : null;
+                      })()}
                     </div>
                   </div>
                 ))}
@@ -747,12 +829,21 @@ const buildSelectedRows = (): CSVRow[] => {
                 onChange={(e) => updateField("id_solicitud_proveedor", e.target.value)}
               />
 
-              <input
-                className="border rounded-lg p-3 text-sm"
-                placeholder="monto_pagado *"
-                value={formData.monto_pagado}
-                onChange={(e) => updateField("monto_pagado", e.target.value)}
-              />
+              <div className="space-y-1">
+                <input
+                  className="border rounded-lg p-3 text-sm w-full"
+                  placeholder="monto_pagado *"
+                  type="number"
+                  step="0.01"
+                  value={formData.monto_pagado}
+                  onChange={(e) => updateField("monto_pagado", e.target.value)}
+                />
+                {originalMontoMap[formData.id_solicitud_proveedor] !== undefined && (
+                  <p className="text-[11px] text-slate-400">
+                    Original: ${Number(originalMontoMap[formData.id_solicitud_proveedor]).toFixed(2)} · máx. ±$50.00
+                  </p>
+                )}
+              </div>
 
               <input
                 type="date"
@@ -767,6 +858,21 @@ const buildSelectedRows = (): CSVRow[] => {
                 value={formData.concepto}
                 onChange={(e) => updateField("concepto", e.target.value)}
               />
+
+              {(() => {
+                const original = originalMontoMap[formData.id_solicitud_proveedor];
+                const newMonto = cleanMoney(formData.monto_pagado);
+                const changed = original !== undefined && newMonto !== null && Math.abs(newMonto - original) > 0;
+                return changed ? (
+                  <textarea
+                    className="border rounded-lg p-3 text-sm md:col-span-2 resize-none"
+                    placeholder="Razón del ajuste de monto (requerido) *"
+                    rows={2}
+                    value={formData.comentarios_ap}
+                    onChange={(e) => updateField("comentarios_ap", e.target.value)}
+                  />
+                ) : null;
+              })()}
             </div>
           )}
 

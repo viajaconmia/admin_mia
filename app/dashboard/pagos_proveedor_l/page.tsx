@@ -6,6 +6,7 @@ import { fetchGetSolicitudesFiltradas } from "@/services/pago_proveedor";
 import { OtrosMetodosPagoModal } from "@/app/dashboard/pagos_proveedor/Components/OtrosMetodosPagoModal";
 import ModalDetalle from "@/app/dashboard/conciliacion/detalles";
 import { calcularNoches } from "@/helpers/utils";
+import { formatDate } from "@/helpers/formater";
 import {
   getIdSolProv,
   getMontoSolicitado,
@@ -51,16 +52,6 @@ const fmtMoney = (n: number) =>
     maximumFractionDigits: 2,
   })}`;
 
-const fmtDate = (d: string | null) => {
-  if (!d) return "—";
-  const date = new Date(d);
-  if (isNaN(date.getTime())) return d;
-  return date.toLocaleDateString("es-MX", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-};
 
 const getEstatus = (raw: any): string =>
   String(
@@ -447,13 +438,13 @@ export default function PagosProveedorL() {
                           {fmtMoney(row.precio_de_venta)}
                         </td>
                         <td className="px-3 py-2.5 text-center text-slate-600 whitespace-nowrap">
-                          {fmtDate(row.check_in)}
+                          {formatDate(row.check_in)}
                         </td>
                         <td className="px-3 py-2.5 text-center text-slate-600 whitespace-nowrap">
-                          {fmtDate(row.check_out)}
+                          {formatDate(row.check_out)}
                         </td>
                         <td
-                          className={`px-3 py-2.5 text-right font-semibold whitespace-nowrap ${row.markup <= 0 ? "text-green-700" : "text-amber-700"}`}
+                          className={`px-3 py-2.5 text-right font-semibold whitespace-nowrap ${row.markup >= 0 ? "text-green-700" : "text-red-600"}`}
                         >
                           {row.markup.toFixed(1)}%
                         </td>
@@ -589,21 +580,18 @@ export default function PagosProveedorL() {
                         label="Px venta"
                         value={fmtMoney(row.precio_de_venta)}
                       />
-                      <CardField
-                        label="Check in"
-                        value={fmtDate(row.check_in)}
-                      />
+                      <CardField label="Check in" value={formatDate(row.check_in)} />
                       <CardField
                         label="Check out"
-                        value={fmtDate(row.check_out)}
+                        value={formatDate(row.check_out)}
                       />
                       <CardField
                         label="Markup"
                         value={`${row.markup.toFixed(1)}%`}
                         className={
-                          row.markup <= 0
+                          row.markup >= 0
                             ? "text-green-700 font-semibold"
-                            : "text-amber-700 font-semibold"
+                            : "text-red-600 font-semibold"
                         }
                       />
                       <CardField

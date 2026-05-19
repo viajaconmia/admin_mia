@@ -44,6 +44,11 @@ interface VistaPreviaProps {
       source: string;
       manual: boolean;
     },
+    propinaData?: {
+      activa: boolean;
+      monto: number;
+      detectada: boolean;
+    } | null,
   ) => void;
   isLoading?: boolean;
 }
@@ -135,7 +140,25 @@ export default function VistaPreviaModal({
   const [tipoCambioSource, setTipoCambioSource] = useState<string>("pending");
   const [modoTipoCambioManual, setModoTipoCambioManual] = useState(false);
   const [tipoCambioManualInput, setTipoCambioManualInput] = useState("");
+  const [propinaActiva, setPropinaActiva] = useState(false);
+  const [propinaMontoInput, setPropinaMontoInput] = useState("");
+  const [propinaDetectada, setPropinaDetectada] = useState(false);
   const { showNotification } = useAlert();
+
+  // Auto-detectar propina del XML al cargar
+  React.useEffect(() => {
+    const monto = Number(facturaData?.propina?.monto ?? 0);
+    if (facturaData?.propina?.tienePropina && monto > 0) {
+      setPropinaActiva(true);
+      setPropinaMontoInput(facturaData.propina.monto);
+      setPropinaDetectada(true);
+    }
+  }, [facturaData]);
+
+  const propinaMonto = useMemo(() => {
+    if (!propinaActiva) return 0;
+    return Math.max(0, Number(propinaMontoInput || 0));
+  }, [propinaActiva, propinaMontoInput]);
 
   const clampTipoCambioMin1 = (value: any) => {
     const n = Number(value);
@@ -151,8 +174,8 @@ export default function VistaPreviaModal({
   const toggleView = () => setShowPdf(!showPdf);
 
   const totalFactura = useMemo(
-    () => parseFloat(facturaData?.comprobante?.total || "0"),
-    [facturaData],
+    () => round2(parseFloat(facturaData?.comprobante?.total || "0") + propinaMonto),
+    [facturaData, propinaMonto],
   );
 
   const subtotalFactura = useMemo(
@@ -180,6 +203,8 @@ export default function VistaPreviaModal({
     tipoCambioManual,
     tipoCambioResuelto,
   ]);
+
+  console.log(facturadoData,"🔽🔽🔽🔽🔽🔽")
 
   const totalFacturaMXN = useMemo(() => {
     if (isMXNCurrency(monedaFactura)) return totalFactura;
@@ -516,12 +541,19 @@ export default function VistaPreviaModal({
       return;
     }
 
-    onConfirm(pdfUrl, showFechaVencimiento ? fechaVencimiento : undefined, {
-      moneda: monedaFactura,
-      tipo_cambio: tipoCambioFactura,
-      source: tipoCambioSource,
-      manual: modoTipoCambioManual,
-    });
+    onConfirm(
+      pdfUrl,
+      showFechaVencimiento ? fechaVencimiento : undefined,
+      {
+        moneda: monedaFactura,
+        tipo_cambio: tipoCambioFactura,
+        source: tipoCambioSource,
+        manual: modoTipoCambioManual,
+      },
+      propinaActiva
+        ? { activa: true, monto: propinaMonto, detectada: propinaDetectada }
+        : null,
+    );
   };
 
   const formatCurrency = (
@@ -738,9 +770,9 @@ export default function VistaPreviaModal({
                 </p>
               </div>
               <div>
-                <p className="text-sm">Total de la factura:</p>
+                <p className="text-sm">Total de la factura{propinaMonto > 0 ? " (con propina)" : ""}:</p>
                 <p className="font-semibold">
-                  {formatCurrency(String(totalFactura), monedaFactura)}
+                  {formatCurrency(totalFactura, monedaFactura)}
                 </p>
 
                 {!isMXNCurrency(monedaFactura) && (
@@ -844,8 +876,79 @@ export default function VistaPreviaModal({
             facturaData={facturaData}
             formatCurrency={formatCurrency}
             formatDate={formatDate}
+            propinaMonto={propinaMonto}
           />
         )}
+
+        {/* ── Propina ─────────────────────────────────────────── */}
+        <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-amber-800 text-sm">Propina</h3>
+              {propinaDetectada && (
+                <span className="text-[11px] text-amber-700 bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-full">
+                  Detectada en XML
+                </span>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setPropinaActiva((prev) => !prev)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                propinaActiva ? "bg-amber-500" : "bg-gray-300"
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  propinaActiva ? "translate-x-6" : "translate-x-1"
+                }`}
+              />
+            </button>
+          </div>
+
+          {propinaActiva && (
+            <div className="space-y-3 mt-3">
+              <div>
+                <label className="block text-xs font-medium text-amber-900 mb-1">
+                  Monto de propina
+                </label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  value={propinaMontoInput}
+                  onChange={(e) =>
+                    setPropinaMontoInput(safeNumStr(e.target.value))
+                  }
+                  className="w-full p-2 border border-amber-300 rounded bg-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                />
+              </div>
+
+              {propinaMonto > 0 && (
+                <div className="text-xs space-y-1 text-amber-900 border-t border-amber-200 pt-2">
+                  <div className="flex justify-between">
+                    <span>Monto original (sin propina):</span>
+                    <span className="font-mono">
+                      {formatCurrency(parseFloat(facturaData?.comprobante?.total || "0"), monedaFactura)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Propina:</span>
+                    <span className="font-mono">
+                      + {formatCurrency(propinaMonto, monedaFactura)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between font-semibold text-amber-800 border-t border-amber-200 pt-1">
+                    <span>Total con propina:</span>
+                    <span className="font-mono">
+                      {formatCurrency(totalFactura, monedaFactura)}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Fecha de vencimiento */}
         {showFechaVencimiento && (
@@ -940,11 +1043,11 @@ export default function VistaPreviaModal({
                       : "No disponible"}
             </div>
             <div>
-              <strong>Total original:</strong>{" "}
+              <strong>Total original{propinaMonto > 0 ? " (con propina)" : ""}:</strong>{" "}
               {formatCurrency(totalFactura, monedaFactura)}
             </div>
             <div>
-              <strong>Total en MXN:</strong>{" "}
+              <strong>Total en MXN{propinaMonto > 0 ? " (con propina)" : ""}:</strong>{" "}
               {formatCurrency(totalFacturaMXN, "MXN")}
             </div>
             <div>
@@ -993,6 +1096,7 @@ const FacturaEstructurada = ({
   facturaData,
   formatCurrency,
   formatDate,
+  propinaMonto = 0,
 }: any) => (
   <div className="border border-gray-200 rounded-lg p-6">
     <div className="flex justify-between items-start mb-8">
@@ -1057,10 +1161,20 @@ const FacturaEstructurada = ({
             {formatCurrency(facturaData.impuestos?.traslado?.importe || "0")}
           </span>
         </div>
+        {propinaMonto > 0 && (
+          <div className="flex justify-between py-2 border-b text-amber-700">
+            <span className="font-semibold">Propina:</span>
+            <span>{formatCurrency(propinaMonto)}</span>
+          </div>
+        )}
         <div className="flex justify-between py-2 font-bold text-lg">
-          <span>Total:</span>
+          <span>Total{propinaMonto > 0 ? " (con propina)" : ""}:</span>
           <span className="text-green-600">
-            {formatCurrency(facturaData.comprobante.total)}
+            {formatCurrency(
+              propinaMonto > 0
+                ? Number(facturaData.comprobante.total) + propinaMonto
+                : facturaData.comprobante.total,
+            )}
           </span>
         </div>
       </div>

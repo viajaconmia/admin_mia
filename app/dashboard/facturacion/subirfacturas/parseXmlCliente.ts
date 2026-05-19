@@ -9,64 +9,157 @@ export async function parsearXML(xmlFile: File): Promise<any> {
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(xmlString, "text/xml");
 
-        const getAttr = (element: Element | null, attr: string): string =>
+        const parserError = xmlDoc.getElementsByTagName("parsererror")[0];
+        if (parserError) {
+          throw new Error("XML inválido o mal formado");
+        }
+
+        const getAttr = (element: Element | null | undefined, attr: string): string =>
           element?.getAttribute(attr) || "";
 
-        const comprobante = xmlDoc.getElementsByTagName("cfdi:Comprobante")[0];
-        const emisor = xmlDoc.getElementsByTagName("cfdi:Emisor")[0];
-        const receptor = xmlDoc.getElementsByTagName("cfdi:Receptor")[0];
-        const timbre = xmlDoc.getElementsByTagName("tfd:TimbreFiscalDigital")[0];
+        const toNumber = (value: string): number => {
+          if (!value) return 0;
 
-        // NUEVO
-        const impuestos = xmlDoc.getElementsByTagName("cfdi:Impuestos")[0];
-        const trasladoGlobal = impuestos?.getElementsByTagName("cfdi:Traslado")[0] || null;
+          const clean = String(value)
+            .replace(/,/g, "")
+            .replace(/\$/g, "")
+            .trim();
 
-        const impuestosLocales =
-          xmlDoc.getElementsByTagName("implocal:ImpuestosLocales")[0] || null;
+          const n = Number(clean);
+          return Number.isFinite(n) ? n : 0;
+        };
 
-        const trasladoLocal =
-          impuestosLocales?.getElementsByTagName("implocal:TrasladosLocales")[0] || null;
+        const round2 = (value: number): number => {
+          return Math.round(value * 100) / 100;
+        };
 
-        const addendaHoteleria =
-          xmlDoc.getElementsByTagName("posadas:Hoteleria")[0] || null;
+        const normalizeName = (name: string): string => {
+          return name.toLowerCase().split(":").pop()?.trim() || "";
+        };
 
-        // Conceptos con impuestos internos
-        const conceptos = Array.from(
-          xmlDoc.getElementsByTagName("cfdi:Concepto")
-        ).map((concepto) => {
-          const traslado = concepto.getElementsByTagName("cfdi:Traslado")[0];
+        const getElementsByLocalName = (
+          root: Document | Element,
+          localName: string
+        ): Element[] => {
+          return Array.from(root.getElementsByTagName("*")).filter(
+            (el) => normalizeName(el.tagName) === normalizeName(localName)
+          );
+        };
+
+        const getFirstByLocalName = (
+          root: Document | Element,
+          localName: string
+        ): Element | null => {
+          return getElementsByLocalName(root, localName)[0] || null;
+        };
+
+        const buscarPropinaEnXML = (xmlDoc: Document) => {
+          const resultados: Array<{
+            valor: string;
+            monto: number;
+            nodo: string;
+            tipo: "atributo" | "nodo";
+            nombre: string;
+          }> = [];
+
+          const elementos = Array.from(xmlDoc.getElementsByTagName("*"));
+
+          elementos.forEach((elemento) => {
+            // Buscar atributos llamados propina
+            Array.from(elemento.attributes || []).forEach((attr) => {
+              if (normalizeName(attr.name) === "propina") {
+                resultados.push({
+                  valor: attr.value,
+                  monto: toNumber(attr.value),
+                  nodo: elemento.tagName,
+                  tipo: "atributo",
+                  nombre: attr.name,
+                });
+              }
+            });
+
+            // Buscar nodos llamados propina
+            if (normalizeName(elemento.tagName) === "propina") {
+              const valor = elemento.textContent?.trim() || "";
+
+              resultados.push({
+                valor,
+                monto: toNumber(valor),
+                nodo: elemento.tagName,
+                tipo: "nodo",
+                nombre: elemento.tagName,
+              });
+            }
+          });
+
+          const montoTotal = round2(
+            resultados.reduce((acc, item) => acc + item.monto, 0)
+          );
 
           return {
-            cantidad: getAttr(concepto, "Cantidad"),
-            descripcion: getAttr(concepto, "Descripcion"),
-            valorUnitario: getAttr(concepto, "ValorUnitario"),
-            importe: getAttr(concepto, "Importe"),
-            unidad: getAttr(concepto, "Unidad"),
-            claveProdServ: getAttr(concepto, "ClaveProdServ"),
-            claveUnidad: getAttr(concepto, "ClaveUnidad"),
-            objetoImp: getAttr(concepto, "ObjetoImp"),
-            impuestos: traslado
-              ? {
-                  impuesto: getAttr(traslado, "Impuesto"),
-                  tipoFactor: getAttr(traslado, "TipoFactor"),
-                  tasaOCuota: getAttr(traslado, "TasaOCuota"),
-                  importe: getAttr(traslado, "Importe"),
-                  base: getAttr(traslado, "Base"),
-                }
-              : null,
+            tienePropina: resultados.length > 0 && montoTotal > 0,
+            monto: montoTotal.toFixed(2),
+            encontrados: resultados,
           };
-        });
+        };
+
+        const comprobante = getFirstByLocalName(xmlDoc, "Comprobante");
+        const emisor = getFirstByLocalName(xmlDoc, "Emisor");
+        const receptor = getFirstByLocalName(xmlDoc, "Receptor");
+        const timbre = getFirstByLocalName(xmlDoc, "TimbreFiscalDigital");
+
+        const impuestos = getFirstByLocalName(xmlDoc, "Impuestos");
+
+        const trasladoGlobal =
+          impuestos?.getElementsByTagName("cfdi:Traslado")[0] ||
+          getFirstByLocalName(impuestos as Element, "Traslado") ||
+          null;
+
+        const impuestosLocales = getFirstByLocalName(xmlDoc, "ImpuestosLocales");
+
+        const trasladoLocal = impuestosLocales
+          ? getFirstByLocalName(impuestosLocales, "TrasladosLocales")
+          : null;
+
+        const addendaHoteleria = getFirstByLocalName(xmlDoc, "Hoteleria");
+
+        const propinaDetectada = buscarPropinaEnXML(xmlDoc);
+
+        const conceptos = getElementsByLocalName(xmlDoc, "Concepto").map(
+          (concepto) => {
+            const traslado = getFirstByLocalName(concepto, "Traslado");
+
+            return {
+              cantidad: getAttr(concepto, "Cantidad"),
+              descripcion: getAttr(concepto, "Descripcion"),
+              valorUnitario: getAttr(concepto, "ValorUnitario"),
+              importe: getAttr(concepto, "Importe"),
+              unidad: getAttr(concepto, "Unidad"),
+              claveProdServ: getAttr(concepto, "ClaveProdServ"),
+              claveUnidad: getAttr(concepto, "ClaveUnidad"),
+              objetoImp: getAttr(concepto, "ObjetoImp"),
+              impuestos: traslado
+                ? {
+                    impuesto: getAttr(traslado, "Impuesto"),
+                    tipoFactor: getAttr(traslado, "TipoFactor"),
+                    tasaOCuota: getAttr(traslado, "TasaOCuota"),
+                    importe: getAttr(traslado, "Importe"),
+                    base: getAttr(traslado, "Base"),
+                  }
+                : null,
+            };
+          }
+        );
 
         const data = {
           comprobante: {
-            // EXISTENTES
             serie: getAttr(comprobante, "Serie"),
             folio: getAttr(comprobante, "Folio"),
             fecha: getAttr(comprobante, "Fecha"),
             subtotal: getAttr(comprobante, "SubTotal"),
             total: getAttr(comprobante, "Total"),
             moneda: getAttr(comprobante, "Moneda"),
-            tipoCambio: getAttr(comprobante, "TipoCambio"), // 👈 NUEVO
+            tipoCambio: getAttr(comprobante, "TipoCambio"),
             tipoDeComprobante: getAttr(comprobante, "TipoDeComprobante"),
             formaPago: getAttr(comprobante, "FormaPago"),
             metodoPago: getAttr(comprobante, "MetodoPago"),
@@ -74,8 +167,6 @@ export async function parsearXML(xmlFile: File): Promise<any> {
             condicionesDePago: getAttr(comprobante, "CondicionesDePago"),
             exportacion: getAttr(comprobante, "Exportacion"),
             noCertificado: getAttr(comprobante, "NoCertificado"),
-
-            // NUEVOS (compatibles)
             version: getAttr(comprobante, "Version"),
             certificado: getAttr(comprobante, "Certificado"),
             sello: getAttr(comprobante, "Sello"),
@@ -97,6 +188,8 @@ export async function parsearXML(xmlFile: File): Promise<any> {
 
           conceptos,
 
+          propina: propinaDetectada,
+
           impuestos: {
             totalTrasladado: getAttr(impuestos, "TotalImpuestosTrasladados"),
             traslado: trasladoGlobal
@@ -110,15 +203,20 @@ export async function parsearXML(xmlFile: File): Promise<any> {
               : null,
           },
 
-          // NUEVO
           impuestosLocales: impuestosLocales
             ? {
-                totalRetenciones: getAttr(impuestosLocales, "TotaldeRetenciones"),
+                totalRetenciones: getAttr(
+                  impuestosLocales,
+                  "TotaldeRetenciones"
+                ),
                 totalTraslados: getAttr(impuestosLocales, "TotaldeTraslados"),
                 version: getAttr(impuestosLocales, "version"),
                 traslado: trasladoLocal
                   ? {
-                      impuestoLocal: getAttr(trasladoLocal, "ImpLocTrasladado"),
+                      impuestoLocal: getAttr(
+                        trasladoLocal,
+                        "ImpLocTrasladado"
+                      ),
                       importe: getAttr(trasladoLocal, "Importe"),
                       tasa: getAttr(trasladoLocal, "TasadeTraslado"),
                     }
@@ -133,12 +231,9 @@ export async function parsearXML(xmlFile: File): Promise<any> {
             selloSAT: getAttr(timbre, "SelloSAT"),
             noCertificadoSAT: getAttr(timbre, "NoCertificadoSAT"),
             rfcProvCertif: getAttr(timbre, "RfcProvCertif"),
-
-            // NUEVO
             version: getAttr(timbre, "Version"),
           },
 
-          // NUEVO
           addenda: addendaHoteleria
             ? {
                 hoteleria: {
@@ -153,8 +248,12 @@ export async function parsearXML(xmlFile: File): Promise<any> {
                   habitacion: getAttr(addendaHoteleria, "habitacion"),
                   huesped: getAttr(addendaHoteleria, "huesped"),
                   importeaPagar: getAttr(addendaHoteleria, "importeaPagar"),
+                  propina: getAttr(addendaHoteleria, "propina"),
                   numeroFormato: getAttr(addendaHoteleria, "numeroFormato"),
-                  numeroReferencia: getAttr(addendaHoteleria, "numeroReferencia"),
+                  numeroReferencia: getAttr(
+                    addendaHoteleria,
+                    "numeroReferencia"
+                  ),
                   reservacion: getAttr(addendaHoteleria, "reservacion"),
                 },
               }
