@@ -168,7 +168,7 @@ function extractFacturasYPagosFromPFP(raw: any) {
   return { id_facturas, id_pagos };
 }
 
-type EstatusFacturaInferido = "FACTURADO" | "PARCIAL" | "SIN FACTURAR";
+type EstatusFacturaInferido = "FACTURADO" | "PARCIAL" | "PENDIENTE";
 
 function getEstatusFacturas(
   diferencia: any,
@@ -179,7 +179,7 @@ function getEstatusFacturas(
   const EPS = 0.01;
 
   if (Math.abs(diff) < EPS) return "FACTURADO";
-  if (Math.abs(diff - costo) < EPS) return "SIN FACTURAR";
+  if (Math.abs(diff - costo) < EPS) return "PENDIENTE";
   return "PARCIAL";
 }
 
@@ -1545,6 +1545,21 @@ const openBuscarUuidModal = useCallback(() => {
             title={String(value)}
           >
             {formatMoney(n)}
+          </span>
+        );
+      },
+
+      estatus_facturas: ({ value }) => {
+        const v = String(value ?? "").toUpperCase();
+        const styles: Record<string, string> = {
+          FACTURADO: "text-green-700 bg-green-50 border-green-200",
+          PARCIAL: "text-amber-700 bg-amber-50 border-amber-200",
+          "PENDIENTE": "text-red-700 bg-red-50 border-red-200",
+        };
+        const cls = styles[v] ?? "text-gray-600 bg-gray-50 border-gray-200";
+        return (
+          <span className={`font-semibold border px-2 py-1 rounded-full text-xs whitespace-nowrap ${cls}`}>
+            {v || "—"}
           </span>
         );
       },
