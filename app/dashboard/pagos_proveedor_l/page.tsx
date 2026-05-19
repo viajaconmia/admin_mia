@@ -95,6 +95,7 @@ const mapRaw = (raw: any): SolicitudRow => {
     id_solicitud_proveedor,
     proveedor: (raw?.hotel ?? "").toUpperCase(),
     codigo_confirmacion: raw?.codigo_confirmacion ?? "—",
+    nombre_comercial: raw?.nombre_identificacion,
     costo_proveedor,
     monto_solicitado,
     cliente: (raw?.nombre_agente_completo ?? "").toUpperCase(),
@@ -193,6 +194,7 @@ export default function PagosProveedorL() {
 
   const filteredRows = useMemo(() => {
     const q = search.trim().toUpperCase();
+    console.log(rows);
     if (!q) return rows;
     return rows.filter(
       (r) =>
@@ -424,9 +426,13 @@ export default function PagosProveedorL() {
                         </td>
                         <td
                           className="px-3 py-2.5 text-slate-700 max-w-[150px] truncate"
-                          title={row.cliente}
+                          title={row.nombre_comercial || row.cliente}
                         >
-                          {row.cliente || "—"}
+                          {(
+                            row.nombre_comercial ||
+                            row.cliente ||
+                            "—"
+                          ).toUpperCase()}
                         </td>
                         <td className="px-3 py-2.5 text-right text-slate-700 whitespace-nowrap">
                           {fmtMoney(row.precio_de_venta)}
@@ -624,7 +630,8 @@ export default function PagosProveedorL() {
             </div>
 
             <p className="mt-3 text-xs text-slate-400 text-right">
-              {filteredRows.length} registro{filteredRows.length !== 1 ? "s" : ""}
+              {filteredRows.length} registro
+              {filteredRows.length !== 1 ? "s" : ""}
               {search ? ` (filtrados de ${rows.length})` : ""}
             </p>
           </>

@@ -38,6 +38,7 @@ import { useParams } from "next/navigation";
 import { generatePdf } from "@/lib/pdf/cupon_vuelo";
 import { downloadPdfSafely } from "@/lib/pdf/descarga";
 import { generatePdfHotel } from "@/lib/pdf/cupon_hotel";
+import { DateTime } from "@/v3/atom/TableItemsComponent";
 
 const PageReservas = () => {
   const [loading, setLoading] = useState(false);
@@ -135,7 +136,9 @@ const PageReservas = () => {
     cliente: (valor) => {
       return <h1>{valor.value}</h1>;
     },
-    creado: ({ value }) => <>{formatDate(value)}</>,
+    creado: ({ value }) => <DateTime value={value} />,
+    actualizado: ({ value }) => <DateTime value={value} />,
+    actualizado_servicio: ({ value }) => <DateTime value={value} />,
     proveedor: ({ value }: { value: string }) => <p>{value || ""}</p>,
     codigo: ({ value }) => <p>{value || ""}</p>,
     viajero: ({ value }) => <>{value}</>,
@@ -190,7 +193,7 @@ const PageReservas = () => {
     servicio: reserva.type,
     // id_cliente: reserva.id_agente,
     cliente: reserva.agente,
-    creado: `${reserva.created_at.split("T")[0]}`,
+    creado: reserva.created_at,
     proveedor: reserva.proveedor,
     cupon: reserva,
     codigo: reserva.codigo_confirmacion,
@@ -213,6 +216,8 @@ const PageReservas = () => {
     estado: reserva.estado,
     estado_pago: reserva.estado_pago,
     estado_facturacion: reserva.estado_facturacion,
+    actualizado: reserva.updated_at,
+    actualizado_servicio: reserva.updated_at_service,
     detalles_cliente: reserva.id_solicitud,
   }));
 
