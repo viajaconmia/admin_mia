@@ -61,6 +61,15 @@
 
   const normalizeAgent = (a: any) => String(a ?? "");
 
+  const calcDiasRestantes = (fechaVenc: string | null): number => {
+    if (!fechaVenc) return 0;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const venc = new Date(fechaVenc);
+    venc.setHours(0, 0, 0, 0);
+    return Math.floor((venc.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  };
+
 
 
   export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
@@ -95,7 +104,7 @@
   const [csvFeedback, setCsvFeedback] = useState<{
     type: "success" | "warning" | "error";
     text: string;
-  } | null>(null);
+  } | null>(null);   
 
     /* ────────────────
       Fetch de datos cuando hay pagoData
@@ -112,7 +121,7 @@
         const response = await fetch(endpoint, {
           method: "POST",
           headers: {
-            "x-api-key": API_KEY || "",
+            "x-api-key": API_KEY || "",   
             "Content-Type": "application/json",
             "Cache-Control": "no-cache, no-store, must-revalidate",
           },
@@ -623,7 +632,7 @@
       total: f.total,
       saldo: f.saldo,
       dias_a_credito: f.diasCredito || 0,
-      dias_restantes: f.diasRestantes || 0,
+      dias_restantes: f.diasRestantes ?? calcDiasRestantes(f.fecha_vencimiento),
       monto_asignar: f,
       seleccionar: f,
       item: f,

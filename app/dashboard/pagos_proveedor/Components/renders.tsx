@@ -125,6 +125,54 @@ const Pill = ({
   );
 };
 
+const TruncatedComment = ({ texto }: { texto: string }) => {
+  const [expanded, setExpanded] = React.useState(false);
+  if (!texto) return <span className="text-gray-400">—</span>;
+
+  const needsTruncation = texto.length > 10;
+  const short = needsTruncation ? texto.slice(0, 10) + "…" : texto;
+
+  return (
+    <div className="relative" style={{ width: 90, maxWidth: 90, overflow: "visible" }}>
+      <span
+        className="block text-xs text-slate-800"
+        style={{ width: 90, maxWidth: 90, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+        title={texto}
+      >
+        {short}
+      </span>
+      {needsTruncation && (
+        <>
+          <button
+            type="button"
+            className="text-[10px] text-blue-600 hover:underline whitespace-nowrap"
+            onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
+          >
+            {expanded ? "Ocultar" : "Ver completo"}
+          </button>
+          {expanded && (
+            <div
+              className="absolute z-50 mt-1 rounded-md border border-slate-200 bg-white shadow-lg p-2"
+              style={{ left: 0, top: "100%", width: 220, minWidth: 220 }}
+            >
+              <p className="text-xs text-slate-800 break-words whitespace-pre-wrap max-h-32 overflow-y-auto">
+                {texto}
+              </p>
+              <button
+                type="button"
+                className="mt-1 text-[10px] text-blue-600 hover:underline"
+                onClick={(e) => { e.stopPropagation(); setExpanded(false); }}
+              >
+                Ocultar
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+
 const InlineMoneyEdit = ({
   value,
   disabled,
@@ -132,37 +180,61 @@ const InlineMoneyEdit = ({
 }: {
   value: number;
   disabled?: boolean;
-  onSave: (next: number) => Promise<boolean>;
+  onSave: (next: number, comentario: string) => Promise<boolean>;
 }) => {
-  const [editing, setEditing] = React.useState(false);
+  const [phase, setPhase] = React.useState<"idle" | "monto" | "comentario">("idle");
   const [draft, setDraft] = React.useState(String(value ?? 0));
+  const [comentario, setComentario] = React.useState("");
+  const [comentarioError, setComentarioError] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
 
   React.useEffect(() => {
-    if (!editing) setDraft(String(value ?? 0));
-  }, [value, editing]);
+    if (phase === "idle") {
+      setDraft(String(value ?? 0));
+      setComentario("");
+      setComentarioError(false);
+    }
+  }, [value, phase]);
+
+  const goToComentario = () => {
+    const n = Number(draft);
+    if (!Number.isFinite(n)) return;
+    setPhase("comentario");
+    setComentario("");
+    setComentarioError(false);
+  };
 
   const commit = async () => {
+    if (!comentario.trim()) {
+      setComentarioError(true);
+      return;
+    }
     const n = Number(draft);
     if (!Number.isFinite(n)) return;
 
     setSaving(true);
-    const ok = await onSave(n);
+    const ok = await onSave(n, comentario.trim());
     setSaving(false);
 
-    if (ok) setEditing(false);
+    if (ok) setPhase("idle");
+  };
+
+  const cancel = () => {
+    setPhase("idle");
+    setComentario("");
+    setComentarioError(false);
   };
 
   if (disabled) {
     return <span title={String(value)}>{fmtMoney(Number(value || 0))}</span>;
   }
 
-  if (!editing) {
+  if (phase === "idle") {
     return (
       <button
         type="button"
         className="inline-flex items-center gap-2 hover:bg-slate-50 px-2 py-1 rounded-md border border-transparent hover:border-slate-200"
-        onClick={() => setEditing(true)}
+        onClick={() => setPhase("monto")}
         title="Editar monto solicitado"
       >
         <span>{fmtMoney(Number(value || 0))}</span>
@@ -171,37 +243,84 @@ const InlineMoneyEdit = ({
     );
   }
 
+  if (phase === "monto") {
+    return (
+      <div className="inline-flex items-center gap-2">
+        <input
+          type="number"
+          step="0.01"
+          className="w-28 border border-slate-200 rounded-md px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-blue-200"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") goToComentario();
+            if (e.key === "Escape") cancel();
+          }}
+          autoFocus
+        />
+        <button
+          type="button"
+          className="text-xs px-2 py-1 rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+          onClick={goToComentario}
+        >
+          Siguiente
+        </button>
+        <button
+          type="button"
+          className="text-xs px-2 py-1 rounded-md border border-slate-200 bg-white hover:bg-slate-50"
+          onClick={cancel}
+        >
+          Cancelar
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="inline-flex items-center gap-2">
-      <input
-        type="number"
-        step="0.01"
-        className="w-28 border border-slate-200 rounded-md px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-blue-200"
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
+    <div className="flex flex-col gap-1 min-w-[220px]">
+      <span className="text-[10px] text-slate-500">
+        Nuevo monto: <strong>{fmtMoney(Number(draft))}</strong>
+      </span>
+      <textarea
+        rows={2}
+        placeholder="Comentario obligatorio para el ajuste de monto..."
+        className={`w-full border rounded-md px-2 py-1 text-xs outline-none focus:ring-2 resize-none ${
+          comentarioError
+            ? "border-red-400 focus:ring-red-200"
+            : "border-slate-200 focus:ring-blue-200"
+        }`}
+        value={comentario}
+        onChange={(e) => {
+          setComentario(e.target.value);
+          if (e.target.value.trim()) setComentarioError(false);
+        }}
         onKeyDown={(e) => {
-          if (e.key === "Enter") void commit();
-          if (e.key === "Escape") setEditing(false);
+          if (e.key === "Escape") cancel();
         }}
         disabled={saving}
         autoFocus
       />
-      <button
-        type="button"
-        className="text-xs px-2 py-1 rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
-        onClick={() => void commit()}
-        disabled={saving}
-      >
-        OK
-      </button>
-      <button
-        type="button"
-        className="text-xs px-2 py-1 rounded-md border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50"
-        onClick={() => setEditing(false)}
-        disabled={saving}
-      >
-        Cancelar
-      </button>
+      {comentarioError && (
+        <span className="text-[10px] text-red-500">El comentario es obligatorio.</span>
+      )}
+      <div className="inline-flex items-center gap-2">
+        <button
+          type="button"
+          className="text-xs px-2 py-1 rounded-md border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+          onClick={() => void commit()}
+          disabled={saving}
+        >
+          {saving ? "Guardando..." : "Guardar"}
+        </button>
+        <button
+          type="button"
+          className="text-xs px-2 py-1 rounded-md border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50"
+          onClick={cancel}
+          disabled={saving}
+        >
+          Cancelar
+        </button>
+      </div>
     </div>
   );
 };
@@ -238,13 +357,7 @@ export function createSolicitudesRenderers({
   return {
     comentario_sistema: ({ value }) => {
       const texto = String(value ?? "").trim();
-      const preview = texto.length > 42 ? texto.slice(0, 42) + "…" : texto;
-
-      return (
-        <span className="text-xs text-sky-800" title={texto || "—"}>
-          {texto ? preview : <span className="text-gray-400">—</span>}
-        </span>
-      );
+      return <TruncatedComment texto={texto} />;
     },
 
     seleccionar: ({ item, index }) => {
@@ -386,8 +499,11 @@ export function createSolicitudesRenderers({
       return (
         <InlineMoneyEdit
           value={Number(value || 0)}
-          onSave={async (next) =>
-            patchSolicitudProveedor(id, "monto_solicitado", next)
+          onSave={async (next, comentario) =>
+            patchSolicitudProveedorFields(id, {
+              monto_solicitado: next,
+              comentarios_Ap: comentario,
+            })
           }
         />
       );
@@ -423,36 +539,42 @@ export function createSolicitudesRenderers({
     notas_internas: ({ value, item }) => {
       const raw = (item as any)?.item ?? item;
       const texto = String(value ?? "").trim();
-      const preview = texto.length > 40 ? texto.slice(0, 40) + "…" : texto;
-
       return (
-        <button
-          type="button"
-          className="text-xs text-left text-slate-800 hover:text-blue-700 hover:underline"
-          title={texto || "Editar notas internas"}
-          onClick={() => openEditModal(raw, "notas_internas", texto)}
-        >
-          {texto ? preview : <span className="text-gray-400">—</span>}
-        </button>
+        <div className="flex items-start gap-1">
+          <TruncatedComment texto={texto} />
+          <button
+            type="button"
+            className="text-[10px] text-slate-400 hover:text-blue-600 shrink-0 mt-0.5"
+            title="Editar notas internas"
+            onClick={() => openEditModal(raw, "notas_internas", texto)}
+          >✎</button>
+        </div>
       );
     },
 
     comentarios_Ap: ({ value, item }) => {
       const raw = (item as any)?.item ?? item;
       const texto = String(value ?? "").trim();
-      const preview = texto.length > 40 ? texto.slice(0, 40) + "…" : texto;
-
       return (
-        <button
-          type="button"
-          className="text-xs text-left text-slate-800 hover:text-blue-700 hover:underline"
-          title={texto || "Editar comentarios AP"}
-          onClick={() => openEditModal(raw, "comentarios_Ap", texto)}
-        >
-          {texto ? preview : <span className="text-gray-400">—</span>}
-        </button>
+        <div className="flex items-start gap-1">
+          <TruncatedComment texto={texto} />
+          <button
+            type="button"
+            className="text-[10px] text-slate-400 hover:text-blue-600 shrink-0 mt-0.5"
+            title="Editar comentarios AP"
+            onClick={() => openEditModal(raw, "comentarios_Ap", texto)}
+          >✎</button>
+        </div>
       );
     },
+
+    comentarios_sp: ({ value }) => (
+      <TruncatedComment texto={String(value ?? "").trim()} />
+    ),
+
+    comentarios_cxp: ({ value }) => (
+      <TruncatedComment texto={String(value ?? "").trim()} />
+    ),
 
     uso_cfdi_factura: ({ item }) => {
       const raw = (item as any)?.item ?? item;
@@ -690,6 +812,13 @@ export function createSolicitudesRenderers({
         <span className="text-gray-400">—</span>
       ),
 
+    fecha_facturacion: ({ value }) =>
+      value ? (
+        <span title={value}>{formatDate(value)}</span>
+      ) : (
+        <span className="text-gray-400">—</span>
+      ),
+
     estado_factura_proveedor: ({ value }) => (
       <Pill
         text={(value || "—")
@@ -700,8 +829,26 @@ export function createSolicitudesRenderers({
         tone={facturaTone((value || "").toLowerCase()) as any}
       />
     ),
-    costo_proveedor: ({ value }) => <p>{fmtMoney(Number(value || 0))}</p>,
-    precio_de_venta: ({ value }) => <p>{fmtMoney(Number(value || 0))}</p>,
+    costo_proveedor: ({ item }) => {
+      const raw = (item as any)?.item ?? item;
+      const id = getIdSolProv(raw);
+      const monto = Number(raw?.solicitud_proveedor?.monto_solicitado ?? (item as any)?.monto_solicitado ?? 0);
+      return (
+        <InlineMoneyEdit
+          value={monto}
+          onSave={async (next, comentario) =>
+            patchSolicitudProveedorFields(id, {
+              monto_solicitado: next,
+              comentarios_Ap: comentario,
+            })
+          }
+        />
+      );
+    },
+    precio_de_venta: ({ value }) => {
+      const n = parseFloat(String(value ?? "0").replace(/,/g, ""));
+      return <p>{fmtMoney(Number.isFinite(n) ? n : 0)}</p>;
+    },
     monto_por_facturar: ({ value }) => {
       const n = Number(value || 0);
       return (
@@ -721,9 +868,9 @@ export function createSolicitudesRenderers({
       return (
         <span
           className={
-            n <= EPS
+            n >= 0
               ? "text-green-700 font-semibold"
-              : "text-amber-700 font-semibold"
+              : "text-red-600 font-semibold"
           }
         >
           {n.toFixed(2)}%

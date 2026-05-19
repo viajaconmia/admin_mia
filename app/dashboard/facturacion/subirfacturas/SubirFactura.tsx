@@ -1350,6 +1350,7 @@ export default function SubirFactura({
     url,
     fecha_vencimiento,
     tipoCambioData,
+    propinaData,
   }: {
     payload?: any;
     url?: string;
@@ -1360,6 +1361,11 @@ export default function SubirFactura({
       source: string;
       manual: boolean;
     };
+    propinaData?: {
+      activa: boolean;
+      monto: number;
+      detectada: boolean;
+    } | null;
   }) => {
     try {
       setSubiendoArchivos(true);
@@ -1574,6 +1580,16 @@ export default function SubirFactura({
         facturas: {
           facturaData,
         },
+
+        ...(propinaData?.activa && propinaData.monto > 0
+          ? {
+              propina_data: {
+                tiene_propina: true,
+                monto_propina: propinaData.monto,
+                detectada_xml: propinaData.detectada ?? false,
+              },
+            }
+          : {}),
       };
 
       const ENDPOINT = !proveedoresData
@@ -1640,6 +1656,10 @@ export default function SubirFactura({
       // 1) Parsear XML
       const data = await parsearXML(archivoXML);
       const totalXml = Number(data?.comprobante?.total ?? 0);
+      const propinaXml = data?.propina?.tienePropina
+        ? Number(data.propina.monto || 0)
+        : 0;
+      const totalMaxAsociar = round2(totalXml + propinaXml);
       console.log("🚓🚓🚓🚓🚓informacion de xml", data);
       console.log("informacion🔽🔽🔽🔽🔽", data.emisor.rfc);
 
@@ -1665,9 +1685,9 @@ export default function SubirFactura({
       if (isProveedorMode) {
         const montoSingle = Number(facturado || 0);
 
-        if (montoSingle > totalXml) {
+        if (montoSingle > totalMaxAsociar) {
           alert(
-            `El monto a asociar (${montoSingle.toFixed(2)}) no puede ser mayor al total de la factura (${totalXml.toFixed(2)}).`,
+            `El monto a asociar (${montoSingle.toFixed(2)}) no puede ser mayor al total de la factura${propinaXml > 0 ? " + propina" : ""} (${totalMaxAsociar.toFixed(2)}).`,
           );
           return;
         }
@@ -1689,9 +1709,9 @@ export default function SubirFactura({
         if (isProveedorMode) {
           const montoSingle = Number(facturado || 0);
 
-          if (montoSingle > totalXml) {
+          if (montoSingle > totalMaxAsociar) {
             alert(
-              `El monto a asociar (${montoSingle.toFixed(2)}) no puede ser mayor al total de la factura (${totalXml.toFixed(2)}).`,
+              `El monto a asociar (${montoSingle.toFixed(2)}) no puede ser mayor al total de la factura${propinaXml > 0 ? " + propina" : ""} (${totalMaxAsociar.toFixed(2)}).`,
             );
             return;
           }
@@ -1718,10 +1738,10 @@ export default function SubirFactura({
           return;
         }
 
-        // ✅ Solo validamos que la suma no exceda el total de la factura
-        if (batchTotalAsociar > totalXml) {
+        // ✅ Solo validamos que la suma no exceda el total de la factura (+ propina si aplica)
+        if (batchTotalAsociar > totalMaxAsociar) {
           alert(
-            `La suma de montos a asociar (${batchTotalAsociar.toFixed(2)}) no puede ser mayor al total de la factura (${totalXml.toFixed(2)}).`,
+            `La suma de montos a asociar (${batchTotalAsociar.toFixed(2)}) no puede ser mayor al total de la factura${propinaXml > 0 ? " + propina" : ""} (${totalMaxAsociar.toFixed(2)}).`,
           );
           return;
         }
@@ -1852,7 +1872,7 @@ export default function SubirFactura({
                     onClick={() => {
                       setModoFacturaProveedor("subida");
                       setArchivoXML(null);
-                      setArchivoPDF(null);
+                      setArchivoPDF(null); 
                     }}
                     className={`px-4 py-2 text-sm border-l ${
                       modoFacturaProveedor === "subida"
@@ -2193,7 +2213,7 @@ export default function SubirFactura({
           batchTotalAsociar={batchTotalAsociar}
           showFechaVencimiento={!pagoData && !proveedoresData}
           proveedoresData={proveedoresData} // 👈 NUEVO
-          onConfirm={(pdfUrl, fecha_vencimiento, tipoCambioData) => {
+          onConfirm={(pdfUrl, fecha_vencimiento, tipoCambioData, propinaData) => {
             setArchivoPDFUrl(pdfUrl);
 
             if (hasItems) {
@@ -2202,6 +2222,7 @@ export default function SubirFactura({
                 url: pdfUrl ?? undefined,
                 fecha_vencimiento,
                 tipoCambioData,
+                propinaData,
               });
               return;
             }
@@ -2218,6 +2239,7 @@ export default function SubirFactura({
                 url: pdfUrl ?? undefined,
                 fecha_vencimiento,
                 tipoCambioData,
+                propinaData,
               });
             }
           }}

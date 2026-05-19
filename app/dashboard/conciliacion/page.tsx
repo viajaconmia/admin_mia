@@ -299,6 +299,7 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
 
     comentarios_ops: comentariosOps,
     comentarios_cxp: raw?.comentario_CXP ?? raw?.comentarios_cxp ?? "",
+    comentario_ap: raw?.comentario_AP ?? raw?.solicitud_proveedor?.comentarios_Ap ?? "",
     usuario_creador: raw?.id_creador,
     detalles: raw,
     estado_solicitud: raw?.solicitud_proveedor?.estado_solicitud ?? "",
@@ -1094,6 +1095,7 @@ const openBuscarUuidModal = useCallback(() => {
       "id_enviado",
       "comentarios_ops",
       "comentarios_cxp",
+      "comentario_ap",
       "detalles",
       "estatus_facturas",
       "estatus_pago",
@@ -1323,6 +1325,15 @@ const openBuscarUuidModal = useCallback(() => {
               onChange={() => toggleFacturaSelection(item)}
             />
           </label>
+        );
+      },
+
+      comentario_ap: ({ value }) => {
+        const v = String(value ?? "").trim();
+        return (
+          <span className="text-xs" title={v || undefined}>
+            {truncateText(v, 26)}
+          </span>
         );
       },
 

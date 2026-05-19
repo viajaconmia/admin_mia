@@ -77,6 +77,7 @@ function App() {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [categoria, setCategoria] = useState<VistaCarpeta>("all");
   const [solicitudDetalle, setSolicitudDetalle] = useState<string | null>(null);
+  
 
   // Carga perezosa: al cambiar de tab o de filtros trae solo ese bucket
   useEffect(() => {
@@ -157,6 +158,7 @@ function App() {
             "",
           comentarios_Ap:
             item?.solicitud_proveedor?.comentarios_Ap ??
+            (item as any)?.comentario_AP ??
             (item as any)?.comentarios_Ap ??
             (item as any)?.comentarios_ap ??
             "",
@@ -349,6 +351,7 @@ function App() {
         id_proveedor: idProveedor,
         hotel: s.hotel ?? null,
         codigo_reservacion_hotel: s.codigo_reservacion_hotel ?? null,
+        codigo_confirmacion: (s as any).codigo_confirmacion ?? null,
         costo_total:
           s.costo_total ?? s.solicitud_proveedor?.monto_solicitado ?? "0",
         check_out: s.check_out ?? null,
