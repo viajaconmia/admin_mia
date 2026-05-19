@@ -168,7 +168,7 @@ function extractFacturasYPagosFromPFP(raw: any) {
   return { id_facturas, id_pagos };
 }
 
-type EstatusFacturaInferido = "FACTURADO" | "PARCIAL" | "PENDIENTE";
+type EstatusFacturaInferido = "FACTURADO" | "PARCIAL" | "PENDIENTE" | "";
 
 function getEstatusFacturas(
   diferencia: any,
@@ -178,6 +178,7 @@ function getEstatusFacturas(
   const costo = Number(costo_proveedor ?? 0) || 0;
   const EPS = 0.01;
 
+  if (costo < EPS) return "";
   if (Math.abs(diff) < EPS) return "FACTURADO";
   if (Math.abs(diff - costo) < EPS) return "PENDIENTE";
   return "PARCIAL";
