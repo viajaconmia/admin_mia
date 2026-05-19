@@ -6,7 +6,7 @@ import { Eye } from "lucide-react";
 import { Table5 } from "@/components/Table5";
 import { formatNumberWithCommas, formatDate } from "@/helpers/utils";
 import DetallesFacturas from "./components/facturas";
- 
+
 // Función para formatear dinero
 const money = (n: number) =>
   `$${formatNumberWithCommas(Number(n || 0).toFixed(2))}`;
@@ -29,7 +29,7 @@ export const parseToUtcDate = (value?: string | null): Date | null => {
 // Diferencia en días: end - start
 export const diffInDays = (
   start: string | null | undefined,
-  end: string | null | undefined
+  end: string | null | undefined,
 ): number | null => {
   const d1 = parseToUtcDate(start || "");
   const d2 = parseToUtcDate(end || "");
@@ -45,7 +45,7 @@ export const diffInDays = (
 const getDatosFac = (factura: any) => {
   const diasCreditoRaw = diffInDays(
     factura.created_at,
-    factura.fecha_vencimiento
+    factura.fecha_vencimiento,
   );
 
   const diasCredito =
@@ -92,8 +92,6 @@ type GrupoAgente = {
   adeudo_vencido?: number;
 };
 
-
-
 export default function ResumenAgentesPage() {
   const [datosAgentes, setDatosAgentes] = useState<GrupoAgente[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -135,6 +133,12 @@ export default function ResumenAgentesPage() {
           const grupos: GrupoAgente[] = data.map((row: any) => ({
             id_cliente: row.id_agente ?? null,
             nombre_cliente: row.nombre_agente || "Sin asignar",
+            alias_cliente: row.nombre_identificacion || "",
+            linea_de_credito: row.linea_credito,
+            diferencia: Math.max(
+              Number(row.linea_credito || 0) - Number(row.total_facturas || 0),
+              0,
+            ),
             total_facturas: Number(row.total_facturas || 0),
 
             vigentes: Number(row.vigentes || 0),
@@ -263,6 +267,9 @@ export default function ResumenAgentesPage() {
         },
         id_cliente: getClientId(agente.id_cliente),
         nombre_cliente: agente.nombre_cliente,
+        alias_cliente: agente.alias_cliente,
+        linea_credito: agente.linea_credito || "-",
+        diferencia: agente.diferencia,
         total_facturas: agente.total_facturas,
         vigentes: agente.vigentes,
         vencidas: agente.total_facturas - agente.vigentes,
@@ -448,6 +455,9 @@ export default function ResumenAgentesPage() {
     "acciones",
     "id_cliente",
     "nombre_cliente",
+    "alias_cliente",
+    "linea_credito",
+    "diferencia",
     "total_facturas",
     "vigentes",
     "vencidas",
@@ -463,7 +473,7 @@ export default function ResumenAgentesPage() {
 
   const openFacturasGlobalByBucket = async (
     bucket: "vigentes" | "1_7" | "8_15" | "16_20" | "21_30" | "mas_30",
-    label: string
+    label: string,
   ) => {
     try {
       const data = await fetchDetalleFacturas({ bucket, id_cliente: null });
@@ -490,51 +500,48 @@ export default function ResumenAgentesPage() {
       totalAgentes: datosAgentes.length,
       totalFacturas: datosAgentes.reduce(
         (sum, agente) => sum + agente.total_facturas,
-        0
+        0,
       ),
       totalAdeudo: datosAgentes.reduce(
         (sum, agente) => sum + agente.adeudo_total,
-        0
+        0,
       ),
       totalVigente: datosAgentes.reduce(
         (sum, agente) => sum + (agente.adeudo_vigente || 0),
-        0
+        0,
       ),
       totalVencido: datosAgentes.reduce(
         (sum, agente) => sum + (agente.adeudo_vencido || 0),
-        0
+        0,
       ),
       totalFacVigentes: datosAgentes.reduce(
         (sum, agente) => sum + agente.vigentes,
-        0
+        0,
       ),
       total1a7: datosAgentes.reduce((sum, agente) => sum + agente.dia_7, 0),
       total_7: datosAgentes.reduce(
         (sum, agente) => sum + agente.dia_7_saldo,
-        0
+        0,
       ),
       total8a15: datosAgentes.reduce((sum, agente) => sum + agente.dia_15, 0),
       total_15: datosAgentes.reduce(
         (sum, agente) => sum + agente.dia_15_saldo,
-        0
+        0,
       ),
       total16a20: datosAgentes.reduce((sum, agente) => sum + agente.dia_20, 0),
       total_20: datosAgentes.reduce(
         (sum, agente) => sum + agente.dia_20_saldo,
-        0
+        0,
       ),
-      total21a30: datosAgentes.reduce(
-        (sum, agente) => sum + agente.dias_30,
-        0
-      ),
+      total21a30: datosAgentes.reduce((sum, agente) => sum + agente.dias_30, 0),
       total_30: datosAgentes.reduce(
         (sum, agente) => sum + agente.dia_30_saldo,
-        0
+        0,
       ),
       totalMas30: datosAgentes.reduce((sum, agente) => sum + agente.mas_30, 0),
       total_mas_30: datosAgentes.reduce(
         (sum, agente) => sum + agente.mas_30_saldo,
-        0
+        0,
       ),
     };
   }, [datosAgentes]);
@@ -660,7 +667,9 @@ export default function ResumenAgentesPage() {
                 </div>
                 <div className="text-gray-600">Vigentes</div>
                 <button
-                  onClick={() => openFacturasGlobalByBucket("vigentes", "Vigentes")}
+                  onClick={() =>
+                    openFacturasGlobalByBucket("vigentes", "Vigentes")
+                  }
                   className="text-lg font-bold text-emerald-600 underline hover:opacity-80"
                   type="button"
                 >
@@ -688,7 +697,9 @@ export default function ResumenAgentesPage() {
                 </div>
                 <div className="text-gray-600">8–15 días</div>
                 <button
-                  onClick={() => openFacturasGlobalByBucket("8_15", "8–15 días")}
+                  onClick={() =>
+                    openFacturasGlobalByBucket("8_15", "8–15 días")
+                  }
                   className="text-lg font-bold text-yellow-600 underline hover:opacity-80"
                   type="button"
                 >
@@ -702,7 +713,9 @@ export default function ResumenAgentesPage() {
                 </div>
                 <div className="text-gray-600">16–20 días</div>
                 <button
-                  onClick={() => openFacturasGlobalByBucket("16_20", "16–20 días")}
+                  onClick={() =>
+                    openFacturasGlobalByBucket("16_20", "16–20 días")
+                  }
                   className="text-lg font-bold text-orange-400 underline hover:opacity-80"
                   type="button"
                 >
@@ -716,7 +729,9 @@ export default function ResumenAgentesPage() {
                 </div>
                 <div className="text-gray-600">21–30 días</div>
                 <button
-                  onClick={() => openFacturasGlobalByBucket("21_30", "21–30 días")}
+                  onClick={() =>
+                    openFacturasGlobalByBucket("21_30", "21–30 días")
+                  }
                   className="text-lg font-bold text-orange-600 underline hover:opacity-80"
                   type="button"
                 >
@@ -730,7 +745,9 @@ export default function ResumenAgentesPage() {
                 </div>
                 <div className="text-gray-600">&gt; 30 días</div>
                 <button
-                  onClick={() => openFacturasGlobalByBucket("mas_30", "> 30 días")}
+                  onClick={() =>
+                    openFacturasGlobalByBucket("mas_30", "> 30 días")
+                  }
                   className="text-lg font-bold text-red-600 underline hover:opacity-80"
                   type="button"
                 >

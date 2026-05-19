@@ -22,6 +22,7 @@ interface Agente {
   updated_at: string;
   tiene_credito_consolidado: number;
   saldo: number | null;
+  linea_credito: number | null;
   monto_credito: number | null;
   nombre: string;
   notas: string | null;

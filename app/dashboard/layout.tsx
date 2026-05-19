@@ -146,7 +146,11 @@ const links: NavGroup[] = [
             icon: Wallet,
           },
           { title: "Proveedores", href: "/dashboard/proveedores", icon: Truck },
-          { title: "Tarjetas", href: "/dashboard/tarjetas_finanzas", icon: CreditCard },
+          {
+            title: "Tarjetas",
+            href: "/dashboard/tarjetas_finanzas",
+            icon: CreditCard,
+          },
         ],
       },
       {
@@ -159,7 +163,7 @@ const links: NavGroup[] = [
             icon: FileText,
           },
           {
-            title: "Detallado",
+            title: "Cartera de CXC",
             href: "/dashboard/concentrado_cxc",
             icon: FileText,
           },
