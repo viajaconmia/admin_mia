@@ -51,6 +51,7 @@ export function AgentDetailsCard({ agente }: { agente: Agente }) {
     nacionalidad: agente.nacionalidad || "",
     tiene_credito_consolidado: Boolean(agente.tiene_credito_consolidado),
     saldo: Number(agente.saldo) || null,
+    linea_credito: Number(agente.linea_credito) || null,
     nombre_comercial: agente.nombre_identificacion || "",
   });
 
@@ -196,6 +197,32 @@ export function AgentDetailsCard({ agente }: { agente: Agente }) {
                 disabled={!form.tiene_credito_consolidado}
                 label="Credito aprobado"
                 value={form.saldo}
+                placeholder="5535..."
+              />
+              <NumberInput
+                onChange={(value) => {
+                  if (!hasPermission(PERMISOS.ACCIONES.EDITAR_SALDO_CLIENTE)) {
+                    info("No tienes permiso para editar el saldo del cliente");
+                    return;
+                  }
+                  setEdicion((prev) => ({
+                    ...prev,
+                    agente: {
+                      ...prev.agente,
+                      [agente.id_agente]: {
+                        ...prev.agente[agente.id_agente],
+                        linea_credito: value,
+                      },
+                    },
+                  }));
+                  setForm((prev) => ({
+                    ...prev,
+                    linea_credito: Number(value),
+                  }));
+                }}
+                disabled={!form.tiene_credito_consolidado}
+                label="Línea de crédito"
+                value={form.linea_credito}
                 placeholder="5535..."
               />
             </div>
