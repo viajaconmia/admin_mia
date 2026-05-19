@@ -51,6 +51,7 @@ export function AgentDetailsCard({ agente }: { agente: Agente }) {
     nacionalidad: agente.nacionalidad || "",
     tiene_credito_consolidado: Boolean(agente.tiene_credito_consolidado),
     saldo: Number(agente.saldo) || null,
+    nombre_comercial: agente.nombre_identificacion || "",
   });
 
   // const handleSave = async () => {
@@ -127,10 +128,26 @@ export function AgentDetailsCard({ agente }: { agente: Agente }) {
                   <h2 className="text-lg font-semibold">
                     {agente.nombre_agente_completo.toUpperCase()}
                   </h2>
+                  <TextInput
+                    onChange={(value) => {
+                      setEdicion((prev) => ({
+                        ...prev,
+                        agente: {
+                          ...prev.agente,
+                          [agente.id_agente]: {
+                            ...prev.agente[agente.id_agente],
+                            nombre_comercial: value,
+                          },
+                        },
+                      }));
+                      setForm((prev) => ({ ...prev, nombre_comercial: value }));
+                    }}
+                    value={form.nombre_comercial}
+                    placeholder="Agrega un nombre para identificarlo"
+                  />
                   <p className="text-xs text-gray-500">
                     ID: {agente.id_agente}
                   </p>
-                  <p className="text-xs text-gray-500">{agente.correo}</p>
                 </div>
               </div>
             </div>
