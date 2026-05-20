@@ -98,7 +98,7 @@ const mapRaw = (raw: any): SolicitudRow => {
     nombre_comercial: raw?.nombre_identificacion,
     costo_proveedor,
     monto_solicitado,
-    cliente: (raw?.nombre_agente_completo ?? "").toUpperCase(),
+    cliente: (raw?.agente ?? "").toUpperCase(),
     precio_de_venta,
     check_in: raw?.check_in ?? null,
     check_out: raw?.check_out ?? null,
