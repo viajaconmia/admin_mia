@@ -5,10 +5,9 @@ import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   DateInput,
+  TextInput,
   Dropdown,
   CheckboxInput,
-  InputGoogle,
-  PlaceMaps,
 } from "@/components/atom/Input";
 import Button from "@/components/atom/Button";
 import {
@@ -25,7 +24,6 @@ import {
 } from "lucide-react";
 import { toPng } from "html-to-image";
 import { ExtraService } from "@/services/ExtraServices";
-import { Loader } from "@/components/atom/Loader";
 import Modal from "@/components/organism/Modal";
 import { FormSeleccionarHoteles } from "@/components/organism/FormSeleccionarHoteles";
 import { Hotel } from "@/types";
@@ -41,10 +39,11 @@ const OPCIONES_HABITACION = ["SENCILLA", "DOBLE"];
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 type FormData = {
+  hotel: string;
+  ciudad: string;
   check_in: string;
   check_out: string;
-  lat: number | null;
-  lng: number | null;
+  codigo_postal: string;
   correo_cliente: string;
 };
 
@@ -126,7 +125,7 @@ const CuponRow = ({
   alert?: boolean;
 }) => (
   <div className="flex border-b border-gray-200 last:border-0">
-    <div className="w-[30%] bg-[#f1f5ff] px-2 py-1 text-[10px] font-bold text-gray-700 flex items-center">
+    <div className="w-[42%] bg-[#f1f5ff] px-2 py-1 text-[10px] font-bold text-gray-700 flex items-center">
       {label}
     </div>
     <div
@@ -587,10 +586,11 @@ export default function GenerarCotizacion() {
   } | null>(null);
 
   const [form, setForm] = useState<FormData>({
+    hotel: searchParams.get("hotel") ?? "",
+    ciudad: searchParams.get("ciudad") ?? "",
     check_in: searchParams.get("check_in") ?? "",
     check_out: searchParams.get("check_out") ?? "",
-    lat: null,
-    lng: null,
+    codigo_postal: searchParams.get("codigo_postal") ?? "",
     correo_cliente: "",
   });
   const [slots, setSlots] = useState<(HotelCotizacion | null)[]>([
@@ -610,11 +610,7 @@ export default function GenerarCotizacion() {
   const set = (field: keyof FormData) => (value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
-  const canGenerate =
-    !!form.check_in &&
-    !!form.check_out &&
-    form.lat !== null &&
-    form.lng !== null;
+  const canGenerate = !!form.check_in && !!form.check_out;
 
   useEffect(() => {
     const raw = sessionStorage.getItem("cotizacion_correo");
@@ -672,8 +668,9 @@ export default function GenerarCotizacion() {
       const response = await ExtraService.getInstance().getHotelesCotizacion({
         checkin: form.check_in,
         checkout: form.check_out,
-        lat: form.lat!,
-        lng: form.lng!,
+        ...(form.hotel && { hotel: form.hotel }),
+        ...(form.ciudad && { ciudad: form.ciudad }),
+        ...(form.codigo_postal && { cp: form.codigo_postal }),
       });
       const data = ((response.data ?? []) as HotelCotizacion[]).map((h) =>
         withNoktoDefaults(h),
@@ -681,6 +678,13 @@ export default function GenerarCotizacion() {
       const sorted = [...data].sort(
         (a, b) => parseFloat(a.total || "0") - parseFloat(b.total || "0"),
       );
+      if (form.hotel) {
+        const needle = form.hotel.toLowerCase();
+        const idx = sorted.findIndex((h) =>
+          h.hotel.toLowerCase().includes(needle),
+        );
+        if (idx > 0) sorted.unshift(sorted.splice(idx, 1)[0]);
+      }
       setSlots([sorted[0] ?? null, sorted[1] ?? null, sorted[2] ?? null]);
     } catch (error) {
       console.error("Error al obtener cotizaciones:", error);
@@ -904,10 +908,11 @@ export default function GenerarCotizacion() {
   };
 
   const modalSubtitle = [
-    form.lat !== null && `Lat: ${form.lat}`,
-    form.lng !== null && `Lng: ${form.lng}`,
+    form.hotel && `Hotel: ${form.hotel}`,
+    form.ciudad && `Ciudad: ${form.ciudad}`,
     form.check_in && `Check-in: ${form.check_in}`,
     form.check_out && `Check-out: ${form.check_out}`,
+    form.codigo_postal && `CP: ${form.codigo_postal}`,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -932,17 +937,30 @@ export default function GenerarCotizacion() {
       )}
 
       <div className="flex flex-col gap-4 p-4">
-        {(loadingVis || hasAny) && (
-          <div className="flex items-center gap-4 bg-white border rounded-xl px-5 py-4 shadow-sm">
-            <Loader />
-            <div>
-              <p className="text-sm font-semibold text-gray-700">
-                La IA está analizando la cotización
-              </p>
-              <p className="text-xs text-gray-400">
-                Esto puede tardar unos segundos...
-              </p>
+        {correoOrigen && (
+          <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
+            <div className="bg-[#f1f5ff] px-5 py-3 border-b flex items-center gap-2">
+              <span className="text-xs font-semibold text-[#0b5fa5] uppercase tracking-wide">
+                Correo de origen
+              </span>
+              {correoOrigen.subject && (
+                <span className="text-xs text-gray-700 font-semibold truncate">
+                  — {correoOrigen.subject}
+                </span>
+              )}
             </div>
+            {correoOrigen.body_email ? (
+              <div
+                className="px-5 py-4 text-xs text-gray-700 leading-relaxed max-h-48 overflow-y-auto"
+                dangerouslySetInnerHTML={{
+                  __html: DOMPurify.sanitize(correoOrigen.body_email),
+                }}
+              />
+            ) : (
+              <p className="px-5 py-4 text-xs text-gray-400">
+                Sin cuerpo de correo.
+              </p>
+            )}
           </div>
         )}
 
@@ -952,17 +970,19 @@ export default function GenerarCotizacion() {
             <h2 className="font-semibold text-gray-800 text-xs">
               Datos de búsqueda
             </h2>
-            <InputGoogle
-              size="lg"
-              googleStyle
-              label="Zona/Lugar/Dirección *"
-              onChange={(place: PlaceMaps) => {
-                setForm((prev) => ({
-                  ...prev,
-                  lat: place.geometry.location.lat(),
-                  lng: place.geometry.location.lng(),
-                }));
-              }}
+            <TextInput
+              label="Hotel de referencia"
+              value={form.hotel}
+              onChange={set("hotel")}
+              placeholder="Nombre del hotel"
+              className="text-xs"
+            />
+            <TextInput
+              label="Ciudad"
+              value={form.ciudad}
+              onChange={set("ciudad")}
+              placeholder="Ej. ORIZABA"
+              className="text-xs"
             />
             <DateInput
               label="Check-in *"
@@ -977,6 +997,13 @@ export default function GenerarCotizacion() {
               min={form.check_in || undefined}
               className="text-xs"
             />
+            <TextInput
+              label="Código postal"
+              value={form.codigo_postal}
+              onChange={set("codigo_postal")}
+              placeholder="Ej. 94300"
+              className="text-xs"
+            />
             <Button
               size="sm"
               icon={loadingVis ? Loader2 : Eye}
@@ -985,13 +1012,12 @@ export default function GenerarCotizacion() {
             >
               {loadingVis ? "Buscando..." : "Generar"}
             </Button>
-
-            <p className="text-[10px] text-gray-400 text-center -mt-1">
-              {form.lat === null
-                ? "Selecciona una ubicación"
-                : "Check-in y check-out son obligatorios"}
-            </p>
-            {/* {hasAny && (
+            {!canGenerate && (
+              <p className="text-[10px] text-gray-400 text-center -mt-1">
+                Check-in y check-out son obligatorios
+              </p>
+            )}
+            {hasAny && (
               <div className="border-t pt-2">
                 <Button
                   size="sm"
@@ -1002,84 +1028,69 @@ export default function GenerarCotizacion() {
                   {loadingEnvio ? "Enviando..." : "Enviar cotización"}
                 </Button>
               </div>
-            )} */}
+            )}
           </aside>
 
           {/* Slots */}
           <section className="flex-1 flex flex-col gap-3 bg-gray-50 border rounded-xl p-3 shadow-sm">
-            {loadingVis ? (
-              <div className="flex flex-col items-center justify-center flex-1 py-16 gap-2">
-                <Loader />
-                <p className="text-sm font-medium text-gray-600">
-                  Buscando hoteles...
-                </p>
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center justify-between">
-                  <h2 className="font-semibold text-gray-800 text-xs">
-                    {hasAny
-                      ? "Cotizaciones — usa las flechas para cambiar prioridad"
-                      : "Las cotizaciones aparecerán aquí"}
-                  </h2>
-                  {hasAny && (
-                    <span className="text-[10px] text-gray-400">
-                      Solo las primeras 3 prioridades se enviarán
-                    </span>
-                  )}
-                </div>
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-gray-800 text-xs">
+                {hasAny
+                  ? "Cotizaciones — usa las flechas para cambiar prioridad"
+                  : "Las cotizaciones aparecerán aquí"}
+              </h2>
+              {hasAny && (
+                <span className="text-[10px] text-gray-400">
+                  Solo las primeras 3 prioridades se enviarán
+                </span>
+              )}
+            </div>
 
-                <div className="flex flex-col gap-4">
-                  {slots.map((hotel, index) =>
-                    hotel ? (
-                      <HotelCard
-                        key={index}
-                        hotel={hotel}
-                        priority={index + 1}
-                        isFirst={index === 0}
-                        isLast={index === slots.length - 1}
-                        canEdit={canGenerate}
-                        downloading={downloadingSlot === index}
-                        onUp={() => move(index, "up")}
-                        onDown={() => move(index, "down")}
-                        onEdit={() => handleSlotAction(index)}
-                        onDelete={() => deleteSlot(index)}
-                        onDownload={() => handleDownloadCupon(hotel, index)}
-                        downloadingImage={downloadingImageSlot === index}
-                        onDownloadImagen={() => handleDownloadImagen(index)}
-                        cuponRef={(el) => {
-                          cuponRefs.current[index] = el;
-                        }}
-                        onTotalChange={(v) => updateSlotTotal(index, v)}
-                        onDesayunoChange={(v) =>
-                          updateSlot(index, { desayuno: v })
-                        }
-                        onHabitacionChange={(v) =>
-                          updateSlot(index, { habitacion: v })
-                        }
-                        onNotasChange={(v) => updateSlot(index, { notas: v })}
-                        onNoktoNocheChange={(v) =>
-                          updateSlotNoktoNoche(index, v)
-                        }
-                        onNoktoEstanciaChange={(v) =>
-                          updateSlotNoktoEstancia(index, v)
-                        }
-                        onMostrarTotalEstanciaChange={(v) =>
-                          updateSlot(index, { mostrar_total_estancia: v })
-                        }
-                      />
-                    ) : (
-                      <EmptySlotCard
-                        key={index}
-                        priority={index + 1}
-                        onAdd={() => handleSlotAction(index)}
-                        canAdd={canGenerate}
-                      />
-                    ),
-                  )}
-                </div>
-              </>
-            )}
+            <div className="flex flex-col gap-4">
+              {slots.map((hotel, index) =>
+                hotel ? (
+                  <HotelCard
+                    key={index}
+                    hotel={hotel}
+                    priority={index + 1}
+                    isFirst={index === 0}
+                    isLast={index === slots.length - 1}
+                    canEdit={canGenerate}
+                    downloading={downloadingSlot === index}
+                    onUp={() => move(index, "up")}
+                    onDown={() => move(index, "down")}
+                    onEdit={() => handleSlotAction(index)}
+                    onDelete={() => deleteSlot(index)}
+                    onDownload={() => handleDownloadCupon(hotel, index)}
+                    downloadingImage={downloadingImageSlot === index}
+                    onDownloadImagen={() => handleDownloadImagen(index)}
+                    cuponRef={(el) => {
+                      cuponRefs.current[index] = el;
+                    }}
+                    onTotalChange={(v) => updateSlotTotal(index, v)}
+                    onDesayunoChange={(v) => updateSlot(index, { desayuno: v })}
+                    onHabitacionChange={(v) =>
+                      updateSlot(index, { habitacion: v })
+                    }
+                    onNotasChange={(v) => updateSlot(index, { notas: v })}
+                    onNoktoNocheChange={(v) => updateSlotNoktoNoche(index, v)}
+                    onNoktoEstanciaChange={(v) =>
+                      updateSlotNoktoEstancia(index, v)
+                    }
+                    onMostrarTotalEstanciaChange={(v) =>
+                      updateSlot(index, { mostrar_total_estancia: v })
+                    }
+                  />
+                ) : (
+                  <EmptySlotCard
+                    key={index}
+                    priority={index + 1}
+                    onAdd={() => handleSlotAction(index)}
+                    canAdd={canGenerate}
+                  />
+                ),
+              )}
+            </div>
           </section>
         </div>
       </div>

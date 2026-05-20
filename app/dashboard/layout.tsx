@@ -145,7 +145,11 @@ const links: NavGroup[] = [
             href: "/dashboard/saldo_a_favor_proveedor",
             icon: Wallet,
           },
-          { title: "Proveedores", href: "/dashboard/proveedores", icon: Truck },
+          {
+            title: "Proveedores",
+            href: "/dashboard/proveedores_finanzas",
+            icon: Truck,
+          },
           {
             title: "Tarjetas",
             href: "/dashboard/tarjetas_finanzas",
