@@ -8,6 +8,7 @@ export type ProveedorItem = {
   type: ProveedorRaw["type"];
   estatus: 0 | 1;
   tipo_pago: ProveedorRaw["tipo_pago"];
+  tipo_negociacion: ProveedorRaw["negociacion"];
   convenio: 0 | 1;
   ciudad: string | null;
   rfcs: string | null;
@@ -19,6 +20,7 @@ export const mapProveedorItem = (p: ProveedorRaw): ProveedorItem => ({
   proveedor: p.proveedor,
   type: p.type,
   estatus: p.estatus,
+  tipo_negociacion: p.negociacion,
   tipo_pago: p.tipo_pago,
   convenio: p.convenio,
   ciudad: p.ciudad,
@@ -95,7 +97,10 @@ export const createRenderers = ({
 
   rfcs: ({ value }: { value: string | null }) => {
     if (!value) return <span className="text-gray-300 text-xs">—</span>;
-    const lista = value.split(",").map((r) => r.trim()).filter(Boolean);
+    const lista = value
+      .split(",")
+      .map((r) => r.trim())
+      .filter(Boolean);
     return (
       <div className="flex flex-wrap gap-1">
         {lista.map((rfc) => (
