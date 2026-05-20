@@ -406,6 +406,7 @@ export default function ConciliacionPage() {
       .toUpperCase();
 
   const [isLoading, setIsLoading] = useState(false);
+  const activeControllerRef = useRef<AbortController | null>(null);
   const [showSubirFactura, setShowSubirFactura] = useState(false);
   const [selectedForFactura, setSelectedForFactura] = useState<
     ProveedorSeleccionado[]
@@ -657,7 +658,10 @@ const openBuscarUuidModal = useCallback(() => {
 
   const load = useCallback(
   async (overrideFilters: ConciliacionFilters, pageToLoad = 1) => {
+    activeControllerRef.current?.abort();
     const controller = new AbortController();
+    activeControllerRef.current = controller;
+
     setIsLoading(true);
 
     try {
@@ -692,15 +696,17 @@ const openBuscarUuidModal = useCallback(() => {
       setTodos(list);
       setPage(pageToLoad);
       setHasMore(json?.pagination?.has_more ?? list.length === LIMIT);
-    } catch (err) {
+    } catch (err: any) {
+      if (err?.name === "AbortError") return;
       console.error("Error cargando conciliación:", err);
       setTodos([]);
       setHasMore(false);
     } finally {
-      setIsLoading(false);
+      if (activeControllerRef.current === controller) {
+        setIsLoading(false);
+        activeControllerRef.current = null;
+      }
     }
-
-    return () => controller.abort();
   },
   [endpoint, LIMIT],
 );
@@ -756,8 +762,7 @@ const openBuscarUuidModal = useCallback(() => {
     setAppliedFilters(EMPTY_FILTERS);
     setSearchInput("");
     setShowFiltersModal(false);
-    void load(EMPTY_FILTERS, 1);
-  }, [load]);
+  }, []);
 
   const openEditModal = useCallback(
     (

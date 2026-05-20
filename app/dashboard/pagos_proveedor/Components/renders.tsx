@@ -125,6 +125,106 @@ const Pill = ({
   );
 };
 
+type RazonSocialCuenta = {
+  alias: string | null;
+  banco: string | null;
+  cuenta: string | null;
+  titular: string | null;
+  comentarios: string | null;
+};
+
+type RazonSocialEntry = {
+  rfc: string | null;
+  origen: string | null;
+  razon_social: string | null;
+  cuentas: RazonSocialCuenta[];
+};
+
+const RazonesSocialesCell = ({ raw }: { raw: any }) => {
+  const [open, setOpen] = React.useState(false);
+  const entries: RazonSocialEntry[] = Array.isArray(raw?.razones_sociales_cuentas_json)
+    ? raw.razones_sociales_cuentas_json
+    : [];
+
+  if (!entries.length) return <span className="text-gray-400">—</span>;
+
+  if (entries.length === 1) {
+    const e = entries[0];
+    return (
+      <div className="flex flex-col gap-0.5">
+        <span className="text-xs font-medium text-slate-800">{e.razon_social || "—"}</span>
+        {e.rfc && <span className="text-[10px] text-slate-500">{e.rfc}</span>}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors"
+        onClick={(e) => { e.stopPropagation(); setOpen(true); }}
+      >
+        {entries.length} razones sociales
+      </button>
+
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl border border-slate-200 w-full max-w-lg max-h-[80vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
+              <h3 className="font-semibold text-slate-800 text-sm">Razones sociales y cuentas</h3>
+              <button
+                type="button"
+                className="text-slate-400 hover:text-slate-600 text-lg leading-none"
+                onClick={() => setOpen(false)}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="overflow-y-auto p-4 flex flex-col gap-4">
+              {entries.map((e, i) => (
+                <div key={i} className="border border-slate-100 rounded-lg p-3 flex flex-col gap-2">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-xs font-semibold text-slate-800">{e.razon_social || "—"}</span>
+                    <span className="text-[11px] text-slate-500">RFC: {e.rfc || "—"}</span>
+                    {e.origen && (
+                      <span className="text-[10px] text-slate-400 uppercase tracking-wide">{e.origen}</span>
+                    )}
+                  </div>
+
+                  {e.cuentas?.length > 0 && (
+                    <div className="flex flex-col gap-1 mt-1">
+                      <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wide">Cuentas</span>
+                      {e.cuentas.map((c, ci) => (
+                        <div key={ci} className="bg-slate-50 rounded-md px-3 py-2 text-xs text-slate-700 grid grid-cols-2 gap-x-4 gap-y-1">
+                          <span><span className="font-medium">Banco:</span> {c.banco || "—"}</span>
+                          <span><span className="font-medium">Cuenta:</span> {c.cuenta || "—"}</span>
+                          <span><span className="font-medium">Titular:</span> {c.titular || "—"}</span>
+                          <span><span className="font-medium">Alias:</span> {c.alias || "—"}</span>
+                          {c.comentarios && (
+                            <span className="col-span-2"><span className="font-medium">Comentarios:</span> {c.comentarios}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
 const TruncatedComment = ({ texto }: { texto: string }) => {
   const [expanded, setExpanded] = React.useState(false);
   if (!texto) return <span className="text-gray-400">—</span>;
@@ -763,6 +863,11 @@ export function createSolicitudesRenderers({
           })}
         </div>
       );
+    },
+
+    razon_social: ({ item }) => {
+      const raw = (item as any)?.item ?? item;
+      return <RazonesSocialesCell raw={raw} />;
     },
 
     metodo_de_pago: ({ value }) => getPaymentBadge(value),

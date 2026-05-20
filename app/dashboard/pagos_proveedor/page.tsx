@@ -123,7 +123,7 @@ function App() {
         const pagoInfo = getPagoInfoFromRaw(item);
         const facInfo = getFacturaInfoFromRaw(item);
         const _searchHotel = (item.hotel || "").toUpperCase();
-        const _searchAgente = (item.nombre_agente_completo || "").toUpperCase();
+        const _searchAgente = (item.agente || "").toUpperCase();
         const _searchViajero = (
           item.nombre_viajero_completo ||
           item.nombre_viajero ||
@@ -198,7 +198,7 @@ function App() {
           estado: item.status,
           reservante: item.id_usuario_generador ? "Cliente" : "Operaciones",
           id_cliente: item.id_agente,
-          cliente: (item.nombre_agente_completo || "").toUpperCase(),
+          cliente: (item.agente || "").toUpperCase(),
           forma_de_pago_solicitada:
             item.solicitud_proveedor?.forma_pago_solicitada,
           digitos_tajeta: item.tarjeta?.ultimos_4,
