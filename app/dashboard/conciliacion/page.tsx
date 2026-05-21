@@ -1568,7 +1568,7 @@ const openBuscarUuidModal = useCallback(() => {
         const cls = styles[v] ?? "text-gray-600 bg-gray-50 border-gray-200";
         return (
           <span className={`font-semibold border px-2 py-1 rounded-full text-xs whitespace-nowrap ${cls}`}>
-            {v || "—"}
+            {v}
           </span>
         );
       },
