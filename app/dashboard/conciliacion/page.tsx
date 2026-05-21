@@ -1556,7 +1556,9 @@ const openBuscarUuidModal = useCallback(() => {
         );
       },
 
-      estatus_facturas: ({ value }) => {
+      estatus_facturas: ({ value, item }) => {
+        const monto = Number(item?.costo_proveedor ?? item?.__raw?.solicitud_proveedor?.monto_solicitado ?? 0) || 0;
+
         const v = String(value ?? "").toUpperCase();
         const styles: Record<string, string> = {
           FACTURADO: "text-green-700 bg-green-50 border-green-200",
