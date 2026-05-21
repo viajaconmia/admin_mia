@@ -10,7 +10,10 @@ type Props = {
   currentCardId?: number | null;
   cardOnly?: boolean;
   onSetMethod: (nextMethod: "transfer" | "card") => Promise<boolean>;
-  onSetCard: (data: { id_tarjeta_solicitada: string | number; id_titular: number }) => Promise<boolean>;
+  onSetCard: (data: {
+    id_tarjeta_solicitada: string | number;
+    id_titular: number;
+  }) => Promise<boolean>;
 };
 
 export default function PaymentMethodSelector({
@@ -22,13 +25,23 @@ export default function PaymentMethodSelector({
   onSetCard,
 }: Props) {
   const initialMethod =
-    currentMethod === "card" ? "card" : currentMethod === "credit" ? "credit" : "transfer";
+    currentMethod === "card"
+      ? "card"
+      : currentMethod === "credit"
+        ? "credit"
+        : "transfer";
 
-  const [method, setMethod] = useState<"transfer" | "card" | "credit">(initialMethod);
+  const [method, setMethod] = useState<"transfer" | "card" | "credit">(
+    initialMethod,
+  );
   const [open, setOpen] = useState(false);
   const [cardId, setCardId] = useState<string>("");
 
-  const { data: cardsData, loading: loadingCards, fetchData: fetchCards } = useFetchCardsFinanzas();
+  const {
+    data: cardsData,
+    loading: loadingCards,
+    fetchData: fetchCards,
+  } = useFetchCardsFinanzas();
 
   // Solo tarjetas activas para finanzas
   const activeCards = useMemo(() => {
@@ -62,12 +75,17 @@ export default function PaymentMethodSelector({
     if (!cardId) return;
 
     const selectedCard = activeCards.find(
-      (c: any) => String(c?.id ?? "") === cardId
+      (c: any) => String(c?.id ?? "") === cardId,
     ) as any;
-    const idTitular = Number(selectedCard?.id_titular ?? selectedCard?.titular_id ?? 0);
+    const idTitular = Number(
+      selectedCard?.id_titular ?? selectedCard?.titular_id ?? 0,
+    );
 
     // cardId es el `id` que devuelve la ruta mia/pagar
-    const ok = await onSetCard({ id_tarjeta_solicitada: cardId, id_titular: idTitular });
+    const ok = await onSetCard({
+      id_tarjeta_solicitada: cardId,
+      id_titular: idTitular,
+    });
     if (ok) setOpen(false);
   };
 
@@ -77,7 +95,9 @@ export default function PaymentMethodSelector({
         <select
           className="h-8 rounded-md border border-slate-200 bg-white px-2 text-xs"
           value={method}
-          onChange={(e) => void changeMethod(e.target.value as "transfer" | "card")}
+          onChange={(e) =>
+            void changeMethod(e.target.value as "transfer" | "card")
+          }
           title="Cambiar forma de pago solicitada"
         >
           {method === "credit" && (
@@ -103,11 +123,16 @@ export default function PaymentMethodSelector({
 
       {open && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setOpen(false)}
+          />
           <div className="relative w-[min(480px,92vw)] rounded-xl border border-slate-200 bg-white shadow-lg">
             <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
               <div>
-                <p className="text-sm font-semibold text-slate-900">Seleccionar tarjeta</p>
+                <p className="text-sm font-semibold text-slate-900">
+                  Seleccionar tarjeta
+                </p>
                 <p className="text-xs text-slate-500">Solicitud: {idSolProv}</p>
               </div>
               <button
@@ -131,13 +156,19 @@ export default function PaymentMethodSelector({
                   disabled={loadingCards}
                 >
                   <option value="">
-                    {loadingCards ? "Cargando tarjetas…" : "Selecciona una tarjeta…"}
+                    {loadingCards
+                      ? "Cargando tarjetas…"
+                      : "Selecciona una tarjeta…"}
                   </option>
                   {activeCards.map((c: any) => {
                     const id = String(c?.id ?? "");
-                    const banco = String(c?.banco_emisor ?? c?.banco ?? "Banco");
+                    const banco = String(
+                      c?.banco_emisor ?? c?.banco ?? "Banco",
+                    );
                     const ultimos = String(c?.ultimos_4 ?? c?.last4 ?? "");
-                    const titular = String(c?.nombre_titular ?? c?.titular ?? "");
+                    const titular = String(
+                      c?.nombre_titular ?? c?.titular ?? "",
+                    );
                     return (
                       <option key={id} value={id}>
                         {`${banco} •••• ${ultimos}${titular ? ` — ${titular}` : ""}`}

@@ -536,7 +536,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
       bancoEmisor: currentSelectedCard.banco_emisor,
       fechaExpiracion: currentSelectedCard.fecha_vencimiento,
       documento: titularFromSelectedCard?.identificacion || document || "",
-      nombreTarjeta: SelectedTtular.titular,
+      nombreTarjeta: SelectedTtular?.Titular ?? titularFromSelectedCard?.Titular ?? "",
       numeroTarjeta: currentSelectedCard.numero_completo,
       cvv: currentSelectedCard.cvv,
       reservations: [
@@ -1339,6 +1339,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                       titular_completo: titularSeleccionado,
                     });
                     setSelectedTitular(titularSeleccionado);
+                    setSelectedTitularId(String(idTitularSeleccionado ?? ""));
 
                     dispatch({
                       type: "SET_FIELD",
