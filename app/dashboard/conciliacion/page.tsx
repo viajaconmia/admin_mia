@@ -422,6 +422,7 @@ export default function ConciliacionPage() {
   const [page, setPage] = useState(1);
   const LIMIT = 50;
   const [hasMore, setHasMore] = useState(false);
+  const [totalNoCanceladas, setTotalNoCanceladas] = useState<number | null>(null);
 
   const [searchInput, setSearchInput] = useState("");
   const [showFiltersModal, setShowFiltersModal] = useState(false);
@@ -700,6 +701,9 @@ const openBuscarUuidModal = useCallback(() => {
       setTodos(list);
       setPage(pageToLoad);
       setHasMore(json?.pagination?.has_more ?? list.length === LIMIT);
+      if (json?.pagination?.total_no_canceladas != null) {
+        setTotalNoCanceladas(Number(json.pagination.total_no_canceladas));
+      }
     } catch (err: any) {
       if (err?.name === "AbortError") return;
       console.error("Error cargando conciliación:", err);
@@ -1747,6 +1751,13 @@ const openBuscarUuidModal = useCallback(() => {
               <Search className="w-4 h-4" />
               Buscar UUID
             </Button>
+
+            {/* Total solicitudes activas */}
+            {totalNoCanceladas != null && (
+              <span className="text-xs text-gray-500 px-2 border border-gray-200 rounded-md bg-gray-50 h-8 flex items-center whitespace-nowrap">
+                Total activas: <span className="font-semibold text-gray-700 ml-1">{totalNoCanceladas.toLocaleString("es-MX")}</span>
+              </span>
+            )}
 
             {/* Paginación */}
             <div className="flex items-center gap-1 ml-2">
