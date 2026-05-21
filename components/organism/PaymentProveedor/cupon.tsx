@@ -630,8 +630,8 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
     const comunes = [
       "Razón social: NOKTOS ALIANZA",
       "RFC: NAL190807BU2",
-      "Código postal: 11570",
-      "Dirección: Presidente Masaryk No. 29, Interior E-3, Col. Chapultepec Morales, Alcaldía Miguel Hidalgo, CDMX.",
+      "Código postal: 11560",
+      "Dirección: PRESIDENTE MASARIK 29, Piso E-3, Polanco V sección, Miguel Hidalgo, CDMX",
       "E-mail: operaciones@noktos.com",
       "Régimen Fiscal: 601 - General de Ley Personas Morales",
       "Uso de CFDI: G03 - Gastos en general",
