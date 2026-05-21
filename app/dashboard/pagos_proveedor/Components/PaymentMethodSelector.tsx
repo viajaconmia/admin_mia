@@ -46,11 +46,14 @@ export default function PaymentMethodSelector({
   // Solo tarjetas activas para finanzas
   const activeCards = useMemo(() => {
     const list = Array.isArray(cardsData) ? cardsData : [];
-    return list.filter(
-      (c: any) =>
+    return list.filter((c: any) => {
+      const fo = c?.["finanzas/operaciones"] ?? c?.finanzas_operaciones ?? "";
+      return (
         (c?.activa === true || c?.activa === "active") &&
-        (c?.activa_finanzas === true || c?.activa_finanzas === 1),
-    );
+        (c?.activa_finanzas === true || c?.activa_finanzas === 1) &&
+        (fo === "finanzas" || fo === "ambos")
+      );
+    });
   }, [cardsData]);
 
   const openCardModal = () => {
@@ -171,7 +174,7 @@ export default function PaymentMethodSelector({
                     );
                     return (
                       <option key={id} value={id}>
-                        {`${banco} •••• ${ultimos}${titular ? ` — ${titular}` : ""}`}
+                        {`${alias ? `[${alias}] ` : ""}${banco} •••• ${ultimos}${titular ? ` — ${titular}` : ""}`}
                       </option>
                     );
                   })}

@@ -235,7 +235,10 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
   const baseFactura = total_facturado || 0;
   const diferencia = Number((costo_proveedor - baseFactura).toFixed(2));
 
-  const estatusFacturas = getEstatusFacturas(diferencia, costo_proveedor);
+  const estatusFacturas =
+    raw?.solicitud_proveedor?.estado_facturacion ??
+    raw?.estado_facturacion ??
+    getEstatusFacturas(diferencia, costo_proveedor);
 
   const tarjeta = raw?.tarjeta?.ultimos_4 ?? raw?.ultimos_4 ?? "";
 
@@ -671,6 +674,7 @@ const openBuscarUuidModal = useCallback(() => {
         const v = String(value ?? "").trim();
         if (!v) return;
         params.append(key, v);
+        if (key === "estado_facturacion") params.append("estatus_facturacion", v);
       });
 
       params.set("page", String(pageToLoad));
@@ -1559,13 +1563,15 @@ const openBuscarUuidModal = useCallback(() => {
         const v = String(value ?? "").toUpperCase();
         const styles: Record<string, string> = {
           FACTURADO: "text-green-700 bg-green-50 border-green-200",
+          COMPLETO: "text-green-700 bg-green-50 border-green-200",
           PARCIAL: "text-amber-700 bg-amber-50 border-amber-200",
-          "PENDIENTE": "text-red-700 bg-red-50 border-red-200",
+          PENDIENTE: "text-red-700 bg-red-50 border-red-200",
         };
         const cls = styles[v] ?? "text-gray-600 bg-gray-50 border-gray-200";
+        if (!v) return <span className="text-xs text-gray-300">—</span>;
         return (
           <span className={`font-semibold border px-2 py-1 rounded-full text-xs whitespace-nowrap ${cls}`}>
-            {v || "—"}
+            {v}
           </span>
         );
       },
