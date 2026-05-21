@@ -671,6 +671,7 @@ const openBuscarUuidModal = useCallback(() => {
         const v = String(value ?? "").trim();
         if (!v) return;
         params.append(key, v);
+        if (key === "estado_facturacion") params.append("estatus_facturacion", v);
       });
 
       params.set("page", String(pageToLoad));

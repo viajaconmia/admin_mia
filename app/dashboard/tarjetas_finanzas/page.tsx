@@ -28,6 +28,7 @@ export interface Tarjeta {
 
 type Mode = "create" | "edit";
 
+const TARJETAS_ENDPOINT = `${URL}/mia/pagar`;
 const BASE_ENDPOINT = `${URL}/mia/pagar/finanzas`;
 
 const toBool = (v: any) => v === true || v === 1 || v === "1" || v === "true";
@@ -46,6 +47,7 @@ const computeLast4 = (num: string) => {
 
 const emptyFormTarjeta = (): Partial<Tarjeta> => ({
   alias: "",
+  nombre_titular: "",
   numero_completo: "",
   ultimos_4: "",
   banco_emisor: "",
@@ -147,6 +149,7 @@ export default function TarjetasFinanzas() {
     setFormTarjeta({
       id: t.id,
       alias: t.alias ?? "",
+      nombre_titular: t.nombre_titular ?? "",
       numero_completo: t.numero_completo ?? "",
       ultimos_4: t.ultimos_4 ?? computeLast4(t.numero_completo ?? ""),
       banco_emisor: t.banco_emisor ?? "",
@@ -163,6 +166,7 @@ export default function TarjetasFinanzas() {
   const buildTarjetaPayload = () => {
     const payload: any = {
       alias: formTarjeta.alias ?? null,
+      nombre_titular: formTarjeta.nombre_titular ?? null,
       numero_completo: formTarjeta.numero_completo ?? null,
       ultimos_4:
         (formTarjeta.ultimos_4 && String(formTarjeta.ultimos_4).slice(-4)) ||
@@ -234,7 +238,7 @@ export default function TarjetasFinanzas() {
       setErrorMsg(null);
       const payload = buildTarjetaPayload();
       if (mode === "create") {
-        await fetchJSON(BASE_ENDPOINT, {
+        await fetchJSON(TARJETAS_ENDPOINT, {
           method: "POST",
           headers: { "x-api-key": API_KEY || "", "Content-Type": "application/json" },
           credentials: "include",
@@ -473,6 +477,12 @@ export default function TarjetasFinanzas() {
                   label="Alias"
                   value={formTarjeta.alias ?? ""}
                   onChange={(v) => setFormTarjeta((p) => ({ ...p, alias: v }))}
+                />
+
+                <Field
+                  label="Nombre titular"
+                  value={formTarjeta.nombre_titular ?? ""}
+                  onChange={(v) => setFormTarjeta((p) => ({ ...p, nombre_titular: v }))}
                 />
 
                 <Field
