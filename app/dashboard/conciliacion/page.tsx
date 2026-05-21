@@ -1556,16 +1556,15 @@ const openBuscarUuidModal = useCallback(() => {
         );
       },
 
-      estatus_facturas: ({ value, item }) => {
-        const monto = Number(item?.costo_proveedor ?? item?.__raw?.solicitud_proveedor?.monto_solicitado ?? 0) || 0;
-
+      estatus_facturas: ({ value }) => {
         const v = String(value ?? "").toUpperCase();
         const styles: Record<string, string> = {
           FACTURADO: "text-green-700 bg-green-50 border-green-200",
           PARCIAL: "text-amber-700 bg-amber-50 border-amber-200",
-          "PENDIENTE": "text-red-700 bg-red-50 border-red-200",
+          PENDIENTE: "text-red-700 bg-red-50 border-red-200",
         };
         const cls = styles[v] ?? "text-gray-600 bg-gray-50 border-gray-200";
+        if (!v) return <span className="text-xs text-gray-300">—</span>;
         return (
           <span className={`font-semibold border px-2 py-1 rounded-full text-xs whitespace-nowrap ${cls}`}>
             {v}
