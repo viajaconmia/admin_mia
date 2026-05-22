@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { URL, API_KEY } from "@/lib/constants/index";
 import { Table5 } from "@/components/Table5";
-import { Search, X } from "lucide-react";
+import { Search, Upload, X } from "lucide-react";
 
 interface AsignarFacturaProps {
   isOpen: boolean;
@@ -107,6 +107,8 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
   const [searchCode, setSearchCode] = useState("");
+  const [csvMessage, setCsvMessage] = useState<{ tipo: "info" | "warn"; texto: string } | null>(null);
+  const csvInputRef = useRef<HTMLInputElement>(null);
 
   const [maxMontoPermitido, setMaxMontoPermitido] = useState<number>(() => {
     if (pagoData?.monto) return Number(pagoData.monto) || 0;
@@ -369,6 +371,89 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
     );
   };
 
+  const handleCSVUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      if (!text) return;
+
+      const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+      const codes: string[] = [];
+      for (const line of lines) {
+        const code = line.split(",")[0].trim().replace(/^["']|["']$/g, "");
+        const lower = code.toLowerCase();
+        if (code && lower !== "confirmation_code" && lower !== "codigo" && lower !== "code") {
+          codes.push(code);
+        }
+      }
+
+      if (codes.length === 0) {
+        setCsvMessage({ tipo: "warn", texto: "El CSV no contiene códigos válidos." });
+        return;
+      }
+
+      const noEntran: string[] = [];
+      const noEncontrados: string[] = [];
+
+      let currentSum = selectedItems.reduce((acc, it) => acc + (Number(it.saldo) || 0), 0);
+      const newSelected: SelectedItem[] = [...selectedItems];
+
+      for (const code of codes) {
+        const q = code.toLowerCase();
+        const reserva = reservas.find(
+          (r) =>
+            !isReservaCanceladaPorCodigo(r.codigo_reservacion_hotel) &&
+            (r.confirmation_code?.toLowerCase() === q ||
+              r.codigo_reservacion_hotel?.toLowerCase() === q)
+        );
+
+        if (!reserva) {
+          noEncontrados.push(code);
+          continue;
+        }
+
+        const items = (reserva.items_info?.items || []).filter(
+          (item) => !newSelected.some((s) => s.id_item === item.id_item)
+        );
+
+        if (items.length === 0) continue;
+
+        const totalItems = items.reduce((acc, it) => acc + (Number(it.total) || 0), 0);
+
+        if (currentSum + totalItems <= maxMontoPermitido) {
+          for (const item of items) {
+            newSelected.push({ id_item: item.id_item, saldo: Number(item.total) || 0 });
+          }
+          currentSum += totalItems;
+        } else {
+          noEntran.push(code);
+        }
+      }
+
+      setSelectedItems(newSelected);
+
+      const partes: string[] = [];
+      const agregados = codes.length - noEntran.length - noEncontrados.length;
+      if (agregados > 0) partes.push(`${agregados} código(s) seleccionado(s).`);
+      if (noEncontrados.length > 0) partes.push(`No encontrados: ${noEncontrados.join(", ")}.`);
+      if (noEntran.length > 0)
+        partes.push(
+          `No entraron por exceder $${maxMontoPermitido.toFixed(2)}: ${noEntran.join(", ")}.`
+        );
+
+      setCsvMessage({
+        tipo: noEntran.length > 0 || noEncontrados.length > 0 ? "warn" : "info",
+        texto: partes.join(" "),
+      });
+    };
+
+    reader.readAsText(file);
+  };
+
   const handleAssign = async () => {
     try {
       const itemsAsignados = reservas
@@ -480,6 +565,48 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
                 </p>
               </div>
             </div>
+
+            {/* Carga masiva CSV */}
+            {!loading && !error && reservas.length > 0 && (
+              <div className="mb-4">
+                <input
+                  ref={csvInputRef}
+                  type="file"
+                  accept=".csv,text/csv"
+                  className="hidden"
+                  onChange={handleCSVUpload}
+                />
+                <button
+                  type="button"
+                  onClick={() => csvInputRef.current?.click()}
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm rounded border border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
+                >
+                  <Upload className="w-4 h-4" />
+                  Asignación masiva por CSV
+                </button>
+                <p className="text-xs text-gray-400 mt-1">
+                  El CSV debe tener en la primera columna el código de confirmación o el código de hotel.
+                </p>
+                {csvMessage && (
+                  <div
+                    className={`mt-2 text-sm px-3 py-2 rounded border ${
+                      csvMessage.tipo === "warn"
+                        ? "bg-yellow-50 border-yellow-300 text-yellow-800"
+                        : "bg-green-50 border-green-300 text-green-800"
+                    }`}
+                  >
+                    {csvMessage.texto}
+                    <button
+                      type="button"
+                      onClick={() => setCsvMessage(null)}
+                      className="ml-2 text-current opacity-60 hover:opacity-100"
+                    >
+                      <X className="w-3.5 h-3.5 inline" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Buscador por código */}
             {!loading && !error && reservas.length > 0 && (
