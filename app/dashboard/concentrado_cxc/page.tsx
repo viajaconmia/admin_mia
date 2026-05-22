@@ -137,7 +137,7 @@ export default function ResumenAgentesPage() {
             linea_credito: row.linea_credito,
             diferencia: row.linea_credito
               ? Number(row.linea_credito || 0) - Number(row.adeudo_total || 0)
-              : "no hay linea de credito",
+              : 0,
             total_facturas: Number(row.total_facturas || 0),
 
             vigentes: Number(row.vigentes || 0),
@@ -267,7 +267,7 @@ export default function ResumenAgentesPage() {
         id_cliente: getClientId(agente.id_cliente),
         nombre_cliente: agente.nombre_cliente,
         alias_cliente: agente.alias_cliente,
-        linea_credito: agente.linea_credito || "-",
+        linea_credito: agente.linea_credito || 0,
         disponible_o_sobregiro: agente.diferencia,
         total_facturas: agente.total_facturas,
         vigentes: agente.vigentes,
@@ -298,7 +298,19 @@ export default function ResumenAgentesPage() {
     nombre_cliente: ({ value }: { value: string }) => (
       <span className="font-semibold text-xs text-gray-800">{value}</span>
     ),
-
+    alias_cliente: ({ value }: { value: string }) => (
+      <span className="font-semibold text-xs text-gray-800">{value}</span>
+    ),
+    linea_credito: ({ value }: { value: number | string }) => (
+      <span className="text-xs text-gray-800">
+        ${formatNumberWithCommas(value)}
+      </span>
+    ),
+    disponible_o_sobregiro: ({ value }: { value: number | string }) => (
+      <span className="text-xs text-gray-800">
+        ${formatNumberWithCommas(value)}
+      </span>
+    ),
     id_cliente: ({ value }: { value: string }) => (
       <div className="flex justify-center">
         <span className="font-mono text-[11px] bg-gray-100 px-2 py-0.5 rounded">
@@ -454,7 +466,7 @@ export default function ResumenAgentesPage() {
     "nombre_cliente",
     "alias_cliente",
     "linea_credito",
-    "diferencia",
+    "disponible_o_sobregiro",
     "total_facturas",
     "vigentes",
     "vencidas",
