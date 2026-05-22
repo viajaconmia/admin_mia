@@ -322,15 +322,23 @@
         return;
       }
 
-      let message = `CSV cargado. Se seleccionaron ${nextSelected.size} factura(s).`;
+      const parts: string[] = [
+        `Se seleccionaron ${nextSelected.size} factura(s) de ${dataRows.length} en el CSV.`,
+      ];
 
       if (notFound.length) {
-        message += ` UUID no encontrados: ${notFound.join(", ")}.`;
+        parts.push(
+          `\n${notFound.length} UUID(s) no encontrados en la lista actual:\n• ${notFound.join("\n• ")}`
+        );
       }
 
       if (invalidAmount.length) {
-        message += ` Monto inválido en: ${invalidAmount.join(", ")}.`;
+        parts.push(
+          `\n${invalidAmount.length} fila(s) con monto inválido (omitidas):\n• ${invalidAmount.join("\n• ")}`
+        );
       }
+
+      const message = parts.join("");
 
       setCsvFeedback({
         type: notFound.length || invalidAmount.length ? "warning" : "success",
@@ -877,7 +885,6 @@
   </div>
       <div className="p-2 space-y-3">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          
 
           <div className="text-sm font-semibold text-gray-700">
             Total saldo seleccionado:{" "}
@@ -886,6 +893,28 @@
             </span>
           </div>
         </div>
+
+        {csvFeedback && (
+          <div
+            className={`rounded border px-3 py-2 text-sm ${
+              csvFeedback.type === "error"
+                ? "bg-red-50 border-red-200 text-red-700"
+                : csvFeedback.type === "warning"
+                ? "bg-yellow-50 border-yellow-200 text-yellow-800"
+                : "bg-green-50 border-green-200 text-green-700"
+            }`}
+          >
+            <p className="font-semibold mb-1">
+              {csvFeedback.type === "error"
+                ? "Error al cargar CSV"
+                : csvFeedback.type === "warning"
+                ? "CSV cargado con advertencias"
+                : "CSV cargado correctamente"}
+            </p>
+            <p className="whitespace-pre-wrap">{csvFeedback.text}</p>
+          </div>
+        )}
+
                     <Table5<any>
                       registros={registros}
                       renderers={renderers}
@@ -942,24 +971,6 @@
           downloadFile={downloadFile}
         />
 
-        {csvFeedback && (
-    <div
-      className={`rounded border px-3 py-2 text-sm ${
-        csvFeedback.type === "error"
-          ? "bg-red-50 border-red-200 text-red-700"
-          : csvFeedback.type === "warning"
-          ? "bg-yellow-50 border-yellow-200 text-yellow-700"
-          : "bg-green-50 border-green-200 text-green-700"
-      }`}
-    >
-      {csvFeedback.text}
-    </div>
-  )}
-
-  <p className="text-xs text-gray-500">
-    CSV: primera columna = UUID, segunda columna = monto a asignar. Si el monto
-    viene vacío, se toma el saldo completo.
-  </p>
 
         {/* Modal de pago usando facturaData */}
         {showPagarModal && facturaData && (
