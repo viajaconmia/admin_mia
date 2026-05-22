@@ -897,9 +897,13 @@ export type PlaceMaps = {
 export function InputGoogle({
   onChange,
   size = "md",
+  googleStyle = false,
+  label,
 }: {
   onChange: (place: PlaceMaps) => void;
   size?: Size;
+  googleStyle?: boolean;
+  label?: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const loaded = useGoogleMaps(api_google);
@@ -929,12 +933,17 @@ export function InputGoogle({
   };
 
   return (
-    <input
-      ref={inputRef}
-      type="text"
-      placeholder="Buscar ubicación..."
-      className={`px-4 py-2 border border-white shadow-xl rounded-full placeholder:text-gray-700 focus:outline-none ${sizes[size]}`}
-    />
+    <div className={`flex flex-col space-y-1`}>
+      {label && (
+        <label className="text-sm text-gray-900 font-medium">{label}</label>
+      )}
+      <input
+        ref={inputRef}
+        type="text"
+        placeholder="Buscar ubicación..."
+        className={`${googleStyle ? "flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:text-black" : "px-4 py-2 border border-white shadow-xl rounded-full placeholder:text-gray-700 focus:outline-none"} ${sizes[size]}`}
+      />
+    </div>
   );
 }
 

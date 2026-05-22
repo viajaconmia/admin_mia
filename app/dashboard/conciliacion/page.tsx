@@ -235,7 +235,10 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
   const baseFactura = total_facturado || 0;
   const diferencia = Number((costo_proveedor - baseFactura).toFixed(2));
 
-  const estatusFacturas = getEstatusFacturas(diferencia, costo_proveedor);
+  const estatusFacturas =
+    raw?.solicitud_proveedor?.estado_facturacion ??
+    raw?.estado_facturacion ??
+    getEstatusFacturas(diferencia, costo_proveedor);
 
   const tarjeta = raw?.tarjeta?.ultimos_4 ?? raw?.ultimos_4 ?? "";
 
@@ -419,6 +422,7 @@ export default function ConciliacionPage() {
   const [page, setPage] = useState(1);
   const LIMIT = 50;
   const [hasMore, setHasMore] = useState(false);
+  const [totalNoCanceladas, setTotalNoCanceladas] = useState<number | null>(null);
 
   const [searchInput, setSearchInput] = useState("");
   const [showFiltersModal, setShowFiltersModal] = useState(false);
@@ -671,6 +675,7 @@ const openBuscarUuidModal = useCallback(() => {
         const v = String(value ?? "").trim();
         if (!v) return;
         params.append(key, v);
+        if (key === "estado_facturacion") params.append("estatus_facturacion", v);
       });
 
       params.set("page", String(pageToLoad));
@@ -696,6 +701,9 @@ const openBuscarUuidModal = useCallback(() => {
       setTodos(list);
       setPage(pageToLoad);
       setHasMore(json?.pagination?.has_more ?? list.length === LIMIT);
+      if (json?.pagination?.total_no_canceladas != null) {
+        setTotalNoCanceladas(Number(json.pagination.total_no_canceladas));
+      }
     } catch (err: any) {
       if (err?.name === "AbortError") return;
       console.error("Error cargando conciliación:", err);
@@ -1559,13 +1567,15 @@ const openBuscarUuidModal = useCallback(() => {
         const v = String(value ?? "").toUpperCase();
         const styles: Record<string, string> = {
           FACTURADO: "text-green-700 bg-green-50 border-green-200",
+          COMPLETO: "text-green-700 bg-green-50 border-green-200",
           PARCIAL: "text-amber-700 bg-amber-50 border-amber-200",
-          "PENDIENTE": "text-red-700 bg-red-50 border-red-200",
+          PENDIENTE: "text-red-700 bg-red-50 border-red-200",
         };
         const cls = styles[v] ?? "text-gray-600 bg-gray-50 border-gray-200";
+        if (!v) return <span className="text-xs text-gray-300">—</span>;
         return (
           <span className={`font-semibold border px-2 py-1 rounded-full text-xs whitespace-nowrap ${cls}`}>
-            {v || "—"}
+            {v}
           </span>
         );
       },
@@ -1741,6 +1751,13 @@ const openBuscarUuidModal = useCallback(() => {
               <Search className="w-4 h-4" />
               Buscar UUID
             </Button>
+
+            {/* Total solicitudes activas */}
+            {totalNoCanceladas != null && (
+              <span className="text-xs text-gray-500 px-2 border border-gray-200 rounded-md bg-gray-50 h-8 flex items-center whitespace-nowrap">
+                Total activas: <span className="font-semibold text-gray-700 ml-1">{totalNoCanceladas.toLocaleString("es-MX")}</span>
+              </span>
+            )}
 
             {/* Paginación */}
             <div className="flex items-center gap-1 ml-2">

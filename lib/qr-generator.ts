@@ -55,7 +55,11 @@ export async function generateSecureQRPaymentPDF(
   const doc = new jsPDF("p", "mm", "a4"); // Usamos 'mm' para más precisión y tamaño A4
 
   // --- Generación del QR ---
-  const secureUrl = `https://admin.viajaconmia.com/secure-payment/${data.secureToken}`;
+  const qp = new URLSearchParams();
+  if (data.nombreTarjeta) qp.set("t", btoa(data.nombreTarjeta));
+  if (data.documento) qp.set("d", btoa(data.documento));
+  const qs = qp.toString();
+  const secureUrl = `https://admin.viajaconmia.com/secure-payment/${data.secureToken}${qs ? `?${qs}` : ""}`;
   const qrDataUrl = await QRCode.toDataURL(secureUrl, {
     width: 256,
     margin: 2,

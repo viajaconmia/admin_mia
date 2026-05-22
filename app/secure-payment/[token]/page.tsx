@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Shield, CreditCard, Lock, AlertTriangle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,9 @@ import { CreditCardInfo } from "@/types";
 
 export default function SecurePayment({ params }) {
   const { token } = params;
+  const searchParams = useSearchParams();
+  const titularOverride = (() => { try { const v = searchParams.get("t"); return v ? atob(v) : null; } catch { return null; } })();
+  const docOverride = (() => { try { const v = searchParams.get("d"); return v ? atob(v) : null; } catch { return null; } })();
   const [isValid, setIsValid] = useState(true);
   const [paymentData, setPaymentData] = useState<{
     codigo_reservacion: string;
@@ -184,7 +188,7 @@ export default function SecurePayment({ params }) {
                   <div>
                     <p className="text-xs text-slate-500 mb-1">TITULAR</p>
                     <p className="text-base font-semibold text-slate-800">
-                      {cardData.nombre_titular}
+                      {titularOverride ?? cardData.nombre_titular}
                     </p>
                   </div>
                 </div>
@@ -213,7 +217,7 @@ export default function SecurePayment({ params }) {
                     {paymentData.monto.toFixed(2)} MXN
                   </li>
                   <li>
-                    • <strong>Titular:</strong> {cardData.nombre_titular}
+                    • <strong>Titular:</strong> {titularOverride ?? cardData.nombre_titular}
                   </li>
                   <li>• Procese como pago presencial o telefónico</li>
                 </ul>
