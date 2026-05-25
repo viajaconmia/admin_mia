@@ -587,6 +587,57 @@ useEffect(() => {
     return unique.length === 1 ? unique[0] : null;
   };
 
+  const selectAllFiltered = () => {
+    const filteredReservations = rows
+      .map((row) => reservations.find((r) => r.id_booking === row.id))
+      .filter((r): r is ReservationWithItems => !!r);
+
+    // Verificar que todos los filtrados son del mismo agente
+    const agentIds = Array.from(
+      new Set(filteredReservations.map((r) => r.id_agente).filter(Boolean)),
+    );
+    if (agentIds.length > 1) {
+      alert(
+        "No puedes seleccionar todo porque los resultados filtrados pertenecen a diferentes agentes.",
+      );
+      return;
+    }
+
+    // Verificar que la selección actual no pertenece a otro agente
+    const currentlySelected = Object.keys(selectedItems);
+    if (currentlySelected.length > 0) {
+      const currentAgentIds = Array.from(
+        new Set(
+          currentlySelected
+            .map((id) => reservations.find((r) => r.id_booking === id)?.id_agente)
+            .filter(Boolean),
+        ),
+      );
+      const filteredAgentId = agentIds[0];
+      if (
+        filteredAgentId &&
+        currentAgentIds.length > 0 &&
+        !currentAgentIds.includes(filteredAgentId)
+      ) {
+        alert("No puedes seleccionar ítems de otro agente.");
+        return;
+      }
+    }
+
+    const nextSelected: SelectedMap = { ...selectedItems };
+    filteredReservations.forEach((r) => {
+      const itemsFacturables = (r.items ?? [])
+        .filter((item) => item?.id_factura == null)
+        .map((item) => item.id_item);
+      if (itemsFacturables.length > 0) {
+        nextSelected[r.id_booking] = itemsFacturables;
+      }
+    });
+
+    setSelectedItems(nextSelected);
+    updateAgentFilterFromSelection(nextSelected);
+  };
+
   const handleFacturar = () => {
     // construimos el mapa de hospedajes a partir de lo seleccionado
     const nextSelectHospedaje =
@@ -876,6 +927,17 @@ const pendientePorFacturar = items
       >
         {/* Botones en el header de Table5 */}
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={selectAllFiltered}
+            disabled={rows.length === 0}
+            className={`px-3 py-1.5 text-sm rounded-md border ${
+              rows.length === 0
+                ? "text-gray-400 border-gray-200 cursor-not-allowed"
+                : "text-gray-700 border-gray-300 hover:bg-gray-50"
+            }`}
+          >
+            Seleccionar todo
+          </button>
           <button
             onClick={() => setSelectedItems({})}
             disabled={selectedCount === 0}
