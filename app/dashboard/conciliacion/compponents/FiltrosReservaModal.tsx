@@ -31,6 +31,10 @@ export type ConciliacionFilters = {
 
   comentarios: string;
   comentario_CXP: string;
+
+  tipo_reserva_pago: string;
+  pagos_parciales: string;
+  facturas_parciales: string;
 };
 
 type Props = {
@@ -303,6 +307,36 @@ export default function FiltrosConciliacionModal({
                   onChange={(v) => onChange("comentario_CXP", v)}
                   onClear={() => onChange("comentario_CXP", "")}
                   placeholder="Buscar en comentario CXP"
+                />
+              </Field>
+
+              <Field label="Tipo de solicitud (pago)">
+                <SelectWithClear
+                  value={filters.tipo_reserva_pago}
+                  onChange={(v) => onChange("tipo_reserva_pago", v)}
+                  onClear={() => onChange("tipo_reserva_pago", "")}
+                  options={["CREDITO", "PREPAGO"]}
+                  placeholder="Todos"
+                />
+              </Field>
+
+              <Field label="Pagos parciales">
+                <SelectWithClear
+                  value={filters.pagos_parciales}
+                  onChange={(v) => onChange("pagos_parciales", v)}
+                  onClear={() => onChange("pagos_parciales", "")}
+                  options={["SI"]}
+                  placeholder="Todos"
+                />
+              </Field>
+
+              <Field label="Facturas parciales">
+                <SelectWithClear
+                  value={filters.facturas_parciales}
+                  onChange={(v) => onChange("facturas_parciales", v)}
+                  onClear={() => onChange("facturas_parciales", "")}
+                  options={["SI"]}
+                  placeholder="Todos"
                 />
               </Field>
             </div>

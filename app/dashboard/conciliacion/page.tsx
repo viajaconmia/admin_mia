@@ -299,7 +299,7 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
 
     tarjeta,
     fecha_solicitud : raw?.fecha_solicitud,
-    id_enviado: raw?.titular_tarjeta ?? "",
+    id_enviado: raw?.id_enviado ?? "",
 
     comentarios_ops: comentariosOps,
     comentarios_cxp: raw?.comentario_CXP ?? raw?.comentarios_cxp ?? "",
@@ -422,7 +422,8 @@ export default function ConciliacionPage() {
   const [page, setPage] = useState(1);
   const LIMIT = 50;
   const [hasMore, setHasMore] = useState(false);
-  const [totalNoCanceladas, setTotalNoCanceladas] = useState<number | null>(null);
+  const [totalFiltrado, setTotalFiltrado] = useState<number | null>(null);
+  const [totalPages, setTotalPages] = useState<number | null>(null);
 
   const [searchInput, setSearchInput] = useState("");
   const [showFiltersModal, setShowFiltersModal] = useState(false);
@@ -479,6 +480,10 @@ export default function ConciliacionPage() {
 
   comentarios: "",
   comentario_CXP: "",
+
+  tipo_reserva_pago: "",
+  pagos_parciales: "",
+  facturas_parciales: "",
 };
 
   type BuscarUuidMatchRow = {
@@ -616,6 +621,10 @@ const openBuscarUuidModal = useCallback(() => {
 
   comentarios: "Comentarios Ops",
   comentario_CXP: "Comentario CXP",
+
+  tipo_reserva_pago: "Tipo reserva pago",
+  pagos_parciales: "Pagos parciales",
+  facturas_parciales: "Facturas parciales",
 };
 
   function normalizeFiltersForRequest(
@@ -701,8 +710,11 @@ const openBuscarUuidModal = useCallback(() => {
       setTodos(list);
       setPage(pageToLoad);
       setHasMore(json?.pagination?.has_more ?? list.length === LIMIT);
-      if (json?.pagination?.total_no_canceladas != null) {
-        setTotalNoCanceladas(Number(json.pagination.total_no_canceladas));
+      if (json?.pagination?.total_filtrado != null) {
+        setTotalFiltrado(Number(json.pagination.total_filtrado));
+      }
+      if (json?.pagination?.total_pages != null) {
+        setTotalPages(Number(json.pagination.total_pages));
       }
     } catch (err: any) {
       if (err?.name === "AbortError") return;
@@ -1580,6 +1592,13 @@ const openBuscarUuidModal = useCallback(() => {
         );
       },
 
+      id_enviado: ({ value }) => {
+        const v = String(value ?? "").trim();
+        if (!v || v.includes("https://img-proveedores-mia.s3.amazonaws"))
+          return <span className="text-xs text-gray-300">—</span>;
+        return <span className="text-xs">{v}</span>;
+      },
+
       uuid_factura: ({ value }) => (
         <span className="font-mono text-xs" title={value || ""}>
           {value ? String(value).slice(0, 8) + "…" : "—"}
@@ -1752,10 +1771,18 @@ const openBuscarUuidModal = useCallback(() => {
               Buscar UUID
             </Button>
 
-            {/* Total solicitudes activas */}
-            {totalNoCanceladas != null && (
+            {/* Total solicitudes filtradas */}
+            {totalFiltrado != null && (
               <span className="text-xs text-gray-500 px-2 border border-gray-200 rounded-md bg-gray-50 h-8 flex items-center whitespace-nowrap">
-                Total activas: <span className="font-semibold text-gray-700 ml-1">{totalNoCanceladas.toLocaleString("es-MX")}</span>
+                Total:{" "}
+                <span className="font-semibold text-gray-700 ml-1">
+                  {totalFiltrado.toLocaleString("es-MX")}
+                </span>
+                {totalPages != null && totalPages > 1 && (
+                  <span className="ml-1 text-gray-400">
+                    ({totalPages} págs.)
+                  </span>
+                )}
               </span>
             )}
 
