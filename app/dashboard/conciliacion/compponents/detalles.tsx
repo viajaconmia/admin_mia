@@ -18,6 +18,7 @@ import { URL, API_KEY } from "@/lib/constants/index";
 interface ModalDetallesProp {
   solicitud: any | null;
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
 /** ---------- Helpers ---------- */
@@ -365,7 +366,7 @@ function buildDraftsFromFacturas(facturas: any[]): Record<string, FacturaDraft> 
   return next;
 }
 
-const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose }) => {
+const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose, onSuccess }) => {
   const endpoint = `${URL}/mia/pago_proveedor/detalles`;
   const asignarMontoFactEndpoint = `${URL}/mia/pago_proveedor/asignar_monto_fact`;
   const deleteFacturaEndpoint = `${URL}/mia/pago_proveedor/edit_factura`;
@@ -546,6 +547,7 @@ const maximoTotalPermitido = round2(totalYaAsociado + maximoAdicional);
         }
 
         await fetchDetalles();
+        onSuccess?.();
       } catch (e: any) {
         console.error("❌ Error guardando factura:", e);
         alert(e?.message || "Error al guardar la factura");
@@ -553,7 +555,7 @@ const maximoTotalPermitido = round2(totalYaAsociado + maximoAdicional);
         setSavingKey(null);
       }
     },
-    [drafts, asignarMontoFactEndpoint, fetchDetalles, payload.id_solicitud_proveedor]
+    [drafts, asignarMontoFactEndpoint, fetchDetalles, payload.id_solicitud_proveedor, onSuccess]
   );
 
   const deleteFactura = useCallback(
@@ -598,6 +600,7 @@ const maximoTotalPermitido = round2(totalYaAsociado + maximoAdicional);
         }
 
         await fetchDetalles();
+        onSuccess?.();
       } catch (e: any) {
         console.error("❌ Error eliminando factura:", e);
         alert(e?.message || "Error al eliminar la factura");
@@ -605,7 +608,7 @@ const maximoTotalPermitido = round2(totalYaAsociado + maximoAdicional);
         setDeletingKey(null);
       }
     },
-    [deleteFacturaEndpoint, fetchDetalles, payload.id_solicitud_proveedor]
+    [deleteFacturaEndpoint, fetchDetalles, payload.id_solicitud_proveedor, onSuccess]
   );
 
   const montoSolicitado =

@@ -1606,6 +1606,7 @@ export default function SubirFactura({
             "x-api-key": API_KEY,
           },
           body: JSON.stringify(basePayload),
+          credentials:"include"
         });
 
         if (!response.ok) {

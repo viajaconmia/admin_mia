@@ -1,10 +1,26 @@
 // app/conciliacion/page.tsx
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Table5 } from "@/components/Table5";
 import { URL, API_KEY } from "@/lib/constants/index";
-import { Filter, X, Search, Handshake, Send, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Filter,
+  X,
+  Search,
+  Handshake,
+  Send,
+  RefreshCw,
+  ChevronLeft,
+  ChevronRight,
+  CheckCheck,
+} from "lucide-react";
 
 import Button from "@/components/atom/Button";
 import SubirFactura from "@/app/dashboard/facturacion/subirfacturas/SubirFactura";
@@ -298,12 +314,13 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
     tipo_de_pago: tipoPago,
 
     tarjeta,
-    fecha_solicitud : raw?.fecha_solicitud,
+    fecha_solicitud: raw?.fecha_solicitud,
     id_enviado: raw?.id_enviado ?? "",
 
     comentarios_ops: comentariosOps,
     comentarios_cxp: raw?.comentario_CXP ?? raw?.comentarios_cxp ?? "",
-    comentario_ap: raw?.comentario_AP ?? raw?.solicitud_proveedor?.comentarios_Ap ?? "",
+    comentario_ap:
+      raw?.comentario_AP ?? raw?.solicitud_proveedor?.comentarios_Ap ?? "",
     usuario_creador: raw?.id_creador,
     detalles: raw,
     estado_solicitud: raw?.solicitud_proveedor?.estado_solicitud ?? "",
@@ -454,141 +471,142 @@ export default function ConciliacionPage() {
     setFacturaSelection({});
   }, []);
 
- const EMPTY_FILTERS: ConciliacionFilters = {
-  folio: "",
-  cliente: "",
-  viajero: "",
-  hotel: "",
-  estado_solicitud: "",
-  estado_facturacion: "",
-  forma_pago: "",
-  created_start: "",
-  created_end: "",
-  check_in_start: "",
-  check_in_end: "",
-  check_out_start: "",
-  check_out_end: "",
+  const EMPTY_FILTERS: ConciliacionFilters = {
+    folio: "",
+    cliente: "",
+    viajero: "",
+    hotel: "",
+    estado_solicitud: "",
+    estado_facturacion: "",
+    forma_pago: "",
+    created_start: "",
+    created_end: "",
+    check_in_start: "",
+    check_in_end: "",
+    check_out_start: "",
+    check_out_end: "",
 
-  id_cliente: "",
-  estado_reserva: "",
-  etapa_reservacion: "",
-  reservante: "",
-  metodo_pago_reserva: "",
-  fecha_reserva_start: "",
-  fecha_reserva_end: "",
-  filtrar_fecha_por_reserva: "",
+    id_cliente: "",
+    estado_reserva: "",
+    etapa_reservacion: "",
+    reservante: "",
+    metodo_pago_reserva: "",
+    fecha_reserva_start: "",
+    fecha_reserva_end: "",
+    filtrar_fecha_por_reserva: "",
 
-  comentarios: "",
-  comentario_CXP: "",
+    comentarios: "",
+    comentario_CXP: "",
 
-  tipo_reserva_pago: "",
-  pagos_parciales: "",
-  facturas_parciales: "",
-};
+    tipo_reserva_pago: "",
+    pagos_parciales: "",
+    facturas_parciales: "",
+  };
 
   type BuscarUuidMatchRow = {
-  codigo_confirmacion: string;
-  uuid_factura: string;
-  id_solicitud: string | number;
-  monto: number;
-};
+    codigo_confirmacion: string;
+    uuid_factura: string;
+    id_solicitud: string | number;
+    monto: number;
+  };
 
-const [buscarUuidModal, setBuscarUuidModal] = useState<{
-  open: boolean;
-  loading: boolean;
-  uuid_factura: string;
-  rows: BuscarUuidMatchRow[];
-}>({
-  open: false,
-  loading: false,
-  uuid_factura: "",
-  rows: [],
-});
-
-const buscarUuidEndpoint = `${URL}/mia/pago_proveedor/buscaruuid`;
-
-const buscarUuid = useCallback(
-  async (uuidParam?: string) => {
-    const uuid = String(uuidParam ?? buscarUuidModal.uuid_factura ?? "").trim();
-
-    if (!uuid) {
-      alert("Escribe un UUID");
-      return;
-    }
-
-    setBuscarUuidModal((prev) => ({
-      ...prev,
-      open: true,
-      loading: true,
-      uuid_factura: uuid,
-      rows: [],
-    }));
-
-    try {
-      const resp = await fetch(buscarUuidEndpoint, {
-        method: "POST",
-        headers: {
-          "x-api-key": API_KEY || "",
-          "Content-Type": "application/json",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-        },
-        body: JSON.stringify({ uuid_factura: uuid }),
-      });
-
-      const json = await resp.json().catch(() => null);
-
-      if (!resp.ok) {
-        throw new Error(json?.message || `Error HTTP: ${resp.status}`);
-      }
-
-      const list = Array.isArray(json?.data) ? json.data : [];
-
-      const rows: BuscarUuidMatchRow[] = list.map((r: any) => ({
-        codigo_confirmacion: r?.codigo_confirmacion ?? "",
-        uuid_factura: r?.uuid_factura ?? "",
-        id_solicitud: r?.id_solicitud ?? "",
-        monto: Number(r?.monto_facturado ?? r?.monto_solicitado ?? 0) || 0,
-      }));
-
-      setBuscarUuidModal({
-        open: true,
-        loading: false,
-        uuid_factura: uuid,
-        rows,
-      });
-    } catch (err: any) {
-      console.error("❌ buscaruuid fail", err);
-
-      setBuscarUuidModal((prev) => ({
-        ...prev,
-        open: true,
-        loading: false,
-        rows: [],
-      }));
-
-      alert(err?.message || "Error al buscar coincidencias por uuid");
-    }
-  },
-  [buscarUuidEndpoint, buscarUuidModal.uuid_factura],
-);
-const closeBuscarUuidModal = useCallback(() => {
-  setBuscarUuidModal({
+  const [buscarUuidModal, setBuscarUuidModal] = useState<{
+    open: boolean;
+    loading: boolean;
+    uuid_factura: string;
+    rows: BuscarUuidMatchRow[];
+  }>({
     open: false,
     loading: false,
     uuid_factura: "",
     rows: [],
   });
-}, []);
 
-const openBuscarUuidModal = useCallback(() => {
-  setBuscarUuidModal({
-    open: true,
-    loading: false,
-    uuid_factura: "",
-    rows: [],
-  });
-}, []);
+  const buscarUuidEndpoint = `${URL}/mia/pago_proveedor/buscaruuid`;
 
+  const buscarUuid = useCallback(
+    async (uuidParam?: string) => {
+      const uuid = String(
+        uuidParam ?? buscarUuidModal.uuid_factura ?? "",
+      ).trim();
+
+      if (!uuid) {
+        alert("Escribe un UUID");
+        return;
+      }
+
+      setBuscarUuidModal((prev) => ({
+        ...prev,
+        open: true,
+        loading: true,
+        uuid_factura: uuid,
+        rows: [],
+      }));
+
+      try {
+        const resp = await fetch(buscarUuidEndpoint, {
+          method: "POST",
+          headers: {
+            "x-api-key": API_KEY || "",
+            "Content-Type": "application/json",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+          },
+          body: JSON.stringify({ uuid_factura: uuid }),
+        });
+
+        const json = await resp.json().catch(() => null);
+
+        if (!resp.ok) {
+          throw new Error(json?.message || `Error HTTP: ${resp.status}`);
+        }
+
+        const list = Array.isArray(json?.data) ? json.data : [];
+
+        const rows: BuscarUuidMatchRow[] = list.map((r: any) => ({
+          codigo_confirmacion: r?.codigo_confirmacion ?? "",
+          uuid_factura: r?.uuid_factura ?? "",
+          id_solicitud: r?.id_solicitud ?? "",
+          monto: Number(r?.monto_facturado ?? r?.monto_solicitado ?? 0) || 0,
+        }));
+
+        setBuscarUuidModal({
+          open: true,
+          loading: false,
+          uuid_factura: uuid,
+          rows,
+        });
+      } catch (err: any) {
+        console.error("❌ buscaruuid fail", err);
+
+        setBuscarUuidModal((prev) => ({
+          ...prev,
+          open: true,
+          loading: false,
+          rows: [],
+        }));
+
+        alert(err?.message || "Error al buscar coincidencias por uuid");
+      }
+    },
+    [buscarUuidEndpoint, buscarUuidModal.uuid_factura],
+  );
+  const closeBuscarUuidModal = useCallback(() => {
+    setBuscarUuidModal({
+      open: false,
+      loading: false,
+      uuid_factura: "",
+      rows: [],
+    });
+  }, []);
+
+  const openBuscarUuidModal = useCallback(() => {
+    setBuscarUuidModal({
+      open: true,
+      loading: false,
+      uuid_factura: "",
+      rows: [],
+    });
+  }, []);
 
   const DEFAULT_OPEN_FILTERS: ConciliacionFilters = {
     ...EMPTY_FILTERS,
@@ -597,41 +615,41 @@ const openBuscarUuidModal = useCallback(() => {
   };
 
   const FILTER_LABELS: Record<keyof ConciliacionFilters, string> = {
-  folio: "Código de reservación",
-  cliente: "Cliente",
-  viajero: "Viajero",
-  hotel: "Proveedor",
-  estado_solicitud: "Estatus solicitud",
-  estado_facturacion: "Estatus facturación",
-  forma_pago: "Forma de pago solicitud",
-  created_start: "Creado desde",
-  created_end: "Creado hasta",
-  check_in_start: "Check-in desde",
-  check_in_end: "Check-in hasta",
-  check_out_start: "Check-out desde",
-  check_out_end: "Check-out hasta",
-  id_cliente: "ID cliente",
-  estado_reserva: "Estado reserva",
-  etapa_reservacion: "Etapa reservación",
-  reservante: "Reservante",
-  metodo_pago_reserva: "Método pago reserva",
-  fecha_reserva_start: "Fecha reserva desde",
-  fecha_reserva_end: "Fecha reserva hasta",
-  filtrar_fecha_por_reserva: "Filtrar fecha por",
+    folio: "Código de reservación",
+    cliente: "Cliente",
+    viajero: "Viajero",
+    hotel: "Proveedor",
+    estado_solicitud: "Estatus solicitud",
+    estado_facturacion: "Estatus facturación",
+    forma_pago: "Forma de pago solicitud",
+    created_start: "Creado desde",
+    created_end: "Creado hasta",
+    check_in_start: "Check-in desde",
+    check_in_end: "Check-in hasta",
+    check_out_start: "Check-out desde",
+    check_out_end: "Check-out hasta",
+    id_cliente: "ID cliente",
+    estado_reserva: "Estado reserva",
+    etapa_reservacion: "Etapa reservación",
+    reservante: "Reservante",
+    metodo_pago_reserva: "Método pago reserva",
+    fecha_reserva_start: "Fecha reserva desde",
+    fecha_reserva_end: "Fecha reserva hasta",
+    filtrar_fecha_por_reserva: "Filtrar fecha por",
 
-  comentarios: "Comentarios Ops",
-  comentario_CXP: "Comentario CXP",
+    comentarios: "Comentarios Ops",
+    comentario_CXP: "Comentario CXP",
 
-  tipo_reserva_pago: "Tipo reserva pago",
-  pagos_parciales: "Pagos parciales",
-  facturas_parciales: "Facturas parciales",
-};
+    tipo_reserva_pago: "Tipo reserva pago",
+    pagos_parciales: "Pagos parciales",
+    facturas_parciales: "Facturas parciales",
+  };
 
   function normalizeFiltersForRequest(
-  incoming: ConciliacionFilters,
-): ConciliacionFilters {
-  return { ...incoming };
-}
+    incoming: ConciliacionFilters,
+  ): ConciliacionFilters {
+    return { ...incoming };
+  }
 
   const [filters, setFilters] =
     useState<ConciliacionFilters>(DEFAULT_OPEN_FILTERS);
@@ -670,66 +688,67 @@ const openBuscarUuidModal = useCallback(() => {
   ).filter((key) => !DATE_FILTER_KEYS.includes(key));
 
   const load = useCallback(
-  async (overrideFilters: ConciliacionFilters, pageToLoad = 1) => {
-    activeControllerRef.current?.abort();
-    const controller = new AbortController();
-    activeControllerRef.current = controller;
+    async (overrideFilters: ConciliacionFilters, pageToLoad = 1) => {
+      activeControllerRef.current?.abort();
+      const controller = new AbortController();
+      activeControllerRef.current = controller;
 
-    setIsLoading(true);
+      setIsLoading(true);
 
-    try {
-      const params = new URLSearchParams();
+      try {
+        const params = new URLSearchParams();
 
-      Object.entries(overrideFilters).forEach(([key, value]) => {
-        const v = String(value ?? "").trim();
-        if (!v) return;
-        params.append(key, v);
-        if (key === "estado_facturacion") params.append("estatus_facturacion", v);
-      });
+        Object.entries(overrideFilters).forEach(([key, value]) => {
+          const v = String(value ?? "").trim();
+          if (!v) return;
+          params.append(key, v);
+          if (key === "estado_facturacion")
+            params.append("estatus_facturacion", v);
+        });
 
-      params.set("page", String(pageToLoad));
-      params.set("limit", String(LIMIT));
+        params.set("page", String(pageToLoad));
+        params.set("limit", String(LIMIT));
 
-      const url = `${endpoint}?${params.toString()}`;
+        const url = `${endpoint}?${params.toString()}`;
 
-      const response = await fetch(url, {
-        method: "GET",
-        signal: controller.signal,
-        headers: {
-          "x-api-key": API_KEY || "",
-          "Content-Type": "application/json",
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-        },
-      });
+        const response = await fetch(url, {
+          method: "GET",
+          signal: controller.signal,
+          headers: {
+            "x-api-key": API_KEY || "",
+            "Content-Type": "application/json",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+          },
+        });
 
-      if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
+        if (!response.ok) throw new Error(`Error HTTP: ${response.status}`);
 
-      const json = await response.json();
-      const list = Array.isArray(json?.data) ? json.data : [];
+        const json = await response.json();
+        const list = Array.isArray(json?.data) ? json.data : [];
 
-      setTodos(list);
-      setPage(pageToLoad);
-      setHasMore(json?.pagination?.has_more ?? list.length === LIMIT);
-      if (json?.pagination?.total_filtrado != null) {
-        setTotalFiltrado(Number(json.pagination.total_filtrado));
+        setTodos(list);
+        setPage(pageToLoad);
+        setHasMore(json?.pagination?.has_more ?? list.length === LIMIT);
+        if (json?.pagination?.total_filtrado != null) {
+          setTotalFiltrado(Number(json.pagination.total_filtrado));
+        }
+        if (json?.pagination?.total_pages != null) {
+          setTotalPages(Number(json.pagination.total_pages));
+        }
+      } catch (err: any) {
+        if (err?.name === "AbortError") return;
+        console.error("Error cargando conciliación:", err);
+        setTodos([]);
+        setHasMore(false);
+      } finally {
+        if (activeControllerRef.current === controller) {
+          setIsLoading(false);
+          activeControllerRef.current = null;
+        }
       }
-      if (json?.pagination?.total_pages != null) {
-        setTotalPages(Number(json.pagination.total_pages));
-      }
-    } catch (err: any) {
-      if (err?.name === "AbortError") return;
-      console.error("Error cargando conciliación:", err);
-      setTodos([]);
-      setHasMore(false);
-    } finally {
-      if (activeControllerRef.current === controller) {
-        setIsLoading(false);
-        activeControllerRef.current = null;
-      }
-    }
-  },
-  [endpoint, LIMIT],
-);
+    },
+    [endpoint, LIMIT],
+  );
 
   const refreshData = useCallback(() => {
     void load(appliedFilters, page);
@@ -770,12 +789,12 @@ const openBuscarUuidModal = useCallback(() => {
   });
 
   const applyFilters = useCallback(() => {
-  const next = { ...filters };
-  setFilters(next);
-  setAppliedFilters(next);
-  setShowFiltersModal(false);
-  void load(next, 1);
-}, [filters, load]);
+    const next = { ...filters };
+    setFilters(next);
+    setAppliedFilters(next);
+    setShowFiltersModal(false);
+    void load(next, 1);
+  }, [filters, load]);
 
   const clearAllFilters = useCallback(() => {
     setFilters(EMPTY_FILTERS);
@@ -1124,7 +1143,6 @@ const openBuscarUuidModal = useCallback(() => {
       "comentario_ap",
       "detalles",
       "estatus_facturas",
-      "estatus_pago",
       "total_facturado",
       "diferencia_costo_proveedor_vs_factura",
       "subir_factura",
@@ -1164,6 +1182,43 @@ const openBuscarUuidModal = useCallback(() => {
       if (done) await load(appliedFilters);
     },
     [handleEdit, load],
+  );
+
+  const handleConciliarFacturacion = useCallback(
+    async (row: AnyRow) => {
+      const id = String(row?.id_solicitud_proveedor ?? "").trim();
+      if (!id) return;
+
+      const ok = confirm(
+        `¿Marcar la solicitud ${id} como FACTURADO?\n\nLa diferencia entre pagado y facturado es menor a $5.`,
+      );
+      if (!ok) return;
+
+      try {
+        const resp = await fetch(editEndpoint, {
+          method: "PATCH",
+          headers: {
+            "x-api-key": API_KEY || "",
+            "Content-Type": "application/json",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+          },
+          body: JSON.stringify({
+            id_solicitud_proveedor: id,
+            estado_facturacion: "FACTURADO",
+          }),
+        });
+
+        const json = await resp.json().catch(() => null);
+        if (!resp.ok)
+          throw new Error(json?.message || `Error HTTP: ${resp.status}`);
+
+        await load(appliedFilters, page);
+      } catch (err: any) {
+        console.error("❌ conciliar facturación fail", err);
+        alert(err?.message || "Error al actualizar el estado de facturación");
+      }
+    },
+    [editEndpoint, load, appliedFilters, page],
   );
 
   const getRowClassName = useCallback((row: AnyRow) => {
@@ -1243,7 +1298,9 @@ const openBuscarUuidModal = useCallback(() => {
       creado: ({ value }) => <span title={value}>{formatDate(value)}</span>,
       check_in: ({ value }) => <span title={value}>{formatDate(value)}</span>,
       check_out: ({ value }) => <span title={value}>{formatDate(value)}</span>,
-      fecha_solicitud: ({ value }) => <span title={value}>{formatDate(value)}</span>,
+      fecha_solicitud: ({ value }) => (
+        <span title={value}>{formatDate(value)}</span>
+      ),
 
       codigo_hotel: ({ value }) => (
         <span className="font-semibold">
@@ -1429,6 +1486,18 @@ const openBuscarUuidModal = useCallback(() => {
         const { ok: okFacturaPago, diff } = getFacturaPagoDiffInfo(row);
         const mostrarConciliar = pagado && okFacturaPago;
 
+        const diffCostoVsFactura = Math.abs(
+          Number(
+            Number(row?.diferencia_costo_proveedor_vs_factura ?? 0).toFixed(2),
+          ),
+        );
+        const estadoFacturacion = normUpper(
+          row?.informacion_completa.solicitud_proveedor?.estado_facturacion ?? "",
+        );
+        const mostrarConciliarFacturacion =
+          diffCostoVsFactura < 5 &&
+          (estadoFacturacion == "parcial" || estadoFacturacion == "PARCIAL");
+
         const idSolProv = String(row?.id_solicitud_proveedor ?? "").trim();
 
         const estadoSolicitud = normUpper(
@@ -1464,6 +1533,21 @@ const openBuscarUuidModal = useCallback(() => {
 
         return (
           <div className="flex flex-wrap items-center gap-2">
+            {mostrarConciliarFacturacion && (
+              <Button
+                variant="secondary"
+                size="sm"
+                className="px-2 py-1 text-xs border border-teal-200 bg-teal-50 text-teal-700 hover:bg-teal-100"
+                onClick={() => void handleConciliarFacturacion(row)}
+                title={`Diferencia costo vs factura: $${diffCostoVsFactura.toFixed(2)} — marcar como FACTURADO`}
+              >
+                <span className="inline-flex items-center gap-1">
+                  <CheckCheck className="w-4 h-4" />
+                  <span className="hidden xl:inline">Conciliar</span>
+                </span>
+              </Button>
+            )}
+
             {mostrarConciliar && (
               <Button
                 variant="secondary"
@@ -1586,7 +1670,9 @@ const openBuscarUuidModal = useCallback(() => {
         const cls = styles[v] ?? "text-gray-600 bg-gray-50 border-gray-200";
         if (!v) return <span className="text-xs text-gray-300">—</span>;
         return (
-          <span className={`font-semibold border px-2 py-1 rounded-full text-xs whitespace-nowrap ${cls}`}>
+          <span
+            className={`font-semibold border px-2 py-1 rounded-full text-xs whitespace-nowrap ${cls}`}
+          >
             {v}
           </span>
         );
@@ -1619,6 +1705,7 @@ const openBuscarUuidModal = useCallback(() => {
       facturaSelection,
       toggleFacturaSelection,
       openSubirFacturaSingle,
+      handleConciliarFacturacion,
     ],
   );
 
@@ -1632,7 +1719,9 @@ const openBuscarUuidModal = useCallback(() => {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-[1400px] mx-auto px-4 py-4 space-y-4">
-        <h1 className="text-xl font-bold text-slate-900 tracking-tight">Conciliación</h1>
+        <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+          Conciliación
+        </h1>
         <div className="bg-white border border-gray-200 rounded-lg p-3">
           <div className="flex flex-col md:flex-row md:items-center gap-3">
             <div className="flex-1">
@@ -1646,7 +1735,6 @@ const openBuscarUuidModal = useCallback(() => {
                 />
               </div>
             </div>
-
 
             <div className="flex items-center justify-end gap-2">
               <Button
@@ -1709,8 +1797,6 @@ const openBuscarUuidModal = useCallback(() => {
                   </span>
                 </span>
               </Button>
-
-              
             </div>
           </div>
 
@@ -1760,6 +1846,9 @@ const openBuscarUuidModal = useCallback(() => {
             fillHeight
             maxHeight="calc(100vh - 220px)"
             getRowClassName={getRowClassName as any}
+            headerRenderers={{
+              estado_solicitud: () => <span>ESTATUS PAGO</span>,
+            }}
           >
             <Button
               variant="secondary"
@@ -1806,7 +1895,7 @@ const openBuscarUuidModal = useCallback(() => {
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
-            </Table5>
+          </Table5>
         </div>
 
         {editModal.open && (
@@ -1915,7 +2004,7 @@ const openBuscarUuidModal = useCallback(() => {
                   autoOpen={true}
                   onSuccess={() => {
                     closeSubirFactura();
-                    // void load();
+                    void load(appliedFilters, page);
                   }}
                 />
               </div>
@@ -1924,22 +2013,26 @@ const openBuscarUuidModal = useCallback(() => {
         )}
 
         {detalleOpen && (
-          <ModalDetalle solicitud={detalleSolicitud} onClose={closeDetalle} />
+          <ModalDetalle
+            solicitud={detalleSolicitud}
+            onClose={closeDetalle}
+            onSuccess={() => void load(appliedFilters, page)}
+          />
         )}
-<BuscarUuidFacturaModal
-  open={buscarUuidModal.open}
-  loading={buscarUuidModal.loading}
-  uuidFactura={buscarUuidModal.uuid_factura}
-  rows={buscarUuidModal.rows}
-  onClose={closeBuscarUuidModal}
-  onUuidChange={(value) =>
-    setBuscarUuidModal((prev) => ({
-      ...prev,
-      uuid_factura: value,
-    }))
-  }
-  onSearch={() => void buscarUuid()}
-/>
+        <BuscarUuidFacturaModal
+          open={buscarUuidModal.open}
+          loading={buscarUuidModal.loading}
+          uuidFactura={buscarUuidModal.uuid_factura}
+          rows={buscarUuidModal.rows}
+          onClose={closeBuscarUuidModal}
+          onUuidChange={(value) =>
+            setBuscarUuidModal((prev) => ({
+              ...prev,
+              uuid_factura: value,
+            }))
+          }
+          onSearch={() => void buscarUuid()}
+        />
         {isLoading && (
           <div className="text-sm text-gray-500 px-2">
             Cargando información...
