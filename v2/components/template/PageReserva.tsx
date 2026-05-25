@@ -63,7 +63,9 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     agente: { id_agente: string; nombre: string };
   } | null>(null);
   const [selectedEdit, setSelectedEdit] = useState<string>(null);
-  const [comprobanteIdSolicitud, setComprobanteIdSolicitud] = useState<string | null>(null);
+  const [comprobanteIdSolicitud, setComprobanteIdSolicitud] = useState<
+    string | null
+  >(null);
   const { Can } = usePermiso();
   const { showNotification } = useAlert();
   const { csv, loadingFile, setLoadingFile } = useFile();
@@ -173,19 +175,26 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
       <>{value ? "$" + formatNumberWithCommas(value) : ""}</>
     ),
     estado: ({ value }) => <span title={value}>{getStatusBadge(value)}</span>,
-    estado_pago: ({ value }: { value: { valor: string; id_solicitud_proveedor: string | null } }) => {
-      const PAGADOS_CON_COMPROBANTE = ["PAGADO TARJETA", "PAGADO TRANSFERENCIA", "PAGADO LINK"];
+    estado_pago: ({
+      value,
+    }: {
+      value: { valor: string; id_solicitud_proveedor: string | null };
+    }) => {
+      const PAGADOS_CON_COMPROBANTE = ["PAGADO TRANSFERENCIA"];
       return (
         <div className="flex flex-col gap-1 items-start">
           <span className="text-xs">{value.valor || "—"}</span>
-          {PAGADOS_CON_COMPROBANTE.includes(value.valor) && value.id_solicitud_proveedor && (
-            <button
-              className="text-[11px] text-blue-600 underline hover:text-blue-800 whitespace-nowrap"
-              onClick={() => setComprobanteIdSolicitud(value.id_solicitud_proveedor)}
-            >
-              Ver comprobante
-            </button>
-          )}
+          {PAGADOS_CON_COMPROBANTE.includes(value.valor) &&
+            value.id_solicitud_proveedor && (
+              <button
+                className="text-[11px] text-blue-600 underline hover:text-blue-800 whitespace-nowrap"
+                onClick={() =>
+                  setComprobanteIdSolicitud(value.id_solicitud_proveedor)
+                }
+              >
+                Ver comprobante
+              </button>
+            )}
         </div>
       );
     },
@@ -332,7 +341,10 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     reservante: reserva.reservante,
     etapa_reservacion: reserva.etapa_reservacion,
     estado: reserva.estado,
-    estado_pago: { valor: reserva.estado_pago, id_solicitud_proveedor: reserva.id_solicitud_proveedor },
+    estado_pago: {
+      valor: reserva.estado_pago,
+      id_solicitud_proveedor: reserva.id_solicitud_proveedor,
+    },
     estado_facturacion: reserva.estado_facturacion,
     intermediario: reserva.intermediario,
     ...(hasPermission(PERMISOS.COLUMNAS.BOOKINGS.USUARIO_CREADOR)
@@ -558,7 +570,9 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
           onClose={() => setComprobanteIdSolicitud(null)}
           title="Comprobante de pago"
         >
-          <ComprobanteDetalles id_solicitud_proveedor={comprobanteIdSolicitud} />
+          <ComprobanteDetalles
+            id_solicitud_proveedor={comprobanteIdSolicitud}
+          />
         </Modal>
       )}
       {creacion && (
@@ -616,9 +630,30 @@ type PagoProveedor = {
   url_pdf: string | null;
 };
 
-function ComprobanteDetalles({ id_solicitud_proveedor }: { id_solicitud_proveedor: string }) {
+function ComprobanteDetalles({
+  id_solicitud_proveedor,
+}: {
+  id_solicitud_proveedor: string;
+}) {
   const [loading, setLoading] = useState(true);
   const [pagos, setPagos] = useState<PagoProveedor[]>([]);
+  const [imagenAmpliada, setImagenAmpliada] = useState<string | null>(null);
+
+  const descargarImagen = async (url: string) => {
+    const nombre =
+      url.split("/").pop()?.split("?")[0] ??
+      `comprobante.${url.split("?")[0].split(".").pop() ?? "jpg"}`;
+    try {
+      const blob = await fetch(url).then((r) => r.blob());
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = nombre;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch {
+      window.open(url, "_blank");
+    }
+  };
 
   useEffect(() => {
     new BookingsService()
@@ -647,23 +682,75 @@ function ComprobanteDetalles({ id_solicitud_proveedor }: { id_solicitud_proveedo
   }
 
   return (
+    <>
+      {imagenAmpliada && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setImagenAmpliada(null)}
+        >
+          <img
+            src={imagenAmpliada}
+            alt="Comprobante ampliado"
+            className="max-w-full max-h-full object-contain rounded shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            onClick={() => setImagenAmpliada(null)}
+            className="absolute top-4 right-4 text-white bg-black/50 hover:bg-black/70 rounded-full w-9 h-9 flex items-center justify-center text-lg font-bold transition-colors"
+          >
+            ✕
+          </button>
+        </div>
+      )}
     <div className="flex flex-col gap-4 p-4 w-96 max-h-[70vh] overflow-y-auto">
       {pagos.map((pago) => (
-        <div key={pago.id_pago_proveedores} className="border border-gray-200 rounded-lg p-3 flex flex-col gap-2">
+        <div
+          key={pago.id_pago_proveedores}
+          className="border border-gray-200 rounded-lg p-3 flex flex-col gap-2"
+        >
           <div className="flex justify-between text-xs text-gray-600">
-            <span className="font-semibold">$ {parseFloat(pago.monto_pagado).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</span>
+            <span className="font-semibold">
+              ${" "}
+              {parseFloat(pago.monto_pagado).toLocaleString("es-MX", {
+                minimumFractionDigits: 2,
+              })}
+            </span>
             {pago.fecha_pago && (
-              <span>{new Date(pago.fecha_pago).toLocaleDateString("es-MX")}</span>
+              <span>
+                {new Date(pago.fecha_pago).toLocaleDateString("es-MX")}
+              </span>
             )}
           </div>
 
           {pago.url_pdf ? (
             pago.url_pdf.match(/\.(jpg|jpeg|png|webp)$/i) ? (
-              <img
-                src={pago.url_pdf}
-                alt="Comprobante"
-                className="w-full rounded border border-gray-100 object-contain max-h-64"
-              />
+              <div className="flex flex-col gap-2">
+                <div
+                  className="w-full rounded border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center cursor-zoom-in"
+                  onClick={() => setImagenAmpliada(pago.url_pdf!)}
+                  title="Clic para ver en grande"
+                >
+                  <img
+                    src={pago.url_pdf}
+                    alt="Comprobante"
+                    className="max-w-full max-h-72 object-contain"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setImagenAmpliada(pago.url_pdf!)}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#0b5fa5] border border-[#0b5fa5] rounded hover:bg-blue-50 transition-colors"
+                  >
+                    Ver en grande
+                  </button>
+                  <button
+                    onClick={() => descargarImagen(pago.url_pdf!)}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-[#0b5fa5] rounded hover:bg-[#0a4f8a] transition-colors"
+                  >
+                    Descargar
+                  </button>
+                </div>
+              </div>
             ) : (
               <a
                 href={pago.url_pdf}
@@ -675,11 +762,14 @@ function ComprobanteDetalles({ id_solicitud_proveedor }: { id_solicitud_proveedo
               </a>
             )
           ) : (
-            <span className="text-xs text-gray-400 italic">Sin comprobante aún.</span>
+            <span className="text-xs text-gray-400 italic">
+              Sin comprobante aún.
+            </span>
           )}
         </div>
       ))}
     </div>
+    </>
   );
 }
 

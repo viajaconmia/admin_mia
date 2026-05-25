@@ -490,8 +490,6 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
   const onPagar = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
-      if ((state.precio ?? 0) <= 0)
-        throw new Error("El precio debe ser mayor a 0");
       if (
         isSomeNull(state, ["comentarios", "intermediario", "max_pasajeros"])
       ) {
