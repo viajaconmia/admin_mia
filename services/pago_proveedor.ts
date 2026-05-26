@@ -147,6 +147,31 @@ export const fetchGetSolicitudesFiltradas = async (
   cb(data);
 };
 
+export const fetchSolicitudesLu = async (
+  estado: "Dispersion" | "PAGADO TRANSFERENCIA" | null = null,
+): Promise<any[]> => {
+  const params = new URLSearchParams();
+  if (estado) params.set("estado", estado);
+
+  const res = await fetch(
+    `${URL}/mia/pago_proveedor/solicitudes_lu?${params.toString()}`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": API_KEY,
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+      },
+      credentials: "include",
+      cache: "no-store",
+    },
+  );
+
+  const json = await res.json();
+  if (!res.ok) throw new Error(json?.error || `Error HTTP: ${res.status}`);
+  return Array.isArray(json?.data) ? json.data : [];
+};
+
 export const fetchConteosRapidos = async (
   filters: Record<string, any> = {},
 ): Promise<Record<string, number>> => {

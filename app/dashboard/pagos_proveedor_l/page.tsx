@@ -2,16 +2,11 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 
-import { fetchGetSolicitudesFiltradas } from "@/services/pago_proveedor";
+import { fetchSolicitudesLu } from "@/services/pago_proveedor";
 import { OtrosMetodosPagoModal } from "@/app/dashboard/pagos_proveedor/Components/OtrosMetodosPagoModal";
 import ModalDetalle from "@/app/dashboard/conciliacion/detalles";
 import { calcularNoches } from "@/helpers/utils";
 import { formatDate } from "@/helpers/formater";
-import {
-  getIdSolProv,
-  getMontoSolicitado,
-  getProveedorCuentas,
-} from "@/app/dashboard/pagos_proveedor/Components/helpers";
 import { ExternalLink, RefreshCw, Upload, X, Eye } from "lucide-react";
 import { Loader } from "@/components/atom/Loader";
 
@@ -53,60 +48,27 @@ const fmtMoney = (n: number) =>
   })}`;
 
 
-const getEstatus = (raw: any): string =>
-  String(
-    raw?.solicitud_proveedor?.estado_solicitud ??
-      raw?.estado_solicitud ??
-      raw?.estatus_pagos ??
-      "—",
-  ).toUpperCase();
-
-const getDatosBancarios = (raw: any): string => {
-  const cuentas = getProveedorCuentas(raw);
-  if (!cuentas.length) return "—";
-  const c = cuentas[0] as any;
-  const cuenta = c?.cuenta ?? c?.clabe ?? c?.numero_cuenta ?? "";
-  const banco = c?.banco ?? c?.banco_emisor ?? "";
-  if (!cuenta) return "—";
-  return [banco, cuenta].filter(Boolean).join(" · ");
-};
-
-const getCaratula = (raw: any): string | null => {
-  const pagos: any[] = raw?.pagos ?? raw?.pago_proveedores ?? [];
-  if (Array.isArray(pagos)) {
-    for (const p of pagos) {
-      if (p?.url_pdf) return p.url_pdf;
-    }
-  }
-  return raw?.url_pdf ?? raw?.solicitud_proveedor?.url_pdf ?? null;
-};
-
-const mapRaw = (raw: any): SolicitudRow => {
-  const id_solicitud_proveedor = getIdSolProv(raw);
-  const monto_solicitado = getMontoSolicitado(raw);
-  const costo_proveedor = Number(raw?.costo_total ?? 0);
-  const precio_de_venta = Number(raw?.total ?? 0);
-  const markup =
-    precio_de_venta > 0
-      ? ((precio_de_venta - costo_proveedor) / precio_de_venta) * 100
-      : 0;
+const mapLuRow = (raw: any): SolicitudRow => {
+  const check_in = raw?.["CHECK IN"] ?? null;
+  const check_out = raw?.["CHECK OUT"] ?? null;
+  const costo_proveedor = Number(raw?.["COSTO PROV."] ?? 0);
+  const precio_de_venta = Number(raw?.["PX VENTA"] ?? 0);
 
   return {
-    id_solicitud_proveedor,
-    proveedor: (raw?.hotel ?? "").toUpperCase(),
-    codigo_confirmacion: raw?.codigo_confirmacion ?? "—",
-    nombre_comercial: raw?.nombre_identificacion,
+    id_solicitud_proveedor: String(raw?.["ID SOL."] ?? ""),
+    proveedor: String(raw?.["PROVEEDOR"] ?? "").toUpperCase(),
+    codigo_confirmacion: raw?.["CÓD. CONFIRM."] ?? "—",
     costo_proveedor,
-    monto_solicitado,
-    cliente: (raw?.agente ?? "").toUpperCase(),
+    monto_solicitado: Number(raw?.["MONTO SOL."] ?? 0),
+    cliente: String(raw?.["CLIENTE"] ?? "").toUpperCase(),
     precio_de_venta,
-    check_in: raw?.check_in ?? null,
-    check_out: raw?.check_out ?? null,
-    noches: calcularNoches(raw?.check_in, raw?.check_out),
-    markup,
-    datos_bancarios: getDatosBancarios(raw),
-    caratula: getCaratula(raw),
-    estatus: getEstatus(raw),
+    check_in,
+    check_out,
+    noches: calcularNoches(check_in, check_out),
+    markup: Number(raw?.["MARKUP"] ?? 0),
+    datos_bancarios: raw?.["DATOS BANCARIOS"] ?? "—",
+    caratula: raw?.["CARÁTULA"] ?? null,
+    estatus: String(raw?.["ESTATUS"] ?? "—").toUpperCase(),
     raw,
   };
 };
@@ -120,33 +82,22 @@ function useSolicitudes(tab: Tab) {
   const [limite, setLimite] = useState("100");
 
   const fetchData = useCallback(
-    async (limiteArg?: string) => {
+    async (_limiteArg?: string) => {
       setLoading(true);
       setError(null);
       try {
-        const lim = Number(limiteArg ?? limite) || 100;
         const estado =
-          tab === "dispersion" ? "DISPERSION" : "PAGADO TRANSFERENCIA";
+          tab === "dispersion" ? "Dispersion" : "PAGADO TRANSFERENCIA";
 
-        await fetchGetSolicitudesFiltradas(
-          (json) => {
-            const rawList: any[] =
-              tab === "dispersion"
-                ? (json?.data?.spei ?? [])
-                : (json?.data?.pagada ?? []);
-            setRows(rawList.map(mapRaw));
-          },
-          { estado_solicitud: estado },
-          lim,
-          1,
-        );
+        const rawList = await fetchSolicitudesLu(estado);
+        setRows(rawList.map(mapLuRow));
       } catch (e: any) {
         setError(e?.message ?? "Error al cargar solicitudes");
       } finally {
         setLoading(false);
-      }
+      } 
     },
-    [tab, limite],
+    [tab],
   );
 
   useEffect(() => {
