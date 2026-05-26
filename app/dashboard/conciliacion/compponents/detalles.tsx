@@ -659,6 +659,8 @@ const facturasTable = useMemo(() => {
       impuestos_edit: draft.impuestos,
       monto_asociar_edit: draft.monto_asociar,
 
+      subio_factura: safeString(f?.id_creador) || null,
+
       acciones: {
         ...f,
         facturaKey,
@@ -680,6 +682,7 @@ const facturasTable = useMemo(() => {
       "subtotal_edit",
       "impuestos_edit",
       "monto_asociar_edit",
+      "subio_factura",
       "acciones",
     ],
     []
@@ -793,6 +796,15 @@ impuestos_edit: ({ item }: any) => {
     </div>
   );
 },
+
+      subio_factura: ({ value }: any) =>
+        value ? (
+          <span className="inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded-full border bg-indigo-50 text-indigo-700 border-indigo-200 whitespace-nowrap">
+            {value}
+          </span>
+        ) : (
+          <span className="text-xs text-gray-400 italic">—</span>
+        ),
 
       acciones: ({ value }: any) => {
         const facturaKey = safeString(value?.facturaKey);
