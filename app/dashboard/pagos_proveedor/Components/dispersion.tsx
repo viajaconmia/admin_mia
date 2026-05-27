@@ -594,6 +594,13 @@ export const DispersionModal: React.FC<DispersionModalProps> = ({
                         </p>
 
                         <p className="text-[11px] text-slate-500">
+                          Código confirmación:{" "}
+                          <span className="font-mono">
+                            {s.codigo_confirmacion ?? "-"}
+                          </span>
+                        </p>
+
+                        <p className="text-[11px] text-slate-500">
                           RFC:{" "}
                           <span className="font-mono">{s.rfc ?? "-"}</span>
                         </p>

@@ -1061,11 +1061,10 @@ const buildItemDescription = useCallback(
   ]);
 
   const previewTotals = useMemo(() => {
-    const base = round2(previewLines.reduce((s, x) => s + (x.Base || 0), 0));
-    const tax = round2(previewLines.reduce((s, x) => s + (x.Tax || 0), 0));
     const total = round2(previewLines.reduce((s, x) => s + (x.Total || 0), 0));
+    const { subtotal: base, iva: tax } = splitIva(total);
     return { base, tax, total };
-  }, [previewLines]);
+  }, [previewLines, splitIva]);
 
   // ✅ Auto-set para RFC genérico (SIN forzar invoiceMode)
   useEffect(() => {
@@ -1175,10 +1174,7 @@ const buildItemDescription = useCallback(
     });
 
     const total = round2(reservas.reduce((s, r) => s + r.totales.total, 0));
-    const subtotal = round2(
-      reservas.reduce((s, r) => s + r.totales.subtotal, 0),
-    );
-    const iva = round2(reservas.reduce((s, r) => s + r.totales.iva, 0));
+    const { subtotal, iva } = splitIva(total);
 
     return {
       version: "1.0",

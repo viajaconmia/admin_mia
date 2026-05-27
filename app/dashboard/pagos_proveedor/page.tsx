@@ -587,6 +587,7 @@ function App() {
               customColumns={customColumns}
               respectCustomColumnOrder
               headerRenderers={{
+                fecha_de_pago: () => "FECHA SOLICITADA DE PAGO",
                 seleccionar: () => (
                   <input
                     type="checkbox"

@@ -29,6 +29,7 @@ type SolicitudRow = {
   datos_bancarios: string;
   caratula: string | null;
   estatus: string;
+  codigo_dispersion: string | null;
   raw: any;
 };
 
@@ -46,6 +47,17 @@ const fmtMoney = (n: number) =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
+
+const DISPERSION_COLORS = [
+  { bg: "bg-violet-100", text: "text-violet-800", border: "border-l-violet-400", badge: "bg-violet-100 text-violet-800 border-violet-300" },
+  { bg: "bg-amber-100",  text: "text-amber-800",  border: "border-l-amber-400",  badge: "bg-amber-100 text-amber-800 border-amber-300" },
+  { bg: "bg-teal-100",   text: "text-teal-800",   border: "border-l-teal-400",   badge: "bg-teal-100 text-teal-800 border-teal-300" },
+  { bg: "bg-rose-100",   text: "text-rose-800",   border: "border-l-rose-400",   badge: "bg-rose-100 text-rose-800 border-rose-300" },
+  { bg: "bg-sky-100",    text: "text-sky-800",    border: "border-l-sky-400",    badge: "bg-sky-100 text-sky-800 border-sky-300" },
+  { bg: "bg-lime-100",   text: "text-lime-800",   border: "border-l-lime-400",   badge: "bg-lime-100 text-lime-800 border-lime-300" },
+  { bg: "bg-fuchsia-100",text: "text-fuchsia-800",border: "border-l-fuchsia-400",badge: "bg-fuchsia-100 text-fuchsia-800 border-fuchsia-300" },
+  { bg: "bg-orange-100", text: "text-orange-800", border: "border-l-orange-400", badge: "bg-orange-100 text-orange-800 border-orange-300" },
+];
 
 
 const mapLuRow = (raw: any): SolicitudRow => {
@@ -65,10 +77,13 @@ const mapLuRow = (raw: any): SolicitudRow => {
     check_in,
     check_out,
     noches: calcularNoches(check_in, check_out),
-    markup: Number(raw?.["MARKUP"] ?? 0),
+    markup: costo_proveedor > 0
+      ? ((precio_de_venta - costo_proveedor) / costo_proveedor) * 100
+      : 0,
     datos_bancarios: raw?.["DATOS BANCARIOS"] ?? "—",
     caratula: raw?.["CARÁTULA"] ?? null,
     estatus: String(raw?.["ESTATUS"] ?? "—").toUpperCase(),
+    codigo_dispersion: raw?.["codigo_dispersion"] ?? raw?.["CÓDIGO DISPERSIÓN"] ?? null,
     raw,
   };
 };
@@ -145,16 +160,28 @@ export default function PagosProveedorL() {
 
   const filteredRows = useMemo(() => {
     const q = search.trim().toUpperCase();
-    console.log(rows);
     if (!q) return rows;
     return rows.filter(
       (r) =>
         r.proveedor.includes(q) ||
         r.codigo_confirmacion.toUpperCase().includes(q) ||
         r.cliente.includes(q) ||
-        r.id_solicitud_proveedor.includes(q),
+        r.id_solicitud_proveedor.includes(q) ||
+        (r.codigo_dispersion ?? "").toUpperCase().includes(q),
     );
   }, [rows, search]);
+
+  const dispersionColorMap = useMemo(() => {
+    const map = new Map<string, number>();
+    let idx = 0;
+    for (const r of filteredRows) {
+      if (r.codigo_dispersion && !map.has(r.codigo_dispersion)) {
+        map.set(r.codigo_dispersion, idx % DISPERSION_COLORS.length);
+        idx++;
+      }
+    }
+    return map;
+  }, [filteredRows]);
 
   const isDispersion = tab === "dispersion";
   const allSelected =
@@ -324,6 +351,7 @@ export default function PagosProveedorL() {
                       </th>
                     )}
                     <Th>ID SOL.</Th>
+                    <Th>CÓD. DISPERS.</Th>
                     <Th>PROVEEDOR</Th>
                     <Th>CÓD. CONFIRM.</Th>
                     <Th align="right">COSTO PROV.</Th>
@@ -342,10 +370,12 @@ export default function PagosProveedorL() {
                 <tbody className="divide-y divide-slate-100">
                   {filteredRows.map((row) => {
                     const selected = !!selectedMap[row.id_solicitud_proveedor];
+                    const colorIdx = row.codigo_dispersion != null ? dispersionColorMap.get(row.codigo_dispersion) : undefined;
+                    const color = colorIdx != null ? DISPERSION_COLORS[colorIdx] : null;
                     return (
                       <tr
                         key={row.id_solicitud_proveedor}
-                        className={`transition-colors ${selected ? "bg-blue-50" : "hover:bg-slate-50"}`}
+                        className={`transition-colors border-l-4 ${color ? color.border : "border-l-transparent"} ${selected ? "bg-blue-50" : "hover:bg-slate-50"}`}
                       >
                         {isDispersion && (
                           <td className="px-3 py-2.5">
@@ -359,6 +389,15 @@ export default function PagosProveedorL() {
                         )}
                         <td className="px-3 py-2.5 font-mono text-slate-700 whitespace-nowrap">
                           {row.id_solicitud_proveedor}
+                        </td>
+                        <td className="px-3 py-2.5 whitespace-nowrap">
+                          {row.codigo_dispersion ? (
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${color ? color.badge : "bg-slate-100 text-slate-700 border-slate-300"}`}>
+                              {row.codigo_dispersion}
+                            </span>
+                          ) : (
+                            <span className="text-slate-300">—</span>
+                          )}
                         </td>
                         <td
                           className="px-3 py-2.5 text-slate-800 max-w-[150px] truncate"
@@ -464,10 +503,12 @@ export default function PagosProveedorL() {
 
               {filteredRows.map((row) => {
                 const selected = !!selectedMap[row.id_solicitud_proveedor];
+                const colorIdx = row.codigo_dispersion != null ? dispersionColorMap.get(row.codigo_dispersion) : undefined;
+                const color = colorIdx != null ? DISPERSION_COLORS[colorIdx] : null;
                 return (
                   <div
                     key={row.id_solicitud_proveedor}
-                    className={`rounded-xl border shadow-sm p-4 transition-colors ${
+                    className={`rounded-xl border-l-4 shadow-sm p-4 transition-colors ${color ? color.border : "border-l-transparent"} ${
                       selected
                         ? "border-blue-300 bg-blue-50"
                         : "border-slate-200 bg-white"
@@ -512,6 +553,11 @@ export default function PagosProveedorL() {
                             </span>
                           )}
                         </p>
+                        {row.codigo_dispersion && (
+                          <span className={`mt-1 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${color ? color.badge : "bg-slate-100 text-slate-700 border-slate-300"}`}>
+                            {row.codigo_dispersion}
+                          </span>
+                        )}
                       </div>
                     </div>
 
