@@ -150,13 +150,13 @@ export const ModalProveedor = ({
 
   // ── Cuentas ──────────────────────────────────────────────────────────────
 
-  const handleSaveCuenta = async (datos: ProveedorCuenta) => {
+  const handleSaveCuenta = async (datos: ProveedorCuenta, caratula?: File) => {
     try {
       let response: ApiResponse<ProveedorCuenta[]>;
       if (selectedCuenta) {
-        response = await svc.updateCuentasProveedor(datos);
+        response = await svc.updateCuentasProveedor(datos, caratula);
       } else {
-        response = await svc.createCuentasProveedor(datos);
+        response = await svc.createCuentasProveedor(datos, caratula);
       }
       setCuentas(response.data);
       showNotification("success", response.message);
@@ -165,6 +165,17 @@ export const ModalProveedor = ({
     } finally {
       setSelectedCuenta(null);
       setIsCuentaOpen(false);
+    }
+  };
+
+  const handleDeleteCuenta = async (id: number) => {
+    if (!confirm("¿Eliminar esta cuenta?")) return;
+    try {
+      const response = await svc.deleteCuentaProveedor(id);
+      setCuentas(response.data);
+      showNotification("success", "Cuenta eliminada");
+    } catch (error) {
+      showNotification("error", error.message || "Error al eliminar la cuenta");
     }
   };
 
@@ -384,26 +395,51 @@ export const ModalProveedor = ({
                 </p>
               ) : (
                 <Table
-                  registros={cuentas.map(({ id_proveedor, id, ...rest }) => ({
-                    alias: rest.alias,
-                    banco: rest.banco,
-                    cuenta: rest.cuenta,
-                    titular: rest.titular,
-                    editar: { ...rest, id_proveedor, id },
+                  registros={cuentas.map((c) => ({
+                    alias: c.alias,
+                    banco: c.banco,
+                    cuenta: c.cuenta,
+                    titular: c.titular,
+                    caratula: c,
+                    acciones: c,
                   }))}
                   renderers={{
-                    editar: ({ value }: { value: ProveedorCuenta }) => (
-                      <Button
-                        icon={Pencil}
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setSelectedCuenta(value);
-                          setIsCuentaOpen(true);
-                        }}
-                      >
-                        Editar
-                      </Button>
+                    caratula: ({ value }: { value: ProveedorCuenta }) =>
+                      value.url_caratula ? (
+                        <a
+                          href={value.url_caratula}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-600 hover:underline"
+                        >
+                          Ver
+                        </a>
+                      ) : (
+                        <span className="text-xs text-gray-300">—</span>
+                      ),
+                    acciones: ({ value }: { value: ProveedorCuenta }) => (
+                      <div className="flex items-center gap-1">
+                        <Button
+                          icon={Pencil}
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setSelectedCuenta(value);
+                            setIsCuentaOpen(true);
+                          }}
+                        >
+                          Editar
+                        </Button>
+                        <Button
+                          icon={Trash2}
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDeleteCuenta(value.id)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          Eliminar
+                        </Button>
+                      </div>
                     ),
                   }}
                 />
@@ -522,7 +558,7 @@ export const ModalProveedor = ({
 
       <ModalCuentasCRUD
         isOpen={isCuentaOpen}
-        onClose={() => setIsCuentaOpen(false)}
+        onClose={() => { setIsCuentaOpen(false); setSelectedCuenta(null); }}
         onSave={handleSaveCuenta}
         id_proveedor={proveedor.id}
         selectedCuenta={selectedCuenta}
