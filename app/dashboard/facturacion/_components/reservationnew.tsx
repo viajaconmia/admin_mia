@@ -19,7 +19,7 @@ interface Item {
   id_item: string;
   id_factura?: string | null;
   total: number | string;
-  subtotal?: number | string;
+  subtotal?: number | string; 
   impuestos?: number | string;
   total_facturado?: number | string;
   total_pagado?: number | string;
