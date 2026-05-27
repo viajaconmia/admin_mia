@@ -933,7 +933,7 @@ export function InputGoogle({
   };
 
   return (
-    <div className={`flex flex-col space-y-1`}>
+    <div className={`flex flex-col space-y-1 ${sizes[size]}`}>
       {label && (
         <label className="text-sm text-gray-900 font-medium">{label}</label>
       )}
