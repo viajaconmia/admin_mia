@@ -81,20 +81,6 @@ export const DispersionModal: React.FC<DispersionModalProps> = ({
     return (input ?? "").replace(/\s/g, "");
   };
 
-  const formatDate = (value?: string | null) => {
-    if (!value) return "-";
-
-    const d = new Date(value);
-
-    if (isNaN(d.getTime())) return value;
-
-    return d.toLocaleDateString("es-MX", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    });
-  };
-
   const formatDateForCSV = (value?: string | null) => {
     if (!value) return "";
 
@@ -567,114 +553,93 @@ export const DispersionModal: React.FC<DispersionModalProps> = ({
 
             <div className="max-h-64 overflow-y-auto space-y-3 pr-1">
               {solicitudesSeleccionadas.map((s, idx) => {
-                const costoProveedor =
-                  s.costo_total ??
-                  s.solicitud_proveedor?.monto_solicitado ??
-                  "0.00";
-
-                const fechaPago =
-                  s.solicitud_proveedor?.fecha_solicitud ?? s.check_out;
-
                 return (
                   <div
                     key={`${s.id_solicitud}-${idx}`}
-                    className="border border-slate-200 bg-white rounded-lg px-3 py-2 shadow-sm"
+                    className="border border-slate-200 bg-white rounded-lg px-3 py-2.5 shadow-sm"
                   >
-                    <div className="flex justify-between items-center gap-4">
-                      <div className="flex-1">
-                        <p className="text-xs font-semibold text-slate-800">
-                          {s.hotel ?? "Hotel sin nombre"}
-                        </p>
+                    {/* Nombre hotel */}
+                    <p className="text-xs font-bold text-slate-800 mb-1.5">
+                      {s.hotel ?? "Hotel sin nombre"}
+                    </p>
 
-                        <p className="text-[11px] text-slate-500">
-                          Código hotel:{" "}
-                          <span className="font-mono">
-                            {s.codigo_reservacion_hotel ?? "-"}
-                          </span>
-                        </p>
+                    <div className="space-y-0.5">
+                      <p className="text-[11px] text-slate-500">
+                        Código confirmación:{" "}
+                        <span className="font-mono font-medium text-slate-700">
+                          {s.codigo_confirmacion ?? "-"}
+                        </span>
+                      </p>
 
-                        <p className="text-[11px] text-slate-500">
-                          Código confirmación:{" "}
-                          <span className="font-mono">
-                            {s.codigo_confirmacion ?? "-"}
-                          </span>
-                        </p>
+                      <p className="text-[11px] text-slate-500">
+                        ID proveedor:{" "}
+                        <span className="font-mono font-medium text-slate-700">
+                          {s.id_proveedor ?? "-"}
+                        </span>
+                      </p>
 
-                        <p className="text-[11px] text-slate-500">
-                          RFC:{" "}
-                          <span className="font-mono">{s.rfc ?? "-"}</span>
-                        </p>
+                      {/* Cuenta: siempre visible — seleccionada o selector */}
+                      {(() => {
+                        const cuentas = getCuentasParaSolicitud(s);
+                        const selectedEntry = cuentaSeleccionadaMap[s.id_solicitud];
 
-                        <p className="text-[11px] text-slate-500">
-                          ID proveedor:{" "}
-                          <span className="font-mono">
-                            {s.id_proveedor ?? "-"}
-                          </span>
-                        </p>
-
-                        {/* Selector de cuenta receptora */}
-                        {(() => {
-                          const cuentas = getCuentasParaSolicitud(s);
-                          if (cuentas.length === 0) return null;
-                          const selectedEntry = cuentaSeleccionadaMap[s.id_solicitud];
-                          if (cuentas.length === 1) {
-                            return (
-                              <p className="text-[11px] text-slate-500 mt-1">
-                                Cuenta:{" "}
-                                <span className="font-mono text-green-700">
-                                  {cuentas[0].clabe ?? cuentas[0].cuenta ?? "-"}
-                                </span>
-                                {cuentas[0].banco ? ` (${cuentas[0].banco})` : ""}
-                              </p>
-                            );
-                          }
+                        if (cuentas.length === 0) {
                           return (
-                            <div className="mt-1">
-                              <label className="text-[11px] text-slate-500 block mb-0.5">
-                                Cuenta receptora:
-                              </label>
-                              <select
-                                className="w-full text-[11px] border border-slate-200 rounded px-1.5 py-1 outline-none focus:ring-1 focus:ring-blue-300"
-                                value={selectedEntry?.clabe ?? ""}
-                                onChange={(e) => {
-                                  const clabe = e.target.value;
-                                  const found = cuentas.find(
-                                    (c: any) => (c.clabe ?? c.cuenta ?? "") === clabe
-                                  );
-                                  setCuentaSeleccionadaMap((prev) => ({
-                                    ...prev,
-                                    [s.id_solicitud]: {
-                                      id: found?.id ?? found?.id_cuenta ?? null,
-                                      clabe,
-                                    },
-                                  }));
-                                }}
-                              >
-                                <option value="">— Seleccionar cuenta —</option>
-                                {cuentas.map((c: any, ci: number) => {
-                                  const val = c.clabe ?? c.cuenta ?? "";
-                                  return (
-                                    <option key={ci} value={val}>
-                                      {[c.banco, val].filter(Boolean).join(" · ")}
-                                    </option>
-                                  );
-                                })}
-                              </select>
-                            </div>
+                            <p className="text-[11px] text-slate-400 italic">
+                              Sin cuenta registrada
+                            </p>
                           );
-                        })()}
-                      </div>
+                        }
 
-                      <div className="text-right text-[11px] text-slate-600">
-                        <p>
-                          Costo proveedor:{" "}
-                          <span className="font-semibold text-slate-800">
-                            ${Number(costoProveedor).toFixed(2)}
-                          </span>
-                        </p>
+                        if (cuentas.length === 1) {
+                          const c = cuentas[0];
+                          const num = c.clabe ?? c.cuenta ?? "-";
+                          return (
+                            <p className="text-[11px] text-slate-500">
+                              Cuenta:{" "}
+                              <span className="font-mono font-medium text-slate-700">
+                                {num}
+                              </span>
+                              {c.banco ? (
+                                <span className="text-slate-400"> ({c.banco})</span>
+                              ) : null}
+                            </p>
+                          );
+                        }
 
-                        <p>Fecha pago: {formatDate(fechaPago)}</p>
-                      </div>
+                        return (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[11px] text-slate-500 shrink-0">Cuenta:</span>
+                            <select
+                              className="flex-1 text-[11px] border border-slate-200 rounded px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-blue-300"
+                              value={selectedEntry?.clabe ?? ""}
+                              onChange={(e) => {
+                                const clabe = e.target.value;
+                                const found = cuentas.find(
+                                  (c: any) => (c.clabe ?? c.cuenta ?? "") === clabe
+                                );
+                                setCuentaSeleccionadaMap((prev) => ({
+                                  ...prev,
+                                  [s.id_solicitud]: {
+                                    id: found?.id ?? found?.id_cuenta ?? null,
+                                    clabe,
+                                  },
+                                }));
+                              }}
+                            >
+                              <option value="">— Seleccionar —</option>
+                              {cuentas.map((c: any, ci: number) => {
+                                const val = c.clabe ?? c.cuenta ?? "";
+                                return (
+                                  <option key={ci} value={val}>
+                                    {[val, c.banco].filter(Boolean).join(" · ")}
+                                  </option>
+                                );
+                              })}
+                            </select>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 );

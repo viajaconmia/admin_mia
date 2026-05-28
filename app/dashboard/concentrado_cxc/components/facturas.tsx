@@ -4,6 +4,7 @@ import { Table5 } from "@/components/Table5";
 import { DetalleFacturaModal } from "./detalles_modal";
 import React, { useState, useEffect, useMemo } from "react";
 import { formatDate } from "@/helpers/utils";
+import { Monto } from "@/components/atom/Monto";
 import { PagarModalComponent } from "@/components/template/pagar_saldo";
 import { URL, API_KEY } from "@/lib/constants/index";
 import { useAlert } from "@/context/useAlert";
@@ -784,9 +785,7 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
 
     total: ({ value }) => (
       <div className="flex justify-end">
-        <span className="font-bold text-blue-600">
-          {money ? money(parseFloat(value) || 0) : `$${parseFloat(value) || 0}`}
-        </span>
+        <Monto value={parseFloat(value) || 0} className="font-bold text-blue-600" />
       </div>
     ),
 
@@ -798,21 +797,14 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
 
       return (
         <div className="flex flex-col items-end gap-1">
-          <span
-            className={`font-bold ${
-              !vencido ? "text-green-600" : "text-red-500"
-            }`}
-          >
-            {money ? money(saldo) : `$${saldo}`}
-          </span>
+          <Monto
+            value={saldo}
+            className={`font-bold ${!vencido ? "text-green-600" : "text-red-500"}`}
+          />
           <div className="w-full bg-gray-200 rounded-full h-1.5">
             <div
-              className={`${
-                !vencido ? "bg-green-600" : "bg-red-600"
-              } h-1.5 rounded-full`}
-              style={{
-                width: `${100 - porcentajePagado}%`,
-              }}
+              className={`${!vencido ? "bg-green-600" : "bg-red-600"} h-1.5 rounded-full`}
+              style={{ width: `${100 - porcentajePagado}%` }}
             />
           </div>
         </div>
@@ -916,20 +908,11 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
                   <div className="text-sm font-semibold text-gray-700 flex flex-col items-end">
                     <span>
                       Total saldo seleccionado:{" "}
-                      <span className="text-green-600">
-                        {money
-                          ? money(totalSaldoSeleccionado)
-                          : `$${totalSaldoSeleccionado.toFixed(2)}`}
-                      </span>
+                      <Monto value={totalSaldoSeleccionado} className="text-green-600" />
                     </span>
-
                     <span>
                       Total a asignar:{" "}
-                      <span className="text-blue-600">
-                        {money
-                          ? money(totalMontoAsignado)
-                          : `$${totalMontoAsignado.toFixed(2)}`}
-                      </span>
+                      <Monto value={totalMontoAsignado} className="text-blue-600" />
                     </span>
                   </div>
                 </div>
@@ -937,11 +920,7 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                     <div className="text-sm font-semibold text-gray-700">
                       Total saldo seleccionado:{" "}
-                      <span className="text-green-600">
-                        {money
-                          ? money(totalSaldoSeleccionado)
-                          : `$${totalSaldoSeleccionado.toFixed(2)}`}
-                      </span>
+                      <Monto value={totalSaldoSeleccionado} className="text-green-600" />
                     </div>
                   </div>
 

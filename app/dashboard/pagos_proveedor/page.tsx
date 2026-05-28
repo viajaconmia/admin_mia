@@ -339,6 +339,23 @@ function App() {
       return;
     }
 
+    const idsProveedor = [
+      ...new Set(
+        solicitud.map((s) => {
+          const anyS = s as any;
+          return String(anyS.id_proveedor ?? anyS.proveedor?.id ?? "").trim();
+        }).filter(Boolean)
+      ),
+    ];
+
+    if (idsProveedor.length > 1) {
+      showNotification(
+        "error",
+        `No se puede dispersar: las solicitudes pertenecen a proveedores distintos (IDs: ${idsProveedor.join(", ")}). Selecciona solo solicitudes del mismo proveedor.`,
+      );
+      return;
+    }
+
     const seleccion = solicitud.map((s) => {
       const anyS = s as any;
       const cuentasProveedor = getProveedorCuentas(s);

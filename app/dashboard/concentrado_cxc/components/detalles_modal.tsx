@@ -1,8 +1,9 @@
-"use clien"
+"use client";
 
 import { Factura} from "./facturas";
 import React, { useState } from "react";
 import useApi from "@/hooks/useApi";
+import { Monto } from "@/components/atom/Monto";
 
 
 export interface DetalleFacturaModalProps {
@@ -211,31 +212,22 @@ export const DetalleFacturaModal: React.FC<DetalleFacturaModalProps> = ({
               </p>
               <p className="text-xs text-gray-600">
                 Subtotal:{" "}
-                <span className="font-semibold">
-                  {money(factura.subtotal)}
-                </span>
+                <Monto value={factura.subtotal} className="font-semibold" />
               </p>
               <p className="text-xs text-gray-600">
                 Impuestos:{" "}
-                <span className="font-semibold">
-                  {money(factura.impuestos)}
-                </span>
+                <Monto value={factura.impuestos} className="font-semibold" />
               </p>
               <p className="text-xs text-gray-600">
                 Total:{" "}
-                <span className="font-bold text-blue-700">
-                  {money(factura.total)}
-                </span>
+                <Monto value={factura.total} className="font-bold text-blue-700" />
               </p>
               <p className="text-xs text-gray-600">
                 Saldo pendiente:{" "}
-                <span
-                  className={`font-bold ${
-                    vencida ? "text-red-600" : "text-green-700"
-                  }`}
-                >
-                  {money(factura.saldo)}
-                </span>
+                <Monto
+                  value={factura.saldo}
+                  className={`font-bold ${vencida ? "text-red-600" : "text-green-700"}`}
+                />
               </p>
             </div>
           </div>
