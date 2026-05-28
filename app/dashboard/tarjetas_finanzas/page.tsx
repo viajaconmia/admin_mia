@@ -387,11 +387,8 @@ export default function TarjetasFinanzas() {
   );
 
   const customColumns = [
-    "alias",
-    "nombre_titular",
     "tarjeta",
     "banco_emisor",
-    "tipo_tarjeta",
     "fecha_vencimiento",
     "activa",
     "activa_finanzas",
