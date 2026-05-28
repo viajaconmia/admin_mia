@@ -198,13 +198,21 @@ export default function PagosProveedorL() {
   }, [filteredRows]);
 
   const isDispersion = tab === "dispersion";
-  const allSelected =
-    filteredRows.length > 0 &&
-    filteredRows.every((r) => !!selectedMap[r.id_solicitud_proveedor]);
   const selectedCount = Object.keys(selectedMap).length;
 
+
   const toggleRow = (row: SolicitudRow) => {
+    const rowGroup = row.codigo_dispersion ?? "__sin_codigo__";
     setSelectedMap((prev) => {
+      const prevVals = Object.values(prev);
+      const prevGroup = prevVals.length > 0
+        ? (prevVals[0].codigo_dispersion ?? "__sin_codigo__")
+        : null;
+      // Different group — clear and select only this row
+      if (prevGroup !== null && prevGroup !== rowGroup) {
+        return { [row.id_solicitud_proveedor]: row };
+      }
+      // Same group — toggle
       const next = { ...prev };
       if (next[row.id_solicitud_proveedor]) {
         delete next[row.id_solicitud_proveedor];
@@ -215,16 +223,16 @@ export default function PagosProveedorL() {
     });
   };
 
-  const toggleAll = () => {
-    if (allSelected) {
-      setSelectedMap({});
-    } else {
+  const toggleGroup = (groupRows: SolicitudRow[]) => {
+    setSelectedMap((prev) => {
+      const allInGroup = groupRows.every((r) => !!prev[r.id_solicitud_proveedor]);
+      if (allInGroup) {
+        return {};
+      }
       const next: Record<string, SolicitudRow> = {};
-      filteredRows.forEach((r) => {
-        next[r.id_solicitud_proveedor] = r;
-      });
-      setSelectedMap(next);
-    }
+      groupRows.forEach((r) => { next[r.id_solicitud_proveedor] = r; });
+      return next;
+    });
   };
 
   const selectedSolicitudes = useMemo<SolicitudSeleccionada[]>(
@@ -354,16 +362,7 @@ export default function PagosProveedorL() {
               <table className="min-w-full text-xs">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
-                    {isDispersion && (
-                      <th className="px-3 py-3 text-left">
-                        <input
-                          type="checkbox"
-                          checked={allSelected}
-                          onChange={toggleAll}
-                          className="h-4 w-4 accent-blue-600 cursor-pointer"
-                        />
-                      </th>
-                    )}
+                    {isDispersion && <th className="w-8" />}
                     <Th>ID SOL.</Th>
                     <Th>CÓD. DISPERS.</Th>
                     <Th>PROVEEDOR</Th>
@@ -388,28 +387,49 @@ export default function PagosProveedorL() {
                     return (
                       <React.Fragment key={group.codigo}>
                         {/* Group header row */}
-                        <tr className={`${color ? color.bg : "bg-slate-50"} border-t-2 border-slate-200`}>
-                          <td
-                            colSpan={20}
-                            className="px-4 py-2"
-                          >
-                            <div className="flex items-center gap-3">
-                              {group.codigo !== "__sin_codigo__" ? (
-                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${color ? color.badge : "bg-slate-100 text-slate-700 border-slate-300"}`}>
-                                  {group.codigo}
-                                </span>
-                              ) : (
-                                <span className="text-[11px] font-semibold text-slate-400 italic">Sin código</span>
-                              )}
-                              <span className="text-[11px] text-slate-500">
-                                {group.rows.length} solicitud{group.rows.length !== 1 ? "es" : ""}
-                              </span>
-                              <span className="text-[11px] font-semibold text-slate-700 ml-auto">
-                                Total: {fmtMoney(group.total)}
-                              </span>
-                            </div>
-                          </td>
-                        </tr>
+                        {(() => {
+                          const groupAllSelected = group.rows.every((r) => !!selectedMap[r.id_solicitud_proveedor]);
+                          const groupSomeSelected = !groupAllSelected && group.rows.some((r) => !!selectedMap[r.id_solicitud_proveedor]);
+                          return (
+                            <tr className={`${color ? color.bg : "bg-slate-50"} border-t-2 border-slate-200`}>
+                              <td colSpan={20} className="px-4 py-2">
+                                <div className="flex items-center gap-3">
+                                  {isDispersion && (
+                                    <input
+                                      type="checkbox"
+                                      checked={groupAllSelected}
+                                      ref={(el) => { if (el) el.indeterminate = groupSomeSelected; }}
+                                      onChange={() => toggleGroup(group.rows)}
+                                      className="h-4 w-4 accent-blue-600 cursor-pointer shrink-0"
+                                      title="Seleccionar todo el grupo"
+                                    />
+                                  )}
+                                  {group.codigo !== "__sin_codigo__" ? (
+                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${color ? color.badge : "bg-slate-100 text-slate-700 border-slate-300"}`}>
+                                      {group.codigo}
+                                    </span>
+                                  ) : (
+                                    <span className="text-[11px] font-semibold text-slate-400 italic">Sin código</span>
+                                  )}
+                                  <span className="text-[11px] text-slate-500">
+                                    {group.rows.length} solicitud{group.rows.length !== 1 ? "es" : ""}
+                                    {groupSomeSelected && (
+                                      <span className="ml-1 text-blue-600 font-medium">
+                                        · {group.rows.filter((r) => !!selectedMap[r.id_solicitud_proveedor]).length} seleccionada{group.rows.filter((r) => !!selectedMap[r.id_solicitud_proveedor]).length !== 1 ? "s" : ""}
+                                      </span>
+                                    )}
+                                    {groupAllSelected && group.rows.length > 0 && (
+                                      <span className="ml-1 text-blue-600 font-medium">· todas seleccionadas</span>
+                                    )}
+                                  </span>
+                                  <span className="text-[11px] font-semibold text-slate-700 ml-auto">
+                                    Total: {fmtMoney(group.total)}
+                                  </span>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })()}
                         {/* Group rows */}
                         {group.rows.map((row) => {
                           const selected = !!selectedMap[row.id_solicitud_proveedor];
@@ -525,27 +545,24 @@ export default function PagosProveedorL() {
 
             {/* ── Cards mobile / tablet ──────────────────────────── */}
             <div className="lg:hidden space-y-3">
-              {isDispersion && (
-                <div className="flex items-center gap-2 px-1">
-                  <input
-                    type="checkbox"
-                    checked={allSelected}
-                    onChange={toggleAll}
-                    className="h-4 w-4 accent-blue-600 cursor-pointer"
-                  />
-                  <span className="text-xs text-slate-500">
-                    Seleccionar todo
-                  </span>
-                </div>
-              )}
-
               {groupedRows.map((group) => {
                 const colorIdx = group.codigo !== "__sin_codigo__" ? dispersionColorMap.get(group.codigo) : undefined;
                 const color = colorIdx != null ? DISPERSION_COLORS[colorIdx] : null;
+                const groupAllSelected = group.rows.every((r) => !!selectedMap[r.id_solicitud_proveedor]);
+                const groupSomeSelected = !groupAllSelected && group.rows.some((r) => !!selectedMap[r.id_solicitud_proveedor]);
                 return (
                   <div key={group.codigo}>
                     {/* Group header */}
                     <div className={`flex items-center gap-2 px-3 py-2 rounded-lg mb-2 ${color ? color.bg : "bg-slate-100"}`}>
+                      {isDispersion && (
+                        <input
+                          type="checkbox"
+                          checked={groupAllSelected}
+                          ref={(el) => { if (el) el.indeterminate = groupSomeSelected; }}
+                          onChange={() => toggleGroup(group.rows)}
+                          className="h-4 w-4 accent-blue-600 cursor-pointer shrink-0"
+                        />
+                      )}
                       {group.codigo !== "__sin_codigo__" ? (
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${color ? color.badge : "bg-slate-100 text-slate-700 border-slate-300"}`}>
                           {group.codigo}
@@ -555,6 +572,14 @@ export default function PagosProveedorL() {
                       )}
                       <span className="text-[11px] text-slate-500">
                         {group.rows.length} solicitud{group.rows.length !== 1 ? "es" : ""}
+                        {groupSomeSelected && (
+                          <span className="ml-1 text-blue-600 font-medium">
+                            · {group.rows.filter((r) => !!selectedMap[r.id_solicitud_proveedor]).length} sel.
+                          </span>
+                        )}
+                        {groupAllSelected && group.rows.length > 0 && (
+                          <span className="ml-1 text-blue-600 font-medium">· todas</span>
+                        )}
                       </span>
                       <span className="text-[11px] font-semibold text-slate-700 ml-auto">
                         {fmtMoney(group.total)}
