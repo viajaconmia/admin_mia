@@ -437,7 +437,7 @@ export default function ConciliacionPage() {
 
   const [todos, setTodos] = useState<any[]>([]);
   const [page, setPage] = useState(1);
-  const LIMIT = 50;
+  const LIMIT = 100;
   const [hasMore, setHasMore] = useState(false);
   const [totalFiltrado, setTotalFiltrado] = useState<number | null>(null);
   const [totalPages, setTotalPages] = useState<number | null>(null);
@@ -1492,7 +1492,8 @@ export default function ConciliacionPage() {
           ),
         );
         const estadoFacturacion = normUpper(
-          row?.informacion_completa.solicitud_proveedor?.estado_facturacion ?? "",
+          row?.informacion_completa.solicitud_proveedor?.estado_facturacion ??
+            "",
         );
         const mostrarConciliarFacturacion =
           diffCostoVsFactura < 5 &&
