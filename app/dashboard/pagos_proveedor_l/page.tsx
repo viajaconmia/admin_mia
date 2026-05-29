@@ -7,7 +7,8 @@ import { OtrosMetodosPagoModal } from "@/app/dashboard/pagos_proveedor/Component
 import ModalDetalle from "@/app/dashboard/conciliacion/detalles";
 import { calcularNoches } from "@/helpers/utils";
 import { formatDate } from "@/helpers/formater";
-import { RefreshCw, Upload, X, Eye, ZoomIn, ZoomOut } from "lucide-react";
+import { RefreshCw, Upload, X, Eye, ZoomIn, ZoomOut, Bell } from "lucide-react";
+import Link from "next/link";
 import { Loader } from "@/components/atom/Loader";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -32,6 +33,7 @@ type SolicitudRow = {
   caratula: string | null;
   estatus: string;
   codigo_dispersion: string | null;
+  revision_pendiente: number | null;
   raw: any;
 };
 
@@ -50,16 +52,12 @@ const fmtMoney = (n: number) =>
     maximumFractionDigits: 2,
   })}`;
 
-const DISPERSION_COLORS = [
-  { bg: "bg-violet-100", text: "text-violet-800", border: "border-l-violet-400", badge: "bg-violet-100 text-violet-800 border-violet-300" },
-  { bg: "bg-amber-100",  text: "text-amber-800",  border: "border-l-amber-400",  badge: "bg-amber-100 text-amber-800 border-amber-300" },
-  { bg: "bg-teal-100",   text: "text-teal-800",   border: "border-l-teal-400",   badge: "bg-teal-100 text-teal-800 border-teal-300" },
-  { bg: "bg-rose-100",   text: "text-rose-800",   border: "border-l-rose-400",   badge: "bg-rose-100 text-rose-800 border-rose-300" },
-  { bg: "bg-sky-100",    text: "text-sky-800",    border: "border-l-sky-400",    badge: "bg-sky-100 text-sky-800 border-sky-300" },
-  { bg: "bg-lime-100",   text: "text-lime-800",   border: "border-l-lime-400",   badge: "bg-lime-100 text-lime-800 border-lime-300" },
-  { bg: "bg-fuchsia-100",text: "text-fuchsia-800",border: "border-l-fuchsia-400",badge: "bg-fuchsia-100 text-fuchsia-800 border-fuchsia-300" },
-  { bg: "bg-orange-100", text: "text-orange-800", border: "border-l-orange-400", badge: "bg-orange-100 text-orange-800 border-orange-300" },
-];
+const GROUP_COLOR = {
+  bg: "bg-blue-200",
+  border: "border-l-blue-400",
+  badge: "bg-blue-100 text-blue-700 border-blue-200",
+  headerBadge: "bg-blue-600 text-white border-blue-700",
+};
 
 
 const mapLuRow = (raw: any): SolicitudRow => {
@@ -88,6 +86,7 @@ const mapLuRow = (raw: any): SolicitudRow => {
     caratula: raw?.["url_caratula"] ?? null,
     estatus: String(raw?.["ESTATUS"] ?? "—").toUpperCase(),
     codigo_dispersion: raw?.["codigo_dispersion"] ?? raw?.["CÓDIGO DISPERSIÓN"] ?? null,
+    revision_pendiente: raw?.["revision_pendiente"] ?? null,
     raw,
   };
 };
@@ -155,6 +154,7 @@ export default function PagosProveedorL() {
   const [showModal, setShowModal] = useState(false);
   const [detalleId, setDetalleId] = useState<string | null>(null);
   const [caratulaUrl, setCaratulaUrl] = useState<string | null>(null);
+  const [revisionRow, setRevisionRow] = useState<SolicitudRow | null>(null);
   const [search, setSearch] = useState("");
 
   // Limpiar selección al cambiar tab
@@ -175,18 +175,6 @@ export default function PagosProveedorL() {
         (r.codigo_dispersion ?? "").toUpperCase().includes(q),
     );
   }, [rows, search]);
-
-  const dispersionColorMap = useMemo(() => {
-    const map = new Map<string, number>();
-    let idx = 0;
-    for (const r of filteredRows) {
-      if (r.codigo_dispersion && !map.has(r.codigo_dispersion)) {
-        map.set(r.codigo_dispersion, idx % DISPERSION_COLORS.length);
-        idx++;
-      }
-    }
-    return map;
-  }, [filteredRows]);
 
   const groupedRows = useMemo(() => {
     const map = new Map<string, SolicitudRow[]>();
@@ -367,6 +355,7 @@ export default function PagosProveedorL() {
               <table className="min-w-full text-xs">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
+                    <th className="w-8" />
                     {isDispersion && <th className="w-8" />}
                     <Th>ID SOL.</Th>
                     <Th>CÓD. DISPERS.</Th>
@@ -387,8 +376,7 @@ export default function PagosProveedorL() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {groupedRows.map((group) => {
-                    const colorIdx = group.codigo !== "__sin_codigo__" ? dispersionColorMap.get(group.codigo) : undefined;
-                    const color = colorIdx != null ? DISPERSION_COLORS[colorIdx] : null;
+                    const color = group.codigo !== "__sin_codigo__" ? GROUP_COLOR : null;
                     return (
                       <React.Fragment key={group.codigo}>
                         {/* Group header row */}
@@ -396,7 +384,7 @@ export default function PagosProveedorL() {
                           const groupAllSelected = group.rows.every((r) => !!selectedMap[r.id_solicitud_proveedor]);
                           const groupSomeSelected = !groupAllSelected && group.rows.some((r) => !!selectedMap[r.id_solicitud_proveedor]);
                           return (
-                            <tr className={`${color ? color.bg : "bg-slate-50"} border-t-2 border-slate-200`}>
+                            <tr className={`${color ? color.bg : "bg-slate-50"} border-t-2 ${color ? "border-blue-300" : "border-slate-200"}`}>
                               <td colSpan={20} className="px-4 py-2">
                                 <div className="flex items-center gap-3">
                                   {isDispersion && (
@@ -405,29 +393,29 @@ export default function PagosProveedorL() {
                                       checked={groupAllSelected}
                                       ref={(el) => { if (el) el.indeterminate = groupSomeSelected; }}
                                       onChange={() => toggleGroup(group.rows)}
-                                      className="h-4 w-4 accent-blue-600 cursor-pointer shrink-0"
+                                      className="h-4 w-4 accent-blue-700 cursor-pointer shrink-0"
                                       title="Seleccionar todo el grupo"
                                     />
                                   )}
                                   {group.codigo !== "__sin_codigo__" ? (
-                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${color ? color.badge : "bg-slate-100 text-slate-700 border-slate-300"}`}>
+                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${color ? color.headerBadge : "bg-slate-100 text-slate-700 border-slate-300"}`}>
                                       {group.codigo}
                                     </span>
                                   ) : (
                                     <span className="text-[11px] font-semibold text-slate-400 italic">Sin código</span>
                                   )}
-                                  <span className="text-[11px] text-slate-500">
+                                  <span className={`text-[11px] ${color ? "text-blue-800" : "text-slate-500"}`}>
                                     {group.rows.length} solicitud{group.rows.length !== 1 ? "es" : ""}
                                     {groupSomeSelected && (
-                                      <span className="ml-1 text-blue-600 font-medium">
+                                      <span className={`ml-1 font-medium ${color ? "text-blue-700" : "text-blue-600"}`}>
                                         · {group.rows.filter((r) => !!selectedMap[r.id_solicitud_proveedor]).length} seleccionada{group.rows.filter((r) => !!selectedMap[r.id_solicitud_proveedor]).length !== 1 ? "s" : ""}
                                       </span>
                                     )}
                                     {groupAllSelected && group.rows.length > 0 && (
-                                      <span className="ml-1 text-blue-600 font-medium">· todas seleccionadas</span>
+                                      <span className={`ml-1 font-medium ${color ? "text-blue-700" : "text-blue-600"}`}>· todas seleccionadas</span>
                                     )}
                                   </span>
-                                  <span className="text-[11px] font-semibold text-slate-700 ml-auto">
+                                  <span className={`text-[11px] font-semibold ml-auto ${color ? "text-blue-900" : "text-slate-700"}`}>
                                     Total: {fmtMoney(group.total)}
                                   </span>
                                 </div>
@@ -441,8 +429,21 @@ export default function PagosProveedorL() {
                           return (
                             <tr
                               key={`${row.id_solicitud_proveedor}-${row.codigo_dispersion}`}
-                              className={`transition-colors border-l-4 ${color ? color.border : "border-l-transparent"} ${selected ? "bg-blue-50" : "hover:bg-slate-50"}`}
+                              className={`transition-colors border-l-4 ${color ? color.border : "border-l-transparent"} ${selected ? "bg-blue-100" : "bg-blue-50 hover:bg-blue-100"}`}
                             >
+                              <td className="px-2 py-2.5 text-center w-8">
+                                {row.revision_pendiente === 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setRevisionRow(row)}
+                                    title="Revisión pendiente"
+                                    className="relative inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-700 transition-colors"
+                                  >
+                                    <Bell className="w-3 h-3" />
+                                    <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500 border border-white" />
+                                  </button>
+                                )}
+                              </td>
                               {isDispersion && (
                                 <td className="px-3 py-2.5">
                                   <input
@@ -559,8 +560,7 @@ export default function PagosProveedorL() {
             {/* ── Cards mobile / tablet ──────────────────────────── */}
             <div className="lg:hidden space-y-3">
               {groupedRows.map((group) => {
-                const colorIdx = group.codigo !== "__sin_codigo__" ? dispersionColorMap.get(group.codigo) : undefined;
-                const color = colorIdx != null ? DISPERSION_COLORS[colorIdx] : null;
+                const color = group.codigo !== "__sin_codigo__" ? GROUP_COLOR : null;
                 const groupAllSelected = group.rows.every((r) => !!selectedMap[r.id_solicitud_proveedor]);
                 const groupSomeSelected = !groupAllSelected && group.rows.some((r) => !!selectedMap[r.id_solicitud_proveedor]);
                 return (
@@ -573,28 +573,28 @@ export default function PagosProveedorL() {
                           checked={groupAllSelected}
                           ref={(el) => { if (el) el.indeterminate = groupSomeSelected; }}
                           onChange={() => toggleGroup(group.rows)}
-                          className="h-4 w-4 accent-blue-600 cursor-pointer shrink-0"
+                          className="h-4 w-4 accent-blue-700 cursor-pointer shrink-0"
                         />
                       )}
                       {group.codigo !== "__sin_codigo__" ? (
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${color ? color.badge : "bg-slate-100 text-slate-700 border-slate-300"}`}>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${color ? color.headerBadge : "bg-slate-100 text-slate-700 border-slate-300"}`}>
                           {group.codigo}
                         </span>
                       ) : (
                         <span className="text-[11px] font-semibold text-slate-400 italic">Sin código</span>
                       )}
-                      <span className="text-[11px] text-slate-500">
+                      <span className={`text-[11px] ${color ? "text-blue-800" : "text-slate-500"}`}>
                         {group.rows.length} solicitud{group.rows.length !== 1 ? "es" : ""}
                         {groupSomeSelected && (
-                          <span className="ml-1 text-blue-600 font-medium">
+                          <span className={`ml-1 font-medium ${color ? "text-blue-700" : "text-blue-600"}`}>
                             · {group.rows.filter((r) => !!selectedMap[r.id_solicitud_proveedor]).length} sel.
                           </span>
                         )}
                         {groupAllSelected && group.rows.length > 0 && (
-                          <span className="ml-1 text-blue-600 font-medium">· todas</span>
+                          <span className={`ml-1 font-medium ${color ? "text-blue-700" : "text-blue-600"}`}>· todas</span>
                         )}
                       </span>
-                      <span className="text-[11px] font-semibold text-slate-700 ml-auto">
+                      <span className={`text-[11px] font-semibold ml-auto ${color ? "text-blue-900" : "text-slate-700"}`}>
                         {fmtMoney(group.total)}
                       </span>
                     </div>
@@ -607,7 +607,7 @@ export default function PagosProveedorL() {
                           <div
                             key={`${row.id_solicitud_proveedor}-${row.codigo_dispersion}`}
                             className={`rounded-xl border-l-4 shadow-sm p-4 transition-colors ${color ? color.border : "border-l-transparent"} ${
-                              selected ? "border-blue-300 bg-blue-50" : "border-slate-200 bg-white"
+                              selected ? "border-blue-300 bg-blue-100" : "border-blue-200 bg-blue-50"
                             }`}
                           >
                             <div className="flex items-start gap-3">
@@ -626,6 +626,17 @@ export default function PagosProveedorL() {
                                   </p>
                                   <div className="flex items-center gap-2">
                                     <StatusBadge estatus={row.estatus} />
+                                    {row.revision_pendiente === 1 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setRevisionRow(row)}
+                                        title="Revisión pendiente"
+                                        className="relative inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-700 transition-colors"
+                                      >
+                                        <Bell className="w-3 h-3" />
+                                        <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500 border border-white" />
+                                      </button>
+                                    )}
                                     {!isDispersion && (
                                       <button
                                         type="button"
@@ -734,6 +745,14 @@ export default function PagosProveedorL() {
       {caratulaUrl && (
         <CaratulaModal url={caratulaUrl} onClose={() => setCaratulaUrl(null)} />
       )}
+
+      {/* Modal revisión pendiente */}
+      {revisionRow && (
+        <RevisionPendienteModal
+          row={revisionRow}
+          onClose={() => setRevisionRow(null)}
+        />
+      )}
     </div>
   );
 }
@@ -801,6 +820,82 @@ function CardField({
       >
         {value}
       </p>
+    </div>
+  );
+}
+
+function RevisionPendienteModal({ row, onClose }: { row: SolicitudRow; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 bg-amber-50">
+          <div className="flex items-center gap-2">
+            <Bell className="w-4 h-4 text-amber-600" />
+            <span className="text-sm font-semibold text-amber-800">Revisión pendiente</span>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-amber-100 text-amber-700"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="px-5 py-4 space-y-3">
+          <div>
+            <p className="text-[10px] text-slate-400 uppercase tracking-wide">Proveedor</p>
+            <p className="text-sm font-semibold text-slate-800">{row.proveedor || "—"}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-[10px] text-slate-400 uppercase tracking-wide">ID Solicitud</p>
+              <p className="text-sm font-mono text-slate-700">{row.id_solicitud_proveedor}</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-slate-400 uppercase tracking-wide">Cód. confirmación</p>
+              <p className="text-sm font-mono text-slate-700">{row.codigo_confirmacion}</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-slate-400 uppercase tracking-wide">Banco</p>
+              <p className="text-sm text-slate-700">{row.banco || "—"}</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-slate-400 uppercase tracking-wide">Cuenta</p>
+              <p className="text-sm font-mono text-slate-700">{row.cuenta || "—"}</p>
+            </div>
+          </div>
+          <p className="text-xs text-slate-500">
+            La cuenta bancaria de este proveedor requiere revisión. Verifica la información antes de realizar el pago.
+          </p>
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3 border-t border-slate-200 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+          >
+            Cerrar
+          </button>
+          <Link
+            href="/dashboard/pagos_proveedor/informacion_de_la_cuenta"
+            onClick={onClose}
+            className="px-4 py-2 text-sm rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-medium transition-colors"
+          >
+            Ver información de cuenta
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }

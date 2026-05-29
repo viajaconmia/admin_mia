@@ -92,7 +92,7 @@ const AsignarFacturaModal: React.FC<AsignarFacturaProps> = ({
   onClose,
   onAssign,
   onCloseVistaPrevia,
-  facturaData,
+  facturaData,   
   id_factura,
   clienteSeleccionado,
   pagoData,
