@@ -476,9 +476,7 @@ export default function ConciliacionPage() {
     cliente: "",
     viajero: "",
     hotel: "",
-    estado_solicitud: "",
     estado_facturacion: "",
-    forma_pago: "",
     created_start: "",
     created_end: "",
     check_in_start: "",
@@ -487,10 +485,7 @@ export default function ConciliacionPage() {
     check_out_end: "",
 
     id_cliente: "",
-    estado_reserva: "",
     etapa_reservacion: "",
-    reservante: "",
-    metodo_pago_reserva: "",
     fecha_reserva_start: "",
     fecha_reserva_end: "",
     filtrar_fecha_por_reserva: "",
@@ -500,7 +495,6 @@ export default function ConciliacionPage() {
 
     tipo_reserva_pago: "",
     pagos_parciales: "",
-    facturas_parciales: "",
   };
 
   type BuscarUuidMatchRow = {
@@ -619,9 +613,7 @@ export default function ConciliacionPage() {
     cliente: "Cliente",
     viajero: "Viajero",
     hotel: "Proveedor",
-    estado_solicitud: "Estatus solicitud",
     estado_facturacion: "Estatus facturación",
-    forma_pago: "Forma de pago solicitud",
     created_start: "Creado desde",
     created_end: "Creado hasta",
     check_in_start: "Check-in desde",
@@ -629,10 +621,7 @@ export default function ConciliacionPage() {
     check_out_start: "Check-out desde",
     check_out_end: "Check-out hasta",
     id_cliente: "ID cliente",
-    estado_reserva: "Estado reserva",
     etapa_reservacion: "Etapa reservación",
-    reservante: "Reservante",
-    metodo_pago_reserva: "Método pago reserva",
     fecha_reserva_start: "Fecha reserva desde",
     fecha_reserva_end: "Fecha reserva hasta",
     filtrar_fecha_por_reserva: "Filtrar fecha por",
@@ -642,7 +631,6 @@ export default function ConciliacionPage() {
 
     tipo_reserva_pago: "Tipo reserva pago",
     pagos_parciales: "Pagos parciales",
-    facturas_parciales: "Facturas parciales",
   };
 
   function normalizeFiltersForRequest(
@@ -656,20 +644,7 @@ export default function ConciliacionPage() {
   const [appliedFilters, setAppliedFilters] =
     useState<ConciliacionFilters>(DEFAULT_OPEN_FILTERS);
 
-  const uniqueOptions = useCallback((arr: any[]) => {
-    return Array.from(
-      new Set(arr.map((x) => String(x ?? "").trim()).filter(Boolean)),
-    ).sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }));
-  }, []);
 
-  const filterOptions = useMemo(() => {
-    return {
-      estadoReserva: uniqueOptions(todos.map((r) => r?.estado)),
-      etapaReservacion: uniqueOptions(todos.map((r) => r?.etapa_reservacion)),
-      reservante: uniqueOptions(todos.map((r) => r?.reservante)),
-      metodoPagoReserva: uniqueOptions(todos.map((r) => r?.metodo_pago)),
-    };
-  }, [todos, uniqueOptions]);
 
   const DATE_FILTER_KEYS: (keyof ConciliacionFilters)[] = [
     "created_start",
@@ -1804,7 +1779,6 @@ export default function ConciliacionPage() {
           <FiltrosConciliacionModal
             open={showFiltersModal}
             filters={filters}
-            options={filterOptions}
             onChange={(field, value) =>
               setFilters((prev) => ({
                 ...prev,
