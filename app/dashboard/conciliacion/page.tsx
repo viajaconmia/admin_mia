@@ -313,7 +313,6 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
       : (raw?.nombre_intermediario ?? ""),
 
     tipo_de_reserva: tipoReserva,
-    tipo_de_pago: tipoPago,
 
     tarjeta,
     fecha_solicitud: raw?.fecha_solicitud,
@@ -497,6 +496,7 @@ export default function ConciliacionPage() {
 
     tipo_reserva_pago: "",
     pagos_parciales: "",
+    metodo_pago_reserva: "",
   };
 
   type BuscarUuidMatchRow = {
@@ -633,6 +633,7 @@ export default function ConciliacionPage() {
 
     tipo_reserva_pago: "Tipo reserva pago",
     pagos_parciales: "Pagos parciales",
+    metodo_pago_reserva: "Método pago reserva",
   };
 
   function normalizeFiltersForRequest(
@@ -1112,7 +1113,6 @@ export default function ConciliacionPage() {
       "canal_de_reservacion",
       "nombre_intermediario",
       "tipo_de_reserva",
-      "tipo_de_pago",
       "tarjeta",
       "id_enviado",
       "comentarios_ops",

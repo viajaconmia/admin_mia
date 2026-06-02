@@ -294,6 +294,9 @@ export default function ModalSubirFactura({
                   {archivoXML ? archivoXML.name : "Sin archivos seleccionados"}
                 </p>
               </div>
+              {errors.archivoXML && (
+                <p className="text-red-500 text-sm mt-1">{errors.archivoXML}</p>
+              )}
             </div>
 
             {/* PDF */}
