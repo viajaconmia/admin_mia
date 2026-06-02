@@ -122,23 +122,55 @@ export function ServiceIcon({ type, size = 18, className }: ServiceIconProps) {
   return <Icon size={size} className={className} />;
 }
 
-export const LinkCopiar = ({ link }: { link: string }) => (
-  <span className="font-semibold text-sm flex items-center gap-2 w-full">
-    <a
-      href={link}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-blue-600 hover:underline"
-    >
-      Ver
-    </a>
-    <Button
-      onClick={() => {
-        copyToClipboard(link);
-      }}
-      size="sm"
-    >
-      Copiar
-    </Button>
-  </span>
-);
+export const LinkCopiar = ({
+  link,
+  showLangEn,
+}: {
+  link: string;
+  showLangEn?: boolean;
+}) => {
+  const linkEn = `${link}${link.includes("?") ? "&" : "?"}lang=en`;
+  return (
+    <span className="flex flex-col gap-1">
+      {/* Español */}
+      <span className="flex items-center gap-1">
+        <span className="text-[10px] font-bold text-gray-400 w-5">ES</span>
+        <a
+          href={link}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-blue-600 hover:underline font-medium"
+        >
+          Ver
+        </a>
+        <button
+          onClick={() => copyToClipboard(link)}
+          className="text-xs text-gray-500 hover:text-gray-800 border border-gray-200 rounded px-1.5 py-0.5 hover:bg-gray-50 transition-colors"
+        >
+          Copiar
+        </button>
+      </span>
+
+      {/* Inglés */}
+      {showLangEn && (
+        <span className="flex items-center gap-1">
+          <span className="text-[10px] font-bold text-emerald-500 w-5">EN</span>
+          <a
+            href={linkEn}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-emerald-600 hover:underline font-medium"
+          >
+            Ver
+          </a>
+          <button
+            onClick={() => copyToClipboard(linkEn)}
+            className="text-xs text-emerald-600 hover:text-emerald-800 border border-emerald-200 rounded px-1.5 py-0.5 hover:bg-emerald-50 transition-colors"
+          >
+            Copiar
+          </button>
+        </span>
+      )}
+    </span>
+  );
+};

@@ -202,7 +202,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
       <>{value ? "$" + formatNumberWithCommas(value) : ""}</>
     ),
     detalles_cliente: ({ value }) => (
-      <LinkCopiar link={ROUTES.BOOKING.ID_SOLICITUD(value) || ""} />
+      <LinkCopiar link={ROUTES.BOOKING.ID_SOLICITUD(value) || ""} showLangEn />
     ),
     editar: ({
       value,
