@@ -39,6 +39,8 @@ function formatMoney(n: any) {
   return `$${num.toFixed(2)}`;
 }
 
+const roundCents = (n: number) => Math.round(n * 100) / 100;
+
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 function calcNoches(checkIn?: string | null, checkOut?: string | null): number {
@@ -249,7 +251,7 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
   const subtotal = raw?.facturas_proveedor?.facturas[0]?.subtotal ?? "";
 
   const baseFactura = total_facturado || 0;
-  const diferencia = Number((costo_proveedor - baseFactura).toFixed(2));
+  const diferencia = roundCents(roundCents(costo_proveedor) - roundCents(baseFactura));
 
   const estatusFacturas =
     raw?.solicitud_proveedor?.estado_facturacion ??
@@ -1214,7 +1216,7 @@ export default function ConciliacionPage() {
       Number(row?.total_facturado ?? 0) ||
       0;
 
-    const diff = Number((factura - pagado).toFixed(2));
+    const diff = roundCents(roundCents(factura) - roundCents(pagado));
     const ok = Math.abs(diff) <= TOLERANCIA_FACTURA_PAGO;
 
     return { factura, pagado, diff, ok };

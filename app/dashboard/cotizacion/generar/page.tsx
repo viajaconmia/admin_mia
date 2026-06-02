@@ -38,6 +38,7 @@ import { CorreoHotel } from "@/types/database_tables";
 import React from "react";
 import { calcularNoches } from "@/helpers/utils";
 import { formatNumber } from "@/helpers/formater";
+import { API_KEY, URL as BASE_URL } from "@/lib/constants";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 const NOKTO_CON_IVA = 168.2;
@@ -365,6 +366,13 @@ const CuponCard = React.forwardRef<
 });
 CuponCard.displayName = "CuponCard";
 
+// ─── PrecioIA ────────────────────────────────────────────────────────────────
+type PrecioIA = {
+  precio_por_noche: string;
+  moneda: string;
+  fuente: string;
+};
+
 // ─── ControlsPanel ──────────────────────────────────────────────────────────
 type ControlsPanelProps = {
   hotel: HotelCotizacion;
@@ -375,6 +383,7 @@ type ControlsPanelProps = {
   onEdit: () => void;
   onDownload: () => void;
   onDownloadImagen: () => void;
+  precioIA?: PrecioIA | null;
 };
 
 const ControlsPanel = ({
@@ -386,6 +395,7 @@ const ControlsPanel = ({
   onEdit,
   onDownload,
   onDownloadImagen,
+  precioIA,
 }: ControlsPanelProps) => {
   const total = parseFloat(hotel.total) || 0;
   const canDownload = !!hotel.checkin && !!hotel.checkout;
@@ -480,7 +490,7 @@ const ControlsPanel = ({
           }
         />
       </div>
-      <div className="lg:col-span-2">
+      <div className="lg:col-span-2 space-y-1.5">
         {/* Alerta sin precio */}
         {total === 0 && (
           <div className="bg-yellow-50 border border-yellow-200 rounded px-2 py-1.5 flex gap-1.5">
@@ -492,6 +502,31 @@ const ControlsPanel = ({
             </p>
           </div>
         )}
+
+        {/* Nota de precio IA */}
+        {precioIA !== undefined &&
+          (precioIA === null ||
+          precioIA.precio_por_noche === "no disponible" ? (
+            <div className="bg-orange-50 border border-orange-200 rounded px-2 py-1.5 flex gap-1.5">
+              <span className="text-orange-400 text-xs leading-none mt-0.5">
+                ○
+              </span>
+              <p className="text-[10px] text-orange-700 leading-snug">
+                No encontramos precio de ejemplo para estas fechas.
+              </p>
+            </div>
+          ) : (
+            <div className="bg-blue-50 border border-blue-200 rounded px-2 py-1.5 flex gap-1.5">
+              <span className="text-blue-400 text-xs leading-none mt-0.5">
+                ℹ
+              </span>
+              <p className="text-[10px] text-blue-700 leading-snug">
+                La IA encontró un precio asociado a estas fechas pero no
+                confirma disponibilidad real — favor de verificar.
+                <br />- {precioIA.fuente}
+              </p>
+            </div>
+          ))}
 
         {/* Botones */}
         <div className="grid grid-cols-2 gap-3 border-t border-gray-100 pt-2">
@@ -564,6 +599,7 @@ type HotelCardProps = {
   onDownload: () => void;
   onDownloadImagen: () => void;
   cuponRef: React.Ref<HTMLDivElement>;
+  precioIA?: PrecioIA | null;
 };
 
 const HotelCard = ({
@@ -576,6 +612,7 @@ const HotelCard = ({
   onDownload,
   onDownloadImagen,
   cuponRef,
+  precioIA,
 }: HotelCardProps) => (
   <div className="flex flex-col gap-1 bg-white">
     <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-white bg-[#0b5fa5] px-2 py-0.5 rounded-full w-fit">
@@ -599,6 +636,7 @@ const HotelCard = ({
         onEdit={onEdit}
         onDownload={onDownload}
         onDownloadImagen={onDownloadImagen}
+        precioIA={precioIA}
       />
       <CuponCard ref={cuponRef} hotel={hotel} priority={index + 1} />
     </div>
@@ -671,6 +709,8 @@ export default function GenerarCotizacion() {
   const [clientes, setClientes] = useState<Agente[]>([]);
   const [clientSearch, setClientSearch] = useState("");
   const [clientOpen, setClientOpen] = useState(false);
+  const [loadingSearch, setLoadingSearch] = useState(false);
+  const [preciosIA, setPreciosIA] = useState<Map<string, PrecioIA>>(new Map());
   const [loadingVis, setLoadingVis] = useState(false);
   const [activeSlot, setActiveSlot] = useState<number | null>(null);
   const [downloadingSlot, setDownloadingSlot] = useState<number | null>(null);
@@ -679,8 +719,17 @@ export default function GenerarCotizacion() {
   >(null);
   const cuponRefs = useRef<(HTMLDivElement | null)[]>([null, null, null]);
 
-  const set = (field: keyof FormData) => (value: string) =>
-    setForm((prev) => ({ ...prev, [field]: value }));
+  const handleCheckInChange = (value: string) =>
+    setForm((prev) => ({
+      ...prev,
+      check_in: value,
+      check_out: prev.check_out && prev.check_out < value ? "" : prev.check_out,
+    }));
+
+  const handleCheckOutChange = (value: string) => {
+    if (form.check_in && value < form.check_in) return;
+    setForm((prev) => ({ ...prev, check_out: value }));
+  };
 
   const canGenerate =
     !!form.check_in &&
@@ -774,6 +823,35 @@ export default function GenerarCotizacion() {
     setClientOpen(false);
   };
 
+  const buscarPreciosIA = async (hoteles: HotelCotizacion[]) => {
+    setLoadingSearch(true);
+    try {
+      const nombres = hoteles.map((h) => h.hotel).filter(Boolean);
+      const origin = new URL(BASE_URL).origin;
+      const res = await fetch(`${origin}/search-hotel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": API_KEY },
+        body: JSON.stringify({
+          hoteles: nombres,
+          checkin: form.check_in,
+          checkout: form.check_out,
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      console.log("[Precios IA]", json.data);
+      const mapa = new Map<string, PrecioIA>();
+      (json.data?.hoteles ?? []).forEach((h: PrecioIA & { nombre: string }) => {
+        mapa.set(h.nombre.toLowerCase().trim(), h);
+      });
+      setPreciosIA(mapa);
+    } catch (err: any) {
+      console.warn("[Precios IA] Error:", err.message);
+    } finally {
+      setLoadingSearch(false);
+    }
+  };
+
   const handleGenerarVisualizaciones = async () => {
     setLoadingVis(true);
     try {
@@ -782,6 +860,7 @@ export default function GenerarCotizacion() {
         checkout: form.check_out,
         lat: form.lat!,
         lng: form.lng!,
+        ...(form.id_cliente ? { id_cliente: form.id_cliente } : {}),
       });
       const data = ((response.data ?? []) as HotelCotizacion[]).map((h) =>
         withNoktoDefaults(h),
@@ -794,6 +873,7 @@ export default function GenerarCotizacion() {
         type: "set_slots",
         payload: [sorted[0] ?? null, sorted[1] ?? null, sorted[2] ?? null],
       });
+      buscarPreciosIA(sorted);
     } catch (err: any) {
       error(err?.message || "Error al obtener cotizaciones");
     } finally {
@@ -933,15 +1013,15 @@ export default function GenerarCotizacion() {
       )}
 
       <div className="flex flex-col gap-4 p-4">
-        {(loadingVis || hasAny) && (
-          <div className="flex items-center gap-4 bg-white border rounded-xl px-5 py-4 shadow-sm">
+        {loadingSearch && (
+          <div className="flex items-center gap-4 rounded-xl px-5 py-4 shadow-sm bg-white">
             <Loader />
             <div>
-              <p className="text-sm font-semibold text-gray-700">
-                La IA está analizando la cotización
+              <p className="text-sm font-semibold">
+                Buscando precios actuales con IA
               </p>
-              <p className="text-xs text-gray-400">
-                Esto puede tardar unos segundos...
+              <p className="text-xs text-gray-500">
+                Consultando Booking.com, Expedia y sitios oficiales...
               </p>
             </div>
           </div>
@@ -951,7 +1031,13 @@ export default function GenerarCotizacion() {
           <h2 className="font-semibold text-gray-800 text-xs">
             Datos de búsqueda
           </h2>
-          <div className="flex gap-3 items-end justify-between">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleGenerarVisualizaciones();
+            }}
+            className="flex gap-3 items-end justify-between"
+          >
             <InputGoogle
               size="lg"
               googleStyle
@@ -967,13 +1053,13 @@ export default function GenerarCotizacion() {
             <DateInput
               label="Check-in *"
               value={form.check_in}
-              onChange={set("check_in")}
+              onChange={handleCheckInChange}
               className="text-xs w-full"
             />
             <DateInput
               label="Check-out *"
               value={form.check_out}
-              onChange={set("check_out")}
+              onChange={handleCheckOutChange}
               min={form.check_in || undefined}
               className="text-xs w-full"
             />
@@ -1023,15 +1109,15 @@ export default function GenerarCotizacion() {
             </div>
 
             <Button
+              type="submit"
               size="md"
               variant="primary"
               icon={loadingVis ? Loader2 : Eye}
-              // disabled={!canGenerate || loadingVis}
-              onClick={handleGenerarVisualizaciones}
+              disabled={loadingVis}
             >
               {loadingVis ? "Buscando..." : "Generar"}
             </Button>
-          </div>
+          </form>
         </section>
         <div className="flex gap-4">
           {/* Bench — otras opciones */}
@@ -1151,6 +1237,13 @@ export default function GenerarCotizacion() {
                         cuponRef={(el) => {
                           cuponRefs.current[index] = el;
                         }}
+                        precioIA={
+                          loadingSearch
+                            ? undefined
+                            : (preciosIA.get(
+                                hotel.hotel.toLowerCase().trim(),
+                              ) ?? null)
+                        }
                       />
                     ) : (
                       <EmptySlotCard
