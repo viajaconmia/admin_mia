@@ -496,6 +496,7 @@ export default function ConciliacionPage() {
 
     tipo_reserva_pago: "",
     pagos_parciales: "",
+    metodo_pago_reserva: "",
   };
 
   type BuscarUuidMatchRow = {
@@ -632,6 +633,7 @@ export default function ConciliacionPage() {
 
     tipo_reserva_pago: "Tipo reserva pago",
     pagos_parciales: "Pagos parciales",
+    metodo_pago_reserva: "Método pago reserva",
   };
 
   function normalizeFiltersForRequest(
