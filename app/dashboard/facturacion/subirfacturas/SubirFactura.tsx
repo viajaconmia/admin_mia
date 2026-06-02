@@ -1160,8 +1160,9 @@ export default function SubirFactura({
       setFacturaData(data);
       setMostrarModal(false);
       setMostrarVistaPrevia(true);
-    } catch (error) {
-      alert("Error al procesar el XML");
+    } catch (error: any) {
+      const msg = error?.message || "Error al procesar el XML";
+      setErrors((prev) => ({ ...prev, archivoXML: msg }));
       console.error(error);
     } finally {
       setSubiendoArchivos(false);
