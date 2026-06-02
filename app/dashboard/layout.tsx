@@ -23,6 +23,7 @@ import { useAuth } from "@/context/AuthContext";
 import Button from "@/components/atom/Button";
 import { UserProfileImage } from "@/components/atom/UserProfileImage";
 import { Card } from "@/components/ui/card";
+import { ClientQuickSearch } from "@/components/organism/ClientQuickSearch";
 
 /**
  * Si en tu NavContainer tipaste NavGroup internamente,
@@ -60,16 +61,19 @@ export default function DashboardLayout({
     <div className="backdrop-blur-3xl h-screen">
       <NavContainer title="Admin" links={links}>
         <div className="h-full bg-transparent overflow-y-auto">
-          <nav className="backdrop-blur-3xl w-full p-4 px-6 flex justify-end items-center gap-2">
-            <UserProfileImage name={user.name} />
-            <Button
-              size="sm"
-              icon={DoorOpen}
-              variant="secondary"
-              onClick={logout}
-            >
-              Cerrar sesión
-            </Button>
+          <nav className="backdrop-blur-3xl w-full p-4 px-6 flex justify-between items-center gap-2">
+            <ClientQuickSearch />
+            <div className="flex items-center gap-2">
+              <UserProfileImage name={user.name} />
+              <Button
+                size="sm"
+                icon={DoorOpen}
+                variant="secondary"
+                onClick={logout}
+              >
+                Cerrar sesión
+              </Button>
+            </div>
           </nav>
 
           <main className="px-4 bg-transparent w-full h-[calc(100vh-6rem)]">
