@@ -679,6 +679,386 @@ const EmptySlotCard = ({
   </div>
 );
 
+// ─── CotizacionModal ────────────────────────────────────────────────────────
+type CotizacionRow = {
+  hotel: string;
+  habitacion: string;
+  desayuno: 0 | 1;
+  cantidad: string;
+  checkin: string;
+  checkout: string;
+  noches: number;
+  noktos_unitarios: string;
+  precio_noche: string;
+  costos: string[];
+  convenios: (0 | 1)[];
+};
+
+const PROVIDER_COLORS = [
+  { header: "#1e3a5f", border: "#162d4d", cell: "bg-blue-50/40" },
+  { header: "#2c4a7a", border: "#1e3a5f", cell: "bg-indigo-50/40" },
+  { header: "#3d3072", border: "#2c2260", cell: "bg-violet-50/40" },
+  { header: "#5a2070", border: "#481858", cell: "bg-fuchsia-50/40" },
+];
+
+const calcMarkup = (precio: number, costo: number) => {
+  if (costo <= 0 || precio <= 0) return "-";
+  return `${Math.round(((precio - costo) / costo) * 100)}%`;
+};
+
+const EditableCell = ({
+  value,
+  onChange,
+  numeric = false,
+  className = "",
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  numeric?: boolean;
+  className?: string;
+}) => (
+  <input
+    type={numeric ? "number" : "text"}
+    value={value}
+    onChange={(e) => onChange(e.target.value)}
+    className={`w-full min-w-[60px] bg-transparent border-b border-transparent hover:border-gray-300 focus:border-[#0b5fa5] focus:outline-none text-center text-[11px] py-0.5 transition-colors ${className}`}
+  />
+);
+
+function CotizacionModal({
+  slots,
+  hotelesContext,
+  onClose,
+}: {
+  slots: (HotelCotizacion | null)[];
+  hotelesContext: Hotel[] | null;
+  onClose: () => void;
+}) {
+  const [providers, setProviders] = React.useState<string[]>(["MIA"]);
+
+  const [rows, setRows] = React.useState<CotizacionRow[]>(() =>
+    slots
+      .filter((s): s is HotelCotizacion => s !== null)
+      .map((s) => {
+        const hotelMia = hotelesContext?.find((h) => h.id_hotel === s.id);
+        const costoMia =
+          hotelMia?.tipos_cuartos[0]?.costo ??
+          s.costo_sistema ??
+          "0";
+        const convenioMia: 0 | 1 =
+          hotelMia?.convenio ?? (s.convenio === 1 ? 1 : 0);
+        const precioNum = parseFloat(s.total) || 0;
+        const noktosSrc = parseFloat(s.noktos_noche) || 0;
+        const noktos =
+          noktosSrc > 0
+            ? Math.round(noktosSrc)
+            : Math.round(precioNum / NOKTO_CON_IVA);
+        return {
+          hotel: s.hotel,
+          habitacion: s.habitacion,
+          desayuno: s.desayuno,
+          cantidad: "1",
+          checkin: s.checkin,
+          checkout: s.checkout,
+          noches: slotNoches(s),
+          noktos_unitarios: String(noktos),
+          precio_noche: s.total,
+          costos: [costoMia],
+          convenios: [convenioMia],
+        };
+      }),
+  );
+
+  const update = (i: number, patch: Partial<CotizacionRow>) =>
+    setRows((prev) =>
+      prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)),
+    );
+
+  const updateCosto = (rowIdx: number, pi: number, value: string) =>
+    setRows((prev) =>
+      prev.map((r, i) => {
+        if (i !== rowIdx) return r;
+        const costos = [...r.costos];
+        costos[pi] = value;
+        return { ...r, costos };
+      }),
+    );
+
+  const updateConvenio = (rowIdx: number, pi: number, value: 0 | 1) =>
+    setRows((prev) =>
+      prev.map((r, i) => {
+        if (i !== rowIdx) return r;
+        const convenios = [...r.convenios] as (0 | 1)[];
+        convenios[pi] = value;
+        return { ...r, convenios };
+      }),
+    );
+
+  const addProvider = () => {
+    const nextLabel = String.fromCharCode(65 + providers.length);
+    setProviders((p) => [...p, nextLabel]);
+    setRows((prev) =>
+      prev.map((r) => ({
+        ...r,
+        costos: [...r.costos, "0"],
+        convenios: [...r.convenios, 0],
+      })),
+    );
+  };
+
+  const updateProviderName = (pi: number, name: string) =>
+    setProviders((prev) => prev.map((p, i) => (i === pi ? name : p)));
+
+  const color = (pi: number) => PROVIDER_COLORS[pi % PROVIDER_COLORS.length];
+
+  const colHeader = (key: string, text: string, bg: string, borderColor: string) => (
+    <th
+      key={key}
+      className="px-2 py-1 font-semibold whitespace-nowrap text-[10px] text-white border"
+      style={{ backgroundColor: bg, borderColor }}
+    >
+      {text}
+    </th>
+  );
+
+  return (
+    <Modal onClose={onClose} title="Cotización" subtitle="Detalle de servicios">
+      <div className="overflow-x-auto">
+        <table className="text-xs border-collapse min-w-max">
+          <thead>
+            <tr>
+              <th
+                colSpan={11}
+                className="bg-[#42a5d4] text-white text-center py-1.5 px-3 font-bold text-[11px] tracking-wide border border-[#42a5d4]"
+              >
+                DETALLE SERVICIOS
+              </th>
+              {providers.map((name, pi) => (
+                <th
+                  key={pi}
+                  colSpan={5}
+                  className="text-white text-center py-1.5 px-3 font-bold text-[11px] tracking-wide border"
+                  style={{
+                    backgroundColor: color(pi).header,
+                    borderColor: color(pi).border,
+                  }}
+                >
+                  <span className="inline-flex items-center gap-1">
+                    COSTO PROVEEDOR
+                    <input
+                      value={name}
+                      onChange={(e) => updateProviderName(pi, e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-16 bg-transparent border-b border-white/50 focus:border-white focus:outline-none text-white text-center font-bold text-[11px] placeholder-white/60"
+                      placeholder="Nombre"
+                    />
+                  </span>
+                </th>
+              ))}
+              <th className="px-2 bg-gray-50 border border-gray-200 align-middle">
+                <button
+                  type="button"
+                  onClick={addProvider}
+                  className="flex items-center gap-1 text-[10px] font-semibold text-[#0b5fa5] hover:text-blue-800 whitespace-nowrap px-1.5 py-1 rounded hover:bg-blue-50 transition-colors"
+                >
+                  <Plus className="w-3 h-3" />
+                  Proveedor
+                </button>
+              </th>
+            </tr>
+            <tr>
+              {[
+                "#",
+                "HOTEL",
+                "DETALLE",
+                "DESAYUNO INCLUIDO",
+                "CANTIDAD",
+                "CHECK IN",
+                "CHECK OUT",
+                "NOCHES",
+                "NOKTOS UNITARIOS",
+                "IMPORTE / NOCHE",
+                "IMPORTE TOTAL",
+              ].map((h) =>
+                colHeader(h, h, "#42a5d4", "#2e8bbb"),
+              )}
+              {Array.from({ length: providers.length }).map((_, pi) =>
+                ["CONVENIO", "COSTO / NOCHE", "COSTO TOTAL", "MARK UP", "GANANCIA"].map(
+                  (h) => colHeader(`${pi}-${h}`, h, color(pi).header, color(pi).border),
+                ),
+              )}
+              <th className="bg-gray-50 border border-gray-200" />
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => {
+              const precio = parseFloat(row.precio_noche) || 0;
+              const cant = parseInt(row.cantidad) || 1;
+              const importeTotal = precio * row.noches * cant;
+              const bg = i % 2 === 0 ? "bg-white" : "bg-gray-50";
+
+              return (
+                <tr key={i} className={bg}>
+                  <td className="px-2 py-1.5 text-center border border-gray-200 font-medium text-gray-700">
+                    {i + 1}
+                  </td>
+                  <td className="px-1 py-1 border border-gray-200 min-w-[120px]">
+                    <EditableCell
+                      value={row.hotel}
+                      onChange={(v) => update(i, { hotel: v })}
+                    />
+                  </td>
+                  <td className="px-1 py-1 border border-gray-200">
+                    <EditableCell
+                      value={row.habitacion}
+                      onChange={(v) => update(i, { habitacion: v })}
+                    />
+                  </td>
+                  <td className="px-1 py-1 border border-gray-200 text-center">
+                    <EditableCell
+                      value={row.desayuno === 1 ? "SÍ" : "NO"}
+                      onChange={(v) =>
+                        update(i, {
+                          desayuno:
+                            v.toUpperCase() === "SÍ" ||
+                            v.toUpperCase() === "SI"
+                              ? 1
+                              : 0,
+                        })
+                      }
+                    />
+                  </td>
+                  <td className="px-1 py-1 border border-gray-200">
+                    <EditableCell
+                      value={row.cantidad}
+                      numeric
+                      onChange={(v) => update(i, { cantidad: v })}
+                    />
+                  </td>
+                  <td className="px-1 py-1 border border-gray-200">
+                    <input
+                      type="date"
+                      value={row.checkin}
+                      onChange={(e) => {
+                        const newCheckin = e.target.value;
+                        const newNoches =
+                          newCheckin && row.checkout
+                            ? calcularNoches(newCheckin, row.checkout)
+                            : row.noches;
+                        update(i, { checkin: newCheckin, noches: newNoches });
+                      }}
+                      className="w-full bg-transparent border-b border-transparent hover:border-gray-300 focus:border-[#0b5fa5] focus:outline-none text-[11px] py-0.5 transition-colors"
+                    />
+                  </td>
+                  <td className="px-1 py-1 border border-gray-200">
+                    <input
+                      type="date"
+                      value={row.checkout}
+                      min={row.checkin || undefined}
+                      onChange={(e) => {
+                        const newCheckout = e.target.value;
+                        const newNoches =
+                          row.checkin && newCheckout
+                            ? calcularNoches(row.checkin, newCheckout)
+                            : row.noches;
+                        update(i, { checkout: newCheckout, noches: newNoches });
+                      }}
+                      className="w-full bg-transparent border-b border-transparent hover:border-gray-300 focus:border-[#0b5fa5] focus:outline-none text-[11px] py-0.5 transition-colors"
+                    />
+                  </td>
+                  <td className="px-2 py-1.5 text-center border border-gray-200 font-medium">
+                    {row.noches || "-"}
+                  </td>
+                  <td className="px-1 py-1 border border-gray-200">
+                    <EditableCell
+                      value={row.noktos_unitarios}
+                      numeric
+                      onChange={(v) =>
+                        update(i, {
+                          noktos_unitarios: String(
+                            Math.round(parseFloat(v) || 0),
+                          ),
+                        })
+                      }
+                    />
+                  </td>
+                  <td className="px-2 py-1.5 text-center border border-gray-200 text-gray-700 whitespace-nowrap">
+                    $
+                    {formatNumber(precio, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </td>
+                  <td className="px-2 py-1.5 text-center border border-gray-200 font-bold text-sky-900 whitespace-nowrap">
+                    $
+                    {formatNumber(importeTotal, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </td>
+                  {Array.from({ length: providers.length }).map((_, pi) => {
+                    const costo = parseFloat(row.costos[pi] ?? "0") || 0;
+                    const costoTotal = costo * row.noches * cant;
+                    const ganancia = precio - costo;
+                    const c = color(pi);
+                    const convenio = row.convenios[pi] ?? 0;
+                    return (
+                      <React.Fragment key={pi}>
+                        <td className={`px-2 py-1.5 text-center border border-gray-200 ${c.cell}`}>
+                          <button
+                            type="button"
+                            onClick={() => updateConvenio(i, pi, convenio === 1 ? 0 : 1)}
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full border transition-colors ${
+                              convenio === 1
+                                ? "bg-emerald-100 text-emerald-700 border-emerald-300"
+                                : "bg-red-50 text-red-500 border-red-200"
+                            }`}
+                          >
+                            {convenio === 1 ? "SÍ" : "NO"}
+                          </button>
+                        </td>
+                        <td className={`px-1 py-1 border border-gray-200 ${c.cell}`}>
+                          <EditableCell
+                            value={row.costos[pi] ?? "0"}
+                            numeric
+                            onChange={(v) => updateCosto(i, pi, v)}
+                          />
+                        </td>
+                        <td
+                          className={`px-2 py-1.5 text-center border border-gray-200 ${c.cell} whitespace-nowrap`}
+                        >
+                          {formatNumber(costoTotal, {
+                            minimumFractionDigits: 2,
+                          })}
+                        </td>
+                        <td
+                          className={`px-2 py-1.5 text-center border border-gray-200 ${c.cell}`}
+                        >
+                          {calcMarkup(precio, costo)}
+                        </td>
+                        <td
+                          className={`px-2 py-1.5 text-center border border-gray-200 ${c.cell} font-bold whitespace-nowrap ${ganancia >= 0 ? "text-emerald-700" : "text-red-600"}`}
+                        >
+                          $
+                          {formatNumber(ganancia, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </td>
+                      </React.Fragment>
+                    );
+                  })}
+                  <td className={`border border-gray-200 ${bg}`} />
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Modal>
+  );
+}
+
 // ─── GenerarCotizacion ──────────────────────────────────────────────────────
 export default function GenerarCotizacion() {
   const searchParams = useSearchParams();
@@ -717,6 +1097,7 @@ export default function GenerarCotizacion() {
   const [downloadingImageSlot, setDownloadingImageSlot] = useState<
     number | null
   >(null);
+  const [showCotizacionModal, setShowCotizacionModal] = useState(false);
   const cuponRefs = useRef<(HTMLDivElement | null)[]>([null, null, null]);
 
   const handleCheckInChange = (value: string) =>
@@ -995,6 +1376,14 @@ export default function GenerarCotizacion() {
 
   return (
     <>
+      {showCotizacionModal && (
+        <CotizacionModal
+          slots={slots}
+          hotelesContext={hotelesContext}
+          onClose={() => setShowCotizacionModal(false)}
+        />
+      )}
+
       {activeSlot !== null && (
         <Modal
           onClose={() => setActiveSlot(null)}
@@ -1212,6 +1601,17 @@ export default function GenerarCotizacion() {
 
           {/* Slots */}
           <section className="flex-1 flex flex-col gap-3 bg-gray-50 border rounded-xl p-3 shadow-sm">
+            {hasAny && (
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={() => setShowCotizacionModal(true)}
+                >
+                  Generar Cotización
+                </Button>
+              </div>
+            )}
             {loadingVis ? (
               <div className="flex flex-col items-center justify-center flex-1 py-16 gap-2">
                 <Loader />
