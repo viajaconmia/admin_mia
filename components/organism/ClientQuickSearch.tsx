@@ -131,7 +131,7 @@ export function ClientQuickSearch() {
             title={`Ficha — ${fichaItem.nombre_agente_completo}`}
             subtitle="Resumen general del agente"
           >
-            <FichaResumen id_agente={fichaItem.id_agente} />
+            <FichaResumen id_agente={fichaItem.id_agente} notas={fichaItem.notas} />
           </Modal>,
           document.body,
         )}

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { DollarSign, MapPin, Building } from "lucide-react";
+import { DollarSign, MapPin, Building, StickyNote } from "lucide-react";
 import { Loader } from "@/components/atom/Loader";
 import { AgentesService, ResumenAgente } from "@/services/AgentesService";
 import { DestinosSection } from "@/components/organism/DestinosSection";
@@ -21,7 +21,13 @@ const MESES: Record<number, string> = {
   12: "Dic",
 };
 
-export function FichaResumen({ id_agente }: { id_agente: string }) {
+export function FichaResumen({
+  id_agente,
+  notas,
+}: {
+  id_agente: string;
+  notas?: string | null;
+}) {
   const [loading, setLoading] = useState(true);
   const [resumen, setResumen] = useState<ResumenAgente | null>(null);
 
@@ -52,6 +58,17 @@ export function FichaResumen({ id_agente }: { id_agente: string }) {
 
   return (
     <div className="w-[900px] max-w-full space-y-8 p-4">
+      {notas && (
+        <section>
+          <h2 className="text-base font-semibold text-sky-900 mb-3 flex items-center gap-2">
+            <StickyNote className="w-4 h-4 text-sky-600" />
+            Notas
+          </h2>
+          <div className="rounded-xl border border-sky-200 bg-sky-50/40 px-4 py-3 text-sm text-slate-700 whitespace-pre-wrap">
+            {notas}
+          </div>
+        </section>
+      )}
       <section>
         <h2 className="text-base font-semibold text-sky-900 mb-3 flex items-center gap-2">
           <DollarSign className="w-4 h-4 text-sky-600" />
@@ -141,7 +158,7 @@ export function FichaResumen({ id_agente }: { id_agente: string }) {
               key={t.tipo_negociacion}
               className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-3 flex items-center justify-between"
             >
-              <p className="text-sm font-medium text-slate-700 truncate mr-3 capitalize lowercase first-letter:uppercase">
+              <p className="text-sm font-medium text-slate-700 truncate mr-3 capitalize first-letter:uppercase">
                 {t.tipo_negociacion.charAt(0) +
                   t.tipo_negociacion.slice(1).toLowerCase()}
               </p>
