@@ -62,11 +62,30 @@ export function useSeleccion(registrosVisibles: any[], categoria: VistaCarpeta) 
       return;
     }
 
+    const getIdProv = (raw: any): string | null => {
+      const id =
+        raw?.id_proveedor ??
+        raw?.proveedor?.id_proveedor ??
+        raw?.proveedor?.id ??
+        null;
+      return id != null ? String(id) : null;
+    };
+
+    const primerRaw = (seleccionables[0] as any)?.item ?? seleccionables[0];
+    const idProvRef = getIdProv(primerRaw);
+
+    const seleccionablesFiltrados = idProvRef
+      ? seleccionables.filter((row) => {
+          const raw = (row as any)?.item ?? row;
+          return getIdProv(raw) === idProvRef;
+        })
+      : seleccionables;
+
     const nextMap: SelectedSolicitudesMap = {};
     const nextSolicitud: SolicitudProveedor[] = [];
     const nextDispersion: DatosDispersion[] = [];
 
-    seleccionables.forEach((row, idx) => {
+    seleccionablesFiltrados.forEach((row, idx) => {
       const raw = (row as any)?.item ?? row;
       const key = String(
         (raw as any).id_solicitud ??

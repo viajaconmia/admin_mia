@@ -490,6 +490,7 @@ function App() {
         getConciliacionInfo,
         onOpenDetalle: setSolicitudDetalle,
         cancelarDispersion,
+        showNotification,
       }),
     [
       categoria,
