@@ -12,7 +12,7 @@ import { TableFromMia } from "@/components/organism/TableFromMia";
 import { useAlert } from "@/context/useAlert";
 import { AuthService } from "@/services/AuthService";
 import { Permission, Role, User } from "@/types/auth";
-import { CheckCircle2, Plus, Search } from "lucide-react";
+import { CheckCircle2, KeyRound, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 
 type UserWithPermission = User &
@@ -20,9 +20,8 @@ type UserWithPermission = User &
 
 export default function AdministracionUsuarios() {
   const [users, setUsers] = useState<UserWithPermission[]>([]);
-  const [selectedUser, setSelectedUser] = useState<UserWithPermission | null>(
-    null,
-  );
+  const [selectedUser, setSelectedUser] = useState<UserWithPermission | null>(null);
+  const [passwordUser, setPasswordUser] = useState<UserWithPermission | null>(null);
   const [search, setSearch] = useState<string>("");
   const [create, setCreate] = useState<boolean>(false);
   const [roles, setRoles] = useState<Role[]>([]);
@@ -179,6 +178,17 @@ export default function AdministracionUsuarios() {
               },
             },
             {
+              component: "button",
+              key: null,
+              header: "Contraseña",
+              componentProps: {
+                label: "cambiar contraseña",
+                onClick: ({ item }: { item: UserWithPermission }) => {
+                  setPasswordUser(item);
+                },
+              },
+            },
+            {
               component: "checkbox",
               key: "active",
               header: "Activar",
@@ -198,6 +208,18 @@ export default function AdministracionUsuarios() {
           }}
         >
           <PermisosByUser id={selectedUser.id} />
+        </Modal>
+      )}
+      {passwordUser && (
+        <Modal
+          title={`Cambiar contraseña — ${passwordUser.name}`}
+          subtitle="La sesión del usuario no se cierra tras el cambio"
+          onClose={() => setPasswordUser(null)}
+        >
+          <ResetPasswordForm
+            user={passwordUser}
+            onSuccess={() => setPasswordUser(null)}
+          />
         </Modal>
       )}
       {create && (
@@ -265,6 +287,68 @@ const PermisosByUser = ({ id }: { id: string }) => {
         ]}
       />
     </div>
+  );
+};
+
+const ResetPasswordForm = ({
+  user,
+  onSuccess,
+}: {
+  user: UserWithPermission;
+  onSuccess: () => void;
+}) => {
+  const [nueva, setNueva] = useState("");
+  const [confirmar, setConfirmar] = useState("");
+  const [loading, setLoading] = useState(false);
+  const { showNotification } = useAlert();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (nueva !== confirmar) {
+      showNotification("error", "Las contraseñas no coinciden");
+      return;
+    }
+    if (nueva.length < 6) {
+      showNotification("error", "La contraseña debe tener al menos 6 caracteres");
+      return;
+    }
+    setLoading(true);
+    console.log("resetPassword user object:", user);
+    try {
+      await AuthService.getInstance().resetPassword(user.id, nueva);
+      showNotification("success", "Contraseña actualizada con éxito");
+      onSuccess();
+    } catch (error) {
+      showNotification("error", error.message || "Error al actualizar la contraseña");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <form className="p-2 space-y-3 w-[90vw] max-w-sm" onSubmit={handleSubmit}>
+      <TextInput
+        label="Nueva contraseña"
+        value={nueva}
+        onChange={setNueva}
+        placeholder="Mínimo 6 caracteres"
+      />
+      <TextInput
+        label="Confirmar contraseña"
+        value={confirmar}
+        onChange={setConfirmar}
+        placeholder="Repite la contraseña"
+      />
+      <Button
+        icon={loading ? undefined : KeyRound}
+        loading={loading}
+        type="submit"
+        className="w-full"
+        disabled={!nueva || !confirmar}
+      >
+        Actualizar contraseña
+      </Button>
+    </form>
   );
 };
 

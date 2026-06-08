@@ -18,6 +18,7 @@ export class AuthService extends ApiService {
       },
       PATCH: {
         UPDATE_PERMISSION_FROM_ROLE: "/auth/role",
+        RESET_PASSWORD: "/auth/password",
       },
     },
     USER: {
@@ -143,6 +144,12 @@ export class AuthService extends ApiService {
     this.patch({
       body: { id_role, id_user },
       path: this.formatPath(this.ENDPOINTS.USER.PATCH.UPDATE_ROLE),
+    });
+
+  public resetPassword = async (id: string | number, nueva_password: string): Promise<ApiResponse<null>> =>
+    this.patch<null>({
+      body: { id, nueva_password },
+      path: this.formatPath(this.ENDPOINTS.AUTH.PATCH.RESET_PASSWORD),
     });
 
   public getRoles = async (): Promise<ApiResponse<Role[]>> =>

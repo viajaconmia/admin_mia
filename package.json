@@ -59,6 +59,7 @@
     "embla-carousel-react": "^8.3.0",
     "eslint": "8.49.0",
     "eslint-config-next": "13.5.1",
+    "exceljs": "^4.4.0",
     "fetch-cookie": "^3.2.0",
     "follow-redirects": "^1.15.11",
     "html-to-image": "^1.11.13",
