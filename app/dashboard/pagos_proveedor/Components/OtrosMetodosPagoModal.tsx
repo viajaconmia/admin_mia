@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { Send, X, Info, Upload } from "lucide-react";
+import { Send, X, Info, Upload, Eye } from "lucide-react";
 import { URL as API_URL, API_KEY } from "@/lib/constants/index";
 import { subirArchivoAS3Seguro } from "@/lib/utils";
 
@@ -226,6 +226,8 @@ export const OtrosMetodosPagoModal: React.FC<OtrosMetodosPagoModalProps> = ({
   const [mode, setMode] = useState<Mode>("manual");
 
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [showMobilePreview, setShowMobilePreview] = useState(false);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [csvPreview, setCsvPreview] = useState<CSVRow[]>([]);
   const [csvLoading, setCsvLoading] = useState(false);
@@ -244,6 +246,13 @@ export const OtrosMetodosPagoModal: React.FC<OtrosMetodosPagoModalProps> = ({
 
   const [formError, setFormError] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!pdfFile) { setPreviewUrl(null); return; }
+    const url = URL.createObjectURL(pdfFile);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [pdfFile]);
 
   useEffect(() => {
     const rows = buildSelectedForms(selectedSolicitudes);
@@ -710,17 +719,66 @@ const buildSelectedRows = (): CSVRow[] => {
             <div className="flex justify-between items-center">
               <p className="text-xs text-gray-500">
                 Se aplicará este archivo (PDF o imagen) al registro individual o a todas las solicitudes.
-                </p>
+              </p>
               {pdfFile && (
                 <button
                   type="button"
                   onClick={clearPdfFile}
                   className="text-xs text-red-600 hover:text-red-800 font-medium"
                 >
-                  Limpiar PDF
+                  Limpiar
                 </button>
               )}
             </div>
+
+            {/* Vista previa del archivo */}
+            {previewUrl && pdfFile && (() => {
+              const isPdf = pdfFile.type === "application/pdf" || pdfFile.name.toLowerCase().endsWith(".pdf");
+              return (
+                <>
+                  {/* Desktop: preview inline */}
+                  <div className="hidden sm:block mt-2 border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
+                    <div className="flex items-center justify-between px-3 py-1.5 bg-gray-100 border-b border-gray-200">
+                      <span className="text-[11px] text-gray-500 truncate max-w-[60%]">{pdfFile.name}</span>
+                      <a
+                        href={previewUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[11px] text-blue-600 hover:underline flex items-center gap-1"
+                      >
+                        <Eye className="w-3 h-3" />
+                        Abrir en nueva pestaña
+                      </a>
+                    </div>
+                    {isPdf ? (
+                      <iframe
+                        src={previewUrl}
+                        title="Vista previa comprobante"
+                        className="w-full h-64 border-0"
+                      />
+                    ) : (
+                      <img
+                        src={previewUrl}
+                        alt="Vista previa comprobante"
+                        className="w-full max-h-64 object-contain p-2"
+                      />
+                    )}
+                  </div>
+
+                  {/* Mobile: botón que abre pantalla completa */}
+                  <div className="sm:hidden mt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowMobilePreview(true)}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-sm font-medium hover:bg-blue-100 transition-colors"
+                    >
+                      <Eye className="w-4 h-4" />
+                      Ver archivo subido
+                    </button>
+                  </div>
+                </>
+              );
+            })()}
           </div>
 
           {mode === "manual" && hasSelectedRows && (
@@ -972,6 +1030,50 @@ const buildSelectedRows = (): CSVRow[] => {
           </div>
         </form>
       </div>
+
+      {/* Mobile full-screen preview */}
+      {showMobilePreview && previewUrl && pdfFile && (() => {
+        const isPdf = pdfFile.type === "application/pdf" || pdfFile.name.toLowerCase().endsWith(".pdf");
+        return (
+          <div className="fixed inset-0 z-[200] bg-black flex flex-col sm:hidden">
+            <div className="flex items-center justify-between px-4 py-3 bg-slate-900">
+              <span className="text-sm text-white font-medium truncate max-w-[75%]">{pdfFile.name}</span>
+              <div className="flex items-center gap-3">
+                <a
+                  href={previewUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-blue-300 hover:text-blue-200"
+                >
+                  Abrir
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setShowMobilePreview(false)}
+                  className="text-white p-1"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto bg-gray-900 flex items-center justify-center">
+              {isPdf ? (
+                <iframe
+                  src={previewUrl}
+                  title="Vista previa comprobante"
+                  className="w-full h-full border-0"
+                />
+              ) : (
+                <img
+                  src={previewUrl}
+                  alt="Vista previa comprobante"
+                  className="max-w-full max-h-full object-contain"
+                />
+              )}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

@@ -5,9 +5,9 @@ import { API_KEY, URL } from "@/lib/constants";
 import { Eye } from "lucide-react";
 import { Table5 } from "@/components/Table5";
 import { formatNumberWithCommas, formatDate } from "@/helpers/utils";
+import { Monto } from "@/components/atom/Monto";
 import DetallesFacturas from "./components/facturas";
 
-// Función para formatear dinero
 const money = (n: number) =>
   `$${formatNumberWithCommas(Number(n || 0).toFixed(2))}`;
 
@@ -137,7 +137,7 @@ export default function ResumenAgentesPage() {
             linea_credito: row.linea_credito,
             diferencia: row.linea_credito
               ? Number(row.linea_credito || 0) - Number(row.adeudo_total || 0)
-              : "no hay linea de credito",
+              : 0,
             total_facturas: Number(row.total_facturas || 0),
 
             vigentes: Number(row.vigentes || 0),
@@ -267,7 +267,7 @@ export default function ResumenAgentesPage() {
         id_cliente: getClientId(agente.id_cliente),
         nombre_cliente: agente.nombre_cliente,
         alias_cliente: agente.alias_cliente,
-        linea_credito: agente.linea_credito || "-",
+        linea_credito: agente.linea_credito || 0,
         disponible_o_sobregiro: agente.diferencia,
         total_facturas: agente.total_facturas,
         vigentes: agente.vigentes,
@@ -298,7 +298,19 @@ export default function ResumenAgentesPage() {
     nombre_cliente: ({ value }: { value: string }) => (
       <span className="font-semibold text-xs text-gray-800">{value}</span>
     ),
-
+    alias_cliente: ({ value }: { value: string }) => (
+      <span className="font-semibold text-xs text-gray-800">{value}</span>
+    ),
+    linea_credito: ({ value }: { value: number | string }) => (
+      <span className="text-xs text-gray-800">
+        ${formatNumberWithCommas(value)}
+      </span>
+    ),
+    disponible_o_sobregiro: ({ value }: { value: number | string }) => (
+      <span className="text-xs text-gray-800">
+        ${formatNumberWithCommas(value)}
+      </span>
+    ),
     id_cliente: ({ value }: { value: string }) => (
       <div className="flex justify-center">
         <span className="font-mono text-[11px] bg-gray-100 px-2 py-0.5 rounded">
@@ -336,9 +348,7 @@ export default function ResumenAgentesPage() {
         }
         className="w-full flex justify-end text-left"
       >
-        <span className="font-semibold text-emerald-700 text-xs underline">
-          {money(Number(value) || 0)}
-        </span>
+        <Monto value={value} className="font-semibold text-emerald-700 text-xs underline" />
       </button>
     ),
 
@@ -353,9 +363,7 @@ export default function ResumenAgentesPage() {
         }
         className="w-full flex justify-end text-left"
       >
-        <span className="font-semibold text-yellow-400 text-xs underline">
-          {money(Number(value) || 0)}
-        </span>
+        <Monto value={value} className="font-semibold text-yellow-400 text-xs underline" />
       </button>
     ),
 
@@ -370,9 +378,7 @@ export default function ResumenAgentesPage() {
         }
         className="w-full flex justify-end text-left"
       >
-        <span className="font-semibold text-yellow-600 text-xs underline">
-          {money(Number(value) || 0)}
-        </span>
+        <Monto value={value} className="font-semibold text-yellow-600 text-xs underline" />
       </button>
     ),
 
@@ -387,9 +393,7 @@ export default function ResumenAgentesPage() {
         }
         className="w-full flex justify-end text-left"
       >
-        <span className="font-semibold text-orange-400 text-xs underline">
-          {money(Number(value) || 0)}
-        </span>
+        <Monto value={value} className="font-semibold text-orange-400 text-xs underline" />
       </button>
     ),
 
@@ -404,9 +408,7 @@ export default function ResumenAgentesPage() {
         }
         className="w-full flex justify-end text-left"
       >
-        <span className="font-semibold text-orange-500 text-xs underline">
-          {money(Number(value) || 0)}
-        </span>
+        <Monto value={value} className="font-semibold text-orange-500 text-xs underline" />
       </button>
     ),
 
@@ -421,9 +423,7 @@ export default function ResumenAgentesPage() {
         }
         className="w-full flex justify-end text-left"
       >
-        <span className="font-semibold text-red-600 text-xs underline">
-          {money(Number(value) || 0)}
-        </span>
+        <Monto value={value} className="font-semibold text-red-600 text-xs underline" />
       </button>
     ),
 
@@ -440,9 +440,7 @@ export default function ResumenAgentesPage() {
           className="inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded bg-gray-100 hover:bg-gray-200 transition-colors"
           title="Ver detalle de facturas"
         >
-          <span className="font-bold text-purple-600 text-xs">
-            {money(Number(value) || 0)}
-          </span>
+          <Monto value={value} className="font-bold text-purple-600 text-xs" />
         </button>
       </div>
     ),
@@ -454,7 +452,7 @@ export default function ResumenAgentesPage() {
     "nombre_cliente",
     "alias_cliente",
     "linea_credito",
-    "diferencia",
+    "disponible_o_sobregiro",
     "total_facturas",
     "vigentes",
     "vencidas",
@@ -628,27 +626,21 @@ export default function ResumenAgentesPage() {
               <h3 className="text-[11px] sm:text-sm font-semibold text-purple-800 mb-1 leading-tight">
                 Adeudo Total
               </h3>
-              <p className="text-base sm:text-2xl font-bold text-purple-600 leading-tight whitespace-nowrap">
-                {money(totales.totalAdeudo)}
-              </p>
+              <Monto value={totales.totalAdeudo} className="text-base sm:text-2xl font-bold text-purple-600 leading-tight whitespace-nowrap" />
             </div>
 
             <div className="bg-purple-50 p-3 sm:p-4 rounded-lg border border-purple-100">
               <h3 className="text-[11px] sm:text-sm font-semibold text-purple-800 mb-1 leading-tight">
                 Total Vigente
               </h3>
-              <p className="text-base sm:text-2xl font-bold text-purple-600 leading-tight whitespace-nowrap">
-                {money(totales.totalVigente)}
-              </p>
+              <Monto value={totales.totalVigente} className="text-base sm:text-2xl font-bold text-purple-600 leading-tight whitespace-nowrap" />
             </div>
 
             <div className="bg-purple-50 p-3 sm:p-4 rounded-lg border border-purple-100">
               <h3 className="text-[11px] sm:text-sm font-semibold text-purple-800 mb-1 leading-tight">
                 Total Vencido
               </h3>
-              <p className="text-base sm:text-2xl font-bold text-purple-600 leading-tight whitespace-nowrap">
-                {money(totales.totalVencido)}
-              </p>
+              <Monto value={totales.totalVencido} className="text-base sm:text-2xl font-bold text-purple-600 leading-tight whitespace-nowrap" />
             </div>
           </div>
 
@@ -670,7 +662,7 @@ export default function ResumenAgentesPage() {
                   className="text-lg font-bold text-emerald-600 underline hover:opacity-80"
                   type="button"
                 >
-                  {money(totales.totalVigente)}
+                  <Monto value={totales.totalVigente} />
                 </button>
               </div>
 
@@ -684,7 +676,7 @@ export default function ResumenAgentesPage() {
                   className="text-lg font-bold text-yellow-400 underline hover:opacity-80"
                   type="button"
                 >
-                  {money(totales.total_7)}
+                  <Monto value={totales.total_7} />
                 </button>
               </div>
 
@@ -700,7 +692,7 @@ export default function ResumenAgentesPage() {
                   className="text-lg font-bold text-yellow-600 underline hover:opacity-80"
                   type="button"
                 >
-                  {money(totales.total_15)}
+                  <Monto value={totales.total_15} />
                 </button>
               </div>
 
@@ -716,7 +708,7 @@ export default function ResumenAgentesPage() {
                   className="text-lg font-bold text-orange-400 underline hover:opacity-80"
                   type="button"
                 >
-                  {money(totales.total_20)}
+                  <Monto value={totales.total_20} />
                 </button>
               </div>
 
@@ -732,7 +724,7 @@ export default function ResumenAgentesPage() {
                   className="text-lg font-bold text-orange-600 underline hover:opacity-80"
                   type="button"
                 >
-                  {money(totales.total_30)}
+                  <Monto value={totales.total_30} />
                 </button>
               </div>
 
@@ -748,7 +740,7 @@ export default function ResumenAgentesPage() {
                   className="text-lg font-bold text-red-600 underline hover:opacity-80"
                   type="button"
                 >
-                  {money(totales.total_mas_30)}
+                  <Monto value={totales.total_mas_30} />
                 </button>
               </div>
             </div>

@@ -8,6 +8,7 @@ import Filters from "@/components/Filters";
 import { TypeFilters } from "@/types";
 import { FacturacionModal } from "@/app/dashboard/facturacion/_components/reservations-main";
 import SubirFactura from "@/app/dashboard/facturacion/subirfacturas/SubirFactura";
+import AsignarFacturaModal from "@/app/dashboard/facturacion/subirfacturas/AsignarFactura";
 import { Balance } from "@/app/dashboard/facturas-pendientes/balance";
 import BalanceSummary from "@/app/dashboard/facturas-pendientes/balance";
 import { fetchPagosPrepagobalance } from "@/services/pagos";
@@ -19,7 +20,7 @@ interface Item {
   id_item: string;
   id_factura?: string | null;
   total: number | string;
-  subtotal?: number | string;
+  subtotal?: number | string; 
   impuestos?: number | string;
   total_facturado?: number | string;
   total_pagado?: number | string;
@@ -79,15 +80,18 @@ const LazyItemsTable = React.memo(function LazyItemsTable({
   isItemSelected,
   toggleItemSelection,
   adjustItemDates,
+  onAsociarAReserva,
 }: {
   reservationId: string;
   getReservationById: (id: string) => ReservationWithItems | undefined;
   isItemSelected: (reservationId: string, itemId: string) => boolean;
   toggleItemSelection: (reservationId: string, itemId: string) => void;
   adjustItemDates: (r: ReservationWithItems) => ReservationWithItems;
+  onAsociarAReserva?: (item: Item, agentId: string) => void;
 }) {
   const r = getReservationById(reservationId);
   if (!r) return null;
+  const agentId = r.id_agente ?? "";
 
   // Ajuste de fechas solo cuando se expande
   const reservationWithDates = React.useMemo(
@@ -98,6 +102,12 @@ const LazyItemsTable = React.memo(function LazyItemsTable({
   );
 
   const items: Item[] = reservationWithDates.items ?? [];
+  console.log("[LazyItemsTable] reserva id_factura:", r.id_factura, "| items:", items.slice(0, 3).map(i => ({
+    id_item: i.id_item,
+    id_factura: i.id_factura,
+    total_facturado: i.total_facturado,
+    saldo_restante: i.saldo_restante,
+  })));
   const factPend = React.useMemo(
     () => items.filter(isItemFacturable).length,
     [items],
@@ -140,6 +150,9 @@ const LazyItemsTable = React.memo(function LazyItemsTable({
             </th>
             <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
               Estado
+            </th>
+            <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Acción
             </th>
           </tr>
         </thead>
@@ -184,6 +197,17 @@ const LazyItemsTable = React.memo(function LazyItemsTable({
                     <span className="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
                       Pendiente
                     </span>
+                  )}
+                </td>
+                <td className="px-4 py-2 whitespace-nowrap text-xs">
+                  {r.id_factura && Number(item.total_facturado ?? 0) === 0 && (
+                    <button
+                      type="button"
+                      onClick={() => onAsociarAReserva?.({ ...item, id_factura: r.id_factura }, agentId)}
+                      className="px-2 py-1 text-xs font-semibold rounded bg-purple-600 text-white hover:bg-purple-700"
+                    >
+                      Asociar a reserva
+                    </button>
                   )}
                 </td>
               </tr>
@@ -459,6 +483,22 @@ useEffect(() => {
     agentId: null,
   });
 
+  const [showAsignarReservaModal, setShowAsignarReservaModal] = useState(false);
+  const [asignarReservaData, setAsignarReservaData] = useState<{
+    id_factura: string;
+    agentId: string;
+    saldo: number;
+  } | null>(null);
+
+  const handleAsociarAReserva = (item: Item, agentId: string) => {
+    setAsignarReservaData({
+      id_factura: String(item.id_factura),
+      agentId,
+      saldo: Number(item.total ?? 0),
+    });
+    setShowAsignarReservaModal(true);
+  };
+
   //------filtrado------
   // Normaliza strings para búsqueda
   const norm = (s?: string | number | null) =>
@@ -585,6 +625,57 @@ useEffect(() => {
     // Deben pertenecer al MISMO agente para esta UX (si quieres mezclar agentes, cambia esta regla)
     const unique = Array.from(new Set(agentIds));
     return unique.length === 1 ? unique[0] : null;
+  };
+
+  const selectAllFiltered = () => {
+    const filteredReservations = rows
+      .map((row) => reservations.find((r) => r.id_booking === row.id))
+      .filter((r): r is ReservationWithItems => !!r);
+
+    // Verificar que todos los filtrados son del mismo agente
+    const agentIds = Array.from(
+      new Set(filteredReservations.map((r) => r.id_agente).filter(Boolean)),
+    );
+    if (agentIds.length > 1) {
+      alert(
+        "No puedes seleccionar todo porque los resultados filtrados pertenecen a diferentes agentes.",
+      );
+      return;
+    }
+
+    // Verificar que la selección actual no pertenece a otro agente
+    const currentlySelected = Object.keys(selectedItems);
+    if (currentlySelected.length > 0) {
+      const currentAgentIds = Array.from(
+        new Set(
+          currentlySelected
+            .map((id) => reservations.find((r) => r.id_booking === id)?.id_agente)
+            .filter(Boolean),
+        ),
+      );
+      const filteredAgentId = agentIds[0];
+      if (
+        filteredAgentId &&
+        currentAgentIds.length > 0 &&
+        !currentAgentIds.includes(filteredAgentId)
+      ) {
+        alert("No puedes seleccionar ítems de otro agente.");
+        return;
+      }
+    }
+
+    const nextSelected: SelectedMap = { ...selectedItems };
+    filteredReservations.forEach((r) => {
+      const itemsFacturables = (r.items ?? [])
+        .filter((item) => item?.id_factura == null)
+        .map((item) => item.id_item);
+      if (itemsFacturables.length > 0) {
+        nextSelected[r.id_booking] = itemsFacturables;
+      }
+    });
+
+    setSelectedItems(nextSelected);
+    updateAgentFilterFromSelection(nextSelected);
   };
 
   const handleFacturar = () => {
@@ -817,12 +908,13 @@ const pendientePorFacturar = items
 
     return (
       <LazyItemsTable
-        key={reservationId} // 🔑 clave única para evitar duplicados
+        key={reservationId}
         reservationId={reservationId}
         getReservationById={getReservationById}
         isItemSelected={isItemSelected}
         toggleItemSelection={toggleItemSelection}
         adjustItemDates={adjustItemDates}
+        onAsociarAReserva={handleAsociarAReserva}
       />
     );
   };
@@ -876,6 +968,17 @@ const pendientePorFacturar = items
       >
         {/* Botones en el header de Table5 */}
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={selectAllFiltered}
+            disabled={rows.length === 0}
+            className={`px-3 py-1.5 text-sm rounded-md border ${
+              rows.length === 0
+                ? "text-gray-400 border-gray-200 cursor-not-allowed"
+                : "text-gray-700 border-gray-300 hover:bg-gray-50"
+            }`}
+          >
+            Seleccionar todo
+          </button>
           <button
             onClick={() => setSelectedItems({})}
             disabled={selectedCount === 0}
@@ -977,6 +1080,21 @@ const pendientePorFacturar = items
           reservationsInit={reservations as any}
           onClose={() => setShowFacturacionModal(false)}
           onConfirm={confirmFacturacion}
+        />
+      )}
+
+      {/* Modal Asociar Factura a Reserva */}
+      {showAsignarReservaModal && asignarReservaData && (
+        <AsignarFacturaModal
+          isOpen={showAsignarReservaModal}
+          onClose={() => {
+            setShowAsignarReservaModal(false);
+            setAsignarReservaData(null);
+          }}
+          id_factura={asignarReservaData.id_factura}
+          clienteSeleccionado={asignarReservaData.agentId}
+          saldo={asignarReservaData.saldo}
+          tipo={false}
         />
       )}
 

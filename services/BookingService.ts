@@ -131,6 +131,11 @@ export type BookingAll = {
   nuevo_incluye_desayuno: boolean | null;
   codigo_confirmacion: string;
   usuario_creador: string;
+
+  uuid_factura: string | null;
+  total_factura: string | null;
+  uuid_recibido: string | null;
+  monto_facturado_factura_recibida: string | null;
 };
 
 type BaseSolicitud = {

@@ -24,6 +24,7 @@ export class ProveedoresService extends ApiService {
     DELETE: {
       DATOS_FISCALES: "/datos_fiscales",
       ARCHIVOS: "/archivos",
+      CUENTAS: "/cuentas",
     },
   };
   static instancia: ProveedoresService = null;
@@ -105,13 +106,61 @@ export class ProveedoresService extends ApiService {
 
   public updateCuentasProveedor = async (
     body: ProveedorCuenta,
-  ): Promise<ApiResponse<ProveedorCuenta[]>> =>
-    this.put({ path: this.formatPath(this.ENDPOINTS.PUT.CUENTAS), body });
+    caratula?: File,
+  ): Promise<ApiResponse<ProveedorCuenta[]>> => {
+    if (caratula) {
+      const formData = new FormData();
+      Object.entries(body).forEach(([k, v]) => {
+        if (v !== null && v !== undefined) formData.append(k, String(v));
+      });
+      formData.append("caratula", caratula);
+      const response = await fetch(`${BASE_URL}/mia/proveedores/cuentas`, {
+        method: "PUT",
+        headers: { "x-api-key": API_KEY },
+        credentials: "include",
+        body: formData,
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.message || "Error al actualizar la cuenta");
+      }
+      return response.json();
+    }
+    return this.put({ path: this.formatPath(this.ENDPOINTS.PUT.CUENTAS), body });
+  };
 
   public createCuentasProveedor = async (
     body: Partial<ProveedorCuenta>,
+    caratula?: File,
+  ): Promise<ApiResponse<ProveedorCuenta[]>> => {
+    if (caratula) {
+      const formData = new FormData();
+      Object.entries(body).forEach(([k, v]) => {
+        if (v !== null && v !== undefined) formData.append(k, String(v));
+      });
+      formData.append("caratula", caratula);
+      const response = await fetch(`${BASE_URL}/mia/proveedores/cuentas`, {
+        method: "POST",
+        headers: { "x-api-key": API_KEY },
+        credentials: "include",
+        body: formData,
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.message || "Error al crear la cuenta");
+      }
+      return response.json();
+    }
+    return this.post({ path: this.formatPath(this.ENDPOINTS.POST.CUENTAS), body });
+  };
+
+  public deleteCuentaProveedor = async (
+    id: number,
   ): Promise<ApiResponse<ProveedorCuenta[]>> =>
-    this.post({ path: this.formatPath(this.ENDPOINTS.POST.CUENTAS), body });
+    this.delete<ProveedorCuenta[]>({
+      path: this.formatPath(this.ENDPOINTS.DELETE.CUENTAS),
+      params: { id },
+    });
 
   //PROVEEDOR TYPE
   public getProveedorType = async (
@@ -268,6 +317,7 @@ export interface ProveedorCuenta {
   titular: string | null;
   comentarios: string | null;
   alias: string | null;
+  url_caratula: string | null;
 }
 
 //RENTAL CAR

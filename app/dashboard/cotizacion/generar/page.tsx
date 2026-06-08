@@ -1,19 +1,20 @@
 "use client";
 
 import DOMPurify from "dompurify";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useReducer } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   DateInput,
   Dropdown,
   CheckboxInput,
+  NumberInput,
+  TextAreaInput,
+  TextInput,
   InputGoogle,
   PlaceMaps,
 } from "@/components/atom/Input";
 import Button from "@/components/atom/Button";
 import {
-  ChevronDown,
-  ChevronUp,
   Download,
   Eye,
   Image as ImageIcon,
@@ -21,6 +22,7 @@ import {
   Pencil,
   Plus,
   Send,
+  Star,
   Trash2,
 } from "lucide-react";
 import { toPng } from "html-to-image";
@@ -28,12 +30,15 @@ import { ExtraService } from "@/services/ExtraServices";
 import { Loader } from "@/components/atom/Loader";
 import Modal from "@/components/organism/Modal";
 import { FormSeleccionarHoteles } from "@/components/organism/FormSeleccionarHoteles";
-import { Hotel } from "@/types";
-import { useAuth } from "@/context/AuthContext";
+import { Hotel, Agente } from "@/types";
 import { useAlert } from "@/context/useAlert";
 import { useHoteles } from "@/context/Hoteles";
+import { fetchAgentes } from "@/services/agentes";
 import { CorreoHotel } from "@/types/database_tables";
 import React from "react";
+import { calcularNoches } from "@/helpers/utils";
+import { formatNumber } from "@/helpers/formater";
+import { API_KEY, URL as BASE_URL } from "@/lib/constants";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 const NOKTO_CON_IVA = 168.2;
@@ -46,6 +51,8 @@ type FormData = {
   lat: number | null;
   lng: number | null;
   correo_cliente: string;
+  id_cliente: string;
+  nombre_cliente: string;
 };
 
 type HotelCotizacion = {
@@ -70,16 +77,124 @@ type HotelCotizacion = {
   noktos_estancia: string;
   mostrar_total_estancia: boolean;
   convenio: 0 | 1 | null;
+  sin_disponibilidad: boolean;
 };
+
+// ─── Reducer ────────────────────────────────────────────────────────────────
+type SlotAction =
+  | { type: "set_slots"; payload: (HotelCotizacion | null)[] }
+  | { type: "set_hotel"; index: number; hotel: HotelCotizacion }
+  | { type: "update_total"; index: number; value: string }
+  | { type: "update_field"; index: number; patch: Partial<HotelCotizacion> }
+  | { type: "update_nokto_noche"; index: number; value: string }
+  | { type: "update_nokto_estancia"; index: number; value: string }
+  | { type: "delete"; index: number }
+  | { type: "promote"; index: number }
+  | { type: "sync_dates"; check_in: string; check_out: string };
+
+function slotsReducer(
+  state: (HotelCotizacion | null)[],
+  action: SlotAction,
+): (HotelCotizacion | null)[] {
+  switch (action.type) {
+    case "set_slots":
+      return action.payload;
+
+    case "set_hotel": {
+      const next = [...state];
+      next[action.index] = action.hotel;
+      return next;
+    }
+
+    case "update_total": {
+      const slot = state[action.index];
+      if (!slot) return state;
+      const total = parseFloat(action.value) || 0;
+      const next = [...state];
+      next[action.index] = {
+        ...slot,
+        total: action.value,
+        subtotal: total > 0 ? (total / 1.16).toFixed(2) : "0",
+      };
+      return next;
+    }
+
+    case "update_field": {
+      const slot = state[action.index];
+      if (!slot) return state;
+      const next = [...state];
+      next[action.index] = { ...slot, ...action.patch };
+      return next;
+    }
+
+    case "update_nokto_noche": {
+      const slot = state[action.index];
+      if (!slot) return state;
+      const noches =
+        slot.checkin && slot.checkout
+          ? calcularNoches(slot.checkin, slot.checkout)
+          : 0;
+      const n = parseFloat(action.value) || 0;
+      const precioNoche = (n * NOKTO_CON_IVA).toFixed(2);
+      const next = [...state];
+      next[action.index] = {
+        ...slot,
+        noktos_noche: action.value,
+        noktos_estancia: noches > 0 ? (n * noches).toFixed(4) : "0",
+        total: precioNoche,
+        subtotal: (parseFloat(precioNoche) / 1.16).toFixed(2),
+      };
+      return next;
+    }
+
+    case "update_nokto_estancia": {
+      const slot = state[action.index];
+      if (!slot) return state;
+      const noches =
+        slot.checkin && slot.checkout
+          ? calcularNoches(slot.checkin, slot.checkout)
+          : 0;
+      const n = parseFloat(action.value) || 0;
+      const noktosPorNoche = noches > 0 ? n / noches : 0;
+      const precioNoche = (noktosPorNoche * NOKTO_CON_IVA).toFixed(2);
+      const next = [...state];
+      next[action.index] = {
+        ...slot,
+        noktos_estancia: action.value,
+        noktos_noche: noches > 0 ? noktosPorNoche.toFixed(4) : "0",
+        total: precioNoche,
+        subtotal: (parseFloat(precioNoche) / 1.16).toFixed(2),
+      };
+      return next;
+    }
+
+    case "delete": {
+      const next = [...state];
+      next[action.index] = null;
+      return next;
+    }
+
+    case "promote": {
+      if (action.index === 0) return state;
+      const next = [...state];
+      [next[0], next[action.index]] = [next[action.index], next[0]];
+      return next;
+    }
+
+    case "sync_dates":
+      return state.map((slot) =>
+        slot
+          ? { ...slot, checkin: action.check_in, checkout: action.check_out }
+          : null,
+      );
+
+    default:
+      return state;
+  }
+}
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
-const calcNoches = (checkin: string, checkout: string): number => {
-  if (!checkin || !checkout) return 0;
-  const diff = new Date(checkout).getTime() - new Date(checkin).getTime();
-  return Math.max(0, Math.round(diff / (1000 * 60 * 60 * 24)));
-};
-
-const formatDate = (d: string) => {
+const formatCuponDate = (d: string) => {
   if (!d) return "-";
   const [y, m, day] = d.split("-");
   const meses = [
@@ -99,19 +214,43 @@ const formatDate = (d: string) => {
   return `${day} ${meses[+m - 1]} ${y}`;
 };
 
-const formatNum = (n: number) =>
-  n.toLocaleString("es-MX", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-
 const withNoktoDefaults = (h: Partial<HotelCotizacion>): HotelCotizacion =>
   ({
     noktos_noche: "0",
     noktos_estancia: "0",
     mostrar_total_estancia: false,
+    sin_disponibilidad: false,
     ...h,
   }) as HotelCotizacion;
+
+const blankHotel = (
+  index: number,
+  checkin: string,
+  checkout: string,
+): HotelCotizacion =>
+  withNoktoDefaults({
+    id: `blank-${index}-${Date.now()}`,
+    hotel: "",
+    total: "0",
+    subtotal: "0",
+    desayuno: 0,
+    habitacion: "SENCILLA",
+    direccion: "",
+    zona: "",
+    priority: index + 1,
+    distancia: null,
+    checkin,
+    checkout,
+    precio_referencia: null,
+    fuente_referencia: null,
+    precio_sistema: null,
+    costo_sistema: null,
+    notas: "",
+    convenio: null,
+  });
+
+const slotNoches = (h: HotelCotizacion) =>
+  h.checkin && h.checkout ? calcularNoches(h.checkin, h.checkout) : 0;
 
 // ─── CuponRow ───────────────────────────────────────────────────────────────
 const CuponRow = ({
@@ -140,15 +279,16 @@ const CuponRow = ({
   </div>
 );
 
-// ─── CuponCard (solo display, pensado para captura de pantalla) ─────────────
+// ─── CuponCard ──────────────────────────────────────────────────────────────
 const CuponCard = React.forwardRef<
   HTMLDivElement,
   { hotel: HotelCotizacion; priority: number }
 >(({ hotel, priority }, ref) => {
-  const noches = calcNoches(hotel.checkin, hotel.checkout);
+  const noches = slotNoches(hotel);
   const total = parseFloat(hotel.total) || 0;
   const subtotalNoche = total > 0 ? total / 1.16 : 0;
   const totalEstancia = total * noches;
+
   return (
     <div
       ref={ref}
@@ -161,8 +301,8 @@ const CuponCard = React.forwardRef<
       <div className="divide-y divide-gray-100">
         <CuponRow label="HOTEL:" value={hotel.hotel} />
         <CuponRow label="HABITACIÓN:" value={hotel.habitacion} />
-        <CuponRow label="CHECK-IN:" value={formatDate(hotel.checkin)} />
-        <CuponRow label="CHECK-OUT:" value={formatDate(hotel.checkout)} />
+        <CuponRow label="CHECK-IN:" value={formatCuponDate(hotel.checkin)} />
+        <CuponRow label="CHECK-OUT:" value={formatCuponDate(hotel.checkout)} />
         <CuponRow label="NOCHES:" value={noches > 0 ? String(noches) : "-"} />
         <CuponRow
           label="DESAYUNO:"
@@ -170,22 +310,34 @@ const CuponCard = React.forwardRef<
         />
         <CuponRow label="DIRECCIÓN:" value={hotel.direccion} />
 
-        {total > 0 ? (
+        {hotel.sin_disponibilidad ? (
+          <div className="flex flex-col items-center justify-center gap-1 bg-red-600 px-3 py-4">
+            <span className="text-white text-[18px] font-black tracking-widest leading-none">
+              ✕
+            </span>
+            <span className="text-white text-[11px] font-black tracking-[0.15em] uppercase">
+              Sin disponibilidad
+            </span>
+            <span className="text-red-200 text-[9px] font-medium">
+              No hay habitaciones disponibles para las fechas seleccionadas
+            </span>
+          </div>
+        ) : total > 0 ? (
           <>
             <CuponRow
               label="PRECIO / NOCHE:"
-              value={`$ ${formatNum(total)}`}
+              value={`$ ${formatNumber(total, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
               note="Con IVA"
             />
             <CuponRow
               label="SUBTOTAL / NOCHE:"
-              value={`$ ${formatNum(subtotalNoche)}`}
+              value={`$ ${formatNumber(subtotalNoche, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
               note="Sin IVA"
             />
             {hotel.mostrar_total_estancia && noches > 0 && (
               <CuponRow
                 label="TOTAL ESTANCIA:"
-                value={`$ ${formatNum(totalEstancia)}`}
+                value={`$ ${formatNumber(totalEstancia, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                 note={`${noches} ${noches === 1 ? "noche" : "noches"}`}
               />
             )}
@@ -214,287 +366,257 @@ const CuponCard = React.forwardRef<
 });
 CuponCard.displayName = "CuponCard";
 
+// ─── PrecioIA ────────────────────────────────────────────────────────────────
+type PrecioIA = {
+  precio_por_noche: string;
+  moneda: string;
+  fuente: string;
+};
+
 // ─── ControlsPanel ──────────────────────────────────────────────────────────
-const ControlsPanel = ({
-  hotel,
-  isFirst,
-  isLast,
-  canEdit,
-  downloading,
-  downloadingImage,
-  onUp,
-  onDown,
-  onEdit,
-  onDelete,
-  onDownload,
-  onDownloadImagen,
-  onTotalChange,
-  onDesayunoChange,
-  onHabitacionChange,
-  onNotasChange,
-  onNoktoNocheChange,
-  onNoktoEstanciaChange,
-  onMostrarTotalEstanciaChange,
-}: {
+type ControlsPanelProps = {
   hotel: HotelCotizacion;
-  isFirst: boolean;
-  isLast: boolean;
-  canEdit: boolean;
+  index: number;
   downloading: boolean;
   downloadingImage: boolean;
-  onUp: () => void;
-  onDown: () => void;
+  dispatch: React.Dispatch<SlotAction>;
   onEdit: () => void;
-  onDelete: () => void;
   onDownload: () => void;
   onDownloadImagen: () => void;
-  onTotalChange: (v: string) => void;
-  onDesayunoChange: (v: 0 | 1) => void;
-  onHabitacionChange: (v: string) => void;
-  onNotasChange: (v: string) => void;
-  onNoktoNocheChange: (v: string) => void;
-  onNoktoEstanciaChange: (v: string) => void;
-  onMostrarTotalEstanciaChange: (v: boolean) => void;
-}) => {
-  const noches = calcNoches(hotel.checkin, hotel.checkout);
+  precioIA?: PrecioIA | null;
+};
+
+const ControlsPanel = ({
+  hotel,
+  index,
+  downloading,
+  downloadingImage,
+  dispatch,
+  onEdit,
+  onDownload,
+  onDownloadImagen,
+  precioIA,
+}: ControlsPanelProps) => {
   const total = parseFloat(hotel.total) || 0;
-  const subtotalNoche = total > 0 ? total / 1.16 : 0;
-  const inputCls =
-    "w-full text-[10px] border border-gray-200 rounded px-2 py-1 focus:outline-none focus:border-[#0b5fa5]";
-  const labelCls = "text-[10px] font-bold text-gray-600 mb-0.5 block";
+  const canDownload = !!hotel.checkin && !!hotel.checkout;
 
   return (
-    <div className="flex flex-col gap-2.5 p-3 bg-white border border-gray-200 rounded-lg shadow-sm">
-      {/* Orden */}
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] text-gray-500">
-          ¿Quieres cambiar el lugar de esta opción?
-        </span>
-        <div className="flex gap-1">
-          <button
-            type="button"
-            onClick={onUp}
-            disabled={isFirst}
-            className="p-0.5 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-25 transition-colors"
-            title="Subir prioridad"
-          >
-            <ChevronUp className="w-3 h-3 text-gray-600" />
-          </button>
-          <button
-            type="button"
-            onClick={onDown}
-            disabled={isLast}
-            className="p-0.5 rounded border border-gray-200 hover:bg-gray-50 disabled:opacity-25 transition-colors"
-            title="Bajar prioridad"
-          >
-            <ChevronDown className="w-3 h-3 text-gray-600" />
-          </button>
-        </div>
-      </div>
-
-      {/* Precio / noche */}
-      <div>
-        <label
-          className={
-            hotel.convenio === 0 ? `${labelCls} text-red-600` : labelCls
-          }
-        >
-          PRECIO / NOCHE{hotel.convenio === 0 && " ⚠"}
-        </label>
-        <div className="flex items-center gap-1">
-          <span
-            className={
-              hotel.convenio === 0
-                ? "text-[10px] text-red-400"
-                : "text-[10px] text-gray-400"
-            }
-          >
-            $
-          </span>
-          <input
-            type="number"
-            value={hotel.total}
-            onChange={(e) => onTotalChange(e.target.value)}
-            className={
-              hotel.convenio === 0
-                ? `${inputCls} border-red-300 text-red-600 focus:border-red-500`
-                : inputCls
-            }
-          />
-        </div>
-      </div>
-
-      {/* Noktos */}
-      <div className="border-t border-gray-100 pt-2">
-        <label className={labelCls}>NOKTOS</label>
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-1">
-            <span className="text-[9px] text-gray-400 w-[56px] shrink-0">
-              / noche
-            </span>
-            <input
-              type="number"
-              value={hotel.noktos_noche}
-              onChange={(e) => onNoktoNocheChange(e.target.value)}
-              className={inputCls}
-            />
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="text-[9px] text-gray-400 w-[56px] shrink-0">
-              estancia
-            </span>
-            <input
-              type="number"
-              value={hotel.noktos_estancia}
-              onChange={(e) => onNoktoEstanciaChange(e.target.value)}
-              className={inputCls}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Mostrar total de estancia en el cupón */}
-      <CheckboxInput
-        label="Mostrar total de estancia"
-        checked={hotel.mostrar_total_estancia}
-        onChange={onMostrarTotalEstanciaChange}
+    <div className="grid lg:grid-cols-2 items-end gap-3 p-3 bg-white border border-gray-200 rounded-lg shadow-sm">
+      {/* Hotel / Dirección */}
+      <TextInput
+        label="Hotel"
+        value={hotel.hotel}
+        onChange={(v) =>
+          dispatch({ type: "update_field", index, patch: { hotel: v } })
+        }
       />
-
-      {/* Habitación */}
-      <div>
-        <label className={labelCls}>HABITACIÓN</label>
-        <Dropdown
-          label=""
-          value={hotel.habitacion}
-          onChange={onHabitacionChange}
-          options={OPCIONES_HABITACION}
-        />
-      </div>
-
-      {/* Desayuno */}
+      <Dropdown
+        label="Habitación"
+        value={hotel.habitacion}
+        onChange={(v) =>
+          dispatch({ type: "update_field", index, patch: { habitacion: v } })
+        }
+        options={OPCIONES_HABITACION}
+      />
+      <TextInput
+        label="Dirección"
+        value={hotel.direccion}
+        onChange={(v) =>
+          dispatch({ type: "update_field", index, patch: { direccion: v } })
+        }
+      />
       <CheckboxInput
         label={`Desayuno: ${hotel.desayuno === 1 ? "Sí" : "No"}`}
         checked={hotel.desayuno === 1}
-        onChange={(v) => onDesayunoChange(v ? 1 : 0)}
+        onChange={(v) =>
+          dispatch({
+            type: "update_field",
+            index,
+            patch: { desayuno: v ? 1 : 0 },
+          })
+        }
       />
 
-      {/* Notas */}
-      <div>
-        <label className={labelCls}>NOTAS</label>
-        <textarea
-          value={hotel.notas}
-          onChange={(e) => onNotasChange(e.target.value)}
-          rows={2}
-          placeholder="Notas adicionales..."
-          className="w-full text-[10px] border border-gray-200 rounded px-1.5 py-1 resize-none focus:outline-none focus:border-[#0b5fa5] placeholder:text-gray-300"
+      <TextInput
+        label="Notas"
+        value={hotel.notas}
+        className="col-span-2"
+        placeholder="Notas adicionales..."
+        onChange={(v) =>
+          dispatch({ type: "update_field", index, patch: { notas: v } })
+        }
+      />
+
+      {/* Noktos */}
+      <div className="grid grid-cols-2 gap-2 lg:col-span-2">
+        <NumberInput
+          label="Noktos / noche"
+          value={parseFloat(hotel.noktos_noche) || null}
+          onChange={(v) =>
+            dispatch({ type: "update_nokto_noche", index, value: v })
+          }
+        />
+        <NumberInput
+          label="Noktos estancia"
+          value={parseFloat(hotel.noktos_estancia) || null}
+          onChange={(v) =>
+            dispatch({ type: "update_nokto_estancia", index, value: v })
+          }
         />
       </div>
 
-      {/* Alerta sin precio */}
-      {total === 0 && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded px-2 py-1.5 flex gap-1.5">
-          <span className="text-yellow-500 text-xs leading-none mt-0.5">⚠</span>
-          <p className="text-[10px] text-yellow-700 leading-snug">
-            Sin precio registrado
-          </p>
-        </div>
-      )}
+      {/* Toggles */}
+      <div className="grid lg:grid-cols-2 gap-1.5 lg:col-span-2">
+        <CheckboxInput
+          label="Mostrar total"
+          checked={hotel.mostrar_total_estancia}
+          onChange={(v) =>
+            dispatch({
+              type: "update_field",
+              index,
+              patch: { mostrar_total_estancia: v },
+            })
+          }
+        />
+        <CheckboxInput
+          label="No disponible"
+          checked={hotel.sin_disponibilidad}
+          onChange={(v) =>
+            dispatch({
+              type: "update_field",
+              index,
+              patch: { sin_disponibilidad: v },
+            })
+          }
+        />
+      </div>
+      <div className="lg:col-span-2 space-y-1.5">
+        {/* Alerta sin precio */}
+        {total === 0 && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded px-2 py-1.5 flex gap-1.5">
+            <span className="text-yellow-500 text-xs leading-none mt-0.5">
+              ⚠
+            </span>
+            <p className="text-[10px] text-yellow-700 leading-snug">
+              Sin precio registrado
+            </p>
+          </div>
+        )}
 
-      {/* Botones */}
-      <div className="flex gap-1 flex-wrap border-t border-gray-100 pt-2">
-        <Button
-          icon={Pencil}
-          size="sm"
-          variant="secondary"
-          onClick={onEdit}
-          disabled={!canEdit}
-          title={canEdit ? "modificar" : "Ingresa check-in y check-out primero"}
-        >
-          modificar
-        </Button>
-        <Button
-          icon={Trash2}
-          size="sm"
-          variant="warning ghost"
-          onClick={onDelete}
-          title="eliminar"
-        >
-          eliminar
-        </Button>
-        <Button
-          icon={downloading ? Loader2 : Download}
-          size="sm"
-          variant="secondary"
-          onClick={onDownload}
-          disabled={downloading}
-          title="descargar cupón PDF"
-        >
-          cupón
-        </Button>
-        <Button
-          icon={downloadingImage ? Loader2 : ImageIcon}
-          size="sm"
-          variant="secondary"
-          onClick={onDownloadImagen}
-          disabled={downloadingImage}
-          title="descargar imagen del cupón"
-        >
-          imagen
-        </Button>
+        {/* Nota de precio IA */}
+        {precioIA !== undefined &&
+          (precioIA === null ||
+          precioIA.precio_por_noche === "no disponible" ? (
+            <div className="bg-orange-50 border border-orange-200 rounded px-2 py-1.5 flex gap-1.5">
+              <span className="text-orange-400 text-xs leading-none mt-0.5">
+                ○
+              </span>
+              <p className="text-[10px] text-orange-700 leading-snug">
+                No encontramos precio de ejemplo para estas fechas.
+              </p>
+            </div>
+          ) : (
+            <div className="bg-blue-50 border border-blue-200 rounded px-2 py-1.5 flex gap-1.5">
+              <span className="text-blue-400 text-xs leading-none mt-0.5">
+                ℹ
+              </span>
+              <p className="text-[10px] text-blue-700 leading-snug">
+                La IA encontró un precio asociado a estas fechas pero no
+                confirma disponibilidad real — favor de verificar.
+                <br />- {precioIA.fuente}
+              </p>
+            </div>
+          ))}
+
+        {/* Botones */}
+        <div className="grid grid-cols-2 gap-3 border-t border-gray-100 pt-2">
+          <Button
+            icon={downloading ? Loader2 : Download}
+            size="sm"
+            variant="secondary"
+            onClick={onDownload}
+            disabled={downloading || !canDownload}
+            title={
+              !canDownload
+                ? "Agrega check-in y check-out primero"
+                : "Descargar cupón PDF"
+            }
+          >
+            cupón
+          </Button>
+          <Button
+            icon={downloadingImage ? Loader2 : ImageIcon}
+            size="sm"
+            variant="secondary"
+            onClick={onDownloadImagen}
+            disabled={downloadingImage || !canDownload}
+            title={
+              !canDownload
+                ? "Agrega check-in y check-out primero"
+                : "Descargar imagen"
+            }
+          >
+            imagen
+          </Button>
+          <Button icon={Pencil} size="sm" variant="secondary" onClick={onEdit}>
+            cambiar hotel
+          </Button>
+          {/* Prioridad */}
+          {index > 0 && (
+            <Button
+              type="button"
+              onClick={() => dispatch({ type: "promote", index })}
+              size="sm"
+              icon={Star}
+              variant="primary"
+            >
+              Priorizar opción
+            </Button>
+          )}
+          <Button
+            icon={Trash2}
+            size="sm"
+            className="col-span-2"
+            variant="warning"
+            onClick={() => dispatch({ type: "delete", index })}
+          >
+            eliminar
+          </Button>
+        </div>
       </div>
     </div>
   );
 };
 
 // ─── HotelCard ──────────────────────────────────────────────────────────────
-const HotelCard = ({
-  hotel,
-  priority,
-  isFirst,
-  isLast,
-  canEdit,
-  downloading,
-  downloadingImage,
-  onUp,
-  onDown,
-  onEdit,
-  onDelete,
-  onDownload,
-  onDownloadImagen,
-  onTotalChange,
-  onDesayunoChange,
-  onHabitacionChange,
-  onNotasChange,
-  onNoktoNocheChange,
-  onNoktoEstanciaChange,
-  onMostrarTotalEstanciaChange,
-  cuponRef,
-}: {
+type HotelCardProps = {
   hotel: HotelCotizacion;
-  priority: number;
-  isFirst: boolean;
-  isLast: boolean;
-  canEdit: boolean;
+  index: number;
   downloading: boolean;
   downloadingImage: boolean;
-  onUp: () => void;
-  onDown: () => void;
+  dispatch: React.Dispatch<SlotAction>;
   onEdit: () => void;
-  onDelete: () => void;
   onDownload: () => void;
   onDownloadImagen: () => void;
-  onTotalChange: (v: string) => void;
-  onDesayunoChange: (v: 0 | 1) => void;
-  onHabitacionChange: (v: string) => void;
-  onNotasChange: (v: string) => void;
-  onNoktoNocheChange: (v: string) => void;
-  onNoktoEstanciaChange: (v: string) => void;
-  onMostrarTotalEstanciaChange: (v: boolean) => void;
   cuponRef: React.Ref<HTMLDivElement>;
-}) => (
+  precioIA?: PrecioIA | null;
+};
+
+const HotelCard = ({
+  hotel,
+  index,
+  downloading,
+  downloadingImage,
+  dispatch,
+  onEdit,
+  onDownload,
+  onDownloadImagen,
+  cuponRef,
+  precioIA,
+}: HotelCardProps) => (
   <div className="flex flex-col gap-1 bg-white">
     <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-white bg-[#0b5fa5] px-2 py-0.5 rounded-full w-fit">
-      Prioridad {priority}
+      Prioridad {index + 1}
     </span>
     {hotel.convenio === 0 && (
       <div className="flex items-center gap-2 bg-amber-50 border border-amber-300 text-amber-800 text-[11px] font-medium px-3 py-1.5 rounded-lg">
@@ -504,29 +626,19 @@ const HotelCard = ({
         </span>
       </div>
     )}
-    <div className="grid grid-cols-[260px_1fr] gap-3 items-start">
+    <div className="grid grid-cols-[320px_1fr] gap-3 items-start">
       <ControlsPanel
         hotel={hotel}
-        isFirst={isFirst}
-        isLast={isLast}
-        canEdit={canEdit}
+        index={index}
         downloading={downloading}
         downloadingImage={downloadingImage}
-        onUp={onUp}
-        onDown={onDown}
+        dispatch={dispatch}
         onEdit={onEdit}
-        onDelete={onDelete}
         onDownload={onDownload}
         onDownloadImagen={onDownloadImagen}
-        onTotalChange={onTotalChange}
-        onDesayunoChange={onDesayunoChange}
-        onHabitacionChange={onHabitacionChange}
-        onNotasChange={onNotasChange}
-        onNoktoNocheChange={onNoktoNocheChange}
-        onNoktoEstanciaChange={onNoktoEstanciaChange}
-        onMostrarTotalEstanciaChange={onMostrarTotalEstanciaChange}
+        precioIA={precioIA}
       />
-      <CuponCard ref={cuponRef} hotel={hotel} priority={priority} />
+      <CuponCard ref={cuponRef} hotel={hotel} priority={index + 1} />
     </div>
   </div>
 );
@@ -535,11 +647,9 @@ const HotelCard = ({
 const EmptySlotCard = ({
   priority,
   onAdd,
-  canAdd,
 }: {
   priority: number;
   onAdd: () => void;
-  canAdd: boolean;
 }) => (
   <div className="flex flex-col gap-1">
     <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-white bg-gray-300 px-2 py-0.5 rounded-full w-fit">
@@ -551,15 +661,12 @@ const EmptySlotCard = ({
       </div>
       <div className="flex flex-col items-center justify-center gap-3 py-10 px-4">
         <p className="text-xs text-gray-400 text-center">
-          {canAdd
-            ? "Sin hotel asignado para esta prioridad"
-            : "Ingresa check-in y check-out para agregar un hotel"}
+          Sin hotel asignado para esta prioridad
         </p>
         <button
           type="button"
           onClick={onAdd}
-          disabled={!canAdd}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#0b5fa5] border border-[#0b5fa5] rounded-lg hover:bg-[#f0f6ff] transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#0b5fa5] border border-[#0b5fa5] rounded-lg hover:bg-[#f0f6ff] transition-colors"
         >
           <Plus className="w-3.5 h-3.5" />
           Agregar hotel
@@ -572,12 +679,392 @@ const EmptySlotCard = ({
   </div>
 );
 
+// ─── CotizacionModal ────────────────────────────────────────────────────────
+type CotizacionRow = {
+  hotel: string;
+  habitacion: string;
+  desayuno: 0 | 1;
+  cantidad: string;
+  checkin: string;
+  checkout: string;
+  noches: number;
+  noktos_unitarios: string;
+  precio_noche: string;
+  costos: string[];
+  convenios: (0 | 1)[];
+};
+
+const PROVIDER_COLORS = [
+  { header: "#1e3a5f", border: "#162d4d", cell: "bg-blue-50/40" },
+  { header: "#2c4a7a", border: "#1e3a5f", cell: "bg-indigo-50/40" },
+  { header: "#3d3072", border: "#2c2260", cell: "bg-violet-50/40" },
+  { header: "#5a2070", border: "#481858", cell: "bg-fuchsia-50/40" },
+];
+
+const calcMarkup = (precio: number, costo: number) => {
+  if (costo <= 0 || precio <= 0) return "-";
+  return `${Math.round(((precio - costo) / costo) * 100)}%`;
+};
+
+const EditableCell = ({
+  value,
+  onChange,
+  numeric = false,
+  className = "",
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  numeric?: boolean;
+  className?: string;
+}) => (
+  <input
+    type={numeric ? "number" : "text"}
+    value={value}
+    onChange={(e) => onChange(e.target.value)}
+    className={`w-full min-w-[60px] bg-transparent border-b border-transparent hover:border-gray-300 focus:border-[#0b5fa5] focus:outline-none text-center text-[11px] py-0.5 transition-colors ${className}`}
+  />
+);
+
+function CotizacionModal({
+  slots,
+  hotelesContext,
+  onClose,
+}: {
+  slots: (HotelCotizacion | null)[];
+  hotelesContext: Hotel[] | null;
+  onClose: () => void;
+}) {
+  const [providers, setProviders] = React.useState<string[]>(["MIA"]);
+
+  const [rows, setRows] = React.useState<CotizacionRow[]>(() =>
+    slots
+      .filter((s): s is HotelCotizacion => s !== null)
+      .map((s) => {
+        const hotelMia = hotelesContext?.find((h) => h.id_hotel === s.id);
+        const costoMia =
+          hotelMia?.tipos_cuartos[0]?.costo ??
+          s.costo_sistema ??
+          "0";
+        const convenioMia: 0 | 1 =
+          hotelMia?.convenio ?? (s.convenio === 1 ? 1 : 0);
+        const precioNum = parseFloat(s.total) || 0;
+        const noktosSrc = parseFloat(s.noktos_noche) || 0;
+        const noktos =
+          noktosSrc > 0
+            ? Math.round(noktosSrc)
+            : Math.round(precioNum / NOKTO_CON_IVA);
+        return {
+          hotel: s.hotel,
+          habitacion: s.habitacion,
+          desayuno: s.desayuno,
+          cantidad: "1",
+          checkin: s.checkin,
+          checkout: s.checkout,
+          noches: slotNoches(s),
+          noktos_unitarios: String(noktos),
+          precio_noche: s.total,
+          costos: [costoMia],
+          convenios: [convenioMia],
+        };
+      }),
+  );
+
+  const update = (i: number, patch: Partial<CotizacionRow>) =>
+    setRows((prev) =>
+      prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)),
+    );
+
+  const updateCosto = (rowIdx: number, pi: number, value: string) =>
+    setRows((prev) =>
+      prev.map((r, i) => {
+        if (i !== rowIdx) return r;
+        const costos = [...r.costos];
+        costos[pi] = value;
+        return { ...r, costos };
+      }),
+    );
+
+  const updateConvenio = (rowIdx: number, pi: number, value: 0 | 1) =>
+    setRows((prev) =>
+      prev.map((r, i) => {
+        if (i !== rowIdx) return r;
+        const convenios = [...r.convenios] as (0 | 1)[];
+        convenios[pi] = value;
+        return { ...r, convenios };
+      }),
+    );
+
+  const addProvider = () => {
+    const nextLabel = String.fromCharCode(65 + providers.length);
+    setProviders((p) => [...p, nextLabel]);
+    setRows((prev) =>
+      prev.map((r) => ({
+        ...r,
+        costos: [...r.costos, "0"],
+        convenios: [...r.convenios, 0],
+      })),
+    );
+  };
+
+  const updateProviderName = (pi: number, name: string) =>
+    setProviders((prev) => prev.map((p, i) => (i === pi ? name : p)));
+
+  const color = (pi: number) => PROVIDER_COLORS[pi % PROVIDER_COLORS.length];
+
+  const colHeader = (key: string, text: string, bg: string, borderColor: string) => (
+    <th
+      key={key}
+      className="px-2 py-1 font-semibold whitespace-nowrap text-[10px] text-white border"
+      style={{ backgroundColor: bg, borderColor }}
+    >
+      {text}
+    </th>
+  );
+
+  return (
+    <Modal onClose={onClose} title="Cotización" subtitle="Detalle de servicios">
+      <div className="overflow-x-auto">
+        <table className="text-xs border-collapse min-w-max">
+          <thead>
+            <tr>
+              <th
+                colSpan={11}
+                className="bg-[#42a5d4] text-white text-center py-1.5 px-3 font-bold text-[11px] tracking-wide border border-[#42a5d4]"
+              >
+                DETALLE SERVICIOS
+              </th>
+              {providers.map((name, pi) => (
+                <th
+                  key={pi}
+                  colSpan={5}
+                  className="text-white text-center py-1.5 px-3 font-bold text-[11px] tracking-wide border"
+                  style={{
+                    backgroundColor: color(pi).header,
+                    borderColor: color(pi).border,
+                  }}
+                >
+                  <span className="inline-flex items-center gap-1">
+                    COSTO PROVEEDOR
+                    <input
+                      value={name}
+                      onChange={(e) => updateProviderName(pi, e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-16 bg-transparent border-b border-white/50 focus:border-white focus:outline-none text-white text-center font-bold text-[11px] placeholder-white/60"
+                      placeholder="Nombre"
+                    />
+                  </span>
+                </th>
+              ))}
+              <th className="px-2 bg-gray-50 border border-gray-200 align-middle">
+                <button
+                  type="button"
+                  onClick={addProvider}
+                  className="flex items-center gap-1 text-[10px] font-semibold text-[#0b5fa5] hover:text-blue-800 whitespace-nowrap px-1.5 py-1 rounded hover:bg-blue-50 transition-colors"
+                >
+                  <Plus className="w-3 h-3" />
+                  Proveedor
+                </button>
+              </th>
+            </tr>
+            <tr>
+              {[
+                "#",
+                "HOTEL",
+                "DETALLE",
+                "DESAYUNO INCLUIDO",
+                "CANTIDAD",
+                "CHECK IN",
+                "CHECK OUT",
+                "NOCHES",
+                "NOKTOS UNITARIOS",
+                "IMPORTE / NOCHE",
+                "IMPORTE TOTAL",
+              ].map((h) =>
+                colHeader(h, h, "#42a5d4", "#2e8bbb"),
+              )}
+              {Array.from({ length: providers.length }).map((_, pi) =>
+                ["CONVENIO", "COSTO / NOCHE", "COSTO TOTAL", "MARK UP", "GANANCIA"].map(
+                  (h) => colHeader(`${pi}-${h}`, h, color(pi).header, color(pi).border),
+                ),
+              )}
+              <th className="bg-gray-50 border border-gray-200" />
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => {
+              const precio = parseFloat(row.precio_noche) || 0;
+              const cant = parseInt(row.cantidad) || 1;
+              const importeTotal = precio * row.noches * cant;
+              const bg = i % 2 === 0 ? "bg-white" : "bg-gray-50";
+
+              return (
+                <tr key={i} className={bg}>
+                  <td className="px-2 py-1.5 text-center border border-gray-200 font-medium text-gray-700">
+                    {i + 1}
+                  </td>
+                  <td className="px-1 py-1 border border-gray-200 min-w-[120px]">
+                    <EditableCell
+                      value={row.hotel}
+                      onChange={(v) => update(i, { hotel: v })}
+                    />
+                  </td>
+                  <td className="px-1 py-1 border border-gray-200">
+                    <EditableCell
+                      value={row.habitacion}
+                      onChange={(v) => update(i, { habitacion: v })}
+                    />
+                  </td>
+                  <td className="px-1 py-1 border border-gray-200 text-center">
+                    <EditableCell
+                      value={row.desayuno === 1 ? "SÍ" : "NO"}
+                      onChange={(v) =>
+                        update(i, {
+                          desayuno:
+                            v.toUpperCase() === "SÍ" ||
+                            v.toUpperCase() === "SI"
+                              ? 1
+                              : 0,
+                        })
+                      }
+                    />
+                  </td>
+                  <td className="px-1 py-1 border border-gray-200">
+                    <EditableCell
+                      value={row.cantidad}
+                      numeric
+                      onChange={(v) => update(i, { cantidad: v })}
+                    />
+                  </td>
+                  <td className="px-1 py-1 border border-gray-200">
+                    <input
+                      type="date"
+                      value={row.checkin}
+                      onChange={(e) => {
+                        const newCheckin = e.target.value;
+                        const newNoches =
+                          newCheckin && row.checkout
+                            ? calcularNoches(newCheckin, row.checkout)
+                            : row.noches;
+                        update(i, { checkin: newCheckin, noches: newNoches });
+                      }}
+                      className="w-full bg-transparent border-b border-transparent hover:border-gray-300 focus:border-[#0b5fa5] focus:outline-none text-[11px] py-0.5 transition-colors"
+                    />
+                  </td>
+                  <td className="px-1 py-1 border border-gray-200">
+                    <input
+                      type="date"
+                      value={row.checkout}
+                      min={row.checkin || undefined}
+                      onChange={(e) => {
+                        const newCheckout = e.target.value;
+                        const newNoches =
+                          row.checkin && newCheckout
+                            ? calcularNoches(row.checkin, newCheckout)
+                            : row.noches;
+                        update(i, { checkout: newCheckout, noches: newNoches });
+                      }}
+                      className="w-full bg-transparent border-b border-transparent hover:border-gray-300 focus:border-[#0b5fa5] focus:outline-none text-[11px] py-0.5 transition-colors"
+                    />
+                  </td>
+                  <td className="px-2 py-1.5 text-center border border-gray-200 font-medium">
+                    {row.noches || "-"}
+                  </td>
+                  <td className="px-1 py-1 border border-gray-200">
+                    <EditableCell
+                      value={row.noktos_unitarios}
+                      numeric
+                      onChange={(v) =>
+                        update(i, {
+                          noktos_unitarios: String(
+                            Math.round(parseFloat(v) || 0),
+                          ),
+                        })
+                      }
+                    />
+                  </td>
+                  <td className="px-2 py-1.5 text-center border border-gray-200 text-gray-700 whitespace-nowrap">
+                    $
+                    {formatNumber(precio, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </td>
+                  <td className="px-2 py-1.5 text-center border border-gray-200 font-bold text-sky-900 whitespace-nowrap">
+                    $
+                    {formatNumber(importeTotal, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </td>
+                  {Array.from({ length: providers.length }).map((_, pi) => {
+                    const costo = parseFloat(row.costos[pi] ?? "0") || 0;
+                    const costoTotal = costo * row.noches * cant;
+                    const ganancia = precio - costo;
+                    const c = color(pi);
+                    const convenio = row.convenios[pi] ?? 0;
+                    return (
+                      <React.Fragment key={pi}>
+                        <td className={`px-2 py-1.5 text-center border border-gray-200 ${c.cell}`}>
+                          <button
+                            type="button"
+                            onClick={() => updateConvenio(i, pi, convenio === 1 ? 0 : 1)}
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full border transition-colors ${
+                              convenio === 1
+                                ? "bg-emerald-100 text-emerald-700 border-emerald-300"
+                                : "bg-red-50 text-red-500 border-red-200"
+                            }`}
+                          >
+                            {convenio === 1 ? "SÍ" : "NO"}
+                          </button>
+                        </td>
+                        <td className={`px-1 py-1 border border-gray-200 ${c.cell}`}>
+                          <EditableCell
+                            value={row.costos[pi] ?? "0"}
+                            numeric
+                            onChange={(v) => updateCosto(i, pi, v)}
+                          />
+                        </td>
+                        <td
+                          className={`px-2 py-1.5 text-center border border-gray-200 ${c.cell} whitespace-nowrap`}
+                        >
+                          {formatNumber(costoTotal, {
+                            minimumFractionDigits: 2,
+                          })}
+                        </td>
+                        <td
+                          className={`px-2 py-1.5 text-center border border-gray-200 ${c.cell}`}
+                        >
+                          {calcMarkup(precio, costo)}
+                        </td>
+                        <td
+                          className={`px-2 py-1.5 text-center border border-gray-200 ${c.cell} font-bold whitespace-nowrap ${ganancia >= 0 ? "text-emerald-700" : "text-red-600"}`}
+                        >
+                          $
+                          {formatNumber(ganancia, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </td>
+                      </React.Fragment>
+                    );
+                  })}
+                  <td className={`border border-gray-200 ${bg}`} />
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </Modal>
+  );
+}
+
 // ─── GenerarCotizacion ──────────────────────────────────────────────────────
 export default function GenerarCotizacion() {
   const searchParams = useSearchParams();
   const slotsInitialized = useRef(false);
-  const { user } = useAuth();
   const { hoteles: hotelesContext } = useHoteles();
+  const { error } = useAlert();
 
   const [correoOrigen, setCorreoOrigen] = useState<{
     id_correo: string | null;
@@ -592,23 +1079,38 @@ export default function GenerarCotizacion() {
     lat: null,
     lng: null,
     correo_cliente: "",
+    id_cliente: "",
+    nombre_cliente: "",
   });
-  const [slots, setSlots] = useState<(HotelCotizacion | null)[]>([
-    null,
-    null,
-    null,
-  ]);
+
+  const [slots, dispatch] = useReducer(slotsReducer, [null, null, null]);
+  const [allHotels, setAllHotels] = useState<HotelCotizacion[]>([]);
+  const [swapTarget, setSwapTarget] = useState<HotelCotizacion | null>(null);
+  const [clientes, setClientes] = useState<Agente[]>([]);
+  const [clientSearch, setClientSearch] = useState("");
+  const [clientOpen, setClientOpen] = useState(false);
+  const [loadingSearch, setLoadingSearch] = useState(false);
+  const [preciosIA, setPreciosIA] = useState<Map<string, PrecioIA>>(new Map());
   const [loadingVis, setLoadingVis] = useState(false);
-  const [loadingEnvio, setLoadingEnvio] = useState(false);
   const [activeSlot, setActiveSlot] = useState<number | null>(null);
   const [downloadingSlot, setDownloadingSlot] = useState<number | null>(null);
   const [downloadingImageSlot, setDownloadingImageSlot] = useState<
     number | null
   >(null);
+  const [showCotizacionModal, setShowCotizacionModal] = useState(false);
   const cuponRefs = useRef<(HTMLDivElement | null)[]>([null, null, null]);
 
-  const set = (field: keyof FormData) => (value: string) =>
-    setForm((prev) => ({ ...prev, [field]: value }));
+  const handleCheckInChange = (value: string) =>
+    setForm((prev) => ({
+      ...prev,
+      check_in: value,
+      check_out: prev.check_out && prev.check_out < value ? "" : prev.check_out,
+    }));
+
+  const handleCheckOutChange = (value: string) => {
+    if (form.check_in && value < form.check_in) return;
+    setForm((prev) => ({ ...prev, check_out: value }));
+  };
 
   const canGenerate =
     !!form.check_in &&
@@ -660,11 +1162,76 @@ export default function GenerarCotizacion() {
           costo_sistema: room?.costo ?? null,
         });
       });
+
     const MIN_SLOTS = 3;
     while (nuevosSlots.length < MIN_SLOTS) nuevosSlots.push(null);
-    setSlots(nuevosSlots);
+    dispatch({ type: "set_slots", payload: nuevosSlots });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [correoOrigen, hotelesContext]);
+
+  const datesInitialized = useRef(false);
+  useEffect(() => {
+    if (!datesInitialized.current) {
+      datesInitialized.current = true;
+      return;
+    }
+    dispatch({
+      type: "sync_dates",
+      check_in: form.check_in,
+      check_out: form.check_out,
+    });
+  }, [form.check_in, form.check_out]);
+
+  useEffect(() => {
+    fetchAgentes({}, {}, setClientes).catch(() => {});
+  }, []);
+
+  const filteredClientes = clientSearch.trim()
+    ? clientes.filter((c) =>
+        c.nombre_agente_completo
+          .toLowerCase()
+          .includes(clientSearch.toLowerCase()),
+      )
+    : clientes;
+
+  const handleSelectCliente = (c: Agente) => {
+    setForm((prev) => ({
+      ...prev,
+      id_cliente: c.id_agente,
+      nombre_cliente: c.nombre_agente_completo,
+    }));
+    setClientSearch(c.nombre_agente_completo);
+    setClientOpen(false);
+  };
+
+  const buscarPreciosIA = async (hoteles: HotelCotizacion[]) => {
+    setLoadingSearch(true);
+    try {
+      const nombres = hoteles.map((h) => h.hotel).filter(Boolean);
+      const origin = new URL(BASE_URL).origin;
+      const res = await fetch(`${origin}/search-hotel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-api-key": API_KEY },
+        body: JSON.stringify({
+          hoteles: nombres,
+          checkin: form.check_in,
+          checkout: form.check_out,
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      console.log("[Precios IA]", json.data);
+      const mapa = new Map<string, PrecioIA>();
+      (json.data?.hoteles ?? []).forEach((h: PrecioIA & { nombre: string }) => {
+        mapa.set(h.nombre.toLowerCase().trim(), h);
+      });
+      setPreciosIA(mapa);
+    } catch (err: any) {
+      console.warn("[Precios IA] Error:", err.message);
+    } finally {
+      setLoadingSearch(false);
+    }
+  };
 
   const handleGenerarVisualizaciones = async () => {
     setLoadingVis(true);
@@ -674,6 +1241,7 @@ export default function GenerarCotizacion() {
         checkout: form.check_out,
         lat: form.lat!,
         lng: form.lng!,
+        ...(form.id_cliente ? { id_cliente: form.id_cliente } : {}),
       });
       const data = ((response.data ?? []) as HotelCotizacion[]).map((h) =>
         withNoktoDefaults(h),
@@ -681,17 +1249,20 @@ export default function GenerarCotizacion() {
       const sorted = [...data].sort(
         (a, b) => parseFloat(a.total || "0") - parseFloat(b.total || "0"),
       );
-      setSlots([sorted[0] ?? null, sorted[1] ?? null, sorted[2] ?? null]);
-    } catch (error) {
-      console.error("Error al obtener cotizaciones:", error);
+      setAllHotels(sorted);
+      dispatch({
+        type: "set_slots",
+        payload: [sorted[0] ?? null, sorted[1] ?? null, sorted[2] ?? null],
+      });
+      buscarPreciosIA(sorted);
+    } catch (err: any) {
+      error(err?.message || "Error al obtener cotizaciones");
     } finally {
       setLoadingVis(false);
     }
   };
 
   const hasAny = slots.some((s) => s !== null);
-
-  const handleSlotAction = (index: number) => setActiveSlot(index);
 
   const handleHotelSelected = (hoteles: Hotel[]) => {
     const hotel = hoteles[0];
@@ -700,141 +1271,31 @@ export default function GenerarCotizacion() {
     const room = hotel.tipos_cuartos[0];
     const total = hotel.convenio === 0 ? "" : (room?.precio ?? "0");
 
-    const nueva = withNoktoDefaults({
-      id: hotel.id_hotel,
-      hotel: hotel.nombre_hotel,
-      total,
-      subtotal: room?.costo ?? room?.precio ?? "0",
-      desayuno: room?.incluye_desayuno === 1 ? 1 : 0,
-      habitacion: "SENCILLA",
-      notas: hotel.convenio === 0 ? "TARIFA DINÁMICA" : "",
-      direccion: hotel.direccion,
-      zona: hotel.Ciudad_Zona,
-      priority: activeSlot + 1,
-      distancia: null,
-      checkin: form.check_in,
-      checkout: form.check_out,
-      precio_referencia: null,
-      fuente_referencia: null,
-      precio_sistema: room?.precio ?? null,
-      costo_sistema: room?.costo ?? null,
-      convenio: hotel.convenio,
+    dispatch({
+      type: "set_hotel",
+      index: activeSlot,
+      hotel: withNoktoDefaults({
+        id: hotel.id_hotel,
+        hotel: hotel.nombre_hotel,
+        total,
+        subtotal: room?.costo ?? room?.precio ?? "0",
+        desayuno: room?.incluye_desayuno === 1 ? 1 : 0,
+        habitacion: "SENCILLA",
+        notas: hotel.convenio === 0 ? "TARIFA DINÁMICA" : "",
+        direccion: hotel.direccion,
+        zona: hotel.Ciudad_Zona,
+        priority: activeSlot + 1,
+        distancia: null,
+        checkin: form.check_in,
+        checkout: form.check_out,
+        precio_referencia: null,
+        fuente_referencia: null,
+        precio_sistema: room?.precio ?? null,
+        costo_sistema: room?.costo ?? null,
+        convenio: hotel.convenio,
+      }),
     });
-
-    const updated = [...slots];
-    updated[activeSlot] = nueva;
-    setSlots(updated);
     setActiveSlot(null);
-  };
-
-  const updateSlot = (index: number, patch: Partial<HotelCotizacion>) => {
-    setSlots((prev) => {
-      const updated = [...prev];
-      const slot = updated[index];
-      if (slot) updated[index] = { ...slot, ...patch };
-      return updated;
-    });
-  };
-
-  const updateSlotTotal = (index: number, value: string) => {
-    const total = parseFloat(value) || 0;
-    updateSlot(index, {
-      total: value,
-      subtotal: total > 0 ? (total / 1.16).toFixed(2) : "0",
-    });
-  };
-
-  const updateSlotNoktoNoche = (index: number, value: string) => {
-    setSlots((prev) => {
-      const updated = [...prev];
-      const slot = updated[index];
-      if (!slot) return prev;
-      const noches = calcNoches(slot.checkin, slot.checkout);
-      const n = parseFloat(value) || 0;
-      const precioNoche = (n * NOKTO_CON_IVA).toFixed(2);
-      updated[index] = {
-        ...slot,
-        noktos_noche: value,
-        noktos_estancia: noches > 0 ? (n * noches).toFixed(4) : "0",
-        total: precioNoche,
-        subtotal: (parseFloat(precioNoche) / 1.16).toFixed(2),
-      };
-      return updated;
-    });
-  };
-
-  const updateSlotNoktoEstancia = (index: number, value: string) => {
-    setSlots((prev) => {
-      const updated = [...prev];
-      const slot = updated[index];
-      if (!slot) return prev;
-      const noches = calcNoches(slot.checkin, slot.checkout);
-      const n = parseFloat(value) || 0;
-      const noktosPorNoche = noches > 0 ? n / noches : 0;
-      const precioNoche = (noktosPorNoche * NOKTO_CON_IVA).toFixed(2);
-      updated[index] = {
-        ...slot,
-        noktos_estancia: value,
-        noktos_noche: noches > 0 ? noktosPorNoche.toFixed(4) : "0",
-        total: precioNoche,
-        subtotal: (parseFloat(precioNoche) / 1.16).toFixed(2),
-      };
-      return updated;
-    });
-  };
-
-  const { error } = useAlert();
-
-  const handleGenerarYEnviar = async () => {
-    setLoadingEnvio(true);
-    try {
-      const hoteles = slots
-        .filter((s): s is HotelCotizacion => s !== null)
-        .slice(0, 3)
-        .map((s) => ({
-          id: s.id,
-          nombre: s.hotel,
-          precio_venta: s.total,
-          costo: (parseFloat(s.total) / 1.16).toFixed(2),
-          checkin: s.checkin,
-          checkout: s.checkout,
-          notas: s.notas,
-          enviado: true,
-        }));
-
-      const payload = {
-        correo: {
-          id_correo: correoOrigen?.id_correo ?? null,
-          subject: correoOrigen?.subject ?? null,
-          agent_process: {
-            check_in: form.check_in,
-            check_out: form.check_out,
-          },
-        },
-        hoteles,
-        user: {
-          id: user?.id ?? null,
-          name: user?.name ?? null,
-        },
-      };
-
-      await fetch(
-        "https://n8n-iirj.srv1623687.hstgr.cloud/webhook/e6f345aa-2be8-4c69-80fb-b7e46d5edfd8",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: "Bearer test_token_123456",
-          },
-          body: JSON.stringify(payload),
-        },
-      );
-    } catch (err) {
-      error(err.message || "Error al enviar cotización");
-      console.error("Error al enviar cotización a n8n:", err);
-    } finally {
-      setLoadingEnvio(false);
-    }
   };
 
   const handleDownloadCupon = async (hotel: HotelCotizacion, index: number) => {
@@ -863,8 +1324,8 @@ export default function GenerarCotizacion() {
       a.download = `cotizacion_opcion${index + 1}.pdf`;
       a.click();
       window.URL.revokeObjectURL(url);
-    } catch (err) {
-      error(err.message || "Error al descargar cupón");
+    } catch (err: any) {
+      error(err?.message || "Error al descargar cupón");
     } finally {
       setDownloadingSlot(null);
     }
@@ -887,20 +1348,21 @@ export default function GenerarCotizacion() {
     }
   };
 
-  const deleteSlot = (index: number) => {
-    setSlots((prev) => {
-      const updated = [...prev];
-      updated[index] = null;
-      return updated;
-    });
-  };
+  const slotIds = new Set(slots.filter(Boolean).map((s) => s!.id));
+  const benchHotels = allHotels.filter((h) => !slotIds.has(h.id));
 
-  const move = (index: number, dir: "up" | "down") => {
-    const next = dir === "up" ? index - 1 : index + 1;
-    if (next < 0 || next >= slots.length) return;
-    const updated = [...slots];
-    [updated[index], updated[next]] = [updated[next], updated[index]];
-    setSlots(updated);
+  const handleSwap = (slotIndex: number) => {
+    if (!swapTarget) return;
+    dispatch({
+      type: "set_hotel",
+      index: slotIndex,
+      hotel: {
+        ...swapTarget,
+        checkin: form.check_in,
+        checkout: form.check_out,
+      },
+    });
+    setSwapTarget(null);
   };
 
   const modalSubtitle = [
@@ -914,6 +1376,14 @@ export default function GenerarCotizacion() {
 
   return (
     <>
+      {showCotizacionModal && (
+        <CotizacionModal
+          slots={slots}
+          hotelesContext={hotelesContext}
+          onClose={() => setShowCotizacionModal(false)}
+        />
+      )}
+
       {activeSlot !== null && (
         <Modal
           onClose={() => setActiveSlot(null)}
@@ -932,26 +1402,31 @@ export default function GenerarCotizacion() {
       )}
 
       <div className="flex flex-col gap-4 p-4">
-        {(loadingVis || hasAny) && (
-          <div className="flex items-center gap-4 bg-white border rounded-xl px-5 py-4 shadow-sm">
+        {loadingSearch && (
+          <div className="flex items-center gap-4 rounded-xl px-5 py-4 shadow-sm bg-white">
             <Loader />
             <div>
-              <p className="text-sm font-semibold text-gray-700">
-                La IA está analizando la cotización
+              <p className="text-sm font-semibold">
+                Buscando precios actuales con IA
               </p>
-              <p className="text-xs text-gray-400">
-                Esto puede tardar unos segundos...
+              <p className="text-xs text-gray-500">
+                Consultando Booking.com, Expedia y sitios oficiales...
               </p>
             </div>
           </div>
         )}
 
-        <div className="flex gap-4">
-          {/* Sidebar de búsqueda */}
-          <aside className="w-56 flex-shrink-0 flex flex-col gap-2 bg-white border rounded-xl p-3 shadow-sm h-fit sticky top-4">
-            <h2 className="font-semibold text-gray-800 text-xs">
-              Datos de búsqueda
-            </h2>
+        <section className="w-full flex flex-col gap-2 bg-white border rounded-xl p-3 shadow-sm h-fit">
+          <h2 className="font-semibold text-gray-800 text-xs">
+            Datos de búsqueda
+          </h2>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleGenerarVisualizaciones();
+            }}
+            className="flex gap-3 items-end justify-between"
+          >
             <InputGoogle
               size="lg"
               googleStyle
@@ -967,46 +1442,176 @@ export default function GenerarCotizacion() {
             <DateInput
               label="Check-in *"
               value={form.check_in}
-              onChange={set("check_in")}
-              className="text-xs"
+              onChange={handleCheckInChange}
+              className="text-xs w-full"
             />
             <DateInput
               label="Check-out *"
               value={form.check_out}
-              onChange={set("check_out")}
+              onChange={handleCheckOutChange}
               min={form.check_in || undefined}
-              className="text-xs"
+              className="text-xs w-full"
             />
+
+            {/* Cliente */}
+            <div className="relative w-full">
+              <label className="block text-[10px] font-medium text-gray-500 mb-0.5">
+                Cliente
+              </label>
+              <input
+                type="text"
+                className="w-full border border-gray-300 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-[#0b5fa5]"
+                placeholder="Buscar cliente..."
+                value={clientSearch}
+                onChange={(e) => {
+                  setClientSearch(e.target.value);
+                  setClientOpen(true);
+                  if (!e.target.value) {
+                    setForm((prev) => ({
+                      ...prev,
+                      id_cliente: "",
+                      nombre_cliente: "",
+                    }));
+                  }
+                }}
+                onFocus={() => setClientOpen(true)}
+                onBlur={() => setTimeout(() => setClientOpen(false), 150)}
+              />
+              {clientOpen && filteredClientes.length > 0 && (
+                <ul className="absolute z-50 top-full mt-1 w-full max-h-52 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg">
+                  {filteredClientes.map((c) => (
+                    <li
+                      key={c.id_agente}
+                      onMouseDown={() => handleSelectCliente(c)}
+                      className="px-3 py-2 text-xs cursor-pointer hover:bg-[#f0f6ff] truncate"
+                    >
+                      <span className="font-medium text-gray-800">
+                        {c.nombre_agente_completo}
+                      </span>
+                      {c.correo && (
+                        <span className="ml-1.5 text-gray-400">{c.correo}</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
             <Button
-              size="sm"
+              type="submit"
+              size="md"
+              variant="primary"
               icon={loadingVis ? Loader2 : Eye}
-              disabled={!canGenerate || loadingVis}
-              onClick={handleGenerarVisualizaciones}
+              disabled={loadingVis}
             >
               {loadingVis ? "Buscando..." : "Generar"}
             </Button>
+          </form>
+        </section>
+        <div className="flex gap-4">
+          {/* Bench — otras opciones */}
+          {benchHotels.length > 0 && (
+            <aside className="w-52 flex-shrink-0 flex flex-col gap-2 bg-white border rounded-xl p-3 shadow-sm h-fit sticky top-4">
+              <h2 className="font-semibold text-gray-800 text-xs">
+                Otras opciones ({benchHotels.length})
+              </h2>
 
-            <p className="text-[10px] text-gray-400 text-center -mt-1">
-              {form.lat === null
-                ? "Selecciona una ubicación"
-                : "Check-in y check-out son obligatorios"}
-            </p>
-            {/* {hasAny && (
-              <div className="border-t pt-2">
-                <Button
-                  size="sm"
-                  icon={loadingEnvio ? Loader2 : Send}
-                  disabled={loadingEnvio}
-                  onClick={handleGenerarYEnviar}
-                >
-                  {loadingEnvio ? "Enviando..." : "Enviar cotización"}
-                </Button>
-              </div>
-            )} */}
-          </aside>
+              {/* Picker de slot cuando hay swapTarget */}
+              {swapTarget && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-2 flex flex-col gap-1.5">
+                  <p className="text-[10px] font-semibold text-blue-700 leading-snug">
+                    ¿En qué prioridad poner{" "}
+                    <span className="font-bold">{swapTarget.hotel}</span>?
+                  </p>
+                  <div className="flex flex-col gap-1">
+                    {slots.map((s, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => handleSwap(i)}
+                        className="text-left text-[10px] px-2 py-1 rounded bg-white border border-blue-300 hover:bg-blue-100 transition-colors"
+                      >
+                        <span className="font-bold text-blue-700">
+                          Prioridad {i + 1}
+                        </span>
+                        {s && (
+                          <span className="text-gray-500 ml-1 truncate block">
+                            {s.hotel}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSwapTarget(null)}
+                    className="text-[10px] text-gray-400 hover:text-gray-600 text-center mt-0.5"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              )}
+
+              <ul className="flex flex-col gap-1 max-h-[60vh] overflow-y-auto">
+                {benchHotels.map((h) => (
+                  <li
+                    key={h.id}
+                    className={`rounded-lg border p-2 flex flex-col gap-1 transition-colors ${
+                      swapTarget?.id === h.id
+                        ? "border-blue-400 bg-blue-50"
+                        : "border-gray-200 bg-gray-50"
+                    }`}
+                  >
+                    <span className="text-[10px] font-semibold text-gray-800 leading-snug line-clamp-2">
+                      {h.hotel}
+                    </span>
+                    {parseFloat(h.total) > 0 && (
+                      <span className="text-[10px] text-blue-600 font-bold">
+                        $
+                        {formatNumber(parseFloat(h.total), {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                        <span className="text-gray-400 font-normal">
+                          {" "}
+                          / noche
+                        </span>
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSwapTarget(swapTarget?.id === h.id ? null : h)
+                      }
+                      className={`mt-0.5 text-[10px] font-medium px-2 py-0.5 rounded border transition-colors ${
+                        swapTarget?.id === h.id
+                          ? "bg-blue-600 text-white border-blue-600"
+                          : "text-[#0b5fa5] border-[#0b5fa5] hover:bg-[#f0f6ff]"
+                      }`}
+                    >
+                      {swapTarget?.id === h.id
+                        ? "Seleccionado"
+                        : "Cambiar opción"}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </aside>
+          )}
 
           {/* Slots */}
           <section className="flex-1 flex flex-col gap-3 bg-gray-50 border rounded-xl p-3 shadow-sm">
+            {hasAny && (
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={() => setShowCotizacionModal(true)}
+                >
+                  Generar Cotización
+                </Button>
+              </div>
+            )}
             {loadingVis ? (
               <div className="flex flex-col items-center justify-center flex-1 py-16 gap-2">
                 <Loader />
@@ -1016,64 +1621,45 @@ export default function GenerarCotizacion() {
               </div>
             ) : (
               <>
-                <div className="flex items-center justify-between">
-                  <h2 className="font-semibold text-gray-800 text-xs">
-                    {hasAny
-                      ? "Cotizaciones — usa las flechas para cambiar prioridad"
-                      : "Las cotizaciones aparecerán aquí"}
-                  </h2>
-                  {hasAny && (
-                    <span className="text-[10px] text-gray-400">
-                      Solo las primeras 3 prioridades se enviarán
-                    </span>
-                  )}
-                </div>
-
                 <div className="flex flex-col gap-4">
                   {slots.map((hotel, index) =>
                     hotel ? (
                       <HotelCard
                         key={index}
                         hotel={hotel}
-                        priority={index + 1}
-                        isFirst={index === 0}
-                        isLast={index === slots.length - 1}
-                        canEdit={canGenerate}
+                        index={index}
                         downloading={downloadingSlot === index}
-                        onUp={() => move(index, "up")}
-                        onDown={() => move(index, "down")}
-                        onEdit={() => handleSlotAction(index)}
-                        onDelete={() => deleteSlot(index)}
-                        onDownload={() => handleDownloadCupon(hotel, index)}
                         downloadingImage={downloadingImageSlot === index}
+                        dispatch={dispatch}
+                        onEdit={() => setActiveSlot(index)}
+                        onDownload={() => handleDownloadCupon(hotel, index)}
                         onDownloadImagen={() => handleDownloadImagen(index)}
                         cuponRef={(el) => {
                           cuponRefs.current[index] = el;
                         }}
-                        onTotalChange={(v) => updateSlotTotal(index, v)}
-                        onDesayunoChange={(v) =>
-                          updateSlot(index, { desayuno: v })
-                        }
-                        onHabitacionChange={(v) =>
-                          updateSlot(index, { habitacion: v })
-                        }
-                        onNotasChange={(v) => updateSlot(index, { notas: v })}
-                        onNoktoNocheChange={(v) =>
-                          updateSlotNoktoNoche(index, v)
-                        }
-                        onNoktoEstanciaChange={(v) =>
-                          updateSlotNoktoEstancia(index, v)
-                        }
-                        onMostrarTotalEstanciaChange={(v) =>
-                          updateSlot(index, { mostrar_total_estancia: v })
+                        precioIA={
+                          loadingSearch
+                            ? undefined
+                            : (preciosIA.get(
+                                hotel.hotel.toLowerCase().trim(),
+                              ) ?? null)
                         }
                       />
                     ) : (
                       <EmptySlotCard
                         key={index}
                         priority={index + 1}
-                        onAdd={() => handleSlotAction(index)}
-                        canAdd={canGenerate}
+                        onAdd={() =>
+                          dispatch({
+                            type: "set_hotel",
+                            index,
+                            hotel: blankHotel(
+                              index,
+                              form.check_in,
+                              form.check_out,
+                            ),
+                          })
+                        }
                       />
                     ),
                   )}

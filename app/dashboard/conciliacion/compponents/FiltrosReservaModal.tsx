@@ -10,9 +10,7 @@ export type ConciliacionFilters = {
   cliente: string;
   viajero: string;
   hotel: string;
-  estado_solicitud: string;
   estado_facturacion: string;
-  forma_pago: string;
   created_start: string;
   created_end: string;
   check_in_start: string;
@@ -21,16 +19,17 @@ export type ConciliacionFilters = {
   check_out_end: string;
 
   id_cliente: string;
-  estado_reserva: string;
   etapa_reservacion: string;
-  reservante: string;
-  metodo_pago_reserva: string;
   fecha_reserva_start: string;
   fecha_reserva_end: string;
   filtrar_fecha_por_reserva: string;
 
   comentarios: string;
   comentario_CXP: string;
+
+  tipo_reserva_pago: string;
+  pagos_parciales: string;
+  metodo_pago_reserva: string;
 };
 
 type Props = {
@@ -40,12 +39,6 @@ type Props = {
   onApply: () => void;
   onClear: () => void;
   onClose: () => void;
-  options?: {
-    estadoReserva?: string[];
-    etapaReservacion?: string[];
-    reservante?: string[];
-    metodoPagoReserva?: string[];
-  };
 };
 
 function Field({
@@ -142,7 +135,6 @@ export default function FiltrosConciliacionModal({
   onApply,
   onClear,
   onClose,
-  options, 
 }: Props) {
   if (!open) return null;
 
@@ -163,8 +155,10 @@ export default function FiltrosConciliacionModal({
         </div>
 
         <div className="p-5 space-y-6">
+
+          {/* ── General ─────────────────────────────────────────────── */}
           <div>
-            <h3 className="text-sm font-semibold text-gray-800 mb-3">Filtros actuales</h3>
+            <h3 className="text-sm font-semibold text-gray-800 mb-3">General</h3>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               <Field label="Código de reservación">
                 <InputWithClear
@@ -197,7 +191,13 @@ export default function FiltrosConciliacionModal({
                   onClear={() => onChange("hotel", "")}
                 />
               </Field>
+            </div>
+          </div>
 
+          {/* ── Solicitud de pago ────────────────────────────────────── */}
+          <div>
+            <h3 className="text-sm font-semibold text-gray-800 mb-3">Solicitud de pago</h3>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               <Field label="Creado desde">
                 <InputWithClear
                   type="date"
@@ -216,6 +216,59 @@ export default function FiltrosConciliacionModal({
                 />
               </Field>
 
+              <Field label="Tipo de solicitud (pago)">
+                <SelectWithClear
+                  value={filters.tipo_reserva_pago}
+                  onChange={(v) => onChange("tipo_reserva_pago", v)}
+                  onClear={() => onChange("tipo_reserva_pago", "")}
+                  options={["CREDITO", "PREPAGO"]}
+                  placeholder="Todos"
+                />
+              </Field>
+
+              <Field label="Pagos parciales">
+                <SelectWithClear
+                  value={filters.pagos_parciales}
+                  onChange={(v) => onChange("pagos_parciales", v)}
+                  onClear={() => onChange("pagos_parciales", "")}
+                  options={["SI", "NO"]}
+                  placeholder="Todos"
+                />
+              </Field>
+
+              <Field label="Estatus facturación">
+                <SelectWithClear
+                  value={filters.estado_facturacion}
+                  onChange={(v) => onChange("estado_facturacion", v)}
+                  onClear={() => onChange("estado_facturacion", "")}
+                  options={["pendiente", "parcial", "completo"]}
+                />
+              </Field>
+
+              <Field label="Comentarios Ops">
+                <InputWithClear
+                  value={filters.comentarios}
+                  onChange={(v) => onChange("comentarios", v)}
+                  onClear={() => onChange("comentarios", "")}
+                  placeholder="Buscar en comentarios"
+                />
+              </Field>
+
+              <Field label="Comentario CXP">
+                <InputWithClear
+                  value={filters.comentario_CXP}
+                  onChange={(v) => onChange("comentario_CXP", v)}
+                  onClear={() => onChange("comentario_CXP", "")}
+                  placeholder="Buscar en comentario CXP"
+                />
+              </Field>
+            </div>
+          </div>
+
+          {/* ── Reserva ──────────────────────────────────────────────── */}
+          <div>
+            <h3 className="text-sm font-semibold text-gray-800 mb-3">Reserva</h3>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               <Field label="Check-in desde">
                 <InputWithClear
                   type="date"
@@ -252,106 +305,31 @@ export default function FiltrosConciliacionModal({
                 />
               </Field>
 
-              <Field label="Estatus facturación">
-                <SelectWithClear
-                  value={filters.estado_facturacion}
-                  onChange={(v) => onChange("estado_facturacion", v)}
-                  onClear={() => onChange("estado_facturacion", "")}
-                  options={["pendiente", "parcial", "completo"]}
-                />
-              </Field>
-
-              <Field label="Estatus solicitud">
-                <SelectWithClear
-                  value={filters.estado_solicitud}
-                  onChange={(v) => onChange("estado_solicitud", v)}
-                  onClear={() => onChange("estado_solicitud", "")}
-                  options={[
-                    "CARTA_ENVIADA",
-                    "PAGADO TARJETA",
-                    "TRANSFERENCIA_SOLICITADA",
-                    "PAGADO TRANSFERENCIA",
-                    "PAGADO LINK",
-                    "SOLICITADA",
-                    "CUPON ENVIADO",
-                    "CANCELADA",
-                    "DISPERSION",
-                  ]}
-                />
-              </Field>
-
-              <Field label="Forma de pago solicitud">
-                <SelectWithClear
-                  value={filters.forma_pago}
-                  onChange={(v) => onChange("forma_pago", v)}
-                  onClear={() => onChange("forma_pago", "")}
-                  options={["card", "transfer", "link", "credit"]}
-                />
-              </Field>
-              <Field label="Comentarios Ops">
-                <InputWithClear
-                  value={filters.comentarios}
-                  onChange={(v) => onChange("comentarios", v)}
-                  onClear={() => onChange("comentarios", "")}
-                  placeholder="Buscar en comentarios"
-                />
-              </Field>
-
-              <Field label="Comentario CXP">
-                <InputWithClear
-                  value={filters.comentario_CXP}
-                  onChange={(v) => onChange("comentario_CXP", v)}
-                  onClear={() => onChange("comentario_CXP", "")}
-                  placeholder="Buscar en comentario CXP"
-                />
-              </Field>
-            </div>
-          </div>
-
-          <div>
-            <h3 className="text-sm font-semibold text-gray-800 mb-3">Filtros de reserva</h3>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-              <Field label="ID del cliente">
-                <InputWithClear
-                  value={filters.id_cliente}
-                  onChange={(v) => onChange("id_cliente", v)}
-                  onClear={() => onChange("id_cliente", "")}
-                />
-              </Field>
-
-              <Field label="Estado">
-                <SelectWithClear
-                  value={filters.estado_reserva}
-                  onChange={(v) => onChange("estado_reserva", v)}
-                  onClear={() => onChange("estado_reserva", "")}
-                  options={options?.estadoReserva ?? []}
-                />
-              </Field>
-
               <Field label="Etapa de reservación">
                 <SelectWithClear
                   value={filters.etapa_reservacion}
                   onChange={(v) => onChange("etapa_reservacion", v)}
                   onClear={() => onChange("etapa_reservacion", "")}
-                  options={options?.etapaReservacion ?? []}
+                  options={["check_in", "in home", "check_out"]}
+                  placeholder="Todas"
                 />
               </Field>
 
-              <Field label="Reservante">
-                <SelectWithClear
-                  value={filters.reservante}
-                  onChange={(v) => onChange("reservante", v)}
-                  onClear={() => onChange("reservante", "")}
-                  options={options?.reservante ?? []}
-                />
-              </Field>
-
-              <Field label="Método de pago">
+              <Field label="Método pago reserva">
                 <SelectWithClear
                   value={filters.metodo_pago_reserva}
                   onChange={(v) => onChange("metodo_pago_reserva", v)}
                   onClear={() => onChange("metodo_pago_reserva", "")}
-                  options={options?.metodoPagoReserva ?? []}
+                  options={["PREPAGO", "CREDITO"]}
+                  placeholder="Todos"
+                />
+              </Field>
+
+              <Field label="ID del cliente">
+                <InputWithClear
+                  value={filters.id_cliente}
+                  onChange={(v) => onChange("id_cliente", v)}
+                  onClear={() => onChange("id_cliente", "")}
                 />
               </Field>
 

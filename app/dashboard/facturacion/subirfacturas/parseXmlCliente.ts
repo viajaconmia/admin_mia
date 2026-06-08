@@ -38,9 +38,10 @@ export async function parsearXML(xmlFile: File): Promise<any> {
         };
 
         const getElementsByLocalName = (
-          root: Document | Element,
+          root: Document | Element | null | undefined,
           localName: string
         ): Element[] => {
+          if (!root) return [];
           return Array.from(root.getElementsByTagName("*")).filter(
             (el) => normalizeName(el.tagName) === normalizeName(localName)
           );
@@ -110,10 +111,11 @@ export async function parsearXML(xmlFile: File): Promise<any> {
 
         const impuestos = getFirstByLocalName(xmlDoc, "Impuestos");
 
-        const trasladoGlobal =
-          impuestos?.getElementsByTagName("cfdi:Traslado")[0] ||
-          getFirstByLocalName(impuestos as Element, "Traslado") ||
-          null;
+        const trasladoGlobal = impuestos
+          ? (impuestos.getElementsByTagName("cfdi:Traslado")[0] ||
+             getFirstByLocalName(impuestos, "Traslado") ||
+             null)
+          : null;
 
         const impuestosLocales = getFirstByLocalName(xmlDoc, "ImpuestosLocales");
 

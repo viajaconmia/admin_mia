@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+﻿import React, { useEffect, useState, useRef } from "react";
 import { DollarSign, X, Moon, Shuffle, Search } from "lucide-react";
 import { URL, API_KEY } from "@/lib/constants/index";
 import { Table3 } from "@/components/organism/Table3";
@@ -27,12 +27,14 @@ interface ReservaConItems {
   id_reserva: string;
   codigo_reserva: string;
   codigo_reservacion_hotel: string;
+  codigo_confirmacion?: string;
   items: Array<{
     id_item: string;
     descripcion: string;
     precio: number;
   }>;
   nombre_hotel: string;
+  proveedor?: string;
   check_in: string;
   check_out: string;
   viajero: string;
@@ -244,6 +246,7 @@ const effectiveSaldoData =
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
+  const [montosParciales, setMontosParciales] = useState<Record<string, string>>({});
   const [itemsSaldo, setItemsSaldo] = useState<Record<string, number>>({});
   const [originalSaldoItems, setOriginalSaldoItems] = useState<
     Record<string, number>
@@ -373,9 +376,9 @@ const [busquedaReserva, setBusquedaReserva] = useState("");
 
         setItemsSaldo((prevSaldo) => ({
           ...prevSaldo,
-          [id_item]: toMoney(saldoOriginal), // restaurar “original” visible
+          [id_item]: toMoney(saldoOriginal),
         }));
-
+        setMontosParciales((prev) => { const next = { ...prev }; delete next[id_item]; return next; });
         setMontoSeleccionado(fromCents(newTotalC));
         setMontoRestante(fromCents(restanteC));
         return newSelection;
@@ -395,13 +398,13 @@ const [busquedaReserva, setBusquedaReserva] = useState("");
 
       if (aplicarC <= 0) return prev;
 
-      // nuevo saldo restante del item
       const nuevoSaldoItemC = currentSaldoC - aplicarC;
 
       setItemsSaldo((prevSaldo) => ({
         ...prevSaldo,
         [id_item]: fromCents(nuevoSaldoItemC),
       }));
+      setMontosParciales((prev) => ({ ...prev, [id_item]: fromCents(aplicarC).toFixed(2) }));
 
       const newTotalC = currentTotalC + aplicarC;
       const restanteC = saldoDisponibleTotalC - newTotalC;
@@ -411,6 +414,35 @@ const [busquedaReserva, setBusquedaReserva] = useState("");
 
       return [...prev, { id_item, saldo: fromCents(aplicarC) }];
     });
+  };
+
+  const handleMontoParcialChange = (
+    id_item: string,
+    rawValue: string,
+    saldoMaxItem: number,
+  ) => {
+    setMontosParciales((prev) => ({ ...prev, [id_item]: rawValue }));
+
+    const parsed = parseFloat(rawValue);
+    if (isNaN(parsed) || parsed < 0) return;
+
+    const otrosC = selectedItems
+      .filter((i) => i.id_item !== id_item)
+      .reduce((acc, i) => acc + toCents(i.saldo), 0);
+
+    const disponibleC = Math.max(0, toCents(effectiveSaldoData.saldo) - otrosC);
+    const aplicarC = Math.min(toCents(parsed), toCents(saldoMaxItem), disponibleC);
+    const aplicar = fromCents(aplicarC);
+
+    setSelectedItems((prev) =>
+      prev.map((item) =>
+        item.id_item === id_item ? { ...item, saldo: aplicar } : item,
+      ),
+    );
+
+    const nuevoTotalC = otrosC + aplicarC;
+    setMontoSeleccionado(fromCents(nuevoTotalC));
+    setMontoRestante(fromCents(Math.max(0, toCents(effectiveSaldoData.saldo) - nuevoTotalC)));
   };
 
   const isItemSelected = (id_item: string): boolean => {
@@ -448,7 +480,7 @@ const [busquedaReserva, setBusquedaReserva] = useState("");
       let payload;
       let endpoint;
 
-      if (reservaData && isZeroMoney(montorestante)) {
+      if (reservaData) {
         payload = {
           bandera: 1, // Siempre 1
           hotel: reservaData.hotel||reservaData.proveedor || null, // Corregido: Usa el objeto 'hotel' completo
@@ -472,15 +504,12 @@ const [busquedaReserva, setBusquedaReserva] = useState("");
             const originalItem = saldoFavorData.find(
               (sf) => `saldo-${sf.id_saldos}` === item.id_item,
             );
-            const appliedAmount =
-              originalSaldoItems[item.id_item] -
-              (itemsSaldo[item.id_item] || 0);
 
             return {
               id_saldo: originalItem?.id_saldos || "",
               saldo_original: originalItem?.saldo || 0,
               saldo_actual: itemsSaldo[item.id_item] || 0,
-              aplicado: appliedAmount,
+              aplicado: item.saldo,
               id_agente: effectiveSaldoData.id_agente,
               metodo_de_pago: originalItem?.metodo_pago || "wallet",
               fecha_pago: originalItem?.fecha_pago || "",
@@ -494,18 +523,12 @@ const [busquedaReserva, setBusquedaReserva] = useState("");
           }),
         };
         endpoint = "/mia/reservas/operaciones";
-      } else if (reservaData && !isZeroMoney(montorestante)) {
-        console.log("montoRestante", montorestante);
-        alert("Para registrar el pago, debes cubrir el total de la reserva.");
-        return;
       } else if (facturaData) {
         const ejemplo_saldos = selectedItems.map((item) => {
           const originalItem = saldoFavorData.find(
             (sf) => `saldo-${sf.id_saldos}` === item.id_item,
           );
-          const aplicado =
-            (originalSaldoItems[item.id_item] ?? 0) -
-            (itemsSaldo[item.id_item] ?? 0);
+          const aplicado = item.saldo;
           console.log(
             "informacion",
             saldoFavorData,
@@ -561,28 +584,32 @@ const [busquedaReserva, setBusquedaReserva] = useState("");
           })),
         );
 
+        const totalAplicado = sumMoney(selectedItems.map((i) => i.saldo));
+        const saldoWalletNuevo = formatToTwoDecimals(
+          toMoney(effectiveSaldoData.saldo) - totalAplicado,
+        );
+
         payload = {
           SaldoAFavor: {
             ...rowData,
-            saldo: formatToTwoDecimals(montorestante),
+            saldo: saldoWalletNuevo,
           },
           items_seleccionados: selectedItems.map((item) => {
             const itemData = tableDataToUse.find(
               (td) => td.id_item === item.id_item,
             );
-            const saldoItem = itemsSaldo[item.id_item] || 0;
+            const montoAplicado = formatToTwoDecimals(item.saldo);
             const totalItem = itemData?.total || 0;
             const servicioItem = itemData?.id_servicio || "";
             const saldoOriginal = originalSaldoItems[item.id_item] || 0;
-            const fraccionado =
-              saldoItem === 0 ? 0 : formatToTwoDecimals(totalItem - saldoItem);
+            const saldonuevo = formatToTwoDecimals(saldoOriginal - montoAplicado);
 
             return {
               total: formatToTwoDecimals(totalItem),
               saldo: formatToTwoDecimals(saldoOriginal),
-              saldonuevo: formatToTwoDecimals(saldoItem),
+              saldonuevo,
               id_item: item.id_item,
-              fraccion: fraccionado,
+              fraccion: montoAplicado,
               id_servicio: servicioItem,
             };
           }),
@@ -683,6 +710,13 @@ const [busquedaReserva, setBusquedaReserva] = useState("");
               : itemsSaldo[`saldo-${saldo.id_saldos}`] !== undefined
                 ? itemsSaldo[`saldo-${saldo.id_saldos}`]
                 : Number(saldo.saldo) || 0,
+            monto_a_ingresar: `saldo-${saldo.id_saldos}`,
+            monto_asociar: {
+              id_item: `saldo-${saldo.id_saldos}`,
+              saldoMax: facturaData
+                ? Number(saldo.monto_por_facturar)
+                : Number(saldo.saldo),
+            },
           }))
       : // Datos del flujo existente
         reservas.flatMap((reserva) =>
@@ -699,6 +733,7 @@ const [busquedaReserva, setBusquedaReserva] = useState("");
                 ? itemsSaldo[item.id_item]
                 : item.saldo,
             seleccionado: item,
+            monto_asociar: item,
             item: item,
           })),
         );
@@ -751,19 +786,19 @@ const buscarYSeleccionarReserva = () => {
     reservaData || facturaData
       ? {
           // Renderers para el nuevo flujo (SaldoFavor)
-          seleccionado: ({ value }: { value: any }) => (
-            <input
-              type="checkbox"
-              checked={isItemSelected(`saldo-${value.id_saldos}`)}
-              onChange={() =>
-                handleItemSelection(
-                  `saldo-${value.id_saldos}`,
-                  Number(facturaData ? value.monto_por_facturar : value.saldo),
-                )
-              }
-              className={`h-4 w-4 focus:ring-blue-500 border-gray-300 rounded`}
-            />
-          ),
+          seleccionado: ({ value }: { value: any }) => {
+            const id_item = `saldo-${value.id_saldos}`;
+            const selected = isItemSelected(id_item);
+            const saldoMax = Number(facturaData ? value.monto_por_facturar : value.saldo);
+            return (
+              <input
+                type="checkbox"
+                checked={selected}
+                onChange={() => handleItemSelection(id_item, saldoMax)}
+                className="h-4 w-4 focus:ring-blue-500 border-gray-300 rounded"
+              />
+            );
+          },
           creado: ({ value }: { value: Date | null }) => {
             if (!value)
               return <div className="text-gray-400 italic">Sin fecha</div>;
@@ -809,6 +844,38 @@ const buscarYSeleccionarReserva = () => {
               {value || "N/A"}
             </span>
           ),
+          monto_a_ingresar: ({ value }: { value: string }) => {
+            const selItem = selectedItems.find((i) => i.id_item === value);
+            const monto = selItem ? selItem.saldo : 0;
+            return (
+              <span
+                className={`font-medium text-sm px-2 py-1 rounded flex items-center justify-center ${
+                  monto > 0
+                    ? "bg-orange-50 text-orange-600 font-semibold"
+                    : "text-gray-400"
+                }`}
+              >
+                {monto > 0 ? `$${monto.toFixed(2)}` : "—"}
+              </span>
+            );
+          },
+          monto_asociar: ({ value }: { value: { id_item: string; saldoMax: number } }) => {
+            const selected = isItemSelected(value.id_item);
+            if (!selected) return <span className="text-gray-300">—</span>;
+            return (
+              <input
+                type="number"
+                min="0.01"
+                max={value.saldoMax}
+                step="0.01"
+                value={montosParciales[value.id_item] ?? ""}
+                onChange={(e) => handleMontoParcialChange(value.id_item, e.target.value, value.saldoMax)}
+                onClick={(e) => e.stopPropagation()}
+                placeholder="0.00"
+                className="w-24 text-xs border border-blue-300 rounded px-1 py-0.5 text-center focus:outline-none focus:ring-1 focus:ring-blue-400"
+              />
+            );
+          },
         }
       : {
           // Renderers para el flujo existente
@@ -822,14 +889,34 @@ const buscarYSeleccionarReserva = () => {
               {formatIdItem(value)}
             </span>
           ),
-          seleccionado: ({ value }: { value: TableRow }) => (
-            <input
-              type="checkbox"
-              checked={isItemSelected(value.id_item)}
-              onChange={() => handleItemSelection(value.id_item, value.saldo)}
-              className={`h-4 w-4 focus:ring-blue-500 border-gray-300 rounded`}
-            />
-          ),
+          seleccionado: ({ value }: { value: TableRow }) => {
+            const selected = isItemSelected(value.id_item);
+            return (
+              <input
+                type="checkbox"
+                checked={selected}
+                onChange={() => handleItemSelection(value.id_item, value.saldo)}
+                className="h-4 w-4 focus:ring-blue-500 border-gray-300 rounded"
+              />
+            );
+          },
+          monto_asociar: ({ value }: { value: TableRow }) => {
+            const selected = isItemSelected(value.id_item);
+            if (!selected) return <span className="text-gray-300">—</span>;
+            return (
+              <input
+                type="number"
+                min="0.01"
+                max={value.saldo}
+                step="0.01"
+                value={montosParciales[value.id_item] ?? ""}
+                onChange={(e) => handleMontoParcialChange(value.id_item, e.target.value, value.saldo)}
+                onClick={(e) => e.stopPropagation()}
+                placeholder="0.00"
+                className="w-24 text-xs border border-blue-300 rounded px-1 py-0.5 text-center focus:outline-none focus:ring-1 focus:ring-blue-400"
+              />
+            );
+          },
           total: ({ value }: { value: number }) => (
             <span className="font-medium text-sm px-2 py-1 rounded flex items-center justify-center bg-blue-50 text-blue-600">
               ${value}
@@ -880,15 +967,18 @@ const buscarYSeleccionarReserva = () => {
     reservaData || facturaData
       ? [
           "seleccionado",
+          "monto_asociar",
           "creado",
           "monto_pagado",
           "saldo",
           "forma_De_Pago",
           "tipo_tarjeta",
           "saldo_restante",
+          "monto_a_ingresar",
         ]
       : [
           "seleccionado",
+          "monto_asociar",
           "codigo_reservacion",
           "hotel",
           "fecha_uso",

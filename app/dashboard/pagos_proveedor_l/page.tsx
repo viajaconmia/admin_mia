@@ -2,17 +2,13 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 
-import { fetchGetSolicitudesFiltradas } from "@/services/pago_proveedor";
+import { fetchSolicitudesLu } from "@/services/pago_proveedor";
 import { OtrosMetodosPagoModal } from "@/app/dashboard/pagos_proveedor/Components/OtrosMetodosPagoModal";
 import ModalDetalle from "@/app/dashboard/conciliacion/detalles";
 import { calcularNoches } from "@/helpers/utils";
 import { formatDate } from "@/helpers/formater";
-import {
-  getIdSolProv,
-  getMontoSolicitado,
-  getProveedorCuentas,
-} from "@/app/dashboard/pagos_proveedor/Components/helpers";
-import { ExternalLink, RefreshCw, Upload, X, Eye } from "lucide-react";
+import { RefreshCw, Upload, X, Eye, ZoomIn, ZoomOut, Bell } from "lucide-react";
+import Link from "next/link";
 import { Loader } from "@/components/atom/Loader";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -31,9 +27,13 @@ type SolicitudRow = {
   check_out: string | null;
   noches: number;
   markup: number;
-  datos_bancarios: string;
+  banco: string | null;
+  cuenta: string | null;
+  titular_cuenta: string | null;
   caratula: string | null;
   estatus: string;
+  codigo_dispersion: string | null;
+  revision_pendiente: number | null;
   raw: any;
 };
 
@@ -52,61 +52,41 @@ const fmtMoney = (n: number) =>
     maximumFractionDigits: 2,
   })}`;
 
-
-const getEstatus = (raw: any): string =>
-  String(
-    raw?.solicitud_proveedor?.estado_solicitud ??
-      raw?.estado_solicitud ??
-      raw?.estatus_pagos ??
-      "—",
-  ).toUpperCase();
-
-const getDatosBancarios = (raw: any): string => {
-  const cuentas = getProveedorCuentas(raw);
-  if (!cuentas.length) return "—";
-  const c = cuentas[0] as any;
-  const cuenta = c?.cuenta ?? c?.clabe ?? c?.numero_cuenta ?? "";
-  const banco = c?.banco ?? c?.banco_emisor ?? "";
-  if (!cuenta) return "—";
-  return [banco, cuenta].filter(Boolean).join(" · ");
+const GROUP_COLOR = {
+  bg: "bg-blue-200",
+  border: "border-l-blue-400",
+  badge: "bg-blue-100 text-blue-700 border-blue-200",
+  headerBadge: "bg-blue-600 text-white border-blue-700",
 };
 
-const getCaratula = (raw: any): string | null => {
-  const pagos: any[] = raw?.pagos ?? raw?.pago_proveedores ?? [];
-  if (Array.isArray(pagos)) {
-    for (const p of pagos) {
-      if (p?.url_pdf) return p.url_pdf;
-    }
-  }
-  return raw?.url_pdf ?? raw?.solicitud_proveedor?.url_pdf ?? null;
-};
 
-const mapRaw = (raw: any): SolicitudRow => {
-  const id_solicitud_proveedor = getIdSolProv(raw);
-  const monto_solicitado = getMontoSolicitado(raw);
-  const costo_proveedor = Number(raw?.costo_total ?? 0);
-  const precio_de_venta = Number(raw?.total ?? 0);
-  const markup =
-    precio_de_venta > 0
-      ? ((precio_de_venta - costo_proveedor) / precio_de_venta) * 100
-      : 0;
+const mapLuRow = (raw: any): SolicitudRow => {
+  const check_in = raw?.["CHECK IN"] ?? null;
+  const check_out = raw?.["CHECK OUT"] ?? null;
+  const costo_proveedor = Number(raw?.["COSTO PROV."] ?? 0);
+  const precio_de_venta = Number(raw?.["PX VENTA"] ?? 0);
 
   return {
-    id_solicitud_proveedor,
-    proveedor: (raw?.hotel ?? "").toUpperCase(),
-    codigo_confirmacion: raw?.codigo_confirmacion ?? "—",
-    nombre_comercial: raw?.nombre_identificacion,
+    id_solicitud_proveedor: String(raw?.["ID SOL."] ?? ""),
+    proveedor: String(raw?.["PROVEEDOR"] ?? "").toUpperCase(),
+    codigo_confirmacion: raw?.["CÓD. CONFIRM."] ?? "—",
     costo_proveedor,
-    monto_solicitado,
-    cliente: (raw?.agente ?? "").toUpperCase(),
+    monto_solicitado: Number(raw?.["MONTO SOL."] ?? 0),
+    cliente: String(raw?.["CLIENTE"] ?? "").toUpperCase(),
     precio_de_venta,
-    check_in: raw?.check_in ?? null,
-    check_out: raw?.check_out ?? null,
-    noches: calcularNoches(raw?.check_in, raw?.check_out),
-    markup,
-    datos_bancarios: getDatosBancarios(raw),
-    caratula: getCaratula(raw),
-    estatus: getEstatus(raw),
+    check_in,
+    check_out,
+    noches: calcularNoches(check_in, check_out),
+    markup: costo_proveedor > 0
+      ? ((precio_de_venta - costo_proveedor) / costo_proveedor) * 100
+      : 0,
+    banco: raw?.["banco"] ?? null,
+    cuenta: raw?.["cuenta"] ?? null,
+    titular_cuenta: raw?.["titular"] ?? null,
+    caratula: raw?.["url_caratula"] ?? null,
+    estatus: String(raw?.["ESTATUS"] ?? "—").toUpperCase(),
+    codigo_dispersion: raw?.["codigo_dispersion"] ?? raw?.["CÓDIGO DISPERSIÓN"] ?? null,
+    revision_pendiente: raw?.["revision_pendiente"] ?? null,
     raw,
   };
 };
@@ -120,33 +100,22 @@ function useSolicitudes(tab: Tab) {
   const [limite, setLimite] = useState("100");
 
   const fetchData = useCallback(
-    async (limiteArg?: string) => {
+    async (_limiteArg?: string) => {
       setLoading(true);
       setError(null);
       try {
-        const lim = Number(limiteArg ?? limite) || 100;
         const estado =
-          tab === "dispersion" ? "DISPERSION" : "PAGADO TRANSFERENCIA";
+          tab === "dispersion" ? "Dispersion" : "PAGADO TRANSFERENCIA";
 
-        await fetchGetSolicitudesFiltradas(
-          (json) => {
-            const rawList: any[] =
-              tab === "dispersion"
-                ? (json?.data?.spei ?? [])
-                : (json?.data?.pagada ?? []);
-            setRows(rawList.map(mapRaw));
-          },
-          { estado_solicitud: estado },
-          lim,
-          1,
-        );
+        const rawList = await fetchSolicitudesLu(estado);
+        setRows(rawList.map(mapLuRow));
       } catch (e: any) {
         setError(e?.message ?? "Error al cargar solicitudes");
       } finally {
         setLoading(false);
-      }
+      } 
     },
-    [tab, limite],
+    [tab],
   );
 
   useEffect(() => {
@@ -184,6 +153,8 @@ export default function PagosProveedorL() {
   );
   const [showModal, setShowModal] = useState(false);
   const [detalleId, setDetalleId] = useState<string | null>(null);
+  const [caratulaUrl, setCaratulaUrl] = useState<string | null>(null);
+  const [revisionRow, setRevisionRow] = useState<SolicitudRow | null>(null);
   const [search, setSearch] = useState("");
 
   // Limpiar selección al cambiar tab
@@ -194,25 +165,47 @@ export default function PagosProveedorL() {
 
   const filteredRows = useMemo(() => {
     const q = search.trim().toUpperCase();
-    console.log(rows);
     if (!q) return rows;
     return rows.filter(
       (r) =>
         r.proveedor.includes(q) ||
         r.codigo_confirmacion.toUpperCase().includes(q) ||
         r.cliente.includes(q) ||
-        r.id_solicitud_proveedor.includes(q),
+        r.id_solicitud_proveedor.includes(q) ||
+        (r.codigo_dispersion ?? "").toUpperCase().includes(q),
     );
   }, [rows, search]);
 
+  const groupedRows = useMemo(() => {
+    const map = new Map<string, SolicitudRow[]>();
+    for (const row of filteredRows) {
+      const key = row.codigo_dispersion ?? "__sin_codigo__";
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(row);
+    }
+    return Array.from(map.entries()).map(([codigo, rows]) => ({
+      codigo,
+      rows,
+      total: rows.reduce((sum, r) => sum + r.monto_solicitado, 0),
+    }));
+  }, [filteredRows]);
+
   const isDispersion = tab === "dispersion";
-  const allSelected =
-    filteredRows.length > 0 &&
-    filteredRows.every((r) => !!selectedMap[r.id_solicitud_proveedor]);
   const selectedCount = Object.keys(selectedMap).length;
 
+
   const toggleRow = (row: SolicitudRow) => {
+    const rowGroup = row.codigo_dispersion ?? "__sin_codigo__";
     setSelectedMap((prev) => {
+      const prevVals = Object.values(prev);
+      const prevGroup = prevVals.length > 0
+        ? (prevVals[0].codigo_dispersion ?? "__sin_codigo__")
+        : null;
+      // Different group — clear and select only this row
+      if (prevGroup !== null && prevGroup !== rowGroup) {
+        return { [row.id_solicitud_proveedor]: row };
+      }
+      // Same group — toggle
       const next = { ...prev };
       if (next[row.id_solicitud_proveedor]) {
         delete next[row.id_solicitud_proveedor];
@@ -223,16 +216,16 @@ export default function PagosProveedorL() {
     });
   };
 
-  const toggleAll = () => {
-    if (allSelected) {
-      setSelectedMap({});
-    } else {
+  const toggleGroup = (groupRows: SolicitudRow[]) => {
+    setSelectedMap((prev) => {
+      const allInGroup = groupRows.every((r) => !!prev[r.id_solicitud_proveedor]);
+      if (allInGroup) {
+        return {};
+      }
       const next: Record<string, SolicitudRow> = {};
-      filteredRows.forEach((r) => {
-        next[r.id_solicitud_proveedor] = r;
-      });
-      setSelectedMap(next);
-    }
+      groupRows.forEach((r) => { next[r.id_solicitud_proveedor] = r; });
+      return next;
+    });
   };
 
   const selectedSolicitudes = useMemo<SolicitudSeleccionada[]>(
@@ -362,17 +355,10 @@ export default function PagosProveedorL() {
               <table className="min-w-full text-xs">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200">
-                    {isDispersion && (
-                      <th className="px-3 py-3 text-left">
-                        <input
-                          type="checkbox"
-                          checked={allSelected}
-                          onChange={toggleAll}
-                          className="h-4 w-4 accent-blue-600 cursor-pointer"
-                        />
-                      </th>
-                    )}
+                    <th className="w-8" />
+                    {isDispersion && <th className="w-8" />}
                     <Th>ID SOL.</Th>
+                    <Th>CÓD. DISPERS.</Th>
                     <Th>PROVEEDOR</Th>
                     <Th>CÓD. CONFIRM.</Th>
                     <Th align="right">COSTO PROV.</Th>
@@ -389,106 +375,182 @@ export default function PagosProveedorL() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredRows.map((row) => {
-                    const selected = !!selectedMap[row.id_solicitud_proveedor];
+                  {groupedRows.map((group) => {
+                    const color = group.codigo !== "__sin_codigo__" ? GROUP_COLOR : null;
                     return (
-                      <tr
-                        key={row.id_solicitud_proveedor}
-                        className={`transition-colors ${selected ? "bg-blue-50" : "hover:bg-slate-50"}`}
-                      >
-                        {isDispersion && (
-                          <td className="px-3 py-2.5">
-                            <input
-                              type="checkbox"
-                              checked={selected}
-                              onChange={() => toggleRow(row)}
-                              className="h-4 w-4 accent-blue-600 cursor-pointer"
-                            />
-                          </td>
-                        )}
-                        <td className="px-3 py-2.5 font-mono text-slate-700 whitespace-nowrap">
-                          {row.id_solicitud_proveedor}
-                        </td>
-                        <td
-                          className="px-3 py-2.5 text-slate-800 max-w-[150px] truncate"
-                          title={row.proveedor}
-                        >
-                          {row.proveedor || "—"}
-                        </td>
-                        <td className="px-3 py-2.5 font-mono text-slate-600 whitespace-nowrap">
-                          {row.codigo_confirmacion}
-                        </td>
-                        <td className="px-3 py-2.5 text-right text-slate-700 whitespace-nowrap">
-                          {fmtMoney(row.costo_proveedor)}
-                        </td>
-                        <td className="px-3 py-2.5 text-right font-semibold text-slate-800 whitespace-nowrap">
-                          {fmtMoney(row.monto_solicitado)}
-                        </td>
-                        <td
-                          className="px-3 py-2.5 text-slate-700 max-w-[150px] truncate"
-                          title={row.nombre_comercial || row.cliente}
-                        >
-                          {(
-                            row.nombre_comercial ||
-                            row.cliente ||
-                            "—"
-                          ).toUpperCase()}
-                        </td>
-                        <td className="px-3 py-2.5 text-right text-slate-700 whitespace-nowrap">
-                          {fmtMoney(row.precio_de_venta)}
-                        </td>
-                        <td className="px-3 py-2.5 text-center text-slate-600 whitespace-nowrap">
-                          {formatDate(row.check_in)}
-                        </td>
-                        <td className="px-3 py-2.5 text-center text-slate-600 whitespace-nowrap">
-                          {formatDate(row.check_out)}
-                        </td>
-                        <td
-                          className={`px-3 py-2.5 text-right font-semibold whitespace-nowrap ${row.markup >= 0 ? "text-green-700" : "text-red-600"}`}
-                        >
-                          {row.markup.toFixed(1)}%
-                        </td>
-                        <td className="px-3 py-2.5 max-w-[180px]">
-                          <span
-                            className="block truncate font-mono text-[11px] text-slate-600"
-                            title={row.datos_bancarios}
-                          >
-                            {row.datos_bancarios}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2.5 text-center">
-                          {row.caratula ? (
-                            <a
-                              href={row.caratula}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-blue-600 hover:underline text-[11px]"
+                      <React.Fragment key={group.codigo}>
+                        {/* Group header row */}
+                        {(() => {
+                          const groupAllSelected = group.rows.every((r) => !!selectedMap[r.id_solicitud_proveedor]);
+                          const groupSomeSelected = !groupAllSelected && group.rows.some((r) => !!selectedMap[r.id_solicitud_proveedor]);
+                          return (
+                            <tr className={`${color ? color.bg : "bg-slate-50"} border-t-2 ${color ? "border-blue-300" : "border-slate-200"}`}>
+                              <td colSpan={20} className="px-4 py-2">
+                                <div className="flex items-center gap-3">
+                                  {isDispersion && (
+                                    <input
+                                      type="checkbox"
+                                      checked={groupAllSelected}
+                                      ref={(el) => { if (el) el.indeterminate = groupSomeSelected; }}
+                                      onChange={() => toggleGroup(group.rows)}
+                                      className="h-4 w-4 accent-blue-700 cursor-pointer shrink-0"
+                                      title="Seleccionar todo el grupo"
+                                    />
+                                  )}
+                                  {group.codigo !== "__sin_codigo__" ? (
+                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${color ? color.headerBadge : "bg-slate-100 text-slate-700 border-slate-300"}`}>
+                                      {group.codigo}
+                                    </span>
+                                  ) : (
+                                    <span className="text-[11px] font-semibold text-slate-400 italic">Sin código</span>
+                                  )}
+                                  <span className={`text-[11px] ${color ? "text-blue-800" : "text-slate-500"}`}>
+                                    {group.rows.length} solicitud{group.rows.length !== 1 ? "es" : ""}
+                                    {groupSomeSelected && (
+                                      <span className={`ml-1 font-medium ${color ? "text-blue-700" : "text-blue-600"}`}>
+                                        · {group.rows.filter((r) => !!selectedMap[r.id_solicitud_proveedor]).length} seleccionada{group.rows.filter((r) => !!selectedMap[r.id_solicitud_proveedor]).length !== 1 ? "s" : ""}
+                                      </span>
+                                    )}
+                                    {groupAllSelected && group.rows.length > 0 && (
+                                      <span className={`ml-1 font-medium ${color ? "text-blue-700" : "text-blue-600"}`}>· todas seleccionadas</span>
+                                    )}
+                                  </span>
+                                  <span className={`text-[11px] font-semibold ml-auto ${color ? "text-blue-900" : "text-slate-700"}`}>
+                                    Total: {fmtMoney(group.total)}
+                                  </span>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })()}
+                        {/* Group rows */}
+                        {group.rows.map((row) => {
+                          const selected = !!selectedMap[row.id_solicitud_proveedor];
+                          return (
+                            <tr
+                              key={`${row.id_solicitud_proveedor}-${row.codigo_dispersion}`}
+                              className={`transition-colors border-l-4 ${color ? color.border : "border-l-transparent"} ${selected ? "bg-blue-100" : "bg-blue-50 hover:bg-blue-100"}`}
                             >
-                              <ExternalLink className="w-3 h-3" />
-                              Ver
-                            </a>
-                          ) : (
-                            <span className="text-slate-300">—</span>
-                          )}
-                        </td>
-                        <td className="px-3 py-2.5 text-center">
-                          <StatusBadge estatus={row.estatus} />
-                        </td>
-                        {!isDispersion && (
-                          <td className="px-3 py-2.5 text-center">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setDetalleId(row.id_solicitud_proveedor)
-                              }
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                              Detalle
-                            </button>
-                          </td>
-                        )}
-                      </tr>
+                              <td className="px-2 py-2.5 text-center w-8">
+                                {row.revision_pendiente === 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setRevisionRow(row)}
+                                    title="Revisión pendiente"
+                                    className="relative inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-700 transition-colors"
+                                  >
+                                    <Bell className="w-3 h-3" />
+                                    <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500 border border-white" />
+                                  </button>
+                                )}
+                              </td>
+                              {isDispersion && (
+                                <td className="px-3 py-2.5">
+                                  <input
+                                    type="checkbox"
+                                    checked={selected}
+                                    onChange={() => toggleRow(row)}
+                                    className="h-4 w-4 accent-blue-600 cursor-pointer"
+                                  />
+                                </td>
+                              )}
+                              <td className="px-3 py-2.5 font-mono text-slate-700 whitespace-nowrap">
+                                {row.id_solicitud_proveedor}
+                              </td>
+                              <td className="px-3 py-2.5 whitespace-nowrap">
+                                {row.codigo_dispersion ? (
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${color ? color.badge : "bg-slate-100 text-slate-700 border-slate-300"}`}>
+                                    {row.codigo_dispersion}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-300">—</span>
+                                )}
+                              </td>
+                              <td
+                                className="px-3 py-2.5 text-slate-800 max-w-[150px] truncate"
+                                title={row.proveedor}
+                              >
+                                {row.proveedor || "—"}
+                              </td>
+                              <td className="px-3 py-2.5 font-mono text-slate-600 whitespace-nowrap">
+                                {row.codigo_confirmacion}
+                              </td>
+                              <td className="px-3 py-2.5 text-right text-slate-700 whitespace-nowrap">
+                                {fmtMoney(row.costo_proveedor)}
+                              </td>
+                              <td className="px-3 py-2.5 text-right font-semibold text-slate-800 whitespace-nowrap">
+                                {fmtMoney(row.monto_solicitado)}
+                              </td>
+                              <td
+                                className="px-3 py-2.5 text-slate-700 max-w-[150px] truncate"
+                                title={row.cliente}
+                              >
+                                {(row.cliente || "—").toUpperCase()}
+                              </td>
+                              <td className="px-3 py-2.5 text-right text-slate-700 whitespace-nowrap">
+                                {fmtMoney(row.precio_de_venta)}
+                              </td>
+                              <td className="px-3 py-2.5 text-center text-slate-600 whitespace-nowrap">
+                                {formatDate(row.check_in)}
+                              </td>
+                              <td className="px-3 py-2.5 text-center text-slate-600 whitespace-nowrap">
+                                {formatDate(row.check_out)}
+                              </td>
+                              <td
+                                className={`px-3 py-2.5 text-right font-semibold whitespace-nowrap ${row.markup >= 0 ? "text-green-700" : "text-red-600"}`}
+                              >
+                                {row.markup.toFixed(1)}%
+                              </td>
+                              <td className="px-3 py-2.5 max-w-[190px]">
+                                {row.banco || row.cuenta || row.titular_cuenta ? (
+                                  <div className="flex flex-col gap-0.5">
+                                    {row.banco && (
+                                      <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">{row.banco}</span>
+                                    )}
+                                    {row.cuenta && (
+                                      <span className="font-mono text-[11px] text-slate-800">{row.cuenta}</span>
+                                    )}
+                                    {row.titular_cuenta && (
+                                      <span className="text-[10px] text-slate-500 truncate" title={row.titular_cuenta}>{row.titular_cuenta}</span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-slate-300">—</span>
+                                )}
+                              </td>
+                              <td className="px-3 py-2.5 text-center">
+                                {row.caratula ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => setCaratulaUrl(row.caratula)}
+                                    className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-[11px] font-medium"
+                                  >
+                                    <Eye className="w-3 h-3" />
+                                    Ver
+                                  </button>
+                                ) : (
+                                  <span className="text-slate-300">—</span>
+                                )}
+                              </td>
+                              <td className="px-3 py-2.5 text-center">
+                                <StatusBadge estatus={row.estatus} />
+                              </td>
+                              {!isDispersion && (
+                                <td className="px-3 py-2.5 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => setDetalleId(row.id_solicitud_proveedor)}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                    Detalle
+                                  </button>
+                                </td>
+                              )}
+                            </tr>
+                          );
+                        })}
+                      </React.Fragment>
                     );
                   })}
                 </tbody>
@@ -497,133 +559,151 @@ export default function PagosProveedorL() {
 
             {/* ── Cards mobile / tablet ──────────────────────────── */}
             <div className="lg:hidden space-y-3">
-              {isDispersion && (
-                <div className="flex items-center gap-2 px-1">
-                  <input
-                    type="checkbox"
-                    checked={allSelected}
-                    onChange={toggleAll}
-                    className="h-4 w-4 accent-blue-600 cursor-pointer"
-                  />
-                  <span className="text-xs text-slate-500">
-                    Seleccionar todo
-                  </span>
-                </div>
-              )}
-
-              {filteredRows.map((row) => {
-                const selected = !!selectedMap[row.id_solicitud_proveedor];
+              {groupedRows.map((group) => {
+                const color = group.codigo !== "__sin_codigo__" ? GROUP_COLOR : null;
+                const groupAllSelected = group.rows.every((r) => !!selectedMap[r.id_solicitud_proveedor]);
+                const groupSomeSelected = !groupAllSelected && group.rows.some((r) => !!selectedMap[r.id_solicitud_proveedor]);
                 return (
-                  <div
-                    key={row.id_solicitud_proveedor}
-                    className={`rounded-xl border shadow-sm p-4 transition-colors ${
-                      selected
-                        ? "border-blue-300 bg-blue-50"
-                        : "border-slate-200 bg-white"
-                    }`}
-                  >
-                    {/* Card header */}
-                    <div className="flex items-start gap-3">
+                  <div key={group.codigo}>
+                    {/* Group header */}
+                    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg mb-2 ${color ? color.bg : "bg-slate-100"}`}>
                       {isDispersion && (
                         <input
                           type="checkbox"
-                          checked={selected}
-                          onChange={() => toggleRow(row)}
-                          className="h-4 w-4 accent-blue-600 cursor-pointer mt-0.5 shrink-0"
+                          checked={groupAllSelected}
+                          ref={(el) => { if (el) el.indeterminate = groupSomeSelected; }}
+                          onChange={() => toggleGroup(group.rows)}
+                          className="h-4 w-4 accent-blue-700 cursor-pointer shrink-0"
                         />
                       )}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2 flex-wrap">
-                          <p className="text-sm font-semibold text-slate-900 truncate">
-                            {row.proveedor || "—"}
-                          </p>
-                          <div className="flex items-center gap-2">
-                            <StatusBadge estatus={row.estatus} />
-                            {!isDispersion && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setDetalleId(row.id_solicitud_proveedor)
-                                }
-                                className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
-                              >
-                                <Eye className="w-3 h-3" />
-                                Detalle
-                              </button>
+                      {group.codigo !== "__sin_codigo__" ? (
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${color ? color.headerBadge : "bg-slate-100 text-slate-700 border-slate-300"}`}>
+                          {group.codigo}
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-semibold text-slate-400 italic">Sin código</span>
+                      )}
+                      <span className={`text-[11px] ${color ? "text-blue-800" : "text-slate-500"}`}>
+                        {group.rows.length} solicitud{group.rows.length !== 1 ? "es" : ""}
+                        {groupSomeSelected && (
+                          <span className={`ml-1 font-medium ${color ? "text-blue-700" : "text-blue-600"}`}>
+                            · {group.rows.filter((r) => !!selectedMap[r.id_solicitud_proveedor]).length} sel.
+                          </span>
+                        )}
+                        {groupAllSelected && group.rows.length > 0 && (
+                          <span className={`ml-1 font-medium ${color ? "text-blue-700" : "text-blue-600"}`}>· todas</span>
+                        )}
+                      </span>
+                      <span className={`text-[11px] font-semibold ml-auto ${color ? "text-blue-900" : "text-slate-700"}`}>
+                        {fmtMoney(group.total)}
+                      </span>
+                    </div>
+
+                    {/* Group cards */}
+                    <div className="space-y-2 mb-4">
+                      {group.rows.map((row) => {
+                        const selected = !!selectedMap[row.id_solicitud_proveedor];
+                        return (
+                          <div
+                            key={`${row.id_solicitud_proveedor}-${row.codigo_dispersion}`}
+                            className={`rounded-xl border-l-4 shadow-sm p-4 transition-colors ${color ? color.border : "border-l-transparent"} ${
+                              selected ? "border-blue-300 bg-blue-100" : "border-blue-200 bg-blue-50"
+                            }`}
+                          >
+                            <div className="flex items-start gap-3">
+                              {isDispersion && (
+                                <input
+                                  type="checkbox"
+                                  checked={selected}
+                                  onChange={() => toggleRow(row)}
+                                  className="h-4 w-4 accent-blue-600 cursor-pointer mt-0.5 shrink-0"
+                                />
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-2 flex-wrap">
+                                  <p className="text-sm font-semibold text-slate-900 truncate">
+                                    {row.proveedor || "—"}
+                                  </p>
+                                  <div className="flex items-center gap-2">
+                                    <StatusBadge estatus={row.estatus} />
+                                    {row.revision_pendiente === 1 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setRevisionRow(row)}
+                                        title="Revisión pendiente"
+                                        className="relative inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-700 transition-colors"
+                                      >
+                                        <Bell className="w-3 h-3" />
+                                        <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500 border border-white" />
+                                      </button>
+                                    )}
+                                    {!isDispersion && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setDetalleId(row.id_solicitud_proveedor)}
+                                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                                      >
+                                        <Eye className="w-3 h-3" />
+                                        Detalle
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                                <p className="text-xs text-slate-500 font-mono mt-0.5">
+                                  #{row.id_solicitud_proveedor}
+                                  {row.codigo_confirmacion !== "—" && (
+                                    <span className="ml-2 text-slate-400">· {row.codigo_confirmacion}</span>
+                                  )}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
+                              <CardField label="Cliente" value={row.cliente || "—"} />
+                              <CardField label="Costo prov." value={fmtMoney(row.costo_proveedor)} />
+                              <CardField label="Monto sol." value={fmtMoney(row.monto_solicitado)} bold />
+                              <CardField label="Px venta" value={fmtMoney(row.precio_de_venta)} />
+                              <CardField label="Check in" value={formatDate(row.check_in)} />
+                              <CardField label="Check out" value={formatDate(row.check_out)} />
+                              <CardField
+                                label="Markup"
+                                value={`${row.markup.toFixed(1)}%`}
+                                className={row.markup >= 0 ? "text-green-700 font-semibold" : "text-red-600 font-semibold"}
+                              />
+                              <CardField label="Noches" value={String(row.noches || "—")} />
+                            </div>
+
+                            {(row.banco || row.cuenta || row.titular_cuenta) && (
+                              <div className="mt-2 px-2 py-1.5 bg-slate-100 rounded-md">
+                                <p className="text-[10px] text-slate-500 mb-0.5">Datos bancarios</p>
+                                {row.banco && (
+                                  <p className="text-[10px] font-semibold text-slate-500 uppercase">{row.banco}</p>
+                                )}
+                                {row.cuenta && (
+                                  <p className="text-xs font-mono text-slate-800">{row.cuenta}</p>
+                                )}
+                                {row.titular_cuenta && (
+                                  <p className="text-[10px] text-slate-500">{row.titular_cuenta}</p>
+                                )}
+                              </div>
+                            )}
+
+                            {row.caratula && (
+                              <div className="mt-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setCaratulaUrl(row.caratula)}
+                                  className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
+                                >
+                                  <Eye className="w-3 h-3" />
+                                  Ver carátula
+                                </button>
+                              </div>
                             )}
                           </div>
-                        </div>
-                        <p className="text-xs text-slate-500 font-mono mt-0.5">
-                          #{row.id_solicitud_proveedor}
-                          {row.codigo_confirmacion !== "—" && (
-                            <span className="ml-2 text-slate-400">
-                              · {row.codigo_confirmacion}
-                            </span>
-                          )}
-                        </p>
-                      </div>
+                        );
+                      })}
                     </div>
-
-                    {/* Card body */}
-                    <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
-                      <CardField label="Cliente" value={row.cliente || "—"} />
-                      <CardField
-                        label="Costo prov."
-                        value={fmtMoney(row.costo_proveedor)}
-                      />
-                      <CardField
-                        label="Monto sol."
-                        value={fmtMoney(row.monto_solicitado)}
-                        bold
-                      />
-                      <CardField
-                        label="Px venta"
-                        value={fmtMoney(row.precio_de_venta)}
-                      />
-                      <CardField label="Check in" value={formatDate(row.check_in)} />
-                      <CardField
-                        label="Check out"
-                        value={formatDate(row.check_out)}
-                      />
-                      <CardField
-                        label="Markup"
-                        value={`${row.markup.toFixed(1)}%`}
-                        className={
-                          row.markup >= 0
-                            ? "text-green-700 font-semibold"
-                            : "text-red-600 font-semibold"
-                        }
-                      />
-                      <CardField
-                        label="Noches"
-                        value={String(row.noches || "—")}
-                      />
-                    </div>
-
-                    {row.datos_bancarios !== "—" && (
-                      <div className="mt-2 px-2 py-1.5 bg-slate-100 rounded-md">
-                        <p className="text-[10px] text-slate-500 mb-0.5">
-                          Datos bancarios
-                        </p>
-                        <p className="text-xs font-mono text-slate-700 break-all">
-                          {row.datos_bancarios}
-                        </p>
-                      </div>
-                    )}
-
-                    {row.caratula && (
-                      <div className="mt-2">
-                        <a
-                          href={row.caratula}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                          Ver carátula
-                        </a>
-                      </div>
-                    )}
                   </div>
                 );
               })}
@@ -658,6 +738,19 @@ export default function PagosProveedorL() {
         <ModalDetalle
           id_solicitud_proveedor={detalleId}
           onClose={() => setDetalleId(null)}
+        />
+      )}
+
+      {/* Modal carátula */}
+      {caratulaUrl && (
+        <CaratulaModal url={caratulaUrl} onClose={() => setCaratulaUrl(null)} />
+      )}
+
+      {/* Modal revisión pendiente */}
+      {revisionRow && (
+        <RevisionPendienteModal
+          row={revisionRow}
+          onClose={() => setRevisionRow(null)}
         />
       )}
     </div>
@@ -727,6 +820,157 @@ function CardField({
       >
         {value}
       </p>
+    </div>
+  );
+}
+
+function RevisionPendienteModal({ row, onClose }: { row: SolicitudRow; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 bg-amber-50">
+          <div className="flex items-center gap-2">
+            <Bell className="w-4 h-4 text-amber-600" />
+            <span className="text-sm font-semibold text-amber-800">Revisión pendiente</span>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 rounded-lg hover:bg-amber-100 text-amber-700"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="px-5 py-4 space-y-3">
+          <div>
+            <p className="text-[10px] text-slate-400 uppercase tracking-wide">Proveedor</p>
+            <p className="text-sm font-semibold text-slate-800">{row.proveedor || "—"}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-[10px] text-slate-400 uppercase tracking-wide">ID Solicitud</p>
+              <p className="text-sm font-mono text-slate-700">{row.id_solicitud_proveedor}</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-slate-400 uppercase tracking-wide">Cód. confirmación</p>
+              <p className="text-sm font-mono text-slate-700">{row.codigo_confirmacion}</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-slate-400 uppercase tracking-wide">Banco</p>
+              <p className="text-sm text-slate-700">{row.banco || "—"}</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-slate-400 uppercase tracking-wide">Cuenta</p>
+              <p className="text-sm font-mono text-slate-700">{row.cuenta || "—"}</p>
+            </div>
+          </div>
+          <p className="text-xs text-slate-500">
+            La cuenta bancaria de este proveedor requiere revisión. Verifica la información antes de realizar el pago.
+          </p>
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3 border-t border-slate-200 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+          >
+            Cerrar
+          </button>
+          <Link
+            href="/dashboard/pagos_proveedor/informacion_de_la_cuenta"
+            onClick={onClose}
+            className="px-4 py-2 text-sm rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-medium transition-colors"
+          >
+            Ver información de cuenta
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CaratulaModal({ url, onClose }: { url: string; onClose: () => void }) {
+  const [scale, setScale] = useState(1);
+
+  const zoomIn = () => setScale((s) => Math.min(s + 0.25, 3));
+  const zoomOut = () => setScale((s) => Math.max(s - 0.25, 0.5));
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="relative bg-white rounded-2xl shadow-2xl flex flex-col max-h-[90vh] w-full max-w-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
+          <span className="text-sm font-semibold text-slate-700">Carátula bancaria</span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={zoomOut}
+              disabled={scale <= 0.5}
+              className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 text-slate-600"
+              title="Alejar"
+            >
+              <ZoomOut className="w-4 h-4" />
+            </button>
+            <span className="text-xs text-slate-500 w-10 text-center">{Math.round(scale * 100)}%</span>
+            <button
+              type="button"
+              onClick={zoomIn}
+              disabled={scale >= 3}
+              className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-40 text-slate-600"
+              title="Acercar"
+            >
+              <ZoomIn className="w-4 h-4" />
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="ml-2 p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600"
+              title="Cerrar"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Image area */}
+        <div className="overflow-auto flex-1 bg-slate-100 flex items-center justify-center p-4">
+          <img
+            src={url}
+            alt="Carátula bancaria"
+            style={{ transform: `scale(${scale})`, transformOrigin: "top center", transition: "transform 0.15s ease" }}
+            className="max-w-full rounded shadow"
+          />
+        </div>
+
+        {/* Footer */}
+        <div className="px-4 py-2 border-t border-slate-200 flex justify-end">
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-blue-600 hover:underline"
+          >
+            Abrir en nueva pestaña
+          </a>
+        </div>
+      </div>
     </div>
   );
 }

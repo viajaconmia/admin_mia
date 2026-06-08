@@ -73,6 +73,7 @@ export class ExtraService extends ApiService {
     cp?: string;
     lat?: number;
     lng?: number;
+    id_cliente?: string;
   }): Promise<ApiResponse<any[]>> =>
     this.get<any[]>({
       path: this.formatPath(this.ENDPOINTS.HOTELES.GET.COTIZACION),

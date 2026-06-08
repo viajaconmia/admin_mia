@@ -232,7 +232,7 @@ export const Table3 = <T,>({
                           className="px-6 py-1 whitespace-nowrap text-xs text-gray-900"
                         >
                           {Renderer ? (
-                            <Renderer value={value} item={item.item} />
+                            Renderer({ value, item: item.item })
                           ) : (
                             String(value || "")
                           )}

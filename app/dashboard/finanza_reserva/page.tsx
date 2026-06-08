@@ -25,9 +25,86 @@ import {
   PageTracker,
   TrackingPage,
 } from "@/v2/components/molecule/PageTracking";
-import { Download, RefreshCwIcon, Trash2 } from "lucide-react";
+import { Copy, Download, RefreshCwIcon, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useFile } from "@/hooks/useFile";
+
+// ── UuidCell ────────────────────────────────────────────────────────────────
+const UuidCell = ({ value, label }: { value: string; label: string }) => {
+  const [open, setOpen] = useState(false);
+
+  if (!value) return <span className="text-gray-300 text-xs">—</span>;
+
+  const uuids = value
+    .split(",")
+    .map((u) => u.trim())
+    .filter(Boolean);
+
+  if (uuids.length === 1) {
+    return (
+      <span className="font-mono text-[10px] text-gray-700 flex items-center gap-1">
+        <span className="truncate max-w-[120px]" title={uuids[0]}>{uuids[0]}</span>
+        <button
+          type="button"
+          onClick={() => navigator.clipboard.writeText(uuids[0])}
+          className="text-gray-400 hover:text-blue-500 shrink-0"
+          title="Copiar"
+        >
+          <Copy className="w-3 h-3" />
+        </button>
+      </span>
+    );
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="text-[10px] font-medium text-blue-600 hover:underline"
+      >
+        Ver {uuids.length} {label}
+      </button>
+
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl w-full max-w-md p-5 space-y-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-800">{label}</h3>
+              <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <ul className="space-y-1.5 max-h-72 overflow-y-auto">
+              {uuids.map((uuid, i) => (
+                <li
+                  key={i}
+                  className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-3 py-2"
+                >
+                  <span className="font-mono text-xs text-gray-700 truncate">{uuid}</span>
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard.writeText(uuid)}
+                    className="text-gray-400 hover:text-blue-500 shrink-0"
+                    title="Copiar"
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
 
 const PageReservas = ({ agente }: { agente?: Agente }) => {
   const [loading, setLoading] = useState(false);
@@ -84,45 +161,57 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
         finanzas: true,
       });
 
-      const formatData = response.data.map((reserva) => ({
-        servicio: reserva.type,
-        id_cliente: reserva.id_agente,
-        cliente: reserva.agente,
-        creado: reserva.created_at
-          ? `${reserva.created_at.split("T")[0]} : ${reserva.created_at.split("T")[1]}`
-          : "",
-        proveedor: reserva.proveedor,
-        intermediario: reserva.intermediario,
-        codigo: reserva.codigo_confirmacion,
-        viajero: reserva.viajero,
-        check_in: reserva.check_in ? reserva.check_in.split("T")[0] : "",
-        horario_salida: reserva.horario_salida,
-        check_out: reserva.check_out ? reserva.check_out.split("T")[0] : "",
-        horario_llegada: reserva.horario_llegada,
-        noches:
-          reserva.check_in && reserva.check_out
-            ? calcularNoches(reserva.check_in, reserva.check_out)
+      const splitUuids = (raw: string | null | undefined) =>
+        (raw || "").split(",").map((u) => u.trim()).filter(Boolean);
+
+      const formatData = response.data.flatMap((reserva) => {
+        const base = {
+          servicio: reserva.type,
+          id_cliente: reserva.id_agente,
+          cliente: reserva.agente,
+          creado: reserva.created_at
+            ? `${reserva.created_at.split("T")[0]} : ${reserva.created_at.split("T")[1]}`
             : "",
-        tipo: reserva.tipo_cuarto_vuelo,
-        costo_proveedor: Number(reserva.costo_total || 0),
-        markup:
-          ((Number(reserva.total || 0) - Number(reserva.costo_total || 0)) /
-            Number(reserva.total || 0)) *
-          100,
-        precio_de_venta: reserva.total,
-        metodo_de_pago: reserva.metodo_pago,
-        reservante: reserva.reservante,
-        etapa_reservacion: reserva.etapa_reservacion,
-        estado: reserva.estado,
-        estado_pago: reserva.estado_pago,
-        estado_facturacion: reserva.estado_facturacion,
-        id_booking: reserva.id_booking,
-        uuid_emitido: reserva.uuid_factura || "",
-        total_factura: reserva.total_factura,
-        uuid_recibido: reserva.uuid_recibido || "",
-        total_facturado_recibido:
-          reserva.monto_facturado_factura_recibida || "",
-      }));
+          proveedor: reserva.proveedor,
+          intermediario: reserva.intermediario,
+          codigo: reserva.codigo_confirmacion,
+          viajero: reserva.viajero,
+          check_in: reserva.check_in ? reserva.check_in.split("T")[0] : "",
+          horario_salida: reserva.horario_salida,
+          check_out: reserva.check_out ? reserva.check_out.split("T")[0] : "",
+          horario_llegada: reserva.horario_llegada,
+          noches:
+            reserva.check_in && reserva.check_out
+              ? calcularNoches(reserva.check_in, reserva.check_out)
+              : "",
+          tipo: reserva.tipo_cuarto_vuelo,
+          costo_proveedor: Number(reserva.costo_total || 0),
+          markup:
+            ((Number(reserva.total || 0) - Number(reserva.costo_total || 0)) /
+              Number(reserva.total || 0)) *
+            100,
+          precio_de_venta: reserva.total,
+          metodo_de_pago: reserva.metodo_pago,
+          reservante: reserva.reservante,
+          etapa_reservacion: reserva.etapa_reservacion,
+          estado: reserva.estado,
+          estado_pago: reserva.estado_pago,
+          estado_facturacion: reserva.estado_facturacion,
+          id_booking: reserva.id_booking,
+          total_factura: reserva.total_factura,
+          total_facturado_recibido: reserva.monto_facturado_factura_recibida || "",
+        };
+
+        const emitidos = splitUuids(reserva.uuid_factura);
+        const recibidos = splitUuids(reserva.uuid_recibido);
+        const len = Math.max(emitidos.length, recibidos.length, 1);
+
+        return Array.from({ length: len }, (_, i) => ({
+          ...base,
+          uuid_emitido: emitidos[i] ?? "",
+          uuid_recibido: recibidos[i] ?? "",
+        }));
+      });
 
       csv(formatData, fileName);
     } catch (error) {
@@ -157,6 +246,12 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     estado: ({ value }) => <span title={value}>{getStatusBadge(value)}</span>,
     precio_de_venta: ({ value }) => (
       <>{value ? "$" + formatNumberWithCommas(value) : ""}</>
+    ),
+    uuid_emitido: ({ value }) => (
+      <UuidCell value={value} label="UUIDs emitidos" />
+    ),
+    uuid_recibido: ({ value }) => (
+      <UuidCell value={value} label="UUIDs recibidos" />
     ),
   };
 
