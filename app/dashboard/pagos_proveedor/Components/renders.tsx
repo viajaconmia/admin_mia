@@ -96,6 +96,7 @@ type CreateSolicitudesRenderersParams = {
   };
   onOpenDetalle: (id_solicitud_proveedor: string) => void;
   cancelarDispersion: (id_solicitud_proveedor: string) => Promise<boolean>;
+  showNotification?: (type: "info" | "warning" | "error" | "success", msg: string) => void;
 };
 
 const fmtMoney = (n: number) =>
@@ -425,6 +426,15 @@ const InlineMoneyEdit = ({
   );
 };
 
+const getIdProveedor = (raw: any): string | null => {
+  const id =
+    raw?.id_proveedor ??
+    raw?.proveedor?.id_proveedor ??
+    raw?.proveedor?.id ??
+    null;
+  return id != null ? String(id) : null;
+};
+
 export function createSolicitudesRenderers({
   categoria,
   selectedSolicitudesMap,
@@ -450,6 +460,7 @@ export function createSolicitudesRenderers({
   getConciliacionInfo,
   onOpenDetalle,
   cancelarDispersion,
+  showNotification,
 }: CreateSolicitudesRenderersParams): Record<
   string,
   React.FC<{ value: any; item: any; index: number }>
@@ -535,6 +546,25 @@ export function createSolicitudesRenderers({
           type="checkbox"
           checked={isSelected}
           onChange={(e) => {
+            if (e.target.checked) {
+              const idProvNuevo = getIdProveedor(raw);
+              const yaSeleccionados = Object.values(selectedSolicitudesMap);
+              if (yaSeleccionados.length > 0) {
+                const idProvExistente = getIdProveedor(yaSeleccionados[0]);
+                if (
+                  idProvNuevo !== null &&
+                  idProvExistente !== null &&
+                  idProvNuevo !== idProvExistente
+                ) {
+                  showNotification?.(
+                    "warning",
+                    "Solo puedes seleccionar solicitudes del mismo proveedor para dispersar.",
+                  );
+                  return;
+                }
+              }
+            }
+
             setSelectedSolicitudesMap((prev) => {
               const next = { ...prev };
               if (e.target.checked) next[key] = raw;

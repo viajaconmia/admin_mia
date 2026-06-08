@@ -77,7 +77,6 @@ function App() {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [categoria, setCategoria] = useState<VistaCarpeta>("all");
   const [solicitudDetalle, setSolicitudDetalle] = useState<string | null>(null);
-  
 
   // Carga perezosa: al cambiar de tab o de filtros trae solo ese bucket
   useEffect(() => {
@@ -170,7 +169,8 @@ function App() {
           seleccionar: "",
           carpeta: categoria,
           facturas_acciones: "",
-          codigo_confirmacion: item.codigo_confirmacion,
+          codigo_confirmacion:
+            item.codigo_confirmacion || item.id_confirmacion || "",
           creado: item.created_at,
           proveedor: (item.hotel || "").toUpperCase(),
           razon_social: item.proveedor?.razon_social,
@@ -341,10 +341,12 @@ function App() {
 
     const idsProveedor = [
       ...new Set(
-        solicitud.map((s) => {
-          const anyS = s as any;
-          return String(anyS.id_proveedor ?? anyS.proveedor?.id ?? "").trim();
-        }).filter(Boolean)
+        solicitud
+          .map((s) => {
+            const anyS = s as any;
+            return String(anyS.id_proveedor ?? anyS.proveedor?.id ?? "").trim();
+          })
+          .filter(Boolean),
       ),
     ];
 
@@ -420,60 +422,60 @@ function App() {
 
   const customColumns = useMemo(() => {
     const cols = [
-      "id_solicitud_proveedor",    // ID SOLICITUD PROVEEDOR
-      "creado",                     // CREADO
-      "monto_solicitado",          // MONTO SOLICITADO
-      "saldo",                     // SALDO
-      "fecha_de_pago",             // FECHA PROVISION CxP
-      "estado_solicitud",          // ESTADO SOLICITUD
-      "cliente",                   // CLIENTE
-      "codigo_confirmacion",       // CODIGO CONFIRMACION
-      "proveedor",                 // PROVEEDOR
-      "razon_social",              // RAZON SOCIAL
-      "viajero",                   // VIAJERO
-      "check_in",                  // CHECK IN
-      "check_out",                 // CHECK OUT
-      "noches",                    // NOCHES
-      "habitacion",                // HABITACION
-      "costo_proveedor",           // COSTO PROVEEDOR
-      "markup",                    // MARKUP
-      "precio_de_venta",           // PRECIO DE VENTA
-      "estatus_pagos",             // ESTATUS PAGOS
-      "seleccionar",               // SELECCIONAR
-      "metodo_de_pago",            // METODO DE PAGO
-      "etapa_reservacion",         // ETAPA RESERVACION
-      "estado",                    // ESTADO
-      "comentarios_sp",            // COMENTARIOS SP
-      "notas_internas",            // NOTAS INTERNAS
-      "comentarios_Ap",            // COMENTARIOS AP
-      "comentarios_cxp",           // COMENTARIOS CXP
-      "rfc",                       // RFC
-      "facturas_acciones",         // FACTURAS ACCIONES
-      "forma_pago_solicitada",     // FORMA PAGO SOLICITADA
-      "digitos_tajeta",            // DIGITOS TAJETA
-      "banco",                     // BANCO
-      "tipo_tarjeta",              // TIPO TARJETA
-      "pendiente_a_pagar",         // PENDIENTE A PAGAR
-      "monto_pagado_proveedor",    // MONTO PAGADO PROVEEDOR
-      "fecha_pagado",              // FECHA PAGADO
-      "estado_factura_proveedor",  // ESTADO FACTURA PROVEEDOR
-      "total_facturado",           // TOTAL FACTURADO
-      "monto_por_facturar",        // MONTO POR FACTURAR
-      "fecha_facturacion",         // FECHA FACTURACION
-      "UUID",                      // UUID
-      "uso_cfdi_factura",          // USO CFDI FACTURA
-      "forma_pago_factura",        // FORMA PAGO FACTURA
-      "metodo_pago_factura",       // METODO PAGO FACTURA
-      "moneda_factura",            // MONEDA FACTURA
-      "id_cliente",                // ID CLIENTE
-      "id_tarjeta_solicitada",     // ID TARJETA SOLICITADA
-      "usuario_solicitante",       // USUARIO SOLICITANTE
-      "usuario_generador",         // USUARIO GENERADOR
-      "estado_facturacion",        // ESTADO FACTURACION
-      "carpeta",                   // CARPETA
-      "reservante",                // RESERVANTE
-      "forma_de_pago_solicitada",  // FORMA DE PAGO SOLICITADA
-      "estado_pago",               // ESTADO PAGO
+      "id_solicitud_proveedor", // ID SOLICITUD PROVEEDOR
+      "creado", // CREADO
+      "monto_solicitado", // MONTO SOLICITADO
+      "saldo", // SALDO
+      "fecha_de_pago", // FECHA PROVISION CxP
+      "estado_solicitud", // ESTADO SOLICITUD
+      "cliente", // CLIENTE
+      "codigo_confirmacion", // CODIGO CONFIRMACION
+      "proveedor", // PROVEEDOR
+      "razon_social", // RAZON SOCIAL
+      "viajero", // VIAJERO
+      "check_in", // CHECK IN
+      "check_out", // CHECK OUT
+      "noches", // NOCHES
+      "habitacion", // HABITACION
+      "costo_proveedor", // COSTO PROVEEDOR
+      "markup", // MARKUP
+      "precio_de_venta", // PRECIO DE VENTA
+      "estatus_pagos", // ESTATUS PAGOS
+      "seleccionar", // SELECCIONAR
+      "metodo_de_pago", // METODO DE PAGO
+      "etapa_reservacion", // ETAPA RESERVACION
+      "estado", // ESTADO
+      "comentarios_sp", // COMENTARIOS SP
+      "notas_internas", // NOTAS INTERNAS
+      "comentarios_Ap", // COMENTARIOS AP
+      "comentarios_cxp", // COMENTARIOS CXP
+      "rfc", // RFC
+      "facturas_acciones", // FACTURAS ACCIONES
+      "forma_pago_solicitada", // FORMA PAGO SOLICITADA
+      "digitos_tajeta", // DIGITOS TAJETA
+      "banco", // BANCO
+      "tipo_tarjeta", // TIPO TARJETA
+      "pendiente_a_pagar", // PENDIENTE A PAGAR
+      "monto_pagado_proveedor", // MONTO PAGADO PROVEEDOR
+      "fecha_pagado", // FECHA PAGADO
+      "estado_factura_proveedor", // ESTADO FACTURA PROVEEDOR
+      "total_facturado", // TOTAL FACTURADO
+      "monto_por_facturar", // MONTO POR FACTURAR
+      "fecha_facturacion", // FECHA FACTURACION
+      "UUID", // UUID
+      "uso_cfdi_factura", // USO CFDI FACTURA
+      "forma_pago_factura", // FORMA PAGO FACTURA
+      "metodo_pago_factura", // METODO PAGO FACTURA
+      "moneda_factura", // MONEDA FACTURA
+      "id_cliente", // ID CLIENTE
+      "id_tarjeta_solicitada", // ID TARJETA SOLICITADA
+      "usuario_solicitante", // USUARIO SOLICITANTE
+      "usuario_generador", // USUARIO GENERADOR
+      "estado_facturacion", // ESTADO FACTURACION
+      "carpeta", // CARPETA
+      "reservante", // RESERVANTE
+      "forma_de_pago_solicitada", // FORMA DE PAGO SOLICITADA
+      "estado_pago", // ESTADO PAGO
     ];
     if (categoria === "notificados") cols.push("comentario_sistema");
     cols.push("acciones");
@@ -507,6 +509,7 @@ function App() {
         getConciliacionInfo,
         onOpenDetalle: setSolicitudDetalle,
         cancelarDispersion,
+        showNotification,
       }),
     [
       categoria,
@@ -806,7 +809,9 @@ function App() {
         onValueChange={(value) => setEditModal((prev) => ({ ...prev, value }))}
         originalValue={editModal.originalValue}
         comentarioAp={editModal.comentarioAp}
-        onComentarioApChange={(v) => setEditModal((prev) => ({ ...prev, comentarioAp: v }))}
+        onComentarioApChange={(v) =>
+          setEditModal((prev) => ({ ...prev, comentarioAp: v }))
+        }
       />
 
       {showDispersionModal && (
