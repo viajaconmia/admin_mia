@@ -94,6 +94,13 @@ export interface TypeFilters {
     | null;
   id_factura?: string | null;
   uuid_factura?: string | null;
+  comentarios?: string | null;
+  comentario_CXP?: string | null;
+  fecha_solicitud_start?: string | null;
+  fecha_solicitud_end?: string | null;
+  servicio?: string | null;
+  fecha_emision_factura_start?: string | null;
+  fecha_emision_factura_end?: string | null;
 }
 
 export interface EmpresaFromAgent {

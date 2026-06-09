@@ -991,6 +991,77 @@ const FiltersModal: React.FC<{
                   }
                 />
               )}
+
+              {"comentarios" in filters && (
+                <TextInput
+                  label="Comentarios Ops"
+                  value={filters.comentarios || ""}
+                  onChange={(value) =>
+                    setFilters((prev) => ({ ...prev, comentarios: value }))
+                  }
+                />
+              )}
+
+              {"comentario_CXP" in filters && (
+                <TextInput
+                  label="Comentarios CxP"
+                  value={filters.comentario_CXP || ""}
+                  onChange={(value) =>
+                    setFilters((prev) => ({ ...prev, comentario_CXP: value }))
+                  }
+                />
+              )}
+
+              {"fecha_solicitud_start" in filters && (
+                <DateInput
+                  label="Fecha solicitud (desde)"
+                  value={filters.fecha_solicitud_start || ""}
+                  onChange={(value) =>
+                    setFilters((prev) => ({ ...prev, fecha_solicitud_start: value }))
+                  }
+                />
+              )}
+
+              {"fecha_solicitud_end" in filters && (
+                <DateInput
+                  label="Fecha solicitud (hasta)"
+                  value={filters.fecha_solicitud_end || ""}
+                  onChange={(value) =>
+                    setFilters((prev) => ({ ...prev, fecha_solicitud_end: value }))
+                  }
+                />
+              )}
+
+              {"servicio" in filters && (
+                <Dropdown
+                  label="Servicio"
+                  value={filters.servicio || ""}
+                  onChange={(value) =>
+                    setFilters((prev) => ({ ...prev, servicio: value || null }))
+                  }
+                  options={["hotel", "car_rental", "flyght"]}
+                />
+              )}
+
+              {"fecha_emision_factura_start" in filters && (
+                <DateInput
+                  label="Fecha emisión factura (desde)"
+                  value={filters.fecha_emision_factura_start || ""}
+                  onChange={(value) =>
+                    setFilters((prev) => ({ ...prev, fecha_emision_factura_start: value }))
+                  }
+                />
+              )}
+
+              {"fecha_emision_factura_end" in filters && (
+                <DateInput
+                  label="Fecha emisión factura (hasta)"
+                  value={filters.fecha_emision_factura_end || ""}
+                  onChange={(value) =>
+                    setFilters((prev) => ({ ...prev, fecha_emision_factura_end: value }))
+                  }
+                />
+              )}
             </div>
             <div className="w-full max-w-sm mx-auto mb-4">
               {"filterType" in filters && (
