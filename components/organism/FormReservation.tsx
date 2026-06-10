@@ -743,11 +743,11 @@ export function ReservationForm({
                       ...prev,
                       estado_reserva: value as
                         | "Confirmada"
-                        | "Cancelada"
+                        //| "Cancelada"
                         | "En proceso",
                     }));
                   }}
-                  options={["Confirmada", "Cancelada", "En proceso"]}
+                  options={["Confirmada", "En proceso"]}
                   value={form.estado_reserva}
                 />
                 <TextInput
