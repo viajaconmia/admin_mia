@@ -73,6 +73,7 @@ function computePaymentStatus(opts: {
 type PaymentScheduleRow = {
   id: string;
   date: string; // YYYY-MM-DD
+  hora: string; // HH:MM
   amount: number | ""; // permite vacío mientras escriben
 };
 
@@ -131,6 +132,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
   } = state;
 
   const [commentsCxp, setCommentsCxp] = useState<string>("");
+  const [hora, setHora] = useState<string>("");
   const [selectedTitularId, setSelectedTitularId] = useState<string>("");
   const [saldosProveedor, setSaldosProveedor] = useState<any[]>([]);
 
@@ -224,6 +226,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
       {
         id: safeUUID(),
         date: (date as string) || todayISO,
+        hora: "",
         amount: monto_a_pagar || 0,
       },
     ],
@@ -277,7 +280,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
   const addScheduleRow = () => {
     setPaymentSchedule((rows) => [
       ...rows,
-      { id: safeUUID(), date: "", amount: "" },
+      { id: safeUUID(), date: "", hora: "", amount: "" },
     ]);
   };
 
@@ -297,9 +300,12 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
         if (r.id !== id) return r;
         const next = { ...r, ...patch };
 
-        // compat: si cambian la 1a fecha del schedule, reflejamos date del reducer
+        // compat: si cambian la 1a fecha/hora del schedule, reflejamos en el estado general
         if (rowIndex === 0 && typeof patch.date === "string") {
           dispatch({ type: "SET_FIELD", field: "date", payload: patch.date });
+        }
+        if (rowIndex === 0 && typeof patch.hora === "string") {
+          setHora(patch.hora);
         }
         return next;
       }),
@@ -309,6 +315,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
   const validateAndBuildSchedulePayload = () => {
     const normalized = paymentSchedule.map((r) => ({
       fecha_pago: (r.date || "").trim(),
+      hora: (r.hora || "").trim(),
       monto: r.amount === "" ? NaN : Number(r.amount),
     }));
 
@@ -332,7 +339,11 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
       );
     }
 
-    return normalized as Array<{ fecha_pago: string; monto: number }>;
+    return normalized as Array<{
+      fecha_pago: string;
+      hora: string;
+      monto: number;
+    }>;
   };
 
   /** ===== Tarjetas ===== */
@@ -597,9 +608,10 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
       });
 
       let paymentSchedulePayload:
-        | Array<{ fecha_pago: string; monto: number }>
+        | Array<{ fecha_pago: string; hora: string; monto: number }>
         | undefined;
       let effectiveDate = (date as string) || todayISO;
+      let effectiveHora = hora || "";
 
       // --------------------
       // PREPAGO
@@ -610,13 +622,14 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
           paymentSchedulePayload = validateAndBuildSchedulePayload();
           effectiveDate =
             paymentSchedulePayload[0]?.fecha_pago || effectiveDate;
+          effectiveHora = paymentSchedulePayload[0]?.hora || effectiveHora;
         }
 
         // transfer: solo fecha estimada (1 pago)
         if (paymentMethod === "transfer") {
           if (!effectiveDate) throw new Error("Selecciona la fecha estimada.");
           paymentSchedulePayload = [
-            { fecha_pago: effectiveDate, monto: monto_a_pagar },
+            { fecha_pago: effectiveDate, hora: effectiveHora, monto: monto_a_pagar },
           ];
         }
       }
@@ -670,6 +683,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
         fetchCreateSolicitud(
           {
             date: effectiveDate,
+            hora: effectiveHora,
             comments,
             comments_cxp: commentsCxp,
             paymentMethod: "transfer",
@@ -741,6 +755,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
             {
               selectedCard,
               date: effectiveDate,
+              hora: effectiveHora,
               comments,
               comments_cxp: commentsCxp,
               paymentMethod,
@@ -779,6 +794,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
           fetchCreateSolicitud(
             {
               date: effectiveDate,
+              hora: effectiveHora,
               comments,
               comments_cxp: commentsCxp,
               paymentMethod,
@@ -1024,17 +1040,30 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
 
               {/* Fecha estimada SOLO para transferencia */}
               {paymentMethod === "transfer" && (
-                <DateInput
-                  label="Fecha estimada"
-                  value={date}
-                  onChange={(value) =>
-                    dispatch({
-                      type: "SET_FIELD",
-                      field: "date",
-                      payload: value,
-                    })
-                  }
-                />
+                <div className="grid grid-cols-2 gap-2">
+                  <DateInput
+                    label="Fecha estimada"
+                    value={date}
+                    onChange={(value) =>
+                      dispatch({
+                        type: "SET_FIELD",
+                        field: "date",
+                        payload: value,
+                      })
+                    }
+                  />
+                  <div className="flex flex-col gap-1">
+                    <label className="text-sm font-medium text-slate-700">
+                      Hora estimada
+                    </label>
+                    <input
+                      type="time"
+                      className="w-full h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={hora}
+                      onChange={(e) => setHora(e.target.value)}
+                    />
+                  </div>
+                </div>
               )}
 
               {/* card/link: Calendario de pagos */}
@@ -1054,6 +1083,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                             {
                               id: safeUUID(),
                               date: (date as string) || todayISO,
+                              hora: "",
                               amount: monto_a_pagar,
                             },
                           ])
@@ -1080,6 +1110,9 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                           <th className="text-left font-semibold p-2">
                             Fecha de pago
                           </th>
+                          <th className="text-left font-semibold p-2">
+                            Hora
+                          </th>
                           <th className="text-left font-semibold p-2">Monto</th>
                           <th className="text-right font-semibold p-2">
                             Acción
@@ -1098,6 +1131,20 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                                   updateScheduleRow(
                                     row.id,
                                     { date: e.target.value },
+                                    idx,
+                                  )
+                                }
+                              />
+                            </td>
+                            <td className="p-2">
+                              <input
+                                type="time"
+                                className="w-full border rounded-md px-2 py-1"
+                                value={row.hora}
+                                onChange={(e) =>
+                                  updateScheduleRow(
+                                    row.id,
+                                    { hora: e.target.value },
                                     idx,
                                   )
                                 }

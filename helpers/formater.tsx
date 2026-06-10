@@ -89,6 +89,20 @@ export const formatDate = (dateString: string) => {
   });
 };
 
+// Igual que formatDate, pero agrega la hora (HH:mm) si viene en el valor
+export const formatDateTime = (dateString: string) => {
+  if (!dateString) return "";
+  if (typeof dateString !== "string") return "";
+
+  const datePart = formatDate(dateString);
+
+  const timePart = dateString.split(/[T ]/)[1]?.slice(0, 5) ?? "";
+
+  return timePart && timePart !== "00:00"
+    ? `${datePart} ${timePart}`
+    : datePart;
+};
+
 // ✅ Recomendado: usa Intl (respeta es-MX: 1,234,567.89)
 export const formatNumber = (
   value: number | string,

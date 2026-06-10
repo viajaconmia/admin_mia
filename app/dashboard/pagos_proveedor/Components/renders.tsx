@@ -15,7 +15,7 @@ import { ReasignarPagoModal } from "./ReasignarPagoModal";
 import { GenerarSaldoAFavorModal } from "./GenerarSaldoAFavorModal";
 import { EditableField } from "./EditModal";
 import { SolicitudProveedor } from "@/types";
-import { formatDate } from "@/helpers/formater";
+import { formatDate, formatDateTime } from "@/helpers/formater";
 import {
   CFDI_USO_LABELS,
   CFDI_FORMA_PAGO_LABELS,
@@ -942,7 +942,7 @@ export function createSolicitudesRenderers({
       ),
     fecha_de_pago: ({ value }) =>
       value ? (
-        <span title={value}>{formatDate(value)}</span>
+        <span title={value}>{formatDateTime(value)}</span>
       ) : (
         <span className="text-gray-400">—</span>
       ),
