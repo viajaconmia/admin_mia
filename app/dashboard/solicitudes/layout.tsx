@@ -34,6 +34,6 @@ export default function App({ children }) {
 }
 
 const tabRouterAdministracion: Tab[] = [
-  { label: "hoteles", icon: Building2, tab: "hoteles" },
-  { label: "cotizaciones", icon: CheckCircle, tab: "cotizaciones" },
+  // { label: "hoteles", icon: Building2, tab: "hoteles" },
+  // { label: "cotizaciones", icon: CheckCircle, tab: "cotizaciones" },
 ];
