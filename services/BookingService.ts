@@ -59,7 +59,9 @@ export class BookingsService extends ApiService {
       body: { id_booking, confirm },
     });
 
-  public obtenerDetallesPagoProveedor = async (id_solicitud_proveedor: string) =>
+  public obtenerDetallesPagoProveedor = async (
+    id_solicitud_proveedor: string,
+  ) =>
     this.post<any>({
       path: "/mia/pago_proveedor/detalles",
       body: { id_solicitud_proveedor },
@@ -131,6 +133,7 @@ export type BookingAll = {
   nuevo_incluye_desayuno: boolean | null;
   codigo_confirmacion: string;
   usuario_creador: string;
+  with_desayuno: 1 | 0 | null;
 
   uuid_factura: string | null;
   total_factura: string | null;

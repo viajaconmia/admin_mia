@@ -359,6 +359,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
       agente: { id_agente: reserva.id_agente, nombre: reserva.agente },
     },
     pagar: reserva.estado == "Confirmada" ? reserva.id_solicitud : null,
+    item: reserva,
   }));
 
   const handleFilterChange = (value: string | null, propiedad: string) => {
@@ -518,6 +519,15 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
           registros={data}
           renderers={renderers}
           loading={loading}
+          rowColor={(item: BookingAll) => {
+            const isDesayuno =
+              Boolean(item.with_desayuno) &&
+              item.estado === "Confirmada" &&
+              item.type === "hotel";
+            console.log("Item:", item, "isDesayuno:", isDesayuno);
+            if (isDesayuno) return "bg-green-100";
+            return "";
+          }}
         ></Table>
         {reservas && (
           <PageTracker
@@ -702,73 +712,73 @@ function ComprobanteDetalles({
           </button>
         </div>
       )}
-    <div className="flex flex-col gap-4 p-4 w-96 max-h-[70vh] overflow-y-auto">
-      {pagos.map((pago) => (
-        <div
-          key={pago.id_pago_proveedores}
-          className="border border-gray-200 rounded-lg p-3 flex flex-col gap-2"
-        >
-          <div className="flex justify-between text-xs text-gray-600">
-            <span className="font-semibold">
-              ${" "}
-              {parseFloat(pago.monto_pagado).toLocaleString("es-MX", {
-                minimumFractionDigits: 2,
-              })}
-            </span>
-            {pago.fecha_pago && (
-              <span>
-                {new Date(pago.fecha_pago).toLocaleDateString("es-MX")}
+      <div className="flex flex-col gap-4 p-4 w-96 max-h-[70vh] overflow-y-auto">
+        {pagos.map((pago) => (
+          <div
+            key={pago.id_pago_proveedores}
+            className="border border-gray-200 rounded-lg p-3 flex flex-col gap-2"
+          >
+            <div className="flex justify-between text-xs text-gray-600">
+              <span className="font-semibold">
+                ${" "}
+                {parseFloat(pago.monto_pagado).toLocaleString("es-MX", {
+                  minimumFractionDigits: 2,
+                })}
+              </span>
+              {pago.fecha_pago && (
+                <span>
+                  {new Date(pago.fecha_pago).toLocaleDateString("es-MX")}
+                </span>
+              )}
+            </div>
+
+            {pago.url_pdf ? (
+              pago.url_pdf.match(/\.(jpg|jpeg|png|webp)$/i) ? (
+                <div className="flex flex-col gap-2">
+                  <div
+                    className="w-full rounded border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center cursor-zoom-in"
+                    onClick={() => setImagenAmpliada(pago.url_pdf!)}
+                    title="Clic para ver en grande"
+                  >
+                    <img
+                      src={pago.url_pdf}
+                      alt="Comprobante"
+                      className="max-w-full max-h-72 object-contain"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setImagenAmpliada(pago.url_pdf!)}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#0b5fa5] border border-[#0b5fa5] rounded hover:bg-blue-50 transition-colors"
+                    >
+                      Ver en grande
+                    </button>
+                    <button
+                      onClick={() => descargarImagen(pago.url_pdf!)}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-[#0b5fa5] rounded hover:bg-[#0a4f8a] transition-colors"
+                    >
+                      Descargar
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <a
+                  href={pago.url_pdf}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-[#0b5fa5] rounded hover:bg-[#0a4f8a] transition-colors"
+                >
+                  Ver comprobante
+                </a>
+              )
+            ) : (
+              <span className="text-xs text-gray-400 italic">
+                Sin comprobante aún.
               </span>
             )}
           </div>
-
-          {pago.url_pdf ? (
-            pago.url_pdf.match(/\.(jpg|jpeg|png|webp)$/i) ? (
-              <div className="flex flex-col gap-2">
-                <div
-                  className="w-full rounded border border-gray-200 overflow-hidden bg-gray-50 flex items-center justify-center cursor-zoom-in"
-                  onClick={() => setImagenAmpliada(pago.url_pdf!)}
-                  title="Clic para ver en grande"
-                >
-                  <img
-                    src={pago.url_pdf}
-                    alt="Comprobante"
-                    className="max-w-full max-h-72 object-contain"
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setImagenAmpliada(pago.url_pdf!)}
-                    className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#0b5fa5] border border-[#0b5fa5] rounded hover:bg-blue-50 transition-colors"
-                  >
-                    Ver en grande
-                  </button>
-                  <button
-                    onClick={() => descargarImagen(pago.url_pdf!)}
-                    className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-[#0b5fa5] rounded hover:bg-[#0a4f8a] transition-colors"
-                  >
-                    Descargar
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <a
-                href={pago.url_pdf}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-[#0b5fa5] rounded hover:bg-[#0a4f8a] transition-colors"
-              >
-                Ver comprobante
-              </a>
-            )
-          ) : (
-            <span className="text-xs text-gray-400 italic">
-              Sin comprobante aún.
-            </span>
-          )}
-        </div>
-      ))}
-    </div>
+        ))}
+      </div>
     </>
   );
 }

@@ -44,7 +44,9 @@ export const MostrarSaldos: React.FC<PagarModalProps> = ({
         throw new Error("ID de agente no disponible");
       }
       const { data } = await SaldoFavor.getPagos(id_agente);
-      const saldosActivos = data.filter((saldo) => Boolean(saldo.activo));
+      const saldosActivos = data
+        .filter((saldo) => Boolean(saldo.activo))
+        .filter((saldo) => saldo.is_wallet_credito != 1);
 
       const saldos: (Saldo & { restante: number; usado: boolean })[] =
         saldosActivos.map((saldo: Saldo) => ({
