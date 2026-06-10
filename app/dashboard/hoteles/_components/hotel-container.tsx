@@ -65,15 +65,17 @@ export function HotelContainer() {
     delete apiFilters.infoCompleta;
 
     fetchHotelesFiltro_Avanzado(apiFilters, (data) => {
-      const fetchedHotels = data.map(hotel => ({...hotel, precio_sencilla : Number(hotel.precio_sencilla || 0), precio_doble: Number(hotel.precio_doble || 0)}))
+      const fetchedHotels = data.map((hotel) => ({
+        ...hotel,
+        precio_sencilla: Number(hotel.precio_sencilla || 0),
+        precio_doble: Number(hotel.precio_doble || 0),
+      }));
 
       if (infoCompletaFilter !== null && infoCompletaFilter !== undefined) {
         const filtered = fetchedHotels.filter(
           (hotel) => isHotelComplete(hotel) === infoCompletaFilter,
         );
 
-        
-        
         setHotels(filtered);
       } else {
         setHotels(fetchedHotels);
@@ -97,7 +99,6 @@ export function HotelContainer() {
     return [...hotels].sort((a, b) => {
       const aValue = a[sortField];
       const bValue = b[sortField];
-
 
       if (aValue == null) return 1;
       if (bValue == null) return -1;
@@ -126,8 +127,8 @@ export function HotelContainer() {
       item.contacto_recepcion
         ?.toUpperCase()
         .includes(searchTerm.toUpperCase()) ||
-      item.precio_doble?.includes(searchTerm) ||
-      item.precio_sencilla?.includes(searchTerm) ||
+      // item.precio_doble?.includes(searchTerm) ||
+      // item.precio_sencilla?.includes(searchTerm) ||
       item.costo_sencilla?.includes(searchTerm) ||
       item.costo_doble?.includes(searchTerm),
   );
