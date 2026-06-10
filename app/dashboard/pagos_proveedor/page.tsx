@@ -306,6 +306,8 @@ function App() {
           const codigo_confirmacion =
             anyRaw?.codigo_confirmacion ??
             anyRaw?.item?.codigo_confirmacion ??
+            anyRaw?.id_confirmacion ??
+            anyRaw?.item?.id_confirmacion ??
             null;
           return {
             id_solicitud_proveedor,
@@ -370,7 +372,8 @@ function App() {
         id_proveedor: idProveedor,
         hotel: s.hotel ?? null,
         codigo_reservacion_hotel: s.codigo_reservacion_hotel ?? null,
-        codigo_confirmacion: (s as any).codigo_confirmacion ?? null,
+        codigo_confirmacion:
+          (s as any).codigo_confirmacion ?? (s as any).id_confirmacion ?? null,
         costo_total:
           s.costo_total ?? s.solicitud_proveedor?.monto_solicitado ?? "0",
         check_out: s.check_out ?? null,
