@@ -779,6 +779,7 @@ export default function PagosProveedorL() {
         <ModalDetalle
           id_solicitud_proveedor={detalleId}
           onClose={() => setDetalleId(null)}
+          onlyComprobantes
         />
       )}
 

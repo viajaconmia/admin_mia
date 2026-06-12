@@ -16,6 +16,8 @@ import { URL, API_KEY } from "@/lib/constants/index";
 interface ModalDetallesProp {
   id_solicitud_proveedor: string | null;
   onClose: () => void;
+  /** Si es true, solo muestra la sección de comprobantes de pago. */
+  onlyComprobantes?: boolean;
 }
 
 /** ---------- Helpers ---------- */
@@ -104,7 +106,7 @@ function SectionTitle({
   );
 }
 
-const ModalDetalle: React.FC<ModalDetallesProp> = ({ id_solicitud_proveedor, onClose }) => {
+const ModalDetalle: React.FC<ModalDetallesProp> = ({ id_solicitud_proveedor, onClose, onlyComprobantes = false }) => {
   const endpoint = `${URL}/mia/pago_proveedor/detalles`;
 
   const [loading, setLoading] = useState(false);
@@ -408,9 +410,11 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ id_solicitud_proveedor, onC
             )}
 
             {!loading && !error && (
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+              <div className={onlyComprobantes ? "space-y-4" : "grid grid-cols-1 lg:grid-cols-12 gap-4"}>
                 {/* MAIN */}
-                <div className="lg:col-span-8 space-y-4">
+                <div className={onlyComprobantes ? "space-y-4" : "lg:col-span-8 space-y-4"}>
+                  {!onlyComprobantes && (
+                  <>
                   {/* Overview cards */}
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                     <StatCard label="Check-in" value={checkIn} />
@@ -545,6 +549,8 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ id_solicitud_proveedor, onC
                       />
                     )}
                   </div>
+                  </>
+                  )}
 
                   {/* Pagos */}
                   <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -604,6 +610,7 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ id_solicitud_proveedor, onC
                 </div>
 
                 {/* SIDEBAR */}
+                {!onlyComprobantes && (
                 <div className="lg:col-span-4 space-y-4">
                   <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
                     <SectionTitle title="Datos de la solicitud" />
@@ -702,6 +709,7 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ id_solicitud_proveedor, onC
                     .
                   </div>
                 </div>
+                )}
               </div>
             )}
           </div>
