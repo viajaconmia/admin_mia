@@ -14,7 +14,7 @@ import {
   getStatusBadge,
   getWhoCreateBadge,
 } from "@/helpers/utils";
-import { Table } from "@/components/Table";
+import { Table } from "@/component/molecule/Table";
 import { fetchHoteles } from "@/services/hoteles";
 import Modal from "@/components/organism/Modal";
 import { TypeFilters } from "@/types";
@@ -135,6 +135,7 @@ function App() {
       estado_factura_proveedor: "",
       // estado: item.status,
       procesar: item,
+      item,
     }));
 
   console.log(formatedSolicitudes);
@@ -232,7 +233,12 @@ function App() {
             <Table
               registros={formatedSolicitudes}
               renderers={componentes}
-              defaultSort={defaultSort}
+              rowColor={(item) => {
+                const isDesayuno = Boolean(item.is_con_desayuno);
+                console.log("Item:", item, "isDesayuno:", isDesayuno);
+                if (isDesayuno) return "bg-green-100";
+                return "";
+              }}
             />
           )}
         </div>

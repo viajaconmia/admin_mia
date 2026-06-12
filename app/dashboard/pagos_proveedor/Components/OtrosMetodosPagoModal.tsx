@@ -225,9 +225,15 @@ export const OtrosMetodosPagoModal: React.FC<OtrosMetodosPagoModalProps> = ({
 }) => {
   const [mode, setMode] = useState<Mode>("manual");
 
-  const [pdfFile, setPdfFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [showMobilePreview, setShowMobilePreview] = useState(false);
+  const [pdfFiles, setPdfFiles] = useState<(File | null)[]>([null, null]);
+  const [previewUrls, setPreviewUrls] = useState<(string | null)[]>([
+    null,
+    null,
+  ]);
+  const [showMobilePreviewIndex, setShowMobilePreviewIndex] = useState<
+    number | null
+  >(null);
+  const [montoPagado2, setMontoPagado2] = useState<string>("");
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [csvPreview, setCsvPreview] = useState<CSVRow[]>([]);
   const [csvLoading, setCsvLoading] = useState(false);
@@ -248,11 +254,14 @@ export const OtrosMetodosPagoModal: React.FC<OtrosMetodosPagoModalProps> = ({
   const [fileError, setFileError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!pdfFile) { setPreviewUrl(null); return; }
-    const url = URL.createObjectURL(pdfFile);
-    setPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [pdfFile]);
+    const urls = pdfFiles.map((file) =>
+      file ? URL.createObjectURL(file) : null,
+    );
+    setPreviewUrls(urls);
+    return () => {
+      urls.forEach((url) => url && URL.revokeObjectURL(url));
+    };
+  }, [pdfFiles]);
 
   useEffect(() => {
     const rows = buildSelectedForms(selectedSolicitudes);
@@ -312,22 +321,27 @@ export const OtrosMetodosPagoModal: React.FC<OtrosMetodosPagoModalProps> = ({
     );
   };
 
-const handlePdfChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-  setFileError(null);
+const handlePdfChange =
+  (index: number) => (event: React.ChangeEvent<HTMLInputElement>) => {
+    setFileError(null);
 
-  if (!event.target.files?.[0]) return;
+    if (!event.target.files?.[0]) return;
 
-  const file = event.target.files[0];
-  const validation = validateComprobanteFile(file);
+    const file = event.target.files[0];
+    const validation = validateComprobanteFile(file);
 
-  if (!validation.isValid) {
-    setFileError(validation.error || "Error al validar el comprobante.");
-    event.target.value = "";
-    return;
-  }
+    if (!validation.isValid) {
+      setFileError(validation.error || "Error al validar el comprobante.");
+      event.target.value = "";
+      return;
+    }
 
-  setPdfFile(file);
-};
+    setPdfFiles((prev) => {
+      const next = [...prev];
+      next[index] = file;
+      return next;
+    });
+  };
 
   const handleCsvChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setFileError(null);
@@ -384,9 +398,16 @@ const handlePdfChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     reader.readAsText(file, "UTF-8");
   };
 
-  const clearPdfFile = () => {
-    setPdfFile(null);
-    const input = document.getElementById("pdf-file") as HTMLInputElement | null;
+  const clearPdfFile = (index: number) => {
+    setPdfFiles((prev) => {
+      const next = [...prev];
+      next[index] = null;
+      return next;
+    });
+    if (index === 1) setMontoPagado2("");
+    const input = document.getElementById(
+      `pdf-file-${index}`,
+    ) as HTMLInputElement | null;
     if (input) input.value = "";
   };
 
@@ -432,8 +453,16 @@ const buildSelectedRows = (): CSVRow[] => {
     setFormError(null);
     setFileError(null);
 
-    if (!pdfFile) {
+    if (!pdfFiles[0]) {
       setFormError("Por favor, sube el comprobante en PDF o imagen.");
+      return;
+    }
+
+    const hasSecondFile =
+      mode === "manual" && !hasSelectedRows && !!pdfFiles[1];
+
+    if (hasSecondFile && cleanMoney(montoPagado2) === null) {
+      setFormError("Captura el monto del segundo comprobante.");
       return;
     }
 
@@ -563,7 +592,7 @@ const buildSelectedRows = (): CSVRow[] => {
       }
 
       setPdfUploading(true);
-      const urlPdf = await subirArchivoAS3Seguro(pdfFile);
+      const urlPdf = await subirArchivoAS3Seguro(pdfFiles[0] as File);
 
       const payload =
         csvDataArray.length === 1
@@ -617,6 +646,47 @@ const buildSelectedRows = (): CSVRow[] => {
         return;
       }
 
+      // Segundo comprobante: se sube y se envía por separado con su propio monto
+      if (hasSecondFile && payload.frontendData) {
+        const urlPdf2 = await subirArchivoAS3Seguro(pdfFiles[1] as File);
+        const monto2 = cleanMoney(montoPagado2);
+
+        const payload2 = {
+          frontendData: {
+            ...payload.frontendData,
+            monto_pagado: monto2,
+            url_pdf: urlPdf2,
+          },
+          isMasivo: false,
+        };
+
+        const response2 = await fetch(
+          `${API_URL}/mia/pago_proveedor/comprobante_pago`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-key": API_KEY,
+            },
+            body: JSON.stringify(payload2),
+          },
+        );
+
+        const data2 = await response2.json();
+
+        if (!response2.ok) {
+          setFormError(
+            data2?.details ||
+              "Ocurrió un error al guardar el segundo comprobante.",
+          );
+          return;
+        }
+
+        if (onSubmit) {
+          await onSubmit(payload2);
+        }
+      }
+
       if (onSubmit) {
         await onSubmit(payload);
       }
@@ -628,6 +698,96 @@ const buildSelectedRows = (): CSVRow[] => {
     } finally {
       setPdfUploading(false);
     }
+  };
+
+  const renderFileSlot = (index: number, label: string) => {
+    const file = pdfFiles[index];
+    const previewUrl = previewUrls[index];
+    const isPdf =
+      !!file &&
+      (file.type === "application/pdf" ||
+        file.name.toLowerCase().endsWith(".pdf"));
+
+    return (
+      <div className="space-y-2">
+        <label
+          htmlFor={`pdf-file-${index}`}
+          className="block text-sm font-medium text-gray-700"
+        >
+          {label}
+        </label>
+
+        <div className="relative">
+          <input
+            id={`pdf-file-${index}`}
+            type="file"
+            accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp"
+            onChange={handlePdfChange(index)}
+            className="w-full text-sm text-gray-800 border-2 border-dashed border-gray-300 rounded-lg p-4 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+          />
+          <Upload className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+        </div>
+
+        {file && (
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => clearPdfFile(index)}
+              className="text-xs text-red-600 hover:text-red-800 font-medium"
+            >
+              Limpiar
+            </button>
+          </div>
+        )}
+
+        {previewUrl && file && (
+          <>
+            {/* Desktop: preview inline */}
+            <div className="hidden sm:block mt-2 border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
+              <div className="flex items-center justify-between px-3 py-1.5 bg-gray-100 border-b border-gray-200">
+                <span className="text-[11px] text-gray-500 truncate max-w-[60%]">
+                  {file.name}
+                </span>
+                <a
+                  href={previewUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[11px] text-blue-600 hover:underline flex items-center gap-1"
+                >
+                  <Eye className="w-3 h-3" />
+                  Abrir en nueva pestaña
+                </a>
+              </div>
+              {isPdf ? (
+                <iframe
+                  src={previewUrl}
+                  title="Vista previa comprobante"
+                  className="w-full h-64 border-0"
+                />
+              ) : (
+                <img
+                  src={previewUrl}
+                  alt="Vista previa comprobante"
+                  className="w-full max-h-64 object-contain p-2"
+                />
+              )}
+            </div>
+
+            {/* Mobile: botón que abre pantalla completa */}
+            <div className="sm:hidden mt-2">
+              <button
+                type="button"
+                onClick={() => setShowMobilePreviewIndex(index)}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-sm font-medium hover:bg-blue-100 transition-colors"
+              >
+                <Eye className="w-4 h-4" />
+                Ver archivo subido
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -700,85 +860,35 @@ const buildSelectedRows = (): CSVRow[] => {
             </button>
           </div>
 
-          <div className="space-y-2">
-            <label htmlFor="pdf-file" className="block text-sm font-medium text-gray-700">
-                Subir comprobante (PDF o imagen)
-            </label>
+          <div className="space-y-4">
+            {renderFileSlot(0, "Subir comprobante (PDF o imagen)")}
+            <p className="text-xs text-gray-500 -mt-2">
+              Se aplicará este archivo (PDF o imagen) al registro individual o a todas las solicitudes.
+            </p>
 
-            <div className="relative">
-              <input
-                id="pdf-file"
-                type="file"
-                accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp"
-                onChange={handlePdfChange}
-                className="w-full text-sm text-gray-800 border-2 border-dashed border-gray-300 rounded-lg p-4 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
-              />
-              <Upload className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            </div>
-
-            <div className="flex justify-between items-center">
-              <p className="text-xs text-gray-500">
-                Se aplicará este archivo (PDF o imagen) al registro individual o a todas las solicitudes.
-              </p>
-              {pdfFile && (
-                <button
-                  type="button"
-                  onClick={clearPdfFile}
-                  className="text-xs text-red-600 hover:text-red-800 font-medium"
-                >
-                  Limpiar
-                </button>
-              )}
-            </div>
-
-            {/* Vista previa del archivo */}
-            {previewUrl && pdfFile && (() => {
-              const isPdf = pdfFile.type === "application/pdf" || pdfFile.name.toLowerCase().endsWith(".pdf");
-              return (
-                <>
-                  {/* Desktop: preview inline */}
-                  <div className="hidden sm:block mt-2 border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
-                    <div className="flex items-center justify-between px-3 py-1.5 bg-gray-100 border-b border-gray-200">
-                      <span className="text-[11px] text-gray-500 truncate max-w-[60%]">{pdfFile.name}</span>
-                      <a
-                        href={previewUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[11px] text-blue-600 hover:underline flex items-center gap-1"
-                      >
-                        <Eye className="w-3 h-3" />
-                        Abrir en nueva pestaña
-                      </a>
-                    </div>
-                    {isPdf ? (
-                      <iframe
-                        src={previewUrl}
-                        title="Vista previa comprobante"
-                        className="w-full h-64 border-0"
-                      />
-                    ) : (
-                      <img
-                        src={previewUrl}
-                        alt="Vista previa comprobante"
-                        className="w-full max-h-64 object-contain p-2"
-                      />
-                    )}
+            {mode === "manual" && !hasSelectedRows && (
+              <div className="space-y-2 border-t border-gray-100 pt-3">
+                {renderFileSlot(1, "Segundo comprobante (opcional)")}
+                {pdfFiles[1] && (
+                  <div className="space-y-1">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Monto del segundo comprobante *
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="border rounded-lg p-3 text-sm w-full"
+                      placeholder="monto_pagado"
+                      value={montoPagado2}
+                      onChange={(e) => setMontoPagado2(e.target.value)}
+                    />
+                    <p className="text-[11px] text-gray-500">
+                      Se enviará como un comprobante adicional para la misma solicitud, con su propia URL y monto.
+                    </p>
                   </div>
-
-                  {/* Mobile: botón que abre pantalla completa */}
-                  <div className="sm:hidden mt-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowMobilePreview(true)}
-                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-sm font-medium hover:bg-blue-100 transition-colors"
-                    >
-                      <Eye className="w-4 h-4" />
-                      Ver archivo subido
-                    </button>
-                  </div>
-                </>
-              );
-            })()}
+                )}
+              </div>
+            )}
           </div>
 
           {mode === "manual" && hasSelectedRows && (
@@ -1013,12 +1123,14 @@ const buildSelectedRows = (): CSVRow[] => {
               type="submit"
               disabled={
                 pdfUploading ||
-                !pdfFile ||
+                !pdfFiles[0] ||
+                (mode === "manual" && !hasSelectedRows && !!pdfFiles[1] && cleanMoney(montoPagado2) === null) ||
                 (mode === "manual" ? !manualValid : !csvFile || csvLoading)
               }
               className={`flex-1 px-6 py-2.5 rounded-xl font-semibold text-white text-sm flex items-center justify-center gap-2 ${
                 pdfUploading ||
-                !pdfFile ||
+                !pdfFiles[0] ||
+                (mode === "manual" && !hasSelectedRows && !!pdfFiles[1] && cleanMoney(montoPagado2) === null) ||
                 (mode === "manual" ? !manualValid : !csvFile || csvLoading)
                   ? "bg-gray-400 cursor-not-allowed"
                   : "bg-blue-600 hover:bg-blue-700"
@@ -1032,7 +1144,12 @@ const buildSelectedRows = (): CSVRow[] => {
       </div>
 
       {/* Mobile full-screen preview */}
-      {showMobilePreview && previewUrl && pdfFile && (() => {
+      {showMobilePreviewIndex !== null &&
+        previewUrls[showMobilePreviewIndex] &&
+        pdfFiles[showMobilePreviewIndex] &&
+        (() => {
+        const previewUrl = previewUrls[showMobilePreviewIndex] as string;
+        const pdfFile = pdfFiles[showMobilePreviewIndex] as File;
         const isPdf = pdfFile.type === "application/pdf" || pdfFile.name.toLowerCase().endsWith(".pdf");
         return (
           <div className="fixed inset-0 z-[200] bg-black flex flex-col sm:hidden">
@@ -1049,7 +1166,7 @@ const buildSelectedRows = (): CSVRow[] => {
                 </a>
                 <button
                   type="button"
-                  onClick={() => setShowMobilePreview(false)}
+                  onClick={() => setShowMobilePreviewIndex(null)}
                   className="text-white p-1"
                 >
                   <X className="w-5 h-5" />

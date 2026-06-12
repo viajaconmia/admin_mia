@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Send, X, Info, Check, Copy, FileDown } from "lucide-react";
 import { URL as API_URL, API_KEY } from "@/lib/constants/index";
 
@@ -75,11 +75,42 @@ export const DispersionModal: React.FC<DispersionModalProps> = ({
   const [cuentasProveedor, setCuentasProveedor] = useState<any[]>([]);
   const [loadingCuentas, setLoadingCuentas] = useState(false);
   const [errorCuentas, setErrorCuentas] = useState<string | null>(null);
-  const [cuentaSeleccionadaMap, setCuentaSeleccionadaMap] = useState<Record<string, { id: string | number | null; clabe: string }>>({});
+  // ✅ Solo se permite un proveedor por dispersión: una sola cuenta aplica a todas las solicitudes seleccionadas
+  const [cuentaSeleccionada, setCuentaSeleccionada] = useState<{
+    id: string | number | null;
+    clabe: string;
+    banco?: string | null;
+  } | null>(null);
 
   const cleanInput = (input: string | undefined): string => {
     return (input ?? "").replace(/\s/g, "");
   };
+
+  const getMontoSolicitud = (s: SolicitudProveedorRaw): number => {
+    return (
+      parseFloat(
+        s.solicitud_proveedor?.saldo ??
+          s.solicitud_proveedor?.monto_solicitado ??
+          s.costo_total ??
+          "0",
+      ) || 0
+    );
+  };
+
+  const formatCurrency = (value: number): string =>
+    value.toLocaleString("es-MX", {
+      style: "currency",
+      currency: "MXN",
+    });
+
+  const totalDispersion = useMemo(
+    () =>
+      solicitudesSeleccionadas.reduce(
+        (acc, s) => acc + getMontoSolicitud(s),
+        0,
+      ),
+    [solicitudesSeleccionadas],
+  );
 
   const formatDateForCSV = (value?: string | null) => {
     if (!value) return "";
@@ -160,9 +191,7 @@ export const DispersionModal: React.FC<DispersionModalProps> = ({
       const id_pago = idPago[idx];
 
       const cuentaCargo =
-        cuentaSeleccionadaMap[solicitud.id_solicitud]?.clabe ??
-        solicitud.cuenta_de_deposito ??
-        "";
+        cuentaSeleccionada?.clabe ?? solicitud.cuenta_de_deposito ?? "";
 
       const claveProveedor =
         solicitud.clave_proveedor ||
@@ -292,21 +321,17 @@ export const DispersionModal: React.FC<DispersionModalProps> = ({
         const cuentas = data?.data ?? [];
         setCuentasProveedor(cuentas);
 
-        // Auto-seleccionar si cada solicitud tiene exactamente 1 cuenta
-        const autoMap: Record<string, { id: string | number | null; clabe: string }> = {};
-        solicitudesSeleccionadas.forEach((s) => {
-          const idProv = String(s.id_proveedor ?? "").trim();
-          const cuentasProv: any[] = cuentas.filter(
-            (c: any) => String(c.id_proveedor ?? "").trim() === idProv
-          );
-          if (cuentasProv.length === 1) {
-            const c = cuentasProv[0];
-            const clabe = c?.clabe ?? c?.cuenta ?? "";
-            const id = c?.id ?? c?.id_cuenta ?? null;
-            if (clabe) autoMap[s.id_solicitud] = { id, clabe };
-          }
-        });
-        setCuentaSeleccionadaMap(autoMap);
+        // ✅ Solo se permite un proveedor por dispersión: si hay una sola
+        // cuenta disponible para ese proveedor, se selecciona automáticamente
+        // y aplica a todas las solicitudes seleccionadas.
+        if (cuentas.length === 1) {
+          const c = cuentas[0];
+          const clabe = c?.clabe ?? c?.cuenta ?? "";
+          const id = c?.id ?? c?.id_cuenta ?? null;
+          setCuentaSeleccionada(clabe ? { id, clabe, banco: c?.banco } : null);
+        } else {
+          setCuentaSeleccionada(null);
+        }
       } catch (error) {
         console.error("Error al consultar cuentas:", error);
         setCuentasProveedor([]);
@@ -318,13 +343,6 @@ export const DispersionModal: React.FC<DispersionModalProps> = ({
 
     fetchCuentasProveedor();
   }, [solicitudesSeleccionadas]);
-
-  const getCuentasParaSolicitud = (s: SolicitudProveedorRaw): any[] => {
-    const idProv = String(s.id_proveedor ?? "").trim();
-    return cuentasProveedor.filter(
-      (c: any) => String(c.id_proveedor ?? "").trim() === idProv
-    );
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -346,6 +364,13 @@ export const DispersionModal: React.FC<DispersionModalProps> = ({
       return;
     }
 
+    if (cuentasProveedor.length > 1 && !cuentaSeleccionada) {
+      setFormError(
+        "Selecciona la cuenta del proveedor a la que se aplicará la dispersión.",
+      );
+      return;
+    }
+
     console.log("seleccionadas", solicitudesSeleccionadas);
 
     const payload = {
@@ -364,11 +389,8 @@ export const DispersionModal: React.FC<DispersionModalProps> = ({
             s.clave_proveedor ??
             (s.id_proveedor != null ? String(s.id_proveedor) : null),
           cuenta_de_deposito:
-            cuentaSeleccionadaMap[s.id_solicitud]?.clabe ??
-            s.cuenta_de_deposito ??
-            null,
-          id_proveedor_cuenta:
-            cuentaSeleccionadaMap[s.id_solicitud]?.id ?? null,
+            cuentaSeleccionada?.clabe ?? s.cuenta_de_deposito ?? null,
+          id_proveedor_cuenta: cuentaSeleccionada?.id ?? null,
           tipo_cuenta: s.tipo_cuenta ?? null,
           costo_proveedor: parseFloat(
             s.solicitud_proveedor?.saldo ??
@@ -551,6 +573,16 @@ export const DispersionModal: React.FC<DispersionModalProps> = ({
               </span>
             </div>
 
+            <div className="flex justify-between items-center mb-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+              <span className="text-xs font-semibold text-green-800 uppercase tracking-wide">
+                Total de la dispersión
+              </span>
+
+              <span className="text-sm font-bold text-green-700">
+                {formatCurrency(totalDispersion)}
+              </span>
+            </div>
+
             <div className="max-h-64 overflow-y-auto space-y-3 pr-1">
               {solicitudesSeleccionadas.map((s, idx) => {
                 return (
@@ -559,9 +591,15 @@ export const DispersionModal: React.FC<DispersionModalProps> = ({
                     className="border border-slate-200 bg-white rounded-lg px-3 py-2.5 shadow-sm"
                   >
                     {/* Nombre hotel */}
-                    <p className="text-xs font-bold text-slate-800 mb-1.5">
-                      {s.hotel ?? "Hotel sin nombre"}
-                    </p>
+                    <div className="flex justify-between items-start gap-2 mb-1.5">
+                      <p className="text-xs font-bold text-slate-800">
+                        {s.hotel ?? "Hotel sin nombre"}
+                      </p>
+
+                      <span className="text-xs font-semibold text-slate-700 whitespace-nowrap">
+                        {formatCurrency(getMontoSolicitud(s))}
+                      </span>
+                    </div>
 
                     <div className="space-y-0.5">
                       <p className="text-[11px] text-slate-500">
@@ -577,69 +615,6 @@ export const DispersionModal: React.FC<DispersionModalProps> = ({
                           {s.id_proveedor ?? "-"}
                         </span>
                       </p>
-
-                      {/* Cuenta: siempre visible — seleccionada o selector */}
-                      {(() => {
-                        const cuentas = getCuentasParaSolicitud(s);
-                        const selectedEntry = cuentaSeleccionadaMap[s.id_solicitud];
-
-                        if (cuentas.length === 0) {
-                          return (
-                            <p className="text-[11px] text-slate-400 italic">
-                              Sin cuenta registrada
-                            </p>
-                          );
-                        }
-
-                        if (cuentas.length === 1) {
-                          const c = cuentas[0];
-                          const num = c.clabe ?? c.cuenta ?? "-";
-                          return (
-                            <p className="text-[11px] text-slate-500">
-                              Cuenta:{" "}
-                              <span className="font-mono font-medium text-slate-700">
-                                {num}
-                              </span>
-                              {c.banco ? (
-                                <span className="text-slate-400"> ({c.banco})</span>
-                              ) : null}
-                            </p>
-                          );
-                        }
-
-                        return (
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[11px] text-slate-500 shrink-0">Cuenta:</span>
-                            <select
-                              className="flex-1 text-[11px] border border-slate-200 rounded px-1.5 py-0.5 outline-none focus:ring-1 focus:ring-blue-300"
-                              value={selectedEntry?.clabe ?? ""}
-                              onChange={(e) => {
-                                const clabe = e.target.value;
-                                const found = cuentas.find(
-                                  (c: any) => (c.clabe ?? c.cuenta ?? "") === clabe
-                                );
-                                setCuentaSeleccionadaMap((prev) => ({
-                                  ...prev,
-                                  [s.id_solicitud]: {
-                                    id: found?.id ?? found?.id_cuenta ?? null,
-                                    clabe,
-                                  },
-                                }));
-                              }}
-                            >
-                              <option value="">— Seleccionar —</option>
-                              {cuentas.map((c: any, ci: number) => {
-                                const val = c.clabe ?? c.cuenta ?? "";
-                                return (
-                                  <option key={ci} value={val}>
-                                    {[val, c.banco].filter(Boolean).join(" · ")}
-                                  </option>
-                                );
-                              })}
-                            </select>
-                          </div>
-                        );
-                      })()}
                     </div>
                   </div>
                 );
@@ -678,40 +653,69 @@ export const DispersionModal: React.FC<DispersionModalProps> = ({
                 </p>
               )}
 
+            {!loadingCuentas && cuentasProveedor.length > 1 && (
+              <p className="text-[11px] text-slate-500 mb-2">
+                Selecciona la cuenta a la que se aplicará{" "}
+                <span className="font-semibold">toda la dispersión</span>.
+              </p>
+            )}
+
             <div className="space-y-2 max-h-40 overflow-y-auto">
-              {cuentasProveedor.map((cuenta, idx) => (
-                <div
-                  key={`${cuenta.id ?? idx}`}
-                  className="border border-slate-200 rounded-lg px-3 py-2 bg-slate-50"
-                >
-                  <p className="text-xs font-semibold text-slate-800">
-                    {cuenta.banco ?? "Banco sin nombre"} —{" "}
-                    {cuenta.alias ?? "Sin alias"}
-                  </p>
+              {cuentasProveedor.map((cuenta, idx) => {
+                const clabe = cuenta.clabe ?? cuenta.cuenta ?? "";
+                const id = cuenta.id ?? cuenta.id_cuenta ?? null;
+                const isSelected =
+                  !!clabe && cuentaSeleccionada?.clabe === clabe;
 
-                  <p className="text-[11px] text-slate-500">
-                    ID proveedor:{" "}
-                    <span className="font-mono">
-                      {cuenta.id_proveedor ?? "-"}
-                    </span>
-                  </p>
+                return (
+                  <button
+                    type="button"
+                    key={`${cuenta.id ?? idx}`}
+                    onClick={() =>
+                      setCuentaSeleccionada(
+                        clabe ? { id, clabe, banco: cuenta.banco } : null,
+                      )
+                    }
+                    className={`w-full text-left border rounded-lg px-3 py-2 transition-colors ${
+                      isSelected
+                        ? "border-blue-400 bg-blue-50 ring-1 ring-blue-300"
+                        : "border-slate-200 bg-slate-50 hover:bg-slate-100"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold text-slate-800">
+                        {cuenta.banco ?? "Banco sin nombre"} —{" "}
+                        {cuenta.alias ?? "Sin alias"}
+                      </p>
+                      {isSelected && (
+                        <Check className="w-4 h-4 text-blue-600 shrink-0" />
+                      )}
+                    </div>
 
-                  <p className="text-[11px] text-slate-500">
-                    Cuenta:{" "}
-                    <span className="font-mono">{cuenta.cuenta ?? "-"}</span>
-                  </p>
-
-                  <p className="text-[11px] text-slate-500">
-                    Titular: {cuenta.titular ?? "-"}
-                  </p>
-
-                  {cuenta.comentarios && (
                     <p className="text-[11px] text-slate-500">
-                      Comentarios: {cuenta.comentarios}
+                      ID proveedor:{" "}
+                      <span className="font-mono">
+                        {cuenta.id_proveedor ?? "-"}
+                      </span>
                     </p>
-                  )}
-                </div>
-              ))}
+
+                    <p className="text-[11px] text-slate-500">
+                      Cuenta:{" "}
+                      <span className="font-mono">{cuenta.cuenta ?? "-"}</span>
+                    </p>
+
+                    <p className="text-[11px] text-slate-500">
+                      Titular: {cuenta.titular ?? "-"}
+                    </p>
+
+                    {cuenta.comentarios && (
+                      <p className="text-[11px] text-slate-500">
+                        Comentarios: {cuenta.comentarios}
+                      </p>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
 

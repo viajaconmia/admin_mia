@@ -8,6 +8,7 @@ export const Table = ({
   renderers = {},
   maxHeight = "28rem",
   loading = false,
+  rowColor,
 }: TableProps) => {
   const [displayData, setDisplayData] = useState<Registro[]>(registros);
   const [currentSort, setCurrentSort] = useState<{
@@ -29,14 +30,14 @@ export const Table = ({
       typeof registros[0] === "object" &&
       registros[0] !== null
     ) {
-      return Object.keys(registros[0]);
+      return Object.keys(registros[0]).filter((key) => key !== "item");
     }
     const baseColumns =
       registros &&
       registros.length > 0 &&
       typeof registros[0] === "object" &&
       registros[0] !== null
-        ? Object.keys(registros[0])
+        ? Object.keys(registros[0]).filter((key) => key !== "item")
         : [];
 
     return [...baseColumns];
@@ -90,6 +91,7 @@ export const Table = ({
                     item={item}
                     columnKeys={columnKeys}
                     renderers={renderers}
+                    rowColor={rowColor}
                   />
                 ))}
               </>
@@ -118,19 +120,22 @@ interface TableProps {
   renderers?: RendererMap;
   maxHeight?: string;
   loading?: boolean;
+  rowColor?: (item: Registro) => string;
 }
 
 const TableRowBody = ({
   item,
   columnKeys,
   renderers,
+  rowColor,
 }: {
   item: Registro;
   columnKeys: string[];
   renderers?: RendererMap;
+  rowColor?: (item: Registro) => string;
 }) => {
   return (
-    <tr>
+    <tr className={rowColor ? rowColor(item.item) : ""}>
       {columnKeys.map((colKey) => {
         const Renderer = renderers[colKey];
         const value = colKey in item ? item[colKey] : { row: item };

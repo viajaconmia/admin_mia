@@ -1471,7 +1471,13 @@ export function ReservationForm({
                     <div className="flex justify-between border-t pt-2 mt-2 font-medium text-gray-700">
                       <span>Markup:</span>
                       <span className="text-gray-900">
-                        {form.venta.markup.toFixed(2)}%
+                        {(form.venta.total > 0
+                          ? ((form.venta.total - form.proveedor.total) /
+                              form.venta.total) *
+                            100
+                          : 0
+                        ).toFixed(2)}
+                        %
                       </span>
                     </div>
                   </div>

@@ -1,5 +1,6 @@
 type PaymentBase = {
   date: string;
+  hora?: string;
   paymentType: "credit" | "prepaid";
   monto_a_pagar: number;
   comments?: string;

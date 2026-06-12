@@ -285,3 +285,7 @@
 // };
 
 // export default App;
+
+export default function CotizacionesPage() {
+  return null;
+}
