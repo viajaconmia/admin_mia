@@ -615,7 +615,7 @@ const maximoTotalPermitido = round2(totalYaAsociado + maximoAdicional);
     resumen?.monto_solicitado ?? solicitudApi?.monto_solicitado ?? 0;
   // const totalAsociadoSolicitud = resumen?.total_asociado_solicitud ?? 0;
   //const restanteSolicitud = resumen?.restante_solicitud ?? 0;
-  // const totalPagado = resumen?.total_pagado ?? 0;
+  //const totalPagado = resumen?.total_pagado ?? 0;
   const totalFacturas = resumen?.total_facturado ?? 0;
   const diferencia = resumen?.diferencia_total ?? 0;
   const esCuadrado = Number(diferencia) === 0;
@@ -960,7 +960,7 @@ impuestos_edit: ({ item }: any) => {
                         label="Monto solicitado"
                         value={formatMoney(montoSolicitado)}
                       />
-                      <StatCard
+                      {/* <StatCard
                         label="Total asociado solicitud"
                         value={formatMoney(totalAsociadoSolicitud)}
                       />
@@ -975,7 +975,7 @@ impuestos_edit: ({ item }: any) => {
                       <StatCard
                         label="Total pagado"
                         value={formatMoney(totalPagado)}
-                      />
+                      /> */}
                       <StatCard
                         label="Total facturas"
                         value={formatMoney(totalFacturas)}

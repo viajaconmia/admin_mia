@@ -1025,7 +1025,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
               {/* Fecha estimada SOLO para transferencia */}
               {paymentMethod === "transfer" && (
                 <DateInput
-                  label="Fecha estimada"
+                  label="Fecha estimada de pago"
                   value={date}
                   onChange={(value) =>
                     dispatch({
