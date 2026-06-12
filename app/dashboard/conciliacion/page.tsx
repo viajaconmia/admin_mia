@@ -251,7 +251,9 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
   const subtotal = raw?.facturas_proveedor?.facturas[0]?.subtotal ?? "";
 
   const baseFactura = total_facturado || 0;
-  const diferencia = roundCents(roundCents(costo_proveedor) - roundCents(baseFactura));
+  const diferencia = roundCents(
+    roundCents(costo_proveedor) - roundCents(baseFactura),
+  );
 
   const estatusFacturas =
     raw?.solicitud_proveedor?.estado_facturacion ??
@@ -657,8 +659,6 @@ export default function ConciliacionPage() {
     useState<ConciliacionFilters>(DEFAULT_OPEN_FILTERS);
   const [appliedFilters, setAppliedFilters] =
     useState<ConciliacionFilters>(DEFAULT_OPEN_FILTERS);
-
-
 
   const DATE_FILTER_KEYS: (keyof ConciliacionFilters)[] = [
     "created_start",
@@ -1179,37 +1179,10 @@ export default function ConciliacionPage() {
 
   const customColumns = useMemo(
     () => [
-      "creado",
-      "proveedor",
-      "codigo_reserva",
-      "hotel",
-      "codigo_hotel",
-      "viajero",
-      "check_in",
-      "check_out",
-      "noches",
-      "tipo_cuarto",
-      "estado_solicitud",
       "costo_proveedor",
-      "markup",
-      "seleccionar_factura",
       "precio_de_venta",
-      "canal_de_reservacion",
-      "nombre_intermediario",
-      "tipo_de_reserva",
-      "tarjeta",
-      "id_enviado",
-      "comentarios_ops",
-      "comentarios_cxp",
-      "comentario_ap",
-      "detalles",
-      "estatus_facturas",
       "total_facturado",
       "diferencia_costo_proveedor_vs_factura",
-      "subir_factura",
-      "acciones",
-      "usuario_creador",
-      "fecha_solicitud",
     ],
     [],
   );
