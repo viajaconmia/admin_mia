@@ -1104,6 +1104,7 @@ export default function ConciliacionPage() {
 
   const customColumns = useMemo(
     () => [
+      "codigo_hotel",
       "costo_proveedor",
       "precio_de_venta",
       "total_facturado",

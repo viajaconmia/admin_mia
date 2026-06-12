@@ -174,6 +174,19 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ id_solicitud_proveedor, onC
   const pagosApi = Array.isArray(api?.pagos) ? api.pagos : [];
   const resumen = api?.resumen_validacion ?? null;
 
+  // En modo "solo comprobantes" mostramos de inmediato el PDF del primer
+  // pago con comprobante, sin que el usuario tenga que pulsar "Ver PDF".
+  useEffect(() => {
+    if (!onlyComprobantes) return;
+    if (previewUrl) return;
+
+    const primerPago = pagosApi.find((p: any) => safeString(p?.url_pdf));
+    if (primerPago) {
+      setPreviewUrl(safeString(primerPago.url_pdf));
+      setPreviewTitle(`Comprobante pago #${safeString(primerPago?.id_pago_proveedores)}`);
+    }
+  }, [onlyComprobantes, pagosApi, previewUrl]);
+
   /** --------- Header info (desde la respuesta API) --------- */
   const hotel = safeString(info?.hotel);
   const viajero = safeString(info?.nombre_viajero_completo ?? info?.viajero);
@@ -296,18 +309,20 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ id_solicitud_proveedor, onC
         if (!url) return <span className="text-[11px] text-gray-400">Sin comprobante</span>;
         return (
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setPreviewUrl(url);
-                setPreviewTitle(`Comprobante pago #${safeString(item?.id_pago_proveedores)}`);
-              }}
-              className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] text-blue-700 hover:bg-blue-100"
-              title="Vista previa comprobante"
-            >
-              <FileText className="w-3.5 h-3.5" />
-              Ver PDF
-            </button>
+            {!onlyComprobantes && (
+              <button
+                type="button"
+                onClick={() => {
+                  setPreviewUrl(url);
+                  setPreviewTitle(`Comprobante pago #${safeString(item?.id_pago_proveedores)}`);
+                }}
+                className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] text-blue-700 hover:bg-blue-100"
+                title="Vista previa comprobante"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                Ver PDF
+              </button>
+            )}
             <button
               type="button"
               onClick={() => openUrl(url)}
@@ -320,7 +335,7 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ id_solicitud_proveedor, onC
         );
       },
     }),
-    [setPreviewUrl, setPreviewTitle]
+    [setPreviewUrl, setPreviewTitle, onlyComprobantes]
   );
 
   /** --------- Validación visual --------- */
@@ -603,7 +618,7 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ id_solicitud_proveedor, onC
                         src={previewUrl}
                         title={previewTitle}
                         className="w-full"
-                        style={{ height: "520px" }}
+                        style={{ height: onlyComprobantes ? "80vh" : "520px" }}
                       />
                     </div>
                   )}
