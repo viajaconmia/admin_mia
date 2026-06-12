@@ -30,6 +30,7 @@ import { Proveedor } from "@/services/ProveedoresService";
 import { useProveedor } from "@/context/Proveedores";
 import { Loader } from "../atom/Loader";
 import { verificar } from "@/lib/utils";
+import { stat } from "node:fs";
 
 export type ViajeAereoDetails = {
   codigo: string | null;
@@ -752,8 +753,28 @@ type Action<K extends keyof Vuelo> =
 
 const vuelosReducer = (state: Vuelo[], action: Action<keyof Vuelo>) => {
   switch (action.type) {
-    case "ADD_VUELO":
-      return [...state, { ...emptyVuelo }];
+    case "ADD_VUELO": {
+      const ultimo = state[state.length - 1]
+      type Extraccion = Pick<Vuelo, "aerolinea" | "tipo_tarifa" | "eq_mano" | "eq_personal" | "eq_documentado" | "is_eq_mano" | "is_eq_personal" | "is_eq_documentado">
+      const datosExtraccion : Extraccion = {
+        aerolinea: ultimo.aerolinea, 
+        tipo_tarifa: ultimo.tipo_tarifa,
+        eq_mano: ultimo.eq_mano,
+        eq_personal: ultimo.eq_personal,
+        eq_documentado: ultimo.eq_documentado,
+        is_eq_mano: ultimo.is_eq_mano,
+        is_eq_personal: ultimo.is_eq_personal,
+        is_eq_documentado: ultimo.is_eq_documentado
+      }
+
+      return [
+        ...state, {
+          ...emptyVuelo, ...datosExtraccion
+        }
+      ]
+    }
+
+
     case "DELETE_VUELO":
       return state.filter((_, index) => index !== action.payload);
     case "UPDATE_VUELO": {

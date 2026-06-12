@@ -148,9 +148,12 @@ export default function PagosProveedorL() {
   const { rows, loading, error, fetchData, limite, setLimite } =
     useSolicitudes(tab);
 
-  const [selectedMap, setSelectedMap] = useState<Record<string, SolicitudRow>>(
-    {},
-  );
+  const [selectedMap, setSelectedMap] = useState<Record<string, SolicitudRow>>({});
+  const [pendingAction, setPendingAction] = useState<
+    | { type: "row"; row: SolicitudRow; currentGroup: string; newGroup: string }
+    | { type: "group"; groupRows: SolicitudRow[]; currentGroup: string; newGroup: string }
+    | null
+  >(null);
   const [showModal, setShowModal] = useState(false);
   const [detalleId, setDetalleId] = useState<string | null>(null);
   const [caratulaUrl, setCaratulaUrl] = useState<string | null>(null);
@@ -196,16 +199,17 @@ export default function PagosProveedorL() {
 
   const toggleRow = (row: SolicitudRow) => {
     const rowGroup = row.codigo_dispersion ?? "__sin_codigo__";
+    const prevVals = Object.values(selectedMap);
+    const prevGroup = prevVals.length > 0
+      ? (prevVals[0].codigo_dispersion ?? "__sin_codigo__")
+      : null;
+
+    if (prevGroup !== null && prevGroup !== rowGroup) {
+      setPendingAction({ type: "row", row, currentGroup: prevGroup, newGroup: rowGroup });
+      return;
+    }
+
     setSelectedMap((prev) => {
-      const prevVals = Object.values(prev);
-      const prevGroup = prevVals.length > 0
-        ? (prevVals[0].codigo_dispersion ?? "__sin_codigo__")
-        : null;
-      // Different group — clear and select only this row
-      if (prevGroup !== null && prevGroup !== rowGroup) {
-        return { [row.id_solicitud_proveedor]: row };
-      }
-      // Same group — toggle
       const next = { ...prev };
       if (next[row.id_solicitud_proveedor]) {
         delete next[row.id_solicitud_proveedor];
@@ -217,15 +221,51 @@ export default function PagosProveedorL() {
   };
 
   const toggleGroup = (groupRows: SolicitudRow[]) => {
+    const groupCode = groupRows[0]?.codigo_dispersion ?? "__sin_codigo__";
+    const prevVals = Object.values(selectedMap);
+    const prevGroup = prevVals.length > 0
+      ? (prevVals[0].codigo_dispersion ?? "__sin_codigo__")
+      : null;
+
+    const allInGroup = groupRows.every((r) => !!selectedMap[r.id_solicitud_proveedor]);
+    if (allInGroup) {
+      setSelectedMap((prev) => {
+        const next = { ...prev };
+        groupRows.forEach((r) => delete next[r.id_solicitud_proveedor]);
+        return next;
+      });
+      return;
+    }
+
+    const hasOtherGroup = prevVals.some(
+      (r) => (r.codigo_dispersion ?? "__sin_codigo__") !== groupCode,
+    );
+    if (prevGroup !== null && hasOtherGroup) {
+      setPendingAction({ type: "group", groupRows, currentGroup: prevGroup, newGroup: groupCode });
+      return;
+    }
+
     setSelectedMap((prev) => {
-      const allInGroup = groupRows.every((r) => !!prev[r.id_solicitud_proveedor]);
-      if (allInGroup) {
-        return {};
-      }
-      const next: Record<string, SolicitudRow> = {};
+      const next = { ...prev };
       groupRows.forEach((r) => { next[r.id_solicitud_proveedor] = r; });
       return next;
     });
+  };
+
+  const confirmPendingAction = () => {
+    if (!pendingAction) return;
+    if (pendingAction.type === "row") {
+      const { row } = pendingAction;
+      setSelectedMap((prev) => ({ ...prev, [row.id_solicitud_proveedor]: row }));
+    } else {
+      const { groupRows } = pendingAction;
+      setSelectedMap((prev) => {
+        const next = { ...prev };
+        groupRows.forEach((r) => { next[r.id_solicitud_proveedor] = r; });
+        return next;
+      });
+    }
+    setPendingAction(null);
   };
 
   const selectedSolicitudes = useMemo<SolicitudSeleccionada[]>(
@@ -754,6 +794,18 @@ export default function PagosProveedorL() {
           onClose={() => setRevisionRow(null)}
         />
       )}
+
+      {/* Modal confirmación dispersión mixta */}
+      {pendingAction && (
+        <ConfirmDispersionModal
+          currentGroup={pendingAction.currentGroup}
+          newGroup={pendingAction.newGroup}
+          currentCount={Object.keys(selectedMap).length}
+          addCount={pendingAction.type === "row" ? 1 : pendingAction.groupRows.length}
+          onConfirm={confirmPendingAction}
+          onCancel={() => setPendingAction(null)}
+        />
+      )}
     </div>
   );
 }
@@ -895,6 +947,86 @@ function RevisionPendienteModal({ row, onClose }: { row: SolicitudRow; onClose: 
           >
             Ver información de cuenta
           </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ConfirmDispersionModal({
+  currentGroup,
+  newGroup,
+  currentCount,
+  addCount,
+  onConfirm,
+  onCancel,
+}: {
+  currentGroup: string;
+  newGroup: string;
+  currentCount: number;
+  addCount: number;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const fmt = (code: string) =>
+    code === "__sin_codigo__" ? "Sin código" : code;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onCancel}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-5 py-4 border-b border-slate-200 bg-amber-50 flex items-center gap-2">
+          <span className="text-amber-500 text-lg">⚠</span>
+          <span className="text-sm font-semibold text-amber-800">
+            Dispersión diferente
+          </span>
+        </div>
+
+        <div className="px-5 py-4 space-y-3 text-sm text-slate-700">
+          <p>
+            Ya tienes{" "}
+            <span className="font-semibold">
+              {currentCount} solicitud{currentCount !== 1 ? "es" : ""}
+            </span>{" "}
+            seleccionadas de la dispersión{" "}
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-blue-700 border border-blue-200">
+              {fmt(currentGroup)}
+            </span>
+            .
+          </p>
+          <p>
+            ¿Deseas agregar{" "}
+            <span className="font-semibold">
+              {addCount} solicitud{addCount !== 1 ? "es" : ""}
+            </span>{" "}
+            de la dispersión{" "}
+            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-300">
+              {fmt(newGroup)}
+            </span>{" "}
+            a tu selección actual?
+          </p>
+        </div>
+
+        <div className="px-5 py-3 border-t border-slate-200 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-4 py-2 text-sm rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="px-4 py-2 text-sm rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors"
+          >
+            Confirmar
+          </button>
         </div>
       </div>
     </div>

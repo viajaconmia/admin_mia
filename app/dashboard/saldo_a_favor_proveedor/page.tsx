@@ -4,7 +4,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Table5 } from "@/components/Table5";
 import { URL, API_KEY } from "@/lib/constants/index";
-import { Search, Filter, X, RefreshCw, Ban , CheckCircle} from "lucide-react";
+import { Search, Filter, X, RefreshCw, Ban, CheckCircle } from "lucide-react";
 import Button from "@/components/atom/Button";
 import { ProveedorProvider } from "@/context/Proveedores";
 
@@ -16,7 +16,11 @@ function formatDateSimple(dateStr?: string) {
   if (!dateStr) return "—";
   const d = new Date(dateStr);
   if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return d.toLocaleDateString("es-MX", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
 }
 
 function formatDateTimeSimple(dateStr?: string) {
@@ -56,7 +60,9 @@ function toSaldoFavorRow(raw: any, index: number): AnyRow {
   const row_id = getRowKey(raw, index);
 
   const estado: EstadoSaldo = String(raw?.estado ?? "").toLowerCase() as any;
-  const forma_pago: FormaPago = String(raw?.forma_pago ?? "").toUpperCase() as any;
+  const forma_pago: FormaPago = String(
+    raw?.forma_pago ?? "",
+  ).toUpperCase() as any;
 
   return {
     row_id,
@@ -64,7 +70,7 @@ function toSaldoFavorRow(raw: any, index: number): AnyRow {
     // saldos.*
     id_saldo: raw?.id_saldo ?? null,
 
-    proveedor:raw.intermediario,
+    proveedor: raw.intermediario || raw.proveedor,
     intermediario: Number(raw?.intermedirio ?? 0),
     booking: raw?.reserva ?? null,
     codigo_confirmacion: raw?.codigo_confirmacion ?? null,
@@ -102,14 +108,14 @@ function toSaldoFavorRow(raw: any, index: number): AnyRow {
     acciones: "",
     __raw: raw,
 
-    item:raw,
+    item: raw,
   };
 }
 
 export default function SaldoAFavorProveedoresPage() {
   const endpoint = `${URL}/mia/pago_proveedor/saldo_a_favor`;
   const changeStatusEndpoint = `${URL}/mia/pago_proveedor/cambio_de_estatus`;
- 
+
   const [isLoading, setIsLoading] = useState(false);
   const [todos, setTodos] = useState<any[]>([]);
 
@@ -121,7 +127,6 @@ export default function SaldoAFavorProveedoresPage() {
   const [idProveedorFiltro, setIdProveedorFiltro] = useState<string>(""); // se manda al back (opcional)
   const [estadoFiltro, setEstadoFiltro] = useState<EstadoSaldo>("");
   const [formaPagoFiltro, setFormaPagoFiltro] = useState<FormaPago>("");
-  
 
   const load = useCallback(async () => {
     const controller = new AbortController();
@@ -175,13 +180,14 @@ export default function SaldoAFavorProveedoresPage() {
       });
 
       const json = await resp.json().catch(() => null);
-      if (!resp.ok) throw new Error(json?.message || `Error HTTP: ${resp.status}`);
+      if (!resp.ok)
+        throw new Error(json?.message || `Error HTTP: ${resp.status}`);
       return true;
     },
-    [changeStatusEndpoint]
+    [changeStatusEndpoint],
   );
 
-    const aprobar_saldo = useCallback(
+  const aprobar_saldo = useCallback(
     async (id_saldo: string) => {
       const resp = await fetch(changeStatusEndpoint, {
         method: "POST",
@@ -194,12 +200,12 @@ export default function SaldoAFavorProveedoresPage() {
       });
 
       const json = await resp.json().catch(() => null);
-      if (!resp.ok) throw new Error(json?.message || `Error HTTP: ${resp.status}`);
+      if (!resp.ok)
+        throw new Error(json?.message || `Error HTTP: ${resp.status}`);
       return true;
     },
-    [changeStatusEndpoint]
+    [changeStatusEndpoint],
   );
-
 
   const filteredData = useMemo(() => {
     const q = (searchTerm || "").toUpperCase().trim();
@@ -222,7 +228,12 @@ export default function SaldoAFavorProveedoresPage() {
         const ref = String(raw?.referencia ?? "").toUpperCase();
         const id = String(raw?.id_saldo ?? "").toUpperCase();
         const sol = String(raw?.id_solicitud ?? "").toUpperCase();
-        return prov.includes(q) || ref.includes(q) || id.includes(q) || sol.includes(q);
+        return (
+          prov.includes(q) ||
+          ref.includes(q) ||
+          id.includes(q) ||
+          sol.includes(q)
+        );
       });
 
     return base.map((raw, i) => toSaldoFavorRow(raw, i));
@@ -257,7 +268,7 @@ export default function SaldoAFavorProveedoresPage() {
       "comentario_CXP",
       "acciones",
     ],
-    []
+    [],
   );
 
   const tableRenderers = useMemo<
@@ -269,9 +280,12 @@ export default function SaldoAFavorProveedoresPage() {
         const t = String(item?.type ?? "").trim();
         return (
           <div className="min-w-[220px]">
-            <div className="font-semibold text-xs">{v ? v.toUpperCase() : "—"}</div>
+            <div className="font-semibold text-xs">
+              {v ? v.toUpperCase() : "—"}
+            </div>
             <div className="text-[11px] text-gray-500">
-              {t ? t.toUpperCase() : "—"} · CP {String(item?.codigo_postal ?? "—")}
+              {t ? t.toUpperCase() : "—"} · CP{" "}
+              {String(item?.codigo_postal ?? "—")}
             </div>
           </div>
         );
@@ -283,11 +297,19 @@ export default function SaldoAFavorProveedoresPage() {
         </span>
       ),
 
-      fecha_procesamiento: ({ value }) => <span title={value}>{formatDateTimeSimple(value)}</span>,
-      fecha_solicitud: ({ value }) => <span title={value}>{formatDateSimple(value)}</span>,
+      fecha_procesamiento: ({ value }) => (
+        <span title={value}>{formatDateTimeSimple(value)}</span>
+      ),
+      fecha_solicitud: ({ value }) => (
+        <span title={value}>{formatDateSimple(value)}</span>
+      ),
 
-      restante: ({ value }) => <span title={String(value)}>{formatMoney(value)}</span>,
-      monto: ({ value }) => <span title={String(value)}>{formatMoney(value)}</span>,
+      restante: ({ value }) => (
+        <span title={String(value)}>{formatMoney(value)}</span>
+      ),
+      monto: ({ value }) => (
+        <span title={String(value)}>{formatMoney(value)}</span>
+      ),
 
       estado: ({ value }) => {
         const v = String(value ?? "").toLowerCase();
@@ -295,11 +317,13 @@ export default function SaldoAFavorProveedoresPage() {
           v === "applied"
             ? "bg-green-50 text-green-700 border-green-200"
             : v === "cancelled"
-            ? "bg-red-50 text-red-700 border-red-200"
-            : "bg-amber-50 text-amber-700 border-amber-200";
+              ? "bg-red-50 text-red-700 border-red-200"
+              : "bg-amber-50 text-amber-700 border-amber-200";
 
         return (
-          <span className={`text-xs font-semibold border px-2 py-1 rounded-full ${cls}`}>
+          <span
+            className={`text-xs font-semibold border px-2 py-1 rounded-full ${cls}`}
+          >
             {String(value ?? "—").toUpperCase()}
           </span>
         );
@@ -312,97 +336,121 @@ export default function SaldoAFavorProveedoresPage() {
       ),
 
       // ✅ SOLO cancelar 1x1, y SOLO cuando estado=pending
-      acciones: ({ value,item }) => {
-          const id = String(item?.id_saldo ?? "").trim();
-          const estadoSaldo = item?.estado;
-          
-          const canCancel = !!id && estadoSaldo === "pending"; // ✅ pending = sí cancela
-          console.log("Render acciones para item:",item,"vkrnmvirnv",estadoSaldo, "canCancel?", canCancel,id);
+      acciones: ({ value, item }) => {
+        const id = String(item?.id_saldo ?? "").trim();
+        const estadoSaldo = item?.estado;
 
-  return (
-    <div className="flex items-center gap-2">
-      <button
-        type="button"
-        disabled={!canCancel}
-        aria-disabled={!canCancel}
-        className={[
-          "px-2 py-1 text-xs border rounded-md inline-flex items-center gap-1",
-          canCancel
-            ? "border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
-            : "border-gray-200 bg-gray-100 text-gray-400",
-          "disabled:opacity-60 disabled:cursor-not-allowed",
-        ].join(" ")}
-        onClick={async () => {
-          if (!canCancel) return; // ✅ guard por si tu UI no respeta disabled
-          const ok = confirm(`¿Aprobar saldo ${id}? (estado=approved)`);
-          if (!ok) return;
+        const canCancel = !!id && estadoSaldo === "pending"; // ✅ pending = sí cancela
+        console.log(
+          "Render acciones para item:",
+          item,
+          "vkrnmvirnv",
+          estadoSaldo,
+          "canCancel?",
+          canCancel,
+          id,
+        );
 
-          try {
-            await cancelarSaldo(id);
-            await load();
-          } catch (e: any) {
-            alert(e?.message || "Error cancelando saldo");
-          }
-        }}
-        title={canCancel ? "Cancelar saldo (solo pending)" : "No se puede cancelar: solo estado pending"}
-      >
-        <Ban className="w-4 h-4" />
-        Cancelar
-      </button>
+        return (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={!canCancel}
+              aria-disabled={!canCancel}
+              className={[
+                "px-2 py-1 text-xs border rounded-md inline-flex items-center gap-1",
+                canCancel
+                  ? "border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+                  : "border-gray-200 bg-gray-100 text-gray-400",
+                "disabled:opacity-60 disabled:cursor-not-allowed",
+              ].join(" ")}
+              onClick={async () => {
+                if (!canCancel) return; // ✅ guard por si tu UI no respeta disabled
+                const ok = confirm(`¿Aprobar saldo ${id}? (estado=approved)`);
+                if (!ok) return;
 
+                try {
+                  await cancelarSaldo(id);
+                  await load();
+                } catch (e: any) {
+                  alert(e?.message || "Error cancelando saldo");
+                }
+              }}
+              title={
+                canCancel
+                  ? "Cancelar saldo (solo pending)"
+                  : "No se puede cancelar: solo estado pending"
+              }
+            >
+              <Ban className="w-4 h-4" />
+              Cancelar
+            </button>
 
-      <button
-        type="button"
-        disabled={!canCancel}
-        aria-disabled={!canCancel}
-        className={[
-          "px-2 py-1 text-xs border rounded-md inline-flex items-center gap-1",
-          canCancel
-            ? "border-green-200 bg-green-50 text-green-700 hover:bg-green-100"
-            : "border-gray-200 bg-gray-100 text-gray-400",
-          "disabled:opacity-60 disabled:cursor-not-allowed",
-        ].join(" ")}
-        onClick={async () => {
-          if (!canCancel) return; // ✅ guard por si tu UI no respeta disabled
-          const ok = confirm(`aprobar saldo ${id}? (estado=aprobado)`);
-          if (!ok) return;
+            <button
+              type="button"
+              disabled={!canCancel}
+              aria-disabled={!canCancel}
+              className={[
+                "px-2 py-1 text-xs border rounded-md inline-flex items-center gap-1",
+                canCancel
+                  ? "border-green-200 bg-green-50 text-green-700 hover:bg-green-100"
+                  : "border-gray-200 bg-gray-100 text-gray-400",
+                "disabled:opacity-60 disabled:cursor-not-allowed",
+              ].join(" ")}
+              onClick={async () => {
+                if (!canCancel) return; // ✅ guard por si tu UI no respeta disabled
+                const ok = confirm(`aprobar saldo ${id}? (estado=aprobado)`);
+                if (!ok) return;
 
-          try {
-            await aprobar_saldo(id);
-            await load();
-          } catch (e: any) {
-            alert(e?.message || "Error aprobando saldo");
-          }
-        }}
-        title={canCancel ? "aprobar saldo (solo pending)" : "No se puede aprobar: solo estado pending"}
-      >
-        <Ban className="w-4 h-4" />
-        aprobar
-      </button>
-    </div>
-  );
-},
+                try {
+                  await aprobar_saldo(id);
+                  await load();
+                } catch (e: any) {
+                  alert(e?.message || "Error aprobando saldo");
+                }
+              }}
+              title={
+                canCancel
+                  ? "aprobar saldo (solo pending)"
+                  : "No se puede aprobar: solo estado pending"
+              }
+            >
+              <Ban className="w-4 h-4" />
+              aprobar
+            </button>
+          </div>
+        );
+      },
     }),
-    [cancelarSaldo, load, aprobar_saldo]
+    [cancelarSaldo, load, aprobar_saldo],
   );
 
-  const defaultSort = useMemo(() => ({ key: "fecha_procesamiento", sort: false }), []);
-
-  
+  const defaultSort = useMemo(
+    () => ({ key: "fecha_procesamiento", sort: false }),
+    [],
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-[1400px] mx-auto px-4 py-4 space-y-4">
-        <h1 className="text-xl font-bold text-slate-900 tracking-tight">Saldo a favor proveedor</h1>
+        <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+          Saldo a favor proveedor
+        </h1>
         {/* Header */}
         <div className="bg-white border border-gray-200 rounded-lg p-3">
           <div className="flex flex-col md:flex-row md:items-center gap-3">
             <div className="flex-1">
-              <div className="text-sm font-semibold text-gray-900">Saldo a favor · Proveedores</div>
+              <div className="text-sm font-semibold text-gray-900">
+                Saldo a favor · Proveedores
+              </div>
               <div className="text-xs text-gray-500">
-                Registros: <span className="font-semibold">{totals.count}</span> · Pending:{" "}
-                <span className="font-semibold">{totals.pending}</span> · Restante:{" "}
-                <span className="font-semibold">{formatMoney(totals.restante)}</span>
+                Registros: <span className="font-semibold">{totals.count}</span>{" "}
+                · Pending:{" "}
+                <span className="font-semibold">{totals.pending}</span> ·
+                Restante:{" "}
+                <span className="font-semibold">
+                  {formatMoney(totals.restante)}
+                </span>
               </div>
             </div>
 
@@ -469,7 +517,9 @@ export default function SaldoAFavorProveedoresPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Estado (cliente)</label>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Estado (cliente)
+                  </label>
                   <select
                     value={estadoFiltro}
                     onChange={(e) => setEstadoFiltro(e.target.value as any)}
@@ -483,7 +533,9 @@ export default function SaldoAFavorProveedoresPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Forma de pago (cliente)</label>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Forma de pago (cliente)
+                  </label>
                   <select
                     value={formaPagoFiltro}
                     onChange={(e) => setFormaPagoFiltro(e.target.value as any)}
@@ -531,7 +583,11 @@ export default function SaldoAFavorProveedoresPage() {
           />
         </div>
 
-        {isLoading && <div className="text-sm text-gray-500 px-2">Cargando información...</div>}
+        {isLoading && (
+          <div className="text-sm text-gray-500 px-2">
+            Cargando información...
+          </div>
+        )}
       </div>
     </div>
   );
