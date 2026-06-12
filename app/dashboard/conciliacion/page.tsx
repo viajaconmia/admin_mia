@@ -18,7 +18,7 @@ import {
   Send,
   RefreshCw,
   ChevronLeft,
-  ChevronRight,
+  ChevronRight, 
   CheckCheck,
 } from "lucide-react";
 
