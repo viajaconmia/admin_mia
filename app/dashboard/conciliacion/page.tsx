@@ -371,7 +371,8 @@ type EditableField =
   | "impuestos"
   | "subtotal"
   | "costo_proveedor"
-  | "id_confirmacion";
+  | "id_confirmacion"
+  | "codigo_confirmacion";
 
 const MONEY_FIELDS: EditableField[] = [
   "total_aplicable",
@@ -380,6 +381,8 @@ const MONEY_FIELDS: EditableField[] = [
   "costo_proveedor",
 ];
 
+const TEXT_FIELDS: EditableField[] = ["codigo_confirmacion"];
+
 const FIELD_TO_API: Record<string, string> = {
   comentarios_ops: "comentarios_ops",
   comentarios_cxp: "comentarios_cxp",
@@ -387,6 +390,7 @@ const FIELD_TO_API: Record<string, string> = {
   impuestos: "impuestos",
   subtotal: "subtotal",
   costo_proveedor: "monto_solicitado",
+  codigo_confirmacion: "codigo_confirmacion",
 };
 
 type EditModalState = {
@@ -1362,12 +1366,24 @@ export default function ConciliacionPage() {
       codigo_hotel: ({ value, item }) => {
         const rowId = getSelectionKey(item);
         const codigo = item?.id_confirmacion ?? "";
+        const v = draftEdits[rowId]?.codigo_confirmacion ?? value ?? "";
 
         return (
           <div className="flex items-center gap-2">
-            <span className="font-semibold">
-              {value ? String(value).toUpperCase() : ""}
+            <span className="font-semibold" title={String(v)}>
+              {v ? String(v).toUpperCase() : ""}
             </span>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="w-8 h-8 px-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-700"
+              onClick={() =>
+                openEditModal(rowId, item?.id_servicio, "codigo_confirmacion", v)
+              }
+              title="Editar código de confirmación"
+            >
+              …
+            </Button>
             {item?.id_booking && item?.tipo_reserva_booking ? (
               <Button
                 variant="secondary"
@@ -1381,8 +1397,9 @@ export default function ConciliacionPage() {
                     codigo,
                   )
                 }
+                title="Editar código de confirmación de la reserva"
               >
-                …
+                ✈
               </Button>
             ) : null}
           </div>
@@ -2035,7 +2052,8 @@ export default function ConciliacionPage() {
                     }
                     placeholder="Escribe el texto completo..."
                   />
-                ) : editModal.field === "id_confirmacion" ? (
+                ) : editModal.field === "id_confirmacion" ||
+                  TEXT_FIELDS.includes(editModal.field) ? (
                   <input
                     type="text"
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"

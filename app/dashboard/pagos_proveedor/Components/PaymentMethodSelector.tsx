@@ -165,6 +165,7 @@ export default function PaymentMethodSelector({
                   </option>
                   {activeCards.map((c: any) => {
                     const id = String(c?.id ?? "");
+                    const alias = String(c?.alias ?? "");
                     const banco = String(
                       c?.banco_emisor ?? c?.banco ?? "Banco",
                     );

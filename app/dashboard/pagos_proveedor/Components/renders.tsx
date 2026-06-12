@@ -1108,21 +1108,13 @@ export function createSolicitudesRenderers({
                     handleFetchSolicitudesPago();
                     return true;
                   }}
-                  onSetCard={async ({ id_tarjeta_solicitada, id_titular }) => {
+                  onSetCard={async ({ id_tarjeta_solicitada }) => {
                     const ok1 = await patchSolicitudProveedor(
                       idSolProv,
                       "id_tarjeta_solicitada",
                       id_tarjeta_solicitada,
                     );
                     if (!ok1) return false;
-
-                    if (id_titular) {
-                      await patchSolicitudProveedor(
-                        idSolProv,
-                        "id_titular",
-                        id_titular,
-                      );
-                    }
 
                     handleFetchSolicitudesPago();
                     return true;
