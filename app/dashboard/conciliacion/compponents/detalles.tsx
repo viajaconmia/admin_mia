@@ -613,9 +613,9 @@ const maximoTotalPermitido = round2(totalYaAsociado + maximoAdicional);
 
   const montoSolicitado =
     resumen?.monto_solicitado ?? solicitudApi?.monto_solicitado ?? 0;
-  const totalAsociadoSolicitud = resumen?.total_asociado_solicitud ?? 0;
-  const restanteSolicitud = resumen?.restante_solicitud ?? 0;
-  const totalPagado = resumen?.total_pagado ?? 0;
+  // const totalAsociadoSolicitud = resumen?.total_asociado_solicitud ?? 0;
+  //const restanteSolicitud = resumen?.restante_solicitud ?? 0;
+  // const totalPagado = resumen?.total_pagado ?? 0;
   const totalFacturas = resumen?.total_facturado ?? 0;
   const diferencia = resumen?.diferencia_total ?? 0;
   const esCuadrado = Number(diferencia) === 0;
