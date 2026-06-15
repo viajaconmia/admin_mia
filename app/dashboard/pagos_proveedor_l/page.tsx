@@ -763,6 +763,7 @@ export default function PagosProveedorL() {
         <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/30 p-4 overflow-y-auto">
           <OtrosMetodosPagoModal
             selectedSolicitudes={selectedSolicitudes}
+            onlyComprobante
             onClose={() => setShowModal(false)}
             onSubmit={async () => {
               setShowModal(false);
@@ -778,6 +779,7 @@ export default function PagosProveedorL() {
         <ModalDetalle
           id_solicitud_proveedor={detalleId}
           onClose={() => setDetalleId(null)}
+          onlyComprobantes
         />
       )}
 

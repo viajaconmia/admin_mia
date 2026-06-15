@@ -16,6 +16,8 @@ type OtrosMetodosPagoModalProps = {
   onClose: () => void;
   onSubmit?: (payload: any) => Promise<void> | void;
   selectedSolicitudes?: SolicitudSeleccionadaComprobante[];
+  /** Si es true, oculta el modo "Varias por CSV" y solo permite subir el comprobante de pago. */
+  onlyComprobante?: boolean;
 };
 
 type Mode = "manual" | "csv";
@@ -222,6 +224,7 @@ export const OtrosMetodosPagoModal: React.FC<OtrosMetodosPagoModalProps> = ({
   onClose,
   onSubmit,
   selectedSolicitudes = [],
+  onlyComprobante = false,
 }) => {
   const [mode, setMode] = useState<Mode>("manual");
 
@@ -796,19 +799,25 @@ const buildSelectedRows = (): CSVRow[] => {
         hasSelectedRows && selectedForms.length > 1 ? "max-w-6xl" : "max-w-3xl"
       } relative bg-white rounded-lg shadow-lg flex flex-col max-h-[90dvh]`}
     >
-      {/* Header fijo */}
-      <div className="flex-shrink-0">
-        <div className="bg-blue-50 border-b border-blue-200 p-4 flex gap-3 items-start rounded-t-lg">
-          <Info className="w-5 h-5 text-blue-600 mt-0.5" />
-          <div>
-            <h3 className="text-sm font-semibold text-blue-800">
-              Otros métodos de pago
-            </h3>
-            <p className="text-xs text-blue-700">
-              Puedes capturar un registro, usar las solicitudes seleccionadas o cargar CSV.
-            </p>
+      <div
+        className={`mx-auto ${
+          hasSelectedRows && selectedForms.length > 1 ? "max-w-6xl" : "max-w-3xl"
+        }`}
+      >
+        <div className="sticky top-0 z-10">
+          <div className="bg-blue-50 border-b border-blue-200 p-4 flex gap-3 items-start rounded-t-lg">
+            <Info className="w-5 h-5 text-blue-600 mt-0.5" />
+            <div>
+              <h3 className="text-sm font-semibold text-blue-800">
+                {onlyComprobante ? "Comprobante de pago" : "Otros métodos de pago"}
+              </h3>
+              <p className="text-xs text-blue-700">
+                {onlyComprobante
+                  ? "Sube el comprobante de pago para las solicitudes seleccionadas."
+                  : "Puedes capturar un registro, usar las solicitudes seleccionadas o cargar CSV."}
+              </p>
+            </div>
           </div>
-        </div>
 
         {formError && (
           <div className="bg-red-50 border-b border-red-200 p-4 flex gap-3 items-start">
@@ -831,32 +840,36 @@ const buildSelectedRows = (): CSVRow[] => {
         )}
       </div>
 
-      {/* Contenido scrolleable */}
-      <form id="comprobante-form" onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+        <form
+          onSubmit={handleSubmit}
+          className="flex flex-col flex-1 min-h-0 overflow-hidden"
+        >
         <div className="overflow-y-auto flex-1 p-4 space-y-6">
-          <div className="flex gap-2 flex-wrap">
-            <button
-              type="button"
-              onClick={() => setMode("manual")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium ${
-                mode === "manual" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700"
-              }`}
-            >
-              {hasSelectedRows
-                ? `Seleccionadas (${selectedForms.length})`
-                : "Una solicitud"}
-            </button>
+          {!onlyComprobante && (
+            <div className="flex gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setMode("manual")}
+                className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                  mode === "manual" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700"
+                }`}
+              >
+                {hasSelectedRows
+                  ? `Seleccionadas (${selectedForms.length})`
+                  : "Una solicitud"}
+              </button>
 
-            <button
-              type="button"
-              onClick={() => setMode("csv")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium ${
-                mode === "csv" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700"
-              }`}
-            >
-              Varias por CSV
-            </button>
-          </div>
+              <button
+                type="button"
+                onClick={() => setMode("csv")}
+                className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                  mode === "csv" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700"
+                }`}
+              >
+                Varias por CSV
+              </button>
+            </div>
+          )}
 
           <div className="space-y-4">
             {renderFileSlot(0, "Subir comprobante (PDF o imagen)")}
@@ -1042,7 +1055,7 @@ const buildSelectedRows = (): CSVRow[] => {
             </div>
           )}
 
-          {mode === "csv" && (
+          {!onlyComprobante && mode === "csv" && (
             <div className="space-y-2">
               <label htmlFor="csv-file" className="block text-sm font-medium text-gray-700">
                 Subir archivo CSV
@@ -1142,6 +1155,7 @@ const buildSelectedRows = (): CSVRow[] => {
           </button>
         </div>
       </form>
+      </div>
 
       {/* Mobile full-screen preview */}
       {showMobilePreviewIndex !== null &&

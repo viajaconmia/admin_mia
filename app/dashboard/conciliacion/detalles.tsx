@@ -16,6 +16,8 @@ import { URL, API_KEY } from "@/lib/constants/index";
 interface ModalDetallesProp {
   id_solicitud_proveedor: string | null;
   onClose: () => void;
+  /** Si es true, solo muestra la sección de comprobantes de pago. */
+  onlyComprobantes?: boolean;
 }
 
 /** ---------- Helpers ---------- */
@@ -104,7 +106,7 @@ function SectionTitle({
   );
 }
 
-const ModalDetalle: React.FC<ModalDetallesProp> = ({ id_solicitud_proveedor, onClose }) => {
+const ModalDetalle: React.FC<ModalDetallesProp> = ({ id_solicitud_proveedor, onClose, onlyComprobantes = false }) => {
   const endpoint = `${URL}/mia/pago_proveedor/detalles`;
 
   const [loading, setLoading] = useState(false);
@@ -171,6 +173,19 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ id_solicitud_proveedor, onC
   const facturasApi = Array.isArray(api?.facturas) ? api.facturas : [];
   const pagosApi = Array.isArray(api?.pagos) ? api.pagos : [];
   const resumen = api?.resumen_validacion ?? null;
+
+  // En modo "solo comprobantes" mostramos de inmediato el PDF del primer
+  // pago con comprobante, sin que el usuario tenga que pulsar "Ver PDF".
+  useEffect(() => {
+    if (!onlyComprobantes) return;
+    if (previewUrl) return;
+
+    const primerPago = pagosApi.find((p: any) => safeString(p?.url_pdf));
+    if (primerPago) {
+      setPreviewUrl(safeString(primerPago.url_pdf));
+      setPreviewTitle(`Comprobante pago #${safeString(primerPago?.id_pago_proveedores)}`);
+    }
+  }, [onlyComprobantes, pagosApi, previewUrl]);
 
   /** --------- Header info (desde la respuesta API) --------- */
   const hotel = safeString(info?.hotel);
@@ -294,18 +309,20 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ id_solicitud_proveedor, onC
         if (!url) return <span className="text-[11px] text-gray-400">Sin comprobante</span>;
         return (
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setPreviewUrl(url);
-                setPreviewTitle(`Comprobante pago #${safeString(item?.id_pago_proveedores)}`);
-              }}
-              className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] text-blue-700 hover:bg-blue-100"
-              title="Vista previa comprobante"
-            >
-              <FileText className="w-3.5 h-3.5" />
-              Ver PDF
-            </button>
+            {!onlyComprobantes && (
+              <button
+                type="button"
+                onClick={() => {
+                  setPreviewUrl(url);
+                  setPreviewTitle(`Comprobante pago #${safeString(item?.id_pago_proveedores)}`);
+                }}
+                className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] text-blue-700 hover:bg-blue-100"
+                title="Vista previa comprobante"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                Ver PDF
+              </button>
+            )}
             <button
               type="button"
               onClick={() => openUrl(url)}
@@ -318,7 +335,7 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ id_solicitud_proveedor, onC
         );
       },
     }),
-    [setPreviewUrl, setPreviewTitle]
+    [setPreviewUrl, setPreviewTitle, onlyComprobantes]
   );
 
   /** --------- Validación visual --------- */
@@ -408,9 +425,11 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ id_solicitud_proveedor, onC
             )}
 
             {!loading && !error && (
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+              <div className={onlyComprobantes ? "space-y-4" : "grid grid-cols-1 lg:grid-cols-12 gap-4"}>
                 {/* MAIN */}
-                <div className="lg:col-span-8 space-y-4">
+                <div className={onlyComprobantes ? "space-y-4" : "lg:col-span-8 space-y-4"}>
+                  {!onlyComprobantes && (
+                  <>
                   {/* Overview cards */}
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                     <StatCard label="Check-in" value={checkIn} />
@@ -545,6 +564,8 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ id_solicitud_proveedor, onC
                       />
                     )}
                   </div>
+                  </>
+                  )}
 
                   {/* Pagos */}
                   <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
@@ -597,13 +618,14 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ id_solicitud_proveedor, onC
                         src={previewUrl}
                         title={previewTitle}
                         className="w-full"
-                        style={{ height: "520px" }}
+                        style={{ height: onlyComprobantes ? "80vh" : "520px" }}
                       />
                     </div>
                   )}
                 </div>
 
                 {/* SIDEBAR */}
+                {!onlyComprobantes && (
                 <div className="lg:col-span-4 space-y-4">
                   <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
                     <SectionTitle title="Datos de la solicitud" />
@@ -702,6 +724,7 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ id_solicitud_proveedor, onC
                     .
                   </div>
                 </div>
+                )}
               </div>
             )}
           </div>
