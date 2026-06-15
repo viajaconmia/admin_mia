@@ -1104,11 +1104,35 @@ export default function ConciliacionPage() {
 
   const customColumns = useMemo(
     () => [
+      "creado",
+      "hotel",
       "codigo_hotel",
+      "viajero",
+      "check_in",
+      "check_out",
+      "noches",
+      "tipo_cuarto",
+      "estado_solicitud",
       "costo_proveedor",
+      "markup",
+      "seleccionar_factura",
       "precio_de_venta",
+      "canal_de_reservacion",
+      "nombre_intermediario",
+      "tipo_de_reserva",
+      "tarjeta",
+      "id_enviado",
+      "comentarios_ops",
+      "comentarios_cxp",
+      "comentario_ap",
+      "detalles",
+      "estatus_facturas",
       "total_facturado",
       "diferencia_costo_proveedor_vs_factura",
+      "subir_factura",
+      "acciones",
+      "usuario_creador",
+      "fecha_solicitud",
     ],
     [],
   );
@@ -1826,6 +1850,7 @@ export default function ConciliacionPage() {
             getRowClassName={getRowClassName as any}
             headerRenderers={{
               estado_solicitud: () => <span>ESTATUS PAGO</span>,
+              hotel: () => <span>PROVEEDOR</span>,
             }}
           >
             <Button
