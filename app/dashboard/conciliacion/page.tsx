@@ -18,11 +18,12 @@ import {
   Send,
   RefreshCw,
   ChevronLeft,
-  ChevronRight, 
+  ChevronRight,
   CheckCheck,
 } from "lucide-react";
 
 import Button from "@/components/atom/Button";
+import { Loader } from "@/components/atom/Loader";
 import SubirFactura from "@/app/dashboard/facturacion/subirfacturas/SubirFactura";
 import ModalDetalle from "@/app/dashboard/conciliacion/compponents/detalles";
 import { formatDate } from "@/helpers/formater";
@@ -290,6 +291,7 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
     : (raw?.canal_de_reservacion ?? "DIRECTO");
 
   return {
+    seleccionar_reserva: "",
     row_id,
     id_solicitud_proveedor,
     id_proveedor,
@@ -317,7 +319,7 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
       ? nombreIntermediario
       : (raw?.nombre_intermediario ?? ""),
 
-    tipo_de_reserva: tipoReserva,
+    // tipo_de_reserva: tipoReserva,
 
     tarjeta,
     fecha_solicitud: raw?.fecha_solicitud,
@@ -340,7 +342,6 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
     diferencia_costo_proveedor_vs_factura: diferencia,
 
     uuid_factura: raw?.uuid_factura ?? null,
-    seleccionar_factura: "",
 
     subir_factura: raw,
     acciones: "",
@@ -615,8 +616,8 @@ export default function ConciliacionPage() {
 
   const DEFAULT_OPEN_FILTERS: ConciliacionFilters = {
     ...EMPTY_FILTERS,
-    created_start: getStartOfMonthLocalDate(),
-    created_end: getTodayLocalDate(),
+    check_out_start: getTodayLocalDate(),
+    check_out_end: getTodayLocalDate(),
   };
 
   const FILTER_LABELS: Record<keyof ConciliacionFilters, string> = {
@@ -656,21 +657,17 @@ export default function ConciliacionPage() {
   const [appliedFilters, setAppliedFilters] =
     useState<ConciliacionFilters>(DEFAULT_OPEN_FILTERS);
 
-  const DATE_FILTER_KEYS: (keyof ConciliacionFilters)[] = [
-    "created_start",
-    "created_end",
-    "check_in_start",
-    "check_in_end",
-    "check_out_start",
-    "check_out_end",
-    "fecha_reserva_start",
-    "fecha_reserva_end",
-    "filtrar_fecha_por_reserva",
-  ];
-
-  const NON_DATE_FILTER_KEYS = (
-    Object.keys(EMPTY_FILTERS) as (keyof ConciliacionFilters)[]
-  ).filter((key) => !DATE_FILTER_KEYS.includes(key));
+  // const DATE_FILTER_KEYS: (keyof ConciliacionFilters)[] = [
+  //   "created_start",
+  //   "created_end",
+  //   "check_in_start",
+  //   "check_in_end",
+  //   "check_out_start",
+  //   "check_out_end",
+  //   "fecha_reserva_start",
+  //   "fecha_reserva_end",
+  //   "filtrar_fecha_por_reserva",
+  // ];
 
   const load = useCallback(
     async (overrideFilters: ConciliacionFilters, pageToLoad = 1) => {
@@ -772,6 +769,7 @@ export default function ConciliacionPage() {
     field: "comentarios_ops",
     value: "",
   });
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const applyFilters = useCallback(() => {
     const next = { ...filters };
@@ -865,11 +863,41 @@ export default function ConciliacionPage() {
     const { rowId, field, value } = editModal;
     if (!rowId) return;
 
-    await handleEdit(rowId, field, value);
+    setIsSavingEdit(true);
+    const ok = await handleEdit(rowId, field, value);
+    setIsSavingEdit(false);
 
     closeEditModal();
+
+    if (ok && field === "costo_proveedor") {
+      // El backend puede tardar en recalcular diferencia/estatus_facturas, lo
+      // que puede sacar momentáneamente la fila de los filtros aplicados.
+      // Actualizamos localmente para que la fila no desaparezca.
+      const normalized =
+        String(value).trim() === "" ? 0 : Number(value) || 0;
+
+      setTodos((prev) =>
+        prev.map((raw) => {
+          const id =
+            raw?.solicitud_proveedor?.id_solicitud_proveedor ??
+            raw?.id_solicitud_proveedor ??
+            null;
+          if (String(id) !== String(rowId)) return raw;
+
+          return {
+            ...raw,
+            solicitud_proveedor: {
+              ...(raw?.solicitud_proveedor ?? {}),
+              monto_solicitado: normalized,
+            },
+          };
+        }),
+      );
+      return;
+    }
+
     void load(appliedFilters);
-  }, [editModal, handleEdit, closeEditModal, load]);
+  }, [editModal, handleEdit, closeEditModal, load, appliedFilters]);
 
   const filteredData = useMemo(() => {
     const q = (searchInput || "").toUpperCase().trim();
@@ -1115,7 +1143,7 @@ export default function ConciliacionPage() {
       "estado_solicitud",
       "costo_proveedor",
       "markup",
-      "seleccionar_factura",
+      "seleccionar_reserva",
       "precio_de_venta",
       "canal_de_reservacion",
       "nombre_intermediario",
@@ -1300,7 +1328,12 @@ export default function ConciliacionPage() {
               size="sm"
               className="w-8 h-8 px-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-700"
               onClick={() =>
-                openEditModal(rowId, item?.id_servicio, "codigo_confirmacion", v)
+                openEditModal(
+                  rowId,
+                  item?.id_servicio,
+                  "codigo_confirmacion",
+                  v,
+                )
               }
               title="Editar código de confirmación"
             >
@@ -1384,7 +1417,7 @@ export default function ConciliacionPage() {
         );
       },
 
-      seleccionar_factura: ({ item }) => {
+      seleccionar_reserva: ({ item }) => {
         const diff =
           Number(item?.diferencia_costo_proveedor_vs_factura ?? 0) || 0;
         const facturaInfo = getFacturaInfo(item);
@@ -1402,14 +1435,16 @@ export default function ConciliacionPage() {
         const checked = !!facturaSelection[rowId];
 
         return (
-          <label className="inline-flex items-center justify-center cursor-pointer">
-            <input
-              type="checkbox"
-              className="w-4 h-4 accent-blue-600"
-              checked={checked}
-              onChange={() => toggleFacturaSelection(item)}
-            />
-          </label>
+          <div className="flex items-center justify-center">
+            <label className="inline-flex items-center justify-center cursor-pointer">
+              <input
+                type="checkbox"
+                className="w-4 h-4 accent-blue-600"
+                checked={checked}
+                onChange={() => toggleFacturaSelection(item)}
+              />
+            </label>
+          </div>
         );
       },
 
@@ -1969,25 +2004,31 @@ export default function ConciliacionPage() {
                   />
                 )}
 
-                <div className="mt-3 flex items-center justify-end gap-2">
-                  <Button
-                    variant="secondary"
-                    size="md"
-                    className="px-3 py-2 text-sm border border-gray-200 bg-white hover:bg-gray-50 text-gray-800"
-                    onClick={closeEditModal}
-                  >
-                    Cancelar
-                  </Button>
+                {isSavingEdit ? (
+                  <div className="mt-3 flex items-center justify-center">
+                    <Loader />
+                  </div>
+                ) : (
+                  <div className="mt-3 flex items-center justify-end gap-2">
+                    <Button
+                      variant="secondary"
+                      size="md"
+                      className="px-3 py-2 text-sm border border-gray-200 bg-white hover:bg-gray-50 text-gray-800"
+                      onClick={closeEditModal}
+                    >
+                      Cancelar
+                    </Button>
 
-                  <Button
-                    variant="secondary"
-                    size="md"
-                    className="px-3 py-2 text-sm border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
-                    onClick={() => void saveEditModal()}
-                  >
-                    Cambiar
-                  </Button>
-                </div>
+                    <Button
+                      variant="secondary"
+                      size="md"
+                      className="px-3 py-2 text-sm border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                      onClick={() => void saveEditModal()}
+                    >
+                      Cambiar
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           </div>

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Table5 } from "@/components/Table5";
 import { URL, API_KEY } from "@/lib/constants/index";
+import { formatDate } from "@/helpers/formater";
 
 interface ModalDetallesProp {
   solicitud: any | null;
@@ -46,6 +47,22 @@ function toApiNumber(v: any) {
 function toNum(v: any) {
   const n = Number(String(v ?? "").trim());
   return Number.isFinite(n) ? n : 0;
+}
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function calcNochesLocal(checkIn?: string | null, checkOut?: string | null): number {
+  if (!checkIn || !checkOut) return 0;
+
+  const inD = new Date(checkIn);
+  const outD = new Date(checkOut);
+  if (Number.isNaN(inD.getTime()) || Number.isNaN(outD.getTime())) return 0;
+
+  const startUTC = Date.UTC(inD.getUTCFullYear(), inD.getUTCMonth(), inD.getUTCDate());
+  const endUTC = Date.UTC(outD.getUTCFullYear(), outD.getUTCMonth(), outD.getUTCDate());
+
+  const diffDays = Math.round((endUTC - startUTC) / MS_PER_DAY);
+  return diffDays > 0 ? diffDays : 0;
 }
 
 function openUrl(url?: string | null) {
@@ -373,6 +390,61 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose, onSucce
 
   const payload = useMemo(() => buildPayloadFromSolicitud(solicitud), [solicitud]);
 
+  const datosReserva = useMemo(() => {
+    const raw = solicitud?.informacion_completa ?? {};
+
+    const hotel = safeString(raw?.hotel);
+    const viajero = safeString(
+      raw?.nombre_viajero_completo ?? raw?.nombre_viajero
+    );
+
+    const costo_proveedor = toNum(raw?.solicitud_proveedor?.monto_solicitado);
+    const precio_de_venta = toNum(raw?.total);
+    const markup =
+      precio_de_venta > 0
+        ? ((precio_de_venta - costo_proveedor) / precio_de_venta) * 100
+        : 0;
+
+    const noches = calcNochesLocal(raw?.check_in, raw?.check_out);
+
+    const idIntermediario =
+      raw?.id_inermediario ??
+      raw?.id_intermediario ??
+      raw?.informacion_completa?.id_intermediario ??
+      null;
+
+    const nombreIntermediario =
+      raw?.intermediario ??
+      raw?.nombre_intermediario ??
+      raw?.informacion_completa?.intermediario ??
+      "";
+
+    const canalDeReservacion = idIntermediario
+      ? "INTERMEDIARIO"
+      : (raw?.canal_de_reservacion ?? "DIRECTO");
+
+    return {
+      codigo_hotel: safeString(raw?.codigo_confirmacion),
+      hotel: hotel ? hotel.toUpperCase() : "",
+      razon_social: safeString(raw?.proveedor?.razon_social),
+      rfc: safeString(raw?.rfc_proveedor ?? raw?.proveedor?.rfc ?? raw?.rfc),
+      viajero: viajero ? viajero.toUpperCase() : "",
+      check_in: raw?.check_in ?? null,
+      check_out: raw?.check_out ?? null,
+      noches,
+      tipo_cuarto: safeString(raw?.room),
+      costo_proveedor,
+      precio_de_venta,
+      markup,
+      canal_de_reservacion: canalDeReservacion,
+      nombre_intermediario: idIntermediario
+        ? nombreIntermediario
+        : (raw?.nombre_intermediario ?? ""),
+      creado: raw?.created_at ?? null,
+      estado_solicitud: safeString(raw?.solicitud_proveedor?.estado_solicitud),
+    };
+  }, [solicitud]);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [data, setData] = useState<any>(null);
@@ -618,7 +690,7 @@ const maximoTotalPermitido = round2(totalYaAsociado + maximoAdicional);
   //const totalPagado = resumen?.total_pagado ?? 0;
   const totalFacturas = resumen?.total_facturado ?? 0;
   const diferencia = resumen?.diferencia_total ?? 0;
-  const esCuadrado = Number(diferencia) === 0;
+  const esCuadrado = Math.abs(Number(diferencia) || 0) <= 0.01;
 
 const facturasTable = useMemo(() => {
   return facturasApi.map((f: any, idx: number) => {
@@ -930,6 +1002,69 @@ impuestos_edit: ({ item }: any) => {
             {!loading && !error && (
               <>
                 <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                  <p className="text-sm font-semibold text-gray-900 mb-3">
+                    Datos de la reserva
+                  </p>
+
+                  <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+                    <StatCard
+                      label="Código de confirmación"
+                      value={datosReserva.codigo_hotel || "—"}
+                    />
+                    <StatCard
+                      label="Proveedor"
+                      value={datosReserva.hotel || "—"}
+                      sub={
+                        datosReserva.razon_social || datosReserva.rfc
+                          ? `${datosReserva.razon_social || "—"}${
+                              datosReserva.rfc ? ` · ${datosReserva.rfc}` : ""
+                            }`
+                          : undefined
+                      }
+                    />
+                    <StatCard
+                      label="Viajero"
+                      value={datosReserva.viajero || "—"}
+                    />
+                    <StatCard
+                      label="Check-in / Check-out"
+                      value={`${formatDate(datosReserva.check_in) || "—"} — ${
+                        formatDate(datosReserva.check_out) || "—"
+                      }`}
+                      sub={`${datosReserva.noches} noche(s)`}
+                    />
+                    <StatCard
+                      label="Tipo de cuarto"
+                      value={datosReserva.tipo_cuarto || "—"}
+                    />
+                    <StatCard
+                      label="Costo / Precio / Markup"
+                      value={`${formatMoney(datosReserva.costo_proveedor)} / ${formatMoney(
+                        datosReserva.precio_de_venta
+                      )}`}
+                      sub={`Markup: ${datosReserva.markup.toFixed(2)}%`}
+                    />
+                    <StatCard
+                      label="Canal de reservación"
+                      value={datosReserva.canal_de_reservacion || "—"}
+                      sub={
+                        datosReserva.nombre_intermediario
+                          ? datosReserva.nombre_intermediario
+                          : undefined
+                      }
+                    />
+                    <StatCard
+                      label="Fecha de creación"
+                      value={formatDate(datosReserva.creado) || "—"}
+                    />
+                    <StatCard
+                      label="Estado de la solicitud"
+                      value={datosReserva.estado_solicitud || "—"}
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
                   <div className="flex items-center justify-between gap-3 mb-3">
                     <p className="text-sm font-semibold text-gray-900">
                       Resumen de validación
@@ -988,7 +1123,7 @@ impuestos_edit: ({ item }: any) => {
                               esCuadrado ? "text-green-700" : "text-amber-700"
                             }`}
                           >
-                            {formatMoney(diferencia)}
+                            {formatMoney(esCuadrado ? 0 : diferencia)}
                           </span>
                         }
                         sub={
