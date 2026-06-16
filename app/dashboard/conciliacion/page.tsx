@@ -407,6 +407,9 @@ type ProveedorSeleccionado = {
   row_id: string;
   id_solicitud: string;
   id_proveedor: string;
+  codigo_hotel?: string;
+  razon_social?: string;
+  hotel?:string;
 };
 function getStartOfMonthLocalDate() {
   const now = new Date();
@@ -1027,6 +1030,7 @@ export default function ConciliacionPage() {
           row_id: rowId,
           id_solicitud: idSolicitud,
           id_proveedor: idProveedor,
+          hotel: String(row?.hotel ?? ""),
         },
       };
     });
@@ -1040,12 +1044,15 @@ export default function ConciliacionPage() {
       alert("Falta id_solicitud o id_proveedor para subir factura");
       return;
     }
-
+console.log("este es el item", item)
     setSelectedForFactura([
       {
         row_id: String(getSelectionKey(item)).trim(),
         id_solicitud: idSolicitud,
         id_proveedor: idProveedor,
+        codigo_hotel: String(item?.informacion_completa.codigo_confirmacion ?? ""),
+        razon_social: String(item?.informacion_completa.razon_social ?? ""),
+        hotel: String(item?.informacion_completa.hotel ?? "")
       },
     ]);
 

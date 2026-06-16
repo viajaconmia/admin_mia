@@ -88,7 +88,7 @@ export default function SubirFactura({
   onCloseExternal,
 }: SubirFacturaProps) {
   // ── Flags de modo ──────────────────────────────────────────────────────────
-
+console.log("provedordataaaaaaaaaaaaa",proveedoresData)
   const proveedorFlowType = Array.isArray(proveedoresData)
     ? "batch"
     : proveedoresData
