@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 
 import Button from "@/components/atom/Button";
+import { Loader } from "@/components/atom/Loader";
 import SubirFactura from "@/app/dashboard/facturacion/subirfacturas/SubirFactura";
 import ModalDetalle from "@/app/dashboard/conciliacion/compponents/detalles";
 import { formatDate } from "@/helpers/formater";
@@ -290,6 +291,7 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
     : (raw?.canal_de_reservacion ?? "DIRECTO");
 
   return {
+    seleccionar_reserva: "",
     row_id,
     id_solicitud_proveedor,
     id_proveedor,
@@ -317,7 +319,7 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
       ? nombreIntermediario
       : (raw?.nombre_intermediario ?? ""),
 
-    tipo_de_reserva: tipoReserva,
+    // tipo_de_reserva: tipoReserva,
 
     tarjeta,
     fecha_solicitud: raw?.fecha_solicitud,
@@ -340,7 +342,6 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
     diferencia_costo_proveedor_vs_factura: diferencia,
 
     uuid_factura: raw?.uuid_factura ?? null,
-    seleccionar_factura: "",
 
     subir_factura: raw,
     acciones: "",
@@ -373,7 +374,6 @@ type EditableField =
   | "impuestos"
   | "subtotal"
   | "costo_proveedor"
-  | "id_confirmacion"
   | "codigo_confirmacion";
 
 const MONEY_FIELDS: EditableField[] = [
@@ -401,8 +401,6 @@ type EditModalState = {
   idServicio: string | number | null;
   field: EditableField;
   value: string;
-  idBooking?: string | number | null;
-  tipoReserva?: string;
 };
 
 type ProveedorSeleccionado = {
@@ -464,7 +462,6 @@ export default function ConciliacionPage() {
 
   const endpoint = `${URL}/mia/pago_proveedor/solicitud_conciliacion`;
   const editEndpoint = `${URL}/mia/pago_proveedor/edit`;
-  const codigoConfirmacionEndpoint = `${URL}/mia/pago_proveedor/codigo-confirmacion`;
 
   const [detalleOpen, setDetalleOpen] = useState(false);
   const [detalleSolicitud, setDetalleSolicitud] = useState<any | null>(null);
@@ -619,8 +616,8 @@ export default function ConciliacionPage() {
 
   const DEFAULT_OPEN_FILTERS: ConciliacionFilters = {
     ...EMPTY_FILTERS,
-    created_start: getStartOfMonthLocalDate(),
-    created_end: getTodayLocalDate(),
+    check_out_start: getTodayLocalDate(),
+    check_out_end: getTodayLocalDate(),
   };
 
   const FILTER_LABELS: Record<keyof ConciliacionFilters, string> = {
@@ -660,21 +657,17 @@ export default function ConciliacionPage() {
   const [appliedFilters, setAppliedFilters] =
     useState<ConciliacionFilters>(DEFAULT_OPEN_FILTERS);
 
-  const DATE_FILTER_KEYS: (keyof ConciliacionFilters)[] = [
-    "created_start",
-    "created_end",
-    "check_in_start",
-    "check_in_end",
-    "check_out_start",
-    "check_out_end",
-    "fecha_reserva_start",
-    "fecha_reserva_end",
-    "filtrar_fecha_por_reserva",
-  ];
-
-  const NON_DATE_FILTER_KEYS = (
-    Object.keys(EMPTY_FILTERS) as (keyof ConciliacionFilters)[]
-  ).filter((key) => !DATE_FILTER_KEYS.includes(key));
+  // const DATE_FILTER_KEYS: (keyof ConciliacionFilters)[] = [
+  //   "created_start",
+  //   "created_end",
+  //   "check_in_start",
+  //   "check_in_end",
+  //   "check_out_start",
+  //   "check_out_end",
+  //   "fecha_reserva_start",
+  //   "fecha_reserva_end",
+  //   "filtrar_fecha_por_reserva",
+  // ];
 
   const load = useCallback(
     async (overrideFilters: ConciliacionFilters, pageToLoad = 1) => {
@@ -776,6 +769,7 @@ export default function ConciliacionPage() {
     field: "comentarios_ops",
     value: "",
   });
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const applyFilters = useCallback(() => {
     const next = { ...filters };
@@ -810,71 +804,9 @@ export default function ConciliacionPage() {
     [],
   );
 
-  const openEditCodigoConfirmacionModal = useCallback(
-    (
-      rowIdSolicitudProveedor: string,
-      idBooking: any,
-      tipoReserva: string,
-      currentValue: any,
-    ) => {
-      setEditModal({
-        open: true,
-        rowId: String(rowIdSolicitudProveedor),
-        idServicio: null,
-        field: "id_confirmacion",
-        value: currentValue == null ? "" : String(currentValue),
-        idBooking,
-        tipoReserva,
-      });
-    },
-    [],
-  );
-
   const closeEditModal = useCallback(() => {
     setEditModal((s) => ({ ...s, open: false }));
   }, []);
-
-  const handleEditCodigoConfirmacion = useCallback(
-    async (idBooking: any, tipoReserva: string, value: string) => {
-      const codigo = String(value ?? "").trim();
-
-      try {
-        const resp = await fetch(codigoConfirmacionEndpoint, {
-          method: "PATCH",
-          headers: {
-            "x-api-key": API_KEY || "",
-            "Content-Type": "application/json",
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-          },
-          body: JSON.stringify({
-            id_booking: idBooking,
-            tipo_reserva: tipoReserva,
-            codigo_confirmacion: codigo,
-          }),
-        });
-
-        const json = await resp.json().catch(() => null);
-        if (!resp.ok) {
-          if (resp.status === 409) {
-            throw new Error(
-              json?.details ||
-                "Ya existe una reserva con ese código de confirmación",
-            );
-          }
-          throw new Error(
-            json?.details || json?.message || `Error HTTP: ${resp.status}`,
-          );
-        }
-
-        return true;
-      } catch (err: any) {
-        console.error("❌ edit codigo_confirmacion fail", err);
-        alert(err?.message || "Error al actualizar el código de confirmación");
-        return false;
-      }
-    },
-    [codigoConfirmacionEndpoint],
-  );
 
   const handleEdit = useCallback(
     async (
@@ -928,23 +860,44 @@ export default function ConciliacionPage() {
   );
 
   const saveEditModal = useCallback(async () => {
-    const { rowId, field, value, idBooking, tipoReserva } = editModal;
+    const { rowId, field, value } = editModal;
     if (!rowId) return;
 
-    if (field === "id_confirmacion") {
-      const ok = await handleEditCodigoConfirmacion(
-        idBooking,
-        tipoReserva || "",
-        value,
-      );
-      if (!ok) return;
-    } else {
-      await handleEdit(rowId, field, value);
-    }
+    setIsSavingEdit(true);
+    const ok = await handleEdit(rowId, field, value);
+    setIsSavingEdit(false);
 
     closeEditModal();
+
+    if (ok && field === "costo_proveedor") {
+      // El backend puede tardar en recalcular diferencia/estatus_facturas, lo
+      // que puede sacar momentáneamente la fila de los filtros aplicados.
+      // Actualizamos localmente para que la fila no desaparezca.
+      const normalized =
+        String(value).trim() === "" ? 0 : Number(value) || 0;
+
+      setTodos((prev) =>
+        prev.map((raw) => {
+          const id =
+            raw?.solicitud_proveedor?.id_solicitud_proveedor ??
+            raw?.id_solicitud_proveedor ??
+            null;
+          if (String(id) !== String(rowId)) return raw;
+
+          return {
+            ...raw,
+            solicitud_proveedor: {
+              ...(raw?.solicitud_proveedor ?? {}),
+              monto_solicitado: normalized,
+            },
+          };
+        }),
+      );
+      return;
+    }
+
     void load(appliedFilters);
-  }, [editModal, handleEdit, handleEditCodigoConfirmacion, closeEditModal, load]);
+  }, [editModal, handleEdit, closeEditModal, load, appliedFilters]);
 
   const filteredData = useMemo(() => {
     const q = (searchInput || "").toUpperCase().trim();
@@ -1179,10 +1132,35 @@ export default function ConciliacionPage() {
 
   const customColumns = useMemo(
     () => [
+      "creado",
+      "hotel",
+      "codigo_hotel",
+      "viajero",
+      "check_in",
+      "check_out",
+      "noches",
+      "tipo_cuarto",
+      "estado_solicitud",
       "costo_proveedor",
+      "markup",
+      "seleccionar_reserva",
       "precio_de_venta",
+      "canal_de_reservacion",
+      "nombre_intermediario",
+      "tipo_de_reserva",
+      "tarjeta",
+      "id_enviado",
+      "comentarios_ops",
+      "comentarios_cxp",
+      "comentario_ap",
+      "detalles",
+      "estatus_facturas",
       "total_facturado",
       "diferencia_costo_proveedor_vs_factura",
+      "subir_factura",
+      "acciones",
+      "usuario_creador",
+      "fecha_solicitud",
     ],
     [],
   );
@@ -1338,7 +1316,6 @@ export default function ConciliacionPage() {
 
       codigo_hotel: ({ value, item }) => {
         const rowId = getSelectionKey(item);
-        const codigo = item?.id_confirmacion ?? "";
         const v = draftEdits[rowId]?.codigo_confirmacion ?? value ?? "";
 
         return (
@@ -1351,30 +1328,17 @@ export default function ConciliacionPage() {
               size="sm"
               className="w-8 h-8 px-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-700"
               onClick={() =>
-                openEditModal(rowId, item?.id_servicio, "codigo_confirmacion", v)
+                openEditModal(
+                  rowId,
+                  item?.id_servicio,
+                  "codigo_confirmacion",
+                  v,
+                )
               }
               title="Editar código de confirmación"
             >
               …
             </Button>
-            {item?.id_booking && item?.tipo_reserva_booking ? (
-              <Button
-                variant="secondary"
-                size="sm"
-                className="w-8 h-8 px-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-700"
-                onClick={() =>
-                  openEditCodigoConfirmacionModal(
-                    rowId,
-                    item?.id_booking,
-                    item?.tipo_reserva_booking,
-                    codigo,
-                  )
-                }
-                title="Editar código de confirmación de la reserva"
-              >
-                ✈
-              </Button>
-            ) : null}
           </div>
         );
       },
@@ -1453,7 +1417,7 @@ export default function ConciliacionPage() {
         );
       },
 
-      seleccionar_factura: ({ item }) => {
+      seleccionar_reserva: ({ item }) => {
         const diff =
           Number(item?.diferencia_costo_proveedor_vs_factura ?? 0) || 0;
         const facturaInfo = getFacturaInfo(item);
@@ -1471,14 +1435,16 @@ export default function ConciliacionPage() {
         const checked = !!facturaSelection[rowId];
 
         return (
-          <label className="inline-flex items-center justify-center cursor-pointer">
-            <input
-              type="checkbox"
-              className="w-4 h-4 accent-blue-600"
-              checked={checked}
-              onChange={() => toggleFacturaSelection(item)}
-            />
-          </label>
+          <div className="flex items-center justify-center">
+            <label className="inline-flex items-center justify-center cursor-pointer">
+              <input
+                type="checkbox"
+                className="w-4 h-4 accent-blue-600"
+                checked={checked}
+                onChange={() => toggleFacturaSelection(item)}
+              />
+            </label>
+          </div>
         );
       },
 
@@ -1919,6 +1885,7 @@ export default function ConciliacionPage() {
             getRowClassName={getRowClassName as any}
             headerRenderers={{
               estado_solicitud: () => <span>ESTATUS PAGO</span>,
+              hotel: () => <span>PROVEEDOR</span>,
             }}
           >
             <Button
@@ -1983,25 +1950,14 @@ export default function ConciliacionPage() {
               <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
                 <div>
                   <p className="text-sm font-semibold text-gray-900">
-                    {editModal.field === "id_confirmacion"
-                      ? "Editar código de confirmación"
-                      : "Editar campo"}
+                    Editar campo
                   </p>
-                  {editModal.field === "id_confirmacion" ? (
-                    <p className="text-xs text-gray-500">
-                      id_booking: {editModal.idBooking} (
-                      {editModal.tipoReserva})
-                    </p>
-                  ) : (
-                    <>
-                      <p className="text-xs text-gray-500">
-                        id_solicitud_proveedor: {editModal.rowId}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        Campo: {editModal.field}
-                      </p>
-                    </>
-                  )}
+                  <p className="text-xs text-gray-500">
+                    id_solicitud_proveedor: {editModal.rowId}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Campo: {editModal.field}
+                  </p>
                 </div>
 
                 <Button
@@ -2025,8 +1981,7 @@ export default function ConciliacionPage() {
                     }
                     placeholder="Escribe el texto completo..."
                   />
-                ) : editModal.field === "id_confirmacion" ||
-                  TEXT_FIELDS.includes(editModal.field) ? (
+                ) : TEXT_FIELDS.includes(editModal.field) ? (
                   <input
                     type="text"
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
@@ -2049,25 +2004,31 @@ export default function ConciliacionPage() {
                   />
                 )}
 
-                <div className="mt-3 flex items-center justify-end gap-2">
-                  <Button
-                    variant="secondary"
-                    size="md"
-                    className="px-3 py-2 text-sm border border-gray-200 bg-white hover:bg-gray-50 text-gray-800"
-                    onClick={closeEditModal}
-                  >
-                    Cancelar
-                  </Button>
+                {isSavingEdit ? (
+                  <div className="mt-3 flex items-center justify-center">
+                    <Loader />
+                  </div>
+                ) : (
+                  <div className="mt-3 flex items-center justify-end gap-2">
+                    <Button
+                      variant="secondary"
+                      size="md"
+                      className="px-3 py-2 text-sm border border-gray-200 bg-white hover:bg-gray-50 text-gray-800"
+                      onClick={closeEditModal}
+                    >
+                      Cancelar
+                    </Button>
 
-                  <Button
-                    variant="secondary"
-                    size="md"
-                    className="px-3 py-2 text-sm border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
-                    onClick={() => void saveEditModal()}
-                  >
-                    Cambiar
-                  </Button>
-                </div>
+                    <Button
+                      variant="secondary"
+                      size="md"
+                      className="px-3 py-2 text-sm border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                      onClick={() => void saveEditModal()}
+                    >
+                      Cambiar
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           </div>

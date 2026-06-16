@@ -16,6 +16,8 @@ type OtrosMetodosPagoModalProps = {
   onClose: () => void;
   onSubmit?: (payload: any) => Promise<void> | void;
   selectedSolicitudes?: SolicitudSeleccionadaComprobante[];
+  /** Si es true, oculta el modo "Varias por CSV" y solo permite subir el comprobante de pago. */
+  onlyComprobante?: boolean;
 };
 
 type Mode = "manual" | "csv";
@@ -222,6 +224,7 @@ export const OtrosMetodosPagoModal: React.FC<OtrosMetodosPagoModalProps> = ({
   onClose,
   onSubmit,
   selectedSolicitudes = [],
+  onlyComprobante = false,
 }) => {
   const [mode, setMode] = useState<Mode>("manual");
 
@@ -792,9 +795,9 @@ const buildSelectedRows = (): CSVRow[] => {
 
   return (
     <div
-      className={`h-fit w-[96vw] ${
+      className={`w-[96vw] ${
         hasSelectedRows && selectedForms.length > 1 ? "max-w-6xl" : "max-w-3xl"
-      } relative bg-white rounded-lg shadow-lg`}
+      } relative bg-white rounded-lg shadow-lg flex flex-col max-h-[90dvh]`}
     >
       <div
         className={`mx-auto ${
@@ -806,59 +809,67 @@ const buildSelectedRows = (): CSVRow[] => {
             <Info className="w-5 h-5 text-blue-600 mt-0.5" />
             <div>
               <h3 className="text-sm font-semibold text-blue-800">
-                Otros métodos de pago
+                {onlyComprobante ? "Comprobante de pago" : "Otros métodos de pago"}
               </h3>
               <p className="text-xs text-blue-700">
-                Puedes capturar un registro, usar las solicitudes seleccionadas o cargar CSV.
+                {onlyComprobante
+                  ? "Sube el comprobante de pago para las solicitudes seleccionadas."
+                  : "Puedes capturar un registro, usar las solicitudes seleccionadas o cargar CSV."}
               </p>
             </div>
           </div>
 
-          {formError && (
-            <div className="bg-red-50 border-b border-red-200 p-4 flex gap-3 items-start">
-              <X className="w-5 h-5 text-red-600 mt-0.5" />
-              <div>
-                <h3 className="text-sm font-semibold text-red-800">Error</h3>
-                <p className="text-xs text-red-700">{formError}</p>
-              </div>
+        {formError && (
+          <div className="bg-red-50 border-b border-red-200 p-4 flex gap-3 items-start">
+            <X className="w-5 h-5 text-red-600 mt-0.5" />
+            <div>
+              <h3 className="text-sm font-semibold text-red-800">Error</h3>
+              <p className="text-xs text-red-700">{formError}</p>
             </div>
-          )}
-
-          {fileError && (
-            <div className="bg-red-50 border-b border-red-200 p-4 flex gap-3 items-start">
-              <X className="w-5 h-5 text-red-600 mt-0.5" />
-              <div>
-                <h3 className="text-sm font-semibold text-red-800">Error en archivo</h3>
-                <p className="text-xs text-red-700">{fileError}</p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-4 space-y-6">
-          <div className="flex gap-2 flex-wrap">
-            <button
-              type="button"
-              onClick={() => setMode("manual")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium ${
-                mode === "manual" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700"
-              }`}
-            >
-              {hasSelectedRows
-                ? `Seleccionadas (${selectedForms.length})`
-                : "Una solicitud"}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setMode("csv")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium ${
-                mode === "csv" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700"
-              }`}
-            >
-              Varias por CSV
-            </button>
           </div>
+        )}
+
+        {fileError && (
+          <div className="bg-red-50 border-b border-red-200 p-4 flex gap-3 items-start">
+            <X className="w-5 h-5 text-red-600 mt-0.5" />
+            <div>
+              <h3 className="text-sm font-semibold text-red-800">Error en archivo</h3>
+              <p className="text-xs text-red-700">{fileError}</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+        <form
+          onSubmit={handleSubmit}
+          className="flex flex-col flex-1 min-h-0 overflow-hidden"
+        >
+        <div className="overflow-y-auto flex-1 p-4 space-y-6">
+          {!onlyComprobante && (
+            <div className="flex gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setMode("manual")}
+                className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                  mode === "manual" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700"
+                }`}
+              >
+                {hasSelectedRows
+                  ? `Seleccionadas (${selectedForms.length})`
+                  : "Una solicitud"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setMode("csv")}
+                className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                  mode === "csv" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700"
+                }`}
+              >
+                Varias por CSV
+              </button>
+            </div>
+          )}
 
           <div className="space-y-4">
             {renderFileSlot(0, "Subir comprobante (PDF o imagen)")}
@@ -1044,7 +1055,7 @@ const buildSelectedRows = (): CSVRow[] => {
             </div>
           )}
 
-          {mode === "csv" && (
+          {!onlyComprobante && mode === "csv" && (
             <div className="space-y-2">
               <label htmlFor="csv-file" className="block text-sm font-medium text-gray-700">
                 Subir archivo CSV
@@ -1110,37 +1121,40 @@ const buildSelectedRows = (): CSVRow[] => {
             </div>
           )}
 
-          <div className="flex gap-3 px-1 pb-1">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl font-medium text-gray-700 text-sm hover:bg-gray-50"
-            >
-              Cancelar
-            </button>
+        </div>
 
-            <button
-              type="submit"
-              disabled={
-                pdfUploading ||
-                !pdfFiles[0] ||
-                (mode === "manual" && !hasSelectedRows && !!pdfFiles[1] && cleanMoney(montoPagado2) === null) ||
-                (mode === "manual" ? !manualValid : !csvFile || csvLoading)
-              }
-              className={`flex-1 px-6 py-2.5 rounded-xl font-semibold text-white text-sm flex items-center justify-center gap-2 ${
-                pdfUploading ||
-                !pdfFiles[0] ||
-                (mode === "manual" && !hasSelectedRows && !!pdfFiles[1] && cleanMoney(montoPagado2) === null) ||
-                (mode === "manual" ? !manualValid : !csvFile || csvLoading)
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-blue-600 hover:bg-blue-700"
-              }`}
-            >
-              <Send className="w-4 h-4" />
-              {pdfUploading ? "Subiendo y guardando..." : "Guardar comprobante"}
-            </button>
-          </div>
-        </form>
+        {/* Footer fijo con botones */}
+        <div className="flex-shrink-0 border-t border-gray-200 p-4 flex gap-3 bg-white rounded-b-lg">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl font-medium text-gray-700 text-sm hover:bg-gray-50"
+          >
+            Cancelar
+          </button>
+
+          <button
+            type="submit"
+            disabled={
+              pdfUploading ||
+              !pdfFiles[0] ||
+              (mode === "manual" && !hasSelectedRows && !!pdfFiles[1] && cleanMoney(montoPagado2) === null) ||
+              (mode === "manual" ? !manualValid : !csvFile || csvLoading)
+            }
+            className={`flex-1 px-6 py-2.5 rounded-xl font-semibold text-white text-sm flex items-center justify-center gap-2 ${
+              pdfUploading ||
+              !pdfFiles[0] ||
+              (mode === "manual" && !hasSelectedRows && !!pdfFiles[1] && cleanMoney(montoPagado2) === null) ||
+              (mode === "manual" ? !manualValid : !csvFile || csvLoading)
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-blue-600 hover:bg-blue-700"
+            }`}
+          >
+            <Send className="w-4 h-4" />
+            {pdfUploading ? "Subiendo y guardando..." : "Guardar comprobante"}
+          </button>
+        </div>
+      </form>
       </div>
 
       {/* Mobile full-screen preview */}
