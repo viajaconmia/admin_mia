@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Building2,
@@ -29,6 +29,8 @@ import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
 import { useAlert } from "@/context/useAlert";
 
+
+
 export function AgentDetailsCard({ agente }: { agente: Agente }) {
   const [edicion, setEdicion] = useState({
     empresas: {},
@@ -54,6 +56,16 @@ export function AgentDetailsCard({ agente }: { agente: Agente }) {
     linea_credito: Number(agente.linea_credito) || null,
     nombre_comercial: agente.nombre_identificacion || "",
   });
+
+  const notasRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const el = notasRef.current;
+    if (el) {
+      el.style.height = "auto";
+      el.style.height = `${el.scrollHeight}px`;
+    }
+  }, [form.notas]);
 
   // const handleSave = async () => {
   //   try {
@@ -364,6 +376,8 @@ export function AgentDetailsCard({ agente }: { agente: Agente }) {
             />
           </div>
           <TextAreaInput
+            ref={notasRef}
+            rows={1}
             onChange={(value) => {
               setEdicion((prev) => ({
                 ...prev,
@@ -379,7 +393,9 @@ export function AgentDetailsCard({ agente }: { agente: Agente }) {
             }}
             label="Notas"
             value={form.notas}
-            placeholder=""
+            placeholder="Escribe notas o comentarios relevantes del cliente"
+            className="w-full resize-none overflow-hidden"
+
           />
         </div>
 

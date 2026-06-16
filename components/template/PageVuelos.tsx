@@ -315,7 +315,7 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
       ? ["ida"]
       : state[index - 1]?.tipo
         ? options[state[index - 1].tipo]
-        : allOptions;
+        : [];
 
 
 

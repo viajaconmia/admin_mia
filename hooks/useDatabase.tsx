@@ -416,7 +416,6 @@ export const createNewViajero = async (data: any, id_empresa: string[]) => {
   }
 
   try {
-    console.log(data);
     const response = await fetch(`${URL}/mia/viajeros`, {
       method: "POST",
       headers: {
@@ -445,7 +444,7 @@ export const createNewViajero = async (data: any, id_empresa: string[]) => {
     });
 
     const json = await response.json();
-    console.log(json);
+    console.log("data del json",json);
     if (json.message === "Viajero creado correctamente") {
       return {
         success: true,
@@ -453,10 +452,20 @@ export const createNewViajero = async (data: any, id_empresa: string[]) => {
     } else {
       return {
         success: false,
+        error:
+          json?.details?.sqlMessage ||
+          json?.details?.message ||
+          json?.message ||
+          json?.error ||
+          "Error desconocido",
+        data: json,
       };
     }
   } catch (error) {
-    throw error;
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Error desconocido",
+    };
   }
 };
 
@@ -542,20 +551,31 @@ export const updateViajero = async (
         numero_empleado: data.numero_empleado ? data.numero_empleado : null,
       }),
     });
-
-    const json = await response.json();
-    console.log(json);
-    if (json.message === "Viajero actualizado correctamente") {
-      return {
+console.log("antes response")
+const json = await response.json();
+console.log("despues response")
+if (json.message === "Viajero actualizado correctamente") {
+  return {
         success: true,
       };
     } else {
       return {
         success: false,
+        error:
+          json?.details?.sqlMessage ||
+          json?.details?.message ||
+          json?.message ||
+          json?.error ||
+          "Error desconocido",
+        data: json,
       };
     }
   } catch (error) {
-    throw error;
+    console.log(error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Error desconocido",
+    };
   }
 };
 

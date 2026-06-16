@@ -4,7 +4,7 @@ import { api_google } from "@/lib/constants";
 import { Hotel } from "@/types";
 import { Viajero } from "@/types";
 import { ChevronDown, CheckCircle, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 
 declare global {
   interface Window {
@@ -229,13 +229,16 @@ export const TextInput = ({
   className,
   disabled = false,
   placeholder = "",
+  onInput = () => { }
 }: {
   label?: string;
   value: string;
   className?: string;
   disabled?: boolean;
   onChange?: (value: string) => void;
-  placeholder?: string;
+    placeholder?: string;
+  onInput?: (e: React.FormEvent<HTMLInputElement>) => void;
+
 }) => (
   <div className={`flex flex-col space-y-1 ${className}`}>
     {label && (
@@ -246,6 +249,7 @@ export const TextInput = ({
       value={value || ""}
       onChange={(e) => onChange(e.target.value)}
       disabled={disabled}
+      onInput={onInput}
       placeholder={placeholder}
       className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:text-black"
     />
@@ -280,37 +284,47 @@ export const EmailInput = ({
   </div>
 );
 
-export const TextAreaInput = ({
-  label,
-  value,
-  onChange,
-  rows = 2,
-  placeholder = "",
-  className = "",
-  disabled = false,
-}: {
-  label?: string;
-  value: string;
-  rows?: number;
-  onChange: (value: string) => void;
-  placeholder?: string;
-  className?: string;
-  disabled?: boolean;
-}) => (
-  <div className={`flex flex-col space-y-1 ${className}`}>
-    {label && (
-      <label className="text-sm text-gray-900 font-medium">{label}</label>
-    )}
-    <textarea
-      value={value || ""}
-      disabled={disabled}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      rows={rows}
-      className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-90"
-    />
-  </div>
+export const TextAreaInput = React.forwardRef<
+  HTMLTextAreaElement,
+  {
+    label?: string;
+    value: string;
+    rows?: number;
+    onChange: (value: string) => void;
+    placeholder?: string;
+    className?: string;
+    disabled?: boolean;
+  }
+>(
+  (
+    {
+      label,
+      value,
+      onChange,
+      rows = 2,
+      placeholder = "",
+      className = "",
+      disabled = false,
+    },
+    ref,
+  ) => (
+    <div className={`flex flex-col space-y-1 ${className}`}>
+      {label && (
+        <label className="text-sm text-gray-900 font-medium">{label}</label>
+      )}
+      <textarea
+        ref={ref}
+        value={value || ""}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        rows={rows}
+        className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-90 resize-none overflow-hidden"
+      />
+    </div>
+  ),
 );
+TextAreaInput.displayName = "TextAreaInput";
 // Utilidad para soportar opciones como objetos { name, ... }
 export type ComboBoxOption<T> = {
   name: string;
