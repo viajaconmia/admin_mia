@@ -387,6 +387,7 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose, onSucce
   const endpoint = `${URL}/mia/pago_proveedor/detalles`;
   const asignarMontoFactEndpoint = `${URL}/mia/pago_proveedor/asignar_monto_fact`;
   const deleteFacturaEndpoint = `${URL}/mia/pago_proveedor/edit_factura`;
+    console.log("este es el raw", solicitud)
 
   const payload = useMemo(() => buildPayloadFromSolicitud(solicitud), [solicitud]);
 
@@ -957,6 +958,7 @@ impuestos_edit: ({ item }: any) => {
     [drafts, savingKey, deletingKey, setDraftField, saveFactura, deleteFactura]
   );
 
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
@@ -969,7 +971,8 @@ impuestos_edit: ({ item }: any) => {
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <p className="text-sm font-semibold text-gray-900">
-                codigo de confirmacion: {datosReserva.codigo_hotel || "—"}
+                {solicitud.informacion_completa.hotel || "—"}: {datosReserva.codigo_hotel || "—"}
+                {console.log(solicitud)}
               </p>
 
               {resumen ? (
@@ -1104,11 +1107,11 @@ impuestos_edit: ({ item }: any) => {
                   ) : (
                       <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-3">
                       <StatCard
-                        label="total solicitado"
+                        label="Costo proveedor"
                         value={formatMoney(totalFacturas)}
                       />                        
                       <StatCard
-                        label="Montos Asociados"
+                        label="Total facturado "
                         value={formatMoney(montosAsociados)}
                       />
                       {/* <StatCard
