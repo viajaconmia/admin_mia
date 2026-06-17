@@ -21,6 +21,7 @@ export type Saldo = {
   id_agente: string;
   nombre: string;
   id_saldos: number;
+  usuario_creador: string | null;
   fecha_creacion: string;
   saldo: string;
   monto: string;
@@ -54,7 +55,7 @@ export class SaldoFavor {
 
   private static async request<T>(
     endpoint: string,
-    options: RequestInit
+    options: RequestInit,
   ): Promise<T> {
     //Aqui igual el T se cmabia por el objeto que Ian enviara de respuesta
     const response = await fetch(`${this.baseURL}${this.ROUTER}${endpoint}`, {
@@ -88,7 +89,7 @@ export class SaldoFavor {
       {
         method: "POST",
         body: JSON.stringify(payload),
-      }
+      },
     );
   }
 
@@ -103,20 +104,20 @@ export class SaldoFavor {
       {
         method: "PATCH",
         body: JSON.stringify(data),
-      }
+      },
     );
   }
 
   // Obtener pagos por agente
   static async getPagos(
     idAgente: string,
-    incluirCreditoWallet: boolean = false
+    incluirCreditoWallet: boolean = false,
   ) {
     return this.request<{ message: string; data: Saldo[] }>(
       `/${idAgente}${incluirCreditoWallet ? "?incluir=true" : ""}`,
       {
         method: "GET",
-      }
+      },
     );
   }
 }

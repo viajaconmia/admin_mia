@@ -689,6 +689,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       comprobante: saldo.comprobante || null,
       is_cancelado: saldo.is_cancelado,
       activo: saldo.activo,
+      usuario_creacion: saldo.usuario_creador || "",
       acciones: { row: saldo },
       item: saldo,
     }));
