@@ -46,6 +46,10 @@ export class ProveedoresService extends ApiService {
       id?: number;
       page?: number;
       size?: number;
+      proveedor?: string;
+      status?: string;
+      rfc?: string;
+      negociacion?: string;
     } = {},
   ): Promise<ApiResponse<ProveedorRaw[]>> =>
     this.get<ProveedorRaw[]>({
