@@ -473,14 +473,16 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose, onSucce
         });
 
         const json = await resp.json().catch(() => null);
+        
 
         if (!resp.ok) {
           throw new Error(
             json?.message || json?.error || `Error HTTP: ${resp.status}`
           );
         }
-
+        
         setData(json);
+        
 
         const facturas = Array.isArray(json?.data?.facturas) ? json.data.facturas : [];
         setDrafts(buildDraftsFromFacturas(facturas));
@@ -683,8 +685,18 @@ const maximoTotalPermitido = round2(totalYaAsociado + maximoAdicional);
     [deleteFacturaEndpoint, fetchDetalles, payload.id_solicitud_proveedor, onSuccess]
   );
 
-  const montoSolicitado =
-    resumen?.monto_solicitado ?? solicitudApi?.monto_solicitado ?? 0;
+
+  
+
+  const montosAsociados = facturasApi.reduce(
+    (acumulado, f) =>
+      acumulado + toNum(f?.monto_facturado_relacion ?? f?.total_asociado_factura ?? 0),
+    0
+  );
+
+  
+  
+  
   // const totalAsociadoSolicitud = resumen?.total_asociado_solicitud ?? 0;
   //const restanteSolicitud = resumen?.restante_solicitud ?? 0;
   //const totalPagado = resumen?.total_pagado ?? 0;
@@ -957,7 +969,7 @@ impuestos_edit: ({ item }: any) => {
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <p className="text-sm font-semibold text-gray-900">
-                Solicitud #{payload.id_solicitud_proveedor || "—"}
+                codigo de confirmacion: {datosReserva.codigo_hotel || "—"}
               </p>
 
               {resumen ? (
@@ -1001,7 +1013,7 @@ impuestos_edit: ({ item }: any) => {
 
             {!loading && !error && (
               <>
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                {/* <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
                   <p className="text-sm font-semibold text-gray-900 mb-3">
                     Datos de la reserva
                   </p>
@@ -1062,7 +1074,7 @@ impuestos_edit: ({ item }: any) => {
                       value={datosReserva.estado_solicitud || "—"}
                     />
                   </div>
-                </div>
+                </div> */}
 
                 <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
                   <div className="flex items-center justify-between gap-3 mb-3">
@@ -1090,10 +1102,14 @@ impuestos_edit: ({ item }: any) => {
                       No llegó resumen de validación en la respuesta.
                     </p>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-3">
+                      <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-3">
                       <StatCard
-                        label="Monto solicitado"
-                        value={formatMoney(montoSolicitado)}
+                        label="total solicitado"
+                        value={formatMoney(totalFacturas)}
+                      />                        
+                      <StatCard
+                        label="Montos Asociados"
+                        value={formatMoney(montosAsociados)}
                       />
                       {/* <StatCard
                         label="Total asociado solicitud"
@@ -1111,11 +1127,12 @@ impuestos_edit: ({ item }: any) => {
                         label="Total pagado"
                         value={formatMoney(totalPagado)}
                       /> */}
-                      <StatCard
+                      {/* <StatCard
                         label="Total facturas"
                         value={formatMoney(totalFacturas)}
-                      />
-                      <StatCard
+                        /> */}
+
+                      {/* <StatCard
                         label="Diferencia"
                         value={
                           <span
@@ -1131,7 +1148,7 @@ impuestos_edit: ({ item }: any) => {
                             ? "Pagos y facturas cuadran."
                             : "Hay diferencia entre pago y total de facturas."
                         }
-                      />
+                      /> */}
                     </div>
                   )}
                 </div>
