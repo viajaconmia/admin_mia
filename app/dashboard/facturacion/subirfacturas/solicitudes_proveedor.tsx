@@ -99,6 +99,9 @@ export default function VistaPreviaSolicitudesBatch({
         {asociaciones.map((it, idx) => {
           const proveedorLabel =
             it.raw?.hotel || `Proveedor ${it.id_proveedor}`;
+        
+          const viajero =
+            it.raw?.viajero || "";
 
           const idSolicitud = String(it?.id_solicitud ?? "").trim();
           const infoFacturado = facturadoMap?.[idSolicitud] ?? null;
@@ -138,6 +141,9 @@ export default function VistaPreviaSolicitudesBatch({
                 <div>
                   <strong>Solicitud:</strong> {it.id_solicitud}
                 </div>
+                <div>
+                  <strong>Viajero:</strong> {viajero}
+                </div>            
                 <div>
                   <strong>Proveedor:</strong> {proveedorLabel}
                 </div>

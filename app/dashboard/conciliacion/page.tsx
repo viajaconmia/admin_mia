@@ -409,6 +409,7 @@ type ProveedorSeleccionado = {
   id_proveedor: string;
   codigo_hotel?: string;
   razon_social?: string;
+  viajero: string;
   hotel?:string;
 };
 function getStartOfMonthLocalDate() {
@@ -1024,13 +1025,18 @@ export default function ConciliacionPage() {
         }
       }
 
+ 
+
       return {
         ...prev,
         [rowId]: {
           row_id: rowId,
           id_solicitud: idSolicitud,
           id_proveedor: idProveedor,
-          hotel: String(row?.hotel ?? ""),
+          hotel: String(row?.informacion_completa.hotel ?? ""),
+          codigo_hotel: String(row?.informacion_completa.codigo_confirmacion ?? ""),
+          razon_social: String(row?.informacion_completa.razon_social ?? ""),
+          viajero: String(row?.informacion_completa.viajero ?? ""),
         },
       };
     });
@@ -1052,7 +1058,8 @@ console.log("este es el item", item)
         id_proveedor: idProveedor,
         codigo_hotel: String(item?.informacion_completa.codigo_confirmacion ?? ""),
         razon_social: String(item?.informacion_completa.razon_social ?? ""),
-        hotel: String(item?.informacion_completa.hotel ?? "")
+        hotel: String(item?.informacion_completa.hotel ?? ""),
+        viajero: String(item?.informacion_completa.viajero ?? ""),
       },
     ]);
 
