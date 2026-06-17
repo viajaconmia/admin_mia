@@ -747,8 +747,8 @@ const buildSelectedRows = (): CSVRow[] => {
 
         {previewUrl && file && (
           <>
-            {/* Desktop: preview inline */}
-            <div className="hidden sm:block mt-2 border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
+            {/* Preview — imágenes inline, PDFs abren en nueva pestaña */}
+            <div className="mt-2 border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
               <div className="flex items-center justify-between px-3 py-1.5 bg-gray-100 border-b border-gray-200">
                 <span className="text-[11px] text-gray-500 truncate max-w-[60%]">
                   {file.name}
@@ -764,11 +764,20 @@ const buildSelectedRows = (): CSVRow[] => {
                 </a>
               </div>
               {isPdf ? (
-                <iframe
-                  src={previewUrl}
-                  title="Vista previa comprobante"
-                  className="w-full h-64 border-0"
-                />
+                <div className="flex flex-col items-center justify-center gap-3 py-6 px-4 text-center">
+                  <p className="text-xs text-gray-500">
+                    PDF seleccionado correctamente.
+                  </p>
+                  <a
+                    href={previewUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 text-sm font-medium hover:bg-blue-100 transition-colors"
+                  >
+                    <Eye className="w-4 h-4" />
+                    Ver PDF
+                  </a>
+                </div>
               ) : (
                 <img
                   src={previewUrl}
@@ -776,18 +785,6 @@ const buildSelectedRows = (): CSVRow[] => {
                   className="w-full max-h-64 object-contain p-2"
                 />
               )}
-            </div>
-
-            {/* Mobile: botón que abre pantalla completa */}
-            <div className="sm:hidden mt-2">
-              <button
-                type="button"
-                onClick={() => setShowMobilePreviewIndex(index)}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-sm font-medium hover:bg-blue-100 transition-colors"
-              >
-                <Eye className="w-4 h-4" />
-                Ver archivo subido
-              </button>
             </div>
           </>
         )}
