@@ -42,8 +42,14 @@ export default function BuscarUuidFacturaModal({
   onSearch,
 }: BuscarUuidFacturaModalProps) {
   const customColumns = useMemo(
-    () => ["codigo_confirmacion", "uuid_factura", "id_solicitud", "monto"],
-    []
+    () => [
+      "codigo_confirmacion",
+      "uuid_factura",
+      "id_solicitud",
+      "monto",
+      "estado",
+    ],
+    [],
   );
 
   const renderers = useMemo<
@@ -83,19 +89,22 @@ export default function BuscarUuidFacturaModal({
         </div>
       ),
     }),
-    []
+    [],
   );
 
   const defaultSort = useMemo(
     () => ({ key: "codigo_confirmacion", sort: false }),
-    []
+    [],
   );
 
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+      />
 
       <div
         className="relative z-10 w-full max-w-4xl rounded-2xl bg-white shadow-2xl transition-all duration-200 animate-in fade-in zoom-in"

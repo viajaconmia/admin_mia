@@ -573,6 +573,7 @@ export default function ConciliacionPage() {
           uuid_factura: r?.uuid_factura ?? "",
           id_solicitud: r?.id_solicitud ?? "",
           monto: Number(r?.monto_facturado ?? r?.monto_solicitado ?? 0) || 0,
+          estado: r.estado,
         }));
 
         setBuscarUuidModal({
@@ -873,8 +874,7 @@ export default function ConciliacionPage() {
       // El backend puede tardar en recalcular diferencia/estatus_facturas, lo
       // que puede sacar momentáneamente la fila de los filtros aplicados.
       // Actualizamos localmente para que la fila no desaparezca.
-      const normalized =
-        String(value).trim() === "" ? 0 : Number(value) || 0;
+      const normalized = String(value).trim() === "" ? 0 : Number(value) || 0;
 
       setTodos((prev) =>
         prev.map((raw) => {
