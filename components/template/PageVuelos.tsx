@@ -290,6 +290,35 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
     }
   };
 
+  type OptionsTypeFly =
+    | "ida"
+    | "vuelta"
+    | "ida escala"
+    | "vuelta escala";
+
+  const options :Record<OptionsTypeFly,OptionsTypeFly[]> =
+    {"ida": ["vuelta", "ida escala"],"ida escala": ["vuelta", "ida escala"], "vuelta": ["vuelta escala"], "vuelta escala": ["vuelta escala"]} 
+
+  const allOptions: OptionsTypeFly[] = [
+    "ida",
+    "vuelta",
+    "ida escala",
+    "vuelta escala",
+  ];
+
+  const filtrarTipos = (
+    index: number
+  ): OptionsTypeFly[] =>
+
+
+    index === 0
+      ? ["ida"]
+      : state[index - 1]?.tipo
+        ? options[state[index - 1].tipo]
+        : [];
+
+
+
   return (
     <>
       {openPago && (
@@ -327,9 +356,9 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
             value={
               details.viajero
                 ? {
-                    name: details.viajero.nombre_completo,
-                    content: details.viajero,
-                  }
+                  name: details.viajero.nombre_completo,
+                  content: details.viajero,
+                }
                 : null
             }
             label="Viajero"
@@ -360,9 +389,9 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
               value={
                 details.intermediario
                   ? {
-                      name: details.intermediario.proveedor,
-                      content: details.intermediario,
-                    }
+                    name: details.intermediario.proveedor,
+                    content: details.intermediario,
+                  }
                   : null
               }
               label="Intermediario"
@@ -421,7 +450,7 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
                     onChange={(value: string) =>
                       handleUpdateVuelo(index, "tipo", value as Vuelo["tipo"])
                     }
-                    options={["ida", "vuelta", "ida escala", "vuelta escala"]}
+                    options={filtrarTipos(index)}
                   />
 
                   <TextInput
@@ -447,9 +476,9 @@ export const VuelosForm: React.FC<VuelosFormProps> = ({
                       value={
                         vuelo.aerolinea
                           ? {
-                              name: vuelo.aerolinea.proveedor,
-                              content: vuelo.aerolinea,
-                            }
+                            name: vuelo.aerolinea.proveedor,
+                            content: vuelo.aerolinea,
+                          }
                           : null
                       }
                       label="Aerolínea"
@@ -747,17 +776,17 @@ type Action<K extends keyof Vuelo> =
   | { type: "ADD_VUELO" }
   | { type: "DELETE_VUELO"; payload: number }
   | {
-      type: "UPDATE_VUELO";
-      payload: { index: number; field: K; value: Vuelo[K] };
-    };
+    type: "UPDATE_VUELO";
+    payload: { index: number; field: K; value: Vuelo[K] };
+  };
 
 const vuelosReducer = (state: Vuelo[], action: Action<keyof Vuelo>) => {
   switch (action.type) {
     case "ADD_VUELO": {
       const ultimo = state[state.length - 1]
       type Extraccion = Pick<Vuelo, "aerolinea" | "tipo_tarifa" | "eq_mano" | "eq_personal" | "eq_documentado" | "is_eq_mano" | "is_eq_personal" | "is_eq_documentado">
-      const datosExtraccion : Extraccion = {
-        aerolinea: ultimo.aerolinea, 
+      const datosExtraccion: Extraccion = {
+        aerolinea: ultimo.aerolinea,
         tipo_tarifa: ultimo.tipo_tarifa,
         eq_mano: ultimo.eq_mano,
         eq_personal: ultimo.eq_personal,

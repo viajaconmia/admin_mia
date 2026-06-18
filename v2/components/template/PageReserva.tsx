@@ -81,7 +81,8 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
       ...filters,
       ...extras,
     });
-    console.log(response);
+    console.log("Aqui veo la respuesta del response")
+    console.log(response.data);
     setTracking((prev) => ({
       ...prev,
       total: response.metadata.total,
@@ -103,7 +104,8 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
           fileName = customName.trim();
         }
       }
-      let extras = agente?.id_agente ? { id_client: agente.id_agente } : {};
+      let extras = agente?.id_agente ? { id_client: agente.id_agente } : {}
+
 
       const response = await booking_service.obtenerReservas({
         ...filters,
@@ -331,12 +333,12 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
         ? calcularNoches(reserva.check_in, reserva.check_out)
         : "",
     tipo: reserva.tipo_cuarto_vuelo,
-    costo_proveedor: reserva.costo_total,
+    costo_proveedor: Number(reserva.costo_total || 0),
     markup:
       ((Number(reserva.total || 0) - Number(reserva.costo_total || 0)) /
         Number(reserva.total || 0)) *
       100,
-    precio_de_venta: reserva.total,
+    precio_de_venta: Number(reserva.total ||0),
     metodo_de_pago: reserva.metodo_pago,
     reservante: reserva.reservante,
     etapa_reservacion: reserva.etapa_reservacion,
@@ -345,7 +347,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
       valor: reserva.estado_pago,
       id_solicitud_proveedor: reserva.id_solicitud_proveedor,
     },
-    estado_facturacion: reserva.estado_facturacion,
+    estado_facturacion: reserva.estado_facturacion || "",
     intermediario: reserva.intermediario,
     ...(hasPermission(PERMISOS.COLUMNAS.BOOKINGS.USUARIO_CREADOR)
       ? { usuario_creador: reserva.usuario_creador }
@@ -524,7 +526,6 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
               Boolean(item.with_desayuno) &&
               item.estado === "Confirmada" &&
               item.type === "hotel";
-            console.log("Item:", item, "isDesayuno:", isDesayuno);
             if (isDesayuno) return "bg-green-100";
             return "";
           }}

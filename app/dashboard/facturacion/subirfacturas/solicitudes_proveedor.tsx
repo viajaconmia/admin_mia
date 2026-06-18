@@ -98,14 +98,21 @@ export default function VistaPreviaSolicitudesBatch({
       <div className="max-h-[400px] overflow-y-auto space-y-3 pr-2 border-t pt-3">
         {asociaciones.map((it, idx) => {
           const proveedorLabel =
-            it.raw?.proveedor || it.raw?.hotel || `Proveedor ${it.id_proveedor}`;
+            it.raw?.hotel || `Proveedor ${it.id_proveedor}`;
+        
+          const viajero =
+            it.raw?.viajero || "";
 
           const idSolicitud = String(it?.id_solicitud ?? "").trim();
           const infoFacturado = facturadoMap?.[idSolicitud] ?? null;
 
+          console.log("it", it);
+          console.log("infoFacturado", infoFacturado);
+
           const maxBackendMXN = Number(infoFacturado?.maximo_asignar ?? 0);
           const montoSolicitadoMXN = Number(infoFacturado?.monto_solicitado ?? 0);
           const totalFacturadoMXN = Number(infoFacturado?.total_facturado ?? 0);
+          const codigoConfirmacion = it ?? 0;
 
           const sumOthersOriginal = asociaciones.reduce((acc, x, i) => {
             if (i === idx) return acc;
@@ -123,6 +130,7 @@ export default function VistaPreviaSolicitudesBatch({
             : singleMontoAsociar || 0;
 
           const montoPreview = getPreviewConversion(montoActual);
+          // console.log("it de emi",it)
 
           return (
             <div
@@ -134,7 +142,13 @@ export default function VistaPreviaSolicitudesBatch({
                   <strong>Solicitud:</strong> {it.id_solicitud}
                 </div>
                 <div>
+                  <strong>Viajero:</strong> {viajero}
+                </div>            
+                <div>
                   <strong>Proveedor:</strong> {proveedorLabel}
+                </div>
+                <div>
+                  <strong>codigo de confirmacion:</strong> {it.raw?.codigo_hotel}
                 </div>
                 <div className="mt-1">
                   <strong>Monto solicitado:</strong>{" "}
@@ -143,7 +157,8 @@ export default function VistaPreviaSolicitudesBatch({
                 <div>
                   <strong>Ya facturado:</strong>{" "}
                   {formatCurrency(totalFacturadoMXN, "MXN")}
-                </div>
+                </div>              
+                
                 <div>
                   <strong>Máximo asignable:</strong>{" "}
                   {requiereConversionProveedor

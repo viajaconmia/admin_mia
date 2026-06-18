@@ -128,18 +128,20 @@ export function UsersClient({ agente }: { agente: Agente }) {
 
   const createTraveler = async () => {
     try {
-      const responseCompany = await createNewViajero(
-        formData,
-        selectedEmpresas,
-      );
+      const responseCompany = await createNewViajero(formData, selectedEmpresas);
+      console.log("DATAAAAAAADSADEAFAS", responseCompany)
       if (!responseCompany.success) {
-        throw new Error("No se pudo registrar al viajero");
+        error(responseCompany.error || "No se pudo registrar al viajero");
+        return;
       }
+      success("Viajero creado correctamente");
       console.log(responseCompany);
-    } catch (error) {
-      console.error("Error creando al nuevo viajero", error);
+    } catch (err) {
+      error("Error de red al crear el viajero");
+      console.error("Error creando al nuevo viajero", err);
     }
   };
+
 
   const updateTraveler = async () => {
     try {
@@ -149,11 +151,14 @@ export function UsersClient({ agente }: { agente: Agente }) {
         selectedTraveler.id_viajero,
       );
       if (!responseCompany.success) {
-        throw new Error("No se pudo actualizar al viajero");
+        error(responseCompany.error || "No se pudo actualizar al viajero");
+        return;
       }
-      console.log(responseCompany);
-    } catch (error) {
-      console.error("Error actualizando viajero", error);
+      success("Viajero actualizado correctamente");
+      console.log("dndndnd", responseCompany);
+    } catch (err) {
+      error("Error de red al actualizar el viajero");
+      console.error("Error actualizando viajero", err);
     }
   };
   // State
@@ -230,13 +235,13 @@ export function UsersClient({ agente }: { agente: Agente }) {
   }, [travelers]);
 
   const availableEmpresas = useMemo(() => {
-    const empresasSet = new Set<Company>();
+    const empresasMap = new Map<string, Company>();
     travelers.forEach((traveler) => {
       traveler.empresas.forEach((empresa) => {
-        empresasSet.add(empresa);
+        empresasMap.set(empresa.id_empresa, empresa);
       });
     });
-    return Array.from(empresasSet).sort((a, b) =>
+    return Array.from(empresasMap.values()).sort((a, b) =>
       a.razon_social.localeCompare(b.razon_social),
     );
   }, [travelers]);

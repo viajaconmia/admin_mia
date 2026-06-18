@@ -124,7 +124,7 @@ export default function VistaPreviaModal({
   updateMontoBatch,
   batchTotalAsociar = 0,
   showFechaVencimiento = true,
-  proveedoresData = null, // 👈 agregar
+  proveedoresData = null, 
   onClose,
   onConfirm,
   isLoading = false,
@@ -434,14 +434,16 @@ export default function VistaPreviaModal({
         if (id) out[id] = row;
       }
     }
-
+    
     return out;
   }, [facturadoData]);
-
+  
   const idsSolicitud = useMemo(() => {
     const idsDesdeBatch = (batchAsociaciones || [])
-      .map((it) => String(it?.id_solicitud ?? "").trim())
+    .map((it) => String(it?.id_solicitud ?? "").trim())
       .filter(Boolean);
+    
+    console.log("items de emi: ", idsDesdeBatch)
 
     if (idsDesdeBatch.length > 0) {
       return Array.from(new Set(idsDesdeBatch));
