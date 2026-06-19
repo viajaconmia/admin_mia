@@ -58,6 +58,7 @@ type Filtros = {
   type?: string;
   status?: string;
   rfc?: string;
+  negociacion?: string;
 };
 
 const PAGE_SIZE = 50;
@@ -156,6 +157,13 @@ export default function ProveedoresPage() {
               value={filtros.status || null}
               label="Estado"
               options={["activo", "inactivo"]}
+            />
+            <FilterInput
+              type="text"
+              onChange={handleFilterChange}
+              propiedad="negociacion"
+              value={filtros.negociacion || null}
+              label="Tipo de negociación"
             />
           </div>
           <div className="flex justify-end">

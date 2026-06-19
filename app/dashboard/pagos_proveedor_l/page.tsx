@@ -59,7 +59,6 @@ const GROUP_COLOR = {
   headerBadge: "bg-blue-600 text-white border-blue-700",
 };
 
-
 const mapLuRow = (raw: any): SolicitudRow => {
   const check_in = raw?.["CHECK IN"] ?? null;
   const check_out = raw?.["CHECK OUT"] ?? null;
@@ -77,15 +76,17 @@ const mapLuRow = (raw: any): SolicitudRow => {
     check_in,
     check_out,
     noches: calcularNoches(check_in, check_out),
-    markup: costo_proveedor > 0
-      ? ((precio_de_venta - costo_proveedor) / costo_proveedor) * 100
-      : 0,
+    markup:
+      costo_proveedor > 0
+        ? ((precio_de_venta - costo_proveedor) / costo_proveedor) * 100
+        : 0,
     banco: raw?.["banco"] ?? null,
     cuenta: raw?.["cuenta"] ?? null,
     titular_cuenta: raw?.["titular"] ?? null,
     caratula: raw?.["url_caratula"] ?? null,
     estatus: String(raw?.["ESTATUS"] ?? "—").toUpperCase(),
-    codigo_dispersion: raw?.["codigo_dispersion"] ?? raw?.["CÓDIGO DISPERSIÓN"] ?? null,
+    codigo_dispersion:
+      raw?.["codigo_dispersion"] ?? raw?.["CÓDIGO DISPERSIÓN"] ?? null,
     revision_pendiente: raw?.["revision_pendiente"] ?? null,
     raw,
   };
@@ -113,7 +114,7 @@ function useSolicitudes(tab: Tab) {
         setError(e?.message ?? "Error al cargar solicitudes");
       } finally {
         setLoading(false);
-      } 
+      }
     },
     [tab],
   );
@@ -148,10 +149,17 @@ export default function PagosProveedorL() {
   const { rows, loading, error, fetchData, limite, setLimite } =
     useSolicitudes(tab);
 
-  const [selectedMap, setSelectedMap] = useState<Record<string, SolicitudRow>>({});
+  const [selectedMap, setSelectedMap] = useState<Record<string, SolicitudRow>>(
+    {},
+  );
   const [pendingAction, setPendingAction] = useState<
     | { type: "row"; row: SolicitudRow; currentGroup: string; newGroup: string }
-    | { type: "group"; groupRows: SolicitudRow[]; currentGroup: string; newGroup: string }
+    | {
+        type: "group";
+        groupRows: SolicitudRow[];
+        currentGroup: string;
+        newGroup: string;
+      }
     | null
   >(null);
   const [showModal, setShowModal] = useState(false);
@@ -196,16 +204,21 @@ export default function PagosProveedorL() {
   const isDispersion = tab === "dispersion";
   const selectedCount = Object.keys(selectedMap).length;
 
-
   const toggleRow = (row: SolicitudRow) => {
     const rowGroup = row.codigo_dispersion ?? "__sin_codigo__";
     const prevVals = Object.values(selectedMap);
-    const prevGroup = prevVals.length > 0
-      ? (prevVals[0].codigo_dispersion ?? "__sin_codigo__")
-      : null;
+    const prevGroup =
+      prevVals.length > 0
+        ? (prevVals[0].codigo_dispersion ?? "__sin_codigo__")
+        : null;
 
     if (prevGroup !== null && prevGroup !== rowGroup) {
-      setPendingAction({ type: "row", row, currentGroup: prevGroup, newGroup: rowGroup });
+      setPendingAction({
+        type: "row",
+        row,
+        currentGroup: prevGroup,
+        newGroup: rowGroup,
+      });
       return;
     }
 
@@ -223,11 +236,14 @@ export default function PagosProveedorL() {
   const toggleGroup = (groupRows: SolicitudRow[]) => {
     const groupCode = groupRows[0]?.codigo_dispersion ?? "__sin_codigo__";
     const prevVals = Object.values(selectedMap);
-    const prevGroup = prevVals.length > 0
-      ? (prevVals[0].codigo_dispersion ?? "__sin_codigo__")
-      : null;
+    const prevGroup =
+      prevVals.length > 0
+        ? (prevVals[0].codigo_dispersion ?? "__sin_codigo__")
+        : null;
 
-    const allInGroup = groupRows.every((r) => !!selectedMap[r.id_solicitud_proveedor]);
+    const allInGroup = groupRows.every(
+      (r) => !!selectedMap[r.id_solicitud_proveedor],
+    );
     if (allInGroup) {
       setSelectedMap((prev) => {
         const next = { ...prev };
@@ -241,13 +257,20 @@ export default function PagosProveedorL() {
       (r) => (r.codigo_dispersion ?? "__sin_codigo__") !== groupCode,
     );
     if (prevGroup !== null && hasOtherGroup) {
-      setPendingAction({ type: "group", groupRows, currentGroup: prevGroup, newGroup: groupCode });
+      setPendingAction({
+        type: "group",
+        groupRows,
+        currentGroup: prevGroup,
+        newGroup: groupCode,
+      });
       return;
     }
 
     setSelectedMap((prev) => {
       const next = { ...prev };
-      groupRows.forEach((r) => { next[r.id_solicitud_proveedor] = r; });
+      groupRows.forEach((r) => {
+        next[r.id_solicitud_proveedor] = r;
+      });
       return next;
     });
   };
@@ -256,12 +279,17 @@ export default function PagosProveedorL() {
     if (!pendingAction) return;
     if (pendingAction.type === "row") {
       const { row } = pendingAction;
-      setSelectedMap((prev) => ({ ...prev, [row.id_solicitud_proveedor]: row }));
+      setSelectedMap((prev) => ({
+        ...prev,
+        [row.id_solicitud_proveedor]: row,
+      }));
     } else {
       const { groupRows } = pendingAction;
       setSelectedMap((prev) => {
         const next = { ...prev };
-        groupRows.forEach((r) => { next[r.id_solicitud_proveedor] = r; });
+        groupRows.forEach((r) => {
+          next[r.id_solicitud_proveedor] = r;
+        });
         return next;
       });
     }
@@ -416,46 +444,91 @@ export default function PagosProveedorL() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {groupedRows.map((group) => {
-                    const color = group.codigo !== "__sin_codigo__" ? GROUP_COLOR : null;
+                    const color =
+                      group.codigo !== "__sin_codigo__" ? GROUP_COLOR : null;
                     return (
                       <React.Fragment key={group.codigo}>
                         {/* Group header row */}
                         {(() => {
-                          const groupAllSelected = group.rows.every((r) => !!selectedMap[r.id_solicitud_proveedor]);
-                          const groupSomeSelected = !groupAllSelected && group.rows.some((r) => !!selectedMap[r.id_solicitud_proveedor]);
+                          const groupAllSelected = group.rows.every(
+                            (r) => !!selectedMap[r.id_solicitud_proveedor],
+                          );
+                          const groupSomeSelected =
+                            !groupAllSelected &&
+                            group.rows.some(
+                              (r) => !!selectedMap[r.id_solicitud_proveedor],
+                            );
                           return (
-                            <tr className={`${color ? color.bg : "bg-slate-50"} border-t-2 ${color ? "border-blue-300" : "border-slate-200"}`}>
+                            <tr
+                              className={`${color ? color.bg : "bg-slate-50"} border-t-2 ${color ? "border-blue-300" : "border-slate-200"}`}
+                            >
                               <td colSpan={20} className="px-4 py-2">
                                 <div className="flex items-center gap-3">
                                   {isDispersion && (
                                     <input
                                       type="checkbox"
                                       checked={groupAllSelected}
-                                      ref={(el) => { if (el) el.indeterminate = groupSomeSelected; }}
+                                      ref={(el) => {
+                                        if (el)
+                                          el.indeterminate = groupSomeSelected;
+                                      }}
                                       onChange={() => toggleGroup(group.rows)}
                                       className="h-4 w-4 accent-blue-700 cursor-pointer shrink-0"
                                       title="Seleccionar todo el grupo"
                                     />
                                   )}
                                   {group.codigo !== "__sin_codigo__" ? (
-                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${color ? color.headerBadge : "bg-slate-100 text-slate-700 border-slate-300"}`}>
+                                    <span
+                                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${color ? color.headerBadge : "bg-slate-100 text-slate-700 border-slate-300"}`}
+                                    >
                                       {group.codigo}
                                     </span>
                                   ) : (
-                                    <span className="text-[11px] font-semibold text-slate-400 italic">Sin código</span>
+                                    <span className="text-[11px] font-semibold text-slate-400 italic">
+                                      Sin código
+                                    </span>
                                   )}
-                                  <span className={`text-[11px] ${color ? "text-blue-800" : "text-slate-500"}`}>
-                                    {group.rows.length} solicitud{group.rows.length !== 1 ? "es" : ""}
+                                  <span
+                                    className={`text-[11px] ${color ? "text-blue-800" : "text-slate-500"}`}
+                                  >
+                                    {group.rows.length} solicitud
+                                    {group.rows.length !== 1 ? "es" : ""}
                                     {groupSomeSelected && (
-                                      <span className={`ml-1 font-medium ${color ? "text-blue-700" : "text-blue-600"}`}>
-                                        · {group.rows.filter((r) => !!selectedMap[r.id_solicitud_proveedor]).length} seleccionada{group.rows.filter((r) => !!selectedMap[r.id_solicitud_proveedor]).length !== 1 ? "s" : ""}
+                                      <span
+                                        className={`ml-1 font-medium ${color ? "text-blue-700" : "text-blue-600"}`}
+                                      >
+                                        ·{" "}
+                                        {
+                                          group.rows.filter(
+                                            (r) =>
+                                              !!selectedMap[
+                                                r.id_solicitud_proveedor
+                                              ],
+                                          ).length
+                                        }{" "}
+                                        seleccionada
+                                        {group.rows.filter(
+                                          (r) =>
+                                            !!selectedMap[
+                                              r.id_solicitud_proveedor
+                                            ],
+                                        ).length !== 1
+                                          ? "s"
+                                          : ""}
                                       </span>
                                     )}
-                                    {groupAllSelected && group.rows.length > 0 && (
-                                      <span className={`ml-1 font-medium ${color ? "text-blue-700" : "text-blue-600"}`}>· todas seleccionadas</span>
-                                    )}
+                                    {groupAllSelected &&
+                                      group.rows.length > 0 && (
+                                        <span
+                                          className={`ml-1 font-medium ${color ? "text-blue-700" : "text-blue-600"}`}
+                                        >
+                                          · todas seleccionadas
+                                        </span>
+                                      )}
                                   </span>
-                                  <span className={`text-[11px] font-semibold ml-auto ${color ? "text-blue-900" : "text-slate-700"}`}>
+                                  <span
+                                    className={`text-[11px] font-semibold ml-auto ${color ? "text-blue-900" : "text-slate-700"}`}
+                                  >
                                     Total: {fmtMoney(group.total)}
                                   </span>
                                 </div>
@@ -465,7 +538,8 @@ export default function PagosProveedorL() {
                         })()}
                         {/* Group rows */}
                         {group.rows.map((row) => {
-                          const selected = !!selectedMap[row.id_solicitud_proveedor];
+                          const selected =
+                            !!selectedMap[row.id_solicitud_proveedor];
                           return (
                             <tr
                               key={`${row.id_solicitud_proveedor}-${row.codigo_dispersion}`}
@@ -499,7 +573,9 @@ export default function PagosProveedorL() {
                               </td>
                               <td className="px-3 py-2.5 whitespace-nowrap">
                                 {row.codigo_dispersion ? (
-                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${color ? color.badge : "bg-slate-100 text-slate-700 border-slate-300"}`}>
+                                  <span
+                                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${color ? color.badge : "bg-slate-100 text-slate-700 border-slate-300"}`}
+                                  >
                                     {row.codigo_dispersion}
                                   </span>
                                 ) : (
@@ -542,16 +618,27 @@ export default function PagosProveedorL() {
                                 {row.markup.toFixed(1)}%
                               </td>
                               <td className="px-3 py-2.5 max-w-[190px]">
-                                {row.banco || row.cuenta || row.titular_cuenta ? (
+                                {row.banco ||
+                                row.cuenta ||
+                                row.titular_cuenta ? (
                                   <div className="flex flex-col gap-0.5">
                                     {row.banco && (
-                                      <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">{row.banco}</span>
+                                      <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">
+                                        {row.banco}
+                                      </span>
                                     )}
                                     {row.cuenta && (
-                                      <span className="font-mono text-[11px] text-slate-800">{row.cuenta}</span>
+                                      <span className="font-mono text-[11px] text-slate-800">
+                                        {row.cuenta}
+                                      </span>
                                     )}
                                     {row.titular_cuenta && (
-                                      <span className="text-[10px] text-slate-500 truncate" title={row.titular_cuenta}>{row.titular_cuenta}</span>
+                                      <span
+                                        className="text-[10px] text-slate-500 truncate"
+                                        title={row.titular_cuenta}
+                                      >
+                                        {row.titular_cuenta}
+                                      </span>
                                     )}
                                   </div>
                                 ) : (
@@ -579,7 +666,9 @@ export default function PagosProveedorL() {
                                 <td className="px-3 py-2.5 text-center">
                                   <button
                                     type="button"
-                                    onClick={() => setDetalleId(row.id_solicitud_proveedor)}
+                                    onClick={() =>
+                                      setDetalleId(row.id_solicitud_proveedor)
+                                    }
                                     className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
                                   >
                                     <Eye className="w-3.5 h-3.5" />
@@ -600,41 +689,73 @@ export default function PagosProveedorL() {
             {/* ── Cards mobile / tablet ──────────────────────────── */}
             <div className="lg:hidden space-y-3">
               {groupedRows.map((group) => {
-                const color = group.codigo !== "__sin_codigo__" ? GROUP_COLOR : null;
-                const groupAllSelected = group.rows.every((r) => !!selectedMap[r.id_solicitud_proveedor]);
-                const groupSomeSelected = !groupAllSelected && group.rows.some((r) => !!selectedMap[r.id_solicitud_proveedor]);
+                const color =
+                  group.codigo !== "__sin_codigo__" ? GROUP_COLOR : null;
+                const groupAllSelected = group.rows.every(
+                  (r) => !!selectedMap[r.id_solicitud_proveedor],
+                );
+                const groupSomeSelected =
+                  !groupAllSelected &&
+                  group.rows.some(
+                    (r) => !!selectedMap[r.id_solicitud_proveedor],
+                  );
                 return (
                   <div key={group.codigo}>
                     {/* Group header */}
-                    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg mb-2 ${color ? color.bg : "bg-slate-100"}`}>
+                    <div
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg mb-2 ${color ? color.bg : "bg-slate-100"}`}
+                    >
                       {isDispersion && (
                         <input
                           type="checkbox"
                           checked={groupAllSelected}
-                          ref={(el) => { if (el) el.indeterminate = groupSomeSelected; }}
+                          ref={(el) => {
+                            if (el) el.indeterminate = groupSomeSelected;
+                          }}
                           onChange={() => toggleGroup(group.rows)}
                           className="h-4 w-4 accent-blue-700 cursor-pointer shrink-0"
                         />
                       )}
                       {group.codigo !== "__sin_codigo__" ? (
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${color ? color.headerBadge : "bg-slate-100 text-slate-700 border-slate-300"}`}>
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${color ? color.headerBadge : "bg-slate-100 text-slate-700 border-slate-300"}`}
+                        >
                           {group.codigo}
                         </span>
                       ) : (
-                        <span className="text-[11px] font-semibold text-slate-400 italic">Sin código</span>
+                        <span className="text-[11px] font-semibold text-slate-400 italic">
+                          Sin código
+                        </span>
                       )}
-                      <span className={`text-[11px] ${color ? "text-blue-800" : "text-slate-500"}`}>
-                        {group.rows.length} solicitud{group.rows.length !== 1 ? "es" : ""}
+                      <span
+                        className={`text-[11px] ${color ? "text-blue-800" : "text-slate-500"}`}
+                      >
+                        {group.rows.length} solicitud
+                        {group.rows.length !== 1 ? "es" : ""}
                         {groupSomeSelected && (
-                          <span className={`ml-1 font-medium ${color ? "text-blue-700" : "text-blue-600"}`}>
-                            · {group.rows.filter((r) => !!selectedMap[r.id_solicitud_proveedor]).length} sel.
+                          <span
+                            className={`ml-1 font-medium ${color ? "text-blue-700" : "text-blue-600"}`}
+                          >
+                            ·{" "}
+                            {
+                              group.rows.filter(
+                                (r) => !!selectedMap[r.id_solicitud_proveedor],
+                              ).length
+                            }{" "}
+                            sel.
                           </span>
                         )}
                         {groupAllSelected && group.rows.length > 0 && (
-                          <span className={`ml-1 font-medium ${color ? "text-blue-700" : "text-blue-600"}`}>· todas</span>
+                          <span
+                            className={`ml-1 font-medium ${color ? "text-blue-700" : "text-blue-600"}`}
+                          >
+                            · todas
+                          </span>
                         )}
                       </span>
-                      <span className={`text-[11px] font-semibold ml-auto ${color ? "text-blue-900" : "text-slate-700"}`}>
+                      <span
+                        className={`text-[11px] font-semibold ml-auto ${color ? "text-blue-900" : "text-slate-700"}`}
+                      >
                         {fmtMoney(group.total)}
                       </span>
                     </div>
@@ -642,12 +763,15 @@ export default function PagosProveedorL() {
                     {/* Group cards */}
                     <div className="space-y-2 mb-4">
                       {group.rows.map((row) => {
-                        const selected = !!selectedMap[row.id_solicitud_proveedor];
+                        const selected =
+                          !!selectedMap[row.id_solicitud_proveedor];
                         return (
                           <div
                             key={`${row.id_solicitud_proveedor}-${row.codigo_dispersion}`}
                             className={`rounded-xl border-l-4 shadow-sm p-4 transition-colors ${color ? color.border : "border-l-transparent"} ${
-                              selected ? "border-blue-300 bg-blue-100" : "border-blue-200 bg-blue-50"
+                              selected
+                                ? "border-blue-300 bg-blue-100"
+                                : "border-blue-200 bg-blue-50"
                             }`}
                           >
                             <div className="flex items-start gap-3">
@@ -680,7 +804,11 @@ export default function PagosProveedorL() {
                                     {!isDispersion && (
                                       <button
                                         type="button"
-                                        onClick={() => setDetalleId(row.id_solicitud_proveedor)}
+                                        onClick={() =>
+                                          setDetalleId(
+                                            row.id_solicitud_proveedor,
+                                          )
+                                        }
                                         className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
                                       >
                                         <Eye className="w-3 h-3" />
@@ -692,38 +820,76 @@ export default function PagosProveedorL() {
                                 <p className="text-xs text-slate-500 font-mono mt-0.5">
                                   #{row.id_solicitud_proveedor}
                                   {row.codigo_confirmacion !== "—" && (
-                                    <span className="ml-2 text-slate-400">· {row.codigo_confirmacion}</span>
+                                    <span className="ml-2 text-slate-400">
+                                      · {row.codigo_confirmacion}
+                                    </span>
                                   )}
                                 </p>
                               </div>
                             </div>
 
                             <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
-                              <CardField label="Cliente" value={row.cliente || "—"} />
-                              <CardField label="Costo prov." value={fmtMoney(row.costo_proveedor)} />
-                              <CardField label="Monto sol." value={fmtMoney(row.monto_solicitado)} bold />
-                              <CardField label="Px venta" value={fmtMoney(row.precio_de_venta)} />
-                              <CardField label="Check in" value={formatDate(row.check_in)} />
-                              <CardField label="Check out" value={formatDate(row.check_out)} />
+                              <CardField
+                                label="Cliente"
+                                value={row.cliente || "—"}
+                              />
+                              <CardField
+                                label="Costo prov."
+                                value={fmtMoney(row.costo_proveedor)}
+                              />
+                              <CardField
+                                label="Monto sol."
+                                value={fmtMoney(row.monto_solicitado)}
+                                bold
+                              />
+                              <CardField
+                                label="Px venta"
+                                value={fmtMoney(row.precio_de_venta)}
+                              />
+                              <CardField
+                                label="Check in"
+                                value={formatDate(row.check_in)}
+                              />
+                              <CardField
+                                label="Check out"
+                                value={formatDate(row.check_out)}
+                              />
                               <CardField
                                 label="Markup"
                                 value={`${row.markup.toFixed(1)}%`}
-                                className={row.markup >= 0 ? "text-green-700 font-semibold" : "text-red-600 font-semibold"}
+                                className={
+                                  row.markup >= 0
+                                    ? "text-green-700 font-semibold"
+                                    : "text-red-600 font-semibold"
+                                }
                               />
-                              <CardField label="Noches" value={String(row.noches || "—")} />
+                              <CardField
+                                label="Noches"
+                                value={String(row.noches || "—")}
+                              />
                             </div>
 
-                            {(row.banco || row.cuenta || row.titular_cuenta) && (
+                            {(row.banco ||
+                              row.cuenta ||
+                              row.titular_cuenta) && (
                               <div className="mt-2 px-2 py-1.5 bg-slate-100 rounded-md">
-                                <p className="text-[10px] text-slate-500 mb-0.5">Datos bancarios</p>
+                                <p className="text-[10px] text-slate-500 mb-0.5">
+                                  Datos bancarios
+                                </p>
                                 {row.banco && (
-                                  <p className="text-[10px] font-semibold text-slate-500 uppercase">{row.banco}</p>
+                                  <p className="text-[10px] font-semibold text-slate-500 uppercase">
+                                    {row.banco}
+                                  </p>
                                 )}
                                 {row.cuenta && (
-                                  <p className="text-xs font-mono text-slate-800">{row.cuenta}</p>
+                                  <p className="text-xs font-mono text-slate-800">
+                                    {row.cuenta}
+                                  </p>
                                 )}
                                 {row.titular_cuenta && (
-                                  <p className="text-[10px] text-slate-500">{row.titular_cuenta}</p>
+                                  <p className="text-[10px] text-slate-500">
+                                    {row.titular_cuenta}
+                                  </p>
                                 )}
                               </div>
                             )}
@@ -802,7 +968,9 @@ export default function PagosProveedorL() {
           currentGroup={pendingAction.currentGroup}
           newGroup={pendingAction.newGroup}
           currentCount={Object.keys(selectedMap).length}
-          addCount={pendingAction.type === "row" ? 1 : pendingAction.groupRows.length}
+          addCount={
+            pendingAction.type === "row" ? 1 : pendingAction.groupRows.length
+          }
           onConfirm={confirmPendingAction}
           onCancel={() => setPendingAction(null)}
         />
@@ -878,7 +1046,13 @@ function CardField({
   );
 }
 
-function RevisionPendienteModal({ row, onClose }: { row: SolicitudRow; onClose: () => void }) {
+function RevisionPendienteModal({
+  row,
+  onClose,
+}: {
+  row: SolicitudRow;
+  onClose: () => void;
+}) {
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
@@ -892,7 +1066,9 @@ function RevisionPendienteModal({ row, onClose }: { row: SolicitudRow; onClose: 
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 bg-amber-50">
           <div className="flex items-center gap-2">
             <Bell className="w-4 h-4 text-amber-600" />
-            <span className="text-sm font-semibold text-amber-800">Revisión pendiente</span>
+            <span className="text-sm font-semibold text-amber-800">
+              Revisión pendiente
+            </span>
           </div>
           <button
             type="button"
@@ -906,29 +1082,48 @@ function RevisionPendienteModal({ row, onClose }: { row: SolicitudRow; onClose: 
         {/* Body */}
         <div className="px-5 py-4 space-y-3">
           <div>
-            <p className="text-[10px] text-slate-400 uppercase tracking-wide">Proveedor</p>
-            <p className="text-sm font-semibold text-slate-800">{row.proveedor || "—"}</p>
+            <p className="text-[10px] text-slate-400 uppercase tracking-wide">
+              Proveedor
+            </p>
+            <p className="text-sm font-semibold text-slate-800">
+              {row.proveedor || "—"}
+            </p>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <p className="text-[10px] text-slate-400 uppercase tracking-wide">ID Solicitud</p>
-              <p className="text-sm font-mono text-slate-700">{row.id_solicitud_proveedor}</p>
+              <p className="text-[10px] text-slate-400 uppercase tracking-wide">
+                ID Solicitud
+              </p>
+              <p className="text-sm font-mono text-slate-700">
+                {row.id_solicitud_proveedor}
+              </p>
             </div>
             <div>
-              <p className="text-[10px] text-slate-400 uppercase tracking-wide">Cód. confirmación</p>
-              <p className="text-sm font-mono text-slate-700">{row.codigo_confirmacion}</p>
+              <p className="text-[10px] text-slate-400 uppercase tracking-wide">
+                Cód. confirmación
+              </p>
+              <p className="text-sm font-mono text-slate-700">
+                {row.codigo_confirmacion}
+              </p>
             </div>
             <div>
-              <p className="text-[10px] text-slate-400 uppercase tracking-wide">Banco</p>
+              <p className="text-[10px] text-slate-400 uppercase tracking-wide">
+                Banco
+              </p>
               <p className="text-sm text-slate-700">{row.banco || "—"}</p>
             </div>
             <div>
-              <p className="text-[10px] text-slate-400 uppercase tracking-wide">Cuenta</p>
-              <p className="text-sm font-mono text-slate-700">{row.cuenta || "—"}</p>
+              <p className="text-[10px] text-slate-400 uppercase tracking-wide">
+                Cuenta
+              </p>
+              <p className="text-sm font-mono text-slate-700">
+                {row.cuenta || "—"}
+              </p>
             </div>
           </div>
           <p className="text-xs text-slate-500">
-            La cuenta bancaria de este proveedor requiere revisión. Verifica la información antes de realizar el pago.
+            La cuenta bancaria de este proveedor requiere revisión. Verifica la
+            información antes de realizar el pago.
           </p>
         </div>
 
@@ -1051,7 +1246,9 @@ function CaratulaModal({ url, onClose }: { url: string; onClose: () => void }) {
       >
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200">
-          <span className="text-sm font-semibold text-slate-700">Carátula bancaria</span>
+          <span className="text-sm font-semibold text-slate-700">
+            Carátula bancaria
+          </span>
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -1062,7 +1259,9 @@ function CaratulaModal({ url, onClose }: { url: string; onClose: () => void }) {
             >
               <ZoomOut className="w-4 h-4" />
             </button>
-            <span className="text-xs text-slate-500 w-10 text-center">{Math.round(scale * 100)}%</span>
+            <span className="text-xs text-slate-500 w-10 text-center">
+              {Math.round(scale * 100)}%
+            </span>
             <button
               type="button"
               onClick={zoomIn}
@@ -1088,7 +1287,11 @@ function CaratulaModal({ url, onClose }: { url: string; onClose: () => void }) {
           <img
             src={url}
             alt="Carátula bancaria"
-            style={{ transform: `scale(${scale})`, transformOrigin: "top center", transition: "transform 0.15s ease" }}
+            style={{
+              transform: `scale(${scale})`,
+              transformOrigin: "top center",
+              transition: "transform 0.15s ease",
+            }}
             className="max-w-full rounded shadow"
           />
         </div>

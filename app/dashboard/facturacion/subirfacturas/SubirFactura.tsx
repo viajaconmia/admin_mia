@@ -36,6 +36,7 @@ import {
   type AsociacionSolicitudProveedor,
   type FacturaErrors,
 } from "./helpers";
+import { useAuth } from "@/context/AuthContext";
 
 // Re-exportamos para no romper importaciones externas
 export { getEmpresasDatosFiscales, type Agente } from "./helpers";
@@ -88,7 +89,7 @@ export default function SubirFactura({
   onCloseExternal,
 }: SubirFacturaProps) {
   // ── Flags de modo ──────────────────────────────────────────────────────────
-console.log("provedordataaaaaaaaaaaaa",proveedoresData)
+  const { user } = useAuth();
   const proveedorFlowType = Array.isArray(proveedoresData)
     ? "batch"
     : proveedoresData
@@ -107,14 +108,18 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
   // ── Estado ─────────────────────────────────────────────────────────────────
 
   const [asignacionPayload, setAsignacionPayload] = useState<any>(null);
-  const [batchAsociaciones, setBatchAsociaciones] = useState<AsociacionSolicitudProveedor[]>([]);
+  const [batchAsociaciones, setBatchAsociaciones] = useState<
+    AsociacionSolicitudProveedor[]
+  >([]);
 
   const [facturaCreada, setFacturaCreada] = useState<any>(null);
   const [facturaData, setFacturaData] = useState<any>(null);
   const [mostrarModal, setMostrarModal] = useState(false);
   const [mostrarVistaPrevia, setMostrarVistaPrevia] = useState(false);
   const [cliente, setCliente] = useState(pagoData?.id_agente || agentId || "");
-  const [clienteSeleccionado, setClienteSeleccionado] = useState<Agente | null>(null);
+  const [clienteSeleccionado, setClienteSeleccionado] = useState<Agente | null>(
+    null,
+  );
   const [archivoPDF, setArchivoPDF] = useState<File | null>(null);
   const [archivoXML, setArchivoXML] = useState<File | null>(null);
   const [clientesFiltrados, setClientesFiltrados] = useState<any[]>([]);
@@ -127,18 +132,21 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
   const [clientes, setClientes] = useState<Agente[]>([]);
   const [loading, setLoading] = useState(false);
   const [empresasAgente, setEmpresasAgente] = useState<EmpresaFromAgent[]>([]);
-  const [empresaSeleccionada, setEmpresaSeleccionada] = useState<EmpresaFromAgent | null>(null);
+  const [empresaSeleccionada, setEmpresaSeleccionada] =
+    useState<EmpresaFromAgent | null>(null);
   const [loadingEmpresas, setLoadingEmpresas] = useState(false);
   const [facturaPagada, setFacturaPagada] = useState(false);
   const [mostrarAsignarFactura, setMostrarAsignarFactura] = useState(false);
 
-  const isClienteBloqueado = !!agentId || !!pagoData?.id_agente || isProveedorBatch;
+  const isClienteBloqueado =
+    !!agentId || !!pagoData?.id_agente || isProveedorBatch;
 
   const [uuid, setUuid] = useState(false);
   const [facturado, setFacturado] = useState<string | null>(null);
 
   type ModoFacturaProveedor = "nueva" | "subida";
-  const [modoFacturaProveedor, setModoFacturaProveedor] = useState<ModoFacturaProveedor>("nueva");
+  const [modoFacturaProveedor, setModoFacturaProveedor] =
+    useState<ModoFacturaProveedor>("nueva");
   const [uuidBusqueda, setUuidBusqueda] = useState("");
   const [buscandoFactura, setBuscandoFactura] = useState(false);
   const [facturaEncontrada, setFacturaEncontrada] = useState<any>(null);
@@ -154,8 +162,10 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
   // ── Derived ────────────────────────────────────────────────────────────────
 
   const mostrarSwitchFacturaProveedor = !!proveedoresData;
-  const esFacturaSubidaMode = mostrarSwitchFacturaProveedor && modoFacturaProveedor === "subida";
-  const esFacturaNuevaMode = !mostrarSwitchFacturaProveedor || modoFacturaProveedor === "nueva";
+  const esFacturaSubidaMode =
+    mostrarSwitchFacturaProveedor && modoFacturaProveedor === "subida";
+  const esFacturaNuevaMode =
+    !mostrarSwitchFacturaProveedor || modoFacturaProveedor === "nueva";
 
   const hasItems = Array.isArray(initialItems) && initialItems.length > 0;
 
@@ -188,7 +198,13 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
         const id_proveedor = getIdProveedorFromRow(row);
         const codigo_hotel = getCodigoHotelFromRow(row);
         console.log(id_solicitud, "🤬🤬🤬🤬", id_proveedor, "cam", row);
-        return { id_solicitud, id_proveedor, codigo_hotel, monto_asociar: "", raw: row };
+        return {
+          id_solicitud,
+          id_proveedor,
+          codigo_hotel,
+          monto_asociar: "",
+          raw: row,
+        };
       })
       .filter((x) => x.id_solicitud);
     console.log(normalized, "informacion", arr);
@@ -198,7 +214,9 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
   useEffect(() => {
     console.log("🟦 proveedoresData (prop) =>", proveedoresData);
     console.log("🟦 isProveedorBatch/isProveedorMode =>", {
-      isProveedorBatch, isProveedorMode, isNormalAgenteMode,
+      isProveedorBatch,
+      isProveedorMode,
+      isNormalAgenteMode,
     });
   }, [proveedoresData, isProveedorBatch, isProveedorMode, isNormalAgenteMode]);
 
@@ -242,7 +260,9 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
         if (targetName) {
           matching = clientes.find(
             (c) =>
-              String(c.nombre_agente_completo ?? "").trim().toLowerCase() === targetName,
+              String(c.nombre_agente_completo ?? "")
+                .trim()
+                .toLowerCase() === targetName,
           );
         }
       }
@@ -257,13 +277,23 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
 
     const targetId = pagoData?.id_agente || agentId;
     if (!targetId) return;
-    const matching = clientes.find((c) => String(c.id_agente) === String(targetId));
+    const matching = clientes.find(
+      (c) => String(c.id_agente) === String(targetId),
+    );
     if (matching) {
       setCliente(matching.nombre_agente_completo);
       setClienteSeleccionado(matching);
       cargarEmpresasAgente(matching.id_agente);
     }
-  }, [clientes, agentId, pagoData?.id_agente, id_proveedor, proveedoresData, isProveedorMode, isProveedorBatch]);
+  }, [
+    clientes,
+    agentId,
+    pagoData?.id_agente,
+    id_proveedor,
+    proveedoresData,
+    isProveedorMode,
+    isProveedorBatch,
+  ]);
 
   // ── Memos (declared before effects that depend on them) ───────────────────
 
@@ -302,7 +332,9 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
         if (!idsSolicitudFacturaPrevia.length) return;
 
         setLoadingFacturadoPrevio(true);
-        const resp = await consultarFacturadoSolicitudes(idsSolicitudFacturaPrevia);
+        const resp = await consultarFacturadoSolicitudes(
+          idsSolicitudFacturaPrevia,
+        );
         if (!cancelled) setFacturadoPrevioData(resp);
       } catch (error) {
         console.error("Error consultando facturado previo:", error);
@@ -313,12 +345,21 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
     }
 
     loadFacturadoPrevio();
-    return () => { cancelled = true; };
-  }, [esFacturaSubidaMode, facturaEncontrada, idsSolicitudFacturaPrevia.join("|")]);
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    esFacturaSubidaMode,
+    facturaEncontrada,
+    idsSolicitudFacturaPrevia.join("|"),
+  ]);
 
   const facturadoPrevioMap = useMemo(() => {
     const out: Record<string, any> = {};
-    if (facturadoPrevioData?.data_by_id && typeof facturadoPrevioData.data_by_id === "object") {
+    if (
+      facturadoPrevioData?.data_by_id &&
+      typeof facturadoPrevioData.data_by_id === "object"
+    ) {
       return facturadoPrevioData.data_by_id;
     }
     if (Array.isArray(facturadoPrevioData?.data)) {
@@ -355,7 +396,9 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
     if (!isProveedorMode || !proveedoresData) return null;
     return {
       id_solicitud: String(proveedoresData?.id_solicitud ?? "").trim(),
-      id_proveedor: String(proveedoresData?.id_proveedor ?? id_proveedor ?? "").trim(),
+      id_proveedor: String(
+        proveedoresData?.id_proveedor ?? id_proveedor ?? "",
+      ).trim(),
       monto_asociar: facturado ?? "",
       raw: proveedoresData,
     };
@@ -369,7 +412,10 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
 
   const formatCurrency = (value: string | number, currency = "MXN") => {
     const n = Number(value || 0);
-    return new Intl.NumberFormat("es-MX", { style: "currency", currency }).format(n);
+    return new Intl.NumberFormat("es-MX", {
+      style: "currency",
+      currency,
+    }).format(n);
   };
 
   const fromMXNToOriginal = (amount: any) => {
@@ -401,31 +447,43 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
     idSolicitud: string;
     excludeIndex?: number | null;
   }) => {
-    const maxSolicitud = Number(facturadoPrevioMap?.[idSolicitud]?.maximo_asignar ?? 0);
+    const maxSolicitud = Number(
+      facturadoPrevioMap?.[idSolicitud]?.maximo_asignar ?? 0,
+    );
     const sumOtros = batchAsociaciones.reduce((acc, it, i) => {
       if (excludeIndex !== null && i === excludeIndex) return acc;
       const n = Number(it.monto_asociar || 0);
       return acc + (Number.isFinite(n) ? n : 0);
     }, 0);
-    const disponibleFactura = Math.max(0, saldoDisponibleFacturaPrevia - sumOtros);
+    const disponibleFactura = Math.max(
+      0,
+      saldoDisponibleFacturaPrevia - sumOtros,
+    );
     return Math.max(0, Math.min(maxSolicitud, disponibleFactura));
   };
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
-  const subirArchivosAS3 = async (): Promise<{ pdfUrl: string; xmlUrl: string }> => {
+  const subirArchivosAS3 = async (): Promise<{
+    pdfUrl: string;
+    xmlUrl: string;
+  }> => {
     if (!archivoXML) throw new Error("El archivo XML es requerido");
     if (!archivoPDF) throw new Error("El archivo PDF es requerido");
 
     const folder = "comprobantes";
 
     const { url: urlXML, publicUrl: publicUrlXML } = await obtenerPresignedUrl(
-      archivoXML.name, archivoXML.type, folder,
+      archivoXML.name,
+      archivoXML.type,
+      folder,
     );
     await subirArchivoAS3(archivoXML, urlXML);
 
     const { url: urlPDF, publicUrl: publicUrlPDF } = await obtenerPresignedUrl(
-      archivoPDF.name, archivoPDF.type, folder,
+      archivoPDF.name,
+      archivoPDF.type,
+      folder,
     );
     await subirArchivoAS3(archivoPDF, urlPDF);
 
@@ -453,7 +511,11 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
         const id = String(c?.id_agente ?? "").toLowerCase();
 
         if (isProveedorMode) {
-          return nombre.includes(valor) || id.includes(valor) || correo.includes(valor);
+          return (
+            nombre.includes(valor) ||
+            id.includes(valor) ||
+            correo.includes(valor)
+          );
         }
         return (
           nombre.includes(valor) ||
@@ -493,7 +555,10 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
   }, []);
 
   const cargarEmpresasAgente = async (id: string) => {
-    if (!id) { console.error("ID no proporcionado"); return; }
+    if (!id) {
+      console.error("ID no proporcionado");
+      return;
+    }
     setLoadingEmpresas(true);
     setEmpresaSeleccionada(null);
     try {
@@ -527,7 +592,9 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
     setFacturado(null);
     setPropinaActivaPrevia(false);
     setPropinaMontoPrevia("");
-    setBatchAsociaciones((prev) => prev.map((x) => ({ ...x, monto_asociar: "" })));
+    setBatchAsociaciones((prev) =>
+      prev.map((x) => ({ ...x, monto_asociar: "" })),
+    );
   }, [pagoData, agentId, hasItems]);
 
   const abrirModal = useCallback(() => {
@@ -560,7 +627,9 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
   const updateMontoBatch = (index: number, raw: string) => {
     const normalized = safeNumStr(raw);
     setBatchAsociaciones((prev) =>
-      prev.map((it, i) => (i === index ? { ...it, monto_asociar: normalized } : it)),
+      prev.map((it, i) =>
+        i === index ? { ...it, monto_asociar: normalized } : it,
+      ),
     );
   };
 
@@ -569,8 +638,14 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
     const val = Number(normalized || 0);
     const row = batchAsociaciones[idx];
     const idSolicitud = String(row?.id_solicitud ?? "").trim();
-    const maxThis = getMaximoAsignableSolicitud({ idSolicitud, excludeIndex: idx });
-    if (val > maxThis) { updateMontoBatch(idx, maxThis.toFixed(2)); return; }
+    const maxThis = getMaximoAsignableSolicitud({
+      idSolicitud,
+      excludeIndex: idx,
+    });
+    if (val > maxThis) {
+      updateMontoBatch(idx, maxThis.toFixed(2));
+      return;
+    }
     updateMontoBatch(idx, normalized);
   };
 
@@ -579,10 +654,17 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
     const val = Number(normalized || 0);
     const idSolicitud = String(proveedoresData?.id_solicitud ?? "").trim();
     const maxSolicitud = Number(
-      facturadoPrevioMap?.[idSolicitud]?.maximo_asignar ?? saldoDisponibleFacturaPrevia,
+      facturadoPrevioMap?.[idSolicitud]?.maximo_asignar ??
+        saldoDisponibleFacturaPrevia,
     );
-    const maxThis = Math.max(0, Math.min(maxSolicitud, saldoDisponibleFacturaPrevia));
-    if (val > maxThis) { setFacturado(maxThis.toFixed(2)); return; }
+    const maxThis = Math.max(
+      0,
+      Math.min(maxSolicitud, saldoDisponibleFacturaPrevia),
+    );
+    if (val > maxThis) {
+      setFacturado(maxThis.toFixed(2));
+      return;
+    }
     setFacturado(normalized);
   };
 
@@ -596,7 +678,10 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
         .replace(/[^A-F0-9-]/g, "");
 
     const uuid = normalizeUUIDInput(uuidBusqueda);
-    if (!uuid) { alert("Debes ingresar el UUID de la factura"); return; }
+    if (!uuid) {
+      alert("Debes ingresar el UUID de la factura");
+      return;
+    }
 
     try {
       setBuscandoFactura(true);
@@ -605,34 +690,54 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
 
       const response = await fetch(
         `${URL}/mia/pago_proveedor/buscar_factura?uuid=${encodeURIComponent(uuid)}`,
-        { method: "GET", headers: { "Content-Type": "application/json", "x-api-key": API_KEY } },
+        {
+          method: "GET",
+          headers: { "Content-Type": "application/json", "x-api-key": API_KEY },
+        },
       );
 
       const json = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(json?.message || "No se pudo buscar la factura");
+      if (!response.ok)
+        throw new Error(json?.message || "No se pudo buscar la factura");
 
       const factura = json?.data ?? json ?? null;
-      if (!factura) { alert("No se encontró una factura con ese UUID"); return; }
+      if (!factura) {
+        alert("No se encontró una factura con ese UUID");
+        return;
+      }
 
       const saldoDisponible = Number(factura?.restante_por_facturar ?? 0);
       if (!Number.isFinite(saldoDisponible) || saldoDisponible <= 0) {
-        alert("La factura encontrada ya no tiene saldo disponible para asignar.");
+        alert(
+          "La factura encontrada ya no tiene saldo disponible para asignar.",
+        );
         return;
       }
 
       if (isProveedorBatch) {
         const proveedoresPermitidos = new Set(
-          batchAsociaciones.map((x) => String(x.id_proveedor || "").trim()).filter(Boolean),
+          batchAsociaciones
+            .map((x) => String(x.id_proveedor || "").trim())
+            .filter(Boolean),
         );
         const idProveedorFactura = String(
-          factura?.id_proveedor ?? factura?.id_agente ?? factura?.proveedoresData?.id_proveedor ?? "",
+          factura?.id_proveedor ??
+            factura?.id_agente ??
+            factura?.proveedoresData?.id_proveedor ??
+            "",
         ).trim();
       } else if (isProveedorMode) {
         const idProveedorEsperado = String(
-          id_proveedor ?? proveedoresData?.id_proveedor ?? clienteSeleccionado?.id_agente ?? "",
+          id_proveedor ??
+            proveedoresData?.id_proveedor ??
+            clienteSeleccionado?.id_agente ??
+            "",
         ).trim();
         const idProveedorFactura = String(
-          factura?.id_proveedor ?? factura?.id_agente ?? factura?.proveedoresData?.id_proveedor ?? "",
+          factura?.id_proveedor ??
+            factura?.id_agente ??
+            factura?.proveedoresData?.id_proveedor ??
+            "",
         ).trim();
         if (!idProveedorFactura || idProveedorFactura !== idProveedorEsperado) {
           alert(
@@ -656,9 +761,14 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
 
   const asignarFacturaPrevia = async () => {
     try {
-      if (!facturaEncontrada?.uuid_factura) { alert("No hay una factura encontrada válida"); return; }
+      if (!facturaEncontrada?.uuid_factura) {
+        alert("No hay una factura encontrada válida");
+        return;
+      }
 
-      const saldoDisponible = Number(facturaEncontrada?.restante_por_facturar ?? 0);
+      const saldoDisponible = Number(
+        facturaEncontrada?.restante_por_facturar ?? 0,
+      );
       if (!Number.isFinite(saldoDisponible) || saldoDisponible <= 0) {
         alert("La factura ya no tiene saldo disponible para asignar.");
         return;
@@ -668,10 +778,17 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
       let totalAsignado = 0;
 
       if (isProveedorBatch) {
-        const rowsValidas = batchAsociaciones.filter((x) => Number(x.monto_asociar || 0) > 0);
-        if (!rowsValidas.length) { alert("Debes capturar al menos un monto a asignar."); return; }
+        const rowsValidas = batchAsociaciones.filter(
+          (x) => Number(x.monto_asociar || 0) > 0,
+        );
+        if (!rowsValidas.length) {
+          alert("Debes capturar al menos un monto a asignar.");
+          return;
+        }
 
-        totalAsignado = round2(rowsValidas.reduce((acc, x) => acc + Number(x.monto_asociar || 0), 0));
+        totalAsignado = round2(
+          rowsValidas.reduce((acc, x) => acc + Number(x.monto_asociar || 0), 0),
+        );
         if (totalAsignado > saldoDisponible) {
           alert("El total a asignar excede el saldo disponible de la factura.");
           return;
@@ -680,9 +797,13 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
         for (const row of rowsValidas) {
           const idSolicitud = String(row?.id_solicitud ?? "").trim();
           const monto = Number(row?.monto_asociar || 0);
-          const maximoAsignar = Number(facturadoPrevioMap?.[idSolicitud]?.maximo_asignar ?? 0);
+          const maximoAsignar = Number(
+            facturadoPrevioMap?.[idSolicitud]?.maximo_asignar ?? 0,
+          );
           if (monto > maximoAsignar) {
-            alert(`El monto de la solicitud ${idSolicitud} excede el máximo permitido.`);
+            alert(
+              `El monto de la solicitud ${idSolicitud} excede el máximo permitido.`,
+            );
             return;
           }
         }
@@ -695,7 +816,10 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
             monto_asociar: Number(x.monto_asociar || 0),
             monto_solicitado: Number(
               facturadoPrevioMap?.[idSolicitud]?.monto_solicitado ??
-                x.raw?.monto_solicitado ?? x.raw?.costo_proveedor ?? x.raw?.monto_por_facturar ?? 0,
+                x.raw?.monto_solicitado ??
+                x.raw?.costo_proveedor ??
+                x.raw?.monto_por_facturar ??
+                0,
             ),
           };
         });
@@ -705,9 +829,20 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
         const maximoAsignar = Number(
           facturadoPrevioMap?.[idSolicitud]?.maximo_asignar ?? saldoDisponible,
         );
-        if (!monto || monto <= 0) { alert("Debes capturar un monto a asignar."); return; }
-        if (monto > saldoDisponible) { alert("El monto a asignar excede el saldo disponible de la factura."); return; }
-        if (monto > maximoAsignar) { alert("El monto a asignar excede el máximo permitido para la solicitud."); return; }
+        if (!monto || monto <= 0) {
+          alert("Debes capturar un monto a asignar.");
+          return;
+        }
+        if (monto > saldoDisponible) {
+          alert("El monto a asignar excede el saldo disponible de la factura.");
+          return;
+        }
+        if (monto > maximoAsignar) {
+          alert(
+            "El monto a asignar excede el máximo permitido para la solicitud.",
+          );
+          return;
+        }
 
         totalAsignado = monto;
         proveedoresPayloadFinal = {
@@ -715,8 +850,10 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
           monto_asociar: monto,
           monto_solicitado: Number(
             facturadoPrevioMap?.[idSolicitud]?.monto_solicitado ??
-              proveedoresData?.monto_solicitado ?? proveedoresData?.costo_proveedor ??
-              proveedoresData?.monto_por_facturar ?? 0,
+              proveedoresData?.monto_solicitado ??
+              proveedoresData?.costo_proveedor ??
+              proveedoresData?.monto_por_facturar ??
+              0,
           ),
         };
       } else {
@@ -724,25 +861,39 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
         return;
       }
 
-      const propinaMonto = propinaActivaPrevia ? Math.max(0, Number(propinaMontoPrevia || 0)) : 0;
+      const propinaMonto = propinaActivaPrevia
+        ? Math.max(0, Number(propinaMontoPrevia || 0))
+        : 0;
 
       const payload = {
         uuid_cfdi: facturaEncontrada.uuid_factura,
         proveedoresData: proveedoresPayloadFinal,
         ...(propinaActivaPrevia && propinaMonto > 0
-          ? { propina_data: { tiene_propina: true, monto_propina: propinaMonto, detectada_xml: false } }
+          ? {
+              propina_data: {
+                tiene_propina: true,
+                monto_propina: propinaMonto,
+                detectada_xml: false,
+              },
+            }
           : {}),
       };
 
       setAsignandoFacturaPrevia(true);
-      const response = await fetch(`${URL}/mia/pago_proveedor/asignar_factura_previa`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-api-key": API_KEY },
-        body: JSON.stringify(payload),
-      });
+      const response = await fetch(
+        `${URL}/mia/pago_proveedor/asignar_factura_previa`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-api-key": API_KEY },
+          body: JSON.stringify(payload),
+        },
+      );
 
       const json = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(json?.message || "No se pudo asignar la factura previa");
+      if (!response.ok)
+        throw new Error(
+          json?.message || "No se pudo asignar la factura previa",
+        );
 
       alert("Factura asignada exitosamente");
       cerrarModal();
@@ -761,7 +912,12 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
   }: {
     url?: string;
     fecha_vencimiento?: string;
-    tipoCambioData?: { moneda: string; tipo_cambio: number; source: string; manual: boolean };
+    tipoCambioData?: {
+      moneda: string;
+      tipo_cambio: number;
+      source: string;
+      manual: boolean;
+    };
   }) => {
     try {
       setSubiendoArchivos(true);
@@ -791,7 +947,9 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
           id_agente: clienteSeleccionado.id_agente,
           total: parseFloat(facturaData.comprobante.total),
           subtotal: parseFloat(facturaData.comprobante.subtotal),
-          impuestos: parseFloat(facturaData.impuestos?.traslado?.importe || "0.00"),
+          impuestos: parseFloat(
+            facturaData.impuestos?.traslado?.importe || "0.00",
+          ),
           saldo: restante,
           rfc: facturaData.receptor.rfc,
           id_empresa: empresaSeleccionada?.id_empresa || null,
@@ -799,14 +957,22 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
           rfc_emisor: facturaData.emisor.rfc,
           url_pdf: url ? url : archivoPDFUrl,
           url_xml: xmlUrl,
-          ...(shouldIncludeFechaVencimiento ? { fecha_vencimiento: fecha_vencimiento || null } : {}),
+          ...(shouldIncludeFechaVencimiento
+            ? { fecha_vencimiento: fecha_vencimiento || null }
+            : {}),
         };
 
-        const response = await fetch(`${URL}/mia/factura/CrearFacturaDesdeCargaPagos`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-api-key": API_KEY },
-          body: JSON.stringify({ ...basePayload, raw_id: raw_Ids[0] }),
-        });
+        const response = await fetch(
+          `${URL}/mia/factura/CrearFacturaDesdeCargaPagos`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-key": API_KEY,
+            },
+            body: JSON.stringify({ ...basePayload, raw_id: raw_Ids[0] }),
+          },
+        );
         if (!response.ok) throw new Error("Error al procesar el pago");
         alert("Factura asignada al pago exitosamente");
         cerrarVistaPrevia();
@@ -818,7 +984,9 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
           id_agente: clienteSeleccionado.id_agente,
           total: totalFactura,
           subtotal: parseFloat(facturaData.comprobante.subtotal),
-          impuestos: parseFloat(facturaData.impuestos?.traslado?.importe || "0.00"),
+          impuestos: parseFloat(
+            facturaData.impuestos?.traslado?.importe || "0.00",
+          ),
           saldo: 0,
           rfc: facturaData.receptor.rfc,
           id_empresa: empresaSeleccionada?.id_empresa || null,
@@ -826,14 +994,25 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
           rfc_emisor: facturaData.emisor.rfc,
           url_pdf: url ? url : archivoPDFUrl,
           url_xml: xmlUrl,
-          ...(shouldIncludeFechaVencimiento ? { fecha_vencimiento: fecha_vencimiento || null } : {}),
+          ...(shouldIncludeFechaVencimiento
+            ? { fecha_vencimiento: fecha_vencimiento || null }
+            : {}),
         };
 
-        const response = await fetch(`${URL}/mia/factura/CrearFacturasMultiplesPagos`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-api-key": API_KEY },
-          body: JSON.stringify({ factura: facturaPayload, pagos_asociados: pagosAsociados }),
-        });
+        const response = await fetch(
+          `${URL}/mia/factura/CrearFacturasMultiplesPagos`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-key": API_KEY,
+            },
+            body: JSON.stringify({
+              factura: facturaPayload,
+              pagos_asociados: pagosAsociados,
+            }),
+          },
+        );
         if (!response.ok) throw new Error("Error al procesar el pago");
         alert("Factura asignada al pago exitosamente");
         cerrarVistaPrevia();
@@ -856,7 +1035,12 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
     payload?: any;
     url?: string;
     fecha_vencimiento?: string;
-    tipoCambioData?: { moneda: string; tipo_cambio: number; source: string; manual: boolean };
+    tipoCambioData?: {
+      moneda: string;
+      tipo_cambio: number;
+      source: string;
+      manual: boolean;
+    };
     propinaData?: { activa: boolean; monto: number; detectada: boolean } | null;
   }) => {
     try {
@@ -877,35 +1061,63 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
       const tipoCambioFactura = isMXNCurrency(monedaFactura)
         ? 1
         : Number(tipoCambioData?.tipo_cambio || 0);
-      const requiereConversionProveedor = isProveedorFlow && !isMXNCurrency(monedaFactura);
+      const requiereConversionProveedor =
+        isProveedorFlow && !isMXNCurrency(monedaFactura);
 
       if (
         requiereConversionProveedor &&
         (!Number.isFinite(tipoCambioFactura) || tipoCambioFactura <= 0)
       ) {
-        throw new Error("No se recibió un tipo de cambio válido desde la vista previa");
+        throw new Error(
+          "No se recibió un tipo de cambio válido desde la vista previa",
+        );
       }
 
-      const totalFacturaOriginal = parseFloat(facturaData?.comprobante?.total || "0");
-      const subtotalFacturaOriginal = parseFloat(facturaData?.comprobante?.subtotal || "0");
-      const impuestosFacturaOriginal = parseFloat(facturaData?.impuestos?.traslado?.importe || "0.00");
+      const totalFacturaOriginal = parseFloat(
+        facturaData?.comprobante?.total || "0",
+      );
+      const subtotalFacturaOriginal = parseFloat(
+        facturaData?.comprobante?.subtotal || "0",
+      );
+      const impuestosFacturaOriginal = parseFloat(
+        facturaData?.impuestos?.traslado?.importe || "0.00",
+      );
 
-      const totalFacturaMXN = convertAmountToMXN(totalFacturaOriginal, tipoCambioFactura, requiereConversionProveedor);
-      const subtotalFacturaMXN = convertAmountToMXN(subtotalFacturaOriginal, tipoCambioFactura, requiereConversionProveedor);
-      const impuestosFacturaMXN = convertAmountToMXN(impuestosFacturaOriginal, tipoCambioFactura, requiereConversionProveedor);
+      const totalFacturaMXN = convertAmountToMXN(
+        totalFacturaOriginal,
+        tipoCambioFactura,
+        requiereConversionProveedor,
+      );
+      const subtotalFacturaMXN = convertAmountToMXN(
+        subtotalFacturaOriginal,
+        tipoCambioFactura,
+        requiereConversionProveedor,
+      );
+      const impuestosFacturaMXN = convertAmountToMXN(
+        impuestosFacturaOriginal,
+        tipoCambioFactura,
+        requiereConversionProveedor,
+      );
 
       let proveedoresPayloadFinal: any = null;
 
       if (isProveedorBatch) {
         proveedoresPayloadFinal = batchAsociaciones.map((x) => {
           const montoOriginal = Number(x.monto_asociar || 0);
-          const montoMXN = convertAmountToMXN(montoOriginal, tipoCambioFactura, requiereConversionProveedor);
+          const montoMXN = convertAmountToMXN(
+            montoOriginal,
+            tipoCambioFactura,
+            requiereConversionProveedor,
+          );
           return {
             id_solicitud: x.id_solicitud,
             id_proveedor: x.id_proveedor,
             monto_asociar: montoMXN,
             monto_solicitado: Number(
-              x.raw?.monto_solicitado ?? x.raw?.costo_proveedor ?? x.raw?.monto_por_facturar ?? 0,
+              x.raw?.monto_solicitado ??
+                x.raw?.costo_proveedor ??
+                x.raw?.monto_por_facturar ??
+                0,
             ),
             montos_originales: {
               moneda: monedaFactura,
@@ -918,7 +1130,11 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
         });
       } else if (isProveedorMode) {
         const montoOriginal = Number(facturado || 0);
-        const montoMXN = convertAmountToMXN(montoOriginal, facturaData, requiereConversionProveedor);
+        const montoMXN = convertAmountToMXN(
+          montoOriginal,
+          facturaData,
+          requiereConversionProveedor,
+        );
         proveedoresPayloadFinal = {
           ...(proveedoresData ?? {}),
           monto_asociar: montoMXN,
@@ -939,12 +1155,20 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
             batchAsociaciones.reduce(
               (acc, x) =>
                 acc +
-                convertAmountToMXN(Number(x.monto_asociar || 0), tipoCambioFactura, requiereConversionProveedor),
+                convertAmountToMXN(
+                  Number(x.monto_asociar || 0),
+                  tipoCambioFactura,
+                  requiereConversionProveedor,
+                ),
               0,
             ),
           )
         : facturado
-          ? convertAmountToMXN(Number(facturado || 0), tipoCambioFactura, requiereConversionProveedor)
+          ? convertAmountToMXN(
+              Number(facturado || 0),
+              tipoCambioFactura,
+              requiereConversionProveedor,
+            )
           : 0;
 
       const saldoCalculado = isProveedorFlow
@@ -961,11 +1185,15 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
       const basePayload: any = {
         fecha_emision: facturaData.comprobante.fecha.split("T")[0],
         estado: "Confirmada",
-        usuario_creador: usuarioCreadorFinal,
+        usuario_creador: usuarioCreadorFinal || user?.id,
         id_agente: idAgenteFinal,
         total: isProveedorFlow ? totalFacturaMXN : totalFacturaOriginal,
-        subtotal: isProveedorFlow ? subtotalFacturaMXN : subtotalFacturaOriginal,
-        impuestos: isProveedorFlow ? impuestosFacturaMXN : impuestosFacturaOriginal,
+        subtotal: isProveedorFlow
+          ? subtotalFacturaMXN
+          : subtotalFacturaOriginal,
+        impuestos: isProveedorFlow
+          ? impuestosFacturaMXN
+          : impuestosFacturaOriginal,
         saldo: round2(saldoCalculado),
         rfc: facturaData.receptor.rfc,
         id_empresa: empresaSeleccionada?.id_empresa || null,
@@ -974,16 +1202,24 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
         url_pdf: url ? url : archivoPDFUrl,
         url_xml: xmlUrl || null,
         items,
-        ...(shouldIncludeFechaVencimiento ? { fecha_vencimiento: fecha_vencimiento || null } : {}),
-        ...(proveedoresPayloadFinal != null ? { proveedoresData: proveedoresPayloadFinal } : {}),
+        ...(shouldIncludeFechaVencimiento
+          ? { fecha_vencimiento: fecha_vencimiento || null }
+          : {}),
+        ...(proveedoresPayloadFinal != null
+          ? { proveedoresData: proveedoresPayloadFinal }
+          : {}),
         ...(isProveedorFlow
           ? {
               montos_originales_factura: {
                 moneda: normalizeCurrency(
-                  tipoCambioData?.moneda || facturaData?.comprobante?.moneda || "MXN",
+                  tipoCambioData?.moneda ||
+                    facturaData?.comprobante?.moneda ||
+                    "MXN",
                 ),
                 tipo_cambio: isMXNCurrency(
-                  tipoCambioData?.moneda || facturaData?.comprobante?.moneda || "MXN",
+                  tipoCambioData?.moneda ||
+                    facturaData?.comprobante?.moneda ||
+                    "MXN",
                 )
                   ? 1
                   : Number(tipoCambioData?.tipo_cambio || 0),
@@ -991,7 +1227,9 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
                 tipo_cambio_manual: !!tipoCambioData?.manual,
                 total: parseFloat(facturaData.comprobante.total),
                 subtotal: parseFloat(facturaData.comprobante.subtotal),
-                impuestos: parseFloat(facturaData.impuestos?.traslado?.importe || "0.00"),
+                impuestos: parseFloat(
+                  facturaData.impuestos?.traslado?.importe || "0.00",
+                ),
               },
             }
           : {}),
@@ -1067,7 +1305,9 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
 
       const data = await parsearXML(archivoXML);
       const totalXml = Number(data?.comprobante?.total ?? 0);
-      const propinaXml = data?.propina?.tienePropina ? Number(data.propina.monto || 0) : 0;
+      const propinaXml = data?.propina?.tienePropina
+        ? Number(data.propina.monto || 0)
+        : 0;
       const totalMaxAsociar = round2(totalXml + propinaXml);
 
       console.log("🚓🚓🚓🚓🚓informacion de xml", data);
@@ -1081,7 +1321,9 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
         !isMXNCurrency(monedaXml) &&
         (!Number.isFinite(tipoCambioXml) || tipoCambioXml <= 0)
       ) {
-        alert(`La factura viene en ${monedaXml} y no trae un TipoCambio válido en el XML.`);
+        alert(
+          `La factura viene en ${monedaXml} y no trae un TipoCambio válido en el XML.`,
+        );
         return;
       }
 
@@ -1096,9 +1338,15 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
       }
 
       if (isProveedorBatch) {
-        const rfcXml = String(data?.emisor?.rfc ?? "").trim().toUpperCase();
+        const rfcXml = String(data?.emisor?.rfc ?? "")
+          .trim()
+          .toUpperCase();
         const proveedorIds = Array.from(
-          new Set(batchAsociaciones.map((x) => String(x.id_proveedor)).filter(Boolean)),
+          new Set(
+            batchAsociaciones
+              .map((x) => String(x.id_proveedor))
+              .filter(Boolean),
+          ),
         );
 
         if (isProveedorMode) {
@@ -1115,7 +1363,9 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
         for (const idProv of proveedorIds) {
           const dfs = await fetchDatosFiscalesProveedor(idProv);
           for (const row of dfs) {
-            const r = String(row?.rfc ?? "").trim().toUpperCase();
+            const r = String(row?.rfc ?? "")
+              .trim()
+              .toUpperCase();
             if (r) rfcDBs.add(r);
           }
         }
@@ -1145,13 +1395,19 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
         await cargarEmpresasAgente(clienteSeleccionado.id_agente);
       }
 
-      const rfcReceptor = !proveedoresData ? data.receptor.rfc : data.emisor.rfc;
-      const empresaCoincidente = empresasAgente.find((emp) => emp.rfc === rfcReceptor);
+      const rfcReceptor = !proveedoresData
+        ? data.receptor.rfc
+        : data.emisor.rfc;
+      const empresaCoincidente = empresasAgente.find(
+        (emp) => emp.rfc === rfcReceptor,
+      );
 
       console.log(rfcReceptor, "cambios", rfcReceptor);
 
       if (!empresaCoincidente) {
-        confirm(`No se encontró una empresa con RFC ${rfcReceptor} para este cliente. Deberas crear empresa`);
+        confirm(
+          `No se encontró una empresa con RFC ${rfcReceptor} para este cliente. Deberas crear empresa`,
+        );
         return;
       } else {
         setEmpresaSeleccionada(empresaCoincidente);
@@ -1223,8 +1479,12 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
           monedaFacturaPrevia={monedaFacturaPrevia}
           requiereConversionProveedorPrevia={requiereConversionProveedorPrevia}
           tipoCambioFacturaPrevia={tipoCambioFacturaPrevia}
-          handleChangeMontoBatchFacturaPrevia={handleChangeMontoBatchFacturaPrevia}
-          handleChangeMontoSingleFacturaPrevia={handleChangeMontoSingleFacturaPrevia}
+          handleChangeMontoBatchFacturaPrevia={
+            handleChangeMontoBatchFacturaPrevia
+          }
+          handleChangeMontoSingleFacturaPrevia={
+            handleChangeMontoSingleFacturaPrevia
+          }
           formatCurrency={formatCurrency}
           fromMXNToOriginal={fromMXNToOriginal}
           getPreviewConversion={getPreviewConversion}
@@ -1255,7 +1515,12 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
           batchTotalAsociar={batchTotalAsociar}
           showFechaVencimiento={!pagoData && !proveedoresData}
           proveedoresData={proveedoresData}
-          onConfirm={(pdfUrl, fecha_vencimiento, tipoCambioData, propinaData) => {
+          onConfirm={(
+            pdfUrl,
+            fecha_vencimiento,
+            tipoCambioData,
+            propinaData,
+          ) => {
             setArchivoPDFUrl(pdfUrl);
 
             if (hasItems) {
@@ -1271,7 +1536,11 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
 
             setFacturaPagada(true);
             if (pagoData && facturaData) {
-              handlePagos({ url: pdfUrl ?? undefined, fecha_vencimiento, tipoCambioData });
+              handlePagos({
+                url: pdfUrl ?? undefined,
+                fecha_vencimiento,
+                tipoCambioData,
+              });
             } else {
               handleConfirmarFactura({
                 url: pdfUrl ?? undefined,
@@ -1291,17 +1560,19 @@ console.log("provedordataaaaaaaaaaaaa",proveedoresData)
           <div className="flex items-center justify-between">
             <span className="font-medium">Total ítems seleccionados:</span>
             <span>
-              {new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(
-                getItemsTotal(),
-              )}
+              {new Intl.NumberFormat("es-MX", {
+                style: "currency",
+                currency: "MXN",
+              }).format(getItemsTotal())}
             </span>
           </div>
           <div className="flex items-center justify-between mt-1">
             <span className="font-medium">Total de la factura (XML):</span>
             <span>
-              {new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(
-                parseFloat(facturaData?.comprobante?.total || "0"),
-              )}
+              {new Intl.NumberFormat("es-MX", {
+                style: "currency",
+                currency: "MXN",
+              }).format(parseFloat(facturaData?.comprobante?.total || "0"))}
             </span>
           </div>
         </div>

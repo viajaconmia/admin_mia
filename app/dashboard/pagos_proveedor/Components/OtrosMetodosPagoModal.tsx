@@ -56,17 +56,20 @@ const validateComprobanteFile = (
   file: File,
 ): { isValid: boolean; error?: string } => {
   const fileName = file.name.toLowerCase();
-  const allowedMimeTypes = [
-    "application/pdf",
-    "image/png",
-    "image/jpeg",
-    "image/jpg",
-    "image/webp",
+
+  // Extensiones válidas — incluye heic/heif para iOS "Files" app
+  const allowedExtensions = [
+    ".pdf", ".png", ".jpg", ".jpeg", ".webp", ".heic", ".heif",
   ];
 
-  const allowedExtensions = [".pdf", ".png", ".jpg", ".jpeg", ".webp"];
+  // En Android, la cámara suele devolver file.type = "" (vacío).
+  // En iOS desde "Files", puede venir image/heic o image/heif.
+  // Por eso aceptamos cualquier image/* y también tipo vacío (confiar en accept + extensión).
+  const hasValidMime =
+    file.type === "" ||                   // Android camera — sin MIME
+    file.type.startsWith("image/") ||     // cualquier imagen, incluyendo heic/heif
+    file.type === "application/pdf";
 
-  const hasValidMime = allowedMimeTypes.includes(file.type);
   const hasValidExtension = allowedExtensions.some((ext) =>
     fileName.endsWith(ext),
   );
@@ -74,8 +77,7 @@ const validateComprobanteFile = (
   if (!hasValidMime && !hasValidExtension) {
     return {
       isValid: false,
-      error:
-        `El archivo "${file.name}" debe ser PDF o imagen válida (PNG, JPG, JPEG, WEBP).`,
+      error: `El archivo "${file.name}" debe ser PDF o imagen (PNG, JPG, JPEG, WEBP).`,
     };
   }
 
@@ -724,7 +726,7 @@ const buildSelectedRows = (): CSVRow[] => {
           <input
             id={`pdf-file-${index}`}
             type="file"
-            accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp"
+            accept="image/*,.pdf,application/pdf"
             onChange={handlePdfChange(index)}
             className="w-full text-sm text-gray-800 border-2 border-dashed border-gray-300 rounded-lg p-4 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
           />
@@ -745,8 +747,8 @@ const buildSelectedRows = (): CSVRow[] => {
 
         {previewUrl && file && (
           <>
-            {/* Desktop: preview inline */}
-            <div className="hidden sm:block mt-2 border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
+            {/* Preview — imágenes inline, PDFs abren en nueva pestaña */}
+            <div className="mt-2 border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
               <div className="flex items-center justify-between px-3 py-1.5 bg-gray-100 border-b border-gray-200">
                 <span className="text-[11px] text-gray-500 truncate max-w-[60%]">
                   {file.name}
@@ -762,11 +764,20 @@ const buildSelectedRows = (): CSVRow[] => {
                 </a>
               </div>
               {isPdf ? (
-                <iframe
-                  src={previewUrl}
-                  title="Vista previa comprobante"
-                  className="w-full h-64 border-0"
-                />
+                <div className="flex flex-col items-center justify-center gap-3 py-6 px-4 text-center">
+                  <p className="text-xs text-gray-500">
+                    PDF seleccionado correctamente.
+                  </p>
+                  <a
+                    href={previewUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 text-sm font-medium hover:bg-blue-100 transition-colors"
+                  >
+                    <Eye className="w-4 h-4" />
+                    Ver PDF
+                  </a>
+                </div>
               ) : (
                 <img
                   src={previewUrl}
@@ -774,18 +785,6 @@ const buildSelectedRows = (): CSVRow[] => {
                   className="w-full max-h-64 object-contain p-2"
                 />
               )}
-            </div>
-
-            {/* Mobile: botón que abre pantalla completa */}
-            <div className="sm:hidden mt-2">
-              <button
-                type="button"
-                onClick={() => setShowMobilePreviewIndex(index)}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-sm font-medium hover:bg-blue-100 transition-colors"
-              >
-                <Eye className="w-4 h-4" />
-                Ver archivo subido
-              </button>
             </div>
           </>
         )}
@@ -1189,11 +1188,21 @@ const buildSelectedRows = (): CSVRow[] => {
             </div>
             <div className="flex-1 overflow-auto bg-gray-900 flex items-center justify-center">
               {isPdf ? (
-                <iframe
-                  src={previewUrl}
-                  title="Vista previa comprobante"
-                  className="w-full h-full border-0"
-                />
+                <div className="flex flex-col items-center justify-center gap-4 px-6 text-center">
+                  <div className="w-16 h-16 rounded-2xl bg-red-900/40 flex items-center justify-center">
+                    <Eye className="w-8 h-8 text-red-300" />
+                  </div>
+                  <p className="text-white font-medium text-sm">{pdfFile.name}</p>
+                  <p className="text-gray-400 text-xs">Los PDFs no se pueden previsualizar en móvil.</p>
+                  <a
+                    href={previewUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold"
+                  >
+                    Abrir PDF
+                  </a>
+                </div>
               ) : (
                 <img
                   src={previewUrl}
