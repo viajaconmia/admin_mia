@@ -308,12 +308,27 @@ export default function NavContainer({
         </Button>
       </div>
 
-      {/* Mobile nav panel */}
+      {/* Mobile nav overlay - pantalla completa */}
       {mobileOpen && (
-        <div className="md:hidden border-b bg-white z-30 overflow-y-auto max-h-[60vh]">
-          <div className="px-3 py-2">
-            {renderNavLinks(true, () => setMobileOpen(false))}
+        <div className="md:hidden fixed inset-0 z-50 bg-white flex flex-col">
+          <div className="flex items-center justify-between px-4 h-12 border-b shrink-0">
+            <div className="flex items-center gap-2">
+              <MiaIcon />
+              <h2 className="text-xl font-semibold">{title}</h2>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setMobileOpen(false)}
+            >
+              <X className="h-5 w-5" />
+            </Button>
           </div>
+          <ScrollArea className="flex-1">
+            <div className="px-3 py-4">
+              {renderNavLinks(true, () => setMobileOpen(false))}
+            </div>
+          </ScrollArea>
         </div>
       )}
 
