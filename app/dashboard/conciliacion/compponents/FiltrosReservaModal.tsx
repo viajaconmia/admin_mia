@@ -23,6 +23,7 @@ export type ConciliacionFilters = {
   reserva_diferencia: string;
   nombre_intermediario: string;
   forma_pago_solicitada: string;
+  estado_solicitud: string;
   id_cliente: string;
   etapa_reservacion: string;
   fecha_reserva_start: string;
@@ -351,19 +352,13 @@ export default function FiltrosConciliacionModal({
                 />
               </Field>
 
-              <Field label="Nombre intermediario">
-                <InputWithClear
-                  value={filters.nombre_intermediario}
-                  onChange={(v) => onChange("nombre_intermediario", v)}
-                  onClear={() => onChange("nombre_intermediario", "")}
-                />
-              </Field>
+
               <Field label="Estatus de pago">
                 <SelectWithClear
-                  value={filters.forma_pago_solicitada}
-                  onChange={(v) => onChange("forma_pago_solicitada", v)}
-                  onClear={() => onChange("forma_pago_solicitada", "")}
-                  options={["Pagado link", "Cancelada", "carta enviada", "transferencia solicitada", "Cupon enviado", "Solicitada", "Pagado tarjeta", "Pagado transferencia", "Dispersion"]}
+                  value={filters.estado_solicitud}
+                  onChange={(v) => onChange("estado_solicitud", v)}
+                  onClear={() => onChange("estado_solicitud", "")}
+                  options={["CARTA_ENVIADA", "PAGADO TARJETA", "TRANSFERENCIA_SOLICITADA", "PAGADO TRANSFERENCIA", "PAGADO LINK", "CUPON ENVIADO", "CANCELADA", "DISPERSION", "SOLICITADA"]}
                   placeholder="todos"
                 />
               </Field>

@@ -512,6 +512,7 @@ export default function ConciliacionPage() {
 
     comentarios: "",
     comentario_CXP: "",
+    estado_solicitud: "",
 
     tipo_reserva_pago: "",
     pagos_parciales: "",
@@ -650,6 +651,7 @@ export default function ConciliacionPage() {
     canal_de_reservacion: "Canal de reservación",
     nombre_intermediario: "Nombre intermediario",
     forma_pago_solicitada: "Estatus de pago",
+    estado_solicitud: "Estatus de pago",
 
     reservante: "",
     comentario_AP: "",
