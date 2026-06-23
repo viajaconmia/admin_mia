@@ -173,6 +173,7 @@ function App() {
             item.codigo_confirmacion || item.id_confirmacion || "",
           creado: item.created_at,
           proveedor: (item.hotel || "").toUpperCase(),
+          intermediario: (item.intermediario || "").toUpperCase(),
           razon_social: item.proveedor?.razon_social,
           rfc: item.proveedor?.rfc,
           viajero: (
@@ -434,6 +435,7 @@ function App() {
       "cliente", // CLIENTE
       "codigo_confirmacion", // CODIGO CONFIRMACION
       "proveedor", // PROVEEDOR
+      "intermediario",
       "razon_social", // RAZON SOCIAL
       "viajero", // VIAJERO
       "check_in", // CHECK IN

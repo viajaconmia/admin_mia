@@ -17,18 +17,12 @@ export type ConciliacionFilters = {
   check_in_end: string;
   check_out_start: string;
   check_out_end: string;
-  canal_de_reservacion: string;
-  reservante: string;
-  comentario_AP: string;
-  reserva_diferencia: string;
-  nombre_intermediario: string;
-  forma_pago_solicitada: string;
+
   id_cliente: string;
   etapa_reservacion: string;
   fecha_reserva_start: string;
   fecha_reserva_end: string;
   filtrar_fecha_por_reserva: string;
-
 
   comentarios: string;
   comentario_CXP: string;
@@ -160,8 +154,7 @@ export default function FiltrosConciliacionModal({
           </button>
         </div>
 
-        <div className="p-5 space-y-6 max-h-[80vh] overflow-y-auto">
-          
+        <div className="p-5 space-y-6">
 
           {/* ── General ─────────────────────────────────────────────── */}
           <div>
@@ -269,15 +262,6 @@ export default function FiltrosConciliacionModal({
                   placeholder="Buscar en comentario CXP"
                 />
               </Field>
-
-              <Field label="Comentarios Ajustes Costos Finanzas">
-                <InputWithClear
-                  value={filters.comentario_AP}
-                  onChange={(v) => onChange("comentario_AP", v)}
-                  onClear={() => onChange("comentario_AP", "")}
-                  placeholder="Buscar en comentario ajustes costos finanzas"
-                />
-              </Field>
             </div>
           </div>
 
@@ -331,61 +315,13 @@ export default function FiltrosConciliacionModal({
                 />
               </Field>
 
-              <Field label="Canal de reservación">
-                <SelectWithClear
-                  value={filters.canal_de_reservacion}
-                  onChange={(v) => onChange("canal_de_reservacion", v)}
-                  onClear={() => onChange("canal_de_reservacion", "")}
-                  options={["DIRECTO", "INTERMEDIARIO"]}
-                  placeholder="Selecciona una opcion"
-                />
-              </Field>
-
-              <Field label="reservante">
-                <SelectWithClear
-                  value={filters.reservante}
-                  onChange={(v) => onChange("reservante", v)}
-                  onClear={() => onChange("reservante", "")}
-                  options={["operaciones", "cliente"]}
-                  placeholder="selecciona una opcion"
-                />
-              </Field>
-
-              <Field label="Nombre intermediario">
-                <InputWithClear
-                  value={filters.nombre_intermediario}
-                  onChange={(v) => onChange("nombre_intermediario", v)}
-                  onClear={() => onChange("nombre_intermediario", "")}
-                />
-              </Field>
-              <Field label="Estatus de pago">
-                <SelectWithClear
-                  value={filters.forma_pago_solicitada}
-                  onChange={(v) => onChange("forma_pago_solicitada", v)}
-                  onClear={() => onChange("forma_pago_solicitada", "")}
-                  options={["Pagado link", "Cancelada", "carta enviada", "transferencia solicitada", "Cupon enviado", "Solicitada", "Pagado tarjeta", "Pagado transferencia", "Dispersion"]}
-                  placeholder="todos"
-                />
-              </Field>
-
-
               <Field label="Método pago reserva">
                 <SelectWithClear
                   value={filters.metodo_pago_reserva}
                   onChange={(v) => onChange("metodo_pago_reserva", v)}
                   onClear={() => onChange("metodo_pago_reserva", "")}
                   options={["PREPAGO", "CREDITO"]}
-                  placeholder="Selecciona una opcion"
-                />
-              </Field>
-
-              <Field label="hay diferencia">
-                <SelectWithClear
-                  value={filters.reserva_diferencia}
-                  onChange={(v) => onChange("reserva_diferencia", v)}
-                  onClear={() => onChange("reserva_diferencia", "")}
-                  options={["Si", "no"]}
-                  placeholder="Selecciona una opcion"
+                  placeholder="Todos"
                 />
               </Field>
 
@@ -397,7 +333,32 @@ export default function FiltrosConciliacionModal({
                 />
               </Field>
 
-            
+              <Field label="Filtrar fecha por">
+                <SelectWithClear
+                  value={filters.filtrar_fecha_por_reserva}
+                  onChange={(v) => onChange("filtrar_fecha_por_reserva", v)}
+                  onClear={() => onChange("filtrar_fecha_por_reserva", "")}
+                  options={["created_at", "check_in", "check_out"]}
+                />
+              </Field>
+
+              <Field label="Desde">
+                <InputWithClear
+                  type="date"
+                  value={filters.fecha_reserva_start}
+                  onChange={(v) => onChange("fecha_reserva_start", v)}
+                  onClear={() => onChange("fecha_reserva_start", "")}
+                />
+              </Field>
+
+              <Field label="Hasta">
+                <InputWithClear
+                  type="date"
+                  value={filters.fecha_reserva_end}
+                  onChange={(v) => onChange("fecha_reserva_end", v)}
+                  onClear={() => onChange("fecha_reserva_end", "")}
+                />
+              </Field>
             </div>
           </div>
 

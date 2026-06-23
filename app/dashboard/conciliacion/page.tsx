@@ -498,12 +498,7 @@ export default function ConciliacionPage() {
     check_in_end: "",
     check_out_start: "",
     check_out_end: "",
-    canal_de_reservacion: "",
-    nombre_intermediario: "",
-    forma_pago_solicitada: "",
-    reservante: "",
-    comentario_AP: "",
-    reserva_diferencia: "",
+
     id_cliente: "",
     etapa_reservacion: "",
     fecha_reserva_start: "",
@@ -647,13 +642,6 @@ export default function ConciliacionPage() {
     fecha_reserva_start: "Fecha reserva desde",
     fecha_reserva_end: "Fecha reserva hasta",
     filtrar_fecha_por_reserva: "Filtrar fecha por",
-    canal_de_reservacion: "Canal de reservación",
-    nombre_intermediario: "Nombre intermediario",
-    forma_pago_solicitada: "Estatus de pago",
-
-    reservante: "",
-    comentario_AP: "",
-    reserva_diferencia: "",
 
     comentarios: "Comentarios Ops",
     comentario_CXP: "Comentario CXP",

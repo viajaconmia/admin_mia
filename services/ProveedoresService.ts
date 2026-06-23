@@ -100,13 +100,17 @@ export class ProveedoresService extends ApiService {
     });
 
   //CUENTAS
-  public getCuentasByProveedor = async (
-    id_proveedor: number,
-  ): Promise<ApiResponse<ProveedorCuenta[]>> =>
-    this.get<ProveedorCuenta[]>({
-      path: this.formatPath(this.ENDPOINTS.GET.CUENTAS),
-      params: { id_proveedor },
-    });
+public getCuentasByProveedor = async (
+  id_proveedor: number,
+  incluir_inactivas = false,
+): Promise<ApiResponse<ProveedorCuenta[]>> =>
+  this.get<ProveedorCuenta[]>({
+    path: this.formatPath(this.ENDPOINTS.GET.CUENTAS),
+    params: {
+      id_proveedor,
+      incluir_inactivas: incluir_inactivas ? 1 : 0,
+    },
+  });
 
   public updateCuentasProveedor = async (
     body: ProveedorCuenta,
@@ -224,6 +228,15 @@ export class ProveedoresService extends ApiService {
       path: this.formatPath(this.ENDPOINTS.DELETE.ARCHIVOS),
       params: { id },
     });
+  public updateCuentaActive = async (
+    id: number,
+    active: number,
+  ): Promise<ApiResponse<ProveedorCuenta[]>> => {
+    return this.patch<ProveedorCuenta[]>({
+      path: `/mia/pago_proveedor/cuentas/${id}/active`,
+      body: { active },
+    });
+  };
 }
 
 //DATOS FISCALES
@@ -322,6 +335,7 @@ export interface ProveedorCuenta {
   comentarios: string | null;
   alias: string | null;
   url_caratula: string | null;
+  active: number;
 }
 
 //RENTAL CAR
