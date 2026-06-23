@@ -1,6 +1,8 @@
 // app/conciliacion/page.tsx
 "use client";
 
+
+
 import React, {
   useCallback,
   useEffect,
@@ -21,6 +23,8 @@ import {
   ChevronRight,
   CheckCheck,
 } from "lucide-react";
+
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 
 import Button from "@/components/atom/Button";
 import { Loader } from "@/components/atom/Loader";
@@ -428,6 +432,11 @@ function getTodayLocalDate() {
 }
 
 export default function ConciliacionPage() {
+
+  const router = useRouter(); // hace cambios en la url
+  const pathName = usePathname(); // Lee la ruta
+  const searchParams = useSearchParams(); // Lee parametros
+
   const EPS = 0.01;
   const isZero = (n: any) => Math.abs(Number(n) || 0) < EPS;
 
@@ -491,6 +500,8 @@ export default function ConciliacionPage() {
     cliente: "",
     viajero: "",
     hotel: "",
+    estado_solicitud: "",
+    estatus_pagos: "",
     estado_facturacion: "",
     created_start: "",
     created_end: "",
@@ -635,6 +646,8 @@ export default function ConciliacionPage() {
     cliente: "Cliente",
     viajero: "Viajero",
     hotel: "Proveedor",
+    estado_solicitud: "",
+    estatus_pagos: "",
     estado_facturacion: "Estatus facturación",
     created_start: "Creado desde",
     created_end: "Creado hasta",
@@ -669,10 +682,31 @@ export default function ConciliacionPage() {
     return { ...incoming };
   }
 
+  const getInitialFilters = (): ConciliacionFilters => {
+    // Creamos un objeto con todos los filtros por defecto
+    const next = { ...DEFAULT_OPEN_FILTERS };
+
+    // Recorremos cada propiedad (key) del objeto
+    (Object.keys(next) as (keyof ConciliacionFilters)[]).forEach((key) => {
+
+      // Buscamos en la URL si existe un parámetro con ese nombre
+      const v = searchParams.get(key);
+
+      // Si existe, reemplazamos el valor por defecto
+      if (v != null) next[key] = v;
+    });
+
+    // Regresamos el objeto final con los filtros
+    return next;
+  };
+
+  
+
+
   const [filters, setFilters] =
-    useState<ConciliacionFilters>(DEFAULT_OPEN_FILTERS);
+    useState<ConciliacionFilters>(getInitialFilters);
   const [appliedFilters, setAppliedFilters] =
-    useState<ConciliacionFilters>(DEFAULT_OPEN_FILTERS);
+    useState<ConciliacionFilters>(getInitialFilters);
 
   // const DATE_FILTER_KEYS: (keyof ConciliacionFilters)[] = [
   //   "created_start",
@@ -788,20 +822,38 @@ export default function ConciliacionPage() {
   });
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
+
+
+
   const applyFilters = useCallback(() => {
     const next = { ...filters };
-    setFilters(next);
-    setAppliedFilters(next);
-    setShowFiltersModal(false);
-    void load(next, 1);
-  }, [filters, load]);
+    setFilters(next)
+    setAppliedFilters(next); // // Guarda oficialmente los filtros que se usarán para buscar
+    setShowFiltersModal(false); // Cierra el modal
+
+    const params = new URLSearchParams() // Crea un contenedor vacío para parámetros.
+    Object.entries(next).forEach(([key, value]) => { // Recorre cada propiedad y su valor
+      const v = String(value ?? "").trim(); // Convierte el valor a texto y elimina espacios al inicio y final
+      if (v) params.set(key, v); // Le asigna el valor de v a la key  si v tiene contenido
+    });
+    router.replace(`${pathName}?${params.toString()}`); // // Actualiza la URL con los filtros sin recargar la página
+
+    void load(next, 1) // Consulta los datos usando los filtros y la página 1
+
+  }, [filters, load, pathName, router]); // Por que se agrega pathName y router?
+
+
+
+
+
 
   const clearAllFilters = useCallback(() => {
     setFilters(EMPTY_FILTERS);
     setAppliedFilters(EMPTY_FILTERS);
     setSearchInput("");
     setShowFiltersModal(false);
-  }, []);
+    router.replace(pathName);
+  }, [pathName, router]);
 
   const openEditModal = useCallback(
     (
@@ -1727,7 +1779,7 @@ console.log("este es el item", item)
         const v = String(value ?? "").toUpperCase();
         const styles: Record<string, string> = {
           FACTURADO: "text-green-700 bg-green-50 border-green-200",
-          COMPLETO: "text-green-700 bg-green-50 border-green-200",
+          COMPLETADO: "text-green-700 bg-green-50 border-green-200",
           PARCIAL: "text-amber-700 bg-amber-50 border-amber-200",
           PENDIENTE: "text-red-700 bg-red-50 border-red-200",
         };
