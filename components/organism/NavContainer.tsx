@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ArrowIcon, MiaIcon } from "@/helpers/icons";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Menu, X } from "lucide-react";
 
 type LeafLink = {
   href: string;
@@ -64,6 +64,7 @@ export default function NavContainer({
 
   const [isOpen, setIsOpen] = useState(false);
   const [isHover, setIsHover] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [currentTab, setCurrentTab] = useState(
     defaultTab || (tabs.length > 0 ? tabs[0].tab : ""),
   );
@@ -104,12 +105,237 @@ export default function NavContainer({
     setOpenGroups((prev) => ({ ...prev, ...initialGroupsOpen }));
   }, [initialGroupsOpen]);
 
+  const renderNavLinks = (expanded: boolean, onLinkClick?: () => void) => (
+    <nav className="space-y-2">
+      {links.map((item) => {
+        if (!isGroup(item)) {
+          const active = isActiveHref(item.href);
+          return (
+            <Link
+              href={item.href}
+              key={item.href}
+              onClick={onLinkClick}
+              className={cn(
+                "flex items-center justify-start w-full gap-3 rounded-lg px-3 py-2 text-sm transition-all",
+                "hover:bg-blue-50 hover:text-blue-900",
+                active ? "bg-blue-100 text-blue-900" : "text-gray-500",
+              )}
+            >
+              <item.icon className="h-4 w-4 shrink-0" />
+              {expanded && (
+                <span className="whitespace-nowrap">{item.title}</span>
+              )}
+            </Link>
+          );
+        }
+
+        const groupOpen = !!openGroups[item.title];
+        const groupHasActive = item.items.some((it) =>
+          isSubGroup(it)
+            ? it.items.some((leaf) => isActiveHref(leaf.href))
+            : isActiveHref(it.href),
+        );
+
+        return (
+          <div key={item.title} className="space-y-1">
+            <button
+              type="button"
+              onClick={() =>
+                setOpenGroups((p) => ({
+                  ...p,
+                  [item.title]: !p[item.title],
+                }))
+              }
+              className={cn(
+                "flex items-center justify-start w-full gap-3 rounded-lg px-3 py-2 text-sm transition-all",
+                "hover:bg-blue-50 hover:text-blue-900",
+                groupHasActive ? "bg-blue-100 text-blue-900" : "text-gray-500",
+              )}
+            >
+              <item.icon className="h-4 w-4 shrink-0" />
+              {expanded && (
+                <>
+                  <span className="whitespace-nowrap flex-1 text-left">
+                    {item.title}
+                  </span>
+                  <ChevronDown
+                    className={cn(
+                      "h-4 w-4 transition-transform",
+                      groupOpen && "rotate-180",
+                    )}
+                  />
+                </>
+              )}
+            </button>
+
+            {expanded && groupOpen && (
+              <div className="ml-4 pl-2 border-l border-blue-100 space-y-1">
+                {item.items.map((sub) => {
+                  if (isSubGroup(sub)) {
+                    const subKey = `${item.title}__${sub.title}`;
+                    const subOpen = !!openGroups[subKey];
+                    const subHasActive = sub.items.some((leaf) =>
+                      isActiveHref(leaf.href),
+                    );
+                    return (
+                      <div key={sub.title} className="space-y-1">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setOpenGroups((p) => ({
+                              ...p,
+                              [subKey]: !p[subKey],
+                            }))
+                          }
+                          className={cn(
+                            "flex items-center justify-start w-full gap-3 rounded-lg px-3 py-2 text-sm transition-all",
+                            "hover:bg-blue-50 hover:text-blue-900",
+                            subHasActive
+                              ? "bg-blue-100 text-blue-900"
+                              : "text-gray-500",
+                          )}
+                        >
+                          {sub.icon && (
+                            <sub.icon className="h-4 w-4 shrink-0" />
+                          )}
+                          <span className="whitespace-nowrap flex-1 text-left">
+                            {sub.title}
+                          </span>
+                          <ChevronDown
+                            className={cn(
+                              "h-4 w-4 transition-transform",
+                              subOpen && "rotate-180",
+                            )}
+                          />
+                        </button>
+                        {subOpen && (
+                          <div className="ml-4 pl-2 border-l border-blue-100 space-y-1">
+                            {sub.items.map((leaf) => {
+                              const active = isActiveHref(leaf.href);
+                              return (
+                                <Link
+                                  href={leaf.href}
+                                  key={leaf.href}
+                                  onClick={onLinkClick}
+                                  className={cn(
+                                    "flex items-center justify-start w-full gap-3 rounded-lg px-3 py-2 text-sm transition-all",
+                                    "hover:bg-blue-50 hover:text-blue-900",
+                                    active
+                                      ? "bg-blue-100 text-blue-900"
+                                      : "text-gray-500",
+                                  )}
+                                >
+                                  {leaf.icon && (
+                                    <leaf.icon className="h-4 w-4" />
+                                  )}
+                                  <span className="whitespace-nowrap">
+                                    {leaf.title}
+                                  </span>
+                                </Link>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  const active = isActiveHref(sub.href);
+                  return (
+                    <Link
+                      href={sub.href}
+                      key={sub.href}
+                      onClick={onLinkClick}
+                      className={cn(
+                        "flex items-center justify-start w-full gap-3 rounded-lg px-3 py-2 text-sm transition-all",
+                        "hover:bg-blue-50 hover:text-blue-900",
+                        active ? "bg-blue-100 text-blue-900" : "text-gray-500",
+                      )}
+                    >
+                      {sub.icon && <sub.icon className="h-4 w-4" />}
+                      <span className="whitespace-nowrap">{sub.title}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {tabs.map((item) => (
+        <button
+          onClick={() => {
+            setCurrentTab(item.tab);
+            onLinkClick?.();
+          }}
+          key={item.tab}
+          className={cn(
+            "flex items-center justify-start w-full gap-3 rounded-lg px-3 py-2 text-sm transition-all",
+            "hover:bg-blue-50 hover:text-blue-900",
+            currentTab === item.tab
+              ? "bg-blue-100 text-blue-900"
+              : "text-gray-500",
+          )}
+        >
+          <item.icon className="h-4 w-4 shrink-0" />
+          {expanded && (
+            <span className="whitespace-nowrap">{item.title}</span>
+          )}
+        </button>
+      ))}
+    </nav>
+  );
+
   return (
-    <div className="flex h-full w-full min-w-[85vw]">
-      {/* Sidebar */}
+    <div className="flex flex-col md:flex-row h-full w-full md:min-w-[85vw]">
+      {/* Mobile top bar */}
+      <div className="md:hidden flex items-center justify-between px-4 h-12 border-b bg-white sticky top-0 z-40">
+        <div className="flex items-center gap-2">
+          <MiaIcon />
+          <h2 className="text-xl font-semibold">{title}</h2>
+        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setMobileOpen((v) => !v)}
+        >
+          {mobileOpen ? (
+            <X className="h-5 w-5" />
+          ) : (
+            <Menu className="h-5 w-5" />
+          )}
+        </Button>
+      </div>
+
+      {/* Mobile nav overlay - pantalla completa */}
+      {mobileOpen && (
+        <div className="md:hidden fixed inset-0 z-50 bg-white flex flex-col">
+          <div className="flex items-center justify-between px-4 h-12 border-b shrink-0">
+            <div className="flex items-center gap-2">
+              <MiaIcon />
+              <h2 className="text-xl font-semibold">{title}</h2>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setMobileOpen(false)}
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          </div>
+          <ScrollArea className="flex-1">
+            <div className="px-3 py-4">
+              {renderNavLinks(true, () => setMobileOpen(false))}
+            </div>
+          </ScrollArea>
+        </div>
+      )}
+
+      {/* Desktop Sidebar */}
       <div
         className={cn(
-          "relative h-full transition-all duration-300",
+          "hidden md:block relative h-full transition-all duration-300",
           isExpanded ? "w-64" : "w-16",
         )}
       >
@@ -124,7 +350,6 @@ export default function NavContainer({
           />
         </Button>
 
-        {/* Sidebar Content */}
         <ScrollArea
           className="h-full py-6"
           onMouseOver={() => setIsHover(true)}
@@ -145,199 +370,7 @@ export default function NavContainer({
                     </span>
                   )}
                 </div>
-
-                <nav className="space-y-2">
-                  {/* LINKS (hojas o grupos) */}
-                  {links.map((item) => {
-                    // 1) LINK HOJA (como lo tenías)
-                    if (!isGroup(item)) {
-                      const active = isActiveHref(item.href);
-                      return (
-                        <Link
-                          href={item.href}
-                          key={item.href}
-                          className={cn(
-                            "flex items-center justify-start w-full gap-3 rounded-lg px-3 py-2 text-sm transition-all",
-                            "hover:bg-blue-50 hover:text-blue-900",
-                            active
-                              ? "bg-blue-100 text-blue-900"
-                              : "text-gray-500",
-                          )}
-                        >
-                          <item.icon className="h-4 w-4" />
-                          {isExpanded && (
-                            <span className="whitespace-nowrap">
-                              {item.title}
-                            </span>
-                          )}
-                        </Link>
-                      );
-                    }
-
-                    // 2) GRUPO DESPLEGABLE (categorías)
-                    const groupOpen = !!openGroups[item.title];
-                    const groupHasActive = item.items.some((it) =>
-                      isActiveHref(it.href),
-                    );
-
-                    return (
-                      <div key={item.title} className="space-y-1">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setOpenGroups((p) => ({
-                              ...p,
-                              [item.title]: !p[item.title],
-                            }))
-                          }
-                          className={cn(
-                            "flex items-center justify-start w-full gap-3 rounded-lg px-3 py-2 text-sm transition-all",
-                            "hover:bg-blue-50 hover:text-blue-900",
-                            groupHasActive
-                              ? "bg-blue-100 text-blue-900"
-                              : "text-gray-500",
-                          )}
-                        >
-                          <item.icon className="h-4 w-4 shrink-0" />
-
-                          {isExpanded && (
-                            <>
-                              <span className="whitespace-nowrap flex-1 text-left">
-                                {item.title}
-                              </span>
-                              <ChevronDown
-                                className={cn(
-                                  "h-4 w-4 transition-transform",
-                                  groupOpen && "rotate-180",
-                                )}
-                              />
-                            </>
-                          )}
-                        </button>
-
-                        {/* Nivel 2: solo cuando sidebar está expandida/hover */}
-                        {isExpanded && groupOpen && (
-                          <div className="ml-4 pl-2 border-l border-blue-100 space-y-1">
-                            {item.items.map((sub) => {
-                              // SubGroup → nivel 2 desplegable con nivel 3 dentro
-                              if (isSubGroup(sub)) {
-                                const subKey = `${item.title}__${sub.title}`;
-                                const subOpen = !!openGroups[subKey];
-                                const subHasActive = sub.items.some((leaf) =>
-                                  isActiveHref(leaf.href),
-                                );
-                                return (
-                                  <div key={sub.title} className="space-y-1">
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        setOpenGroups((p) => ({
-                                          ...p,
-                                          [subKey]: !p[subKey],
-                                        }))
-                                      }
-                                      className={cn(
-                                        "flex items-center justify-start w-full gap-3 rounded-lg px-3 py-2 text-sm transition-all",
-                                        "hover:bg-blue-50 hover:text-blue-900",
-                                        subHasActive
-                                          ? "bg-blue-100 text-blue-900"
-                                          : "text-gray-500",
-                                      )}
-                                    >
-                                      {sub.icon && (
-                                        <sub.icon className="h-4 w-4 shrink-0" />
-                                      )}
-                                      <span className="whitespace-nowrap flex-1 text-left">
-                                        {sub.title}
-                                      </span>
-                                      <ChevronDown
-                                        className={cn(
-                                          "h-4 w-4 transition-transform",
-                                          subOpen && "rotate-180",
-                                        )}
-                                      />
-                                    </button>
-                                    {/* Nivel 3 */}
-                                    {subOpen && (
-                                      <div className="ml-4 pl-2 border-l border-blue-100 space-y-1">
-                                        {sub.items.map((leaf) => {
-                                          const active = isActiveHref(
-                                            leaf.href,
-                                          );
-                                          return (
-                                            <Link
-                                              href={leaf.href}
-                                              key={leaf.href}
-                                              className={cn(
-                                                "flex items-center justify-start w-full gap-3 rounded-lg px-3 py-2 text-sm transition-all",
-                                                "hover:bg-blue-50 hover:text-blue-900",
-                                                active
-                                                  ? "bg-blue-100 text-blue-900"
-                                                  : "text-gray-500",
-                                              )}
-                                            >
-                                              {leaf.icon && (
-                                                <leaf.icon className="h-4 w-4" />
-                                              )}
-                                              <span className="whitespace-nowrap">
-                                                {leaf.title}
-                                              </span>
-                                            </Link>
-                                          );
-                                        })}
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              }
-
-                              // LeafLink normal → nivel 2
-                              const active = isActiveHref(sub.href);
-                              return (
-                                <Link
-                                  href={sub.href}
-                                  key={sub.href}
-                                  className={cn(
-                                    "flex items-center justify-start w-full gap-3 rounded-lg px-3 py-2 text-sm transition-all",
-                                    "hover:bg-blue-50 hover:text-blue-900",
-                                    active
-                                      ? "bg-blue-100 text-blue-900"
-                                      : "text-gray-500",
-                                  )}
-                                >
-                                  {sub.icon && <sub.icon className="h-4 w-4" />}
-                                  <span className="whitespace-nowrap">
-                                    {sub.title}
-                                  </span>
-                                </Link>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-
-                  {/* TABS (igual que lo tenías, pero corregido el className) */}
-                  {tabs.map((item) => (
-                    <button
-                      onClick={() => setCurrentTab(item.tab)}
-                      key={item.tab}
-                      className={cn(
-                        "flex items-center justify-start w-full gap-3 rounded-lg px-3 py-2 text-sm transition-all",
-                        "hover:bg-blue-50 hover:text-blue-900",
-                        currentTab === item.tab
-                          ? "bg-blue-100 text-blue-900"
-                          : "text-gray-500",
-                      )}
-                    >
-                      <item.icon className="h-4 w-4" />
-                      {isExpanded && (
-                        <span className="whitespace-nowrap">{item.title}</span>
-                      )}
-                    </button>
-                  ))}
-                </nav>
+                {renderNavLinks(isExpanded)}
               </div>
             </div>
           </div>
@@ -345,16 +378,12 @@ export default function NavContainer({
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto min-h-[600px] border-l">
+      <div className="flex-1 overflow-y-auto min-h-[600px] md:border-l">
         {children}
 
         {tabs.length !== 0 && (
           <Suspense
-            fallback={
-              <>
-                <h1>Cargando tu contenido...</h1>
-              </>
-            }
+            fallback={<h1>Cargando tu contenido...</h1>}
           >
             {tabs
               .filter((item) => item.tab === currentTab)

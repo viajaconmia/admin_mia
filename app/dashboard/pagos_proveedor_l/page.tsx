@@ -203,6 +203,10 @@ export default function PagosProveedorL() {
 
   const isDispersion = tab === "dispersion";
   const selectedCount = Object.keys(selectedMap).length;
+  const totalSeleccionado = Object.values(selectedMap).reduce(
+    (sum, r) => sum + r.monto_solicitado,
+    0,
+  );
 
   const toggleRow = (row: SolicitudRow) => {
     const rowGroup = row.codigo_dispersion ?? "__sin_codigo__";
@@ -371,6 +375,12 @@ export default function PagosProveedorL() {
             {selectedCount > 0 && (
               <span className="text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded-md">
                 {selectedCount} seleccionada{selectedCount !== 1 ? "s" : ""}
+              </span>
+            )}
+
+            {selectedCount > 0 && (
+              <span className="text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-3 py-1 rounded-md">
+                Total: {fmtMoney(totalSeleccionado)}
               </span>
             )}
 
