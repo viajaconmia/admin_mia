@@ -11,7 +11,6 @@ export type ConciliacionFilters = {
   viajero: string;
   hotel: string;
   estado_facturacion: string;
-  estado_solicitud: string;
   estatus_pagos: string;
   created_start: string;
   created_end: string;
@@ -25,6 +24,7 @@ export type ConciliacionFilters = {
   reserva_diferencia: string;
   nombre_intermediario: string;
   forma_pago_solicitada: string;
+  estado_solicitud: string;
   id_cliente: string;
   etapa_reservacion: string;
   fecha_reserva_start: string;
