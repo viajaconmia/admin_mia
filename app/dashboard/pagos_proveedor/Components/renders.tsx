@@ -34,6 +34,7 @@ import {
   getStatusBadge,
   getWhoCreateBadge,
 } from "@/helpers/utils";
+import { ServiceIcon } from "@/component/atom/ItemTable";
 
 type DatosDispersion = {
   codigo_reservacion_hotel: string | null;
@@ -533,6 +534,7 @@ export function createSolicitudesRenderers({
     intermediario: ({ value }) => {
       return <>{value}</>;
     },
+    serv: ({ value }: { value : string }) => <ServiceIcon type={value }/>, 
     seleccionar: ({ item, index }) => {
       const row = item as any;
       const raw: SolicitudProveedor | undefined = row?.item ?? row;
@@ -980,7 +982,6 @@ export function createSolicitudesRenderers({
         tone={pagoTone3(value) as any}
       />
     ),
-
     creado: ({ value }) =>
       value ? (
         <span title={value}>{formatDate(value)}</span>

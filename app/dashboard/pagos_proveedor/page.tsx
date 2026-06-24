@@ -140,6 +140,7 @@ function App() {
           .join(" ");
 
         return {
+          serv: item.tipo_reserva,
           id_solicitud_proveedor,
           fecha_de_pago: item.solicitud_proveedor?.fecha_solicitud,
           monto_solicitado: montoSolicitado,
@@ -426,6 +427,7 @@ function App() {
 
   const customColumns = useMemo(() => {
     const cols = [
+      "serv",
       "id_solicitud_proveedor", // ID SOLICITUD PROVEEDOR
       "creado", // CREADO
       "monto_solicitado", // MONTO SOLICITADO

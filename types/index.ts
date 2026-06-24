@@ -631,6 +631,8 @@ export type SolicitudProveedorCore = {
   estado_facturacion: string; // Asumo string para este campo añadido
   comentarios_Ap: string; // Asumo string para este campo añadido
   notas_internas: string; // Asumo string para este campo añadido
+  id_intermediario?: number | string | null;
+  intermediario?: string | null;
 };
 
 export type TarjetaInfo = {
