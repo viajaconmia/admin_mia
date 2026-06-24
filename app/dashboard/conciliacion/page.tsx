@@ -419,13 +419,13 @@ function getStartOfMonthLocalDate() {
   return `${yyyy}-${mm}-01`;
 }
 
-function getTodayLocalDate() {
-  const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm = String(now.getMonth() + 1).padStart(2, "0");
-  const dd = String(now.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
+// function getTodayLocalDate() {
+//   const now = new Date();
+//   const yyyy = now.getFullYear();
+//   const mm = String(now.getMonth() + 1).padStart(2, "0");
+//   const dd = String(now.getDate()).padStart(2, "0");
+//   return `${yyyy}-${mm}-${dd}`;
+// }
 
 export default function ConciliacionPage() {
   const EPS = 0.01;
@@ -626,8 +626,8 @@ export default function ConciliacionPage() {
 
   const DEFAULT_OPEN_FILTERS: ConciliacionFilters = {
     ...EMPTY_FILTERS,
-    check_out_start: getTodayLocalDate(),
-    check_out_end: getTodayLocalDate(),
+    //check_out_start: getTodayLocalDate(),
+    //check_out_end: getTodayLocalDate(),
   };
 
   const FILTER_LABELS: Record<keyof ConciliacionFilters, string> = {
