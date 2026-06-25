@@ -230,6 +230,9 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
       return <h1>{valor.value}</h1>;
     },
     creado: ({ value }) => <>{value ? formatDate(value) : ""}</>,
+    id_proveedor: ({ value }: { value: string }) => (<p className="font-bold text-gray-800">{value || ""}</p>),
+    rfc_proveedor: ({ value }: { value: string }) => (<p className="font-normal text-gray-700">{value || ""}</p>),
+    razon_social_proveedor: ({ value }: { value: string }) => (<p className="font-normal text-gray-700">{value || ""}</p>),
     proveedor: ({ value }: { value: string }) => (
       <Tooltip content={value}>{value || ""}</Tooltip>
     ),
@@ -259,8 +262,13 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     serv: reserva.type,
     id: reserva.id_agente || "",
     cliente: reserva.agente,
-    creado: reserva.created_at,
+    creado: reserva.created_at,// modificacion
+
+    id_proveedor: reserva.id_proveedor,
     proveedor: reserva.proveedor,
+    rfc_proveedor: reserva.rfc_proveedor || "",
+    razon_social_proveedor: reserva.razon_social_proveedor || "",
+
     codigo: reserva.codigo_confirmacion,
     viajero: reserva.viajero,
     check_in: reserva.check_in,
@@ -335,9 +343,30 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
             <FilterInput
               type="text"
               onChange={handleFilterChange}
+              propiedad="id_proveedor"
+              value={filters.id_proveedor || null}
+              label="ID proveedor"
+            />
+            <FilterInput
+              type="text"
+              onChange={handleFilterChange}
               propiedad="proveedor"
               value={filters.proveedor || null}
               label="Proveedor"
+            />
+            <FilterInput
+              type="text"
+              onChange={handleFilterChange}
+              propiedad="rfc_proveedor"
+              value={filters.rfc_proveedor || null}
+              label="RFC proveedor"
+            />
+            <FilterInput
+              type="text"
+              onChange={handleFilterChange}
+              propiedad="razon_social_proveedor"
+              value={filters.razon_social_proveedor || null}
+              label="Razón social proveedor"
             />
             <FilterInput
               type="text"
@@ -483,6 +512,9 @@ const defaultFiltersSolicitudes: TypeFilters = {
   paymentMethod: null,
   id_client: null,
   statusPagoProveedor: null,
+  razon_social_proveedor: null,
+  rfc_proveedor: null,
+  id_proveedor: null,
   filterType: "Transaccion",
 };
 

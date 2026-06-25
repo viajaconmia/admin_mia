@@ -546,7 +546,7 @@ export function createSolicitudesRenderers({
       const isCancelada = estadoSolicitud.includes("CANCEL");
       const isDispersionRow =
         estadoSolicitud === "DISPERSION" || estadoSolicitud === "DISPERSADO";
-      const estatusPagosSel = String(raw?.estatus_pagos ?? "").toLowerCase();
+      const estatusPagosSel = String((raw as any)?.estatus_pagos ??raw?.solicitud_proveedor?.estatus_pagos ??"",).toLowerCase();
 
       if (categoria === "pagada") {
         return <span className="text-gray-300">—</span>;

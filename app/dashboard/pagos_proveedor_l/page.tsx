@@ -60,6 +60,7 @@ const GROUP_COLOR = {
 };
 
 const mapLuRow = (raw: any): SolicitudRow => {
+  console.log("RAW PAGO PROVEEDOR", raw);
   const check_in = raw?.["CHECK IN"] ?? null;
   const check_out = raw?.["CHECK OUT"] ?? null;
   const costo_proveedor = Number(raw?.["COSTO PROV."] ?? 0);
@@ -1146,13 +1147,28 @@ function RevisionPendienteModal({
           >
             Cerrar
           </button>
-          <Link
-            href="/dashboard/pagos_proveedor/informacion_de_la_cuenta"
-            onClick={onClose}
-            className="px-4 py-2 text-sm rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-medium transition-colors"
-          >
-            Ver información de cuenta
-          </Link>
+        <Link
+          href={`/dashboard/pagos_proveedor/informacion_de_la_cuenta?id_solicitud_proveedor=${row.id_solicitud_proveedor}`}
+          onClick={() => {
+            sessionStorage.setItem(
+              "cuenta_revision_pendiente",
+              JSON.stringify({
+                id_solicitud_proveedor: row.id_solicitud_proveedor,
+                proveedor: row.proveedor, //modificado2
+                codigo_confirmacion: row.codigo_confirmacion,
+                banco: row.banco,
+                cuenta: row.cuenta,
+                titular_cuenta: row.titular_cuenta,
+                caratula: row.caratula,
+              }),
+            );
+
+    onClose();
+  }}
+  className="px-4 py-2 text-sm rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-medium transition-colors"
+>
+  Ver información de cuenta
+</Link>
         </div>
       </div>
     </div>

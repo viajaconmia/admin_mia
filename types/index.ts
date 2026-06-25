@@ -1,9 +1,12 @@
-export interface TypeFilters {
+export interface TypeFilters { 
   id_booking?: "Active" | "Inactive";
   codigo_reservacion?: string | null;
   client?: string | null;
   id_movimiento?: number | null;
   raw_id?: string | null;
+  id_proveedor?: string | null;  //modificacion
+  rfc_proveedor?: string | null;
+  razon_social_proveedor: string | null;
   proveedor?: string | null;
   traveler?: string | null;
   hotel?: string | null;
@@ -633,6 +636,7 @@ export type SolicitudProveedorCore = {
   notas_internas: string; // Asumo string para este campo añadido
   id_intermediario?: number | string | null;
   intermediario?: string | null;
+  estatus_pagos?: string | null;
 };
 
 export type TarjetaInfo = {
