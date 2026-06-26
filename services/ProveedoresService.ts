@@ -59,19 +59,37 @@ export class ProveedoresService extends ApiService {
 
   public get_data_fiscal = async (
     id: number,
-  ): Promise<ApiResponse<DatosFiscales>> =>
-    this.get({
+  ): Promise<ApiResponse<DatosFiscales>> => {
+    const response = await this.get<DatosFiscales>({
       path: this.formatPath(this.ENDPOINTS.GET.DATA_FISCAL_ALL),
       params: { id },
     });
 
+    console.log("========== GET_DATA_FISCAL ==========");
+    console.log("ID:", id);
+    console.log("DATA:", response.data);
+
+    return response;
+  };
+
   public getDatosFiscales = async (
     id_proveedor,
-  ): Promise<ApiResponse<DatosFiscales[]>> =>
-    this.get<DatosFiscales[]>({
+  ): Promise<ApiResponse<DatosFiscales[]>> => {
+    const response = await this.get<DatosFiscales[]>({
       path: this.formatPath(this.ENDPOINTS.GET.DATOS_FISCALES),
       params: { id_proveedor },
     });
+
+    console.log("========== GET_DATOS_FISCALES ==========");
+    console.log("ID_PROVEEDOR:", id_proveedor);
+    console.log("DATA:", response.data);
+
+    response.data.forEach((item, index) => {
+      console.log(`DATO_FISCAL ${index}:`, item);
+    });
+
+    return response;
+  };
 
   public updateProveedor = async (body: Partial<Proveedor> & { id: number }) =>
     this.put({ path: this.formatPath(this.ENDPOINTS.PUT.PROVEEDOR), body });
@@ -99,14 +117,25 @@ export class ProveedoresService extends ApiService {
       body: keysToLower(body),
     });
 
-  //CUENTAS
+    //CUENTAS modificado para ver que objeto tre
   public getCuentasByProveedor = async (
     id_proveedor: number,
-  ): Promise<ApiResponse<ProveedorCuenta[]>> =>
-    this.get<ProveedorCuenta[]>({
+  ): Promise<ApiResponse<ProveedorCuenta[]>> => {
+    const response = await this.get<ProveedorCuenta[]>({
       path: this.formatPath(this.ENDPOINTS.GET.CUENTAS),
       params: { id_proveedor },
     });
+
+    console.log("========== GET_CUENTAS_BY_PROVEEDOR ==========");
+    console.log("ID_PROVEEDOR:", id_proveedor);
+    console.log("DATA:", response.data);
+
+    response.data.forEach((item, index) => {
+      console.log(`CUENTA ${index}:`, item);
+    });
+
+    return response;
+  };
 
   public updateCuentasProveedor = async (
     body: ProveedorCuenta,
@@ -321,6 +350,7 @@ export interface ProveedorCuenta {
   titular: string | null;
   comentarios: string | null;
   alias: string | null;
+  email: string | null;
   url_caratula: string | null;
 }
 
