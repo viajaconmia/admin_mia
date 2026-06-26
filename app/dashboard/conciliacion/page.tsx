@@ -423,13 +423,13 @@ function getStartOfMonthLocalDate() {
   return `${yyyy}-${mm}-01`;
 }
 
-// function getTodayLocalDate() {
-//   const now = new Date();
-//   const yyyy = now.getFullYear();
-//   const mm = String(now.getMonth() + 1).padStart(2, "0");
-//   const dd = String(now.getDate()).padStart(2, "0");
-//   return `${yyyy}-${mm}-${dd}`;
-// }
+function getTodayLocalDate() {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
 
 export default function ConciliacionPage() {
 
@@ -523,7 +523,6 @@ export default function ConciliacionPage() {
 
     comentarios: "",
     comentario_CXP: "",
-    estado_solicitud: "",
 
     tipo_reserva_pago: "",
     pagos_parciales: "",
@@ -627,6 +626,8 @@ export default function ConciliacionPage() {
     });
   }, []);
 
+
+
   const openBuscarUuidModal = useCallback(() => {
     setBuscarUuidModal({
       open: true,
@@ -638,8 +639,8 @@ export default function ConciliacionPage() {
 
   const DEFAULT_OPEN_FILTERS: ConciliacionFilters = {
     ...EMPTY_FILTERS,
-    //check_out_start: getTodayLocalDate(),
-    //check_out_end: getTodayLocalDate(),
+    check_out_start: getTodayLocalDate(),
+    check_out_end: getTodayLocalDate(),
   };
 
   const FILTER_LABELS: Record<keyof ConciliacionFilters, string> = {
@@ -647,7 +648,6 @@ export default function ConciliacionPage() {
     cliente: "Cliente",
     viajero: "Viajero",
     hotel: "Proveedor",
-    estado_solicitud: "",
     estatus_pagos: "",
     estado_facturacion: "Estatus facturación",
     created_start: "Creado desde",
