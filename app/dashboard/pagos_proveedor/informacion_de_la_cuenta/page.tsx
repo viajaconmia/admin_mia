@@ -104,7 +104,7 @@ export default function InformacionCuentaPage() {
     }
 
     const confirmar = confirm(
-      "¿Seguro que deseas aprobar esta cuenta? La campanita dejará de mostrarse.",
+      "¿Seguro que deseas aprobar esta cuenta?",
     );
 
     if (!confirmar) return;
@@ -254,10 +254,10 @@ export default function InformacionCuentaPage() {
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-3">
                       <div>
                         <p className="text-sm font-semibold text-slate-800">
-                          {formatearCampo(item.campo)}
+                          {esAprobacionCuenta(item) ? "Cuenta aprobada" : formatearCampo(item.campo)}
                         </p>
                         <p className="text-xs text-slate-400">
-                          Acción: {formatearAccion(item)}
+                          Acción: {esAprobacionCuenta(item) ? "cambios aprobados" : formatearAccion(item)}
                         </p>
                       </div>
 
@@ -266,25 +266,34 @@ export default function InformacionCuentaPage() {
                       </p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                      <div className="bg-white border border-slate-200 rounded-md p-3">
-                        <p className="text-[10px] uppercase tracking-wide text-slate-400 mb-1">
-                          Valor anterior
-                        </p>
-                        <p className="text-slate-700 break-all">
-                          {formatearValor(item.valor_anterior)}
+                    {esAprobacionCuenta(item) ? (
+                      <div className="bg-green-50 border border-green-200 rounded-md p-3 text-xs">
+                        <p className="text-green-700 font-medium">
+                          Los cambios de la cuenta fueron revisados y aprobados.
                         </p>
                       </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                        <div className="bg-white border border-slate-200 rounded-md p-3">
+                          <p className="text-[10px] uppercase tracking-wide text-slate-400 mb-1">
+                            Valor anterior
+                          </p>
+                          <p className="text-slate-700 break-all">
+                            {formatearValor(item.valor_anterior)}
+                          </p>
+                        </div>
 
-                      <div className="bg-white border border-slate-200 rounded-md p-3">
-                        <p className="text-[10px] uppercase tracking-wide text-slate-400 mb-1">
-                          Valor nuevo
-                        </p>
-                        <p className="text-slate-700 break-all">
-                          {formatearValor(item.valor_nuevo)}
-                        </p>
+                        <div className="bg-white border border-slate-200 rounded-md p-3">
+                          <p className="text-[10px] uppercase tracking-wide text-slate-400 mb-1">
+                            Valor nuevo
+                          </p>
+                          <p className="text-slate-700 break-all">
+                            {formatearValor(item.valor_nuevo)}
+                          </p>
+                        </div>
                       </div>
-                    </div>
+                    )}
+                    
 
                     <div className="mt-3 text-xs text-slate-500">
                       Modificado por:{" "}
@@ -369,4 +378,14 @@ function formatearAccion(item: HistorialCuenta) {
   if (item.accion === "INSERT") return "Creación";
 
   return item.accion || "—";
+}
+function esAprobacionCuenta(item: HistorialCuenta) {
+  return (
+    item.accion === "APROBAR_CUENTA" ||
+    (
+      item.campo === "revision_pendiente" &&
+      String(item.valor_anterior) === "1" &&
+      String(item.valor_nuevo) === "0"
+    )
+  );
 }
