@@ -139,11 +139,11 @@ const links: NavGroup[] = [
             href: "/dashboard/pagos_proveedor",
             icon: CreditCard,
           },
-          /* {
+          {
             title: "cartera de CXP",
-            href: "/dashboard/concenctrado_cxp",
+            href: "/dashboard/concentrado_cxp",
             icon: FileText,
-          }, */
+          },
           {
             title: "Comprobante pago",
             href: "/dashboard/pagos_proveedor_l",

@@ -130,6 +130,8 @@ export type BookingAll = {
   metodo_pago: string;
   rfc_proveedor?: string | null;
   razon_social_proveedor?: string | null;
+  total_razones_sociales?: number | string | null;
+  razones_sociales_json?: string | any[] | null;
 
   comments: string;
   nuevo_incluye_desayuno: boolean | null;

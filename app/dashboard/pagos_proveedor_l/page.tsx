@@ -1,3 +1,4 @@
+// front/app/dashboard/pagos_proveedor_i
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -17,6 +18,7 @@ type Tab = "dispersion" | "pagado_transferencia";
 
 type SolicitudRow = {
   id_solicitud_proveedor: string;
+  id_proveedor_cuenta: number | null,
   proveedor: string;
   codigo_confirmacion: string;
   costo_proveedor: number;
@@ -71,6 +73,7 @@ const mapLuRow = (raw: any): SolicitudRow => {
     proveedor: String(raw?.["PROVEEDOR"] ?? "").toUpperCase(),
     codigo_confirmacion: raw?.["CÓD. CONFIRM."] ?? "—",
     costo_proveedor,
+    id_proveedor_cuenta: raw?.["id_proveedor_cuenta"] ?? null,
     monto_solicitado: Number(raw?.["MONTO SOL."] ?? 0),
     cliente: String(raw?.["CLIENTE"] ?? "").toUpperCase(),
     precio_de_venta,
@@ -1148,6 +1151,7 @@ function RevisionPendienteModal({
             Cerrar
           </button>
         <Link
+          scroll={true}
           href={`/dashboard/pagos_proveedor/informacion_de_la_cuenta?id_solicitud_proveedor=${row.id_solicitud_proveedor}`}
           onClick={() => {
             sessionStorage.setItem(
@@ -1155,6 +1159,7 @@ function RevisionPendienteModal({
               JSON.stringify({
                 id_solicitud_proveedor: row.id_solicitud_proveedor,
                 proveedor: row.proveedor, //modificado2
+                id_proveedor_cuenta: row.id_proveedor_cuenta,
                 codigo_confirmacion: row.codigo_confirmacion,
                 banco: row.banco,
                 cuenta: row.cuenta,
