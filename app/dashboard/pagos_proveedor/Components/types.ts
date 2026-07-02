@@ -28,6 +28,7 @@ export type ItemSolicitud = SolicitudProveedor & {
   filtro_pago?: string | null;
   cuenta_de_deposito?: string | null;
   codigo_confirmacion?: string | null;
+  tipo_reserva?: string | null;
 };
 
 export type DatosDispersion = {
