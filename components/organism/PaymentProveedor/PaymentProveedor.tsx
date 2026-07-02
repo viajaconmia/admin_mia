@@ -75,7 +75,6 @@ type PaymentScheduleRow = {
   date: string; // YYYY-MM-DD
   hora: string; // HH:MM
   amount: number | ""; // permite vacío mientras escriben
-  id_tarjeta: string;
 };
 
 function safeUUID() {
@@ -281,7 +280,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
   const addScheduleRow = () => {
     setPaymentSchedule((rows) => [
       ...rows,
-      { id: safeUUID(), date: "", hora: "", amount: "", id_tarjeta: selectedCard || "" },
+      { id: safeUUID(), date: "", hora: "", amount: "" },
     ]);
   };
 
@@ -318,12 +317,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
       fecha_pago: (r.date || "").trim(),
       hora: (r.hora || "").trim(),
       monto: r.amount === "" ? NaN : Number(r.amount),
-      id_tarjeta: r.id_tarjeta || selectedCard || "",
     }));
-
-    if (normalized.some((r) => !r.id_tarjeta)) {
-      throw new Error("Falta seleccionar la tarjeta en una o más filas del calendario de pagos.");
-    }
 
     if (normalized.some((r) => !r.fecha_pago)) {
       throw new Error(
@@ -1121,7 +1115,6 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                             Hora
                           </th>
                           <th className="text-left font-semibold p-2">Monto</th>
-                          <th className="text-left font-semibold p-2">Tarjeta</th>
                           <th className="text-right font-semibold p-2">
                             Acción
                           </th>
@@ -1177,26 +1170,6 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                                 placeholder="0.00"
                               />
                             </td>
-
-                            <td className="p-2">
-                              <select
-                                className="w-full border rounded-md px-2 py-1"
-                                value={row.id_tarjeta}
-                                onChange={(e) =>
-                                  updateScheduleRow(row.id, { id_tarjeta: e.target.value }, idx)
-                                }
-                              >
-                                <option value="">Selecciona tarjeta</option>
-                                {creditCards
-                                  .filter((item: any) => item.activa === true)
-                                  .map((item: any) => (
-                                    <option key={item.id} value={item.id}>
-                                      {item.name}
-                                    </option>
-                                  ))}
-                              </select>
-                            </td>
-
                             <td className="p-2 text-right">
                               <Button
                                 type="button"
