@@ -251,9 +251,6 @@ export default function FiltrosConciliacionModal({
               </Field>
 
               <Field label="Método pago reserva">
-                {" "}
-                // esto es sobre cómo pagó el cliente la reserva (viene de
-                bookings.tipo_pago).
                 <SelectWithClear
                   value={filters.metodo_pago_reserva}
                   onChange={(v) => onChange("metodo_pago_reserva", v)}
@@ -290,8 +287,6 @@ export default function FiltrosConciliacionModal({
               </Field>
 
               <Field label="Tipo de solicitud (proveedor)">
-                {" "}
-                // esto es sobre cómo nosotros le pagamos al proveedor.
                 <SelectWithClear
                   value={filters.tipo_reserva_pago}
                   onChange={(v) => onChange("tipo_reserva_pago", v)}

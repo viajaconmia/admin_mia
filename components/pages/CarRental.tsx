@@ -1,5 +1,9 @@
 import React, { useEffect, useReducer, useRef, useState } from "react";
 import Modal from "../organism/Modal";
+import {
+  guardarReserva,
+  verificarYConfirmarTraslape,
+} from "@/lib/helpers/traslapes";
 import { MostrarSaldos } from "../template/MostrarSaldos";
 import {
   ComboBox2,
@@ -487,7 +491,7 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
     state.conductores,
   ]);
 
-  const onPagar = (e: React.FormEvent<HTMLFormElement>) => {
+  const onPagar = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
       if (
@@ -495,6 +499,14 @@ export const CarRentalForm: React.FC<CarRentalFormProps> = ({
       ) {
         throw new Error("Parece ser que dejaste algunos campos vacíos");
       }
+
+      const puede = await verificarYConfirmarTraslape({
+        id_viajero: state.conductores?.[0]?.id_viajero || "",
+        check_in: state.check_in || "",
+        check_out: state.check_out || "",
+      });
+
+      if (!puede) return;
       setOpenPago(true);
     } catch (error: any) {
       showNotification("error", error?.message || "Error al ir a pagar");

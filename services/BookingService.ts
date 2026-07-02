@@ -27,6 +27,28 @@ export class BookingsService extends ApiService {
     });
   };
 
+  public verificarTraslape = async (
+    id_viajero: string,
+    check_in: string,
+    check_out: string,
+  ) =>
+    this.get<{
+      traslape: boolean;
+      reservas: {
+        codigo_confirmacion: string;
+        check_in: string;
+        check_out: string;
+        type: string;
+      }[];
+    }>({
+      path: this.formatPath("/verificar-traslape"),
+      params: {
+        id_viajero,
+        check_in,
+        check_out,
+      },
+    });
+
   public obtenerCupon = async (
     id: string,
   ): Promise<ApiResponse<SolicitudCupon>> =>

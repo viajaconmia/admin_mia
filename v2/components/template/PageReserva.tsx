@@ -81,7 +81,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
       ...filters,
       ...extras,
     });
-    console.log("Aqui veo la respuesta del response")
+    console.log("Aqui veo la respuesta del response");
     console.log(response.data);
     setTracking((prev) => ({
       ...prev,
@@ -104,8 +104,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
           fileName = customName.trim();
         }
       }
-      let extras = agente?.id_agente ? { id_client: agente.id_agente } : {}
-
+      let extras = agente?.id_agente ? { id_client: agente.id_agente } : {};
 
       const response = await booking_service.obtenerReservas({
         ...filters,
@@ -338,7 +337,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
       ((Number(reserva.total || 0) - Number(reserva.costo_total || 0)) /
         Number(reserva.total || 0)) *
       100,
-    precio_de_venta: Number(reserva.total ||0),
+    precio_de_venta: Number(reserva.total || 0),
     metodo_de_pago: reserva.metodo_pago,
     reservante: reserva.reservante,
     etapa_reservacion: reserva.etapa_reservacion,

@@ -1,8 +1,6 @@
 // app/conciliacion/page.tsx
 "use client";
 
-
-
 import React, {
   useCallback,
   useEffect,
@@ -414,7 +412,7 @@ type ProveedorSeleccionado = {
   codigo_hotel?: string;
   razon_social?: string;
   viajero: string;
-  hotel?:string;
+  hotel?: string;
 };
 function getStartOfMonthLocalDate() {
   const now = new Date();
@@ -432,7 +430,6 @@ function getTodayLocalDate() {
 }
 
 export default function ConciliacionPage() {
-
   const router = useRouter(); // hace cambios en la url
   const pathName = usePathname(); // Lee la ruta
   const searchParams = useSearchParams(); // Lee parametros
@@ -626,8 +623,6 @@ export default function ConciliacionPage() {
     });
   }, []);
 
-
-
   const openBuscarUuidModal = useCallback(() => {
     setBuscarUuidModal({
       open: true,
@@ -666,9 +661,9 @@ export default function ConciliacionPage() {
     forma_pago_solicitada: "Estatus de pago",
     estado_solicitud: "Estatus de pago",
 
-    reservante: "",
-    comentario_AP: "",
-    reserva_diferencia: "",
+    reservante: "Reservante",
+    comentario_AP: "Comentarios Ajustes Costos Finanzas",
+    reserva_diferencia: "Hay diferencia",
 
     comentarios: "Comentarios Ops",
     comentario_CXP: "Comentario CXP",
@@ -690,7 +685,6 @@ export default function ConciliacionPage() {
 
     // Recorremos cada propiedad (key) del objeto
     (Object.keys(next) as (keyof ConciliacionFilters)[]).forEach((key) => {
-
       // Buscamos en la URL si existe un parámetro con ese nombre
       const v = searchParams.get(key);
 
@@ -701,9 +695,6 @@ export default function ConciliacionPage() {
     // Regresamos el objeto final con los filtros
     return next;
   };
-
-  
-
 
   const [filters, setFilters] =
     useState<ConciliacionFilters>(getInitialFilters);
@@ -824,30 +815,22 @@ export default function ConciliacionPage() {
   });
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
-
-
-
   const applyFilters = useCallback(() => {
     const next = { ...filters };
-    setFilters(next)
+    setFilters(next);
     setAppliedFilters(next); // // Guarda oficialmente los filtros que se usarán para buscar
     setShowFiltersModal(false); // Cierra el modal
 
-    const params = new URLSearchParams() // Crea un contenedor vacío para parámetros.
-    Object.entries(next).forEach(([key, value]) => { // Recorre cada propiedad y su valor
+    const params = new URLSearchParams(); // Crea un contenedor vacío para parámetros.
+    Object.entries(next).forEach(([key, value]) => {
+      // Recorre cada propiedad y su valor
       const v = String(value ?? "").trim(); // Convierte el valor a texto y elimina espacios al inicio y final
       if (v) params.set(key, v); // Le asigna el valor de v a la key  si v tiene contenido
     });
     router.replace(`${pathName}?${params.toString()}`); // // Actualiza la URL con los filtros sin recargar la página
 
-    void load(next, 1) // Consulta los datos usando los filtros y la página 1
-
+    void load(next, 1); // Consulta los datos usando los filtros y la página 1
   }, [filters, load, pathName, router]); // Por que se agrega pathName y router?
-
-
-
-
-
 
   const clearAllFilters = useCallback(() => {
     setFilters(EMPTY_FILTERS);
@@ -1091,8 +1074,6 @@ export default function ConciliacionPage() {
         }
       }
 
- 
-
       return {
         ...prev,
         [rowId]: {
@@ -1100,7 +1081,9 @@ export default function ConciliacionPage() {
           id_solicitud: idSolicitud,
           id_proveedor: idProveedor,
           hotel: String(row?.informacion_completa.hotel ?? ""),
-          codigo_hotel: String(row?.informacion_completa.codigo_confirmacion ?? ""),
+          codigo_hotel: String(
+            row?.informacion_completa.codigo_confirmacion ?? "",
+          ),
           razon_social: String(row?.informacion_completa.razon_social ?? ""),
           viajero: String(row?.informacion_completa.viajero ?? ""),
         },
@@ -1116,13 +1099,15 @@ export default function ConciliacionPage() {
       alert("Falta id_solicitud o id_proveedor para subir factura");
       return;
     }
-console.log("este es el item", item)
+    console.log("este es el item", item);
     setSelectedForFactura([
       {
         row_id: String(getSelectionKey(item)).trim(),
         id_solicitud: idSolicitud,
         id_proveedor: idProveedor,
-        codigo_hotel: String(item?.informacion_completa.codigo_confirmacion ?? ""),
+        codigo_hotel: String(
+          item?.informacion_completa.codigo_confirmacion ?? "",
+        ),
         razon_social: String(item?.informacion_completa.razon_social ?? ""),
         hotel: String(item?.informacion_completa.hotel ?? ""),
         viajero: String(item?.informacion_completa.viajero ?? ""),
