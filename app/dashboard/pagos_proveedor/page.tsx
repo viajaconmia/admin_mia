@@ -50,6 +50,19 @@ import { useSeleccion } from "./hooks/useSeleccion";
 import { usePatchSolicitud } from "./hooks/usePatchSolicitud";
 import { formatNumberWithCommas } from "@/helpers/formater";
 
+const calcularDiasParaVencimiento = (fecha?: string | null) => {
+  if (!fecha) return null;
+
+  const hoy = new Date();
+  const vencimiento = new Date(fecha);
+
+  hoy.setHours(0, 0, 0, 0);
+  vencimiento.setHours(0, 0, 0, 0);
+
+  const diffMs = vencimiento.getTime() - hoy.getTime();
+  return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+};
+
 function App() {
   const { showNotification } = useAlert();
   const { hasAccess } = usePermiso();
@@ -143,6 +156,9 @@ function App() {
           serv: item.tipo_reserva,
           id_solicitud_proveedor,
           fecha_de_pago: item.solicitud_proveedor?.fecha_solicitud,
+          dias_vencimiento_pago: calcularDiasParaVencimiento(
+            item.solicitud_proveedor?.fecha_solicitud,
+          ),
           monto_solicitado: montoSolicitado,
           saldo,
           forma_pago_solicitada: forma,
@@ -433,6 +449,7 @@ function App() {
       "monto_solicitado", // MONTO SOLICITADO
       "saldo", // SALDO
       "fecha_de_pago", // FECHA PROVISION CxP
+      ...(categoria === "ap_credito" ? ["dias_vencimiento_pago"] : []), // FECHA PROVISION CxP
       "estado_solicitud", // ESTADO SOLICITUD
       "cliente", // CLIENTE
       "codigo_confirmacion", // CODIGO CONFIRMACION
@@ -536,6 +553,48 @@ function App() {
       cancelarDispersion,
     ],
   );
+  const renderersConVencimiento = useMemo(
+    () => ({
+      ...renderers,
+      dias_vencimiento_pago: ({ value }: { value: number | null }) => {
+        if (value === null || value === undefined) {
+          return <span className="text-slate-300">—</span>;
+        }
+
+        if (value < 0) {
+          return (
+            <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-red-50 text-red-700 border border-red-200">
+              Vencido hace {Math.abs(value)} día
+              {Math.abs(value) !== 1 ? "s" : ""}
+            </span>
+          );
+        }
+
+        if (value === 0) {
+          return (
+            <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+              Vence hoy
+            </span>
+          );
+        }
+
+        if (value <= 3) {
+          return (
+            <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+              Faltan {value} día{value !== 1 ? "s" : ""}
+            </span>
+          );
+        }
+
+        return (
+          <span className="inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold bg-green-50 text-green-700 border border-green-200">
+            Faltan {value} día{value !== 1 ? "s" : ""}
+          </span>
+        );
+      },
+    }),
+    [renderers],
+  );
 
   const tabs = useMemo(
     () =>
@@ -609,12 +668,13 @@ function App() {
           ) : (
             <Table5<ItemSolicitud>
               registros={registrosVisibles as any}
-              renderers={renderers}
+              renderers={renderersConVencimiento}
               defaultSort={defaultSort as any}
               customColumns={customColumns}
               respectCustomColumnOrder
               headerRenderers={{
                 fecha_de_pago: () => "FECHA SOLICITADA DE PAGO",
+                dias_vencimiento_pago: () => "DIAS PARA VENCIMIENTO",
                 seleccionar: () => (
                   <input
                     type="checkbox"

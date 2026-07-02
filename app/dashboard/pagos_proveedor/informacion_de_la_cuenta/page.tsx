@@ -3,7 +3,10 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Eye } from "lucide-react";
-import { fetchHistorialCuentaProveedor, aprobarRevisionCuentaProveedor } from "@/services/pago_proveedor";
+import {
+  fetchHistorialCuentaProveedor,
+  aprobarRevisionCuentaProveedor,
+} from "@/services/pago_proveedor";
 
 type CuentaRevision = {
   id_solicitud_proveedor: string;
@@ -37,6 +40,7 @@ export default function InformacionCuentaPage() {
   const [errorHistorial, setErrorHistorial] = useState<string | null>(null);
   const [aprobandoCuenta, setAprobandoCuenta] = useState(false);
   const [cuentaAprobada, setCuentaAprobada] = useState(false);
+  const [showCuentaModal, setShowCuentaModal] = useState(false);
   const topRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     const subirArriba = () => {
@@ -96,16 +100,14 @@ export default function InformacionCuentaPage() {
 
     cargarHistorial();
   }, []);
-  
+
   const handleAprobarCuenta = async () => {
     if (!data?.id_proveedor_cuenta) {
       alert("No se encontró el id de la cuenta del proveedor.");
       return;
     }
 
-    const confirmar = confirm(
-      "¿Seguro que deseas aprobar esta cuenta?",
-    );
+    const confirmar = confirm("¿Seguro que deseas aprobar los cambios?");
 
     if (!confirmar) return;
 
@@ -135,7 +137,7 @@ export default function InformacionCuentaPage() {
         );
       }
 
-      alert("Cuenta aprobada correctamente.");
+      alert("Cambios aprovados correctamente.");
       router.back();
     } catch (error: any) {
       alert(error?.message || "Error al aprobar cuenta.");
@@ -145,7 +147,7 @@ export default function InformacionCuentaPage() {
   };
 
   return (
-    <div ref={topRef} className="p-6 bg-slate-50 min-h-screen">
+    <div ref={topRef} className="p-4 sm:p-6 bg-slate-50 min-h-screen">
       <div className="mb-4">
         <button
           type="button"
@@ -166,72 +168,80 @@ export default function InformacionCuentaPage() {
           No se encontró información de la cuenta.
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-800 mb-4">
-              Datos bancarios
-            </h2>
+        <div className="space-y-6">
+          <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 shadow-sm">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div>
+                <p className="text-xs text-slate-400 uppercase tracking-wide">
+                  Proveedor
+                </p>
+                <h2 className="text-lg font-semibold text-slate-900">
+                  {data.proveedor || "—"}
+                </h2>
 
-            <div className="space-y-4 text-sm">
-              <Info label="Proveedor" value={data.proveedor} />
-              <Info label="ID solicitud" value={data.id_solicitud_proveedor} />
-              <Info label="Código confirmación" value={data.codigo_confirmacion} />
-              <Info label="Banco" value={data.banco} />
-              <Info label="Cuenta" value={data.cuenta} />
-              <Info label="Titular" value={data.titular_cuenta} />
-            </div>
-            <div className="mt-6 flex flex-col sm:flex-row gap-2">
-            <button
-              type="button"
-              onClick={handleAprobarCuenta}
-              disabled={aprobandoCuenta || cuentaAprobada}
-              className={`w-full sm:w-auto px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                cuentaAprobada
-                  ? "bg-green-100 text-green-700 border border-green-200"
-                  : "bg-amber-500 hover:bg-amber-600 text-white"
-              } disabled:opacity-60 disabled:cursor-not-allowed`}
-            >
-              {cuentaAprobada
-                ? "Cuenta aprobada"
-                : aprobandoCuenta
-                  ? "Aprobando..."
-                  : "Aprobar cuenta"}
-            </button>
-          </div>
-          </div>
-
-          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-            <h2 className="text-lg font-semibold text-slate-800 mb-4">
-              Carátula bancaria
-            </h2>
-
-            {data.caratula ? (
-              <div className="space-y-3">
-                <div className="border border-slate-200 rounded-lg overflow-hidden bg-slate-100 flex justify-center">
-                  <img
-                    src={data.caratula}
-                    alt="Carátula bancaria"
-                    className="max-h-[500px] object-contain"
-                  />
+                <div className="mt-2 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs text-slate-500">
+                  <span>
+                    Solicitud:{" "}
+                    <strong className="text-slate-700">
+                      {data.id_solicitud_proveedor}
+                    </strong>
+                  </span>
+                  <span>
+                    Confirmación:{" "}
+                    <strong className="text-slate-700">
+                      {data.codigo_confirmacion || "—"}
+                    </strong>
+                  </span>
                 </div>
-
-                <a
-                  href={data.caratula}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 text-sm"
-                >
-                  <Eye className="w-4 h-4" />
-                  Abrir carátula
-                </a>
               </div>
-            ) : (
-              <p className="text-sm text-slate-400">
-                Esta cuenta no tiene carátula bancaria registrada.
-              </p>
-            )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full lg:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setShowCuentaModal(true)}
+                  className="px-4 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-sm font-semibold hover:bg-blue-100 transition-colors"
+                >
+                  Ver cuenta
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleAprobarCuenta}
+                  disabled={aprobandoCuenta || cuentaAprobada}
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                    cuentaAprobada
+                      ? "bg-green-100 text-green-700 border border-green-200"
+                      : "bg-amber-500 hover:bg-amber-600 text-white"
+                  } disabled:opacity-60 disabled:cursor-not-allowed`}
+                >
+                  {cuentaAprobada
+                    ? "Cambios aprobados aprobada"
+                    : aprobandoCuenta
+                      ? "Aprobando..."
+                      : "Aprobar cambios"}
+                </button>
+
+                <button
+                  type="button"
+                  disabled={!data.caratula}
+                  onClick={() => {
+                    if (data.caratula) {
+                      window.open(
+                        data.caratula,
+                        "_blank",
+                        "noopener,noreferrer",
+                      );
+                    }
+                  }}
+                  className="px-4 py-2 rounded-lg border border-slate-200 bg-white text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Ver carátula
+                </button>
+              </div>
+            </div>
           </div>
-          <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm lg:col-span-2">
+
+          <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-slate-800 mb-4">
               Últimas modificaciones
             </h2>
@@ -245,88 +255,134 @@ export default function InformacionCuentaPage() {
                 No hay modificaciones registradas para esta cuenta.
               </p>
             ) : (
-              <div className="space-y-3">
-                {historial.map((item) => (
-                  <div
-                    key={item.id}
-                    className="border border-slate-200 rounded-lg p-4 bg-slate-50"
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-3">
-                      <div>
-                        <p className="text-sm font-semibold text-slate-800">
-                          {esAprobacionCuenta(item) ? "Cuenta aprobada" : formatearCampo(item.campo)}
-                        </p>
-                        <p className="text-xs text-slate-400">
-                          Acción: {esAprobacionCuenta(item) ? "cambios aprobados" : formatearAccion(item)}
-                        </p>
-                      </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-[850px] w-full text-xs border border-slate-200 rounded-lg overflow-hidden">
+                  <thead className="bg-slate-50">
+                    <tr className="border-b border-slate-200">
+                      <th className="text-left px-3 py-3 font-semibold text-slate-600">
+                        Acción
+                      </th>
+                      <th className="text-left px-3 py-3 font-semibold text-slate-600">
+                        Valor viejo
+                      </th>
+                      <th className="text-left px-3 py-3 font-semibold text-slate-600">
+                        Valor nuevo
+                      </th>
+                      <th className="text-left px-3 py-3 font-semibold text-slate-600">
+                        Quién
+                      </th>
+                      <th className="text-left px-3 py-3 font-semibold text-slate-600">
+                        Fecha
+                      </th>
+                    </tr>
+                  </thead>
 
-                      <p className="text-xs text-slate-500">
-                        {formatearFecha(item.fecha)}
-                      </p>
-                    </div>
+                  <tbody className="divide-y divide-slate-100">
+                    {historial.map((item) => (
+                      <tr key={item.id} className="hover:bg-slate-50">
+                        <td className="px-3 py-3 align-top">
+                          <p className="font-semibold text-slate-800">
+                            {tituloHistorial(item)}
+                          </p>
+                          <p className="text-[11px] text-slate-400">
+                            {formatearAccion(item)}
+                          </p>
+                        </td>
 
-                    {esAprobacionCuenta(item) ? (
-                      <div className="bg-green-50 border border-green-200 rounded-md p-3 text-xs">
-                        <p className="text-green-700 font-medium">
-                          Los cambios de la cuenta fueron revisados y aprobados.
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                        <div className="bg-white border border-slate-200 rounded-md p-3">
-                          <p className="text-[10px] uppercase tracking-wide text-slate-400 mb-1">
-                            Valor anterior
-                          </p>
-                          <p className="text-slate-700 break-all">
-                            {formatearValor(item.valor_anterior)}
-                          </p>
-                        </div>
+                        <td className="px-3 py-3 align-top text-slate-700 break-all">
+                          {valorHistorial(item, "anterior")}
+                        </td>
 
-                        <div className="bg-white border border-slate-200 rounded-md p-3">
-                          <p className="text-[10px] uppercase tracking-wide text-slate-400 mb-1">
-                            Valor nuevo
-                          </p>
-                          <p className="text-slate-700 break-all">
-                            {formatearValor(item.valor_nuevo)}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                    
+                        <td className="px-3 py-3 align-top text-slate-700 break-all">
+                          {valorHistorial(item, "nuevo")}
+                        </td>
 
-                    <div className="mt-3 text-xs text-slate-500">
-                      Modificado por:{" "}
-                      <span className="font-medium text-slate-700">
-                        {item.nombre_usuario || "Usuario no registrado"}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                        <td className="px-3 py-3 align-top text-slate-700">
+                          {item.nombre_usuario || "Usuario no registrado"}
+                        </td>
+
+                        <td className="px-3 py-3 align-top text-slate-500 whitespace-nowrap">
+                          {formatearFecha(item.fecha)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
+
+          {showCuentaModal && (
+            <CuentaModal
+              data={data}
+              onClose={() => setShowCuentaModal(false)}
+            />
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function Info({
-  label,
-  value,
-}: {
-  label: string;
-  value?: string | null;
-}) {
+function Info({ label, value }: { label: string; value?: string | null }) {
   return (
     <div>
       <p className="text-[11px] text-slate-400 uppercase tracking-wide">
         {label}
       </p>
-      <p className="text-sm font-medium text-slate-800">
-        {value || "—"}
-      </p>
+      <p className="text-sm font-medium text-slate-800">{value || "—"}</p>
+    </div>
+  );
+}
+function CuentaModal({
+  data,
+  onClose,
+}: {
+  data: CuentaRevision;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-slate-900">
+            Datos de la cuenta
+          </h3>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="space-y-4 text-sm">
+          <Info label="Proveedor" value={data.proveedor} />
+          <Info label="ID solicitud" value={data.id_solicitud_proveedor} />
+          <Info label="Código confirmación" value={data.codigo_confirmacion} />
+          <Info label="Banco" value={data.banco} />
+          <Info label="Cuenta" value={data.cuenta} />
+          <Info label="Titular" value={data.titular_cuenta} />
+        </div>
+
+        <div className="mt-5 flex justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 text-sm hover:bg-slate-50"
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -379,13 +435,43 @@ function formatearAccion(item: HistorialCuenta) {
 
   return item.accion || "—";
 }
+function tituloHistorial(item: HistorialCuenta) {
+  if (esAprobacionCuenta(item)) {
+    return "Cuenta aprobada";
+  }
+
+  return formatearCampo(item.campo);
+}
+
+function valorHistorial(item: HistorialCuenta, tipo: "anterior" | "nuevo") {
+  if (esAprobacionCuenta(item)) {
+    return tipo === "anterior" ? "Pendiente de revisión" : "Cuenta aprobada";
+  }
+
+  const value = tipo === "anterior" ? item.valor_anterior : item.valor_nuevo;
+
+  if (!value) return "—";
+
+  if (item.campo === "url_caratula" && String(value).startsWith("http")) {
+    return (
+      <a
+        href={String(value)}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 font-semibold"
+      >
+        Ver carátula
+      </a>
+    );
+  }
+
+  return formatearValor(value);
+}
 function esAprobacionCuenta(item: HistorialCuenta) {
   return (
     item.accion === "APROBAR_CUENTA" ||
-    (
-      item.campo === "revision_pendiente" &&
+    (item.campo === "revision_pendiente" &&
       String(item.valor_anterior) === "1" &&
-      String(item.valor_nuevo) === "0"
-    )
+      String(item.valor_nuevo) === "0")
   );
 }
