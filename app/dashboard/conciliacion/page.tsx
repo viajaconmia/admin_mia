@@ -28,6 +28,7 @@ import SubirFactura from "@/app/dashboard/facturacion/subirfacturas/SubirFactura
 import ModalDetalle from "@/app/dashboard/conciliacion/compponents/detalles";
 import { formatDate } from "@/helpers/formater";
 import BuscarUuidFacturaModal from "@/app/dashboard/conciliacion/compponents/BuscarUuidFacturaModal";
+import { ConciliacionService } from "@/services/ConciliacionService";
 import FiltrosConciliacionModal, {
   type ConciliacionFilters,
 } from "@/app/dashboard/conciliacion/compponents/FiltrosReservaModal";
@@ -410,7 +411,7 @@ type ProveedorSeleccionado = {
   codigo_hotel?: string;
   razon_social?: string;
   viajero: string;
-  hotel?:string;
+  hotel?: string;
 };
 function getStartOfMonthLocalDate() {
   const now = new Date();
@@ -514,10 +515,13 @@ export default function ConciliacionPage() {
   };
 
   type BuscarUuidMatchRow = {
+    id_factura_proveedor: string;
     codigo_confirmacion: string;
     uuid_factura: string;
-    id_solicitud: string | number;
+    id_solicitud: number;
     monto: number;
+    estado?: string;
+    acciones: null;
   };
 
   const [buscarUuidModal, setBuscarUuidModal] = useState<{
@@ -573,11 +577,13 @@ export default function ConciliacionPage() {
         const list = Array.isArray(json?.data) ? json.data : [];
 
         const rows: BuscarUuidMatchRow[] = list.map((r: any) => ({
+          id_factura_proveedor: r?.id_factura_proveedor ?? "",
           codigo_confirmacion: r?.codigo_confirmacion ?? "",
           uuid_factura: r?.uuid_factura ?? "",
-          id_solicitud: r?.id_solicitud ?? "",
+          id_solicitud: Number(r?.id_solicitud ?? 0),
           monto: Number(r?.monto_facturado ?? r?.monto_solicitado ?? 0) || 0,
-          estado: r.estado,
+          estado: r?.estado ?? "",
+          acciones: null,
         }));
 
         setBuscarUuidModal({
@@ -601,6 +607,21 @@ export default function ConciliacionPage() {
     },
     [buscarUuidEndpoint, buscarUuidModal.uuid_factura],
   );
+  const handleDesasignarUuid = useCallback(
+    async (row: BuscarUuidMatchRow) => {
+      if (!row.id_factura_proveedor || !row.id_solicitud)
+        throw new Error("Faltan datos para desasignar (id_factura / id_solicitud)");
+
+      await ConciliacionService.getInstance().eliminarPagoFacturaProveedor({
+        id_factura: row.id_factura_proveedor,
+        id_solicitud: row.id_solicitud,
+      });
+
+      void buscarUuid();
+    },
+    [buscarUuid],
+  );
+
   const closeBuscarUuidModal = useCallback(() => {
     setBuscarUuidModal({
       open: false,
@@ -1025,8 +1046,6 @@ export default function ConciliacionPage() {
         }
       }
 
- 
-
       return {
         ...prev,
         [rowId]: {
@@ -1034,7 +1053,9 @@ export default function ConciliacionPage() {
           id_solicitud: idSolicitud,
           id_proveedor: idProveedor,
           hotel: String(row?.informacion_completa.hotel ?? ""),
-          codigo_hotel: String(row?.informacion_completa.codigo_confirmacion ?? ""),
+          codigo_hotel: String(
+            row?.informacion_completa.codigo_confirmacion ?? "",
+          ),
           razon_social: String(row?.informacion_completa.razon_social ?? ""),
           viajero: String(row?.informacion_completa.viajero ?? ""),
         },
@@ -1050,13 +1071,15 @@ export default function ConciliacionPage() {
       alert("Falta id_solicitud o id_proveedor para subir factura");
       return;
     }
-console.log("este es el item", item)
+    console.log("este es el item", item);
     setSelectedForFactura([
       {
         row_id: String(getSelectionKey(item)).trim(),
         id_solicitud: idSolicitud,
         id_proveedor: idProveedor,
-        codigo_hotel: String(item?.informacion_completa.codigo_confirmacion ?? ""),
+        codigo_hotel: String(
+          item?.informacion_completa.codigo_confirmacion ?? "",
+        ),
         razon_social: String(item?.informacion_completa.razon_social ?? ""),
         hotel: String(item?.informacion_completa.hotel ?? ""),
         viajero: String(item?.informacion_completa.viajero ?? ""),
@@ -2100,6 +2123,7 @@ console.log("este es el item", item)
             }))
           }
           onSearch={() => void buscarUuid()}
+          onDesasignar={handleDesasignarUuid}
         />
         {isLoading && (
           <div className="text-sm text-gray-500 px-2">
