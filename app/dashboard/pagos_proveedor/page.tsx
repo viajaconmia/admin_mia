@@ -471,7 +471,7 @@ function App() {
       "estado", // ESTADO
       "comentarios_sp", // COMENTARIOS SP
       "notas_internas", // NOTAS INTERNAS
-      "comentarios_Ap", // COMENTARIOS AP
+      "comentarios_Ap", // COMENTARIOS FIN
       "comentarios_cxp", // COMENTARIOS CXP
       "rfc", // RFC
       "facturas_acciones", // FACTURAS ACCIONES
@@ -674,7 +674,8 @@ function App() {
               respectCustomColumnOrder
               headerRenderers={{
                 fecha_de_pago: () => "FECHA SOLICITADA DE PAGO",
-                dias_vencimiento_pago: () => "DIAS PARA VENCIMIENTO",
+                dias_vencimiento_pago: () => "DIAS DE VENCIMIENTO DE LA FATURA",
+                comentarios_Ap: () => "COMENTARIOS FIN",
                 seleccionar: () => (
                   <input
                     type="checkbox"

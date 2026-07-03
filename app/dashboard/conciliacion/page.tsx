@@ -1,6 +1,8 @@
 // app/conciliacion/page.tsx
 "use client";
 
+
+
 import React, {
   useCallback,
   useEffect,
@@ -430,6 +432,7 @@ function getTodayLocalDate() {
 }
 
 export default function ConciliacionPage() {
+
   const router = useRouter(); // hace cambios en la url
   const pathName = usePathname(); // Lee la ruta
   const searchParams = useSearchParams(); // Lee parametros
@@ -638,6 +641,7 @@ export default function ConciliacionPage() {
     cliente: "Cliente",
     viajero: "Viajero",
     hotel: "Proveedor",
+    estado_solicitud: "",
     estatus_pagos: "",
     estado_facturacion: "Estatus facturación",
     created_start: "Creado desde",
@@ -680,6 +684,7 @@ export default function ConciliacionPage() {
 
     // Recorremos cada propiedad (key) del objeto
     (Object.keys(next) as (keyof ConciliacionFilters)[]).forEach((key) => {
+
       // Buscamos en la URL si existe un parámetro con ese nombre
       const v = searchParams.get(key);
 
@@ -690,6 +695,9 @@ export default function ConciliacionPage() {
     // Regresamos el objeto final con los filtros
     return next;
   };
+
+  
+
 
   const [filters, setFilters] =
     useState<ConciliacionFilters>(getInitialFilters);
@@ -810,15 +818,17 @@ export default function ConciliacionPage() {
   });
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
+
+
+
   const applyFilters = useCallback(() => {
     const next = { ...filters };
-    setFilters(next);
+    setFilters(next)
     setAppliedFilters(next); // // Guarda oficialmente los filtros que se usarán para buscar
     setShowFiltersModal(false); // Cierra el modal
 
-    const params = new URLSearchParams(); // Crea un contenedor vacío para parámetros.
-    Object.entries(next).forEach(([key, value]) => {
-      // Recorre cada propiedad y su valor
+    const params = new URLSearchParams() // Crea un contenedor vacío para parámetros.
+    Object.entries(next).forEach(([key, value]) => { // Recorre cada propiedad y su valor
       const v = String(value ?? "").trim(); // Convierte el valor a texto y elimina espacios al inicio y final
       if (v) params.set(key, v); // Le asigna el valor de v a la key  si v tiene contenido
     });
