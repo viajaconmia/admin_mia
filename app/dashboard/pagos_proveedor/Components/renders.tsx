@@ -34,6 +34,7 @@ import {
   getStatusBadge,
   getWhoCreateBadge,
 } from "@/helpers/utils";
+import { ServiceIcon } from "@/component/atom/ItemTable";
 
 type DatosDispersion = {
   codigo_reservacion_hotel: string | null;
@@ -96,7 +97,10 @@ type CreateSolicitudesRenderersParams = {
   };
   onOpenDetalle: (id_solicitud_proveedor: string) => void;
   cancelarDispersion: (id_solicitud_proveedor: string) => Promise<boolean>;
-  showNotification?: (type: "info" | "warning" | "error" | "success", msg: string) => void;
+  showNotification?: (
+    type: "info" | "warning" | "error" | "success",
+    msg: string,
+  ) => void;
 };
 
 const fmtMoney = (n: number) =>
@@ -143,7 +147,9 @@ type RazonSocialEntry = {
 
 const RazonesSocialesCell = ({ raw }: { raw: any }) => {
   const [open, setOpen] = React.useState(false);
-  const entries: RazonSocialEntry[] = Array.isArray(raw?.razones_sociales_cuentas_json)
+  const entries: RazonSocialEntry[] = Array.isArray(
+    raw?.razones_sociales_cuentas_json,
+  )
     ? raw.razones_sociales_cuentas_json
     : [];
 
@@ -153,7 +159,9 @@ const RazonesSocialesCell = ({ raw }: { raw: any }) => {
     const e = entries[0];
     return (
       <div className="flex flex-col gap-0.5">
-        <span className="text-xs font-medium text-slate-800">{e.razon_social || "—"}</span>
+        <span className="text-xs font-medium text-slate-800">
+          {e.razon_social || "—"}
+        </span>
         {e.rfc && <span className="text-[10px] text-slate-500">{e.rfc}</span>}
       </div>
     );
@@ -164,7 +172,10 @@ const RazonesSocialesCell = ({ raw }: { raw: any }) => {
       <button
         type="button"
         className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors"
-        onClick={(e) => { e.stopPropagation(); setOpen(true); }}
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen(true);
+        }}
       >
         {entries.length} razones sociales
       </button>
@@ -179,7 +190,9 @@ const RazonesSocialesCell = ({ raw }: { raw: any }) => {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
-              <h3 className="font-semibold text-slate-800 text-sm">Razones sociales y cuentas</h3>
+              <h3 className="font-semibold text-slate-800 text-sm">
+                Razones sociales y cuentas
+              </h3>
               <button
                 type="button"
                 className="text-slate-400 hover:text-slate-600 text-lg leading-none"
@@ -191,26 +204,55 @@ const RazonesSocialesCell = ({ raw }: { raw: any }) => {
 
             <div className="overflow-y-auto p-4 flex flex-col gap-4">
               {entries.map((e, i) => (
-                <div key={i} className="border border-slate-100 rounded-lg p-3 flex flex-col gap-2">
+                <div
+                  key={i}
+                  className="border border-slate-100 rounded-lg p-3 flex flex-col gap-2"
+                >
                   <div className="flex flex-col gap-0.5">
-                    <span className="text-xs font-semibold text-slate-800">{e.razon_social || "—"}</span>
-                    <span className="text-[11px] text-slate-500">RFC: {e.rfc || "—"}</span>
+                    <span className="text-xs font-semibold text-slate-800">
+                      {e.razon_social || "—"}
+                    </span>
+                    <span className="text-[11px] text-slate-500">
+                      RFC: {e.rfc || "—"}
+                    </span>
                     {e.origen && (
-                      <span className="text-[10px] text-slate-400 uppercase tracking-wide">{e.origen}</span>
+                      <span className="text-[10px] text-slate-400 uppercase tracking-wide">
+                        {e.origen}
+                      </span>
                     )}
                   </div>
 
                   {e.cuentas?.length > 0 && (
                     <div className="flex flex-col gap-1 mt-1">
-                      <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wide">Cuentas</span>
+                      <span className="text-[10px] font-medium text-slate-500 uppercase tracking-wide">
+                        Cuentas
+                      </span>
                       {e.cuentas.map((c, ci) => (
-                        <div key={ci} className="bg-slate-50 rounded-md px-3 py-2 text-xs text-slate-700 grid grid-cols-2 gap-x-4 gap-y-1">
-                          <span><span className="font-medium">Banco:</span> {c.banco || "—"}</span>
-                          <span><span className="font-medium">Cuenta:</span> {c.cuenta || "—"}</span>
-                          <span><span className="font-medium">Titular:</span> {c.titular || "—"}</span>
-                          <span><span className="font-medium">Alias:</span> {c.alias || "—"}</span>
+                        <div
+                          key={ci}
+                          className="bg-slate-50 rounded-md px-3 py-2 text-xs text-slate-700 grid grid-cols-2 gap-x-4 gap-y-1"
+                        >
+                          <span>
+                            <span className="font-medium">Banco:</span>{" "}
+                            {c.banco || "—"}
+                          </span>
+                          <span>
+                            <span className="font-medium">Cuenta:</span>{" "}
+                            {c.cuenta || "—"}
+                          </span>
+                          <span>
+                            <span className="font-medium">Titular:</span>{" "}
+                            {c.titular || "—"}
+                          </span>
+                          <span>
+                            <span className="font-medium">Alias:</span>{" "}
+                            {c.alias || "—"}
+                          </span>
                           {c.comentarios && (
-                            <span className="col-span-2"><span className="font-medium">Comentarios:</span> {c.comentarios}</span>
+                            <span className="col-span-2">
+                              <span className="font-medium">Comentarios:</span>{" "}
+                              {c.comentarios}
+                            </span>
                           )}
                         </div>
                       ))}
@@ -234,10 +276,19 @@ const TruncatedComment = ({ texto }: { texto: string }) => {
   const short = needsTruncation ? texto.slice(0, 10) + "…" : texto;
 
   return (
-    <div className="relative" style={{ width: 90, maxWidth: 90, overflow: "visible" }}>
+    <div
+      className="relative"
+      style={{ width: 90, maxWidth: 90, overflow: "visible" }}
+    >
       <span
         className="block text-xs text-slate-800"
-        style={{ width: 90, maxWidth: 90, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+        style={{
+          width: 90,
+          maxWidth: 90,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
         title={texto}
       >
         {short}
@@ -247,7 +298,10 @@ const TruncatedComment = ({ texto }: { texto: string }) => {
           <button
             type="button"
             className="text-[10px] text-blue-600 hover:underline whitespace-nowrap"
-            onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpanded((v) => !v);
+            }}
           >
             {expanded ? "Ocultar" : "Ver completo"}
           </button>
@@ -262,7 +316,10 @@ const TruncatedComment = ({ texto }: { texto: string }) => {
               <button
                 type="button"
                 className="mt-1 text-[10px] text-blue-600 hover:underline"
-                onClick={(e) => { e.stopPropagation(); setExpanded(false); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setExpanded(false);
+                }}
               >
                 Ocultar
               </button>
@@ -283,7 +340,9 @@ const InlineMoneyEdit = ({
   disabled?: boolean;
   onSave: (next: number, comentario: string) => Promise<boolean>;
 }) => {
-  const [phase, setPhase] = React.useState<"idle" | "monto" | "comentario">("idle");
+  const [phase, setPhase] = React.useState<"idle" | "monto" | "comentario">(
+    "idle",
+  );
   const [draft, setDraft] = React.useState(String(value ?? 0));
   const [comentario, setComentario] = React.useState("");
   const [comentarioError, setComentarioError] = React.useState(false);
@@ -402,7 +461,9 @@ const InlineMoneyEdit = ({
         autoFocus
       />
       {comentarioError && (
-        <span className="text-[10px] text-red-500">El comentario es obligatorio.</span>
+        <span className="text-[10px] text-red-500">
+          El comentario es obligatorio.
+        </span>
       )}
       <div className="inline-flex items-center gap-2">
         <button
@@ -470,7 +531,10 @@ export function createSolicitudesRenderers({
       const texto = String(value ?? "").trim();
       return <TruncatedComment texto={texto} />;
     },
-
+    intermediario: ({ value }) => {
+      return <>{value}</>;
+    },
+    serv: ({ value }: { value : string }) => <ServiceIcon type={value }/>, 
     seleccionar: ({ item, index }) => {
       const row = item as any;
       const raw: SolicitudProveedor | undefined = row?.item ?? row;
@@ -482,7 +546,7 @@ export function createSolicitudesRenderers({
       const isCancelada = estadoSolicitud.includes("CANCEL");
       const isDispersionRow =
         estadoSolicitud === "DISPERSION" || estadoSolicitud === "DISPERSADO";
-      const estatusPagosSel = String(raw?.estatus_pagos ?? "").toLowerCase();
+      const estatusPagosSel = String((raw as any)?.estatus_pagos ??raw?.solicitud_proveedor?.estatus_pagos ??"",).toLowerCase();
 
       if (categoria === "pagada") {
         return <span className="text-gray-300">—</span>;
@@ -677,7 +741,9 @@ export function createSolicitudesRenderers({
             className="text-[10px] text-slate-400 hover:text-blue-600 shrink-0 mt-0.5"
             title="Editar notas internas"
             onClick={() => openEditModal(raw, "notas_internas", texto)}
-          >✎</button>
+          >
+            ✎
+          </button>
         </div>
       );
     },
@@ -693,7 +759,9 @@ export function createSolicitudesRenderers({
             className="text-[10px] text-slate-400 hover:text-blue-600 shrink-0 mt-0.5"
             title="Editar comentarios AP"
             onClick={() => openEditModal(raw, "comentarios_Ap", texto)}
-          >✎</button>
+          >
+            ✎
+          </button>
         </div>
       );
     },
@@ -914,7 +982,6 @@ export function createSolicitudesRenderers({
         tone={pagoTone3(value) as any}
       />
     ),
-
     creado: ({ value }) =>
       value ? (
         <span title={value}>{formatDate(value)}</span>
@@ -967,7 +1034,11 @@ export function createSolicitudesRenderers({
     costo_proveedor: ({ item }) => {
       const raw = (item as any)?.item ?? item;
       const id = getIdSolProv(raw);
-      const monto = Number(raw?.solicitud_proveedor?.monto_solicitado ?? (item as any)?.monto_solicitado ?? 0);
+      const monto = Number(
+        raw?.solicitud_proveedor?.monto_solicitado ??
+          (item as any)?.monto_solicitado ??
+          0,
+      );
       return (
         <InlineMoneyEdit
           value={monto}
@@ -1029,8 +1100,8 @@ export function createSolicitudesRenderers({
       const isCancelada = estadoSolicitud.includes("CANCEL");
       const cancelDisabled = pagado || isCancelada || categoria === "pagada";
 
-  const [reasignarOpen, setReasignarOpen] = React.useState(false);
-  const [saldoAFavorOpen, setSaldoAFavorOpen] = React.useState(false);
+      const [reasignarOpen, setReasignarOpen] = React.useState(false);
+      const [saldoAFavorOpen, setSaldoAFavorOpen] = React.useState(false);
 
       const montoSolicitado = Number(
         raw?.solicitud_proveedor?.monto_solicitado ??
@@ -1319,48 +1390,48 @@ export function createSolicitudesRenderers({
             </button>
           )}
 
-      {/* Reasignar pago — canceladas con pago parcial o pagado */}
-      {tieneReasignar && (
-        <>
-          <button
-            type="button"
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:border-amber-300 transition-colors shadow-sm"
-            onClick={() => setReasignarOpen(true)}
-            title="Reasignar pago a otra solicitud SPEI"
-          >
-            <span>Reasignar pago</span>
-          </button>
-          <ReasignarPagoModal
-            open={reasignarOpen}
-            onClose={() => setReasignarOpen(false)}
-            idSolicitudProveedor={idSolProv}
-            onSuccess={() => {
-              setReasignarOpen(false);
-              handleFetchSolicitudesPago();
-            }}
-          />
+          {/* Reasignar pago — canceladas con pago parcial o pagado */}
+          {tieneReasignar && (
+            <>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 hover:border-amber-300 transition-colors shadow-sm"
+                onClick={() => setReasignarOpen(true)}
+                title="Reasignar pago a otra solicitud SPEI"
+              >
+                <span>Reasignar pago</span>
+              </button>
+              <ReasignarPagoModal
+                open={reasignarOpen}
+                onClose={() => setReasignarOpen(false)}
+                idSolicitudProveedor={idSolProv}
+                onSuccess={() => {
+                  setReasignarOpen(false);
+                  handleFetchSolicitudesPago();
+                }}
+              />
 
-          <button
-            type="button"
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300 transition-colors shadow-sm"
-            onClick={() => setSaldoAFavorOpen(true)}
-            title="Generar saldo a favor para el proveedor"
-          >
-            <span>Generar saldo a favor</span>
-          </button>
-          <GenerarSaldoAFavorModal
-            open={saldoAFavorOpen}
-            onClose={() => setSaldoAFavorOpen(false)}
-            idSolicitudProveedor={idSolProv}
-            onSuccess={() => {
-              setSaldoAFavorOpen(false);
-              handleFetchSolicitudesPago();
-            }}
-          />
-        </>
-      )}
-    </div>
-  );
-},
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300 transition-colors shadow-sm"
+                onClick={() => setSaldoAFavorOpen(true)}
+                title="Generar saldo a favor para el proveedor"
+              >
+                <span>Generar saldo a favor</span>
+              </button>
+              <GenerarSaldoAFavorModal
+                open={saldoAFavorOpen}
+                onClose={() => setSaldoAFavorOpen(false)}
+                idSolicitudProveedor={idSolProv}
+                onSuccess={() => {
+                  setSaldoAFavorOpen(false);
+                  handleFetchSolicitudesPago();
+                }}
+              />
+            </>
+          )}
+        </div>
+      );
+    },
   };
 }

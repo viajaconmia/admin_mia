@@ -323,15 +323,6 @@ export default function FiltrosConciliacionModal({
                   placeholder="Buscar en comentario CXP"
                 />
               </Field>
-
-              <Field label="Comentarios Ajustes Costos Finanzas">
-                <InputWithClear
-                  value={filters.comentario_AP}
-                  onChange={(v) => onChange("comentario_AP", v)}
-                  onClear={() => onChange("comentario_AP", "")}
-                  placeholder="Buscar en comentario ajustes costos finanzas"
-                />
-              </Field>
             </div>
           </div>
 
@@ -412,16 +403,60 @@ export default function FiltrosConciliacionModal({
                     "SOLICITADA",
                   ]}
                   placeholder="selecciona una opcion"
+                                  />
+              </Field>
+              <Field label="Etapa de reservación">
+                <SelectWithClear
+                  value={filters.etapa_reservacion}
+                  onChange={(v) => onChange("etapa_reservacion", v)}
+                  onClear={() => onChange("etapa_reservacion", "")}
+                  options={["check_in", "in home", "check_out"]}
+                  placeholder="Todas"
                 />
               </Field>
 
-              <Field label="hay diferencia">
+              <Field label="Método pago reserva">
                 <SelectWithClear
-                  value={filters.reserva_diferencia}
-                  onChange={(v) => onChange("reserva_diferencia", v)}
-                  onClear={() => onChange("reserva_diferencia", "")}
-                  options={["Si", "no"]}
-                  placeholder="Selecciona una opcion"
+                  value={filters.metodo_pago_reserva}
+                  onChange={(v) => onChange("metodo_pago_reserva", v)}
+                  onClear={() => onChange("metodo_pago_reserva", "")}
+                  options={["PREPAGO", "CREDITO"]}
+                  placeholder="Todos"
+                />
+              </Field>
+
+              <Field label="ID del cliente">
+                <InputWithClear
+                  value={filters.id_cliente}
+                  onChange={(v) => onChange("id_cliente", v)}
+                  onClear={() => onChange("id_cliente", "")}
+                />
+              </Field>
+
+              <Field label="Filtrar fecha por">
+                <SelectWithClear
+                  value={filters.filtrar_fecha_por_reserva}
+                  onChange={(v) => onChange("filtrar_fecha_por_reserva", v)}
+                  onClear={() => onChange("filtrar_fecha_por_reserva", "")}
+                  options={["created_at", "check_in", "check_out"]}
+                />
+              </Field>
+
+              <Field label="Desde">
+                <InputWithClear
+                  type="date"
+                  value={filters.fecha_reserva_start}
+                  onChange={(v) => onChange("fecha_reserva_start", v)}
+                  onClear={() => onChange("fecha_reserva_start", "")}
+                />
+              </Field>
+
+              <Field label="Hasta">
+                <InputWithClear
+                  type="date"
+                  value={filters.fecha_reserva_end}
+                  onChange={(v) => onChange("fecha_reserva_end", v)}
+                  onClear={() => onChange("fecha_reserva_end", "")}
                 />
               </Field>
             </div>

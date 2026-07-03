@@ -125,7 +125,7 @@ export type BookingAll = {
   estado_pago: string;
   estado_facturacion: string;
   id_proveedor: string;
-
+  
   reservante: string;
   correo_cliente: string;
   telefono_cliente: string;
@@ -150,6 +150,10 @@ export type BookingAll = {
   tipo_cuarto_vuelo: string;
   costo_total: string;
   metodo_pago: string;
+  rfc_proveedor?: string | null;
+  razon_social_proveedor?: string | null;
+  total_razones_sociales?: number | string | null;
+  razones_sociales_json?: string | any[] | null;
 
   comments: string;
   nuevo_incluye_desayuno: boolean | null;

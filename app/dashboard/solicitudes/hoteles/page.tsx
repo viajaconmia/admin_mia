@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useMemo } from "react";
 import { Pencil } from "lucide-react";
 import { ReservationForm } from "@/components/organism/FormReservation";
 import Filters from "@/components/Filters";
@@ -84,61 +84,77 @@ function App() {
     defaultFiltersSolicitudes,
   );
 
-  const handleFetchSolicitudes = () => {
-    setLoading(true);
-    fetchSolicitudes(
-      filters,
-      { status: "Pendiente", id_booking: "Inactive" },
-      ({ data }) => {
-        setAllSolicitudes(data);
-        setLoading(false);
-      },
-    );
-  };
+  const handleFetchSolicitudes = useCallback(() => {
+  setLoading(true);
+
+  fetchSolicitudes(
+    filters,
+    { status: "Pendiente", id_booking: "Inactive" },
+    ({ data }) => {
+      setAllSolicitudes(data || []);
+      setLoading(false);
+    },
+  );
+}, [filters]);
 
   useEffect(() => {
     handleFetchSolicitudes();
-  }, [filters]);
+  }, [handleFetchSolicitudes]);
 
   const handleEdit = (item: SolicitudClient) => {
     setSelectedItem(item);
   };
 
-  let formatedSolicitudes = allSolicitudes
-    .filter(
-      (item) =>
-        (item.hotel_solicitud || "").toUpperCase().includes(searchTerm) ||
-        item.nombre_cliente.toUpperCase().includes(searchTerm) ||
-        item.nombre_viajero_solicitud.toUpperCase().includes(searchTerm),
-    )
-    .map((item) => ({
-      id_cliente: item.id_agente,
-      cliente: (item?.nombre_cliente || "").toUpperCase(),
-      creado: item.created_at_solicitud,
-      hotel: (item.hotel_solicitud || "").toUpperCase() || "",
-      codigo_hotel: item.codigo_reservacion_hotel || "",
-      viajero: (item.nombre_viajero_solicitud || "").toUpperCase(),
-      check_in: item.check_in_solicitud,
-      check_out: item.check_out_solicitud,
-      noches: calcularNoches(item.check_in, item.check_out),
-      habitacion: item.room ? formatRoom(item.room) : "",
-      costo_proveedor: Number(item.costo_total) || 0,
-      markup:
-        ((Number(item.total_solicitud || 0) - Number(item.costo_total || 0)) /
-          Number(item.total_solicitud || 0)) *
-        100,
-      precio_de_venta: parseFloat(item.total_solicitud),
-      metodo_de_pago: `${item.id_credito ? "credito" : "contado"}`,
-      reservante: item.quien_reservó ? "Cliente" : "Operaciones",
-      etapa_reservacion: item.etapa_reservacion,
-      estado_pago_proveedor: "",
-      estado_factura_proveedor: "",
-      // estado: item.status,
-      procesar: item,
-      item,
-    }));
+  const formatedSolicitudes = useMemo(() => {
+    const term = String(searchTerm ?? "").toUpperCase();
 
-  console.log(formatedSolicitudes);
+    return allSolicitudes
+      .filter(
+        (item) =>
+          (item.hotel_solicitud || "").toUpperCase().includes(term) ||
+          (item.nombre_cliente || "").toUpperCase().includes(term) ||
+          (item.nombre_viajero_solicitud || "").toUpperCase().includes(term),
+      )
+      .map((item) => ({
+        id_cliente: item.id_agente,
+        cliente: (item?.nombre_cliente || "").toUpperCase(),
+       creado: item.created_at_solicitud,
+       hotel: (item.hotel_solicitud || "").toUpperCase() || "",
+       codigo_hotel: item.codigo_reservacion_hotel || "",
+       viajero: (item.nombre_viajero_solicitud || "").toUpperCase(),
+
+        check_in: (item as any).check_in_solicitud ?? item.check_in,
+       check_out: (item as any).check_out_solicitud ?? item.check_out,
+
+        noches: calcularNoches(
+          (item as any).check_in_solicitud ?? item.check_in,
+          (item as any).check_out_solicitud ?? item.check_out,
+        ),
+
+        habitacion: item.room ? formatRoom(item.room) : "",
+        costo_proveedor: Number(item.costo_total) || 0,
+
+        markup:
+          Number(item.total_solicitud || 0) > 0
+            ? ((Number(item.total_solicitud || 0) -
+                Number(item.costo_total || 0)) /
+                Number(item.total_solicitud || 0)) *
+              100
+            : 0,
+
+        precio_de_venta: parseFloat(item.total_solicitud || "0"),
+        metodo_de_pago: `${item.id_credito ? "credito" : "contado"}`,
+        reservante: item.quien_reservó ? "Cliente" : "Operaciones",
+        etapa_reservacion: item.etapa_reservacion,
+        estado_pago_proveedor: "",
+        estado_factura_proveedor: "",
+
+        is_con_desayuno: Number(item.nuevo_incluye_desayuno) === 1,
+
+        procesar: item,
+        item,
+      }));
+  }, [allSolicitudes, searchTerm]);
 
   let componentes: Record<keyof SolicitudClient, any> = {
     reservante: ({ value }: { value: string | null }) =>
@@ -235,7 +251,7 @@ function App() {
               renderers={componentes}
               rowColor={(item) => {
                 const isDesayuno = Boolean(item.is_con_desayuno);
-                console.log("Item:", item, "isDesayuno:", isDesayuno);
+                // console.log("Item:", item, "isDesayuno:", isDesayuno);
                 if (isDesayuno) return "bg-green-100";
                 return "";
               }}

@@ -164,7 +164,10 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
       return <h1>{valor.value}</h1>;
     },
     creado: ({ value }) => <p>{formatDate(value)}</p>,
-    proveedor: ({ value }: { value: string }) => <p>{value || ""}</p>,
+    // id_proveedor: ({ value }: { value: string }) => ( <p className="font-bold text-gray-800">{value || ""}</p> ),//modificacion
+    proveedor: ({ value }: { value: String }) => <p>{value || ""}</p>,
+    // rfc_proveedor: ({ value}: { value: string }) => (<p className= "font-semibold text-gray-700">{value || ""}</p>),
+    // razon_socail_proveedor: ({ value}: { value: string }) => (<p className= "font-semibold text-gray-700">{value || ""}</p>), // modificacion
     codigo: ({ value }) => <p>{value || ""}</p>,
     markup: ({ value }) => <MarginPercent value={value} />,
     viajero: ({ value }) => <>{value}</>,
@@ -320,7 +323,10 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     id: reserva.id_agente,
     cliente: reserva.agente,
     creado: reserva.created_at,
+    // id_proveedor: reserva.id_proveedor,// modificacion
     proveedor: reserva.proveedor,
+    // rfc_proveedor: reserva.rfc_proveedor || "",
+    // razon_social_proveedor: reserva.razon_social_proveedor || "",
     codigo: reserva.codigo_confirmacion,
     viajero: reserva.viajero,
     check_in: reserva.check_in,
@@ -629,6 +635,9 @@ const defaultFiltersSolicitudes: TypeFilters = {
   traveler: null,
   paymentMethod: null,
   id_client: null,
+  // id_proveedor: null,  //modificacion
+  // rfc_proveedor: null,
+  // razon_social_proveedor: null,
   statusPagoProveedor: null,
   filterType: "Transaccion",
 };

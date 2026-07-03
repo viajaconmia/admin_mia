@@ -27,7 +27,6 @@ import {
   Upload,
   X,
 } from "lucide-react";
-
 // ── Helpers ────────────────────────────────────────────────────────────────
 
 const Badge = ({
@@ -96,7 +95,6 @@ const TYPE_LABELS: Record<string, string> = {
   renta_carro: "Renta carro",
   hotel: "Hotel",
 };
-
 // ── Componente principal ───────────────────────────────────────────────────
 
 export const ModalProveedor = ({
@@ -116,6 +114,36 @@ export const ModalProveedor = ({
   const [datosFiscales, setDatosFiscales] = useState<DatosFiscales[]>([]);
   const [loadingFiscales, setLoadingFiscales] = useState(false);
 
+  const handleToggleActive = async (cuenta: ProveedorCuenta) => {
+  try {
+    const nuevoEstado = cuenta.active === 1 ? 0 : 1;
+
+    await svc.updateCuentaActive(
+      cuenta.id,
+      nuevoEstado
+    );
+
+    setCuentas((prev) =>
+      prev.map((c) =>
+        c.id === cuenta.id
+          ? { ...c, active: nuevoEstado }
+          : c
+      )
+    );
+
+    showNotification(
+      "success",
+      nuevoEstado === 1
+        ? "Cuenta activada"
+        : "Cuenta desactivada"
+    );
+  } catch (error) {
+    showNotification(
+      "error",
+      error.message || "Error al actualizar"
+    );
+  }
+};
   // Días crédito (editable)
   const [editingDias, setEditingDias] = useState(false);
   const [diasCredito, setDiasCredito] = useState<number | null>(null);
@@ -149,7 +177,7 @@ export const ModalProveedor = ({
       .finally(() => setLoadingFiscales(false));
 
     svc
-      .getCuentasByProveedor(proveedor.id)
+      .getCuentasByProveedor(proveedor.id, true)
       .then(({ data }) => setCuentas(data))
       .catch(() => setCuentas([]))
       .finally(() => setLoadingCuentas(false));
@@ -506,6 +534,7 @@ export const ModalProveedor = ({
                     direccion: direccionProveedor,
                     email: c.email,
                     caratula: c,
+                    activar: c,
                     acciones: c,
                   }))}
                   renderers={{
@@ -522,6 +551,20 @@ export const ModalProveedor = ({
                       ) : (
                         <span className="text-xs text-gray-300">—</span>
                       ),
+                    activar: ({ value }: { value: ProveedorCuenta }) => (
+                      <button
+                            type="button"
+                            onClick={() => handleToggleActive(value)}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                            value.active === 1 ? "bg-green-500" : "bg-gray-300"
+                            }`} 
+                      >
+                        <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                        value.active === 1 ? "translate-x-5" : "translate-x-1"
+                        }`}
+                        />
+                      </button>
+                    ),
                     acciones: ({ value }: { value: ProveedorCuenta }) => (
                       <div className="flex items-center gap-1">
                         <Button
