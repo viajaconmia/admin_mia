@@ -1,3 +1,4 @@
+// front/app/dashboard/pagos_proveedor_i
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -17,6 +18,7 @@ type Tab = "dispersion" | "pagado_transferencia";
 
 type SolicitudRow = {
   id_solicitud_proveedor: string;
+  id_proveedor_cuenta: number | null,
   proveedor: string;
   codigo_confirmacion: string;
   costo_proveedor: number;
@@ -60,6 +62,7 @@ const GROUP_COLOR = {
 };
 
 const mapLuRow = (raw: any): SolicitudRow => {
+  console.log("RAW PAGO PROVEEDOR", raw);
   const check_in = raw?.["CHECK IN"] ?? null;
   const check_out = raw?.["CHECK OUT"] ?? null;
   const costo_proveedor = Number(raw?.["COSTO PROV."] ?? 0);
@@ -70,6 +73,7 @@ const mapLuRow = (raw: any): SolicitudRow => {
     proveedor: String(raw?.["PROVEEDOR"] ?? "").toUpperCase(),
     codigo_confirmacion: raw?.["CÓD. CONFIRM."] ?? "—",
     costo_proveedor,
+    id_proveedor_cuenta: raw?.["id_proveedor_cuenta"] ?? null,
     monto_solicitado: Number(raw?.["MONTO SOL."] ?? 0),
     cliente: String(raw?.["CLIENTE"] ?? "").toUpperCase(),
     precio_de_venta,
@@ -203,6 +207,10 @@ export default function PagosProveedorL() {
 
   const isDispersion = tab === "dispersion";
   const selectedCount = Object.keys(selectedMap).length;
+  const totalSeleccionado = Object.values(selectedMap).reduce(
+    (sum, r) => sum + r.monto_solicitado,
+    0,
+  );
 
   const toggleRow = (row: SolicitudRow) => {
     const rowGroup = row.codigo_dispersion ?? "__sin_codigo__";
@@ -371,6 +379,12 @@ export default function PagosProveedorL() {
             {selectedCount > 0 && (
               <span className="text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded-md">
                 {selectedCount} seleccionada{selectedCount !== 1 ? "s" : ""}
+              </span>
+            )}
+
+            {selectedCount > 0 && (
+              <span className="text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-3 py-1 rounded-md">
+                Total: {fmtMoney(totalSeleccionado)}
               </span>
             )}
 
@@ -1136,13 +1150,30 @@ function RevisionPendienteModal({
           >
             Cerrar
           </button>
-          <Link
-            href="/dashboard/pagos_proveedor/informacion_de_la_cuenta"
-            onClick={onClose}
-            className="px-4 py-2 text-sm rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-medium transition-colors"
-          >
-            Ver información de cuenta
-          </Link>
+        <Link
+          scroll={true}
+          href={`/dashboard/pagos_proveedor/informacion_de_la_cuenta?id_solicitud_proveedor=${row.id_solicitud_proveedor}`}
+          onClick={() => {
+            sessionStorage.setItem(
+              "cuenta_revision_pendiente",
+              JSON.stringify({
+                id_solicitud_proveedor: row.id_solicitud_proveedor,
+                proveedor: row.proveedor, //modificado2
+                id_proveedor_cuenta: row.id_proveedor_cuenta,
+                codigo_confirmacion: row.codigo_confirmacion,
+                banco: row.banco,
+                cuenta: row.cuenta,
+                titular_cuenta: row.titular_cuenta,
+                caratula: row.caratula,
+              }),
+            );
+
+    onClose();
+  }}
+  className="px-4 py-2 text-sm rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-medium transition-colors"
+>
+  Ver información de cuenta
+</Link>
         </div>
       </div>
     </div>

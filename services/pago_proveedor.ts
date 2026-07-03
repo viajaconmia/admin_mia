@@ -221,3 +221,119 @@ export const fetchBucketSolicitudes = async (
   });
   return res.json();
 };
+export const fetchResumenCxp = async (
+  filters: Record<string, any> = {},
+): Promise<any> => {
+  const params = new URLSearchParams();
+
+  Object.entries(filters).forEach(([key, value]) => {
+    const v = String(value ?? "").trim();
+    if (!v) return;
+    params.append(key, v);
+  });
+
+  const res = await fetch(
+    `${URL}/mia/pago_proveedor/resumen_cxp?${params.toString()}`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": API_KEY,
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+      },
+      credentials: "include",
+      cache: "no-store",
+    },
+  );
+
+  const json = await res.json();
+
+  if (!res.ok || json?.ok === false) {
+    throw new Error(json?.message || "Error al obtener resumen CXP");
+  }
+
+  return json;
+};
+export const fetchDetalleCxp = async (
+  filters: Record<string, any> = {},
+): Promise<any> => {
+  const params = new URLSearchParams();
+
+  Object.entries(filters).forEach(([key, value]) => {
+    const v = String(value ?? "").trim();
+    if (!v) return;
+    params.append(key, v);
+  });
+
+  const res = await fetch(
+    `${URL}/mia/pago_proveedor/detalle_cxp?${params.toString()}`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": API_KEY,
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+      },
+      credentials: "include",
+      cache: "no-store",
+    },
+  );
+
+  const json = await res.json();
+
+  if (!res.ok || json?.ok === false) {
+    throw new Error(json?.message || "Error al obtener detalle CXP");
+  }
+
+  return json;
+};
+export const fetchHistorialCuentaProveedor = async (
+  idProveedorCuenta: number | string,
+): Promise<any[]> => {
+  const res = await fetch(
+    `${URL}/mia/pago_proveedor/cuentas/${idProveedorCuenta}/historial`,
+    {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": API_KEY,
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+      },
+      credentials: "include",
+      cache: "no-store",
+    },
+  );
+
+  const json = await res.json();
+
+  if (!res.ok || json?.ok === false) {
+    throw new Error(json?.message || "Error al obtener historial de cuenta");
+  }
+
+  return Array.isArray(json?.data) ? json.data : [];
+};
+export const aprobarRevisionCuentaProveedor = async (
+  idProveedorCuenta: number | string,
+): Promise<any> => {
+  const res = await fetch(
+    `${URL}/mia/pago_proveedor/cuentas/${idProveedorCuenta}/aprobar_revision`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": API_KEY,
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+      },
+      credentials: "include",
+      cache: "no-store",
+    },
+  );
+
+  const json = await res.json();
+
+  if (!res.ok || json?.ok === false) {
+    throw new Error(json?.message || "Error al aprobar cuenta");
+  }
+
+  return json;
+};

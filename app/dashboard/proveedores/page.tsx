@@ -35,6 +35,7 @@ export default function ProveedoresPage() {
     type?: string;
     status?: string;
     rfc?: string;
+    negociacion?: string;
   }>({});
   const [pageTracking, setPageTraking] = useState<TrackingPage>({
     total: 0,
@@ -83,6 +84,8 @@ export default function ProveedoresPage() {
     id: p.id,
     proveedor: p.proveedor,
     type: p.type,
+    estatus: p.estatus,
+    negociacion: p.negociacion,
     creado_en: formatDate(p.created_at),
     detalles: p.id,
   }));
@@ -90,6 +93,22 @@ export default function ProveedoresPage() {
   const renderers: {
     [key: string]: React.FC<{ value: any; item: any; index: number }>;
   } = {
+    estatus: ({ value }) => (
+      <span
+        className={`inline-flex px-2 py-1 rounded-full text-xs font-semibold ${
+          value ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+        }`}
+      >
+        {value ? "Activo" : "Inactivo"}
+      </span>
+    ),
+
+    negociacion: ({ value }) => (
+      <span className="inline-flex px-2 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
+        {value ? String(value).toUpperCase() : "—"}
+      </span>
+    ),
+
     detalles: ({ value }) => (
       <Link
         href={`/dashboard/proveedores/${value}`}
@@ -145,6 +164,13 @@ export default function ProveedoresPage() {
             value={filtros.status || null}
             label="Estado"
             options={["activo", "inactivo"]}
+          />
+          <FilterInput
+            type="text"
+            onChange={handleFilterChange}
+            propiedad="negociacion"
+            value={filtros.negociacion || null}
+            label="Tipo de negociación"
           />
         </div>
 
