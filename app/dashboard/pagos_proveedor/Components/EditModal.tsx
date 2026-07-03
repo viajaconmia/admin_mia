@@ -47,6 +47,16 @@ export const EditModal: React.FC<EditModalProps> = ({
   const isOverLimit = isCosto && Math.abs(diff) > 50;
   const missingComment = isCosto && !(comentarioAp ?? "").trim();
   const canSave = !isOverLimit && !missingComment;
+  const getFieldLabel = (field?: string | null) => {
+    const labels: Record<string, string> = {
+      comentarios_Ap: "Comentarios FIN",
+      comentarios_sp: "Comentarios SP",
+      comentarios_cxp: "Comentarios CXP",
+      notas_internas: "Notas internas",
+    };
+
+    return labels[field || ""] || field || "";
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -61,7 +71,9 @@ export const EditModal: React.FC<EditModalProps> = ({
             <p className="text-xs text-gray-500">
               id_solicitud_proveedor: {idSolicitudProveedor}
             </p>
-            <p className="text-xs text-gray-500">Campo: {field}</p>
+            <p className="text-xs text-gray-500">
+              Campo: {getFieldLabel(field)}
+            </p>
           </div>
           <button
             type="button"
@@ -81,7 +93,9 @@ export const EditModal: React.FC<EditModalProps> = ({
                 <p className="text-xs text-gray-500">
                   Valor original:{" "}
                   <span className="font-semibold text-gray-700">
-                    {originalValue.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                    {originalValue.toLocaleString("es-MX", {
+                      minimumFractionDigits: 2,
+                    })}
                   </span>
                   {"  "}— Límite: ±50
                 </p>
@@ -110,9 +124,12 @@ export const EditModal: React.FC<EditModalProps> = ({
                       : "bg-emerald-50 text-emerald-700 border border-emerald-200"
                   }`}
                 >
-                  {isOverLimit && <AlertTriangle className="w-3.5 h-3.5 shrink-0" />}
+                  {isOverLimit && (
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  )}
                   <span>
-                    {diff > 0 ? "+" : ""}{diff.toFixed(2)} respecto al original
+                    {diff > 0 ? "+" : ""}
+                    {diff.toFixed(2)} respecto al original
                     {isOverLimit ? " — excede el límite de ±50" : " ✓"}
                   </span>
                 </div>
@@ -121,9 +138,10 @@ export const EditModal: React.FC<EditModalProps> = ({
               {/* Comentario AP obligatorio */}
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">
-                  Motivo del ajuste{" "}
-                  <span className="text-red-500">*</span>
-                  <span className="font-normal text-gray-400 ml-1">(comentario AP)</span>
+                  Motivo del ajuste <span className="text-red-500">*</span>
+                  <span className="font-normal text-gray-400 ml-1">
+                    (comentario AP)
+                  </span>
                 </label>
                 <textarea
                   rows={4}
@@ -133,7 +151,9 @@ export const EditModal: React.FC<EditModalProps> = ({
                   placeholder="Explica por qué se hace el ajuste en el costo del proveedor..."
                 />
                 {missingComment && (
-                  <p className="text-xs text-red-500 mt-1">El motivo es obligatorio.</p>
+                  <p className="text-xs text-red-500 mt-1">
+                    El motivo es obligatorio.
+                  </p>
                 )}
               </div>
             </>
@@ -170,8 +190,8 @@ export const EditModal: React.FC<EditModalProps> = ({
                 isCosto && isOverLimit
                   ? "El ajuste supera ±50"
                   : isCosto && missingComment
-                  ? "Escribe el motivo del ajuste"
-                  : undefined
+                    ? "Escribe el motivo del ajuste"
+                    : undefined
               }
             >
               Cambiar

@@ -11,6 +11,8 @@ export type ConciliacionFilters = {
   viajero: string;
   hotel: string;
   estado_facturacion: string;
+  estado_solicitud: string;
+  estatus_pagos: string;
   created_start: string;
   created_end: string;
   check_in_start: string;
@@ -327,6 +329,19 @@ export default function FiltrosConciliacionModal({
 
               <Field label="ID del cliente">
                 <InputWithClear
+                  value={filters.nombre_intermediario}
+                  onChange={(v) => onChange("nombre_intermediario", v)}
+                  onClear={() => onChange("nombre_intermediario", "")}
+                />
+              </Field>
+
+              <Field label="Estatus de solicitud">
+                <SelectWithClear
+                  value={filters.estado_solicitud}
+                  onChange={(v) => onChange("estado_solicitud", v)}
+                  onClear={() => onChange("estado_solicitud", "")}
+                  options={["CARTA_ENVIADA", "PAGADO TARJETA", "TRANSFERENCIA_SOLICITADA", "PAGADO TRANSFERENCIA", "PAGADO LINK", "CUPON ENVIADO", "CANCELADA", "DISPERSION", "SOLICITADA"]}
+                  placeholder="selecciona una opcion"
                   value={filters.id_cliente}
                   onChange={(v) => onChange("id_cliente", v)}
                   onClear={() => onChange("id_cliente", "")}
