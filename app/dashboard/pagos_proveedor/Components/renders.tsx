@@ -534,7 +534,7 @@ export function createSolicitudesRenderers({
     intermediario: ({ value }) => {
       return <>{value}</>;
     },
-    serv: ({ value }: { value : string }) => <ServiceIcon type={value }/>, 
+    serv: ({ value }: { value: string }) => <ServiceIcon type={value} />,
     seleccionar: ({ item, index }) => {
       const row = item as any;
       const raw: SolicitudProveedor | undefined = row?.item ?? row;
@@ -546,7 +546,11 @@ export function createSolicitudesRenderers({
       const isCancelada = estadoSolicitud.includes("CANCEL");
       const isDispersionRow =
         estadoSolicitud === "DISPERSION" || estadoSolicitud === "DISPERSADO";
-      const estatusPagosSel = String((raw as any)?.estatus_pagos ??raw?.solicitud_proveedor?.estatus_pagos ??"",).toLowerCase();
+      const estatusPagosSel = String(
+        (raw as any)?.estatus_pagos ??
+          raw?.solicitud_proveedor?.estatus_pagos ??
+          "",
+      ).toLowerCase();
 
       if (categoria === "pagada") {
         return <span className="text-gray-300">—</span>;
@@ -757,7 +761,7 @@ export function createSolicitudesRenderers({
           <button
             type="button"
             className="text-[10px] text-slate-400 hover:text-blue-600 shrink-0 mt-0.5"
-            title="Editar comentarios AP"
+            title="Editar comentarios FIN"
             onClick={() => openEditModal(raw, "comentarios_Ap", texto)}
           >
             ✎
