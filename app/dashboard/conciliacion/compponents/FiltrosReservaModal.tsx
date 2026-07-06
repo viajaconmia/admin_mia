@@ -28,6 +28,7 @@ export type ConciliacionFilters = {
   fecha_reserva_start: string;
   fecha_reserva_end: string;
   filtrar_fecha_por_reserva: string;
+  estado_solicitud: string;
 
 
   comentarios: string;
@@ -56,7 +57,9 @@ function Field({
 }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
+      <label className="block text-xs font-medium text-gray-600 mb-1">
+        {label}
+      </label>
       {children}
     </div>
   );
@@ -165,7 +168,9 @@ export default function FiltrosConciliacionModal({
 
           {/* ── General ─────────────────────────────────────────────── */}
           <div>
-            <h3 className="text-sm font-semibold text-gray-800 mb-3">General</h3>
+            <h3 className="text-sm font-semibold text-gray-800 mb-3">
+              General
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               <Field label="Código de reservación">
                 <InputWithClear
@@ -203,7 +208,9 @@ export default function FiltrosConciliacionModal({
 
           {/* ── Solicitud de pago ────────────────────────────────────── */}
           <div>
-            <h3 className="text-sm font-semibold text-gray-800 mb-3">Solicitud de pago</h3>
+            <h3 className="text-sm font-semibold text-gray-800 mb-3">
+              Solicitud de pago
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               <Field label="Creado desde">
                 <InputWithClear
@@ -283,7 +290,9 @@ export default function FiltrosConciliacionModal({
 
           {/* ── Reserva ──────────────────────────────────────────────── */}
           <div>
-            <h3 className="text-sm font-semibold text-gray-800 mb-3">Reserva</h3>
+            <h3 className="text-sm font-semibold text-gray-800 mb-3">
+              Reserva
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               <Field label="Check-in desde">
                 <InputWithClear
@@ -337,6 +346,68 @@ export default function FiltrosConciliacionModal({
                   onChange={(v) => onChange("canal_de_reservacion", v)}
                   onClear={() => onChange("canal_de_reservacion", "")}
                   options={["DIRECTO", "INTERMEDIARIO"]}
+                <SelectWithClear
+                  value={filters.canal_de_reservacion}
+                  onChange={(v) => onChange("canal_de_reservacion", v)}
+                  onClear={() => onChange("canal_de_reservacion", "")}
+                  options={["DIRECTO", "INTERMEDIARIO"]}
+                  placeholder="Selecciona una opcion"
+                />
+              </Field>
+
+              <Field label="reservante">
+                <SelectWithClear
+                  value={filters.reservante}
+                  onChange={(v) => onChange("reservante", v)}
+                  onClear={() => onChange("reservante", "")}
+                  options={["operaciones", "cliente"]}
+                  placeholder="selecciona una opcion"
+                />
+              </Field>
+
+              <Field label="Nombre intermediario">
+                <InputWithClear
+                  value={filters.nombre_intermediario}
+                  onChange={(v) => onChange("nombre_intermediario", v)}
+                  onClear={() => onChange("nombre_intermediario", "")}
+                />
+              </Field>
+              <Field label="Estatus de pago">
+                <SelectWithClear
+                  value={filters.forma_pago_solicitada}
+                  onChange={(v) => onChange("forma_pago_solicitada", v)}
+                  onClear={() => onChange("forma_pago_solicitada", "")}
+                  options={[
+                    "Pagado link",
+                    "Cancelada",
+                    "carta enviada",
+                    "transferencia solicitada",
+                    "Cupon enviado",
+                    "Solicitada",
+                    "Pagado tarjeta",
+                    "Pagado transferencia",
+                    "Dispersion",
+                  ]}
+                  placeholder="todos"
+                />
+              </Field>
+
+              <Field label="Método pago reserva">
+                <SelectWithClear
+                  value={filters.metodo_pago_reserva}
+                  onChange={(v) => onChange("metodo_pago_reserva", v)}
+                  onClear={() => onChange("metodo_pago_reserva", "")}
+                  options={["PREPAGO", "CREDITO"]}
+                  placeholder="Selecciona una opcion"
+                />
+              </Field>
+
+              <Field label="hay diferencia">
+                <SelectWithClear
+                  value={filters.reserva_diferencia}
+                  onChange={(v) => onChange("reserva_diferencia", v)}
+                  onClear={() => onChange("reserva_diferencia", "")}
+                  options={["Si", "no"]}
                   placeholder="Selecciona una opcion"
                 />
               </Field>
@@ -394,6 +465,23 @@ export default function FiltrosConciliacionModal({
                   value={filters.id_cliente}
                   onChange={(v) => onChange("id_cliente", v)}
                   onClear={() => onChange("id_cliente", "")}
+              <Field label="Estatus de solicitud">
+                <SelectWithClear
+                  value={filters.estado_solicitud}
+                  onChange={(v) => onChange("estado_solicitud", v)}
+                  onClear={() => onChange("estado_solicitud", "")}
+                  options={[
+                    "CARTA_ENVIADA",
+                    "PAGADO TARJETA",
+                    "TRANSFERENCIA_SOLICITADA",
+                    "PAGADO TRANSFERENCIA",
+                    "PAGADO LINK",
+                    "CUPON ENVIADO",
+                    "CANCELADA",
+                    "DISPERSION",
+                    "SOLICITADA",
+                  ]}
+                  placeholder="selecciona una opcion"
                 />
               </Field>
 

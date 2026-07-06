@@ -34,6 +34,8 @@ interface VistaPreviaProps {
 
   proveedoresData?: any | null; // 👈 agregar
 
+  editableConceptos?: boolean;
+
   onClose: () => void;
   onConfirm: (
     pdfUrl?: string | null,
@@ -49,6 +51,7 @@ interface VistaPreviaProps {
       monto: number;
       detectada: boolean;
     } | null,
+    editedDescriptions?: string[],
   ) => void;
   isLoading?: boolean;
 }
@@ -124,7 +127,8 @@ export default function VistaPreviaModal({
   updateMontoBatch,
   batchTotalAsociar = 0,
   showFechaVencimiento = true,
-  proveedoresData = null, 
+  proveedoresData = null,
+  editableConceptos = false,
   onClose,
   onConfirm,
   isLoading = false,
@@ -143,7 +147,16 @@ export default function VistaPreviaModal({
   const [propinaActiva, setPropinaActiva] = useState(false);
   const [propinaMontoInput, setPropinaMontoInput] = useState("");
   const [propinaDetectada, setPropinaDetectada] = useState(false);
+  const [editedDescriptions, setEditedDescriptions] = useState<string[]>([]);
   const { showNotification } = useAlert();
+
+  useEffect(() => {
+    if (facturaData?.conceptos) {
+      setEditedDescriptions(
+        facturaData.conceptos.map((c: any) => c.descripcion ?? ""),
+      );
+    }
+  }, [facturaData]);
 
   // Auto-detectar propina del XML al cargar
   React.useEffect(() => {
@@ -555,6 +568,7 @@ export default function VistaPreviaModal({
       propinaActiva
         ? { activa: true, monto: propinaMonto, detectada: propinaDetectada }
         : null,
+      editedDescriptions,
     );
   };
 
@@ -879,6 +893,15 @@ export default function VistaPreviaModal({
             formatCurrency={formatCurrency}
             formatDate={formatDate}
             propinaMonto={propinaMonto}
+            editableConceptos={editableConceptos}
+            editedDescriptions={editedDescriptions}
+            onDescriptionChange={(index: number, value: string) =>
+              setEditedDescriptions((prev) => {
+                const next = [...prev];
+                next[index] = value;
+                return next;
+              })
+            }
           />
         )}
 
@@ -1099,6 +1122,8 @@ const FacturaEstructurada = ({
   formatCurrency,
   formatDate,
   propinaMonto = 0,
+  editedDescriptions = [],
+  onDescriptionChange,
 }: any) => (
   <div className="border border-gray-200 rounded-lg p-6">
     <div className="flex justify-between items-start mb-8">
@@ -1135,7 +1160,14 @@ const FacturaEstructurada = ({
         <tbody>
           {facturaData.conceptos.map((concepto: any, index: number) => (
             <tr key={index} className="border-b">
-              <td className="p-2 border">{concepto.descripcion}</td>
+              <td className="p-2 border">
+                <input
+                  type="text"
+                  value={editedDescriptions[index] ?? concepto.descripcion}
+                  onChange={(e) => onDescriptionChange?.(index, e.target.value)}
+                  className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400"
+                />
+              </td>
               <td className="p-2 text-center border">{concepto.cantidad}</td>
               <td className="p-2 text-right border">
                 {formatCurrency(concepto.valorUnitario)}

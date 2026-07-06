@@ -1,15 +1,17 @@
 "use client";
 
-import React, { useMemo } from "react";
-import { X, Search, FileText, Loader2 } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import { X, Search, FileText, Loader2, Unlink } from "lucide-react";
 import { Table5 } from "@/components/Table5";
 import Button from "@/components/atom/Button";
 
 type BuscarUuidRow = {
+  id_factura_proveedor: string;
   codigo_confirmacion: string;
   uuid_factura: string;
-  id_solicitud: string | number;
+  id_solicitud: number;
   monto: number;
+  estado?: string;
 };
 
 interface BuscarUuidFacturaModalProps {
@@ -20,6 +22,7 @@ interface BuscarUuidFacturaModalProps {
   onClose: () => void;
   onUuidChange: (value: string) => void;
   onSearch: () => void;
+  onDesasignar?: (row: BuscarUuidRow) => Promise<void>;
 }
 
 function formatMoney(n: any) {
@@ -40,7 +43,12 @@ export default function BuscarUuidFacturaModal({
   onClose,
   onUuidChange,
   onSearch,
+  onDesasignar,
 }: BuscarUuidFacturaModalProps) {
+  const [desasignandoIds, setDesasignandoIds] = useState<Set<string>>(
+    new Set(),
+  );
+
   const customColumns = useMemo(
     () => [
       "codigo_confirmacion",
@@ -48,6 +56,7 @@ export default function BuscarUuidFacturaModal({
       "id_solicitud",
       "monto",
       "estado",
+      "acciones",
     ],
     [],
   );
@@ -88,8 +97,47 @@ export default function BuscarUuidFacturaModal({
           </span>
         </div>
       ),
+
+      acciones: ({ item }) => {
+        const { acciones } = item;
+        const rowKey = String(item?.id_solicitud ?? item?.uuid_factura ?? "");
+        const isDesasignando = desasignandoIds.has(rowKey);
+        console.log(item);
+
+        return (
+          <div className="w-full flex justify-center px-4">
+            <Button
+              variant="warning"
+              size="sm"
+              icon={isDesasignando ? Loader2 : Unlink}
+              disabled={isDesasignando || !onDesasignar}
+              onClick={async () => {
+                if (!onDesasignar || isDesasignando) return;
+                const ok = confirm(
+                  `¿Desasignar la factura de la solicitud ${item?.id_solicitud}?`,
+                );
+                if (!ok) return;
+                setDesasignandoIds((prev) => new Set([...prev, rowKey]));
+                try {
+                  await onDesasignar(item as BuscarUuidRow);
+                } catch (err: any) {
+                  alert(err?.message || "Error al desasignar");
+                } finally {
+                  setDesasignandoIds((prev) => {
+                    const next = new Set(prev);
+                    next.delete(rowKey);
+                    return next;
+                  });
+                }
+              }}
+            >
+              {isDesasignando ? "Desasignando…" : "Desasignar"}
+            </Button>
+          </div>
+        );
+      },
     }),
-    [],
+    [desasignandoIds, onDesasignar],
   );
 
   const defaultSort = useMemo(
