@@ -336,6 +336,16 @@ export interface ProveedorCuenta {
   alias: string | null;
   url_caratula: string | null;
   active: number;
+
+  email?: string | null;
+  tipo_cta?: string | null;
+  cta?: string | null;
+  revision_pendiente?: number | null;
+  fecha_revision?: string | null;
+  revisado_por?: string | null;
+  cantidad_cambios?: number | null;
+  created_at?: string | null;
+  updated_at?: string | null;
 }
 
 //RENTAL CAR
