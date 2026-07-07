@@ -50,19 +50,6 @@ import { useSeleccion } from "./hooks/useSeleccion";
 import { usePatchSolicitud } from "./hooks/usePatchSolicitud";
 import { formatNumberWithCommas } from "@/helpers/formater";
 
-const calcularDiasParaVencimiento = (fecha?: string | null) => {
-  if (!fecha) return null;
-
-  const hoy = new Date();
-  const vencimiento = new Date(fecha);
-
-  hoy.setHours(0, 0, 0, 0);
-  vencimiento.setHours(0, 0, 0, 0);
-
-  const diffMs = vencimiento.getTime() - hoy.getTime();
-  return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-};
-
 function App() {
   const { showNotification } = useAlert();
   const { hasAccess } = usePermiso();
@@ -156,9 +143,7 @@ function App() {
           serv: item.tipo_reserva,
           id_solicitud_proveedor,
           fecha_de_pago: item.solicitud_proveedor?.fecha_solicitud,
-          dias_vencimiento_pago: calcularDiasParaVencimiento(
-            item.solicitud_proveedor?.fecha_solicitud,
-          ),
+          dias_vencimiento_pago: (item as any).dias_vencimiento_factura ?? null,
           monto_solicitado: montoSolicitado,
           saldo,
           forma_pago_solicitada: forma,
@@ -674,7 +659,8 @@ function App() {
               respectCustomColumnOrder
               headerRenderers={{
                 fecha_de_pago: () => "FECHA SOLICITADA DE PAGO",
-                dias_vencimiento_pago: () => "DIAS DE VENCIMIENTO DE LA FATURA",
+                dias_vencimiento_pago: () =>
+                  "DIAS DE VENCIMIENTO DE LA FACTURA",
                 comentarios_Ap: () => "COMENTARIOS FIN",
                 seleccionar: () => (
                   <input
