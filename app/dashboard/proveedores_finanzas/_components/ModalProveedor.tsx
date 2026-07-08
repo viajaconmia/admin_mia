@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Fragment } from "react";
 import {
   ArchivoProveedor,
+  DatosFiscales,
   ProveedorCuenta,
   ProveedorRaw,
   ProveedoresService,
@@ -106,7 +108,11 @@ export const ModalProveedor = ({
   const [cuentas, setCuentas] = useState<ProveedorCuenta[]>([]);
   const [loadingCuentas, setLoadingCuentas] = useState(false);
   const [isCuentaOpen, setIsCuentaOpen] = useState(false);
-  const [selectedCuenta, setSelectedCuenta] = useState<ProveedorCuenta | null>(null);
+  const [selectedCuenta, setSelectedCuenta] = useState<ProveedorCuenta | null>(
+    null,
+  );
+  const [datosFiscales, setDatosFiscales] = useState<DatosFiscales[]>([]);
+  const [loadingFiscales, setLoadingFiscales] = useState(false);
 
   const handleToggleActive = async (cuenta: ProveedorCuenta) => {
   try {
@@ -162,6 +168,14 @@ export const ModalProveedor = ({
     setNombreArchivo("");
 
     setLoadingCuentas(true);
+    setLoadingFiscales(true);
+
+    svc
+      .getDatosFiscales(proveedor.id)
+      .then(({ data }) => setDatosFiscales(data ?? []))
+      .catch(() => setDatosFiscales([]))
+      .finally(() => setLoadingFiscales(false));
+
     svc
       .getCuentasByProveedor(proveedor.id, true)
       .then(({ data }) => setCuentas(data))
@@ -258,18 +272,40 @@ export const ModalProveedor = ({
       setArchivos(response.data ?? []);
       showNotification("success", "Archivo eliminado");
     } catch (error) {
-      showNotification("error", error.message || "Error al eliminar el archivo");
+      showNotification(
+        "error",
+        error.message || "Error al eliminar el archivo",
+      );
     }
   };
 
   if (!proveedor) return null;
+
+  const rfcProveedor = datosFiscales[0]?.rfc ?? null;
+  const razonSocialProveedor = datosFiscales[0]?.razon_social ?? null;
+  const direccionProveedor = [
+    proveedor.calle,
+    proveedor.numero,
+    proveedor.colonia,
+    proveedor.municipio,
+    proveedor.ciudad,
+    proveedor.estado,
+    proveedor.pais,
+    proveedor.codigo_postal,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  console.log(proveedor);
 
   return (
     <>
       <Modal
         onClose={onClose}
         title={proveedor.proveedor}
-        subtitle={proveedor.type ? TYPE_LABELS[proveedor.type] : "Sin tipo asignado"}
+        subtitle={
+          proveedor.type ? TYPE_LABELS[proveedor.type] : "Sin tipo asignado"
+        }
       >
         <div className="w-[680px] max-w-[85vw]">
           <Tabs defaultValue="info">
@@ -322,25 +358,35 @@ export const ModalProveedor = ({
                     proveedor.tipo_pago ? (
                       <Badge
                         label={proveedor.tipo_pago}
-                        color={proveedor.tipo_pago === "credito" ? "yellow" : "blue"}
+                        color={
+                          proveedor.tipo_pago === "credito" ? "yellow" : "blue"
+                        }
                       />
                     ) : null
                   }
                 />
                 {/* Días de crédito — editable */}
                 <div className="flex justify-between items-center gap-4 py-1.5 border-b border-gray-100">
-                  <span className="text-xs text-gray-500 shrink-0">Días de crédito</span>
+                  <span className="text-xs text-gray-500 shrink-0">
+                    Días de crédito
+                  </span>
                   <div className="flex items-center gap-2">
                     <NumberInput
                       value={diasCredito}
-                      onChange={(v) => setDiasCredito(v === "" ? null : Number(v))}
+                      onChange={(v) =>
+                        setDiasCredito(v === "" ? null : Number(v))
+                      }
                       placeholder="ej. 30"
                       disabled={!editingDias}
                       className="w-24"
                     />
                     {editingDias ? (
                       <>
-                        <Button size="sm" onClick={handleSaveDias} disabled={savingDias}>
+                        <Button
+                          size="sm"
+                          onClick={handleSaveDias}
+                          disabled={savingDias}
+                        >
                           {savingDias ? "..." : "Guardar"}
                         </Button>
                         <Button
@@ -355,13 +401,21 @@ export const ModalProveedor = ({
                         </Button>
                       </>
                     ) : (
-                      <Button size="sm" variant="ghost" icon={Pencil} onClick={() => setEditingDias(true)}>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        icon={Pencil}
+                        onClick={() => setEditingDias(true)}
+                      >
                         Editar
                       </Button>
                     )}
                   </div>
                 </div>
-                <InfoRow label="Notas tipo de pago" value={proveedor.notas_tipo_pago} />
+                <InfoRow
+                  label="Notas tipo de pago"
+                  value={proveedor.notas_tipo_pago}
+                />
                 <InfoRow label="Notas de pagos" value={proveedor.notas_pagos} />
               </Section>
 
@@ -370,12 +424,57 @@ export const ModalProveedor = ({
                   label="Convenio"
                   value={
                     <Badge
-                      label={proveedor.convenio === 1 ? "Con convenio" : "Sin convenio"}
+                      label={
+                        proveedor.convenio === 1
+                          ? "Con convenio"
+                          : "Sin convenio"
+                      }
                       color={proveedor.convenio === 1 ? "green" : "gray"}
                     />
                   }
                 />
-                <InfoRow label="Contactos" value={proveedor.contactos_convenio} />
+                <InfoRow
+                  label="Contactos"
+                  value={proveedor.contactos_convenio}
+                />
+              </Section>
+              <Section title="Convenio">
+                <InfoRow
+                  label="Convenio"
+                  value={
+                    <Badge
+                      label={
+                        proveedor.convenio === 1
+                          ? "Con convenio"
+                          : "Sin convenio"
+                      }
+                      color={proveedor.convenio === 1 ? "green" : "gray"}
+                    />
+                  }
+                />
+                <InfoRow
+                  label="Contactos"
+                  value={proveedor.contactos_convenio}
+                />
+              </Section>
+              <Section title="Convenio">
+                <InfoRow
+                  label="Convenio"
+                  value={
+                    <Badge
+                      label={
+                        proveedor.convenio === 1
+                          ? "Con convenio"
+                          : "Sin convenio"
+                      }
+                      color={proveedor.convenio === 1 ? "green" : "gray"}
+                    />
+                  }
+                />
+                <InfoRow
+                  label="Contactos"
+                  value={proveedor.contactos_convenio}
+                />
               </Section>
 
               <Section title="Ubicación">
@@ -428,6 +527,12 @@ export const ModalProveedor = ({
                     banco: c.banco,
                     cuenta: c.cuenta,
                     titular: c.titular,
+
+                    rfc: proveedor.rfcs,
+                    contacto_convenio: proveedor.contactos_convenio,
+                    razon_social: razonSocialProveedor,
+                    direccion: direccionProveedor,
+                    email: c.email,
                     caratula: c,
                     activar: c,
                     acciones: c,
@@ -552,7 +657,9 @@ export const ModalProveedor = ({
                   <p className="text-sm text-gray-500 font-medium">
                     Haz clic para seleccionar un archivo
                   </p>
-                  <p className="text-xs text-gray-400">PDF, imágenes, documentos</p>
+                  <p className="text-xs text-gray-400">
+                    PDF, imágenes, documentos
+                  </p>
                 </button>
               )}
 
@@ -601,7 +708,10 @@ export const ModalProveedor = ({
 
       <ModalCuentasCRUD
         isOpen={isCuentaOpen}
-        onClose={() => { setIsCuentaOpen(false); setSelectedCuenta(null); }}
+        onClose={() => {
+          setIsCuentaOpen(false);
+          setSelectedCuenta(null);
+        }}
         onSave={handleSaveCuenta}
         id_proveedor={proveedor.id}
         selectedCuenta={selectedCuenta}
