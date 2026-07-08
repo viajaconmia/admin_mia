@@ -118,17 +118,17 @@ export class ProveedoresService extends ApiService {
     });
 
   //CUENTAS
-public getCuentasByProveedor = async (
-  id_proveedor: number,
-  incluir_inactivas = false,
-): Promise<ApiResponse<ProveedorCuenta[]>> =>
-  this.get<ProveedorCuenta[]>({
-    path: this.formatPath(this.ENDPOINTS.GET.CUENTAS),
-    params: {
-      id_proveedor,
-      incluir_inactivas: incluir_inactivas ? 1 : 0,
-    },
-  });
+  public getCuentasByProveedor = async (
+    id_proveedor: number,
+    incluir_inactivas = false,
+  ): Promise<ApiResponse<ProveedorCuenta[]>> => {
+    const response = await this.get<ProveedorCuenta[]>({
+      path: this.formatPath(this.ENDPOINTS.GET.CUENTAS),
+      params: {
+        id_proveedor,
+        incluir_inactivas: incluir_inactivas ? 1 : 0,
+      },
+    });
 
     console.log("========== GET_CUENTAS_BY_PROVEEDOR ==========");
     console.log("ID_PROVEEDOR:", id_proveedor);
