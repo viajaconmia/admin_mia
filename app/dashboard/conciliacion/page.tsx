@@ -1,6 +1,8 @@
 // app/conciliacion/page.tsx
 "use client";
 
+
+
 import React, {
   useCallback,
   useEffect,
@@ -22,12 +24,15 @@ import {
   CheckCheck,
 } from "lucide-react";
 
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
+
 import Button from "@/components/atom/Button";
 import { Loader } from "@/components/atom/Loader";
 import SubirFactura from "@/app/dashboard/facturacion/subirfacturas/SubirFactura";
 import ModalDetalle from "@/app/dashboard/conciliacion/compponents/detalles";
 import { formatDate } from "@/helpers/formater";
 import BuscarUuidFacturaModal from "@/app/dashboard/conciliacion/compponents/BuscarUuidFacturaModal";
+import { ConciliacionService } from "@/services/ConciliacionService";
 import FiltrosConciliacionModal, {
   type ConciliacionFilters,
 } from "@/app/dashboard/conciliacion/compponents/FiltrosReservaModal";
@@ -410,7 +415,7 @@ type ProveedorSeleccionado = {
   codigo_hotel?: string;
   razon_social?: string;
   viajero: string;
-  hotel?:string;
+  hotel?: string;
 };
 function getStartOfMonthLocalDate() {
   const now = new Date();
@@ -428,6 +433,11 @@ function getTodayLocalDate() {
 }
 
 export default function ConciliacionPage() {
+
+  const router = useRouter(); // hace cambios en la url
+  const pathName = usePathname(); // Lee la ruta
+  const searchParams = useSearchParams(); // Lee parametros
+
   const EPS = 0.01;
   const isZero = (n: any) => Math.abs(Number(n) || 0) < EPS;
 
@@ -491,6 +501,8 @@ export default function ConciliacionPage() {
     cliente: "",
     viajero: "",
     hotel: "",
+    estado_solicitud: "",
+    estatus_pagos: "",
     estado_facturacion: "",
     created_start: "",
     created_end: "",
@@ -514,10 +526,13 @@ export default function ConciliacionPage() {
   };
 
   type BuscarUuidMatchRow = {
+    id_factura_proveedor: string;
     codigo_confirmacion: string;
     uuid_factura: string;
-    id_solicitud: string | number;
+    id_solicitud: number;
     monto: number;
+    estado?: string;
+    acciones: null;
   };
 
   const [buscarUuidModal, setBuscarUuidModal] = useState<{
@@ -573,11 +588,13 @@ export default function ConciliacionPage() {
         const list = Array.isArray(json?.data) ? json.data : [];
 
         const rows: BuscarUuidMatchRow[] = list.map((r: any) => ({
+          id_factura_proveedor: r?.id_factura_proveedor ?? "",
           codigo_confirmacion: r?.codigo_confirmacion ?? "",
           uuid_factura: r?.uuid_factura ?? "",
-          id_solicitud: r?.id_solicitud ?? "",
+          id_solicitud: Number(r?.id_solicitud ?? 0),
           monto: Number(r?.monto_facturado ?? r?.monto_solicitado ?? 0) || 0,
-          estado: r.estado,
+          estado: r?.estado ?? "",
+          acciones: null,
         }));
 
         setBuscarUuidModal({
@@ -601,6 +618,21 @@ export default function ConciliacionPage() {
     },
     [buscarUuidEndpoint, buscarUuidModal.uuid_factura],
   );
+  const handleDesasignarUuid = useCallback(
+    async (row: BuscarUuidMatchRow) => {
+      if (!row.id_factura_proveedor || !row.id_solicitud)
+        throw new Error("Faltan datos para desasignar (id_factura / id_solicitud)");
+
+      await ConciliacionService.getInstance().eliminarPagoFacturaProveedor({
+        id_factura: row.id_factura_proveedor,
+        id_solicitud: row.id_solicitud,
+      });
+
+      void buscarUuid();
+    },
+    [buscarUuid],
+  );
+
   const closeBuscarUuidModal = useCallback(() => {
     setBuscarUuidModal({
       open: false,
@@ -630,6 +662,8 @@ export default function ConciliacionPage() {
     cliente: "Cliente",
     viajero: "Viajero",
     hotel: "Proveedor",
+    estado_solicitud: "",
+    estatus_pagos: "",
     estado_facturacion: "Estatus facturación",
     created_start: "Creado desde",
     created_end: "Creado hasta",
@@ -642,6 +676,14 @@ export default function ConciliacionPage() {
     fecha_reserva_start: "Fecha reserva desde",
     fecha_reserva_end: "Fecha reserva hasta",
     filtrar_fecha_por_reserva: "Filtrar fecha por",
+    canal_de_reservacion: "Canal de reservación",
+    nombre_intermediario: "Nombre intermediario",
+    forma_pago_solicitada: "Estatus de pago",
+    estado_solicitud: "Estatus de pago",
+
+    reservante: "Reservante",
+    comentario_AP: "Comentarios Ajustes Costos Finanzas",
+    reserva_diferencia: "Hay diferencia",
 
     comentarios: "Comentarios Ops",
     comentario_CXP: "Comentario CXP",
@@ -657,10 +699,31 @@ export default function ConciliacionPage() {
     return { ...incoming };
   }
 
+  const getInitialFilters = (): ConciliacionFilters => {
+    // Creamos un objeto con todos los filtros por defecto
+    const next = { ...DEFAULT_OPEN_FILTERS };
+
+    // Recorremos cada propiedad (key) del objeto
+    (Object.keys(next) as (keyof ConciliacionFilters)[]).forEach((key) => {
+
+      // Buscamos en la URL si existe un parámetro con ese nombre
+      const v = searchParams.get(key);
+
+      // Si existe, reemplazamos el valor por defecto
+      if (v != null) next[key] = v;
+    });
+
+    // Regresamos el objeto final con los filtros
+    return next;
+  };
+
+  
+
+
   const [filters, setFilters] =
-    useState<ConciliacionFilters>(DEFAULT_OPEN_FILTERS);
+    useState<ConciliacionFilters>(getInitialFilters);
   const [appliedFilters, setAppliedFilters] =
-    useState<ConciliacionFilters>(DEFAULT_OPEN_FILTERS);
+    useState<ConciliacionFilters>(getInitialFilters);
 
   // const DATE_FILTER_KEYS: (keyof ConciliacionFilters)[] = [
   //   "created_start",
@@ -776,20 +839,32 @@ export default function ConciliacionPage() {
   });
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
+
+
+
   const applyFilters = useCallback(() => {
     const next = { ...filters };
-    setFilters(next);
-    setAppliedFilters(next);
-    setShowFiltersModal(false);
-    void load(next, 1);
-  }, [filters, load]);
+    setFilters(next)
+    setAppliedFilters(next); // // Guarda oficialmente los filtros que se usarán para buscar
+    setShowFiltersModal(false); // Cierra el modal
+
+    const params = new URLSearchParams() // Crea un contenedor vacío para parámetros.
+    Object.entries(next).forEach(([key, value]) => { // Recorre cada propiedad y su valor
+      const v = String(value ?? "").trim(); // Convierte el valor a texto y elimina espacios al inicio y final
+      if (v) params.set(key, v); // Le asigna el valor de v a la key  si v tiene contenido
+    });
+    router.replace(`${pathName}?${params.toString()}`); // // Actualiza la URL con los filtros sin recargar la página
+
+    void load(next, 1); // Consulta los datos usando los filtros y la página 1
+  }, [filters, load, pathName, router]); // Por que se agrega pathName y router?
 
   const clearAllFilters = useCallback(() => {
     setFilters(EMPTY_FILTERS);
     setAppliedFilters(EMPTY_FILTERS);
     setSearchInput("");
     setShowFiltersModal(false);
-  }, []);
+    router.replace(pathName);
+  }, [pathName, router]);
 
   const openEditModal = useCallback(
     (
@@ -1025,8 +1100,6 @@ export default function ConciliacionPage() {
         }
       }
 
- 
-
       return {
         ...prev,
         [rowId]: {
@@ -1034,7 +1107,9 @@ export default function ConciliacionPage() {
           id_solicitud: idSolicitud,
           id_proveedor: idProveedor,
           hotel: String(row?.informacion_completa.hotel ?? ""),
-          codigo_hotel: String(row?.informacion_completa.codigo_confirmacion ?? ""),
+          codigo_hotel: String(
+            row?.informacion_completa.codigo_confirmacion ?? "",
+          ),
           razon_social: String(row?.informacion_completa.razon_social ?? ""),
           viajero: String(row?.informacion_completa.viajero ?? ""),
         },
@@ -1050,13 +1125,15 @@ export default function ConciliacionPage() {
       alert("Falta id_solicitud o id_proveedor para subir factura");
       return;
     }
-console.log("este es el item", item)
+    console.log("este es el item", item);
     setSelectedForFactura([
       {
         row_id: String(getSelectionKey(item)).trim(),
         id_solicitud: idSolicitud,
         id_proveedor: idProveedor,
-        codigo_hotel: String(item?.informacion_completa.codigo_confirmacion ?? ""),
+        codigo_hotel: String(
+          item?.informacion_completa.codigo_confirmacion ?? "",
+        ),
         razon_social: String(item?.informacion_completa.razon_social ?? ""),
         hotel: String(item?.informacion_completa.hotel ?? ""),
         viajero: String(item?.informacion_completa.viajero ?? ""),
@@ -1715,7 +1792,7 @@ console.log("este es el item", item)
         const v = String(value ?? "").toUpperCase();
         const styles: Record<string, string> = {
           FACTURADO: "text-green-700 bg-green-50 border-green-200",
-          COMPLETO: "text-green-700 bg-green-50 border-green-200",
+          COMPLETADO: "text-green-700 bg-green-50 border-green-200",
           PARCIAL: "text-amber-700 bg-amber-50 border-amber-200",
           PENDIENTE: "text-red-700 bg-red-50 border-red-200",
         };
@@ -2100,6 +2177,7 @@ console.log("este es el item", item)
             }))
           }
           onSearch={() => void buscarUuid()}
+          onDesasignar={handleDesasignarUuid}
         />
         {isLoading && (
           <div className="text-sm text-gray-500 px-2">

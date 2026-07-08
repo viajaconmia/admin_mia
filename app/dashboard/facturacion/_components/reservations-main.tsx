@@ -533,6 +533,8 @@ export const FacturacionModal: React.FC<{
       .trim()
       .slice(0, max);
 
+  const [descOverrides, setDescOverrides] = useState<Record<string, string>>({});
+
   // Observaciones (se quedan como ya lo tenías)
   const [customDescription, setCustomDescription] = useState("");
   const defaultDescription = useMemo(
@@ -1243,9 +1245,10 @@ const buildItemDescription = useCallback(
           );
           const { subtotal, iva, total } = splitIva(totalFacturado);
 
-          const descConsolidada = customConceptConsolidadaValid
-            ? sanitizeFacturamaText(customConceptConsolidada, 1000)
-            : sanitizeFacturamaText(selectedDescription, 1000);
+          const descConsolidada = descOverrides["consolidada-1"] ??
+            (customConceptConsolidadaValid
+              ? sanitizeFacturamaText(customConceptConsolidada, 1000)
+              : sanitizeFacturamaText(selectedDescription, 1000));
 
           return [
             {
@@ -1277,7 +1280,7 @@ const buildItemDescription = useCallback(
 
           return groups.map((g) => {
             const { subtotal, iva, total } = splitIva(round2(g.total));
-            const desc = buildHospedajeDescription(g);
+            const desc = descOverrides[`hospedaje-${g.key}`] ?? buildHospedajeDescription(g);
 
             return {
               Quantity: QTY_ONE,
@@ -1306,7 +1309,7 @@ const buildItemDescription = useCallback(
         // detallada_por_item
         return itemsFacturadosFull.map((it) => {
           const { subtotal, iva, total } = splitIva(round2(it.total));
-          const desc = buildHospedajeDescription(it);
+          const desc = descOverrides[`item-${it.id_item}`] ?? buildHospedajeDescription(it);
 
           return {
             Quantity: QTY_ONE,
@@ -1788,7 +1791,17 @@ const buildItemDescription = useCallback(
                           </div>
                         </td>
                         <td className="px-3 py-2 text-sm text-gray-800">
-                          <div className="break-words">{line.Description}</div>
+                          <textarea
+                            value={descOverrides[line.key] ?? line.Description}
+                            onChange={(e) =>
+                              setDescOverrides((prev) => ({
+                                ...prev,
+                                [line.key]: e.target.value,
+                              }))
+                            }
+                            rows={3}
+                            className="w-full border border-gray-200 rounded px-2 py-1 text-sm text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-400 resize-y"
+                          />
                           <div className="text-[11px] text-gray-500 mt-1">
                             Traslado IVA 002 · Tasa {line.TaxRate} · Base{" "}
                             {new Intl.NumberFormat("es-MX", {

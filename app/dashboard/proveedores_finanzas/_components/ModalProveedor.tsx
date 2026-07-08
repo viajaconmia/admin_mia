@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Fragment } from "react";
 import {
   ArchivoProveedor,
+  DatosFiscales,
   ProveedorCuenta,
   ProveedorRaw,
   ProveedoresService,
@@ -110,6 +112,8 @@ export const ModalProveedor = ({
   const [selectedCuenta, setSelectedCuenta] = useState<ProveedorCuenta | null>(
     null,
   );
+  const [datosFiscales, setDatosFiscales] = useState<DatosFiscales[]>([]);
+  const [loadingFiscales, setLoadingFiscales] = useState(false);
 
   const handleToggleActive = async (cuenta: ProveedorCuenta) => {
     try {
@@ -155,6 +159,14 @@ export const ModalProveedor = ({
     setNombreArchivo("");
 
     setLoadingCuentas(true);
+    setLoadingFiscales(true);
+
+    svc
+      .getDatosFiscales(proveedor.id)
+      .then(({ data }) => setDatosFiscales(data ?? []))
+      .catch(() => setDatosFiscales([]))
+      .finally(() => setLoadingFiscales(false));
+
     svc
       .getCuentasByProveedor(proveedor.id, true)
       .then(({ data }) => setCuentas(data))
@@ -266,6 +278,23 @@ export const ModalProveedor = ({
   };
 
   if (!proveedor) return null;
+
+  const rfcProveedor = datosFiscales[0]?.rfc ?? null;
+  const razonSocialProveedor = datosFiscales[0]?.razon_social ?? null;
+  const direccionProveedor = [
+    proveedor.calle,
+    proveedor.numero,
+    proveedor.colonia,
+    proveedor.municipio,
+    proveedor.ciudad,
+    proveedor.estado,
+    proveedor.pais,
+    proveedor.codigo_postal,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  console.log(proveedor);
 
   return (
     <>
@@ -388,6 +417,44 @@ export const ModalProveedor = ({
                 <InfoRow label="Notas de pagos" value={proveedor.notas_pagos} />
               </Section>
 
+              <Section title="Convenio">
+                <InfoRow
+                  label="Convenio"
+                  value={
+                    <Badge
+                      label={
+                        proveedor.convenio === 1
+                          ? "Con convenio"
+                          : "Sin convenio"
+                      }
+                      color={proveedor.convenio === 1 ? "green" : "gray"}
+                    />
+                  }
+                />
+                <InfoRow
+                  label="Contactos"
+                  value={proveedor.contactos_convenio}
+                />
+              </Section>
+              <Section title="Convenio">
+                <InfoRow
+                  label="Convenio"
+                  value={
+                    <Badge
+                      label={
+                        proveedor.convenio === 1
+                          ? "Con convenio"
+                          : "Sin convenio"
+                      }
+                      color={proveedor.convenio === 1 ? "green" : "gray"}
+                    />
+                  }
+                />
+                <InfoRow
+                  label="Contactos"
+                  value={proveedor.contactos_convenio}
+                />
+              </Section>
               <Section title="Convenio">
                 <InfoRow
                   label="Convenio"

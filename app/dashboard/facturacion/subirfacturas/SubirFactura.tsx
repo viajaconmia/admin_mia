@@ -1031,6 +1031,7 @@ export default function SubirFactura({
     fecha_vencimiento,
     tipoCambioData,
     propinaData,
+    editedDescriptions,
   }: {
     payload?: any;
     url?: string;
@@ -1042,6 +1043,7 @@ export default function SubirFactura({
       manual: boolean;
     };
     propinaData?: { activa: boolean; monto: number; detectada: boolean } | null;
+    editedDescriptions?: string[];
   }) => {
     try {
       setSubiendoArchivos(true);
@@ -1182,6 +1184,17 @@ export default function SubirFactura({
       const usuarioCreadorFinal =
         clienteSeleccionado?.id_agente || agentId || pagoData?.id_agente || "";
 
+      const effectiveFacturaData =
+        editedDescriptions?.length && facturaData?.conceptos
+          ? {
+              ...facturaData,
+              conceptos: facturaData.conceptos.map((c: any, i: number) => ({
+                ...c,
+                descripcion: editedDescriptions[i] ?? c.descripcion,
+              })),
+            }
+          : facturaData;
+
       const basePayload: any = {
         fecha_emision: facturaData.comprobante.fecha.split("T")[0],
         estado: "Confirmada",
@@ -1233,7 +1246,7 @@ export default function SubirFactura({
               },
             }
           : {}),
-        facturas: { facturaData },
+        facturas: { facturaData: effectiveFacturaData },
         ...(propinaData?.activa && propinaData.monto > 0
           ? {
               propina_data: {
@@ -1515,11 +1528,13 @@ export default function SubirFactura({
           batchTotalAsociar={batchTotalAsociar}
           showFechaVencimiento={!pagoData && !proveedoresData}
           proveedoresData={proveedoresData}
+          editableConceptos={!hasItems && !pagoData}
           onConfirm={(
             pdfUrl,
             fecha_vencimiento,
             tipoCambioData,
             propinaData,
+            editedDescriptions,
           ) => {
             setArchivoPDFUrl(pdfUrl);
 
@@ -1547,6 +1562,7 @@ export default function SubirFactura({
                 fecha_vencimiento,
                 tipoCambioData,
                 propinaData,
+                editedDescriptions,
               });
             }
           }}
