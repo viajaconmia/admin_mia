@@ -10,6 +10,7 @@ import {
   ProveedoresService,
 } from "@/services/ProveedoresService";
 import { useAlert } from "@/context/useAlert";
+import { DateTime } from "@/v3/atom/TableItemsComponent";
 import Modal from "@/components/organism/Modal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table } from "@/component/molecule/Table";
@@ -115,35 +116,25 @@ export const ModalProveedor = ({
   const [loadingFiscales, setLoadingFiscales] = useState(false);
 
   const handleToggleActive = async (cuenta: ProveedorCuenta) => {
-  try {
-    const nuevoEstado = cuenta.active === 1 ? 0 : 1;
+    try {
+      const nuevoEstado = cuenta.active === 1 ? 0 : 1;
 
-    await svc.updateCuentaActive(
-      cuenta.id,
-      nuevoEstado
-    );
+      await svc.updateCuentaActive(cuenta.id, nuevoEstado);
 
-    setCuentas((prev) =>
-      prev.map((c) =>
-        c.id === cuenta.id
-          ? { ...c, active: nuevoEstado }
-          : c
-      )
-    );
+      setCuentas((prev) =>
+        prev.map((c) =>
+          c.id === cuenta.id ? { ...c, active: nuevoEstado } : c,
+        ),
+      );
 
-    showNotification(
-      "success",
-      nuevoEstado === 1
-        ? "Cuenta activada"
-        : "Cuenta desactivada"
-    );
-  } catch (error) {
-    showNotification(
-      "error",
-      error.message || "Error al actualizar"
-    );
-  }
-};
+      showNotification(
+        "success",
+        nuevoEstado === 1 ? "Cuenta activada" : "Cuenta desactivada",
+      );
+    } catch (error) {
+      showNotification("error", error.message || "Error al actualizar");
+    }
+  };
   // Días crédito (editable)
   const [editingDias, setEditingDias] = useState(false);
   const [diasCredito, setDiasCredito] = useState<number | null>(null);
@@ -191,16 +182,23 @@ export const ModalProveedor = ({
   }, [proveedor?.id]);
 
   // ── Cuentas ──────────────────────────────────────────────────────────────
-
   const handleSaveCuenta = async (datos: ProveedorCuenta, caratula?: File) => {
     try {
       let response: ApiResponse<ProveedorCuenta[]>;
+
       if (selectedCuenta) {
         response = await svc.updateCuentasProveedor(datos, caratula);
       } else {
         response = await svc.createCuentasProveedor(datos, caratula);
       }
-      setCuentas(response.data);
+
+      const cuentasActualizadas = await svc.getCuentasByProveedor(
+        proveedor.id,
+        true,
+      );
+
+      setCuentas(cuentasActualizadas.data ?? []);
+
       showNotification("success", response.message);
     } catch (error) {
       showNotification("error", error.message || "Error al guardar la cuenta");
@@ -527,17 +525,50 @@ export const ModalProveedor = ({
                     banco: c.banco,
                     cuenta: c.cuenta,
                     titular: c.titular,
-
-                    rfc: proveedor.rfcs,
-                    contacto_convenio: proveedor.contactos_convenio,
-                    razon_social: razonSocialProveedor,
-                    direccion: direccionProveedor,
-                    email: c.email,
+                    correo: c,
+                    cta: c.cta,
+                    tipo_cta: c.tipo_cta,
                     caratula: c,
+                    comentario: c.comentarios,
+                    ultima_actualizacion: c.updated_at,
                     activar: c,
                     acciones: c,
                   }))}
                   renderers={{
+                    ultima_actualizacion: ({
+                      value,
+                    }: {
+                      value: string | null;
+                    }) =>
+                      value ? (
+                        <DateTime value={value} />
+                      ) : (
+                        <span className="text-xs text-gray-300">—</span>
+                      ),
+                    correo: ({ value }: { value: ProveedorCuenta }) => (
+                      <span
+                        className="text-xs text-gray-700 break-all"
+                        title={value.email || "—"}
+                      >
+                        {value.email || "—"}
+                      </span>
+                    ),
+                    tipo_cta: ({ value }: { value: string | null }) => (
+                      <span className="text-xs text-gray-700">
+                        {value || "—"}
+                      </span>
+                    ),
+                    comentario: ({ value }: { value: string | null }) => (
+                      <span className="text-xs text-gray-700">
+                        {value || "—"}
+                      </span>
+                    ),
+
+                    cta: ({ value }: { value: string | null }) => (
+                      <span className="text-xs text-gray-700">
+                        {value || "—"}
+                      </span>
+                    ),
                     caratula: ({ value }: { value: ProveedorCuenta }) =>
                       value.url_caratula ? (
                         <a
@@ -553,15 +584,18 @@ export const ModalProveedor = ({
                       ),
                     activar: ({ value }: { value: ProveedorCuenta }) => (
                       <button
-                            type="button"
-                            onClick={() => handleToggleActive(value)}
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                            value.active === 1 ? "bg-green-500" : "bg-gray-300"
-                            }`} 
-                      >
-                        <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
-                        value.active === 1 ? "translate-x-5" : "translate-x-1"
+                        type="button"
+                        onClick={() => handleToggleActive(value)}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                          value.active === 1 ? "bg-green-500" : "bg-gray-300"
                         }`}
+                      >
+                        <span
+                          className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                            value.active === 1
+                              ? "translate-x-5"
+                              : "translate-x-1"
+                          }`}
                         />
                       </button>
                     ),

@@ -18,7 +18,7 @@ type Tab = "dispersion" | "pagado_transferencia";
 
 type SolicitudRow = {
   id_solicitud_proveedor: string;
-  id_proveedor_cuenta: number | null,
+  id_proveedor_cuenta: number | null;
   proveedor: string;
   codigo_confirmacion: string;
   costo_proveedor: number;
@@ -82,7 +82,7 @@ const mapLuRow = (raw: any): SolicitudRow => {
     noches: calcularNoches(check_in, check_out),
     markup:
       costo_proveedor > 0
-        ? ((precio_de_venta - costo_proveedor) / costo_proveedor) * 100
+        ? ((precio_de_venta - costo_proveedor) / precio_de_venta) * 100
         : 0,
     banco: raw?.["banco"] ?? null,
     cuenta: raw?.["cuenta"] ?? null,
@@ -1150,30 +1150,30 @@ function RevisionPendienteModal({
           >
             Cerrar
           </button>
-        <Link
-          scroll={true}
-          href={`/dashboard/pagos_proveedor/informacion_de_la_cuenta?id_solicitud_proveedor=${row.id_solicitud_proveedor}`}
-          onClick={() => {
-            sessionStorage.setItem(
-              "cuenta_revision_pendiente",
-              JSON.stringify({
-                id_solicitud_proveedor: row.id_solicitud_proveedor,
-                proveedor: row.proveedor, //modificado2
-                id_proveedor_cuenta: row.id_proveedor_cuenta,
-                codigo_confirmacion: row.codigo_confirmacion,
-                banco: row.banco,
-                cuenta: row.cuenta,
-                titular_cuenta: row.titular_cuenta,
-                caratula: row.caratula,
-              }),
-            );
+          <Link
+            scroll={true}
+            href={`/dashboard/pagos_proveedor/informacion_de_la_cuenta?id_solicitud_proveedor=${row.id_solicitud_proveedor}`}
+            onClick={() => {
+              sessionStorage.setItem(
+                "cuenta_revision_pendiente",
+                JSON.stringify({
+                  id_solicitud_proveedor: row.id_solicitud_proveedor,
+                  proveedor: row.proveedor, //modificado2
+                  id_proveedor_cuenta: row.id_proveedor_cuenta,
+                  codigo_confirmacion: row.codigo_confirmacion,
+                  banco: row.banco,
+                  cuenta: row.cuenta,
+                  titular_cuenta: row.titular_cuenta,
+                  caratula: row.caratula,
+                }),
+              );
 
-    onClose();
-  }}
-  className="px-4 py-2 text-sm rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-medium transition-colors"
->
-  Ver información de cuenta
-</Link>
+              onClose();
+            }}
+            className="px-4 py-2 text-sm rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-medium transition-colors"
+          >
+            Ver información de cuenta
+          </Link>
         </div>
       </div>
     </div>
