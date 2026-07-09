@@ -56,6 +56,21 @@ export default function PaymentMethodSelector({
     });
   }, [cardsData]);
 
+  const closeCardModal = () => {
+    // Cierra el modal de tarjetas.
+    setOpen(false);
+
+    // Limpia la tarjeta seleccionada para que no se quede guardada
+    // visualmente si el usuario vuelve a abrir el modal.
+    setCardId("");
+
+    // Si veníamos desde AP Crédito y el usuario canceló,
+    // regresamos el select a su método original.
+    // Esto evita que se vea "Tarjeta" aunque no se haya guardado nada.
+    if (!cardOnly && currentMethod !== "card") {
+      setMethod(initialMethod);
+    }
+  };
   const openCardModal = () => {
     fetchCards();
     setOpen(true);
@@ -63,33 +78,60 @@ export default function PaymentMethodSelector({
 
   const changeMethod = async (next: "transfer" | "card") => {
     const prev = method;
+
+    // Mostramos visualmente la opción elegida.
     setMethod(next);
 
-    const ok = await onSetMethod(next);
-    if (!ok) {
-      setMethod(prev as any);
+    // Si elige Tarjeta, NO guardamos todavía.
+    // Primero abrimos el modal para que seleccione una tarjeta.
+    // El guardado real se hace en confirmCard().
+    if (next === "card") {
+      openCardModal();
       return;
     }
 
-    if (next === "card") openCardModal();
+    // Si elige Transferencia, sí guardamos de una vez.
+    const ok = await onSetMethod(next);
+
+    // Si falló el backend, regresamos el select al valor anterior.
+    if (!ok) {
+      setMethod(prev as any);
+    }
   };
 
   const confirmCard = async () => {
     if (!cardId) return;
 
+    // Buscamos la tarjeta seleccionada para obtener también el titular.
     const selectedCard = activeCards.find(
       (c: any) => String(c?.id ?? "") === cardId,
     ) as any;
+
     const idTitular = Number(
       selectedCard?.id_titular ?? selectedCard?.titular_id ?? 0,
     );
 
-    // cardId es el `id` que devuelve la ruta mia/pagar
+    // Si venimos desde AP Crédito y todavía no era "card",
+    // primero guardamos forma_pago_solicitada = card
+    // y estado_solicitud = CARTA_ENVIADA.
+    if (!cardOnly && currentMethod !== "card") {
+      const okMethod = await onSetMethod("card");
+
+      if (!okMethod) return;
+    }
+
+    // Después guardamos id_tarjeta_solicitada.
+    // Hasta que esto sale bien, la fila se mueve fuera de AP Crédito.
     const ok = await onSetCard({
       id_tarjeta_solicitada: cardId,
       id_titular: idTitular,
     });
-    if (ok) setOpen(false);
+
+    if (ok) {
+      // Cerramos y limpiamos el modal.
+      setOpen(false);
+      setCardId("");
+    }
   };
 
   return (
@@ -128,7 +170,7 @@ export default function PaymentMethodSelector({
         <div className="fixed inset-0 z-[60] flex items-center justify-center">
           <div
             className="absolute inset-0 bg-black/40"
-            onClick={() => setOpen(false)}
+            onClick={closeCardModal}
           />
           <div className="relative w-[min(480px,92vw)] rounded-xl border border-slate-200 bg-white shadow-lg">
             <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
@@ -141,7 +183,7 @@ export default function PaymentMethodSelector({
               <button
                 type="button"
                 className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-slate-200 bg-white hover:bg-slate-50"
-                onClick={() => setOpen(false)}
+                onClick={closeCardModal}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -186,7 +228,7 @@ export default function PaymentMethodSelector({
                 <button
                   type="button"
                   className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm hover:bg-slate-50"
-                  onClick={() => setOpen(false)}
+                  onClick={closeCardModal}
                 >
                   Cancelar
                 </button>

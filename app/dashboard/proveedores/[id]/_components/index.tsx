@@ -144,6 +144,7 @@ export const ModalCuentasCRUD = ({
   const [caratula, setCaratula] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const isEditCuenta = Boolean(selectedCuenta);
 
   const handleChange = (field: keyof ProveedorCuenta, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -220,52 +221,63 @@ export const ModalCuentasCRUD = ({
         {/* Cuerpo */}
         <div className="p-6 space-y-4">
           <div className="grid md:grid-cols-3 gap-4">
-            <div className="md:col-span-3">
-              <TextInput
-                label="Número de cuenta"
-                value={separarByEspacios(formData.cuenta || "", 4)}
-                onChange={(v) =>
-                  handleChange("cuenta", separarByEspacios(v, 4))
-                }
-                placeholder="4242 4242 4242 4242"
-              />
-            </div>
+            {!isEditCuenta && (
+              <>
+                <div className="md:col-span-3">
+                  <TextInput
+                    label="Número de cuenta"
+                    value={separarByEspacios(formData.cuenta || "", 4)}
+                    onChange={(v) =>
+                      handleChange("cuenta", separarByEspacios(v, 4))
+                    }
+                    placeholder="4242 4242 4242 4242"
+                  />
+                </div>
+
+                <TextInput
+                  label="Cuenta"
+                  value={formData.cta || ""}
+                  onChange={(v) => handleChange("cta", v)}
+                  placeholder="ingresa cuenta"
+                />
+
+                <TextInput
+                  label="Banco"
+                  value={formData.banco || ""}
+                  onChange={(v) => handleChange("banco", v)}
+                  placeholder="BBVA..."
+                />
+              </>
+            )}
+
             <TextInput
               label="Correo"
               value={formData.email || ""}
               onChange={(v) => handleChange("email", v)}
               placeholder="ingresa Correo"
             />
-            <TextInput
-              label="Tipo de cuenta"
-              value={formData.tipo_cta || ""}
-              onChange={(v) => handleChange("tipo_cta", v)}
-              placeholder="ingresa tipo de cuenta"
-            />
-            <TextInput
-              label="Cuenta"
-              value={formData.cta || ""}
-              onChange={(v) => handleChange("cta", v)}
-              placeholder="ingresa cuenta"
-            />
-            <TextInput
-              label="Banco"
-              value={formData.banco || ""}
-              onChange={(v) => handleChange("banco", v)}
-              placeholder="BBVA..."
-            />
+
             <TextInput
               label="Alias"
               value={formData.alias || ""}
               onChange={(v) => handleChange("alias", v)}
               placeholder="Cuenta Principal"
             />
+
             <TextInput
               label="Titular"
               value={formData.titular || ""}
               onChange={(v) => handleChange("titular", v)}
               placeholder="Ernesto Bravo"
             />
+
+            <TextInput
+              label="Tipo de cuenta"
+              value={formData.tipo_cta || ""}
+              onChange={(v) => handleChange("tipo_cta", v)}
+              placeholder="ingresa tipo de cuenta"
+            />
+
             <TextAreaInput
               label="Comentarios"
               className="md:col-span-3"

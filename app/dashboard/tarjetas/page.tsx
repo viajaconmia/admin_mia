@@ -95,22 +95,36 @@ export default function TarjetasCrudTable5() {
   const [editingTarjetaId, setEditingTarjetaId] = useState<string | null>(null);
   const [editingTitularId, setEditingTitularId] = useState<number | null>(null);
 
-  const [formTarjeta, setFormTarjeta] = useState<Partial<Tarjeta>>(emptyFormTarjeta());
-  const [formTitular, setFormTitular] = useState<Partial<Titular>>(emptyFormTitular());
+  const [formTarjeta, setFormTarjeta] =
+    useState<Partial<Tarjeta>>(emptyFormTarjeta());
+  const [formTitular, setFormTitular] =
+    useState<Partial<Titular>>(emptyFormTitular());
 
   // ===== Permisos de VISTA =====
   const canViewTarjetas = hasPermission(PERMISOS.VISTAS.MIA_TARJETAS);
   const canViewTitulares = hasPermission(PERMISOS.VISTAS.MIA_TITULARES);
 
   // ===== Permisos de ACCIONES (tarjetas) =====
-  const canCreateTarjeta = hasPermission(PERMISOS.COMPONENTES.BOTON.MIA_TARJETAS_CREAR);
-  const canEditTarjeta = hasPermission(PERMISOS.COMPONENTES.BOTON.MIA_TARJETAS_EDITAR);
-  const canDeleteTarjeta = hasPermission(PERMISOS.COMPONENTES.BOTON.MIA_TARJETAS_ELIMINAR);
+  const canCreateTarjeta = hasPermission(
+    PERMISOS.COMPONENTES.BOTON.MIA_TARJETAS_CREAR,
+  );
+  const canEditTarjeta = hasPermission(
+    PERMISOS.COMPONENTES.BOTON.MIA_TARJETAS_EDITAR,
+  );
+  const canDeleteTarjeta = hasPermission(
+    PERMISOS.COMPONENTES.BOTON.MIA_TARJETAS_ELIMINAR,
+  );
 
   // ===== Permisos de ACCIONES (titulares) =====
-  const canCreateTitular = hasPermission(PERMISOS.COMPONENTES.BOTON.MIA_TITULARES_CREAR);
-  const canEditTitular = hasPermission(PERMISOS.COMPONENTES.BOTON.MIA_TITULARES_EDITAR);
-  const canDeleteTitular = hasPermission(PERMISOS.COMPONENTES.BOTON.MIA_TITULARES_ELIMINAR);
+  const canCreateTitular = hasPermission(
+    PERMISOS.COMPONENTES.BOTON.MIA_TITULARES_CREAR,
+  );
+  const canEditTitular = hasPermission(
+    PERMISOS.COMPONENTES.BOTON.MIA_TITULARES_EDITAR,
+  );
+  const canDeleteTitular = hasPermission(
+    PERMISOS.COMPONENTES.BOTON.MIA_TITULARES_ELIMINAR,
+  );
 
   const canSubmitCurrent =
     view === "tarjetas"
@@ -118,8 +132,8 @@ export default function TarjetasCrudTable5() {
         ? canCreateTarjeta
         : canEditTarjeta
       : mode === "create"
-      ? canCreateTitular
-      : canEditTitular;
+        ? canCreateTitular
+        : canEditTitular;
 
   // -------------------------
   // Guardia de vista
@@ -130,8 +144,10 @@ export default function TarjetasCrudTable5() {
       return;
     }
 
-    if (view === "tarjetas" && !canViewTarjetas && canViewTitulares) setView("titulares");
-    if (view === "titulares" && !canViewTitulares && canViewTarjetas) setView("tarjetas");
+    if (view === "tarjetas" && !canViewTarjetas && canViewTitulares)
+      setView("titulares");
+    if (view === "titulares" && !canViewTitulares && canViewTarjetas)
+      setView("tarjetas");
   }, [canViewTarjetas, canViewTitulares, view, router]);
 
   // -------------------------
@@ -268,8 +284,8 @@ export default function TarjetasCrudTable5() {
     const ok = confirm(
       `¿Eliminar la tarjeta "${t.alias ?? "Sin alias"}" (${maskCard(
         t.numero_completo,
-        t.ultimos_4
-      )})?`
+        t.ultimos_4,
+      )})?`,
     );
     if (!ok) return;
 
@@ -372,7 +388,9 @@ export default function TarjetasCrudTable5() {
   const handleDeleteTitular = async (t: Titular) => {
     if (!canDeleteTitular) return;
 
-    const ok = confirm(`¿Eliminar el titular "${t.Titular}" (id: ${t.idTitular})?`);
+    const ok = confirm(
+      `¿Eliminar el titular "${t.Titular}" (id: ${t.idTitular})?`,
+    );
     if (!ok) return;
 
     try {
@@ -638,11 +656,14 @@ export default function TarjetasCrudTable5() {
         ]
       : ["idTitular", "Titular", "identificacion", "acciones"];
 
-  const handleReload = () => (view === "tarjetas" ? fetchTarjetas() : fetchTitulares());
+  const handleReload = () =>
+    view === "tarjetas" ? fetchTarjetas() : fetchTitulares();
 
-  const handleCreate = () => (view === "tarjetas" ? openCreateTarjeta() : openCreateTitular());
+  const handleCreate = () =>
+    view === "tarjetas" ? openCreateTarjeta() : openCreateTitular();
 
-  const handleSubmit = () => (view === "tarjetas" ? handleSubmitTarjeta() : handleSubmitTitular());
+  const handleSubmit = () =>
+    view === "tarjetas" ? handleSubmitTarjeta() : handleSubmitTitular();
 
   // Si cambias la vista, por seguridad cerramos modal
   const toggleView = (next: ViewMode) => {
@@ -670,7 +691,9 @@ export default function TarjetasCrudTable5() {
             <div className="flex items-center gap-3">
               <span
                 className={`text-sm ${
-                  view === "tarjetas" ? "font-semibold text-gray-900" : "text-gray-500"
+                  view === "tarjetas"
+                    ? "font-semibold text-gray-900"
+                    : "text-gray-500"
                 }`}
               >
                 Tarjetas
@@ -678,7 +701,9 @@ export default function TarjetasCrudTable5() {
 
               <button
                 type="button"
-                onClick={() => toggleView(view === "tarjetas" ? "titulares" : "tarjetas")}
+                onClick={() =>
+                  toggleView(view === "tarjetas" ? "titulares" : "tarjetas")
+                }
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition ${
                   view === "titulares" ? "bg-blue-600" : "bg-gray-300"
                 } ${!canToggle ? "opacity-50 cursor-not-allowed" : ""}`}
@@ -694,7 +719,9 @@ export default function TarjetasCrudTable5() {
 
               <span
                 className={`text-sm ${
-                  view === "titulares" ? "font-semibold text-gray-900" : "text-gray-500"
+                  view === "titulares"
+                    ? "font-semibold text-gray-900"
+                    : "text-gray-500"
                 }`}
               >
                 Titulares
@@ -743,7 +770,9 @@ export default function TarjetasCrudTable5() {
 
           {isLoading ? (
             <div className="py-10 text-center text-sm text-gray-600">
-              {view === "tarjetas" ? "Cargando tarjetas..." : "Cargando titulares..."}
+              {view === "tarjetas"
+                ? "Cargando tarjetas..."
+                : "Cargando titulares..."}
             </div>
           ) : (
             <Table5<any>
@@ -769,8 +798,8 @@ export default function TarjetasCrudTable5() {
                     ? "Crear tarjeta"
                     : "Editar tarjeta"
                   : mode === "create"
-                  ? "Crear titular"
-                  : "Editar titular"}
+                    ? "Crear titular"
+                    : "Editar titular"}
               </h3>
 
               <button
@@ -784,59 +813,78 @@ export default function TarjetasCrudTable5() {
 
             <div className="p-4 space-y-4">
               {view === "tarjetas" ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1  gap-3">
                   <Field
                     label="Alias"
                     value={formTarjeta.alias ?? ""}
-                    onChange={(v) => setFormTarjeta((p) => ({ ...p, alias: v }))}
-                  />
-
-                  <Field
-                    label="Número completo"
-                    value={formTarjeta.numero_completo ?? ""}
                     onChange={(v) =>
-                      setFormTarjeta((p) => ({
-                        ...p,
-                        numero_completo: v,
-                        ultimos_4: computeLast4(v),
-                      }))
+                      setFormTarjeta((p) => ({ ...p, alias: v }))
                     }
-                    placeholder="Opcional (si lo manejas)"
                   />
 
-                  <Field
-                    label="Últimos 4"
-                    value={formTarjeta.ultimos_4 ?? ""}
-                    onChange={(v) => setFormTarjeta((p) => ({ ...p, ultimos_4: v }))}
-                    placeholder="Se calcula automático"
-                  />
+                  {mode === "create" && (
+                    <>
+                      <Field
+                        label="Número completo"
+                        value={formTarjeta.numero_completo ?? ""}
+                        onChange={(v) =>
+                          setFormTarjeta((p) => ({
+                            ...p,
+                            numero_completo: v,
+                            ultimos_4: computeLast4(v),
+                          }))
+                        }
+                        placeholder="Opcional (si lo manejas)"
+                      />
 
-                  <Field
-                    label="Banco emisor"
-                    value={formTarjeta.banco_emisor ?? ""}
-                    onChange={(v) => setFormTarjeta((p) => ({ ...p, banco_emisor: v }))}
-                  />
+                      <Field
+                        label="Últimos 4"
+                        value={formTarjeta.ultimos_4 ?? ""}
+                        onChange={(v) =>
+                          setFormTarjeta((p) => ({ ...p, ultimos_4: v }))
+                        }
+                        placeholder="Se calcula automático"
+                      />
 
-                  <Field
-                    label="Tipo tarjeta"
-                    value={formTarjeta.tipo_tarjeta ?? ""}
-                    onChange={(v) => setFormTarjeta((p) => ({ ...p, tipo_tarjeta: v }))}
-                    placeholder="crédito / débito / etc"
-                  />
+                      <Field
+                        label="Banco emisor"
+                        value={formTarjeta.banco_emisor ?? ""}
+                        onChange={(v) =>
+                          setFormTarjeta((p) => ({ ...p, banco_emisor: v }))
+                        }
+                      />
 
-                  <Field
-                    label="Fecha vencimiento"
-                    value={formTarjeta.fecha_vencimiento ?? ""}
-                    onChange={(v) => setFormTarjeta((p) => ({ ...p, fecha_vencimiento: v }))}
-                    placeholder="Ej: 12/27"
-                  />
+                      <Field
+                        label="Tipo tarjeta"
+                        value={formTarjeta.tipo_tarjeta ?? ""}
+                        onChange={(v) =>
+                          setFormTarjeta((p) => ({ ...p, tipo_tarjeta: v }))
+                        }
+                        placeholder="crédito / débito / etc"
+                      />
 
-                  <Field
-                    label="CVV"
-                    value={formTarjeta.cvv ?? ""}
-                    onChange={(v) => setFormTarjeta((p) => ({ ...p, cvv: v }))}
-                    placeholder="Opcional"
-                  />
+                      <Field
+                        label="Fecha vencimiento"
+                        value={formTarjeta.fecha_vencimiento ?? ""}
+                        onChange={(v) =>
+                          setFormTarjeta((p) => ({
+                            ...p,
+                            fecha_vencimiento: v,
+                          }))
+                        }
+                        placeholder="Ej: 12/27"
+                      />
+
+                      <Field
+                        label="CVV"
+                        value={formTarjeta.cvv ?? ""}
+                        onChange={(v) =>
+                          setFormTarjeta((p) => ({ ...p, cvv: v }))
+                        }
+                        placeholder="Opcional"
+                      />
+                    </>
+                  )}
 
                   <div className="flex items-end gap-2">
                     <label className="text-sm text-gray-700">Activa</label>
@@ -844,7 +892,10 @@ export default function TarjetasCrudTable5() {
                       type="checkbox"
                       checked={toBool(formTarjeta.activa)}
                       onChange={(e) =>
-                        setFormTarjeta((p) => ({ ...p, activa: e.target.checked }))
+                        setFormTarjeta((p) => ({
+                          ...p,
+                          activa: e.target.checked,
+                        }))
                       }
                       className="h-4 w-4"
                     />
@@ -855,12 +906,16 @@ export default function TarjetasCrudTable5() {
                   <Field
                     label="Titular"
                     value={formTitular.Titular ?? ""}
-                    onChange={(v) => setFormTitular((p) => ({ ...p, Titular: v }))}
+                    onChange={(v) =>
+                      setFormTitular((p) => ({ ...p, Titular: v }))
+                    }
                     placeholder="Nombre del titular"
                   />
 
                   <div className="flex flex-col gap-2">
-                    <label className="text-sm text-gray-700">Identificación (PDF)</label>
+                    <label className="text-sm text-gray-700">
+                      Identificación (PDF)
+                    </label>
 
                     <InputToS3
                       setUrl={(url) => {
@@ -882,14 +937,21 @@ export default function TarjetasCrudTable5() {
                           Ver archivo
                         </a>
                       ) : (
-                        <span className="text-xs text-gray-500">Sin archivo</span>
+                        <span className="text-xs text-gray-500">
+                          Sin archivo
+                        </span>
                       )}
 
                       {formTitular.identificacion ? (
                         <button
                           type="button"
                           className="text-xs px-2 py-1 rounded border bg-gray-50 hover:bg-gray-100"
-                          onClick={() => setFormTitular((p) => ({ ...p, identificacion: null }))}
+                          onClick={() =>
+                            setFormTitular((p) => ({
+                              ...p,
+                              identificacion: null,
+                            }))
+                          }
                           disabled={saving}
                         >
                           Quitar
@@ -917,9 +979,17 @@ export default function TarjetasCrudTable5() {
                   onClick={handleSubmit}
                   className="text-sm px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-400"
                   disabled={saving || !canSubmitCurrent}
-                  title={!canSubmitCurrent ? "No tienes permiso para esta acción" : undefined}
+                  title={
+                    !canSubmitCurrent
+                      ? "No tienes permiso para esta acción"
+                      : undefined
+                  }
                 >
-                  {saving ? "Guardando..." : mode === "create" ? "Crear" : "Guardar cambios"}
+                  {saving
+                    ? "Guardando..."
+                    : mode === "create"
+                      ? "Crear"
+                      : "Guardar cambios"}
                 </button>
               </div>
 

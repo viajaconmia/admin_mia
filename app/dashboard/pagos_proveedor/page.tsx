@@ -59,6 +59,10 @@ function App() {
     counts,
     bucketData,
     fetchBucket,
+
+    // Función para quitar/mover una fila sin recargar toda la tabla.
+    moverSolicitudLocalmente,
+
     loading,
     filters,
     setFilters,
@@ -510,6 +514,9 @@ function App() {
         patchSolicitudProveedor,
         patchSolicitudProveedorFields,
         handleFetchSolicitudesPago: handleFetchCurrentBucket,
+
+        moverSolicitudLocalmente,
+
         marcarSolicitudPagada,
         cancelSolicitud,
         conciliarSolicitud,
@@ -530,6 +537,9 @@ function App() {
       patchSolicitudProveedor,
       patchSolicitudProveedorFields,
       handleFetchCurrentBucket,
+
+      moverSolicitudLocalmente,
+
       marcarSolicitudPagada,
       cancelSolicitud,
       conciliarSolicitud,
