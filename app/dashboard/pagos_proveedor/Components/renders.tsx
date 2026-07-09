@@ -690,6 +690,15 @@ export function createSolicitudesRenderers({
       </div>
     ),
 
+    codigo_confirmacion: ({ value }) => (
+      <span
+        className="font-mono text-[9px] break-words"
+        title={String(value ?? "")}
+      >
+        {String(value ?? "")}
+      </span>
+    ),
+
     monto_solicitado: ({ value, item }) => {
       const raw = (item as any)?.item ?? item;
       const id = getIdSolProv(raw);
