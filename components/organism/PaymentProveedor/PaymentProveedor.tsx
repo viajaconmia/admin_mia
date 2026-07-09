@@ -547,7 +547,8 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
       bancoEmisor: currentSelectedCard.banco_emisor,
       fechaExpiracion: currentSelectedCard.fecha_vencimiento,
       documento: titularFromSelectedCard?.identificacion || document || "",
-      nombreTarjeta: SelectedTtular?.Titular ?? titularFromSelectedCard?.Titular ?? "",
+      nombreTarjeta:
+        SelectedTtular?.Titular ?? titularFromSelectedCard?.Titular ?? "",
       numeroTarjeta: currentSelectedCard.numero_completo,
       cvv: currentSelectedCard.cvv,
       reservations: [
@@ -629,7 +630,11 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
         if (paymentMethod === "transfer") {
           if (!effectiveDate) throw new Error("Selecciona la fecha estimada.");
           paymentSchedulePayload = [
-            { fecha_pago: effectiveDate, hora: effectiveHora, monto: monto_a_pagar },
+            {
+              fecha_pago: effectiveDate,
+              hora: effectiveHora,
+              monto: monto_a_pagar,
+            },
           ];
         }
       }
@@ -1040,7 +1045,6 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
 
               {/* Fecha estimada SOLO para transferencia */}
               {paymentMethod === "transfer" && (
-
                 <div className="grid grid-cols-2 gap-2">
                   <DateInput
                     label="Fecha estimada de pago"
@@ -1111,9 +1115,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                           <th className="text-left font-semibold p-2">
                             Fecha de pago
                           </th>
-                          <th className="text-left font-semibold p-2">
-                            Hora
-                          </th>
+                          <th className="text-left font-semibold p-2">Hora</th>
                           <th className="text-left font-semibold p-2">Monto</th>
                           <th className="text-right font-semibold p-2">
                             Acción

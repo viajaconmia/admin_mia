@@ -15,7 +15,8 @@ type PrepaidCardOrLinkPayment = PaymentBase & {
   paymentType: "prepaid";
   paymentMethod: "card" | "link";
   selectedCard: any; // puedes cambiar esto por el tipo correcto
-  comments_cxp:any
+  comments_cxp: any;
+  referencia_pago: any;
 };
 
 type PrepaidTransferPayment = PaymentBase & {

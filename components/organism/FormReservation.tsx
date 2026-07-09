@@ -38,6 +38,12 @@ import { useProveedor } from "@/context/Proveedores";
 import { Loader } from "../atom/Loader";
 import Modal from "./Modal";
 import { GuardadoRapido } from "../template/GuardadoRapido";
+import { BookingsService } from "@/services/BookingService";
+import { formatDate } from "@/helpers/formater";
+import {
+  guardarReserva,
+  verificarYConfirmarTraslape,
+} from "@/lib/helpers/traslapes";
 
 interface ReservationFormProps {
   solicitud?: Solicitud & {
@@ -423,35 +429,16 @@ export function ReservationForm({
       if (form.check_in > form.check_out)
         throw new Error("Las fechas son invalidas");
 
-      const validateReservation = await codigo_reserva(
-        form.codigo_reservacion_hotel,
-      );
+      const puede = await verificarYConfirmarTraslape({
+        id_viajero: form.viajero.id_viajero,
+        check_in: form.check_in,
+        check_out: form.check_out,
+      });
 
-      // 1) Si falta código (tu fetch regresa { error: true, message: "Falta codigo_reserva" })
-      if (validateReservation?.error) {
-        showNotification(
-          "error",
-          validateReservation.message || "Falta código de reservación",
-        );
+      if (!puede) {
         setLoading(false);
         return;
       }
-
-      // 2) Solo bloquear cuando venga EXACTAMENTE duplicado:
-      // {"ok":false,"exists":true,"message":"Ya existe"}
-      if (
-        validateReservation?.ok === false &&
-        validateReservation?.exists === true
-      ) {
-        showNotification(
-          "error",
-          validateReservation.message || "Ya existe codigo de reservacion",
-        );
-        setLoading(false);
-        return;
-      }
-
-      // 3) Continuar flujo normal
       const saldo = await updateAgentWallet();
 
       if (saldo < form.venta.total) {
@@ -486,11 +473,21 @@ export function ReservationForm({
   };
 
   const handleprocesar = async () => {
-    //agregar funcion
     if (form.check_in > form.check_out)
       throw new Error("Las fechas son invalidas");
-    fetchCreateReservaFromSolicitud(
-      { ...form, nuevo_incluye_desayuno, acompanantes, meta: { ...solicitud } },
+    guardarReserva(
+      fetchCreateReservaFromSolicitud,
+      {
+        ...form,
+        nuevo_incluye_desayuno,
+        acompanantes,
+        meta: { ...solicitud },
+      },
+      {
+        check_in: form.check_in,
+        check_out: form.check_out,
+        id_viajero: form.viajero.id_viajero,
+      },
       (data) => {
         if (data.error) {
           alert("Error al crear la reserva");
@@ -509,27 +506,22 @@ export function ReservationForm({
     try {
       if (form.check_in > form.check_out)
         throw new Error("Las fechas son invalidas");
-      const validateReservation = await codigo_reserva(
-        form.codigo_reservacion_hotel,
-      );
-      if (
-        validateReservation?.ok === false &&
-        validateReservation?.exists === true
-      ) {
-        showNotification(
-          "error",
-          validateReservation.message || "Ya existe codigo de reservacion",
-        );
-        setLoading(false);
-        return;
-      }
-      await fetchCreateReservaOperaciones({
-        ...form,
-        nuevo_incluye_desayuno,
-        acompanantes,
-        bandera: 0,
-        intermediario,
-      })
+
+      guardarReserva(
+        fetchCreateReservaOperaciones,
+        {
+          ...form,
+          nuevo_incluye_desayuno,
+          acompanantes,
+          bandera: 0,
+          intermediario,
+        },
+        {
+          check_in: form.check_in,
+          check_out: form.check_out,
+          id_viajero: form.viajero.id_viajero,
+        },
+      )
         .then((data) => {
           alert("Se creo correctamente la reservación");
           setLoading(false);
@@ -558,14 +550,23 @@ export function ReservationForm({
     setLoading(true);
     try {
       console.log("Ejecutando reserva con process request");
-      await fetchCreateReservaOperaciones({
-        ...form,
-        nuevo_incluye_desayuno,
-        acompanantes,
-        bandera: 0,
-        usuarioCreador,
-        intermediario,
-      })
+
+      await guardarReserva(
+        fetchCreateReservaOperaciones,
+        {
+          ...form,
+          nuevo_incluye_desayuno,
+          acompanantes,
+          bandera: 0,
+          usuarioCreador,
+          intermediario,
+        },
+        {
+          id_viajero: form.viajero.id_viajero,
+          check_in: form.check_in,
+          check_out: form.check_out,
+        },
+      )
         .then((data) => {
           alert("Se creo correctamente la reservación");
           setLoading(false);
@@ -1540,10 +1541,10 @@ export function ReservationForm({
       {showPagarModal && reservaData && (
         <PagarModalComponent
           onClose={() => setShowPagarModal(false)}
-          onEnd={() => {
-            setShowPagarModal(false);
-            onClose();
-          }}
+          // onEnd={() => {
+          //   setShowPagarModal(false);
+          //   onClose();
+          // }}
           reservaData={reservaData}
           open={showPagarModal}
         />

@@ -676,6 +676,14 @@ export default function ConciliacionPage() {
     fecha_reserva_start: "Fecha reserva desde",
     fecha_reserva_end: "Fecha reserva hasta",
     filtrar_fecha_por_reserva: "Filtrar fecha por",
+    canal_de_reservacion: "Canal de reservación",
+    nombre_intermediario: "Nombre intermediario",
+    forma_pago_solicitada: "Estatus de pago",
+    estado_solicitud: "Estatus de pago",
+
+    reservante: "Reservante",
+    comentario_AP: "Comentarios Ajustes Costos Finanzas",
+    reserva_diferencia: "Hay diferencia",
 
     comentarios: "Comentarios Ops",
     comentario_CXP: "Comentario CXP",
@@ -847,14 +855,8 @@ export default function ConciliacionPage() {
     });
     router.replace(`${pathName}?${params.toString()}`); // // Actualiza la URL con los filtros sin recargar la página
 
-    void load(next, 1) // Consulta los datos usando los filtros y la página 1
-
+    void load(next, 1); // Consulta los datos usando los filtros y la página 1
   }, [filters, load, pathName, router]); // Por que se agrega pathName y router?
-
-
-
-
-
 
   const clearAllFilters = useCallback(() => {
     setFilters(EMPTY_FILTERS);
