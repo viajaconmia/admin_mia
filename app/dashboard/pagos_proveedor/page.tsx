@@ -172,7 +172,7 @@ function App() {
           carpeta: categoria,
           facturas_acciones: "",
           codigo_confirmacion:
-            item.codigo_confirmacion || item.id_confirmacion || "",
+            item.id_confirmacion || item.codigo_confirmacion || "",
           creado: item.created_at,
           proveedor: (item.hotel || "").toUpperCase(),
           intermediario: (item.intermediario || "").toUpperCase(),
