@@ -8,8 +8,9 @@ import {
   MarginPercent,
 } from "@/component/atom/ItemTable";
 import { Table } from "@/component/molecule/Table";
+import { fetchHotelEdicion } from "@/services/solicitudes";
 import Button from "@/components/atom/Button";
-import { ReservationEditContainer } from "@/components/organism/FormReservation2";
+import { ReservationForm2 } from "@/components/organism/FormReservation2";
 import Modal from "@/components/organism/Modal";
 import { PaymentModal } from "@/components/organism/PaymentProveedor/PaymentProveedor";
 import { ROUTES } from "@/constant/routes";
@@ -62,7 +63,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     id: string;
     agente: { id_agente: string; nombre: string };
   } | null>(null);
-  const [selectedEdit, setSelectedEdit] = useState<string>(null);
+  const [selectedEdit, setSelectedEdit] = useState<any | null>(null);
   const [comprobanteIdSolicitud, setComprobanteIdSolicitud] = useState<
     string | null
   >(null);
@@ -230,7 +231,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
                 variant="ghost"
                 size="sm"
                 onClick={() => {
-                  handleEdicion(type, id, agente);
+                  handleEdicion(type, id, agente, id_booking);
                 }}
               >
                 Editar
@@ -304,15 +305,41 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     }
   };
 
-  const handleEdicion = (
+  const handleEdicion = async (
     type: string,
     id: string,
     agente: { id_agente: string; nombre: string },
+    id_booking?: string,
   ) => {
     if (type == "car_rental") return;
+
     if (type == "hotel") {
-      setSelectedEdit(id);
+      try {
+        setLoading(true);
+
+        if (!id_booking) {
+          throw new Error("No se encontró el id_booking de la reserva");
+        }
+
+        console.log("LLAMANDO EDICION HOTEL V2:", id_booking);
+
+        const detalle = await fetchHotelEdicion(id_booking);
+
+        console.log("DETALLE HOTEL EDICION V2:", detalle);
+
+        setSelectedEdit(detalle);
+      } catch (error: any) {
+        showNotification(
+          "error",
+          error.message || "Error al cargar detalle de edición",
+        );
+      } finally {
+        setLoading(false);
+      }
+
+      return;
     }
+
     if (type == "flyght") {
       setEditVuelo({ id, agente });
     }
@@ -572,8 +599,10 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
           title="Editar reserva"
           subtitle="Modifica los detalles de una reservación anteriormente procesada."
         >
-          <ReservationEditContainer
-            id_solicitud={selectedEdit}
+          <ReservationForm2
+            hoteles={[]}
+            solicitud={selectedEdit}
+            edicion={true}
             onClose={() => {
               setSelectedEdit(null);
               handleFetchSolicitudes();
