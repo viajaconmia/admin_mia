@@ -9,6 +9,8 @@ import { useAlert } from "@/context/useAlert";
 import { FilterInput } from "@/component/atom/FilterInput";
 import useApi from "@/hooks/useApi";
 import ModalDetalleFactura from "@/app/dashboard/invoices/_components/detalles";
+import Modal from "@/components/organism/Modal";
+import { ReservasPendientesFacturaContainer } from "@/angel/components/ReservasPendientesFacturaContainer";
 
 const PAGE_SIZE = 50;
 
@@ -28,7 +30,11 @@ export default function InvoicesPage() {
   const [loading, setLoading] = useState(false);
   const [tracking, setTracking] = useState<track.TypeTracking>(track.initial);
   const [filtros, setFiltros] = useState<Filtros>({});
+  const [needRefresh, setNeedRefresh] = useState(false);
   const [detalleId, setDetalleId] = useState<string | null>(null);
+  const [detalleFactura, setDetalleFactura] =
+    useState<schema.FacturaFiltradaRaw | null>(null);
+  const [asignarOpen, setAsignarOpen] = useState(false);
   const { error } = useAlert();
   const { descargarFactura, descargarFacturaXML } = useApi();
 
@@ -164,15 +170,38 @@ export default function InvoicesPage() {
         loading={loading}
         renderers={schema.createFacturaRenderers({
           onDescargar: handleDescargar,
-          onVerDetalle: setDetalleId,
+          onVerDetalle: (id, factura) => {
+            setDetalleId(id);
+            setDetalleFactura(factura);
+          },
+          onAsignar: (_, factura) => {
+            setDetalleFactura(factura);
+            setAsignarOpen(true);
+          },
         })}
       />
 
       <ModalDetalleFactura
         open={detalleId !== null}
-        onClose={() => setDetalleId(null)}
+        onClose={() => {
+          if (needRefresh) {
+            fetchFacturas();
+            setNeedRefresh(false);
+          }
+          setDetalleId(null);
+          setDetalleFactura(null);
+        }}
+        onDelete={() => setNeedRefresh(true)}
         id_factura={detalleId}
       />
+
+      {asignarOpen && detalleFactura && (
+        <Modal onClose={() => setAsignarOpen(false)}>
+          <ReservasPendientesFacturaContainer
+            id_agente={(detalleFactura as any).id_agente}
+          />
+        </Modal>
+      )}
     </div>
   );
 }

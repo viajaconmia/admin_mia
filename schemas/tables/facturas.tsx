@@ -2,7 +2,7 @@
 
 import { DateTime, Precio } from "@/v3/atom/TableItemsComponent";
 import Button from "@/components/atom/Button";
-import { FileText, FileDown, Download, Eye } from "lucide-react";
+import { FileText, FileDown, Download, Eye, FilePlus } from "lucide-react";
 
 export type FacturaFiltradaRaw = {
   id_factura: string;
@@ -43,7 +43,7 @@ export type FacturaItem = Pick<
   cliente: string;
   saldo_reservas: string;
   documentos: FacturaFiltradaRaw;
-  acciones: string;
+  acciones: FacturaFiltradaRaw;
 };
 
 export const mapFactura = (factura: FacturaFiltradaRaw): FacturaItem => ({
@@ -61,7 +61,7 @@ export const mapFactura = (factura: FacturaFiltradaRaw): FacturaItem => ({
   saldo_reservas: factura.saldo_x_aplicar_items,
   fecha_emision: factura.fecha_emision,
   documentos: factura,
-  acciones: factura.id_factura,
+  acciones: factura,
 });
 
 type DescargarFn = (
@@ -72,7 +72,8 @@ type DescargarFn = (
 
 export const createFacturaRenderers = (opts?: {
   onDescargar?: DescargarFn;
-  onVerDetalle?: (id_factura: string) => void;
+  onVerDetalle?: (id_factura: string, factura: FacturaFiltradaRaw) => void;
+  onAsignar?: (id_factura: string, factura: FacturaFiltradaRaw) => void;
 }) => ({
   estado: ({ value }: { value: string }) => {
     const style =
@@ -134,11 +135,18 @@ export const createFacturaRenderers = (opts?: {
       </div>
     );
   },
-  acciones: ({ value }: { value: string }) => {
+  acciones: ({ value }: { value: FacturaFiltradaRaw }) => {
     return (
-      <Button size="sm" icon={Eye} onClick={() => opts.onVerDetalle!(value)}>
-        Detalles
-      </Button>
+      <div className="flex items-center gap-2">
+        <Button size="sm" icon={Eye} onClick={() => opts?.onVerDetalle?.(value.id_factura, value)}>
+          Detalles
+        </Button>
+        {opts?.onAsignar && (
+          <Button size="sm" variant="secondary" icon={FilePlus} onClick={() => opts.onAsignar!(value.id_factura, value)}>
+            Asignar
+          </Button>
+        )}
+      </div>
     );
   },
 });

@@ -40,6 +40,9 @@ interface ModalDetalleFacturaProps {
   setDetalleFacturaData?: (v: DetalleFacturaData | null) => void;
 
   title?: string;
+
+  /** Se llama cuando se desasocia una reserva, para que el padre marque needRefresh */
+  onDelete?: () => void;
 }
 
 /* ===================== Helpers ===================== */
@@ -139,6 +142,7 @@ const ModalDetalleFactura: React.FC<ModalDetalleFacturaProps> = ({
   id_factura,
   setDetalleFacturaData,
   title = "Detalles de factura",
+  onDelete,
 }) => {
   // Estado fetch
   const [loading, setLoading] = useState(false);
@@ -291,6 +295,7 @@ const ModalDetalleFactura: React.FC<ModalDetalleFacturaProps> = ({
         }
 
         setMensajeAccion("Relación eliminada correctamente.");
+        onDelete?.();
 
         setData((prev) => {
           if (!prev) return prev;
