@@ -2,7 +2,7 @@
 
 import { DateTime, Precio } from "@/v3/atom/TableItemsComponent";
 import Button from "@/components/atom/Button";
-import { FileText, FileDown } from "lucide-react";
+import { FileText, FileDown, Download, Eye } from "lucide-react";
 
 export type FacturaFiltradaRaw = {
   id_factura: string;
@@ -26,6 +26,7 @@ export type FacturaFiltradaRaw = {
   fecha_vencimiento: string | null;
   url_pdf: string | null;
   url_xml: string | null;
+  id_facturama: string | null;
 };
 
 export type FacturaItem = Pick<
@@ -37,15 +38,15 @@ export type FacturaItem = Pick<
   | "total"
   | "saldo"
   | "fecha_emision"
-  | "fecha_vencimiento"
 > & {
   cliente: string;
   documentos: FacturaFiltradaRaw;
+  acciones: string;
 };
 
 export const mapFactura = (factura: FacturaFiltradaRaw): FacturaItem => ({
   cliente:
-    factura.razon_social || factura.nombre_receptor || factura.nombre || "—",
+    factura.nombre || factura.razon_social || factura.nombre_receptor || "—",
   rfc: factura.rfc_receptor || factura.rfc,
   folio: factura.folio,
   uuid_factura: factura.uuid_factura,
@@ -53,11 +54,20 @@ export const mapFactura = (factura: FacturaFiltradaRaw): FacturaItem => ({
   total: factura.total,
   saldo: factura.saldo_insoluto ?? factura.saldo,
   fecha_emision: factura.fecha_emision,
-  fecha_vencimiento: factura.fecha_vencimiento,
   documentos: factura,
+  acciones: factura.id_factura,
 });
 
-export const createFacturaRenderers = () => ({
+type DescargarFn = (
+  id_facturama: string,
+  tipo: "pdf" | "xml",
+  nombre?: string,
+) => void;
+
+export const createFacturaRenderers = (opts?: {
+  onDescargar?: DescargarFn;
+  onVerDetalle?: (id_factura: string) => void;
+}) => ({
   estado: ({ value }: { value: string }) => {
     const style =
       ESTADO_STYLES[value?.toLowerCase()] ??
@@ -73,27 +83,57 @@ export const createFacturaRenderers = () => ({
   total: ({ value }: { value: string }) => <Precio value={value} />,
   saldo: ({ value }: { value: string }) => <Precio value={value} />,
   fecha_emision: ({ value }: { value: string }) => <DateTime value={value} />,
-  fecha_vencimiento: ({ value }: { value: string | null }) => (
-    <DateTime value={value} />
-  ),
-  documentos: ({ value }: { value: FacturaFiltradaRaw }) => (
-    <div className="flex gap-2">
-      {value.url_pdf && (
-        <a href={value.url_pdf} target="_blank" rel="noreferrer">
-          <Button size="sm" variant="secondary" icon={FileText}>
-            PDF
-          </Button>
-        </a>
-      )}
-      {value.url_xml && (
-        <a href={value.url_xml} target="_blank" rel="noreferrer">
-          <Button size="sm" variant="secondary" icon={FileDown}>
-            XML
-          </Button>
-        </a>
-      )}
-    </div>
-  ),
+  documentos: ({ value }: { value: FacturaFiltradaRaw }) => {
+    const nombre = `Factura-${value.folio || value.id_factura}-${value.rfc_receptor || value.rfc}`;
+    return (
+      <div className="flex flex-wrap gap-2">
+        {value.url_pdf && value.url_xml ? (
+          <>
+            <a href={value.url_pdf} target="_blank" rel="noreferrer">
+              <Button size="sm" variant="secondary" icon={FileText}>
+                PDF
+              </Button>
+            </a>
+            <a href={value.url_xml} target="_blank" rel="noreferrer">
+              <Button size="sm" variant="secondary" icon={FileDown}>
+                XML
+              </Button>
+            </a>
+          </>
+        ) : (
+          <>
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={Download}
+              onClick={() =>
+                opts.onDescargar!(value.id_facturama!, "pdf", nombre)
+              }
+            >
+              PDF (Facturama)
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={Download}
+              onClick={() =>
+                opts.onDescargar!(value.id_facturama!, "xml", nombre)
+              }
+            >
+              XML (Facturama)
+            </Button>
+          </>
+        )}
+      </div>
+    );
+  },
+  acciones: ({ value }: { value: string }) => {
+    return (
+      <Button size="sm" icon={Eye} onClick={() => opts.onVerDetalle!(value)}>
+        Detalles
+      </Button>
+    );
+  },
 });
 
 const ESTADO_STYLES: Record<string, string> = {
