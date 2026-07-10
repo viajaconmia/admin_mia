@@ -80,12 +80,19 @@ export default function TarjetasFinanzas() {
   const [modalOpen, setModalOpen] = useState(false);
   const [mode, setMode] = useState<Mode>("create");
   const [editingTarjetaId, setEditingTarjetaId] = useState<string | null>(null);
-  const [formTarjeta, setFormTarjeta] = useState<Partial<Tarjeta>>(emptyFormTarjeta());
+  const [formTarjeta, setFormTarjeta] =
+    useState<Partial<Tarjeta>>(emptyFormTarjeta());
 
   const canView = hasPermission(PERMISOS.VISTAS.FINANZAS_TARJETAS);
-  const canCreate = hasPermission(PERMISOS.COMPONENTES.BOTON.FINANZAS_TARJETAS_CREAR);
-  const canEdit = hasPermission(PERMISOS.COMPONENTES.BOTON.FINANZAS_TARJETAS_EDITAR);
-  const canDelete = hasPermission(PERMISOS.COMPONENTES.BOTON.FINANZAS_TARJETAS_ELIMINAR);
+  const canCreate = hasPermission(
+    PERMISOS.COMPONENTES.BOTON.FINANZAS_TARJETAS_CREAR,
+  );
+  const canEdit = hasPermission(
+    PERMISOS.COMPONENTES.BOTON.FINANZAS_TARJETAS_EDITAR,
+  );
+  const canDelete = hasPermission(
+    PERMISOS.COMPONENTES.BOTON.FINANZAS_TARJETAS_ELIMINAR,
+  );
 
   useEffect(() => {
     if (!canView) router.push(ROUTES.DASHBOARD.UNAUTHORIZED);
@@ -194,7 +201,10 @@ export default function TarjetasFinanzas() {
       setErrorMsg(null);
       await fetchJSON(`${BASE_ENDPOINT}/${t.id}/activa`, {
         method: "PATCH",
-        headers: { "x-api-key": API_KEY || "", "Content-Type": "application/json" },
+        headers: {
+          "x-api-key": API_KEY || "",
+          "Content-Type": "application/json",
+        },
         credentials: "include",
         body: JSON.stringify({ activa_finanzas: !toBool(t.activa_finanzas) }),
       });
@@ -210,7 +220,7 @@ export default function TarjetasFinanzas() {
   const handleDeleteTarjeta = async (t: Tarjeta) => {
     if (!canDelete) return;
     const ok = confirm(
-      `¿Eliminar la tarjeta "${t.alias ?? "Sin alias"}" (${maskCard(t.numero_completo, t.ultimos_4)})?`
+      `¿Eliminar la tarjeta "${t.alias ?? "Sin alias"}" (${maskCard(t.numero_completo, t.ultimos_4)})?`,
     );
     if (!ok) return;
     try {
@@ -218,7 +228,10 @@ export default function TarjetasFinanzas() {
       setErrorMsg(null);
       await fetchJSON(`${BASE_ENDPOINT}/${t.id}`, {
         method: "DELETE",
-        headers: { "x-api-key": API_KEY || "", "Content-Type": "application/json" },
+        headers: {
+          "x-api-key": API_KEY || "",
+          "Content-Type": "application/json",
+        },
         credentials: "include",
       });
       await fetchTarjetas();
@@ -240,7 +253,10 @@ export default function TarjetasFinanzas() {
       if (mode === "create") {
         await fetchJSON(TARJETAS_ENDPOINT, {
           method: "POST",
-          headers: { "x-api-key": API_KEY || "", "Content-Type": "application/json" },
+          headers: {
+            "x-api-key": API_KEY || "",
+            "Content-Type": "application/json",
+          },
           credentials: "include",
           body: JSON.stringify(payload),
         });
@@ -248,7 +264,10 @@ export default function TarjetasFinanzas() {
         if (!editingTarjetaId) throw new Error("No hay id para editar.");
         await fetchJSON(`${BASE_ENDPOINT}/${editingTarjetaId}`, {
           method: "PUT",
-          headers: { "x-api-key": API_KEY || "", "Content-Type": "application/json" },
+          headers: {
+            "x-api-key": API_KEY || "",
+            "Content-Type": "application/json",
+          },
           credentials: "include",
           body: JSON.stringify(payload),
         });
@@ -279,7 +298,7 @@ export default function TarjetasFinanzas() {
         acciones: t,
         item: t,
       })),
-    [tarjetas]
+    [tarjetas],
   );
 
   const renderers: {
@@ -344,10 +363,13 @@ export default function TarjetasFinanzas() {
           ambos: "bg-purple-50 text-purple-700 border-purple-300",
           ninguno: "bg-gray-50 text-gray-500 border-gray-300",
         };
-        const cls = colorMap[value] ?? "bg-gray-50 text-gray-500 border-gray-300";
+        const cls =
+          colorMap[value] ?? "bg-gray-50 text-gray-500 border-gray-300";
         return (
           <div className="flex justify-center">
-            <span className={`text-xs font-semibold px-2 py-1 rounded border ${cls}`}>
+            <span
+              className={`text-xs font-semibold px-2 py-1 rounded border ${cls}`}
+            >
               {value ?? "—"}
             </span>
           </div>
@@ -356,7 +378,8 @@ export default function TarjetasFinanzas() {
 
       acciones: ({ value }) => {
         const t: Tarjeta = value as Tarjeta;
-        if (!canEdit && !canDelete) return <span className="text-gray-400">—</span>;
+        if (!canEdit && !canDelete)
+          return <span className="text-gray-400">—</span>;
         return (
           <div className="flex gap-2 justify-center">
             {canEdit && (
@@ -383,7 +406,7 @@ export default function TarjetasFinanzas() {
         );
       },
     }),
-    [saving, canEdit, canDelete, tarjetas]
+    [saving, canEdit, canDelete, tarjetas],
   );
 
   const customColumns = [
@@ -403,7 +426,9 @@ export default function TarjetasFinanzas() {
       <div className="bg-white rounded-lg shadow border">
         <div className="px-4 py-3 border-b">
           <div className="flex items-center justify-between gap-3 flex-wrap">
-            <h2 className="text-base font-semibold text-gray-800">Tarjetas — Finanzas</h2>
+            <h2 className="text-base font-semibold text-gray-800">
+              Tarjetas — Finanzas
+            </h2>
 
             <div className="flex gap-2">
               <button
@@ -467,71 +492,87 @@ export default function TarjetasFinanzas() {
                 Cerrar
               </button>
             </div>
-
             <div className="p-4 space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3">
                 <Field
                   label="Alias"
                   value={formTarjeta.alias ?? ""}
                   onChange={(v) => setFormTarjeta((p) => ({ ...p, alias: v }))}
                 />
+                {mode === "create" && (
+                  <>
+                    <Field
+                      label="Nombre titular"
+                      value={formTarjeta.nombre_titular ?? ""}
+                      onChange={(v) =>
+                        setFormTarjeta((p) => ({ ...p, nombre_titular: v }))
+                      }
+                    />
 
-                <Field
-                  label="Nombre titular"
-                  value={formTarjeta.nombre_titular ?? ""}
-                  onChange={(v) => setFormTarjeta((p) => ({ ...p, nombre_titular: v }))}
-                />
+                    <Field
+                      label="Número completo"
+                      value={formTarjeta.numero_completo ?? ""}
+                      onChange={(v) =>
+                        setFormTarjeta((p) => ({
+                          ...p,
+                          numero_completo: v,
+                          ultimos_4: computeLast4(v),
+                        }))
+                      }
+                      placeholder="Opcional"
+                    />
 
-                <Field
-                  label="Número completo"
-                  value={formTarjeta.numero_completo ?? ""}
-                  onChange={(v) =>
-                    setFormTarjeta((p) => ({
-                      ...p,
-                      numero_completo: v,
-                      ultimos_4: computeLast4(v),
-                    }))
-                  }
-                  placeholder="Opcional"
-                />
+                    <Field
+                      label="Últimos 4"
+                      value={formTarjeta.ultimos_4 ?? ""}
+                      onChange={(v) =>
+                        setFormTarjeta((p) => ({ ...p, ultimos_4: v }))
+                      }
+                      placeholder="Se calcula automático"
+                    />
 
-                <Field
-                  label="Últimos 4"
-                  value={formTarjeta.ultimos_4 ?? ""}
-                  onChange={(v) => setFormTarjeta((p) => ({ ...p, ultimos_4: v }))}
-                  placeholder="Se calcula automático"
-                />
+                    <Field
+                      label="Banco emisor"
+                      value={formTarjeta.banco_emisor ?? ""}
+                      onChange={(v) =>
+                        setFormTarjeta((p) => ({ ...p, banco_emisor: v }))
+                      }
+                    />
 
-                <Field
-                  label="Banco emisor"
-                  value={formTarjeta.banco_emisor ?? ""}
-                  onChange={(v) => setFormTarjeta((p) => ({ ...p, banco_emisor: v }))}
-                />
+                    <Field
+                      label="Tipo tarjeta"
+                      value={formTarjeta.tipo_tarjeta ?? ""}
+                      onChange={(v) =>
+                        setFormTarjeta((p) => ({ ...p, tipo_tarjeta: v }))
+                      }
+                      placeholder="crédito / débito / etc"
+                    />
 
-                <Field
-                  label="Tipo tarjeta"
-                  value={formTarjeta.tipo_tarjeta ?? ""}
-                  onChange={(v) => setFormTarjeta((p) => ({ ...p, tipo_tarjeta: v }))}
-                  placeholder="crédito / débito / etc"
-                />
+                    <Field
+                      label="Fecha vencimiento"
+                      value={formTarjeta.fecha_vencimiento ?? ""}
+                      onChange={(v) =>
+                        setFormTarjeta((p) => ({ ...p, fecha_vencimiento: v }))
+                      }
+                      placeholder="Ej: 12/27"
+                    />
 
-                <Field
-                  label="Fecha vencimiento"
-                  value={formTarjeta.fecha_vencimiento ?? ""}
-                  onChange={(v) => setFormTarjeta((p) => ({ ...p, fecha_vencimiento: v }))}
-                  placeholder="Ej: 12/27"
-                />
-
-                <Field
-                  label="CVV"
-                  value={formTarjeta.cvv ?? ""}
-                  onChange={(v) => setFormTarjeta((p) => ({ ...p, cvv: v }))}
-                  placeholder="Opcional"
-                />
+                    <Field
+                      label="CVV"
+                      value={formTarjeta.cvv ?? ""}
+                      onChange={(v) =>
+                        setFormTarjeta((p) => ({ ...p, cvv: v }))
+                      }
+                      placeholder="Opcional"
+                    />
+                  </>
+                )}
 
                 {/* finanzas/operaciones */}
                 <div className="flex flex-col gap-1">
-                  <label className="text-sm text-gray-700">Acceso (finanzas/operaciones)</label>
+                  <label className="text-sm text-gray-700">
+                    Acceso (finanzas/operaciones)
+                  </label>
                   <select
                     className="border rounded px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200"
                     value={formTarjeta.finanzas_operaciones ?? "finanzas"}
@@ -552,23 +593,33 @@ export default function TarjetasFinanzas() {
                 {/* activa */}
                 <div className="flex items-end gap-3">
                   <div className="flex items-center gap-2">
-                    <label className="text-sm text-gray-700">Activa Operaciones</label>
+                    <label className="text-sm text-gray-700">
+                      Activa Operaciones
+                    </label>
                     <input
                       type="checkbox"
                       checked={toBool(formTarjeta.activa)}
                       onChange={(e) =>
-                        setFormTarjeta((p) => ({ ...p, activa: e.target.checked }))
+                        setFormTarjeta((p) => ({
+                          ...p,
+                          activa: e.target.checked,
+                        }))
                       }
                       className="h-4 w-4"
                     />
                   </div>
                   <div className="flex items-center gap-2">
-                    <label className="text-sm text-gray-700">Usar finanzas</label>
+                    <label className="text-sm text-gray-700">
+                      Usar finanzas
+                    </label>
                     <input
                       type="checkbox"
                       checked={toBool(formTarjeta.activa_finanzas)}
                       onChange={(e) =>
-                        setFormTarjeta((p) => ({ ...p, activa_finanzas: e.target.checked }))
+                        setFormTarjeta((p) => ({
+                          ...p,
+                          activa_finanzas: e.target.checked,
+                        }))
                       }
                       className="h-4 w-4"
                     />
@@ -588,14 +639,20 @@ export default function TarjetasFinanzas() {
                 <button
                   onClick={handleSubmitTarjeta}
                   className="text-sm px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-400"
-                  disabled={saving || (mode === "create" ? !canCreate : !canEdit)}
+                  disabled={
+                    saving || (mode === "create" ? !canCreate : !canEdit)
+                  }
                   title={
                     (mode === "create" ? !canCreate : !canEdit)
                       ? "No tienes permiso para esta acción"
                       : undefined
                   }
                 >
-                  {saving ? "Guardando..." : mode === "create" ? "Crear" : "Guardar cambios"}
+                  {saving
+                    ? "Guardando..."
+                    : mode === "create"
+                      ? "Crear"
+                      : "Guardar cambios"}
                 </button>
               </div>
             </div>

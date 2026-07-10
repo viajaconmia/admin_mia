@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   X,
   FileText,
@@ -144,6 +144,10 @@ const ModalDetalleFactura: React.FC<ModalDetalleFacturaProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
   const [data, setData] = useState<DetalleFacturaData | null>(null);
+  const [eliminandoRelacion, setEliminandoRelacion] = useState<string | null>(
+    null,
+  );
+  const [mensajeAccion, setMensajeAccion] = useState<string>("");
 
   // cerrar con ESC
   useEffect(() => {
@@ -170,36 +174,35 @@ const ModalDetalleFactura: React.FC<ModalDetalleFacturaProps> = ({
       try {
         // ⚠️ AJUSTA ESTE ENDPOINT A TU REAL
         const endpoint = `${URL}/mia/factura/detalles_facturas?id_factura=${encodeURIComponent(
-  id_factura
-)}`;
+          id_factura,
+        )}`;
 
-const resp = await fetch(endpoint, {
-  method: "GET",
-  signal: controller.signal,
-  headers: {
-    "x-api-key": API_KEY || "",
-    "Cache-Control": "no-cache, no-store, must-revalidate",
-    // "Content-Type": "application/json", // <- opcional en GET (no hay body)
-    Accept: "application/json",
-  },
-  cache: "no-store",
-});
+        const resp = await fetch(endpoint, {
+          method: "GET",
+          signal: controller.signal,
+          headers: {
+            "x-api-key": API_KEY || "",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            // "Content-Type": "application/json", // <- opcional en GET (no hay body)
+            Accept: "application/json",
+          },
+          cache: "no-store",
+        });
 
-const json = await resp.json().catch(() => null);
+        const json = await resp.json().catch(() => null);
 
-console.log(json)
+        console.log(json);
 
-if (!resp.ok) {
-  throw new Error(json?.message || `Error HTTP: ${resp.status}`);
-}
+        if (!resp.ok) {
+          throw new Error(json?.message || `Error HTTP: ${resp.status}`);
+        }
 
-// json debería ser tu objeto: {tipo_origen,id_origen,pagos,saldos,reservas}
-// o a veces viene envuelto. Ajusta si tu backend lo envuelve.
-const resolved = (json?.data as any) ?? json;
+        // json debería ser tu objeto: {tipo_origen,id_origen,pagos,saldos,reservas}
+        // o a veces viene envuelto. Ajusta si tu backend lo envuelve.
+        const resolved = (json?.data as any) ?? json;
 
-setData(resolved);
-setDetalleFacturaData?.(resolved);
-
+        setData(resolved);
+        setDetalleFacturaData?.(resolved);
       } catch (e: any) {
         if (e?.name === "AbortError") return;
         console.error("❌ Error cargando detalles factura:", e);
@@ -223,26 +226,97 @@ setDetalleFacturaData?.(resolved);
 
   const totalPagos = useMemo(
     () => pagos.reduce((s: number, p: any) => s + Number(p?.total ?? 0), 0),
-    [pagos]
+    [pagos],
   );
   const totalSaldoMonto = useMemo(
     () => saldos.reduce((s: number, x: any) => s + Number(x?.monto ?? 0), 0),
-    [saldos]
+    [saldos],
   );
   const totalReservas = useMemo(
     () => reservas.reduce((s: number, r: any) => s + Number(r?.total ?? 0), 0),
-    [reservas]
+    [reservas],
   );
 
   const agenteId = pagos?.[0]?.id_agente || saldos?.[0]?.id_agente || "—";
-  const idSaldoAFavor = pagos?.[0]?.id_saldo_a_favor || saldos?.[0]?.id_saldos || "—";
+  const idSaldoAFavor =
+    pagos?.[0]?.id_saldo_a_favor || saldos?.[0]?.id_saldos || "—";
 
-  const warnMismatch = Math.abs(Number(totalPagos) - Number(totalReservas)) > 0.01;
+  const warnMismatch =
+    Math.abs(Number(totalPagos) - Number(totalReservas)) > 0.01;
 
+  const eliminarRelacionFacturaReserva = useCallback(
+    async (reserva: any) => {
+      const idFacturaReal = safeString(id_factura || facturaId);
+      const idRelacion = safeString(reserva?.id_relacion);
+      console.log("cualquier cosa");
+
+      if (!idFacturaReal || idFacturaReal === "—") {
+        alert("No se encontró el id_factura.");
+        return;
+      }
+
+      if (!idRelacion) {
+        alert("No se encontró el id_relacion de la reserva.");
+        return;
+      }
+
+      const confirmar = window.confirm(
+        "¿Seguro que deseas eliminar la relación entre esta factura y la reserva?",
+      );
+
+      if (!confirmar) return;
+
+      try {
+        setEliminandoRelacion(idRelacion);
+        setMensajeAccion("");
+
+        const resp = await fetch(`${URL}/mia/factura/desasociar_reserva`, {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": API_KEY || "",
+          },
+          body: JSON.stringify({
+            id_factura: idFacturaReal,
+            id_relacion: idRelacion,
+          }),
+        });
+
+        const json = await resp.json().catch(() => null);
+
+        if (!resp.ok) {
+          throw new Error(
+            json?.message || "Error al eliminar la relación factura-reserva",
+          );
+        }
+
+        setMensajeAccion("Relación eliminada correctamente.");
+
+        setData((prev) => {
+          if (!prev) return prev;
+
+          return {
+            ...prev,
+            reservas: Array.isArray(prev.reservas)
+              ? prev.reservas.filter(
+                  (r: any) => safeString(r?.id_relacion) !== idRelacion,
+                )
+              : [],
+          };
+        });
+      } catch (error: any) {
+        console.error("Error eliminando relación:", error);
+        alert(error?.message || "Error al eliminar relación");
+      } finally {
+        setEliminandoRelacion(null);
+      }
+    },
+    [id_factura, facturaId],
+  );
   /* --------- Table5: Pagos --------- */
   const pagosTable = useMemo(
     () => pagos.map((p: any) => ({ ...p, acciones: "acciones" })),
-    [pagos]
+    [pagos],
   );
 
   const pagosCols = useMemo(
@@ -257,7 +331,7 @@ setDetalleFacturaData?.(resolved);
       "transaccion",
       "acciones",
     ],
-    []
+    [],
   );
 
   const pagosRenderers = useMemo(
@@ -307,13 +381,13 @@ setDetalleFacturaData?.(resolved);
         </div>
       ),
     }),
-    []
+    [],
   );
 
   /* --------- Table5: Saldos --------- */
   const saldosTable = useMemo(
     () => saldos.map((s: any) => ({ ...s, acciones: "acciones" })),
-    [saldos]
+    [saldos],
   );
 
   const saldosCols = useMemo(
@@ -330,7 +404,7 @@ setDetalleFacturaData?.(resolved);
       "is_facturado",
       "acciones",
     ],
-    []
+    [],
   );
 
   const saldosRenderers = useMemo(
@@ -389,18 +463,18 @@ setDetalleFacturaData?.(resolved);
         </div>
       ),
     }),
-    []
+    [],
   );
 
   /* --------- Table5: Reservas --------- */
   const reservasTable = useMemo(
     () => reservas.map((r: any) => ({ ...r, acciones: "acciones" })),
-    [reservas]
+    [reservas],
   );
 
   const reservasCols = useMemo(
-    () => ["codigo_confirmacion", "proveedor", "viajero", "total"],
-    []
+    () => ["codigo_confirmacion", "proveedor", "viajero", "total", "acciones"],
+    [],
   );
 
   const reservasRenderers = useMemo(
@@ -420,8 +494,34 @@ setDetalleFacturaData?.(resolved);
           {formatMoney(value)}
         </span>
       ),
+      acciones: ({ item }: any) => {
+        const idRelacion = safeString(item?.id_relacion);
+        const eliminando = eliminandoRelacion === idRelacion;
+        console.log(item);
+
+        return (
+          <div className="flex w-full items-center justify-center">
+            <button
+              type="button"
+              onClick={() => eliminarRelacionFacturaReserva(item)}
+              className="
+        inline-flex items-center justify-center
+        rounded-md bg-red-500
+        px-3 py-1.5
+        text-[11px] font-semibold text-white
+        shadow-sm transition-all duration-150
+        hover:bg-red-600
+        active:scale-[0.98]
+        focus:outline-none focus:ring-2 focus:ring-red-300 focus:ring-offset-1
+      "
+            >
+              {eliminando ? "Desasociando..." : "Desasociar factura"}
+            </button>
+          </div>
+        );
+      },
     }),
-    []
+    [eliminandoRelacion, eliminarRelacionFacturaReserva],
   );
 
   if (!open) return null;
@@ -443,25 +543,33 @@ setDetalleFacturaData?.(resolved);
               <p className="text-sm font-semibold text-gray-900">{title}</p>
               <Badge text={`Factura: ${safeString(facturaId)}`} tone="blue" />
               <Badge text={`Agente: ${safeString(agenteId)}`} tone="gray" />
-              <Badge text={`Saldo a favor: ${safeString(idSaldoAFavor)}`} tone="gray" />
+              <Badge
+                text={`Saldo a favor: ${safeString(idSaldoAFavor)}`}
+                tone="gray"
+              />
             </div>
 
             <p className="text-xs text-gray-500 mt-1">
-              Origen: {safeString(payload?.tipo_origen) || "—"} • Pagos: {pagos.length} •
-              Saldos: {saldos.length} • Reservas: {reservas.length}
+              Origen: {safeString(payload?.tipo_origen) || "—"} • Pagos:{" "}
+              {pagos.length} • Saldos: {saldos.length} • Reservas:{" "}
+              {reservas.length}
             </p>
 
-            {!loading && !error && data && (
-              warnMismatch ? (
+            {!loading &&
+              !error &&
+              data &&
+              (warnMismatch ? (
                 <div className="mt-2">
-                  <Badge text="Revisar: total pagos ≠ total reservas" tone="amber" />
+                  <Badge
+                    text="Revisar: total pagos ≠ total reservas"
+                    tone="amber"
+                  />
                 </div>
               ) : (
                 <div className="mt-2">
                   <Badge text="Totales consistentes" tone="green" />
                 </div>
-              )
-            )}
+              ))}
           </div>
 
           <button
@@ -506,6 +614,11 @@ setDetalleFacturaData?.(resolved);
             {/* Success */}
             {!loading && !error && data && (
               <>
+                {mensajeAccion && (
+                  <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+                    {mensajeAccion}
+                  </div>
+                )}
                 {/* Overview cards */}
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
                   <StatCard
@@ -543,7 +656,9 @@ setDetalleFacturaData?.(resolved);
                           warnMismatch ? "text-amber-700" : "text-emerald-700"
                         }`}
                       >
-                        {formatMoney(Number(totalPagos) - Number(totalReservas))}
+                        {formatMoney(
+                          Number(totalPagos) - Number(totalReservas),
+                        )}
                       </span>
                     }
                     sub={warnMismatch ? "Hay diferencia, revisa." : "Cuadra."}
@@ -556,9 +671,13 @@ setDetalleFacturaData?.(resolved);
                   <div className="lg:col-span-8 space-y-4">
                     {/* Reservas */}
                     <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-                      <SectionTitle title={`Reservas (${reservasTable.length})`} />
+                      <SectionTitle
+                        title={`Reservas (${reservasTable.length})`}
+                      />
                       {reservasTable.length === 0 ? (
-                        <p className="text-xs text-gray-500">No hay reservas asociadas.</p>
+                        <p className="text-xs text-gray-500">
+                          No hay reservas asociadas.
+                        </p>
                       ) : (
                         <Table5<any>
                           registros={reservasTable as any}
@@ -613,17 +732,23 @@ setDetalleFacturaData?.(resolved);
                       <div className="space-y-3 text-xs">
                         <div className="flex items-center justify-between gap-3">
                           <p className="text-gray-500">Factura ID</p>
-                          <p className="font-mono text-gray-800">{safeString(facturaId)}</p>
+                          <p className="font-mono text-gray-800">
+                            {safeString(facturaId)}
+                          </p>
                         </div>
 
                         <div className="flex items-center justify-between gap-3">
                           <p className="text-gray-500">Agente</p>
-                          <p className="font-mono text-gray-800">{safeString(agenteId)}</p>
+                          <p className="font-mono text-gray-800">
+                            {safeString(agenteId)}
+                          </p>
                         </div>
 
                         <div className="flex items-center justify-between gap-3">
                           <p className="text-gray-500">Saldo a favor</p>
-                          <p className="font-mono text-gray-800">{safeString(idSaldoAFavor)}</p>
+                          <p className="font-mono text-gray-800">
+                            {safeString(idSaldoAFavor)}
+                          </p>
                         </div>
 
                         <div className="pt-2 border-t border-gray-100">
@@ -645,7 +770,8 @@ setDetalleFacturaData?.(resolved);
                     <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
                       <p className="text-xs font-semibold text-gray-700">Tip</p>
                       <div className="mt-2 text-[11px] text-gray-600">
-                        Puedes cerrar con <span className="font-semibold">ESC</span>.
+                        Puedes cerrar con{" "}
+                        <span className="font-semibold">ESC</span>.
                       </div>
                     </div>
                   </div>

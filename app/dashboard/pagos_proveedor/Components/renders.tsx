@@ -81,6 +81,15 @@ type CreateSolicitudesRenderersParams = {
   ) => Promise<boolean>;
 
   handleFetchSolicitudesPago: () => void;
+
+  // Sirve para mover la fila en pantalla sin volver a pedir toda la tabla.
+  // La base ya se actualiza con los PATCH; esto solo evita el loader azul.
+  moverSolicitudLocalmente?: (
+    id_solicitud_proveedor: string | number,
+    origen: string,
+    destino: string,
+    cambios?: Record<string, any>,
+  ) => void;
   marcarSolicitudPagada: (raw: any) => Promise<boolean>;
   cancelSolicitud: (id_solicitud_proveedor: string) => Promise<boolean>;
   conciliarSolicitud: (raw: any) => Promise<boolean>;
@@ -513,6 +522,9 @@ export function createSolicitudesRenderers({
   patchSolicitudProveedor,
   patchSolicitudProveedorFields,
   handleFetchSolicitudesPago,
+
+  moverSolicitudLocalmente,
+
   marcarSolicitudPagada,
   cancelSolicitud,
   conciliarSolicitud,
@@ -1170,36 +1182,87 @@ export function createSolicitudesRenderers({
                   }
                   cardOnly={categoria !== "ap_credito"}
                   onSetMethod={async (next) => {
+                    // 1. Guardamos primero la forma de pago en backend.
+                    // Ejemplo:
+                    // credit -> transfer
+                    // credit -> card
                     const ok = await patchSolicitudProveedor(
                       idSolProv,
                       "forma_pago_solicitada",
                       next,
                     );
+
                     if (!ok) return false;
 
+                    // 2. Si estamos en AP Crédito, también actualizamos el estado.
                     if (categoria === "ap_credito") {
                       const estadoSol =
                         next === "transfer"
                           ? "TRANSFERENCIA_SOLICITADA"
                           : "CARTA_ENVIADA";
-                      await patchSolicitudProveedor(
+
+                      const okEstado = await patchSolicitudProveedor(
                         idSolProv,
                         "estado_solicitud",
                         estadoSol,
                       );
+
+                      if (!okEstado) return false;
+
+                      // 3. Si eligió Transferencia, ya puede salir de AP Crédito inmediatamente.
+                      // Aquí NO recargamos toda la tabla.
+                      // Solo quitamos la fila de AP Crédito y actualizamos contadores.
+                      if (next === "transfer") {
+                        moverSolicitudLocalmente?.(
+                          idSolProv,
+                          "ap_credito",
+                          "spei",
+                          {
+                            forma_pago_solicitada: "transfer",
+                            estado_solicitud: "TRANSFERENCIA_SOLICITADA",
+                          },
+                        );
+                      }
+
+                      // 4. Si eligió Tarjeta, NO movemos todavía la fila aquí.
+                      // Primero debe elegir la tarjeta en el modal.
+                      // La fila se moverá en onSetCard, cuando id_tarjeta_solicitada ya se haya guardado.
+                      return true;
                     }
 
+                    // Fuera de AP Crédito dejamos el comportamiento anterior:
+                    // se refresca la carpeta porque puede haber otras reglas.
                     handleFetchSolicitudesPago();
                     return true;
                   }}
                   onSetCard={async ({ id_tarjeta_solicitada }) => {
+                    // 1. Guardamos la tarjeta seleccionada en backend.
                     const ok1 = await patchSolicitudProveedor(
                       idSolProv,
                       "id_tarjeta_solicitada",
                       id_tarjeta_solicitada,
                     );
+
                     if (!ok1) return false;
 
+                    // 2. Si estamos en AP Crédito, ahora sí ya podemos mover la fila.
+                    // Para tarjeta, esperamos hasta este punto porque ya existe id_tarjeta_solicitada.
+                    if (categoria === "ap_credito") {
+                      moverSolicitudLocalmente?.(
+                        idSolProv,
+                        "ap_credito",
+                        "pago_tdc",
+                        {
+                          forma_pago_solicitada: "card",
+                          estado_solicitud: "CARTA_ENVIADA",
+                          id_tarjeta_solicitada,
+                        },
+                      );
+
+                      return true;
+                    }
+
+                    // 3. Fuera de AP Crédito dejamos el comportamiento anterior.
                     handleFetchSolicitudesPago();
                     return true;
                   }}
