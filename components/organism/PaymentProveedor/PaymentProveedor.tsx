@@ -282,7 +282,18 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
   const addScheduleRow = () => {
     setPaymentSchedule((rows) => [
       ...rows,
-      { id: safeUUID(), date: "", hora: "", amount: "" },
+      {
+        id: safeUUID(),
+        date: "",
+        hora: "",
+        amount: "",
+        referencia_pago: "",
+        isSecureCode: false,
+        idTitular: "",
+        useQR: "",
+        document: "",
+        cargo: "",
+      },
     ]);
   };
 
@@ -320,6 +331,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
       hora: (r.hora || "").trim(),
       monto: r.amount === "" ? NaN : Number(r.amount),
       referencia_pago: r.referencia_pago || null,
+      idTitular: r.idTitular || null,
     }));
 
     if (normalized.some((r) => !r.fecha_pago)) {
@@ -355,6 +367,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
       hora: string;
       monto: number;
       referencia_pago: string | null;
+      idTitular: string | null; // ← AGREGAR AQUÍ
     }>;
   };
 
@@ -632,7 +645,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
           checkIn: reservation.check_in.split("T")[0],
           checkOut: reservation.check_out.split("T")[0],
           reservacionId: reservation.codigo_confirmacion,
-          monto: Number((reservation as any).costo_total),
+          monto: row.amount == "" ? 0 : Number(row.amount),
           nombre: (reservation as any).viajero,
           tipoHabitacion: updateRoom((reservation as any).tipo_cuarto_vuelo),
         },
@@ -672,7 +685,14 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
     setIsSubmitting(true);
 
     try {
-      const firstRowUseQR = paymentSchedule[0]?.useQR || undefined;
+      if (!paymentType || !paymentMethod) {
+        throw new Error("Selecciona tipo y método de pago");
+      }
+      let firstRowUseQR: "qr" | "code" | undefined = undefined;
+
+      if (paymentMethod === "card" || paymentMethod === "link") {
+        firstRowUseQR = paymentSchedule[0]?.useQR || undefined;
+      }
       const derivedStatus = computePaymentStatus({
         paymentType,
         paymentMethod,
@@ -686,8 +706,15 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
       });
 
       let paymentSchedulePayload:
-        | Array<{ fecha_pago: string; hora: string; monto: number }>
+        | Array<{
+            fecha_pago: string;
+            hora: string;
+            monto: number;
+            referencia_pago: string | null;
+            idTitular: string | null;
+          }>
         | undefined;
+
       let effectiveDate = (date as string) || todayISO;
       let effectiveHora = hora || "";
 
@@ -711,6 +738,8 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
               fecha_pago: effectiveDate,
               hora: effectiveHora,
               monto: monto_a_pagar,
+              referencia_pago: null,
+              idTitular: null,
             },
           ];
         }
@@ -814,7 +843,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
         //   throw new Error("Selecciona el titular para generar el link.");
         // }
 
-        const firstRow = paymentSchedule[0];
+        const firstRow = paymentSchedule[0] || null;
         const titularForLink = Array.isArray(titularesData)
           ? titularesData.find(
               (t: any) => String(t.idTitular) === String(firstRow?.idTitular),
@@ -828,6 +857,11 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
         }
 
         if (paymentMethod === "card") {
+          for (let i = 0; i < paymentSchedule.length; i++) {
+            if (!paymentSchedule[i].useQR) {
+              throw new Error(`Pago ${i + 1}: selecciona Con QR o En archivo`);
+            }
+          }
           for (let i = 0; i < paymentSchedule.length; i++) {
             try {
               await generateQRPaymentPDFForRow(paymentSchedule[i], i);

@@ -25,7 +25,9 @@ export default function ReservationDetails({ reservation }: Props) {
   const costoProveedor = n0((reservation as any).costo_total);
 
   // ✅ total vendido (usa total_booking; si no existe, cae a total)
-  const totalVendido = n0((reservation as any).total_booking ?? (reservation as any).total);
+  const totalVendido = n0(
+    (reservation as any).total_booking ?? (reservation as any).total,
+  );
 
   const markupMonto = totalVendido - costoProveedor;
 
@@ -75,9 +77,7 @@ export default function ReservationDetails({ reservation }: Props) {
           {/* ✅ Total vendido */}
           <div>
             <p className="text-xs text-slate-500">Total vendido</p>
-            <p className="font-bold text-blue-700">
-              {moneyMXN(totalVendido)}
-            </p>
+            <p className="font-bold text-blue-700">{moneyMXN(totalVendido)}</p>
           </div>
 
           {/* ✅ Markup */}
@@ -90,9 +90,7 @@ export default function ReservationDetails({ reservation }: Props) {
               title={`${moneyMXN(markupMonto)} (${markupPct.toFixed(2)}%)`}
             >
               {moneyMXN(markupMonto)}{" "}
-              <span className="text-xs">
-                ({markupPct.toFixed(2)}%)
-              </span>
+              <span className="text-xs">({markupPct.toFixed(2)}%)</span>
             </p>
           </div>
         </div>
