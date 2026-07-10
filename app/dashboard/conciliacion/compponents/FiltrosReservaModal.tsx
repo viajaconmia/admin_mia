@@ -23,6 +23,7 @@ export type ConciliacionFilters = {
   reserva_diferencia: string;
   nombre_intermediario: string;
   forma_pago_solicitada: string;
+  estado_solicitud: string;
   id_cliente: string;
   etapa_reservacion: string;
   fecha_reserva_start: string;
@@ -180,6 +181,22 @@ export default function FiltrosConciliacionModal({
                 />
               </Field>
 
+              <Field label="Proveedor">
+                <InputWithClear
+                  value={filters.hotel}
+                  onChange={(v) => onChange("hotel", v)}
+                  onClear={() => onChange("hotel", "")}
+                />
+              </Field>
+
+              <Field label="ID del cliente">
+                <InputWithClear
+                  value={filters.id_cliente}
+                  onChange={(v) => onChange("id_cliente", v)}
+                  onClear={() => onChange("id_cliente", "")}
+                />
+              </Field>
+
               <Field label="Cliente">
                 <InputWithClear
                   value={filters.cliente}
@@ -196,11 +213,52 @@ export default function FiltrosConciliacionModal({
                 />
               </Field>
 
-              <Field label="Proveedor">
-                <InputWithClear
-                  value={filters.hotel}
-                  onChange={(v) => onChange("hotel", v)}
-                  onClear={() => onChange("hotel", "")}
+              <Field label="Estatus facturación">
+                <SelectWithClear
+                  value={filters.estado_facturacion}
+                  onChange={(v) => onChange("estado_facturacion", v)}
+                  onClear={() => onChange("estado_facturacion", "")}
+                  options={["pendiente", "parcial", "completo"]}
+                />
+              </Field>
+
+              <Field label="forma pago solicitada">
+                <SelectWithClear
+                  value={filters.forma_pago_solicitada}
+                  onChange={(v) => onChange("forma_pago_solicitada", v)}
+                  onClear={() => onChange("forma_pago_solicitada", "")}
+                  options={["link", "transfer", "card", "credit"]}
+                  placeholder="selecciona una opcion"
+                />
+              </Field>
+
+              <Field label="etapa de reservacion">
+                <SelectWithClear
+                  value={filters.etapa_reservacion}
+                  onChange={(v) => onChange("etapa_reservacion", v)}
+                  onClear={() => onChange("etapa_reservacion", "")}
+                  options={["check_in ", "in home", "check_out"]}
+                  placeholder="selecciona una opcion"
+                />
+              </Field>
+
+              <Field label="reservante">
+                <SelectWithClear
+                  value={filters.reservante}
+                  onChange={(v) => onChange("reservante", v)}
+                  onClear={() => onChange("reservante", "")}
+                  options={["operaciones", "cliente"]}
+                  placeholder="selecciona una opcion"
+                />
+              </Field>
+
+              <Field label="Método pago reserva">
+                <SelectWithClear
+                  value={filters.metodo_pago_reserva}
+                  onChange={(v) => onChange("metodo_pago_reserva", v)}
+                  onClear={() => onChange("metodo_pago_reserva", "")}
+                  options={["PREPAGO", "CREDITO"]}
+                  placeholder="Selecciona una opcion"
                 />
               </Field>
             </div>
@@ -230,7 +288,7 @@ export default function FiltrosConciliacionModal({
                 />
               </Field>
 
-              <Field label="Tipo de solicitud (pago)">
+              <Field label="Tipo de solicitud (proveedor)">
                 <SelectWithClear
                   value={filters.tipo_reserva_pago}
                   onChange={(v) => onChange("tipo_reserva_pago", v)}
@@ -247,15 +305,6 @@ export default function FiltrosConciliacionModal({
                   onClear={() => onChange("pagos_parciales", "")}
                   options={["SI", "NO"]}
                   placeholder="Todos"
-                />
-              </Field>
-
-              <Field label="Estatus facturación">
-                <SelectWithClear
-                  value={filters.estado_facturacion}
-                  onChange={(v) => onChange("estado_facturacion", v)}
-                  onClear={() => onChange("estado_facturacion", "")}
-                  options={["pendiente", "parcial", "completo"]}
                 />
               </Field>
 
@@ -330,6 +379,43 @@ export default function FiltrosConciliacionModal({
                 />
               </Field>
 
+              <Field label="Canal de reservación">
+                <SelectWithClear
+                  value={filters.canal_de_reservacion}
+                  onChange={(v) => onChange("canal_de_reservacion", v)}
+                  onClear={() => onChange("canal_de_reservacion", "")}
+                  options={["DIRECTO", "INTERMEDIARIO"]}
+                  placeholder="Selecciona una opcion"
+                />
+              </Field>
+
+              <Field label="Nombre intermediario">
+                <InputWithClear
+                  value={filters.nombre_intermediario}
+                  onChange={(v) => onChange("nombre_intermediario", v)}
+                  onClear={() => onChange("nombre_intermediario", "")}
+                />
+              </Field>
+
+              <Field label="Estatus de solicitud">
+                <SelectWithClear
+                  value={filters.estado_solicitud}
+                  onChange={(v) => onChange("estado_solicitud", v)}
+                  onClear={() => onChange("estado_solicitud", "")}
+                  options={[
+                    "CARTA_ENVIADA",
+                    "PAGADO TARJETA",
+                    "TRANSFERENCIA_SOLICITADA",
+                    "PAGADO TRANSFERENCIA",
+                    "PAGADO LINK",
+                    "CUPON ENVIADO",
+                    "CANCELADA",
+                    "DISPERSION",
+                    "SOLICITADA",
+                  ]}
+                  placeholder="selecciona una opcion"
+                                  />
+              </Field>
               <Field label="Etapa de reservación">
                 <SelectWithClear
                   value={filters.etapa_reservacion}

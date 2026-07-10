@@ -59,19 +59,37 @@ export class ProveedoresService extends ApiService {
 
   public get_data_fiscal = async (
     id: number,
-  ): Promise<ApiResponse<DatosFiscales>> =>
-    this.get({
+  ): Promise<ApiResponse<DatosFiscales>> => {
+    const response = await this.get<DatosFiscales>({
       path: this.formatPath(this.ENDPOINTS.GET.DATA_FISCAL_ALL),
       params: { id },
     });
 
+    console.log("========== GET_DATA_FISCAL ==========");
+    console.log("ID:", id);
+    console.log("DATA:", response.data);
+
+    return response;
+  };
+
   public getDatosFiscales = async (
     id_proveedor,
-  ): Promise<ApiResponse<DatosFiscales[]>> =>
-    this.get<DatosFiscales[]>({
+  ): Promise<ApiResponse<DatosFiscales[]>> => {
+    const response = await this.get<DatosFiscales[]>({
       path: this.formatPath(this.ENDPOINTS.GET.DATOS_FISCALES),
       params: { id_proveedor },
     });
+
+    console.log("========== GET_DATOS_FISCALES ==========");
+    console.log("ID_PROVEEDOR:", id_proveedor);
+    console.log("DATA:", response.data);
+
+    response.data.forEach((item, index) => {
+      console.log(`DATO_FISCAL ${index}:`, item);
+    });
+
+    return response;
+  };
 
   public updateProveedor = async (body: Partial<Proveedor> & { id: number }) =>
     this.put({ path: this.formatPath(this.ENDPOINTS.PUT.PROVEEDOR), body });
@@ -100,17 +118,17 @@ export class ProveedoresService extends ApiService {
     });
 
   //CUENTAS
-public getCuentasByProveedor = async (
-  id_proveedor: number,
-  incluir_inactivas = false,
-): Promise<ApiResponse<ProveedorCuenta[]>> =>
-  this.get<ProveedorCuenta[]>({
-    path: this.formatPath(this.ENDPOINTS.GET.CUENTAS),
-    params: {
-      id_proveedor,
-      incluir_inactivas: incluir_inactivas ? 1 : 0,
-    },
-  });
+  public getCuentasByProveedor = async (
+    id_proveedor: number,
+    incluir_inactivas = false,
+  ): Promise<ApiResponse<ProveedorCuenta[]>> =>
+    this.get<ProveedorCuenta[]>({
+      path: this.formatPath(this.ENDPOINTS.GET.CUENTAS),
+      params: {
+        id_proveedor,
+        incluir_inactivas: incluir_inactivas ? 1 : 0,
+      },
+    });
 
   public updateCuentasProveedor = async (
     body: ProveedorCuenta,
@@ -134,7 +152,10 @@ public getCuentasByProveedor = async (
       }
       return response.json();
     }
-    return this.put({ path: this.formatPath(this.ENDPOINTS.PUT.CUENTAS), body });
+    return this.put({
+      path: this.formatPath(this.ENDPOINTS.PUT.CUENTAS),
+      body,
+    });
   };
 
   public createCuentasProveedor = async (
@@ -159,7 +180,10 @@ public getCuentasByProveedor = async (
       }
       return response.json();
     }
-    return this.post({ path: this.formatPath(this.ENDPOINTS.POST.CUENTAS), body });
+    return this.post({
+      path: this.formatPath(this.ENDPOINTS.POST.CUENTAS),
+      body,
+    });
   };
 
   public deleteCuentaProveedor = async (
@@ -336,6 +360,16 @@ export interface ProveedorCuenta {
   alias: string | null;
   url_caratula: string | null;
   active: number;
+
+  email?: string | null;
+  tipo_cta?: string | null;
+  cta?: string | null;
+  revision_pendiente?: number | null;
+  fecha_revision?: string | null;
+  revisado_por?: string | null;
+  cantidad_cambios?: number | null;
+  created_at?: string | null;
+  updated_at?: string | null;
 }
 
 //RENTAL CAR
