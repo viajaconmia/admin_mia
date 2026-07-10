@@ -78,3 +78,30 @@ export const fetchOtp = async (callback: (data: any) => void) => {
     console.error("Error al obtener otps:", err);
   }
 };
+export const fetchHotelEdicion = async (id_booking: string) => {
+  try {
+    const url = `${URL}/mia/reservasClient/hotel_edicion?id_booking=${id_booking}`;
+
+    console.log("LLAMANDO HOTEL_EDICION:", url);
+
+    const res = await fetch(url, {
+      method: "GET",
+      headers: {
+        "x-api-key": API_KEY || "",
+        "Content-Type": "application/json",
+        "Cache-Control": "no-cache",
+      },
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.message || "Error al obtener detalle de hotel");
+    }
+
+    return data.data;
+  } catch (err) {
+    console.error("Error al obtener detalle de hotel:", err);
+    throw err;
+  }
+};
