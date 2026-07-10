@@ -1,6 +1,13 @@
 "use client";
 
-import React, { useEffect, useReducer, useState, useMemo, useRef } from "react";
+import React, {
+  useEffect,
+  useReducer,
+  useState,
+  useMemo,
+  useRef,
+  use,
+} from "react";
 import {
   CreditCard,
   FileText,
@@ -12,6 +19,7 @@ import {
   ArrowLeftRight,
   Ticket,
   X,
+  Pencil,
 } from "lucide-react";
 
 import {
@@ -20,7 +28,6 @@ import {
   type QRPaymentData,
 } from "@/lib/qr-generator";
 
-import { Button } from "@/components/ui/button";
 import {
   CheckboxInput,
   DateInput,
@@ -41,6 +48,11 @@ import { API_KEY, URL as API_URL } from "@/lib/constants";
 import { useAlert } from "@/context/useAlert";
 import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
+import { PaymentScheduleRow } from "./types";
+import PaymentRowModal from "./PaymentRowModal";
+
+import Button from "@/components/atom/Button";
+import PaymentRowCard from "./PaymentRowCard";
 
 type PaymentStatus =
   | "pagada"
@@ -70,12 +82,6 @@ function computePaymentStatus(opts: {
 }
 
 /** ===== Calendario de pagos ===== */
-type PaymentScheduleRow = {
-  id: string;
-  date: string; // YYYY-MM-DD
-  hora: string; // HH:MM
-  amount: number | ""; // permite vacío mientras escriben
-};
 
 function safeUUID() {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -101,13 +107,16 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
 
   const { data, fetchData } = useFetchCards();
   const { data: titularesData, fetchTitulares } = useFetchTitulares();
-
   const [isReservaOpen, setIsReservaOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [SelectedTtular, setSelectedTitular] = useState(null);
   const [cupon, setCupon] = useState<Boolean | null>(null);
   const [loading, setLoading] = useState<Boolean | null>(true);
   const [selectedFavorSaldoId, setSelectedFavorSaldoId] = useState<string>("");
+  const [isOpen, setIsOpen] = useState(false);
+  const [selectedRow, setSelectedRow] = useState<PaymentScheduleRow | null>(
+    null,
+  );
 
   const [state, dispatch] = useReducer(
     paymentReducer,
@@ -222,14 +231,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
 
   /** ====== Calendario (solo card/link) ====== */
   const [paymentSchedule, setPaymentSchedule] = useState<PaymentScheduleRow[]>(
-    () => [
-      {
-        id: safeUUID(),
-        date: (date as string) || todayISO,
-        hora: "",
-        amount: monto_a_pagar || 0,
-      },
-    ],
+    [],
   );
 
   useEffect(() => {
@@ -317,11 +319,20 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
       fecha_pago: (r.date || "").trim(),
       hora: (r.hora || "").trim(),
       monto: r.amount === "" ? NaN : Number(r.amount),
+      referencia_pago: r.referencia_pago || null,
     }));
 
     if (normalized.some((r) => !r.fecha_pago)) {
       throw new Error(
         "Falta capturar la fecha en una o más filas del calendario de pagos.",
+      );
+    }
+    if (
+      paymentMethod === "card" &&
+      normalized.some((r) => !r.referencia_pago)
+    ) {
+      throw new Error(
+        "Falta seleccionar una tarjeta en una o más filas del calendario de pagos.",
       );
     }
     if (normalized.some((r) => !Number.isFinite(r.monto) || r.monto <= 0)) {
@@ -343,6 +354,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
       fecha_pago: string;
       hora: string;
       monto: number;
+      referencia_pago: string | null;
     }>;
   };
 
@@ -517,40 +529,104 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
     // fallback clásico
     pdf?.save?.(filename);
   };
-  const generateQRPaymentPDF = async () => {
-    if (!document)
-      throw new Error("Falta seleccionar el documento que aparecerá");
-    if (!currentSelectedCard) throw new Error("Falta seleccionar tarjeta");
-    if (!useQR) throw new Error("Selecciona si es Con QR o En archivo");
+  // const generateQRPaymentPDF = async () => {
+  //   if (!document)
+  //     throw new Error("Falta seleccionar el documento que aparecerá");
+  //   if (!currentSelectedCard) throw new Error("Falta seleccionar tarjeta");
+  //   if (!useQR) throw new Error("Selecciona si es Con QR o En archivo");
+
+  //   const secureToken = generateSecureToken(
+  //     reservation.codigo_confirmacion.replaceAll("-", "."),
+  //     monto_a_pagar,
+  //     currentSelectedCard.id,
+  //     isSecureCode,
+  //   );
+
+  //   const qrData: QRPaymentData = {
+  //     isSecureCode,
+  //     cargo,
+  //     type: useQR,
+  //     secureToken,
+  //     logoUrl: "https://luiscastaneda-tos.github.io/log/files/nokt.png",
+  //     empresa: {
+  //       codigoPostal: "11560",
+  //       direccion:
+  //         "Av. Presidente Masaryk 29, Interior E-3, Col.  Polanco V Sección, Alcaldía Miguel Hidalgo, CDMX",
+  //       nombre: "noktos",
+  //       razonSocial: "Noktos Alianza S.A. de C.V.",
+  //       rfc: "NAL190807BU2",
+  //     },
+  //     bancoEmisor: currentSelectedCard.banco_emisor,
+  //     fechaExpiracion: currentSelectedCard.fecha_vencimiento,
+  //     documento: titularFromSelectedCard?.identificacion || document || "",
+  //     nombreTarjeta:
+  //       SelectedTtular?.Titular ?? titularFromSelectedCard?.Titular ?? "",
+  //     numeroTarjeta: currentSelectedCard.numero_completo,
+  //     cvv: currentSelectedCard.cvv,
+  //     reservations: [
+  //       {
+  //         checkIn: reservation.check_in.split("T")[0],
+  //         checkOut: reservation.check_out.split("T")[0],
+  //         reservacionId: reservation.codigo_confirmacion,
+  //         monto: Number((reservation as any).costo_total),
+  //         nombre: (reservation as any).viajero,
+  //         tipoHabitacion: updateRoom((reservation as any).tipo_cuarto_vuelo),
+  //       },
+  //     ],
+  //     codigoDocumento: "xxxx",
+  //     currency: "MXN",
+  //   };
+
+  //   const pdf = await generateSecureQRPaymentPDF(qrData);
+  //   const filename = `pago-proveedor-${reservation.codigo_confirmacion}.pdf`;
+  //   downloadPdfSafely(pdf, filename);
+  // };
+
+  const generateQRPaymentPDFForRow = async (
+    row: PaymentScheduleRow,
+    index: number,
+  ) => {
+    const rowCard = (creditCards as any[]).find(
+      (c) => c.id === row.referencia_pago,
+    );
+    if (!rowCard)
+      throw new Error(`Pago ${index + 1}: falta seleccionar tarjeta`);
+    if (!row.useQR)
+      throw new Error(`Pago ${index + 1}: selecciona Con QR o En archivo`);
+
+    const titularForRow = Array.isArray(titularesData)
+      ? titularesData.find(
+          (t: any) => String(getTitularId(t)) === String(row.idTitular),
+        ) || null
+      : null;
 
     const secureToken = generateSecureToken(
       reservation.codigo_confirmacion.replaceAll("-", "."),
-      monto_a_pagar,
-      currentSelectedCard.id,
-      isSecureCode,
+      row.amount === "" ? 0 : Number(row.amount),
+      rowCard.id,
+      row.isSecureCode,
     );
 
     const qrData: QRPaymentData = {
-      isSecureCode,
-      cargo,
-      type: useQR,
+      isSecureCode: row.isSecureCode,
+      cargo: row.cargo,
+      type: row.useQR,
       secureToken,
       logoUrl: "https://luiscastaneda-tos.github.io/log/files/nokt.png",
       empresa: {
         codigoPostal: "11560",
         direccion:
-          "Av. Presidente Masaryk 29, Interior E-3, Col.  Polanco V Sección, Alcaldía Miguel Hidalgo, CDMX",
+          "Av. Presidente Masaryk 29, Interior E-3, Col. Polanco V Sección, Alcaldía Miguel Hidalgo, CDMX",
         nombre: "noktos",
         razonSocial: "Noktos Alianza S.A. de C.V.",
         rfc: "NAL190807BU2",
       },
-      bancoEmisor: currentSelectedCard.banco_emisor,
-      fechaExpiracion: currentSelectedCard.fecha_vencimiento,
-      documento: titularFromSelectedCard?.identificacion || document || "",
-      nombreTarjeta:
-        SelectedTtular?.Titular ?? titularFromSelectedCard?.Titular ?? "",
-      numeroTarjeta: currentSelectedCard.numero_completo,
-      cvv: currentSelectedCard.cvv,
+      bancoEmisor: rowCard.banco_emisor,
+      fechaExpiracion: rowCard.fecha_vencimiento,
+      documento: titularForRow?.identificacion || row.document || "",
+      nombreTarjeta: titularForRow?.Titular ?? "",
+      numeroTarjeta: rowCard.numero_completo,
+      cvv: rowCard.cvv,
       reservations: [
         {
           checkIn: reservation.check_in.split("T")[0],
@@ -566,7 +642,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
     };
 
     const pdf = await generateSecureQRPaymentPDF(qrData);
-    const filename = `pago-proveedor-${reservation.codigo_confirmacion}.pdf`;
+    const filename = `pago-proveedor-${reservation.codigo_confirmacion}-${index + 1}.pdf`;
     downloadPdfSafely(pdf, filename);
   };
 
@@ -596,10 +672,11 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
     setIsSubmitting(true);
 
     try {
-      const derivedStatus: PaymentStatus = computePaymentStatus({
+      const firstRowUseQR = paymentSchedule[0]?.useQR || undefined;
+      const derivedStatus = computePaymentStatus({
         paymentType,
         paymentMethod,
-        useQR,
+        useQR: firstRowUseQR,
       });
 
       dispatch({
@@ -722,43 +799,60 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
       // PREPAGO: validaciones + envío
       // --------------------
       if (paymentType === "prepaid") {
-        if (
-          !reservation ||
-          ((paymentMethod === "card" || paymentMethod === "link") &&
-            !currentSelectedCard) ||
-          (paymentMethod === "card" && !useQR)
-        ) {
+        // if (
+        //   !reservation ||
+        //   ((paymentMethod === "card" || paymentMethod === "link") &&
+        //     !currentSelectedCard) ||
+        //   (paymentMethod === "card" && !useQR)
+        // ) {
+        //   throw new Error(
+        //     "Hay un error en la reservación, en la tarjeta o en la forma de mandar los datos, verifica que los datos estén completos.",
+        //   );
+        // }
+
+        // if (paymentMethod === "link" && !selectedTitularId) {
+        //   throw new Error("Selecciona el titular para generar el link.");
+        // }
+
+        const firstRow = paymentSchedule[0];
+        const titularForLink = Array.isArray(titularesData)
+          ? titularesData.find(
+              (t: any) => String(t.idTitular) === String(firstRow?.idTitular),
+            ) || null
+          : null;
+
+        if (paymentMethod === "link" && !firstRow?.idTitular) {
           throw new Error(
-            "Hay un error en la reservación, en la tarjeta o en la forma de mandar los datos, verifica que los datos estén completos.",
+            "Selecciona el titular en el primer pago para generar el link.",
           );
         }
 
-        if (paymentMethod === "link" && !selectedTitularId) {
-          throw new Error("Selecciona el titular para generar el link.");
-        }
-
-        // ✅ Si es tarjeta, genera PDF (descarga) ANTES del request (más confiable vs bloqueos)
         if (paymentMethod === "card") {
-          try {
-            await generateQRPaymentPDF();
-          } catch (err: any) {
-            console.error("PDF error:", err);
-            throw new Error(err?.message || "No se pudo generar el PDF.");
+          for (let i = 0; i < paymentSchedule.length; i++) {
+            try {
+              await generateQRPaymentPDFForRow(paymentSchedule[i], i);
+            } catch (err: any) {
+              console.error("PDF error:", err);
+              throw new Error(
+                err?.message || `No se pudo generar el PDF del pago ${i + 1}.`,
+              );
+            }
           }
         }
+
         if (paymentMethod === "link" || paymentMethod === "card") {
           const documentoTitularId =
-            getTitularId(currentTitular) ||
-            getTitularId(titularFromSelectedCard) ||
-            document ||
-            "";
+            paymentMethod === "link"
+              ? (titularForLink?.identificacion ?? "")
+              : "";
+
           console.log("informacion del titular1", currentTitular);
           console.log("informacion del titular2", titularFromSelectedCard);
           console.log("informacion del titular3", documentoTitularId);
 
           fetchCreateSolicitud(
             {
-              selectedCard,
+              selectedCard: null,
               date: effectiveDate,
               hora: effectiveHora,
               comments,
@@ -773,13 +867,16 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
               usuario_creador: (reservation as any).usuario_creador,
               id_proveedor: (reservation as any).id_proveedor,
               idTitular:
-                paymentMethod === "link" ? Number(selectedTitularId) : null,
+                paymentMethod === "link"
+                  ? (titularForLink?.idTitular ?? null)
+                  : null,
               titular:
-                paymentMethod === "link" ? (currentTitular?.Titular ?? "") : "",
+                paymentMethod === "link" ? (titularForLink?.Titular ?? "") : "",
               identificacion:
                 paymentMethod === "link"
-                  ? (currentTitular?.identificacion ?? "")
+                  ? (titularForLink?.identificacion ?? "")
                   : "",
+
               saldo_a_favor: hasFavorBalance,
               monto_saldo_a_favor: hasFavorBalance
                 ? Number(favorBalance) || 0
@@ -1015,7 +1112,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                     placeholder="0.00"
                   />
                   <select
-                    className="w-full h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:secondary-none focus:ring-2 focus:ring-blue-500"
                     value={selectedFavorSaldoId}
                     onChange={(e) => setSelectedFavorSaldoId(e.target.value)}
                   >
@@ -1063,7 +1160,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                     </label>
                     <input
                       type="time"
-                      className="w-full h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:secondary-none focus:ring-2 focus:ring-blue-500"
                       value={hora}
                       onChange={(e) => setHora(e.target.value)}
                     />
@@ -1081,7 +1178,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                     <div className="flex gap-2">
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="secondary"
                         size="sm"
                         onClick={() =>
                           setPaymentSchedule([
@@ -1090,6 +1187,12 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                               date: (date as string) || todayISO,
                               hora: "",
                               amount: monto_a_pagar,
+                              referencia_pago: "",
+                              isSecureCode: false,
+                              document: "",
+                              idTitular: "",
+                              cargo: "RENTA HABITACIÓN",
+                              useQR: "",
                             },
                           ])
                         }
@@ -1099,16 +1202,31 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                       </Button>
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="secondary"
                         size="sm"
-                        onClick={addScheduleRow}
+                        onClick={() => {
+                          const nuevaFila: PaymentScheduleRow = {
+                            id: safeUUID(),
+                            date: todayISO,
+                            hora: "",
+                            amount: "",
+                            referencia_pago: "",
+                            isSecureCode: false,
+                            document: "",
+                            idTitular: "",
+                            cargo: "RENTA HABITACIÓN",
+                            useQR: "",
+                          };
+                          setSelectedRow(nuevaFila);
+                          setIsOpen(true);
+                        }}
                       >
                         Agregar pago
                       </Button>
                     </div>
                   </div>
 
-                  <div className="overflow-x-auto border rounded-md">
+                  {/* <div className="overflow-x-auto border rounded-md">
                     <table className="w-full text-sm">
                       <thead className="bg-slate-50">
                         <tr>
@@ -1173,26 +1291,69 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                               />
                             </td>
                             <td className="p-2 text-right">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => removeScheduleRow(row.id)}
-                                disabled={paymentSchedule.length <= 1}
-                                title={
-                                  paymentSchedule.length <= 1
-                                    ? "Debe existir al menos una fila"
-                                    : "Eliminar fila"
-                                }
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
+                              <div className="flex gap-2 flex-col">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setSelectedRow(row);
+                                    setIsOpen(true);
+                                  }}
+                                  icon={Pencil}
+                                ></Button>
+
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  icon={X}
+                                  onClick={() => removeScheduleRow(row.id)}
+                                  disabled={paymentSchedule.length <= 1}
+                                  // title={
+                                  //   paymentSchedule.length <= 1
+                                  //     ? "Debe existir al menos una fila"
+                                  //     : "Eliminar fila"
+                                  // }
+                                ></Button>
+                              </div>
                             </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
+                  </div> */}
+
+                  <div className="grid grid-cols-2 gap-2">
+                    {paymentSchedule.map((row) => {
+                      const card = creditCards.find(
+                        (c: any) => c.id === row.referencia_pago,
+                      );
+                      const titular = Array.isArray(titularesData)
+                        ? titularesData.find(
+                            (t: any) =>
+                              String(getTitularId(t)) === String(row.idTitular),
+                          )
+                        : null;
+                      return (
+                        <PaymentRowCard
+                          key={row.id}
+                          row={row}
+                          card={card}
+                          titular={titular}
+                          paymentMethod={paymentMethod}
+                          onEdit={() => {
+                            setSelectedRow(row);
+                            setIsOpen(true);
+                          }}
+                          onRemove={() => removeScheduleRow(row.id)}
+                          canRemove={paymentSchedule.length > 1}
+                        />
+                      );
+                    })}
                   </div>
+
+                  <div className="space-y-3"></div>
 
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-slate-600">Total programado:</span>
@@ -1224,7 +1385,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
           <div className="grid grid-cols-2 gap-4">
             <Button
               type="button"
-              variant={paymentType === "prepaid" ? "default" : "outline"}
+              variant={paymentType === "prepaid" ? "primary" : "secondary"}
               onClick={() =>
                 dispatch({
                   type: "SET_FIELD",
@@ -1241,7 +1402,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
 
             <Button
               type="button"
-              variant={paymentType === "credit" ? "default" : "outline"}
+              variant={paymentType === "credit" ? "primary" : "secondary"}
               onClick={() =>
                 dispatch({
                   type: "SET_FIELD",
@@ -1266,7 +1427,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
             <div className="grid grid-cols-3 gap-4">
               <Button
                 type="button"
-                variant={paymentMethod === "transfer" ? "default" : "outline"}
+                variant={paymentMethod === "transfer" ? "primary" : "secondary"}
                 onClick={() => {
                   dispatch({
                     type: "SET_FIELD",
@@ -1283,7 +1444,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
 
               <Button
                 type="button"
-                variant={paymentMethod === "card" ? "default" : "outline"}
+                variant={paymentMethod === "card" ? "primary" : "secondary"}
                 onClick={() => {
                   dispatch({
                     type: "SET_FIELD",
@@ -1300,7 +1461,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
 
               <Button
                 type="button"
-                variant={paymentMethod === "link" ? "default" : "outline"}
+                variant={paymentMethod === "link" ? "primary" : "secondary"}
                 onClick={() => {
                   dispatch({
                     type: "SET_FIELD",
@@ -1316,14 +1477,16 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
               </Button>
             </div>
 
-            {paymentMethod === "card" && (
-              <>
-                <div>
+            {/* {paymentMethod === "card" && ( */}
+            <>
+              {/* <div>
+    
+
                   <h5 className="text-sm font-semibold">Datos de Pago</h5>
                   <div className="grid grid-cols-2 gap-4 mt-2">
                     <Button
                       type="button"
-                      variant={useQR === "qr" ? "default" : "outline"}
+                      variant={useQR === "qr" ? "primary" : "secondary"}
                       onClick={() =>
                         dispatch({
                           type: "SET_FIELD",
@@ -1340,7 +1503,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
 
                     <Button
                       type="button"
-                      variant={useQR === "code" ? "default" : "outline"}
+                      variant={useQR === "code" ? "primary" : "secondary"}
                       onClick={() =>
                         dispatch({
                           type: "SET_FIELD",
@@ -1355,9 +1518,9 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                       En archivo
                     </Button>
                   </div>
-                </div>
+                </div> */}
 
-                <CheckboxInput
+              {/* <CheckboxInput
                   label={"Mostrar cvv"}
                   checked={isSecureCode}
                   onChange={(value) =>
@@ -1367,9 +1530,9 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                       payload: value,
                     })
                   }
-                />
+                /> */}
 
-                <DropdownValues
+              {/* <DropdownValues
                   label="Titular"
                   value={document}
                   onChange={(
@@ -1398,8 +1561,8 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                     });
                   }}
                   options={selectFiles}
-                />
-
+                /> */}
+              {/* 
                 <TextInput
                   onChange={(value) =>
                     dispatch({
@@ -1411,11 +1574,10 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                   value={cargo || ""}
                   label="Tipo de cargo"
                   placeholder="RENTA HABITACIÓN..."
-                />
-              </>
-            )}
+                /> */}
+            </>
 
-            {(paymentMethod === "card" || paymentMethod === "link") && (
+            {/* {(paymentMethod === "card" || paymentMethod === "link") && (
               <div className="space-y-4">
                 <DropdownValues
                   onChange={(value: any) => {
@@ -1494,7 +1656,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                 </label>
 
                 <select
-                  className="w-full h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:secondary-none focus:ring-2 focus:ring-blue-500"
                   value={selectedTitularId}
                   onChange={(e) => setSelectedTitularId(e.target.value)}
                   disabled={isSubmitting}
@@ -1527,7 +1689,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                   </a>
                 )}
               </div>
-            )}
+            )} */}
 
             <TextAreaInput
               onChange={(value) =>
@@ -1576,7 +1738,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
               <Button
                 type="button"
                 onClick={handleDownloadCoupon}
-                variant="outline"
+                variant="secondary"
                 className="bg-green-50 border-green-200"
                 disabled={isSubmitting || !!loading}
               >
@@ -1656,6 +1818,30 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
         reservation={{ ...mappedReservation, incluye_desayuno: cupon }}
         mountHidden
       />
+
+      {isOpen && selectedRow && (
+        <PaymentRowModal
+          row={selectedRow}
+          creditCards={creditCards}
+          titularesData={titularesData}
+          paymentMethod={paymentMethod as "card" | "link"}
+          onSave={(updated) => {
+            setPaymentSchedule((rows) => {
+              const existe = rows.some((r) => r.id === updated.id);
+              if (existe) {
+                return rows.map((r) => (r.id === updated.id ? updated : r));
+              }
+              return [...rows, updated];
+            });
+            setSelectedRow(null);
+            setIsOpen(false);
+          }}
+          onClose={() => {
+            setSelectedRow(null);
+            setIsOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 };
