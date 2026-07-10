@@ -31,6 +31,7 @@ export type ConciliacionFilters = {
   filtrar_fecha_por_reserva: string;
   estado_solicitud: string;
 
+
   comentarios: string;
   comentario_CXP: string;
 
@@ -164,6 +165,8 @@ export default function FiltrosConciliacionModal({
         </div>
 
         <div className="p-5 space-y-6 max-h-[80vh] overflow-y-auto">
+          
+
           {/* ── General ─────────────────────────────────────────────── */}
           <div>
             <h3 className="text-sm font-semibold text-gray-800 mb-3">
@@ -429,6 +432,11 @@ export default function FiltrosConciliacionModal({
                   onChange={(v) => onChange("canal_de_reservacion", v)}
                   onClear={() => onChange("canal_de_reservacion", "")}
                   options={["DIRECTO", "INTERMEDIARIO"]}
+                <SelectWithClear
+                  value={filters.canal_de_reservacion}
+                  onChange={(v) => onChange("canal_de_reservacion", v)}
+                  onClear={() => onChange("canal_de_reservacion", "")}
+                  options={["DIRECTO", "INTERMEDIARIO"]}
                   placeholder="Selecciona una opcion"
                 />
               </Field>
@@ -490,14 +498,59 @@ export default function FiltrosConciliacionModal({
                 />
               </Field>
 
+              <Field label="reservante">
+                <SelectWithClear
+                  value={filters.reservante}
+                  onChange={(v) => onChange("reservante", v)}
+                  onClear={() => onChange("reservante", "")}
+                  options={["operaciones", "cliente"]}
+                  placeholder="selecciona una opcion"
+                />
+              </Field>
+
+              <Field label="Nombre intermediario">
+                <InputWithClear
+                  value={filters.nombre_intermediario}
+                  onChange={(v) => onChange("nombre_intermediario", v)}
+                  onClear={() => onChange("nombre_intermediario", "")}
+                />
+              </Field>
+              <Field label="Estatus de pago">
+                <SelectWithClear
+                  value={filters.forma_pago_solicitada}
+                  onChange={(v) => onChange("forma_pago_solicitada", v)}
+                  onClear={() => onChange("forma_pago_solicitada", "")}
+                  options={["Pagado link", "Cancelada", "carta enviada", "transferencia solicitada", "Cupon enviado", "Solicitada", "Pagado tarjeta", "Pagado transferencia", "Dispersion"]}
+                  placeholder="todos"
+                />
+              </Field>
+
+
+              <Field label="Método pago reserva">
+                <SelectWithClear
+                  value={filters.metodo_pago_reserva}
+                  onChange={(v) => onChange("metodo_pago_reserva", v)}
+                  onClear={() => onChange("metodo_pago_reserva", "")}
+                  options={["PREPAGO", "CREDITO"]}
+                  placeholder="Selecciona una opcion"
+                />
+              </Field>
+
+              <Field label="hay diferencia">
+                <SelectWithClear
+                  value={filters.reserva_diferencia}
+                  onChange={(v) => onChange("reserva_diferencia", v)}
+                  onClear={() => onChange("reserva_diferencia", "")}
+                  options={["Si", "no"]}
+                  placeholder="Selecciona una opcion"
+                />
+              </Field>
+
               <Field label="ID del cliente">
                 <InputWithClear
                   value={filters.id_cliente}
                   onChange={(v) => onChange("id_cliente", v)}
                   onClear={() => onChange("id_cliente", "")}
-                />
-              </Field>
-
               <Field label="Estatus de solicitud">
                 <SelectWithClear
                   value={filters.estado_solicitud}
@@ -517,6 +570,8 @@ export default function FiltrosConciliacionModal({
                   placeholder="selecciona una opcion"
                 />
               </Field>
+
+            
             </div>
           </div>
 
