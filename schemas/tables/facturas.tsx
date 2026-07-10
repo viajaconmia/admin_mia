@@ -13,7 +13,7 @@ export type FacturaFiltradaRaw = {
   cfdi_tipo: string | null;
   rfc: string;
   rfc_receptor: string;
-  nombre: string | null;
+  nombre_cliente: string | null;
   razon_social: string | null;
   nombre_receptor: string | null;
   total: string;
@@ -24,6 +24,7 @@ export type FacturaFiltradaRaw = {
   fecha_emision: string;
   fecha_timbrado: string | null;
   fecha_vencimiento: string | null;
+  saldo_x_aplicar_items: string;
   url_pdf: string | null;
   url_xml: string | null;
   id_facturama: string | null;
@@ -40,19 +41,24 @@ export type FacturaItem = Pick<
   | "fecha_emision"
 > & {
   cliente: string;
+  saldo_reservas: string;
   documentos: FacturaFiltradaRaw;
   acciones: string;
 };
 
 export const mapFactura = (factura: FacturaFiltradaRaw): FacturaItem => ({
   cliente:
-    factura.nombre || factura.razon_social || factura.nombre_receptor || "—",
+    factura.nombre_cliente ||
+    factura.razon_social ||
+    factura.nombre_receptor ||
+    "—",
   rfc: factura.rfc_receptor || factura.rfc,
   folio: factura.folio,
   uuid_factura: factura.uuid_factura,
   estado: factura.estado,
   total: factura.total,
   saldo: factura.saldo_insoluto ?? factura.saldo,
+  saldo_reservas: factura.saldo_x_aplicar_items,
   fecha_emision: factura.fecha_emision,
   documentos: factura,
   acciones: factura.id_factura,
@@ -81,6 +87,7 @@ export const createFacturaRenderers = (opts?: {
     );
   },
   total: ({ value }: { value: string }) => <Precio value={value} />,
+  saldo_reservas: ({ value }: { value: string }) => <Precio value={value} />,
   saldo: ({ value }: { value: string }) => <Precio value={value} />,
   fecha_emision: ({ value }: { value: string }) => <DateTime value={value} />,
   documentos: ({ value }: { value: FacturaFiltradaRaw }) => {
