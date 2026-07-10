@@ -10,7 +10,7 @@ import {
 import { useAlert } from "@/context/useAlert";
 import Button from "@/components/atom/Button";
 import Link from "next/link";
-import { ExternalLink, Plus, RefreshCwIcon, X } from "lucide-react";
+import { Download, ExternalLink, Plus, RefreshCwIcon, X } from "lucide-react";
 import Modal from "@/components/organism/Modal";
 import { ComboBoxValue2, TextInput } from "@/components/atom/Input";
 import { ExtraService } from "@/services/ExtraServices";
@@ -30,6 +30,7 @@ export default function ProveedoresPage() {
   const [proveedores, setProveedores] = useState<Proveedor[]>(null);
   const [proveedor, setProveedor] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [filtros, setFiltros] = useState<{
     proveedor?: string;
     type?: string;
@@ -79,7 +80,75 @@ export default function ProveedoresPage() {
       setIsLoading(false);
     }
   };
+  const exportarCSV = (data: Proveedor[]) => {
+    // Validamos que sí haya proveedores para exportar
+    if (!data || data.length === 0) {
+      showNotification("info", "No hay proveedores para exportar");
+      return;
+    }
 
+    // Encabezados del archivo CSV
+    const headers = [
+      "ID",
+      "Proveedor",
+      "Tipo",
+      "Estatus",
+      "Negociación",
+      "Creado en",
+    ];
+
+    // Formateamos los datos para el CSV
+    const rows = data.map((p) => [
+      p.id ?? "",
+      p.proveedor ?? "",
+      p.type ?? "",
+      p.estatus ? "Activo" : "Inactivo",
+      p.negociacion ?? "",
+      p.created_at ? formatDate(p.created_at) : "",
+    ]);
+
+    // Convertimos los datos a CSV
+    const csv = [headers, ...rows]
+      .map((row) =>
+        row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(","),
+      )
+      .join("\n");
+
+    // Creamos el archivo descargable
+    const blob = new Blob(["\uFEFF" + csv], {
+      type: "text/csv;charset=utf-8;",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = `proveedores_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+
+    URL.revokeObjectURL(url);
+  };
+  const handleExportarProveedores = async () => {
+    setIsExporting(true);
+
+    try {
+      // No mandamos page ni size.
+      // Así el backend regresa todos los proveedores.
+      const response = await ProveedoresService.getInstance().getProveedores({
+        ...filtros,
+      });
+
+      // Mapeamos los datos como en la tabla.
+      const data = response.data.map((i) => mapProveedor(i));
+
+      // Descargamos el CSV con todos los proveedores.
+      exportarCSV(data);
+    } catch (err: any) {
+      showNotification("error", err.message || "Error al exportar proveedores");
+    } finally {
+      setIsExporting(false);
+    }
+  };
   const registros = (proveedores || []).map((p) => ({
     id: p.id,
     proveedor: p.proveedor,
@@ -180,7 +249,7 @@ export default function ProveedoresPage() {
               onClick={() => fetchProveedores()}
               disabled={isLoading}
               size="sm"
-              icon={RefreshCwIcon}
+              icon={RefreshCwIcon} // descargacsv
             >
               {isLoading
                 ? "Cargando..."
@@ -189,12 +258,13 @@ export default function ProveedoresPage() {
                   : "Refrescar"}
             </Button>
             <Button
-              onClick={() => fetchProveedores()}
-              disabled={isLoading}
+              onClick={handleExportarProveedores}
+              disabled={isLoading || isExporting}
               size="sm"
-              icon={RefreshCwIcon}
+              icon={Download}
+              className="!bg-green-700 hover:!bg-green-800 !text-white !border-green-700"
             >
-              Exportar
+              {isExporting ? "Exportando..." : "Exportar"}
             </Button>
             <Can permiso={PERMISOS.COMPONENTES.GROUP.PROVEEDORES_EDICIONES}>
               <Button
