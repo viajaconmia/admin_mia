@@ -121,25 +121,14 @@ export class ProveedoresService extends ApiService {
   public getCuentasByProveedor = async (
     id_proveedor: number,
     incluir_inactivas = false,
-  ): Promise<ApiResponse<ProveedorCuenta[]>> => {
-    const response = await this.get<ProveedorCuenta[]>({
+  ): Promise<ApiResponse<ProveedorCuenta[]>> =>
+    this.get<ProveedorCuenta[]>({
       path: this.formatPath(this.ENDPOINTS.GET.CUENTAS),
       params: {
         id_proveedor,
         incluir_inactivas: incluir_inactivas ? 1 : 0,
       },
     });
-
-    console.log("========== GET_CUENTAS_BY_PROVEEDOR ==========");
-    console.log("ID_PROVEEDOR:", id_proveedor);
-    console.log("DATA:", response.data);
-
-    response.data.forEach((item, index) => {
-      console.log(`CUENTA ${index}:`, item);
-    });
-
-    return response;
-  };
 
   public updateCuentasProveedor = async (
     body: ProveedorCuenta,
@@ -163,7 +152,10 @@ export class ProveedoresService extends ApiService {
       }
       return response.json();
     }
-    return this.put({ path: this.formatPath(this.ENDPOINTS.PUT.CUENTAS), body });
+    return this.put({
+      path: this.formatPath(this.ENDPOINTS.PUT.CUENTAS),
+      body,
+    });
   };
 
   public createCuentasProveedor = async (
@@ -188,7 +180,10 @@ export class ProveedoresService extends ApiService {
       }
       return response.json();
     }
-    return this.post({ path: this.formatPath(this.ENDPOINTS.POST.CUENTAS), body });
+    return this.post({
+      path: this.formatPath(this.ENDPOINTS.POST.CUENTAS),
+      body,
+    });
   };
 
   public deleteCuentaProveedor = async (
@@ -363,9 +358,18 @@ export interface ProveedorCuenta {
   titular: string | null;
   comentarios: string | null;
   alias: string | null;
-  email: string | null;
   url_caratula: string | null;
   active: number;
+
+  email?: string | null;
+  tipo_cta?: string | null;
+  cta?: string | null;
+  revision_pendiente?: number | null;
+  fecha_revision?: string | null;
+  revisado_por?: string | null;
+  cantidad_cambios?: number | null;
+  created_at?: string | null;
+  updated_at?: string | null;
 }
 
 //RENTAL CAR

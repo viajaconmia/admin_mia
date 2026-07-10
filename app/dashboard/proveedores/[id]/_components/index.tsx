@@ -137,6 +137,9 @@ export const ModalCuentasCRUD = ({
     alias: "",
     cuenta: "",
     titular: "",
+    email: "",
+    tipo_cta: "",
+    cta: "",
   });
   const [caratula, setCaratula] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -148,7 +151,10 @@ export const ModalCuentasCRUD = ({
 
   const handleFileChange = (file: File | null) => {
     setCaratula(file);
-    if (!file) { setPreview(null); return; }
+    if (!file) {
+      setPreview(null);
+      return;
+    }
     if (file.type.startsWith("image/")) {
       const reader = new FileReader();
       reader.onload = (e) => setPreview(e.target?.result as string);
@@ -163,14 +169,26 @@ export const ModalCuentasCRUD = ({
       alert("El número de cuenta, el titular y el banco son obligatorios");
       return;
     }
-    onSave({ ...formData, id_proveedor } as ProveedorCuenta, caratula ?? undefined);
+    onSave(
+      { ...formData, id_proveedor } as ProveedorCuenta,
+      caratula ?? undefined,
+    );
   };
 
   useEffect(() => {
     if (selectedCuenta) {
       setFormData(selectedCuenta);
     } else {
-      setFormData({ banco: "", comentarios: "", alias: "", cuenta: "", titular: "" });
+      setFormData({
+        banco: "",
+        comentarios: "",
+        alias: "",
+        cuenta: "",
+        titular: "",
+        email: "",
+        tipo_cta: "",
+        cta: "",
+      });
     }
     setCaratula(null);
     setPreview(null);
@@ -191,7 +209,10 @@ export const ModalCuentasCRUD = ({
               {selectedCuenta ? "Editar cuenta" : "Nueva Cuenta"}
             </h2>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+          >
             <X size={24} />
           </button>
         </div>
@@ -203,10 +224,30 @@ export const ModalCuentasCRUD = ({
               <TextInput
                 label="Número de cuenta"
                 value={separarByEspacios(formData.cuenta || "", 4)}
-                onChange={(v) => handleChange("cuenta", separarByEspacios(v, 4))}
+                onChange={(v) =>
+                  handleChange("cuenta", separarByEspacios(v, 4))
+                }
                 placeholder="4242 4242 4242 4242"
               />
             </div>
+            <TextInput
+              label="Correo"
+              value={formData.email || ""}
+              onChange={(v) => handleChange("email", v)}
+              placeholder="ingresa Correo"
+            />
+            <TextInput
+              label="Tipo de cuenta"
+              value={formData.tipo_cta || ""}
+              onChange={(v) => handleChange("tipo_cta", v)}
+              placeholder="ingresa tipo de cuenta"
+            />
+            <TextInput
+              label="Cuenta"
+              value={formData.cta || ""}
+              onChange={(v) => handleChange("cta", v)}
+              placeholder="ingresa cuenta"
+            />
             <TextInput
               label="Banco"
               value={formData.banco || ""}
@@ -235,7 +276,9 @@ export const ModalCuentasCRUD = ({
 
           {/* Carátula */}
           <div className="space-y-1.5">
-            <p className="text-xs font-medium text-gray-500">Carátula de cuenta</p>
+            <p className="text-xs font-medium text-gray-500">
+              Carátula de cuenta
+            </p>
             <input
               ref={fileInputRef}
               type="file"
@@ -250,14 +293,23 @@ export const ModalCuentasCRUD = ({
             {caratula ? (
               <div className="border border-blue-200 bg-blue-50 rounded-lg p-3 flex items-center gap-3">
                 {preview ? (
-                  <img src={preview} alt="preview" className="w-12 h-12 object-cover rounded border border-blue-200 shrink-0" />
+                  <img
+                    src={preview}
+                    alt="preview"
+                    className="w-12 h-12 object-cover rounded border border-blue-200 shrink-0"
+                  />
                 ) : (
                   <div className="w-12 h-12 flex items-center justify-center bg-white rounded border border-blue-200 shrink-0">
                     <Image className="w-5 h-5 text-blue-400" />
                   </div>
                 )}
-                <span className="flex-1 text-xs text-blue-700 truncate">{caratula.name}</span>
-                <button onClick={() => handleFileChange(null)} className="text-blue-400 hover:text-red-500 transition-colors shrink-0">
+                <span className="flex-1 text-xs text-blue-700 truncate">
+                  {caratula.name}
+                </span>
+                <button
+                  onClick={() => handleFileChange(null)}
+                  className="text-blue-400 hover:text-red-500 transition-colors shrink-0"
+                >
                   <X className="w-4 h-4" />
                 </button>
               </div>
