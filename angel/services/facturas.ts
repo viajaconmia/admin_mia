@@ -3,7 +3,6 @@ import { FacturaFiltradaRaw } from "@/schemas/tables/facturas";
 import { ApiResponse, createApiClient } from "./apiClient";
 
 const facturaApi = createApiClient("/mia/factura");
-const facturasApi = createApiClient("/mia/facturas");
 
 export type ReservaPendienteFacturar = {
   id_reserva: string;
@@ -19,5 +18,8 @@ export const facturasService = {
   getReservasPendientesFacturar: (
     id_agente: string,
   ): Promise<ApiResponse<ReservaPendienteFacturar[]>> =>
-    facturasApi.get<ReservaPendienteFacturar[]>("/reservas_pendientes_facturar", { id_agente }),
+    facturaApi.get<ReservaPendienteFacturar[]>(
+      "/reservas_pendientes_facturar",
+      { id_agente },
+    ),
 };
