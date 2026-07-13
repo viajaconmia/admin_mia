@@ -822,69 +822,69 @@ export default function TarjetasCrudTable5() {
                     }
                   />
 
-                  {mode === "create" && (
-                    <>
-                      <Field
-                        label="Número completo"
-                        value={formTarjeta.numero_completo ?? ""}
-                        onChange={(v) =>
-                          setFormTarjeta((p) => ({
-                            ...p,
-                            numero_completo: v,
-                            ultimos_4: computeLast4(v),
-                          }))
-                        }
-                        placeholder="Opcional (si lo manejas)"
-                      />
+                  {/* {mode === "create" && (
+                      )} */}
+                  <>
+                    <Field
+                      label="Número completo"
+                      value={formTarjeta.numero_completo ?? ""}
+                      onChange={(v) =>
+                        setFormTarjeta((p) => ({
+                          ...p,
+                          numero_completo: v,
+                          ultimos_4: computeLast4(v),
+                        }))
+                      }
+                      placeholder="Opcional (si lo manejas)"
+                    />
 
-                      <Field
-                        label="Últimos 4"
-                        value={formTarjeta.ultimos_4 ?? ""}
-                        onChange={(v) =>
-                          setFormTarjeta((p) => ({ ...p, ultimos_4: v }))
-                        }
-                        placeholder="Se calcula automático"
-                      />
+                    <Field
+                      label="Últimos 4"
+                      value={formTarjeta.ultimos_4 ?? ""}
+                      onChange={(v) =>
+                        setFormTarjeta((p) => ({ ...p, ultimos_4: v }))
+                      }
+                      placeholder="Se calcula automático"
+                    />
 
-                      <Field
-                        label="Banco emisor"
-                        value={formTarjeta.banco_emisor ?? ""}
-                        onChange={(v) =>
-                          setFormTarjeta((p) => ({ ...p, banco_emisor: v }))
-                        }
-                      />
+                    <Field
+                      label="Banco emisor"
+                      value={formTarjeta.banco_emisor ?? ""}
+                      onChange={(v) =>
+                        setFormTarjeta((p) => ({ ...p, banco_emisor: v }))
+                      }
+                    />
 
-                      <Field
-                        label="Tipo tarjeta"
-                        value={formTarjeta.tipo_tarjeta ?? ""}
-                        onChange={(v) =>
-                          setFormTarjeta((p) => ({ ...p, tipo_tarjeta: v }))
-                        }
-                        placeholder="crédito / débito / etc"
-                      />
+                    <Field
+                      label="Tipo tarjeta"
+                      value={formTarjeta.tipo_tarjeta ?? ""}
+                      onChange={(v) =>
+                        setFormTarjeta((p) => ({ ...p, tipo_tarjeta: v }))
+                      }
+                      placeholder="crédito / débito / etc"
+                    />
 
-                      <Field
-                        label="Fecha vencimiento"
-                        value={formTarjeta.fecha_vencimiento ?? ""}
-                        onChange={(v) =>
-                          setFormTarjeta((p) => ({
-                            ...p,
-                            fecha_vencimiento: v,
-                          }))
-                        }
-                        placeholder="Ej: 12/27"
-                      />
+                    <Field
+                      label="Fecha vencimiento"
+                      value={formTarjeta.fecha_vencimiento ?? ""}
+                      onChange={(v) =>
+                        setFormTarjeta((p) => ({
+                          ...p,
+                          fecha_vencimiento: v,
+                        }))
+                      }
+                      placeholder="Ej: 12/27"
+                    />
 
-                      <Field
-                        label="CVV"
-                        value={formTarjeta.cvv ?? ""}
-                        onChange={(v) =>
-                          setFormTarjeta((p) => ({ ...p, cvv: v }))
-                        }
-                        placeholder="Opcional"
-                      />
-                    </>
-                  )}
+                    <Field
+                      label="CVV"
+                      value={formTarjeta.cvv ?? ""}
+                      onChange={(v) =>
+                        setFormTarjeta((p) => ({ ...p, cvv: v }))
+                      }
+                      placeholder="Opcional"
+                    />
+                  </>
 
                   <div className="flex items-end gap-2">
                     <label className="text-sm text-gray-700">Activa</label>
