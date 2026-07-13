@@ -948,7 +948,7 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
   }, [saldoFavorMaximoSeleccionado, favorBalance]);
 
   return (
-    <div className="max-w-[85vw] w-screen p-2 pt-0 max-h-[90vh] grid grid-cols-2">
+    <div className="max-w-[85vw] w-screen p-2 pt-0 max-h-[90vh] grid grid-cols-2 my-10">
       <div
         className={`top-0 col-span-2 z-10 p-4 rounded-md border border-red-300 bg-red-50 text-red-700 shadow-md flex items-start gap-3 transform transition-all duration-300 ease-out ${
           error
