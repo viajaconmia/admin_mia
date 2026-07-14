@@ -703,10 +703,7 @@ export function createSolicitudesRenderers({
     ),
 
     codigo_confirmacion: ({ value }) => (
-      <span
-        className="font-mono text-[9px] break-words"
-        title={String(value ?? "")}
-      >
+      <span className="break-words" title={String(value ?? "")}>
         {String(value ?? "")}
       </span>
     ),
