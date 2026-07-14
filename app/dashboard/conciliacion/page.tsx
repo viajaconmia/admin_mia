@@ -510,7 +510,12 @@ export default function ConciliacionPage() {
     check_in_end: "",
     check_out_start: "",
     check_out_end: "",
-
+    canal_de_reservacion: "",
+    nombre_intermediario: "",
+    forma_pago_solicitada: "",
+    reservante: "",
+    comentario_AP: "",
+    reserva_diferencia: "",
     id_cliente: "",
     etapa_reservacion: "",
     fecha_reserva_start: "",
