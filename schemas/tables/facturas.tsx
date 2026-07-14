@@ -3,6 +3,7 @@
 import { DateTime, Precio } from "@/v3/atom/TableItemsComponent";
 import Button from "@/components/atom/Button";
 import { FileText, FileDown, Download, Eye, FilePlus } from "lucide-react";
+import { downloadFromUrl } from "@/angel/lib/download";
 
 export type FacturaFiltradaRaw = {
   id_factura: string;
@@ -97,16 +98,22 @@ export const createFacturaRenderers = (opts?: {
       <div className="flex flex-wrap gap-2">
         {value.url_pdf && value.url_xml ? (
           <>
-            <a href={value.url_pdf} target="_blank" rel="noreferrer">
-              <Button size="sm" variant="secondary" icon={FileText}>
-                PDF
-              </Button>
-            </a>
-            <a href={value.url_xml} target="_blank" rel="noreferrer">
-              <Button size="sm" variant="secondary" icon={FileDown}>
-                XML
-              </Button>
-            </a>
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={FileText}
+              onClick={() => downloadFromUrl(value.url_pdf!, `${nombre}.pdf`)}
+            >
+              PDF
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={FileDown}
+              onClick={() => downloadFromUrl(value.url_xml!, `${nombre}.xml`)}
+            >
+              XML
+            </Button>
           </>
         ) : (
           <>
