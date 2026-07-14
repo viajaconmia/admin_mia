@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { facturasService, ReservaSeleccion } from "@/angel/services/facturas";
+import { facturasService } from "@/angel/services/facturas";
 import * as schema from "@/schemas/tables/facturas";
 import * as track from "@/app/dashboard/invoices/_components/tracker_false";
 import { CompleteTable } from "@/v3/template/Table";
@@ -10,47 +10,14 @@ import { FilterInput } from "@/component/atom/FilterInput";
 import ModalDetalleFactura from "@/app/dashboard/invoices/_components/detalles";
 import { useDescargarFactura } from "@/angel/hooks/useDescargarFactura";
 import Modal from "@/components/organism/Modal";
-import { ReservasPendientesFacturaContainer } from "@/angel/components/ReservasPendientesFacturaContainer";
-import { fmtMoney } from "@/angel/lib/format/number";
+import { ReservasPendientesFactura } from "@/angel/components/organisms/ReservasPendientesFactura";
+import {
+  ReservasPendientesProvider,
+  useReservasPendientes,
+} from "@/angel/context/ReservasPendientesContext";
 import Button from "@/components/atom/Button";
-
-const PAGE_SIZE = 50;
-
-function ResumenSaldoFactura({
-  saldo,
-  seleccion,
-}: {
-  saldo: string;
-  seleccion: ReservaSeleccion[];
-}) {
-  const totalSeleccionado = seleccion.reduce(
-    (sum, r) => sum + Number(r.monto ?? 0),
-    0,
-  );
-  const restante = Number(saldo) - totalSeleccionado;
-  return (
-    <div className="flex items-center gap-6 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm mb-4">
-      <div>
-        <span className="text-gray-500">Saldo factura: </span>
-        <span className="font-semibold text-gray-800">{fmtMoney(saldo)}</span>
-      </div>
-      <div>
-        <span className="text-gray-500">Seleccionado: </span>
-        <span className="font-semibold text-blue-700">
-          {fmtMoney(totalSeleccionado)}
-        </span>
-      </div>
-      <div>
-        <span className="text-gray-500">Restante: </span>
-        <span
-          className={`font-semibold ${restante < 0 ? "text-red-600" : "text-green-700"}`}
-        >
-          {fmtMoney(restante)}
-        </span>
-      </div>
-    </div>
-  );
-}
+import { ResumenSaldoFactura } from "@/angel/components/molecules/ResumenSaldoFactura";
+import { CheckCircle2 } from "lucide-react";
 
 type Filtros = {
   estatusFactura?: "Confirmada" | "Cancelada" | "En proceso" | "Sin Asignar";
@@ -73,9 +40,6 @@ export default function InvoicesPage() {
   const [detalleFactura, setDetalleFactura] =
     useState<schema.FacturaFiltradaRaw | null>(null);
   const [asignarOpen, setAsignarOpen] = useState(false);
-  const [seleccionAsignar, setSeleccionAsignar] = useState<ReservaSeleccion[]>(
-    [],
-  );
   const { error } = useAlert();
   const { handleDescargar } = useDescargarFactura();
 
@@ -209,31 +173,103 @@ export default function InvoicesPage() {
       />
 
       {asignarOpen && detalleFactura && (
-        <Modal
-          onClose={() => {
-            setAsignarOpen(false);
-            setSeleccionAsignar([]);
-          }}
-          title="Asigna la cantidad que deseas a las facturas"
-          subtitle="Si quieres asignar montos parciales debes abrir los items de las reservas"
-        >
-          <ResumenSaldoFactura
-            saldo={detalleFactura.saldo || null}
-            seleccion={seleccionAsignar}
+        <ReservasPendientesProvider>
+          <AsignarFacturaModal
+            factura={detalleFactura}
+            onClose={() => setAsignarOpen(false)}
+            onSuccess={() => fetchFacturas()}
           />
-          <ReservasPendientesFacturaContainer
-            id_agente={(detalleFactura as any).id_agente}
-            onSelectionChange={setSeleccionAsignar}
-          />
-          <Button
-            onClick={() => {
-              console.log(seleccionAsignar);
-            }}
-          >
-            Asignar
-          </Button>
-        </Modal>
+        </ReservasPendientesProvider>
       )}
     </div>
+  );
+}
+
+const PAGE_SIZE = 50;
+
+function AsignarFacturaModal({
+  factura,
+  onClose,
+  onSuccess,
+}: {
+  factura: schema.FacturaFiltradaRaw;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const { seleccion } = useReservasPendientes();
+  const { error: alertError, success } = useAlert();
+  const [asignando, setAsignando] = useState(false);
+
+  const handleAsignar = async () => {
+    // Construir selección válida: completas con monto > 0, parciales con items con monto > 0
+    const seleccionFiltrada = seleccion
+      .map((r) => {
+        if (r.tipo === "completa") return r;
+        return {
+          ...r,
+          items: (r.items ?? []).filter((i) => Number(i.monto_asignar) > 0),
+        };
+      })
+      .filter((r) =>
+        r.tipo === "completa"
+          ? Number(r.monto) > 0
+          : (r.items ?? []).length > 0,
+      );
+
+    if (seleccionFiltrada.length === 0) {
+      alertError("Selecciona al menos una reserva o item con monto mayor a 0");
+      return;
+    }
+
+    const totalAsignar = seleccionFiltrada.reduce(
+      (sum, r) => sum + Number(r.monto),
+      0,
+    );
+    const saldoDisponible = Number(factura.saldo_x_aplicar_items || 0);
+
+    if (totalAsignar > saldoDisponible) {
+      alertError(
+        `El monto a asignar ($${totalAsignar.toFixed(2)}) supera el saldo disponible ($${saldoDisponible.toFixed(2)})`,
+      );
+      return;
+    }
+
+    setAsignando(true);
+    facturasService
+      .asignarItemsFactura({ id_factura: factura.id_factura, seleccion: seleccionFiltrada })
+      .then(() => {
+        success("Asignación realizada correctamente");
+        onSuccess();
+        onClose();
+      })
+      .catch((err) => alertError(err.message || "Error al asignar"))
+      .finally(() => setAsignando(false));
+  };
+
+  return (
+    <Modal
+      onClose={onClose}
+      title="Asigna la cantidad que deseas a las facturas"
+      subtitle="Si quieres asignar montos parciales debes abrir los items de las reservas"
+    >
+      <div className="flex justify-between items-center gap-4">
+        <ResumenSaldoFactura
+          saldo={Number(factura.saldo_x_aplicar_items || 0)}
+          seleccionado={seleccion.reduce(
+            (sum, r) => sum + Number(r.monto ?? 0),
+            0,
+          )}
+          labelSaldo="Saldo factura"
+        />
+        <Button onClick={handleAsignar} icon={CheckCircle2} disabled={asignando} loading={asignando}>
+          Asignar a factura
+        </Button>
+      </div>
+      <ReservasPendientesFactura
+        filtros={{ id_agente: factura.id_agente }}
+        saldo={Number(factura.saldo_x_aplicar_items || 0)}
+        hiddenHeaders={true}
+      />
+    </Modal>
   );
 }

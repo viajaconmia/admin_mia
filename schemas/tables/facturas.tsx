@@ -8,6 +8,7 @@ import { downloadFromUrl } from "@/angel/lib/download";
 export type FacturaFiltradaRaw = {
   id_factura: string;
   folio: string | null;
+  id_agente: string | null;
   uuid_factura: string;
   estado: string;
   estado_sat: string;
@@ -145,11 +146,20 @@ export const createFacturaRenderers = (opts?: {
   acciones: ({ value }: { value: FacturaFiltradaRaw }) => {
     return (
       <div className="flex items-center gap-2">
-        <Button size="sm" icon={Eye} onClick={() => opts?.onVerDetalle?.(value.id_factura, value)}>
+        <Button
+          size="sm"
+          icon={Eye}
+          onClick={() => opts?.onVerDetalle?.(value.id_factura, value)}
+        >
           Detalles
         </Button>
         {opts?.onAsignar && (
-          <Button size="sm" variant="secondary" icon={FilePlus} onClick={() => opts.onAsignar!(value.id_factura, value)}>
+          <Button
+            size="sm"
+            variant="secondary"
+            icon={FilePlus}
+            onClick={() => opts.onAsignar!(value.id_factura, value)}
+          >
             Asignar
           </Button>
         )}
