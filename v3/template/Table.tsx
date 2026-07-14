@@ -13,6 +13,7 @@ type TablesProps<T> = {
   registros: T[];
   loading: boolean;
   renderers?: Record<string, (value: any) => React.ReactNode>;
+  hiddenHeaders?: boolean;
 };
 
 export type { TrackingPage };
@@ -24,14 +25,17 @@ export const CompleteTable = <T,>({
   registros,
   loading,
   renderers = {},
+  hiddenHeaders = false,
 }: TablesProps<T>) => {
   return (
     <div className="flex flex-col gap-4 bg-white rounded-lg p-4">
-      <div className="flex justify-end items-center">
-        <Button size="sm" onClick={() => fetchData()} icon={RefreshCcw}>
-          {registros.length > 0 ? "Actualizar" : "Cargar datos"}
-        </Button>
-      </div>
+      {!hiddenHeaders && (
+        <div className="flex justify-end items-center">
+          <Button size="sm" onClick={() => fetchData()} icon={RefreshCcw}>
+            {registros.length > 0 ? "Actualizar" : "Cargar datos"}
+          </Button>
+        </div>
+      )}
       <Table
         registros={registros || []}
         loading={loading}
