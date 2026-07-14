@@ -153,16 +153,18 @@ export const createFacturaRenderers = (opts?: {
         >
           Detalles
         </Button>
-        {opts?.onAsignar && (
-          <Button
-            size="sm"
-            variant="secondary"
-            icon={FilePlus}
-            onClick={() => opts.onAsignar!(value.id_factura, value)}
-          >
-            Asignar
-          </Button>
-        )}
+        {opts?.onAsignar &&
+          value.saldo_x_aplicar_items &&
+          Number(value.saldo_x_aplicar_items) > 0 && (
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={FilePlus}
+              onClick={() => opts.onAsignar!(value.id_factura, value)}
+            >
+              Asignar
+            </Button>
+          )}
       </div>
     );
   },
