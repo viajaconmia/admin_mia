@@ -1,96 +1,36 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  X,
-  FileText,
-  CreditCard,
-  Wallet,
-  ExternalLink,
-  AlertTriangle,
-  Loader2,
-} from "lucide-react";
+import { X, ExternalLink, Loader2 } from "lucide-react";
 import { Table5 } from "@/components/Table5";
+import {
+  facturasService,
+  DetalleFacturaResponse,
+} from "@/angel/services/facturas";
 import { URL, API_KEY } from "@/lib/constants";
+import { fmtMoney } from "@/angel/lib/format/number";
+import { formatDate } from "@/helpers/formater";
 
-/* ===================== Types (flexibles) ===================== */
-type Pago = Record<string, any>;
-type Saldo = Record<string, any>;
-type Reserva = Record<string, any>;
-
-export interface DetalleFacturaData {
-  tipo_origen?: string;
-  id_origen?: string[];
-  pagos?: Pago[];
-  saldos?: Saldo[];
-  reservas?: Reserva[];
-}
-
-interface ModalDetalleFacturaProps {
+interface Props {
   open: boolean;
   onClose: () => void;
-
-  /** ✅ SOLO RECIBE id_factura */
   id_factura: string | null;
-
-  /**
-   * ✅ opcional: si quieres guardar en el padre la respuesta
-   * (lo que dijiste: "aqui lo enviare setDetalleFacturaData")
-   */
-  setDetalleFacturaData?: (v: DetalleFacturaData | null) => void;
-
-  title?: string;
-
-  /** Se llama cuando se desasocia una reserva, para que el padre marque needRefresh */
   onDelete?: () => void;
 }
 
-/* ===================== Helpers ===================== */
-const safeString = (v: any) => String(v ?? "").trim();
-
-function formatMoney(n: any) {
-  const num = Number(n);
-  if (Number.isNaN(num)) return "—";
-  return new Intl.NumberFormat("es-MX", {
-    style: "currency",
-    currency: "MXN",
-    maximumFractionDigits: 2,
-  }).format(num);
-}
-
-function formatDateSimple(dateStr?: string) {
-  if (!dateStr) return "—";
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("es-MX", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
-
-function openUrl(url?: string | null) {
-  const u = safeString(url);
-  if (!u) return;
-  window.open(u, "_blank", "noopener,noreferrer");
-}
-
-/* ===================== UI atoms ===================== */
 function Badge({
   text,
   tone = "gray",
 }: {
   text: string;
-  tone?: "gray" | "green" | "red" | "blue" | "amber";
+  tone?: "gray" | "green" | "amber" | "blue";
 }) {
-  const toneMap: Record<string, string> = {
+  const toneMap = {
     gray: "bg-gray-100 text-gray-700 border-gray-200",
     green: "bg-green-50 text-green-700 border-green-200",
-    red: "bg-red-50 text-red-700 border-red-200",
-    blue: "bg-blue-50 text-blue-700 border-blue-200",
     amber: "bg-amber-50 text-amber-700 border-amber-200",
+    blue: "bg-blue-50 text-blue-700 border-blue-200",
   };
-
   return (
     <span
       className={`inline-flex items-center px-2 py-0.5 text-[11px] font-semibold rounded-full border ${toneMap[tone]}`}
@@ -100,60 +40,20 @@ function Badge({
   );
 }
 
-function StatCard({
-  label,
-  value,
-  sub,
-}: {
-  label: string;
-  value: React.ReactNode;
-  sub?: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
-      <p className="text-[11px] uppercase tracking-wide text-gray-500">
-        {label}
-      </p>
-      <div className="mt-1 text-sm font-semibold text-gray-900">{value}</div>
-      {sub ? <div className="mt-1 text-xs text-gray-500">{sub}</div> : null}
-    </div>
-  );
-}
-
-function SectionTitle({
-  title,
-  right,
-}: {
-  title: string;
-  right?: React.ReactNode;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3 mb-2">
-      <p className="text-sm font-semibold text-gray-900">{title}</p>
-      {right}
-    </div>
-  );
-}
-
-/* ===================== Modal ===================== */
-const ModalDetalleFactura: React.FC<ModalDetalleFacturaProps> = ({
+const ModalDetalleFactura: React.FC<Props> = ({
   open,
   onClose,
   id_factura,
-  setDetalleFacturaData,
-  title = "Detalles de factura",
   onDelete,
 }) => {
-  // Estado fetch
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
-  const [data, setData] = useState<DetalleFacturaData | null>(null);
+  const [data, setData] = useState<DetalleFacturaResponse | null>(null);
   const [eliminandoRelacion, setEliminandoRelacion] = useState<string | null>(
     null,
   );
-  const [mensajeAccion, setMensajeAccion] = useState<string>("");
 
-  // cerrar con ESC
+  // ESC
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -163,117 +63,25 @@ const ModalDetalleFactura: React.FC<ModalDetalleFacturaProps> = ({
     return () => document.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  // ✅ Fetch interno al abrir / cambiar id_factura
+  // Fetch
   useEffect(() => {
-    if (!open) return;
-    if (!id_factura) return;
+    if (!open || !id_factura) return;
+    setLoading(true);
+    setError("");
+    setData(null);
+    facturasService
+      .getDetalleFactura(id_factura)
+      .then(({ data }) => setData(data))
+      .catch((err) => setError(err.message || "Error al cargar detalles"))
+      .finally(() => setLoading(false));
+  }, [open, id_factura]);
 
-    const controller = new AbortController();
-
-    (async () => {
-      setLoading(true);
-      setError("");
-      setData(null);
-
+  const eliminarRelacion = useCallback(
+    async (reserva: DetalleFacturaResponse["reservas"][number]) => {
+      if (!reserva.id_relacion || !id_factura) return;
+      if (!window.confirm("¿Desasociar esta reserva de la factura?")) return;
+      setEliminandoRelacion(reserva.id_relacion);
       try {
-        // ⚠️ AJUSTA ESTE ENDPOINT A TU REAL
-        const endpoint = `${URL}/mia/factura/detalles_facturas?id_factura=${encodeURIComponent(
-          id_factura,
-        )}`;
-
-        const resp = await fetch(endpoint, {
-          method: "GET",
-          signal: controller.signal,
-          headers: {
-            "x-api-key": API_KEY || "",
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            // "Content-Type": "application/json", // <- opcional en GET (no hay body)
-            Accept: "application/json",
-          },
-          cache: "no-store",
-        });
-
-        const json = await resp.json().catch(() => null);
-
-        console.log(json);
-
-        if (!resp.ok) {
-          throw new Error(json?.message || `Error HTTP: ${resp.status}`);
-        }
-
-        // json debería ser tu objeto: {tipo_origen,id_origen,pagos,saldos,reservas}
-        // o a veces viene envuelto. Ajusta si tu backend lo envuelve.
-        const resolved = (json?.data as any) ?? json;
-
-        setData(resolved);
-        setDetalleFacturaData?.(resolved);
-      } catch (e: any) {
-        if (e?.name === "AbortError") return;
-        console.error("❌ Error cargando detalles factura:", e);
-        setError(e?.message || "Error desconocido");
-        setDetalleFacturaData?.(null);
-      } finally {
-        setLoading(false);
-      }
-    })();
-
-    return () => controller.abort();
-  }, [open, id_factura, setDetalleFacturaData]);
-
-  // Render data
-  const payload = data ?? {};
-  const facturaId = payload?.id_origen?.[0] ?? id_factura ?? "—";
-
-  const pagos = Array.isArray(payload?.pagos) ? payload.pagos : [];
-  const saldos = Array.isArray(payload?.saldos) ? payload.saldos : [];
-  const reservas = Array.isArray(payload?.reservas) ? payload.reservas : [];
-
-  const totalPagos = useMemo(
-    () => pagos.reduce((s: number, p: any) => s + Number(p?.total ?? 0), 0),
-    [pagos],
-  );
-  const totalSaldoMonto = useMemo(
-    () => saldos.reduce((s: number, x: any) => s + Number(x?.monto ?? 0), 0),
-    [saldos],
-  );
-  const totalReservas = useMemo(
-    () => reservas.reduce((s: number, r: any) => s + Number(r?.total ?? 0), 0),
-    [reservas],
-  );
-
-  const agenteId = pagos?.[0]?.id_agente || saldos?.[0]?.id_agente || "—";
-  const idSaldoAFavor =
-    pagos?.[0]?.id_saldo_a_favor || saldos?.[0]?.id_saldos || "—";
-
-  const warnMismatch =
-    Math.abs(Number(totalPagos) - Number(totalReservas)) > 0.01;
-
-  const eliminarRelacionFacturaReserva = useCallback(
-    async (reserva: any) => {
-      const idFacturaReal = safeString(id_factura || facturaId);
-      const idRelacion = safeString(reserva?.id_relacion);
-      console.log("cualquier cosa");
-
-      if (!idFacturaReal || idFacturaReal === "—") {
-        alert("No se encontró el id_factura.");
-        return;
-      }
-
-      if (!idRelacion) {
-        alert("No se encontró el id_relacion de la reserva.");
-        return;
-      }
-
-      const confirmar = window.confirm(
-        "¿Seguro que deseas eliminar la relación entre esta factura y la reserva?",
-      );
-
-      if (!confirmar) return;
-
-      try {
-        setEliminandoRelacion(idRelacion);
-        setMensajeAccion("");
-
         const resp = await fetch(`${URL}/mia/factura/desasociar_reserva`, {
           method: "DELETE",
           headers: {
@@ -281,510 +89,282 @@ const ModalDetalleFactura: React.FC<ModalDetalleFacturaProps> = ({
             "x-api-key": API_KEY || "",
           },
           body: JSON.stringify({
-            id_factura: idFacturaReal,
-            id_relacion: idRelacion,
+            id_factura,
+            id_relacion: reserva.id_relacion,
           }),
         });
-
         const json = await resp.json().catch(() => null);
-
-        if (!resp.ok) {
-          throw new Error(
-            json?.message || "Error al eliminar la relación factura-reserva",
-          );
-        }
-
-        setMensajeAccion("Relación eliminada correctamente.");
+        if (!resp.ok) throw new Error(json?.message || "Error al desasociar");
         onDelete?.();
-
-        setData((prev) => {
-          if (!prev) return prev;
-
-          return {
-            ...prev,
-            reservas: Array.isArray(prev.reservas)
-              ? prev.reservas.filter(
-                  (r: any) => safeString(r?.id_relacion) !== idRelacion,
-                )
-              : [],
-          };
-        });
-      } catch (error: any) {
-        console.error("Error eliminando relación:", error);
-        alert(error?.message || "Error al eliminar relación");
+        setData((prev) =>
+          prev
+            ? {
+                ...prev,
+                reservas: prev.reservas.filter(
+                  (r) => r.id_relacion !== reserva.id_relacion,
+                ),
+              }
+            : prev,
+        );
+      } catch (e: any) {
+        alert(e.message || "Error al desasociar");
       } finally {
         setEliminandoRelacion(null);
       }
     },
-    [id_factura, facturaId],
-  );
-  /* --------- Table5: Pagos --------- */
-  const pagosTable = useMemo(
-    () => pagos.map((p: any) => ({ ...p, acciones: "acciones" })),
-    [pagos],
+    [id_factura],
   );
 
-  const pagosCols = useMemo(
-    () => [
-      "id_pago",
-      "estado",
-      "metodo_de_pago",
-      "tipo_de_tarjeta",
-      "fecha_pago",
-      "total",
-      "saldo_aplicado",
-      "transaccion",
-      "acciones",
-    ],
-    [],
+  /* ── Reservas ── */
+  const reservasRows = useMemo(
+    () => (data?.reservas ?? []).map((r) => ({ ...r, acciones: "acciones" })),
+    [data],
   );
-
-  const pagosRenderers = useMemo(
+  const reservasCols = [
+    "codigo_confirmacion",
+    "proveedor",
+    "nombre_agente",
+    "nombre_viajero",
+    "total",
+    "monto_asignado",
+    "acciones",
+  ];
+  const reservasRenderers = useMemo(
     () => ({
-      id_pago: ({ value }: any) => (
-        <span className="font-mono text-[11px] text-gray-700">
-          {safeString(value).slice(0, 10)}…
-        </span>
+      codigo_confirmacion: ({ value }: any) => (
+        <span className="font-mono text-[11px]">{value ?? "—"}</span>
       ),
-      estado: ({ value }: any) => {
-        const v = safeString(value);
-        const tone = v.toLowerCase().includes("confirm") ? "green" : "gray";
-        return <Badge text={v || "—"} tone={tone as any} />;
-      },
-      metodo_de_pago: ({ value }: any) => (
-        <Badge text={safeString(value) || "—"} tone="blue" />
+      proveedor: ({ value }: any) => (
+        <span className="font-semibold text-gray-900">{value ?? "—"}</span>
       ),
-      tipo_de_tarjeta: ({ value }: any) => (
-        <Badge text={safeString(value) || "—"} tone="gray" />
-      ),
-      fecha_pago: ({ value }: any) => <span>{formatDateSimple(value)}</span>,
+      nombre_agente: ({ value }: any) => <span>{value ?? "—"}</span>,
+      nombre_viajero: ({ value }: any) => <span>{value ?? "—"}</span>,
       total: ({ value }: any) => (
-        <span className="font-semibold">{formatMoney(value)}</span>
+        <span className="font-semibold text-blue-700">{fmtMoney(value)}</span>
       ),
-      saldo_aplicado: ({ value }: any) => (
+      monto_asignado: ({ value }: any) => (
         <span className="font-semibold text-emerald-700">
-          {formatMoney(value)}
+          {fmtMoney(value)}
         </span>
       ),
-      transaccion: ({ value }: any) => (
-        <span className="font-mono text-[11px] text-gray-700">
-          {safeString(value) ? `${safeString(value).slice(0, 10)}…` : "—"}
-        </span>
-      ),
-      acciones: ({ item }: any) => (
-        <div className="flex items-center gap-2">
+      acciones: ({ item }: any) => {
+        const eliminando = eliminandoRelacion === item.id_relacion;
+        return (
           <button
             type="button"
-            onClick={() => openUrl(item?.link_pago)}
-            className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-            disabled={!safeString(item?.link_pago)}
-            title={item?.link_pago ? "Abrir link de pago" : "Sin link"}
+            onClick={() => eliminarRelacion(item)}
+            disabled={eliminando}
+            className="inline-flex items-center rounded-md bg-red-500 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-red-600 disabled:opacity-50"
           >
-            <ExternalLink className="w-3.5 h-3.5" />
-            Link
+            {eliminando ? "Desasociando..." : "Desasociar"}
           </button>
-        </div>
-      ),
+        );
+      },
     }),
-    [],
+    [eliminandoRelacion, eliminarRelacion],
   );
 
-  /* --------- Table5: Saldos --------- */
-  const saldosTable = useMemo(
-    () => saldos.map((s: any) => ({ ...s, acciones: "acciones" })),
-    [saldos],
-  );
-
-  const saldosCols = useMemo(
-    () => [
-      "id_saldos",
-      "metodo_pago",
-      "tipo_tarjeta",
-      "banco_tarjeta",
-      "fecha_pago",
-      "monto",
-      "saldo",
-      "activo",
-      "is_facturable",
-      "is_facturado",
-      "acciones",
-    ],
-    [],
-  );
-
+  /* ── Saldos ── */
+  const saldosRows = useMemo(() => data?.saldos ?? [], [data]);
+  const saldosCols = [
+    "metodo_pago",
+    "referencia",
+    "fecha_pago",
+    "monto",
+    "monto_asignado",
+    "saldo",
+    "is_facturable",
+    "is_facturado",
+  ];
   const saldosRenderers = useMemo(
     () => ({
-      id_saldos: ({ value }: any) => (
-        <span className="font-mono text-[11px] text-gray-700">
-          {safeString(value) || "—"}
-        </span>
-      ),
       metodo_pago: ({ value }: any) => (
-        <Badge text={safeString(value) || "—"} tone="blue" />
+        <Badge text={value ?? "—"} tone="blue" />
       ),
-      tipo_tarjeta: ({ value }: any) => (
-        <Badge text={safeString(value) || "—"} tone="gray" />
+      referencia: ({ value }: any) => (
+        <span className="text-[11px] text-gray-600">{value ?? "—"}</span>
       ),
-      banco_tarjeta: ({ value }: any) => (
-        <Badge text={safeString(value) || "—"} tone="gray" />
-      ),
-      fecha_pago: ({ value }: any) => <span>{formatDateSimple(value)}</span>,
+      fecha_pago: ({ value }: any) => <span>{formatDate(value)}</span>,
       monto: ({ value }: any) => (
-        <span className="font-semibold">{formatMoney(value)}</span>
+        <span className="font-semibold">{fmtMoney(value)}</span>
+      ),
+      monto_asignado: ({ value }: any) => (
+        <span className="font-semibold text-emerald-700">
+          {fmtMoney(value)}
+        </span>
       ),
       saldo: ({ value }: any) => (
-        <span className="font-semibold text-amber-700">
-          {formatMoney(value)}
-        </span>
-      ),
-      activo: ({ value }: any) => (
-        <Badge text={Number(value) === 1 ? "Activo" : "Inactivo"} tone="gray" />
+        <span className="font-semibold text-amber-700">{fmtMoney(value)}</span>
       ),
       is_facturable: ({ value }: any) => (
         <Badge
           text={Number(value) === 1 ? "Facturable" : "No facturable"}
-          tone="green"
+          tone={Number(value) === 1 ? "green" : "gray"}
         />
       ),
       is_facturado: ({ value }: any) => (
         <Badge
           text={Number(value) === 1 ? "Facturado" : "No facturado"}
-          tone="amber"
+          tone={Number(value) === 1 ? "green" : "amber"}
         />
       ),
-      acciones: ({ item }: any) => (
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => openUrl(item?.comprobante)}
-            className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-            disabled={!safeString(item?.comprobante)}
-            title={item?.comprobante ? "Abrir comprobante" : "Sin comprobante"}
-          >
-            <FileText className="w-3.5 h-3.5" />
-            Comprobante
-            <ExternalLink className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      ),
     }),
     [],
   );
 
-  /* --------- Table5: Reservas --------- */
-  const reservasTable = useMemo(
-    () => reservas.map((r: any) => ({ ...r, acciones: "acciones" })),
-    [reservas],
+  /* ── Pagos ── */
+  const pagosRows = useMemo(
+    () => (data?.pagos ?? []).filter((p) => p.id_pago !== null),
+    [data],
   );
-
-  const reservasCols = useMemo(
-    () => ["codigo_confirmacion", "proveedor", "viajero", "total", "acciones"],
-    [],
-  );
-
-  const reservasRenderers = useMemo(
+  const pagosCols = [
+    "metodo_de_pago",
+    "fecha_pago",
+    "total",
+    "monto_asignado",
+    "estado",
+    "saldo_aplicado",
+    "acciones",
+  ];
+  const pagosRenderers = useMemo(
     () => ({
-      codigo_confirmacion: ({ value }: any) => (
-        <span className="font-mono text-[11px] text-gray-700">
-          {safeString(value) || "—"}
-        </span>
+      metodo_de_pago: ({ value }: any) => (
+        <Badge text={value ?? "—"} tone="blue" />
       ),
-      hotel: ({ value }: any) => (
-        <span className="font-semibold text-gray-900">
-          {safeString(value) || "—"}
-        </span>
-      ),
+      fecha_pago: ({ value }: any) => <span>{formatDate(value)}</span>,
       total: ({ value }: any) => (
-        <span className="font-semibold text-blue-700">
-          {formatMoney(value)}
+        <span className="font-semibold">{fmtMoney(value)}</span>
+      ),
+      monto_asignado: ({ value }: any) => (
+        <span className="font-semibold text-emerald-700">
+          {fmtMoney(value)}
         </span>
       ),
-      acciones: ({ item }: any) => {
-        const idRelacion = safeString(item?.id_relacion);
-        const eliminando = eliminandoRelacion === idRelacion;
-        console.log(item);
-
-        return (
-          <div className="flex w-full items-center justify-center">
-            <button
-              type="button"
-              onClick={() => eliminarRelacionFacturaReserva(item)}
-              className="
-        inline-flex items-center justify-center
-        rounded-md bg-red-500
-        px-3 py-1.5
-        text-[11px] font-semibold text-white
-        shadow-sm transition-all duration-150
-        hover:bg-red-600
-        active:scale-[0.98]
-        focus:outline-none focus:ring-2 focus:ring-red-300 focus:ring-offset-1
-      "
-            >
-              {eliminando ? "Desasociando..." : "Desasociar factura"}
-            </button>
-          </div>
-        );
-      },
+      estado: ({ value }: any) => <Badge text={value ?? "—"} tone="gray" />,
+      saldo_aplicado: ({ value }: any) => (
+        <span className="font-semibold text-emerald-700">
+          {fmtMoney(value)}
+        </span>
+      ),
+      acciones: ({ item }: any) => (
+        <button
+          type="button"
+          onClick={() =>
+            item.link_pago &&
+            window.open(item.link_pago, "_blank", "noopener,noreferrer")
+          }
+          disabled={!item.link_pago}
+          className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+        >
+          <ExternalLink className="w-3.5 h-3.5" />
+          Link
+        </button>
+      ),
     }),
-    [eliminandoRelacion, eliminarRelacionFacturaReserva],
+    [],
   );
 
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* overlay */}
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-
-      {/* modal */}
       <div
-        className="relative w-full max-w-6xl max-h-[90vh] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
+        className="relative w-full max-w-5xl max-h-[90vh] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* header */}
-        <div className="sticky top-0 z-20 border-b border-gray-100 bg-white/95 backdrop-blur px-5 py-4 flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <p className="text-sm font-semibold text-gray-900">{title}</p>
-              <Badge text={`Factura: ${safeString(facturaId)}`} tone="blue" />
-              <Badge text={`Agente: ${safeString(agenteId)}`} tone="gray" />
-              <Badge
-                text={`Saldo a favor: ${safeString(idSaldoAFavor)}`}
-                tone="gray"
-              />
-            </div>
-
-            <p className="text-xs text-gray-500 mt-1">
-              Origen: {safeString(payload?.tipo_origen) || "—"} • Pagos:{" "}
-              {pagos.length} • Saldos: {saldos.length} • Reservas:{" "}
-              {reservas.length}
-            </p>
-
-            {!loading &&
-              !error &&
-              data &&
-              (warnMismatch ? (
-                <div className="mt-2">
-                  <Badge
-                    text="Revisar: total pagos ≠ total reservas"
-                    tone="amber"
-                  />
-                </div>
-              ) : (
-                <div className="mt-2">
-                  <Badge text="Totales consistentes" tone="green" />
-                </div>
-              ))}
-          </div>
-
+        {/* Header */}
+        <div className="sticky top-0 z-20 border-b border-gray-100 bg-white px-5 py-4 flex items-center justify-between">
+          <p className="text-sm font-semibold text-gray-900">
+            Detalles de factura
+          </p>
           <button
             type="button"
-            className="inline-flex items-center justify-center w-10 h-10 rounded-xl border border-gray-200 bg-white hover:bg-gray-50"
             onClick={onClose}
-            title="Cerrar"
+            className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-gray-200 hover:bg-gray-50"
           >
             <X className="w-4 h-4 text-gray-700" />
           </button>
         </div>
 
-        {/* content */}
-        <div className="max-h-[calc(90vh-72px)] overflow-y-auto">
-          <div className="p-5">
-            {/* Loading */}
-            {loading && (
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Cargando detalles...
-              </div>
-            )}
+        {/* Content */}
+        <div className="max-h-[calc(90vh-60px)] overflow-y-auto p-5 space-y-6">
+          {loading && (
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <Loader2 className="w-4 h-4 animate-spin" /> Cargando detalles...
+            </div>
+          )}
 
-            {/* Error */}
-            {!loading && error && (
-              <div className="mt-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl p-4">
-                <p className="font-semibold">Error</p>
-                <p className="mt-1">{error}</p>
-              </div>
-            )}
+          {!loading && error && (
+            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl p-4">
+              {error}
+            </p>
+          )}
 
-            {/* Empty / No id */}
-            {!loading && !error && !id_factura && (
-              <div className="mt-3 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-4">
-                <p className="font-semibold flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4" />
-                  No se recibió id_factura
+          {!loading && !error && data && (
+            <>
+              {/* Reservas */}
+              <div>
+                <p className="text-sm font-semibold text-gray-900 mb-2">
+                  Reservas ({reservasRows.length})
                 </p>
-              </div>
-            )}
-
-            {/* Success */}
-            {!loading && !error && data && (
-              <>
-                {mensajeAccion && (
-                  <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
-                    {mensajeAccion}
-                  </div>
+                {reservasRows.length === 0 ? (
+                  <p className="text-xs text-gray-400">
+                    Sin reservas asociadas.
+                  </p>
+                ) : (
+                  <Table5<any>
+                    registros={reservasRows as any}
+                    customColumns={reservasCols as any}
+                    renderers={reservasRenderers as any}
+                    exportButton={false}
+                    fillHeight={false}
+                    maxHeight="260px"
+                  />
                 )}
-                {/* Overview cards */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
-                  <StatCard
-                    label="Total pagos"
-                    value={
-                      <span className="inline-flex items-center gap-2">
-                        <CreditCard className="w-4 h-4" />
-                        {formatMoney(totalPagos)}
-                      </span>
-                    }
+              </div>
+
+              {/* Saldos */}
+              <div>
+                <p className="text-sm font-semibold text-gray-900 mb-2">
+                  Saldos ({saldosRows.length})
+                </p>
+                {saldosRows.length === 0 ? (
+                  <p className="text-xs text-gray-400">Sin saldos.</p>
+                ) : (
+                  <Table5<any>
+                    registros={saldosRows as any}
+                    customColumns={saldosCols as any}
+                    renderers={saldosRenderers as any}
+                    exportButton={false}
+                    fillHeight={false}
+                    maxHeight="260px"
                   />
-                  <StatCard
-                    label="Total reservas"
-                    value={
-                      <span className="inline-flex items-center gap-2">
-                        <FileText className="w-4 h-4" />
-                        {formatMoney(totalReservas)}
-                      </span>
-                    }
+                )}
+              </div>
+
+              {/* Pagos */}
+              <div>
+                <p className="text-sm font-semibold text-gray-900 mb-2">
+                  Pagos ({pagosRows.length})
+                </p>
+                {pagosRows.length === 0 ? (
+                  <p className="text-xs text-gray-400">
+                    Sin pagos registrados.
+                  </p>
+                ) : (
+                  <Table5<any>
+                    registros={pagosRows as any}
+                    customColumns={pagosCols as any}
+                    renderers={pagosRenderers as any}
+                    exportButton={false}
+                    fillHeight={false}
+                    maxHeight="260px"
                   />
-                  <StatCard
-                    label="Monto saldos"
-                    value={
-                      <span className="inline-flex items-center gap-2">
-                        <Wallet className="w-4 h-4" />
-                        {formatMoney(totalSaldoMonto)}
-                      </span>
-                    }
-                  />
-                  <StatCard
-                    label="Diferencia (pagos - reservas)"
-                    value={
-                      <span
-                        className={`font-bold ${
-                          warnMismatch ? "text-amber-700" : "text-emerald-700"
-                        }`}
-                      >
-                        {formatMoney(
-                          Number(totalPagos) - Number(totalReservas),
-                        )}
-                      </span>
-                    }
-                    sub={warnMismatch ? "Hay diferencia, revisa." : "Cuadra."}
-                  />
-                </div>
-
-                {/* MAIN GRID */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                  {/* MAIN */}
-                  <div className="lg:col-span-8 space-y-4">
-                    {/* Reservas */}
-                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-                      <SectionTitle
-                        title={`Reservas (${reservasTable.length})`}
-                      />
-                      {reservasTable.length === 0 ? (
-                        <p className="text-xs text-gray-500">
-                          No hay reservas asociadas.
-                        </p>
-                      ) : (
-                        <Table5<any>
-                          registros={reservasTable as any}
-                          customColumns={reservasCols as any}
-                          renderers={reservasRenderers as any}
-                          exportButton={false}
-                          fillHeight={false}
-                          maxHeight="280px"
-                        />
-                      )}
-                    </div>
-
-                    {/* Pagos */}
-                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-                      <SectionTitle title={`Pagos (${pagosTable.length})`} />
-                      {pagosTable.length === 0 ? (
-                        <p className="text-xs text-gray-500">No hay pagos.</p>
-                      ) : (
-                        <Table5<any>
-                          registros={pagosTable as any}
-                          customColumns={pagosCols as any}
-                          renderers={pagosRenderers as any}
-                          exportButton={false}
-                          fillHeight={false}
-                          maxHeight="320px"
-                        />
-                      )}
-                    </div>
-
-                    {/* Saldos */}
-                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-                      <SectionTitle title={`Saldos (${saldosTable.length})`} />
-                      {saldosTable.length === 0 ? (
-                        <p className="text-xs text-gray-500">No hay saldos.</p>
-                      ) : (
-                        <Table5<any>
-                          registros={saldosTable as any}
-                          customColumns={saldosCols as any}
-                          renderers={saldosRenderers as any}
-                          exportButton={false}
-                          fillHeight={false}
-                          maxHeight="320px"
-                        />
-                      )}
-                    </div>
-                  </div>
-
-                  {/* SIDEBAR */}
-                  <div className="lg:col-span-4 space-y-4">
-                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-                      <SectionTitle title="Resumen rápido" />
-                      <div className="space-y-3 text-xs">
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="text-gray-500">Factura ID</p>
-                          <p className="font-mono text-gray-800">
-                            {safeString(facturaId)}
-                          </p>
-                        </div>
-
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="text-gray-500">Agente</p>
-                          <p className="font-mono text-gray-800">
-                            {safeString(agenteId)}
-                          </p>
-                        </div>
-
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="text-gray-500">Saldo a favor</p>
-                          <p className="font-mono text-gray-800">
-                            {safeString(idSaldoAFavor)}
-                          </p>
-                        </div>
-
-                        <div className="pt-2 border-t border-gray-100">
-                          <p className="text-gray-500">Consistencia</p>
-                          {warnMismatch ? (
-                            <div className="mt-1 flex items-center gap-2 text-amber-700">
-                              <AlertTriangle className="w-4 h-4" />
-                              <span className="font-semibold">
-                                Total pagos no cuadra con reservas
-                              </span>
-                            </div>
-                          ) : (
-                            <Badge text="Cuadra" tone="green" />
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                      <p className="text-xs font-semibold text-gray-700">Tip</p>
-                      <div className="mt-2 text-[11px] text-gray-600">
-                        Puedes cerrar con{" "}
-                        <span className="font-semibold">ESC</span>.
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                {/* END GRID */}
-              </>
-            )}
-          </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
