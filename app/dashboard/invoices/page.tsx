@@ -8,6 +8,9 @@ import { CompleteTable } from "@/v3/template/Table";
 import { useAlert } from "@/context/useAlert";
 import { FilterInput } from "@/component/atom/FilterInput";
 import ModalDetalleFactura from "@/app/dashboard/invoices/_components/detalles";
+import { ModalCancelarFactura } from "@/app/dashboard/invoices/_components/traveler_main";
+import { usePermiso } from "@/hooks/usePermission";
+import { PERMISOS } from "@/constant/permisos";
 import { useDescargarFactura } from "@/angel/hooks/useDescargarFactura";
 import Modal from "@/components/organism/Modal";
 import { ReservasPendientesFactura } from "@/angel/components/organisms/ReservasPendientesFactura";
@@ -40,8 +43,10 @@ export default function InvoicesPage() {
   const [detalleFactura, setDetalleFactura] =
     useState<schema.FacturaFiltradaRaw | null>(null);
   const [asignarOpen, setAsignarOpen] = useState(false);
+  const [cancelarFacturaId, setCancelarFacturaId] = useState<string | null>(null);
   const { error } = useAlert();
   const { handleDescargar } = useDescargarFactura();
+  const { hasPermission } = usePermiso();
 
   useEffect(() => {
     setTracking((prev) => ({ ...prev, page: 1 }));
@@ -155,6 +160,9 @@ export default function InvoicesPage() {
             setDetalleFactura(factura);
             setAsignarOpen(true);
           },
+          onCancelar: hasPermission(PERMISOS.COMPONENTES.BOTON.ACTUALIZAR_PDF_FACTURA)
+            ? (id) => setCancelarFacturaId(id)
+            : undefined,
         })}
       />
 
@@ -180,6 +188,19 @@ export default function InvoicesPage() {
             onSuccess={() => fetchFacturas()}
           />
         </ReservasPendientesProvider>
+      )}
+
+      {cancelarFacturaId && (
+        <Modal onClose={() => setCancelarFacturaId(null)} title="Cancelar factura">
+          <ModalCancelarFactura
+            id={cancelarFacturaId}
+            onClose={() => setCancelarFacturaId(null)}
+            onConfirm={() => {
+              fetchFacturas();
+              setCancelarFacturaId(null);
+            }}
+          />
+        </Modal>
       )}
     </div>
   );
