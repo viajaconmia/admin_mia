@@ -20,7 +20,8 @@ import {
 } from "@/angel/context/ReservasPendientesContext";
 import Button from "@/components/atom/Button";
 import { ResumenSaldoFactura } from "@/angel/components/molecules/ResumenSaldoFactura";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Download } from "lucide-react";
+import { useFile } from "@/hooks/useFile";
 
 type Filtros = {
   estatusFactura?: "Confirmada" | "Cancelada" | "En proceso" | "Sin Asignar";
@@ -47,6 +48,37 @@ export default function InvoicesPage() {
   const { error } = useAlert();
   const { handleDescargar } = useDescargarFactura();
   const { hasPermission } = usePermiso();
+  const { csv, loadingFile, setLoadingFile } = useFile();
+
+  const handleExport = async () => {
+    setLoadingFile(true);
+    facturasService
+      .filtrarFacturas({ ...filtros })
+      .then(({ data }) => {
+        const rows = (data ?? []).map((f) => ({
+          id_factura: f.id_factura,
+          folio: f.folio ?? "",
+          uuid: f.uuid_factura,
+          estado: f.estado,
+          estado_sat: f.estado_sat,
+          cliente: f.nombre_cliente ?? f.razon_social ?? f.nombre_receptor ?? "",
+          rfc: f.rfc_receptor || f.rfc,
+          subtotal: f.subtotal,
+          impuestos: f.impuestos,
+          total: f.total,
+          saldo: f.saldo_insoluto ?? f.saldo,
+          saldo_x_items: f.saldo_x_aplicar_items,
+          fecha_emision: f.fecha_emision,
+          fecha_timbrado: f.fecha_timbrado ?? "",
+          fecha_vencimiento: f.fecha_vencimiento ?? "",
+          id_facturama: f.id_facturama ?? "",
+          id_agente: f.id_agente ?? "",
+        }));
+        csv(rows, "Facturas");
+      })
+      .catch((er) => error(er.message || "Error al exportar"))
+      .finally(() => setLoadingFile(false));
+  };
 
   useEffect(() => {
     setTracking((prev) => ({ ...prev, page: 1 }));
@@ -142,6 +174,16 @@ export default function InvoicesPage() {
             value={filtros.endDate || null}
             label="Fecha fin"
           />
+        </div>
+        <div className="flex justify-end">
+          <Button
+            variant="secondary"
+            icon={Download}
+            onClick={handleExport}
+            disabled={loadingFile}
+          >
+            {loadingFile ? "Exportando..." : "Exportar CSV"}
+          </Button>
         </div>
       </div>
 
