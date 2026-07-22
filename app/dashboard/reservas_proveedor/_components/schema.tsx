@@ -1,6 +1,13 @@
 "use client";
 
-import { DateTime, Precio, Badge, TextCell, MonoCell } from "@/v3/atom/TableItemsComponent";
+import {
+  DateTime,
+  Precio,
+  Badge,
+  TextCell,
+  MonoCell,
+  PorcentajeBadge,
+} from "@/v3/atom/TableItemsComponent";
 import { SolicitudProveedorRaw } from "@/angel/services/pago_proveedor";
 import { TypeService } from "@/angel/lib/types";
 import { ServiceIcon } from "@/component/atom/ItemTable";
@@ -8,6 +15,7 @@ import { ServiceIcon } from "@/component/atom/ItemTable";
 export type { SolicitudProveedorRaw };
 
 export type SolicitudProveedorItem = {
+  _seleccion: string;
   type: TypeService;
   id: string;
   created_at: string;
@@ -42,12 +50,17 @@ export type SolicitudProveedorItem = {
 export const mapSolicitud = (
   raw: SolicitudProveedorRaw,
 ): SolicitudProveedorItem => ({
+  _seleccion: raw.id_solicitud_proveedor,
   type: raw.type,
   id: raw.id_solicitud_proveedor,
   created_at: raw.created_at,
+  estado_solicitud: raw.estado_solicitud,
   codigo_confirmacion: raw.codigo_confirmacion,
   cliente: raw.cliente,
   proveedor: raw.proveedor,
+  intermediario: raw.intermediario,
+  negociacion_proveedor: raw.negociacion_proveedor,
+  negociacion_intermediario: raw.negociacion_intermediario,
   check_in: raw.check_in,
   check_out: raw.check_out,
   noches: raw.noches,
@@ -58,15 +71,11 @@ export const mapSolicitud = (
   total: raw.total,
   saldo: raw.saldo,
   saldo_dispersion: raw.saldo_dispersion,
-  asignado_a_factura: raw.asignado_a_factura,
-  estado_solicitud: raw.estado_solicitud,
   estado_facturacion: raw.estado_facturacion,
   forma_pago: raw.forma_pago,
-  negociacion_proveedor: raw.negociacion_proveedor,
-  intermediario: raw.intermediario,
-  negociacion_intermediario: raw.negociacion_intermediario,
   rfc: raw.rfc,
   uuid: raw.uuid,
+  asignado_a_factura: raw.asignado_a_factura,
   comentario_CXP: raw.comentario_CXP,
   comentario_AP: raw.comentario_AP,
   comentario_ajuste: raw.comentario_ajuste,
@@ -74,25 +83,25 @@ export const mapSolicitud = (
 });
 
 const ESTADO_SOLICITUD_STYLES: Record<string, string> = {
-  "pagado link":              "bg-green-100 text-green-700 border border-green-300",
-  "pagado tarjeta":           "bg-green-100 text-green-700 border border-green-300",
-  "pagado transferencia":     "bg-green-100 text-green-700 border border-green-300",
-  cancelada:                  "bg-red-100 text-red-700 border border-red-300",
-  transferencia_solicitada:   "bg-amber-100 text-amber-700 border border-amber-300",
-  "cupon enviado":            "bg-blue-100 text-blue-700 border border-blue-300",
-  carta_enviada:              "bg-blue-100 text-blue-700 border border-blue-300",
-  solicitada:                 "bg-yellow-100 text-yellow-700 border border-yellow-300",
-  dispersion:                 "bg-purple-100 text-purple-700 border border-purple-300",
+  "pagado link": "bg-green-100 text-green-700 border border-green-300",
+  "pagado tarjeta": "bg-green-100 text-green-700 border border-green-300",
+  "pagado transferencia": "bg-green-100 text-green-700 border border-green-300",
+  cancelada: "bg-red-100 text-red-700 border border-red-300",
+  transferencia_solicitada:
+    "bg-amber-100 text-amber-700 border border-amber-300",
+  "cupon enviado": "bg-blue-100 text-blue-700 border border-blue-300",
+  carta_enviada: "bg-blue-100 text-blue-700 border border-blue-300",
+  solicitada: "bg-yellow-100 text-yellow-700 border border-yellow-300",
+  dispersion: "bg-purple-100 text-purple-700 border border-purple-300",
 };
 
 const ESTADO_FACTURACION_STYLES: Record<string, string> = {
   facturado: "bg-green-100 text-green-700 border border-green-300",
   pendiente: "bg-yellow-100 text-yellow-700 border border-yellow-300",
-  parcial:   "bg-blue-100 text-blue-700 border border-blue-300",
+  parcial: "bg-blue-100 text-blue-700 border border-blue-300",
 };
 
 const DEFAULT_BADGE = "bg-gray-100 text-gray-600 border border-gray-300";
-
 
 export const createSolicitudRenderers = () => ({
   type: ({ value }: { value: TypeService }) => <ServiceIcon type={value} />,
@@ -133,11 +142,7 @@ export const createSolicitudRenderers = () => ({
 
   costo_total: ({ value }: { value: string }) => <Precio value={value} />,
 
-  markup: ({ value }: { value: string }) => (
-    <span className="text-sm text-gray-700">
-      {value != null ? `${parseFloat(value).toFixed(2)}%` : "—"}
-    </span>
-  ),
+  markup: ({ value }: { value: string }) => <PorcentajeBadge value={value} />,
 
   total: ({ value }: { value: string }) => (
     <span className="font-semibold text-blue-700 text-sm">
