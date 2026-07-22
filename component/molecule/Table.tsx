@@ -7,7 +7,6 @@ export const Table = ({
   registros = [],
   renderers = {},
   maxHeight = "28rem",
-  loading = false,
   rowColor,
 }: TableProps) => {
   const [displayData, setDisplayData] = useState<Registro[]>(registros);
@@ -61,11 +60,6 @@ export const Table = ({
           className="overflow-y-auto relative border border-gray-200 rounded-sm w-full h-fit"
           style={{ maxHeight: maxHeight }}
         >
-          {loading && (
-            <div className="w-full h-full bg-white absolute top-0 left-0 flex items-center justify-center">
-              <Loader />
-            </div>
-          )}
           <table className={`min-w-full divide-y divide-gray-200`}>
             <thead className=" sticky z-10 bg-gray-50 top-0">
               <tr>
@@ -119,7 +113,6 @@ interface TableProps {
   registros: Registro[];
   renderers?: RendererMap;
   maxHeight?: string;
-  loading?: boolean;
   rowColor?: (item: Registro) => string;
 }
 

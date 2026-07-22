@@ -38,7 +38,7 @@ export const DateTime = ({ value, hideTime = false }: Props) => {
     <div className="flex flex-col leading-tight">
       <span className="text-sm font-medium text-gray-800">{parsed.date}</span>
 
-      {hideTime && parsed.time && (
+      {!hideTime && parsed.time && (
         <span className="text-xs text-gray-500">{parsed.time}</span>
       )}
     </div>
@@ -80,3 +80,29 @@ export const TextCell = ({ value }: { value: string | null | undefined }) => (
 export const MonoCell = ({ value }: { value: string | null | undefined }) => (
   <span className="font-mono text-xs text-gray-600">{value ?? "—"}</span>
 );
+
+export const PorcentajeBadge = ({ value }: { value: string | number | null | undefined }) => {
+  const num = parseFloat(String(value ?? 0));
+  const safe = !isFinite(num) || isNaN(num) ? 0 : num;
+  const label = `${safe.toFixed(2)}%`;
+
+  if (safe < 0)
+    return (
+      <span className="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 border border-red-300">
+        {label}
+      </span>
+    );
+
+  if (safe > 0)
+    return (
+      <span className="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-300">
+        {label}
+      </span>
+    );
+
+  return (
+    <span className="inline-block px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 border border-gray-300">
+      {label}
+    </span>
+  );
+};
