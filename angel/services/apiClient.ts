@@ -1,4 +1,4 @@
-import { API_KEY, URL } from "@/lib/constants";
+import { API_KEY, BACK_URL as URL } from "@/angel/lib/env";
 
 export interface ApiResponse<T> {
   message: string;
