@@ -2,6 +2,7 @@ import { formatNumberWithCommas } from "@/helpers/formater";
 
 type Props = {
   value?: string | null;
+  hideTime?: boolean;
 };
 
 const parseISO = (value?: string | null) => {
@@ -26,7 +27,7 @@ const parseISO = (value?: string | null) => {
   };
 };
 
-export const DateTime = ({ value }: Props) => {
+export const DateTime = ({ value, hideTime = false }: Props) => {
   const parsed = parseISO(value);
 
   if (!parsed) {
@@ -37,7 +38,7 @@ export const DateTime = ({ value }: Props) => {
     <div className="flex flex-col leading-tight">
       <span className="text-sm font-medium text-gray-800">{parsed.date}</span>
 
-      {parsed.time && (
+      {hideTime && parsed.time && (
         <span className="text-xs text-gray-500">{parsed.time}</span>
       )}
     </div>
@@ -58,3 +59,24 @@ export const Precio = ({ value }: Props) => {
     </span>
   );
 };
+
+type BadgeProps = {
+  label: string;
+  style: string;
+};
+
+export const Badge = ({ label, style }: BadgeProps) => (
+  <span
+    className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold uppercase tracking-wide ${style}`}
+  >
+    {label}
+  </span>
+);
+
+export const TextCell = ({ value }: { value: string | null | undefined }) => (
+  <span className="text-sm text-gray-700">{value ?? "—"}</span>
+);
+
+export const MonoCell = ({ value }: { value: string | null | undefined }) => (
+  <span className="font-mono text-xs text-gray-600">{value ?? "—"}</span>
+);

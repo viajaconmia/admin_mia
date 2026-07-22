@@ -41,7 +41,7 @@ export type DetalleFacturaResponse = {
 export * from "./reservas";
 export * from "./items";
 
-const facturaApi = createApiClient("/mia/factura");
+const facturaApi = createApiClient("/v2/mia/factura");
 
 export const facturasService = {
   filtrarFacturas: (
