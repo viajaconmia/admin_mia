@@ -21,6 +21,7 @@ export const PERMISOS = {
     MIA_TITULARES: "view.mia.titulares",
     FINANZAS_TARJETAS: "view.finanzas.tarjetas",
     AVISOS_RESERVAS: "view.avisos-reservas",
+    COTIZACIONES: "view.cotizaciones",
   },
   COLUMNAS: {
     BOOKINGS: {
@@ -30,7 +31,7 @@ export const PERMISOS = {
   COMPONENTES: {
     BOTON: {
       FICHA_CLIENTE: "view.ficha.cliente",
-      WALLET_CREDITO:"row.wallet_credito_mostrar",
+      WALLET_CREDITO: "row.wallet_credito_mostrar",
       PAGAR_PROVEEDOR: "button.pagar-proveedor-reserva",
       SALDO_A_FAVOR: "button.saldo-favor-proveedor",
       CREAR_RESERVA: "button.crear-reserva",
