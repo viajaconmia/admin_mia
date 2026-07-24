@@ -210,6 +210,11 @@ const links: NavGroup[] = [
         href: "/dashboard/avisos_reservas",
         icon: Building2,
       },
+      {
+        title: "Reporte mensual",
+        href: "/dashboard/reporte_mensual",
+        icon: Building2,
+      },
     ],
   },
   {

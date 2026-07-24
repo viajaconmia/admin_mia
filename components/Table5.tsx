@@ -57,6 +57,8 @@ interface TableProps<T> {
   expandedRenderer?: (row: Registro) => React.ReactNode;
   /** Renderers personalizados para las cabeceras de columna */
   headerRenderers?: Record<string, () => React.ReactNode>;
+  /** Activa el ordenamiento por click en encabezado y la flecha indicadora. Default: true */
+  sortable?: boolean;
 }
 
 export const Table5 = <T,>({
@@ -83,6 +85,7 @@ export const Table5 = <T,>({
   filasExpandibles,
   expandedRenderer,
   headerRenderers = {},
+  sortable = true,
 }: TableProps<T>) => {
   const [displayData, setDisplayData] = useState<Registro[]>(registros);
   const [loading, setLoading] = useState<boolean>(false);
@@ -588,10 +591,13 @@ const normalizeExportRow = (row: Registro) => {
       key={key}
       scope="col"
       onClick={() => {
+        if (!sortable) return;
         setLoading(true);
         handleSort(key);
       }}
-      className={`px-3 min-w-fit whitespace-nowrap py-2 text-left cursor-pointer text-[11px] font-medium text-gray-600 uppercase tracking-wider ${
+      className={`px-3 min-w-fit whitespace-nowrap py-2 text-left text-[11px] font-medium text-gray-600 uppercase tracking-wider ${
+        sortable ? "cursor-pointer" : ""
+      } ${
         isStickyRight
           ? "sticky right-0 z-20 border-l border-gray-200 bg-gray-50 shadow-[-8px_0_12px_-10px_rgba(0,0,0,0.15)]"
           : ""
@@ -605,7 +611,7 @@ const normalizeExportRow = (row: Registro) => {
           headerRenderers[key]()
         ) : (
           <>
-            {key === (currentSort.key || "") && (
+            {sortable && key === (currentSort.key || "") && (
               <ArrowDown
                 className={`w-3 h-3 transition-transform self-center ${
                   !currentSort.sort ? "" : "rotate-180"
