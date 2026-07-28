@@ -148,8 +148,7 @@ export const DispersionModal = ({
           for (const fila of filas) {
             const cuentasFila = lista.filter(
               (c) =>
-                c.id_proveedor ===
-                (fila.id_intermediario ?? fila.id_proveedor),
+                c.id_proveedor === (fila.id_intermediario ?? fila.id_proveedor),
             );
             if (cuentasFila.length === 1) {
               const e = next.get(fila.id);
@@ -200,13 +199,13 @@ export const DispersionModal = ({
     for (const fila of filas) {
       const e = edicion.get(fila.id);
       if (!e?.cuenta) {
-        setFormError(
-          `Selecciona una cuenta para ${fila.codigo_confirmacion}.`,
-        );
+        setFormError(`Selecciona una cuenta para ${fila.codigo_confirmacion}.`);
         return;
       }
       if (!e.monto || Number(e.monto) <= 0) {
-        setFormError(`El monto de ${fila.codigo_confirmacion} debe ser mayor a 0.`);
+        setFormError(
+          `El monto de ${fila.codigo_confirmacion} debe ser mayor a 0.`,
+        );
         return;
       }
       if (fila.facturas.length > 0 && !e.id_factura) {
@@ -414,8 +413,7 @@ export const DispersionModal = ({
             const e = edicion.get(fila.id);
             const cuentasFila = cuentas.filter(
               (c) =>
-                c.id_proveedor ===
-                (fila.id_intermediario ?? fila.id_proveedor),
+                c.id_proveedor === (fila.id_intermediario ?? fila.id_proveedor),
             );
 
             return (
