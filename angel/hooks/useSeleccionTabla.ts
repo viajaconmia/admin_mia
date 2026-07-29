@@ -21,11 +21,23 @@ export function useSeleccionTabla<T>(getId: (item: T) => string) {
 
   const estaSeleccionado = (id: string) => seleccionados.has(id);
 
+  const seleccionarVarios = (ids: string[]) =>
+    setSeleccionados((prev) => new Set([...prev, ...ids]));
+
+  const deseleccionarVarios = (ids: string[]) =>
+    setSeleccionados((prev) => {
+      const next = new Set(prev);
+      ids.forEach((id) => next.delete(id));
+      return next;
+    });
+
   return {
     seleccionados: Array.from(seleccionados),
     toggleFila,
     toggleTodos,
     limpiar,
     estaSeleccionado,
+    seleccionarVarios,
+    deseleccionarVarios,
   };
 }

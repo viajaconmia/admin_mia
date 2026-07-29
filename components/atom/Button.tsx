@@ -140,6 +140,7 @@ const Button: React.FC<InteractiveElementProps> = ({
       "hover:bg-gray-50",
       "focus:ring-gray-200",
       "active:bg-gray-100",
+      "disabled:bg-gray-100 disabled:text-white disabled:border-gray-200",
     ),
 
     ghost: cn(
@@ -166,7 +167,7 @@ const Button: React.FC<InteractiveElementProps> = ({
   };
 
   const disabledClasses = cn(
-    "opacity-60 cursor-not-allowed",
+    "opacity-30 cursor-not-allowed text-white",
     // evita hover/active “raros”
     "hover:shadow-sm active:scale-100",
   );

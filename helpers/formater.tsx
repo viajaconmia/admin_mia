@@ -37,7 +37,7 @@ export function formatNumberWithCommas(
 ): string {
   if (numberStr == null) return "";
 
-  const str = typeof numberStr === "number" ? numberStr.toString() : numberStr;
+  const str = typeof numberStr === "number" ? numberStr.toFixed(2) : numberStr;
 
   if (str.trim() === "") return "";
 

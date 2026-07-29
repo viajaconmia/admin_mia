@@ -1,7 +1,4 @@
-import Button from "@/components/atom/Button";
-import { Loader } from "@/components/atom/Loader";
-import { ArrowBigLeft, ArrowBigRight, Divide } from "lucide-react";
-import { useState, useEffect, useMemo, Dispatch } from "react";
+import { useState, useEffect, useMemo } from "react";
 
 export const Table = ({
   registros = [],
