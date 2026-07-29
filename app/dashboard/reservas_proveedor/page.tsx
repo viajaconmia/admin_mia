@@ -159,16 +159,21 @@ export default function ReservasProveedorPage() {
   };
 
   const handleDispersar = () => {
-    if (itemsSeleccionados.some((i) => i.saldo_dispersion === 0)) {
+    if (itemsSeleccionados.some((i) => i.saldo_dispersion <= 0)) {
       const codigosSinSaldo = itemsSeleccionados
-        .filter((i) => i.saldo_dispersion === 0)
+        .filter((i) => i.saldo_dispersion <= 0)
         .map((i) => i.codigo_confirmacion);
 
       const continuar = confirm(
-        `Algunas reservas ya fueron completamente dispersadas, si quieres dispersarlas de nuevo necesitas cancelar una dispersión.\n\n¿Deseas continuar con las otras reservas?\n\nEstas reservas son las que vamos a quitar de la dispersión:\n${codigosSinSaldo.join(",\n")}`,
+        `Algunas reservas ya fueron completamente dispersadas (o su saldo es negativo), si quieres dispersarlas de nuevo necesitas cancelar una dispersión.\n\n¿Deseas continuar con las otras reservas?\n\nEstas reservas son las que vamos a quitar de la dispersión:\n${codigosSinSaldo.join(",\n")}`,
       );
 
       if (!continuar) return;
+    }
+
+    if (itemsSeleccionados.every((i) => i.saldo_dispersion <= 0)) {
+      error("Ninguna de las reservas seleccionadas tiene saldo disponible para dispersar.");
+      return;
     }
 
     dispatch({ type: "modal/abrir", modal: "dispersion" });

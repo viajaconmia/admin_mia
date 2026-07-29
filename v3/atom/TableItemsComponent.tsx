@@ -1,6 +1,6 @@
 import { TypeService } from "@/angel/lib/types";
 import { ServiceIcon } from "@/component/atom/ItemTable";
-import { formatNumberWithCommas } from "@/helpers/formater";
+import { fmtMoney } from "@/angel/lib/format/number";
 import { Checkbox } from "@/components/ui/checkbox";
 
 type Props = {
@@ -48,8 +48,12 @@ export const DateTime = ({ value, hideTime = false }: Props) => {
   );
 };
 
-export const Precio = ({ value }: Props) => {
-  if (!value) {
+export const Precio = ({
+  value,
+}: {
+  value: string | number | null | undefined;
+}) => {
+  if (value == null || value === "") {
     return <span className="text-gray-400">—</span>;
   }
   const numberValue = Number(value);
@@ -58,7 +62,7 @@ export const Precio = ({ value }: Props) => {
   }
   return (
     <span className="text-sm font-medium text-gray-800">
-      {`$${formatNumberWithCommas(numberValue)}`}
+      {fmtMoney(numberValue)}
     </span>
   );
 };
@@ -153,7 +157,7 @@ export const DateTimeRenderer = ({
 export const PrecioRenderer = ({
   value,
 }: {
-  value: string | null | undefined;
+  value: string | number | null | undefined;
 }) => <Precio value={value ?? "0"} />;
 
 export const TextRenderer = ({

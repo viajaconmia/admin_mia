@@ -123,9 +123,7 @@ export const DispersionModal = ({
     pagoProveedorService
       .getSolicitudesDispersion([...new Set(ids)].map(Number))
       .then(({ data }) => setSolicitudesInfo(data ?? []))
-      .catch((err) =>
-        error(err.message || "Error al obtener las solicitudes"),
-      )
+      .catch((err) => error(err.message || "Error al obtener las solicitudes"))
       .finally(() => setLoading(false));
   }, [open, ids]);
 
@@ -418,7 +416,8 @@ export const DispersionModal = ({
                     </div>
                     {e && (
                       <span className="text-sm font-semibold text-gray-800">
-                        {fmtMoney(Number(e.monto) || 0)}
+                        Saldo disponible:{" "}
+                        {fmtMoney(Number(fila.saldo_dispersion) || 0)}
                       </span>
                     )}
                   </div>
@@ -449,7 +448,7 @@ export const DispersionModal = ({
                               }
                             />
                             <span className="font-mono text-xs flex-1">
-                              {f.id_factura ?? "Sin ID"}
+                              {f.uuid ?? "Sin ID"}
                             </span>
                             <span className="font-semibold">
                               {fmtMoney(f.asignado)}
@@ -461,11 +460,28 @@ export const DispersionModal = ({
                   )}
 
                   {/* Monto editable */}
-                  <TextInput
-                    label="Monto a dispersar"
-                    value={e?.monto ?? ""}
-                    onChange={(v) => setEdicionFila(fila.id, { monto: v })}
-                  />
+                  <div className="flex items-end gap-2">
+                    <TextInput
+                      className="flex-1"
+                      label="Monto a dispersar"
+                      value={e?.monto ?? ""}
+                      onChange={(v) => setEdicionFila(fila.id, { monto: v })}
+                    />
+                    {fila.facturas.length === 0 && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="md"
+                        onClick={() =>
+                          setEdicionFila(fila.id, {
+                            monto: String(fila.saldo_dispersion),
+                          })
+                        }
+                      >
+                        Usar saldo
+                      </Button>
+                    )}
+                  </div>
 
                   {/* Selector de cuenta */}
                   {fila.cuentas.length > 1 ? (
