@@ -46,10 +46,6 @@ export type SolicitudProveedorItem = {
   negociacion_intermediario: string | null;
   rfc?: string | null;
   uuid?: string | null;
-  id_proveedor: number;
-  id_intermediario: number | null;
-  id_factura: string | null;
-  monto_asignado: number;
   comentario_CXP: string | null;
   comentario_AP: string | null;
   comentario_ajuste: string | null;
@@ -67,6 +63,7 @@ export const mapSolicitud = (
   id: String(raw.id_solicitud_proveedor),
   created_at: raw.created_at,
   estado_solicitud: raw.estado_solicitud,
+  fecha_solicitud: raw.fecha_solicitud,
   codigo_confirmacion: raw.codigo_confirmacion,
   cliente: raw.cliente,
   proveedor: raw.proveedor,
@@ -76,16 +73,11 @@ export const mapSolicitud = (
   check_in: raw.check_in,
   check_out: raw.check_out,
   noches: raw.noches,
-  fecha_solicitud: raw.fecha_solicitud,
   monto_solicitado: isNotFirstIndice(raw) ? "" : raw.monto_solicitado,
   costo_total: isNotFirstIndice(raw) ? "" : raw.costo_total,
   markup: isNotFirstIndice(raw) ? "" : raw.markup,
   total: isNotFirstIndice(raw) ? "" : raw.total,
   saldo: isNotFirstIndice(raw) ? "" : raw.saldo,
-  id_proveedor: raw.id_proveedor,
-  id_intermediario: raw.id_intermediario,
-  id_factura: raw.id_factura ?? null,
-  monto_asignado: Number(raw.asignado_a_factura || 0),
   saldo_dispersion: Number(raw.saldo_dispersion || 0),
   estado_facturacion: raw.estado_facturacion,
   forma_pago: raw.forma_pago,

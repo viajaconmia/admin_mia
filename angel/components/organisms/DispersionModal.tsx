@@ -4,16 +4,20 @@ import { Check, Copy, FileDown, Info } from "lucide-react";
 import { Modal } from "@/angel/components/molecules/Modal";
 import {
   pagoProveedorService,
-  type CuentaProveedor,
-  type DispersionItem,
-  type DispersionBody,
-  type FacturaDispersion,
+  type CuentaProveedorDispersion,
+  type FacturaDispersionDetalle,
+  type SolicitudDispersionInfo,
 } from "@/angel/services/pago_proveedor";
+import {
+  dispersionService,
+  type CrearDispersionBody,
+  type SolicitudDispersionProcesada,
+} from "@/angel/services/dispersion";
 import { fmtMoney } from "@/angel/lib/format/number";
 import { fmtDateCsv } from "@/angel/lib/format/date";
-import { generateDispersionId } from "@/angel/services/pago_proveedor/utils";
 import { TextInput } from "@/components/atom/Input";
 import Button from "@/components/atom/Button";
+import { Loader } from "@/components/atom/Loader";
 import { useAlert } from "@/context/useAlert";
 import { useFile } from "@/hooks/useFile";
 
@@ -21,25 +25,26 @@ import { useFile } from "@/hooks/useFile";
 
 type FilaModal = {
   id: string;
-  id_proveedor: number;
-  id_intermediario: number | null;
   codigo_confirmacion: string;
   proveedor: string;
   check_out: string | null;
-  facturas: FacturaDispersion[];
+  saldo_dispersion: number;
+  facturas: FacturaDispersionDetalle[];
+  cuentas: CuentaProveedorDispersion[];
 };
 
 type EdicionFila = {
-  id_factura: string | null;
+  id_factura: number | null;
   monto: string;
-  cuenta: CuentaProveedor | null;
+  cuenta: CuentaProveedorDispersion | null;
 };
 
 type Step = "form" | "success";
 
 interface SuccessData {
   codigoDispersion: string;
-  idPagos: string[];
+  solicitudesProcesadas: SolicitudDispersionProcesada[];
+  correoEnviado: boolean;
 }
 
 // ─── Props ───────────────────────────────────────────────────────────────────
@@ -48,7 +53,7 @@ interface DispersionModalProps {
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  solicitudes: DispersionItem[];
+  ids: string[];
 }
 
 // ─── Componente ──────────────────────────────────────────────────────────────
@@ -57,43 +62,37 @@ export const DispersionModal = ({
   open,
   onClose,
   onSuccess,
-  solicitudes,
+  ids,
 }: DispersionModalProps) => {
   const { error } = useAlert();
   const { csvRaw } = useFile();
   const [step, setStep] = useState<Step>("form");
-  const [idDispersion, setIdDispersion] = useState("");
   const [referencia, setReferencia] = useState("");
   const [motivoPago, setMotivoPago] = useState("");
-  const [cuentas, setCuentas] = useState<CuentaProveedor[]>([]);
-  const [loadingCuentas, setLoadingCuentas] = useState(false);
+  const [solicitudesInfo, setSolicitudesInfo] = useState<
+    SolicitudDispersionInfo[]
+  >([]);
+  const [loading, setLoading] = useState(false);
   const [edicion, setEdicion] = useState<Map<string, EdicionFila>>(new Map());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [successData, setSuccessData] = useState<SuccessData | null>(null);
   const [copied, setCopied] = useState(false);
-  const initRef = useRef(false);
-  const fetchedCuentasRef = useRef(false);
+  const fetchedRef = useRef(false);
 
-  // Agrupación: N filas por solicitud → 1 FilaModal con array de facturas
-  const filas = useMemo<FilaModal[]>(() => {
-    const map = new Map<string, FilaModal>();
-    for (const s of solicitudes) {
-      if (!map.has(s.id)) {
-        map.set(s.id, {
-          id: s.id,
-          id_proveedor: s.id_proveedor,
-          id_intermediario: s.id_intermediario,
-          codigo_confirmacion: s.codigo_confirmacion,
-          proveedor: s.proveedor,
-          check_out: s.check_out,
-          facturas: [],
-        });
-      }
-      if (s.factura) map.get(s.id)!.facturas.push(s.factura);
-    }
-    return [...map.values()];
-  }, [solicitudes]);
+  const filas = useMemo<FilaModal[]>(
+    () =>
+      solicitudesInfo.map((s) => ({
+        id: String(s.id_solicitud_proveedor),
+        codigo_confirmacion: s.codigo_confirmacion,
+        proveedor: s.proveedor,
+        check_out: s.check_out,
+        saldo_dispersion: s.saldo_dispersion,
+        facturas: s.facturas,
+        cuentas: s.cuentas,
+      })),
+    [solicitudesInfo],
+  );
 
   const total = useMemo(() => {
     let sum = 0;
@@ -106,63 +105,29 @@ export const DispersionModal = ({
     const next = new Map<string, EdicionFila>();
     for (const fila of filas) {
       const primeraFactura = fila.facturas[0] ?? null;
+      const cuentaUnica = fila.cuentas.length === 1 ? fila.cuentas[0] : null;
       next.set(fila.id, {
         id_factura: primeraFactura?.id_factura ?? null,
-        monto: primeraFactura ? String(primeraFactura.monto_asignado) : "",
-        cuenta: null,
+        monto: primeraFactura ? String(primeraFactura.asignado) : "",
+        cuenta: cuentaUnica,
       });
     }
     setEdicion(next);
   }, [filas]);
 
-  // Generar ID al abrir
+  // Fetch de solicitudes (cuentas + facturas) al abrir
   useEffect(() => {
-    if (!open) return;
-    if (initRef.current) return;
-    initRef.current = true;
-    setIdDispersion(generateDispersionId());
-  }, [open]);
-
-  // Fetch cuentas al abrir (COALESCE: intermediario ?? proveedor)
-  useEffect(() => {
-    if (!open || filas.length === 0 || fetchedCuentasRef.current) return;
-    fetchedCuentasRef.current = true;
-    const ids = [
-      ...new Set(
-        filas.map((f) =>
-          f.id_intermediario != null
-            ? String(f.id_intermediario)
-            : String(f.id_proveedor),
-        ),
-      ),
-    ];
-    setLoadingCuentas(true);
+    if (!open || ids.length === 0 || fetchedRef.current) return;
+    fetchedRef.current = true;
+    setLoading(true);
     pagoProveedorService
-      .getCuentas(ids)
-      .then(({ data }) => {
-        const lista = data ?? [];
-        setCuentas(lista);
-        // Auto-seleccionar cuenta por fila si esa fila tiene exactamente 1 cuenta
-        setEdicion((prev) => {
-          const next = new Map(prev);
-          for (const fila of filas) {
-            const cuentasFila = lista.filter(
-              (c) =>
-                c.id_proveedor === (fila.id_intermediario ?? fila.id_proveedor),
-            );
-            if (cuentasFila.length === 1) {
-              const e = next.get(fila.id);
-              if (e) next.set(fila.id, { ...e, cuenta: cuentasFila[0] });
-            }
-          }
-          return next;
-        });
-      })
+      .getSolicitudesDispersion([...new Set(ids)].map(Number))
+      .then(({ data }) => setSolicitudesInfo(data ?? []))
       .catch((err) =>
-        error(err.message || "Error al obtener cuentas del proveedor"),
+        error(err.message || "Error al obtener las solicitudes"),
       )
-      .finally(() => setLoadingCuentas(false));
-  }, [open, filas]);
+      .finally(() => setLoading(false));
+  }, [open, ids]);
 
   const setEdicionFila = (id: string, patch: Partial<EdicionFila>) =>
     setEdicion((prev) => {
@@ -176,10 +141,9 @@ export const DispersionModal = ({
     setFormError(null);
     setSuccessData(null);
     setCopied(false);
-    setCuentas([]);
+    setSolicitudesInfo([]);
     setEdicion(new Map());
-    initRef.current = false;
-    fetchedCuentasRef.current = false;
+    fetchedRef.current = false;
   };
 
   const handleClose = () => {
@@ -194,7 +158,6 @@ export const DispersionModal = ({
 
   const handleSubmit = () => {
     setFormError(null);
-    const cleanedId = idDispersion.replace(/\s/g, "") || generateDispersionId();
 
     for (const fila of filas) {
       const e = edicion.get(fila.id);
@@ -202,9 +165,16 @@ export const DispersionModal = ({
         setFormError(`Selecciona una cuenta para ${fila.codigo_confirmacion}.`);
         return;
       }
-      if (!e.monto || Number(e.monto) <= 0) {
+      const monto = Number(e.monto);
+      if (!e.monto || monto <= 0) {
         setFormError(
           `El monto de ${fila.codigo_confirmacion} debe ser mayor a 0.`,
+        );
+        return;
+      }
+      if (monto > fila.saldo_dispersion) {
+        setFormError(
+          `El monto de ${fila.codigo_confirmacion} (${fmtMoney(monto)}) excede el saldo disponible (${fmtMoney(fila.saldo_dispersion)}).`,
         );
         return;
       }
@@ -216,39 +186,37 @@ export const DispersionModal = ({
       }
     }
 
-    const body: DispersionBody = {
-      id_dispersion: cleanedId,
+    const body: CrearDispersionBody = {
       referencia_numerica: referencia,
       motivo_pago: motivoPago,
-      layoutUrl: "example-url-to-layout-file.txt",
       solicitudes: filas.map((fila) => {
         const e = edicion.get(fila.id)!;
-        const idPagador = fila.id_intermediario ?? fila.id_proveedor;
         return {
-          id_solicitud: fila.id,
-          id_solicitud_proveedor: fila.id,
-          id_pago: null,
-          id_proveedor: idPagador,
-          clave_proveedor: String(idPagador),
-          cuenta_de_deposito: e.cuenta?.clabe ?? e.cuenta?.cuenta ?? "",
+          id_solicitud_proveedor: Number(fila.id),
           id_proveedor_cuenta: e.cuenta?.id ?? 0,
-          tipo_cuenta:
-            (e.cuenta?.clabe?.length ?? 0) === 18 ? "Cta Clabe" : "Cta",
-          costo_proveedor: e.monto,
-          codigo_hotel: null,
+          monto_dispersar: Number(e.monto),
           fecha_pago: fila.check_out ?? null,
-          id_factura: e.id_factura,
+          id_solicitud: fila.id,
+          id_proveedor: e.cuenta?.id_proveedor,
+          clave_proveedor: String(e.cuenta?.id_proveedor ?? ""),
+          cuenta_de_deposito: e.cuenta?.cuenta ?? "",
+          tipo_cuenta:
+            e.cuenta?.tipo_cta ||
+            ((e.cuenta?.cuenta?.length ?? 0) === 18 ? "Cta Clabe" : "Cta"),
+          costo_proveedor: Number(e.monto),
+          codigo_hotel: null,
         };
       }),
     };
 
     setIsSubmitting(true);
-    pagoProveedorService
-      .dispersar(body)
+    dispersionService
+      .crear(body)
       .then(({ data }) => {
         setSuccessData({
-          codigoDispersion: cleanedId,
-          idPagos: data?.id_pagos ?? [],
+          codigoDispersion: data?.id_dispersion ?? "",
+          solicitudesProcesadas: data?.solicitudes_procesadas ?? [],
+          correoEnviado: data?.correo_enviado ?? true,
         });
         setStep("success");
       })
@@ -260,7 +228,13 @@ export const DispersionModal = ({
 
   const handleDescargarCsv = () => {
     if (!successData) return;
-    const { codigoDispersion, idPagos } = successData;
+    const { codigoDispersion, solicitudesProcesadas } = successData;
+    const idPagoPorSolicitud = new Map(
+      solicitudesProcesadas.map((s) => [
+        String(s.id_solicitud_proveedor),
+        s.id_pago,
+      ]),
+    );
 
     const headers = [
       "Id_Solicitud",
@@ -278,16 +252,16 @@ export const DispersionModal = ({
       "ID_FACTURA",
     ];
 
-    const rows = filas.map((fila, idx) => {
+    const rows = filas.map((fila) => {
       const e = edicion.get(fila.id)!;
-      const idPago = idPagos[idx] ?? "";
+      const idPago = idPagoPorSolicitud.get(fila.id) ?? "";
       return [
         idPago,
         codigoDispersion,
         "SPEI",
         fmtDateCsv(fila.check_out),
-        e.cuenta?.clabe ?? e.cuenta?.cuenta ?? "",
-        String(fila.id_intermediario ?? fila.id_proveedor),
+        e.cuenta?.cuenta ?? "",
+        String(e.cuenta?.id_proveedor ?? ""),
         "Cta Clabe",
         "Pesos",
         Number(e.monto).toFixed(2),
@@ -341,6 +315,15 @@ export const DispersionModal = ({
               Dispersión creada exitosamente.
             </p>
           </div>
+          {!successData.correoEnviado && (
+            <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+              <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <p className="text-sm text-amber-800">
+                La dispersión se creó pero no se pudo notificar por correo a
+                CxP.
+              </p>
+            </div>
+          )}
           <div>
             <p className="text-sm text-gray-500 mb-1">Código de dispersión</p>
             <div className="flex items-center gap-2">
@@ -392,7 +375,7 @@ export const DispersionModal = ({
           <Button
             size="sm"
             onClick={handleSubmit}
-            disabled={isSubmitting || loadingCuentas}
+            disabled={isSubmitting || loading}
           >
             {isSubmitting ? "Creando..." : "Crear dispersión"}
           </Button>
@@ -407,150 +390,151 @@ export const DispersionModal = ({
           </p>
         </div>
 
-        {/* Una tarjeta por solicitud agrupada */}
-        <div className="space-y-3">
-          {filas.map((fila) => {
-            const e = edicion.get(fila.id);
-            const cuentasFila = cuentas.filter(
-              (c) =>
-                c.id_proveedor === (fila.id_intermediario ?? fila.id_proveedor),
-            );
+        {loading && (
+          <div className="flex items-center gap-2 text-sm text-gray-500 py-4">
+            <Loader /> Cargando solicitudes...
+          </div>
+        )}
 
-            return (
-              <div
-                key={fila.id}
-                className="border border-gray-200 rounded-lg p-4 space-y-3"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-semibold text-sm text-gray-900">
-                      {fila.proveedor}
-                    </p>
-                    <p className="font-mono text-xs text-gray-500">
-                      {fila.codigo_confirmacion}
-                    </p>
+        {/* Una tarjeta por solicitud */}
+        {!loading && (
+          <div className="space-y-3">
+            {filas.map((fila) => {
+              const e = edicion.get(fila.id);
+
+              return (
+                <div
+                  key={fila.id}
+                  className="border border-gray-200 rounded-lg p-4 space-y-3"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-sm text-gray-900">
+                        {fila.proveedor}
+                      </p>
+                      <p className="font-mono text-xs text-gray-500">
+                        {fila.codigo_confirmacion}
+                      </p>
+                    </div>
+                    {e && (
+                      <span className="text-sm font-semibold text-gray-800">
+                        {fmtMoney(Number(e.monto) || 0)}
+                      </span>
+                    )}
                   </div>
-                  {e && (
-                    <span className="text-sm font-semibold text-gray-800">
-                      {fmtMoney(Number(e.monto) || 0)}
-                    </span>
+
+                  {/* Selector de factura */}
+                  {fila.facturas.length > 0 && (
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Factura</p>
+                      <div className="space-y-1">
+                        {fila.facturas.map((f, idx) => (
+                          <label
+                            key={f.id_factura ?? idx}
+                            className={`flex items-center gap-3 p-2 rounded border cursor-pointer text-sm transition-colors ${
+                              e?.id_factura === f.id_factura
+                                ? "border-blue-500 bg-blue-50"
+                                : "border-gray-200 hover:border-gray-300"
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name={`factura-${fila.id}`}
+                              checked={e?.id_factura === f.id_factura}
+                              onChange={() =>
+                                setEdicionFila(fila.id, {
+                                  id_factura: f.id_factura,
+                                  monto: String(f.asignado),
+                                })
+                              }
+                            />
+                            <span className="font-mono text-xs flex-1">
+                              {f.id_factura ?? "Sin ID"}
+                            </span>
+                            <span className="font-semibold">
+                              {fmtMoney(f.asignado)}
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Monto editable */}
+                  <TextInput
+                    label="Monto a dispersar"
+                    value={e?.monto ?? ""}
+                    onChange={(v) => setEdicionFila(fila.id, { monto: v })}
+                  />
+
+                  {/* Selector de cuenta */}
+                  {fila.cuentas.length > 1 ? (
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">
+                        Cuenta de depósito
+                      </p>
+                      <div className="space-y-1">
+                        {fila.cuentas.map((c) => (
+                          <label
+                            key={c.id}
+                            className={`flex items-start gap-3 p-2 rounded border cursor-pointer text-sm transition-colors ${
+                              e?.cuenta?.id === c.id
+                                ? "border-blue-500 bg-blue-50"
+                                : "border-gray-200 hover:border-gray-300"
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name={`cuenta-${fila.id}`}
+                              checked={e?.cuenta?.id === c.id}
+                              onChange={() =>
+                                setEdicionFila(fila.id, { cuenta: c })
+                              }
+                              className="mt-0.5"
+                            />
+                            <div>
+                              <p className="font-mono text-xs font-semibold">
+                                {c.cuenta}
+                              </p>
+                              <p className="text-xs text-gray-400">
+                                {c.banco}
+                                {c.alias ? ` · ${c.alias}` : ""}
+                              </p>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ) : fila.cuentas.length === 1 ? (
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">
+                        Cuenta de depósito
+                      </p>
+                      <div className="p-2 rounded border border-gray-200 bg-gray-50 text-sm">
+                        <p className="font-mono text-xs font-semibold">
+                          {fila.cuentas[0].cuenta}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          {fila.cuentas[0].banco}
+                          {fila.cuentas[0].alias
+                            ? ` · ${fila.cuentas[0].alias}`
+                            : ""}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-red-500">
+                      Este proveedor no tiene cuentas activas.
+                    </p>
                   )}
                 </div>
-
-                {/* Selector de factura */}
-                {fila.facturas.length > 0 && (
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Factura</p>
-                    <div className="space-y-1">
-                      {fila.facturas.map((f, idx) => (
-                        <label
-                          key={f.id_factura ?? idx}
-                          className={`flex items-center gap-3 p-2 rounded border cursor-pointer text-sm transition-colors ${
-                            e?.id_factura === f.id_factura
-                              ? "border-blue-500 bg-blue-50"
-                              : "border-gray-200 hover:border-gray-300"
-                          }`}
-                        >
-                          <input
-                            type="radio"
-                            name={`factura-${fila.id}`}
-                            checked={e?.id_factura === f.id_factura}
-                            onChange={() =>
-                              setEdicionFila(fila.id, {
-                                id_factura: f.id_factura,
-                                monto: String(f.monto_asignado),
-                              })
-                            }
-                          />
-                          <span className="font-mono text-xs flex-1">
-                            {f.id_factura ?? "Sin ID"}
-                          </span>
-                          <span className="font-semibold">
-                            {fmtMoney(f.monto_asignado)}
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Monto editable */}
-                <TextInput
-                  label="Monto a dispersar"
-                  value={e?.monto ?? ""}
-                  onChange={(v) => setEdicionFila(fila.id, { monto: v })}
-                />
-
-                {/* Selector de cuenta */}
-                {loadingCuentas ? (
-                  <p className="text-xs text-gray-400">Cargando cuentas...</p>
-                ) : cuentasFila.length > 1 ? (
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">
-                      Cuenta de depósito
-                    </p>
-                    <div className="space-y-1">
-                      {cuentasFila.map((c) => (
-                        <label
-                          key={c.id}
-                          className={`flex items-start gap-3 p-2 rounded border cursor-pointer text-sm transition-colors ${
-                            e?.cuenta?.id === c.id
-                              ? "border-blue-500 bg-blue-50"
-                              : "border-gray-200 hover:border-gray-300"
-                          }`}
-                        >
-                          <input
-                            type="radio"
-                            name={`cuenta-${fila.id}`}
-                            checked={e?.cuenta?.id === c.id}
-                            onChange={() =>
-                              setEdicionFila(fila.id, { cuenta: c })
-                            }
-                            className="mt-0.5"
-                          />
-                          <div>
-                            <p className="font-mono text-xs font-semibold">
-                              {c.clabe ?? c.cuenta}
-                            </p>
-                            <p className="text-xs text-gray-400">
-                              {c.banco}
-                              {c.alias ? ` · ${c.alias}` : ""}
-                            </p>
-                          </div>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                ) : cuentasFila.length === 1 ? (
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">
-                      Cuenta de depósito
-                    </p>
-                    <div className="p-2 rounded border border-gray-200 bg-gray-50 text-sm">
-                      <p className="font-mono text-xs font-semibold">
-                        {cuentasFila[0].clabe ?? cuentasFila[0].cuenta}
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        {cuentasFila[0].banco}
-                        {cuentasFila[0].alias
-                          ? ` · ${cuentasFila[0].alias}`
-                          : ""}
-                      </p>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Campos globales */}
         <div className="border-t pt-4 space-y-3">
-          <TextInput
-            label="ID de dispersión"
-            value={idDispersion}
-            onChange={setIdDispersion}
-          />
           <TextInput
             label="Referencia numérica"
             value={referencia}

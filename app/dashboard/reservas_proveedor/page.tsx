@@ -387,20 +387,13 @@ export default function ReservasProveedorPage() {
           limpiar();
           fetchSolicitudes(1);
         }}
-        solicitudes={itemsSeleccionados
-          .filter((i) => i.saldo_dispersion > 0)
-          .map((i) => ({
-            id: i.id,
-            id_proveedor: i.id_proveedor,
-            id_intermediario: i.id_intermediario,
-            codigo_confirmacion: i.codigo_confirmacion,
-            proveedor: i.proveedor,
-            saldo_dispersion: i.saldo_dispersion,
-            check_out: i.check_out,
-            factura: i.id_factura
-              ? { id_factura: i.id_factura, monto_asignado: i.monto_asignado }
-              : null,
-          }))}
+        ids={[
+          ...new Set(
+            itemsSeleccionados
+              .filter((i) => i.saldo_dispersion > 0)
+              .map((i) => i.id),
+          ),
+        ]}
       />
     </div>
   );
