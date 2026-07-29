@@ -27,6 +27,8 @@ import {
 } from "@/angel/components/molecules/EditarSeleccionModal";
 import { DispersionModal } from "@/angel/components/organisms/DispersionModal";
 import Button from "@/components/atom/Button";
+import { useFile } from "@/hooks/useFile";
+import { Download } from "lucide-react";
 
 // ─── Reducer ────────────────────────────────────────────────────────────────
 
@@ -106,6 +108,7 @@ export default function ReservasProveedorPage() {
   const { paginacion, actualizarDesdeMetadata, resetear } =
     usePaginacion(PAGE_SIZE);
   const { error } = useAlert();
+  const { csv, loadingFile, setLoadingFile } = useFile();
 
   const itemsSeleccionados = state.solicitudes.filter((s) =>
     estaSeleccionado(s._seleccion),
@@ -147,6 +150,23 @@ export default function ReservasProveedorPage() {
       .finally(() => dispatch({ type: "loading/set", payload: false }));
   };
 
+  const handleDescargarCsv = () => {
+    setLoadingFile(true);
+    pagoProveedorService
+      .getReservas({
+        ...state.filtros,
+        includeFacturas: true,
+      })
+      .then(({ data }) => {
+        csv(
+          (data ?? []).map(mapSolicitud),
+          `reservas_proveedor_${new Date().toISOString().split("T")[0]}.csv`,
+        );
+      })
+      .catch((er) => error(er.message || "Error al descargar el CSV"))
+      .finally(() => setLoadingFile(false));
+  };
+
   const handleFilterChange = (
     value: string | null,
     key: keyof FiltrosReservasProveedor,
@@ -172,7 +192,9 @@ export default function ReservasProveedorPage() {
     }
 
     if (itemsSeleccionados.every((i) => i.saldo_dispersion <= 0)) {
-      error("Ninguna de las reservas seleccionadas tiene saldo disponible para dispersar.");
+      error(
+        "Ninguna de las reservas seleccionadas tiene saldo disponible para dispersar.",
+      );
       return;
     }
 
@@ -346,7 +368,17 @@ export default function ReservasProveedorPage() {
         loading={state.loading}
         renderers={renderers}
         totales={createSolicitudTotales()}
-      />
+      >
+        <Button
+          onClick={handleDescargarCsv}
+          variant="secondary"
+          size="sm"
+          icon={Download}
+          disabled={loadingFile}
+        >
+          {loadingFile ? "Descargando..." : "Descargar CSV"}
+        </Button>
+      </TablaCompleta>
 
       <AccionesSeleccion count={seleccionados.length} onLimpiar={limpiar}>
         <Button

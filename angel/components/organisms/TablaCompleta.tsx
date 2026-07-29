@@ -51,7 +51,7 @@ export const TablaCompleta = <T extends Record<string, unknown>>({
           Cargando...
         </div>
       )}
-      <div className="flex items-center gap-2 w-full justify-end">
+      <div className="flex gap-2 items-center flex-1 justify-end">
         {children}
         <Button
           size="sm"
