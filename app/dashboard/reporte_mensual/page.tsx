@@ -26,6 +26,12 @@ class ReservasService extends ApiService {
       params: { fecha_inicio: fechaInicio, fecha_fin: fechaFin },
     });
   }
+  async obtenerHistoricoPeriodo(periodo: string) {
+    return this.get<RegistroPreview[]>({
+      path: "/mia/reservas/historicoPeriodo",
+      params: { periodo },
+    });
+  }
 
   async obtenerDetallesReservas(
     idSnapshot: number,
@@ -121,7 +127,10 @@ export default function Page() {
   const [opcionesPeriodo, setOpcionesPeriodo] = useState<Option[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
+  const [historicoPeriodo, setHistoricoPeriodo] = useState<RegistroPreview[]>(
+    [],
+  );
+  const [loadingHistorico, setLoadingHistorico] = useState(false);
   const [modalDetalleOpen, setModalDetalleOpen] = useState(false);
   const [detalleReservas, setDetalleReservas] = useState<RegistroDetalle[]>([]);
   const [tituloDetalle, setTituloDetalle] = useState("");
@@ -169,7 +178,11 @@ export default function Page() {
   ];
 
   const detalleColumns: (keyof RegistroDetalle)[] = [
+    "type",
     "periodo",
+    "codigo_confirmacion",
+    "nombre_viajero",
+    "nombre_agente",
     "estado_reserva",
     "monto_reserva",
     "estado_factura",
@@ -180,10 +193,10 @@ export default function Page() {
     "metodo_pago",
     "monto_pagado",
     "saldo_por_cobrar",
-    "nombre_agente",
-    "nombre_viajero",
-    "codigo_confirmacion",
-    "type",
+    // "nombre_agente",
+    // "nombre_viajero",
+    // "codigo_confirmacion",
+    // "type",
     "tipo_cuarto_vuelo",
     "check_in",
     "check_out",
@@ -344,14 +357,269 @@ export default function Page() {
     periodo: ({ value }: { value: string }) => (
       <button
         className={botonPeriodo}
-        onClick={() => {
+        onClick={async () => {
           setPeriodoSeleccionado(formatPeriodo(value));
           setModalPeriodoOpen(true);
+          setLoadingHistorico(true);
+          console.log(value);
+          try {
+            const response = await reservasService.obtenerHistoricoPeriodo(
+              String(value).slice(0, 10),
+            );
+            // const response =
+            //await reservasService.obtenerHistoricoPeriodo(value);
+            setHistoricoPeriodo(response.data || []);
+          } catch (error) {
+            console.error("Error al cargar historico:", error);
+            setHistoricoPeriodo([]);
+          } finally {
+            setLoadingHistorico(false);
+          }
         }}
       >
         {formatPeriodo(value)}
       </button>
     ),
+
+    total_reservaciones: ({ value }: { value: number }) => (
+      <span className="text-xs font-semibold text-gray-800">{value}</span>
+    ),
+    reservas_confirmadas: ({ value }: { value: number }) => (
+      <span className="text-xs font-semibold text-gray-800">{value}</span>
+    ),
+    reservas_canceladas: ({
+      value,
+      item,
+    }: {
+      value: number;
+      item: RegistroPreview;
+    }) => (
+      <span className="relative inline-flex items-center">
+        <button
+          className={botonDetalleRojo}
+          onClick={() => {
+            abrirDetalle(item, "reservasCanceladas", "Reservas Canceladas");
+            setModalPeriodoOpen(false);
+          }}
+        >
+          {value}
+        </button>
+        <span className={tooltipDetalle}>Ver reservas canceladas</span>
+      </span>
+    ),
+    monto_total_reservas: ({ value }: { value: number }) => (
+      <span className="text-xs font-semibold text-gray-800">
+        {formatMoneyMXN(value)}
+      </span>
+    ),
+    total_confirmado: ({ value }: { value: number }) => (
+      <span className="text-xs font-semibold text-gray-800">
+        {formatMoneyMXN(value)}
+      </span>
+    ),
+    total_cancelado: ({ value }: { value: number }) => (
+      <span className="text-xs font-semibold text-gray-800">
+        {formatMoneyMXN(value)}
+      </span>
+    ),
+    reservas_facturadas: ({ value }: { value: number }) => (
+      <span className="text-xs font-semibold text-gray-800">{value}</span>
+    ),
+    reservas_por_facturar: ({
+      value,
+      item,
+    }: {
+      value: number;
+      item: RegistroPreview;
+    }) => (
+      <span className="relative inline-flex items-center">
+        <button
+          className={botonDetalleRojo}
+          onClick={() => {
+            abrirDetalle(item, "reservasPorFacturar", "Reservas Por Facturar");
+            setModalPeriodoOpen(false);
+          }}
+        >
+          {value}
+        </button>
+        <span className={tooltipDetalle}>Ver reservas por facturar</span>
+      </span>
+    ),
+    reservas_canceladas_facturadas: ({
+      value,
+      item,
+    }: {
+      value: number;
+      item: RegistroPreview;
+    }) => (
+      <span className="relative inline-flex items-center">
+        <button
+          className={botonDetalleRojo}
+          onClick={() => {
+            abrirDetalle(
+              item,
+              "reservasCanceladasFacturadas",
+              "Reservas Canceladas Facturadas",
+            );
+
+            setModalPeriodoOpen(false);
+          }}
+        >
+          {value}
+        </button>
+        <span className={tooltipDetalle}>
+          Ver reservas canceladas facturadas
+        </span>
+      </span>
+    ),
+    total_facturado: ({ value }: { value: number }) => (
+      <span className="text-xs font-semibold text-gray-800">
+        {formatMoneyMXN(value)}
+      </span>
+    ),
+    monto_no_facturable: ({
+      value,
+      item,
+    }: {
+      value: number;
+      item: RegistroPreview;
+    }) => (
+      <span className="relative inline-flex items-center">
+        <button
+          className={botonDetalleAzul}
+          onClick={() => {
+            abrirDetalle(
+              item,
+              "reservasNoFacturables",
+              "Reservas No Facturables",
+            );
+            setModalPeriodoOpen(false);
+          }}
+        >
+          {formatMoneyMXN(value)}
+        </button>
+        <span className={tooltipDetalle}>Ver reservas no facturables</span>
+      </span>
+    ),
+    monto_por_facturar: ({ value }: { value: number }) => (
+      <span className="text-xs font-semibold text-gray-800">
+        {formatMoneyMXN(value)}
+      </span>
+    ),
+    total_facturado_cancelado: ({ value }: { value: number }) => (
+      <span className="text-xs font-semibold text-gray-800">
+        {formatMoneyMXN(value)}
+      </span>
+    ),
+    cantidad_facturas_activas: ({ value }: { value: number }) => (
+      <span className="text-xs font-semibold text-gray-800">{value}</span>
+    ),
+    cantidad_facturas_canceladas: ({
+      value,
+      item,
+    }: {
+      value: number;
+      item: RegistroPreview;
+    }) => (
+      <span className="relative inline-flex items-center">
+        <button
+          className={botonDetalleRojo}
+          onClick={() => {
+            abrirDetalle(item, "facturasCanceladas", "Facturas Canceladas");
+            setModalPeriodoOpen(false);
+          }}
+        >
+          {value}
+        </button>
+        <span className={tooltipDetalle}>Ver facturas canceladas</span>
+      </span>
+    ),
+    reservas_pagadas: ({ value }: { value: number }) => (
+      <span className="text-xs font-semibold text-gray-800">{value}</span>
+    ),
+    reservas_sin_pagar: ({
+      value,
+      item,
+    }: {
+      value: number;
+      item: RegistroPreview;
+    }) => (
+      <span className="relative inline-flex items-center">
+        <button
+          className={botonDetalleRojo}
+          onClick={() => {
+            abrirDetalle(item, "reservasSinPagar", "Reservas Sin Pagar");
+            setModalPeriodoOpen(false);
+          }}
+        >
+          {value}
+        </button>
+        <span className={tooltipDetalle}>Ver reservas sin pagar</span>
+      </span>
+    ),
+    reservas_canceladas_pagadas: ({
+      value,
+      item,
+    }: {
+      value: number;
+      item: RegistroPreview;
+    }) => (
+      <span className="relative inline-flex items-center">
+        <button
+          className={botonDetalleRojo}
+          onClick={() => {
+            abrirDetalle(
+              item,
+              "reservasCanceladasPagadas",
+              "Reservas Canceladas Pagadas",
+            );
+            setModalPeriodoOpen(false);
+          }}
+        >
+          {value}
+        </button>
+        <span className={tooltipDetalle}>Ver reservas canceladas pagadas</span>
+      </span>
+    ),
+    monto_pagado: ({ value }: { value: number }) => (
+      <span className="text-xs font-semibold text-gray-800">
+        {formatMoneyMXN(value)}
+      </span>
+    ),
+    monto_por_cobrar: ({ value }: { value: number }) => (
+      <span className="text-xs font-semibold text-gray-800">
+        {formatMoneyMXN(value)}
+      </span>
+    ),
+  };
+  const renderersmes = {
+    periodo: ({ value }: { value: string }) => (
+      <button
+        className={botonPeriodo}
+        onClick={async () => {
+          setPeriodoSeleccionado(formatPeriodo(value));
+          setModalPeriodoOpen(true);
+          setLoadingHistorico(true);
+          console.log(value);
+          try {
+            const response = await reservasService.obtenerHistoricoPeriodo(
+              String(value).slice(0, 10),
+            );
+            // const response =
+            //await reservasService.obtenerHistoricoPeriodo(value);
+            setHistoricoPeriodo(response.data || []);
+          } catch (error) {
+            console.error("Error al cargar historico:", error);
+            setHistoricoPeriodo([]);
+          } finally {
+            setLoadingHistorico(false);
+          }
+        }}
+      >
+        {formatPeriodo(value)}
+      </button>
+    ),
+
     total_reservaciones: ({ value }: { value: number }) => (
       <span className="text-xs font-semibold text-gray-800">{value}</span>
     ),
@@ -744,7 +1012,7 @@ export default function Page() {
 
       <div className="w-full min-w-0 overflow-x-auto rounded-lg border bg-white p-2 sm:p-3">
         <Table5<RegistroPreview>
-          registros={datosResumenTabla}
+          registros={datosResumenTabla} // historicoPeriodo
           renderers={renderers}
           customColumns={customColumns}
           respectCustomColumnOrder={true}
@@ -792,13 +1060,28 @@ export default function Page() {
           subtitle="Consulta histórica del periodo"
           onClose={() => setModalPeriodoOpen(false)}
         >
-          <div className="p-4 text-sm text-gray-700">
-            El periodo seleccionado es{" "}
-            <span className="font-bold text-gray-900">
-              {periodoSeleccionado}
-            </span>
-            .
-          </div>
+          {loadingHistorico ? (
+            <div className="p-4 text-sm text-gray-500">
+              Cargando histórico...
+            </div>
+          ) : historicoPeriodo.length === 0 ? (
+            <div className="p-4 text-sm text-gray-500">
+              No hay histórico disponible para {periodoSeleccionado}.
+            </div>
+          ) : (
+            <Table5<RegistroPreview>
+              registros={historicoPeriodo} // historicoPeriodo
+              renderers={renderers}
+              customColumns={customColumns}
+              respectCustomColumnOrder={true}
+              sortable={false}
+              expandableColumns={[]}
+              exportButton={true}
+              isExport={false}
+              horizontalScroll={true}
+              maxHeight="65vh"
+            />
+          )}
         </Modal>
       )}
     </div>
