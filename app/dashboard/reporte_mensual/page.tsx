@@ -7,7 +7,11 @@ import Modal from "@/components/organism/Modal";
 import { formatPeriodo, formatMoneyMXN } from "@/helpers/formater";
 import { ApiService, ApiResponse } from "@/services/ApiService";
 import { useEffect, useMemo, useState } from "react";
-import { Plane, Car, Hotel, Calendar, User, CreditCard } from "lucide-react";
+import { Plane, Car, Hotel, Copy } from "lucide-react";
+import { Loader } from "@/components/atom/Loader";
+import { copyToClipboard } from "@/helpers/utils";
+import Button from "@/components/atom/Button";
+import { useAlert } from "@/context/useAlert";
 
 class ReservasService extends ApiService {
   constructor() {
@@ -120,6 +124,8 @@ type TipoDetalle =
 
 type tipoFactura = "hotel" | "flyght" | "car_rental";
 
+// Helper para alineación a la derecha
+
 export default function Page() {
   const [datosResumen, setDatosResumen] = useState<RegistroPreview[]>([]);
   const [fechaInicio, setFechaInicio] = useState<Option | null>(null);
@@ -135,6 +141,7 @@ export default function Page() {
   const [detalleReservas, setDetalleReservas] = useState<RegistroDetalle[]>([]);
   const [tituloDetalle, setTituloDetalle] = useState("");
   const [loadingDetalle, setLoadingDetalle] = useState(false);
+  const { success, showNotification } = useAlert();
 
   const [modalPeriodoOpen, setModalPeriodoOpen] = useState(false);
   const [periodoSeleccionado, setPeriodoSeleccionado] = useState("");
@@ -176,6 +183,28 @@ export default function Page() {
     "monto_pagado",
     "monto_por_cobrar",
   ];
+
+  const renderCopiar = ({ value }: { value: string }) => (
+    <div className="flex justify-start gap-2">
+      <Button
+        onClick={() => {
+          try {
+            copyToClipboard(value);
+            success(`${value} ha sido copiado correctamente`);
+          } catch (err) {
+            showNotification(
+              "error",
+              err.message || "Ocurrio un error al copiar",
+            );
+          }
+        }}
+        variant="ghost"
+        icon={Copy}
+        className="h-8 w-8 p-0 rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+      />
+      <span className={`text-xs font-semibold text-gray-800 `}>{value}</span>
+    </div>
+  );
 
   const detalleColumns: (keyof RegistroDetalle)[] = [
     "type",
@@ -381,12 +410,8 @@ export default function Page() {
       </button>
     ),
 
-    total_reservaciones: ({ value }: { value: number }) => (
-      <span className="text-xs font-semibold text-gray-800">{value}</span>
-    ),
-    reservas_confirmadas: ({ value }: { value: number }) => (
-      <span className="text-xs font-semibold text-gray-800">{value}</span>
-    ),
+    total_reservaciones: renderCantidad,
+    reservas_confirmadas: renderCantidad,
     reservas_canceladas: ({
       value,
       item,
@@ -394,37 +419,25 @@ export default function Page() {
       value: number;
       item: RegistroPreview;
     }) => (
-      <span className="relative inline-flex items-center">
-        <button
-          className={botonDetalleRojo}
-          onClick={() => {
-            abrirDetalle(item, "reservasCanceladas", "Reservas Canceladas");
-            setModalPeriodoOpen(false);
-          }}
-        >
-          {value}
-        </button>
-        <span className={tooltipDetalle}>Ver reservas canceladas</span>
-      </span>
+      <div className="flex justify-center">
+        <span className="relative inline-flex items-center">
+          <button
+            className={botonDetalleRojo}
+            onClick={() => {
+              abrirDetalle(item, "reservasCanceladas", "Reservas Canceladas");
+              setModalPeriodoOpen(false);
+            }}
+          >
+            {value}
+          </button>
+          <span className={tooltipDetalle}>Ver reservas canceladas</span>
+        </span>
+      </div>
     ),
-    monto_total_reservas: ({ value }: { value: number }) => (
-      <span className="text-xs font-semibold text-gray-800">
-        {formatMoneyMXN(value)}
-      </span>
-    ),
-    total_confirmado: ({ value }: { value: number }) => (
-      <span className="text-xs font-semibold text-gray-800">
-        {formatMoneyMXN(value)}
-      </span>
-    ),
-    total_cancelado: ({ value }: { value: number }) => (
-      <span className="text-xs font-semibold text-gray-800">
-        {formatMoneyMXN(value)}
-      </span>
-    ),
-    reservas_facturadas: ({ value }: { value: number }) => (
-      <span className="text-xs font-semibold text-gray-800">{value}</span>
-    ),
+    monto_total_reservas: renderPrecio,
+    total_confirmado: renderPrecio,
+    total_cancelado: renderPrecio,
+    reservas_facturadas: renderCantidad,
     reservas_por_facturar: ({
       value,
       item,
@@ -432,18 +445,24 @@ export default function Page() {
       value: number;
       item: RegistroPreview;
     }) => (
-      <span className="relative inline-flex items-center">
-        <button
-          className={botonDetalleRojo}
-          onClick={() => {
-            abrirDetalle(item, "reservasPorFacturar", "Reservas Por Facturar");
-            setModalPeriodoOpen(false);
-          }}
-        >
-          {value}
-        </button>
-        <span className={tooltipDetalle}>Ver reservas por facturar</span>
-      </span>
+      <div className="flex justify-center">
+        <span className="relative inline-flex items-center">
+          <button
+            className={botonDetalleRojo}
+            onClick={() => {
+              abrirDetalle(
+                item,
+                "reservasPorFacturar",
+                "Reservas Por Facturar",
+              );
+              setModalPeriodoOpen(false);
+            }}
+          >
+            {value}
+          </button>
+          <span className={tooltipDetalle}>Ver reservas por facturar</span>
+        </span>
+      </div>
     ),
     reservas_canceladas_facturadas: ({
       value,
@@ -452,31 +471,29 @@ export default function Page() {
       value: number;
       item: RegistroPreview;
     }) => (
-      <span className="relative inline-flex items-center">
-        <button
-          className={botonDetalleRojo}
-          onClick={() => {
-            abrirDetalle(
-              item,
-              "reservasCanceladasFacturadas",
-              "Reservas Canceladas Facturadas",
-            );
+      <div className="flex justify-center">
+        <span className="relative inline-flex items-center">
+          <button
+            className={botonDetalleRojo}
+            onClick={() => {
+              abrirDetalle(
+                item,
+                "reservasCanceladasFacturadas",
+                "Reservas Canceladas Facturadas",
+              );
 
-            setModalPeriodoOpen(false);
-          }}
-        >
-          {value}
-        </button>
-        <span className={tooltipDetalle}>
-          Ver reservas canceladas facturadas
+              setModalPeriodoOpen(false);
+            }}
+          >
+            {value}
+          </button>
+          <span className={tooltipDetalle}>
+            Ver reservas canceladas facturadas
+          </span>
         </span>
-      </span>
+      </div>
     ),
-    total_facturado: ({ value }: { value: number }) => (
-      <span className="text-xs font-semibold text-gray-800">
-        {formatMoneyMXN(value)}
-      </span>
-    ),
+    total_facturado: renderPrecio,
     monto_no_facturable: ({
       value,
       item,
@@ -484,36 +501,28 @@ export default function Page() {
       value: number;
       item: RegistroPreview;
     }) => (
-      <span className="relative inline-flex items-center">
-        <button
-          className={botonDetalleAzul}
-          onClick={() => {
-            abrirDetalle(
-              item,
-              "reservasNoFacturables",
-              "Reservas No Facturables",
-            );
-            setModalPeriodoOpen(false);
-          }}
-        >
-          {formatMoneyMXN(value)}
-        </button>
-        <span className={tooltipDetalle}>Ver reservas no facturables</span>
-      </span>
+      <div className="flex justify-end">
+        <span className="relative inline-flex items-center">
+          <button
+            className={botonDetalleAzul}
+            onClick={() => {
+              abrirDetalle(
+                item,
+                "reservasNoFacturables",
+                "Reservas No Facturables",
+              );
+              setModalPeriodoOpen(false);
+            }}
+          >
+            {formatMoneyMXN(value)}
+          </button>
+          <span className={tooltipDetalle}>Ver reservas no facturables</span>
+        </span>
+      </div>
     ),
-    monto_por_facturar: ({ value }: { value: number }) => (
-      <span className="text-xs font-semibold text-gray-800">
-        {formatMoneyMXN(value)}
-      </span>
-    ),
-    total_facturado_cancelado: ({ value }: { value: number }) => (
-      <span className="text-xs font-semibold text-gray-800">
-        {formatMoneyMXN(value)}
-      </span>
-    ),
-    cantidad_facturas_activas: ({ value }: { value: number }) => (
-      <span className="text-xs font-semibold text-gray-800">{value}</span>
-    ),
+    monto_por_facturar: renderPrecio,
+    total_facturado_cancelado: renderPrecio,
+    cantidad_facturas_activas: renderCantidad,
     cantidad_facturas_canceladas: ({
       value,
       item,
@@ -521,22 +530,22 @@ export default function Page() {
       value: number;
       item: RegistroPreview;
     }) => (
-      <span className="relative inline-flex items-center">
-        <button
-          className={botonDetalleRojo}
-          onClick={() => {
-            abrirDetalle(item, "facturasCanceladas", "Facturas Canceladas");
-            setModalPeriodoOpen(false);
-          }}
-        >
-          {value}
-        </button>
-        <span className={tooltipDetalle}>Ver facturas canceladas</span>
-      </span>
+      <div className="flex justify-center">
+        <span className="relative inline-flex items-center">
+          <button
+            className={botonDetalleRojo}
+            onClick={() => {
+              abrirDetalle(item, "facturasCanceladas", "Facturas Canceladas");
+              setModalPeriodoOpen(false);
+            }}
+          >
+            {value}
+          </button>
+          <span className={tooltipDetalle}>Ver facturas canceladas</span>
+        </span>
+      </div>
     ),
-    reservas_pagadas: ({ value }: { value: number }) => (
-      <span className="text-xs font-semibold text-gray-800">{value}</span>
-    ),
+    reservas_pagadas: renderCantidad,
     reservas_sin_pagar: ({
       value,
       item,
@@ -544,18 +553,20 @@ export default function Page() {
       value: number;
       item: RegistroPreview;
     }) => (
-      <span className="relative inline-flex items-center">
-        <button
-          className={botonDetalleRojo}
-          onClick={() => {
-            abrirDetalle(item, "reservasSinPagar", "Reservas Sin Pagar");
-            setModalPeriodoOpen(false);
-          }}
-        >
-          {value}
-        </button>
-        <span className={tooltipDetalle}>Ver reservas sin pagar</span>
-      </span>
+      <div className="flex justify-center">
+        <span className="relative inline-flex items-center">
+          <button
+            className={botonDetalleRojo}
+            onClick={() => {
+              abrirDetalle(item, "reservasSinPagar", "Reservas Sin Pagar");
+              setModalPeriodoOpen(false);
+            }}
+          >
+            {value}
+          </button>
+          <span className={tooltipDetalle}>Ver reservas sin pagar</span>
+        </span>
+      </div>
     ),
     reservas_canceladas_pagadas: ({
       value,
@@ -564,33 +575,29 @@ export default function Page() {
       value: number;
       item: RegistroPreview;
     }) => (
-      <span className="relative inline-flex items-center">
-        <button
-          className={botonDetalleRojo}
-          onClick={() => {
-            abrirDetalle(
-              item,
-              "reservasCanceladasPagadas",
-              "Reservas Canceladas Pagadas",
-            );
-            setModalPeriodoOpen(false);
-          }}
-        >
-          {value}
-        </button>
-        <span className={tooltipDetalle}>Ver reservas canceladas pagadas</span>
-      </span>
+      <div className="flex justify-center">
+        <span className="relative inline-flex items-center">
+          <button
+            className={botonDetalleRojo}
+            onClick={() => {
+              abrirDetalle(
+                item,
+                "reservasCanceladasPagadas",
+                "Reservas Canceladas Pagadas",
+              );
+              setModalPeriodoOpen(false);
+            }}
+          >
+            {value}
+          </button>
+          <span className={tooltipDetalle}>
+            Ver reservas canceladas pagadas
+          </span>
+        </span>
+      </div>
     ),
-    monto_pagado: ({ value }: { value: number }) => (
-      <span className="text-xs font-semibold text-gray-800">
-        {formatMoneyMXN(value)}
-      </span>
-    ),
-    monto_por_cobrar: ({ value }: { value: number }) => (
-      <span className="text-xs font-semibold text-gray-800">
-        {formatMoneyMXN(value)}
-      </span>
-    ),
+    monto_pagado: renderPrecio,
+    monto_por_cobrar: renderPrecio,
   };
   const renderersmes = {
     periodo: ({ value }: { value: string }) => (
@@ -621,10 +628,10 @@ export default function Page() {
     ),
 
     total_reservaciones: ({ value }: { value: number }) => (
-      <span className="text-xs font-semibold text-gray-800">{value}</span>
+      <span className={`text-xs font-semibold text-gray-800 `}>{value}</span>
     ),
     reservas_confirmadas: ({ value }: { value: number }) => (
-      <span className="text-xs font-semibold text-gray-800">{value}</span>
+      <span className={`text-xs font-semibold text-gray-800`}>{value}</span>
     ),
     reservas_canceladas: ({
       value,
@@ -633,35 +640,25 @@ export default function Page() {
       value: number;
       item: RegistroPreview;
     }) => (
-      <span className="relative inline-flex items-center">
-        <button
-          className={botonDetalleRojo}
-          onClick={() =>
-            abrirDetalle(item, "reservasCanceladas", "Reservas Canceladas")
-          }
-        >
-          {value}
-        </button>
-        <span className={tooltipDetalle}>Ver reservas canceladas</span>
-      </span>
+      <div className="flex justify-center">
+        <span className="relative inline-flex items-center">
+          <button
+            className={botonDetalleRojo}
+            onClick={() =>
+              abrirDetalle(item, "reservasCanceladas", "Reservas Canceladas")
+            }
+          >
+            {value}
+          </button>
+          <span className={tooltipDetalle}>Ver reservas canceladas</span>
+        </span>
+      </div>
     ),
-    monto_total_reservas: ({ value }: { value: number }) => (
-      <span className="text-xs font-semibold text-gray-800">
-        {formatMoneyMXN(value)}
-      </span>
-    ),
-    total_confirmado: ({ value }: { value: number }) => (
-      <span className="text-xs font-semibold text-gray-800">
-        {formatMoneyMXN(value)}
-      </span>
-    ),
-    total_cancelado: ({ value }: { value: number }) => (
-      <span className="text-xs font-semibold text-gray-800">
-        {formatMoneyMXN(value)}
-      </span>
-    ),
+    monto_total_reservas: renderPrecio,
+    total_confirmado: renderPrecio,
+    total_cancelado: renderPrecio,
     reservas_facturadas: ({ value }: { value: number }) => (
-      <span className="text-xs font-semibold text-gray-800">{value}</span>
+      <span className={`text-xs font-semibold text-gray-800 `}>{value}</span>
     ),
     reservas_por_facturar: ({
       value,
@@ -670,17 +667,19 @@ export default function Page() {
       value: number;
       item: RegistroPreview;
     }) => (
-      <span className="relative inline-flex items-center">
-        <button
-          className={botonDetalleRojo}
-          onClick={() =>
-            abrirDetalle(item, "reservasPorFacturar", "Reservas Por Facturar")
-          }
-        >
-          {value}
-        </button>
-        <span className={tooltipDetalle}>Ver reservas por facturar</span>
-      </span>
+      <div className="flex justify-end">
+        <span className="relative inline-flex items-center">
+          <button
+            className={botonDetalleRojo}
+            onClick={() =>
+              abrirDetalle(item, "reservasPorFacturar", "Reservas Por Facturar")
+            }
+          >
+            {value}
+          </button>
+          <span className={tooltipDetalle}>Ver reservas por facturar</span>
+        </span>
+      </div>
     ),
     reservas_canceladas_facturadas: ({
       value,
@@ -689,29 +688,27 @@ export default function Page() {
       value: number;
       item: RegistroPreview;
     }) => (
-      <span className="relative inline-flex items-center">
-        <button
-          className={botonDetalleRojo}
-          onClick={() =>
-            abrirDetalle(
-              item,
-              "reservasCanceladasFacturadas",
-              "Reservas Canceladas Facturadas",
-            )
-          }
-        >
-          {value}
-        </button>
-        <span className={tooltipDetalle}>
-          Ver reservas canceladas facturadas
+      <div className="flex justify-end">
+        <span className="relative inline-flex items-center">
+          <button
+            className={botonDetalleRojo}
+            onClick={() =>
+              abrirDetalle(
+                item,
+                "reservasCanceladasFacturadas",
+                "Reservas Canceladas Facturadas",
+              )
+            }
+          >
+            {value}
+          </button>
+          <span className={tooltipDetalle}>
+            Ver reservas canceladas facturadas
+          </span>
         </span>
-      </span>
+      </div>
     ),
-    total_facturado: ({ value }: { value: number }) => (
-      <span className="text-xs font-semibold text-gray-800">
-        {formatMoneyMXN(value)}
-      </span>
-    ),
+    total_facturado: renderPrecio,
     monto_no_facturable: ({
       value,
       item,
@@ -719,34 +716,30 @@ export default function Page() {
       value: number;
       item: RegistroPreview;
     }) => (
-      <span className="relative inline-flex items-center">
-        <button
-          className={botonDetalleAzul}
-          onClick={() =>
-            abrirDetalle(
-              item,
-              "reservasNoFacturables",
-              "Reservas No Facturables",
-            )
-          }
-        >
-          {formatMoneyMXN(value)}
-        </button>
-        <span className={tooltipDetalle}>Ver reservas no facturables</span>
-      </span>
+      <div className="flex justify-end">
+        <span className="relative inline-flex items-center">
+          <button
+            className={botonDetalleAzul}
+            onClick={() =>
+              abrirDetalle(
+                item,
+                "reservasNoFacturables",
+                "Reservas No Facturables",
+              )
+            }
+          >
+            {formatMoneyMXN(value)}
+          </button>
+          <span className={tooltipDetalle}>Ver reservas no facturables</span>
+        </span>
+      </div>
     ),
-    monto_por_facturar: ({ value }: { value: number }) => (
-      <span className="text-xs font-semibold text-gray-800">
-        {formatMoneyMXN(value)}
-      </span>
-    ),
-    total_facturado_cancelado: ({ value }: { value: number }) => (
-      <span className="text-xs font-semibold text-gray-800">
-        {formatMoneyMXN(value)}
-      </span>
-    ),
+    monto_por_facturar: renderPrecio,
+    total_facturado_cancelado: renderPrecio,
     cantidad_facturas_activas: ({ value }: { value: number }) => (
-      <span className="text-xs font-semibold text-gray-800">{value}</span>
+      <span className={`text-xs font-semibold text-gray-800 text-center `}>
+        {value}
+      </span>
     ),
     cantidad_facturas_canceladas: ({
       value,
@@ -755,20 +748,22 @@ export default function Page() {
       value: number;
       item: RegistroPreview;
     }) => (
-      <span className="relative inline-flex items-center">
-        <button
-          className={botonDetalleRojo}
-          onClick={() =>
-            abrirDetalle(item, "facturasCanceladas", "Facturas Canceladas")
-          }
-        >
-          {value}
-        </button>
-        <span className={tooltipDetalle}>Ver facturas canceladas</span>
-      </span>
+      <div className="flex justify-end">
+        <span className="relative inline-flex items-center">
+          <button
+            className={botonDetalleRojo}
+            onClick={() =>
+              abrirDetalle(item, "facturasCanceladas", "Facturas Canceladas")
+            }
+          >
+            {value}
+          </button>
+          <span className={tooltipDetalle}>Ver facturas canceladas</span>
+        </span>
+      </div>
     ),
     reservas_pagadas: ({ value }: { value: number }) => (
-      <span className="text-xs font-semibold text-gray-800">{value}</span>
+      <span className={`text-xs font-semibold text-gray-800 `}>{value}</span>
     ),
     reservas_sin_pagar: ({
       value,
@@ -777,17 +772,19 @@ export default function Page() {
       value: number;
       item: RegistroPreview;
     }) => (
-      <span className="relative inline-flex items-center">
-        <button
-          className={botonDetalleRojo}
-          onClick={() =>
-            abrirDetalle(item, "reservasSinPagar", "Reservas Sin Pagar")
-          }
-        >
-          {value}
-        </button>
-        <span className={tooltipDetalle}>Ver reservas sin pagar</span>
-      </span>
+      <div className="flex justify-end">
+        <span className="relative inline-flex items-center">
+          <button
+            className={botonDetalleRojo}
+            onClick={() =>
+              abrirDetalle(item, "reservasSinPagar", "Reservas Sin Pagar")
+            }
+          >
+            {value}
+          </button>
+          <span className={tooltipDetalle}>Ver reservas sin pagar</span>
+        </span>
+      </div>
     ),
     reservas_canceladas_pagadas: ({
       value,
@@ -796,37 +793,33 @@ export default function Page() {
       value: number;
       item: RegistroPreview;
     }) => (
-      <span className="relative inline-flex items-center">
-        <button
-          className={botonDetalleRojo}
-          onClick={() =>
-            abrirDetalle(
-              item,
-              "reservasCanceladasPagadas",
-              "Reservas Canceladas Pagadas",
-            )
-          }
-        >
-          {value}
-        </button>
-        <span className={tooltipDetalle}>Ver reservas canceladas pagadas</span>
-      </span>
+      <div className="flex justify-end">
+        <span className="relative inline-flex items-center">
+          <button
+            className={botonDetalleRojo}
+            onClick={() =>
+              abrirDetalle(
+                item,
+                "reservasCanceladasPagadas",
+                "Reservas Canceladas Pagadas",
+              )
+            }
+          >
+            {value}
+          </button>
+          <span className={tooltipDetalle}>
+            Ver reservas canceladas pagadas
+          </span>
+        </span>
+      </div>
     ),
-    monto_pagado: ({ value }: { value: number }) => (
-      <span className="text-xs font-semibold text-gray-800">
-        {formatMoneyMXN(value)}
-      </span>
-    ),
-    monto_por_cobrar: ({ value }: { value: number }) => (
-      <span className="text-xs font-semibold text-gray-800">
-        {formatMoneyMXN(value)}
-      </span>
-    ),
+    monto_pagado: renderPrecio,
+    monto_por_cobrar: renderPrecio,
   };
 
   const renderersDetalle = {
     type: ({ value }: { value: tipoFactura }) => (
-      <span className="text-xs font-semibold text-gray-800">
+      <span className={`text-xs font-semibold text-gray-800 `}>
         {value === "hotel" ? (
           <Hotel className="h-4 w-4" />
         ) : value === "flyght" ? (
@@ -837,76 +830,50 @@ export default function Page() {
       </span>
     ),
     periodo: ({ value }: { value: string }) => (
-      <span className="text-xs font-semibold text-gray-800">
+      <span className={`text-xs font-semibold text-gray-800 `}>
         {formatPeriodo(value)}
       </span>
     ),
     estado_reserva: ({ value }: { value: string }) => (
-      <span className="text-xs font-semibold text-gray-800">{value}</span>
+      <span className={`text-xs font-semibold text-gray-800 `}>{value}</span>
     ),
-    monto_reserva: ({ value }: { value: number }) => (
-      <span className="text-xs font-semibold text-gray-800">
-        {formatMoneyMXN(value)}
-      </span>
-    ),
+    monto_reserva: renderPrecio,
     estado_factura: ({ value }: { value: string }) => (
-      <span className="text-xs font-semibold text-gray-800">{value}</span>
+      <span className={`text-xs font-semibold text-gray-800 `}>{value}</span>
     ),
-    monto_facturado: ({ value }: { value: number }) => (
-      <span className="text-xs font-semibold text-gray-800">
-        {formatMoneyMXN(value)}
-      </span>
-    ),
-    monto_no_facturable: ({ value }: { value: number }) => (
-      <span className="text-xs font-semibold text-gray-800">
-        {formatMoneyMXN(value)}
-      </span>
-    ),
-    monto_por_facturar: ({ value }: { value: number }) => (
-      <span className="text-xs font-semibold text-gray-800">
-        {formatMoneyMXN(value)}
-      </span>
-    ),
+    monto_facturado: renderPrecio,
+    monto_no_facturable: renderPrecio,
+    monto_por_facturar: renderPrecio,
     estado_pago: ({ value }: { value: string }) => (
-      <span className="text-xs font-semibold text-gray-800">{value}</span>
+      <span className={`text-xs font-semibold text-gray-800 `}>{value}</span>
     ),
     metodo_pago: ({ value }: { value: string }) => (
-      <span className="text-xs font-semibold text-gray-800">{value}</span>
+      <span className={`text-xs font-semibold text-gray-800 `}>{value}</span>
     ),
-    monto_pagado: ({ value }: { value: number }) => (
-      <span className="text-xs font-semibold text-gray-800">
-        {formatMoneyMXN(value)}
-      </span>
-    ),
-    saldo_por_cobrar: ({ value }: { value: number }) => (
-      <span className="text-xs font-semibold text-gray-800">
-        {formatMoneyMXN(value)}
-      </span>
-    ),
+    monto_pagado: renderPrecio,
+    saldo_por_cobrar: renderPrecio,
     nombre_agente: ({ value }: { value: string }) => (
-      <span className="text-xs font-semibold text-gray-800">{value}</span>
+      <span className={`text-xs font-semibold text-gray-800 `}>{value}</span>
     ),
 
     nombre_viajero: ({ value }: { value: string }) => (
-      <span className="text-xs font-semibold text-gray-800">{value}</span>
+      <span className={`text-xs font-semibold text-gray-800 `}>{value}</span>
     ),
 
-    codigo_confirmacion: ({ value }: { value: string }) => (
-      <span className="text-xs font-semibold text-gray-800">{value}</span>
-    ),
+    codigo_confirmacion: renderCopiar,
 
     tipo_cuarto_vuelo: ({ value }: { value: string }) => (
-      <span className="text-xs font-semibold text-gray-800">{value}</span>
+      <span className={`text-xs font-semibold text-gray-800 `}>{value}</span>
     ),
 
     check_in: ({ value }: { value: Date | string }) => (
-      <span className="text-xs font-semibold text-gray-800">
+      <span className={`text-xs font-semibold text-gray-800 `}>
         {value ? new Date(value).toLocaleDateString("es-MX") : ""}
       </span>
     ),
 
     check_out: ({ value }: { value: Date | string }) => (
-      <span className="text-xs font-semibold text-gray-800">
+      <span className={`text-xs font-semibold text-gray-800 `}>
         {value ? new Date(value).toLocaleDateString("es-MX") : ""}
       </span>
     ),
@@ -1032,7 +999,7 @@ export default function Page() {
           onClose={() => setModalDetalleOpen(false)}
         >
           {loadingDetalle ? (
-            <div className="p-4 text-sm text-gray-500">Cargando detalle...</div>
+            <Loader></Loader>
           ) : detalleReservas.length === 0 ? (
             <div className="p-4 text-sm text-gray-500">
               No hay detalle disponible.
@@ -1061,9 +1028,7 @@ export default function Page() {
           onClose={() => setModalPeriodoOpen(false)}
         >
           {loadingHistorico ? (
-            <div className="p-4 text-sm text-gray-500">
-              Cargando histórico...
-            </div>
+            <Loader></Loader>
           ) : historicoPeriodo.length === 0 ? (
             <div className="p-4 text-sm text-gray-500">
               No hay histórico disponible para {periodoSeleccionado}.
@@ -1087,3 +1052,18 @@ export default function Page() {
     </div>
   );
 }
+const renderPrecio = ({ value }: { value: number }) => (
+  <span
+    className={`text-xs font-semibold text-gray-800 block w-full text-right`}
+  >
+    {formatMoneyMXN(value)}
+  </span>
+);
+
+const renderCantidad = ({ value }: { value: number }) => (
+  <span
+    className={`text-xs font-semibold text-gray-800 block w-full text-center`}
+  >
+    {value}
+  </span>
+);
