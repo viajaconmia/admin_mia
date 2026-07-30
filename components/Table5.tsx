@@ -23,7 +23,7 @@ interface TableProps<T> {
   renderers?: RendererMap<T>;
   isExport?: boolean;
   defaultSort?: {
-    key: string; 
+    key: string;
     sort: boolean;
   };
   exportButton?: boolean;
@@ -41,7 +41,7 @@ interface TableProps<T> {
 
   /** NUEVA PROPIEDAD: Columnas que contienen arrays y pueden expandirse */
   expandableColumns?: string[];
-    horizontalScroll?: boolean;
+  horizontalScroll?: boolean;
   stickyRightColumns?: string[];
   columnMinWidths?: Record<string, string>;
   respectCustomColumnOrder?: boolean;
@@ -57,6 +57,8 @@ interface TableProps<T> {
   expandedRenderer?: (row: Registro) => React.ReactNode;
   /** Renderers personalizados para las cabeceras de columna */
   headerRenderers?: Record<string, () => React.ReactNode>;
+  /** Activa el ordenamiento por click en encabezado y la flecha indicadora. Default: true */
+  sortable?: boolean;
 }
 
 export const Table5 = <T,>({
@@ -74,7 +76,7 @@ export const Table5 = <T,>({
   splitColumns,
   isExport = true,
   expandableColumns = [], // Nueva prop
-    horizontalScroll = false,
+  horizontalScroll = false,
   stickyRightColumns = [],
   columnMinWidths = {},
   respectCustomColumnOrder = false,
@@ -83,6 +85,7 @@ export const Table5 = <T,>({
   filasExpandibles,
   expandedRenderer,
   headerRenderers = {},
+  sortable = true,
 }: TableProps<T>) => {
   const [displayData, setDisplayData] = useState<Registro[]>(registros);
   const [loading, setLoading] = useState<boolean>(false);
@@ -139,20 +142,20 @@ export const Table5 = <T,>({
   }, [registros]);
 
   const orderedColumnKeys = useMemo(() => {
-  if (respectCustomColumnOrder && customColumns && customColumns.length > 0) {
-    const existingCustom = customColumns.filter((key) =>
-      columnKeys.includes(key)
-    );
-    const rest = columnKeys.filter((key) => !existingCustom.includes(key));
-    return [...existingCustom, ...rest];
-  }
+    if (respectCustomColumnOrder && customColumns && customColumns.length > 0) {
+      const existingCustom = customColumns.filter((key) =>
+        columnKeys.includes(key),
+      );
+      const rest = columnKeys.filter((key) => !existingCustom.includes(key));
+      return [...existingCustom, ...rest];
+    }
 
-  return columnKeys;
-}, [columnKeys, customColumns, respectCustomColumnOrder]);
+    return columnKeys;
+  }, [columnKeys, customColumns, respectCustomColumnOrder]);
 
-const visibleOrderedColumns = useMemo(() => {
-  return orderedColumnKeys.filter((key) => visibleColumns.has(key));
-}, [orderedColumnKeys, visibleColumns]);
+  const visibleOrderedColumns = useMemo(() => {
+    return orderedColumnKeys.filter((key) => visibleColumns.has(key));
+  }, [orderedColumnKeys, visibleColumns]);
 
   const toggleColumn = (key: string) => {
     setVisibleColumns((prev) => {
@@ -205,54 +208,52 @@ const visibleOrderedColumns = useMemo(() => {
   };
 
   const isDateLikeKey = (key: string) => {
-  const k = key.toLowerCase();
-  return (
-    k.includes("fecha") ||
-    k.includes("date") ||
-    k.includes("check_in") ||
-    k.includes("check_out") ||
-    k.includes("chin") ||
-    k.includes("chout") ||
-    k.includes("created_at") ||
-    k.includes("creado")|| 
-    k.includes("updated_at")||
-    k.includes("fecha_creada") ||    
-    k.includes("fecha_solucion")
+    const k = key.toLowerCase();
+    return (
+      k.includes("fecha") ||
+      k.includes("date") ||
+      k.includes("check_in") ||
+      k.includes("check_out") ||
+      k.includes("chin") ||
+      k.includes("chout") ||
+      k.includes("created_at") ||
+      k.includes("creado") ||
+      k.includes("updated_at") ||
+      k.includes("fecha_creada") ||
+      k.includes("fecha_solucion")
+    );
+  };
 
-  );
-};
+  const formatDateOnly = (value: any) => {
+    if (value === null || value === undefined || value === "") return value;
 
-const formatDateOnly = (value: any) => {
-  if (value === null || value === undefined || value === "") return value;
-
-  if (value instanceof Date && !isNaN(value.getTime())) {
-    return value.toISOString().slice(0, 10);
-  }
-
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-
-    // ya viene como YYYY-MM-DD o YYYY-MM-DD HH:mm:ss o ISO
-    const isoMatch = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
-    if (isoMatch) return isoMatch[1];
-
-    const parsed = new Date(trimmed);
-    if (!isNaN(parsed.getTime())) {
-      return parsed.toISOString().slice(0, 10);
+    if (value instanceof Date && !isNaN(value.getTime())) {
+      return value.toISOString().slice(0, 10);
     }
-  }
 
-  return value;
-};
+    if (typeof value === "string") {
+      const trimmed = value.trim();
 
-const normalizeExportRow = (row: Registro) => {
-  return Object.fromEntries(
-    Object.entries(row)
-      .filter(([k]) => !EXPORT_EXCLUDE_COLS.has(k))
-      .map(([k, v]) => [k, isDateLikeKey(k) ? formatDateOnly(v) : v]),
-  );
-};
+      // ya viene como YYYY-MM-DD o YYYY-MM-DD HH:mm:ss o ISO
+      const isoMatch = trimmed.match(/^(\d{4}-\d{2}-\d{2})/);
+      if (isoMatch) return isoMatch[1];
 
+      const parsed = new Date(trimmed);
+      if (!isNaN(parsed.getTime())) {
+        return parsed.toISOString().slice(0, 10);
+      }
+    }
+
+    return value;
+  };
+
+  const normalizeExportRow = (row: Registro) => {
+    return Object.fromEntries(
+      Object.entries(row)
+        .filter(([k]) => !EXPORT_EXCLUDE_COLS.has(k))
+        .map(([k, v]) => [k, isDateLikeKey(k) ? formatDateOnly(v) : v]),
+    );
+  };
 
   // Verificar si una columna es expandible para una fila específica
   const isColumnExpandable = (colKey: string, value: any) => {
@@ -270,10 +271,7 @@ const normalizeExportRow = (row: Registro) => {
     return isInExpandableList && (hasMultipleItems || isStringWithSeparators);
   };
 
-  const EXPORT_EXCLUDE_COLS = new Set([
-    "id_factura",
-    "id_relacion",
-  ]);
+  const EXPORT_EXCLUDE_COLS = new Set(["id_factura", "id_relacion"]);
 
   // Formatear el valor de una columna expandible
   const renderExpandableValue = (
@@ -568,70 +566,75 @@ const normalizeExportRow = (row: Registro) => {
 
       {displayData.length > 0 && !loading ? (
         <div
-  className={`flex-1 min-h-0 relative border border-gray-200 rounded-sm w-full ${
-    horizontalScroll ? "overflow-auto" : "overflow-y-auto"
-  }`}
-  style={!fillHeight ? { maxHeight } : undefined}
->
-  <table
-    className={`divide-y divide-gray-200 ${
-      horizontalScroll ? "w-max min-w-full" : "min-w-full"
-    }`}
-  >
+          className={`flex-1 min-h-0 relative border border-gray-200 rounded-sm w-full ${
+            horizontalScroll ? "overflow-auto" : "overflow-y-auto"
+          }`}
+          style={!fillHeight ? { maxHeight } : undefined}
+        >
+          <table
+            className={`divide-y divide-gray-200 ${
+              horizontalScroll ? "w-max min-w-full" : "min-w-full"
+            }`}
+          >
             <thead className="sticky z-10 bg-gray-50 top-0">
               <tr>
                 {visibleOrderedColumns.map((key) => {
-  const isStickyRight = stickyRightColumns.includes(key);
+                  const isStickyRight = stickyRightColumns.includes(key);
 
-  return (
-    <th
-      key={key}
-      scope="col"
-      onClick={() => {
-        setLoading(true);
-        handleSort(key);
-      }}
-      className={`px-3 min-w-fit whitespace-nowrap py-2 text-left cursor-pointer text-[11px] font-medium text-gray-600 uppercase tracking-wider ${
-        isStickyRight
-          ? "sticky right-0 z-20 border-l border-gray-200 bg-gray-50 shadow-[-8px_0_12px_-10px_rgba(0,0,0,0.15)]"
-          : ""
-      }`}
-      style={{
-        minWidth: columnMinWidths[key] || undefined,
-      }}
-    >
-      <span className="flex flex-col items-start gap-1">
-        {headerRenderers[key] ? (
-          headerRenderers[key]()
-        ) : (
-          <>
-            {key === (currentSort.key || "") && (
-              <ArrowDown
-                className={`w-3 h-3 transition-transform self-center ${
-                  !currentSort.sort ? "" : "rotate-180"
-                }`}
-              />
-            )}
-            <div className="whitespace-pre-line text-center w-full leading-tight">
-              {formatColumnTitle(key)}
-              {expandableColumns.includes(key) && (
-                <div className="text-xs font-normal text-blue-600 mt-1">
-                  (Expandible)
-                </div>
-              )}
-            </div>
-          </>
-        )}
-      </span>
-    </th>
-  );
-})}
+                  return (
+                    <th
+                      key={key}
+                      scope="col"
+                      onClick={() => {
+                        if (!sortable) return;
+                        setLoading(true);
+                        handleSort(key);
+                      }}
+                      className={`px-3 min-w-fit whitespace-nowrap py-2 text-left text-[11px] font-medium text-gray-600 uppercase tracking-wider ${
+                        sortable ? "cursor-pointer" : ""
+                      } ${
+                        isStickyRight
+                          ? "sticky right-0 z-20 border-l border-gray-200 bg-gray-50 shadow-[-8px_0_12px_-10px_rgba(0,0,0,0.15)]"
+                          : ""
+                      }`}
+                      style={{
+                        minWidth: columnMinWidths[key] || undefined,
+                      }}
+                    >
+                      <span className="flex flex-col items-start gap-1">
+                        {headerRenderers[key] ? (
+                          headerRenderers[key]()
+                        ) : (
+                          <>
+                            {sortable && key === (currentSort.key || "") && (
+                              <ArrowDown
+                                className={`w-3 h-3 transition-transform self-center ${
+                                  !currentSort.sort ? "" : "rotate-180"
+                                }`}
+                              />
+                            )}
+                            <div className="whitespace-pre-line text-center w-full leading-tight">
+                              {formatColumnTitle(key)}
+                              {expandableColumns.includes(key) && (
+                                <div className="text-xs font-normal text-blue-600 mt-1">
+                                  (Expandible)
+                                </div>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </span>
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
 
             <tbody className="bg-white divide-y divide-gray-200">
               {pagedData.map((item, localIndex) => {
-                const index = pagination ? currentPage * pageSize + localIndex : localIndex;
+                const index = pagination
+                  ? currentPage * pageSize + localIndex
+                  : localIndex;
                 const rowKey = item.id !== undefined ? item.id : index;
                 const zebraClass = index % 2 === 0 ? "bg-white" : "bg-gray-50";
                 const rowExtraClass = getRowClassName
@@ -644,7 +647,10 @@ const normalizeExportRow = (row: Registro) => {
 
                 // filasExpandibles tiene prioridad sobre el estado interno expandedRows
                 const isExpanded = filasExpandibles
-                  ? !!(filasExpandibles[item.detalles?.reservaId] || filasExpandibles[item.id])
+                  ? !!(
+                      filasExpandibles[item.detalles?.reservaId] ||
+                      filasExpandibles[item.id]
+                    )
                   : expandedRows.has(index);
 
                 return (
@@ -653,16 +659,21 @@ const normalizeExportRow = (row: Registro) => {
                       className={`${baseBgClass} group cursor-pointer hover:bg-blue-50 transition-colors`}
                     >
                       {visibleOrderedColumns.map((colKey) => {
-                        const Renderer = renderers[colKey] ?? DEFAULT_RENDERERS[colKey];
+                        const Renderer =
+                          renderers[colKey] ?? DEFAULT_RENDERERS[colKey];
                         const value = item[colKey];
-                        const isStickyRight = stickyRightColumns.includes(colKey);
-                        const stickyBg = index % 2 === 0 ? "bg-white" : "bg-gray-50";
+                        const isStickyRight =
+                          stickyRightColumns.includes(colKey);
+                        const stickyBg =
+                          index % 2 === 0 ? "bg-white" : "bg-gray-50";
 
                         return (
                           <td
                             key={`${rowKey}-${colKey}`}
                             className={`px-2 py-1 text-[11px] text-gray-900 align-middle ${
-                              expandableColumns.includes(colKey) ? "align-top w-72" : ""
+                              expandableColumns.includes(colKey)
+                                ? "align-top w-72"
+                                : ""
                             } ${
                               isStickyRight
                                 ? `sticky right-0 z-10 border-l border-gray-200 ${stickyBg} group-hover:bg-blue-50 shadow-[-8px_0_12px_-10px_rgba(0,0,0,0.12)]`
@@ -735,7 +746,9 @@ const normalizeExportRow = (row: Registro) => {
               ‹
             </button>
             <button
-              onClick={() => setCurrentPage((p) => Math.min(totalPages - 1, p + 1))}
+              onClick={() =>
+                setCurrentPage((p) => Math.min(totalPages - 1, p + 1))
+              }
               disabled={currentPage >= totalPages - 1}
               className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
             >
