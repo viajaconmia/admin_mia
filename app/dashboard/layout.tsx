@@ -226,8 +226,9 @@ const links: NavGroup[] = [
         icon: Building2,
       },
       {
-        title: "Reporte historico",
+        title: "Reporte mensual",
         href: "/dashboard/reporte_mensual",
+        icon: Building2,
       },
     ],
   },
