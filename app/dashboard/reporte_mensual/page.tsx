@@ -9,6 +9,7 @@ import { ApiService, ApiResponse } from "@/services/ApiService";
 import { useEffect, useMemo, useState } from "react";
 import { Plane, Car, Hotel, Copy } from "lucide-react";
 import { Loader } from "@/components/atom/Loader";
+import { GetListaSeparadaRenderer } from "@/v3/atom/TableItemsComponent";
 import { copyToClipboard } from "@/helpers/utils";
 import Button from "@/components/atom/Button";
 import { useAlert } from "@/context/useAlert";
@@ -111,6 +112,7 @@ type RegistroDetalle = {
   tipo_cuarto_vuelo: string;
   check_in: string;
   check_out: string;
+  facturas_asociadas: string; //Esta propiedad tiene separadas las facturas por un ", "
 };
 
 type TipoDetalle =
@@ -229,6 +231,7 @@ export default function Page() {
     "tipo_cuarto_vuelo",
     "check_in",
     "check_out",
+    "facturas_asociadas",
   ];
 
   const datosResumenTabla = useMemo(() => {
@@ -877,6 +880,8 @@ export default function Page() {
         {value ? new Date(value).toLocaleDateString("es-MX") : ""}
       </span>
     ),
+
+    facturas_asociadas: GetListaSeparadaRenderer(", ", "Facturas asociadas"),
   };
 
   return (
