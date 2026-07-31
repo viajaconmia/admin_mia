@@ -2,7 +2,14 @@
 
 import { DateTime, Precio } from "@/v3/atom/TableItemsComponent";
 import Button from "@/components/atom/Button";
-import { FileText, FileDown, Download, Eye, FilePlus, XCircle } from "lucide-react";
+import {
+  FileText,
+  FileDown,
+  Download,
+  Eye,
+  FilePlus,
+  XCircle,
+} from "lucide-react";
 import { downloadFromUrl } from "@/angel/lib/download";
 
 export type FacturaFiltradaRaw = {
@@ -166,15 +173,17 @@ export const createFacturaRenderers = (opts?: {
               Asignar
             </Button>
           )}
-        {opts?.onCancelar && value.id_facturama && (
-          <Button
-            size="sm"
-            variant="warning"
-            onClick={() => opts.onCancelar!(value.id_factura)}
-          >
-            Cancelar
-          </Button>
-        )}
+        {opts?.onCancelar &&
+          value.id_facturama &&
+          value.estado != "canceled" && (
+            <Button
+              size="sm"
+              variant="warning"
+              onClick={() => opts.onCancelar!(value.id_factura)}
+            >
+              Cancelar
+            </Button>
+          )}
       </div>
     );
   },

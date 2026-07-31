@@ -670,6 +670,7 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
     ? datosAgentes.map((f) => ({
         id_factura: f.id_factura,
         uuid_factura: f.uuid_factura,
+        folio: f.folio,
         fecha_emision: f.fecha_emision,
         fecha_vencimiento: f.fecha_vencimiento,
         rfc: f.rfc,
@@ -684,6 +685,7 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
     : (facturasFiltradas || []).map((f) => ({
         id_factura: f.id_factura,
         uuid_factura: f.uuid_factura,
+        folio: f.folio,
         fecha_emision: f.fecha_emision,
         fecha_vencimiento: f.fecha_vencimiento,
         rfc: f.rfc,
@@ -785,7 +787,10 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
 
     total: ({ value }) => (
       <div className="flex justify-end">
-        <Monto value={parseFloat(value) || 0} className="font-bold text-blue-600" />
+        <Monto
+          value={parseFloat(value) || 0}
+          className="font-bold text-blue-600"
+        />
       </div>
     ),
 
@@ -908,11 +913,17 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
                   <div className="text-sm font-semibold text-gray-700 flex flex-col items-end">
                     <span>
                       Total saldo seleccionado:{" "}
-                      <Monto value={totalSaldoSeleccionado} className="text-green-600" />
+                      <Monto
+                        value={totalSaldoSeleccionado}
+                        className="text-green-600"
+                      />
                     </span>
                     <span>
                       Total a asignar:{" "}
-                      <Monto value={totalMontoAsignado} className="text-blue-600" />
+                      <Monto
+                        value={totalMontoAsignado}
+                        className="text-blue-600"
+                      />
                     </span>
                   </div>
                 </div>
@@ -920,7 +931,10 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
                   <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                     <div className="text-sm font-semibold text-gray-700">
                       Total saldo seleccionado:{" "}
-                      <Monto value={totalSaldoSeleccionado} className="text-green-600" />
+                      <Monto
+                        value={totalSaldoSeleccionado}
+                        className="text-green-600"
+                      />
                     </div>
                   </div>
 
@@ -977,6 +991,7 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
                     customColumns={[
                       "seleccionar",
                       "monto_asignar",
+                      "folio",
                       "rfc",
                       "uuid_factura",
                       "fecha_emision",

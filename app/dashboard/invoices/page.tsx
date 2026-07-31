@@ -290,7 +290,7 @@ function AsignarFacturaModal({
     );
     const saldoDisponible = Number(factura.saldo_x_aplicar_items || 0);
 
-    if (totalAsignar > saldoDisponible) {
+    if (Math.round(totalAsignar * 100) > Math.round(saldoDisponible * 100)) {
       alertError(
         `El monto a asignar ($${totalAsignar.toFixed(2)}) supera el saldo disponible ($${saldoDisponible.toFixed(2)})`,
       );

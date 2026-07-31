@@ -26,5 +26,29 @@ export const useFile = () => {
     document.body.removeChild(link);
   };
 
-  return { csv, loadingFile, setLoadingFile };
+  const csvRaw = (
+    headers: string[],
+    rows: (string | number | null | undefined)[][],
+    filename = "new_file",
+  ) => {
+    const escape = (v: string | number | null | undefined) => {
+      const s = String(v ?? "");
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const content = [
+      headers.map(escape).join(","),
+      ...rows.map((row) => row.map(escape).join(",")),
+    ].join("\n");
+    const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  };
+
+  return { csv, csvRaw, loadingFile, setLoadingFile };
 };

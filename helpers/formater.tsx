@@ -37,7 +37,7 @@ export function formatNumberWithCommas(
 ): string {
   if (numberStr == null) return "";
 
-  const str = typeof numberStr === "number" ? numberStr.toString() : numberStr;
+  const str = typeof numberStr === "number" ? numberStr.toFixed(2) : numberStr;
 
   if (str.trim() === "") return "";
 
@@ -157,3 +157,20 @@ export function formatTime(time?: string | null): string {
 
   return "";
 }
+export const formatPeriodo = (value: string) => {
+  if (!value) return "";
+
+  const parts = value.split("-").map(Number);
+  const year = parts[0];
+  const month = parts[1];
+  if (!year || !month) return value;
+
+  const date = new Date(year, month - 1, 1);
+
+  return date
+    .toLocaleDateString("es-MX", {
+      month: "long",
+      year: "numeric",
+    })
+    .toUpperCase();
+};

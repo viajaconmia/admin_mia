@@ -140,9 +140,24 @@ const links: NavGroup[] = [
             icon: CreditCard,
           },
           {
+            title: "Nueva Pagos proveedor",
+            href: "/dashboard/reservas_proveedor",
+            icon: CreditCard,
+          },
+          {
             title: "cartera de CXP",
             href: "/dashboard/concentrado_cxp",
             icon: FileText,
+          },
+          {
+            title: "Comprobante pago",
+            href: "/dashboard/pagos_proveedor_l",
+            icon: CreditCard,
+          },
+          {
+            title: "Nueva Comprobante pago",
+            href: "/dashboard/dispersiones",
+            icon: CreditCard,
           },
           {
             title: "Comprobante pago",

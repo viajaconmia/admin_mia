@@ -1,6 +1,6 @@
 import { ApiResponse, createApiClient } from "../apiClient";
 
-const facturaApi = createApiClient("/mia/factura");
+const facturaApi = createApiClient("/v2/mia/factura");
 
 export type ReservaPendienteFacturar = {
   id_relacion: string;

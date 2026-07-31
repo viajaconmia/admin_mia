@@ -104,6 +104,10 @@ export interface TypeFilters {
   servicio?: string | null;
   fecha_emision_factura_start?: string | null;
   fecha_emision_factura_end?: string | null;
+  check_in_start?: string | null;
+  check_in_end?: string | null;
+  check_out_start?: string | null;
+  check_out_end?: string | null;
 }
 
 export interface EmpresaFromAgent {

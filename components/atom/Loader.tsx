@@ -1,13 +1,25 @@
 import React from "react";
 
-export const Loader: React.FC = () => {
+type LoaderSize = "sm" | "md" | "lg";
+
+const SIZE: Record<LoaderSize, string> = {
+  sm: "w-[30px] h-[30px]",
+  md: "w-[50px] h-[50px]",
+  lg: "w-[80px] h-[80px]",
+};
+
+type Props = {
+  size?: LoaderSize;
+};
+
+export const Loader: React.FC<Props> = ({ size = "md" }) => {
   return (
-    <div className="flex justify-center items-center py-4">
+    <div className="flex justify-center items-center">
       <svg
         version="1.1"
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 493 539"
-        className="w-[50px] h-[50px] text-sky-950 animate-wobble-bounce"
+        className={`${SIZE[size]} text-sky-950 animate-wobble-bounce`}
       >
         <path
           fill="currentColor"

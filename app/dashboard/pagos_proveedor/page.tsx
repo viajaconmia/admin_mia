@@ -49,6 +49,7 @@ import { useSolicitudesPago } from "./hooks/useSolicitudesPago";
 import { useSeleccion } from "./hooks/useSeleccion";
 import { usePatchSolicitud } from "./hooks/usePatchSolicitud";
 import { formatNumberWithCommas } from "@/helpers/formater";
+import { FilterInput } from "@/component/atom/FilterInput";
 
 function App() {
   const { showNotification } = useAlert();
@@ -80,6 +81,21 @@ function App() {
     useState<SolicitudProveedorRaw[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [categoria, setCategoria] = useState<VistaCarpeta>("all");
+
+  const handleDateFilterChange = useCallback(
+    (value: string | null, propiedad: string) => {
+      setFilters((prev: TypeFilters) => {
+        const next = { ...prev };
+        if (value == null) {
+          delete next[propiedad as keyof TypeFilters];
+        } else {
+          (next as Record<string, unknown>)[propiedad] = value;
+        }
+        return next;
+      });
+    },
+    [setFilters],
+  );
   const [solicitudDetalle, setSolicitudDetalle] = useState<string | null>(null);
 
   // Carga perezosa: al cambiar de tab o de filtros trae solo ese bucket
@@ -636,6 +652,37 @@ function App() {
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
         />
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2 mb-2">
+          <FilterInput
+            type="date"
+            propiedad="check_in_start"
+            label="Check-in desde"
+            value={filters.check_in_start ?? null}
+            onChange={handleDateFilterChange}
+          />
+          <FilterInput
+            type="date"
+            propiedad="check_in_end"
+            label="Check-in hasta"
+            value={filters.check_in_end ?? null}
+            onChange={handleDateFilterChange}
+          />
+          <FilterInput
+            type="date"
+            propiedad="check_out_start"
+            label="Check-out desde"
+            value={filters.check_out_start ?? null}
+            onChange={handleDateFilterChange}
+          />
+          <FilterInput
+            type="date"
+            propiedad="check_out_end"
+            label="Check-out hasta"
+            value={filters.check_out_end ?? null}
+            onChange={handleDateFilterChange}
+          />
+        </div>
 
         <CarpetasTabs
           activeTab={categoria}
