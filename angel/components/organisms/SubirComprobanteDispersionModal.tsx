@@ -1,6 +1,6 @@
 "use client";
-import { useState } from "react";
-import { UploadCloud, FileCheck } from "lucide-react";
+import { useEffect, useState } from "react";
+import { UploadCloud, FileCheck, FileText } from "lucide-react";
 import { Modal } from "@/angel/components/molecules/Modal";
 import { dispersionService } from "@/angel/services/dispersion";
 import { subirArchivoAS3Seguro } from "@/lib/utils";
@@ -9,6 +9,7 @@ import Button from "@/components/atom/Button";
 import { useAlert } from "@/context/useAlert";
 
 const ALLOWED_EXTENSIONS = [".pdf", ".png", ".jpg", ".jpeg", ".webp"];
+const IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp"];
 const MAX_SIZE = 10 * 1024 * 1024;
 
 const validarArchivo = (file: File): string | null => {
@@ -45,6 +46,21 @@ export const SubirComprobanteDispersionModal = ({
   const [concepto, setConcepto] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!file) {
+      setPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+
+  const esImagen = file
+    ? IMAGE_EXTENSIONS.some((ext) => file.name.toLowerCase().endsWith(ext))
+    : false;
 
   const resetInterno = () => {
     setFile(null);
@@ -144,6 +160,28 @@ export const SubirComprobanteDispersionModal = ({
               className="hidden"
             />
           </label>
+
+          {file && previewUrl && (
+            <div className="mt-2 rounded-lg border border-gray-200 bg-gray-50 p-2">
+              {esImagen ? (
+                <img
+                  src={previewUrl}
+                  alt="Vista previa del comprobante"
+                  className="max-h-64 w-full rounded-md object-contain"
+                />
+              ) : (
+                <a
+                  href={previewUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-sm text-blue-600 hover:underline"
+                >
+                  <FileText className="w-4 h-4 shrink-0" />
+                  Ver &quot;{file.name}&quot;
+                </a>
+              )}
+            </div>
+          )}
         </div>
 
         <TextInput

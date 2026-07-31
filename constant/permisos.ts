@@ -48,6 +48,7 @@ export const PERMISOS = {
       FINANZAS_TARJETAS_EDITAR: "button.finanzas.tarjetas.editar",
       FINANZAS_TARJETAS_ELIMINAR: "button.finanzas.tarjetas.eliminar",
       EDITAR_RESERVA: "button.edit-booking",
+      DISPERSION_ELIMINAR: "view.dispersion.eliminar",
     },
     GROUP: {
       PROVEEDORES_EDICIONES: "button.proveedores.edicion",

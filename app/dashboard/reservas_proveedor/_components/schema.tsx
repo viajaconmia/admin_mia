@@ -22,18 +22,20 @@ export type SolicitudProveedorItem = {
   _seleccion: string;
   type: TypeService;
   id: string;
-  created_at: string;
+  created_solicitud: string;
+  created_reserva: string;
   codigo_confirmacion: string;
   cliente: string;
+  estado_pago: string | null;
   proveedor: string;
   check_in: string | null;
   check_out: string | null;
   noches: number | null;
   fecha_solicitud: string | null;
-  monto_solicitado: string;
   costo_total: string;
   markup: string;
-  total: string;
+  precio_venta: string;
+  monto_solicitado: string;
   saldo: string;
   saldo_dispersion: number;
   asignado_a_factura?: string | null;
@@ -43,13 +45,12 @@ export type SolicitudProveedorItem = {
   forma_pago: "credit" | "contado";
   negociacion_proveedor: string | null;
   intermediario: string | null;
-  negociacion_intermediario: string | null;
+  // negociacion_intermediario: string | null;
   rfc?: string | null;
   uuid?: string | null;
+  comentarios_ops: string | null;
   comentario_CXP: string | null;
-  comentario_AP: string | null;
-  comentario_ajuste: string | null;
-  notas_internas: string | null;
+  comentarios_fin: string | null;
 };
 
 const isNotFirstIndice = (raw: SolicitudProveedorRaw) =>
@@ -61,22 +62,24 @@ export const mapSolicitud = (
   _seleccion: String(raw.id_solicitud_proveedor),
   type: raw.type,
   id: String(raw.id_solicitud_proveedor),
-  created_at: raw.created_at,
+  created_solicitud: raw.created_at,
+  created_reserva: raw.created_at_booking,
   estado_solicitud: raw.estado_solicitud,
+  estado_pago: raw.estatus_pagos,
   fecha_solicitud: raw.fecha_solicitud,
   codigo_confirmacion: raw.codigo_confirmacion,
   cliente: raw.cliente,
   proveedor: raw.proveedor,
   intermediario: raw.intermediario,
   negociacion_proveedor: raw.negociacion_proveedor,
-  negociacion_intermediario: raw.negociacion_intermediario,
+  // negociacion_intermediario: raw.negociacion_intermediario,
   check_in: raw.check_in,
   check_out: raw.check_out,
   noches: raw.noches,
-  monto_solicitado: isNotFirstIndice(raw) ? "" : raw.monto_solicitado,
   costo_total: isNotFirstIndice(raw) ? "" : raw.costo_total,
   markup: isNotFirstIndice(raw) ? "" : raw.markup,
-  total: isNotFirstIndice(raw) ? "" : raw.total,
+  precio_venta: isNotFirstIndice(raw) ? "" : raw.total,
+  monto_solicitado: isNotFirstIndice(raw) ? "" : raw.monto_solicitado,
   saldo: isNotFirstIndice(raw) ? "" : raw.saldo,
   saldo_dispersion: Number(raw.saldo_dispersion || 0),
   estado_facturacion: raw.estado_facturacion,
@@ -87,16 +90,16 @@ export const mapSolicitud = (
   numero_factura: !(raw.total_facturas == null || raw.total_facturas === 0)
     ? `${raw.indice_factura} de ${raw.total_facturas}`
     : "",
+  comentarios_ops: raw.comentarios_ops,
   comentario_CXP: raw.comentario_CXP,
-  comentario_AP: raw.comentario_AP,
-  comentario_ajuste: raw.comentario_ajuste,
-  notas_internas: raw.notas_internas,
+  comentarios_fin: raw.notas_internas,
 });
 
 export const createSolicitudRenderers = () => ({
   type: ServiceRenderer,
   id: MonoRenderer,
-  created_at: DateTimeRenderer,
+  created_solicitud: DateTimeRenderer,
+  created_reserva: DateTimeRenderer,
   codigo_confirmacion: BoldRenderer,
   cliente: TextRenderer,
   proveedor: BoldRenderer,
@@ -105,22 +108,22 @@ export const createSolicitudRenderers = () => ({
   numero_factura: MonoRenderer,
   negociacion_proveedor: TextRenderer,
   intermediario: TextRenderer,
-  negociacion_intermediario: TextRenderer,
+  // negociacion_intermediario: TextRenderer,
   rfc: MonoRenderer,
   uuid: MonoRenderer,
+  comentarios_ops: TextRenderer,
   comentario_CXP: TextRenderer,
-  comentario_AP: TextRenderer,
-  comentario_ajuste: TextRenderer,
-  notas_internas: TextRenderer,
+  comentarios_fin: TextRenderer,
   fecha_solicitud: DateRenderer,
   monto_solicitado: PrecioRenderer,
   costo_total: PrecioRenderer,
   markup: PorcentajeRenderer,
-  total: PrecioRenderer,
+  precio_venta: PrecioRenderer,
   saldo: PrecioRenderer,
   saldo_dispersion: PrecioRenderer,
   asignado_a_factura: PrecioRenderer,
   noches: TextRenderer,
+  estado_pago: GetBadgeRenderer(ESTADO_PAGO_STYLES),
   estado_solicitud: GetBadgeRenderer(ESTADO_SOLICITUD_STYLES),
   estado_facturacion: GetBadgeRenderer(ESTADO_FACTURACION_STYLES),
   forma_pago: GetBadgeRenderer(FORMA_PAGO_STYLES, (v) =>
@@ -140,7 +143,9 @@ export const createSolicitudTotales = (): Partial<
     <Precio value={String(sumar(rows, "monto_solicitado"))} />
   ),
   costo_total: (rows) => <Precio value={String(sumar(rows, "costo_total"))} />,
-  total: (rows) => <Precio value={String(sumar(rows, "total"))} />,
+  precio_venta: (rows) => (
+    <Precio value={String(sumar(rows, "precio_venta"))} />
+  ),
   saldo: (rows) => <Precio value={String(sumar(rows, "saldo"))} />,
   saldo_dispersion: (rows) => (
     <Precio value={String(sumar(rows, "saldo_dispersion"))} />
@@ -158,6 +163,11 @@ const ESTADO_SOLICITUD_STYLES: Record<string, string> = {
   carta_enviada: "bg-blue-100 text-blue-700 border border-blue-300",
   solicitada: "bg-yellow-100 text-yellow-700 border border-yellow-300",
   dispersion: "bg-purple-100 text-purple-700 border border-purple-300",
+};
+
+const ESTADO_PAGO_STYLES: Record<string, string> = {
+  enviado_a_pago: "bg-green-100 text-green-700 border border-green-300",
+  pagado: "bg-green-100 text-green-700 border border-green-300",
 };
 
 const FORMA_PAGO_STYLES: Record<string, string> = {

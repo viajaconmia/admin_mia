@@ -354,6 +354,28 @@ export default function ReservasProveedorPage() {
               value={state.filtros.fecha_solicitud_fin || null}
               label="Solicitud hasta"
             />
+            <FilterInput
+              type="date"
+              onChange={handleFilterChange}
+              propiedad="checkin_inicio"
+              value={state.filtros.checkin_inicio || null}
+              label="Check-in desde"
+            />
+            <FilterInput
+              type="date"
+              onChange={handleFilterChange}
+              propiedad="checkin_fin"
+              value={state.filtros.checkin_fin || null}
+              label="Check-in hasta"
+            />
+            <FilterInput
+              type="select"
+              onChange={handleFilterChange}
+              propiedad="estatus_pagos"
+              value={state.filtros.estatus_pagos || null}
+              label="Estatus de pago"
+              options={["pagado", "enviado_a_pago"]}
+            />
           </>
         }
       />
