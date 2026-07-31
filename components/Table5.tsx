@@ -579,54 +579,54 @@ export const Table5 = <T,>({
             <thead className="sticky z-10 bg-gray-50 top-0">
               <tr>
                 {visibleOrderedColumns.map((key) => {
-                  const isStickyRight = stickyRightColumns.includes(key);
+  const isStickyRight = stickyRightColumns.includes(key);
 
-                  return (
-                    <th
-                      key={key}
-                      scope="col"
-                      onClick={() => {
-                        if (!sortable) return;
-                        setLoading(true);
-                        handleSort(key);
-                      }}
-                      className={`px-3 min-w-fit whitespace-nowrap py-2 text-left text-[11px] font-medium text-gray-600 uppercase tracking-wider ${
-                        sortable ? "cursor-pointer" : ""
-                      } ${
-                        isStickyRight
-                          ? "sticky right-0 z-20 border-l border-gray-200 bg-gray-50 shadow-[-8px_0_12px_-10px_rgba(0,0,0,0.15)]"
-                          : ""
-                      }`}
-                      style={{
-                        minWidth: columnMinWidths[key] || undefined,
-                      }}
-                    >
-                      <span className="flex flex-col items-start gap-1">
-                        {headerRenderers[key] ? (
-                          headerRenderers[key]()
-                        ) : (
-                          <>
-                            {sortable && key === (currentSort.key || "") && (
-                              <ArrowDown
-                                className={`w-3 h-3 transition-transform self-center ${
-                                  !currentSort.sort ? "" : "rotate-180"
-                                }`}
-                              />
-                            )}
-                            <div className="whitespace-pre-line text-center w-full leading-tight">
-                              {formatColumnTitle(key)}
-                              {expandableColumns.includes(key) && (
-                                <div className="text-xs font-normal text-blue-600 mt-1">
-                                  (Expandible)
-                                </div>
-                              )}
-                            </div>
-                          </>
-                        )}
-                      </span>
-                    </th>
-                  );
-                })}
+  return (
+    <th
+      key={key}
+      scope="col"
+      onClick={() => {
+        if (!sortable) return;
+        setLoading(true);
+        handleSort(key);
+      }}
+      className={`px-3 min-w-fit whitespace-nowrap py-2 text-left text-[11px] font-medium text-gray-600 uppercase tracking-wider ${
+        sortable ? "cursor-pointer" : ""
+      } ${
+        isStickyRight
+          ? "sticky right-0 z-20 border-l border-gray-200 bg-gray-50 shadow-[-8px_0_12px_-10px_rgba(0,0,0,0.15)]"
+          : ""
+      }`}
+      style={{
+        minWidth: columnMinWidths[key] || undefined,
+      }}
+    >
+      <span className="flex flex-col items-start gap-1">
+        {headerRenderers[key] ? (
+          headerRenderers[key]()
+        ) : (
+          <>
+            {sortable && key === (currentSort.key || "") && (
+              <ArrowDown
+                className={`w-3 h-3 transition-transform self-center ${
+                  !currentSort.sort ? "" : "rotate-180"
+                }`}
+              />
+            )}
+            <div className="whitespace-pre-line text-center w-full leading-tight">
+              {formatColumnTitle(key)}
+              {expandableColumns.includes(key) && (
+                <div className="text-xs font-normal text-blue-600 mt-1">
+                  (Expandible)
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </span>
+    </th>
+  );
+})}
               </tr>
             </thead>
 

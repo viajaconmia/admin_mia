@@ -995,7 +995,7 @@ export default function Page() {
       {modalDetalleOpen && (
         <Modal
           title={tituloDetalle}
-          subtitle="Detalle de reservas"
+          subtitle={`Detalle de reservas · Total de reservas: ${detalleReservas.length}`}
           onClose={() => setModalDetalleOpen(false)}
         >
           {loadingDetalle ? (
