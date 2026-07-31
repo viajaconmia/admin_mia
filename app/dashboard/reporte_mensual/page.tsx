@@ -109,6 +109,7 @@ type RegistroDetalle = {
   nombre_viajero: string;
   codigo_confirmacion: string;
   type: string;
+  probando: string;
   tipo_cuarto_vuelo: string;
   check_in: string;
   check_out: string;
