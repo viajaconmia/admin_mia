@@ -16,6 +16,7 @@ import {
   Users2,
   User,
   Wallet,
+  FileCheck,
 } from "lucide-react";
 
 import NavContainer from "@/components/organism/NavContainer"; // <- aquí importas el nuevo
@@ -228,6 +229,7 @@ const links: NavGroup[] = [
       {
         title: "Reporte historico",
         href: "/dashboard/reporte_mensual",
+        icon: FileCheck,
       },
     ],
   },
