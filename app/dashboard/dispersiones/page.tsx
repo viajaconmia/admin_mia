@@ -11,6 +11,7 @@ import {
   DispersionRow,
   mapDispersion,
   createDispersionRenderers,
+  createDispersionCard,
 } from "./_components/schema";
 import { SubirComprobanteDispersionModal } from "@/angel/components/organisms/SubirComprobanteDispersionModal";
 import Button from "@/components/atom/Button";
@@ -76,6 +77,11 @@ export default function DispersionesPage() {
     toggleFila,
     estaSeleccionado,
   );
+  const renderCard = createDispersionCard(
+    seleccionarGrupo,
+    toggleFila,
+    estaSeleccionado,
+  );
 
   const totalSeleccionado = dispersiones
     .filter((d) => seleccionados.includes(d._seleccion))
@@ -134,6 +140,7 @@ export default function DispersionesPage() {
         registros={registrosFiltrados}
         loading={loading}
         renderers={renderers}
+        renderCard={renderCard}
       >
         <div className="relative w-full flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -144,31 +151,30 @@ export default function DispersionesPage() {
             className="[&>input]:pl-9"
           />
         </div>
-      </TablaCompleta>
-
-      <AccionesSeleccion count={seleccionados.length} onLimpiar={limpiar}>
-        <span className="text-sm font-medium text-white/90 whitespace-nowrap">
-          Total solicitado: {fmtMoney(totalSeleccionado)}
-        </span>
-        <div className="h-4 w-px bg-white/20" />
-        <Button
-          onClick={() => setModalComprobante(true)}
-          variant="secondary"
-          size="sm"
-        >
-          Subir comprobante
-        </Button>
-        <Can permiso={PERMISOS.COMPONENTES.BOTON.DISPERSION_ELIMINAR}>
+        <AccionesSeleccion count={seleccionados.length} onLimpiar={limpiar}>
+          <span className="text-sm font-medium text-white/90 whitespace-nowrap ml-2">
+            Total solicitado: {fmtMoney(totalSeleccionado)}
+          </span>
+          <div className="hidden h-4 w-px bg-white/20 sm:block" />
           <Button
-            onClick={handleEliminarDispersion}
-            variant="warning"
+            onClick={() => setModalComprobante(true)}
+            variant="secondary"
             size="sm"
-            disabled={loadingEliminar}
           >
-            {loadingEliminar ? "Eliminando..." : "Eliminar dispersión"}
+            Subir comprobante
           </Button>
-        </Can>
-      </AccionesSeleccion>
+          <Can permiso={PERMISOS.COMPONENTES.BOTON.DISPERSION_ELIMINAR}>
+            <Button
+              onClick={handleEliminarDispersion}
+              variant="warning"
+              size="sm"
+              disabled={loadingEliminar}
+            >
+              {loadingEliminar ? "Eliminando..." : "Eliminar dispersión"}
+            </Button>
+          </Can>
+        </AccionesSeleccion>
+      </TablaCompleta>
 
       <SubirComprobanteDispersionModal
         open={modalComprobante}

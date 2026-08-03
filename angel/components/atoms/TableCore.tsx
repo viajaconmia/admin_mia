@@ -1,5 +1,6 @@
 "use client";
 import { type ReactNode, useMemo, useState } from "react";
+import { EmptyState } from "./EmptyState";
 
 export type CellRenderer = (props: { value: unknown }) => React.ReactNode;
 export type TotalFn<T> = (registros: T[]) => ReactNode;
@@ -48,11 +49,7 @@ export const TableCore = <T extends Record<string, unknown>>({
     );
 
   if (!registros.length) {
-    return (
-      <div className="px-6 py-4 w-full text-center text-sm text-gray-500 border rounded-sm bg-white">
-        No se encontraron registros
-      </div>
-    );
+    return <EmptyState />;
   }
 
   return (
