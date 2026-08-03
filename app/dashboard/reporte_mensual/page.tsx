@@ -5,7 +5,7 @@ import { DropdownValues } from "@/components/atom/Input";
 import { Table5 } from "@/components/Table5";
 import Modal from "@/components/organism/Modal";
 import { formatPeriodo, formatMoneyMXN } from "@/helpers/formater";
-import { ApiService, ApiResponse } from "@/services/ApiService";
+import { ApiService } from "@/services/ApiService";
 import { useEffect, useMemo, useState } from "react";
 import { Plane, Car, Hotel, Copy } from "lucide-react";
 import { Loader } from "@/components/atom/Loader";
@@ -31,6 +31,7 @@ class ReservasService extends ApiService {
       params: { fecha_inicio: fechaInicio, fecha_fin: fechaFin },
     });
   }
+
   async obtenerHistoricoPeriodo(periodo: string) {
     return this.get<RegistroPreview[]>({
       path: "/mia/reservas/historicoPeriodo",
@@ -127,8 +128,6 @@ type TipoDetalle =
 
 type tipoFactura = "hotel" | "flyght" | "car_rental";
 
-// Helper para alineación a la derecha
-
 export default function Page() {
   const [datosResumen, setDatosResumen] = useState<RegistroPreview[]>([]);
   const [fechaInicio, setFechaInicio] = useState<Option | null>(null);
@@ -166,26 +165,50 @@ export default function Page() {
   const customColumns: (keyof RegistroPreview)[] = [
     "periodo",
     "total_reservaciones",
-    "reservas_confirmadas",
-    "reservas_canceladas",
     "monto_total_reservas",
+    "reservas_confirmadas",
     "total_confirmado",
+    "reservas_canceladas",
     "total_cancelado",
     "reservas_facturadas",
     "reservas_por_facturar",
     "reservas_canceladas_facturadas",
     "total_facturado",
-    "monto_no_facturable",
     "monto_por_facturar",
     "total_facturado_cancelado",
+    "monto_no_facturable",
     "cantidad_facturas_activas",
     "cantidad_facturas_canceladas",
     "reservas_pagadas",
     "reservas_sin_pagar",
-    "reservas_canceladas_pagadas",
     "monto_pagado",
     "monto_por_cobrar",
+    "reservas_canceladas_pagadas",
   ];
+
+  const columnLabels: Partial<Record<keyof RegistroPreview, string>> = {
+    periodo: "Periodo",
+    total_reservaciones: "Total reservaciones",
+    monto_total_reservas: "Monto total reservaciones",
+    reservas_confirmadas: "Total reservas confirmadas",
+    total_confirmado: "Monto total reservas confirmadas",
+    reservas_canceladas: "Total reservas canceladas",
+    total_cancelado: "Monto total reservas canceladas",
+    reservas_facturadas: "Reservas confirmadas facturadas",
+    reservas_por_facturar: "Reservas confirmadas por facturar",
+    reservas_canceladas_facturadas: "Reservas canceladas facturadas",
+    total_facturado: "Total confirmado facturado",
+    monto_por_facturar: "Total confirmado por facturar",
+    total_facturado_cancelado: "Total facturado cancelado",
+    monto_no_facturable: "Monto no facturable",
+    cantidad_facturas_activas: "Facturas activas",
+    cantidad_facturas_canceladas: "Facturas canceladas",
+    reservas_pagadas: "Reservas cobradas",
+    reservas_sin_pagar: "Reservas pendientes a cobrar",
+    monto_pagado: "Monto cobrado",
+    monto_por_cobrar: "Monto por cobrar",
+    reservas_canceladas_pagadas: "Reservas canceladas cobradas",
+  };
 
   const renderCopiar = ({ value }: { value: string }) => (
     <div className="flex justify-start gap-2">
@@ -194,7 +217,7 @@ export default function Page() {
           try {
             copyToClipboard(value);
             success(`${value} ha sido copiado correctamente`);
-          } catch (err) {
+          } catch (err: any) {
             showNotification(
               "error",
               err.message || "Ocurrio un error al copiar",
@@ -205,7 +228,7 @@ export default function Page() {
         icon={Copy}
         className="h-8 w-8 p-0 rounded-md text-gray-500 hover:bg-gray-100 hover:text-gray-700"
       />
-      <span className={`text-xs font-semibold text-gray-800 `}>{value}</span>
+      <span className="text-xs font-semibold text-gray-800">{value}</span>
     </div>
   );
 
@@ -225,10 +248,6 @@ export default function Page() {
     "metodo_pago",
     "monto_pagado",
     "saldo_por_cobrar",
-    // "nombre_agente",
-    // "nombre_viajero",
-    // "codigo_confirmacion",
-    // "type",
     "tipo_cuarto_vuelo",
     "check_in",
     "check_out",
@@ -342,6 +361,7 @@ export default function Page() {
     console.log("row que abre detalle:", row);
     console.log("id_snapshot_reserva:", row.id_snapshot_reserva);
     console.log("tipoDetalle:", tipoDetalle);
+
     try {
       setTituloDetalle(titulo);
       setDetalleReservas([]);
@@ -395,12 +415,12 @@ export default function Page() {
           setModalPeriodoOpen(true);
           setLoadingHistorico(true);
           console.log(value);
+
           try {
             const response = await reservasService.obtenerHistoricoPeriodo(
               String(value).slice(0, 10),
             );
-            // const response =
-            //await reservasService.obtenerHistoricoPeriodo(value);
+
             setHistoricoPeriodo(response.data || []);
           } catch (error) {
             console.error("Error al cargar historico:", error);
@@ -415,7 +435,9 @@ export default function Page() {
     ),
 
     total_reservaciones: renderCantidad,
+    monto_total_reservas: renderPrecio,
     reservas_confirmadas: renderCantidad,
+    total_confirmado: renderPrecio,
     reservas_canceladas: ({
       value,
       item,
@@ -438,8 +460,6 @@ export default function Page() {
         </span>
       </div>
     ),
-    monto_total_reservas: renderPrecio,
-    total_confirmado: renderPrecio,
     total_cancelado: renderPrecio,
     reservas_facturadas: renderCantidad,
     reservas_por_facturar: ({
@@ -485,7 +505,6 @@ export default function Page() {
                 "reservasCanceladasFacturadas",
                 "Reservas Canceladas Facturadas",
               );
-
               setModalPeriodoOpen(false);
             }}
           >
@@ -498,6 +517,8 @@ export default function Page() {
       </div>
     ),
     total_facturado: renderPrecio,
+    monto_por_facturar: renderPrecio,
+    total_facturado_cancelado: renderPrecio,
     monto_no_facturable: ({
       value,
       item,
@@ -524,8 +545,6 @@ export default function Page() {
         </span>
       </div>
     ),
-    monto_por_facturar: renderPrecio,
-    total_facturado_cancelado: renderPrecio,
     cantidad_facturas_activas: renderCantidad,
     cantidad_facturas_canceladas: ({
       value,
@@ -572,6 +591,8 @@ export default function Page() {
         </span>
       </div>
     ),
+    monto_pagado: renderPrecio,
+    monto_por_cobrar: renderPrecio,
     reservas_canceladas_pagadas: ({
       value,
       item,
@@ -600,230 +621,11 @@ export default function Page() {
         </span>
       </div>
     ),
-    monto_pagado: renderPrecio,
-    monto_por_cobrar: renderPrecio,
-  };
-  const renderersmes = {
-    periodo: ({ value }: { value: string }) => (
-      <button
-        className={botonPeriodo}
-        onClick={async () => {
-          setPeriodoSeleccionado(formatPeriodo(value));
-          setModalPeriodoOpen(true);
-          setLoadingHistorico(true);
-          console.log(value);
-          try {
-            const response = await reservasService.obtenerHistoricoPeriodo(
-              String(value).slice(0, 10),
-            );
-            // const response =
-            //await reservasService.obtenerHistoricoPeriodo(value);
-            setHistoricoPeriodo(response.data || []);
-          } catch (error) {
-            console.error("Error al cargar historico:", error);
-            setHistoricoPeriodo([]);
-          } finally {
-            setLoadingHistorico(false);
-          }
-        }}
-      >
-        {formatPeriodo(value)}
-      </button>
-    ),
-
-    total_reservaciones: ({ value }: { value: number }) => (
-      <span className={`text-xs font-semibold text-gray-800 `}>{value}</span>
-    ),
-    reservas_confirmadas: ({ value }: { value: number }) => (
-      <span className={`text-xs font-semibold text-gray-800`}>{value}</span>
-    ),
-    reservas_canceladas: ({
-      value,
-      item,
-    }: {
-      value: number;
-      item: RegistroPreview;
-    }) => (
-      <div className="flex justify-center">
-        <span className="relative inline-flex items-center">
-          <button
-            className={botonDetalleRojo}
-            onClick={() =>
-              abrirDetalle(item, "reservasCanceladas", "Reservas Canceladas")
-            }
-          >
-            {value}
-          </button>
-          <span className={tooltipDetalle}>Ver reservas canceladas</span>
-        </span>
-      </div>
-    ),
-    monto_total_reservas: renderPrecio,
-    total_confirmado: renderPrecio,
-    total_cancelado: renderPrecio,
-    reservas_facturadas: ({ value }: { value: number }) => (
-      <span className={`text-xs font-semibold text-gray-800 `}>{value}</span>
-    ),
-    reservas_por_facturar: ({
-      value,
-      item,
-    }: {
-      value: number;
-      item: RegistroPreview;
-    }) => (
-      <div className="flex justify-end">
-        <span className="relative inline-flex items-center">
-          <button
-            className={botonDetalleRojo}
-            onClick={() =>
-              abrirDetalle(item, "reservasPorFacturar", "Reservas Por Facturar")
-            }
-          >
-            {value}
-          </button>
-          <span className={tooltipDetalle}>Ver reservas por facturar</span>
-        </span>
-      </div>
-    ),
-    reservas_canceladas_facturadas: ({
-      value,
-      item,
-    }: {
-      value: number;
-      item: RegistroPreview;
-    }) => (
-      <div className="flex justify-end">
-        <span className="relative inline-flex items-center">
-          <button
-            className={botonDetalleRojo}
-            onClick={() =>
-              abrirDetalle(
-                item,
-                "reservasCanceladasFacturadas",
-                "Reservas Canceladas Facturadas",
-              )
-            }
-          >
-            {value}
-          </button>
-          <span className={tooltipDetalle}>
-            Ver reservas canceladas facturadas
-          </span>
-        </span>
-      </div>
-    ),
-    total_facturado: renderPrecio,
-    monto_no_facturable: ({
-      value,
-      item,
-    }: {
-      value: number;
-      item: RegistroPreview;
-    }) => (
-      <div className="flex justify-end">
-        <span className="relative inline-flex items-center">
-          <button
-            className={botonDetalleAzul}
-            onClick={() =>
-              abrirDetalle(
-                item,
-                "reservasNoFacturables",
-                "Reservas No Facturables",
-              )
-            }
-          >
-            {formatMoneyMXN(value)}
-          </button>
-          <span className={tooltipDetalle}>Ver reservas no facturables</span>
-        </span>
-      </div>
-    ),
-    monto_por_facturar: renderPrecio,
-    total_facturado_cancelado: renderPrecio,
-    cantidad_facturas_activas: ({ value }: { value: number }) => (
-      <span className={`text-xs font-semibold text-gray-800 text-center `}>
-        {value}
-      </span>
-    ),
-    cantidad_facturas_canceladas: ({
-      value,
-      item,
-    }: {
-      value: number;
-      item: RegistroPreview;
-    }) => (
-      <div className="flex justify-end">
-        <span className="relative inline-flex items-center">
-          <button
-            className={botonDetalleRojo}
-            onClick={() =>
-              abrirDetalle(item, "facturasCanceladas", "Facturas Canceladas")
-            }
-          >
-            {value}
-          </button>
-          <span className={tooltipDetalle}>Ver facturas canceladas</span>
-        </span>
-      </div>
-    ),
-    reservas_pagadas: ({ value }: { value: number }) => (
-      <span className={`text-xs font-semibold text-gray-800 `}>{value}</span>
-    ),
-    reservas_sin_pagar: ({
-      value,
-      item,
-    }: {
-      value: number;
-      item: RegistroPreview;
-    }) => (
-      <div className="flex justify-end">
-        <span className="relative inline-flex items-center">
-          <button
-            className={botonDetalleRojo}
-            onClick={() =>
-              abrirDetalle(item, "reservasSinPagar", "Reservas Sin Pagar")
-            }
-          >
-            {value}
-          </button>
-          <span className={tooltipDetalle}>Ver reservas sin pagar</span>
-        </span>
-      </div>
-    ),
-    reservas_canceladas_pagadas: ({
-      value,
-      item,
-    }: {
-      value: number;
-      item: RegistroPreview;
-    }) => (
-      <div className="flex justify-end">
-        <span className="relative inline-flex items-center">
-          <button
-            className={botonDetalleRojo}
-            onClick={() =>
-              abrirDetalle(
-                item,
-                "reservasCanceladasPagadas",
-                "Reservas Canceladas Pagadas",
-              )
-            }
-          >
-            {value}
-          </button>
-          <span className={tooltipDetalle}>
-            Ver reservas canceladas pagadas
-          </span>
-        </span>
-      </div>
-    ),
-    monto_pagado: renderPrecio,
-    monto_por_cobrar: renderPrecio,
   };
 
   const renderersDetalle = {
     type: ({ value }: { value: tipoFactura }) => (
-      <span className={`text-xs font-semibold text-gray-800 `}>
+      <span className="text-xs font-semibold text-gray-800">
         {value === "hotel" ? (
           <Hotel className="h-4 w-4" />
         ) : value === "flyght" ? (
@@ -834,50 +636,45 @@ export default function Page() {
       </span>
     ),
     periodo: ({ value }: { value: string }) => (
-      <span className={`text-xs font-semibold text-gray-800 `}>
+      <span className="text-xs font-semibold text-gray-800">
         {formatPeriodo(value)}
       </span>
     ),
     estado_reserva: ({ value }: { value: string }) => (
-      <span className={`text-xs font-semibold text-gray-800 `}>{value}</span>
+      <span className="text-xs font-semibold text-gray-800">{value}</span>
     ),
     monto_reserva: renderPrecio,
     estado_factura: ({ value }: { value: string }) => (
-      <span className={`text-xs font-semibold text-gray-800 `}>{value}</span>
+      <span className="text-xs font-semibold text-gray-800">{value}</span>
     ),
     monto_facturado: renderPrecio,
     monto_no_facturable: renderPrecio,
     monto_por_facturar: renderPrecio,
     estado_pago: ({ value }: { value: string }) => (
-      <span className={`text-xs font-semibold text-gray-800 `}>{value}</span>
+      <span className="text-xs font-semibold text-gray-800">{value}</span>
     ),
     metodo_pago: ({ value }: { value: string }) => (
-      <span className={`text-xs font-semibold text-gray-800 `}>{value}</span>
+      <span className="text-xs font-semibold text-gray-800">{value}</span>
     ),
     monto_pagado: renderPrecio,
     saldo_por_cobrar: renderPrecio,
     nombre_agente: ({ value }: { value: string }) => (
-      <span className={`text-xs font-semibold text-gray-800 `}>{value}</span>
+      <span className="text-xs font-semibold text-gray-800">{value}</span>
     ),
-
     nombre_viajero: ({ value }: { value: string }) => (
-      <span className={`text-xs font-semibold text-gray-800 `}>{value}</span>
+      <span className="text-xs font-semibold text-gray-800">{value}</span>
     ),
-
     codigo_confirmacion: renderCopiar,
-
     tipo_cuarto_vuelo: ({ value }: { value: string }) => (
-      <span className={`text-xs font-semibold text-gray-800 `}>{value}</span>
+      <span className="text-xs font-semibold text-gray-800">{value}</span>
     ),
-
     check_in: ({ value }: { value: Date | string }) => (
-      <span className={`text-xs font-semibold text-gray-800 `}>
+      <span className="text-xs font-semibold text-gray-800">
         {value ? new Date(value).toLocaleDateString("es-MX") : ""}
       </span>
     ),
-
     check_out: ({ value }: { value: Date | string }) => (
-      <span className={`text-xs font-semibold text-gray-800 `}>
+      <span className="text-xs font-semibold text-gray-800">
         {value ? new Date(value).toLocaleDateString("es-MX") : ""}
       </span>
     ),
@@ -985,9 +782,10 @@ export default function Page() {
 
       <div className="w-full min-w-0 overflow-x-auto rounded-lg border bg-white p-2 sm:p-3">
         <Table5<RegistroPreview>
-          registros={datosResumenTabla} // historicoPeriodo
+          registros={datosResumenTabla}
           renderers={renderers}
           customColumns={customColumns}
+          columnLabels={columnLabels}
           respectCustomColumnOrder={true}
           sortable={false}
           expandableColumns={[]}
@@ -1001,11 +799,11 @@ export default function Page() {
       {modalDetalleOpen && (
         <Modal
           title={tituloDetalle}
-          subtitle={`Detalle de reservas · Total de reservas: ${detalleReservas.length}`}
+          subtitle={`Detalle de reservas - Total de reservas: ${detalleReservas.length}`}
           onClose={() => setModalDetalleOpen(false)}
         >
           {loadingDetalle ? (
-            <Loader></Loader>
+            <Loader />
           ) : detalleReservas.length === 0 ? (
             <div className="p-4 text-sm text-gray-500">
               No hay detalle disponible.
@@ -1030,20 +828,21 @@ export default function Page() {
       {modalPeriodoOpen && (
         <Modal
           title="Periodo seleccionado"
-          subtitle="Consulta histórica del periodo"
+          subtitle="Consulta historica del periodo"
           onClose={() => setModalPeriodoOpen(false)}
         >
           {loadingHistorico ? (
-            <Loader></Loader>
+            <Loader />
           ) : historicoPeriodo.length === 0 ? (
             <div className="p-4 text-sm text-gray-500">
-              No hay histórico disponible para {periodoSeleccionado}.
+              No hay historico disponible para {periodoSeleccionado}.
             </div>
           ) : (
             <Table5<RegistroPreview>
-              registros={historicoPeriodo} // historicoPeriodo
+              registros={historicoPeriodo}
               renderers={renderers}
               customColumns={customColumns}
+              columnLabels={columnLabels}
               respectCustomColumnOrder={true}
               sortable={false}
               expandableColumns={[]}
@@ -1058,18 +857,15 @@ export default function Page() {
     </div>
   );
 }
+
 const renderPrecio = ({ value }: { value: number }) => (
-  <span
-    className={`text-xs font-semibold text-gray-800 block w-full text-right`}
-  >
+  <span className="block w-full text-right text-xs font-semibold text-gray-800">
     {formatMoneyMXN(value)}
   </span>
 );
 
 const renderCantidad = ({ value }: { value: number }) => (
-  <span
-    className={`text-xs font-semibold text-gray-800 block w-full text-center`}
-  >
+  <span className="block w-full text-center text-xs font-semibold text-gray-800">
     {value}
   </span>
 );
