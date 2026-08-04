@@ -34,21 +34,24 @@ interface TableProps<T> {
   fillHeight?: boolean;
   getRowClassName?: (row: Registro, index: number) => string;
 
-  /** Activa el split de strings por espacio a múltiples líneas */
+  /** Activa el split de strings por espacio a multiples lineas */
   splitStringsBySpace?: boolean;
   /** Restringe el split a estas columnas (keys exactos del objeto) */
   splitColumns?: string[];
 
-  /** NUEVA PROPIEDAD: Columnas que contienen arrays y pueden expandirse */
+  /** Columnas que contienen arrays y pueden expandirse */
   expandableColumns?: string[];
   horizontalScroll?: boolean;
   stickyRightColumns?: string[];
   columnMinWidths?: Record<string, string>;
   respectCustomColumnOrder?: boolean;
 
-  /** Activa paginación. Si no se pasa (o es false) el comportamiento es idéntico al actual */
+  /** Titulos personalizados por columna. Si no se pasa, usa el titulo automatico anterior */
+  columnLabels?: Partial<Record<string, string>>;
+
+  /** Activa paginacion. Si no se pasa (o es false) el comportamiento es identico al actual */
   pagination?: boolean;
-  /** Filas por página cuando pagination=true. Default: 50 */
+  /** Filas por pagina cuando pagination=true. Default: 50 */
   pageSize?: number;
 
   /** Mapa de filas expandidas (mismo formato que Table4): { [id | reservaId]: boolean } */
@@ -75,11 +78,12 @@ export const Table5 = <T,>({
   splitStringsBySpace = false,
   splitColumns,
   isExport = true,
-  expandableColumns = [], // Nueva prop
+  expandableColumns = [],
   horizontalScroll = false,
   stickyRightColumns = [],
   columnMinWidths = {},
   respectCustomColumnOrder = false,
+  columnLabels = {},
   pagination = false,
   pageSize = 50,
   filasExpandibles,
@@ -102,7 +106,6 @@ export const Table5 = <T,>({
   );
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(new Set());
   const [showColumnSelector, setShowColumnSelector] = useState(false);
-  // Estado para las filas expandidas
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
   const [currentPage, setCurrentPage] = useState(0);
   const columnSelectorRef = useRef<HTMLDivElement | null>(null);
@@ -194,7 +197,6 @@ export const Table5 = <T,>({
     ? displayData.slice(currentPage * pageSize, (currentPage + 1) * pageSize)
     : displayData;
 
-  // Función para alternar expansión de fila
   const toggleRowExpansion = (index: number) => {
     setExpandedRows((prev) => {
       const newSet = new Set(prev);
@@ -255,15 +257,10 @@ export const Table5 = <T,>({
     );
   };
 
-  // Verificar si una columna es expandible para una fila específica
   const isColumnExpandable = (colKey: string, value: any) => {
-    // Verificar si la columna está en la lista de expandibleColumns
     const isInExpandableList = expandableColumns.includes(colKey);
-
-    // Verificar si el valor es un array con más de un elemento
     const hasMultipleItems = Array.isArray(value) && value.length > 1;
 
-    // Verificar si es un string que podría contener múltiples valores separados
     const isStringWithSeparators =
       typeof value === "string" &&
       (value.includes(",") || value.includes(";") || value.includes("|"));
@@ -273,7 +270,10 @@ export const Table5 = <T,>({
 
   const EXPORT_EXCLUDE_COLS = new Set(["id_factura", "id_relacion"]);
 
-  // Formatear el valor de una columna expandible
+  const getColumnLabel = (key: string) => {
+    return columnLabels[key] || key;
+  };
+
   const renderExpandableValue = (
     colKey: string,
     value: any,
@@ -285,7 +285,6 @@ export const Table5 = <T,>({
     if (Array.isArray(value)) {
       items = value.map((item) => String(item));
     } else if (typeof value === "string") {
-      // Dividir por comas, punto y coma o pipes
       items = value.split(/[,;|]/).map((item) => item.trim());
     } else if (value != null) {
       items = [String(value)];
@@ -293,7 +292,6 @@ export const Table5 = <T,>({
 
     const hasMultipleItems = items.length > 1;
 
-    // Vista colapsada: solo el primero + "N más"
     if (!isExpanded) {
       return (
         <div className="flex items-center justify-between w-full">
@@ -302,7 +300,7 @@ export const Table5 = <T,>({
               {items[0] ?? ""}
               {hasMultipleItems && (
                 <span className="ml-1 text-xs text-gray-500">
-                  +{items.length - 1} más
+                  +{items.length - 1} mas
                 </span>
               )}
             </div>
@@ -324,8 +322,7 @@ export const Table5 = <T,>({
       );
     }
 
-    // Vista expandida: separar en columnas internas que se desplazan a la derecha
-    const chunkSize = 6; // cuántos elementos por columna
+    const chunkSize = 6;
     const columns: string[][] = [];
     for (let i = 0; i < items.length; i += chunkSize) {
       columns.push(items.slice(i, i + chunkSize));
@@ -339,7 +336,7 @@ export const Table5 = <T,>({
               <div key={colIndex} className="min-w-[10rem] space-y-1">
                 {colItems.map((item, idx) => (
                   <div key={idx} className="text-xs text-gray-700">
-                    • {item}
+                    - {item}
                   </div>
                 ))}
               </div>
@@ -362,6 +359,7 @@ export const Table5 = <T,>({
       </div>
     );
   };
+
   useEffect(() => {
     if (!showColumnSelector) return;
 
@@ -418,7 +416,6 @@ export const Table5 = <T,>({
     (Array.isArray(splitColumns) ? splitColumns.includes(colKey) : true);
 
   const renderValue = (colKey: string, value: unknown, rowIndex: number) => {
-    // Primero verificar si es una columna expandible
     if (isColumnExpandable(colKey, value)) {
       return renderExpandableValue(
         colKey,
@@ -445,8 +442,6 @@ export const Table5 = <T,>({
           );
         }
 
-        // pares: mitad y mitad
-        // nones: una palabra más abajo que arriba
         const firstLineWords =
           words.length % 2 === 0
             ? words.length / 2
@@ -462,7 +457,6 @@ export const Table5 = <T,>({
         );
       }
 
-      // resto de columnas que sí usan splitStringsBySpace normal
       const mustSplit = shouldSplitCol(colKey);
       if (mustSplit) {
         const withNewLines = value.trim().split(/\s+/).join("\n");
@@ -545,7 +539,7 @@ export const Table5 = <T,>({
                           htmlFor={`col-${key}`}
                           className="ml-2 text-sm text-gray-700"
                         >
-                          {key.replace(/_/g, " ").toUpperCase()}
+                          {getColumnLabel(key).replace(/_/g, " ").toUpperCase()}
                           {expandableColumns.includes(key) && (
                             <span className="ml-1 text-xs text-blue-600">
                               [expandible]
@@ -579,54 +573,54 @@ export const Table5 = <T,>({
             <thead className="sticky z-10 bg-gray-50 top-0">
               <tr>
                 {visibleOrderedColumns.map((key) => {
-  const isStickyRight = stickyRightColumns.includes(key);
+                  const isStickyRight = stickyRightColumns.includes(key);
 
-  return (
-    <th
-      key={key}
-      scope="col"
-      onClick={() => {
-        if (!sortable) return;
-        setLoading(true);
-        handleSort(key);
-      }}
-      className={`px-3 min-w-fit whitespace-nowrap py-2 text-left text-[11px] font-medium text-gray-600 uppercase tracking-wider ${
-        sortable ? "cursor-pointer" : ""
-      } ${
-        isStickyRight
-          ? "sticky right-0 z-20 border-l border-gray-200 bg-gray-50 shadow-[-8px_0_12px_-10px_rgba(0,0,0,0.15)]"
-          : ""
-      }`}
-      style={{
-        minWidth: columnMinWidths[key] || undefined,
-      }}
-    >
-      <span className="flex flex-col items-start gap-1">
-        {headerRenderers[key] ? (
-          headerRenderers[key]()
-        ) : (
-          <>
-            {sortable && key === (currentSort.key || "") && (
-              <ArrowDown
-                className={`w-3 h-3 transition-transform self-center ${
-                  !currentSort.sort ? "" : "rotate-180"
-                }`}
-              />
-            )}
-            <div className="whitespace-pre-line text-center w-full leading-tight">
-              {formatColumnTitle(key)}
-              {expandableColumns.includes(key) && (
-                <div className="text-xs font-normal text-blue-600 mt-1">
-                  (Expandible)
-                </div>
-              )}
-            </div>
-          </>
-        )}
-      </span>
-    </th>
-  );
-})}
+                  return (
+                    <th
+                      key={key}
+                      scope="col"
+                      onClick={() => {
+                        if (!sortable) return;
+                        setLoading(true);
+                        handleSort(key);
+                      }}
+                      className={`px-3 min-w-fit whitespace-nowrap py-2 text-left text-[11px] font-medium text-gray-600 uppercase tracking-wider ${
+                        sortable ? "cursor-pointer" : ""
+                      } ${
+                        isStickyRight
+                          ? "sticky right-0 z-20 border-l border-gray-200 bg-gray-50 shadow-[-8px_0_12px_-10px_rgba(0,0,0,0.15)]"
+                          : ""
+                      }`}
+                      style={{
+                        minWidth: columnMinWidths[key] || undefined,
+                      }}
+                    >
+                      <span className="flex flex-col items-start gap-1">
+                        {headerRenderers[key] ? (
+                          headerRenderers[key]()
+                        ) : (
+                          <>
+                            {sortable && key === (currentSort.key || "") && (
+                              <ArrowDown
+                                className={`w-3 h-3 transition-transform self-center ${
+                                  !currentSort.sort ? "" : "rotate-180"
+                                }`}
+                              />
+                            )}
+                            <div className="whitespace-pre-line text-center w-full leading-tight">
+                              {formatColumnTitle(getColumnLabel(key))}
+                              {expandableColumns.includes(key) && (
+                                <div className="text-xs font-normal text-blue-600 mt-1">
+                                  (Expandible)
+                                </div>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </span>
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
 
@@ -645,7 +639,6 @@ export const Table5 = <T,>({
                     ? rowExtraClass
                     : zebraClass + (rowExtraClass ? ` ${rowExtraClass}` : "");
 
-                // filasExpandibles tiene prioridad sobre el estado interno expandedRows
                 const isExpanded = filasExpandibles
                   ? !!(
                       filasExpandibles[item.detalles?.reservaId] ||
@@ -701,7 +694,6 @@ export const Table5 = <T,>({
                       })}
                     </tr>
 
-                    {/* Fila expandida (expandedRenderer de Table4) */}
                     {isExpanded && expandedRenderer && (
                       <tr className="bg-gray-100">
                         <td colSpan={visibleOrderedColumns.length}>
@@ -726,8 +718,8 @@ export const Table5 = <T,>({
       {pagination && totalPages > 1 && !loading && (
         <div className="flex items-center justify-between gap-2 mt-2 px-1">
           <span className="text-xs text-gray-500">
-            Página {currentPage + 1} de {totalPages}
-            {" · "}
+            Pagina {currentPage + 1} de {totalPages}
+            {" - "}
             {displayData.length} registros
           </span>
           <div className="flex items-center gap-1">
@@ -736,14 +728,14 @@ export const Table5 = <T,>({
               disabled={currentPage === 0}
               className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              «
+              {"<<"}
             </button>
             <button
               onClick={() => setCurrentPage((p) => Math.max(0, p - 1))}
               disabled={currentPage === 0}
               className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              ‹
+              {"<"}
             </button>
             <button
               onClick={() =>
@@ -752,14 +744,14 @@ export const Table5 = <T,>({
               disabled={currentPage >= totalPages - 1}
               className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              ›
+              {">"}
             </button>
             <button
               onClick={() => setCurrentPage(totalPages - 1)}
               disabled={currentPage >= totalPages - 1}
               className="px-2 py-1 text-xs rounded border border-gray-200 bg-white hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              »
+              {">>"}
             </button>
           </div>
         </div>

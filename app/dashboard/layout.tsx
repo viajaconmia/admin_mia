@@ -64,14 +64,13 @@ export default function DashboardLayout({
           <nav className="backdrop-blur-3xl w-full p-4 px-6 flex justify-between items-center gap-2">
             <ClientQuickSearch />
             <div className="flex items-center gap-2">
-              <UserProfileImage name={user.name} />
               <Button
                 size="sm"
                 icon={DoorOpen}
                 variant="secondary"
                 onClick={logout}
               >
-                Cerrar sesión
+                Log out
               </Button>
             </div>
           </nav>
