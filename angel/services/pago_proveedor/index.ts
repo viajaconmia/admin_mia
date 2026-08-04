@@ -6,6 +6,9 @@ const pagoProveedorApi = createApiClient("/v2/mia/pago_proveedor");
 export type SolicitudProveedorRaw = {
   id_solicitud_proveedor: number;
   created_at: string;
+  created_at_booking: string;
+  comentarios_ops: string | null;
+  estatus_pagos: string | null;
   monto_solicitado: string;
   saldo: string;
   saldo_dispersion: string;
@@ -69,6 +72,9 @@ export type FiltrosReservasProveedor = {
   fecha_fin_creacion?: string;
   fecha_solicitud_inicio?: string;
   fecha_solicitud_fin?: string;
+  checkin_inicio?: string;
+  checkin_fin?: string;
+  estatus_pagos?: string;
   bucket?: BucketReservas;
   includeFacturas?: boolean;
   page?: number;

@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { TypeService } from "@/angel/lib/types";
 import { ServiceIcon } from "@/component/atom/ItemTable";
 import { fmtMoney } from "@/angel/lib/format/number";
@@ -223,5 +226,86 @@ export const GetBadgeRenderer = (
       label={value != null ? (formatLabel ? formatLabel(value) : value) : "—"}
       style={styles[value?.toLowerCase()] ?? defaultStyle}
     />
+  );
+};
+
+type ListaSeparadaProps = {
+  value?: string | null;
+  separador?: string;
+  titulo?: string;
+};
+
+export const ListaSeparada = ({
+  value,
+  separador = ",",
+  titulo = "Detalle",
+}: ListaSeparadaProps) => {
+  const [open, setOpen] = useState(false);
+
+  const items = (value ?? "")
+    .split(separador)
+    .map((v) => v.trim())
+    .filter(Boolean);
+
+  if (items.length === 0) {
+    return <span className="text-gray-400">—</span>;
+  }
+
+  if (items.length === 1) {
+    return <span className="text-sm text-gray-700">{items[0]}</span>;
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="text-xs font-semibold text-blue-600 hover:underline focus:outline-none"
+      >
+        Ver ({items.length})
+      </button>
+
+      {open && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="w-fit max-w-[90vw] rounded-lg bg-white shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-gray-200 px-4 py-2.5">
+              <span className="text-sm font-medium text-gray-900">
+                {titulo}
+              </span>
+              <button
+                type="button"
+                aria-label="Cerrar"
+                onClick={() => setOpen(false)}
+                className="text-lg font-bold leading-none text-gray-400 hover:text-gray-600"
+              >
+                ×
+              </button>
+            </div>
+            <ul className="max-h-[60vh] min-w-[220px] space-y-1.5 overflow-y-auto px-4 py-3">
+              {items.map((item, i) => (
+                <li key={i} className="text-sm text-gray-700">
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
+export const GetListaSeparadaRenderer = (
+  separador: string = ",",
+  titulo?: string,
+) => {
+  return ({ value }: { value: string | null | undefined }) => (
+    <ListaSeparada value={value} separador={separador} titulo={titulo} />
   );
 };

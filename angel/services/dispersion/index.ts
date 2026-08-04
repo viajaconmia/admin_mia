@@ -137,6 +137,12 @@ export type PagarDispersionResponse = {
   url_pdf: string;
 };
 
+export type EliminarDispersionResponse = {
+  codigo_dispersion: string;
+  ids_eliminados: number[];
+  eliminados: number;
+};
+
 export const dispersionService = {
   crear: (
     body: CrearDispersionBody,
@@ -152,4 +158,9 @@ export const dispersionService = {
     body: PagarDispersionBody,
   ): Promise<ApiResponse<PagarDispersionResponse>> =>
     dispersionApi.post<PagarDispersionResponse>("/pagos", body),
+
+  eliminarDispersion: (
+    codigo_dispersion: string,
+  ): Promise<ApiResponse<EliminarDispersionResponse>> =>
+    dispersionApi.delete<EliminarDispersionResponse>(`/${codigo_dispersion}`),
 };

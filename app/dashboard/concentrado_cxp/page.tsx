@@ -1,125 +1,10 @@
-/* 
-que podemos agregar a la vista de concentrado cxp??
-
-datos de otras vistas. 
-
----- pagos proveedor ----
-serv
-id_solicitud_rpoveedor 
-creado
-monto solicitado
-saldo
-fecha solicitada de paago
-estado solicitud (cartera enviada/pagado link)
-cliente
-codigo confirmacion
-proveedor
-intermediario
-razon social
-viajero
-check in
-check out
-noches
-habitacion
-costo proveedor
-markup
-precio de venta
-estatus pago
-metodo de pago
-etapa reservacion
-estado
-comentarios sp
-notas internas
-comentarios ap
-comentarios cxp
-rfc
-facturas acciones
-forma pago solicitada
-digitos tarjeta
-banco
-tipo tarjeata
-pendiente a pagar
-monto pagado proveedor
-fecha pagado
-estado factura proveedor
-total facturado
-monto por factura
-fecha facturacion
-uuid
-uso CFDI factura
-forma pago factura
-metodo pago factura
-moneda factura
-id cliente
-id tarjeta solicitada
-usuario solicitante 
-usuario generador
-estado facturacion
-carpeta
-reservante
-forma de pago solicitada
-esyado pago
-acciones -> (detalle, cambiar tarjeta, costo, cancelar, pagado) debemos considerar tarjeta detalle 
-
-
----- comprobante de pago ----
-	ID SOL.	
-    CÓD. DISPERS.	PROVEEDOR	
-    CÓD. CONFIRM.	
-    COSTO PROV.	
-    MONTO SOL.	
-    CLIENTE	
-    PX VENTA	
-    CHECK IN	
-    CHECK OUT	
-    MARKUP	
-    DATOS BANCARIOS	CARÁTULA	
-    ESTATUS
-    -> considerar apartado revision pendiente -> ver informacion de la cuenta
----- saldos proveedor ---
-    ID SALDO
-    PROVEEDOR
-    INTERMEDIARIO
-    BOOKING
-    CODIGO CONFIRMACION
-    NEGOCIACION
-    MONTO 
-    RESTANTE
-    FORMA PAGO
-    FECHA PROCESAMIENTO
-    ESTADO
-    ID SOLICITUD
-    FECHA SOLICITUD
-    COMENTARIO CXP 
-    TYPE(servicio) -> podemos mejorarlo
-    ACCIONES
----- proveedores ----
-    PROVEEDOR
-    TYPE
-    ESTATUS
-    TIPO NEGOCIACION
-    TIPO PAGO
-    CONVENIO
-    CIUDAD
-    RFCS
-    CREADO EN
-    ACCIONES (considerar ver proveedor : informacion, ceuntas, archivos)
----- tarjetas ----
-    TARJETA
-    BANCO
-    EMISOR
-    FECHA
-    VENCIMIENTO
-    ACTIVA
-    ACTIVA FINANZAS
-    FINANZAS OPERACIONES
-    ACCIONES
-*/"use client";
+"use client";
 
 import React, { useEffect, useMemo, useState } from "react";
 import { Table5 } from "@/components/Table5";
 import { Monto } from "@/components/atom/Monto";
 import { fetchResumenCxp, fetchDetalleCxp } from "@/services/pago_proveedor";
+import BaseCard from "@/components/atom/BaseCard";
 
 type GrupoProveedorCxp = {
   id_proveedor: number | string | null;
@@ -207,10 +92,10 @@ const parseFiscales = (value: any) => {
 
   return [];
 };
-const parseUuids = (value:any) => {
-  if(!value) return [];
+const parseUuids = (value: any) => {
+  if (!value) return [];
   if (Array.isArray(value)) return value;
-  if(typeof value == "string"){
+  if (typeof value == "string") {
     try {
       const parsed = JSON.parse(value);
       return Array.isArray(parsed) ? parsed : [];
@@ -266,10 +151,7 @@ export default function ConcentradoCxpPage() {
     tipo_pago: "",
   });
 
- const cargarResumen = async (
-  filtrosActuales = filters,
-  paginaActual = 1,
-  ) => {
+  const cargarResumen = async (filtrosActuales = filters, paginaActual = 1) => {
     try {
       setLoading(true);
       setError(null);
@@ -303,62 +185,62 @@ export default function ConcentradoCxpPage() {
       setLoading(false);
     }
   };
- const abrirDetalleCxp = async (raw: any, tipo: string) => {
-  const idProveedor = raw?.id_proveedor;
+  const abrirDetalleCxp = async (raw: any, tipo: string) => {
+    const idProveedor = raw?.id_proveedor;
 
-  if (!idProveedor) return;
+    if (!idProveedor) return;
 
-  const titulos: Record<string, string> = {
-    facturas: "Facturas proveedor",
-    total: "Total solicitudes",
-    pendientes: "Solicitudes pendientes",
-    en_dispersion: "Solicitudes en dispersión",
-    pagadas: "Solicitudes pagadas",
-    canceladas: "Solicitudes canceladas",
-  };
+    const titulos: Record<string, string> = {
+      facturas: "Facturas proveedor",
+      total: "Total solicitudes",
+      pendientes: "Solicitudes pendientes",
+      en_dispersion: "Solicitudes en dispersión",
+      pagadas: "Solicitudes pagadas",
+      canceladas: "Solicitudes canceladas",
+    };
 
-  setDetalleModal({
-    open: true,
-    loading: true,
-    tipo,
-    titulo: titulos[tipo] || "Detalle CXP",
-    proveedor: raw?.proveedor || "Proveedor",
-    data: [],
-  });
-
-  try {
-    const response = await fetchDetalleCxp({
-      id_proveedor: idProveedor,
-      tipo_detalle: tipo,
-
-      proveedor: filters.proveedor,
-      rfc: filters.rfc,
-      uuid_factura: filters.uuid_factura,
-      tipo_negociacion: filters.tipo_negociacion,
-      tipo_pago: filters.tipo_pago,
+    setDetalleModal({
+      open: true,
+      loading: true,
+      tipo,
+      titulo: titulos[tipo] || "Detalle CXP",
+      proveedor: raw?.proveedor || "Proveedor",
+      data: [],
     });
 
-    setDetalleModal((prev) => ({
-      ...prev,
-      loading: false,
-      data: Array.isArray(response?.data) ? response.data : [],
-    }));
-  } catch (error) {
-    console.error(error);
-    setDetalleModal((prev) => ({
-      ...prev,
-      loading: false,
-      data: [],
-    }));
-  }
- };
+    try {
+      const response = await fetchDetalleCxp({
+        id_proveedor: idProveedor,
+        tipo_detalle: tipo,
+
+        proveedor: filters.proveedor,
+        rfc: filters.rfc,
+        uuid_factura: filters.uuid_factura,
+        tipo_negociacion: filters.tipo_negociacion,
+        tipo_pago: filters.tipo_pago,
+      });
+
+      setDetalleModal((prev) => ({
+        ...prev,
+        loading: false,
+        data: Array.isArray(response?.data) ? response.data : [],
+      }));
+    } catch (error) {
+      console.error(error);
+      setDetalleModal((prev) => ({
+        ...prev,
+        loading: false,
+        data: [],
+      }));
+    }
+  };
 
   const registros = useMemo(() => {
     return datosProveedores.map((proveedor) => ({
       tipo_negociacion: proveedor.tipo_negociacion || "—",
       facturas_proveedor: proveedor.total_uuids
-      ? `${proveedor.total_uuids} factura(s)`
-      : "Sin factura",
+        ? `${proveedor.total_uuids} factura(s)`
+        : "Sin factura",
       proveedor: proveedor.proveedor || "—",
       rfc: proveedor.rfc || "—",
       razon_social: proveedor.razon_social || "—",
@@ -450,10 +332,7 @@ export default function ConcentradoCxpPage() {
 
       montoPagado: registros.reduce((sum, p) => sum + p.monto_pagado, 0),
 
-      saldoPendiente: registros.reduce(
-        (sum, p) => sum + p.saldo_pendiente,
-        0,
-      ),
+      saldoPendiente: registros.reduce((sum, p) => sum + p.saldo_pendiente, 0),
 
       totalFacturado: registros.reduce((sum, p) => sum + p.total_facturado, 0),
 
@@ -573,7 +452,13 @@ export default function ConcentradoCxpPage() {
         </span>
       );
     },
-    plazo_credito: ({ value, item }: { value: number | string | null; item: any }) => {
+    plazo_credito: ({
+      value,
+      item,
+    }: {
+      value: number | string | null;
+      item: any;
+    }) => {
       const raw = item?.item ?? item;
       const tipoPago = String(raw?.tipo_pago || "").toLowerCase();
 
@@ -686,7 +571,10 @@ export default function ConcentradoCxpPage() {
 
     monto_pagado: ({ value }: { value: number }) => (
       <div className="flex justify-end">
-        <Monto value={value} className="font-semibold text-emerald-700 text-xs" />
+        <Monto
+          value={value}
+          className="font-semibold text-emerald-700 text-xs"
+        />
       </div>
     ),
 
@@ -698,19 +586,28 @@ export default function ConcentradoCxpPage() {
 
     total_facturado: ({ value }: { value: number }) => (
       <div className="flex justify-end">
-        <Monto value={value} className="font-semibold text-purple-700 text-xs" />
+        <Monto
+          value={value}
+          className="font-semibold text-purple-700 text-xs"
+        />
       </div>
     ),
 
     pendiente_factura: ({ value }: { value: number }) => (
       <div className="flex justify-end">
-        <Monto value={value} className="font-semibold text-orange-600 text-xs" />
+        <Monto
+          value={value}
+          className="font-semibold text-orange-600 text-xs"
+        />
       </div>
     ),
 
     saldo_a_favor: ({ value }: { value: number }) => (
       <div className="flex justify-end">
-        <Monto value={value} className="font-semibold text-indigo-600 text-xs" />
+        <Monto
+          value={value}
+          className="font-semibold text-indigo-600 text-xs"
+        />
       </div>
     ),
     facturas_proveedor: ({ item }: { item: any }) => {
@@ -764,30 +661,30 @@ export default function ConcentradoCxpPage() {
   };
 
   const customColumns = [
-  "tipo_negociacion",
-  "facturas_proveedor",
-  "proveedor",
-  "rfc",
-  "razon_social",
-  "tipo_pago",
-  "plazo_credito",
-  "tipo_proveedor",
-  "estatus_proveedor",
-  "total_solicitudes",
-  "pendientes",
-  "en_dispersion",
-  "pagadas",
-  "canceladas",
-  "monto_solicitado",
-  "monto_pagado",
-  "saldo_pendiente",
-  "total_facturado",
-  "pendiente_factura",
-  "saldo_a_favor",
-  "revision_cuenta",
-  "sin_factura_proveedor",
-  "ultima_solicitud",
-];
+    "tipo_negociacion",
+    "facturas_proveedor",
+    "proveedor",
+    "rfc",
+    "razon_social",
+    "tipo_pago",
+    "plazo_credito",
+    "tipo_proveedor",
+    "estatus_proveedor",
+    "total_solicitudes",
+    "pendientes",
+    "en_dispersion",
+    "pagadas",
+    "canceladas",
+    "monto_solicitado",
+    "monto_pagado",
+    "saldo_pendiente",
+    "total_facturado",
+    "pendiente_factura",
+    "saldo_a_favor",
+    "revision_cuenta",
+    "sin_factura_proveedor",
+    "ultima_solicitud",
+  ];
 
   return (
     <div className="p-6 bg-slate-50 rounded-md">
@@ -818,9 +715,7 @@ export default function ConcentradoCxpPage() {
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-gray-600">
-                RFC
-              </label>
+              <label className="text-xs font-semibold text-gray-600">RFC</label>
               <input
                 value={filters.rfc}
                 onChange={(e) =>
@@ -936,47 +831,110 @@ export default function ConcentradoCxpPage() {
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-3">
-          <SummaryCard
-            title="Proveedores crédito"
-            value={totales.proveedoresCredito}
-            variant="blue"
-          />
+          <BaseCard
+            color="blue"
+            title={
+              <h3 className="text-[11px] sm:text-sm font-semibold leading-tight">
+                Proveedores crédito
+              </h3>
+            }
+            contentClassName="p-3 sm:p-4"
+            bodyGapClassName="mt-1"
+          >
+            <div className="text-lg sm:text-2xl font-bold leading-tight whitespace-nowrap">
+              {totales.proveedoresCredito}
+            </div>
+          </BaseCard>
 
-          <SummaryCard
-            title="Proveedores contado"
-            value={totales.proveedoresContado}
-            variant="green"
-          />
+          <BaseCard
+            color="green"
+            title={
+              <h3 className="text-[11px] sm:text-sm font-semibold leading-tight">
+                Proveedores contado
+              </h3>
+            }
+            contentClassName="p-3 sm:p-4"
+            bodyGapClassName="mt-1"
+          >
+            <div className="text-lg sm:text-2xl font-bold leading-tight whitespace-nowrap">
+              {totales.proveedoresContado}
+            </div>
+          </BaseCard>
 
-          <SummaryCard
-            title="Solicitudes crédito"
-            value={totales.solicitudesCredito}
-            variant="sky"
-          />
+          <BaseCard
+            color="sky"
+            title={
+              <h3 className="text-[11px] sm:text-sm font-semibold leading-tight">
+                Solicitudes crédito
+              </h3>
+            }
+            contentClassName="p-3 sm:p-4"
+            bodyGapClassName="mt-1"
+          >
+            <div className="text-lg sm:text-2xl font-bold leading-tight whitespace-nowrap">
+              {totales.solicitudesCredito}
+            </div>
+          </BaseCard>
 
-          <SummaryCard
-            title="Solicitudes contado"
-            value={totales.solicitudesContado}
-            variant="orange"
-          />
+          <BaseCard
+            color="orange"
+            title={
+              <h3 className="text-[11px] sm:text-sm font-semibold leading-tight">
+                Solicitudes contado
+              </h3>
+            }
+            contentClassName="p-3 sm:p-4"
+            bodyGapClassName="mt-1"
+          >
+            <div className="text-lg sm:text-2xl font-bold leading-tight whitespace-nowrap">
+              {totales.solicitudesContado}
+            </div>
+          </BaseCard>
 
-          <SummaryCard
-            title="Monto crédito"
-            value={<Monto value={totales.montoCredito} />}
-            variant="purple"
-          />
+          <BaseCard
+            color="purple"
+            title={
+              <h3 className="text-[11px] sm:text-sm font-semibold leading-tight">
+                Monto crédito
+              </h3>
+            }
+            contentClassName="p-3 sm:p-4"
+            bodyGapClassName="mt-1"
+          >
+            <div className="text-lg sm:text-2xl font-bold leading-tight whitespace-nowrap">
+              <Monto value={totales.montoCredito} />
+            </div>
+          </BaseCard>
 
-          <SummaryCard
-            title="Monto contado"
-            value={<Monto value={totales.montoContado} />}
-            variant="yellow"
-          />
+          <BaseCard
+            color="yellow"
+            title={
+              <h3 className="text-[11px] sm:text-sm font-semibold leading-tight">
+                Monto contado
+              </h3>
+            }
+            contentClassName="p-3 sm:p-4"
+            bodyGapClassName="mt-1"
+          >
+            <div className="text-lg sm:text-2xl font-bold leading-tight whitespace-nowrap">
+              <Monto value={totales.montoContado} />
+            </div>
+          </BaseCard>
 
-          <SummaryCard
-            title="Saldo pendiente"
-            value={<Monto value={totales.saldoPendiente} />}
-            variant="red"
-          />
+          <BaseCard
+            color="red"
+            title={
+              <h3 className="text-[11px] sm:text-sm font-semibold leading-tight">
+                Saldo pendiente
+              </h3>
+            }
+            contentClassName="p-3 sm:p-4"
+            bodyGapClassName="mt-1"
+          >
+            <div className="text-lg sm:text-2xl font-bold leading-tight whitespace-nowrap">
+              <Monto value={totales.saldoPendiente} />
+            </div>
+          </BaseCard>
         </div>
 
         <div className="bg-white border rounded-lg p-4">
@@ -1096,8 +1054,8 @@ export default function ConcentradoCxpPage() {
               Siguiente
             </button>
           </div>
-        </div> 
-    
+        </div>
+
         {detalleModal.open && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
             <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[85vh] overflow-hidden">
@@ -1142,11 +1100,19 @@ export default function ConcentradoCxpPage() {
                       <tr>
                         <th className="text-left p-2 border">UUID factura</th>
                         <th className="text-left p-2 border">Solicitud</th>
-                        <th className="text-left p-2 border">Monto solicitado</th>
-                        <th className="text-left p-2 border">Monto facturado</th>
+                        <th className="text-left p-2 border">
+                          Monto solicitado
+                        </th>
+                        <th className="text-left p-2 border">
+                          Monto facturado
+                        </th>
                         <th className="text-left p-2 border">Saldo</th>
-                        <th className="text-left p-2 border">Estado solicitud</th>
-                        <th className="text-left p-2 border">Estado facturación</th>
+                        <th className="text-left p-2 border">
+                          Estado solicitud
+                        </th>
+                        <th className="text-left p-2 border">
+                          Estado facturación
+                        </th>
                         <th className="text-left p-2 border">Forma pago</th>
                         <th className="text-left p-2 border">Fecha</th>
                       </tr>
@@ -1154,12 +1120,16 @@ export default function ConcentradoCxpPage() {
 
                     <tbody>
                       {detalleModal.data.map((row, index) => (
-                        <tr key={`${row.uuid_factura}-${row.id_solicitud}-${index}`}>
+                        <tr
+                          key={`${row.uuid_factura}-${row.id_solicitud}-${index}`}
+                        >
                           <td className="p-2 border font-mono text-[11px]">
                             {row.uuid_factura || "—"}
                           </td>
                           <td className="p-2 border">
-                            {row.id_solicitud_proveedor || row.id_solicitud || "—"}
+                            {row.id_solicitud_proveedor ||
+                              row.id_solicitud ||
+                              "—"}
                           </td>
                           <td className="p-2 border">
                             <Monto value={toNumber(row.monto_solicitado)} />
@@ -1186,17 +1156,25 @@ export default function ConcentradoCxpPage() {
                       ))}
                     </tbody>
                   </table>
-                        ) : (
+                ) : (
                   <table className="w-full text-sm border">
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="text-left p-2 border">Solicitud</th>
-                        <th className="text-left p-2 border">Monto solicitado</th>
-                        <th className="text-left p-2 border">Monto facturado</th>
+                        <th className="text-left p-2 border">
+                          Monto solicitado
+                        </th>
+                        <th className="text-left p-2 border">
+                          Monto facturado
+                        </th>
                         <th className="text-left p-2 border">Por facturar</th>
                         <th className="text-left p-2 border">Saldo</th>
-                        <th className="text-left p-2 border">Estado solicitud</th>
-                        <th className="text-left p-2 border">Estado facturación</th>
+                        <th className="text-left p-2 border">
+                          Estado solicitud
+                        </th>
+                        <th className="text-left p-2 border">
+                          Estado facturación
+                        </th>
                         <th className="text-left p-2 border">Forma pago</th>
                         <th className="text-left p-2 border">UUIDs</th>
                         <th className="text-left p-2 border">Fecha</th>
@@ -1247,7 +1225,7 @@ export default function ConcentradoCxpPage() {
             </div>
           </div>
         )}
-        
+
         {fiscalesModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
             <div className="bg-white rounded-xl shadow-lg w-full max-w-3xl max-h-[80vh] flex flex-col">
@@ -1332,45 +1310,6 @@ export default function ConcentradoCxpPage() {
             </div>
           </div>
         )}
-      </div>
-    </div>
-  );
-}
-
-function SummaryCard({
-  title,
-  value,
-  variant,
-}: {
-  title: string;
-  value: React.ReactNode;
-  variant:
-    | "orange"
-    | "blue"
-    | "green"
-    | "red"
-    | "purple"
-    | "yellow"
-    | "sky";
-}) {
-  const styles = {
-    orange: "bg-orange-50 border-orange-100 text-orange-700",
-    blue: "bg-blue-50 border-blue-100 text-blue-700",
-    green: "bg-green-50 border-green-100 text-green-700",
-    red: "bg-red-50 border-red-100 text-red-700",
-    purple: "bg-purple-50 border-purple-100 text-purple-700",
-    yellow: "bg-yellow-50 border-yellow-100 text-yellow-700",
-    sky: "bg-sky-50 border-sky-100 text-sky-700",
-  };
-
-  return (
-    <div className={`p-3 sm:p-4 rounded-lg border ${styles[variant]}`}>
-      <h3 className="text-[11px] sm:text-sm font-semibold mb-1 leading-tight">
-        {title}
-      </h3>
-
-      <div className="text-lg sm:text-2xl font-bold leading-tight whitespace-nowrap">
-        {value}
       </div>
     </div>
   );

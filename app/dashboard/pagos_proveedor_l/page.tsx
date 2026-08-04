@@ -342,6 +342,30 @@ export default function PagosProveedorL() {
         </div>
       </div>
 
+      {tab === "dispersion" ? (
+        // Vista de dispersión deshabilitada — ahora vive en app/dashboard/dispersiones.
+        // El bloque original (Toolbar + Content de esta pestaña) sigue completo más abajo,
+        // en la rama "else" de este mismo condicional, sin tocar — solo queda inalcanzable
+        // mientras tab === "dispersion". Para restaurarlo, quita este if/else.
+        <div className="px-4 sm:px-6 py-10">
+          <div className="mx-auto max-w-xl rounded-xl border border-blue-200 bg-blue-50 p-6 text-center shadow-sm">
+            <p className="text-sm text-blue-900 leading-relaxed mb-4">
+              Hemos hecho un cambio a la nueva pantalla, pero en esta pantalla
+              podrás seguir viendo los pagos. Lamentamos la molestia, igual
+              puedes acceder desde el menú de navegación, en la pestaña de
+              Finanzas dentro de CXP y en donde dice{" "}
+              <strong>NUEVA COMPROBANTE PAGO</strong>.
+            </p>
+            <Link
+              href="/dashboard/dispersiones"
+              className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
+            >
+              Ir a la nueva pantalla de dispersión
+            </Link>
+          </div>
+        </div>
+      ) : (
+        <>
       {/* Toolbar */}
       <div className="px-4 sm:px-6 py-3 flex flex-wrap items-center gap-2 bg-white border-b border-slate-100">
         <input
@@ -937,8 +961,10 @@ export default function PagosProveedorL() {
           </>
         )}
       </div>
+        </>
+      )}
 
-      {/* Modal subir comprobante — solo DISPERSION */}
+      {/* Modal subir comprobante — solo DISPERSION (deshabilitado: la pestaña de dispersión ya no permite llegar aquí) */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/30 p-4 overflow-y-auto">
           <OtrosMetodosPagoModal
