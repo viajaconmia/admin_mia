@@ -124,6 +124,11 @@ const links: NavGroup[] = [
         href: "/dashboard/cotizacion/generar",
         icon: FileText,
       },
+      {
+        title: "Reporte por estado",
+        href: "/dashboard/reporte_por_estado",
+        icon: FileText,
+      },
     ],
   },
   {

@@ -14,13 +14,20 @@ import { copyToClipboard } from "@/helpers/utils";
 import Button from "@/components/atom/Button";
 import { useAlert } from "@/context/useAlert";
 
+type PeriodoReservaType = {
+  estado: string;
+  cantidad_reservas_confirmadas: string;
+  monto_reservas_confirmadas: string;
+  promedio_por_reserva: string;
+};
+
 class ReservasService extends ApiService {
   constructor() {
     super("");
   }
 
   async obtenerPeriodos() {
-    return this.get<any>({
+    return this.get<PeriodoReservaType[]>({
       path: "/getPeriodosReservas",
     });
   }
