@@ -128,8 +128,11 @@ export function UsersClient({ agente }: { agente: Agente }) {
 
   const createTraveler = async () => {
     try {
-      const responseCompany = await createNewViajero(formData, selectedEmpresas);
-      console.log("DATAAAAAAADSADEAFAS", responseCompany)
+      const responseCompany = await createNewViajero(
+        formData,
+        selectedEmpresas,
+      );
+      console.log("DATAAAAAAADSADEAFAS", responseCompany);
       if (!responseCompany.success) {
         error(responseCompany.error || "No se pudo registrar al viajero");
         return;
@@ -141,7 +144,6 @@ export function UsersClient({ agente }: { agente: Agente }) {
       console.error("Error creando al nuevo viajero", err);
     }
   };
-
 
   const updateTraveler = async () => {
     try {
@@ -188,9 +190,11 @@ export function UsersClient({ agente }: { agente: Agente }) {
       const searchTerm = filters.search.toLowerCase();
       const fullName = `${traveler.primer_nombre} ${
         traveler.segundo_nombre || ""
-      } ${traveler.apellido_paterno} ${
-        traveler.apellido_materno || ""
-      }`.toLowerCase();
+      } ${traveler.apellido_paterno} ${traveler.apellido_materno || ""}`
+        .toLowerCase()
+        .replaceAll("  ", " ")
+        .replaceAll("  ", " ")
+        .replaceAll("  ", " ");
 
       const matchesSearch =
         !filters.search ||
