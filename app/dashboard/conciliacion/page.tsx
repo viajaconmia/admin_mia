@@ -1,8 +1,6 @@
 // app/conciliacion/page.tsx
 "use client";
 
-
-
 import React, {
   useCallback,
   useEffect,
@@ -237,7 +235,6 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
     precio_de_venta > 0
       ? ((precio_de_venta - costo_proveedor) / precio_de_venta) * 100
       : 0;
-
   const nochesCalc = calcNoches(raw?.check_in, raw?.check_out);
   const tipoPago = getTipoPago(raw);
   const tipoReserva = inferTipoReserva(raw);
@@ -294,14 +291,15 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
   const canalDeReservacion = idIntermediario
     ? "INTERMEDIARIO"
     : (raw?.canal_de_reservacion ?? "DIRECTO");
-
+  const esComisionable =
+    raw?.is_comisionable ?? raw?.solicitud_proveedor?.is_comisionable ?? 0;
   return {
     seleccionar_reserva: "",
     row_id,
     id_solicitud_proveedor,
     id_proveedor,
     id_servicio,
-
+    is_comisionable: esComisionable,
     creado: raw?.created_at ?? null,
     hotel: hotel ? hotel.toUpperCase() : "",
     codigo_hotel: raw?.codigo_confirmacion ?? "",
@@ -317,6 +315,7 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
 
     costo_proveedor,
     markup,
+
     precio_de_venta,
 
     canal_de_reservacion: canalDeReservacion,
@@ -433,7 +432,6 @@ function getTodayLocalDate() {
 }
 
 export default function ConciliacionPage() {
-
   const router = useRouter(); // hace cambios en la url
   const pathName = usePathname(); // Lee la ruta
   const searchParams = useSearchParams(); // Lee parametros
@@ -626,7 +624,9 @@ export default function ConciliacionPage() {
   const handleDesasignarUuid = useCallback(
     async (row: BuscarUuidMatchRow) => {
       if (!row.id_factura_proveedor || !row.id_solicitud)
-        throw new Error("Faltan datos para desasignar (id_factura / id_solicitud)");
+        throw new Error(
+          "Faltan datos para desasignar (id_factura / id_solicitud)",
+        );
 
       await ConciliacionService.getInstance().eliminarPagoFacturaProveedor({
         id_factura: row.id_factura_proveedor,
@@ -710,7 +710,6 @@ export default function ConciliacionPage() {
 
     // Recorremos cada propiedad (key) del objeto
     (Object.keys(next) as (keyof ConciliacionFilters)[]).forEach((key) => {
-
       // Buscamos en la URL si existe un parámetro con ese nombre
       const v = searchParams.get(key);
 
@@ -721,9 +720,6 @@ export default function ConciliacionPage() {
     // Regresamos el objeto final con los filtros
     return next;
   };
-
-  
-
 
   const [filters, setFilters] =
     useState<ConciliacionFilters>(getInitialFilters);
@@ -844,17 +840,15 @@ export default function ConciliacionPage() {
   });
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
-
-
-
   const applyFilters = useCallback(() => {
     const next = { ...filters };
-    setFilters(next)
+    setFilters(next);
     setAppliedFilters(next); // // Guarda oficialmente los filtros que se usarán para buscar
     setShowFiltersModal(false); // Cierra el modal
 
-    const params = new URLSearchParams() // Crea un contenedor vacío para parámetros.
-    Object.entries(next).forEach(([key, value]) => { // Recorre cada propiedad y su valor
+    const params = new URLSearchParams(); // Crea un contenedor vacío para parámetros.
+    Object.entries(next).forEach(([key, value]) => {
+      // Recorre cada propiedad y su valor
       const v = String(value ?? "").trim(); // Convierte el valor a texto y elimina espacios al inicio y final
       if (v) params.set(key, v); // Le asigna el valor de v a la key  si v tiene contenido
     });
@@ -1239,6 +1233,7 @@ export default function ConciliacionPage() {
       "estado_solicitud",
       "costo_proveedor",
       "markup",
+      "is_comisionable",
       "seleccionar_reserva",
       "precio_de_venta",
       "canal_de_reservacion",
@@ -1476,6 +1471,20 @@ export default function ConciliacionPage() {
             title={`${n.toFixed(2)}%`}
           >
             {n.toFixed(2)}%
+          </span>
+        );
+      },
+      is_comisionable: ({ value }: { value: number | string | null }) => {
+        const esComisionable = String(value) === "1";
+        return (
+          <span
+            className={`font-semibold border p-1 px-2 text-xs rounded-full ${
+              esComisionable
+                ? "text-green-700 bg-green-100 border-green-300"
+                : "text-gray-700 bg-gray-100 border-gray-300"
+            }`}
+          >
+            {esComisionable ? "Sí" : "No"}
           </span>
         );
       },
@@ -1976,6 +1985,7 @@ export default function ConciliacionPage() {
             defaultSort={defaultSort as any}
             leyenda={`Mostrando ${filteredData.length} registros`}
             customColumns={customColumns}
+            // respectCustomColumnOrder
             fillHeight
             maxHeight="calc(100vh - 220px)"
             getRowClassName={getRowClassName as any}

@@ -42,8 +42,42 @@ import { Proveedor } from "@/services/ProveedoresService";
 import { GuardadoRapido } from "../template/GuardadoRapido";
 import { BookingAll } from "@/services/BookingService";
 
+type Solicitud2ConComision = Solicitud2 & {
+  nuevo_incluye_desayuno?: boolean | null;
+  porcentaje_comisionable?: number | null;
+  monto_comisionable?: number | null;
+  comentarios_comisionables?: string | null;
+  is_comisionable?: number | null;
+};
+
+type ReservaFormConComision = ReservaForm & {
+  porcentaje_comisionable: number;
+  monto_comisionable: number;
+  comentarios_comisionables: string;
+  is_comisionable: 0 | 1;
+};
+
+type EdicionFormConComision = EdicionForm & {
+  porcentaje_comisionable?: {
+    before: number;
+    current: number;
+  };
+  monto_comisionable?: {
+    before: number;
+    current: number;
+  };
+  comentarios_comisionables?: {
+    before: string;
+    current: string;
+  };
+  is_comisionable?: {
+    before: number;
+    current: number;
+  };
+};
+
 interface ReservationFormProps {
-  solicitud?: Solicitud2 & { nuevo_incluye_desayuno?: boolean | null };
+  solicitud?: Solicitud2ConComision;
   onClose: () => void;
   edicion?: boolean;
   hoteles: Hotel[];
@@ -91,7 +125,7 @@ export function ReservationForm2({
     ),
   });
   const [open, setOpen] = useState<boolean>(false);
-  const [form, setForm] = useState<ReservaForm>({
+  const [form, setForm] = useState<ReservaFormConComision>({
     hotel: {
       name: solicitud.hotel_reserva || "",
       content: currentHotel || null,
@@ -155,6 +189,10 @@ export function ReservationForm2({
         ) || 0,
     },
     items: [],
+    porcentaje_comisionable: Number(solicitud.porcentaje_comisionable) || 0,
+    monto_comisionable: Number(solicitud.monto_comisionable) || 0,
+    comentarios_comisionables: solicitud.comentarios_comisionables || "",
+    is_comisionable: Number(solicitud.is_comisionable) === 1 ? 1 : 0,
     solicitud: {
       ...solicitud,
       viajeros_adicionales: solicitud.viajeros_acompañantes || [],
@@ -163,7 +201,7 @@ export function ReservationForm2({
   const [habitaciones, setHabitaciones] = useState(
     currentHotel?.tipos_cuartos || [],
   );
-  const [edicionForm, setEdicionForm] = useState<EdicionForm>({
+  const [edicionForm, setEdicionForm] = useState<EdicionFormConComision>({
     estado_reserva: {
       before: null,
       current: form.estado_reserva,
@@ -1055,6 +1093,183 @@ export function ReservationForm2({
                   )}
                 </div>
               </div>
+
+              <div className="w-full rounded-md border border-gray-200 bg-white p-4 shadow-sm">
+                <h2 className="mb-4 text-sm font-bold text-gray-900">
+                  Comisionable
+                </h2>
+
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-12 items-end">
+                  <div className="col-span-1 sm:col-span-3">
+                    <label className="mb-1 block text-[10px] font-bold uppercase text-gray-500">
+                      Porcentaje
+                    </label>
+
+                    <div className="relative">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="Ej. 10.00"
+                        value={form.porcentaje_comisionable || ""}
+                        disabled={Number(form.monto_comisionable) > 0}
+                        onChange={(e) => {
+                          const value = e.target.value;
+
+                          if (!/^\d*\.?\d*$/.test(value)) return;
+
+                          if (value === "") {
+                            setForm((prev) => ({
+                              ...prev,
+                              porcentaje_comisionable: 0,
+                            }));
+                            setEdicionForm((prev) => ({
+                              ...prev,
+                              porcentaje_comisionable: {
+                                before:
+                                  Number(solicitud.porcentaje_comisionable) ||
+                                  0,
+                                current: 0,
+                              },
+                            }));
+                            return;
+                          }
+
+                          const numero = Number(value);
+
+                          if (numero > 100) return;
+
+                          setForm((prev) => ({
+                            ...prev,
+                            porcentaje_comisionable: numero,
+                            monto_comisionable: 0,
+                          }));
+                          setEdicionForm((prev) => ({
+                            ...prev,
+                            porcentaje_comisionable: {
+                              before:
+                                Number(solicitud.porcentaje_comisionable) || 0,
+                              current: numero,
+                            },
+                          }));
+                        }}
+                        className="h-10 w-full rounded-md border border-gray-300 px-3 pr-8 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      />
+
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-500">
+                        %
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="col-span-1 sm:col-span-3">
+                    <label className="mb-1 block text-[10px] font-bold uppercase text-gray-500">
+                      Monto
+                    </label>
+
+                    <div className="relative">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="Ej. 100.00"
+                        value={form.monto_comisionable || ""}
+                        disabled={Number(form.porcentaje_comisionable) > 0}
+                        onChange={(e) => {
+                          const value = e.target.value;
+
+                          if (!/^\d*\.?\d*$/.test(value)) return;
+
+                          if (value === "") {
+                            setForm((prev) => ({
+                              ...prev,
+                              monto_comisionable: 0,
+                            }));
+                            setEdicionForm((prev) => ({
+                              ...prev,
+                              monto_comisionable: {
+                                before:
+                                  Number(solicitud.monto_comisionable) || 0,
+                                current: 0,
+                              },
+                            }));
+                            return;
+                          }
+
+                          const numero = Number(value);
+
+                          if (numero < 0) return;
+
+                          setForm((prev) => ({
+                            ...prev,
+                            monto_comisionable: numero,
+                            porcentaje_comisionable: 0,
+                          }));
+                          setEdicionForm((prev) => ({
+                            ...prev,
+                            monto_comisionable: {
+                              before: Number(solicitud.monto_comisionable) || 0,
+                              current: numero,
+                            },
+                          }));
+                        }}
+                        className="h-10 w-full rounded-md border border-gray-300 px-3 pr-8 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      />
+
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-500">
+                        $
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="col-span-2 sm:col-span-4">
+                    <label className="mb-1 block text-[10px] font-bold uppercase text-gray-500">
+                      Comentarios
+                    </label>
+
+                    <input
+                      type="text"
+                      placeholder="Agregar comentarios opcional"
+                      value={form.comentarios_comisionables || ""}
+                      onChange={(e) => {
+                        setForm((prev) => ({
+                          ...prev,
+                          comentarios_comisionables: e.target.value,
+                        }));
+                        setEdicionForm((prev) => ({
+                          ...prev,
+                          comentarios_comisionables: {
+                            before: solicitud.comentarios_comisionables || "",
+                            current: e.target.value,
+                          },
+                        }));
+                      }}
+                      className="h-10 w-full rounded-md border border-gray-300 px-3 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  <div className="col-span-2 sm:col-span-2">
+                    <CheckboxInput
+                      label="Sí, es comisionable"
+                      checked={Number(form.is_comisionable) === 1}
+                      onChange={(checked: boolean) => {
+                        const value = checked ? 1 : 0;
+
+                        setForm((prev) => ({
+                          ...prev,
+                          is_comisionable: value,
+                        }));
+                        setEdicionForm((prev) => ({
+                          ...prev,
+                          is_comisionable: {
+                            before: Number(solicitud.is_comisionable) || 0,
+                            current: value,
+                          },
+                        }));
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
               <div className="grid grid-cols-4 gap-4">
                 <div className="col-span-4">
                   <NumberInput
@@ -1269,9 +1484,9 @@ export const ReservationEditContainer = ({
   onClose: () => void;
 }) => {
   const { hoteles } = useHoteles();
-  const [solicitud, setSolicitud] = useState<
-    (Solicitud2 & { nuevo_incluye_desayuno?: boolean | null }) | null
-  >(null);
+  const [solicitud, setSolicitud] = useState<Solicitud2ConComision | null>(
+    null,
+  );
   const handleFetchSolicitudes = () => {
     fetchSolicitudes2({ id_solicitud }, {}, (data) => {
       setSolicitud(data[0]);
