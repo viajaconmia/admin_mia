@@ -601,7 +601,10 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
       : null;
 
     const secureToken = generateSecureToken(
-      reservation.codigo_confirmacion.replaceAll("-", "."),
+      reservation.codigo_confirmacion
+        .replaceAll("-", ".")
+        .replaceAll(" ", ".")
+        .replaceAll("‐", "."),
       row.amount === "" ? 0 : Number(row.amount),
       rowCard.id,
       row.isSecureCode,
