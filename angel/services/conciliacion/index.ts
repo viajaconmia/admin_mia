@@ -40,6 +40,11 @@ export type FacturaProveedorDetalle = {
   [key: string]: unknown;
 };
 
+export type EditarPropinaResponse = {
+  id_factura_proveedor: string;
+  propina: number;
+};
+
 export const conciliacionService = {
   buscarUuidFactura: (
     uuid_factura: string,
@@ -62,4 +67,13 @@ export const conciliacionService = {
     conciliacionApi.get<FacturaProveedorDetalle>("/facturas", {
       uuid_factura,
     }),
+
+  editarPropina: (
+    id_factura_proveedor: string,
+    propina: number,
+  ): Promise<ApiResponse<EditarPropinaResponse>> =>
+    conciliacionApi.put<EditarPropinaResponse>(
+      `/facturas?id_factura_proveedor=${encodeURIComponent(id_factura_proveedor)}`,
+      { propina },
+    ),
 };

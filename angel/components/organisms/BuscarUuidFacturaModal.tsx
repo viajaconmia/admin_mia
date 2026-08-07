@@ -43,7 +43,9 @@ export function BuscarUuidFacturaModal({ open, onClose, onSuccess }: Props) {
     loading: facturaLoading,
     propina,
     setPropina,
+    guardandoPropina,
     cargar: cargarFactura,
+    guardarPropina,
     reset: resetFactura,
   } = useFacturaProveedor();
 
@@ -56,14 +58,6 @@ export function BuscarUuidFacturaModal({ open, onClose, onSuccess }: Props) {
     reset();
     resetFactura();
     onClose();
-  };
-
-  const handleGuardarPropina = () => {
-    // TODO: falta el endpoint para persistir la propina, por ahora solo local.
-    console.log("Guardar propina:", {
-      id_factura: factura?.id_factura,
-      propina,
-    });
   };
 
   const totalConPropina = factura
@@ -163,8 +157,12 @@ export function BuscarUuidFacturaModal({ open, onClose, onSuccess }: Props) {
                   onFocus={(e) => e.target.select()}
                   className="w-40"
                 />
-                <Button size="sm" onClick={handleGuardarPropina}>
-                  Guardar
+                <Button
+                  size="sm"
+                  onClick={guardarPropina}
+                  disabled={guardandoPropina}
+                >
+                  {guardandoPropina ? "Guardando..." : "Guardar"}
                 </Button>
               </div>
             </div>
