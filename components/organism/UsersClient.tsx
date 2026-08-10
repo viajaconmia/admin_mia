@@ -22,6 +22,7 @@ import { deleteTraveler } from "@/hooks/useDatabase";
 import { formatDate } from "@/helpers/formater";
 import { ExtraService } from "@/services/ExtraServices";
 import { useAlert } from "@/context/useAlert";
+import { DateTime } from "@/v3/atom/TableItemsComponent";
 
 // Types
 interface Company {
@@ -31,6 +32,7 @@ interface Company {
 
 interface Traveler {
   id_agente: string;
+  created_at: string;
   id_viajero: string;
   primer_nombre: string;
   segundo_nombre: string | null;
@@ -128,8 +130,11 @@ export function UsersClient({ agente }: { agente: Agente }) {
 
   const createTraveler = async () => {
     try {
-      const responseCompany = await createNewViajero(formData, selectedEmpresas);
-      console.log("DATAAAAAAADSADEAFAS", responseCompany)
+      const responseCompany = await createNewViajero(
+        formData,
+        selectedEmpresas,
+      );
+      console.log("DATAAAAAAADSADEAFAS", responseCompany);
       if (!responseCompany.success) {
         error(responseCompany.error || "No se pudo registrar al viajero");
         return;
@@ -141,7 +146,6 @@ export function UsersClient({ agente }: { agente: Agente }) {
       console.error("Error creando al nuevo viajero", err);
     }
   };
-
 
   const updateTraveler = async () => {
     try {
@@ -188,9 +192,11 @@ export function UsersClient({ agente }: { agente: Agente }) {
       const searchTerm = filters.search.toLowerCase();
       const fullName = `${traveler.primer_nombre} ${
         traveler.segundo_nombre || ""
-      } ${traveler.apellido_paterno} ${
-        traveler.apellido_materno || ""
-      }`.toLowerCase();
+      } ${traveler.apellido_paterno} ${traveler.apellido_materno || ""}`
+        .toLowerCase()
+        .replaceAll("  ", " ")
+        .replaceAll("  ", " ")
+        .replaceAll("  ", " ");
 
       const matchesSearch =
         !filters.search ||
@@ -409,6 +415,7 @@ export function UsersClient({ agente }: { agente: Agente }) {
               <thead className="bg-gray-50">
                 <tr>
                   {[
+                    "created_at",
                     "nombre completo",
                     "correo",
                     "telefono",
@@ -421,6 +428,7 @@ export function UsersClient({ agente }: { agente: Agente }) {
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                       onClick={() => {
                         const columns: string[] = [
+                          "created_at",
                           "nombre_completo",
                           "correo",
                           "telefono",
@@ -435,6 +443,7 @@ export function UsersClient({ agente }: { agente: Agente }) {
                         {index < 4 &&
                           sort.column ===
                             [
+                              "created_at",
                               "nombre_completo",
                               "correo",
                               "telefono",
@@ -454,6 +463,9 @@ export function UsersClient({ agente }: { agente: Agente }) {
               <tbody className="bg-white divide-y divide-gray-200">
                 {sortedTravelers.map((traveler) => (
                   <tr key={traveler.id_viajero} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <DateTime value={traveler.created_at}></DateTime>{" "}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
                         <div className="text-sm font-medium text-gray-900">
