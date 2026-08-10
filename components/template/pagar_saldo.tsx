@@ -11,11 +11,10 @@ import { useAlert } from "@/context/useAlert";
 import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
 
-
 interface TableRow {
   id_item: string;
   total: number;
-  codigo: string; 
+  codigo: string;
   descripcion: string;
   fecha_uso: string;
   checkout: string;
@@ -91,6 +90,11 @@ interface PagarModalProps {
     acompanantes?: any[];
     status_reserva?: string;
     // otros campos que pueda tener reservaData
+    intermediario?: any;
+    is_comisionable?: number;
+    monto_comisionable?: number;
+    porcentaje_comisionable?: number;
+    comentarios_comisionables?: string;
   } | null;
   facturaData?: {
     id_factura: string;
@@ -100,13 +104,11 @@ interface PagarModalProps {
   } | null;
 }
 
-
-
 export const PagarModalComponent: React.FC<PagarModalProps> = ({
   saldoData,
   rowData,
   onClose,
-  onSubmit, 
+  onSubmit,
   open = true,
   reservaData = null,
   facturaData = null,
@@ -116,112 +118,113 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
   const { showNotification } = useAlert();
   const { hasPermission } = usePermiso();
   // Helper global para dinero
-const MONEY_TOLERANCE_CENTS = 1;
+  const MONEY_TOLERANCE_CENTS = 1;
 
-const toCents = (v: any): number => {
-  const n = Number(v);
-  if (!Number.isFinite(n)) return 0;
-  return Math.round(n * 100);
-};
+  const toCents = (v: any): number => {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return 0;
+    return Math.round(n * 100);
+  };
 
-const fromCents = (c: number): number => Number((c / 100).toFixed(2));
+  const fromCents = (c: number): number => Number((c / 100).toFixed(2));
 
-const toMoney = (v: any): number => fromCents(toCents(v));
+  const toMoney = (v: any): number => fromCents(toCents(v));
 
-const isZeroMoney = (v: any): boolean =>
-  Math.abs(toCents(v)) <= MONEY_TOLERANCE_CENTS;
+  const isZeroMoney = (v: any): boolean =>
+    Math.abs(toCents(v)) <= MONEY_TOLERANCE_CENTS;
 
-const exceedsMoney = (
-  a: any,
-  b: any,
-  toleranceCents = MONEY_TOLERANCE_CENTS,
-): boolean => {
-  return toCents(a) > toCents(b) + toleranceCents;
-};
+  const exceedsMoney = (
+    a: any,
+    b: any,
+    toleranceCents = MONEY_TOLERANCE_CENTS,
+  ): boolean => {
+    return toCents(a) > toCents(b) + toleranceCents;
+  };
 
-const sumMoney = (values: any[] = []): number => {
-  const totalCents = values.reduce((acc, value) => acc + toCents(value), 0);
-  return fromCents(totalCents);
-};
+  const sumMoney = (values: any[] = []): number => {
+    const totalCents = values.reduce((acc, value) => acc + toCents(value), 0);
+    return fromCents(totalCents);
+  };
 
-const getSaldoMonto = (saldo: any, isFacturaMode: boolean) => {
-  return isFacturaMode
-    ? Number(saldo?.monto_por_facturar ?? 0)
-    : Number(saldo?.saldo ?? 0);
-};
+  const getSaldoMonto = (saldo: any, isFacturaMode: boolean) => {
+    return isFacturaMode
+      ? Number(saldo?.monto_por_facturar ?? 0)
+      : Number(saldo?.saldo ?? 0);
+  };
 
-const isWalletCredito = (saldo: any) =>
-  hasPermission(PERMISOS.COMPONENTES.BOTON.WALLET_CREDITO) ? false : Number(saldo?.is_wallet_credito ?? 0) === 1;
+  const isWalletCredito = (saldo: any) =>
+    hasPermission(PERMISOS.COMPONENTES.BOTON.WALLET_CREDITO)
+      ? false
+      : Number(saldo?.is_wallet_credito ?? 0) === 1;
 
-const isSaldoActivoVisible = (saldo: any, isFacturaMode: boolean) => {
-  if (!saldo) return false;
-  if (Number(saldo?.is_cancelado ?? 0) === 1) return false;
-  console.log(saldo)
-  if (isWalletCredito(saldo)) return false;
-  console.log("paso",saldo)
+  const isSaldoActivoVisible = (saldo: any, isFacturaMode: boolean) => {
+    if (!saldo) return false;
+    if (Number(saldo?.is_cancelado ?? 0) === 1) return false;
+    console.log(saldo);
+    if (isWalletCredito(saldo)) return false;
+    console.log("paso", saldo);
 
-  const monto = getSaldoMonto(saldo, isFacturaMode);
+    const monto = getSaldoMonto(saldo, isFacturaMode);
 
-  if (isFacturaMode) {
-    return Number(monto) > 0 && !isZeroMoney(monto);
-  }
+    if (isFacturaMode) {
+      return Number(monto) > 0 && !isZeroMoney(monto);
+    }
 
-  return saldo?.activo !== 0 && !isZeroMoney(monto);
-};
+    return saldo?.activo !== 0 && !isZeroMoney(monto);
+  };
 
-const normalizeSaldoFavorData = (
-  saldos: any[] = [],
-  isFacturaMode: boolean,
-) => {
-  return saldos.filter((saldo) => isSaldoActivoVisible(saldo, isFacturaMode));
-};
+  const normalizeSaldoFavorData = (
+    saldos: any[] = [],
+    isFacturaMode: boolean,
+  ) => {
+    return saldos.filter((saldo) => isSaldoActivoVisible(saldo, isFacturaMode));
+  };
 
   // Funciones para manejar las facturas
-const facturas = Array.isArray(facturaData) ? facturaData : [];
+  const facturas = Array.isArray(facturaData) ? facturaData : [];
 
-const montos = facturas.map((factura) => Number(factura.monto || 0));
-const saldos = facturas.map((factura) => Number(factura.saldo || 0));
+  const montos = facturas.map((factura) => Number(factura.monto || 0));
+  const saldos = facturas.map((factura) => Number(factura.saldo || 0));
 
-const totalMonto = sumMoney(montos);
-const totalSaldo = sumMoney(saldos);
+  const totalMonto = sumMoney(montos);
+  const totalSaldo = sumMoney(saldos);
 
-console.log("Total saldos:", saldos);
-console.log("Total saldo exacto:", totalSaldo);
-
+  console.log("Total saldos:", saldos);
+  console.log("Total saldo exacto:", totalSaldo);
 
   // Si no hay saldoData pero hay reservaData, crear un saldoData básico
-const id_agente =
-  reservaData?.id_agente ||
-  saldoData?.id_agente ||
-  facturas[0]?.id_agente ||
-  "desconocido";
+  const id_agente =
+    reservaData?.id_agente ||
+    saldoData?.id_agente ||
+    facturas[0]?.id_agente ||
+    "desconocido";
 
-const effectiveSaldoData =
-  saldoData ||
-  (reservaData || facturas.length
-    ? {
-        id_saldos: "temporal",
-        id_agente,
-        nombre:
-          reservaData?.solicitud?.agente?.nombre ||
-          facturas[0]?.nombre_agente ||
-          "Agente",
-        monto: toMoney(
-          reservaData?.Total ??
-            (facturas.length > 1 ? totalMonto : montos[0] ?? 0),
-        ),
-        saldo: toMoney(
-          reservaData?.Total ??
-            (facturas.length > 1 ? totalSaldo : saldos[0] ?? 0),
-        ),
-      }
-    : {
-        id_saldos: "",
-        id_agente: "",
-        nombre: "",
-        monto: 0,
-        saldo: 0,
-      });
+  const effectiveSaldoData =
+    saldoData ||
+    (reservaData || facturas.length
+      ? {
+          id_saldos: "temporal",
+          id_agente,
+          nombre:
+            reservaData?.solicitud?.agente?.nombre ||
+            facturas[0]?.nombre_agente ||
+            "Agente",
+          monto: toMoney(
+            reservaData?.Total ??
+              (facturas.length > 1 ? totalMonto : (montos[0] ?? 0)),
+          ),
+          saldo: toMoney(
+            reservaData?.Total ??
+              (facturas.length > 1 ? totalSaldo : (saldos[0] ?? 0)),
+          ),
+        }
+      : {
+          id_saldos: "",
+          id_agente: "",
+          nombre: "",
+          monto: 0,
+          saldo: 0,
+        });
 
   console.log(effectiveSaldoData, "paornvr iv to");
 
@@ -246,13 +249,15 @@ const effectiveSaldoData =
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([]);
-  const [montosParciales, setMontosParciales] = useState<Record<string, string>>({});
+  const [montosParciales, setMontosParciales] = useState<
+    Record<string, string>
+  >({});
   const [itemsSaldo, setItemsSaldo] = useState<Record<string, number>>({});
   const [originalSaldoItems, setOriginalSaldoItems] = useState<
     Record<string, number>
   >({});
   const [saldoFavorData, setSaldoFavorData] = useState<any[]>([]);
-const [busquedaReserva, setBusquedaReserva] = useState("");
+  const [busquedaReserva, setBusquedaReserva] = useState("");
   useEffect(() => {
     if (reservaData || facturaData) {
       console.log("ENTRANDO A FACTURA");
@@ -266,45 +271,45 @@ const [busquedaReserva, setBusquedaReserva] = useState("");
 
   // Función para obtener datos del nuevo flujo (SaldoFavor)
   const fetchSaldoFavorData = async () => {
-  try {
-    setLoading(true);
-    setError(null);
+    try {
+      setLoading(true);
+      setError(null);
 
-    const agente = reservaData?.id_agente || facturas[0]?.id_agente;
-    if (!agente) {
-      throw new Error(
-        "ID de agente no disponible en reservaData ni facturaData",
+      const agente = reservaData?.id_agente || facturas[0]?.id_agente;
+      if (!agente) {
+        throw new Error(
+          "ID de agente no disponible en reservaData ni facturaData",
+        );
+      }
+
+      const response = await SaldoFavor.getPagos(agente);
+      const saldosFiltrados = normalizeSaldoFavorData(
+        response.data || [],
+        !!facturaData,
       );
+
+      setSaldoFavorData(saldosFiltrados);
+
+      const initialOriginalSaldo: Record<string, number> = {};
+      const initialSaldo: Record<string, number> = {};
+
+      saldosFiltrados.forEach((saldo: any) => {
+        const idItem = `saldo-${saldo.id_saldos}`;
+        const saldoValor = getSaldoMonto(saldo, !!facturaData);
+
+        initialOriginalSaldo[idItem] = saldoValor;
+        initialSaldo[idItem] = saldoValor;
+      });
+
+      setOriginalSaldoItems(initialOriginalSaldo);
+      setItemsSaldo(initialSaldo);
+    } catch (err: any) {
+      console.error("Error fetching SaldoFavor data:", err);
+      setError(err.message || "Error al cargar los datos de saldo a favor");
+    } finally {
+      setLoading(false);
     }
-
-    const response = await SaldoFavor.getPagos(agente);
-    const saldosFiltrados = normalizeSaldoFavorData(
-      response.data || [],
-      !!facturaData,
-    );
-
-    setSaldoFavorData(saldosFiltrados);
-
-    const initialOriginalSaldo: Record<string, number> = {};
-    const initialSaldo: Record<string, number> = {};
-
-    saldosFiltrados.forEach((saldo: any) => {
-      const idItem = `saldo-${saldo.id_saldos}`;
-      const saldoValor = getSaldoMonto(saldo, !!facturaData);
-
-      initialOriginalSaldo[idItem] = saldoValor;
-      initialSaldo[idItem] = saldoValor;
-    });
-
-    setOriginalSaldoItems(initialOriginalSaldo);
-    setItemsSaldo(initialSaldo);
-  } catch (err: any) {
-    console.error("Error fetching SaldoFavor data:", err);
-    setError(err.message || "Error al cargar los datos de saldo a favor");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   // Función para el flujo existente
   const fetchReservasConItems = async () => {
@@ -378,7 +383,11 @@ const [busquedaReserva, setBusquedaReserva] = useState("");
           ...prevSaldo,
           [id_item]: toMoney(saldoOriginal),
         }));
-        setMontosParciales((prev) => { const next = { ...prev }; delete next[id_item]; return next; });
+        setMontosParciales((prev) => {
+          const next = { ...prev };
+          delete next[id_item];
+          return next;
+        });
         setMontoSeleccionado(fromCents(newTotalC));
         setMontoRestante(fromCents(restanteC));
         return newSelection;
@@ -404,7 +413,10 @@ const [busquedaReserva, setBusquedaReserva] = useState("");
         ...prevSaldo,
         [id_item]: fromCents(nuevoSaldoItemC),
       }));
-      setMontosParciales((prev) => ({ ...prev, [id_item]: fromCents(aplicarC).toFixed(2) }));
+      setMontosParciales((prev) => ({
+        ...prev,
+        [id_item]: fromCents(aplicarC).toFixed(2),
+      }));
 
       const newTotalC = currentTotalC + aplicarC;
       const restanteC = saldoDisponibleTotalC - newTotalC;
@@ -431,7 +443,11 @@ const [busquedaReserva, setBusquedaReserva] = useState("");
       .reduce((acc, i) => acc + toCents(i.saldo), 0);
 
     const disponibleC = Math.max(0, toCents(effectiveSaldoData.saldo) - otrosC);
-    const aplicarC = Math.min(toCents(parsed), toCents(saldoMaxItem), disponibleC);
+    const aplicarC = Math.min(
+      toCents(parsed),
+      toCents(saldoMaxItem),
+      disponibleC,
+    );
     const aplicar = fromCents(aplicarC);
 
     setSelectedItems((prev) =>
@@ -442,7 +458,9 @@ const [busquedaReserva, setBusquedaReserva] = useState("");
 
     const nuevoTotalC = otrosC + aplicarC;
     setMontoSeleccionado(fromCents(nuevoTotalC));
-    setMontoRestante(fromCents(Math.max(0, toCents(effectiveSaldoData.saldo) - nuevoTotalC)));
+    setMontoRestante(
+      fromCents(Math.max(0, toCents(effectiveSaldoData.saldo) - nuevoTotalC)),
+    );
   };
 
   const isItemSelected = (id_item: string): boolean => {
@@ -483,7 +501,7 @@ const [busquedaReserva, setBusquedaReserva] = useState("");
       if (reservaData) {
         payload = {
           bandera: 1, // Siempre 1
-          hotel: reservaData.hotel||reservaData.proveedor || null, // Corregido: Usa el objeto 'hotel' completo
+          hotel: reservaData.hotel || reservaData.proveedor || null, // Corregido: Usa el objeto 'hotel' completo
           habitacion: reservaData.habitacion || "",
           check_in: reservaData.check_in || "",
           check_out: reservaData.check_out || "",
@@ -491,7 +509,8 @@ const [busquedaReserva, setBusquedaReserva] = useState("");
           viajero: reservaData.viajero || {},
           noches: reservaData.Noches || 0,
           venta: reservaData.venta || {},
-          estado_reserva: reservaData.estado_reserva ||reservaData.codigo_confirmacion|| "",
+          estado_reserva:
+            reservaData.estado_reserva || reservaData.codigo_confirmacion || "",
           comments: reservaData.comments || "",
           proveedor: reservaData.proveedor || {},
           impuestos: reservaData.impuestos || {},
@@ -500,6 +519,15 @@ const [busquedaReserva, setBusquedaReserva] = useState("");
           nuevo_incluye_desayuno: reservaData.nuevo_incluye_desayuno || null,
           acompanantes: reservaData.acompanantes || [],
           intermediario: reservaData.intermediario || null,
+          is_comisionable: Number(reservaData.is_comisionable) === 1 ? 1 : 0,
+
+          monto_comisionable: Number(reservaData.monto_comisionable) || 0,
+
+          porcentaje_comisionable:
+            Number(reservaData.porcentaje_comisionable) || 0,
+
+          comentarios_comisionables:
+            reservaData.comentarios_comisionables?.trim() || null,
           ejemplo_saldos: selectedItems.map((item) => {
             const originalItem = saldoFavorData.find(
               (sf) => `saldo-${sf.id_saldos}` === item.id_item,
@@ -554,11 +582,11 @@ const [busquedaReserva, setBusquedaReserva] = useState("");
 
         // Armamos el payload para facturas
         console.log(facturaData, "fnvonvorv");
-       const ids_facturas = facturas.map(
-  (f) => f.facturaSeleccionada?.id_factura || f.id_factura,
-);
+        const ids_facturas = facturas.map(
+          (f) => f.facturaSeleccionada?.id_factura || f.id_factura,
+        );
         console.log(ids_facturas);
- 
+
         payload = {
           facturaData,
           // Incluye el identificador de la factura y el agente
@@ -602,7 +630,9 @@ const [busquedaReserva, setBusquedaReserva] = useState("");
             const totalItem = itemData?.total || 0;
             const servicioItem = itemData?.id_servicio || "";
             const saldoOriginal = originalSaldoItems[item.id_item] || 0;
-            const saldonuevo = formatToTwoDecimals(saldoOriginal - montoAplicado);
+            const saldonuevo = formatToTwoDecimals(
+              saldoOriginal - montoAplicado,
+            );
 
             return {
               total: formatToTwoDecimals(totalItem),
@@ -723,8 +753,9 @@ const [busquedaReserva, setBusquedaReserva] = useState("");
           (reserva.items_info?.items || []).map((item) => ({
             id_item: item.id_item,
             id_servicio: item.servicio,
-            codigo_reservacion: reserva.codigo_reservacion_hotel||reserva.codigo_confirmacion,
-            hotel: reserva.nombre_hotel||reserva.proveedor,
+            codigo_reservacion:
+              reserva.codigo_reservacion_hotel || reserva.codigo_confirmacion,
+            hotel: reserva.nombre_hotel || reserva.proveedor,
             viajero: reserva.viajero,
             fecha_uso: reserva.check_in,
             total: item.total,
@@ -739,47 +770,50 @@ const [busquedaReserva, setBusquedaReserva] = useState("");
         );
 
   const mostrarBuscadorReservas =
-  !reservaData && !facturaData && reservas.length > 5;
+    !reservaData && !facturaData && reservas.length > 5;
 
-const tableDataFiltrada =
-  mostrarBuscadorReservas && busquedaReserva.trim()
-    ? tableData.filter((row) =>
-        String(row.codigo_reservacion || "")
-          .toLowerCase()
-          .includes(busquedaReserva.trim().toLowerCase()),
+  const tableDataFiltrada =
+    mostrarBuscadorReservas && busquedaReserva.trim()
+      ? tableData.filter((row) =>
+          String(row.codigo_reservacion || "")
+            .toLowerCase()
+            .includes(busquedaReserva.trim().toLowerCase()),
+        )
+      : tableData;
+
+  const buscarYSeleccionarReserva = () => {
+    const termino = busquedaReserva.trim().toLowerCase();
+    if (!termino) return;
+
+    const reservasEncontradas = reservas.filter((reserva) =>
+      String(
+        reserva.codigo_reservacion_hotel ||
+          reserva.codigo_reserva ||
+          reserva.codigo_confirmacion ||
+          "",
       )
-    : tableData;
+        .toLowerCase()
+        .includes(termino),
+    );
 
-const buscarYSeleccionarReserva = () => {
-  const termino = busquedaReserva.trim().toLowerCase();
-  if (!termino) return;
+    if (!reservasEncontradas.length) {
+      showNotification(
+        "error",
+        "No se encontró ninguna reserva con ese código",
+      );
+      return;
+    }
 
-  const reservasEncontradas = reservas.filter((reserva) =>
-    String(
-      reserva.codigo_reservacion_hotel ||
-        reserva.codigo_reserva ||
-        reserva.codigo_confirmacion ||
-        "",
-    )
-      .toLowerCase()
-      .includes(termino),
-  );
-
-  if (!reservasEncontradas.length) {
-    showNotification("error", "No se encontró ninguna reserva con ese código");
-    return;
-  }
-
-  reservasEncontradas.forEach((reserva) => {
-    (reserva.items_info?.items || []).forEach((item) => {
-      if (!isItemSelected(item.id_item)) {
-        handleItemSelection(item.id_item, item.saldo);
-      }
+    reservasEncontradas.forEach((reserva) => {
+      (reserva.items_info?.items || []).forEach((item) => {
+        if (!isItemSelected(item.id_item)) {
+          handleItemSelection(item.id_item, item.saldo);
+        }
+      });
     });
-  });
 
-  setBusquedaReserva("");
-};
+    setBusquedaReserva("");
+  };
 
   // Renderers para la tabla - diferentes según el flujo
   const renderers =
@@ -789,7 +823,9 @@ const buscarYSeleccionarReserva = () => {
           seleccionado: ({ value }: { value: any }) => {
             const id_item = `saldo-${value.id_saldos}`;
             const selected = isItemSelected(id_item);
-            const saldoMax = Number(facturaData ? value.monto_por_facturar : value.saldo);
+            const saldoMax = Number(
+              facturaData ? value.monto_por_facturar : value.saldo,
+            );
             return (
               <input
                 type="checkbox"
@@ -859,7 +895,11 @@ const buscarYSeleccionarReserva = () => {
               </span>
             );
           },
-          monto_asociar: ({ value }: { value: { id_item: string; saldoMax: number } }) => {
+          monto_asociar: ({
+            value,
+          }: {
+            value: { id_item: string; saldoMax: number };
+          }) => {
             const selected = isItemSelected(value.id_item);
             if (!selected) return <span className="text-gray-300">—</span>;
             return (
@@ -869,7 +909,13 @@ const buscarYSeleccionarReserva = () => {
                 max={value.saldoMax}
                 step="0.01"
                 value={montosParciales[value.id_item] ?? ""}
-                onChange={(e) => handleMontoParcialChange(value.id_item, e.target.value, value.saldoMax)}
+                onChange={(e) =>
+                  handleMontoParcialChange(
+                    value.id_item,
+                    e.target.value,
+                    value.saldoMax,
+                  )
+                }
                 onClick={(e) => e.stopPropagation()}
                 placeholder="0.00"
                 className="w-24 text-xs border border-blue-300 rounded px-1 py-0.5 text-center focus:outline-none focus:ring-1 focus:ring-blue-400"
@@ -910,7 +956,13 @@ const buscarYSeleccionarReserva = () => {
                 max={value.saldo}
                 step="0.01"
                 value={montosParciales[value.id_item] ?? ""}
-                onChange={(e) => handleMontoParcialChange(value.id_item, e.target.value, value.saldo)}
+                onChange={(e) =>
+                  handleMontoParcialChange(
+                    value.id_item,
+                    e.target.value,
+                    value.saldo,
+                  )
+                }
                 onClick={(e) => e.stopPropagation()}
                 placeholder="0.00"
                 className="w-24 text-xs border border-blue-300 rounded px-1 py-0.5 text-center focus:outline-none focus:ring-1 focus:ring-blue-400"
@@ -991,8 +1043,8 @@ const buscarYSeleccionarReserva = () => {
 
   // Selecciona saldos en orden y auto-llama handleSubmit cuando cubre el total
   // Selecciona saldos en orden FIFO y deja todo redondeado a 2 decimales
-  
-  console.log(facturaData,"1️⃣1️⃣1️⃣1️⃣1️⃣1️⃣1️⃣")
+
+  console.log(facturaData, "1️⃣1️⃣1️⃣1️⃣1️⃣1️⃣1️⃣");
   const seleccionarSaldosEnOrdenYAutoPagar = async () => {
     try {
       const agente = reservaData?.id_agente || facturaData[0]?.id_agente;
@@ -1172,7 +1224,10 @@ const buscarYSeleccionarReserva = () => {
                     <p className="text-sm text-gray-600">Monto seleccionado:</p>
                     <p
                       className={`text-lg font-semibold ${
-                        exceedsMoney(montoSeleccionado, effectiveSaldoData.saldo)
+                        exceedsMoney(
+                          montoSeleccionado,
+                          effectiveSaldoData.saldo,
+                        )
                           ? "text-red-600"
                           : "text-blue-600"
                       }`}
@@ -1194,35 +1249,35 @@ const buscarYSeleccionarReserva = () => {
           {/* Sección de Tabla */}
           <div className="mb-6">
             {mostrarBuscadorReservas && (
-  <div className="mb-4 flex gap-2">
-    <div className="relative flex-1">
-      <Search
-        size={18}
-        className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-      />
-      <input
-        type="text"
-        value={busquedaReserva}
-        onChange={(e) => setBusquedaReserva(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            buscarYSeleccionarReserva();
-          }
-        }}
-        placeholder="Buscar por código de reservación hotel"
-        className="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-      />
-    </div>
+              <div className="mb-4 flex gap-2">
+                <div className="relative flex-1">
+                  <Search
+                    size={18}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                  />
+                  <input
+                    type="text"
+                    value={busquedaReserva}
+                    onChange={(e) => setBusquedaReserva(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        buscarYSeleccionarReserva();
+                      }
+                    }}
+                    placeholder="Buscar por código de reservación hotel"
+                    className="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
 
-    <Button
-      onClick={buscarYSeleccionarReserva}
-      variant="secondary"
-      disabled={loading || !busquedaReserva.trim()}
-    >
-      Buscar y seleccionar
-    </Button>
-  </div>
-)}
+                <Button
+                  onClick={buscarYSeleccionarReserva}
+                  variant="secondary"
+                  disabled={loading || !busquedaReserva.trim()}
+                >
+                  Buscar y seleccionar
+                </Button>
+              </div>
+            )}
             {loading ? (
               <div className="text-center py-8">
                 <p>Cargando {reservaData ? "datos de saldo" : "reservas"}...</p>
@@ -1238,7 +1293,7 @@ const buscarYSeleccionarReserva = () => {
             ) : (
               <div className="min-h-[300px] max-h-[400px] overflow-auto">
                 <Table3
-                    registros={tableDataFiltrada}
+                  registros={tableDataFiltrada}
                   renderers={renderers}
                   maxHeight="h-14"
                   customColumns={customColumns}
@@ -1254,7 +1309,10 @@ const buscarYSeleccionarReserva = () => {
             <Button
               onClick={handleSubmit}
               variant="primary"
-              disabled={exceedsMoney(montoSeleccionado, effectiveSaldoData.saldo) || loading}
+              disabled={
+                exceedsMoney(montoSeleccionado, effectiveSaldoData.saldo) ||
+                loading
+              }
               icon={DollarSign}
             >
               Registrar Pago

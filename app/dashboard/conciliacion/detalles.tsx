@@ -106,7 +106,11 @@ function SectionTitle({
   );
 }
 
-const ModalDetalle: React.FC<ModalDetallesProp> = ({ id_solicitud_proveedor, onClose, onlyComprobantes = false }) => {
+const ModalDetalle: React.FC<ModalDetallesProp> = ({
+  id_solicitud_proveedor,
+  onClose,
+  onlyComprobantes = false,
+}) => {
   const endpoint = `${URL}/mia/pago_proveedor/detalles`;
 
   const [loading, setLoading] = useState(false);
@@ -183,14 +187,18 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ id_solicitud_proveedor, onC
     const primerPago = pagosApi.find((p: any) => safeString(p?.url_pdf));
     if (primerPago) {
       setPreviewUrl(safeString(primerPago.url_pdf));
-      setPreviewTitle(`Comprobante pago #${safeString(primerPago?.id_pago_proveedores)}`);
+      setPreviewTitle(
+        `Comprobante pago #${safeString(primerPago?.id_pago_proveedores)}`,
+      );
     }
   }, [onlyComprobantes, pagosApi, previewUrl]);
 
   /** --------- Header info (desde la respuesta API) --------- */
   const hotel = safeString(info?.hotel);
   const viajero = safeString(info?.nombre_viajero_completo ?? info?.viajero);
-  const proveedorNombre = safeString(info?.proveedor?.razon_social ?? info?.razon_social);
+  const proveedorNombre = safeString(
+    info?.proveedor?.razon_social ?? info?.razon_social,
+  );
   const rfcProveedor = safeString(info?.rfc_proveedor ?? info?.rfc);
 
   const checkIn = formatDateSimple(info?.check_in);
@@ -220,7 +228,7 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ id_solicitud_proveedor, onC
       "estado_factura",
       "acciones",
     ],
-    []
+    [],
   );
 
   const pagosCols = useMemo(
@@ -233,7 +241,7 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ id_solicitud_proveedor, onC
       "concepto",
       "acciones",
     ],
-    []
+    [],
   );
 
   const facturasRenderers = useMemo(
@@ -250,9 +258,11 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ id_solicitud_proveedor, onC
       estado_factura: ({ value }: any) => (
         <Badge
           text={safeString(value) || "—"}
-          tone={safeString(value).toLowerCase().includes("confirm")
-            ? "green"
-            : "gray"}
+          tone={
+            safeString(value).toLowerCase().includes("confirm")
+              ? "green"
+              : "gray"
+          }
         />
       ),
       acciones: ({ item }: any) => (
@@ -262,7 +272,9 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ id_solicitud_proveedor, onC
               type="button"
               onClick={() => {
                 setPreviewUrl(item.url_pdf);
-                setPreviewTitle(`Factura ${safeString(item?.uuid_cfdi).slice(0, 8)}…`);
+                setPreviewTitle(
+                  `Factura ${safeString(item?.uuid_cfdi).slice(0, 8)}…`,
+                );
               }}
               className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] text-blue-700 hover:bg-blue-100"
               title="Vista previa PDF"
@@ -295,7 +307,7 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ id_solicitud_proveedor, onC
         </div>
       ),
     }),
-    [setPreviewUrl, setPreviewTitle]
+    [setPreviewUrl, setPreviewTitle],
   );
 
   const pagosRenderers = useMemo(
@@ -306,7 +318,10 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ id_solicitud_proveedor, onC
       fecha_pago: ({ value }: any) => <span>{formatDateSimple(value)}</span>,
       acciones: ({ item }: any) => {
         const url = safeString(item?.url_pdf);
-        if (!url) return <span className="text-[11px] text-gray-400">Sin comprobante</span>;
+        if (!url)
+          return (
+            <span className="text-[11px] text-gray-400">Sin comprobante</span>
+          );
         return (
           <div className="flex items-center gap-2">
             {!onlyComprobantes && (
@@ -314,7 +329,9 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ id_solicitud_proveedor, onC
                 type="button"
                 onClick={() => {
                   setPreviewUrl(url);
-                  setPreviewTitle(`Comprobante pago #${safeString(item?.id_pago_proveedores)}`);
+                  setPreviewTitle(
+                    `Comprobante pago #${safeString(item?.id_pago_proveedores)}`,
+                  );
                 }}
                 className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] text-blue-700 hover:bg-blue-100"
                 title="Vista previa comprobante"
@@ -335,7 +352,7 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ id_solicitud_proveedor, onC
         );
       },
     }),
-    [setPreviewUrl, setPreviewTitle, onlyComprobantes]
+    [setPreviewUrl, setPreviewTitle, onlyComprobantes],
   );
 
   /** --------- Validación visual --------- */
@@ -380,15 +397,16 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ id_solicitud_proveedor, onC
             </p>
 
             <div className="flex items-center gap-2 mt-2 flex-wrap">
-              <Badge
-                text={`Facturas: ${facturasApi.length}`}
-                tone="gray"
-              />
+              <Badge text={`Facturas: ${facturasApi.length}`} tone="gray" />
               <Badge text={`Pagos: ${pagosApi.length}`} tone="gray" />
 
               {resumen ? (
                 <Badge
-                  text={esCuadrado ? "VALIDACIÓN: CUADRADO" : "VALIDACIÓN: DIFERENCIA"}
+                  text={
+                    esCuadrado
+                      ? "VALIDACIÓN: CUADRADO"
+                      : "VALIDACIÓN: DIFERENCIA"
+                  }
                   tone={esCuadrado ? "green" : "amber"}
                 />
               ) : null}
@@ -425,146 +443,168 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ id_solicitud_proveedor, onC
             )}
 
             {!loading && !error && (
-              <div className={onlyComprobantes ? "space-y-4" : "grid grid-cols-1 lg:grid-cols-12 gap-4"}>
+              <div
+                className={
+                  onlyComprobantes
+                    ? "space-y-4"
+                    : "grid grid-cols-1 lg:grid-cols-12 gap-4"
+                }
+              >
                 {/* MAIN */}
-                <div className={onlyComprobantes ? "space-y-4" : "lg:col-span-8 space-y-4"}>
+                <div
+                  className={
+                    onlyComprobantes ? "space-y-4" : "lg:col-span-8 space-y-4"
+                  }
+                >
                   {!onlyComprobantes && (
-                  <>
-                  {/* Overview cards */}
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                    <StatCard label="Check-in" value={checkIn} />
-                    <StatCard label="Check-out" value={checkOut} />
-                    <StatCard
-                      label="Costo proveedor"
-                      value={formatMoney(info?.costo_total)}
-                    />
-                    <StatCard label="Total venta" value={formatMoney(info?.total)} />
-                  </div>
+                    <>
+                      {/* Overview cards */}
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                        <StatCard label="Check-in" value={checkIn} />
+                        <StatCard label="Check-out" value={checkOut} />
+                        <StatCard
+                          label="Costo proveedor"
+                          value={formatMoney(info?.costo_total)}
+                        />
+                        <StatCard
+                          label="Total venta"
+                          value={formatMoney(info?.total)}
+                        />
+                      </div>
 
-                  {/* Resumen validación */}
-                  <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-                    <SectionTitle
-                      title="Resumen de validación"
-                      right={
-                        resumen ? (
-                          esCuadrado ? (
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-700">
-                              <CheckCircle2 className="w-4 h-4" />
-                              Cuadrado
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700">
-                              <AlertTriangle className="w-4 h-4" />
-                              Revisar diferencia
-                            </span>
-                          )
-                        ) : null
-                      }
-                    />
+                      {/* Resumen validación */}
+                      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                        <SectionTitle
+                          title="Resumen de validación"
+                          right={
+                            resumen ? (
+                              esCuadrado ? (
+                                <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-700">
+                                  <CheckCircle2 className="w-4 h-4" />
+                                  Cuadrado
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700">
+                                  <AlertTriangle className="w-4 h-4" />
+                                  Revisar diferencia
+                                </span>
+                              )
+                            ) : null
+                          }
+                        />
 
-                    {!resumen ? (
-                      <p className="text-xs text-gray-500">
-                        No llegó resumen de validación en la respuesta.
-                      </p>
-                    ) : (
-                      <>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                          <StatCard
-                            label="Total pagado"
-                            value={formatMoney(totalPagado)}
-                          />
-                          <StatCard
-                            label="Total facturado"
-                            value={formatMoney(totalFacturado)}
-                          />
-                          <StatCard
-                            label="Diferencia"
-                            value={
-                              <span
-                                className={`font-bold ${
-                                  esCuadrado ? "text-green-700" : "text-amber-700"
-                                }`}
-                              >
-                                {formatMoney(diferencia)}
-                              </span>
-                            }
-                            sub={
-                              esCuadrado
-                                ? "Todo cuadra correctamente."
-                                : "Hay diferencia entre pagos y facturas."
-                            }
-                          />
-                        </div>
-
-                        {/* Por factura */}
-                        {Array.isArray(resumen?.por_factura) &&
-                        resumen.por_factura.length > 0 ? (
-                          <div className="mt-4">
-                            <p className="text-xs font-semibold text-gray-700 mb-2">
-                              Validación por factura
-                            </p>
-
-                            <div className="space-y-2">
-                              {resumen.por_factura.map((x: any, idx: number) => {
-                                const ok = safeString(x?.estatus).toUpperCase() === "CUADRADO";
-                                return (
-                                  <div
-                                    key={idx}
-                                    className="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-3 py-2"
+                        {!resumen ? (
+                          <p className="text-xs text-gray-500">
+                            No llegó resumen de validación en la respuesta.
+                          </p>
+                        ) : (
+                          <>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                              <StatCard
+                                label="Total pagado"
+                                value={formatMoney(totalPagado)}
+                              />
+                              <StatCard
+                                label="Total facturado"
+                                value={formatMoney(totalFacturado)}
+                              />
+                              <StatCard
+                                label="Diferencia"
+                                value={
+                                  <span
+                                    className={`font-bold ${
+                                      esCuadrado
+                                        ? "text-green-700"
+                                        : "text-amber-700"
+                                    }`}
                                   >
-                                    <div className="min-w-0">
-                                      <p className="text-xs font-semibold text-gray-900 truncate">
-                                        {safeString(x?.id_factura)}
-                                      </p>
-                                      <p className="text-[11px] text-gray-600">
-                                        Pagado: {formatMoney(x?.pagado)} • Facturado:{" "}
-                                        {formatMoney(x?.facturado)} • Dif:{" "}
-                                        <span
-                                          className={`font-semibold ${
-                                            Number(x?.diferencia) === 0
-                                              ? "text-green-700"
-                                              : "text-amber-700"
-                                          }`}
-                                        >
-                                          {formatMoney(x?.diferencia)}
-                                        </span>
-                                      </p>
-                                    </div>
-
-                                    <Badge
-                                      text={safeString(x?.estatus) || "—"}
-                                      tone={ok ? "green" : "amber"}
-                                    />
-                                  </div>
-                                );
-                              })}
+                                    {formatMoney(diferencia)}
+                                  </span>
+                                }
+                                sub={
+                                  esCuadrado
+                                    ? "Todo cuadra correctamente."
+                                    : "Hay diferencia entre pagos y facturas."
+                                }
+                              />
                             </div>
-                          </div>
-                        ) : null}
-                      </>
-                    )}
-                  </div>
 
-                  {/* Facturas */}
-                  <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-                    <SectionTitle title={`Facturas (${facturasTable.length})`} />
+                            {/* Por factura */}
+                            {Array.isArray(resumen?.por_factura) &&
+                            resumen.por_factura.length > 0 ? (
+                              <div className="mt-4">
+                                <p className="text-xs font-semibold text-gray-700 mb-2">
+                                  Validación por factura
+                                </p>
 
-                    {facturasTable.length === 0 ? (
-                      <p className="text-xs text-gray-500">
-                        No hay facturas disponibles.
-                      </p>
-                    ) : (
-                      <Table5<any>
-                        registros={facturasTable as any}
-                        customColumns={facturasCols as any}
-                        renderers={facturasRenderers as any}
-                        exportButton={false} // ✅ sin botones
-                        fillHeight={false}
-                        maxHeight="320px"
-                      />
-                    )}
-                  </div>
-                  </>
+                                <div className="space-y-2">
+                                  {resumen.por_factura.map(
+                                    (x: any, idx: number) => {
+                                      const ok =
+                                        safeString(x?.estatus).toUpperCase() ===
+                                        "CUADRADO";
+                                      return (
+                                        <div
+                                          key={idx}
+                                          className="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-3 py-2"
+                                        >
+                                          <div className="min-w-0">
+                                            <p className="text-xs font-semibold text-gray-900 truncate">
+                                              {safeString(x?.id_factura)}
+                                            </p>
+                                            <p className="text-[11px] text-gray-600">
+                                              Pagado: {formatMoney(x?.pagado)} •
+                                              Facturado:{" "}
+                                              {formatMoney(x?.facturado)} • Dif:{" "}
+                                              <span
+                                                className={`font-semibold ${
+                                                  Number(x?.diferencia) === 0
+                                                    ? "text-green-700"
+                                                    : "text-amber-700"
+                                                }`}
+                                              >
+                                                {formatMoney(x?.diferencia)}
+                                              </span>
+                                            </p>
+                                          </div>
+
+                                          <Badge
+                                            text={safeString(x?.estatus) || "—"}
+                                            tone={ok ? "green" : "amber"}
+                                          />
+                                        </div>
+                                      );
+                                    },
+                                  )}
+                                </div>
+                              </div>
+                            ) : null}
+                          </>
+                        )}
+                      </div>
+
+                      {/* Facturas */}
+                      <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                        <SectionTitle
+                          title={`Facturas (${facturasTable.length})`}
+                        />
+
+                        {facturasTable.length === 0 ? (
+                          <p className="text-xs text-gray-500">
+                            No hay facturas disponibles.
+                          </p>
+                        ) : (
+                          <Table5<any>
+                            registros={facturasTable as any}
+                            customColumns={facturasCols as any}
+                            renderers={facturasRenderers as any}
+                            exportButton={false} // ✅ sin botones
+                            fillHeight={false}
+                            maxHeight="320px"
+                          />
+                        )}
+                      </div>
+                    </>
                   )}
 
                   {/* Pagos */}
@@ -606,7 +646,10 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ id_solicitud_proveedor, onC
                           </button>
                           <button
                             type="button"
-                            onClick={() => { setPreviewUrl(null); setPreviewTitle(""); }}
+                            onClick={() => {
+                              setPreviewUrl(null);
+                              setPreviewTitle("");
+                            }}
                             className="inline-flex items-center justify-center w-6 h-6 rounded-full hover:bg-blue-200 text-blue-700"
                             title="Cerrar preview"
                           >
@@ -626,104 +669,110 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ id_solicitud_proveedor, onC
 
                 {/* SIDEBAR */}
                 {!onlyComprobantes && (
-                <div className="lg:col-span-4 space-y-4">
-                  <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-                    <SectionTitle title="Datos de la solicitud" />
+                  <div className="lg:col-span-4 space-y-4">
+                    <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                      <SectionTitle title="Datos de la solicitud" />
 
-                    <div className="space-y-3 text-xs">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-gray-500">Monto solicitado</p>
-                        <p className="font-semibold text-gray-900">
-                          {formatMoney(solicitudApi?.monto_solicitado)}
-                        </p>
-                      </div>
+                      <div className="space-y-3 text-xs">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-gray-500">Monto solicitado</p>
+                          <p className="font-semibold text-gray-900">
+                            {formatMoney(solicitudApi?.monto_solicitado)}
+                          </p>
+                        </div>
 
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-gray-500">Saldo</p>
-                        <p className="font-semibold text-gray-900">
-                          {formatMoney(solicitudApi?.saldo)}
-                        </p>
-                      </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-gray-500">Saldo</p>
+                          <p className="font-semibold text-gray-900">
+                            {formatMoney(solicitudApi?.saldo)}
+                          </p>
+                        </div>
 
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-gray-500">Forma de pago</p>
-                        <Badge
-                          text={safeString(solicitudApi?.forma_pago_solicitada || "—")}
-                          tone="gray"
-                        />
-                      </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-gray-500">Forma de pago</p>
+                          <Badge
+                            text={safeString(
+                              solicitudApi?.forma_pago_solicitada || "—",
+                            )}
+                            tone="gray"
+                          />
+                        </div>
 
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-gray-500">Estado solicitud</p>
-                        <Badge
-                          text={safeString(solicitudApi?.estado_solicitud || "—")}
-                          tone="blue"
-                        />
-                      </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-gray-500">Estado solicitud</p>
+                          <Badge
+                            text={safeString(
+                              solicitudApi?.estado_solicitud || "—",
+                            )}
+                            tone="blue"
+                          />
+                        </div>
 
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-gray-500">Estado facturación</p>
-                        <Badge
-                          text={safeString(solicitudApi?.estado_facturacion || "—")}
-                          tone={
-                            safeString(solicitudApi?.estado_facturacion)
-                              .toLowerCase()
-                              .includes("pendiente")
-                              ? "amber"
-                              : "green"
-                          }
-                        />
-                      </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-gray-500">Estado facturación</p>
+                          <Badge
+                            text={safeString(
+                              solicitudApi?.estado_facturacion || "—",
+                            )}
+                            tone={
+                              safeString(solicitudApi?.estado_facturacion)
+                                .toLowerCase()
+                                .includes("pendiente")
+                                ? "amber"
+                                : "green"
+                            }
+                          />
+                        </div>
 
-                      <div className="pt-2 border-t border-gray-100">
-                        <p className="text-gray-500">Comentarios</p>
-                        <p className="mt-1 text-gray-900 whitespace-pre-wrap">
-                          {safeString(solicitudApi?.comentarios) || "—"}
-                        </p>
-                      </div>
+                        <div className="pt-2 border-t border-gray-100">
+                          <p className="text-gray-500">Comentarios</p>
+                          <p className="mt-1 text-gray-900 whitespace-pre-wrap">
+                            {safeString(solicitudApi?.comentarios) || "—"}
+                          </p>
+                        </div>
 
-                      <div className="pt-2 border-t border-gray-100">
-                        <p className="text-gray-500">Comentario CXP</p>
-                        <p className="mt-1 text-gray-900 whitespace-pre-wrap">
-                          {safeString(solicitudApi?.comentario_CXP) || "—"}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                    <p className="text-xs font-semibold text-gray-700">
-                      Identificadores
-                    </p>
-                    <div className="mt-2 space-y-2 text-[11px] text-gray-600">
-                      <div className="flex justify-between gap-3">
-                        <span>ID Solicitud</span>
-                        <span className="font-mono text-gray-800">
-                          {id_solicitud_proveedor || "—"}
-                        </span>
-                      </div>
-
-                      <div className="flex justify-between gap-3">
-                        <span>Facturas</span>
-                        <span className="font-mono text-gray-800">
-                          {facturasApi.length}
-                        </span>
-                      </div>
-
-                      <div className="flex justify-between gap-3">
-                        <span>Pagos</span>
-                        <span className="font-mono text-gray-800">
-                          {pagosApi.length}
-                        </span>
+                        <div className="pt-2 border-t border-gray-100">
+                          <p className="text-gray-500">Comentario CXP</p>
+                          <p className="mt-1 text-gray-900 whitespace-pre-wrap">
+                            {safeString(solicitudApi?.comentario_CXP) || "—"}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="text-[11px] text-gray-500">
-                    Tip: Puedes cerrar con <span className="font-semibold">ESC</span>
-                    .
+                    <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                      <p className="text-xs font-semibold text-gray-700">
+                        Identificadores
+                      </p>
+                      <div className="mt-2 space-y-2 text-[11px] text-gray-600">
+                        <div className="flex justify-between gap-3">
+                          <span>ID Solicitud</span>
+                          <span className="font-mono text-gray-800">
+                            {id_solicitud_proveedor || "—"}
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between gap-3">
+                          <span>Facturas</span>
+                          <span className="font-mono text-gray-800">
+                            {facturasApi.length}
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between gap-3">
+                          <span>Pagos</span>
+                          <span className="font-mono text-gray-800">
+                            {pagosApi.length}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-[11px] text-gray-500">
+                      Tip: Puedes cerrar con{" "}
+                      <span className="font-semibold">ESC</span>.
+                    </div>
                   </div>
-                </div>
                 )}
               </div>
             )}

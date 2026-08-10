@@ -299,7 +299,6 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
     id_solicitud_proveedor,
     id_proveedor,
     id_servicio,
-    is_comisionable: esComisionable,
     creado: raw?.created_at ?? null,
     hotel: hotel ? hotel.toUpperCase() : "",
     codigo_hotel: raw?.codigo_confirmacion ?? "",
@@ -309,12 +308,12 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
     viajero: viajero ? viajero.toUpperCase() : "",
     check_in: raw?.check_in ?? null,
     check_out: raw?.check_out ?? null,
-
     noches: nochesCalc,
     tipo_cuarto: raw?.room ?? "",
 
     costo_proveedor,
     markup,
+    es_comisionable: esComisionable,
 
     precio_de_venta,
 
@@ -1233,7 +1232,7 @@ export default function ConciliacionPage() {
       "estado_solicitud",
       "costo_proveedor",
       "markup",
-      "is_comisionable",
+      "es_comisionable",
       "seleccionar_reserva",
       "precio_de_venta",
       "canal_de_reservacion",
@@ -1474,7 +1473,7 @@ export default function ConciliacionPage() {
           </span>
         );
       },
-      is_comisionable: ({ value }: { value: number | string | null }) => {
+      es_comisionable: ({ value }: { value: number | string | null }) => {
         const esComisionable = String(value) === "1";
         return (
           <span

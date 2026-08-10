@@ -51,15 +51,26 @@ function toNum(v: any) {
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
-function calcNochesLocal(checkIn?: string | null, checkOut?: string | null): number {
+function calcNochesLocal(
+  checkIn?: string | null,
+  checkOut?: string | null,
+): number {
   if (!checkIn || !checkOut) return 0;
 
   const inD = new Date(checkIn);
   const outD = new Date(checkOut);
   if (Number.isNaN(inD.getTime()) || Number.isNaN(outD.getTime())) return 0;
 
-  const startUTC = Date.UTC(inD.getUTCFullYear(), inD.getUTCMonth(), inD.getUTCDate());
-  const endUTC = Date.UTC(outD.getUTCFullYear(), outD.getUTCMonth(), outD.getUTCDate());
+  const startUTC = Date.UTC(
+    inD.getUTCFullYear(),
+    inD.getUTCMonth(),
+    inD.getUTCDate(),
+  );
+  const endUTC = Date.UTC(
+    outD.getUTCFullYear(),
+    outD.getUTCMonth(),
+    outD.getUTCDate(),
+  );
 
   const diffDays = Math.round((endUTC - startUTC) / MS_PER_DAY);
   return diffDays > 0 ? diffDays : 0;
@@ -122,7 +133,7 @@ function buildPayloadFromSolicitud(solicitud: any) {
 
   const id_solicitud_proveedor = safeString(raw?.id_solicitud_proveedor ?? "");
   const id_proveedor = safeString(
-    info?.id_proveedor_resuelto ?? info?.id_proveedor ?? ""
+    info?.id_proveedor_resuelto ?? info?.id_proveedor ?? "",
   );
 
   const id_facturas = Array.isArray(asociaciones?.id_facturas)
@@ -180,7 +191,7 @@ function getTaxRateDecimal(f: any) {
       f?.tasa_impuesto ??
       f?.iva_porcentaje ??
       f?.tax_percent ??
-      0
+      0,
   );
 
   return pct > 0 ? pct / 100 : 0;
@@ -192,21 +203,18 @@ function getFacturaBaseAmounts(f: any) {
       f?.subtotal_moneda_O ??
       f?.sub_total_moneda_O ??
       f?.subtotal ??
-      0
+      0,
   );
 
   const impuestosFactura = toNum(
-    f?.impuestos_factura ??
-      f?.impuestos_moneda_O ??
-      f?.impuestos ??
-      0
+    f?.impuestos_factura ?? f?.impuestos_moneda_O ?? f?.impuestos ?? 0,
   );
 
   const totalFactura = toNum(
     f?.total_factura ??
       f?.total_moneda_O ??
       f?.total ??
-      subtotalFactura + impuestosFactura
+      subtotalFactura + impuestosFactura,
   );
 
   const baseTotal =
@@ -278,7 +286,7 @@ function recalcDraftFromField(
   field: "subtotal" | "impuestos" | "monto_asociar",
   rawValue: string,
   current: FacturaDraft,
-  factura: any
+  factura: any,
 ): FacturaDraft {
   const raw = String(rawValue ?? "");
 
@@ -335,24 +343,26 @@ function recalcDraftFromField(
   };
 }
 
-function buildDraftsFromFacturas(facturas: any[]): Record<string, FacturaDraft> {
+function buildDraftsFromFacturas(
+  facturas: any[],
+): Record<string, FacturaDraft> {
   const next: Record<string, FacturaDraft> = {};
 
   facturas.forEach((f: any, idx: number) => {
     const key = getFacturaRowKey(f, idx);
 
     const subtotalAsociado = toNum(
-      f?.subtotal_facturado ?? f?.subtotal_asociado ?? 0
+      f?.subtotal_facturado ?? f?.subtotal_asociado ?? 0,
     );
 
     const impuestosAsociado = toNum(
-      f?.impuestos_facturado ?? f?.impuestos_asociados ?? 0
+      f?.impuestos_facturado ?? f?.impuestos_asociados ?? 0,
     );
 
     const montoAsociado = round2(
       subtotalAsociado > 0 || impuestosAsociado > 0
         ? subtotalAsociado + impuestosAsociado
-        : toNum(f?.monto_facturado_relacion ?? f?.total_asociado_factura ?? 0)
+        : toNum(f?.monto_facturado_relacion ?? f?.total_asociado_factura ?? 0),
     );
 
     if (montoAsociado > 0) {
@@ -383,20 +393,27 @@ function buildDraftsFromFacturas(facturas: any[]): Record<string, FacturaDraft> 
   return next;
 }
 
-const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose, onSuccess }) => {
+const ModalDetalle: React.FC<ModalDetallesProp> = ({
+  solicitud,
+  onClose,
+  onSuccess,
+}) => {
   const endpoint = `${URL}/mia/pago_proveedor/detalles`;
   const asignarMontoFactEndpoint = `${URL}/mia/pago_proveedor/asignar_monto_fact`;
   const deleteFacturaEndpoint = `${URL}/mia/pago_proveedor/edit_factura`;
-    console.log("este es el raw", solicitud)
+  console.log("este es el raw", solicitud);
 
-  const payload = useMemo(() => buildPayloadFromSolicitud(solicitud), [solicitud]);
+  const payload = useMemo(
+    () => buildPayloadFromSolicitud(solicitud),
+    [solicitud],
+  );
 
   const datosReserva = useMemo(() => {
     const raw = solicitud?.informacion_completa ?? {};
 
     const hotel = safeString(raw?.hotel);
     const viajero = safeString(
-      raw?.nombre_viajero_completo ?? raw?.nombre_viajero
+      raw?.nombre_viajero_completo ?? raw?.nombre_viajero,
     );
 
     const costo_proveedor = toNum(raw?.solicitud_proveedor?.monto_solicitado);
@@ -423,6 +440,13 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose, onSucce
     const canalDeReservacion = idIntermediario
       ? "INTERMEDIARIO"
       : (raw?.canal_de_reservacion ?? "DIRECTO");
+    const isComisionable = Number(raw?.is_comisionable ?? 0) === 1;
+
+    const montoComisionable = toApiNumber(raw?.monto_comisionable);
+
+    const porcentajeComisionable = toApiNumber(raw?.porcentaje_comisionable);
+
+    const comentariosComisionables = safeString(raw?.comentarios_comisionables);
 
     return {
       codigo_hotel: safeString(raw?.codigo_confirmacion),
@@ -443,6 +467,10 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose, onSucce
         : (raw?.nombre_intermediario ?? ""),
       creado: raw?.created_at ?? null,
       estado_solicitud: safeString(raw?.solicitud_proveedor?.estado_solicitud),
+      is_comisionable: isComisionable,
+      monto_comisionable: montoComisionable,
+      porcentaje_comisionable: porcentajeComisionable,
+      comentarios_comisionables: comentariosComisionables,
     };
   }, [solicitud]);
 
@@ -474,18 +502,18 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose, onSucce
         });
 
         const json = await resp.json().catch(() => null);
-        
 
         if (!resp.ok) {
           throw new Error(
-            json?.message || json?.error || `Error HTTP: ${resp.status}`
+            json?.message || json?.error || `Error HTTP: ${resp.status}`,
           );
         }
-        
-        setData(json);
-        
 
-        const facturas = Array.isArray(json?.data?.facturas) ? json.data.facturas : [];
+        setData(json);
+
+        const facturas = Array.isArray(json?.data?.facturas)
+          ? json.data.facturas
+          : [];
         setDrafts(buildDraftsFromFacturas(facturas));
       } catch (e: any) {
         if (e?.name === "AbortError") return;
@@ -495,7 +523,7 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose, onSucce
         setLoading(false);
       }
     },
-    [endpoint, payload, solicitud]
+    [endpoint, payload, solicitud],
   );
 
   useEffect(() => {
@@ -517,29 +545,52 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose, onSucce
   const facturasApi = Array.isArray(api?.facturas) ? api.facturas : [];
   const pagosApi = Array.isArray(api?.pagos) ? api.pagos : [];
   const resumen = api?.resumen_validacion ?? null;
+  const datosComision = {
+    is_comisionable:
+      Number(
+        solicitudApi?.is_comisionable ??
+          solicitud?.informacion_completa?.is_comisionable ??
+          0,
+      ) === 1,
 
-const setDraftField = useCallback(
-  (
-    factura: any,
-    facturaKey: string,
-    field: "subtotal" | "impuestos" | "monto_asociar",
-    value: string
-  ) => {
-    setDrafts((prev) => {
-      const current = prev[facturaKey] || {
-        subtotal: "",
-        impuestos: "",
-        monto_asociar: "",
-      };
+    monto_comisionable: toApiNumber(
+      solicitudApi?.monto_comisionable ??
+        solicitud?.informacion_completa?.monto_comisionable,
+    ),
 
-      return {
-        ...prev,
-        [facturaKey]: recalcDraftFromField(field, value, current, factura),
-      };
-    });
-  },
-  []
-);
+    porcentaje_comisionable: toApiNumber(
+      solicitudApi?.porcentaje_comisionable ??
+        solicitud?.informacion_completa?.porcentaje_comisionable,
+    ),
+
+    comentarios_comisionables: safeString(
+      solicitudApi?.comentarios_comisionables ??
+        solicitud?.informacion_completa?.comentarios_comisionables,
+    ),
+  };
+
+  const setDraftField = useCallback(
+    (
+      factura: any,
+      facturaKey: string,
+      field: "subtotal" | "impuestos" | "monto_asociar",
+      value: string,
+    ) => {
+      setDrafts((prev) => {
+        const current = prev[facturaKey] || {
+          subtotal: "",
+          impuestos: "",
+          monto_asociar: "",
+        };
+
+        return {
+          ...prev,
+          [facturaKey]: recalcDraftFromField(field, value, current, factura),
+        };
+      });
+    },
+    [],
+  );
 
   const saveFactura = useCallback(
     async (factura: any) => {
@@ -555,21 +606,26 @@ const setDraftField = useCallback(
       const id_solicitud_proveedor = safeString(payload.id_solicitud_proveedor);
       const id_factura_proveedor = safeString(factura?.id_factura_proveedor);
       const uuid_factura = safeString(
-        factura?.uuid_cfdi ?? factura?.uuid_factura
+        factura?.uuid_cfdi ?? factura?.uuid_factura,
       );
 
-     const montoAsociar = toApiNumber(draft.monto_asociar) ?? 0;
+      const montoAsociar = toApiNumber(draft.monto_asociar) ?? 0;
 
-const partesAsociadas = splitMontoAsociadoProporcional(montoAsociar, factura);
-const subtotalFacturado = partesAsociadas.subtotal;
-const impuestosFacturado = partesAsociadas.impuestos;
+      const partesAsociadas = splitMontoAsociadoProporcional(
+        montoAsociar,
+        factura,
+      );
+      const subtotalFacturado = partesAsociadas.subtotal;
+      const impuestosFacturado = partesAsociadas.impuestos;
 
-const totalYaAsociado = toNum(
-  factura?.monto_facturado_relacion ?? factura?.total_asociado_factura ?? 0
-);
+      const totalYaAsociado = toNum(
+        factura?.monto_facturado_relacion ??
+          factura?.total_asociado_factura ??
+          0,
+      );
 
-const maximoAdicional = toNum(factura?.maximo_a_asociar);
-const maximoTotalPermitido = round2(totalYaAsociado + maximoAdicional);
+      const maximoAdicional = toNum(factura?.maximo_a_asociar);
+      const maximoTotalPermitido = round2(totalYaAsociado + maximoAdicional);
 
       if (subtotalFacturado < 0 || impuestosFacturado < 0) {
         alert("Subtotal e impuestos deben ser mayores o iguales a 0");
@@ -582,15 +638,15 @@ const maximoTotalPermitido = round2(totalYaAsociado + maximoAdicional);
       }
 
       if (montoAsociar > maximoTotalPermitido) {
-  alert(
-    `El monto a asociar no puede ser mayor a ${formatMoney(
-      maximoTotalPermitido
-    )} (asociado actual ${formatMoney(
-      totalYaAsociado
-    )} + adicional disponible ${formatMoney(maximoAdicional)})`
-  );
-  return;
-}
+        alert(
+          `El monto a asociar no puede ser mayor a ${formatMoney(
+            maximoTotalPermitido,
+          )} (asociado actual ${formatMoney(
+            totalYaAsociado,
+          )} + adicional disponible ${formatMoney(maximoAdicional)})`,
+        );
+        return;
+      }
 
       try {
         setSavingKey(facturaKey);
@@ -617,7 +673,7 @@ const maximoTotalPermitido = round2(totalYaAsociado + maximoAdicional);
 
         if (!resp.ok) {
           throw new Error(
-            json?.message || json?.error || `Error HTTP: ${resp.status}`
+            json?.message || json?.error || `Error HTTP: ${resp.status}`,
           );
         }
 
@@ -630,7 +686,13 @@ const maximoTotalPermitido = round2(totalYaAsociado + maximoAdicional);
         setSavingKey(null);
       }
     },
-    [drafts, asignarMontoFactEndpoint, fetchDetalles, payload.id_solicitud_proveedor, onSuccess]
+    [
+      drafts,
+      asignarMontoFactEndpoint,
+      fetchDetalles,
+      payload.id_solicitud_proveedor,
+      onSuccess,
+    ],
   );
 
   const deleteFactura = useCallback(
@@ -641,11 +703,11 @@ const maximoTotalPermitido = round2(totalYaAsociado + maximoAdicional);
       const uuid_factura = safeString(
         factura?.uuid_cfdi ??
           factura?.uuid_factura ??
-          factura?.uuid_factura_full
+          factura?.uuid_factura_full,
       );
 
       const ok = window.confirm(
-        `¿Seguro que deseas eliminar esta factura?\n\nUUID: ${uuid_factura || "—"}`
+        `¿Seguro que deseas eliminar esta factura?\n\nUUID: ${uuid_factura || "—"}`,
       );
       if (!ok) return;
 
@@ -670,7 +732,7 @@ const maximoTotalPermitido = round2(totalYaAsociado + maximoAdicional);
 
         if (!resp.ok) {
           throw new Error(
-            json?.message || json?.error || `Error HTTP: ${resp.status}`
+            json?.message || json?.error || `Error HTTP: ${resp.status}`,
           );
         }
 
@@ -683,21 +745,21 @@ const maximoTotalPermitido = round2(totalYaAsociado + maximoAdicional);
         setDeletingKey(null);
       }
     },
-    [deleteFacturaEndpoint, fetchDetalles, payload.id_solicitud_proveedor, onSuccess]
+    [
+      deleteFacturaEndpoint,
+      fetchDetalles,
+      payload.id_solicitud_proveedor,
+      onSuccess,
+    ],
   );
-
-
-  
 
   const montosAsociados = facturasApi.reduce(
     (acumulado, f) =>
-      acumulado + toNum(f?.monto_facturado_relacion ?? f?.total_asociado_factura ?? 0),
-    0
+      acumulado +
+      toNum(f?.monto_facturado_relacion ?? f?.total_asociado_factura ?? 0),
+    0,
   );
 
-  
-  
-  
   // const totalAsociadoSolicitud = resumen?.total_asociado_solicitud ?? 0;
   //const restanteSolicitud = resumen?.restante_solicitud ?? 0;
   //const totalPagado = resumen?.total_pagado ?? 0;
@@ -705,55 +767,55 @@ const maximoTotalPermitido = round2(totalYaAsociado + maximoAdicional);
   const diferencia = resumen?.diferencia_total ?? 0;
   const esCuadrado = Math.abs(Number(diferencia) || 0) <= 0.01;
 
-const facturasTable = useMemo(() => {
-  return facturasApi.map((f: any, idx: number) => {
-    const facturaKey = getFacturaRowKey(f, idx);
-    const draft = drafts[facturaKey] || {
-      subtotal: "",
-      impuestos: "",
-      monto_asociar: "",
-    };
+  const facturasTable = useMemo(() => {
+    return facturasApi.map((f: any, idx: number) => {
+      const facturaKey = getFacturaRowKey(f, idx);
+      const draft = drafts[facturaKey] || {
+        subtotal: "",
+        impuestos: "",
+        monto_asociar: "",
+      };
 
-    const totalAsociado = toNum(
-      f?.monto_facturado_relacion ?? f?.total_asociado_factura ?? 0
-    );
-    const maximoAdicional = toNum(f?.maximo_a_asociar);
-    const maximoTotalPermitido = round2(totalAsociado + maximoAdicional);
+      const totalAsociado = toNum(
+        f?.monto_facturado_relacion ?? f?.total_asociado_factura ?? 0,
+      );
+      const maximoAdicional = toNum(f?.maximo_a_asociar);
+      const maximoTotalPermitido = round2(totalAsociado + maximoAdicional);
 
-    return {
-      id: facturaKey,
-      facturaKey,
-      rawFactura: f,
-
-      uuid_factura_full:
-        safeString(f?.uuid_cfdi) || safeString(f?.uuid_factura) || "—",
-      razon_social_view:
-        safeString(f?.razon_social_fiscal) ||
-        safeString(f?.razon_social_emisor) ||
-        safeString(f?.razon_social) ||
-        "—",
-      rfc_view: safeString(f?.rfc_emisor) || safeString(f?.rfc) || "—",
-
-      total_factura_view: toNum(f?.total_factura || f?.total),
-      total_asociado_factura_view: totalAsociado,
-      restante_factura_view: toNum(f?.restante_factura),
-      maximo_a_asociar_view: maximoAdicional,
-      maximo_total_permitido_view: maximoTotalPermitido,
-
-      subtotal_edit: draft.subtotal,
-      impuestos_edit: draft.impuestos,
-      monto_asociar_edit: draft.monto_asociar,
-
-      subio_factura: safeString(f?.id_creador) || null,
-
-      acciones: {
-        ...f,
+      return {
+        id: facturaKey,
         facturaKey,
         rawFactura: f,
-      },
-    };
-  });
-}, [facturasApi, drafts]);
+
+        uuid_factura_full:
+          safeString(f?.uuid_cfdi) || safeString(f?.uuid_factura) || "—",
+        razon_social_view:
+          safeString(f?.razon_social_fiscal) ||
+          safeString(f?.razon_social_emisor) ||
+          safeString(f?.razon_social) ||
+          "—",
+        rfc_view: safeString(f?.rfc_emisor) || safeString(f?.rfc) || "—",
+
+        total_factura_view: toNum(f?.total_factura || f?.total),
+        total_asociado_factura_view: totalAsociado,
+        restante_factura_view: toNum(f?.restante_factura),
+        maximo_a_asociar_view: maximoAdicional,
+        maximo_total_permitido_view: maximoTotalPermitido,
+
+        subtotal_edit: draft.subtotal,
+        impuestos_edit: draft.impuestos,
+        monto_asociar_edit: draft.monto_asociar,
+
+        subio_factura: safeString(f?.id_creador) || null,
+
+        acciones: {
+          ...f,
+          facturaKey,
+          rawFactura: f,
+        },
+      };
+    });
+  }, [facturasApi, drafts]);
 
   const facturasCols = useMemo(
     () => [
@@ -770,7 +832,7 @@ const facturasTable = useMemo(() => {
       "subio_factura",
       "acciones",
     ],
-    []
+    [],
   );
 
   const facturasRenderers = useMemo(
@@ -808,79 +870,90 @@ const facturasTable = useMemo(() => {
       ),
 
       monto_asociar_edit: ({ item }: any) => {
-  const facturaKey = String(item?.facturaKey ?? "");
-  const maximo = toNum(item?.maximo_total_permitido_view);
-  const adicional = toNum(item?.maximo_a_asociar_view);
-  const asociadoActual = toNum(item?.total_asociado_factura_view);
-  const monto = toNum(drafts[facturaKey]?.monto_asociar ?? 0);
-  const excedido = monto > maximo;
+        const facturaKey = String(item?.facturaKey ?? "");
+        const maximo = toNum(item?.maximo_total_permitido_view);
+        const adicional = toNum(item?.maximo_a_asociar_view);
+        const asociadoActual = toNum(item?.total_asociado_factura_view);
+        const monto = toNum(drafts[facturaKey]?.monto_asociar ?? 0);
+        const excedido = monto > maximo;
 
-  return (
-    <div key={`${facturaKey}-monto`} className="min-w-[170px]">
-      <input
-        type="number"
-        step="0.01"
-        value={drafts[facturaKey]?.monto_asociar ?? ""}
-        onChange={(e) =>
-          setDraftField(
-            item?.rawFactura ?? item,
-            facturaKey,
-            "monto_asociar",
-            e.target.value
-          )
-        }
-        className={`w-full border rounded-lg px-2 py-2 text-sm outline-none focus:ring-2 ${
-          excedido
-            ? "border-red-300 focus:ring-red-100 text-red-700"
-            : "border-gray-200 focus:ring-blue-100"
-        }`}
-        placeholder="0.00"
-      />
-      <p className="mt-1 text-[10px] text-gray-500">
-        Máximo total: {formatMoney(maximo)}
-      </p>
-      <p className="text-[10px] text-gray-400">
-        Asociado: {formatMoney(asociadoActual)} + adicional: {formatMoney(adicional)}
-      </p>
-    </div>
-  );
-},
+        return (
+          <div key={`${facturaKey}-monto`} className="min-w-[170px]">
+            <input
+              type="number"
+              step="0.01"
+              value={drafts[facturaKey]?.monto_asociar ?? ""}
+              onChange={(e) =>
+                setDraftField(
+                  item?.rawFactura ?? item,
+                  facturaKey,
+                  "monto_asociar",
+                  e.target.value,
+                )
+              }
+              className={`w-full border rounded-lg px-2 py-2 text-sm outline-none focus:ring-2 ${
+                excedido
+                  ? "border-red-300 focus:ring-red-100 text-red-700"
+                  : "border-gray-200 focus:ring-blue-100"
+              }`}
+              placeholder="0.00"
+            />
+            <p className="mt-1 text-[10px] text-gray-500">
+              Máximo total: {formatMoney(maximo)}
+            </p>
+            <p className="text-[10px] text-gray-400">
+              Asociado: {formatMoney(asociadoActual)} + adicional:{" "}
+              {formatMoney(adicional)}
+            </p>
+          </div>
+        );
+      },
 
       subtotal_edit: ({ item }: any) => {
-  const facturaKey = String(item?.facturaKey ?? "");
-  return (
-    <div key={`${facturaKey}-subtotal`}>
-      <input
-        type="number"
-        step="0.01"
-        value={drafts[facturaKey]?.subtotal ?? ""}
-        onChange={(e) =>
-          setDraftField(item?.rawFactura ?? item, facturaKey, "subtotal", e.target.value)
-        }
-        className="w-full min-w-[110px] border border-gray-200 rounded-lg px-2 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
-        placeholder="0.00"
-      />
-    </div>
-  );
-},
+        const facturaKey = String(item?.facturaKey ?? "");
+        return (
+          <div key={`${facturaKey}-subtotal`}>
+            <input
+              type="number"
+              step="0.01"
+              value={drafts[facturaKey]?.subtotal ?? ""}
+              onChange={(e) =>
+                setDraftField(
+                  item?.rawFactura ?? item,
+                  facturaKey,
+                  "subtotal",
+                  e.target.value,
+                )
+              }
+              className="w-full min-w-[110px] border border-gray-200 rounded-lg px-2 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
+              placeholder="0.00"
+            />
+          </div>
+        );
+      },
 
-impuestos_edit: ({ item }: any) => {
-  const facturaKey = String(item?.facturaKey ?? "");
-  return (
-    <div key={`${facturaKey}-impuestos`}>
-      <input
-        type="number"
-        step="0.01"
-        value={drafts[facturaKey]?.impuestos ?? ""}
-        onChange={(e) =>
-          setDraftField(item?.rawFactura ?? item, facturaKey, "impuestos", e.target.value)
-        }
-        className="w-full min-w-[110px] border border-gray-200 rounded-lg px-2 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
-        placeholder="0.00"
-      />
-    </div>
-  );
-},
+      impuestos_edit: ({ item }: any) => {
+        const facturaKey = String(item?.facturaKey ?? "");
+        return (
+          <div key={`${facturaKey}-impuestos`}>
+            <input
+              type="number"
+              step="0.01"
+              value={drafts[facturaKey]?.impuestos ?? ""}
+              onChange={(e) =>
+                setDraftField(
+                  item?.rawFactura ?? item,
+                  facturaKey,
+                  "impuestos",
+                  e.target.value,
+                )
+              }
+              className="w-full min-w-[110px] border border-gray-200 rounded-lg px-2 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
+              placeholder="0.00"
+            />
+          </div>
+        );
+      },
 
       subio_factura: ({ value }: any) =>
         value ? (
@@ -955,9 +1028,8 @@ impuestos_edit: ({ item }: any) => {
         );
       },
     }),
-    [drafts, savingKey, deletingKey, setDraftField, saveFactura, deleteFactura]
+    [drafts, savingKey, deletingKey, setDraftField, saveFactura, deleteFactura],
   );
-
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -971,13 +1043,18 @@ impuestos_edit: ({ item }: any) => {
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <p className="text-sm font-semibold text-gray-900">
-                {solicitud.informacion_completa.hotel || "—"}: {datosReserva.codigo_hotel || "—"}
+                {solicitud.informacion_completa.hotel || "—"}:{" "}
+                {datosReserva.codigo_hotel || "—"}
                 {console.log(solicitud)}
               </p>
 
               {resumen ? (
                 <Badge
-                  text={esCuadrado ? "VALIDACIÓN: CUADRADO" : "VALIDACIÓN: DIFERENCIA"}
+                  text={
+                    esCuadrado
+                      ? "VALIDACIÓN: CUADRADO"
+                      : "VALIDACIÓN: DIFERENCIA"
+                  }
                   tone={esCuadrado ? "green" : "amber"}
                 />
               ) : null}
@@ -1105,11 +1182,11 @@ impuestos_edit: ({ item }: any) => {
                       No llegó resumen de validación en la respuesta.
                     </p>
                   ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-3">
+                    <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-3">
                       <StatCard
                         label="Costo proveedor"
                         value={formatMoney(totalFacturas)}
-                      />                        
+                      />
                       <StatCard
                         label="Total facturado "
                         value={formatMoney(montosAsociados)}
@@ -1186,13 +1263,18 @@ impuestos_edit: ({ item }: any) => {
                   </p>
 
                   {pagosApi.length === 0 ? (
-                    <p className="text-xs text-gray-500">No hay pagos registrados.</p>
+                    <p className="text-xs text-gray-500">
+                      No hay pagos registrados.
+                    </p>
                   ) : (
                     <div className="space-y-3">
                       {pagosApi.map((pago: any, idx: number) => {
                         const id = pago?.id_pago_proveedores ?? idx + 1;
-                        const monto = toNum(pago?.monto_pagado ?? pago?.monto ?? pago?.total);
-                        const fecha = pago?.fecha_pago ?? pago?.fecha_emision ?? null;
+                        const monto = toNum(
+                          pago?.monto_pagado ?? pago?.monto ?? pago?.total,
+                        );
+                        const fecha =
+                          pago?.fecha_pago ?? pago?.fecha_emision ?? null;
                         const comprobante = pago?.url_pdf ?? null;
 
                         return (
@@ -1201,30 +1283,45 @@ impuestos_edit: ({ item }: any) => {
                             className="grid grid-cols-1 md:grid-cols-4 gap-3 rounded-xl border border-gray-100 bg-gray-50 p-3"
                           >
                             <div>
-                              <p className="text-[10px] uppercase tracking-wide text-gray-500 mb-0.5">ID Pago</p>
-                              <p className="text-xs font-mono text-gray-800">{id}</p>
+                              <p className="text-[10px] uppercase tracking-wide text-gray-500 mb-0.5">
+                                ID Pago
+                              </p>
+                              <p className="text-xs font-mono text-gray-800">
+                                {id}
+                              </p>
                             </div>
 
                             <div>
-                              <p className="text-[10px] uppercase tracking-wide text-gray-500 mb-0.5">Monto pagado</p>
-                              <p className="text-xs font-semibold text-green-700">{formatMoney(monto)}</p>
+                              <p className="text-[10px] uppercase tracking-wide text-gray-500 mb-0.5">
+                                Monto pagado
+                              </p>
+                              <p className="text-xs font-semibold text-green-700">
+                                {formatMoney(monto)}
+                              </p>
                             </div>
 
                             <div>
-                              <p className="text-[10px] uppercase tracking-wide text-gray-500 mb-0.5">Fecha de pago</p>
+                              <p className="text-[10px] uppercase tracking-wide text-gray-500 mb-0.5">
+                                Fecha de pago
+                              </p>
                               <p className="text-xs text-gray-800">
                                 {fecha
-                                  ? new Date(fecha).toLocaleDateString("es-MX", {
-                                      day: "2-digit",
-                                      month: "2-digit",
-                                      year: "numeric",
-                                    })
+                                  ? new Date(fecha).toLocaleDateString(
+                                      "es-MX",
+                                      {
+                                        day: "2-digit",
+                                        month: "2-digit",
+                                        year: "numeric",
+                                      },
+                                    )
                                   : "—"}
                               </p>
                             </div>
 
                             <div>
-                              <p className="text-[10px] uppercase tracking-wide text-gray-500 mb-0.5">Comprobante</p>
+                              <p className="text-[10px] uppercase tracking-wide text-gray-500 mb-0.5">
+                                Comprobante
+                              </p>
                               {comprobante ? (
                                 <button
                                   type="button"
@@ -1236,7 +1333,9 @@ impuestos_edit: ({ item }: any) => {
                                   <ExternalLink className="w-3 h-3" />
                                 </button>
                               ) : (
-                                <span className="text-xs text-gray-400 italic">Sin comprobante</span>
+                                <span className="text-xs text-gray-400 italic">
+                                  Sin comprobante
+                                </span>
                               )}
                             </div>
                           </div>
@@ -1244,6 +1343,34 @@ impuestos_edit: ({ item }: any) => {
                       })}
                     </div>
                   )}
+                </div>
+                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+                  <p className="text-sm font-bold text-gray-900 mb-3">
+                    Comisión
+                  </p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <StatCard
+                      label="Es comisionable"
+                      value={datosComision.is_comisionable ? "Sí" : "No"}
+                    />
+
+                    <StatCard
+                      label="Valor comisionable"
+                      value={
+                        datosComision.monto_comisionable != null
+                          ? formatMoney(datosComision.monto_comisionable)
+                          : datosComision.porcentaje_comisionable != null
+                            ? `${datosComision.porcentaje_comisionable}%`
+                            : "—"
+                      }
+                    />
+
+                    <StatCard
+                      label="Comentario"
+                      value={datosComision.comentarios_comisionables || "—"}
+                    />
+                  </div>
                 </div>
               </>
             )}
