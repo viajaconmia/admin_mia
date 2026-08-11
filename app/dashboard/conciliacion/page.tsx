@@ -1,8 +1,6 @@
 // app/conciliacion/page.tsx
 "use client";
 
-
-
 import React, {
   useCallback,
   useEffect,
@@ -236,7 +234,6 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
     precio_de_venta > 0
       ? ((precio_de_venta - costo_proveedor) / precio_de_venta) * 100
       : 0;
-
   const nochesCalc = calcNoches(raw?.check_in, raw?.check_out);
   const tipoPago = getTipoPago(raw);
   const tipoReserva = inferTipoReserva(raw);
@@ -293,14 +290,14 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
   const canalDeReservacion = idIntermediario
     ? "INTERMEDIARIO"
     : (raw?.canal_de_reservacion ?? "DIRECTO");
-
+  const esComisionable =
+    raw?.is_comisionable ?? raw?.solicitud_proveedor?.is_comisionable ?? 0;
   return {
     seleccionar_reserva: "",
     row_id,
     id_solicitud_proveedor,
     id_proveedor,
     id_servicio,
-
     creado: raw?.created_at ?? null,
     hotel: hotel ? hotel.toUpperCase() : "",
     codigo_hotel: raw?.codigo_confirmacion ?? "",
@@ -310,12 +307,13 @@ function toConciliacionRow(raw: any, index: number): AnyRow {
     viajero: viajero ? viajero.toUpperCase() : "",
     check_in: raw?.check_in ?? null,
     check_out: raw?.check_out ?? null,
-
     noches: nochesCalc,
     tipo_cuarto: raw?.room ?? "",
 
     costo_proveedor,
     markup,
+    es_comisionable: esComisionable,
+
     precio_de_venta,
 
     canal_de_reservacion: canalDeReservacion,
@@ -432,7 +430,6 @@ function getTodayLocalDate() {
 }
 
 export default function ConciliacionPage() {
-
   const router = useRouter(); // hace cambios en la url
   const pathName = usePathname(); // Lee la ruta
   const searchParams = useSearchParams(); // Lee parametros
@@ -529,7 +526,133 @@ export default function ConciliacionPage() {
     metodo_pago_reserva: "",
   };
 
-  const [uuidModalOpen, setUuidModalOpen] = useState(false);
+  type BuscarUuidMatchRow = {
+    id_factura_proveedor: string;
+    codigo_confirmacion: string;
+    uuid_factura: string;
+    id_solicitud: number;
+    monto: number;
+    estado?: string;
+    acciones: null;
+  };
+
+  const [buscarUuidModal, setBuscarUuidModal] = useState<{
+    open: boolean;
+    loading: boolean;
+    uuid_factura: string;
+    rows: BuscarUuidMatchRow[];
+  }>({
+    open: false,
+    loading: false,
+    uuid_factura: "",
+    rows: [],
+  });
+
+  const buscarUuidEndpoint = `${URL}/mia/pago_proveedor/buscaruuid`;
+
+  const buscarUuid = useCallback(
+    async (uuidParam?: string) => {
+      const uuid = String(
+        uuidParam ?? buscarUuidModal.uuid_factura ?? "",
+      ).trim();
+
+      if (!uuid) {
+        alert("Escribe un UUID");
+        return;
+      }
+
+      setBuscarUuidModal((prev) => ({
+        ...prev,
+        open: true,
+        loading: true,
+        uuid_factura: uuid,
+        rows: [],
+      }));
+
+      try {
+        const resp = await fetch(buscarUuidEndpoint, {
+          method: "POST",
+          headers: {
+            "x-api-key": API_KEY || "",
+            "Content-Type": "application/json",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+          },
+          body: JSON.stringify({ uuid_factura: uuid }),
+        });
+
+        const json = await resp.json().catch(() => null);
+
+        if (!resp.ok) {
+          throw new Error(json?.message || `Error HTTP: ${resp.status}`);
+        }
+
+        const list = Array.isArray(json?.data) ? json.data : [];
+
+        const rows: BuscarUuidMatchRow[] = list.map((r: any) => ({
+          id_factura_proveedor: r?.id_factura_proveedor ?? "",
+          codigo_confirmacion: r?.codigo_confirmacion ?? "",
+          uuid_factura: r?.uuid_factura ?? "",
+          id_solicitud: Number(r?.id_solicitud ?? 0),
+          monto: Number(r?.monto_facturado ?? r?.monto_solicitado ?? 0) || 0,
+          estado: r?.estado ?? "",
+          acciones: null,
+        }));
+
+        setBuscarUuidModal({
+          open: true,
+          loading: false,
+          uuid_factura: uuid,
+          rows,
+        });
+      } catch (err: any) {
+        console.error("❌ buscaruuid fail", err);
+
+        setBuscarUuidModal((prev) => ({
+          ...prev,
+          open: true,
+          loading: false,
+          rows: [],
+        }));
+
+        alert(err?.message || "Error al buscar coincidencias por uuid");
+      }
+    },
+    [buscarUuidEndpoint, buscarUuidModal.uuid_factura],
+  );
+  const handleDesasignarUuid = useCallback(
+    async (row: BuscarUuidMatchRow) => {
+      if (!row.id_factura_proveedor || !row.id_solicitud)
+        throw new Error(
+          "Faltan datos para desasignar (id_factura / id_solicitud)",
+        );
+
+      await ConciliacionService.getInstance().eliminarPagoFacturaProveedor({
+        id_factura: row.id_factura_proveedor,
+        id_solicitud: row.id_solicitud,
+      });
+
+      void buscarUuid();
+    },
+    [buscarUuid],
+  );
+
+  const closeBuscarUuidModal = useCallback(() => {
+    setBuscarUuidModal({
+      open: false,
+      loading: false,
+      uuid_factura: "",
+      rows: [],
+    });
+  }, []);
+
+  const openBuscarUuidModal = useCallback(() => {
+    setBuscarUuidModal({
+      open: true,
+      loading: false,
+      uuid_factura: "",
+      rows: [],
+    });
+  }, []);
 
   const DEFAULT_OPEN_FILTERS: ConciliacionFilters = {
     ...EMPTY_FILTERS,
@@ -585,7 +708,6 @@ export default function ConciliacionPage() {
 
     // Recorremos cada propiedad (key) del objeto
     (Object.keys(next) as (keyof ConciliacionFilters)[]).forEach((key) => {
-
       // Buscamos en la URL si existe un parámetro con ese nombre
       const v = searchParams.get(key);
 
@@ -596,9 +718,6 @@ export default function ConciliacionPage() {
     // Regresamos el objeto final con los filtros
     return next;
   };
-
-  
-
 
   const [filters, setFilters] =
     useState<ConciliacionFilters>(getInitialFilters);
@@ -719,17 +838,15 @@ export default function ConciliacionPage() {
   });
   const [isSavingEdit, setIsSavingEdit] = useState(false);
 
-
-
-
   const applyFilters = useCallback(() => {
     const next = { ...filters };
-    setFilters(next)
+    setFilters(next);
     setAppliedFilters(next); // // Guarda oficialmente los filtros que se usarán para buscar
     setShowFiltersModal(false); // Cierra el modal
 
-    const params = new URLSearchParams() // Crea un contenedor vacío para parámetros.
-    Object.entries(next).forEach(([key, value]) => { // Recorre cada propiedad y su valor
+    const params = new URLSearchParams(); // Crea un contenedor vacío para parámetros.
+    Object.entries(next).forEach(([key, value]) => {
+      // Recorre cada propiedad y su valor
       const v = String(value ?? "").trim(); // Convierte el valor a texto y elimina espacios al inicio y final
       if (v) params.set(key, v); // Le asigna el valor de v a la key  si v tiene contenido
     });
@@ -1114,6 +1231,7 @@ export default function ConciliacionPage() {
       "estado_solicitud",
       "costo_proveedor",
       "markup",
+      "es_comisionable",
       "seleccionar_reserva",
       "precio_de_venta",
       "canal_de_reservacion",
@@ -1351,6 +1469,20 @@ export default function ConciliacionPage() {
             title={`${n.toFixed(2)}%`}
           >
             {n.toFixed(2)}%
+          </span>
+        );
+      },
+      es_comisionable: ({ value }: { value: number | string | null }) => {
+        const esComisionable = String(value) === "1";
+        return (
+          <span
+            className={`font-semibold border p-1 px-2 text-xs rounded-full ${
+              esComisionable
+                ? "text-green-700 bg-green-100 border-green-300"
+                : "text-gray-700 bg-gray-100 border-gray-300"
+            }`}
+          >
+            {esComisionable ? "Sí" : "No"}
           </span>
         );
       },
@@ -1851,6 +1983,7 @@ export default function ConciliacionPage() {
             defaultSort={defaultSort as any}
             leyenda={`Mostrando ${filteredData.length} registros`}
             customColumns={customColumns}
+            // respectCustomColumnOrder
             fillHeight
             maxHeight="calc(100vh - 220px)"
             getRowClassName={getRowClassName as any}

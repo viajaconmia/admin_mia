@@ -92,7 +92,21 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     setReservas(response.data || []);
     setLoading(false);
   };
+  const estiloComisionable = ({ value }: { value: number | string | null }) => {
+    const esComisionable = String(value) === "1";
 
+    return (
+      <span
+        className={`font-semibold border p-1 px-2 text-xs rounded-full ${
+          esComisionable
+            ? "text-green-700 bg-green-100 border-green-300"
+            : "text-gray-700 bg-gray-100 border-gray-300"
+        }`}
+      >
+        {esComisionable ? "Sí" : "No"}
+      </span>
+    );
+  };
   const handleExport = async () => {
     setLoadingFile(true);
     try {
@@ -171,6 +185,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     // razon_socail_proveedor: ({ value}: { value: string }) => (<p className= "font-semibold text-gray-700">{value || ""}</p>), // modificacion
     codigo: ({ value }) => <p>{value || ""}</p>,
     markup: ({ value }) => <MarginPercent value={value} />,
+    is_comisionable: ({ value }) => <>{estiloComisionable({ value })}</> /*  */,
     viajero: ({ value }) => <>{value}</>,
     check_in: ({ value }) => <>{formatDate(value)}</>,
     horario_salida: ({ value }) => <>{value ? formatTime(value) : ""}</>,
@@ -370,6 +385,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
       ((Number(reserva.total || 0) - Number(reserva.costo_total || 0)) /
         Number(reserva.total || 0)) *
       100,
+    is_comisionable: reserva.is_comisionable || 0 /* */,
     precio_de_venta: Number(reserva.total || 0),
     metodo_de_pago: reserva.metodo_pago,
     reservante: reserva.reservante,

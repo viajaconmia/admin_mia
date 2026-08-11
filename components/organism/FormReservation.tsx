@@ -1,3 +1,4 @@
+//  front/comp
 import React, { useState, useEffect, FormEvent } from "react";
 import { differenceInDays, parseISO, set } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -45,11 +46,30 @@ import {
   verificarYConfirmarTraslape,
 } from "@/lib/helpers/traslapes";
 
+type SolicitudConComision = Solicitud & {
+  nuevo_incluye_desayuno?: boolean | null;
+  agente?: any;
+  porcentaje_comisionable?: number | string | null;
+  monto_comisionable?: number | string | null;
+  comentarios_comisionables?: string | null;
+  is_comisionable?: number | boolean | null;
+};
+
+type ReservaFormConComision = Omit<
+  ReservaForm,
+  | "porcentaje_comisionable"
+  | "monto_comisionable"
+  | "comentarios_comisionables"
+  | "is_comisionable"
+> & {
+  porcentaje_comisionable: number | string;
+  monto_comisionable: number;
+  comentarios_comisionables: string;
+  is_comisionable: number;
+};
+
 interface ReservationFormProps {
-  solicitud?: Solicitud & {
-    nuevo_incluye_desayuno?: boolean | null;
-    agente?: any;
-  };
+  solicitud?: SolicitudConComision;
   onClose: () => void;
   edicion?: boolean;
   create?: boolean;
@@ -90,7 +110,17 @@ export function ReservationForm({
   const [acompanantes, setAcompanantes] = useState<Viajero[]>([]);
   const [save, setSave] = useState<boolean>(false);
   const [defaultViajero, setDefaultViajero] = useState<Viajero | null>(null);
-  const [form, setForm] = useState<ReservaForm>({
+  const porcentajeComisionInicial =
+    Number(solicitud.porcentaje_comisionable) > 0
+      ? String(solicitud.porcentaje_comisionable)
+      : "";
+
+  const montoComisionInicial =
+    Number(solicitud.monto_comisionable) > 0
+      ? Number(solicitud.monto_comisionable)
+      : 0;
+
+  const [form, setForm] = useState<ReservaFormConComision>({
     hotel: {
       name: solicitud.hotel || "",
       content: currentHotel || null,
@@ -155,6 +185,10 @@ export function ReservationForm({
         ) || 0,
     },
     items: [],
+    porcentaje_comisionable: porcentajeComisionInicial,
+    monto_comisionable: montoComisionInicial,
+    comentarios_comisionables: solicitud.comentarios_comisionables || "",
+    is_comisionable: Number(solicitud.is_comisionable) === 1 ? 1 : 0,
     solicitud: {
       ...solicitud,
       viajeros_adicionales: solicitud.viajeros_adicionales || [],
@@ -186,6 +220,17 @@ export function ReservationForm({
 
   const [walletAmount, setWalletAmount] = useState<number>(0);
   const [loadingWallet, setLoadingWallet] = useState(false);
+
+  const getFormPayload = () => ({
+    ...form,
+    porcentaje_comisionable:
+      form.porcentaje_comisionable === ""
+        ? 0
+        : Number(form.porcentaje_comisionable),
+    monto_comisionable: Number(form.monto_comisionable) || 0,
+    comentarios_comisionables: form.comentarios_comisionables.trim(),
+    is_comisionable: Number(form.is_comisionable) === 1 ? 1 : 0,
+  });
 
   useEffect(() => {
     if (!proveedores) {
@@ -448,7 +493,7 @@ export function ReservationForm({
       }
 
       const reservaConAgente = {
-        ...form,
+        ...getFormPayload(),
         id_agente: solicitud.id_agente,
         Total: form.venta.total,
         Noches: form.noches,
@@ -478,7 +523,7 @@ export function ReservationForm({
     guardarReserva(
       fetchCreateReservaFromSolicitud,
       {
-        ...form,
+        ...getFormPayload(),
         nuevo_incluye_desayuno,
         acompanantes,
         meta: { ...solicitud },
@@ -510,7 +555,7 @@ export function ReservationForm({
       guardarReserva(
         fetchCreateReservaOperaciones,
         {
-          ...form,
+          ...getFormPayload(),
           nuevo_incluye_desayuno,
           acompanantes,
           bandera: 0,
@@ -554,7 +599,7 @@ export function ReservationForm({
       await guardarReserva(
         fetchCreateReservaOperaciones,
         {
-          ...form,
+          ...getFormPayload(),
           nuevo_incluye_desayuno,
           acompanantes,
           bandera: 0,
@@ -1214,6 +1259,159 @@ export function ReservationForm({
                       </Button>
                     </div>
                   )}
+                </div>
+              </div>
+
+              <div className="w-full rounded-md border border-gray-200 bg-white p-4 shadow-sm">
+                <h2 className="mb-4 text-sm font-bold text-gray-900">
+                  Comisionable
+                </h2>
+
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-12 items-end">
+                  {/* CHECK - SIEMPRE VISIBLE */}
+                  <div className="col-span-2 sm:col-span-2">
+                    <CheckboxInput
+                      label="Es comisionable?"
+                      checked={Number(form.is_comisionable) === 1}
+                      onChange={(checked: boolean) => {
+                        setForm((prev) => ({
+                          ...prev,
+                          is_comisionable: checked ? 1 : 0,
+
+                          // Si se desactiva limpiamos ambos valores
+                          porcentaje_comisionable: checked
+                            ? prev.porcentaje_comisionable
+                            : "",
+
+                          monto_comisionable: checked
+                            ? prev.monto_comisionable
+                            : 0,
+                        }));
+                      }}
+                    />
+                  </div>
+
+                  {/* SOLO SE MUESTRA CUANDO ES COMISIONABLE */}
+                  {Number(form.is_comisionable) === 1 && (
+                    <>
+                      {/* PORCENTAJE */}
+                      <div className="col-span-1 sm:col-span-3">
+                        <label className="mb-1 block text-[10px] font-bold uppercase text-gray-500">
+                          Porcentaje
+                        </label>
+
+                        <div className="relative">
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="Ej. 10.00"
+                            value={form.porcentaje_comisionable}
+                            disabled={Number(form.monto_comisionable) > 0}
+                            onChange={(e) => {
+                              const value = e.target.value;
+
+                              // Solo números y un punto decimal
+                              if (!/^\d*\.?\d*$/.test(value)) return;
+
+                              // Máximo 100%
+                              if (value !== "" && Number(value) > 100) return;
+
+                              setForm((prev) => ({
+                                ...prev,
+                                porcentaje_comisionable: value,
+                                monto_comisionable: 0,
+                              }));
+                            }}
+                            onBlur={() => {
+                              if (
+                                form.porcentaje_comisionable !== "" &&
+                                Number(form.porcentaje_comisionable) <= 0
+                              ) {
+                                setForm((prev) => ({
+                                  ...prev,
+                                  porcentaje_comisionable: "",
+                                }));
+                              }
+                            }}
+                            className="h-10 w-full rounded-md border border-gray-300 px-3 pr-8 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100"
+                          />
+
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-500">
+                            %
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* MONTO */}
+                      <div className="col-span-1 sm:col-span-3">
+                        <label className="mb-1 block text-[10px] font-bold uppercase text-gray-500">
+                          Monto
+                        </label>
+
+                        <div className="relative">
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="Ej. 100.00"
+                            value={form.monto_comisionable || ""}
+                            disabled={Number(form.porcentaje_comisionable) > 0}
+                            onChange={(e) => {
+                              const value = e.target.value;
+
+                              // Solo números y un punto decimal
+                              if (!/^\d*\.?\d*$/.test(value)) return;
+
+                              setForm((prev) => ({
+                                ...prev,
+                                monto_comisionable:
+                                  value === "" ? 0 : Number(value),
+                                porcentaje_comisionable: "",
+                              }));
+                            }}
+                            onBlur={() => {
+                              if (Number(form.monto_comisionable) <= 0) {
+                                setForm((prev) => ({
+                                  ...prev,
+                                  monto_comisionable: 0,
+                                }));
+                              }
+                            }}
+                            className="h-10 w-full rounded-md border border-gray-300 px-3 pr-8 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100"
+                          />
+
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-500">
+                            $
+                          </span>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* COMENTARIOS - SIEMPRE VISIBLE */}
+                  <div
+                    className={
+                      Number(form.is_comisionable) === 1
+                        ? "col-span-2 sm:col-span-4"
+                        : "col-span-2 sm:col-span-10"
+                    }
+                  >
+                    <label className="mb-1 block text-[10px] font-bold uppercase text-gray-500">
+                      Comentarios
+                    </label>
+
+                    <input
+                      type="text"
+                      placeholder="Agregar comentarios opcional"
+                      value={form.comentarios_comisionables}
+                      onChange={(e) => {
+                        setForm((prev) => ({
+                          ...prev,
+                          comentarios_comisionables: e.target.value,
+                        }));
+                      }}
+                      className="h-10 w-full rounded-md border border-gray-300 px-3 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
                 </div>
               </div>
               <div className="grid grid-cols-4 gap-4">
