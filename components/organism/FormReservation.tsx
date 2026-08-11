@@ -62,7 +62,7 @@ type ReservaFormConComision = Omit<
   | "comentarios_comisionables"
   | "is_comisionable"
 > & {
-  porcentaje_comisionable: string;
+  porcentaje_comisionable: number | string;
   monto_comisionable: number;
   comentarios_comisionables: string;
   is_comisionable: number;
