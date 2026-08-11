@@ -229,16 +229,19 @@ export const TextInput = ({
   className,
   disabled = false,
   placeholder = "",
-  onInput = () => { }
+  onInput = () => {},
+  onKeyDown,
+  onFocus,
 }: {
   label?: string;
   value: string;
   className?: string;
   disabled?: boolean;
   onChange?: (value: string) => void;
-    placeholder?: string;
+  placeholder?: string;
   onInput?: (e: React.FormEvent<HTMLInputElement>) => void;
-
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  onFocus?: (e: React.FocusEvent<HTMLInputElement>) => void;
 }) => (
   <div className={`flex flex-col space-y-1 ${className}`}>
     {label && (
@@ -250,6 +253,8 @@ export const TextInput = ({
       onChange={(e) => onChange(e.target.value)}
       disabled={disabled}
       onInput={onInput}
+      onKeyDown={onKeyDown}
+      onFocus={onFocus}
       placeholder={placeholder}
       className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:text-black"
     />

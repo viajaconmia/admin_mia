@@ -29,8 +29,7 @@ import { Loader } from "@/components/atom/Loader";
 import SubirFactura from "@/app/dashboard/facturacion/subirfacturas/SubirFactura";
 import ModalDetalle from "@/app/dashboard/conciliacion/compponents/detalles";
 import { formatDate } from "@/helpers/formater";
-import BuscarUuidFacturaModal from "@/app/dashboard/conciliacion/compponents/BuscarUuidFacturaModal";
-import { ConciliacionService } from "@/services/ConciliacionService";
+import { BuscarUuidFacturaModal } from "@/angel/components/organisms/BuscarUuidFacturaModal";
 import FiltrosConciliacionModal, {
   type ConciliacionFilters,
 } from "@/app/dashboard/conciliacion/compponents/FiltrosReservaModal";
@@ -1997,7 +1996,7 @@ export default function ConciliacionPage() {
               variant="secondary"
               size="md"
               className="border border-violet-200 bg-violet-50 hover:bg-violet-100 text-violet-800"
-              onClick={openBuscarUuidModal}
+              onClick={() => setUuidModalOpen(true)}
             >
               <Search className="w-4 h-4" />
               Buscar UUID
@@ -2179,19 +2178,9 @@ export default function ConciliacionPage() {
           />
         )}
         <BuscarUuidFacturaModal
-          open={buscarUuidModal.open}
-          loading={buscarUuidModal.loading}
-          uuidFactura={buscarUuidModal.uuid_factura}
-          rows={buscarUuidModal.rows}
-          onClose={closeBuscarUuidModal}
-          onUuidChange={(value) =>
-            setBuscarUuidModal((prev) => ({
-              ...prev,
-              uuid_factura: value,
-            }))
-          }
-          onSearch={() => void buscarUuid()}
-          onDesasignar={handleDesasignarUuid}
+          open={uuidModalOpen}
+          onClose={() => setUuidModalOpen(false)}
+          onSuccess={() => void load(appliedFilters, page)}
         />
         {isLoading && (
           <div className="text-sm text-gray-500 px-2">
