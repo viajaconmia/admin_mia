@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { TypeService } from "@/angel/lib/types";
 import { ServiceIcon } from "@/component/atom/ItemTable";
-import { fmtMoney } from "@/angel/lib/format/number";
+import { fmtMoney, quitarCeroIzquierdo } from "@/angel/lib/format/number";
 import { Checkbox } from "@/components/ui/checkbox";
+import { TextInput } from "@/components/atom/Input";
 
 type Props = {
   value?: string | null;
@@ -216,8 +217,25 @@ export const GetSeleccionRenderer = (
   );
 };
 
+export const GetEditableMontoRenderer = <T,>(
+  getValue: (value: T) => string,
+  onChange: (value: T, newValue: string) => void,
+  className: string = "w-24",
+) => {
+  return ({ value }: { value: T }) => (
+    <TextInput
+      value={getValue(value)}
+      onChange={(v) =>
+        onChange(value, quitarCeroIzquierdo(v.replace(/[^\d.]/g, "")))
+      }
+      onFocus={(e) => e.target.select()}
+      className={className}
+    />
+  );
+};
+
 export const GetBadgeRenderer = (
-  styles: Record<string, string>,
+  styles: Record<string, string> = {},
   formatLabel?: (value: string) => string,
   defaultStyle: string = "bg-gray-100 text-gray-600 border border-gray-300",
 ) => {

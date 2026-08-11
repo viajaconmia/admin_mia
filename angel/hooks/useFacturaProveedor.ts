@@ -11,6 +11,7 @@ export function useFacturaProveedor() {
   const [factura, setFactura] = useState<FacturaProveedorDetalle | null>(null);
   const [loading, setLoading] = useState(false);
   const [propina, setPropina] = useState("");
+  const [impsan, setImpsan] = useState("");
   const [guardandoPropina, setGuardandoPropina] = useState(false);
   const { error, success } = useAlert();
 
@@ -22,40 +23,45 @@ export function useFacturaProveedor() {
       .then(({ data }) => {
         setFactura(data);
         setPropina(data?.propina ?? "");
+        setImpsan(data?.impsan ?? "");
       })
       .catch(() => {
         setFactura(null);
         setPropina("");
+        setImpsan("");
       })
       .finally(() => setLoading(false));
   }, []);
 
   const guardarPropina = useCallback(() => {
     if (!factura) return;
-    const monto = Number(propina);
-    if (!propina || Number.isNaN(monto) || monto < 0) {
+    const montoPropina = Number(propina || 0);
+    const montoImpsan = Number(impsan || 0);
+    if (Number.isNaN(montoPropina) || montoPropina < 0) {
       error("La propina debe ser un número mayor o igual a 0");
+      return;
+    }
+    if (Number.isNaN(montoImpsan) || montoImpsan < 0) {
+      error("El impsan debe ser un número mayor o igual a 0");
       return;
     }
     setGuardandoPropina(true);
     conciliacionService
-      .editarPropina(factura.id_factura, monto)
-      .then(({ data }) => {
-        const propinaGuardada = String(data?.propina ?? monto);
-        setFactura((prev) =>
-          prev ? { ...prev, propina: propinaGuardada } : prev,
-        );
-        setPropina(propinaGuardada);
-        success("Propina actualizada correctamente");
+      .editarPropinaImpsan(factura.id_factura_proveedor, {
+        propina: montoPropina,
+        impsan: montoImpsan,
       })
+      .then(() => cargar(factura.uuid_cfdi))
+      .then(() => success("Propina e impsan actualizados correctamente"))
       .catch((err) => error(mensajeError(err, "Error al guardar la propina")))
       .finally(() => setGuardandoPropina(false));
-  }, [factura, propina, error, success]);
+  }, [factura, propina, impsan, cargar, error, success]);
 
   const reset = useCallback(() => {
     setFactura(null);
     setLoading(false);
     setPropina("");
+    setImpsan("");
     setGuardandoPropina(false);
   }, []);
 
@@ -64,6 +70,8 @@ export function useFacturaProveedor() {
     loading,
     propina,
     setPropina,
+    impsan,
+    setImpsan,
     guardandoPropina,
     cargar,
     guardarPropina,

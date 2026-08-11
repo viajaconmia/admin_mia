@@ -1,22 +1,20 @@
 "use client";
-import { Search, Loader2, Unlink } from "lucide-react";
+import { useCallback, useMemo } from "react";
+import { Search, Loader2 } from "lucide-react";
 import { Modal } from "@/angel/components/molecules/Modal";
 import { TableCore } from "@/angel/components/atoms/TableCore";
 import { TextInput } from "@/components/atom/Input";
 import Button from "@/components/atom/Button";
-import {
-  TextRenderer,
-  MonoRenderer,
-  PrecioRenderer,
-  Badge,
-  Precio,
-  MonoCell,
-} from "@/v3/atom/TableItemsComponent";
+import { Precio } from "@/v3/atom/TableItemsComponent";
 import {
   useBuscarUuidFactura,
   type BuscarUuidFacturaRow,
   type DesasignarTarget,
 } from "@/angel/hooks/useBuscarUuidFactura";
+import {
+  createBuscarUuidFacturaRenderers,
+  createBuscarUuidFacturaTotales,
+} from "@/angel/schemas/tables/buscar_uuid_factura";
 import { useFacturaProveedor } from "@/angel/hooks/useFacturaProveedor";
 import { quitarCeroIzquierdo } from "@/angel/lib/format/number";
 
@@ -33,6 +31,11 @@ export function BuscarUuidFacturaModal({ open, onClose, onSuccess }: Props) {
     rows,
     loading,
     desasignandoId,
+    montoDraftsRef,
+    setMontoDraft,
+    hasCambios,
+    guardandoMontoKey,
+    guardarMonto,
     buscar,
     desasignar,
     reset,
@@ -43,6 +46,8 @@ export function BuscarUuidFacturaModal({ open, onClose, onSuccess }: Props) {
     loading: facturaLoading,
     propina,
     setPropina,
+    impsan,
+    setImpsan,
     guardandoPropina,
     cargar: cargarFactura,
     guardarPropina,
@@ -60,48 +65,51 @@ export function BuscarUuidFacturaModal({ open, onClose, onSuccess }: Props) {
     onClose();
   };
 
-  const totalConPropina = factura
-    ? (Number(factura.total || 0) + Number(propina || 0)).toFixed(2)
+  const totalFinal = factura
+    ? (
+        Number(factura.total || 0) +
+        Number(propina || 0) +
+        Number(impsan || 0)
+      ).toFixed(2)
     : null;
 
-  const handleDesasignar = (target: DesasignarTarget) => {
-    const ok = confirm(
-      `¿Desasignar la factura de la solicitud ${target.id_solicitud}?`,
-    );
-    if (!ok) return;
-    desasignar(target, () => {
-      cargarFactura(uuid.trim());
-      onSuccess?.();
-    });
-  };
-
-  const renderers = {
-    codigo_confirmacion: TextRenderer,
-    uuid_factura: MonoRenderer,
-    id_solicitud: TextRenderer,
-    monto: PrecioRenderer,
-    estado: ({ value }: { value: string }) =>
-      value ? (
-        <Badge
-          label={value}
-          style="bg-gray-100 text-gray-700 border border-gray-300"
-        />
-      ) : null,
-    acciones: ({ value }: { value: DesasignarTarget }) => {
-      const desasignando = desasignandoId === value.id_factura_proveedor;
-      return (
-        <Button
-          variant="warning"
-          size="sm"
-          icon={desasignando ? Loader2 : Unlink}
-          disabled={desasignando}
-          onClick={() => handleDesasignar(value)}
-        >
-          {desasignando ? "Desasignando..." : "Desasignar"}
-        </Button>
+  const handleDesasignar = useCallback(
+    (target: DesasignarTarget) => {
+      const ok = confirm(
+        `¿Desasignar la factura de la solicitud ${target.id_solicitud}?`,
       );
+      if (!ok) return;
+      desasignar(target, () => {
+        cargarFactura(uuid.trim());
+        onSuccess?.();
+      });
     },
-  };
+    [desasignar, cargarFactura, uuid, onSuccess],
+  );
+
+  // Memoizado para que la identidad de los renderers no cambie en cada
+  // render (ver nota en el schema) y los inputs de la tabla no pierdan foco.
+  const renderers = useMemo(
+    () =>
+      createBuscarUuidFacturaRenderers({
+        montoDraftsRef,
+        setMontoDraft,
+        hasCambios,
+        guardandoMontoKey,
+        guardarMonto,
+        desasignandoId,
+        onDesasignar: handleDesasignar,
+      }),
+    [
+      montoDraftsRef,
+      setMontoDraft,
+      hasCambios,
+      guardandoMontoKey,
+      guardarMonto,
+      desasignandoId,
+      handleDesasignar,
+    ],
+  );
 
   return (
     <Modal
@@ -109,7 +117,7 @@ export function BuscarUuidFacturaModal({ open, onClose, onSuccess }: Props) {
       onClose={handleClose}
       title="Buscar factura por UUID"
       description="Ingresa el identificador único de la factura"
-      className="max-w-3xl"
+      className="max-w-6xl"
     >
       <div className="space-y-4 p-2">
         <div className="flex gap-2">
@@ -137,17 +145,18 @@ export function BuscarUuidFacturaModal({ open, onClose, onSuccess }: Props) {
 
         {factura && (
           <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
-            <p className="font-semibold ">{factura.uuid_factura}</p>
-            <div className="grid grid-cols-2 place-items-center gap-x-4 gap-y-2 text-sm sm:grid-cols-3">
-              <div>
-                <p className="text-xs text-gray-500">Total</p>
+            <div className="flex justify-between w-full">
+              <div className="flex gap-2 items-end">
+                <p>Total de la factura:</p>
                 <Precio value={factura.total} />
               </div>
-              <div>
-                <p className="text-xs text-gray-500">Total con propina</p>
-                <Precio value={totalConPropina} />
+              <div className="flex gap-2 items-end">
+                <p>Total final:</p>
+                <Precio value={totalFinal} />
               </div>
-              <div className="flex items-end gap-2">
+            </div>
+            <div className="grid grid-cols-2 place-items-center gap-x-4 gap-y-2 text-sm">
+              <div className="grid grid-cols-3 items-end col-span-2 w-full gap-4">
                 <TextInput
                   label="Propina"
                   value={propina}
@@ -155,7 +164,14 @@ export function BuscarUuidFacturaModal({ open, onClose, onSuccess }: Props) {
                     setPropina(quitarCeroIzquierdo(v.replace(/[^\d.]/g, "")))
                   }
                   onFocus={(e) => e.target.select()}
-                  className="w-40"
+                />
+                <TextInput
+                  label="Impsan"
+                  value={impsan}
+                  onChange={(v) =>
+                    setImpsan(quitarCeroIzquierdo(v.replace(/[^\d.]/g, "")))
+                  }
+                  onFocus={(e) => e.target.select()}
                 />
                 <Button
                   size="sm"
@@ -172,6 +188,7 @@ export function BuscarUuidFacturaModal({ open, onClose, onSuccess }: Props) {
         <TableCore<BuscarUuidFacturaRow>
           registros={rows}
           renderers={renderers}
+          totales={createBuscarUuidFacturaTotales()}
         />
       </div>
     </Modal>

@@ -4,6 +4,9 @@ const conciliacionApi = createApiClient("/v2/mia/pago_proveedor");
 
 export type BuscarUuidFacturaItem = {
   monto_facturado: number;
+  monto_propina: number;
+  monto_impsan: number;
+  monto_facturado_final: number;
   monto_solicitado: number;
   uuid_factura: string;
   id_factura_proveedor: number;
@@ -11,6 +14,23 @@ export type BuscarUuidFacturaItem = {
   codigo_confirmacion: string;
   estado: string;
   id_solicitud: number;
+};
+
+export type EditarPagoFacturaParams = {
+  id_factura: string;
+  id_solicitud: number;
+};
+
+export type EditarPagoFacturaBody = Partial<{
+  monto_facturado: number;
+  monto_propina: number;
+  monto_impsan: number;
+}>;
+
+export type EditarPagoFacturaResponse = {
+  id_factura: string;
+  id_solicitud: number;
+  [key: string]: unknown;
 };
 
 export type DesasignarFacturaParams = {
@@ -26,23 +46,25 @@ export type DesasignarFacturaResponse = {
   monto_pago: number;
 };
 
-// Todas las columnas de vw_saldos_facturas_proveedores para esa factura
-// (saldos + detalle completo). Tipamos los campos que ya usamos; puede traer
-// más columnas de la vista que todavía no consumimos.
+// Todas las columnas de la factura de proveedor (saldos + detalle completo).
+// Tipamos los campos que ya usamos; puede traer más columnas que todavía no
+// consumimos.
 export type FacturaProveedorDetalle = {
-  id_factura: string;
-  uuid_factura: string;
+  id_factura_proveedor: string;
+  uuid_cfdi: string;
   total: string;
-  propina: string;
-  total_con_propina: string;
+  total_final: string;
+  propina: string | null;
+  propina_aplicada: string | null;
+  impsan: string | null;
   monto_facturado: string;
-  restante_por_facturar: string;
   [key: string]: unknown;
 };
 
-export type EditarPropinaResponse = {
+export type EditarPropinaImpsanResponse = {
   id_factura_proveedor: string;
   propina: number;
+  impsan: number;
 };
 
 export const conciliacionService = {
@@ -52,6 +74,15 @@ export const conciliacionService = {
     conciliacionApi.get<BuscarUuidFacturaItem[]>("/facturas/solicitudes", {
       uuid_factura,
     }),
+
+  editarPagoFactura: (
+    params: EditarPagoFacturaParams,
+    body: EditarPagoFacturaBody,
+  ): Promise<ApiResponse<EditarPagoFacturaResponse>> =>
+    conciliacionApi.put<EditarPagoFacturaResponse>(
+      `/facturas/solicitudes?id_factura=${encodeURIComponent(params.id_factura)}&id_solicitud=${params.id_solicitud}`,
+      body,
+    ),
 
   desasignarFactura: (
     params: DesasignarFacturaParams,
@@ -68,12 +99,12 @@ export const conciliacionService = {
       uuid_factura,
     }),
 
-  editarPropina: (
+  editarPropinaImpsan: (
     id_factura_proveedor: string,
-    propina: number,
-  ): Promise<ApiResponse<EditarPropinaResponse>> =>
-    conciliacionApi.put<EditarPropinaResponse>(
+    body: { propina: number; impsan: number },
+  ): Promise<ApiResponse<EditarPropinaImpsanResponse>> =>
+    conciliacionApi.put<EditarPropinaImpsanResponse>(
       `/facturas?id_factura_proveedor=${encodeURIComponent(id_factura_proveedor)}`,
-      { propina },
+      body,
     ),
 };
