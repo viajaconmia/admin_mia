@@ -31,12 +31,6 @@ function formatMoney(n: any) {
   return `$${num.toFixed(2)}`;
 }
 
-function toInputMoney(v: any) {
-  if (v === null || v === undefined || String(v).trim() === "") return "";
-  const num = Number(v);
-  return Number.isFinite(num) ? String(num) : "";
-}
-
 function toApiNumber(v: any) {
   const s = String(v ?? "").trim();
   if (!s) return null;
@@ -47,22 +41,6 @@ function toApiNumber(v: any) {
 function toNum(v: any) {
   const n = Number(String(v ?? "").trim());
   return Number.isFinite(n) ? n : 0;
-}
-
-const MS_PER_DAY = 24 * 60 * 60 * 1000;
-
-function calcNochesLocal(checkIn?: string | null, checkOut?: string | null): number {
-  if (!checkIn || !checkOut) return 0;
-
-  const inD = new Date(checkIn);
-  const outD = new Date(checkOut);
-  if (Number.isNaN(inD.getTime()) || Number.isNaN(outD.getTime())) return 0;
-
-  const startUTC = Date.UTC(inD.getUTCFullYear(), inD.getUTCMonth(), inD.getUTCDate());
-  const endUTC = Date.UTC(outD.getUTCFullYear(), outD.getUTCMonth(), outD.getUTCDate());
-
-  const diffDays = Math.round((endUTC - startUTC) / MS_PER_DAY);
-  return diffDays > 0 ? diffDays : 0;
 }
 
 function openUrl(url?: string | null) {
@@ -115,6 +93,95 @@ function StatCard({
   );
 }
 
+function EditableAmountCell({
+  value,
+  onChange,
+  invalid = false,
+  minWidthClass = "min-w-[110px]",
+  children,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  invalid?: boolean;
+  minWidthClass?: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className={minWidthClass}>
+      <input
+        type="number"
+        step="0.01"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={`w-full border rounded-lg px-2 py-2 text-sm outline-none focus:ring-2 ${
+          invalid
+            ? "border-red-300 focus:ring-red-100 text-red-700"
+            : "border-gray-200 focus:ring-blue-100"
+        }`}
+        placeholder="0.00"
+      />
+      {children}
+    </div>
+  );
+}
+
+function AccionButton({
+  onClick,
+  tone,
+  icon: Icon,
+  label,
+  disabled = false,
+  spinning = false,
+  trailingIcon: TrailingIcon,
+  title,
+}: {
+  onClick: () => void;
+  tone: "gray" | "blue" | "red";
+  icon: React.ElementType;
+  label: string;
+  disabled?: boolean;
+  spinning?: boolean;
+  trailingIcon?: React.ElementType;
+  title: string;
+}) {
+  const toneMap: Record<string, string> = {
+    gray: "border-gray-200 bg-white text-gray-700 hover:bg-gray-50",
+    blue: "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100",
+    red: "border-red-200 bg-red-50 text-red-700 hover:bg-red-100",
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] disabled:opacity-50 ${toneMap[tone]}`}
+    >
+      <Icon className={`w-3.5 h-3.5 ${spinning ? "animate-spin" : ""}`} />
+      {label}
+      {TrailingIcon ? <TrailingIcon className="w-3.5 h-3.5" /> : null}
+    </button>
+  );
+}
+
+function CampoPago({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <div>
+      <p className="text-[10px] uppercase tracking-wide text-gray-500 mb-0.5">
+        {label}
+      </p>
+      {value}
+    </div>
+  );
+}
+
 function buildPayloadFromSolicitud(solicitud: any) {
   const raw = solicitud ?? {};
   const asociaciones = raw?.asociaciones ?? {};
@@ -146,14 +213,6 @@ type FacturaDraft = {
   impuestos: string;
   monto_asociar: string;
 };
-
-function getFacturaBaseKey(f: any) {
-  return (
-    safeString(f?.id_factura_proveedor) ||
-    safeString(f?.uuid_cfdi) ||
-    safeString(f?.uuid_factura)
-  );
-}
 
 function getFacturaRowKey(f: any, idx: number) {
   return [
@@ -387,64 +446,13 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose, onSucce
   const endpoint = `${URL}/mia/pago_proveedor/detalles`;
   const asignarMontoFactEndpoint = `${URL}/mia/pago_proveedor/asignar_monto_fact`;
   const deleteFacturaEndpoint = `${URL}/mia/pago_proveedor/edit_factura`;
-    console.log("este es el raw", solicitud)
 
   const payload = useMemo(() => buildPayloadFromSolicitud(solicitud), [solicitud]);
 
-  const datosReserva = useMemo(() => {
-    const raw = solicitud?.informacion_completa ?? {};
-
-    const hotel = safeString(raw?.hotel);
-    const viajero = safeString(
-      raw?.nombre_viajero_completo ?? raw?.nombre_viajero
-    );
-
-    const costo_proveedor = toNum(raw?.solicitud_proveedor?.monto_solicitado);
-    const precio_de_venta = toNum(raw?.total);
-    const markup =
-      precio_de_venta > 0
-        ? ((precio_de_venta - costo_proveedor) / precio_de_venta) * 100
-        : 0;
-
-    const noches = calcNochesLocal(raw?.check_in, raw?.check_out);
-
-    const idIntermediario =
-      raw?.id_inermediario ??
-      raw?.id_intermediario ??
-      raw?.informacion_completa?.id_intermediario ??
-      null;
-
-    const nombreIntermediario =
-      raw?.intermediario ??
-      raw?.nombre_intermediario ??
-      raw?.informacion_completa?.intermediario ??
-      "";
-
-    const canalDeReservacion = idIntermediario
-      ? "INTERMEDIARIO"
-      : (raw?.canal_de_reservacion ?? "DIRECTO");
-
-    return {
-      codigo_hotel: safeString(raw?.codigo_confirmacion),
-      hotel: hotel ? hotel.toUpperCase() : "",
-      razon_social: safeString(raw?.proveedor?.razon_social),
-      rfc: safeString(raw?.rfc_proveedor ?? raw?.proveedor?.rfc ?? raw?.rfc),
-      viajero: viajero ? viajero.toUpperCase() : "",
-      check_in: raw?.check_in ?? null,
-      check_out: raw?.check_out ?? null,
-      noches,
-      tipo_cuarto: safeString(raw?.room),
-      costo_proveedor,
-      precio_de_venta,
-      markup,
-      canal_de_reservacion: canalDeReservacion,
-      nombre_intermediario: idIntermediario
-        ? nombreIntermediario
-        : (raw?.nombre_intermediario ?? ""),
-      creado: raw?.created_at ?? null,
-      estado_solicitud: safeString(raw?.solicitud_proveedor?.estado_solicitud),
-    };
-  }, [solicitud]);
+  const codigoHotel = useMemo(
+    () => safeString(solicitud?.informacion_completa?.codigo_confirmacion),
+    [solicitud]
+  );
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -513,7 +521,6 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({ solicitud, onClose, onSucce
   }, [fetchDetalles]);
 
   const api = data?.data ?? {};
-  const solicitudApi = api?.solicitud ?? null;
   const facturasApi = Array.isArray(api?.facturas) ? api.facturas : [];
   const pagosApi = Array.isArray(api?.pagos) ? api.pagos : [];
   const resumen = api?.resumen_validacion ?? null;
@@ -695,12 +702,6 @@ const maximoTotalPermitido = round2(totalYaAsociado + maximoAdicional);
     0
   );
 
-  
-  
-  
-  // const totalAsociadoSolicitud = resumen?.total_asociado_solicitud ?? 0;
-  //const restanteSolicitud = resumen?.restante_solicitud ?? 0;
-  //const totalPagado = resumen?.total_pagado ?? 0;
   const totalFacturas = resumen?.total_facturado ?? 0;
   const diferencia = resumen?.diferencia_total ?? 0;
   const esCuadrado = Math.abs(Number(diferencia) || 0) <= 0.01;
@@ -808,79 +809,58 @@ const facturasTable = useMemo(() => {
       ),
 
       monto_asociar_edit: ({ item }: any) => {
-  const facturaKey = String(item?.facturaKey ?? "");
-  const maximo = toNum(item?.maximo_total_permitido_view);
-  const adicional = toNum(item?.maximo_a_asociar_view);
-  const asociadoActual = toNum(item?.total_asociado_factura_view);
-  const monto = toNum(drafts[facturaKey]?.monto_asociar ?? 0);
-  const excedido = monto > maximo;
+        const facturaKey = String(item?.facturaKey ?? "");
+        const maximo = toNum(item?.maximo_total_permitido_view);
+        const adicional = toNum(item?.maximo_a_asociar_view);
+        const asociadoActual = toNum(item?.total_asociado_factura_view);
+        const monto = toNum(drafts[facturaKey]?.monto_asociar ?? 0);
+        const excedido = monto > maximo;
 
-  return (
-    <div key={`${facturaKey}-monto`} className="min-w-[170px]">
-      <input
-        type="number"
-        step="0.01"
-        value={drafts[facturaKey]?.monto_asociar ?? ""}
-        onChange={(e) =>
-          setDraftField(
-            item?.rawFactura ?? item,
-            facturaKey,
-            "monto_asociar",
-            e.target.value
-          )
-        }
-        className={`w-full border rounded-lg px-2 py-2 text-sm outline-none focus:ring-2 ${
-          excedido
-            ? "border-red-300 focus:ring-red-100 text-red-700"
-            : "border-gray-200 focus:ring-blue-100"
-        }`}
-        placeholder="0.00"
-      />
-      <p className="mt-1 text-[10px] text-gray-500">
-        Máximo total: {formatMoney(maximo)}
-      </p>
-      <p className="text-[10px] text-gray-400">
-        Asociado: {formatMoney(asociadoActual)} + adicional: {formatMoney(adicional)}
-      </p>
-    </div>
-  );
-},
+        return (
+          <EditableAmountCell
+            key={`${facturaKey}-monto`}
+            minWidthClass="min-w-[170px]"
+            invalid={excedido}
+            value={drafts[facturaKey]?.monto_asociar ?? ""}
+            onChange={(value) =>
+              setDraftField(item?.rawFactura ?? item, facturaKey, "monto_asociar", value)
+            }
+          >
+            <p className="mt-1 text-[10px] text-gray-500">
+              Máximo total: {formatMoney(maximo)}
+            </p>
+            <p className="text-[10px] text-gray-400">
+              Asociado: {formatMoney(asociadoActual)} + adicional: {formatMoney(adicional)}
+            </p>
+          </EditableAmountCell>
+        );
+      },
 
       subtotal_edit: ({ item }: any) => {
-  const facturaKey = String(item?.facturaKey ?? "");
-  return (
-    <div key={`${facturaKey}-subtotal`}>
-      <input
-        type="number"
-        step="0.01"
-        value={drafts[facturaKey]?.subtotal ?? ""}
-        onChange={(e) =>
-          setDraftField(item?.rawFactura ?? item, facturaKey, "subtotal", e.target.value)
-        }
-        className="w-full min-w-[110px] border border-gray-200 rounded-lg px-2 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
-        placeholder="0.00"
-      />
-    </div>
-  );
-},
+        const facturaKey = String(item?.facturaKey ?? "");
+        return (
+          <EditableAmountCell
+            key={`${facturaKey}-subtotal`}
+            value={drafts[facturaKey]?.subtotal ?? ""}
+            onChange={(value) =>
+              setDraftField(item?.rawFactura ?? item, facturaKey, "subtotal", value)
+            }
+          />
+        );
+      },
 
-impuestos_edit: ({ item }: any) => {
-  const facturaKey = String(item?.facturaKey ?? "");
-  return (
-    <div key={`${facturaKey}-impuestos`}>
-      <input
-        type="number"
-        step="0.01"
-        value={drafts[facturaKey]?.impuestos ?? ""}
-        onChange={(e) =>
-          setDraftField(item?.rawFactura ?? item, facturaKey, "impuestos", e.target.value)
-        }
-        className="w-full min-w-[110px] border border-gray-200 rounded-lg px-2 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
-        placeholder="0.00"
-      />
-    </div>
-  );
-},
+      impuestos_edit: ({ item }: any) => {
+        const facturaKey = String(item?.facturaKey ?? "");
+        return (
+          <EditableAmountCell
+            key={`${facturaKey}-impuestos`}
+            value={drafts[facturaKey]?.impuestos ?? ""}
+            onChange={(value) =>
+              setDraftField(item?.rawFactura ?? item, facturaKey, "impuestos", value)
+            }
+          />
+        );
+      },
 
       subio_factura: ({ value }: any) =>
         value ? (
@@ -900,57 +880,43 @@ impuestos_edit: ({ item }: any) => {
 
         return (
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => openUrl(rawFactura?.url_pdf)}
-              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50"
+            <AccionButton
+              tone="gray"
+              icon={FileText}
+              trailingIcon={ExternalLink}
+              label="PDF"
               title="Abrir PDF"
-            >
-              <FileText className="w-3.5 h-3.5" />
-              PDF
-              <ExternalLink className="w-3.5 h-3.5" />
-            </button>
+              onClick={() => openUrl(rawFactura?.url_pdf)}
+            />
 
-            <button
-              type="button"
-              onClick={() => openUrl(rawFactura?.url_xml)}
-              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50"
+            <AccionButton
+              tone="gray"
+              icon={Code2}
+              trailingIcon={ExternalLink}
+              label="XML"
               title="Abrir XML"
-            >
-              <Code2 className="w-3.5 h-3.5" />
-              XML
-              <ExternalLink className="w-3.5 h-3.5" />
-            </button>
+              onClick={() => openUrl(rawFactura?.url_xml)}
+            />
 
-            <button
-              type="button"
-              onClick={() => void saveFactura({ ...rawFactura, facturaKey })}
-              disabled={isSaving || isDeleting}
-              className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+            <AccionButton
+              tone="blue"
+              icon={isSaving ? Loader2 : Save}
+              spinning={isSaving}
+              label="Guardar"
               title="Guardar cambios"
-            >
-              {isSaving ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Save className="w-3.5 h-3.5" />
-              )}
-              Guardar
-            </button>
-
-            <button
-              type="button"
-              onClick={() => void deleteFactura({ ...rawFactura, facturaKey })}
               disabled={isSaving || isDeleting}
-              className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[11px] text-red-700 hover:bg-red-100 disabled:opacity-50"
+              onClick={() => void saveFactura({ ...rawFactura, facturaKey })}
+            />
+
+            <AccionButton
+              tone="red"
+              icon={isDeleting ? Loader2 : Trash2}
+              spinning={isDeleting}
+              label="Eliminar"
               title="Eliminar factura"
-            >
-              {isDeleting ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Trash2 className="w-3.5 h-3.5" />
-              )}
-              Eliminar
-            </button>
+              disabled={isSaving || isDeleting}
+              onClick={() => void deleteFactura({ ...rawFactura, facturaKey })}
+            />
           </div>
         );
       },
@@ -971,8 +937,7 @@ impuestos_edit: ({ item }: any) => {
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <p className="text-sm font-semibold text-gray-900">
-                {solicitud.informacion_completa.hotel || "—"}: {datosReserva.codigo_hotel || "—"}
-                {console.log(solicitud)}
+                {solicitud?.informacion_completa?.hotel || "—"}: {codigoHotel || "—"}
               </p>
 
               {resumen ? (
@@ -1014,71 +979,6 @@ impuestos_edit: ({ item }: any) => {
               </div>
             )}
 
-            {!loading && !error && (
-              <>
-                {/* <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-                  <p className="text-sm font-semibold text-gray-900 mb-3">
-                    Datos de la reserva
-                  </p>
-
-                  <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-                    <StatCard
-                      label="Código de confirmación"
-                      value={datosReserva.codigo_hotel || "—"}
-                    />
-                    <StatCard
-                      label="Proveedor"
-                      value={datosReserva.hotel || "—"}
-                      sub={
-                        datosReserva.razon_social || datosReserva.rfc
-                          ? `${datosReserva.razon_social || "—"}${
-                              datosReserva.rfc ? ` · ${datosReserva.rfc}` : ""
-                            }`
-                          : undefined
-                      }
-                    />
-                    <StatCard
-                      label="Viajero"
-                      value={datosReserva.viajero || "—"}
-                    />
-                    <StatCard
-                      label="Check-in / Check-out"
-                      value={`${formatDate(datosReserva.check_in) || "—"} — ${
-                        formatDate(datosReserva.check_out) || "—"
-                      }`}
-                      sub={`${datosReserva.noches} noche(s)`}
-                    />
-                    <StatCard
-                      label="Tipo de cuarto"
-                      value={datosReserva.tipo_cuarto || "—"}
-                    />
-                    <StatCard
-                      label="Costo / Precio / Markup"
-                      value={`${formatMoney(datosReserva.costo_proveedor)} / ${formatMoney(
-                        datosReserva.precio_de_venta
-                      )}`}
-                      sub={`Markup: ${datosReserva.markup.toFixed(2)}%`}
-                    />
-                    <StatCard
-                      label="Canal de reservación"
-                      value={datosReserva.canal_de_reservacion || "—"}
-                      sub={
-                        datosReserva.nombre_intermediario
-                          ? datosReserva.nombre_intermediario
-                          : undefined
-                      }
-                    />
-                    <StatCard
-                      label="Fecha de creación"
-                      value={formatDate(datosReserva.creado) || "—"}
-                    />
-                    <StatCard
-                      label="Estado de la solicitud"
-                      value={datosReserva.estado_solicitud || "—"}
-                    />
-                  </div>
-                </div> */}
-
                 <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
                   <div className="flex items-center justify-between gap-3 mb-3">
                     <p className="text-sm font-semibold text-gray-900">
@@ -1105,53 +1005,15 @@ impuestos_edit: ({ item }: any) => {
                       No llegó resumen de validación en la respuesta.
                     </p>
                   ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <StatCard
                         label="Costo proveedor"
                         value={formatMoney(totalFacturas)}
-                      />                        
+                      />
                       <StatCard
-                        label="Total facturado "
+                        label="Total facturado"
                         value={formatMoney(montosAsociados)}
                       />
-                      {/* <StatCard
-                        label="Total asociado solicitud"
-                        value={formatMoney(totalAsociadoSolicitud)}
-                      />
-                      <StatCard
-                        label="Restante solicitud"
-                        value={
-                          <span className="text-amber-700 font-bold">
-                            {formatMoney(restanteSolicitud)}
-                          </span>
-                        }
-                      />
-                      <StatCard
-                        label="Total pagado"
-                        value={formatMoney(totalPagado)}
-                      /> */}
-                      {/* <StatCard
-                        label="Total facturas"
-                        value={formatMoney(totalFacturas)}
-                        /> */}
-
-                      {/* <StatCard
-                        label="Diferencia"
-                        value={
-                          <span
-                            className={`font-bold ${
-                              esCuadrado ? "text-green-700" : "text-amber-700"
-                            }`}
-                          >
-                            {formatMoney(esCuadrado ? 0 : diferencia)}
-                          </span>
-                        }
-                        sub={
-                          esCuadrado
-                            ? "Pagos y facturas cuadran."
-                            : "Hay diferencia entre pago y total de facturas."
-                        }
-                      /> */}
                     </div>
                   )}
                 </div>
@@ -1200,53 +1062,55 @@ impuestos_edit: ({ item }: any) => {
                             key={id}
                             className="grid grid-cols-1 md:grid-cols-4 gap-3 rounded-xl border border-gray-100 bg-gray-50 p-3"
                           >
-                            <div>
-                              <p className="text-[10px] uppercase tracking-wide text-gray-500 mb-0.5">ID Pago</p>
-                              <p className="text-xs font-mono text-gray-800">{id}</p>
-                            </div>
+                            <CampoPago
+                              label="ID Pago"
+                              value={<p className="text-xs font-mono text-gray-800">{id}</p>}
+                            />
 
-                            <div>
-                              <p className="text-[10px] uppercase tracking-wide text-gray-500 mb-0.5">Monto pagado</p>
-                              <p className="text-xs font-semibold text-green-700">{formatMoney(monto)}</p>
-                            </div>
+                            <CampoPago
+                              label="Monto pagado"
+                              value={
+                                <p className="text-xs font-semibold text-green-700">
+                                  {formatMoney(monto)}
+                                </p>
+                              }
+                            />
 
-                            <div>
-                              <p className="text-[10px] uppercase tracking-wide text-gray-500 mb-0.5">Fecha de pago</p>
-                              <p className="text-xs text-gray-800">
-                                {fecha
-                                  ? new Date(fecha).toLocaleDateString("es-MX", {
-                                      day: "2-digit",
-                                      month: "2-digit",
-                                      year: "numeric",
-                                    })
-                                  : "—"}
-                              </p>
-                            </div>
+                            <CampoPago
+                              label="Fecha de pago"
+                              value={
+                                <p className="text-xs text-gray-800">
+                                  {fecha ? formatDate(fecha) : "—"}
+                                </p>
+                              }
+                            />
 
-                            <div>
-                              <p className="text-[10px] uppercase tracking-wide text-gray-500 mb-0.5">Comprobante</p>
-                              {comprobante ? (
-                                <button
-                                  type="button"
-                                  onClick={() => openUrl(comprobante)}
-                                  className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] text-blue-700 hover:bg-blue-100"
-                                >
-                                  <FileText className="w-3.5 h-3.5" />
-                                  Ver comprobante
-                                  <ExternalLink className="w-3 h-3" />
-                                </button>
-                              ) : (
-                                <span className="text-xs text-gray-400 italic">Sin comprobante</span>
-                              )}
-                            </div>
+                            <CampoPago
+                              label="Comprobante"
+                              value={
+                                comprobante ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => openUrl(comprobante)}
+                                    className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] text-blue-700 hover:bg-blue-100"
+                                  >
+                                    <FileText className="w-3.5 h-3.5" />
+                                    Ver comprobante
+                                    <ExternalLink className="w-3 h-3" />
+                                  </button>
+                                ) : (
+                                  <span className="text-xs text-gray-400 italic">
+                                    Sin comprobante
+                                  </span>
+                                )
+                              }
+                            />
                           </div>
                         );
                       })}
                     </div>
                   )}
                 </div>
-              </>
-            )}
           </div>
         </div>
       </div>

@@ -31,8 +31,7 @@ import { Loader } from "@/components/atom/Loader";
 import SubirFactura from "@/app/dashboard/facturacion/subirfacturas/SubirFactura";
 import ModalDetalle from "@/app/dashboard/conciliacion/compponents/detalles";
 import { formatDate } from "@/helpers/formater";
-import BuscarUuidFacturaModal from "@/app/dashboard/conciliacion/compponents/BuscarUuidFacturaModal";
-import { ConciliacionService } from "@/services/ConciliacionService";
+import { BuscarUuidFacturaModal } from "@/angel/components/organisms/BuscarUuidFacturaModal";
 import FiltrosConciliacionModal, {
   type ConciliacionFilters,
 } from "@/app/dashboard/conciliacion/compponents/FiltrosReservaModal";
@@ -530,131 +529,7 @@ export default function ConciliacionPage() {
     metodo_pago_reserva: "",
   };
 
-  type BuscarUuidMatchRow = {
-    id_factura_proveedor: string;
-    codigo_confirmacion: string;
-    uuid_factura: string;
-    id_solicitud: number;
-    monto: number;
-    estado?: string;
-    acciones: null;
-  };
-
-  const [buscarUuidModal, setBuscarUuidModal] = useState<{
-    open: boolean;
-    loading: boolean;
-    uuid_factura: string;
-    rows: BuscarUuidMatchRow[];
-  }>({
-    open: false,
-    loading: false,
-    uuid_factura: "",
-    rows: [],
-  });
-
-  const buscarUuidEndpoint = `${URL}/mia/pago_proveedor/buscaruuid`;
-
-  const buscarUuid = useCallback(
-    async (uuidParam?: string) => {
-      const uuid = String(
-        uuidParam ?? buscarUuidModal.uuid_factura ?? "",
-      ).trim();
-
-      if (!uuid) {
-        alert("Escribe un UUID");
-        return;
-      }
-
-      setBuscarUuidModal((prev) => ({
-        ...prev,
-        open: true,
-        loading: true,
-        uuid_factura: uuid,
-        rows: [],
-      }));
-
-      try {
-        const resp = await fetch(buscarUuidEndpoint, {
-          method: "POST",
-          headers: {
-            "x-api-key": API_KEY || "",
-            "Content-Type": "application/json",
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-          },
-          body: JSON.stringify({ uuid_factura: uuid }),
-        });
-
-        const json = await resp.json().catch(() => null);
-
-        if (!resp.ok) {
-          throw new Error(json?.message || `Error HTTP: ${resp.status}`);
-        }
-
-        const list = Array.isArray(json?.data) ? json.data : [];
-
-        const rows: BuscarUuidMatchRow[] = list.map((r: any) => ({
-          id_factura_proveedor: r?.id_factura_proveedor ?? "",
-          codigo_confirmacion: r?.codigo_confirmacion ?? "",
-          uuid_factura: r?.uuid_factura ?? "",
-          id_solicitud: Number(r?.id_solicitud ?? 0),
-          monto: Number(r?.monto_facturado ?? r?.monto_solicitado ?? 0) || 0,
-          estado: r?.estado ?? "",
-          acciones: null,
-        }));
-
-        setBuscarUuidModal({
-          open: true,
-          loading: false,
-          uuid_factura: uuid,
-          rows,
-        });
-      } catch (err: any) {
-        console.error("❌ buscaruuid fail", err);
-
-        setBuscarUuidModal((prev) => ({
-          ...prev,
-          open: true,
-          loading: false,
-          rows: [],
-        }));
-
-        alert(err?.message || "Error al buscar coincidencias por uuid");
-      }
-    },
-    [buscarUuidEndpoint, buscarUuidModal.uuid_factura],
-  );
-  const handleDesasignarUuid = useCallback(
-    async (row: BuscarUuidMatchRow) => {
-      if (!row.id_factura_proveedor || !row.id_solicitud)
-        throw new Error("Faltan datos para desasignar (id_factura / id_solicitud)");
-
-      await ConciliacionService.getInstance().eliminarPagoFacturaProveedor({
-        id_factura: row.id_factura_proveedor,
-        id_solicitud: row.id_solicitud,
-      });
-
-      void buscarUuid();
-    },
-    [buscarUuid],
-  );
-
-  const closeBuscarUuidModal = useCallback(() => {
-    setBuscarUuidModal({
-      open: false,
-      loading: false,
-      uuid_factura: "",
-      rows: [],
-    });
-  }, []);
-
-  const openBuscarUuidModal = useCallback(() => {
-    setBuscarUuidModal({
-      open: true,
-      loading: false,
-      uuid_factura: "",
-      rows: [],
-    });
-  }, []);
+  const [uuidModalOpen, setUuidModalOpen] = useState(false);
 
   const DEFAULT_OPEN_FILTERS: ConciliacionFilters = {
     ...EMPTY_FILTERS,
@@ -1988,7 +1863,7 @@ export default function ConciliacionPage() {
               variant="secondary"
               size="md"
               className="border border-violet-200 bg-violet-50 hover:bg-violet-100 text-violet-800"
-              onClick={openBuscarUuidModal}
+              onClick={() => setUuidModalOpen(true)}
             >
               <Search className="w-4 h-4" />
               Buscar UUID
@@ -2170,19 +2045,9 @@ export default function ConciliacionPage() {
           />
         )}
         <BuscarUuidFacturaModal
-          open={buscarUuidModal.open}
-          loading={buscarUuidModal.loading}
-          uuidFactura={buscarUuidModal.uuid_factura}
-          rows={buscarUuidModal.rows}
-          onClose={closeBuscarUuidModal}
-          onUuidChange={(value) =>
-            setBuscarUuidModal((prev) => ({
-              ...prev,
-              uuid_factura: value,
-            }))
-          }
-          onSearch={() => void buscarUuid()}
-          onDesasignar={handleDesasignarUuid}
+          open={uuidModalOpen}
+          onClose={() => setUuidModalOpen(false)}
+          onSuccess={() => void load(appliedFilters, page)}
         />
         {isLoading && (
           <div className="text-sm text-gray-500 px-2">
