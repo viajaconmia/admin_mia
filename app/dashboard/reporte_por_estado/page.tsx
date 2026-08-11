@@ -4,8 +4,10 @@ import { Table5 } from "@/components/Table5";
 import { ApiService } from "@/services/ApiService";
 import BaseCard from "@/components/atom/BaseCard";
 import { Loader } from "@/components/atom/Loader";
-import { ChevronDown, ChevronRight } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { ChevronDown, ChevronRight, Download } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { CheckboxInput, DropdownValues } from "@/components/atom/Input";
+import Button from "@/components/atom/Button";
 
 class EstadoReporteService extends ApiService {
   constructor() {
@@ -18,17 +20,23 @@ class EstadoReporteService extends ApiService {
     });
   }
 
-  async obtenerTopProveedores(estado: string) {
+  async obtenerTopProveedores(
+    estado: string | null,
+    mostrarTodos: boolean = false,
+  ) {
     return this.get<ProveedorEstadoPreview[]>({
       path: this.formatPath("/getTopProveedores"),
-      params: { estado },
+      params: { estado, mostrarTodos },
     });
   }
 
-  async obtenerTopClientes(estado: string) {
+  async obtenerTopClientes(
+    estado: string | null,
+    mostrarTodos: boolean = false,
+  ) {
     return this.get<ClienteEstadoPreview[]>({
       path: this.formatPath("/getTopClientes"),
-      params: { estado },
+      params: { estado, mostrarTodos },
     });
   }
 }
@@ -49,6 +57,7 @@ type EstadoRow = EstadoPreview & {
 type ProveedorEstadoPreview = {
   estado: string;
   id_hotel: string;
+  cadena?: string;
   nombre: string;
   cantidad_de_reservas: number;
   monto_reservas_confirmadas: number;
@@ -57,9 +66,18 @@ type ProveedorEstadoPreview = {
 type ClienteEstadoPreview = {
   estado: string;
   id_agente: string;
+  cadena?: string;
   nombre: string;
   cantidad_de_reservas: number;
   total_por_reservas: number;
+};
+
+type ProveedorExportacion = ProveedorEstadoPreview & {
+  top: number;
+};
+
+type ClienteExportacion = ClienteEstadoPreview & {
+  top: number;
 };
 
 const estadoReporteService = new EstadoReporteService();
@@ -83,6 +101,40 @@ const renderDinero = ({ value }: { value: number }) => (
   </span>
 );
 
+const normalizarEstado = (estado: string | null | undefined) => {
+  const estadoLimpio = String(estado ?? "").trim();
+
+  return estadoLimpio || "SIN ESTADO";
+};
+
+const calcularTotalProveedores = (proveedores: ProveedorEstadoPreview[]) => {
+  return {
+    nombre: "TOTAL",
+    cantidad_de_reservas: proveedores.reduce(
+      (sum, p) => sum + (Number(p.cantidad_de_reservas) || 0),
+      0,
+    ),
+    monto_reservas_confirmadas: proveedores.reduce(
+      (sum, p) => sum + (Number(p.monto_reservas_confirmadas) || 0),
+      0,
+    ),
+  };
+};
+
+const calcularTotalClientes = (clientes: ClienteEstadoPreview[]) => {
+  return {
+    nombre: "TOTAL",
+    cantidad_de_reservas: clientes.reduce(
+      (sum, c) => sum + (Number(c.cantidad_de_reservas) || 0),
+      0,
+    ),
+    total_por_reservas: clientes.reduce(
+      (sum, c) => sum + (Number(c.total_por_reservas) || 0),
+      0,
+    ),
+  };
+};
+
 export default function Page() {
   const [reportePorEstado, setReportePorEstado] = useState<EstadoPreview[]>([]);
 
@@ -90,6 +142,11 @@ export default function Page() {
     Record<string, ProveedorEstadoPreview[]>
   >({});
 
+  const [opcion, setOpcion] = useState("");
+  const [mostrarTodos, setMostrarTodos] = useState(false);
+  const [exportarProveedores, setExportarProveedores] = useState(false);
+  const [exportarClientes, setExportarClientes] = useState(false);
+  const [exportando, setExportando] = useState(false);
   const [clientesPorEstado, setClientesPorEstado] = useState<
     Record<string, ClienteEstadoPreview[]>
   >({});
@@ -99,10 +156,16 @@ export default function Page() {
   >({});
 
   const [loading, setLoading] = useState(false);
+
   const [loadingDetalle, setLoadingDetalle] = useState<Record<string, boolean>>(
     {},
   );
+
   const [error, setError] = useState<string | null>(null);
+
+  const detallesCargadosRef = useRef<Set<string>>(new Set());
+  const detallesEnCargaRef = useRef<Set<string>>(new Set());
+  const versionDetallesRef = useRef(0);
 
   const customColumns: (keyof EstadoRow)[] = [
     "acciones",
@@ -162,6 +225,7 @@ export default function Page() {
       setError(null);
 
       const response = await estadoReporteService.obtenerReportePorEstado();
+
       setReportePorEstado(response.data || []);
     } catch (error) {
       console.error("Error al cargar reporte por estado:", error);
@@ -171,20 +235,25 @@ export default function Page() {
     }
   };
 
-  const toggleEstado = async (estado: string) => {
-    const estaAbierto = filasExpandibles[estado];
+  const obtenerClaveDetalle = (estado: string, modoMostrarTodos: boolean) => {
+    return `${modoMostrarTodos ? "todos" : "top"}::${estado ?? ""}`;
+  };
 
-    setFilasExpandibles((prev) => ({
-      ...prev,
-      [estado]: !estaAbierto,
-    }));
+  const cargarDetallesEstado = async (estado: string) => {
+    const modoMostrarTodos = mostrarTodos;
 
-    if (estaAbierto) return;
+    const claveDetalle = obtenerClaveDetalle(estado, modoMostrarTodos);
 
-    const yaTieneProveedores = proveedoresPorEstado[estado];
-    const yaTieneClientes = clientesPorEstado[estado];
+    if (
+      detallesCargadosRef.current.has(claveDetalle) ||
+      detallesEnCargaRef.current.has(claveDetalle)
+    ) {
+      return;
+    }
 
-    if (yaTieneProveedores && yaTieneClientes) return;
+    const versionActual = versionDetallesRef.current;
+
+    detallesEnCargaRef.current.add(claveDetalle);
 
     try {
       setLoadingDetalle((prev) => ({
@@ -193,9 +262,13 @@ export default function Page() {
       }));
 
       const [proveedoresRes, clientesRes] = await Promise.all([
-        estadoReporteService.obtenerTopProveedores(estado),
-        estadoReporteService.obtenerTopClientes(estado),
+        estadoReporteService.obtenerTopProveedores(estado, modoMostrarTodos),
+        estadoReporteService.obtenerTopClientes(estado, modoMostrarTodos),
       ]);
+
+      if (versionActual !== versionDetallesRef.current) {
+        return;
+      }
 
       setProveedoresPorEstado((prev) => ({
         ...prev,
@@ -206,29 +279,211 @@ export default function Page() {
         ...prev,
         [estado]: clientesRes.data || [],
       }));
+
+      detallesCargadosRef.current.add(claveDetalle);
     } catch (error) {
-      console.error("Error al cargar proveedores/clientes:", error);
-
-      setProveedoresPorEstado((prev) => ({
-        ...prev,
-        [estado]: [],
-      }));
-
-      setClientesPorEstado((prev) => ({
-        ...prev,
-        [estado]: [],
-      }));
+      if (versionActual === versionDetallesRef.current) {
+        console.error("Error al cargar:", error);
+        setError(
+          `No se pudieron cargar los detalles de ${normalizarEstado(estado)}.`,
+        );
+      }
     } finally {
-      setLoadingDetalle((prev) => ({
-        ...prev,
-        [estado]: false,
-      }));
+      detallesEnCargaRef.current.delete(claveDetalle);
+
+      if (versionActual === versionDetallesRef.current) {
+        setLoadingDetalle((prev) => ({
+          ...prev,
+          [estado]: false,
+        }));
+      }
     }
+  };
+
+  const toggleEstado = async (estado: string) => {
+    const estaAbierto = Boolean(filasExpandibles[estado]);
+
+    setFilasExpandibles((prev) => ({
+      ...prev,
+      [estado]: !estaAbierto,
+    }));
+
+    if (!estaAbierto) {
+      await cargarDetallesEstado(estado);
+    }
+  };
+
+  const cambiarMostrarTodos = () => {
+    versionDetallesRef.current += 1;
+
+    detallesCargadosRef.current.clear();
+    detallesEnCargaRef.current.clear();
+
+    setMostrarTodos((prev) => !prev);
+    setFilasExpandibles({});
+    setProveedoresPorEstado({});
+    setClientesPorEstado({});
+    setLoadingDetalle({});
   };
 
   useEffect(() => {
     cargarReportePorEstado();
   }, []);
+
+  const escaparCsv = (valor: unknown) => {
+    const texto = String(valor ?? "").replace(/"/g, '""');
+
+    return `"${texto}"`;
+  };
+
+  const descargarCsv = (filas: unknown[][], nombreArchivo: string) => {
+    const contenido = filas
+      .map((fila) => fila.map((valor) => escaparCsv(valor)).join(","))
+      .join("\n");
+
+    const blob = new Blob(["\uFEFF", contenido], {
+      type: "text/csv;charset=utf-8;",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const enlace = document.createElement("a");
+
+    enlace.href = url;
+    enlace.download = nombreArchivo;
+
+    document.body.appendChild(enlace);
+    enlace.click();
+    document.body.removeChild(enlace);
+
+    URL.revokeObjectURL(url);
+  };
+
+  const exportarReporteCsv = async () => {
+    if (!exportarProveedores && !exportarClientes) {
+      setError("Selecciona proveedores, clientes o ambos para exportar.");
+      return;
+    }
+
+    try {
+      setExportando(true);
+      setError(null);
+
+      let proveedoresExportacion: ProveedorExportacion[] = [];
+      let clientesExportacion: ClienteExportacion[] = [];
+
+      if (exportarProveedores) {
+        const respuesta = await estadoReporteService.obtenerTopProveedores(
+          null,
+          mostrarTodos,
+        );
+
+        proveedoresExportacion = (respuesta.data || []).map(
+          (proveedor, index) => ({
+            ...proveedor,
+            estado: normalizarEstado(proveedor.estado),
+            top: index + 1,
+          }),
+        );
+      }
+
+      if (exportarClientes) {
+        const respuesta = await estadoReporteService.obtenerTopClientes(
+          null,
+          mostrarTodos,
+        );
+
+        clientesExportacion = (respuesta.data || []).map((cliente, index) => ({
+          ...cliente,
+          estado: normalizarEstado(cliente.estado),
+          top: index + 1,
+        }));
+      }
+
+      const encabezados: unknown[] = [];
+
+      if (exportarProveedores) {
+        encabezados.push(
+          "Top proveedor",
+          "Estado proveedor",
+          // "Top proveedor",
+          // "Cadena proveedor",
+          "Nombre proveedor",
+          "Cantidad de reservas proveedor",
+          "Monto proveedor",
+        );
+      }
+
+      if (exportarProveedores && exportarClientes) {
+        encabezados.push("");
+      }
+
+      if (exportarClientes) {
+        encabezados.push(
+          "Top cliente",
+          "Estado cliente",
+          // "Top cliente",
+          // "Cadena cliente",
+          "Nombre cliente",
+          "Cantidad de reservas cliente",
+          "Total cliente",
+        );
+      }
+
+      const cantidadFilas = Math.max(
+        exportarProveedores ? proveedoresExportacion.length : 0,
+        exportarClientes ? clientesExportacion.length : 0,
+      );
+
+      const filas: unknown[][] = [encabezados];
+
+      for (let index = 0; index < cantidadFilas; index++) {
+        const fila: unknown[] = [];
+
+        if (exportarProveedores) {
+          const proveedor = proveedoresExportacion[index];
+
+          fila.push(
+            proveedor?.top ?? "",
+            proveedor?.estado ?? "",
+            // proveedor?.top ?? "",
+            // proveedor?.cadena ?? "",
+            proveedor?.nombre ?? "",
+            proveedor?.cantidad_de_reservas ?? "",
+            proveedor?.monto_reservas_confirmadas ?? "",
+          );
+        }
+
+        if (exportarProveedores && exportarClientes) {
+          fila.push("");
+        }
+
+        if (exportarClientes) {
+          const cliente = clientesExportacion[index];
+
+          fila.push(
+            cliente?.top ?? "",
+            cliente?.estado ?? "",
+            // cliente?.top ?? "",
+            // cliente?.cadena ?? "",
+            cliente?.nombre ?? "",
+            cliente?.cantidad_de_reservas ?? "",
+            cliente?.total_por_reservas ?? "",
+          );
+        }
+
+        filas.push(fila);
+      }
+
+      const fecha = new Date().toISOString().slice(0, 10);
+
+      descargarCsv(filas, `reporte_por_estado_${fecha}.csv`);
+    } catch (error) {
+      console.error("Error al exportar reporte:", error);
+      setError("No se pudo exportar el reporte.");
+    } finally {
+      setExportando(false);
+    }
+  };
 
   const renderersEstado = {
     acciones: ({ item }: { item: EstadoPreview }) => {
@@ -261,9 +516,13 @@ export default function Page() {
       </span>
     ),
 
+    cantidad_de_reservas: renderNumero,
+
     cantidad_reservas_confirmadas: renderNumero,
     monto_reservas_confirmadas: renderDinero,
     promedio_por_reserva: renderDinero,
+
+    total_por_reservas: renderDinero,
   };
 
   const renderersProveedor = {
@@ -305,13 +564,23 @@ export default function Page() {
 
     const proveedores = proveedoresPorEstado[estado] || [];
     const clientes = clientesPorEstado[estado] || [];
+
+    const proveedoresConTotales = [
+      ...proveedores,
+      calcularTotalProveedores(proveedores),
+    ];
+
+    const clientesConTotales = [...clientes, calcularTotalClientes(clientes)];
+
     const cargando = loadingDetalle[estado];
 
     if (cargando) {
       return (
         <div className="flex items-center justify-center gap-2 bg-slate-50 p-6 text-sm text-slate-500">
           <Loader />
-          <span>Cargando top proveedores y clientes de {estado}...</span>
+          <span>
+            Cargando top proveedores y clientes de {normalizarEstado(estado)}...
+          </span>
         </div>
       );
     }
@@ -321,8 +590,9 @@ export default function Page() {
         <div className="mb-3 flex items-center justify-between">
           <div>
             <h3 className="text-sm font-bold text-slate-800">
-              Detalle de {estado}
+              Detalle de {normalizarEstado(estado)}
             </h3>
+
             <p className="text-xs text-slate-500">
               Top proveedores y top clientes con reservas confirmadas.
             </p>
@@ -342,7 +612,7 @@ export default function Page() {
             </div>
 
             <Table5<ProveedorEstadoPreview>
-              registros={proveedores}
+              registros={proveedoresConTotales}
               renderers={renderersProveedor}
               customColumns={proveedorColumns}
               respectCustomColumnOrder={true}
@@ -364,7 +634,7 @@ export default function Page() {
             </div>
 
             <Table5<ClienteEstadoPreview>
-              registros={clientes}
+              registros={clientesConTotales}
               renderers={renderersCliente}
               customColumns={clienteColumns}
               respectCustomColumnOrder={true}
@@ -451,6 +721,34 @@ export default function Page() {
       )}
 
       <div className="w-full min-w-0 overflow-x-auto rounded-lg border bg-white p-2 sm:p-3">
+        <div className="flex items-center justify-end gap-6 p-6">
+          <CheckboxInput
+            label="mostrar todos"
+            checked={mostrarTodos}
+            onChange={cambiarMostrarTodos}
+          />
+
+          <CheckboxInput
+            label="Exportar proveedores"
+            checked={exportarProveedores}
+            onChange={() => setExportarProveedores((prev) => !prev)}
+          />
+
+          <CheckboxInput
+            label="Exportar clientes"
+            checked={exportarClientes}
+            onChange={() => setExportarClientes((prev) => !prev)}
+          />
+
+          <Button
+            variant="secondary"
+            size="md"
+            icon={Download}
+            onClick={exportarReporteCsv}
+            className="disabled:cursor-not-allowed disabled:opacity-50"
+          ></Button>
+        </div>
+
         {loading ? (
           <div className="flex items-center justify-center p-8">
             <Loader />
@@ -462,7 +760,7 @@ export default function Page() {
             customColumns={customColumns}
             respectCustomColumnOrder={true}
             expandableColumns={[]}
-            exportButton={true}
+            exportButton={false}
             isExport={false}
             horizontalScroll={true}
             maxHeight="65vh"
