@@ -27,7 +27,7 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import Button from "@/components/atom/Button";
 import { Loader } from "@/components/atom/Loader";
 import SubirFactura from "@/app/dashboard/facturacion/subirfacturas/SubirFactura";
-import ModalDetalle from "@/app/dashboard/conciliacion/compponents/detalles";
+import ModalDetalle from "@/app/dashboard/conciliacion/detalles";
 import { formatDate } from "@/helpers/formater";
 import { BuscarUuidFacturaModal } from "@/angel/components/organisms/BuscarUuidFacturaModal";
 import FiltrosConciliacionModal, {

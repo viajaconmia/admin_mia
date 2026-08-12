@@ -2,6 +2,10 @@
 import React, { useState, useEffect, FormEvent } from "react";
 import { differenceInDays, parseISO, set } from "date-fns";
 import { Button } from "@/components/ui/button";
+import {
+  Comisionable,
+  type ComisionableFormValue,
+} from "@/components/organism/Comisionable";
 import { Label } from "@/components/ui/label";
 import { DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -54,19 +58,8 @@ type SolicitudConComision = Solicitud & {
   comentarios_comisionables?: string | null;
   is_comisionable?: number | boolean | null;
 };
-
-type ReservaFormConComision = Omit<
-  ReservaForm,
-  | "porcentaje_comisionable"
-  | "monto_comisionable"
-  | "comentarios_comisionables"
-  | "is_comisionable"
-> & {
-  porcentaje_comisionable: number | string;
-  monto_comisionable: number;
-  comentarios_comisionables: string;
-  is_comisionable: number;
-};
+type ReservaFormConComision = Omit<ReservaForm, keyof ComisionableFormValue> &
+  ComisionableFormValue;
 
 interface ReservationFormProps {
   solicitud?: SolicitudConComision;
@@ -1262,158 +1255,20 @@ export function ReservationForm({
                 </div>
               </div>
 
-              <div className="w-full rounded-md border border-gray-200 bg-white p-4 shadow-sm">
-                <h2 className="mb-4 text-sm font-bold text-gray-900">
-                  Comisionable
-                </h2>
-
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-12 items-end">
-                  {/* CHECK - SIEMPRE VISIBLE */}
-                  <div className="col-span-2 sm:col-span-2">
-                    <CheckboxInput
-                      label="Es comisionable?"
-                      checked={Number(form.is_comisionable) === 1}
-                      onChange={(checked: boolean) => {
-                        setForm((prev) => ({
-                          ...prev,
-                          is_comisionable: checked ? 1 : 0,
-
-                          // Si se desactiva limpiamos ambos valores
-                          porcentaje_comisionable: checked
-                            ? prev.porcentaje_comisionable
-                            : "",
-
-                          monto_comisionable: checked
-                            ? prev.monto_comisionable
-                            : 0,
-                        }));
-                      }}
-                    />
-                  </div>
-
-                  {/* SOLO SE MUESTRA CUANDO ES COMISIONABLE */}
-                  {Number(form.is_comisionable) === 1 && (
-                    <>
-                      {/* PORCENTAJE */}
-                      <div className="col-span-1 sm:col-span-3">
-                        <label className="mb-1 block text-[10px] font-bold uppercase text-gray-500">
-                          Porcentaje
-                        </label>
-
-                        <div className="relative">
-                          <input
-                            type="text"
-                            inputMode="decimal"
-                            placeholder="Ej. 10.00"
-                            value={form.porcentaje_comisionable}
-                            disabled={Number(form.monto_comisionable) > 0}
-                            onChange={(e) => {
-                              const value = e.target.value;
-
-                              // Solo números y un punto decimal
-                              if (!/^\d*\.?\d*$/.test(value)) return;
-
-                              // Máximo 100%
-                              if (value !== "" && Number(value) > 100) return;
-
-                              setForm((prev) => ({
-                                ...prev,
-                                porcentaje_comisionable: value,
-                                monto_comisionable: 0,
-                              }));
-                            }}
-                            onBlur={() => {
-                              if (
-                                form.porcentaje_comisionable !== "" &&
-                                Number(form.porcentaje_comisionable) <= 0
-                              ) {
-                                setForm((prev) => ({
-                                  ...prev,
-                                  porcentaje_comisionable: "",
-                                }));
-                              }
-                            }}
-                            className="h-10 w-full rounded-md border border-gray-300 px-3 pr-8 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100"
-                          />
-
-                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-500">
-                            %
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* MONTO */}
-                      <div className="col-span-1 sm:col-span-3">
-                        <label className="mb-1 block text-[10px] font-bold uppercase text-gray-500">
-                          Monto
-                        </label>
-
-                        <div className="relative">
-                          <input
-                            type="text"
-                            inputMode="decimal"
-                            placeholder="Ej. 100.00"
-                            value={form.monto_comisionable || ""}
-                            disabled={Number(form.porcentaje_comisionable) > 0}
-                            onChange={(e) => {
-                              const value = e.target.value;
-
-                              // Solo números y un punto decimal
-                              if (!/^\d*\.?\d*$/.test(value)) return;
-
-                              setForm((prev) => ({
-                                ...prev,
-                                monto_comisionable:
-                                  value === "" ? 0 : Number(value),
-                                porcentaje_comisionable: "",
-                              }));
-                            }}
-                            onBlur={() => {
-                              if (Number(form.monto_comisionable) <= 0) {
-                                setForm((prev) => ({
-                                  ...prev,
-                                  monto_comisionable: 0,
-                                }));
-                              }
-                            }}
-                            className="h-10 w-full rounded-md border border-gray-300 px-3 pr-8 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-gray-100"
-                          />
-
-                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-500">
-                            $
-                          </span>
-                        </div>
-                      </div>
-                    </>
-                  )}
-
-                  {/* COMENTARIOS - SIEMPRE VISIBLE */}
-                  <div
-                    className={
-                      Number(form.is_comisionable) === 1
-                        ? "col-span-2 sm:col-span-4"
-                        : "col-span-2 sm:col-span-10"
-                    }
-                  >
-                    <label className="mb-1 block text-[10px] font-bold uppercase text-gray-500">
-                      Comentarios
-                    </label>
-
-                    <input
-                      type="text"
-                      placeholder="Agregar comentarios opcional"
-                      value={form.comentarios_comisionables}
-                      onChange={(e) => {
-                        setForm((prev) => ({
-                          ...prev,
-                          comentarios_comisionables: e.target.value,
-                        }));
-                      }}
-                      className="h-10 w-full rounded-md border border-gray-300 px-3 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-              </div>
+              <Comisionable
+                value={{
+                  is_comisionable: form.is_comisionable,
+                  porcentaje_comisionable: form.porcentaje_comisionable,
+                  monto_comisionable: form.monto_comisionable,
+                  comentarios_comisionables: form.comentarios_comisionables,
+                }}
+                onChange={(campo, valor) => {
+                  setForm((prev) => ({
+                    ...prev,
+                    [campo]: valor,
+                  }));
+                }}
+              />
               <div className="grid grid-cols-4 gap-4">
                 <div className="col-span-4">
                   <NumberInput
