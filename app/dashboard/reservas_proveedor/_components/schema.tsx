@@ -39,6 +39,8 @@ export type SolicitudProveedorItem = {
   saldo: string;
   saldo_dispersion: number;
   asignado_a_factura?: string | null;
+  monto_propina?: string | null;
+  monto_impsan?: string | null;
   numero_factura?: string;
   estado_solicitud: string;
   estado_facturacion: string;
@@ -86,6 +88,8 @@ export const mapSolicitud = (
   forma_pago: raw.forma_pago,
   rfc: raw.rfc,
   uuid: raw.uuid,
+  monto_impsan: raw.monto_impsan,
+  monto_propina: raw.monto_propina,
   asignado_a_factura: raw.asignado_a_factura,
   numero_factura: !(raw.total_facturas == null || raw.total_facturas === 0)
     ? `${raw.indice_factura} de ${raw.total_facturas}`
@@ -108,7 +112,6 @@ export const createSolicitudRenderers = () => ({
   numero_factura: MonoRenderer,
   negociacion_proveedor: TextRenderer,
   intermediario: TextRenderer,
-  // negociacion_intermediario: TextRenderer,
   rfc: MonoRenderer,
   uuid: MonoRenderer,
   comentarios_ops: TextRenderer,
@@ -122,6 +125,8 @@ export const createSolicitudRenderers = () => ({
   saldo: PrecioRenderer,
   saldo_dispersion: PrecioRenderer,
   asignado_a_factura: PrecioRenderer,
+  monto_impsan: PrecioRenderer,
+  monto_propina: PrecioRenderer,
   noches: TextRenderer,
   estado_pago: GetBadgeRenderer(ESTADO_PAGO_STYLES),
   estado_solicitud: GetBadgeRenderer(ESTADO_SOLICITUD_STYLES),

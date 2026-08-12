@@ -40,6 +40,8 @@ export type SolicitudProveedorRaw = {
   uuid?: string | null;
   id_factura?: string | null;
   asignado_a_factura?: string | null;
+  monto_propina?: string | null;
+  monto_impsan?: string | null;
   indice_factura?: number;
   total_facturas?: number;
 };
