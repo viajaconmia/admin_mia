@@ -88,6 +88,21 @@ export type FiltrosComisionables = {
   [key: string]: unknown;
 };
 
+export type EditarComisionablesBody = {
+  is_comisionable: 0 | 1;
+  monto_comisionable: number | null;
+  porcentaje_comisionable: number | null;
+  comentarios_comisionables: string;
+};
+
+export type EditarComisionablesResponse = {
+  id_booking: string;
+  is_comisionable: 0 | 1;
+  monto_comisionable: string | number | null;
+  porcentaje_comisionable: string | number | null;
+  comentarios_comisionables: string;
+};
+
 export const reservasService = {
   getSolicitudesPendientes: (): Promise<ApiResponse<SolicitudPendienteRaw[]>> =>
     reservasApi.get<SolicitudPendienteRaw[]>("/solicitudes/pendientes"),
@@ -99,4 +114,13 @@ export const reservasService = {
 
   cobrarComision: (id_booking: string): Promise<ApiResponse<null>> =>
     reservasApi.patch<null>(`/comisionables/${id_booking}/cobrar`),
+
+  editarComisionables: (
+    id_booking: string,
+    body: EditarComisionablesBody,
+  ): Promise<ApiResponse<EditarComisionablesResponse>> =>
+    reservasApi.patch<EditarComisionablesResponse>(
+      `/comisionables/${id_booking}`,
+      body,
+    ),
 };

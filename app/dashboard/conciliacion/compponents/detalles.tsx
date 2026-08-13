@@ -15,6 +15,8 @@ import {
 import { Table5 } from "@/components/Table5";
 import { URL, API_KEY } from "@/lib/constants/index";
 import { formatDate } from "@/helpers/formater";
+import { reservasService } from "@/angel/services/reservas";
+import { mensajeError } from "@/angel/lib/mensajeError";
 
 interface ModalDetallesProp {
   solicitud: any | null;
@@ -476,7 +478,6 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({
   const endpoint = `${URL}/mia/pago_proveedor/detalles`;
   const asignarMontoFactEndpoint = `${URL}/mia/pago_proveedor/asignar_monto_fact`;
   const deleteFacturaEndpoint = `${URL}/mia/pago_proveedor/edit_factura`;
-  console.log("este es el raw", solicitud);
 
   const payload = useMemo(
     () => buildPayloadFromSolicitud(solicitud),
@@ -542,6 +543,7 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({
         : (raw?.nombre_intermediario ?? ""),
       creado: raw?.created_at ?? null,
       estado_solicitud: safeString(raw?.solicitud_proveedor?.estado_solicitud),
+      id_booking: raw?.id_booking ?? null,
       is_comisionable: isComisionable,
       monto_comisionable: montoComisionable,
       porcentaje_comisionable: porcentajeComisionable,
@@ -556,6 +558,29 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({
   const [drafts, setDrafts] = useState<Record<string, FacturaDraft>>({});
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
+
+  const [comisionDraft, setComisionDraft] = useState({
+    is_comisionable: false,
+    monto_comisionable: "",
+    porcentaje_comisionable: "",
+    comentarios_comisionables: "",
+  });
+  const [guardandoComision, setGuardandoComision] = useState(false);
+
+  useEffect(() => {
+    setComisionDraft({
+      is_comisionable: datosReserva.is_comisionable,
+      monto_comisionable:
+        datosReserva.monto_comisionable != null
+          ? String(datosReserva.monto_comisionable)
+          : "",
+      porcentaje_comisionable:
+        datosReserva.porcentaje_comisionable != null
+          ? String(datosReserva.porcentaje_comisionable)
+          : "",
+      comentarios_comisionables: datosReserva.comentarios_comisionables,
+    });
+  }, [datosReserva]);
 
   const fetchDetalles = useCallback(
     async (signal?: AbortSignal) => {
@@ -803,6 +828,32 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({
       onSuccess,
     ],
   );
+
+  const guardarComisionables = useCallback(async () => {
+    const idBooking = safeString(datosReserva.id_booking);
+    if (!idBooking) {
+      alert("No se encontró el id_booking de esta reserva");
+      return;
+    }
+
+    const monto = toApiNumber(comisionDraft.monto_comisionable);
+    const porcentaje = toApiNumber(comisionDraft.porcentaje_comisionable);
+
+    try {
+      setGuardandoComision(true);
+      await reservasService.editarComisionables(idBooking, {
+        is_comisionable: comisionDraft.is_comisionable ? 1 : 0,
+        monto_comisionable: monto,
+        porcentaje_comisionable: porcentaje,
+        comentarios_comisionables: comisionDraft.comentarios_comisionables,
+      });
+      onSuccess?.();
+    } catch (e) {
+      alert(mensajeError(e, "Error al guardar los campos comisionables"));
+    } finally {
+      setGuardandoComision(false);
+    }
+  }, [datosReserva.id_booking, comisionDraft, onSuccess]);
 
   const montosAsociados = facturasApi.reduce(
     (acumulado, f) =>
@@ -1281,31 +1332,89 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({
                   )}
                 </div>
                 <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-                  <p className="text-sm font-bold text-gray-900 mb-3">
-                    Comisión
-                  </p>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <StatCard
-                      label="Es comisionable"
-                      value={datosReserva.is_comisionable ? "Sí" : "No"}
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <p className="text-sm font-bold text-gray-900">
+                      Comisión
+                    </p>
+                    <AccionButton
+                      tone="blue"
+                      icon={guardandoComision ? Loader2 : Save}
+                      spinning={guardandoComision}
+                      label={guardandoComision ? "Guardando..." : "Guardar"}
+                      title="Guardar campos comisionables"
+                      disabled={guardandoComision}
+                      onClick={() => void guardarComisionables()}
                     />
+                  </div>
 
-                    <StatCard
-                      label="Valor comisionable"
-                      value={
-                        datosReserva.monto_comisionable != null
-                          ? formatMoney(datosReserva.monto_comisionable)
-                          : datosReserva.porcentaje_comisionable != null
-                            ? `${datosReserva.porcentaje_comisionable}%`
-                            : "—"
-                      }
-                    />
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-1">
+                        Es comisionable
+                      </p>
+                      <label className="inline-flex items-center gap-2 text-sm text-gray-800">
+                        <input
+                          type="checkbox"
+                          checked={comisionDraft.is_comisionable}
+                          onChange={(e) =>
+                            setComisionDraft((prev) => ({
+                              ...prev,
+                              is_comisionable: e.target.checked,
+                            }))
+                          }
+                          className="w-4 h-4 accent-blue-600"
+                        />
+                        {comisionDraft.is_comisionable ? "Sí" : "No"}
+                      </label>
+                    </div>
 
-                    <StatCard
-                      label="Comentario"
-                      value={datosReserva.comentarios_comisionables || "—"}
-                    />
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-1">
+                        Monto comisionable
+                      </p>
+                      <EditableAmountCell
+                        value={comisionDraft.monto_comisionable}
+                        onChange={(v) =>
+                          setComisionDraft((prev) => ({
+                            ...prev,
+                            monto_comisionable: v,
+                          }))
+                        }
+                      />
+                    </div>
+
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-1">
+                        Porcentaje comisionable
+                      </p>
+                      <EditableAmountCell
+                        value={comisionDraft.porcentaje_comisionable}
+                        onChange={(v) =>
+                          setComisionDraft((prev) => ({
+                            ...prev,
+                            porcentaje_comisionable: v,
+                          }))
+                        }
+                      />
+                    </div>
+
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wide text-gray-500 mb-1">
+                        Comentario
+                      </p>
+                      <input
+                        type="text"
+                        value={comisionDraft.comentarios_comisionables}
+                        onChange={(e) =>
+                          setComisionDraft((prev) => ({
+                            ...prev,
+                            comentarios_comisionables: e.target.value,
+                          }))
+                        }
+                        className="w-full border border-gray-200 rounded-lg px-2 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-100"
+                        placeholder="Comentario"
+                      />
+                    </div>
                   </div>
                 </div>
               </>
