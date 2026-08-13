@@ -12,6 +12,8 @@ type LeafLink = {
   href: string;
   title: string;
   icon?: React.ElementType;
+  /** Conteo de notificaciones pendientes; se pinta como badge junto al título. */
+  badge?: number;
 };
 
 type SubGroup = {
@@ -51,6 +53,15 @@ function isGroup(item: NavLink): item is GroupLink {
 
 function isSubGroup(item: LeafLink | SubGroup): item is SubGroup {
   return "items" in item;
+}
+
+function NavBadge({ count }: { count?: number }) {
+  if (!count || count <= 0) return null;
+  return (
+    <span className="ml-auto inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full bg-red-500 text-white text-[10px] font-semibold shrink-0">
+      {count > 99 ? "99+" : count}
+    </span>
+  );
 }
 
 export default function NavContainer({
@@ -123,7 +134,10 @@ export default function NavContainer({
             >
               <item.icon className="h-4 w-4 shrink-0" />
               {expanded && (
-                <span className="whitespace-nowrap">{item.title}</span>
+                <>
+                  <span className="whitespace-nowrap">{item.title}</span>
+                  <NavBadge count={item.badge} />
+                </>
               )}
             </Link>
           );
@@ -231,6 +245,7 @@ export default function NavContainer({
                                   <span className="whitespace-nowrap">
                                     {leaf.title}
                                   </span>
+                                  <NavBadge count={leaf.badge} />
                                 </Link>
                               );
                             })}
@@ -254,6 +269,7 @@ export default function NavContainer({
                     >
                       {sub.icon && <sub.icon className="h-4 w-4" />}
                       <span className="whitespace-nowrap">{sub.title}</span>
+                      <NavBadge count={sub.badge} />
                     </Link>
                   );
                 })}
