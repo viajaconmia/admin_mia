@@ -83,7 +83,7 @@ class Reporte extends ApiService {
 
   async obtenerReporteGeneral() {
     return this.get<ReporteGeneral[]>({
-      path: this.formatPath("/getReporteGeneralConciliacion"), //getReporteGeneralConciliacion y el otro se va a llamar getDetallesClientes
+      path: this.formatPath("/reporteGeneralConciliacion"), //getReporteGeneralConciliacion y el otro se va a llamar getDetallesClientes
     });
   }
 }
