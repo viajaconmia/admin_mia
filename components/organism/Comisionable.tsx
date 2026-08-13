@@ -1,6 +1,7 @@
 "use client";
 
 import { CheckboxInput } from "@/components/atom/Input";
+import { formatMoneyMXN } from "@/helpers/formater";
 
 type ComisionableData = {
   is_comisionable?: boolean | number | null;
@@ -39,10 +40,6 @@ type ComisionableFormularioProps = {
 type ComisionableProps =
   | ComisionableConsultaProps
   | ComisionableFormularioProps;
-
-function formatMoney(value: number) {
-  return `$${value.toFixed(2)}`;
-}
 
 function toNumberOrNull(value: unknown) {
   if (value === null || value === undefined || value === "") {
@@ -101,7 +98,7 @@ const Comisionable = (props: ComisionableProps) => {
 
             <div className="mt-1 text-sm font-semibold text-gray-900">
               {montoComisionable !== null
-                ? formatMoney(montoComisionable)
+                ? formatMoneyMXN(montoComisionable)
                 : porcentajeComisionable !== null
                   ? `${porcentajeComisionable}%`
                   : "—"}
