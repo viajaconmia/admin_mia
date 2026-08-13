@@ -22,6 +22,7 @@ export const PERMISOS = {
     FINANZAS_TARJETAS: "view.finanzas.tarjetas",
     AVISOS_RESERVAS: "view.avisos-reservas",
     COTIZACIONES: "view.cotizaciones",
+    COMISIONABLES: "view.comisionables",
   },
   COLUMNAS: {
     BOOKINGS: {

@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import {
   FileText,
   BookOpen,
@@ -17,6 +17,7 @@ import {
   User,
   Wallet,
   FileCheck,
+  Percent,
 } from "lucide-react";
 
 import NavContainer from "@/components/organism/NavContainer"; // <- aquí importas el nuevo
@@ -25,6 +26,10 @@ import Button from "@/components/atom/Button";
 import { UserProfileImage } from "@/components/atom/UserProfileImage";
 import { Card } from "@/components/ui/card";
 import { ClientQuickSearch } from "@/components/organism/ClientQuickSearch";
+import {
+  NotificacionesProvider,
+  useNotificaciones,
+} from "@/angel/context/NotificacionesContext";
 
 /**
  * Si en tu NavContainer tipaste NavGroup internamente,
@@ -35,6 +40,7 @@ type NavItem = {
   title: string;
   href: string;
   icon?: any;
+  badge?: number;
 };
 
 type NavSubGroup = {
@@ -54,13 +60,40 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
 
   if (!user) return null;
 
   return (
+    <NotificacionesProvider>
+      <DashboardLayoutContent>{children}</DashboardLayoutContent>
+    </NotificacionesProvider>
+  );
+}
+
+function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
+  const { logout } = useAuth();
+  const { conteos } = useNotificaciones();
+
+  // Inyecta el conteo de notificaciones en los items de `links` que lo tengan
+  // configurado en NotificacionesContext (por ahora solo patch a un nivel:
+  // items directos de cada grupo, no dentro de subgrupos).
+  const linksConBadge = useMemo(
+    () =>
+      links.map((group) => ({
+        ...group,
+        items: group.items.map((item) =>
+          "href" in item && item.href === "/dashboard/comisionables"
+            ? { ...item, badge: conteos["comisionables"] }
+            : item,
+        ),
+      })),
+    [conteos],
+  );
+
+  return (
     <div className="backdrop-blur-3xl h-screen">
-      <NavContainer title="Admin" links={links}>
+      <NavContainer title="Admin" links={linksConBadge}>
         <div className="h-full bg-transparent overflow-y-auto">
           <nav className="backdrop-blur-3xl w-full p-4 px-6 flex justify-between items-center gap-2">
             <ClientQuickSearch />
@@ -234,6 +267,11 @@ const links: NavGroup[] = [
         title: "Reporte mensual",
         href: "/dashboard/reporte_mensual",
         icon: FileCheck,
+      },
+      {
+        title: "Comisionables",
+        href: "/dashboard/comisionables",
+        icon: Percent,
       },
     ],
   },
