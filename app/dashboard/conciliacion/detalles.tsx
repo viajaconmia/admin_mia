@@ -15,7 +15,7 @@ import {
 import { Table5 } from "@/components/Table5";
 import { URL, API_KEY } from "@/lib/constants/index";
 import { formatDate } from "@/helpers/formater";
-
+import { Comisionable } from "@/components/organism/Comisionable";
 interface ModalDetallesProp {
   solicitud: any | null;
   onClose: () => void;
@@ -440,14 +440,6 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({
     const canalDeReservacion = idIntermediario
       ? "INTERMEDIARIO"
       : (raw?.canal_de_reservacion ?? "DIRECTO");
-    const isComisionable = Number(raw?.is_comisionable ?? 0) === 1;
-
-    const montoComisionable = toApiNumber(raw?.monto_comisionable);
-
-    const porcentajeComisionable = toApiNumber(raw?.porcentaje_comisionable);
-
-    const comentariosComisionables = safeString(raw?.comentarios_comisionables);
-
     return {
       codigo_hotel: safeString(raw?.codigo_confirmacion),
       hotel: hotel ? hotel.toUpperCase() : "",
@@ -467,10 +459,6 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({
         : (raw?.nombre_intermediario ?? ""),
       creado: raw?.created_at ?? null,
       estado_solicitud: safeString(raw?.solicitud_proveedor?.estado_solicitud),
-      is_comisionable: isComisionable,
-      monto_comisionable: montoComisionable,
-      porcentaje_comisionable: porcentajeComisionable,
-      comentarios_comisionables: comentariosComisionables,
     };
   }, [solicitud]);
 
@@ -545,29 +533,6 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({
   const facturasApi = Array.isArray(api?.facturas) ? api.facturas : [];
   const pagosApi = Array.isArray(api?.pagos) ? api.pagos : [];
   const resumen = api?.resumen_validacion ?? null;
-  const datosComision = {
-    is_comisionable:
-      Number(
-        solicitudApi?.is_comisionable ??
-          solicitud?.informacion_completa?.is_comisionable ??
-          0,
-      ) === 1,
-
-    monto_comisionable: toApiNumber(
-      solicitudApi?.monto_comisionable ??
-        solicitud?.informacion_completa?.monto_comisionable,
-    ),
-
-    porcentaje_comisionable: toApiNumber(
-      solicitudApi?.porcentaje_comisionable ??
-        solicitud?.informacion_completa?.porcentaje_comisionable,
-    ),
-
-    comentarios_comisionables: safeString(
-      solicitudApi?.comentarios_comisionables ??
-        solicitud?.informacion_completa?.comentarios_comisionables,
-    ),
-  };
 
   const setDraftField = useCallback(
     (
@@ -1344,34 +1309,11 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({
                     </div>
                   )}
                 </div>
-                <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-                  <p className="text-sm font-bold text-gray-900 mb-3">
-                    Comisión
-                  </p>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <StatCard
-                      label="Es comisionable"
-                      value={datosComision.is_comisionable ? "Sí" : "No"}
-                    />
-
-                    <StatCard
-                      label="Valor comisionable"
-                      value={
-                        datosComision.monto_comisionable != null
-                          ? formatMoney(datosComision.monto_comisionable)
-                          : datosComision.porcentaje_comisionable != null
-                            ? `${datosComision.porcentaje_comisionable}%`
-                            : "—"
-                      }
-                    />
-
-                    <StatCard
-                      label="Comentario"
-                      value={datosComision.comentarios_comisionables || "—"}
-                    />
-                  </div>
-                </div>
+                <Comisionable
+                  modo="consulta"
+                  data={solicitudApi}
+                  fallback={solicitud?.informacion_completa}
+                />
               </>
             )}
           </div>
