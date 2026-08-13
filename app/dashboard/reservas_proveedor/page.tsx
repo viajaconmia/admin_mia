@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useReducer } from "react";
+import { useCallback, useEffect, useReducer, useRef } from "react";
 import {
   pagoProveedorService,
   FiltrosReservasProveedor,
@@ -13,6 +13,7 @@ import { FiltrosPanel } from "@/angel/components/molecules/FiltrosPanel";
 import { AccionesSeleccion } from "@/angel/components/molecules/AccionesSeleccion";
 import { useSeleccionTabla } from "@/angel/hooks/useSeleccionTabla";
 import { usePaginacion } from "@/angel/hooks/usePaginacion";
+import { useProcesoEnLote } from "@/angel/hooks/useProcesoEnLote";
 import { useAlert } from "@/context/useAlert";
 import { GetSeleccionRenderer } from "@/v3/atom/TableItemsComponent";
 import {
@@ -33,14 +34,12 @@ import { Download } from "lucide-react";
 // ─── Reducer ────────────────────────────────────────────────────────────────
 
 type Modales = { edicion: boolean; dispersion: boolean };
-type LoadingModales = { edicion: boolean; dispersion: boolean };
 
 type PageState = {
   solicitudes: SolicitudProveedorItem[];
   loading: boolean;
   filtros: FiltrosReservasProveedor;
   modales: Modales;
-  loadingModales: LoadingModales;
 };
 
 type PageAction =
@@ -53,15 +52,13 @@ type PageAction =
     }
   | { type: "filtros/delete"; key: keyof FiltrosReservasProveedor }
   | { type: "modal/abrir"; modal: keyof Modales }
-  | { type: "modal/cerrar"; modal: keyof Modales }
-  | { type: "modal/setLoading"; modal: keyof LoadingModales; payload: boolean };
+  | { type: "modal/cerrar"; modal: keyof Modales };
 
 const INITIAL_STATE: PageState = {
   solicitudes: [],
   loading: false,
   filtros: {},
   modales: { edicion: false, dispersion: false },
-  loadingModales: { edicion: false, dispersion: false },
 };
 
 function reducer(state: PageState, action: PageAction): PageState {
@@ -84,14 +81,6 @@ function reducer(state: PageState, action: PageAction): PageState {
       return { ...state, modales: { ...state.modales, [action.modal]: true } };
     case "modal/cerrar":
       return { ...state, modales: { ...state.modales, [action.modal]: false } };
-    case "modal/setLoading":
-      return {
-        ...state,
-        loadingModales: {
-          ...state.loadingModales,
-          [action.modal]: action.payload,
-        },
-      };
     default:
       return state;
   }
@@ -107,8 +96,25 @@ export default function ReservasProveedorPage() {
     useSeleccionTabla<SolicitudProveedorItem>((item) => item._seleccion);
   const { paginacion, actualizarDesdeMetadata, resetear } =
     usePaginacion(PAGE_SIZE);
-  const { error } = useAlert();
+  const { error, success } = useAlert();
   const { csv, loadingFile, setLoadingFile } = useFile();
+
+  // Los valores a aplicar no cambian dentro de una misma corrida del lote,
+  // pero sí entre una corrida y otra (cada vez que se confirma el modal) —
+  // se leen desde un ref para que `ejecutarEdicion` no tenga que recrearse.
+  const valoresEdicionRef = useRef<Record<string, string>>({});
+  const ejecutarEdicion = useCallback(
+    (id: string) =>
+      pagoProveedorService
+        .editarSolicitud(id, valoresEdicionRef.current)
+        .then(() => {}),
+    [],
+  );
+  const {
+    procesando: procesandoEdicion,
+    progreso: progresoEdicion,
+    ejecutarLote: ejecutarLoteEdicion,
+  } = useProcesoEnLote<string>(ejecutarEdicion);
 
   const itemsSeleccionados = state.solicitudes.filter((s) =>
     estaSeleccionado(s._seleccion),
@@ -201,8 +207,27 @@ export default function ReservasProveedorPage() {
     dispatch({ type: "modal/abrir", modal: "dispersion" });
   };
 
-  const handleEditarMasivo = (_valores: Record<string, string>) => {
-    error("Función de edición masiva no implementada aún");
+  const handleEditarMasivo = async (valores: Record<string, string>) => {
+    if (Object.keys(valores).length === 0) {
+      error("No hay cambios que guardar");
+      return;
+    }
+
+    valoresEdicionRef.current = valores;
+    const ids = itemsSeleccionados.map((s) => s.id);
+
+    const resultados = await ejecutarLoteEdicion(ids);
+    const fallidos = resultados.filter((r) => !r.ok).length;
+    const exitosos = resultados.length - fallidos;
+
+    if (fallidos === 0) {
+      success(`Se actualizaron ${exitosos} solicitudes`);
+      dispatch({ type: "modal/cerrar", modal: "edicion" });
+      limpiar();
+    } else {
+      error(`Se actualizaron ${exitosos} solicitudes, ${fallidos} fallaron`);
+    }
+    fetchSolicitudes();
   };
 
   return (
@@ -422,6 +447,7 @@ export default function ReservasProveedorPage() {
         </Button>
         <Button
           onClick={() => dispatch({ type: "modal/abrir", modal: "edicion" })}
+          disabled={procesandoEdicion}
           variant="secondary"
           size="sm"
         >
@@ -434,8 +460,9 @@ export default function ReservasProveedorPage() {
         onClose={() => dispatch({ type: "modal/cerrar", modal: "edicion" })}
         count={itemsSeleccionados.length}
         campos={CAMPOS_EDICION_SOLICITUD}
+        progreso={progresoEdicion}
         onConfirmar={handleEditarMasivo}
-        loading={state.loadingModales.edicion}
+        loading={procesandoEdicion}
       />
 
       <DispersionModal

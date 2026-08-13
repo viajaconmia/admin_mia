@@ -1,6 +1,7 @@
 import Button from "@/components/atom/Button";
 import {
   DateRenderer,
+  GetSeleccionRenderer,
   PorcentajeRenderer,
   PrecioRenderer,
   TextRenderer,
@@ -11,6 +12,7 @@ import type { ReservaComisionable } from "@/angel/services/reservas";
 // Solo los campos que se piden ver en la tabla (básicos + comisión),
 // renombrados/reordenados para que las columnas salgan como se pidió.
 export type ComisionableRow = {
+  _seleccion: string;
   codigo_confirmacion: string;
   cliente: string;
   viajero: string;
@@ -30,6 +32,7 @@ export type ComisionableRow = {
 
 export function mapComisionable(row: ReservaComisionable): ComisionableRow {
   return {
+    _seleccion: row.id_booking,
     codigo_confirmacion: row.codigo_confirmacion,
     cliente: row.nombre_agente,
     viajero: row.nombre_viajero,
@@ -51,8 +54,12 @@ export function mapComisionable(row: ReservaComisionable): ComisionableRow {
 export function createComisionablesRenderers(
   onCobrar: (id_booking: string) => void,
   cobrandoId: string | null,
+  toggleFila: (id: string) => void,
+  estaSeleccionado: (id: string) => boolean,
+  procesandoLote: boolean,
 ): Partial<Record<string, CellRenderer>> {
   return {
+    _seleccion: GetSeleccionRenderer(toggleFila, estaSeleccionado),
     check_in: DateRenderer,
     check_out: DateRenderer,
     total: PrecioRenderer,
@@ -71,7 +78,7 @@ export function createComisionablesRenderers(
         <Button
           size="sm"
           variant="primary"
-          disabled={yaCobrada || cobrandoEsta}
+          disabled={yaCobrada || cobrandoEsta || procesandoLote}
           loading={cobrandoEsta}
           onClick={() => onCobrar(row.id_booking)}
         >

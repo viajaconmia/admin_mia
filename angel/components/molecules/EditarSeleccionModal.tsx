@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { TextInput, TextAreaInput, Dropdown } from "@/components/atom/Input";
 import Button from "@/components/atom/Button";
+import type { ProgresoLote } from "@/angel/hooks/useProcesoEnLote";
 
 export type CampoEdicion =
   | { key: string; label: string; type: "texto" }
@@ -23,6 +24,8 @@ interface EditarSeleccionModalProps {
   campos: CampoEdicion[];
   onConfirmar: (valores: Record<string, string>) => void;
   loading?: boolean;
+  /** Si viene presente, pinta una barra "Guardando X/Y..." en vez de solo el texto de loading. */
+  progreso?: ProgresoLote;
 }
 
 export const EditarSeleccionModal = ({
@@ -32,6 +35,7 @@ export const EditarSeleccionModal = ({
   campos,
   onConfirmar,
   loading = false,
+  progreso,
 }: EditarSeleccionModalProps) => {
   const [valores, setValores] = useState<Record<string, string>>({});
 
@@ -103,6 +107,20 @@ export const EditarSeleccionModal = ({
             );
           })}
         </div>
+
+        {progreso && (
+          <div className="flex items-center gap-3 text-sm">
+            <div className="h-2 w-40 overflow-hidden rounded-full bg-gray-200">
+              <div
+                className="h-full bg-blue-500 transition-all duration-300"
+                style={{ width: `${(progreso.actual / progreso.total) * 100}%` }}
+              />
+            </div>
+            <span className="whitespace-nowrap text-gray-600">
+              Guardando {progreso.actual}/{progreso.total}...
+            </span>
+          </div>
+        )}
 
         <DialogFooter>
           <Button
