@@ -85,6 +85,12 @@ export type ReservaComisionable = {
 export type FiltrosComisionables = {
   page?: number;
   length?: number;
+  proveedor?: string;
+  id_intermediario?: string;
+  comision_cobrada?: string;
+  comentarios_comisionables?: string;
+  estado?: string;
+  codigo_confirmacion?: string;
   [key: string]: unknown;
 };
 
