@@ -15,7 +15,13 @@ import {
 import { Table5 } from "@/components/Table5";
 import { URL, API_KEY } from "@/lib/constants/index";
 import { formatDate } from "@/helpers/formater";
-import { Comisionable } from "@/components/organism/Comisionable";
+import { reservasService } from "@/angel/services/reservas";
+import { mensajeError } from "@/angel/lib/mensajeError";
+import {
+  Comisionable,
+  type ComisionableFormValue,
+} from "@/components/organism/Comisionable";
+
 interface ModalDetallesProp {
   solicitud: any | null;
   onClose: () => void;
@@ -29,12 +35,6 @@ function formatMoney(n: any) {
   const num = Number(n);
   if (Number.isNaN(num)) return "—";
   return `$${num.toFixed(2)}`;
-}
-
-function toInputMoney(v: any) {
-  if (v === null || v === undefined || String(v).trim() === "") return "";
-  const num = Number(v);
-  return Number.isFinite(num) ? String(num) : "";
 }
 
 function toApiNumber(v: any) {
@@ -126,6 +126,63 @@ function StatCard({
   );
 }
 
+function AccionButton({
+  onClick,
+  tone,
+  icon: Icon,
+  label,
+  disabled = false,
+  spinning = false,
+  trailingIcon: TrailingIcon,
+  title,
+}: {
+  onClick: () => void;
+  tone: "gray" | "blue" | "red";
+  icon: React.ElementType;
+  label: string;
+  disabled?: boolean;
+  spinning?: boolean;
+  trailingIcon?: React.ElementType;
+  title: string;
+}) {
+  const toneMap: Record<string, string> = {
+    gray: "border-gray-200 bg-white text-gray-700 hover:bg-gray-50",
+    blue: "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100",
+    red: "border-red-200 bg-red-50 text-red-700 hover:bg-red-100",
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] disabled:opacity-50 ${toneMap[tone]}`}
+    >
+      <Icon className={`w-3.5 h-3.5 ${spinning ? "animate-spin" : ""}`} />
+      {label}
+      {TrailingIcon ? <TrailingIcon className="w-3.5 h-3.5" /> : null}
+    </button>
+  );
+}
+
+function CampoPago({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <div>
+      <p className="text-[10px] uppercase tracking-wide text-gray-500 mb-0.5">
+        {label}
+      </p>
+      {value}
+    </div>
+  );
+}
+
 function buildPayloadFromSolicitud(solicitud: any) {
   const raw = solicitud ?? {};
   const asociaciones = raw?.asociaciones ?? {};
@@ -157,14 +214,6 @@ type FacturaDraft = {
   impuestos: string;
   monto_asociar: string;
 };
-
-function getFacturaBaseKey(f: any) {
-  return (
-    safeString(f?.id_factura_proveedor) ||
-    safeString(f?.uuid_cfdi) ||
-    safeString(f?.uuid_factura)
-  );
-}
 
 function getFacturaRowKey(f: any, idx: number) {
   return [
@@ -401,7 +450,6 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({
   const endpoint = `${URL}/mia/pago_proveedor/detalles`;
   const asignarMontoFactEndpoint = `${URL}/mia/pago_proveedor/asignar_monto_fact`;
   const deleteFacturaEndpoint = `${URL}/mia/pago_proveedor/edit_factura`;
-  console.log("este es el raw", solicitud);
 
   const payload = useMemo(
     () => buildPayloadFromSolicitud(solicitud),
@@ -440,6 +488,14 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({
     const canalDeReservacion = idIntermediario
       ? "INTERMEDIARIO"
       : (raw?.canal_de_reservacion ?? "DIRECTO");
+    const isComisionable = Number(raw?.is_comisionable ?? 0) === 1;
+
+    const montoComisionable = toApiNumber(raw?.monto_comisionable);
+
+    const porcentajeComisionable = toApiNumber(raw?.porcentaje_comisionable);
+
+    const comentariosComisionables = safeString(raw?.comentarios_comisionables);
+
     return {
       codigo_hotel: safeString(raw?.codigo_confirmacion),
       hotel: hotel ? hotel.toUpperCase() : "",
@@ -459,6 +515,11 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({
         : (raw?.nombre_intermediario ?? ""),
       creado: raw?.created_at ?? null,
       estado_solicitud: safeString(raw?.solicitud_proveedor?.estado_solicitud),
+      id_booking: raw?.id_booking ?? null,
+      is_comisionable: isComisionable,
+      monto_comisionable: montoComisionable,
+      porcentaje_comisionable: porcentajeComisionable,
+      comentarios_comisionables: comentariosComisionables,
     };
   }, [solicitud]);
 
@@ -469,6 +530,39 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({
   const [drafts, setDrafts] = useState<Record<string, FacturaDraft>>({});
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
+
+  const [comisionDraft, setComisionDraft] = useState<ComisionableFormValue>({
+    is_comisionable: 0,
+    monto_comisionable: 0,
+    porcentaje_comisionable: "",
+    comentarios_comisionables: "",
+  });
+  const [guardandoComision, setGuardandoComision] = useState(false);
+
+  useEffect(() => {
+    setComisionDraft({
+      is_comisionable: datosReserva.is_comisionable ? 1 : 0,
+      monto_comisionable: datosReserva.monto_comisionable ?? 0,
+      porcentaje_comisionable: datosReserva.porcentaje_comisionable ?? "",
+      comentarios_comisionables: datosReserva.comentarios_comisionables,
+    });
+  }, [datosReserva]);
+
+  const handleComisionChange = useCallback(
+    (
+      campo: keyof ComisionableFormValue,
+      valor: ComisionableFormValue[keyof ComisionableFormValue],
+    ) => {
+      setComisionDraft(
+        (prev) =>
+          ({
+            ...prev,
+            [campo]: valor,
+          }) as ComisionableFormValue,
+      );
+    },
+    [],
+  );
 
   const fetchDetalles = useCallback(
     async (signal?: AbortSignal) => {
@@ -529,7 +623,6 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({
   }, [fetchDetalles]);
 
   const api = data?.data ?? {};
-  const solicitudApi = api?.solicitud ?? null;
   const facturasApi = Array.isArray(api?.facturas) ? api.facturas : [];
   const pagosApi = Array.isArray(api?.pagos) ? api.pagos : [];
   const resumen = api?.resumen_validacion ?? null;
@@ -717,6 +810,32 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({
       onSuccess,
     ],
   );
+
+  const guardarComisionables = useCallback(async () => {
+    const idBooking = safeString(datosReserva.id_booking);
+    if (!idBooking) {
+      alert("No se encontró el id_booking de esta reserva");
+      return;
+    }
+
+    const monto = toApiNumber(comisionDraft.monto_comisionable);
+    const porcentaje = toApiNumber(comisionDraft.porcentaje_comisionable);
+
+    try {
+      setGuardandoComision(true);
+      await reservasService.editarComisionables(idBooking, {
+        is_comisionable: comisionDraft.is_comisionable,
+        monto_comisionable: monto,
+        porcentaje_comisionable: porcentaje,
+        comentarios_comisionables: comisionDraft.comentarios_comisionables,
+      });
+      onSuccess?.();
+    } catch (e) {
+      alert(mensajeError(e, "Error al guardar los campos comisionables"));
+    } finally {
+      setGuardandoComision(false);
+    }
+  }, [datosReserva.id_booking, comisionDraft, onSuccess]);
 
   const montosAsociados = facturasApi.reduce(
     (acumulado, f) =>
@@ -938,57 +1057,43 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({
 
         return (
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => openUrl(rawFactura?.url_pdf)}
-              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50"
+            <AccionButton
+              tone="gray"
+              icon={FileText}
+              trailingIcon={ExternalLink}
+              label="PDF"
               title="Abrir PDF"
-            >
-              <FileText className="w-3.5 h-3.5" />
-              PDF
-              <ExternalLink className="w-3.5 h-3.5" />
-            </button>
+              onClick={() => openUrl(rawFactura?.url_pdf)}
+            />
 
-            <button
-              type="button"
-              onClick={() => openUrl(rawFactura?.url_xml)}
-              className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50"
+            <AccionButton
+              tone="gray"
+              icon={Code2}
+              trailingIcon={ExternalLink}
+              label="XML"
               title="Abrir XML"
-            >
-              <Code2 className="w-3.5 h-3.5" />
-              XML
-              <ExternalLink className="w-3.5 h-3.5" />
-            </button>
+              onClick={() => openUrl(rawFactura?.url_xml)}
+            />
 
-            <button
-              type="button"
-              onClick={() => void saveFactura({ ...rawFactura, facturaKey })}
-              disabled={isSaving || isDeleting}
-              className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+            <AccionButton
+              tone="blue"
+              icon={isSaving ? Loader2 : Save}
+              spinning={isSaving}
+              label="Guardar"
               title="Guardar cambios"
-            >
-              {isSaving ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Save className="w-3.5 h-3.5" />
-              )}
-              Guardar
-            </button>
-
-            <button
-              type="button"
-              onClick={() => void deleteFactura({ ...rawFactura, facturaKey })}
               disabled={isSaving || isDeleting}
-              className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[11px] text-red-700 hover:bg-red-100 disabled:opacity-50"
+              onClick={() => void saveFactura({ ...rawFactura, facturaKey })}
+            />
+
+            <AccionButton
+              tone="red"
+              icon={isDeleting ? Loader2 : Trash2}
+              spinning={isDeleting}
+              label="Eliminar"
               title="Eliminar factura"
-            >
-              {isDeleting ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Trash2 className="w-3.5 h-3.5" />
-              )}
-              Eliminar
-            </button>
+              disabled={isSaving || isDeleting}
+              onClick={() => void deleteFactura({ ...rawFactura, facturaKey })}
+            />
           </div>
         );
       },
@@ -1058,69 +1163,6 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({
 
             {!loading && !error && (
               <>
-                {/* <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-                  <p className="text-sm font-semibold text-gray-900 mb-3">
-                    Datos de la reserva
-                  </p>
-
-                  <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-                    <StatCard
-                      label="Código de confirmación"
-                      value={datosReserva.codigo_hotel || "—"}
-                    />
-                    <StatCard
-                      label="Proveedor"
-                      value={datosReserva.hotel || "—"}
-                      sub={
-                        datosReserva.razon_social || datosReserva.rfc
-                          ? `${datosReserva.razon_social || "—"}${
-                              datosReserva.rfc ? ` · ${datosReserva.rfc}` : ""
-                            }`
-                          : undefined
-                      }
-                    />
-                    <StatCard
-                      label="Viajero"
-                      value={datosReserva.viajero || "—"}
-                    />
-                    <StatCard
-                      label="Check-in / Check-out"
-                      value={`${formatDate(datosReserva.check_in) || "—"} — ${
-                        formatDate(datosReserva.check_out) || "—"
-                      }`}
-                      sub={`${datosReserva.noches} noche(s)`}
-                    />
-                    <StatCard
-                      label="Tipo de cuarto"
-                      value={datosReserva.tipo_cuarto || "—"}
-                    />
-                    <StatCard
-                      label="Costo / Precio / Markup"
-                      value={`${formatMoney(datosReserva.costo_proveedor)} / ${formatMoney(
-                        datosReserva.precio_de_venta
-                      )}`}
-                      sub={`Markup: ${datosReserva.markup.toFixed(2)}%`}
-                    />
-                    <StatCard
-                      label="Canal de reservación"
-                      value={datosReserva.canal_de_reservacion || "—"}
-                      sub={
-                        datosReserva.nombre_intermediario
-                          ? datosReserva.nombre_intermediario
-                          : undefined
-                      }
-                    />
-                    <StatCard
-                      label="Fecha de creación"
-                      value={formatDate(datosReserva.creado) || "—"}
-                    />
-                    <StatCard
-                      label="Estado de la solicitud"
-                      value={datosReserva.estado_solicitud || "—"}
-                    />
-                  </div>
-                </div> */}
-
                 <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
                   <div className="flex items-center justify-between gap-3 mb-3">
                     <p className="text-sm font-semibold text-gray-900">
@@ -1153,47 +1195,9 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({
                         value={formatMoney(totalFacturas)}
                       />
                       <StatCard
-                        label="Total facturado "
+                        label="Total facturado"
                         value={formatMoney(montosAsociados)}
                       />
-                      {/* <StatCard
-                        label="Total asociado solicitud"
-                        value={formatMoney(totalAsociadoSolicitud)}
-                      />
-                      <StatCard
-                        label="Restante solicitud"
-                        value={
-                          <span className="text-amber-700 font-bold">
-                            {formatMoney(restanteSolicitud)}
-                          </span>
-                        }
-                      />
-                      <StatCard
-                        label="Total pagado"
-                        value={formatMoney(totalPagado)}
-                      /> */}
-                      {/* <StatCard
-                        label="Total facturas"
-                        value={formatMoney(totalFacturas)}
-                        /> */}
-
-                      {/* <StatCard
-                        label="Diferencia"
-                        value={
-                          <span
-                            className={`font-bold ${
-                              esCuadrado ? "text-green-700" : "text-amber-700"
-                            }`}
-                          >
-                            {formatMoney(esCuadrado ? 0 : diferencia)}
-                          </span>
-                        }
-                        sub={
-                          esCuadrado
-                            ? "Pagos y facturas cuadran."
-                            : "Hay diferencia entre pago y total de facturas."
-                        }
-                      /> */}
                     </div>
                   )}
                 </div>
@@ -1309,11 +1313,25 @@ const ModalDetalle: React.FC<ModalDetallesProp> = ({
                     </div>
                   )}
                 </div>
-                <Comisionable
-                  modo="consulta"
-                  data={solicitudApi}
-                  fallback={solicitud?.informacion_completa}
-                />
+                <div className="space-y-2">
+                  <div className="flex justify-end">
+                    <AccionButton
+                      tone="blue"
+                      icon={guardandoComision ? Loader2 : Save}
+                      spinning={guardandoComision}
+                      label={guardandoComision ? "Guardando..." : "Guardar"}
+                      title="Guardar campos comisionables"
+                      disabled={guardandoComision}
+                      onClick={() => void guardarComisionables()}
+                    />
+                  </div>
+
+                  <Comisionable
+                    modo="formulario"
+                    value={comisionDraft}
+                    onChange={handleComisionChange}
+                  />
+                </div>
               </>
             )}
           </div>

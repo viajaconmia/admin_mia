@@ -140,6 +140,13 @@ export type SolicitudDispersionInfo = {
   facturas: FacturaDispersionDetalle[];
 };
 
+// Debe reflejar el ALLOWED_FIELDS de pagoProveedoresSolicitudes.service.js.
+// Agregar un campo aquí solo tiene sentido si el backend ya lo agregó a su
+// allowlist (si no, responde 400).
+export type EditarSolicitudValores = {
+  notas_internas?: string;
+};
+
 export const pagoProveedorService = {
   getReservas: (
     filtros?: FiltrosReservasProveedor,
@@ -152,5 +159,17 @@ export const pagoProveedorService = {
     pagoProveedorApi.post<SolicitudDispersionInfo[]>(
       "/solicitudes/dispersion",
       { ids },
+    ),
+
+  // PATCH /v2/mia/pago_proveedor/solicitudes?id_solicitud_proveedor=X
+  // Un id por llamada; el body solo debe traer campos de EditarSolicitudValores
+  // (el backend valida contra su allowlist y rechaza cualquier otro con 400).
+  editarSolicitud: (
+    id: string,
+    valores: EditarSolicitudValores,
+  ): Promise<ApiResponse<null>> =>
+    pagoProveedorApi.patch<null>(
+      `/solicitudes?id_solicitud_proveedor=${encodeURIComponent(id)}`,
+      valores,
     ),
 };

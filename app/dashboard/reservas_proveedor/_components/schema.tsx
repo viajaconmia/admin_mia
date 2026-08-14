@@ -69,6 +69,7 @@ export const mapSolicitud = (
   estado_solicitud: raw.estado_solicitud,
   estado_pago: raw.estatus_pagos,
   fecha_solicitud: raw.fecha_solicitud,
+  comentarios_fin: raw.notas_internas,
   codigo_confirmacion: raw.codigo_confirmacion,
   cliente: raw.cliente,
   proveedor: raw.proveedor,
@@ -96,7 +97,6 @@ export const mapSolicitud = (
     : "",
   comentarios_ops: raw.comentarios_ops,
   comentario_CXP: raw.comentario_CXP,
-  comentarios_fin: raw.notas_internas,
 });
 
 export const createSolicitudRenderers = () => ({
