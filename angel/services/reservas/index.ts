@@ -48,7 +48,79 @@ export type SolicitudPendienteRaw = {
   comments: string | null;
 };
 
+// SELECT * de vw_new_details_booking. Se deja el índice de más para tolerar
+// columnas nuevas que agregue la vista sin romper el tipado.
+export type ReservaComisionable = {
+  id_relacion: string;
+  id_viajero: string;
+  id_solicitud_client: string;
+  created_at: string;
+  total: string;
+  check_in: string;
+  estado: string;
+  tipo_cuarto_vuelo: string | null;
+  check_out: string;
+  costo_total: string;
+  metodo_pago: string;
+  id_agente: string;
+  nombre_agente: string;
+  nombre_viajero: string;
+  id_booking: string;
+  prefacturado: string;
+  codigo_confirmacion: string;
+  is_comisionable: 0 | 1;
+  monto_comisionable: string;
+  porcentaje_comisionable: string;
+  comentarios_comisionables: string;
+  comision_cobrada: 0 | 1;
+  proveedor: string;
+  id_proveedor: number;
+  id_proveedor_service: string;
+  negociacion_proveedor: string;
+  type: string;
+  id_intermediario: string | null;
+  [key: string]: unknown;
+};
+
+export type FiltrosComisionables = {
+  page?: number;
+  length?: number;
+  [key: string]: unknown;
+};
+
+export type EditarComisionablesBody = {
+  is_comisionable: 0 | 1;
+  monto_comisionable: number | null;
+  porcentaje_comisionable: number | null;
+  comentarios_comisionables: string;
+};
+
+export type EditarComisionablesResponse = {
+  id_booking: string;
+  is_comisionable: 0 | 1;
+  monto_comisionable: string | number | null;
+  porcentaje_comisionable: string | number | null;
+  comentarios_comisionables: string;
+};
+
 export const reservasService = {
   getSolicitudesPendientes: (): Promise<ApiResponse<SolicitudPendienteRaw[]>> =>
     reservasApi.get<SolicitudPendienteRaw[]>("/solicitudes/pendientes"),
+
+  getComisionables: (
+    filtros: FiltrosComisionables = {},
+  ): Promise<ApiResponse<ReservaComisionable[]>> =>
+    reservasApi.get<ReservaComisionable[]>("/comisionables", filtros),
+
+  cobrarComision: (id_booking: string): Promise<ApiResponse<null>> =>
+    reservasApi.patch<null>(`/comisionables/${id_booking}/cobrar`),
+
+  editarComisionables: (
+    id_booking: string,
+    body: EditarComisionablesBody,
+  ): Promise<ApiResponse<EditarComisionablesResponse>> =>
+    reservasApi.patch<EditarComisionablesResponse>(
+      `/comisionables/${id_booking}`,
+      body,
+    ),
 };
