@@ -37,9 +37,9 @@ export type PagoProveedorItem = {
   // monto_solicitado: string;
   // saldo: string;
   // saldo_dispersion: number;
-  estado_solicitud: string;
+  // estado_solicitud: string;
   // estado_facturacion: string;
-  // estado_pago: string | null;
+  estado_pago: string | null;
   // forma_pago: "credit" | "contado";
   // negociacion_proveedor: string | null;
   intermediario: string | null;
@@ -61,8 +61,8 @@ export const mapPago = (raw: SolicitudProveedorRaw): PagoProveedorItem => ({
   // created_solicitud: raw.created_at,
   // created_reserva: raw.created_at_booking,
   codigo_dispersion: raw.codigo_dispersion ?? "",
-  estado_solicitud: raw.estado_solicitud,
-  // estado_pago: raw.estatus_pagos,
+  // estado_solicitud: raw.estado_solicitud,
+  estado_pago: raw.estatus_pagos,
   fecha_solicitud: raw.fecha_solicitud,
   // comentarios_fin: raw.notas_internas,
   codigo_confirmacion: raw.codigo_confirmacion,
