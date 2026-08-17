@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   pagoProveedorService,
   type FiltrosReservasProveedor,
@@ -8,6 +8,7 @@ import {
 import { TablaCompleta } from "@/angel/components/organisms/TablaCompleta";
 import { FiltrosPanel } from "@/angel/components/molecules/FiltrosPanel";
 import { FilterInput } from "@/component/atom/FilterInput";
+import { TextInput } from "@/components/atom/Input";
 import { usePaginacion } from "@/angel/hooks/usePaginacion";
 import { useAlert } from "@/context/useAlert";
 import {
@@ -27,6 +28,9 @@ export default function PagosDispersionesPage() {
   const [pagos, setPagos] = useState<PagoProveedorItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [filtros, setFiltros] = useState<FiltrosPagos>({});
+  // Búsqueda por código de dispersión: filtra solo lo ya cargado en pantalla
+  // (no es un filtro de backend todavía, con_dispersion no lo soporta aún).
+  const [busquedaDispersion, setBusquedaDispersion] = useState("");
   const { paginacion, actualizarDesdeMetadata, resetear } =
     usePaginacion(PAGE_SIZE);
   const { error } = useAlert();
@@ -79,6 +83,12 @@ export default function PagosDispersionesPage() {
     });
   };
 
+  const pagosFiltrados = useMemo(() => {
+    const q = busquedaDispersion.trim().toLowerCase();
+    if (!q) return pagos;
+    return pagos.filter((p) => p.codigo_dispersion.toLowerCase().includes(q));
+  }, [pagos, busquedaDispersion]);
+
   const renderers = createPagoRenderers();
 
   return (
@@ -104,14 +114,26 @@ export default function PagosDispersionesPage() {
         }
       />
 
+      <div className="max-w-xs">
+        <TextInput
+          label="Buscar por código de dispersión"
+          placeholder="Ej. D1F14CDR"
+          value={busquedaDispersion}
+          onChange={setBusquedaDispersion}
+        />
+        <p className="text-xs text-gray-400 mt-1">
+          Busca solo dentro de los registros ya cargados en esta página.
+        </p>
+      </div>
+
       <TablaCompleta<PagoProveedorItem>
         paginacion={paginacion}
         irAPagina={fetchPagos}
         onRefresh={() => fetchPagos(paginacion.page)}
-        registros={pagos}
+        registros={pagosFiltrados}
         loading={loading}
         renderers={renderers}
-        label={`Mostrando ${pagos.length} registros`}
+        label={`Mostrando ${pagosFiltrados.length} de ${pagos.length} registros`}
       />
     </div>
   );
