@@ -555,8 +555,8 @@ export default function Page() {
               CONTROLES
           ======================================== */}
 
-          <div className="flex  justify-between gap-6 p-4 ">
-            <div className="flex justify-center gap-3 items-center ">
+          <div className="flex flex-col gap-6 p-4  md:flex-row md:justify-between md:flex-wrap">
+            <div className="flex flex-col gap-6 p-4  md:flex-row md:justify-between md:flex-wrap">
               <label>Ordenar por:</label>
 
               <CheckIcon

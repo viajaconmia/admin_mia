@@ -232,12 +232,14 @@ export const TextInput = ({
   onInput = () => {},
   onKeyDown,
   onFocus,
+  type = "text",
 }: {
   label?: string;
   value: string;
   className?: string;
   disabled?: boolean;
   onChange?: (value: string) => void;
+  type?: React.HTMLInputTypeAttribute;
   placeholder?: string;
   onInput?: (e: React.FormEvent<HTMLInputElement>) => void;
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
@@ -248,7 +250,7 @@ export const TextInput = ({
       <label className="text-sm text-gray-900 font-medium">{label}</label>
     )}
     <input
-      type="text"
+      type={type}
       value={value || ""}
       onChange={(e) => onChange(e.target.value)}
       disabled={disabled}
