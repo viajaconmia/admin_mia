@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import {
   FileText,
   BookOpen,
@@ -18,9 +18,11 @@ import {
   Wallet,
   FileCheck,
   Percent,
+  Calculator,
 } from "lucide-react";
 
 import NavContainer from "@/components/organism/NavContainer"; // <- aquí importas el nuevo
+import CotizadorExterno from "@/components/organism/cotizador/cotizadorExterno";
 import { useAuth } from "@/context/AuthContext";
 import Button from "@/components/atom/Button";
 import { UserProfileImage } from "@/components/atom/UserProfileImage";
@@ -74,6 +76,7 @@ export default function DashboardLayout({
 function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   const { logout } = useAuth();
   const { conteos } = useNotificaciones();
+  const [isOpen, setIsOpen] = useState(false);
 
   // Inyecta el conteo de notificaciones en los items de `links` que lo tengan
   // configurado en NotificacionesContext (por ahora solo patch a un nivel:
@@ -99,6 +102,16 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
             <ClientQuickSearch />
             <div className="flex items-center gap-2">
               <Button
+                variant="ghost"
+                size="md"
+                icon={Calculator}
+                onClick={() => {
+                  setIsOpen(true);
+                }}
+              >
+                Cotizador
+              </Button>
+              <Button
                 size="sm"
                 icon={DoorOpen}
                 variant="secondary"
@@ -114,6 +127,10 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
           </main>
         </div>
       </NavContainer>
+
+      {isOpen && (
+        <CotizadorExterno onClose={() => setIsOpen(false)}></CotizadorExterno>
+      )}
     </div>
   );
 }
