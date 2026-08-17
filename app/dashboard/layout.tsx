@@ -175,8 +175,8 @@ const links: NavGroup[] = [
         icon: FileText,
       },
       {
-        title: "Reporte por estado",
-        href: "/dashboard/reporte_por_estado",
+        title: "Reporte reservas general",
+        href: "/dashboard/reporte_general",
         icon: FileText,
       },
     ],

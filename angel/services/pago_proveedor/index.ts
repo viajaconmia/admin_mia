@@ -44,6 +44,12 @@ export type SolicitudProveedorRaw = {
   monto_impsan?: string | null;
   indice_factura?: number;
   total_facturas?: number;
+  // Solo presentes cuando includePagos=true
+  codigo_dispersion?: string | null;
+  url_pdf?: string | null;
+  monto?: string | null;
+  indice_pago?: number;
+  total_pagos?: number;
 };
 
 export type BucketReservas =
@@ -66,6 +72,8 @@ export type FiltrosReservasProveedor = {
   estado_facturacion?: string;
   forma_pago?: "credit" | "contado";
   tipo_negociacion?: string;
+  // rfc/uuid requieren includeFacturas=true para tener efecto (misma
+  // dependencia que con_dispersion con includePagos, ver abajo).
   rfc?: string;
   uuid?: string;
   comentarios_ops?: string;
@@ -79,6 +87,18 @@ export type FiltrosReservasProveedor = {
   estatus_pagos?: string;
   bucket?: BucketReservas;
   includeFacturas?: boolean;
+  // No combinar con includeFacturas=true salvo que se necesite explícitamente:
+  // el backend hace producto cruzado factura × pago por solicitud.
+  includePagos?: boolean;
+  // Solo solicitudes con pago_proveedores.id_pago_dispersion != NULL.
+  // Requiere includePagos=true para tener efecto (misma lógica que rfc/uuid
+  // con includeFacturas).
+  con_dispersion?: boolean;
+  // "pago_created_at" ordena por pago_proveedores.created_at. desc ya es el
+  // default del backend si se omite order_dir, pero se manda explícito para
+  // que el query string documente la intención por sí solo.
+  order_by?: "pago_created_at";
+  order_dir?: "asc" | "desc";
   page?: number;
   length?: number;
 };

@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   reservasService,
   type ReservaComisionable,
@@ -12,27 +12,64 @@ import { mensajeError } from "@/angel/lib/mensajeError";
 
 const PAGE_SIZE = 50;
 
+// Deliberadamente sin index signature: FiltrosComisionables (el tipo del
+// servicio) sí la tiene, y hacer Omit<> sobre un tipo con index signature
+// colapsa las props nombradas a `unknown` en TS.
+type FiltrosComisionablesUI = {
+  proveedor?: string;
+  id_intermediario?: string;
+  comision_cobrada?: string;
+  comentarios_comisionables?: string;
+  estado?: string;
+  codigo_confirmacion?: string;
+};
+
 export function useComisionables() {
   const [registros, setRegistros] = useState<ReservaComisionable[]>([]);
   const [loading, setLoading] = useState(false);
-  const [cobrandoIndividualId, setCobrandoIndividualId] = useState<string | null>(null);
-  const { paginacion, actualizarDesdeMetadata } = usePaginacion(PAGE_SIZE);
+  const [cobrandoIndividualId, setCobrandoIndividualId] = useState<
+    string | null
+  >(null);
+  const [filtros, setFiltros] = useState<FiltrosComisionablesUI>({});
+  const { paginacion, actualizarDesdeMetadata, resetear } =
+    usePaginacion(PAGE_SIZE);
   const { error, success } = useAlert();
+
+  const actualizarFiltro = useCallback(
+    (value: string | null, propiedad: string) => {
+      setFiltros((prev) => {
+        if (value == null || value === "") {
+          const next = { ...prev };
+          delete next[propiedad as keyof typeof next];
+          return next;
+        }
+        return { ...prev, [propiedad]: value };
+      });
+    },
+    [],
+  );
 
   const fetchComisionables = useCallback(
     (page: number = paginacion.page) => {
       setLoading(true);
       reservasService
-        .getComisionables({ page, length: PAGE_SIZE })
+        .getComisionables({ ...filtros, page, length: PAGE_SIZE })
         .then(({ data, metadata }) => {
           setRegistros(data ?? []);
           actualizarDesdeMetadata(metadata?.total || 0, page);
         })
-        .catch((err) => error(mensajeError(err, "Error al obtener las comisiones")))
+        .catch((err) =>
+          error(mensajeError(err, "Error al obtener las comisiones")),
+        )
         .finally(() => setLoading(false));
     },
-    [paginacion.page, actualizarDesdeMetadata, error],
+    [paginacion.page, actualizarDesdeMetadata, error, filtros],
   );
+
+  useEffect(() => {
+    resetear();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtros]);
 
   const cobrarComision = useCallback(
     (id_booking: string) => {
@@ -95,6 +132,8 @@ export function useComisionables() {
     registros,
     loading,
     paginacion,
+    filtros,
+    actualizarFiltro,
     cobrandoId: cobrandoIndividualId ?? cobrandoLoteId,
     procesandoLote,
     progresoLote,
