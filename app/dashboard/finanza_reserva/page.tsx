@@ -262,8 +262,8 @@ const RazonSocialCell = ({
                 ))
               ) : (
                 <li className="bg-yellow-50 rounded-lg px-3 py-2 text-xs text-yellow-700">
-                  No se pudieron cargar las razones sociales. Revisa que el back esté mandando
-                  razones_sociales_json.
+                  No se pudieron cargar las razones sociales. Revisa que el back
+                  esté mandando razones_sociales_json.
                 </li>
               )}
             </ul>
@@ -318,7 +318,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
   const handleExport = async () => {
     setLoadingFile(true);
     try {
-      let fileName = "Reservas";
+      let fileName = "ReservasF";
 
       if (!confirm('¿Quieres usar el nombre "Reservas" por default?')) {
         const customName = prompt("Escribe el nombre del archivo:");
@@ -336,7 +336,10 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
       });
 
       const splitUuids = (raw: string | null | undefined) =>
-        (raw || "").split(",").map((u) => u.trim()).filter(Boolean);
+        (raw || "")
+          .split(",")
+          .map((u) => u.trim())
+          .filter(Boolean);
 
       const formatData = response.data.flatMap((reserva) => {
         const base = {
@@ -373,7 +376,8 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
           estado_facturacion: reserva.estado_facturacion,
           id_booking: reserva.id_booking,
           total_factura: reserva.total_factura,
-          total_facturado_recibido: reserva.monto_facturado_factura_recibida || "",
+          total_facturado_recibido:
+            reserva.monto_facturado_factura_recibida || "",
         };
 
         const emitidos = splitUuids(reserva.uuid_factura);
@@ -404,13 +408,14 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
       return <h1>{valor.value}</h1>;
     },
     creado: ({ value }) => <>{value ? formatDate(value) : ""}</>,
-    id_proveedor: ({ value }: { value: string }) => (<p className="font-bold text-gray-800">{value || ""}</p>),
+    id_proveedor: ({ value }: { value: string }) => (
+      <p className="font-bold text-gray-800">{value || ""}</p>
+    ),
     razon_social_proveedor: ({ value }: { value: any }) => {
       const principal =
         typeof value === "object" ? value?.principal || "" : value || "";
 
-      const total =
-        typeof value === "object" ? Number(value?.total || 0) : 0;
+      const total = typeof value === "object" ? Number(value?.total || 0) : 0;
 
       const razonesJson =
         typeof value === "object" ? value?.razonesJson || null : null;
@@ -436,10 +441,10 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     costo_proveedor: ({ value }) => (
       <>{value ? "$" + formatNumberWithCommas(value) : ""}</> //pesos
     ),
-    total_factura: ({ value }) => (
+    total_fac_e: ({ value }) => (
       <>{value ? "$" + formatNumberWithCommas(value) : ""}</> //pesos
     ),
-    total_facturado_recibido: ({ value }) => (
+    total_fac_r: ({ value }) => (
       <>{value ? "$" + formatNumberWithCommas(value) : ""}</> //pesos
     ),
     estado: ({ value }) => <span title={value}>{getStatusBadge(value)}</span>,
@@ -452,14 +457,13 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     uuid_recibido: ({ value }) => (
       <UuidCell value={value} label="UUIDs recibidos" />
     ),
-
   };
 
   const data = reservas.map((reserva) => ({
     serv: reserva.type,
     id: reserva.id_agente || "",
     cliente: reserva.agente,
-    creado: reserva.created_at,// modificacion
+    creado: reserva.created_at, // modificacion
     //id_proveedor: reserva.id_proveedor,
     proveedor: reserva.proveedor,
     // rfc_proveedor: reserva.rfc_proveedor || "",
@@ -468,7 +472,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
       total: Number(reserva.total_razones_sociales || 0),
       razonesJson: reserva.razones_sociales_json || null,
     },
- 
+
     codigo: reserva.codigo_confirmacion,
     viajero: reserva.viajero,
     check_in: reserva.check_in,
@@ -494,9 +498,9 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
     estado_facturacion: reserva.estado_facturacion,
     intermediario: reserva.intermediario,
     uuid_emitido: reserva.uuid_factura || "",
-    total_factura: reserva.total_factura,
+    total_fac_e: reserva.total_factura,
     uuid_recibido: reserva.uuid_recibido || "",
-    total_facturado_recibido: reserva.monto_facturado_factura_recibida || "",
+    total_fac_r: reserva.monto_facturado_factura_recibida || "",
   }));
 
   const handleFilterChange = (value: string | null, propiedad: string) => {
@@ -696,12 +700,7 @@ const PageReservas = ({ agente }: { agente?: Agente }) => {
         <p className="font-semibold text-gray-600 text-xs">
           Total de reservas: {tracking.total}
         </p>
-        <Table
-          maxHeight="25rem"
-          registros={data}
-          renderers={renderers}
-          loading={loading}
-        ></Table>
+        <Table maxHeight="25rem" registros={data} renderers={renderers}></Table>
         {reservas && (
           <PageTracker
             tracking={tracking}
@@ -742,7 +741,7 @@ const emptyFiltersSolicitudes: FinanzasReservaFilters = {
   monto: null,
 };
 
-const defaultFiltersSolicitudes: FinanzasReservaFilters  = {
+const defaultFiltersSolicitudes: FinanzasReservaFilters = {
   codigo_reservacion: null,
   client: null,
   reservante: null,

@@ -27,7 +27,9 @@ type FilaModal = {
   id: string;
   codigo_confirmacion: string;
   proveedor: string;
+  check_in: string | null;
   check_out: string | null;
+  fecha_solicitud: string | null;
   saldo_dispersion: number;
   facturas: FacturaDispersionDetalle[];
   cuentas: CuentaProveedorDispersion[];
@@ -86,7 +88,9 @@ export const DispersionModal = ({
         id: String(s.id_solicitud_proveedor),
         codigo_confirmacion: s.codigo_confirmacion,
         proveedor: s.proveedor,
+        check_in: s.check_in,
         check_out: s.check_out,
+        fecha_solicitud: s.fecha_solicitud,
         saldo_dispersion: s.saldo_dispersion,
         facturas: s.facturas,
         cuentas: s.cuentas,
@@ -258,7 +262,7 @@ export const DispersionModal = ({
         codigoDispersion,
         "SPEI",
         fmtDateCsv(fila.check_out),
-        e.cuenta?.cuenta ?? "",
+        String(e.cuenta?.cuenta ?? ""),
         String(e.cuenta?.id_proveedor ?? ""),
         "Cta Clabe",
         "Pesos",
@@ -274,6 +278,57 @@ export const DispersionModal = ({
       headers,
       rows,
       `dispersion_${codigoDispersion}_${new Date().toISOString().split("T")[0]}.csv`,
+    );
+  };
+
+  const handleDescargarReporte = () => {
+    if (!successData) return;
+    const { codigoDispersion } = successData;
+
+    const headers = [
+      "id_Solicitud",
+      "Codigo_Dispersion",
+      "TIPO_CUENTA",
+      "CUENTA_CARGO",
+      "Cuenta B",
+      "PROVEEDOR",
+      "RFC",
+      "TITULAR CUENTA BANCARIA",
+      "RESERVA (MOTIVO_PAGO)",
+      "UUID",
+      "IMPORTE PAGADO",
+      "Check In",
+      "Check Out",
+      "FECHA PAGO",
+    ];
+
+    const rows = filas.map((fila) => {
+      const e = edicion.get(fila.id)!;
+      const facturaSeleccionada = fila.facturas.find(
+        (f) => f.id_factura === e.id_factura,
+      );
+      return [
+        fila.id,
+        codigoDispersion,
+        String(e.cuenta?.tipo_cta ?? ""),
+        String(e.cuenta?.cuenta ?? ""),
+        String(e.cuenta?.cta ?? ""),
+        fila.proveedor,
+        facturaSeleccionada?.rfc ?? "",
+        e.cuenta?.titular ?? "",
+        fila.codigo_confirmacion,
+        facturaSeleccionada?.uuid ?? "",
+        Number(e.monto).toFixed(2),
+        fmtDateCsv(fila.check_in),
+        fmtDateCsv(fila.check_out),
+        fmtDateCsv(fila.fecha_solicitud),
+      ];
+    });
+
+    csvRaw(
+      headers,
+      rows,
+      `reporte_dispersion_${codigoDispersion}_${new Date().toISOString().split("T")[0]}.csv`,
     );
   };
 
@@ -295,10 +350,18 @@ export const DispersionModal = ({
         title="Dispersión creada"
         className="max-w-md"
         footer={
-          <div className="flex gap-2 w-full">
+          <div className="flex flex-wrap gap-2 w-full">
             <Button size="sm" variant="secondary" onClick={handleDescargarCsv}>
               <FileDown className="w-4 h-4 mr-1" />
               Descargar CSV
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleDescargarReporte}
+            >
+              <FileDown className="w-4 h-4 mr-1" />
+              Descargar reporte
             </Button>
             <Button size="sm" onClick={handleSuccess}>
               Cerrar
