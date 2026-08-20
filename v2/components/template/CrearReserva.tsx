@@ -4,12 +4,15 @@ import { TabsList } from "@/components/molecule/TabsList";
 import { ReservationForm } from "@/components/organism/FormReservation";
 import { CarRentalPage } from "@/components/pages/CarRental";
 import { PageVuelos } from "@/components/template/PageVuelos";
+import { DriverPage } from "@/components/pages/DriverPage";
 import { useAlert } from "@/context/useAlert";
-import { Building2, CarTaxiFront, Plane } from "lucide-react";
+import { Building2, CarTaxiFront, Plane, UserRound } from "lucide-react";
 import { useState } from "react";
 
 const App = ({ agente }: { agente: Agente }) => {
-  const [tab, setTab] = useState<"hotel" | "vuelo" | "renta">("hotel");
+  const [tab, setTab] = useState<
+    "hotel" | "vuelo" | "renta" | "viaje_con_chofer"
+  >("hotel");
   const { showNotification } = useAlert();
 
   return (
@@ -21,8 +24,15 @@ const App = ({ agente }: { agente: Agente }) => {
               { icon: Building2, label: "hotel", tab: "hotel" },
               { icon: Plane, label: "vuelo", tab: "vuelo" },
               { icon: CarTaxiFront, label: "renta", tab: "renta" },
+              {
+                icon: UserRound,
+                label: "viaje con chofer",
+                tab: "viaje_con_chofer",
+              },
             ]}
-            onChange={function (tab: "hotel" | "vuelo" | "renta"): void {
+            onChange={function (
+              tab: "hotel" | "vuelo" | "renta" | "viaje_con_chofer",
+            ): void {
               setTab(tab);
             }}
             activeTab={tab}
@@ -46,6 +56,7 @@ const App = ({ agente }: { agente: Agente }) => {
             )}
             {tab == "vuelo" && <PageVuelos agente={agente} />}
             {tab == "renta" && <CarRentalPage agente={agente} />}
+            {tab == "viaje_con_chofer" && <DriverPage agente={agente} />}
           </div>
         </>
       )}
