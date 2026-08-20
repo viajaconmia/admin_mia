@@ -290,6 +290,8 @@ export default function Page() {
     // Solamente limpia los checks.
     // No modifica la tabla.
     setOrden([]);
+    setBusqueda("");
+    setBusquedaAplicada("");
   };
 
   // ============================================
