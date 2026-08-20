@@ -145,7 +145,10 @@ function calcularCotizacionExterna(
   // EL COSTO SÍ CAMBIA.
   // ====================================================
 
-  const costo = precioProveedor / (1 - porcentaje / 100);
+  const noktos = Math.ceil(
+    precioProveedor / (1 - porcentaje / 100) / VALOR_BASE_NOKTO,
+  );
+  const costo = noktos * VALOR_BASE_NOKTO;
 
   // ====================================================
   // NOKTOS
@@ -159,8 +162,6 @@ function calcularCotizacionExterna(
   //
   // 145 * 1.16 = 168.2
   // ====================================================
-
-  const noktos = Math.ceil(costo / VALOR_BASE_NOKTO);
 
   return {
     noktos,
