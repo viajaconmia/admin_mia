@@ -932,19 +932,73 @@ export function InputGoogle({
   useEffect(() => {
     if (!loaded || !inputRef.current) return;
 
-    const autocomplete = new window.google.maps.places.Autocomplete(
-      inputRef.current,
-      {
-        types: ["geocode", "establishment"],
-        // componentRestrictions: { country: "mx" },
-      },
-    );
+    const input = inputRef.current;
 
-    autocomplete.addListener("place_changed", () => {
+    const autocomplete = new window.google.maps.places.Autocomplete(input, {
+      types: ["geocode", "establishment"],
+      // componentRestrictions: { country: "mx" },
+    });
+
+    // ======================================================
+    // CUANDO SE SELECCIONA UNA UBICACIÓN
+    // ======================================================
+
+    const placeListener = autocomplete.addListener("place_changed", () => {
       const place = autocomplete.getPlace();
+
       console.log(place);
+
       onChange(place as PlaceMaps);
     });
+
+    // ======================================================
+    // ENTER = PRIMERA OPCIÓN DEL AUTOCOMPLETE
+    // ======================================================
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Enter") return;
+
+      // Evita que Enter mande el formulario completo.
+      event.preventDefault();
+
+      // Revisamos si Google ya tiene una opción
+      // seleccionada con las flechas.
+      const selectedItem = document.querySelector(".pac-item-selected");
+
+      // Si NO hay ninguna seleccionada,
+      // seleccionamos automáticamente la primera.
+      if (!selectedItem) {
+        const arrowDownEvent = new KeyboardEvent("keydown", {
+          key: "ArrowDown",
+          code: "ArrowDown",
+          bubbles: true,
+          cancelable: true,
+        });
+
+        // Google Places todavía revisa estos valores.
+        Object.defineProperty(arrowDownEvent, "keyCode", {
+          get: () => 40,
+        });
+
+        Object.defineProperty(arrowDownEvent, "which", {
+          get: () => 40,
+        });
+
+        input.dispatchEvent(arrowDownEvent);
+      }
+    };
+
+    // "true" hace que nuestro evento se ejecute
+    // antes de que el formulario procese Enter.
+    input.addEventListener("keydown", handleKeyDown, true);
+
+    return () => {
+      input.removeEventListener("keydown", handleKeyDown, true);
+
+      if (window.google?.maps?.event && placeListener) {
+        window.google.maps.event.removeListener(placeListener);
+      }
+    };
   }, [loaded]);
 
   const sizes: Record<Size, string> = {
@@ -958,11 +1012,16 @@ export function InputGoogle({
       {label && (
         <label className="text-sm text-gray-900 font-medium">{label}</label>
       )}
+
       <input
         ref={inputRef}
         type="text"
         placeholder="Buscar ubicación..."
-        className={`${googleStyle ? "flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:text-black" : "px-4 py-2 border border-white shadow-xl rounded-full placeholder:text-gray-700 focus:outline-none"} ${sizes[size]}`}
+        className={`${
+          googleStyle
+            ? "flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:text-black"
+            : "px-4 py-2 border border-white shadow-xl rounded-full placeholder:text-gray-700 focus:outline-none"
+        } ${sizes[size]}`}
       />
     </div>
   );
