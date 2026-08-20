@@ -78,9 +78,13 @@ type DetalleParams = {
 
 type DetalleCliente = {
   nombre: string;
+  hotel: string;
+  pais: string;
   estado: string;
+  tipo_negociacion: string;
+  tipo_pago: string;
   cantidad_de_reservas: number;
-  total_por_reservas: number;
+  monto_total_reservas: number;
 };
 
 type DetalleClienteRow = DetalleCliente & {
@@ -408,9 +412,13 @@ export default function Page() {
 
   const detalleColumns: (keyof DetalleClienteRow)[] = [
     "nombre",
+    "hotel",
+    "pais",
     "estado",
+    "tipo_negociacion",
+    "tipo_pago",
     "cantidad_de_reservas",
-    "total_por_reservas",
+    "monto_total_reservas",
   ];
 
   // ============================================
@@ -489,10 +497,30 @@ export default function Page() {
         {value ? capitalizarTexto(value) : "Sin cliente"}
       </span>
     ),
+    hotel: ({ value }: { value: string }) => (
+      <span className="text-xs font-semibold">
+        {value ? capitalizarTexto(value) : "Sin hotel"}
+      </span>
+    ),
+    pais: ({ value }: { value: string }) => (
+      <span className="text-xs font-semibold">
+        {value ? capitalizarTexto(value) : "Sin pais"}
+      </span>
+    ),
 
     estado: ({ value }: { value: string }) => (
       <span className="text-xs font-semibold">
         {value ? capitalizarTexto(value) : "Sin estado"}
+      </span>
+    ),
+    tipo_negociacion: ({ value }: { value: string }) => (
+      <span className="text-xs font-semibold">
+        {value ? capitalizarTexto(value) : "Sin tipo de negociacion"}
+      </span>
+    ),
+    tipo_pago: ({ value }: { value: string }) => (
+      <span className="text-xs font-semibold">
+        {value ? capitalizarTexto(value) : "Sin tipo de pago"}
       </span>
     ),
 
@@ -504,7 +532,7 @@ export default function Page() {
       </span>
     ),
 
-    total_por_reservas: ({ value }: { value: number }) => (
+    monto_total_reservas: ({ value }: { value: number }) => (
       <span className="block w-full text-right text-xs font-semibold text-emerald-700">
         {formatMoneyMXN(value)}
       </span>
@@ -646,7 +674,7 @@ export default function Page() {
 
       {detalleAbierto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="flex max-h-[85vh] w-full max-w-5xl flex-col rounded-lg bg-white shadow-xl">
+          <div className="flex max-h-[85vh] w-full max-w-7xl flex-col rounded-lg bg-white shadow-xl">
             {/* ========================================
                 ENCABEZADO DEL MODAL
             ======================================== */}
