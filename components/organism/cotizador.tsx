@@ -11,23 +11,8 @@ interface CotizadorProps {
   onClose: () => void;
 }
 
-// ======================================================
-// CONSTANTES
-// ======================================================
-
 const VALOR_BASE_NOKTO = 168.2;
 const MARGEN_BASE_PORCENTAJE = 13;
-
-// ======================================================
-// COTIZADOR INTERNO
-//
-// Mantiene EXACTAMENTE la lógica original:
-//
-// - Margen fijo 13%
-// - Calcula Noktos
-// - Costo = ceil(Noktos * 168.2)
-// - Calcula porcentaje real resultante
-// ======================================================
 
 function calcularCotizacionInterna(precioProveedorInput: string) {
   const precioProveedor = parseFloat(precioProveedorInput);
@@ -40,23 +25,11 @@ function calcularCotizacionInterna(precioProveedorInput: string) {
     };
   }
 
-  // ====================================================
-  // MARGEN FIJO
-  // ====================================================
-
   const margen = MARGEN_BASE_PORCENTAJE / 100;
-
-  // ====================================================
-  // NOKTOS ESTIMADOS
-  // ====================================================
 
   const noktosEstimados = (precioProveedor * (1 + margen)) / VALOR_BASE_NOKTO;
 
   let noktos = Math.floor(noktosEstimados);
-
-  // ====================================================
-  // VALIDAR MARGEN REAL
-  // ====================================================
 
   const margenReal =
     100 *
@@ -78,7 +51,7 @@ function calcularCotizacionInterna(precioProveedorInput: string) {
   // 4 Noktos = 672.8 -> 673
   // ====================================================
 
-  let costo = Math.ceil(VALOR_BASE_NOKTO * noktos);
+  let costo = VALOR_BASE_NOKTO * noktos;
 
   if (Number.isNaN(costo)) {
     costo = 0;
