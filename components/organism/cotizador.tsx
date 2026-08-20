@@ -239,7 +239,7 @@ export default function Cotizador({ onClose }: CotizadorProps) {
 
             <div className="grid grid-cols-[200px_1fr] border-b border-gray-300">
               <div className="flex items-center justify-center bg-blue-900 px-3 py-2 text-center text-sm font-semibold text-white">
-                Precio Proveedor
+                Costo proveedor
               </div>
 
               <div className="flex items-center gap-2 bg-white p-2">
@@ -275,7 +275,7 @@ export default function Cotizador({ onClose }: CotizadorProps) {
 
             <div className="grid grid-cols-[200px_1fr] border-b border-gray-300">
               <div className="flex items-center justify-center bg-blue-900 px-3 py-2 text-center text-sm font-semibold text-white">
-                Costo
+                Precio cliente
               </div>
 
               <div className="bg-gray-100 p-2">
@@ -316,12 +316,12 @@ export default function Cotizador({ onClose }: CotizadorProps) {
             </div>
 
             {/* ==================================================
-                PRECIO PROVEEDOR
+                Costo proveedor
             ================================================== */}
 
             <div className="grid grid-cols-[200px_1fr] border-b border-gray-300">
               <div className="flex items-center justify-center bg-blue-900 px-3 py-2 text-center text-sm font-semibold text-white">
-                Precio Proveedor
+                Costo proveedor
               </div>
 
               <div className="flex items-center gap-2 bg-white p-2">
@@ -360,7 +360,7 @@ export default function Cotizador({ onClose }: CotizadorProps) {
 
             <div className="grid grid-cols-[200px_1fr] border-b border-gray-300">
               <div className="flex items-center justify-center bg-blue-900 px-3 py-2 text-center text-sm font-semibold text-white">
-                Costo
+                Precio cliente
               </div>
 
               <div className="bg-gray-100 p-2">
