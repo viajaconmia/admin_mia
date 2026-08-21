@@ -35,6 +35,11 @@ export type SolicitudProveedorRaw = {
   id_intermediario: number | null;
   intermediario: string | null;
   negociacion_intermediario: string | null;
+  is_comisionable: 0 | 1;
+  monto_comisionable: string | null;
+  porcentaje_comisionable: string | null;
+  comentarios_comisionables: string | null;
+  comision_cobrada: 0 | 1;
   // Solo presentes cuando includeFacturas=true
   rfc?: string | null;
   uuid?: string | null;

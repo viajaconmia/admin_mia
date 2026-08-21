@@ -53,6 +53,11 @@ export type SolicitudProveedorItem = {
   comentarios_ops: string | null;
   comentario_CXP: string | null;
   comentarios_fin: string | null;
+  is_comisionable: string; // "1" | "0", para que GetBadgeRenderer haga el lookup
+  monto_comisionable: string | null;
+  porcentaje_comisionable: string | null;
+  comentarios_comisionables: string | null;
+  comision_cobrada: string; // "1" | "0"
 };
 
 const isNotFirstIndice = (raw: SolicitudProveedorRaw) =>
@@ -97,6 +102,11 @@ export const mapSolicitud = (
     : "",
   comentarios_ops: raw.comentarios_ops,
   comentario_CXP: raw.comentario_CXP,
+  is_comisionable: String(raw.is_comisionable),
+  monto_comisionable: raw.monto_comisionable,
+  porcentaje_comisionable: raw.porcentaje_comisionable,
+  comentarios_comisionables: raw.comentarios_comisionables,
+  comision_cobrada: String(raw.comision_cobrada),
 });
 
 export const createSolicitudRenderers = () => ({
@@ -133,6 +143,15 @@ export const createSolicitudRenderers = () => ({
   estado_facturacion: GetBadgeRenderer(ESTADO_FACTURACION_STYLES),
   forma_pago: GetBadgeRenderer(FORMA_PAGO_STYLES, (v) =>
     v === "credit" ? "Crédito" : "Contado",
+  ),
+  monto_comisionable: PrecioRenderer,
+  porcentaje_comisionable: PorcentajeRenderer,
+  comentarios_comisionables: TextRenderer,
+  is_comisionable: GetBadgeRenderer(IS_COMISIONABLE_STYLES, (v) =>
+    v === "1" ? "Sí" : "No",
+  ),
+  comision_cobrada: GetBadgeRenderer(COMISION_COBRADA_STYLES, (v) =>
+    v === "1" ? "Cobrada" : "Pendiente",
   ),
 });
 
@@ -184,4 +203,14 @@ const ESTADO_FACTURACION_STYLES: Record<string, string> = {
   facturado: "bg-green-100 text-green-700 border border-green-300",
   pendiente: "bg-yellow-100 text-yellow-700 border border-yellow-300",
   parcial: "bg-blue-100 text-blue-700 border border-blue-300",
+};
+
+const IS_COMISIONABLE_STYLES: Record<string, string> = {
+  "1": "bg-blue-50 text-blue-700 border border-blue-200",
+  "0": "bg-gray-100 text-gray-600 border border-gray-300",
+};
+
+const COMISION_COBRADA_STYLES: Record<string, string> = {
+  "1": "bg-green-50 text-green-700 border border-green-200",
+  "0": "bg-amber-50 text-amber-700 border border-amber-200",
 };
