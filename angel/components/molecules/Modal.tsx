@@ -17,6 +17,10 @@ interface ModalProps {
   children: ReactNode;
   footer?: ReactNode;
   className?: string;
+  /** Clases del contenedor con scroll interno. Default conserva el alto
+   * fijo de siempre (`max-h-[630px]`) — pásala solo cuando el contenido
+   * necesite más alto (ej. un formulario largo). */
+  bodyClassName?: string;
 }
 
 export const Modal = ({
@@ -27,6 +31,7 @@ export const Modal = ({
   children,
   footer,
   className,
+  bodyClassName = "max-h-[630px] overflow-y-auto pr-1",
 }: ModalProps) => {
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -39,7 +44,7 @@ export const Modal = ({
             )}
           </DialogHeader>
         )}
-        <div className="max-h-[630px] overflow-y-auto pr-1">{children}</div>
+        <div className={bodyClassName}>{children}</div>
         {footer && <DialogFooter>{footer}</DialogFooter>}
       </DialogContent>
     </Dialog>

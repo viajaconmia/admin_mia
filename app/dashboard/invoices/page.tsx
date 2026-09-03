@@ -194,7 +194,8 @@ export default function InvoicesPage() {
         loading={loading}
         renderers={schema.createFacturaRenderers({
           onDescargar: handleDescargar,
-          onMandarCorreo: handleMandarCorreo,
+          onMandarCorreo: (id_factura) =>
+            handleMandarCorreo(id_factura, () => fetchFacturas()),
           onVerDetalle: (id, factura) => {
             setDetalleId(id);
             setDetalleFactura(factura);

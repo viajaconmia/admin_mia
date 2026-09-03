@@ -38,6 +38,7 @@ export type FacturaFiltradaRaw = {
   url_pdf: string | null;
   url_xml: string | null;
   id_facturama: string | null;
+  veces_enviada: number;
 };
 
 export type FacturaItem = Pick<
@@ -85,7 +86,7 @@ export const createFacturaRenderers = (opts?: {
   onVerDetalle?: (id_factura: string, factura: FacturaFiltradaRaw) => void;
   onAsignar?: (id_factura: string, factura: FacturaFiltradaRaw) => void;
   onCancelar?: (id_factura: string) => void;
-  onMandarCorreo?: (id_facturama: string, factura: FacturaFiltradaRaw) => void;
+  onMandarCorreo?: (id_factura: string, factura: FacturaFiltradaRaw) => void;
 }) => ({
   estado: ({ value }: { value: string }) => {
     const style =
@@ -180,9 +181,9 @@ export const createFacturaRenderers = (opts?: {
             size="sm"
             variant="secondary"
             icon={Mail}
-            onClick={() => opts.onMandarCorreo!(value.id_facturama!, value)}
+            onClick={() => opts.onMandarCorreo!(value.id_factura, value)}
           >
-            Correo
+            {value.veces_enviada ? `Correo (${value.veces_enviada})` : "Correo"}
           </Button>
         )}
         {opts?.onCancelar &&

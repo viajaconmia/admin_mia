@@ -3,6 +3,7 @@ import { FacturaFiltradaRaw } from "@/schemas/tables/facturas";
 import { ApiResponse, createApiClient } from "../apiClient";
 import { reservasFacturaService } from "./reservas";
 import { itemsFacturaService } from "./items";
+import { envioFacturaService, EnvioFactura } from "./envio";
 
 export type DetalleFacturaResponse = {
   reservas: {
@@ -36,10 +37,12 @@ export type DetalleFacturaResponse = {
     saldo_aplicado: string | null;
     link_pago: string | null;
   }[];
+  envios: EnvioFactura[];
 };
 
 export * from "./reservas";
 export * from "./items";
+export * from "./envio";
 
 const facturaApi = createApiClient("/v2/mia/factura");
 
@@ -56,4 +59,5 @@ export const facturasService = {
 
   ...reservasFacturaService,
   ...itemsFacturaService,
+  ...envioFacturaService,
 };

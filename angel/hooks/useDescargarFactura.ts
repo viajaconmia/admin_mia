@@ -1,9 +1,10 @@
 import useApi from "@/hooks/useApi";
 import { useAlert } from "@/context/useAlert";
+import { envioFacturaService } from "@/angel/services/facturas/envio";
 
 export function useDescargarFactura() {
-  const { descargarFactura, descargarFacturaXML, mandarCorreo } = useApi();
-  const { error } = useAlert();
+  const { descargarFactura, descargarFacturaXML } = useApi();
+  const { error, success } = useAlert();
 
   const handleDescargar = async (
     id_facturama: string,
@@ -27,9 +28,12 @@ export function useDescargarFactura() {
     }
   };
 
-  const handleMandarCorreo = async (id_facturama: string) => {
-    if (!id_facturama) {
-      error("No se encontró el ID de Facturama para esta factura");
+  const handleMandarCorreo = async (
+    id_factura: string,
+    onSuccess?: () => void,
+  ) => {
+    if (!id_factura) {
+      error("No se encontró el ID de la factura");
       return;
     }
     const correo = prompt(
@@ -38,8 +42,12 @@ export function useDescargarFactura() {
     if (!correo || !correo.trim()) return;
 
     try {
-      await mandarCorreo(id_facturama, correo.trim());
-      alert("El correo fue mandado con exito");
+      await envioFacturaService.enviarCorreoFactura({
+        id_factura,
+        correo_destino: correo.trim(),
+      });
+      success("El correo fue mandado con exito");
+      onSuccess?.();
     } catch (err: any) {
       error(err?.message || "Ocurrió un error al enviar el correo");
     }

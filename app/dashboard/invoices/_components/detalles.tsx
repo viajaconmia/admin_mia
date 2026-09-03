@@ -264,6 +264,22 @@ const ModalDetalleFactura: React.FC<Props> = ({
     [],
   );
 
+  /* ── Envíos ── */
+  const enviosRows = useMemo(() => data?.envios ?? [], [data]);
+  const enviosCols = ["nombre_usuario", "correo_destino", "fecha_envio"];
+  const enviosRenderers = useMemo(
+    () => ({
+      nombre_usuario: ({ value }: any) => (
+        <span className="font-semibold text-gray-900">{value ?? "—"}</span>
+      ),
+      correo_destino: ({ value }: any) => (
+        <span className="text-[11px] text-gray-600">{value ?? "—"}</span>
+      ),
+      fecha_envio: ({ value }: any) => <span>{formatDate(value)}</span>,
+    }),
+    [],
+  );
+
   if (!open) return null;
 
   return (
@@ -357,6 +373,27 @@ const ModalDetalleFactura: React.FC<Props> = ({
                     registros={pagosRows as any}
                     customColumns={pagosCols as any}
                     renderers={pagosRenderers as any}
+                    exportButton={false}
+                    fillHeight={false}
+                    maxHeight="260px"
+                  />
+                )}
+              </div>
+
+              {/* Envíos */}
+              <div>
+                <p className="text-sm font-semibold text-gray-900 mb-2">
+                  Envíos ({enviosRows.length})
+                </p>
+                {enviosRows.length === 0 ? (
+                  <p className="text-xs text-gray-400">
+                    Sin envíos registrados.
+                  </p>
+                ) : (
+                  <Table5<any>
+                    registros={enviosRows as any}
+                    customColumns={enviosCols as any}
+                    renderers={enviosRenderers as any}
                     exportButton={false}
                     fillHeight={false}
                     maxHeight="260px"
