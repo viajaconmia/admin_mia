@@ -1208,11 +1208,14 @@ export const PaymentModal = ({ reservation, onClose }: Props) => {
                         variant="secondary"
                         size="sm"
                         onClick={() => {
+                          const restante = to2(
+                            Math.max(0, monto_a_pagar - scheduleTotal),
+                          );
                           const nuevaFila: PaymentScheduleRow = {
                             id: safeUUID(),
                             date: todayISO,
                             hora: "",
-                            amount: "",
+                            amount: restante > 0 ? restante : monto_a_pagar,
                             referencia_pago: "",
                             isSecureCode: false,
                             document: "",
