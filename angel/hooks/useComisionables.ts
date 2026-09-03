@@ -22,7 +22,14 @@ type FiltrosComisionablesUI = {
   comentarios_comisionables?: string;
   estado?: string;
   codigo_confirmacion?: string;
+  checkin_inicio?: string;
+  checkin_fin?: string;
+  checkout_inicio?: string;
+  checkout_fin?: string;
+  uuid?: string;
+  rfc?: string;
 };
+
 
 export function useComisionables() {
   const [registros, setRegistros] = useState<ReservaComisionable[]>([]);

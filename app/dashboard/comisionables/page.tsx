@@ -125,7 +125,54 @@ export default function ComisionablesPage() {
             />
           </>
         }
+        extra={
+          <>
+            <FilterInput
+              type="date"
+              onChange={actualizarFiltro}
+              propiedad="checkin_inicio"
+              value={filtros.checkin_inicio || null}
+              label="Check-in desde"
+            />
+            <FilterInput
+              type="date"
+              onChange={actualizarFiltro}
+              propiedad="checkin_fin"
+              value={filtros.checkin_fin || null}
+              label="Check-in hasta"
+            />
+            <FilterInput
+              type="date"
+              onChange={actualizarFiltro}
+              propiedad="checkout_inicio"
+              value={filtros.checkout_inicio || null}
+              label="Check-out desde"
+            />
+            <FilterInput
+              type="date"
+              onChange={actualizarFiltro}
+              propiedad="checkout_fin"
+              value={filtros.checkout_fin || null}
+              label="Check-out hasta"
+            />
+            <FilterInput
+              type="text"
+              onChange={actualizarFiltro}
+              propiedad="uuid"
+              value={filtros.uuid || null}
+              label="UUID Factura"
+            />
+            <FilterInput
+              type="text"
+              onChange={actualizarFiltro}
+              propiedad="rfc"
+              value={filtros.rfc || null}
+              label="RFC Factura"
+            />
+          </>
+        }
       />
+
 
       <TablaCompleta
         paginacion={paginacion}

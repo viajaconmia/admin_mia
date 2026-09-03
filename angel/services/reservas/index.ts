@@ -79,6 +79,20 @@ export type ReservaComisionable = {
   negociacion_proveedor: string;
   type: string;
   id_intermediario: string | null;
+  // Campos de factura proveedor
+  id_factura?: string | number | null;
+  uuid_factura?: string | null;
+  rfc_factura?: string | null;
+  subtotal_factura?: string | number | null;
+  total_factura?: string | number | null;
+  asignado_a_factura?: string | number | null;
+  monto_propina?: string | number | null;
+  monto_impsan?: string | number | null;
+  id_solicitud_proveedor?: number | null;
+  estado_solicitud?: string | null;
+  estado_facturacion?: string | null;
+  indice_factura?: number | null;
+  total_facturas?: number | null;
   [key: string]: unknown;
 };
 
@@ -91,8 +105,17 @@ export type FiltrosComisionables = {
   comentarios_comisionables?: string;
   estado?: string;
   codigo_confirmacion?: string;
+  checkin_inicio?: string;
+  checkin_fin?: string;
+  checkout_inicio?: string;
+  checkout_fin?: string;
+  uuid?: string;
+  uuid_factura?: string;
+  rfc?: string;
+  rfc_factura?: string;
   [key: string]: unknown;
 };
+
 
 export type EditarComisionablesBody = {
   is_comisionable: 0 | 1;

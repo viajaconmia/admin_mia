@@ -5,6 +5,7 @@ import {
   Badge,
   DateRenderer,
   GetBadgeRenderer,
+  MonoRenderer,
   PorcentajeRenderer,
   PrecioRenderer,
   TextRenderer,
@@ -12,7 +13,10 @@ import {
 import type { CellRenderer } from "@/angel/components/atoms/TableCore";
 import type { ReservaComisionable } from "@/angel/services/reservas";
 
-// Solo los campos que se piden ver en la tabla (básicos + comisión),
+const isNotFirstIndice = (raw: ReservaComisionable) =>
+  raw.indice_factura != null && raw.indice_factura > 1;
+
+// Solo los campos que se piden ver en la tabla (básicos + comisión + facturas),
 // renombrados/reordenados para que las columnas salgan como se pidió.
 export type ComisionableRow = {
   _seleccion: string; // "" cuando la comisión ya está cobrada (no seleccionable)
@@ -26,6 +30,12 @@ export type ComisionableRow = {
   estado: string;
   total: string;
   costo_total: string;
+  numero_factura: string;
+  asignado_a_factura: string | null;
+  uuid_factura: string | null;
+  rfc_factura: string | null;
+  subtotal_factura: string | null;
+  total_factura: string | null;
   is_comisionable: 0 | 1;
   monto_comisionable: string;
   porcentaje_comisionable: string;
@@ -45,8 +55,20 @@ export function mapComisionable(row: ReservaComisionable): ComisionableRow {
     proveedor: row.proveedor,
     intermediario: row.id_intermediario,
     estado: row.estado,
-    total: row.total,
-    costo_total: row.costo_total,
+    total: isNotFirstIndice(row) ? "" : row.total,
+    costo_total: isNotFirstIndice(row) ? "" : row.costo_total,
+    numero_factura:
+      !(row.total_facturas == null || row.total_facturas === 0)
+        ? `${row.indice_factura} de ${row.total_facturas}`
+        : "",
+    asignado_a_factura:
+      row.asignado_a_factura != null ? String(row.asignado_a_factura) : null,
+    uuid_factura: row.uuid_factura || null,
+    rfc_factura: row.rfc_factura || null,
+    subtotal_factura:
+      row.subtotal_factura != null ? String(row.subtotal_factura) : null,
+    total_factura:
+      row.total_factura != null ? String(row.total_factura) : null,
     is_comisionable: row.is_comisionable,
     monto_comisionable: row.monto_comisionable,
     porcentaje_comisionable: row.porcentaje_comisionable,
@@ -93,6 +115,13 @@ export function createComisionablesRenderers(
     }),
     total: PrecioRenderer,
     costo_total: PrecioRenderer,
+    numero_factura: MonoRenderer,
+    asignado_a_factura: PrecioRenderer,
+    uuid_factura: MonoRenderer,
+    rfc_factura: MonoRenderer,
+    subtotal_factura: PrecioRenderer,
+    total_factura: PrecioRenderer,
+
     monto_comisionable: PrecioRenderer,
     porcentaje_comisionable: PorcentajeRenderer,
     comentarios_comisionables: TextRenderer,
@@ -135,3 +164,4 @@ export function createComisionablesRenderers(
     },
   };
 }
+

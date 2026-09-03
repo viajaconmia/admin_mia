@@ -9,6 +9,7 @@ import {
   Eye,
   FilePlus,
   XCircle,
+  Mail,
 } from "lucide-react";
 import { downloadFromUrl } from "@/angel/lib/download";
 
@@ -84,6 +85,7 @@ export const createFacturaRenderers = (opts?: {
   onVerDetalle?: (id_factura: string, factura: FacturaFiltradaRaw) => void;
   onAsignar?: (id_factura: string, factura: FacturaFiltradaRaw) => void;
   onCancelar?: (id_factura: string) => void;
+  onMandarCorreo?: (id_facturama: string, factura: FacturaFiltradaRaw) => void;
 }) => ({
   estado: ({ value }: { value: string }) => {
     const style =
@@ -173,6 +175,16 @@ export const createFacturaRenderers = (opts?: {
               Asignar
             </Button>
           )}
+        {opts?.onMandarCorreo && value.id_facturama && (
+          <Button
+            size="sm"
+            variant="secondary"
+            icon={Mail}
+            onClick={() => opts.onMandarCorreo!(value.id_facturama!, value)}
+          >
+            Correo
+          </Button>
+        )}
         {opts?.onCancelar &&
           value.id_facturama &&
           value.estado != "canceled" && (

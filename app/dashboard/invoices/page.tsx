@@ -46,7 +46,7 @@ export default function InvoicesPage() {
   const [asignarOpen, setAsignarOpen] = useState(false);
   const [cancelarFacturaId, setCancelarFacturaId] = useState<string | null>(null);
   const { error } = useAlert();
-  const { handleDescargar } = useDescargarFactura();
+  const { handleDescargar, handleMandarCorreo } = useDescargarFactura();
   const { hasPermission } = usePermiso();
   const { csv, loadingFile, setLoadingFile } = useFile();
 
@@ -194,6 +194,7 @@ export default function InvoicesPage() {
         loading={loading}
         renderers={schema.createFacturaRenderers({
           onDescargar: handleDescargar,
+          onMandarCorreo: handleMandarCorreo,
           onVerDetalle: (id, factura) => {
             setDetalleId(id);
             setDetalleFactura(factura);
