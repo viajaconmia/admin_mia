@@ -8,6 +8,7 @@ import { Notification } from "@/components/molecule/Notification";
 import { HotelProvider } from "./Hoteles";
 import { ProveedorProvider } from "./Proveedores";
 import { GeoProvider } from "./geo";
+import { ClientesProvider } from "@/angel/context/ClientesContext";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -29,8 +30,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
           <HotelProvider>
             <GeoProvider>
               <ProveedorProvider>
-                <Notification></Notification>
-                {children}
+                <ClientesProvider>
+                  <Notification></Notification>
+                  {children}
+                </ClientesProvider>
               </ProveedorProvider>
             </GeoProvider>
           </HotelProvider>
