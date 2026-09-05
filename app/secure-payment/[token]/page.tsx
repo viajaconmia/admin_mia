@@ -12,8 +12,22 @@ import { CreditCardInfo } from "@/types";
 export default function SecurePayment({ params }) {
   const { token } = params;
   const searchParams = useSearchParams();
-  const titularOverride = (() => { try { const v = searchParams.get("t"); return v ? atob(v) : null; } catch { return null; } })();
-  const docOverride = (() => { try { const v = searchParams.get("d"); return v ? atob(v) : null; } catch { return null; } })();
+  const titularOverride = (() => {
+    try {
+      const v = searchParams.get("t");
+      return v ? atob(v) : null;
+    } catch {
+      return null;
+    }
+  })();
+  const docOverride = (() => {
+    try {
+      const v = searchParams.get("d");
+      return v ? atob(v) : null;
+    } catch {
+      return null;
+    }
+  })();
   const [isValid, setIsValid] = useState(true);
   const [paymentData, setPaymentData] = useState<{
     codigo_reservacion: string;
@@ -212,7 +226,8 @@ export default function SecurePayment({ params }) {
                     {paymentData.monto.toFixed(2)} MXN
                   </li>
                   <li>
-                    • <strong>Titular:</strong> {titularOverride ?? cardData.nombre_titular}
+                    • <strong>Titular:</strong>{" "}
+                    {titularOverride ?? cardData.nombre_titular}
                   </li>
                   <li>• Procese como pago presencial o telefónico</li>
                 </ul>
