@@ -13,6 +13,7 @@ import {
   ShoppingCart,
   AlertCircle,
   X,
+  Loader2,
 } from "lucide-react";
 import { DataInvoice, DescargaFactura, ProductInvoice } from "@/types/billing";
 import { Root } from "@/types/billing";
@@ -306,6 +307,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   const [isInvoiceGenerated, setIsInvoiceGenerated] = useState<Root | null>(
     null
   );
+  const [isGenerating, setIsGenerating] = useState(false);
   const { descargarFactura, mandarCorreo, descargarFacturaXML } = useApi();
   const [minAmount, setMinAmount] = useState(0);
   const [observations, setObservations] = useState("");
@@ -494,6 +496,8 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   };
 
   const handleGenerateInvoice = async () => {
+    if (isGenerating) return;
+
     if (customAmount > saldoMonto) {
       alert(
         `El monto debe estar entre ${formatCurrency(
@@ -504,6 +508,8 @@ export const BillingPage: React.FC<BillingPageProps> = ({
     }
 
     if (!validateInvoiceData()) return;
+
+    setIsGenerating(true);
 
     // Fecha actual (zona MX). Ya restabas 6 horas: lo mantengo.
     const now = new Date();
@@ -837,6 +843,8 @@ export const BillingPage: React.FC<BillingPageProps> = ({
     } catch (error: any) {
       console.error("Error:", error);
       alert(error?.message || "Ocurrió un error al generar la(s) factura(s)");
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -1061,14 +1069,26 @@ export const BillingPage: React.FC<BillingPageProps> = ({
                   </>
                 ) : (
                   <button
-                    className="w-full flex items-center justify-center space-x-2 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+                    className="w-full flex items-center justify-center space-x-2 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                     onClick={handleGenerateInvoice}
+                    disabled={isGenerating}
                   >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span className="text-sm font-medium">
-                      Confirmar y Generar
-                    </span>
-                    <ArrowRight className="w-4 h-4" />
+                    {isGenerating ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span className="text-sm font-medium">
+                          Generando factura...
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span className="text-sm font-medium">
+                          Confirmar y Generar
+                        </span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
                   </button>
                 )}
               </div>
