@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   Download,
@@ -308,6 +308,8 @@ export const BillingPage: React.FC<BillingPageProps> = ({
     null
   );
   const [isGenerating, setIsGenerating] = useState(false);
+  // Candado síncrono: el estado de React llega tarde ante un doble click rápido.
+  const generandoRef = useRef(false);
   const { descargarFactura, mandarCorreo, descargarFacturaXML } = useApi();
   const [minAmount, setMinAmount] = useState(0);
   const [observations, setObservations] = useState("");
@@ -496,7 +498,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
   };
 
   const handleGenerateInvoice = async () => {
-    if (isGenerating) return;
+    if (generandoRef.current) return;
 
     if (customAmount > saldoMonto) {
       alert(
@@ -509,6 +511,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
 
     if (!validateInvoiceData()) return;
 
+    generandoRef.current = true;
     setIsGenerating(true);
 
     // Fecha actual (zona MX). Ya restabas 6 horas: lo mantengo.
@@ -844,6 +847,7 @@ export const BillingPage: React.FC<BillingPageProps> = ({
       console.error("Error:", error);
       alert(error?.message || "Ocurrió un error al generar la(s) factura(s)");
     } finally {
+      generandoRef.current = false;
       setIsGenerating(false);
     }
   };

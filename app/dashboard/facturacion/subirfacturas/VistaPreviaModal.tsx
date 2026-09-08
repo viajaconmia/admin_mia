@@ -481,6 +481,10 @@ export default function VistaPreviaModal({
   }, [batchAsociaciones, proveedoresData]);
 
   const handleConfirm = () => {
+    // Reentrada: sin esto, dos clicks seguidos timbran la factura dos veces.
+    // Solo la condición "en vuelo"; las validaciones de abajo quedan como estaban.
+    if (isLoading || uploadingPdf) return;
+
     console.log("Validación Aceptar y Continuar:", {
       isLoading,
       uploadingPdf,
@@ -1098,14 +1102,12 @@ export default function VistaPreviaModal({
           <button
             className="px-4 py-2 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
             onClick={handleConfirm}
-            // disabled={
-            //   isLoading ||
-            //   uploadingPdf ||
+            disabled={isLoading || uploadingPdf}
+            // Las demás condiciones siguen comentadas a propósito:
             //   !pdfUrl ||
             //   !okItems ||
             //   (showFechaVencimiento && !fechaVencimiento) ||
             //   (requiereConversionProveedor && !canConvertProveedor)
-            // }
           >
             {isLoading || uploadingPdf
               ? "Procesando..."

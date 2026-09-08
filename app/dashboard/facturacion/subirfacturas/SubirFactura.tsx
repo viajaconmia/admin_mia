@@ -1,7 +1,7 @@
 "use client";
 
 import { URL, API_KEY } from "@/lib/constants/index";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { parsearXML } from "./parseXmlCliente";
 import VistaPreviaModal from "./VistaPreviaModal";
 import ConfirmacionModal from "./confirmacion";
@@ -128,6 +128,9 @@ export default function SubirFactura({
   const [archivoPDFUrl, setArchivoPDFUrl] = useState<string | null>(null);
   const [archivoXMLUrl, setArchivoXMLUrl] = useState<string | null>(null);
   const [subiendoArchivos, setSubiendoArchivos] = useState(false);
+  // Candado síncrono contra doble envío: el estado de React no sirve aquí porque
+  // dos clicks seguidos leen el mismo valor del closure antes de re-renderizar.
+  const enviandoRef = useRef(false);
   const [errors, setErrors] = useState<FacturaErrors>({});
   const [clientes, setClientes] = useState<Agente[]>([]);
   const [loading, setLoading] = useState(false);
@@ -919,6 +922,9 @@ export default function SubirFactura({
       manual: boolean;
     };
   }) => {
+    if (enviandoRef.current) return;
+    enviandoRef.current = true;
+
     try {
       setSubiendoArchivos(true);
       const { xmlUrl } = await subirArchivosAS3();
@@ -1021,6 +1027,7 @@ export default function SubirFactura({
       console.error("Error en handlePagos:", error);
       alert("Error al procesar el pago");
     } finally {
+      enviandoRef.current = false;
       setSubiendoArchivos(false);
     }
   };
@@ -1045,6 +1052,9 @@ export default function SubirFactura({
     propinaData?: { activa: boolean; monto: number; detectada: boolean } | null;
     editedDescriptions?: string[];
   }) => {
+    if (enviandoRef.current) return;
+    enviandoRef.current = true;
+
     try {
       setSubiendoArchivos(true);
       const { xmlUrl } = await subirArchivosAS3();
@@ -1294,6 +1304,7 @@ export default function SubirFactura({
       console.error(error);
       alert(error?.message || "Ocurrió un error al guardar la factura.");
     } finally {
+      enviandoRef.current = false;
       setSubiendoArchivos(false);
     }
   };
