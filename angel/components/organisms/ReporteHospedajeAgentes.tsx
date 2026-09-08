@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { FileDown, RefreshCcw, Settings2 } from "lucide-react";
 import Button from "@/components/atom/Button";
 import { Loader } from "@/components/atom/Loader";
@@ -13,10 +13,20 @@ import { useAgentesReportData } from "@/angel/hooks/useAgentesReportData";
 import { useColumnConfig } from "@/angel/hooks/useColumnConfig";
 import { reordenarColumnas } from "@/angel/lib/reordenarColumnas";
 import { exportColumnasVisibles } from "@/angel/lib/exportTable";
+import { mensajeError } from "@/angel/lib/mensajeError";
+import { useAlert } from "@/context/useAlert";
+import {
+  reservasService,
+  type CampoEditableBooking,
+} from "@/angel/services/reservas";
 import {
   AGENTES_REPORT_COLUMNAS_DEFAULT,
   createAgentesReportRenderers,
 } from "@/angel/schemas/tables/agentes_report";
+
+// id_booking viaja en cada fila para poder editar los campos de bookings,
+// pero no es información que deba mostrarse como columna.
+const COLUMNAS_SIEMPRE_OCULTAS = ["id_booking"];
 
 const TABLE_KEY = "reporte_hospedaje_agentes";
 const COLUMNAS_DEFAULT = AGENTES_REPORT_COLUMNAS_DEFAULT.map((c) => c.key);
@@ -53,10 +63,33 @@ export function ReporteHospedajeAgentes() {
     fecha_hasta: fechaHasta || null,
   };
 
-  const { rows, loading, error, fetchReporte } = useAgentesReportData(filtrosActuales);
+  const { rows, loading, error, fetchReporte, actualizarFila } =
+    useAgentesReportData(filtrosActuales);
   const columnConfig = useColumnConfig(TABLE_KEY, COLUMNAS_DEFAULT);
+  const { error: mostrarError } = useAlert();
 
-  const renderers = useMemo(() => createAgentesReportRenderers(), []);
+  const handleEditarCampo = useCallback(
+    async (id_booking: string, campo: CampoEditableBooking, valor: string) => {
+      try {
+        const { data } = await reservasService.editarCamposBooking(id_booking, {
+          [campo]: valor,
+        });
+        actualizarFila(id_booking, {
+          [campo]: data?.[campo] ?? (valor === "" ? null : valor),
+        });
+        return true;
+      } catch (err) {
+        mostrarError(mensajeError(err, "No se pudo guardar el cambio"));
+        return false;
+      }
+    },
+    [actualizarFila, mostrarError],
+  );
+
+  const renderers = useMemo(
+    () => createAgentesReportRenderers(handleEditarCampo),
+    [handleEditarCampo],
+  );
   const clienteOptions = useMemo(
     () => clientes.map((c) => ({ label: c.nombre, value: c.id_agente })),
     [clientes],
@@ -149,7 +182,7 @@ export function ReporteHospedajeAgentes() {
         <TableCore
           registros={registrosOrdenados}
           renderers={renderers}
-          hiddenKeys={columnConfig.ocultas}
+          hiddenKeys={[...columnConfig.ocultas, ...COLUMNAS_SIEMPRE_OCULTAS]}
           maxHeight="calc(100vh - 320px)"
         />
       </div>

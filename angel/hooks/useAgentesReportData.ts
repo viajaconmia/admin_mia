@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   AgentesReportFiltros,
   AgenteReportRow,
-  getAgentesReportFac,
+  getReporteAgente,
 } from "@/angel/services/facturas/agentesReport";
 
 /**
@@ -19,7 +19,7 @@ export function useAgentesReportData(filtrosIniciales: AgentesReportFiltros) {
   const fetchReporte = (filtros: AgentesReportFiltros) => {
     setLoading(true);
     setError(null);
-    getAgentesReportFac(filtros)
+    getReporteAgente(filtros)
       .then(setRows)
       .catch((err) => {
         setRows([]);
@@ -28,10 +28,23 @@ export function useAgentesReportData(filtrosIniciales: AgentesReportFiltros) {
       .finally(() => setLoading(false));
   };
 
+  // Actualiza una fila en memoria tras un PATCH exitoso, sin re-disparar el
+  // reporte completo (evita una petición extra por cada campo editado).
+  const actualizarFila = useCallback(
+    (id_booking: string, patch: Partial<AgenteReportRow>) => {
+      setRows((prev) =>
+        prev.map((fila) =>
+          fila.id_booking === id_booking ? { ...fila, ...patch } : fila,
+        ),
+      );
+    },
+    [],
+  );
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchReporte(filtrosIniciales);
   }, []);
 
-  return { rows, loading, error, fetchReporte };
+  return { rows, loading, error, fetchReporte, actualizarFila };
 }

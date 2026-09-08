@@ -2,7 +2,10 @@
 import { type ReactNode, useMemo, useState } from "react";
 import { EmptyState } from "./EmptyState";
 
-export type CellRenderer = (props: { value: unknown }) => React.ReactNode;
+export type CellRenderer = (props: {
+  value: unknown;
+  row?: unknown;
+}) => React.ReactNode;
 export type TotalFn<T> = (registros: T[]) => ReactNode;
 
 type SortState = { key: string; asc: boolean };
@@ -126,7 +129,7 @@ const TableRow = <T extends Record<string, unknown>>({
           key={key}
           className="px-4 py-2 whitespace-nowrap text-xs text-gray-900"
         >
-          {Renderer ? <Renderer value={value} /> : String(value ?? "")}
+          {Renderer ? <Renderer value={value} row={item} /> : String(value ?? "")}
         </td>
       );
     })}
