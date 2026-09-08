@@ -424,6 +424,12 @@ const links: NavGroup[] = [
           },
 
           {
+            title: "Reporte Hospedaje",
+            href: "/dashboard/reporte_hospedaje",
+            icon: Receipt,
+          },
+
+          {
             title: "Clientes",
             href: "/dashboard/clients",
             icon: Users,
