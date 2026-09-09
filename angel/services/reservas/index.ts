@@ -136,7 +136,9 @@ export type CampoEditableBooking =
   | "ticket_zoho"
   | "portal"
   | "orden_compra"
-  | "cliente_solicitante_reserva";
+  | "cliente_solicitante_reserva"
+  | "fecha_pago_ar"
+  | "estatus_pago_ar";
 
 export type EditarCamposBookingBody = Partial<
   Record<CampoEditableBooking, string>

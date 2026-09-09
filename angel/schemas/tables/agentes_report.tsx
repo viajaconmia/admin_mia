@@ -9,12 +9,13 @@ import {
 } from "@/v3/atom/TableItemsComponent";
 import type { CellRenderer } from "@/angel/components/atoms/TableCore";
 import type { AgenteReportRow } from "@/angel/services/facturas/agentesReport";
+import type { CampoEditableFactura } from "@/angel/services/facturas";
 import type { CampoEditableBooking } from "@/angel/services/reservas";
 
 export type ColumnaDisponible = { key: string; label: string };
 
 /** Set y orden de columnas por default — igual al `customColumns` que usa hoy
- * la pantalla legacy (app/dashboard/detalles_facturas/page.tsx), más los 4
+ * la pantalla legacy (app/dashboard/detalles_facturas/page.tsx), más los 6
  * campos editables de bookings. Alimenta el orden inicial de `useColumnConfig`
  * y la lista que muestra `ColumnConfigPanel`. */
 export const AGENTES_REPORT_COLUMNAS_DEFAULT: ColumnaDisponible[] = [
@@ -39,18 +40,35 @@ export const AGENTES_REPORT_COLUMNAS_DEFAULT: ColumnaDisponible[] = [
   { key: "portal", label: "Portal" },
   { key: "orden_compra", label: "Orden de compra" },
   { key: "cliente_solicitante_reserva", label: "Cliente solicitante" },
+  { key: "fecha_pago_ar", label: "Fecha pago AR" },
+  { key: "estatus_pago_ar", label: "Estatus pago AR" },
+  { key: "uuid_crp", label: "UUID CRP" },
 ];
 
-const MAX_LENGTH: Record<CampoEditableBooking, number> = {
-  ticket_zoho: 50,
-  portal: 100,
-  orden_compra: 100,
-  cliente_solicitante_reserva: 100,
+type CampoConfig = { maxLength?: number; type?: "text" | "date" };
+
+const CAMPO_CONFIG: Record<CampoEditableBooking, CampoConfig> = {
+  ticket_zoho: { maxLength: 50 },
+  portal: { maxLength: 100 },
+  orden_compra: { maxLength: 100 },
+  cliente_solicitante_reserva: { maxLength: 100 },
+  fecha_pago_ar: { type: "date" },
+  estatus_pago_ar: { maxLength: 100 },
+};
+
+const CAMPO_CONFIG_FACTURA: Record<CampoEditableFactura, CampoConfig> = {
+  uuid_crp: { maxLength: 50 },
 };
 
 export type OnEditarCampoBooking = (
   id_booking: string,
   campo: CampoEditableBooking,
+  valor: string,
+) => Promise<boolean>;
+
+export type OnEditarCampoFactura = (
+  id_factura: string,
+  campo: CampoEditableFactura,
   valor: string,
 ) => Promise<boolean>;
 
@@ -63,10 +81,12 @@ export type OnEditarCampoBooking = (
 function EditableTextCell({
   value,
   maxLength,
+  type = "text",
   onGuardar,
 }: {
   value: string | null | undefined;
-  maxLength: number;
+  maxLength?: number;
+  type?: "text" | "date";
   onGuardar: (nuevoValor: string) => Promise<boolean>;
 }) {
   const [editando, setEditando] = useState(false);
@@ -95,6 +115,7 @@ function EditableTextCell({
   return (
     <div className="flex items-center gap-1">
       <input
+        type={type}
         value={draft}
         maxLength={maxLength}
         disabled={guardando}
@@ -107,7 +128,7 @@ function EditableTextCell({
           if (e.key === "Enter") guardar();
           if (e.key === "Escape") cancelar();
         }}
-        className={`w-32 rounded px-1.5 py-0.5 text-xs text-gray-800 outline-none ${
+        className={`${type === "date" ? "w-36" : "w-32"} rounded px-1.5 py-0.5 text-xs text-gray-800 outline-none ${
           editando
             ? "border border-blue-300 bg-white"
             : "border border-transparent bg-transparent"
@@ -132,13 +153,15 @@ function campoEditableRenderer(
   campo: CampoEditableBooking,
   onEditarCampo: OnEditarCampoBooking,
 ): CellRenderer {
+  const { maxLength, type } = CAMPO_CONFIG[campo];
   return ({ value, row }) => {
     const fila = row as AgenteReportRow | undefined;
     if (!fila?.id_booking) return <TextRenderer value={value as string} />;
     return (
       <EditableTextCell
         value={value as string | null}
-        maxLength={MAX_LENGTH[campo]}
+        maxLength={maxLength}
+        type={type}
         onGuardar={(nuevoValor) =>
           onEditarCampo(fila.id_booking, campo, nuevoValor)
         }
@@ -147,8 +170,32 @@ function campoEditableRenderer(
   };
 }
 
+// La edición de estos campos va directo a la factura (PATCH /v2/mia/factura/:id_factura),
+// no al booking — la fila necesita id_factura, no id_booking.
+function campoEditableFacturaRenderer(
+  campo: CampoEditableFactura,
+  onEditarCampo: OnEditarCampoFactura,
+): CellRenderer {
+  const { maxLength, type } = CAMPO_CONFIG_FACTURA[campo];
+  return ({ value, row }) => {
+    const fila = row as AgenteReportRow | undefined;
+    if (!fila?.id_factura) return <TextRenderer value={value as string} />;
+    return (
+      <EditableTextCell
+        value={value as string | null}
+        maxLength={maxLength}
+        type={type}
+        onGuardar={(nuevoValor) =>
+          onEditarCampo(fila.id_factura as string, campo, nuevoValor)
+        }
+      />
+    );
+  };
+}
+
 export function createAgentesReportRenderers(
   onEditarCampo: OnEditarCampoBooking,
+  onEditarCampoFactura: OnEditarCampoFactura,
 ): Partial<Record<string, CellRenderer>> {
   return {
     chin: DateRenderer,
@@ -180,5 +227,8 @@ export function createAgentesReportRenderers(
       "cliente_solicitante_reserva",
       onEditarCampo,
     ),
+    fecha_pago_ar: campoEditableRenderer("fecha_pago_ar", onEditarCampo),
+    estatus_pago_ar: campoEditableRenderer("estatus_pago_ar", onEditarCampo),
+    uuid_crp: campoEditableFacturaRenderer("uuid_crp", onEditarCampoFactura),
   };
 }

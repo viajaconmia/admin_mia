@@ -20,13 +20,17 @@ import {
   type CampoEditableBooking,
 } from "@/angel/services/reservas";
 import {
+  facturasService,
+  type CampoEditableFactura,
+} from "@/angel/services/facturas";
+import {
   AGENTES_REPORT_COLUMNAS_DEFAULT,
   createAgentesReportRenderers,
 } from "@/angel/schemas/tables/agentes_report";
 
-// id_booking viaja en cada fila para poder editar los campos de bookings,
-// pero no es información que deba mostrarse como columna.
-const COLUMNAS_SIEMPRE_OCULTAS = ["id_booking"];
+// id_booking / id_factura viajan en cada fila para poder editar campos de
+// bookings y facturas, pero no son información que deba mostrarse como columna.
+const COLUMNAS_SIEMPRE_OCULTAS = ["id_booking", "id_factura"];
 
 const TABLE_KEY = "reporte_hospedaje_agentes";
 const COLUMNAS_DEFAULT = AGENTES_REPORT_COLUMNAS_DEFAULT.map((c) => c.key);
@@ -63,7 +67,7 @@ export function ReporteHospedajeAgentes() {
     fecha_hasta: fechaHasta || null,
   };
 
-  const { rows, loading, error, fetchReporte, actualizarFila } =
+  const { rows, loading, error, fetchReporte, actualizarFila, actualizarFilaFactura } =
     useAgentesReportData(filtrosActuales);
   const columnConfig = useColumnConfig(TABLE_KEY, COLUMNAS_DEFAULT);
   const { error: mostrarError } = useAlert();
@@ -86,9 +90,27 @@ export function ReporteHospedajeAgentes() {
     [actualizarFila, mostrarError],
   );
 
+  const handleEditarCampoFactura = useCallback(
+    async (id_factura: string, campo: CampoEditableFactura, valor: string) => {
+      try {
+        const { data } = await facturasService.editarFactura(id_factura, {
+          [campo]: valor,
+        });
+        actualizarFilaFactura(id_factura, {
+          [campo]: data?.[campo] ?? (valor === "" ? null : valor),
+        });
+        return true;
+      } catch (err) {
+        mostrarError(mensajeError(err, "No se pudo guardar el cambio"));
+        return false;
+      }
+    },
+    [actualizarFilaFactura, mostrarError],
+  );
+
   const renderers = useMemo(
-    () => createAgentesReportRenderers(handleEditarCampo),
-    [handleEditarCampo],
+    () => createAgentesReportRenderers(handleEditarCampo, handleEditarCampoFactura),
+    [handleEditarCampo, handleEditarCampoFactura],
   );
   const clienteOptions = useMemo(
     () => clientes.map((c) => ({ label: c.nombre, value: c.id_agente })),

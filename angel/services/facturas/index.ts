@@ -46,6 +46,14 @@ export * from "./envio";
 
 const facturaApi = createApiClient("/v2/mia/factura");
 
+export type CampoEditableFactura = "uuid_crp";
+
+export type EditarFacturaBody = Partial<Record<CampoEditableFactura, string>>;
+
+export type EditarFacturaResponse = { id_factura: string } & Partial<
+  Record<CampoEditableFactura, string | null>
+>;
+
 export const facturasService = {
   filtrarFacturas: (
     body: Partial<TypeFilters> & { page?: number; length?: number },
@@ -56,6 +64,12 @@ export const facturasService = {
     id_factura: string,
   ): Promise<ApiResponse<DetalleFacturaResponse>> =>
     facturaApi.get<DetalleFacturaResponse>("/detalle", { id_factura }),
+
+  editarFactura: (
+    id_factura: string,
+    body: EditarFacturaBody,
+  ): Promise<ApiResponse<EditarFacturaResponse>> =>
+    facturaApi.patch<EditarFacturaResponse>(`/${id_factura}`, body),
 
   ...reservasFacturaService,
   ...itemsFacturaService,
