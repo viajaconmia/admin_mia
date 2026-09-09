@@ -914,10 +914,11 @@ export default function TarjetasCrudTable5() {
 
                   <div className="flex flex-col gap-2">
                     <label className="text-sm text-gray-700">
-                      Identificación (PDF)
+                      Identificación (PNG, JPG o PDF)
                     </label>
 
                     <InputToS3
+                      allow={["image", "pdf"]}
                       setUrl={(url) => {
                         setFormTitular((p) => ({
                           ...p,
@@ -959,9 +960,21 @@ export default function TarjetasCrudTable5() {
                       ) : null}
                     </div>
 
-                    <p className="text-xs text-gray-400">
-                      Sube un PDF y se guardará su URL en el titular.
-                    </p>
+                    {String(formTitular.identificacion ?? "")
+                      .toLowerCase()
+                      .endsWith(".pdf") ? (
+                      <p className="text-xs text-amber-600">
+                        Esta identificación es un PDF: la carta instrucción de
+                        pago no puede incrustarlo y saldrá sin la hoja de
+                        identificación. Sube PNG o JPG para que aparezca.
+                      </p>
+                    ) : (
+                      <p className="text-xs text-gray-400">
+                        Se guardará la URL del archivo en el titular. Usa PNG o
+                        JPG para que la identificación aparezca en la carta
+                        instrucción de pago.
+                      </p>
+                    )}
                   </div>
                 </div>
               )}

@@ -427,7 +427,11 @@ export async function obtenerPresignedUrl(
   folder: string,
   endpointBase = "/mia/utils/cargar-archivos",
 ): Promise<UploadResponse> {
-  const url = `${URL}${endpointBase}/${folder}?filename=${filename}&filetype=${filetype}`;
+  // encodeURIComponent: los nombres de fotos suelen traer espacios y acentos
+  // ("Identificación IMG 2024.png") y romperían el query string.
+  const url = `${URL}${endpointBase}/${folder}?filename=${encodeURIComponent(
+    filename,
+  )}&filetype=${encodeURIComponent(filetype)}`;
 
   const res = await fetch(url, {
     method: "GET",

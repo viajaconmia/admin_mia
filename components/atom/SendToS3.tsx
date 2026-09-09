@@ -119,26 +119,62 @@ import { useRef, useState } from "react";
 import Modal from "../organism/Modal";
 import { CheckCircle2, X } from "lucide-react";
 
+export type TipoArchivoS3 = "pdf" | "image";
+
+const REGLAS: Record<
+  TipoArchivoS3,
+  { accept: string[]; mimes: string[]; exts: string[]; label: string }
+> = {
+  pdf: {
+    accept: ["application/pdf", ".pdf"],
+    mimes: ["application/pdf", "text/pdf"],
+    exts: [".pdf"],
+    label: "PDF",
+  },
+  image: {
+    accept: [
+      "image/png",
+      "image/jpeg",
+      "image/webp",
+      ".png",
+      ".jpg",
+      ".jpeg",
+      ".webp",
+    ],
+    mimes: ["image/png", "image/jpeg", "image/jpg", "image/webp"],
+    exts: [".png", ".jpg", ".jpeg", ".webp"],
+    label: "imagen (PNG, JPG o WEBP)",
+  },
+};
+
 export const InputToS3 = ({
   setUrl,
+  allow = ["pdf"],
 }: {
   setUrl: (url: string | null) => void;
+  /** Tipos de archivo permitidos. Por defecto solo PDF. */
+  allow?: TipoArchivoS3[];
 }) => {
   const [file, setFile] = useState<File | null>(null);
   const [showModal, setShowModal] = useState<boolean>(false);
   const { showNotification } = useAlert();
   const inputRef = useRef<HTMLInputElement | null>(null);
 
+  const reglas = allow.map((tipo) => REGLAS[tipo]);
+  const accept = reglas.flatMap((r) => r.accept).join(",");
+  const etiquetas = reglas.map((r) => r.label).join(" o ");
+
   const resetInput = () => {
     if (inputRef.current) inputRef.current.value = "";
     setFile(null);
   };
 
-  const isPdf = (f: File) => {
+  const esPermitido = (f: File) => {
     const name = (f.name || "").toLowerCase();
-    const byExt = name.endsWith(".pdf");
-    const byMime = f.type === "application/pdf" || f.type === "text/pdf";
-    return byMime || byExt;
+    const mime = (f.type || "").toLowerCase();
+    return reglas.some(
+      (r) => r.mimes.includes(mime) || r.exts.some((ext) => name.endsWith(ext)),
+    );
   };
 
   const onCancel = () => {
@@ -151,7 +187,10 @@ export const InputToS3 = ({
   const onConfirm = async () => {
     try {
       if (!file) {
-        showNotification("error", "Selecciona un PDF antes de confirmar");
+        showNotification(
+          "error",
+          `Selecciona un archivo ${etiquetas} antes de confirmar`,
+        );
         return;
       }
 
@@ -170,7 +209,7 @@ export const InputToS3 = ({
       <input
         ref={inputRef}
         type="file"
-        accept="application/pdf,.pdf"
+        accept={accept}
         className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors
         file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-1.5
         file:text-sm file:font-medium file:text-gray-900
@@ -186,8 +225,11 @@ export const InputToS3 = ({
             return;
           }
 
-          if (!isPdf(current)) {
-            showNotification("error", "No es un PDF");
+          if (!esPermitido(current)) {
+            showNotification(
+              "error",
+              `Formato no permitido (${current.type || "desconocido"}). Sube un archivo ${etiquetas}.`,
+            );
             setUrl(null);
             setShowModal(false);
             resetInput();
