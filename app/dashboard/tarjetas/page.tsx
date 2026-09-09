@@ -9,6 +9,7 @@ import { InputToS3 } from "@/components/atom/SendToS3";
 import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
 import { ROUTES } from "@/constant/routes";
+import { DetalleTarjetaModal } from "./_components/DetalleTarjetaModal";
 
 export interface Tarjeta {
   id: string;
@@ -91,6 +92,7 @@ export default function TarjetasCrudTable5() {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [mode, setMode] = useState<Mode>("create");
+  const [detalleTarjeta, setDetalleTarjeta] = useState<Tarjeta | null>(null);
 
   const [editingTarjetaId, setEditingTarjetaId] = useState<string | null>(null);
   const [editingTitularId, setEditingTitularId] = useState<number | null>(null);
@@ -101,8 +103,22 @@ export default function TarjetasCrudTable5() {
     useState<Partial<Titular>>(emptyFormTitular());
 
   // ===== Permisos de VISTA =====
-  const canViewTarjetas = hasPermission(PERMISOS.VISTAS.MIA_TARJETAS);
+  // MIA_TARJETAS solo da acceso a la pantalla; MIA_TARJETAS_COMPLETA es el que
+  // destapa todas las columnas y las acciones de edición.
+  const puedeVerTarjetas = hasPermission(PERMISOS.VISTAS.MIA_TARJETAS);
   const canViewTitulares = hasPermission(PERMISOS.VISTAS.MIA_TITULARES);
+  const canViewTarjetasCompleta = hasPermission(
+    PERMISOS.VISTAS.MIA_TARJETAS_COMPLETA,
+  );
+
+  // Modo consulta (el default): solo lectura. Alias, terminación y vencimiento
+  // en la tabla; el resto vive detrás del modal de Detalles.
+  const modoConsulta = puedeVerTarjetas && !canViewTarjetasCompleta;
+
+  // Único permiso que destapa número completo y CVV
+  const canVerSensible = hasPermission(
+    PERMISOS.COMPONENTES.BOTON.MIA_TARJETAS_VER_SENSIBLE,
+  );
 
   // ===== Permisos de ACCIONES (tarjetas) =====
   const canCreateTarjeta = hasPermission(
@@ -139,16 +155,16 @@ export default function TarjetasCrudTable5() {
   // Guardia de vista
   // -------------------------
   useEffect(() => {
-    if (!canViewTarjetas && !canViewTitulares) {
+    if (!puedeVerTarjetas && !canViewTitulares) {
       router.push(ROUTES.DASHBOARD.UNAUTHORIZED);
       return;
     }
 
-    if (view === "tarjetas" && !canViewTarjetas && canViewTitulares)
+    if (view === "tarjetas" && !puedeVerTarjetas && canViewTitulares)
       setView("titulares");
-    if (view === "titulares" && !canViewTitulares && canViewTarjetas)
+    if (view === "titulares" && !canViewTitulares && puedeVerTarjetas)
       setView("tarjetas");
-  }, [canViewTarjetas, canViewTitulares, view, router]);
+  }, [puedeVerTarjetas, canViewTitulares, view, router]);
 
   // -------------------------
   // Fetchers
@@ -209,14 +225,14 @@ export default function TarjetasCrudTable5() {
 
   useEffect(() => {
     if (view === "tarjetas") {
-      if (!canViewTarjetas) return;
+      if (!puedeVerTarjetas) return;
       fetchTarjetas();
     } else {
       if (!canViewTitulares) return;
       fetchTitulares();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, canViewTarjetas, canViewTitulares]);
+  }, [view, puedeVerTarjetas, canViewTitulares]);
 
   // -------------------------
   // Modal helpers
@@ -231,7 +247,7 @@ export default function TarjetasCrudTable5() {
   // CRUD TARJETAS
   // -------------------------
   const openCreateTarjeta = () => {
-    if (!canCreateTarjeta) return;
+    if (modoConsulta || !canCreateTarjeta) return;
     setMode("create");
     setEditingTarjetaId(null);
     setFormTarjeta(emptyFormTarjeta());
@@ -239,7 +255,7 @@ export default function TarjetasCrudTable5() {
   };
 
   const openEditTarjeta = (t: Tarjeta) => {
-    if (!canEditTarjeta) return;
+    if (modoConsulta || !canEditTarjeta) return;
     setMode("edit");
     setEditingTarjetaId(t.id);
     setFormTarjeta({
@@ -279,7 +295,7 @@ export default function TarjetasCrudTable5() {
   };
 
   const handleDeleteTarjeta = async (t: Tarjeta) => {
-    if (!canDeleteTarjeta) return;
+    if (modoConsulta || !canDeleteTarjeta) return;
 
     const ok = confirm(
       `¿Eliminar la tarjeta "${t.alias ?? "Sin alias"}" (${maskCard(
@@ -463,18 +479,34 @@ export default function TarjetasCrudTable5() {
   // -------------------------
   const registros = useMemo(() => {
     if (view === "tarjetas") {
-      return (tarjetas || []).map((t) => ({
-        id: t.id,
-        alias: t.alias ?? "—",
-        nombre_titular: (t as any).nombre_titular ?? "—",
-        tarjeta: maskCard(t.numero_completo, t.ultimos_4),
-        banco_emisor: t.banco_emisor ?? "—",
-        tipo_tarjeta: t.tipo_tarjeta ?? "—",
-        fecha_vencimiento: t.fecha_vencimiento ?? "—",
-        activa: toBool(t.activa),
-        acciones: t,
-        item: t,
-      }));
+      return (tarjetas || []).map((t) => {
+        // Modo consulta: solo alias, terminación y vencimiento.
+        if (modoConsulta) {
+          return {
+            alias: t.alias ?? "—",
+            tarjeta: maskCard(t.numero_completo, t.ultimos_4),
+            fecha_vencimiento: t.fecha_vencimiento ?? "—",
+            activa: toBool(t.activa),
+            acciones: t.id,
+            item: t,
+          };
+        }
+
+        return {
+          id: t.id,
+          alias: t.alias ?? "—",
+          nombre_titular: (t as any).nombre_titular ?? "—",
+          tarjeta: maskCard(t.numero_completo, t.ultimos_4),
+          banco_emisor: t.banco_emisor ?? "—",
+          tipo_tarjeta: t.tipo_tarjeta ?? "—",
+          fecha_vencimiento: t.fecha_vencimiento ?? "—",
+          activa: toBool(t.activa),
+          // Solo el id: Table5 excluye "item" del CSV pero no "acciones",
+          // así que mandar la tarjeta completa aquí la filtraba al export.
+          acciones: t.id,
+          item: t,
+        };
+      });
     }
 
     return (titulares || []).map((t) => ({
@@ -484,7 +516,7 @@ export default function TarjetasCrudTable5() {
       acciones: t,
       item: t,
     }));
-  }, [view, tarjetas, titulares]);
+  }, [view, tarjetas, titulares, modoConsulta]);
 
   const renderers: {
     [key: string]: React.FC<{ value: any; item: any; index: number }>;
@@ -528,16 +560,20 @@ export default function TarjetasCrudTable5() {
           );
         },
 
-        acciones: ({ value }) => {
-          const t: Tarjeta = value as Tarjeta;
-
-          if (!canEditTarjeta && !canDeleteTarjeta) {
-            return <span className="text-gray-400">—</span>;
-          }
+        acciones: ({ item }) => {
+          const t: Tarjeta = item as Tarjeta;
 
           return (
             <div className="flex gap-2 justify-center">
-              {canEditTarjeta ? (
+              <button
+                type="button"
+                onClick={() => setDetalleTarjeta(t)}
+                className="px-2 py-1 rounded text-xs border bg-gray-50 text-gray-700 border-gray-300 hover:bg-gray-100"
+              >
+                Detalles
+              </button>
+
+              {!modoConsulta && canEditTarjeta ? (
                 <button
                   type="button"
                   onClick={() => openEditTarjeta(t)}
@@ -548,7 +584,7 @@ export default function TarjetasCrudTable5() {
                 </button>
               ) : null}
 
-              {canDeleteTarjeta ? (
+              {!modoConsulta && canDeleteTarjeta ? (
                 <button
                   type="button"
                   onClick={() => handleDeleteTarjeta(t)}
@@ -636,6 +672,7 @@ export default function TarjetasCrudTable5() {
   }, [
     view,
     saving,
+    modoConsulta,
     canEditTarjeta,
     canDeleteTarjeta,
     canEditTitular,
@@ -644,16 +681,18 @@ export default function TarjetasCrudTable5() {
 
   const customColumns =
     view === "tarjetas"
-      ? [
-          "alias",
-          "nombre_titular",
-          "tarjeta",
-          "banco_emisor",
-          "tipo_tarjeta",
-          "fecha_vencimiento",
-          "activa",
-          "acciones",
-        ]
+      ? modoConsulta
+        ? ["alias", "tarjeta", "fecha_vencimiento", "activa", "acciones"]
+        : [
+            "alias",
+            "nombre_titular",
+            "tarjeta",
+            "banco_emisor",
+            "tipo_tarjeta",
+            "fecha_vencimiento",
+            "activa",
+            "acciones",
+          ]
       : ["idTitular", "Titular", "identificacion", "acciones"];
 
   const handleReload = () =>
@@ -669,7 +708,7 @@ export default function TarjetasCrudTable5() {
   const toggleView = (next: ViewMode) => {
     if (saving) return;
 
-    if (next === "tarjetas" && !canViewTarjetas) return;
+    if (next === "tarjetas" && !puedeVerTarjetas) return;
     if (next === "titulares" && !canViewTitulares) return;
 
     if (modalOpen) closeModal();
@@ -677,10 +716,10 @@ export default function TarjetasCrudTable5() {
   };
 
   // Opcional: deshabilitar switch si solo tiene una vista
-  const canToggle = canViewTarjetas && canViewTitulares;
+  const canToggle = puedeVerTarjetas && canViewTitulares;
 
   // Si no tiene ninguna vista, mientras redirige no renderizamos
-  if (!canViewTarjetas && !canViewTitulares) return null;
+  if (!puedeVerTarjetas && !canViewTitulares) return null;
 
   return (
     <>
@@ -739,7 +778,7 @@ export default function TarjetasCrudTable5() {
               </button>
 
               {view === "tarjetas" ? (
-                canCreateTarjeta ? (
+                canCreateTarjeta && !modoConsulta ? (
                   <button
                     onClick={handleCreate}
                     className="text-sm px-3 py-1 rounded text-white bg-emerald-600 hover:bg-emerald-700"
@@ -786,6 +825,13 @@ export default function TarjetasCrudTable5() {
           )}
         </div>
       </div>
+
+      {/* MODAL DETALLES (solo lectura) */}
+      <DetalleTarjetaModal
+        tarjeta={detalleTarjeta}
+        onClose={() => setDetalleTarjeta(null)}
+        puedeVerSensible={canVerSensible}
+      />
 
       {/* MODAL CREATE/EDIT (dinámico según vista) */}
       {modalOpen && (

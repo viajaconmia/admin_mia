@@ -132,6 +132,20 @@ export type EditarComisionablesResponse = {
   comentarios_comisionables: string;
 };
 
+export type CampoEditableBooking =
+  | "ticket_zoho"
+  | "portal"
+  | "orden_compra"
+  | "cliente_solicitante_reserva";
+
+export type EditarCamposBookingBody = Partial<
+  Record<CampoEditableBooking, string>
+>;
+
+export type EditarCamposBookingResponse = { id_booking: string } & Partial<
+  Record<CampoEditableBooking, string | null>
+>;
+
 export const reservasService = {
   getSolicitudesPendientes: (): Promise<ApiResponse<SolicitudPendienteRaw[]>> =>
     reservasApi.get<SolicitudPendienteRaw[]>("/solicitudes/pendientes"),
@@ -152,4 +166,10 @@ export const reservasService = {
       `/comisionables/${id_booking}`,
       body,
     ),
+
+  editarCamposBooking: (
+    id_booking: string,
+    body: EditarCamposBookingBody,
+  ): Promise<ApiResponse<EditarCamposBookingResponse>> =>
+    reservasApi.patch<EditarCamposBookingResponse>(`/${id_booking}`, body),
 };
