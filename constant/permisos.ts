@@ -24,6 +24,7 @@ export const PERMISOS = {
     AVISOS_RESERVAS: "view.avisos-reservas",
     COTIZACIONES: "view.cotizaciones",
     COMISIONABLES: "view.comisionables",
+    IMPERSONATE: "view.impersonate",
   },
   COLUMNAS: {
     BOOKINGS: {
