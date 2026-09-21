@@ -18,6 +18,7 @@ import {
   Wallet,
   AlertTriangle,
   DollarSign,
+  RefreshCw,
 } from "lucide-react";
 import { Table } from "@/components/Table";
 import { TypeFilters } from "@/types";
@@ -36,6 +37,7 @@ import { usePathname } from "next/navigation";
 import PageReservas from "@/v2/components/template/PageReserva";
 import { Button } from "@/components/ui/button";
 import { FichaResumen } from "@/components/organism/FichaResumen";
+import { useClientes } from "@/angel/context/ClientesContext";
 
 const getWalletBadge = (monto: string | null) => {
   // Convertir el string a número para la verificación
@@ -59,10 +61,10 @@ const getWalletBadge = (monto: string | null) => {
 };
 
 function App() {
-  const [clients, setClient] = useState<Agente[]>([]);
+  const [clientesFiltrados, setClientesFiltrados] = useState<Agente[]>([]);
   const [selectedItem, setSelectedItem] = useState<Agente | null>(null);
   const [searchTerm, setSearchTerm] = useState<string | null>("");
-  const [loading, setLoading] = useState(false);
+  const [loadingFiltro, setLoadingFiltro] = useState(false);
   const [link, setLink] = useState<null | string>(null);
   const [defaultTab, setDefaultTab] = useState<string>("");
   const pathname = usePathname();
@@ -71,8 +73,21 @@ function App() {
   );
   const [fichaItem, setFichaItem] = useState<Agente | null>(null);
   const { hasAccess, hasPermission } = usePermiso();
+  const {
+    agentes,
+    loading: loadingContexto,
+    refetch: refetchContexto,
+  } = useClientes();
 
   hasAccess(PERMISOS.VISTAS.CLIENTES);
+
+  // Con los filtros en su valor por defecto reusamos el listado que el contexto
+  // ya trajo al cargar la app; solo pegamos al backend cuando hay filtros.
+  const hayFiltros = Object.values(filters).some(
+    (valor) => valor !== null && valor !== undefined && valor !== "",
+  );
+  const clients = hayFiltros ? clientesFiltrados : agentes;
+  const loading = hayFiltros ? loadingFiltro : loadingContexto;
 
   let formatedSolicitudes = clients
     .filter(
@@ -191,10 +206,14 @@ function App() {
   };
 
   const handleFetchClients = () => {
-    setLoading(true);
+    if (!hayFiltros) {
+      refetchContexto();
+      return;
+    }
+    setLoadingFiltro(true);
     fetchAgentes(filters, {} as TypeFilters, (data) => {
-      setClient(data);
-      setLoading(false);
+      setClientesFiltrados(data);
+      setLoadingFiltro(false);
     });
   };
 
@@ -257,7 +276,9 @@ function App() {
   ];
 
   useEffect(() => {
-    handleFetchClients();
+    if (hayFiltros) {
+      handleFetchClients();
+    }
   }, [filters]);
 
   useEffect(() => {
@@ -269,9 +290,22 @@ function App() {
 
   return (
     <div className="h-fit">
-      <h1 className="text-3xl font-bold tracking-tight text-sky-950 my-4">
-        Clientes
-      </h1>
+      <div className="flex items-center justify-between my-4">
+        <h1 className="text-3xl font-bold tracking-tight text-sky-950">
+          Clientes
+        </h1>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleFetchClients}
+          disabled={loading}
+        >
+          <RefreshCw
+            className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`}
+          />
+          Actualizar
+        </Button>
+      </div>
 
       <div className="w-full mx-auto bg-white p-4 rounded-lg shadow">
         <div>
@@ -330,7 +364,6 @@ function App() {
       {selectedItem && (
         <Modal
           onClose={() => {
-            handleFetchClients();
             setSelectedItem(null);
             setDefaultTab("");
           }}

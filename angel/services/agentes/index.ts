@@ -17,12 +17,13 @@ export type AgenteListado = {
  * con fetch directo porque ese endpoint responde un array plano, no el envelope
  * {message, data} que exige `apiClient` — createApiClient lanzaría error de formato.
  */
-export async function listarAgentes(): Promise<AgenteListado[]> {
+export async function listarAgentesCompletos(): Promise<Agente[]> {
   const res = await fetch(`${BACK_URL}/v1/mia/agentes/all`, {
     headers: {
       "x-api-key": API_KEY,
       "Cache-Control": "no-cache, no-store, must-revalidate",
     },
+    credentials: "include",
     cache: "no-store",
   });
 
@@ -31,14 +32,17 @@ export async function listarAgentes(): Promise<AgenteListado[]> {
   }
 
   const data = await res.json();
-  const lista = Array.isArray(data) ? data : [];
 
-  return lista.map(
-    (agente: { id_agente: string; nombre_agente_completo: string }) => ({
-      id_agente: agente.id_agente,
-      nombre: agente.nombre_agente_completo,
-    }),
-  );
+  return Array.isArray(data) ? data : [];
+}
+
+export async function listarAgentes(): Promise<AgenteListado[]> {
+  const lista = await listarAgentesCompletos();
+
+  return lista.map((agente) => ({
+    id_agente: agente.id_agente,
+    nombre: agente.nombre_agente_completo,
+  }));
 }
 
 /**
