@@ -24,6 +24,7 @@ export const PERMISOS = {
     AVISOS_RESERVAS: "view.avisos-reservas",
     COTIZACIONES: "view.cotizaciones",
     COMISIONABLES: "view.comisionables",
+    IMPERSONATE: "view.impersonate",
   },
   COLUMNAS: {
     BOOKINGS: {
@@ -46,7 +47,7 @@ export const PERMISOS = {
       CANCELAR_RESERVA: "button.cancelar.bookings",
       MIA_TITULARES_CREAR: "button.mia.titulares.crear",
       MIA_TITULARES_EDITAR: "button.mia.titulares.editar",
-      MIA_TITULARES_ELIMINAR: "button.mia.titulares.eliminar",
+      MIA_TITULARES_ELIMINAR: "button.mia.tituelares.eliminar",
       FINANZAS_TARJETAS_CREAR: "button.finanzas.tarjetas.crear",
       FINANZAS_TARJETAS_EDITAR: "button.finanzas.tarjetas.editar",
       FINANZAS_TARJETAS_ELIMINAR: "button.finanzas.tarjetas.eliminar",

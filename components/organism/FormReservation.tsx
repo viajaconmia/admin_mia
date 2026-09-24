@@ -132,10 +132,14 @@ export function ReservationForm({
       impuestos: Number(solicitud.total) * 0.16 || 0,
       markup: 0,
     },
-    estado_reserva: getEstatus(solicitud.status) as
-      | "Confirmada"
-      | "En proceso"
-      | "Cancelada",
+    // Al crear una reserva el estado arranca en "Confirmada"; al editar se
+    // respeta el estado real que trae la solicitud.
+    estado_reserva: edicion
+      ? (getEstatus(solicitud.status) as
+          | "Confirmada"
+          | "En proceso"
+          | "Cancelada")
+      : "Confirmada",
     comments: solicitud.comments || "",
     proveedor: {
       total:

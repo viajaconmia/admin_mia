@@ -377,11 +377,17 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   const [detalles, setDetalles] = useState(false);
   const { hasPermission } = usePermiso();
   const [error, setError] = useState<string | null>(null);
+  // Errores de cada carga inicial por separado: uno no debe tapar al otro
+  const [errorAgente, setErrorAgente] = useState<string | null>(null);
+  const [errorPagos, setErrorPagos] = useState<string | null>(null);
   // const [agente, setAgente] = useState<Agente | null>(null);
   const [loading, setLoading] = useState({
     agente: true,
     pagos: true,
   });
+  // El botón de agregar pago solo depende de su propia petición (crear pago),
+  // no de la carga del saldo ni de la tabla
+  const [guardandoPago, setGuardandoPago] = useState(false);
   const [pagoDetallado, setPagoDetallado] = useState<any>(null);
   const [pagoParaFacturar, setPagoParaFacturar] = useState<any>(null);
   const [localWalletAmount, setLocalWalletAmount] = useState(walletAmount);
@@ -465,18 +471,15 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
 
     // Inactivo -> rojo
     if (!isActivo) {
-      console.log(activo, "fila inactiva -> rojo");
       return "bg-red-200";
     }
 
     // Activo y es wallet_credito -> amarillo
     if (isWalletCredito) {
-      console.log(credito, "wallet crédito -> amarillo");
       return "bg-yellow-200";
     }
 
     // Activo normal -> verde
-    console.log("activo normal -> verde");
     return "bg-green-200";
   };
 
@@ -484,6 +487,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   const updateAgentWallet = async () => {
     try {
       setLoading((prev) => ({ ...prev, agente: true }));
+      setErrorAgente(null);
       const agenteActualizado = await fetchAgenteById(agente.id_agente);
 
       // Si la respuesta es un array (como en tu ejemplo), necesitas acceder al primer elemento
@@ -505,28 +509,20 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       return walletAmount;
     } catch (error) {
       console.error("Error al actualizar el saldo del agente:", error);
-      setError("Error al actualizar el saldo disponible");
+      setErrorAgente("Error al actualizar el saldo disponible");
       throw error; // Es mejor lanzar el error para manejarlo donde se llame a esta función
     } finally {
       setLoading((prev) => ({ ...prev, agente: false }));
     }
   };
-  // 2. Efecto para cargar datos iniciales y actualizar cuando cambia el ID del agente
+  // 2. Efecto para cargar datos iniciales y actualizar cuando cambia el ID del agente.
+  // Los dos fetch van en paralelo y cada uno apaga su propio loading, para que el
+  // saldo se pinte en cuanto llega sin esperar a la tabla de pagos (que tarda más).
   useEffect(() => {
-    const fetchInitialData = async () => {
-      try {
-        setLoading({ agente: true, pagos: true });
-        await updateAgentWallet(); // Actualizar saldo del agente
-        await reloadSaldos(); // Recargar saldos a favor
-      } catch (err) {
-        setError("Error al cargar los datos iniciales");
-        console.error("Error fetching initial data:", err);
-      } finally {
-        setLoading({ agente: false, pagos: false });
-      }
-    };
-
-    fetchInitialData();
+    updateAgentWallet().catch((err) => {
+      console.error("Error al cargar el saldo del agente:", err);
+    });
+    reloadSaldos();
   }, [agente.id_agente]);
 
   // 3. Efecto para actualizar cuando la pestaña vuelve a estar visible
@@ -551,18 +547,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   //     document.removeEventListener("visibilitychange", handleVisibilityChange);
   //   };
   // }, [agente.id_agente]);
-
-  useEffect(() => {
-    const fetchSaldoFavor = async () => {
-      const response: { message: string; data: Saldo[] } =
-        await SaldoFavor.getPagos(agente.id_agente);
-      console.log(response);
-      setSaldos(response.data);
-    };
-    fetchSaldoFavor();
-  }, []);
-
-  console.log("slados", saldos);
 
   const filteredData = useMemo(() => {
     // Filter the data
@@ -724,7 +708,6 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       return 0;
     });
   }, [saldos, filters, searchTerm, sortConfig.key, sortConfig.sort]);
-  console.log(filteredData, "informoacniodnbiornvio😢😢😢😢😢");
 
   // 👇 dentro de PageCuentasPorCobrar
   const actualizarSoloComentario = async (
@@ -1397,13 +1380,11 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
         }
       };
       const handleDetalles = async () => {
-        console.log(item, "pago elegido");
         setPagoDetallado(item);
         setDetalles(true);
       };
 
       const handlePagoFacturas = async () => {
-        console.log(item, "pago elegido");
         setPagoParaFacturar(item);
         setShowPagarFactura(true);
         // Cambiar el estado a true para abrir el modal
@@ -1603,11 +1584,12 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
   const reloadSaldos = async () => {
     try {
       setLoading((prev) => ({ ...prev, pagos: true }));
+      setErrorPagos(null);
       const response = await SaldoFavor.getPagos(agente.id_agente, true);
       setSaldos(response.data);
     } catch (error) {
       console.error("Error al recargar saldos:", error);
-      setError("Error al cargar los saldos");
+      setErrorPagos("Error al cargar los saldos");
     } finally {
       setLoading((prev) => ({ ...prev, pagos: false }));
     }
@@ -1617,7 +1599,7 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
 
   const handleAddPayment = async (paymentData: NuevoSaldoAFavor) => {
     try {
-      setLoading((prev) => ({ ...prev, pagos: true }));
+      setGuardandoPago(true);
 
       // Crear el pago
       const response = await SaldoFavor.crearPago({
@@ -1644,18 +1626,9 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       setError("Error al registrar el pago");
       console.error("Error:", err);
     } finally {
-      setLoading((prev) => ({ ...prev, pagos: false }));
+      setGuardandoPago(false);
     }
   };
-
-  if (loading.agente) {
-    return (
-      <div className="flex justify-center items-center h-64">
-        <Loader />
-        <span className="ml-2">Cargando información del agente...</span>
-      </div>
-    );
-  }
 
   if (error) {
     return (
@@ -1689,10 +1662,24 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2">
         {/* Resumen de saldo */}
         <div className="mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-          <PaymentSummary
-            totalBalance={localWalletAmount || 0} // Usa localWalletAmount si está disponible
-            assignedBalance={0}
-          />
+          {loading.agente ? (
+            <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-2xl p-6 text-white shadow-lg flex items-center gap-3">
+              <Loader />
+              <span className="text-sm text-emerald-100">
+                Cargando saldo del agente...
+              </span>
+            </div>
+          ) : errorAgente ? (
+            <div className="bg-red-50 border border-red-200 rounded-2xl p-6 flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+              <p className="text-sm text-red-700">{errorAgente}</p>
+            </div>
+          ) : (
+            <PaymentSummary
+              totalBalance={localWalletAmount || 0} // Usa localWalletAmount si está disponible
+              assignedBalance={0}
+            />
+          )}
 
           <div className="flex justify-end items-center">
             <button
@@ -1701,11 +1688,11 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
                 hasPermission(PERMISOS.VERSION.AGREGAR_WALLET_OPERACIONES)
                   ? "bg-emerald-600 hover:bg-emerald-700"
                   : "bg-yellow-600 hover:bg-yellow-700"
-              } text-white rounded-xl transition-colors font-medium shadow-sm`}
-              disabled={loading.pagos}
+              } text-white rounded-xl transition-colors font-medium shadow-sm disabled:opacity-60`}
+              disabled={guardandoPago}
             >
               <Plus className="w-5 h-5" />
-              {loading.pagos ? "Cargando..." : "Agregar Pago"}
+              {guardandoPago ? "Guardando..." : "Agregar Pago"}
             </button>
           </div>
         </div>
@@ -1724,13 +1711,17 @@ const PageCuentasPorCobrar: React.FC<PageCuentasPorCobrarProps> = ({
               <Loader />
               <span className="ml-2">Cargando pagos...</span>
             </div>
+          ) : errorPagos ? (
+            <div className="p-8 flex justify-center items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-red-500" />
+              <span className="text-sm text-red-700">{errorPagos}</span>
+            </div>
           ) : (
             <Table5
               registros={filteredData}
-              getRowClassName={(row) => {
-                console.log(row, "row para clase");
-                return getWalletRowClass(row.wallet_credito, row.activo);
-              }}
+              getRowClassName={(row) =>
+                getWalletRowClass(row.wallet_credito, row.activo)
+              }
               renderers={tableRenderers}
               defaultSort={{
                 key: "creado", // Default sort column

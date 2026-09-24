@@ -41,10 +41,30 @@ export function useAgentesReportData(filtrosIniciales: AgentesReportFiltros) {
     [],
   );
 
+  // Igual que `actualizarFila`, pero para ediciones que van directo a la
+  // factura (uuid_crp) — la fila se busca por id_factura, no por id_booking.
+  const actualizarFilaFactura = useCallback(
+    (id_factura: string, patch: Partial<AgenteReportRow>) => {
+      setRows((prev) =>
+        prev.map((fila) =>
+          fila.id_factura === id_factura ? { ...fila, ...patch } : fila,
+        ),
+      );
+    },
+    [],
+  );
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     fetchReporte(filtrosIniciales);
   }, []);
 
-  return { rows, loading, error, fetchReporte, actualizarFila };
+  return {
+    rows,
+    loading,
+    error,
+    fetchReporte,
+    actualizarFila,
+    actualizarFilaFactura,
+  };
 }

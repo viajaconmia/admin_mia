@@ -9,6 +9,8 @@ export class AuthService extends ApiService {
         SIGNUP: "/auth/signup",
         LOGIN: "/auth/login",
         LOGOUT: "/auth/logout",
+        IMPERSONATE: "/auth/impersonate",
+        IMPERSONATE_STOP: "/auth/impersonate/stop",
       },
       GET: {
         VERIFY_SESSION: "/auth/verify-session",
@@ -150,6 +152,24 @@ export class AuthService extends ApiService {
     this.patch<null>({
       body: { id, nueva_password },
       path: this.formatPath(this.ENDPOINTS.AUTH.PATCH.RESET_PASSWORD),
+    });
+
+  /**
+   * Impersona a un usuario interno. El backend valida sesión + permiso
+   * `view.impersonate` y emite la sesión del usuario objetivo (auditado).
+   */
+  public impersonate = async (
+    id: string,
+  ): Promise<ApiResponse<UserLoggin>> =>
+    this.post<UserLoggin>({
+      path: this.formatPath(this.ENDPOINTS.AUTH.POST.IMPERSONATE),
+      body: { id },
+    });
+
+  /** Restaura la sesión del admin original tras una impersonación. */
+  public stopImpersonation = async (): Promise<ApiResponse<UserLoggin>> =>
+    this.post<UserLoggin>({
+      path: this.formatPath(this.ENDPOINTS.AUTH.POST.IMPERSONATE_STOP),
     });
 
   public getRoles = async (): Promise<ApiResponse<Role[]>> =>

@@ -14,6 +14,9 @@ import { User } from "@/types/auth";
 
 export type UserLoggin = User & {
   permisos: string[];
+  // Presente solo cuando la sesión actual es una impersonación: correo del
+  // admin original que la inició (para mostrar el banner y poder volver).
+  impersonator_email?: string | null;
 };
 
 type AuthContextType = {

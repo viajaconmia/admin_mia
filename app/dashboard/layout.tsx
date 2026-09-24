@@ -30,6 +30,7 @@ import { useAuth } from "@/context/AuthContext";
 import Button from "@/components/atom/Button";
 
 import { ClientQuickSearch } from "@/components/organism/ClientQuickSearch";
+import { ImpersonationBanner } from "@/components/organism/ImpersonationBanner";
 
 import {
   NotificacionesProvider,
@@ -138,6 +139,8 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     <div className="backdrop-blur-3xl h-screen">
       <NavContainer title="Admin" links={linksConBadge}>
         <div className="h-full bg-transparent overflow-y-auto">
+          {/* Banner de impersonación (solo visible durante una impersonación) */}
+          <ImpersonationBanner />
           {/* ============================================
               NAVBAR SUPERIOR
           ============================================ */}

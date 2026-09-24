@@ -32,6 +32,10 @@ export type AgenteReportRow = {
   portal: string | null;
   orden_compra: string | null;
   cliente_solicitante_reserva: string | null;
+  fecha_pago_ar: string | null;
+  estatus_pago_ar: string | null;
+  id_factura: string | null;
+  uuid_crp: string | null;
   [key: string]: unknown;
 };
 
