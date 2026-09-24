@@ -6,62 +6,71 @@ import { Dropdown } from "@/components/atom/Input";
 import Button from "@/components/atom/Button";
 import { fmtMoney } from "@/angel/lib/format/number";
 import { useCfdiBuilder } from "@/angel/hooks/useCfdiBuilder";
-import { CfdiFacturableItem, CfdiGeneradoResultado, CfdiPayload } from "@/angel/lib/cfdi/payload";
-import { IVA_16, IVA_8, paymentDescriptions } from "@/angel/lib/cfdi/constants";
+import { CfdiFacturableItem, CfdiPayload } from "@/angel/lib/cfdi/payload";
+import { IVA_16, IVA_8, RFC_GENERICO, paymentDescriptions } from "@/angel/lib/cfdi/constants";
 import { ModoFacturacionSelector } from "@/angel/components/molecules/cfdi/ModoFacturacionSelector";
 import { ConceptoCustomToggle } from "@/angel/components/molecules/cfdi/ConceptoCustomToggle";
 import { ConceptoPreviewTable } from "@/angel/components/molecules/cfdi/ConceptoPreviewTable";
 import { DatosFiscalesList } from "@/angel/components/molecules/cfdi/DatosFiscalesList";
 import { ControlesCfdi } from "@/angel/components/molecules/cfdi/ControlesCfdi";
 import { ObservacionesCfdi } from "@/angel/components/molecules/cfdi/ObservacionesCfdi";
+import { ConfirmarFacturaModal } from "@/angel/components/molecules/cfdi/ConfirmarFacturaModal";
 
 type Props = {
   open: boolean;
   agentId: string;
   items: CfdiFacturableItem[];
   onClose: () => void;
-  /** El componente NO llama ningún endpoint de creación de factura — arma el
-   * payload y lo entrega aquí. Quien implemente este callback decide a qué
-   * endpoint mandarlo (hoy el `crearCfdi` legacy, mañana uno nuevo) y puede
-   * devolver un `{id}` para una fase futura de descarga de PDF/XML. */
-  onGenerar: (payload: CfdiPayload) => Promise<CfdiGeneradoResultado>;
-  /** Lo controla quien use el componente mientras corre su propio submit. */
-  loading?: boolean;
+  onConfirmar: (payload: CfdiPayload) => void;
 };
 
-export function CfdiBuilderModal({ open, agentId, items, onClose, onGenerar, loading = false }: Props) {
-  const [generando, setGenerando] = useState(false);
+export function CfdiBuilderModal({ open, agentId, items, onClose, onConfirmar }: Props) {
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [pendingPayload, setPendingPayload] = useState<CfdiPayload | null>(null);
   const cfdi = useCfdiBuilder({ agentId, items });
 
-  const handleGenerar = async () => {
-    setGenerando(true);
-    try {
-      await cfdi.generar(onGenerar);
-    } finally {
-      setGenerando(false);
-    }
+  const handleGenerar = () => {
+    const payload = cfdi.prepararPayload();
+    if (!payload) return;
+    setPendingPayload(payload);
+    setShowConfirm(true);
   };
 
-  const submitDisabled = generando || loading || !cfdi.selectedFiscalData || items.length === 0;
+  const handleConfirmar = () => {
+    if (!pendingPayload) return;
+    onConfirmar(pendingPayload);
+    setShowConfirm(false);
+    onClose();
+  };
+
+  const receptor = cfdi.isPublicoGeneral
+    ? { receptorNombre: "PUBLICO EN GENERAL", receptorRfc: RFC_GENERICO }
+    : {
+        receptorNombre: cfdi.selectedFiscalData?.razon_social_df ?? "",
+        receptorRfc: cfdi.selectedFiscalData?.rfc ?? "",
+      };
+
+  const submitDisabled = !cfdi.selectedFiscalData || items.length === 0;
 
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      title="Generar factura (CFDI)"
-      className="max-w-4xl"
-      bodyClassName="max-h-[80vh] overflow-y-auto pr-1"
-      footer={
-        <div className="flex justify-end gap-3 w-full">
-          <Button type="button" variant="secondary" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button type="button" onClick={handleGenerar} disabled={submitDisabled} loading={generando || loading}>
-            Generar factura
-          </Button>
-        </div>
-      }
-    >
+    <>
+      <Modal
+        open={open}
+        onClose={onClose}
+        title="Generar factura (CFDI)"
+        className="max-w-4xl"
+        bodyClassName="max-h-[80vh] overflow-y-auto pr-1"
+        footer={
+          <div className="flex justify-end gap-3 w-full">
+            <Button type="button" variant="secondary" onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button type="button" onClick={handleGenerar} disabled={submitDisabled}>
+              Generar factura
+            </Button>
+          </div>
+        }
+      >
       <div className="space-y-6">
         <ModoFacturacionSelector mode={cfdi.invoiceMode} onChange={cfdi.setInvoiceMode} />
 
@@ -198,10 +207,19 @@ export function CfdiBuilderModal({ open, agentId, items, onClose, onGenerar, loa
           <span className="text-lg font-bold text-gray-900">{fmtMoney(cfdi.previewTotals.total)}</span>
         </div>
 
-        {cfdi.resultadoGenerado && (
-          <p className="text-xs text-gray-500">Factura generada: {cfdi.resultadoGenerado.id}</p>
-        )}
-      </div>
-    </Modal>
+        </div>
+      </Modal>
+
+      <ConfirmarFacturaModal
+        open={showConfirm}
+        onClose={() => setShowConfirm(false)}
+        onConfirmar={handleConfirmar}
+        resumen={{
+          cantidadItems: items.length,
+          total: cfdi.previewTotals.total,
+          ...receptor,
+        }}
+      />
+    </>
   );
 }

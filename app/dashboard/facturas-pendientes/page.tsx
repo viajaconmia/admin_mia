@@ -7,7 +7,6 @@ import { Loader } from "@/components/atom/Loader";
 // Versión de Feather Icons (similares a Lucide)
 import { Eye, FileText, FilePlus, X, ShoppingCart } from "lucide-react";
 import { format } from "date-fns";
-import { fetchPagosPrepagobalance } from "@/services/pagos";
 import { Banknote, FileCheck } from "lucide-react";
 import { es, se } from "date-fns/locale";
 import ModalDetallePago from "@/app/dashboard/payments/_components/detalles_pago";
@@ -20,6 +19,12 @@ import { TypeFilters } from "@/types";
 import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
 import { formatDate } from "@/helpers/utils";
+import { CfdiBuilderModal } from "@/angel/components/organisms/CfdiBuilderModal";
+import { CfdiResultadoModal } from "@/angel/components/organisms/CfdiResultadoModal";
+import { CfdiFacturableItem } from "@/angel/lib/cfdi/payload";
+import { usePagosPrepagoFacturables } from "@/angel/hooks/usePagosPrepagoFacturables";
+import { useBalancePagosFacturas } from "@/angel/hooks/useBalancePagosFacturas";
+import { useFacturarPagosSeleccionados } from "@/angel/hooks/useFacturarPagosSeleccionados";
 
 export interface Pago {
   id_movimiento: number;
@@ -48,13 +53,9 @@ export interface Pago {
   monto_facturado: string;
   monto_por_facturar: number;
 }
-
-interface Balance {
-  montototal: string;
-  restante: string;
-  montofacturado: string;
-  total_reservas_confirmadas: string;
-}
+// nota: `saldo` en la fila cruda es 'pago_directo' o el saldo restante como
+// string (ver angel/services/pagos) — el valor numérico ya normalizado vive
+// en `saldo_numero`.
 
 type Seleccion = {
   id_agente: string;
@@ -111,10 +112,24 @@ const TablaPagosVisualizacion = () => {
   const [pagoSeleccionado, setPagoSeleccionado] = useState<Pago | null>(null);
   const [showSubirFactura, setShowSubirFactura] = useState(false);
   const [pagoAFacturar, setPagoAFacturar] = useState<Pago | null>(null);
-  const [pagos, setPagos] = useState<Pago[]>([]);
-  const [balance, setBalance] = useState<Balance | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    data: pagosRaw,
+    loading: pagosLoading,
+    error: pagosError,
+    refetch: refetchPagos,
+  } = usePagosPrepagoFacturables();
+  const {
+    data: balance,
+    loading: balanceLoading,
+    error: balanceError,
+    refetch: refetchBalance,
+  } = useBalancePagosFacturas();
+  const facturar = useFacturarPagosSeleccionados({
+    onFacturaCreada: () => {
+      refetchPagos();
+      refetchBalance();
+    },
+  });
   const [showFacturasModal, setShowFacturasModal] = useState(false);
   const [facturasCtx, setFacturasCtx] = useState<{
     id_agente: string;
@@ -141,10 +156,51 @@ const TablaPagosVisualizacion = () => {
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [seleccionados, setSeleccionados] = useState<Seleccion[]>([]);
   const idAgenteSeleccionado = seleccionados[0]?.id_agente ?? null;
+
+  // Normaliza la respuesta del nuevo endpoint al shape que ya consume el
+  // resto de la página (filtros, renderers, selección).
+  const pagos: Pago[] = useMemo(
+    () =>
+      pagosRaw.map(({ saldo, ...pago }) => {
+        const saldoNumero =
+          saldo === "pago_directo" ? Number(pago.monto) || 0 : Number(saldo) || 0;
+        return {
+          ...pago,
+          id_movimiento: Number(pago.id_movimiento) || 0,
+          raw_id: pago.raw_id,
+          ig_agente: pago.id_agente,
+          nombre_agente: pago.nombre_agente ?? "",
+          monto: formatNumberWithCommas(pago.monto),
+          monto_facturado: formatNumberWithCommas(pago.monto_facturado),
+          monto_por_facturar: Number(pago.monto_por_facturar) || 0,
+          is_facturado: Number(pago.is_facturado) || 0,
+          saldo: saldoNumero,
+          saldo_numero: saldoNumero,
+          facturas_asociadas: pago.facturas_asociadas || null,
+        };
+      }),
+    [pagosRaw],
+  );
+
   const totalSaldoSeleccionado = seleccionados.reduce(
     (a, s) => a + (Number(s.monto_por_facturar) || 0),
     0
   );
+
+  // Convierte una lista de pagos (seleccionados, o solo uno) al shape que
+  // consume el CfdiBuilder. Se reusa tanto en la barra de selección como en
+  // el botón "Generar" por fila.
+  const seleccionadosToItems = (lista: Seleccion[]): CfdiFacturableItem[] =>
+    lista.map((s) => {
+      const p = pagos.find((pp) => pp.raw_id === s.raw_id);
+      return {
+        id_item: s.raw_id,
+        id_origen: s.raw_id,
+        total: Number(s.monto_por_facturar) || 0,
+        contexto: { titulo: p?.concepto || "Pago", referencia: p?.referencia },
+      };
+    });
+
   const { hasAccess } = usePermiso();
 
   hasAccess(PERMISOS.VISTAS.FACTURAS_PREPAGO);
@@ -223,104 +279,6 @@ const TablaPagosVisualizacion = () => {
       setBatchMenuPos(spaceBelow < 200 ? "top" : "bottom");
     }
   }, [showBatchMenu]);
-
-  const obtenerPagos = async () => {
-    try {
-      setLoading(true);
-      const data = await fetchPagosPrepagobalance();
-      // Normalizar todos los datos para que cumplan con interface Pago
-      const pagosMapeados: Pago[] = data.respuesta.map((pago: any) => ({
-        id_movimiento: Number(
-          pago.id_movimiento ?? pago.id ?? pago.id_pago ?? 0
-        ),
-        tipo_pago:
-          pago.tipo_pago ??
-          pago.tipo_de_pago ??
-          pago.metodo_pago ??
-          pago.metodo_de_pago ??
-          "",
-        raw_id: pago.raw_id ?? pago.id_pago ?? pago.id ?? "",
-        fecha_pago:
-          pago.fecha_pago ??
-          pago.pago_fecha_pago ??
-          pago.fecha_transaccion ??
-          "",
-        ig_agente: pago.ig_agente ?? pago.agente_pago ?? pago.id_agente ?? "",
-        nombre_agente:
-          pago.nombre_agente ?? pago.agente_saldo ?? pago.nombre ?? "",
-        metodo: pago.metodo ?? pago.metodo_pago ?? pago.metodo_de_pago ?? "",
-        fecha_creacion:
-          pago.fecha_creacion ??
-          pago.pago_fecha_creacion ??
-          pago.created_at ??
-          "",
-        monto: formatNumberWithCommas(pago.monto),
-        monto_facturado: formatNumberWithCommas(pago.monto_facturado),
-        saldo_numero:
-          pago.saldo === "pago_directo"
-            ? Number(pago.monto) // Versión numérica para cálculos
-            : Number(pago.saldo ?? pago.saldo_monto ?? 0),
-        banco: pago.banco ?? pago.banco_tarjeta ?? undefined,
-        last_digits: pago.last_digits ?? pago.ult_digits ?? undefined,
-        is_facturado: Number(pago.is_facturado ?? pago.facturado ?? 0),
-        tipo:
-          pago.tipo ?? pago.tipo_de_tarjeta ?? pago.tipo_tarjeta ?? undefined,
-        referencia: pago.referencia ?? pago.pago_referencia ?? "",
-        concepto: pago.concepto ?? pago.pago_concepto ?? "",
-        link_pago: pago.link_pago ?? pago.link_stripe ?? "",
-        autorizacion:
-          pago.autorizacion ??
-          pago.numero_autorizacion ??
-          pago.autorizacion_stripe ??
-          "",
-        origen_pago: pago.origen_pago ?? "",
-        facturas_asociadas: pago.facturas_asociadas ?? pago.comprobante ?? null,
-
-        // mantener cualquier otro campo adicional que traiga el back
-        ...pago,
-      }));
-
-      setPagos(pagosMapeados);
-      setError(null);
-    } catch (err) {
-      console.error("Error al obtener los pagos:", err);
-      setError(
-        "No se pudieron cargar los pagos. Intente nuevamente más tarde."
-      );
-      setPagos([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const obtenerBalance = async () => {
-    try {
-      setLoading(true);
-      const response = await fetchPagosPrepagobalance();
-      // Asumiendo que la API devuelve directamente el objeto balance
-      const balanceObtenido: Balance = {
-        montototal: response.montototal || "0",
-        montofacturado: response.montofacturado || "0",
-        restante: response.restante || "0",
-        total_reservas_confirmadas: response.total_reservas_confirmadas || "3",
-      };
-      setBalance(balanceObtenido);
-      console.log(response, "balnacecedonp")
-    } catch (err) {
-      console.error("Error al obtener el balance:", err);
-      setError(
-        "No se pudieron cargar los saldos de pagos. Intente nuevamente más tarde."
-      );
-      setBalance(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    obtenerBalance();
-    obtenerPagos();
-  }, []);
 
   const isValidDate = (date: any): boolean => {
     return date instanceof Date && !isNaN(date.getTime());
@@ -830,18 +788,17 @@ const TablaPagosVisualizacion = () => {
       // Normaliza ids y montos
       const idAgente = (row.id_agente || row.ig_agente || "").toString();
       const rawId = row.raw_id;
-      const saldoNum = Number(row.monto_por_facturar) || 0;
-      const rawIds2 = seleccionados.map((s) => s.raw_id);
-      const saldos = [row.monto_por_facturar];
-      const saldos3 = seleccionados.map((s) => Number(s.monto_por_facturar));
-      let saldos2 = saldos.length > 1 ? saldos3 : saldos;
 
-      let rawIds = rawIds2.length == 0 ? [row.raw_id] : rawIds2;
-
-      let monto =
-        totalSaldoSeleccionado === 0
-          ? Number(row.monto_por_facturar)
-          : totalSaldoSeleccionado;
+      // Ítems a facturar: si hay selección múltiple se usa esa selección
+      // completa (mismo agente para todas), si no, solo esta fila.
+      const itemsParaFacturar =
+        seleccionados.length > 0
+          ? seleccionadosToItems(seleccionados)
+          : seleccionadosToItems([
+              { id_agente: idAgente, raw_id: row.raw_id, monto_por_facturar: row.monto_por_facturar },
+            ]);
+      const agentIdParaFacturar =
+        seleccionados.length > 0 ? seleccionados[0].id_agente : idAgente;
 
       return (
         <div className="flex gap-1 items-center">
@@ -907,15 +864,9 @@ const TablaPagosVisualizacion = () => {
             <button
               className="px-2 py-1 rounded-md bg-purple-50 text-purple-600 hover:bg-purple-100 transition-colors border border-purple-200 flex items-center gap-1 text-xs"
               onClick={() => {
-                if (!idAgente || !rawId) return;
-                setBatchBilling({
-                  userId: idAgente,
-                  saldoMonto: monto,
-                  rawIds,
-                  saldos,
-                });
+                if (!agentIdParaFacturar || !rawId) return;
                 setShowBatchMenu(false);
-                setShowBillingPage(true);
+                facturar.abrirBuilder(agentIdParaFacturar, itemsParaFacturar);
               }}
             >
               <FilePlus className="w-3 h-3" />
@@ -950,88 +901,84 @@ const TablaPagosVisualizacion = () => {
     },
   };
 
-  // Muestra error si ocurrió
-  if (error) {
-    return (
-      <div className="bg-white rounded-lg p-6 w-full shadow-xl">
-        <div className="text-red-500 p-4 border border-red-200 bg-red-50 rounded-lg">
-          {error}
-        </div>
-      </div>
-    );
-  }
   return (
     <div className="bg-white rounded-lg p-6 w-full shadow-xl">
       <h1 className="text-xl font-bold mb-4">Facturas Pendientes</h1>
 
       <h2 className="text-xl font-bold mb-4">Registro de Pagos</h2>
 
-      {/* Sección de resumen de montos */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
-        {/* Monto Pagado */}
-        <div className="flex items-center gap-4 bg-white border border-blue-200 rounded-xl p-4 shadow-sm ring-1 ring-blue-100 hover:shadow-md transition">
-          <div className="flex items-center justify-center w-12 h-12 bg-blue-100 text-blue-600 rounded-lg">
-            <Banknote className="w-6 h-6" />
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-blue-700">
-              Monto Pagado
-            </h3>
-            <p className="text-2xl font-bold text-blue-800">
-              {balance
-                ? formatCurrency(Number(balance.montototal))
-                : formatCurrency(0)}
-            </p>
-          </div>
+      {/* Sección de resumen de montos — loading/error propios, independientes de la tabla */}
+      {balanceError ? (
+        <div className="mb-6 text-red-500 p-4 border border-red-200 bg-red-50 rounded-lg">
+          {balanceError}
         </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
+          {/* Monto Pagado */}
+          <div className="flex items-center gap-4 bg-white border border-blue-200 rounded-xl p-4 shadow-sm ring-1 ring-blue-100 hover:shadow-md transition">
+            <div className="flex items-center justify-center w-12 h-12 bg-blue-100 text-blue-600 rounded-lg">
+              <Banknote className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-blue-700">
+                Monto Pagado
+              </h3>
+              <p className="text-2xl font-bold text-blue-800">
+                {balanceLoading
+                  ? "…"
+                  : formatCurrency(Number(balance?.total_pagos) || 0)}
+              </p>
+            </div>
+          </div>
 
-        {/* Monto Facturado */}
-        <div className="flex items-center gap-4 bg-white border border-green-200 rounded-xl p-4 shadow-sm ring-1 ring-green-100 hover:shadow-md transition">
-          <div className="flex items-center justify-center w-12 h-12 bg-green-100 text-green-600 rounded-lg">
-            <FileCheck className="w-6 h-6" />
+          {/* Monto Facturado */}
+          <div className="flex items-center gap-4 bg-white border border-green-200 rounded-xl p-4 shadow-sm ring-1 ring-green-100 hover:shadow-md transition">
+            <div className="flex items-center justify-center w-12 h-12 bg-green-100 text-green-600 rounded-lg">
+              <FileCheck className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-green-700">
+                Monto Facturado
+              </h3>
+              <p className="text-2xl font-bold text-green-800">
+                {balanceLoading
+                  ? "…"
+                  : formatCurrency(Number(balance?.total_facturado) || 0)}
+              </p>
+              <p className="text-sm mt-1">
+                <span className="text-gray-600">Restante: </span>
+                <span
+                  className={`font-semibold ${balance && Number(balance.restante) >= 0
+                    ? "text-red-600"
+                    : "text-green-600"
+                    }`}
+                >
+                  {balanceLoading
+                    ? "…"
+                    : formatCurrency(Number(balance?.restante) || 0)}
+                </span>
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-sm font-semibold text-green-700">
-              Monto Facturado
-            </h3>
-            <p className="text-2xl font-bold text-green-800">
-              {balance
-                ? formatCurrency(Number(balance.montofacturado))
-                : formatCurrency(0)}
-            </p>
-            <p className="text-sm mt-1">
-              <span className="text-gray-600">Restante: </span>
-              <span
-                className={`font-semibold ${balance && Number(balance.restante) >= 0
-                  ? "text-red-600"
-                  : "text-green-600"
-                  }`}
-              >
-                {balance
-                  ? formatCurrency(Number(balance.restante))
-                  : formatCurrency(0)}
-              </span>
-            </p>
-          </div>
-        </div>
 
-        {/* Total Reservas Confirmadas */}
-        <div className="flex items-center gap-4 bg-white border border-yellow-200 rounded-xl p-4 shadow-sm ring-1 ring-yellow-100 hover:shadow-md transition">
-          <div className="flex items-center justify-center w-12 h-12 bg-yellow-100 text-yellow-600 rounded-lg">
-            <ShoppingCart className="w-6 h-6" />
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold text-yellow-700">
-              Total Reservas Confirmadas
-            </h3>
-            <p className="text-2xl font-bold text-yellow-800">
-              {balance
-                ? formatCurrency(Number(balance.total_reservas_confirmadas))
-                : formatCurrency(0)}
-            </p>
+          {/* Total Reservas Confirmadas */}
+          <div className="flex items-center gap-4 bg-white border border-yellow-200 rounded-xl p-4 shadow-sm ring-1 ring-yellow-100 hover:shadow-md transition">
+            <div className="flex items-center justify-center w-12 h-12 bg-yellow-100 text-yellow-600 rounded-lg">
+              <ShoppingCart className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-yellow-700">
+                Total Reservas Confirmadas
+              </h3>
+              <p className="text-2xl font-bold text-yellow-800">
+                {balanceLoading
+                  ? "…"
+                  : formatCurrency(Number(balance?.total_reservas_confirmadas) || 0)}
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Resumen de selección */}
       {seleccionados.length > 0 && (
@@ -1047,6 +994,15 @@ const TablaPagosVisualizacion = () => {
 
           <div className="flex gap-2 items-center">
             {/* Dropdown Facturar (igual a acciones) */}
+
+            <button
+              className="text-xs px-3 py-1 rounded-md border border-purple-300 hover:bg-purple-100"
+              onClick={() =>
+                facturar.abrirBuilder(idAgenteSeleccionado ?? "", seleccionadosToItems(seleccionados))
+              }
+            >
+              Generar factura
+            </button>
 
             {/* Limpiar */}
             <button
@@ -1074,7 +1030,11 @@ const TablaPagosVisualizacion = () => {
           defaultFilters={filters}
         />
 
-        {loading ? (
+        {pagosError ? (
+          <div className="m-4 text-red-500 p-4 border border-red-200 bg-red-50 rounded-lg">
+            {pagosError}
+          </div>
+        ) : pagosLoading ? (
           <div className="p-8 flex justify-center">
             <Loader />
             <span className="ml-2">Cargando pagos...</span>
@@ -1104,9 +1064,28 @@ const TablaPagosVisualizacion = () => {
         pago={pagoSeleccionado}
         onClose={() => {
           setPagoSeleccionado(null);
-          obtenerPagos();
-          obtenerBalance();
+          refetchPagos();
+          refetchBalance();
         }}
+      />
+      <CfdiBuilderModal
+        open={facturar.builderAbierto}
+        agentId={facturar.agenteActivo}
+        items={facturar.itemsActivos}
+        onClose={facturar.cerrarBuilder}
+        onConfirmar={facturar.onConfirmarBuilder}
+      />
+      <CfdiResultadoModal
+        open={facturar.resultadoAbierto}
+        onClose={facturar.cerrarResultado}
+        estado={facturar.estado === "idle" ? "cargando" : facturar.estado}
+        resultado={facturar.resultado}
+        errorMensaje={facturar.errorMensaje}
+        onEnviarCorreo={facturar.enviarCorreo}
+        enviandoCorreo={facturar.enviandoCorreo}
+        onDescargarPdf={facturar.descargarPdf}
+        onDescargarXml={facturar.descargarXml}
+        descargando={facturar.descargando}
       />
       {/* Modal para SubirFactura */}
       {showSubirFactura && (
@@ -1126,8 +1105,8 @@ const TablaPagosVisualizacion = () => {
                 pagoData={pagoAFacturar} // Pasamos el objeto completo del pago
                 onSuccess={() => {
                   setShowSubirFactura(false);
-                  obtenerPagos();
-                  obtenerBalance();
+                  refetchPagos();
+                  refetchBalance();
                   // Aquí puedes añadir lógica adicional después de subir la factura
                 }}
               />
@@ -1142,8 +1121,8 @@ const TablaPagosVisualizacion = () => {
           raw_id={facturasCtx.raw_id}
           onClose={() => {
             setShowFacturasModal(false);
-            obtenerPagos();
-            obtenerBalance();
+            refetchPagos();
+            refetchBalance();
           }}
         />
       )}
@@ -1161,8 +1140,8 @@ const TablaPagosVisualizacion = () => {
                 onClick={() => {
                   setShowBillingPage(false);
                   setBatchBilling(null);
-                  obtenerPagos();
-                  obtenerBalance();
+                  refetchPagos();
+                  refetchBalance();
                 }}
                 className="text-gray-500 hover:text-gray-700"
               >
@@ -1174,7 +1153,7 @@ const TablaPagosVisualizacion = () => {
                 onBack={() => {
                   setShowBillingPage(false);
                   setBatchBilling(null);
-                  obtenerPagos();
+                  refetchPagos();
                   setSeleccionados([]); // También limpia la selección
                 }}
                 userId={batchBilling.userId}
@@ -1207,8 +1186,8 @@ const TablaPagosVisualizacion = () => {
               <button
                 onClick={() => {
                   setShowBatchSubirFactura(false);
-                  obtenerPagos();
-                  obtenerBalance();
+                  refetchPagos();
+                  refetchBalance();
                 }}
                 className="text-gray-500 hover:text-gray-700"
               >
@@ -1220,8 +1199,8 @@ const TablaPagosVisualizacion = () => {
                 pagoData={batchPagoAFacturar}
                 onSuccess={() => {
                   setShowBatchSubirFactura(false);
-                  obtenerPagos();
-                  obtenerBalance();
+                  refetchPagos();
+                  refetchBalance();
                   setSeleccionados([]); // Limpiar selección después de asignar
                 }}
                 isBatch={true} // Puedes usar esto para modificar el comportamiento si es necesario

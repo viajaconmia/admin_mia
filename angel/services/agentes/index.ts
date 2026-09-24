@@ -42,17 +42,16 @@ export async function listarAgentes(): Promise<AgenteListado[]> {
 }
 
 /**
- * Endpoint nuevo, pendiente de crear en backend:
- * GET /v2/mia/agentes/datos-fiscales?id_agente=<uuid>
+ * GET /v2/mia/agentes/empresas/fiscales?id_agente=<uuid>
  * → ApiResponse<EmpresaDatosFiscales[]>
  *
- * No reemplaza el fetch legacy (`GET /mia/agentes/empresas-con-datos-fiscales`,
- * usado hoy en varios lugares) — es un servicio nuevo, a propósito, para no
- * acoplar el nuevo componente CFDI a las llamadas existentes.
+ * Reuse literal del query/shape de `GET /mia/agentes/empresas-con-datos-fiscales`
+ * (legacy, usado hoy en varios lugares) — es un servicio nuevo, a propósito,
+ * para no acoplar el nuevo componente CFDI a las llamadas existentes.
  */
 export const agentesService = {
   getDatosFiscales: (
     id_agente: string,
   ): Promise<ApiResponse<EmpresaDatosFiscales[]>> =>
-    agentesApi.get<EmpresaDatosFiscales[]>("/datos-fiscales", { id_agente }),
+    agentesApi.get<EmpresaDatosFiscales[]>("/empresas/fiscales", { id_agente }),
 };

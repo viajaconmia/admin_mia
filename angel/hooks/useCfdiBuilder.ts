@@ -14,7 +14,6 @@ import {
   armarConceptos,
   buildCfdiPayload,
   CfdiFacturableItem,
-  CfdiGeneradoResultado,
   CfdiPayload,
   CfdiReceiver,
   EmpresaDatosFiscales,
@@ -64,7 +63,6 @@ type CfdiBuilderState = {
   useCustomConceptoItem: boolean;
   customConceptoItem: string;
   descOverrides: Record<string, string>;
-  resultadoGenerado: { id: string } | null;
 };
 
 const createInitialState = (): CfdiBuilderState => {
@@ -92,7 +90,6 @@ const createInitialState = (): CfdiBuilderState => {
     useCustomConceptoItem: false,
     customConceptoItem: "",
     descOverrides: {},
-    resultadoGenerado: null,
   };
 };
 
@@ -301,8 +298,8 @@ export function useCfdiBuilder({ agentId, items }: UseCfdiBuilderParams) {
   }, [previewLineas]);
 
   // ---- Generar payload final ----
-  const generar = useCallback(
-    async (onGenerar: (payload: CfdiPayload) => Promise<CfdiGeneradoResultado>) => {
+  const prepararPayload = useCallback(
+    (): CfdiPayload | null => {
       if (!items.length) {
         error("No hay ítems seleccionados para facturar");
         return null;
@@ -347,10 +344,6 @@ export function useCfdiBuilder({ agentId, items }: UseCfdiBuilderParams) {
         return null;
       }
 
-      const resultado = await onGenerar(payload);
-      if (resultado && "id" in resultado) {
-        dispatch({ type: "SET_FIELD", field: "resultadoGenerado", value: resultado });
-      }
       return payload;
     },
     [
@@ -436,10 +429,8 @@ export function useCfdiBuilder({ agentId, items }: UseCfdiBuilderParams) {
     // preview
     previewLineas,
     previewTotals,
-    // resultado
-    resultadoGenerado: state.resultadoGenerado,
     // acción
-    generar,
+    prepararPayload,
   };
 }
 

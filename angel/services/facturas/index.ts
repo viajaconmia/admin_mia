@@ -4,6 +4,7 @@ import { ApiResponse, createApiClient } from "../apiClient";
 import { reservasFacturaService } from "./reservas";
 import { itemsFacturaService } from "./items";
 import { envioFacturaService, EnvioFactura } from "./envio";
+import { crearFacturaService } from "./crear";
 
 export type DetalleFacturaResponse = {
   reservas: {
@@ -43,6 +44,7 @@ export type DetalleFacturaResponse = {
 export * from "./reservas";
 export * from "./items";
 export * from "./envio";
+export * from "./crear";
 
 const facturaApi = createApiClient("/v2/mia/factura");
 
@@ -60,4 +62,5 @@ export const facturasService = {
   ...reservasFacturaService,
   ...itemsFacturaService,
   ...envioFacturaService,
+  ...crearFacturaService,
 };
