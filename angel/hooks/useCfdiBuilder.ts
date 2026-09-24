@@ -300,6 +300,10 @@ export function useCfdiBuilder({ agentId, items }: UseCfdiBuilderParams) {
   // ---- Generar payload final ----
   const prepararPayload = useCallback(
     (): CfdiPayload | null => {
+      if (!agentId) {
+        error("Falta el agente");
+        return null;
+      }
       if (!items.length) {
         error("No hay ítems seleccionados para facturar");
         return null;

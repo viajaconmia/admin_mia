@@ -997,9 +997,10 @@ const TablaPagosVisualizacion = () => {
 
             <button
               className="text-xs px-3 py-1 rounded-md border border-purple-300 hover:bg-purple-100"
-              onClick={() =>
-                facturar.abrirBuilder(idAgenteSeleccionado ?? "", seleccionadosToItems(seleccionados))
-              }
+              onClick={() => {
+                if (!idAgenteSeleccionado) return;
+                facturar.abrirBuilder(idAgenteSeleccionado, seleccionadosToItems(seleccionados));
+              }}
             >
               Generar factura
             </button>
