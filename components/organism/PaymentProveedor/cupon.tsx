@@ -3,7 +3,6 @@
 import React, {
   useEffect,
   useState,
-  useRef,
   forwardRef,
   useImperativeHandle,
 } from "react";
@@ -20,7 +19,6 @@ import {
   X,
 } from "lucide-react";
 import { SupportModal } from "./superModal";
-import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { getUbicacion } from "./reservas";
 
@@ -122,9 +120,7 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
     reservation ?? null,
   );
   const [loading, setLoading] = useState<boolean>(!reservation); // si ya viene por props, no cargamos
-  const pageRef = useRef<HTMLDivElement>(null);
   const [logos, setLogos] = useState<Record<string, LogoLoaded>>({});
-  const scrollRef = useRef<HTMLDivElement>(null);
 
   console.log("arreglar", reservation);
 
@@ -172,30 +168,6 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
 
   // (si ocuparas el fetch por id, reactívalo)
   // useEffect(() => { ... }, [reservationIdBase64]);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const fromAssets = await Promise.all(
-          [
-            {
-              key: "noktos",
-              src: "https://luiscastaneda-tos.github.io/log/files/nokt.png",
-            },
-          ].map(async (a) => {
-            const data = await loadImageAsDataURL(a.src);
-            return [a.key, data] as const;
-          }),
-        );
-        const miaData = await loadSvgStringAsPngDataURL(MIA_SVG);
-        setLogos(
-          Object.fromEntries([...fromAssets, ["mia", miaData] as const]),
-        );
-      } catch (e) {
-        console.warn("Fallo precarga de logos:", e);
-      }
-    })();
-  }, []);
 
   const logoAssets: LogoAsset[] = [
     {
@@ -319,9 +291,6 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
       pdf.addImage(dataUrl, "PNG", x, y, w, FOOTER_H);
     }
   }
-  // --- NUEVO: para ubicar el rectángulo clickeable de Maps
-  const hotelCardRef = useRef<HTMLDivElement>(null);
-
   function drawPoliciesOnCurrentPage(pdf: jsPDF) {
     const pageW = pdf.internal.pageSize.getWidth();
     const pageH = pdf.internal.pageSize.getHeight();
@@ -674,13 +643,158 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
     pdf.rect(0, 0, w, h, "F");
   }
 
+  // Calcula el alto que necesita una tarjeta label/valor (sin dibujar) para
+  // poder igualar el alto de dos tarjetas en una misma fila.
+  function measureCardHeight(
+    pdf: jsPDF,
+    w: number,
+    value: string,
+    subValue?: string,
+    minH = 18,
+  ): number {
+    const paddingX = 5;
+    const paddingY = 5;
+    const maxWidth = w - paddingX * 2;
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(11);
+    const valueLines = pdf.splitTextToSize(value || "", maxWidth) as string[];
+
+    const subLines = subValue
+      ? (pdf.splitTextToSize(subValue, maxWidth) as string[])
+      : [];
+
+    const labelH = 5.5;
+    const valueLineH = 5;
+    const subLineH = 4;
+    const contentH =
+      labelH +
+      valueLines.length * valueLineH +
+      (subLines.length ? subLines.length * subLineH + 1 : 0);
+
+    return Math.max(minH, paddingY * 2 + contentH);
+  }
+
+  // Tarjeta genérica label/valor (mismo estilo visual que las tarjetas de
+  // "Contacto"/"Políticas": caja azul clarito con borde, label en negrita
+  // azul oscuro arriba, valor debajo). Sin íconos a propósito.
+  function drawInfoCard(
+    pdf: jsPDF,
+    opts: {
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+      label: string;
+      value: string;
+      subValue?: string;
+    },
+  ) {
+    const { x, y, w, h, label, value, subValue } = opts;
+    const BLUE_50 = { r: 239, g: 246, b: 255 };
+    const BLUE_200 = { r: 191, g: 219, b: 254 };
+    const BLUE_900 = { r: 30, g: 58, b: 138 };
+    const TEXT_DARK = { r: 30, g: 41, b: 59 };
+    const paddingX = 5;
+    const paddingY = 5;
+    const maxWidth = w - paddingX * 2;
+
+    pdf.setDrawColor(BLUE_200.r, BLUE_200.g, BLUE_200.b);
+    pdf.setFillColor(BLUE_50.r, BLUE_50.g, BLUE_50.b);
+    if ((pdf as any).roundedRect) {
+      (pdf as any).roundedRect(x, y, w, h, 2.5, 2.5, "FD");
+    } else {
+      pdf.rect(x, y, w, h, "FD");
+    }
+
+    let cy = y + paddingY + 3.5;
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(8);
+    pdf.setTextColor(BLUE_900.r, BLUE_900.g, BLUE_900.b);
+    pdf.text(label.toUpperCase(), x + paddingX, cy);
+
+    cy += 5.5;
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(11);
+    pdf.setTextColor(TEXT_DARK.r, TEXT_DARK.g, TEXT_DARK.b);
+    const valueLines = pdf.splitTextToSize(value || "", maxWidth) as string[];
+    valueLines.forEach((line) => {
+      pdf.text(line, x + paddingX, cy);
+      cy += 5;
+    });
+
+    if (subValue) {
+      cy += 1;
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(8.5);
+      pdf.setTextColor(100, 116, 139);
+      const subLines = pdf.splitTextToSize(subValue, maxWidth) as string[];
+      subLines.forEach((line) => {
+        pdf.text(line, x + paddingX, cy);
+        cy += 4;
+      });
+    }
+
+    pdf.setTextColor(0, 0, 0);
+    pdf.setDrawColor(0, 0, 0);
+  }
+
+  // Tarjeta de fechas (check-in / check-out), mismo estilo visual.
+  function drawDateCard(
+    pdf: jsPDF,
+    opts: {
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+      checkIn: string;
+      checkOut: string;
+    },
+  ) {
+    const { x, y, w, h, checkIn, checkOut } = opts;
+    const BLUE_50 = { r: 239, g: 246, b: 255 };
+    const BLUE_200 = { r: 191, g: 219, b: 254 };
+    const BLUE_900 = { r: 30, g: 58, b: 138 };
+    const TEXT_DARK = { r: 30, g: 41, b: 59 };
+    const paddingX = 6;
+
+    pdf.setDrawColor(BLUE_200.r, BLUE_200.g, BLUE_200.b);
+    pdf.setFillColor(BLUE_50.r, BLUE_50.g, BLUE_50.b);
+    if ((pdf as any).roundedRect) {
+      (pdf as any).roundedRect(x, y, w, h, 2.5, 2.5, "FD");
+    } else {
+      pdf.rect(x, y, w, h, "FD");
+    }
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(8);
+    pdf.setTextColor(BLUE_900.r, BLUE_900.g, BLUE_900.b);
+    pdf.text("FECHAS DE ESTANCIA", x + paddingX, y + 6);
+
+    const leftX = x + paddingX;
+    const rightX = x + w - paddingX;
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(8);
+    pdf.setTextColor(100, 116, 139);
+    pdf.text("Check-in", leftX, y + 13);
+    pdf.text("Check-out", rightX, y + 13, { align: "right" });
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(11);
+    pdf.setTextColor(TEXT_DARK.r, TEXT_DARK.g, TEXT_DARK.b);
+    pdf.text(checkIn, leftX, y + 19);
+    pdf.text(checkOut, rightX, y + 19, { align: "right" });
+
+    pdf.setTextColor(0, 0, 0);
+    pdf.setDrawColor(0, 0, 0);
+  }
+
   // ====== GENERACIÓN DE PDF (devuelve Blob y opcionalmente guarda) ======
   const buildPdf = async (opts?: { save?: boolean }) => {
-    const content = pageRef.current;
-    const scroller = scrollRef.current;
-    if (!content) return null;
+    if (!reservationDetails) return null;
 
-    // 1) Asegura tener ubicación para el link
+    // Ubicación para el link "Ver ubicación" de la tarjeta del hotel
     const ubic = await handleUbicacion();
     const mapsUrl = buildGoogleMapsUrl(
       ubic,
@@ -688,181 +802,174 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
       reservationDetails?.direccion || "",
     );
 
-    // Guarda estilos originales
-    const original = {
-      position: content.style.position,
-      margin: content.style.margin,
-      width: content.style.width,
-      overflow: content.style.overflow,
-      maxHeight: content.style.maxHeight,
-      padding: content.style.padding,
-    };
-
-    const scrollerOriginal = scroller
-      ? {
-          overflow: scroller.style.overflow,
-          maxHeight: scroller.style.maxHeight,
-        }
-      : null;
-
-    // Elementos que se ocultan en PDF (botones/header, etc.)
-    const elementsToHide = content.querySelectorAll(
-      "[data-hide-in-pdf], .no-print",
-    );
-    const originalDisplay: string[] = [];
-
     try {
-      // Expandir para capturar TODO
-      content.style.position = "static";
-      content.style.margin = "0 auto";
-      content.style.width = "100%";
-      content.style.overflow = "visible";
-      content.style.maxHeight = "none";
-      content.style.padding = "20px 16px";
-
-      if (scroller) {
-        scroller.style.overflow = "visible";
-        scroller.style.maxHeight = "none";
-      }
-
-      elementsToHide.forEach((el) => {
-        originalDisplay.push((el as HTMLElement).style.display);
-        (el as HTMLElement).style.display = "none";
-      });
-
-      await new Promise((r) => requestAnimationFrame(r));
-
-      // Medidas del DOM para posicionar el link
-      const pageRect = content.getBoundingClientRect();
-      const hotelRect = hotelCardRef.current?.getBoundingClientRect() || null;
-
-      // Captura
-      const canvas = await html2canvas(content, {
-        scale: Math.min(2, window.devicePixelRatio || 1) * 2,
-        useCORS: true,
-        backgroundColor: null,
-        scrollY: 0,
-        windowWidth: document.documentElement.scrollWidth,
-        windowHeight: document.documentElement.scrollHeight,
-        ignoreElements: (el) =>
-          el.hasAttribute("data-hide-in-pdf") ||
-          el.classList.contains("no-print"),
-      });
-
-      const imgData = canvas.toDataURL("image/png");
-
-      // ======== PDF =========
       const pdf = new jsPDF("p", "mm", "a4");
-      const pageW = pdf.internal.pageSize.getWidth(); // 210
-      const pageH = pdf.internal.pageSize.getHeight(); // 297
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+      const marginX = 14;
+      const contentW = pageW - marginX * 2;
+      const gap = 6;
+      const reservedBottom = 60; // espacio reservado para la tarjeta de contacto
 
-      // Queremos TODO (HTML) en la página 1: escalar a alto de página,
-      // dejando un margen inferior “visual” para que no tape políticas/contacto.
-      // Sugerencia: dibujamos la imagen full-page y luego ponemos políticas/contacto encima.
-      const imgWmm = pageW;
-      const imgHmm = (canvas.height * imgWmm) / canvas.width;
-
-      // Si es más alto que la página, lo comprimimos proporcionalmente
-      let drawW = imgWmm;
-      let drawH = imgHmm;
-      if (imgHmm > pageH) {
-        const scale = pageH / imgHmm;
-        drawW = imgWmm * scale;
-        drawH = imgHmm * scale;
-      }
-
-      // Centrado horizontal
-      const drawX = (pageW - drawW) / 2;
-      const drawY = 0;
-
-      // Página 1
       paintFullBluePage(pdf);
-      pdf.addImage(imgData, "PNG", drawX, drawY, drawW, drawH);
       drawLogosOnPage(pdf, logos);
 
-      // --- Políticas y Contacto en la misma página (1) ---
+      let y = 28;
+      const ensureSpace = (h: number) => {
+        if (y + h > pageH - reservedBottom) {
+          pdf.addPage();
+          paintFullBluePage(pdf);
+          y = 20;
+        }
+      };
+
+      // Título
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(18);
+      pdf.setTextColor(30, 58, 138);
+      pdf.text("Resumen de reservación", pageW / 2, y, { align: "center" });
+      y += 7;
+
+      if (reservationDetails?.codigo_confirmacion) {
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(11);
+        pdf.setTextColor(37, 99, 235);
+        pdf.text(
+          `Confirmación #${reservationDetails.codigo_confirmacion}`,
+          pageW / 2,
+          y,
+          { align: "center" },
+        );
+        y += 10;
+      } else {
+        y += 6;
+      }
+      pdf.setTextColor(0, 0, 0);
+
+      // Fila: Huésped | Hotel
+      const cardW = (contentW - gap) / 2;
+      const hHuesped = measureCardHeight(pdf, cardW, reservationDetails.huesped || "");
+      const hHotel = measureCardHeight(
+        pdf,
+        cardW,
+        reservationDetails.hotel || "",
+        reservationDetails.direccion || "",
+      );
+      const rowH1 = Math.max(hHuesped, hHotel);
+      ensureSpace(rowH1);
+      drawInfoCard(pdf, {
+        x: marginX,
+        y,
+        w: cardW,
+        h: rowH1,
+        label: "Huésped",
+        value: reservationDetails.huesped || "",
+      });
+      const hotelCard = { x: marginX + cardW + gap, y, w: cardW, h: rowH1 };
+      drawInfoCard(pdf, {
+        ...hotelCard,
+        label: "Hotel",
+        value: reservationDetails.hotel || "",
+        subValue: reservationDetails.direccion || "",
+      });
+      y += rowH1 + gap;
+
+      // Acompañantes (si aplica)
+      if (
+        reservationDetails.acompañantes &&
+        reservationDetails.acompañantes.length > 0
+      ) {
+        const value = getAcompanantesValue(reservationDetails.acompañantes);
+        const h = measureCardHeight(pdf, contentW, value);
+        ensureSpace(h);
+        drawInfoCard(pdf, { x: marginX, y, w: contentW, h, label: "Acompañantes", value });
+        y += h + gap;
+      }
+
+      // Desayuno incluido
+      {
+        const value = reservationDetails.incluye_desayuno
+          ? "Desayuno incluido"
+          : "No incluye desayuno";
+        const h = measureCardHeight(pdf, contentW, value);
+        ensureSpace(h);
+        drawInfoCard(pdf, {
+          x: marginX,
+          y,
+          w: contentW,
+          h,
+          label: "Desayuno incluido",
+          value,
+        });
+        y += h + gap;
+      }
+
+      // Fechas de estancia
+      {
+        const h = 22;
+        ensureSpace(h);
+        drawDateCard(pdf, {
+          x: marginX,
+          y,
+          w: contentW,
+          h,
+          checkIn: (reservationDetails.check_in || "").split("T")[0] || "",
+          checkOut: (reservationDetails.check_out || "").split("T")[0] || "",
+        });
+        y += h + gap;
+      }
+
+      // Fila: Tipo de Habitación | Comentarios
+      {
+        const roomValue = cambiarLenguaje(reservationDetails.room || "");
+        const comentariosValue =
+          reservationDetails.comentarios || "No hay comentarios";
+        const hRoom = measureCardHeight(pdf, cardW, roomValue);
+        const hComentarios = measureCardHeight(pdf, cardW, comentariosValue);
+        const rowH2 = Math.max(hRoom, hComentarios);
+        ensureSpace(rowH2);
+        drawInfoCard(pdf, {
+          x: marginX,
+          y,
+          w: cardW,
+          h: rowH2,
+          label: "Tipo de Habitación",
+          value: roomValue,
+        });
+        drawInfoCard(pdf, {
+          x: marginX + cardW + gap,
+          y,
+          w: cardW,
+          h: rowH2,
+          label: "Comentarios",
+          value: comentariosValue,
+        });
+        y += rowH2 + gap;
+      }
+
+      // --- Contacto (misma página) ---
       drawContactInfoOnCurrentPage(pdf);
 
-      // --- Link invisible sobre la tarjeta del hotel (en página 1) ---
-
-      // === Config de depuración / posicionamiento del link ===
-      const LINK_DEBUG = false; // ← pinta el borde rojo si true
-      const LINK_BORDER_COLOR: [number, number, number] = [0, 0, 0]; // rojo
-      const LINK_STROKE_WIDTH = 0.6; // grosor del borde (mm)
-
-      // Offsets en MILÍMETROS sobre el resultado final (tras escalar canvas → PDF):
-      const LINK_OFFSET_MM = { x: 36, y: 12.5 }; // mueve el rectángulo a la derecha/abajo (+) o izquierda/arriba (-)
-
-      // “Crecer/encoger” el área de click en MILÍMETROS (útil si quieres darle aire)
-      const LINK_GROW_MM = { w: 0, h: 0 }; // se aplica de forma simétrica a los lados (ver fórmula)
-
-      // --- Link invisible (con borde rojo opcional) y label "Ver ubicación" ---
-
-      if (hotelRect && mapsUrl) {
-        const relXpx = hotelRect.left - pageRect.left;
-        const relYpx = hotelRect.top - pageRect.top;
-        const wpx = hotelRect.width;
-        const hpx = hotelRect.height;
-
-        // Escala px → mm
-        const mmPerPxX = drawW / canvas.width;
-        const mmPerPxY = drawH / canvas.height;
-
-        let xmm = drawX + relXpx * mmPerPxX;
-        let ymm = drawY + relYpx * mmPerPxY;
-        let wmm = wpx * mmPerPxX;
-        let hmm = hpx * mmPerPxY;
-
-        // Ajustes opcionales
-        if (LINK_GROW_MM.w) {
-          xmm -= LINK_GROW_MM.w / 2;
-          wmm += LINK_GROW_MM.w;
-        }
-        if (LINK_GROW_MM.h) {
-          ymm -= LINK_GROW_MM.h / 2;
-          hmm += LINK_GROW_MM.h;
-        }
-
-        xmm += LINK_OFFSET_MM.x;
-        ymm += LINK_OFFSET_MM.y;
-
-        // === NUEVO: texto "Ver ubicación" encima del cuadro ===
-        const labelText = "Ver ubicación";
-        const labelFontSize = 7;
-        const labelOffsetY = 0.5; // mm de separación del borde superior
-
-        pdf.setFont("helvetica", "bold");
-        pdf.setFontSize(labelFontSize);
-        pdf.setTextColor(220, 220, 220); // Gris muy claro (un gris muy común)
-
-        // Centrado horizontal respecto al cuadro
-        const textWidth = pdf.getTextWidth(labelText);
-        const labelX = xmm + (wmm - textWidth) / 2;
-        const labelY = ymm - labelOffsetY;
-        pdf.text(labelText, labelX, labelY);
-
-        // (Opcional) Borde de debug
-        if (LINK_DEBUG) {
-          pdf.setDrawColor(...LINK_BORDER_COLOR);
-          (pdf as any).setLineWidth?.(LINK_STROKE_WIDTH);
-          pdf.rect(xmm, ymm, wmm, hmm);
-          pdf.setDrawColor(0, 0, 0);
-          (pdf as any).setLineWidth?.(0.2);
-        }
-
-        // Link clickeable
+      // --- Link clickeable sobre la tarjeta del hotel ---
+      if (mapsUrl) {
         if ((pdf as any).link) {
-          (pdf as any).link(xmm, ymm, wmm, hmm, { url: mapsUrl });
-        } else {
-          pdf.setTextColor(0, 0, 255);
-          pdf.setFontSize(1);
-          pdf.textWithLink(" ", xmm + 0.5, ymm + 1, { url: mapsUrl });
-          pdf.setTextColor(0, 0, 0);
+          (pdf as any).link(hotelCard.x, hotelCard.y, hotelCard.w, hotelCard.h, {
+            url: mapsUrl,
+          });
         }
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(7);
+        pdf.setTextColor(37, 99, 235);
+        pdf.textWithLink(
+          "Ver ubicación",
+          hotelCard.x + hotelCard.w - 3,
+          hotelCard.y + hotelCard.h - 2,
+          { url: mapsUrl, align: "right" },
+        );
+        pdf.setTextColor(0, 0, 0);
       }
 
       // ====== Página 2: FACTURACIÓN ======
-      // Usa "credito" si sólo quieres esa sección; usa "full" para el bloque completo
       drawBillingInfoOnLastPage(pdf, "credito");
 
       const filename = `reservacion-${reservationDetails?.codigo_confirmacion || "sin-codigo"}.pdf`;
@@ -873,23 +980,6 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
       console.error("Error generando PDF:", err);
       alert("No se pudo generar el PDF. Revisa la consola para más detalles.");
       return null;
-    } finally {
-      // Restaurar estilos y elementos ocultos
-      content.style.position = original.position;
-      content.style.margin = original.margin;
-      content.style.width = original.width;
-      content.style.overflow = original.overflow;
-      content.style.maxHeight = original.maxHeight;
-      content.style.padding = original.padding;
-
-      elementsToHide.forEach((el, i) => {
-        (el as HTMLElement).style.display = originalDisplay[i] || "";
-      });
-
-      if (scroller && scrollerOriginal) {
-        scroller.style.overflow = scrollerOriginal.overflow;
-        scroller.style.maxHeight = scrollerOriginal.maxHeight;
-      }
     }
   };
 
@@ -966,17 +1056,13 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
 
         {/* Body scrolleable - SOLO el contenido */}
         <div
-          ref={scrollRef}
           className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-gradient-to-br from-blue-50 via-blue-100 to-blue-50"
           style={{
             scrollbarWidth: "thin",
             scrollbarColor: "#3b82f6 #e0f2fe",
           }}
         >
-          <div
-            ref={pageRef}
-            className="max-w-5xl mx-auto px-4 py-6 relative scroll-improved"
-          >
+          <div className="max-w-5xl mx-auto px-4 py-6 relative scroll-improved">
             <SupportModal
               isOpen={isSupportModalOpen}
               onClose={() => setIsSupportModalOpen(false)}
@@ -1004,14 +1090,12 @@ export const Reserva = forwardRef<ReservaHandle, ReservaProps>(function Reserva(
                         label="Huésped"
                         value={reservationDetails.huesped || ""}
                       />
-                      <div ref={hotelCardRef} data-role="hotel-card">
-                        <InfoCard
-                          icon={Hotel}
-                          label="Hotel"
-                          value={reservationDetails.hotel || ""}
-                          subValue={reservationDetails.direccion || ""}
-                        />
-                      </div>
+                      <InfoCard
+                        icon={Hotel}
+                        label="Hotel"
+                        value={reservationDetails.hotel || ""}
+                        subValue={reservationDetails.direccion || ""}
+                      />
                     </div>
 
                     <div className="space-y-4">

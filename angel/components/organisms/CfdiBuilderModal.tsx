@@ -144,9 +144,6 @@ export function CfdiBuilderModal({ open, agentId, items, onClose, onConfirmar }:
           onPaymentFormChange={cfdi.setSelectedPaymentForm}
           selectedPaymentMethod={cfdi.selectedPaymentMethod}
           onPaymentMethodChange={cfdi.setSelectedPaymentMethod}
-          dueDate={cfdi.dueDate}
-          onDueDateChange={cfdi.setDueDate}
-          minDueDate={cfdi.minDueDate}
           isPublicoGeneral={cfdi.isPublicoGeneral}
           periodicity={cfdi.periodicity}
           onPeriodicityChange={cfdi.setPeriodicity}

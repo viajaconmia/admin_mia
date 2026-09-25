@@ -75,7 +75,7 @@ const createInitialState = (): CfdiBuilderState => {
     invoiceMode: "consolidada",
     selectedCfdiUse: "G03",
     selectedPaymentForm: "99",
-    selectedPaymentMethod: "PPD",
+    selectedPaymentMethod: "PUE",
     dueDate: toInputDate(addDays(now, 15)),
     periodicity: "01",
     month: String(now.getMonth() + 1).padStart(2, "0"),
@@ -112,7 +112,13 @@ function reducer(state: CfdiBuilderState, action: Action): CfdiBuilderState {
     case "SET_DESC_OVERRIDE":
       return { ...state, descOverrides: { ...state.descOverrides, [action.key]: action.value } };
     case "APPLY_RFC_GENERICO_DEFAULTS":
-      return { ...state, selectedCfdiUse: "S01", selectedPaymentMethod: "PPD", selectedPaymentForm: "99" };
+      return {
+        ...state,
+        selectedCfdiUse: "S01",
+        selectedPaymentMethod: "PPD",
+        selectedPaymentForm: "99",
+        selectedDescription: "Servicios de facturación",
+      };
     default:
       return state;
   }
@@ -142,7 +148,6 @@ export function useCfdiBuilder({ agentId, items }: UseCfdiBuilderParams) {
       setSelectedCfdiUse: setField("selectedCfdiUse"),
       setSelectedPaymentForm: setField("selectedPaymentForm"),
       setSelectedPaymentMethod: setField("selectedPaymentMethod"),
-      setDueDate: setField("dueDate"),
       setPeriodicity: setField("periodicity"),
       setMonth: setField("month"),
       setYear: setField("year"),
@@ -187,7 +192,6 @@ export function useCfdiBuilder({ agentId, items }: UseCfdiBuilderParams) {
 
   const expeditionPlace = useMemo(() => getExpeditionPlace(state.ivaRate), [state.ivaRate]);
   const ivaRateStr = useMemo(() => state.ivaRate.toFixed(6), [state.ivaRate]);
-  const minDueDate = useMemo(() => toInputDate(new Date()), []);
 
   // ---- Descripción / observaciones ----
   const defaultDescription = useMemo(
@@ -396,10 +400,7 @@ export function useCfdiBuilder({ agentId, items }: UseCfdiBuilderParams) {
     setSelectedPaymentForm: setters.setSelectedPaymentForm,
     selectedPaymentMethod: state.selectedPaymentMethod,
     setSelectedPaymentMethod: setters.setSelectedPaymentMethod,
-    // vencimiento / periodicidad
-    dueDate: state.dueDate,
-    setDueDate: setters.setDueDate,
-    minDueDate,
+    // periodicidad
     periodicity: state.periodicity,
     setPeriodicity: setters.setPeriodicity,
     month: state.month,

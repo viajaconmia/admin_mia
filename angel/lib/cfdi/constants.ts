@@ -101,6 +101,7 @@ export const paymentDescriptions = [
   "Servicio de administración y gestión de Reservas",
   "Servicio y Gestión de viajes",
   "Factura global",
+  "Servicios de facturación",
 ];
 
 export const periodicidades = [

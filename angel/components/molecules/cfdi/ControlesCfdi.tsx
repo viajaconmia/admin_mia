@@ -1,6 +1,6 @@
 "use client";
 
-import { Dropdown, DateInput, NumberInput } from "@/components/atom/Input";
+import { Dropdown, NumberInput } from "@/components/atom/Input";
 import {
   cfdiUseOptions,
   paymentFormOptions,
@@ -16,9 +16,6 @@ type Props = {
   onPaymentFormChange: (value: string) => void;
   selectedPaymentMethod: string;
   onPaymentMethodChange: (value: string) => void;
-  dueDate: string;
-  onDueDateChange: (value: string) => void;
-  minDueDate: string;
   isPublicoGeneral: boolean;
   periodicity: string;
   onPeriodicityChange: (value: string) => void;
@@ -35,9 +32,6 @@ export function ControlesCfdi({
   onPaymentFormChange,
   selectedPaymentMethod,
   onPaymentMethodChange,
-  dueDate,
-  onDueDateChange,
-  minDueDate,
   isPublicoGeneral,
   periodicity,
   onPeriodicityChange,
@@ -61,11 +55,6 @@ export function ControlesCfdi({
         onChange={onPaymentMethodChange}
         options={paymentMethodOptions}
       />
-
-      <div>
-        <DateInput label="Fecha de vencimiento" value={dueDate} min={minDueDate} onChange={onDueDateChange} />
-        <p className="text-[11px] text-gray-500 mt-1">Por defecto se establece 15 días a partir de hoy.</p>
-      </div>
 
       {isPublicoGeneral && (
         <div className="md:col-span-2 grid gap-4 md:grid-cols-3">
