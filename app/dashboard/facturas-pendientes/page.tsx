@@ -21,6 +21,7 @@ import { PERMISOS } from "@/constant/permisos";
 import { formatDate } from "@/helpers/utils";
 import { CfdiBuilderModal } from "@/angel/components/organisms/CfdiBuilderModal";
 import { CfdiResultadoModal } from "@/angel/components/organisms/CfdiResultadoModal";
+import { VincularPagoFacturaModal } from "@/angel/components/organisms/VincularPagoFacturaModal";
 import { CfdiFacturableItem } from "@/angel/lib/cfdi/payload";
 import { usePagosPrepagoFacturables } from "@/angel/hooks/usePagosPrepagoFacturables";
 import { useBalancePagosFacturas } from "@/angel/hooks/useBalancePagosFacturas";
@@ -130,6 +131,7 @@ const TablaPagosVisualizacion = () => {
       refetchBalance();
     },
   });
+  const [vincularRawId, setVincularRawId] = useState<string | null>(null);
   const [showFacturasModal, setShowFacturasModal] = useState(false);
   const [facturasCtx, setFacturasCtx] = useState<{
     id_agente: string;
@@ -893,7 +895,23 @@ const TablaPagosVisualizacion = () => {
               }}
             >
               <FileCheck className="w-3 h-3" />
-              <span>Asignar</span> {/* Texto más corto */}
+              <span>Subir factura y asignar</span>
+            </button>
+          )}
+          {/* Botón Asignar a factura existente (por UUID) */}
+          {mostrarOpcionesFacturacion && (
+            <button
+              className="px-2 py-1 rounded-md bg-teal-50 text-teal-600 hover:bg-teal-100 transition-colors border border-teal-200 flex items-center gap-1 text-xs"
+              onClick={() => {
+                if (!row.raw_id) {
+                  alert("La fila no tiene raw_id.");
+                  return;
+                }
+                setVincularRawId(row.raw_id);
+              }}
+            >
+              <FileCheck className="w-3 h-3" />
+              <span>Asignar</span>
             </button>
           )}
         </div>
@@ -1087,6 +1105,15 @@ const TablaPagosVisualizacion = () => {
         onDescargarPdf={facturar.descargarPdf}
         onDescargarXml={facturar.descargarXml}
         descargando={facturar.descargando}
+      />
+      <VincularPagoFacturaModal
+        open={vincularRawId !== null}
+        rawId={vincularRawId ?? ""}
+        onClose={() => setVincularRawId(null)}
+        onVinculado={() => {
+          refetchPagos();
+          refetchBalance();
+        }}
       />
       {/* Modal para SubirFactura */}
       {showSubirFactura && (

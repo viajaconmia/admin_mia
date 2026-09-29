@@ -5,6 +5,7 @@ import { reservasFacturaService } from "./reservas";
 import { itemsFacturaService } from "./items";
 import { envioFacturaService, EnvioFactura } from "./envio";
 import { crearFacturaService } from "./crear";
+import { vincularPagoFacturaService } from "./vincular";
 
 export type DetalleFacturaResponse = {
   reservas: {
@@ -77,4 +78,5 @@ export const facturasService = {
   ...itemsFacturaService,
   ...envioFacturaService,
   ...crearFacturaService,
+  ...vincularPagoFacturaService,
 };

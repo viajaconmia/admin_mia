@@ -7,6 +7,7 @@ import {
   facturasService,
   DetalleFacturaResponse,
 } from "@/angel/services/facturas";
+import { ApiError } from "@/angel/services/apiClient";
 import { URL, API_KEY } from "@/lib/constants";
 import { fmtMoney } from "@/angel/lib/format/number";
 import { formatDate } from "@/helpers/formater";
@@ -52,6 +53,7 @@ const ModalDetalleFactura: React.FC<Props> = ({
   const [eliminandoRelacion, setEliminandoRelacion] = useState<string | null>(
     null,
   );
+  const [desvinculando, setDesvinculando] = useState<string | null>(null);
 
   // ESC
   useEffect(() => {
@@ -115,6 +117,70 @@ const ModalDetalleFactura: React.FC<Props> = ({
     [id_factura],
   );
 
+  const desvincularPago = useCallback(
+    async (tipo: "saldo" | "pago", rawId: string) => {
+      if (!rawId || !id_factura) return;
+      if (
+        !window.confirm(
+          "¿Desvincular este pago/saldo de la factura? Las reservas asignadas a la factura no se modifican.",
+        )
+      )
+        return;
+      setDesvinculando(rawId);
+      try {
+        await facturasService.desvincularPagoFactura({
+          raw_id: rawId,
+          id_factura,
+        });
+        onDelete?.();
+        setData((prev) =>
+          prev
+            ? {
+                ...prev,
+                saldos:
+                  tipo === "saldo"
+                    ? prev.saldos.filter((s) => String(s.id_saldos) !== rawId)
+                    : prev.saldos,
+                pagos:
+                  tipo === "pago"
+                    ? prev.pagos.filter((p) => p.id_pago !== rawId)
+                    : prev.pagos,
+              }
+            : prev,
+        );
+      } catch (e: unknown) {
+        // Cliente interno: se muestra el error completo del backend
+        alert(
+          e instanceof ApiError
+            ? JSON.stringify(e.response ?? { message: e.message }, null, 2)
+            : e instanceof Error
+              ? e.message
+              : "Error al desvincular",
+        );
+      } finally {
+        setDesvinculando(null);
+      }
+    },
+    [id_factura, onDelete],
+  );
+
+  const BotonDesvincular = ({
+    rawId,
+    tipo,
+  }: {
+    rawId: string;
+    tipo: "saldo" | "pago";
+  }) => (
+    <button
+      type="button"
+      onClick={() => desvincularPago(tipo, rawId)}
+      disabled={desvinculando === rawId}
+      className="inline-flex items-center rounded-md bg-red-500 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-red-600 disabled:opacity-50"
+    >
+      {desvinculando === rawId ? "Desvinculando..." : "Desvincular"}
+    </button>
+  );
+
   /* ── Reservas ── */
   const reservasRows = useMemo(
     () => (data?.reservas ?? []).map((r) => ({ ...r, acciones: "acciones" })),
@@ -175,6 +241,7 @@ const ModalDetalleFactura: React.FC<Props> = ({
     "saldo",
     "is_facturable",
     "is_facturado",
+    "acciones",
   ];
   const saldosRenderers = useMemo(
     () => ({
@@ -208,8 +275,11 @@ const ModalDetalleFactura: React.FC<Props> = ({
           tone={Number(value) === 1 ? "green" : "amber"}
         />
       ),
+      acciones: ({ item }: any) => (
+        <BotonDesvincular rawId={String(item.id_saldos)} tipo="saldo" />
+      ),
     }),
-    [],
+    [desvinculando, desvincularPago],
   );
 
   /* ── Pagos ── */
@@ -247,21 +317,24 @@ const ModalDetalleFactura: React.FC<Props> = ({
         </span>
       ),
       acciones: ({ item }: any) => (
-        <button
-          type="button"
-          onClick={() =>
-            item.link_pago &&
-            window.open(item.link_pago, "_blank", "noopener,noreferrer")
-          }
-          disabled={!item.link_pago}
-          className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50 disabled:opacity-40"
-        >
-          <ExternalLink className="w-3.5 h-3.5" />
-          Link
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() =>
+              item.link_pago &&
+              window.open(item.link_pago, "_blank", "noopener,noreferrer")
+            }
+            disabled={!item.link_pago}
+            className="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            Link
+          </button>
+          <BotonDesvincular rawId={item.id_pago} tipo="pago" />
+        </div>
       ),
     }),
-    [],
+    [desvinculando, desvincularPago],
   );
 
   /* ── Envíos ── */
