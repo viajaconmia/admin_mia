@@ -231,7 +231,10 @@ const ModalDetalleFactura: React.FC<Props> = ({
   );
 
   /* ── Saldos ── */
-  const saldosRows = useMemo(() => data?.saldos ?? [], [data]);
+  const saldosRows = useMemo(
+    () => (data?.saldos ?? []).map((s) => ({ ...s, acciones: "acciones" })),
+    [data],
+  );
   const saldosCols = [
     "metodo_pago",
     "referencia",
@@ -284,7 +287,10 @@ const ModalDetalleFactura: React.FC<Props> = ({
 
   /* ── Pagos ── */
   const pagosRows = useMemo(
-    () => (data?.pagos ?? []).filter((p) => p.id_pago !== null),
+    () =>
+      (data?.pagos ?? [])
+        .filter((p) => p.id_pago !== null)
+        .map((p) => ({ ...p, acciones: "acciones" })),
     [data],
   );
   const pagosCols = [
