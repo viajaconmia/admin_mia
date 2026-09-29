@@ -7,6 +7,7 @@ import {
   crearFacturaService,
   facturasService,
 } from "@/angel/services/facturas";
+import { ApiError } from "@/angel/services/apiClient";
 import type {
   CfdiFacturableItem,
   CfdiPayload,
@@ -38,6 +39,21 @@ type ResultadoState = {
 
 const getErrorMessage = (err: unknown, fallback: string) =>
   err instanceof Error && err.message ? err.message : fallback;
+
+// Cliente interno: se expone el error completo del backend como JSON legible.
+const getErrorJson = (err: unknown, fallback: string) => {
+  const detalle =
+    err instanceof ApiError
+      ? { status: err.status, message: err.message, response: err.response }
+      : err instanceof Error
+        ? { message: err.message }
+        : err;
+  try {
+    return JSON.stringify(detalle ?? { message: fallback }, null, 2);
+  } catch {
+    return getErrorMessage(err, fallback);
+  }
+};
 
 export function useFacturarPagosSeleccionados({
   onFacturaCreada,
@@ -116,7 +132,7 @@ export function useFacturarPagosSeleccionados({
           resultadoAbierto: true,
           estado: "error",
           resultado: null,
-          errorMensaje: getErrorMessage(err, "No se pudo crear la factura"),
+          errorMensaje: getErrorJson(err, "No se pudo crear la factura"),
         });
       }
     },

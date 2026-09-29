@@ -133,9 +133,9 @@ export function CfdiResultadoModal(props: CfdiResultadoModalProps) {
 
       {estado === "error" && (
         <div className="space-y-2">
-          <p className="text-sm text-red-700">
+          <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-md bg-red-50 p-3 font-mono text-xs text-red-700">
             {errorMensaje ?? "No fue posible generar la factura."}
-          </p>
+          </pre>
           <p className="text-xs text-gray-500">
             Cierra esta ventana y vuelve a intentarlo desde "Generar" para
             evitar generar la factura dos veces.
