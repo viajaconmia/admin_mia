@@ -31,6 +31,8 @@ export function horasDesde(fecha: string): number {
 
 export const verificar = (key: string, current: any, before: any) => {
   if (typeof current !== typeof before) return { [key]: { current, before } };
+  if ((current === null) !== (before === null))
+    return { [key]: { current, before } };
   if (
     typeof current === "object" &&
     !Array.isArray(current) &&
