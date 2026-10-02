@@ -165,7 +165,11 @@ export default function ReservasProveedorPage() {
       })
       .then(({ data }) => {
         csv(
-          (data ?? []).map(mapSolicitud),
+          // `tarjeta` va al final del CSV (en la tabla se queda junto a reserva)
+          (data ?? []).map(mapSolicitud).map(({ tarjeta, ...resto }) => ({
+            ...resto,
+            tarjeta,
+          })),
           `reservas_proveedor_${new Date().toISOString().split("T")[0]}.csv`,
         );
       })
