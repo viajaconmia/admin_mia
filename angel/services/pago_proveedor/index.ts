@@ -40,6 +40,11 @@ export type SolicitudProveedorRaw = {
   porcentaje_comisionable: string | null;
   comentarios_comisionables: string | null;
   comision_cobrada: 0 | 1;
+  // Tarjeta con la que se solicitó el pago (null si no fue con tarjeta)
+  id_tarjeta_solicitada: number | null;
+  ultimos_4: string | null;
+  banco_emisor: string | null;
+  tipo_tarjeta: string | null;
   // Solo presentes cuando includeFacturas=true
   rfc?: string | null;
   uuid?: string | null;

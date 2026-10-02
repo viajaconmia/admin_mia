@@ -31,6 +31,7 @@ export type SolicitudProveedorItem = {
   check_in: string | null;
   check_out: string | null;
   noches: number | null;
+  tarjeta: string | null; // últimos 4 dígitos de la tarjeta solicitada
   fecha_solicitud: string | null;
   costo_total: string;
   markup: string;
@@ -84,6 +85,7 @@ export const mapSolicitud = (
   check_in: raw.check_in,
   check_out: raw.check_out,
   noches: raw.noches,
+  tarjeta: raw.ultimos_4 ?? null,
   costo_total: isNotFirstIndice(raw) ? "" : raw.costo_total,
   markup: isNotFirstIndice(raw) ? "" : raw.markup,
   precio_venta: isNotFirstIndice(raw) ? "" : raw.total,
@@ -138,6 +140,7 @@ export const createSolicitudRenderers = () => ({
   monto_impsan: PrecioRenderer,
   monto_propina: PrecioRenderer,
   noches: TextRenderer,
+  tarjeta: MonoRenderer,
   estado_pago: GetBadgeRenderer(ESTADO_PAGO_STYLES),
   estado_solicitud: GetBadgeRenderer(ESTADO_SOLICITUD_STYLES),
   estado_facturacion: GetBadgeRenderer(ESTADO_FACTURACION_STYLES),
