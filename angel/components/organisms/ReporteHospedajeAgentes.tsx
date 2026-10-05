@@ -25,6 +25,7 @@ import {
 } from "@/angel/services/facturas";
 import {
   AGENTES_REPORT_COLUMNAS_DEFAULT,
+  AGENTES_REPORT_HEADERS,
   createAgentesReportRenderers,
 } from "@/angel/schemas/tables/agentes_report";
 
@@ -123,7 +124,12 @@ export function ReporteHospedajeAgentes() {
     const columnasVisibles = columnConfig.orden.filter(
       (key) => !columnConfig.ocultas.includes(key),
     );
-    exportColumnasVisibles(rows, columnasVisibles, "reporte_hospedaje.csv");
+    exportColumnasVisibles(
+      rows,
+      columnasVisibles,
+      "reporte_hospedaje.csv",
+      AGENTES_REPORT_HEADERS,
+    );
   };
 
   return (
@@ -204,6 +210,7 @@ export function ReporteHospedajeAgentes() {
         <TableCore
           registros={registrosOrdenados}
           renderers={renderers}
+          headerLabels={AGENTES_REPORT_HEADERS}
           hiddenKeys={[...columnConfig.ocultas, ...COLUMNAS_SIEMPRE_OCULTAS]}
           maxHeight="calc(100vh - 320px)"
         />

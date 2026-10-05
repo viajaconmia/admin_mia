@@ -17,6 +17,8 @@ interface TableCoreProps<T extends Record<string, unknown>> {
   maxHeight?: string;
   hiddenKeys?: string[];
   totales?: Partial<Record<string, TotalFn<T>>>;
+  /** Texto del header por key; si no viene, se usa la key con `_` → espacio. */
+  headerLabels?: Partial<Record<string, string>>;
 }
 
 export const TableCore = <T extends Record<string, unknown>>({
@@ -26,6 +28,7 @@ export const TableCore = <T extends Record<string, unknown>>({
   maxHeight = "28rem",
   hiddenKeys = [],
   totales,
+  headerLabels = {},
 }: TableCoreProps<T>) => {
   const [sort, setSort] = useState<SortState | null>(null);
 
@@ -70,7 +73,7 @@ export const TableCore = <T extends Record<string, unknown>>({
                 className="px-4 min-w-fit whitespace-nowrap py-2 text-left cursor-pointer text-xs font-semibold text-gray-600 uppercase tracking-wider select-none"
               >
                 <span className="flex gap-1 items-center">
-                  {key.replace(/_/g, " ")}
+                  {headerLabels[key] ?? key.replace(/_/g, " ")}
                   {sort?.key === key && (
                     <span className="text-gray-400">{sort.asc ? "↑" : "↓"}</span>
                   )}

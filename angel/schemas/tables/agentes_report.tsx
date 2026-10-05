@@ -39,11 +39,16 @@ export const AGENTES_REPORT_COLUMNAS_DEFAULT: ColumnaDisponible[] = [
   { key: "ticket_zoho", label: "Ticket Zoho" },
   { key: "portal", label: "Portal" },
   { key: "orden_compra", label: "Orden de compra" },
-  { key: "cliente_solicitante_reserva", label: "Cliente solicitante" },
+  { key: "cliente_solicitante_reserva", label: "Solicitud" },
   { key: "fecha_pago_ar", label: "Fecha pago AR" },
   { key: "estatus_pago_ar", label: "Estatus pago AR" },
   { key: "uuid_crp", label: "UUID CRP" },
 ];
+
+/** Headers que no deben salir de la key del backend (TableCore y CSV). */
+export const AGENTES_REPORT_HEADERS: Partial<Record<string, string>> = {
+  cliente_solicitante_reserva: "Solicitud",
+};
 
 type CampoConfig = { maxLength?: number; type?: "text" | "date" };
 
@@ -213,7 +218,11 @@ export function createAgentesReportRenderers(
     folio: MonoRenderer,
     codigo_confirmacion: MonoRenderer,
     uuid_factura: MonoRenderer,
-    tipo_habitacion: GetBadgeRenderer({}, undefined, "bg-gray-100 text-gray-700"),
+    tipo_habitacion: GetBadgeRenderer(
+      {},
+      undefined,
+      "bg-gray-100 text-gray-700",
+    ),
     estado_reserva: GetBadgeRenderer({
       confirmada: "bg-green-100 text-green-800",
       cancelada: "bg-red-100 text-red-800",

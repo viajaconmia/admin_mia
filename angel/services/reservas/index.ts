@@ -116,7 +116,6 @@ export type FiltrosComisionables = {
   [key: string]: unknown;
 };
 
-
 export type EditarComisionablesBody = {
   is_comisionable: 0 | 1;
   monto_comisionable: number | null;
