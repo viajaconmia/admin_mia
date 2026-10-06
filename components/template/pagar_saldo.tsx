@@ -10,6 +10,7 @@ import Button from "../atom/Button";
 import { useAlert } from "@/context/useAlert";
 import { usePermiso } from "@/hooks/usePermission";
 import { PERMISOS } from "@/constant/permisos";
+import { parseFetchErrorMessage } from "@/angel/lib/parseFetchError";
 
 interface TableRow {
   id_item: string;
@@ -663,7 +664,11 @@ export const PagarModalComponent: React.FC<PagarModalProps> = ({
       });
 
       if (!response.ok) {
-        throw new Error("Error al aplicar el pago por saldo a favor");
+        const mensaje = await parseFetchErrorMessage(
+          response,
+          "Error al aplicar el pago por saldo a favor",
+        );
+        throw new Error(mensaje);
       }
 
       const data = await response.json();

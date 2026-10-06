@@ -9,6 +9,7 @@ import { PagarModalComponent } from "@/components/template/pagar_saldo";
 import { URL, API_KEY } from "@/lib/constants/index";
 import { useAlert } from "@/context/useAlert";
 import { crearLinkPago } from "@/services/facturas";
+import { parseFetchErrorMessage } from "@/angel/lib/parseFetchError";
 
 /* ─────────────────────────────
     Tipos reutilizables
@@ -630,10 +631,11 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
       });
 
       if (!response.ok) {
-        const errText = await response.text().catch(() => "");
-        throw new Error(
-          errText || "Error al aplicar el pago por saldo a favor",
+        const mensaje = await parseFetchErrorMessage(
+          response,
+          "Error al aplicar el saldo a favor.",
         );
+        throw new Error(mensaje);
       }
 
       const data = await response.json().catch(() => null);
@@ -652,10 +654,11 @@ export const DetallesFacturas: React.FC<DetallesFacturasProps> = ({
       handleDeseleccionarPagos();
       onClose();
       fetchDatosAgentes();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error en la petición:", error);
       alert(
-        "Error al aplicar el saldo a favor. Por favor, intente nuevamente.",
+        error?.message ||
+          "Error al aplicar el saldo a favor. Por favor, intente nuevamente.",
       );
     } finally {
       setIsApplying(false);
