@@ -64,7 +64,11 @@ export const preflightCfdi = (
       const tax = round2(num(t.Total));
       const expectedTax = round2(base * rate);
 
-      if (expectedTax - tax > 0.01) {
+      // Tax viene de splitIva() como Total - Subtotal, no de Base * Rate: son dos
+      // redondeos independientes que pueden diferir hasta 1 centavo sin que haya
+      // ningún error real. Se tolera ese centavo (con margen por floating point)
+      // y solo se reporta si la diferencia es mayor (2+ centavos).
+      if (Math.abs(expectedTax - tax) > 0.011) {
         errs.push(
           `Item#${idx + 1} TAX: Base(${base.toFixed(2)})*Rate(${rate})=${expectedTax.toFixed(2)} != Tax(${tax.toFixed(2)})`,
         );

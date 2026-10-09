@@ -333,7 +333,11 @@ const preflightCfdi = (
       const tax = r2(num(t.Total));
       const expectedTax = r2(base * rate);
 
-      if (expectedTax - tax > 0.01) {
+      // Tax viene de total - subtotal (splitIva), no de Base * Rate: son dos
+      // redondeos independientes que pueden diferir hasta 1 centavo sin que
+      // haya ningún error real. Se tolera ese centavo y solo se reporta si
+      // la diferencia es mayor (2+ centavos).
+      if (Math.abs(expectedTax - tax) > 0.011) {
         errs.push(
           `Item#${idx + 1} TAX: Base(${base.toFixed(
             2,
