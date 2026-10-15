@@ -22,6 +22,7 @@ export type AgenteReportRow = {
   monto_total_por_estancia: string;
   fecha_emision: string;
   estado_reserva: string;
+  estado_booking: string | null;
   codigo_confirmacion: string;
   folio: string;
   uuid_factura: string;

@@ -30,6 +30,8 @@ export const AGENTES_REPORT_COLUMNAS_DEFAULT: ColumnaDisponible[] = [
   { key: "monto_total_por_estancia", label: "Monto total estancia" },
   { key: "fecha_emision", label: "Fecha de emisión" },
   { key: "estado_reserva", label: "Estado" },
+  { key: "estado_booking", label: "Estado de la reserva" },
+  { key: "id_booking", label: "id_booking" },
   { key: "codigo_confirmacion", label: "Código confirmación" },
   { key: "folio", label: "Folio" },
   { key: "uuid_factura", label: "UUID factura" },
@@ -218,6 +220,7 @@ export function createAgentesReportRenderers(
     folio: MonoRenderer,
     codigo_confirmacion: MonoRenderer,
     uuid_factura: MonoRenderer,
+    id_booking: MonoRenderer,
     tipo_habitacion: GetBadgeRenderer(
       {},
       undefined,
@@ -228,6 +231,11 @@ export function createAgentesReportRenderers(
       cancelada: "bg-red-100 text-red-800",
       pendiente: "bg-yellow-100 text-yellow-800",
       completada: "bg-blue-100 text-blue-800",
+    }),
+    estado_booking: GetBadgeRenderer({
+      confirmada: "bg-green-100 text-green-800",
+      cancelada: "bg-red-100 text-red-800",
+      "en proceso": "bg-yellow-100 text-yellow-800",
     }),
     ticket_zoho: campoEditableRenderer("ticket_zoho", onEditarCampo),
     portal: campoEditableRenderer("portal", onEditarCampo),

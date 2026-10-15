@@ -29,9 +29,12 @@ import {
   createAgentesReportRenderers,
 } from "@/angel/schemas/tables/agentes_report";
 
-// id_booking / id_factura viajan en cada fila para poder editar campos de
-// bookings y facturas, pero no son información que deba mostrarse como columna.
-const COLUMNAS_SIEMPRE_OCULTAS = ["id_booking", "id_factura"];
+// id_factura viaja en cada fila para poder editar campos de la factura
+// (PATCH /v2/mia/factura/:id_factura), pero no es información que deba
+// mostrarse como columna. id_booking también se usa internamente para
+// editar campos del booking, pero además ahora se muestra como columna
+// visible ("ID Reserva").
+const COLUMNAS_SIEMPRE_OCULTAS = ["id_factura"];
 
 const TABLE_KEY = "reporte_hospedaje_agentes";
 const COLUMNAS_DEFAULT = AGENTES_REPORT_COLUMNAS_DEFAULT.map((c) => c.key);
