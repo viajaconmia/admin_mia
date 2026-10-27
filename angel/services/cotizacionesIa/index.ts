@@ -31,6 +31,22 @@ type QuoteItemBase = {
   notes?: string;
 };
 
+// Opción encontrada por un agente de transporte de mia_ai (sin precio) y anexada al ítem.
+export type QuoteFoundOption = {
+  id: string;
+  provider?: string;
+  serviceName?: string;
+  departurePoint?: string;
+  arrivalPoint?: string;
+  estimatedDuration?: string;
+  frequencyOrSchedule?: string;
+  departureTimes?: string[];
+  serviceClass?: string;
+  vehicleCategory?: string;
+  highlights?: string[];
+  sourceUrl?: string;
+};
+
 export type FlightQuoteItem = QuoteItemBase & {
   type: "flight";
   tripType?: "oneway" | "roundtrip" | "multicity";
@@ -41,6 +57,8 @@ export type FlightQuoteItem = QuoteItemBase & {
   airline?: string;
   cabin?: string;
   flightNumber?: string;
+  foundOptions?: QuoteFoundOption[];
+  preferredOptionId?: string | null;
 };
 
 export type CarRentalQuoteItem = QuoteItemBase & {
@@ -53,6 +71,8 @@ export type CarRentalQuoteItem = QuoteItemBase & {
   dropoffTime?: string;
   carCategory?: string;
   withDriver?: boolean;
+  foundOptions?: QuoteFoundOption[];
+  preferredOptionId?: string | null;
 };
 
 export type HotelQuoteItem = QuoteItemBase & {
@@ -74,6 +94,8 @@ export type BusQuoteItem = QuoteItemBase & {
   returnDate?: string;
   busLine?: string;
   serviceClass?: string;
+  foundOptions?: QuoteFoundOption[];
+  preferredOptionId?: string | null;
 };
 
 export type QuoteItem =
