@@ -2,8 +2,8 @@
 import { createAgente, createEmpresa, createNewViajero, createStripeUser } from "../../hooks/useDatabase";
 const { createClient } = require('@supabase/supabase-js');
 const supabase = createClient(
-  'https://iqicycjdypiypfxwaapj.supabase.co',
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlxaWN5Y2pkeXBpeXBmeHdhYXBqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg4NjI4NzksImV4cCI6MjA1NDQzODg3OX0.FH8FF2a0rWubjutJynC5vMTUDxCU8yoTSZpzTgnOr1I" // 👈 aquí va la Service Role Key
+  'https://iyuomxgqruhqjiygsgrw.supabase.co',
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5dW9teGdxcnVocWppeWdzZ3J3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMzODE0NjAsImV4cCI6MjA2ODk1NzQ2MH0.B1501bRyrshaJrTpcbTybh6XMhJJ2XKAXFVsUuglxhY" // anon key pública del proyecto de MIA
 );
 
 const validateEmail = (email: string): boolean => {

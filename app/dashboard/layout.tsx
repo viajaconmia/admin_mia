@@ -20,6 +20,7 @@ import {
   FileCheck,
   Percent,
   Calculator,
+  Sparkles,
 } from "lucide-react";
 
 import NavContainer from "@/components/organism/NavContainer";
@@ -53,6 +54,8 @@ type NavItem = {
   href: string;
   icon?: any;
   badge?: number;
+  /** Si se define, el item solo aparece en el menú con ese permiso. */
+  permiso?: string;
 };
 
 type NavSubGroup = {
@@ -104,6 +107,8 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
 
   const puedeVerCotizador = hasPermission(PERMISOS.VISTAS.RESERVAS);
 
+  const puedeVerCotizacionesIa = hasPermission(PERMISOS.VISTAS.COTIZACIONES_IA);
+
   // ====================================================
   // COTIZADOR
   // ====================================================
@@ -114,21 +119,32 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   // BADGES DEL MENÚ
   // ====================================================
 
+  // La dependencia es el booleano (no `hasPermission`, que cambia en cada
+  // render): NavContainer re-calcula su estado cuando cambia la identidad de
+  // `links`, y una identidad inestable provocaría un bucle de renders.
   const linksConBadge = useMemo(
     () =>
       links.map((group) => ({
         ...group,
 
-        items: group.items.map((item) =>
-          "href" in item && item.href === "/dashboard/comisionables"
-            ? {
-                ...item,
-                badge: conteos["comisionables"],
-              }
-            : item,
-        ),
+        items: group.items
+          .filter(
+            (item) =>
+              !("permiso" in item && item.permiso) ||
+              (item.permiso === PERMISOS.VISTAS.COTIZACIONES_IA
+                ? puedeVerCotizacionesIa
+                : true),
+          )
+          .map((item) =>
+            "href" in item && item.href === "/dashboard/comisionables"
+              ? {
+                  ...item,
+                  badge: conteos["comisionables"],
+                }
+              : item,
+          ),
       })),
-    [conteos],
+    [conteos, puedeVerCotizacionesIa],
   );
 
   // ====================================================
@@ -303,6 +319,13 @@ const links: NavGroup[] = [
         title: "Generación cotización",
         href: "/dashboard/cotizacion/generar",
         icon: FileText,
+      },
+
+      {
+        title: "Cotizaciones MIA (IA)",
+        href: "/dashboard/cotizaciones-ia",
+        icon: Sparkles,
+        permiso: PERMISOS.VISTAS.COTIZACIONES_IA,
       },
 
       {
