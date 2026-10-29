@@ -75,15 +75,19 @@ export type CarRentalQuoteItem = QuoteItemBase & {
   preferredOptionId?: string | null;
 };
 
+export type HotelRoomDetail = {
+  roomType?: string;
+  leadGuest?: string;
+  additionalGuests?: string[];
+};
+
 export type HotelQuoteItem = QuoteItemBase & {
   type: "hotel";
   city?: string;
   hotelName?: string;
   checkIn?: string;
   checkOut?: string;
-  rooms?: number;
-  roomType?: string;
-  guests?: number;
+  rooms?: HotelRoomDetail[];
 };
 
 export type BusQuoteItem = QuoteItemBase & {

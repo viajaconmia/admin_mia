@@ -2,6 +2,7 @@ import { ApiError } from "@/angel/services/apiClient";
 import type {
   CotizacionIaEstado,
   CotizacionIaOrigenEntrada,
+  HotelRoomDetail,
   QuoteItem,
   QuoteServiceType,
 } from "@/angel/services/cotizacionesIa";
@@ -142,6 +143,24 @@ const TIPO_VIAJE_LABEL: Record<string, string> = {
 const conHora = (fecha?: string, hora?: string): string =>
   [fechaLegible(fecha), hora].filter(Boolean).join(" · ");
 
+/** "Doble — Titular: Juan Pérez (+2 invitados: Ana López, Luis Mora)", o solo la parte disponible. */
+const resumenHabitacion = (room: HotelRoomDetail): string => {
+  let resumen = [
+    room.roomType,
+    room.leadGuest ? `Titular: ${room.leadGuest}` : undefined,
+  ]
+    .filter(Boolean)
+    .join(" — ");
+
+  const invitados = room.additionalGuests?.filter(Boolean) ?? [];
+  if (invitados.length > 0) {
+    const etiqueta = invitados.length === 1 ? "invitado" : "invitados";
+    resumen += `${resumen ? " " : ""}(+${invitados.length} ${etiqueta}: ${invitados.join(", ")})`;
+  }
+
+  return resumen;
+};
+
 export function camposDeItem(item: QuoteItem): CampoLegible[] {
   const campos: Array<[string, string | undefined]> = [];
 
@@ -177,10 +196,10 @@ export function camposDeItem(item: QuoteItem): CampoLegible[] {
         ["Hotel", item.hotelName],
         ["Check-in", fechaLegible(item.checkIn)],
         ["Check-out", fechaLegible(item.checkOut)],
-        ["Habitaciones", item.rooms != null ? String(item.rooms) : undefined],
-        ["Tipo de habitación", item.roomType],
-        ["Huéspedes", item.guests != null ? String(item.guests) : undefined],
       );
+      (item.rooms ?? []).forEach((room, i) => {
+        campos.push([`Habitación ${i + 1}`, resumenHabitacion(room)]);
+      });
       break;
     case "bus":
       campos.push(
