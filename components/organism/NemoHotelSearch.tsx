@@ -163,7 +163,7 @@ export function NemoHotelSearch({
     setShowClientDropdown(true);
   };
 
-  // Seleccionar cliente y cargar sus viajeros
+  // Seleccionar cliente y cargar sus viajeros y saldos
   const handleSelectClient = async (cliente: Agente) => {
     setSelectedClient(cliente);
     setClientSearchTerm(cliente.nombre_agente_completo || "");
@@ -172,6 +172,25 @@ export function NemoHotelSearch({
     setViajeros([]);
 
     if (!cliente.id_agente) return;
+
+    // Pre-cargar saldos para tener la cifra exacta de wallet al día
+    SaldoFavor.getPagos(cliente.id_agente, true)
+      .then((res) => {
+        const saldos = (res?.data || []).filter(
+          (s) => Number(s.saldo) > 0 && Number(s.activo) === 1
+        );
+        setAgentSaldos(saldos);
+        const totalWalletCalculated = saldos.reduce(
+          (acc, s) => acc + Number(s.saldo || 0),
+          0
+        );
+        setSelectedClient((prev) =>
+          prev ? { ...prev, wallet: totalWalletCalculated.toFixed(2) } : prev
+        );
+      })
+      .catch((err) => {
+        console.error("Error al pre-cargar saldos a favor:", err);
+      });
 
     setLoadingViajeros(true);
     try {
@@ -203,6 +222,8 @@ export function NemoHotelSearch({
     setClientSearchTerm("");
     setViajeros([]);
     setSelectedViajero(null);
+    setAgentSaldos([]);
+    setAppliedSaldos({});
   };
 
   // Ejecutar búsqueda de hoteles en Nemo
@@ -251,6 +272,32 @@ export function NemoHotelSearch({
     }
   };
 
+  // Auto-selección greedy para cubrir el total con saldos a favor
+  const autoCoverWithSaldos = (saldosList: Saldo[], requiredTotal: number) => {
+    let remaining = requiredTotal;
+    const initialApplied: { [id_saldo: number]: number } = {};
+    for (const s of saldosList) {
+      if (remaining <= 0) {
+        initialApplied[s.id_saldos] = 0;
+        continue;
+      }
+      const available = Number(s.saldo);
+      const toApply = Math.min(available, remaining);
+      initialApplied[s.id_saldos] = parseFloat(toApply.toFixed(2));
+      remaining = parseFloat((remaining - toApply).toFixed(2));
+    }
+    setAppliedSaldos(initialApplied);
+  };
+
+  // Limpiar montos aplicados
+  const clearAllSaldos = () => {
+    const cleared: { [id_saldo: number]: number } = {};
+    agentSaldos.forEach((s) => {
+      cleared[s.id_saldos] = 0;
+    });
+    setAppliedSaldos(cleared);
+  };
+
   // Cargar saldos a favor cuando se abre el modal y se elige wallet
   const loadAgentSaldos = async (agentId: string, requiredTotal: number) => {
     setLoadingSaldos(true);
@@ -261,17 +308,15 @@ export function NemoHotelSearch({
       );
       setAgentSaldos(saldos);
 
-      // Auto-selección greedy para cubrir el total
-      let remaining = requiredTotal;
-      const initialApplied: { [id_saldo: number]: number } = {};
-      for (const s of saldos) {
-        if (remaining <= 0) break;
-        const available = Number(s.saldo);
-        const toApply = Math.min(available, remaining);
-        initialApplied[s.id_saldos] = parseFloat(toApply.toFixed(2));
-        remaining = parseFloat((remaining - toApply).toFixed(2));
-      }
-      setAppliedSaldos(initialApplied);
+      const totalWalletCalculated = saldos.reduce(
+        (acc, s) => acc + Number(s.saldo || 0),
+        0
+      );
+      setSelectedClient((prev) =>
+        prev ? { ...prev, wallet: totalWalletCalculated.toFixed(2) } : prev
+      );
+
+      autoCoverWithSaldos(saldos, requiredTotal);
     } catch (err) {
       console.error("Error al cargar saldos a favor del agente:", err);
       setAgentSaldos([]);
@@ -400,7 +445,10 @@ export function NemoHotelSearch({
               fecha_pago: originalItem?.fecha_pago || new Date().toISOString().slice(0, 10),
               concepto: originalItem?.concepto || null,
               referencia: originalItem?.referencia || null,
-              currency: "mxn",
+              currency: originalItem?.currency || "mxn",
+              tipo_de_tarjeta: originalItem?.tipo_tarjeta || null,
+              link_pago: originalItem?.link_stripe || null,
+              last_digits: originalItem?.ult_digits || null,
             };
           });
       }
@@ -459,7 +507,7 @@ export function NemoHotelSearch({
       const result = await createNemoReservation(payload);
       setReservationSuccessData(result);
 
-      // Si fue a crédito, actualizar saldo en cliente local
+      // Actualizar balances locales del cliente
       if (paymentMethod === "credito") {
         setSelectedClient((prev) =>
           prev
@@ -469,6 +517,26 @@ export function NemoHotelSearch({
               }
             : null
         );
+      } else if (paymentMethod === "wallet") {
+        setSelectedClient((prev) =>
+          prev
+            ? {
+                ...prev,
+                wallet: Math.max(0, Number(prev.wallet || 0) - totalSaldosAplicados).toFixed(2),
+              }
+            : null
+        );
+        // Descontar en agentSaldos locales
+        setAgentSaldos((prev) =>
+          prev
+            .map((s) => {
+              const applied = appliedSaldos[s.id_saldos] || 0;
+              const newBal = Math.max(0, Number(s.saldo || 0) - applied);
+              return { ...s, saldo: newBal.toFixed(2) };
+            })
+            .filter((s) => Number(s.saldo) > 0)
+        );
+        setAppliedSaldos({});
       }
     } catch (err: any) {
       console.error("Error al crear reserva en MIA:", err);
@@ -550,60 +618,88 @@ export function NemoHotelSearch({
             {/* Dropdown de Resultados */}
             {showClientDropdown && clientResults.length > 0 && (
               <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-60 overflow-y-auto divide-y divide-slate-100">
-                {clientResults.map((cliente) => (
-                  <div
-                    key={cliente.id_agente}
-                    onClick={() => handleSelectClient(cliente)}
-                    className="p-2.5 hover:bg-indigo-50 cursor-pointer transition text-left"
-                  >
-                    <div className="text-xs font-semibold text-slate-800">
-                      {cliente.nombre_agente_completo}
-                    </div>
-                    <div className="flex items-center gap-3 mt-1 text-[11px] text-slate-500">
-                      <span>RFC/ID: {cliente.id_agente?.slice(0, 8)}...</span>
-                      <span>•</span>
-                      <span>
-                        Saldo:{" "}
-                        <strong>
-                          $
-                          {Number(cliente.saldo || 0).toLocaleString("es-MX", {
-                            minimumFractionDigits: 2,
-                          })}
-                        </strong>
-                      </span>
-                      {Number(cliente.tiene_credito_consolidado) === 1 && (
-                        <span className="text-emerald-600 font-medium">
-                          • Con Crédito
+                {clientResults.map((cliente) => {
+                  const tieneCredito = Number(cliente.tiene_credito_consolidado) === 1;
+                  const creditoNum = Number(cliente.saldo || 0);
+                  const walletNum = Number(cliente.wallet || 0);
+
+                  return (
+                    <div
+                      key={cliente.id_agente}
+                      onClick={() => handleSelectClient(cliente)}
+                      className="p-2.5 hover:bg-indigo-50 cursor-pointer transition text-left"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-semibold text-slate-800 truncate">
+                          {cliente.nombre_agente_completo}
                         </span>
-                      )}
+                        {walletNum > 0 && (
+                          <Badge
+                            variant="secondary"
+                            className="text-[10px] bg-purple-100 text-purple-800 border-purple-200 font-semibold px-1.5 py-0 flex items-center gap-1 shrink-0"
+                          >
+                            <Wallet className="h-2.5 w-2.5 text-purple-700" />
+                            Wallet: ${walletNum.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-500">
+                        <span>RFC/ID: {cliente.id_agente?.slice(0, 8)}...</span>
+                        <span>•</span>
+                        {tieneCredito ? (
+                          <span className="text-emerald-700 font-medium">
+                            Crédito: <strong>${creditoNum.toLocaleString("es-MX", { minimumFractionDigits: 2 })}</strong>
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">Sin Crédito</span>
+                        )}
+                        <span>•</span>
+                        <span className={walletNum > 0 ? "text-purple-700 font-medium" : "text-slate-400"}>
+                          Wallet: ${walletNum.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
             {/* Badge informativa del cliente seleccionado */}
             {selectedClient && (
-              <div className="mt-2 p-2 bg-slate-50 rounded border border-slate-200 text-xs text-slate-600 space-y-1">
-                <div className="flex justify-between items-center">
-                  <span>
-                    Saldo Crédito:{" "}
-                    <strong className="text-slate-900">
-                      $
-                      {Number(selectedClient.saldo || 0).toLocaleString(
-                        "es-MX",
-                        { minimumFractionDigits: 2 }
-                      )}
+              <div className="mt-2 p-2.5 bg-slate-50 rounded-lg border border-slate-200 text-xs text-slate-600">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center">
+                  <div>
+                    <span className="text-slate-400 text-[11px] block">Crédito Disponible:</span>
+                    <strong className="text-slate-900 font-semibold text-xs">
+                      ${Number(selectedClient.saldo || 0).toLocaleString("es-MX", {
+                        minimumFractionDigits: 2,
+                      })} MXN
                     </strong>
-                  </span>
-                  <span>
-                    Forma de Pago:{" "}
-                    <Badge variant="outline" className="text-[10px] py-0">
+                  </div>
+                  <div>
+                    <span className="text-slate-400 text-[11px] block">Saldo a Favor (Wallet):</span>
+                    <strong className="text-purple-700 font-bold text-xs flex items-center gap-1">
+                      <Wallet className="h-3 w-3 text-purple-600 inline" />
+                      ${Number(selectedClient.wallet || 0).toLocaleString("es-MX", {
+                        minimumFractionDigits: 2,
+                      })} MXN
+                    </strong>
+                  </div>
+                  <div className="sm:text-right">
+                    <span className="text-slate-400 text-[11px] block">Modalidad:</span>
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] py-0 font-medium ${
+                        Number(selectedClient.tiene_credito_consolidado) === 1
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          : "bg-purple-50 text-purple-700 border-purple-200"
+                      }`}
+                    >
                       {Number(selectedClient.tiene_credito_consolidado) === 1
-                        ? "Crédito"
+                        ? "Línea de Crédito"
                         : "Prepago / Wallet"}
                     </Badge>
-                  </span>
+                  </div>
                 </div>
               </div>
             )}
@@ -1185,11 +1281,17 @@ export function NemoHotelSearch({
                 <div className="grid grid-cols-2 gap-3">
                   {/* Opción 1: Crédito */}
                   <div
-                    onClick={() => handlePaymentMethodChange("credito")}
-                    className={`p-3 rounded-lg border cursor-pointer transition flex items-start gap-2.5 ${
-                      paymentMethod === "credito"
-                        ? "border-indigo-600 bg-indigo-50/50 shadow-sm"
-                        : "border-slate-200 hover:border-slate-300"
+                    onClick={() => {
+                      if (Number(selectedClient?.tiene_credito_consolidado) === 1) {
+                        handlePaymentMethodChange("credito");
+                      }
+                    }}
+                    className={`p-3 rounded-lg border transition flex items-start gap-2.5 ${
+                      Number(selectedClient?.tiene_credito_consolidado) !== 1
+                        ? "opacity-50 cursor-not-allowed border-slate-200 bg-slate-100"
+                        : paymentMethod === "credito"
+                        ? "border-indigo-600 bg-indigo-50/50 shadow-sm cursor-pointer"
+                        : "border-slate-200 hover:border-slate-300 cursor-pointer"
                     }`}
                   >
                     <CreditCard
@@ -1200,8 +1302,11 @@ export function NemoHotelSearch({
                       }`}
                     />
                     <div>
-                      <div className="font-semibold text-slate-800">
+                      <div className="font-semibold text-slate-800 flex items-center gap-1.5">
                         Pago a Crédito
+                        {Number(selectedClient?.tiene_credito_consolidado) !== 1 && (
+                          <span className="text-[10px] text-amber-600 font-normal">(Sin línea)</span>
+                        )}
                       </div>
                       <div className="text-[11px] text-slate-500 mt-0.5">
                         Saldo disponible:{" "}
@@ -1221,23 +1326,33 @@ export function NemoHotelSearch({
                     onClick={() => handlePaymentMethodChange("wallet")}
                     className={`p-3 rounded-lg border cursor-pointer transition flex items-start gap-2.5 ${
                       paymentMethod === "wallet"
-                        ? "border-indigo-600 bg-indigo-50/50 shadow-sm"
+                        ? "border-purple-600 bg-purple-50/50 shadow-sm"
                         : "border-slate-200 hover:border-slate-300"
                     }`}
                   >
                     <Wallet
                       className={`h-4 w-4 mt-0.5 ${
                         paymentMethod === "wallet"
-                          ? "text-indigo-600"
+                          ? "text-purple-600"
                           : "text-slate-400"
                       }`}
                     />
                     <div>
-                      <div className="font-semibold text-slate-800">
+                      <div className="font-semibold text-slate-800 flex items-center gap-1.5">
                         Saldo a Favor / Wallet
+                        <Badge variant="outline" className="text-[10px] py-0 bg-purple-50 text-purple-700 border-purple-200">
+                          Wallet
+                        </Badge>
                       </div>
                       <div className="text-[11px] text-slate-500 mt-0.5">
-                        Aplicar pagos anticipados del cliente
+                        Wallet disponible:{" "}
+                        <strong className="text-purple-700 font-bold">
+                          $
+                          {Number(selectedClient?.wallet || 0).toLocaleString(
+                            "es-MX",
+                            { minimumFractionDigits: 2 }
+                          )}
+                        </strong>
                       </div>
                     </div>
                   </div>
@@ -1247,8 +1362,13 @@ export function NemoHotelSearch({
               {/* Detalle según método de pago */}
               {paymentMethod === "credito" && (
                 <div className="p-3 bg-slate-50 border border-slate-200 rounded-md space-y-1.5">
-                  {Number(selectedClient?.saldo || 0) < precioVenta ? (
-                    <div className="text-amber-700 flex items-center gap-1.5 font-medium">
+                  {Number(selectedClient?.tiene_credito_consolidado) !== 1 ? (
+                    <div className="text-amber-700 flex items-center gap-1.5 font-medium text-xs">
+                      <AlertCircle className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                      Este cliente no tiene una línea de crédito consolidada autorizada. Por favor utiliza Saldo a Favor / Wallet.
+                    </div>
+                  ) : Number(selectedClient?.saldo || 0) < precioVenta ? (
+                    <div className="text-amber-700 flex items-center gap-1.5 font-medium text-xs">
                       <AlertCircle className="h-4 w-4 text-amber-500 flex-shrink-0" />
                       Saldo de crédito insuficiente para cubrir el precio de venta de esta reserva ($
                       {Number(selectedClient?.saldo || 0).toLocaleString("es-MX", {
@@ -1257,8 +1377,8 @@ export function NemoHotelSearch({
                       disponible vs. ${precioVenta.toLocaleString("es-MX", { minimumFractionDigits: 2 })} requerido).
                     </div>
                   ) : (
-                    <div className="text-slate-600">
-                      ✓ El cliente cuenta con saldo suficiente. El monto de venta de $
+                    <div className="text-slate-600 text-xs">
+                      ✓ El cliente cuenta con crédito suficiente. El monto de venta de $
                       {precioVenta.toLocaleString("es-MX", {
                         minimumFractionDigits: 2,
                       })}{" "}
@@ -1269,37 +1389,83 @@ export function NemoHotelSearch({
               )}
 
               {paymentMethod === "wallet" && (
-                <div className="space-y-2 p-3 bg-slate-50 border border-slate-200 rounded-md">
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold text-slate-700">
-                      Saldos a Favor Disponibles:
-                    </span>
-                    <span className="text-slate-500">
-                      Total Aplicado:{" "}
-                      <strong
-                        className={
-                          totalSaldosAplicados >= precioVenta
-                            ? "text-emerald-700"
-                            : "text-amber-700"
-                        }
+                <div className="space-y-3 p-3.5 bg-purple-50/40 border border-purple-200 rounded-lg">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-purple-100 pb-2.5">
+                    <div>
+                      <div className="font-semibold text-slate-800 text-xs flex items-center gap-1.5">
+                        <Wallet className="h-4 w-4 text-purple-600" />
+                        Saldos a Favor / Wallet del Cliente
+                      </div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">
+                        Total acumulado disponible:{" "}
+                        <strong className="text-purple-800">
+                          $
+                          {agentSaldos
+                            .reduce((sum, s) => sum + Number(s.saldo || 0), 0)
+                            .toLocaleString("es-MX", { minimumFractionDigits: 2 })}{" "}
+                          MXN
+                        </strong>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => autoCoverWithSaldos(agentSaldos, precioVenta)}
+                        className="h-7 text-xs bg-white text-purple-700 border-purple-200 hover:bg-purple-100/50"
                       >
-                        ${totalSaldosAplicados.toFixed(2)} / $
-                        {precioVenta.toFixed(2)}
+                        Auto-cubrir total
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={clearAllSaldos}
+                        className="h-7 text-xs text-slate-500 hover:text-slate-700"
+                      >
+                        Limpiar
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Estado de cobertura */}
+                  <div className="flex items-center justify-between text-xs px-2.5 py-1.5 bg-white rounded border border-purple-100">
+                    <span className="text-slate-600 font-medium">Total aplicado de Wallet:</span>
+                    <div className="flex items-center gap-2">
+                      <strong
+                        className={`text-sm font-bold ${
+                          totalSaldosAplicados >= precioVenta
+                            ? "text-emerald-600"
+                            : "text-amber-600"
+                        }`}
+                      >
+                        ${totalSaldosAplicados.toFixed(2)} / ${precioVenta.toFixed(2)} MXN
                       </strong>
-                    </span>
+                      {totalSaldosAplicados >= precioVenta ? (
+                        <Badge className="bg-emerald-600 text-white text-[10px] py-0">
+                          Cubierto 100%
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 text-[10px] py-0">
+                          Faltan ${(precioVenta - totalSaldosAplicados).toFixed(2)}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
 
                   {loadingSaldos ? (
-                    <div className="py-4 text-center text-slate-400 flex items-center justify-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                    <div className="py-4 text-center text-slate-400 flex items-center justify-center gap-2 text-xs">
+                      <Loader2 className="h-4 w-4 animate-spin text-purple-600" />
                       Consultando saldos a favor del cliente...
                     </div>
                   ) : agentSaldos.length === 0 ? (
-                    <div className="py-2 text-slate-500 text-center">
-                      Este cliente no tiene saldos a favor disponibles en el sistema.
+                    <div className="py-3 px-3 bg-white border border-dashed border-amber-300 rounded-md text-center text-xs text-amber-800">
+                      Este cliente no tiene ningún saldo a favor activo registrado en el sistema.
                     </div>
                   ) : (
-                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
                       {agentSaldos.map((saldo) => {
                         const currentApplied = appliedSaldos[saldo.id_saldos] || 0;
                         const available = Number(saldo.saldo || 0);
@@ -1307,35 +1473,73 @@ export function NemoHotelSearch({
                         return (
                           <div
                             key={saldo.id_saldos}
-                            className="p-2 bg-white border border-slate-200 rounded flex items-center justify-between gap-2"
+                            className={`p-2 rounded border transition text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
+                              currentApplied > 0
+                                ? "bg-white border-purple-300 shadow-sm"
+                                : "bg-white/80 border-slate-200"
+                            }`}
                           >
                             <div className="truncate flex-1">
-                              <div className="font-medium text-slate-800">
-                                #{saldo.id_saldos} - {saldo.metodo_pago.toUpperCase()}{" "}
-                                {saldo.concepto ? `(${saldo.concepto})` : ""}
+                              <div className="font-semibold text-slate-800 flex items-center gap-1.5">
+                                <span className="text-purple-700">#{saldo.id_saldos}</span>
+                                <span>-</span>
+                                <span className="uppercase">{saldo.metodo_pago}</span>
+                                {saldo.concepto && (
+                                  <span className="text-slate-500 font-normal truncate max-w-xs">
+                                    ({saldo.concepto})
+                                  </span>
+                                )}
                               </div>
-                              <div className="text-[11px] text-slate-400">
-                                Disponible: ${available.toFixed(2)} {saldo.currency}
+                              <div className="text-[11px] text-slate-500 mt-0.5">
+                                Disponible:{" "}
+                                <strong className="text-slate-700">
+                                  ${available.toLocaleString("es-MX", { minimumFractionDigits: 2 })} {saldo.currency}
+                                </strong>
+                                {saldo.fecha_pago && (
+                                  <span className="ml-2 text-slate-400">
+                                    • {saldo.fecha_pago.slice(0, 10)}
+                                  </span>
+                                )}
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-2">
-                              <span className="text-[11px] text-slate-500">Aplicar:</span>
-                              <Input
-                                type="number"
-                                min={0}
-                                max={available}
-                                step="any"
-                                value={currentApplied}
-                                onChange={(e) => {
-                                  const val = parseFloat(e.target.value) || 0;
+                            <div className="flex items-center gap-2 self-end sm:self-center">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const alreadyCoveredWithoutThis = totalSaldosAplicados - currentApplied;
+                                  const stillNeeded = Math.max(0, precioVenta - alreadyCoveredWithoutThis);
+                                  const toApply = Math.min(available, stillNeeded);
                                   setAppliedSaldos((prev) => ({
                                     ...prev,
-                                    [saldo.id_saldos]: Math.min(val, available),
+                                    [saldo.id_saldos]: parseFloat(toApply.toFixed(2)),
                                   }));
                                 }}
-                                className="w-24 h-7 text-xs text-right"
-                              />
+                                className="text-[10px] text-purple-700 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 border border-purple-200 px-1.5 py-1 rounded"
+                                title="Aplicar lo necesario de este saldo"
+                              >
+                                Usar saldo
+                              </button>
+                              <span className="text-[11px] text-slate-500">Monto:</span>
+                              <div className="relative">
+                                <span className="absolute left-2 top-1 text-[11px] font-medium text-slate-400">$</span>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  max={available}
+                                  step="any"
+                                  value={currentApplied === 0 ? "" : currentApplied}
+                                  placeholder="0.00"
+                                  onChange={(e) => {
+                                    const val = parseFloat(e.target.value) || 0;
+                                    setAppliedSaldos((prev) => ({
+                                      ...prev,
+                                      [saldo.id_saldos]: Math.min(val, available),
+                                    }));
+                                  }}
+                                  className="w-24 h-7 pl-5 pr-1 text-xs text-right font-medium"
+                                />
+                              </div>
                             </div>
                           </div>
                         );
@@ -1373,7 +1577,8 @@ export function NemoHotelSearch({
                     submittingReservation ||
                     precioVenta <= 0 ||
                     (paymentMethod === "credito" &&
-                      Number(selectedClient?.saldo || 0) < precioVenta) ||
+                      (Number(selectedClient?.saldo || 0) < precioVenta ||
+                        Number(selectedClient?.tiene_credito_consolidado) !== 1)) ||
                     (paymentMethod === "wallet" &&
                       totalSaldosAplicados < precioVenta)
                   }
