@@ -142,6 +142,16 @@ export interface CreateNemoReservationDto {
     total: number;
     currency: string;
   };
+  venta?: {
+    total: number;
+    subtotal?: number;
+    impuestos?: number;
+  };
+  proveedor?: {
+    total: number;
+    subtotal?: number;
+    impuestos?: number;
+  };
   comments?: string;
   ejemplo_saldos?: Array<{
     id_saldo: number;

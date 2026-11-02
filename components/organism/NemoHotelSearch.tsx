@@ -21,6 +21,7 @@ import {
   AlertCircle,
   Receipt,
   Check,
+  TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -116,6 +117,11 @@ export function NemoHotelSearch({
   const [submittingReservation, setSubmittingReservation] = useState(false);
   const [reservationSuccessData, setReservationSuccessData] = useState<any | null>(null);
   const [reservationError, setReservationError] = useState<string | null>(null);
+
+  // PRICING & MARKUP STATE FOR MODAL
+  const [costoProveedor, setCostoProveedor] = useState<number>(0);
+  const [precioVenta, setPrecioVenta] = useState<number>(0);
+  const [markupPercentage, setMarkupPercentage] = useState<number>(15);
 
   // SALDOS / WALLET STATE FOR MODAL
   const [agentSaldos, setAgentSaldos] = useState<Saldo[]>([]);
@@ -297,6 +303,13 @@ export function NemoHotelSearch({
       checkOut,
     };
 
+    const costo = Number(rate.amount || 0);
+    const defaultMarkup = 15;
+    const initialVenta = parseFloat((costo * (1 + defaultMarkup / 100)).toFixed(2));
+    setCostoProveedor(costo);
+    setPrecioVenta(initialVenta);
+    setMarkupPercentage(defaultMarkup);
+
     setReservationContext(context);
     setReservationSuccessData(null);
     setReservationError(null);
@@ -304,11 +317,11 @@ export function NemoHotelSearch({
 
     // Determinar método por defecto: si tiene crédito y saldo suficiente -> credito, sino evaluar wallet
     const clientCredit = Number(selectedClient.saldo || 0);
-    if (clientCredit >= rate.amount) {
+    if (clientCredit >= initialVenta) {
       setPaymentMethod("credito");
     } else {
       setPaymentMethod("wallet");
-      loadAgentSaldos(selectedClient.id_agente, rate.amount);
+      loadAgentSaldos(selectedClient.id_agente, initialVenta);
     }
 
     setModalOpen(true);
@@ -318,11 +331,32 @@ export function NemoHotelSearch({
     }
   };
 
+  // Manejadores para actualizar margen y precio de venta
+  const handleMarkupChange = (markup: number) => {
+    setMarkupPercentage(markup);
+    const calculatedVenta = parseFloat((costoProveedor * (1 + markup / 100)).toFixed(2));
+    setPrecioVenta(calculatedVenta);
+    if (paymentMethod === "wallet" && selectedClient) {
+      loadAgentSaldos(selectedClient.id_agente, calculatedVenta);
+    }
+  };
+
+  const handlePrecioVentaChange = (venta: number) => {
+    setPrecioVenta(venta);
+    if (costoProveedor > 0) {
+      const calculatedMarkup = parseFloat((((venta - costoProveedor) / costoProveedor) * 100).toFixed(2));
+      setMarkupPercentage(calculatedMarkup);
+    }
+    if (paymentMethod === "wallet" && selectedClient) {
+      loadAgentSaldos(selectedClient.id_agente, venta);
+    }
+  };
+
   // Cambiar método de pago en el modal
   const handlePaymentMethodChange = (method: "credito" | "wallet") => {
     setPaymentMethod(method);
-    if (method === "wallet" && selectedClient && reservationContext) {
-      loadAgentSaldos(selectedClient.id_agente, reservationContext.rate.amount);
+    if (method === "wallet" && selectedClient) {
+      loadAgentSaldos(selectedClient.id_agente, precioVenta);
     }
   };
 
@@ -340,7 +374,7 @@ export function NemoHotelSearch({
     setReservationError(null);
 
     try {
-      const requiredTotal = reservationContext.rate.amount;
+      const requiredTotal = precioVenta;
 
       let ejemplo_saldos_payload: any[] = [];
       if (paymentMethod === "wallet") {
@@ -348,7 +382,7 @@ export function NemoHotelSearch({
           throw new Error(
             `El monto aplicado de saldos ($${totalSaldosAplicados.toFixed(
               2
-            )}) no cubre el total de la reserva ($${requiredTotal.toFixed(2)}).`
+            )}) no cubre el total de venta de la reserva ($${requiredTotal.toFixed(2)}).`
           );
         }
 
@@ -406,8 +440,18 @@ export function NemoHotelSearch({
             "HABITACIÓN ESTÁNDAR",
           boardDescription:
             reservationContext.rate.roomRates[0]?.boardDescription || "",
-          total: reservationContext.rate.amount,
+          total: costoProveedor,
           currency: reservationContext.rate.currency,
+        },
+        venta: {
+          total: precioVenta,
+          subtotal: parseFloat((precioVenta * 0.84).toFixed(2)),
+          impuestos: parseFloat((precioVenta * 0.16).toFixed(2)),
+        },
+        proveedor: {
+          total: costoProveedor,
+          subtotal: parseFloat((costoProveedor * 0.84).toFixed(2)),
+          impuestos: parseFloat((costoProveedor * 0.16).toFixed(2)),
         },
         comments: reservationComments.trim() || undefined,
         ejemplo_saldos:
@@ -1037,21 +1081,101 @@ export function NemoHotelSearch({
                   </div>
                 </div>
 
-                <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-sm">
-                  <span className="text-slate-600 font-medium">Total de la Tarifa:</span>
-                  <span className="text-base font-bold text-slate-900">
+                <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-xs">
+                  <span className="text-slate-500 font-medium">Costo Base Proveedor (Nemo):</span>
+                  <span className="font-semibold text-slate-700">
                     {reservationContext?.rate.currency} $
-                    {reservationContext?.rate.amount.toLocaleString("es-MX", {
+                    {costoProveedor.toLocaleString("es-MX", {
                       minimumFractionDigits: 2,
                     })}
                   </span>
                 </div>
               </div>
 
+              {/* Definición de Tarifa de Venta y Margen de Ganancia */}
+              <div className="p-3.5 bg-indigo-50/50 border border-indigo-100 rounded-lg space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 font-semibold text-slate-800 text-xs">
+                    <TrendingUp className="h-4 w-4 text-indigo-600" />
+                    Definición de Tarifa y Margen de Venta (MIA)
+                  </div>
+                  <span className="text-[11px] text-slate-500">
+                    Costo Nemo: <strong>${costoProveedor.toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN</strong>
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                  {/* Margen / Markup */}
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                      Margen de Ganancia (% Markup):
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        step="0.5"
+                        value={markupPercentage}
+                        onChange={(e) => handleMarkupChange(parseFloat(e.target.value) || 0)}
+                        className="h-8 text-xs font-semibold bg-white"
+                      />
+                      <div className="flex gap-1">
+                        {[10, 15, 20, 25].map((pct) => (
+                          <button
+                            key={pct}
+                            type="button"
+                            onClick={() => handleMarkupChange(pct)}
+                            className={`px-1.5 py-1 text-[10px] rounded border ${
+                              markupPercentage === pct
+                                ? "bg-indigo-600 text-white border-indigo-600 font-bold"
+                                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                            }`}
+                          >
+                            +{pct}%
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Precio Final de Venta al Cliente */}
+                  <div>
+                    <label className="block text-[11px] font-medium text-slate-600 mb-1">
+                      Precio de Venta al Cliente (Cobro): <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-2 text-xs font-bold text-slate-500">$</span>
+                      <Input
+                        type="number"
+                        step="1"
+                        value={precioVenta}
+                        onChange={(e) => handlePrecioVentaChange(parseFloat(e.target.value) || 0)}
+                        className="h-8 pl-6 text-xs font-bold text-indigo-950 border-indigo-300 bg-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Resumen de Ganancia */}
+                <div className="flex items-center justify-between pt-1 border-t border-indigo-100 text-[11px]">
+                  <span className="text-slate-600 font-medium">
+                    Ganancia estimada para MIA:
+                  </span>
+                  {precioVenta >= costoProveedor ? (
+                    <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-300 font-semibold text-xs">
+                      +${(precioVenta - costoProveedor).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN ({markupPercentage}%)
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 font-semibold text-xs">
+                      ⚠️ Venta bajo costo: -${(costoProveedor - precioVenta).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
               {/* Selector de Método de Cobro */}
               <div className="space-y-2">
                 <label className="block font-semibold text-slate-700">
-                  Selecciona la Forma de Cobro al Cliente:
+                  Selecciona la Forma de Cobro al Cliente ({reservationContext?.rate.currency} ${precioVenta.toLocaleString("es-MX", { minimumFractionDigits: 2 })}):
                 </label>
                 <div className="grid grid-cols-2 gap-3">
                   {/* Opción 1: Crédito */}
@@ -1118,20 +1242,19 @@ export function NemoHotelSearch({
               {/* Detalle según método de pago */}
               {paymentMethod === "credito" && (
                 <div className="p-3 bg-slate-50 border border-slate-200 rounded-md space-y-1.5">
-                  {Number(selectedClient?.saldo || 0) <
-                  (reservationContext?.rate.amount || 0) ? (
+                  {Number(selectedClient?.saldo || 0) < precioVenta ? (
                     <div className="text-amber-700 flex items-center gap-1.5 font-medium">
                       <AlertCircle className="h-4 w-4 text-amber-500 flex-shrink-0" />
-                      Saldo de crédito insuficiente para cubrir esta reserva ($
+                      Saldo de crédito insuficiente para cubrir el precio de venta de esta reserva ($
                       {Number(selectedClient?.saldo || 0).toLocaleString("es-MX", {
                         minimumFractionDigits: 2,
                       })}{" "}
-                      disponible). Elige Saldo a favor o solicita recarga.
+                      disponible vs. ${precioVenta.toLocaleString("es-MX", { minimumFractionDigits: 2 })} requerido).
                     </div>
                   ) : (
                     <div className="text-slate-600">
-                      ✓ El cliente cuenta con saldo suficiente. El monto de $
-                      {reservationContext?.rate.amount.toLocaleString("es-MX", {
+                      ✓ El cliente cuenta con saldo suficiente. El monto de venta de $
+                      {precioVenta.toLocaleString("es-MX", {
                         minimumFractionDigits: 2,
                       })}{" "}
                       se descontará automáticamente de su saldo de crédito en MIA.
@@ -1150,14 +1273,13 @@ export function NemoHotelSearch({
                       Total Aplicado:{" "}
                       <strong
                         className={
-                          totalSaldosAplicados >=
-                          (reservationContext?.rate.amount || 0)
+                          totalSaldosAplicados >= precioVenta
                             ? "text-emerald-700"
                             : "text-amber-700"
                         }
                       >
                         ${totalSaldosAplicados.toFixed(2)} / $
-                        {(reservationContext?.rate.amount || 0).toFixed(2)}
+                        {precioVenta.toFixed(2)}
                       </strong>
                     </span>
                   </div>
@@ -1244,11 +1366,11 @@ export function NemoHotelSearch({
                   onClick={handleConfirmReservation}
                   disabled={
                     submittingReservation ||
+                    precioVenta <= 0 ||
                     (paymentMethod === "credito" &&
-                      Number(selectedClient?.saldo || 0) <
-                        (reservationContext?.rate.amount || 0)) ||
+                      Number(selectedClient?.saldo || 0) < precioVenta) ||
                     (paymentMethod === "wallet" &&
-                      totalSaldosAplicados < (reservationContext?.rate.amount || 0))
+                      totalSaldosAplicados < precioVenta)
                   }
                   className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 h-8 text-xs"
                 >
