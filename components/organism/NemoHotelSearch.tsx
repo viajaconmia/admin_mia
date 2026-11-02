@@ -17,19 +17,34 @@ import {
   Briefcase,
   CreditCard,
   CheckCircle2,
+  Wallet,
+  AlertCircle,
+  Receipt,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
   NemoHotel,
   NemoRate,
   searchNemoHotels,
   SearchNemoHotelsDto,
+  createNemoReservation,
+  CreateNemoReservationDto,
 } from "@/services/nemo";
 import { fetchAgentes } from "@/services/agentes";
 import { fetchViajerosFromAgent } from "@/services/viajeros";
+import { SaldoFavor, Saldo } from "@/services/SaldoAFavor";
 import { Agente, Viajero } from "@/types";
 
 const POPULAR_DESTINATIONS = [
@@ -53,6 +68,11 @@ export interface SelectedReservationContext {
 export interface NemoHotelSearchProps {
   onSelectReservation?: (context: SelectedReservationContext) => void;
   showSelectButton?: boolean;
+}
+
+interface AppliedSaldoItem {
+  saldoItem: Saldo;
+  aplicado: number;
 }
 
 export function NemoHotelSearch({
@@ -88,6 +108,20 @@ export function NemoHotelSearch({
   const [hasSearched, setHasSearched] = useState(false);
   const [selectedHotel, setSelectedHotel] = useState<NemoHotel | null>(null);
 
+  // RESERVATION MODAL STATE
+  const [modalOpen, setModalOpen] = useState(false);
+  const [reservationContext, setReservationContext] = useState<SelectedReservationContext | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<"credito" | "wallet">("credito");
+  const [reservationComments, setReservationComments] = useState("");
+  const [submittingReservation, setSubmittingReservation] = useState(false);
+  const [reservationSuccessData, setReservationSuccessData] = useState<any | null>(null);
+  const [reservationError, setReservationError] = useState<string | null>(null);
+
+  // SALDOS / WALLET STATE FOR MODAL
+  const [agentSaldos, setAgentSaldos] = useState<Saldo[]>([]);
+  const [loadingSaldos, setLoadingSaldos] = useState(false);
+  const [appliedSaldos, setAppliedSaldos] = useState<{ [id_saldo: number]: number }>({});
+
   // Click outside listener for Client Autocomplete
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -113,45 +147,53 @@ export function NemoHotelSearch({
       return;
     }
 
-    clientDebounceRef.current = setTimeout(() => {
-      setLoadingClients(true);
-      fetchAgentes({ client: value } as any, {} as any, (data) => {
-        const term = value.toUpperCase();
-        const filtered = (data || [])
-          .filter(
-            (c) =>
-              c.nombre_agente_completo.toUpperCase().includes(term) ||
-              c.correo?.toUpperCase().includes(term) ||
-              c.id_agente.toUpperCase().replaceAll("-", "").includes(term.replaceAll("-", ""))
-          )
-          .slice(0, 8);
-        setClientResults(filtered);
-        setShowClientDropdown(true);
+    setLoadingClients(true);
+    clientDebounceRef.current = setTimeout(async () => {
+      try {
+        await fetchAgentes(
+          { client: value.trim() } as any,
+          {} as any,
+          (list: Agente[]) => {
+            setClientResults(list || []);
+            setShowClientDropdown(true);
+          }
+        );
+      } catch (err) {
+        console.error("Error al buscar agentes:", err);
+        setClientResults([]);
+      } finally {
         setLoadingClients(false);
-      });
-    }, 300);
+      }
+    }, 350);
   };
 
-  // Seleccionar un cliente
-  const handleSelectClient = (client: Agente) => {
-    setSelectedClient(client);
-    setClientSearchTerm(client.nombre_agente_completo);
+  // Seleccionar cliente y cargar sus viajeros
+  const handleSelectClient = async (cliente: Agente) => {
+    setSelectedClient(cliente);
+    setClientSearchTerm(cliente.nombre_agente_completo || "");
     setShowClientDropdown(false);
     setSelectedViajero(null);
+    setViajeros([]);
 
-    // Cargar viajeros asociados a este cliente / agente
+    if (!cliente.id_agente) return;
+
     setLoadingViajeros(true);
-    fetchViajerosFromAgent(client.id_agente, (data: any) => {
-      const list = Array.isArray(data) ? data : data?.data || [];
-      setViajeros(list);
-      if (list.length > 0) {
-        setSelectedViajero(list[0]);
-      }
+    try {
+      await fetchViajerosFromAgent(cliente.id_agente, (list: Viajero[]) => {
+        setViajeros(list || []);
+        if (list && list.length > 0) {
+          setSelectedViajero(list[0]);
+        }
+      });
+    } catch (err) {
+      console.error("Error al cargar viajeros del agente:", err);
+      setViajeros([]);
+    } finally {
       setLoadingViajeros(false);
-    });
+    }
   };
 
-  // Limpiar selección de cliente
+  // Deseleccionar cliente
   const handleClearClient = () => {
     setSelectedClient(null);
     setClientSearchTerm("");
@@ -159,11 +201,11 @@ export function NemoHotelSearch({
     setSelectedViajero(null);
   };
 
-  // Buscar en Nemo
-  const handleSearch = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    setError(null);
+  // Ejecutar búsqueda de hoteles en Nemo
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
     setLoading(true);
+    setError(null);
     setHasSearched(true);
     setSelectedHotel(null);
 
@@ -172,19 +214,7 @@ export function NemoHotelSearch({
       : destinationId;
 
     if (!activeDestination) {
-      setError("Por favor ingresa o selecciona un código de destino.");
-      setLoading(false);
-      return;
-    }
-
-    if (!checkIn || !checkOut) {
-      setError("Indica fechas de check-in y check-out.");
-      setLoading(false);
-      return;
-    }
-
-    if (checkOut <= checkIn) {
-      setError("La fecha de check-out debe ser posterior a la de check-in.");
+      setError("Por favor ingresa o selecciona un destino.");
       setLoading(false);
       return;
     }
@@ -217,21 +247,194 @@ export function NemoHotelSearch({
     }
   };
 
+  // Cargar saldos a favor cuando se abre el modal y se elige wallet
+  const loadAgentSaldos = async (agentId: string, requiredTotal: number) => {
+    setLoadingSaldos(true);
+    try {
+      const response = await SaldoFavor.getPagos(agentId, true);
+      const saldos = (response?.data || []).filter(
+        (s) => Number(s.saldo) > 0 && Number(s.activo) === 1
+      );
+      setAgentSaldos(saldos);
+
+      // Auto-selección greedy para cubrir el total
+      let remaining = requiredTotal;
+      const initialApplied: { [id_saldo: number]: number } = {};
+      for (const s of saldos) {
+        if (remaining <= 0) break;
+        const available = Number(s.saldo);
+        const toApply = Math.min(available, remaining);
+        initialApplied[s.id_saldos] = parseFloat(toApply.toFixed(2));
+        remaining = parseFloat((remaining - toApply).toFixed(2));
+      }
+      setAppliedSaldos(initialApplied);
+    } catch (err) {
+      console.error("Error al cargar saldos a favor del agente:", err);
+      setAgentSaldos([]);
+    } finally {
+      setLoadingSaldos(false);
+    }
+  };
+
+  // Abrir Modal de Confirmación de Reserva
   const handleRateSelect = (hotel: NemoHotel, rate: NemoRate) => {
     if (!selectedClient) {
-      alert("Por favor selecciona un Cliente antes de elegir la tarifa.");
+      alert("Por favor selecciona un Cliente en la Sección 1 antes de elegir la tarifa.");
       return;
     }
 
+    if (!selectedViajero) {
+      alert("Por favor selecciona un Viajero principal para la reserva.");
+      return;
+    }
+
+    const context: SelectedReservationContext = {
+      cliente: selectedClient,
+      viajero: selectedViajero,
+      hotel,
+      rate,
+      checkIn,
+      checkOut,
+    };
+
+    setReservationContext(context);
+    setReservationSuccessData(null);
+    setReservationError(null);
+    setReservationComments("");
+
+    // Determinar método por defecto: si tiene crédito y saldo suficiente -> credito, sino evaluar wallet
+    const clientCredit = Number(selectedClient.saldo || 0);
+    if (clientCredit >= rate.amount) {
+      setPaymentMethod("credito");
+    } else {
+      setPaymentMethod("wallet");
+      loadAgentSaldos(selectedClient.id_agente, rate.amount);
+    }
+
+    setModalOpen(true);
+
     if (onSelectReservation) {
-      onSelectReservation({
-        cliente: selectedClient,
-        viajero: selectedViajero,
-        hotel,
-        rate,
-        checkIn,
-        checkOut,
-      });
+      onSelectReservation(context);
+    }
+  };
+
+  // Cambiar método de pago en el modal
+  const handlePaymentMethodChange = (method: "credito" | "wallet") => {
+    setPaymentMethod(method);
+    if (method === "wallet" && selectedClient && reservationContext) {
+      loadAgentSaldos(selectedClient.id_agente, reservationContext.rate.amount);
+    }
+  };
+
+  // Total aplicado en saldos a favor
+  const totalSaldosAplicados = Object.values(appliedSaldos).reduce(
+    (acc, val) => acc + (Number(val) || 0),
+    0
+  );
+
+  // Confirmar y crear la reserva en el backend
+  const handleConfirmReservation = async () => {
+    if (!reservationContext || !selectedClient || !selectedViajero) return;
+
+    setSubmittingReservation(true);
+    setReservationError(null);
+
+    try {
+      const requiredTotal = reservationContext.rate.amount;
+
+      let ejemplo_saldos_payload: any[] = [];
+      if (paymentMethod === "wallet") {
+        if (totalSaldosAplicados < requiredTotal) {
+          throw new Error(
+            `El monto aplicado de saldos ($${totalSaldosAplicados.toFixed(
+              2
+            )}) no cubre el total de la reserva ($${requiredTotal.toFixed(2)}).`
+          );
+        }
+
+        ejemplo_saldos_payload = Object.entries(appliedSaldos)
+          .filter(([_, applied]) => Number(applied) > 0)
+          .map(([idSaldoStr, applied]) => {
+            const idSaldo = Number(idSaldoStr);
+            const originalItem = agentSaldos.find((s) => s.id_saldos === idSaldo);
+            const saldoOriginal = Number(originalItem?.saldo || applied);
+            return {
+              id_saldo: idSaldo,
+              saldo_original: saldoOriginal,
+              saldo_actual: Math.max(0, parseFloat((saldoOriginal - applied).toFixed(2))),
+              aplicado: parseFloat(applied.toFixed(2)),
+              id_agente: selectedClient.id_agente,
+              metodo_de_pago: originalItem?.metodo_pago || "wallet",
+              fecha_pago: originalItem?.fecha_pago || new Date().toISOString().slice(0, 10),
+              concepto: originalItem?.concepto || null,
+              referencia: originalItem?.referencia || null,
+              currency: "mxn",
+            };
+          });
+      }
+
+      const diffTime =
+        new Date(checkOut).getTime() - new Date(checkIn).getTime();
+      const noches = Math.max(
+        1,
+        Math.round(diffTime / (1000 * 60 * 60 * 24))
+      );
+
+      const payload: CreateNemoReservationDto = {
+        bandera: paymentMethod === "credito" ? 0 : 1,
+        id_agente: selectedClient.id_agente,
+        id_viajero: selectedViajero.id_viajero,
+        check_in: checkIn,
+        check_out: checkOut,
+        noches,
+        habitacion:
+          reservationContext.rate.roomRates[0]?.roomType || "HABITACIÓN ESTÁNDAR",
+        hotel: {
+          hotelCode: reservationContext.hotel.hotelCode,
+          hotelName: reservationContext.hotel.hotelName,
+          address: reservationContext.hotel.address?.street || "",
+          destinationName: reservationContext.hotel.address?.city || "",
+          city: reservationContext.hotel.address?.city || "",
+          country: reservationContext.hotel.address?.countryCode || "MEXICO",
+          latitude: reservationContext.hotel.latitude,
+          longitude: reservationContext.hotel.longitude,
+        },
+        rate: {
+          rateId: reservationContext.rate.tripProductId,
+          roomDescription:
+            reservationContext.rate.roomRates[0]?.roomType ||
+            "HABITACIÓN ESTÁNDAR",
+          boardDescription:
+            reservationContext.rate.roomRates[0]?.boardDescription || "",
+          total: reservationContext.rate.amount,
+          currency: reservationContext.rate.currency,
+        },
+        comments: reservationComments.trim() || undefined,
+        ejemplo_saldos:
+          paymentMethod === "wallet" ? ejemplo_saldos_payload : [],
+      };
+
+      const result = await createNemoReservation(payload);
+      setReservationSuccessData(result);
+
+      // Si fue a crédito, actualizar saldo en cliente local
+      if (paymentMethod === "credito") {
+        setSelectedClient((prev) =>
+          prev
+            ? {
+                ...prev,
+                saldo: Math.max(0, Number(prev.saldo || 0) - requiredTotal),
+              }
+            : null
+        );
+      }
+    } catch (err: any) {
+      console.error("Error al crear reserva en MIA:", err);
+      setReservationError(
+        err?.message || "Ocurrió un error al crear la reservación en MIA."
+      );
+    } finally {
+      setSubmittingReservation(false);
     }
   };
 
@@ -243,197 +446,201 @@ export function NemoHotelSearch({
       <Card className="shadow-sm border border-slate-200 bg-white">
         <CardHeader className="pb-3 border-b border-slate-100">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Briefcase className="h-5 w-5 text-indigo-600" />
-              <CardTitle className="text-base font-bold text-slate-800">
-                1. Asignar Cliente y Viajero
+            <div className="flex items-center gap-2">
+              <User className="h-5 w-5 text-indigo-600" />
+              <CardTitle className="text-base font-semibold text-slate-800">
+                1. Asignar Cliente y Viajero Principal
               </CardTitle>
             </div>
-            {selectedClient ? (
-              <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 flex items-center gap-1">
-                <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Cliente Asignado
-              </Badge>
-            ) : (
-              <Badge variant="outline" className="text-slate-500 border-slate-300">
-                Requerido para cotizar / reservar
+            {selectedClient && (
+              <Badge
+                variant="outline"
+                className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1 text-xs"
+              >
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Cliente Vinculado
               </Badge>
             )}
           </div>
+          <p className="text-xs text-slate-500 mt-1">
+            Indica el cliente al que se facturará/cargará la reserva y el
+            viajero que se registrará ante el proveedor.
+          </p>
         </CardHeader>
-        <CardContent className="pt-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Buscador de Cliente */}
-            <div className="space-y-1 relative" ref={clientContainerRef}>
-              <label className="text-xs font-semibold text-slate-600 flex items-center gap-1">
-                <Briefcase className="h-3.5 w-3.5 text-indigo-600" /> Cliente / Empresa
-              </label>
 
-              <div className="relative">
-                <Input
-                  placeholder="Buscar por nombre, correo o ID..."
-                  value={clientSearchTerm}
-                  onChange={(e) => handleClientSearchChange(e.target.value)}
-                  onFocus={() => {
-                    if (clientResults.length > 0) setShowClientDropdown(true);
-                  }}
-                  className="h-9 text-sm pr-8"
-                />
-                {loadingClients ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-slate-400 absolute right-2.5 top-2.5" />
-                ) : selectedClient ? (
-                  <button
-                    type="button"
-                    onClick={handleClearClient}
-                    className="absolute right-2.5 top-2.5 text-xs text-slate-400 hover:text-red-500 font-bold"
-                  >
-                    ✕
-                  </button>
-                ) : null}
-              </div>
-
-              {/* Dropdown de Clientes */}
-              {showClientDropdown && clientResults.length > 0 && (
-                <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-md shadow-lg max-h-56 overflow-y-auto">
-                  {clientResults.map((client) => (
-                    <div
-                      key={client.id_agente}
-                      onClick={() => handleSelectClient(client)}
-                      className="p-2.5 hover:bg-indigo-50/50 cursor-pointer border-b border-slate-100 last:border-b-0 text-left transition-colors"
-                    >
-                      <div className="font-semibold text-sm text-slate-800">
-                        {client.nombre_agente_completo}
-                      </div>
-                      <div className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
-                        <span>{client.correo || "Sin correo"}</span>
-                        <span>·</span>
-                        <span>Crédito: {client.tiene_credito_consolidado ? "Sí" : "No"}</span>
-                        {client.saldo !== undefined && (
-                          <span className="font-medium text-slate-700">
-                            (Saldo: ${Number(client.saldo).toLocaleString("es-MX")})
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {selectedClient && (
-                <div className="mt-2 p-2.5 rounded-md bg-slate-50 border border-slate-200 text-xs space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-slate-700">
-                      {selectedClient.nombre_agente_completo}
-                    </span>
-                    <Badge variant="secondary" className="text-[10px]">
-                      ID: {selectedClient.id_agente.slice(0, 10)}...
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-3 text-slate-500 text-[11px]">
-                    <span className="flex items-center gap-1">
-                      <CreditCard className="h-3 w-3" />
-                      {selectedClient.tiene_credito_consolidado ? "Crédito activo" : "Prepago"}
-                    </span>
-                    {selectedClient.correo && <span>· {selectedClient.correo}</span>}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Selector de Viajero */}
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-slate-600 flex items-center gap-1">
-                <User className="h-3.5 w-3.5 text-indigo-600" /> Viajero Principal
-              </label>
-
-              {loadingViajeros ? (
-                <div className="h-9 flex items-center gap-2 px-3 text-xs text-slate-500 bg-slate-50 rounded-md border border-slate-200">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-600" />
-                  Cargando viajeros del cliente...
-                </div>
-              ) : !selectedClient ? (
-                <div className="h-9 flex items-center px-3 text-xs text-slate-400 bg-slate-50 rounded-md border border-slate-200">
-                  Primero selecciona un cliente arriba
-                </div>
-              ) : viajeros.length === 0 ? (
-                <div className="h-9 flex items-center px-3 text-xs text-amber-700 bg-amber-50 rounded-md border border-amber-200">
-                  El cliente no tiene viajeros registrados
-                </div>
-              ) : (
-                <select
-                  value={selectedViajero?.id_viajero || ""}
-                  onChange={(e) => {
-                    const found = viajeros.find((v) => v.id_viajero === e.target.value);
-                    setSelectedViajero(found || null);
-                  }}
-                  className="w-full h-9 rounded-md border border-slate-300 bg-white px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+        <CardContent className="pt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Autocomplete de Cliente (Agente) */}
+          <div className="relative" ref={clientContainerRef}>
+            <label className="block text-xs font-medium text-slate-700 mb-1">
+              Cliente (Razón Social o Nombre) <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <Input
+                type="text"
+                placeholder="Escribe al menos 2 letras para buscar..."
+                value={clientSearchTerm}
+                onChange={(e) => handleClientSearchChange(e.target.value)}
+                onFocus={() => {
+                  if (clientResults.length > 0) setShowClientDropdown(true);
+                }}
+                className={`pr-8 text-sm ${
+                  selectedClient
+                    ? "border-emerald-500 bg-emerald-50/30 font-medium text-slate-900"
+                    : ""
+                }`}
+              />
+              {loadingClients ? (
+                <Loader2 className="h-4 w-4 text-slate-400 animate-spin absolute right-2.5 top-2.5" />
+              ) : selectedClient ? (
+                <button
+                  type="button"
+                  onClick={handleClearClient}
+                  className="absolute right-2.5 top-2.5 text-xs text-slate-400 hover:text-slate-600"
+                  title="Cambiar cliente"
                 >
-                  {viajeros.map((v) => (
-                    <option key={v.id_viajero} value={v.id_viajero}>
-                      {v.nombre_completo || "Viajero sin nombre"}{" "}
-                      {v.correo ? `(${v.correo})` : ""}
-                    </option>
-                  ))}
-                </select>
-              )}
-
-              {selectedViajero && (
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Viajero seleccionado: <strong>{selectedViajero.nombre_completo}</strong>
-                  {selectedViajero.numero_empleado ? ` · No. Emp: ${selectedViajero.numero_empleado}` : ""}
-                </p>
+                  ✕
+                </button>
+              ) : (
+                <Search className="h-4 w-4 text-slate-400 absolute right-2.5 top-2.5" />
               )}
             </div>
+
+            {/* Dropdown de Resultados */}
+            {showClientDropdown && clientResults.length > 0 && (
+              <div className="absolute z-50 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-md shadow-lg max-h-60 overflow-y-auto divide-y divide-slate-100">
+                {clientResults.map((cliente) => (
+                  <div
+                    key={cliente.id_agente}
+                    onClick={() => handleSelectClient(cliente)}
+                    className="p-2.5 hover:bg-indigo-50 cursor-pointer transition text-left"
+                  >
+                    <div className="text-xs font-semibold text-slate-800">
+                      {cliente.nombre_agente_completo}
+                    </div>
+                    <div className="flex items-center gap-3 mt-1 text-[11px] text-slate-500">
+                      <span>RFC/ID: {cliente.id_agente?.slice(0, 8)}...</span>
+                      <span>•</span>
+                      <span>
+                        Saldo:{" "}
+                        <strong>
+                          $
+                          {Number(cliente.saldo || 0).toLocaleString("es-MX", {
+                            minimumFractionDigits: 2,
+                          })}
+                        </strong>
+                      </span>
+                      {Number(cliente.tiene_credito_consolidado) === 1 && (
+                        <span className="text-emerald-600 font-medium">
+                          • Con Crédito
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Badge informativa del cliente seleccionado */}
+            {selectedClient && (
+              <div className="mt-2 p-2 bg-slate-50 rounded border border-slate-200 text-xs text-slate-600 space-y-1">
+                <div className="flex justify-between items-center">
+                  <span>
+                    Saldo Crédito:{" "}
+                    <strong className="text-slate-900">
+                      $
+                      {Number(selectedClient.saldo || 0).toLocaleString(
+                        "es-MX",
+                        { minimumFractionDigits: 2 }
+                      )}
+                    </strong>
+                  </span>
+                  <span>
+                    Forma de Pago:{" "}
+                    <Badge variant="outline" className="text-[10px] py-0">
+                      {Number(selectedClient.tiene_credito_consolidado) === 1
+                        ? "Crédito"
+                        : "Prepago / Wallet"}
+                    </Badge>
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Selector de Viajero Principal */}
+          <div>
+            <label className="block text-xs font-medium text-slate-700 mb-1">
+              Viajero Principal <span className="text-red-500">*</span>
+            </label>
+            {loadingViajeros ? (
+              <div className="h-9 flex items-center gap-2 px-3 border border-slate-200 rounded-md text-xs text-slate-400 bg-slate-50">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Cargando viajeros del cliente...
+              </div>
+            ) : !selectedClient ? (
+              <div className="h-9 flex items-center px-3 border border-dashed border-slate-200 rounded-md text-xs text-slate-400 bg-slate-50">
+                Selecciona primero un cliente para ver sus viajeros
+              </div>
+            ) : viajeros.length === 0 ? (
+              <div className="h-9 flex items-center px-3 border border-amber-200 rounded-md text-xs text-amber-700 bg-amber-50">
+                No hay viajeros registrados para este cliente.
+              </div>
+            ) : (
+              <select
+                className="w-full h-9 px-3 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                value={selectedViajero?.id_viajero || ""}
+                onChange={(e) => {
+                  const v = viajeros.find((item) => item.id_viajero === e.target.value);
+                  setSelectedViajero(v || null);
+                }}
+              >
+                {viajeros.map((v) => (
+                  <option key={v.id_viajero} value={v.id_viajero}>
+                    {v.nombre_completo || "Viajero"}{" "}
+                    {v.correo ? `(${v.correo})` : ""}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {selectedViajero && (
+              <div className="mt-2 p-2 bg-slate-50 rounded border border-slate-200 text-xs text-slate-600">
+                Viajero activo:{" "}
+                <strong className="text-slate-900">
+                  {selectedViajero.nombre_completo || "Viajero"}
+                </strong>
+                {selectedViajero.correo && ` • ${selectedViajero.correo}`}
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
 
       {/* ============================================================ */}
-      {/* SECCIÓN 2: PARÁMETROS DE BÚSQUEDA HOTELERA */}
+      {/* SECCIÓN 2: FORMULARIO DE BÚSQUEDA DE HOTELES */}
       {/* ============================================================ */}
       <Card className="shadow-sm border border-slate-200 bg-white">
         <CardHeader className="pb-3 border-b border-slate-100">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Building2 className="h-5 w-5 text-indigo-600" />
-              <CardTitle className="text-base font-bold text-slate-800">
-                2. Parámetros de Hospedaje en Nemo
-              </CardTitle>
-            </div>
-            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-              Certificación
-            </Badge>
+          <div className="flex items-center gap-2">
+            <Search className="h-5 w-5 text-indigo-600" />
+            <CardTitle className="text-base font-semibold text-slate-800">
+              2. Parámetros de Búsqueda de Hoteles Nemo
+            </CardTitle>
           </div>
         </CardHeader>
         <CardContent className="pt-4">
           <form onSubmit={handleSearch} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {/* Selector de Destino */}
-              <div className="space-y-1 md:col-span-1">
-                <label className="text-xs font-semibold text-slate-600 flex items-center justify-between">
-                  <span className="flex items-center gap-1">
-                    <MapPin className="h-3.5 w-3.5" /> Destino (Nemo ID)
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setUseCustomDestination(!useCustomDestination)}
-                    className="text-[10px] text-indigo-600 hover:underline font-normal"
-                  >
-                    {useCustomDestination ? "Elegir lista" : "ID manual"}
-                  </button>
+              <div className="md:col-span-2 space-y-1">
+                <label className="block text-xs font-medium text-slate-700">
+                  Destino
                 </label>
-
-                {useCustomDestination ? (
-                  <Input
-                    placeholder="Ej. 5718 o 3690"
-                    value={customDestination}
-                    onChange={(e) => setCustomDestination(e.target.value)}
-                    className="h-9 text-sm"
-                  />
-                ) : (
+                {!useCustomDestination ? (
                   <select
+                    className="w-full h-9 px-3 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     value={destinationId}
                     onChange={(e) => setDestinationId(e.target.value)}
-                    className="w-full h-9 rounded-md border border-slate-300 bg-white px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   >
                     {POPULAR_DESTINATIONS.map((d) => (
                       <option key={d.code} value={d.code}>
@@ -441,44 +648,66 @@ export function NemoHotelSearch({
                       </option>
                     ))}
                   </select>
+                ) : (
+                  <Input
+                    placeholder="Código de destino Nemo (ej. 5718)"
+                    value={customDestination}
+                    onChange={(e) => setCustomDestination(e.target.value)}
+                    className="h-9 text-sm"
+                  />
                 )}
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setUseCustomDestination(!useCustomDestination)}
+                    className="text-[11px] text-indigo-600 hover:underline pt-0.5"
+                  >
+                    {useCustomDestination
+                      ? "Ver destinos predeterminados"
+                      : "Ingresar código manual"}
+                  </button>
+                </div>
               </div>
 
-              {/* Check-In */}
+              {/* Check-in */}
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-600 flex items-center gap-1">
-                  <Calendar className="h-3.5 w-3.5" /> Entrada (Check-In)
+                <label className="block text-xs font-medium text-slate-700 flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                  Check-In
                 </label>
                 <Input
                   type="date"
                   value={checkIn}
                   onChange={(e) => setCheckIn(e.target.value)}
                   className="h-9 text-sm"
+                  required
                 />
               </div>
 
-              {/* Check-Out */}
+              {/* Check-out */}
               <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-600 flex items-center gap-1">
-                  <Calendar className="h-3.5 w-3.5" /> Salida (Check-Out)
+                <label className="block text-xs font-medium text-slate-700 flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5 text-slate-400" />
+                  Check-Out
                 </label>
                 <Input
                   type="date"
                   value={checkOut}
                   onChange={(e) => setCheckOut(e.target.value)}
                   className="h-9 text-sm"
+                  required
                 />
               </div>
+            </div>
 
-              {/* Pasajeros / Ocupación */}
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-600 flex items-center gap-1">
-                  <Users className="h-3.5 w-3.5" /> Pasajeros Adultos
-                </label>
+            <div className="flex items-center justify-between pt-2">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-slate-400" />
+                <span className="text-xs text-slate-600">Adultos:</span>
                 <select
                   value={adults}
                   onChange={(e) => setAdults(Number(e.target.value))}
-                  className="w-full h-9 rounded-md border border-slate-300 bg-white px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="h-8 px-2 text-xs border border-slate-200 rounded bg-white"
                 >
                   <option value={1}>1 Adulto</option>
                   <option value={2}>2 Adultos</option>
@@ -486,18 +715,16 @@ export function NemoHotelSearch({
                   <option value={4}>4 Adultos</option>
                 </select>
               </div>
-            </div>
 
-            <div className="flex justify-end pt-2">
               <Button
                 type="submit"
                 disabled={loading}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 h-9 text-sm px-6"
               >
                 {loading ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Consultando en Nemo...
+                    Consultando tarifas en vivo...
                   </>
                 ) : (
                   <>
@@ -511,152 +738,133 @@ export function NemoHotelSearch({
         </CardContent>
       </Card>
 
-      {/* MENSAJES DE ERROR */}
+      {/* Alerta de Error */}
       {error && (
-        <div className="p-4 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm flex items-start gap-2">
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex items-start gap-2">
           <ShieldAlert className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
           <div>
-            <strong className="font-semibold">Error al consultar Nemo:</strong>
-            <p className="mt-0.5">{error}</p>
+            <div className="font-semibold">Error al consultar el proveedor</div>
+            <div className="text-xs mt-0.5">{error}</div>
           </div>
         </div>
       )}
 
-      {/* RESULTADO VACÍO */}
-      {hasSearched && !loading && !error && hotels.length === 0 && (
-        <div className="text-center py-12 bg-white rounded-lg border border-dashed border-slate-300">
-          <Building2 className="h-10 w-10 text-slate-300 mx-auto mb-3" />
-          <h3 className="text-base font-semibold text-slate-700">
-            No se encontraron hoteles disponibles
-          </h3>
-          <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-            Nemo no reporta disponibilidad para las fechas o destino seleccionados en el ambiente de prueba. Prueba con el destino de prueba <strong>Mar del Plata (5718)</strong>.
-          </p>
-        </div>
-      )}
-
-      {/* RESULTADOS */}
-      {hotels.length > 0 && (
+      {/* ============================================================ */}
+      {/* SECCIÓN 3: RESULTADOS Y TARIFAS */}
+      {/* ============================================================ */}
+      {hasSearched && !loading && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* LISTA DE HOTELES (IZQUIERDA) */}
+          {/* Lista de Hoteles */}
           <div className="lg:col-span-1 space-y-3">
-            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-              {hotels.length} {hotels.length === 1 ? "Hotel encontrado" : "Hoteles encontrados"}
+            <div className="text-xs font-medium text-slate-500 uppercase tracking-wider px-1">
+              Hoteles Disponibles ({hotels.length})
             </div>
-            <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
-              {hotels.map((hotel) => {
-                const isSelected = selectedHotel?.hotelCode === hotel.hotelCode;
-                const minPrice = hotel.rates?.[0]?.amount ?? 0;
-                const currency = hotel.rates?.[0]?.currency ?? "USD";
 
-                return (
-                  <div
-                    key={hotel.hotelCode}
-                    onClick={() => setSelectedHotel(hotel)}
-                    className={`p-3.5 rounded-lg border transition-all cursor-pointer ${
-                      isSelected
-                        ? "border-indigo-500 bg-indigo-50/40 shadow-sm"
-                        : "border-slate-200 bg-white hover:border-slate-300"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <h4 className="font-bold text-sm text-slate-900 leading-snug">
+            {hotels.length === 0 ? (
+              <div className="p-8 text-center bg-white rounded-lg border border-slate-200 text-slate-500 text-sm">
+                No se encontraron hoteles disponibles para estas fechas o destino.
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
+                {hotels.map((hotel) => {
+                  const isSelected = selectedHotel?.hotelCode === hotel.hotelCode;
+                  const lowestRate =
+                    hotel.rates && hotel.rates.length > 0
+                      ? Math.min(...hotel.rates.map((r) => r.amount))
+                      : null;
+
+                  return (
+                    <div
+                      key={hotel.hotelCode}
+                      onClick={() => setSelectedHotel(hotel)}
+                      className={`p-3.5 rounded-lg border cursor-pointer transition text-left ${
+                        isSelected
+                          ? "border-indigo-600 bg-indigo-50/40 shadow-sm"
+                          : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="font-semibold text-sm text-slate-900 leading-tight">
                           {hotel.hotelName}
-                        </h4>
-                        <div className="flex items-center gap-1 mt-1">
-                          {Array.from({ length: Math.min(hotel.rating || 1, 5) }).map(
-                            (_, i) => (
-                              <Star
-                                key={i}
-                                className="h-3 w-3 fill-amber-400 text-amber-400"
-                              />
-                            )
-                          )}
-                          <span className="text-[11px] text-slate-500 ml-1">
-                            {hotel.rating} estrellas
-                          </span>
                         </div>
+                        {hotel.rating > 0 && (
+                          <div className="flex items-center text-amber-500 text-xs gap-0.5 flex-shrink-0">
+                            <Star className="h-3 w-3 fill-amber-400" />
+                            <span>{hotel.rating}</span>
+                          </div>
+                        )}
                       </div>
-                      <Badge variant="secondary" className="text-[10px] bg-slate-100">
-                        {hotel.hotelCode}
-                      </Badge>
-                    </div>
 
-                    <p className="text-xs text-slate-500 mt-2 line-clamp-1">
-                      {hotel.address?.street}
-                      {hotel.address?.city ? `, ${hotel.address.city}` : ""}
-                    </p>
+                      <div className="flex items-center gap-1 text-xs text-slate-500 mt-1">
+                        <MapPin className="h-3 w-3 flex-shrink-0" />
+                        <span className="truncate">
+                          {hotel.address?.city || "Sin ciudad"},{" "}
+                          {hotel.address?.countryCode || ""}
+                        </span>
+                      </div>
 
-                    <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between">
-                      <span className="text-[11px] text-slate-500">
-                        {hotel.rates.length}{" "}
-                        {hotel.rates.length === 1 ? "tarifa" : "tarifas"}
-                      </span>
-                      <div className="text-right">
-                        <span className="text-xs text-slate-400">Desde</span>{" "}
-                        <strong className="text-sm font-bold text-indigo-700">
-                          {currency} ${minPrice.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-                        </strong>
+                      <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+                        <span className="text-slate-400">
+                          {hotel.rates?.length || 0} tarifas
+                        </span>
+                        {lowestRate != null && (
+                          <span className="font-bold text-slate-900">
+                            Desde ${lowestRate.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
+                          </span>
+                        )}
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          {/* DETALLES Y TARIFAS DEL HOTEL SELECCIONADO (DERECHA) */}
-          <div className="lg:col-span-2 space-y-4">
+          {/* Detalle y Tarifas del Hotel Seleccionado */}
+          <div className="lg:col-span-2">
             {selectedHotel ? (
-              <Card className="shadow-md border border-slate-200 bg-white">
+              <Card className="shadow-sm border border-slate-200 bg-white">
                 <CardHeader className="pb-3 border-b border-slate-100">
-                  <div className="flex items-start justify-between">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                     <div>
-                      <div className="flex items-center gap-2">
-                        <CardTitle className="text-lg font-bold text-slate-900">
-                          {selectedHotel.hotelName}
-                        </CardTitle>
-                        <Badge variant="outline" className="text-[10px]">
-                          Código: {selectedHotel.hotelCode}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                      <CardTitle className="text-lg font-bold text-slate-900">
+                        {selectedHotel.hotelName}
+                      </CardTitle>
+                      <p className="text-xs text-slate-500 flex items-center gap-1 mt-1">
                         <MapPin className="h-3.5 w-3.5 text-slate-400" />
-                        {selectedHotel.address?.street}{" "}
-                        {selectedHotel.address?.city ? `· ${selectedHotel.address.city}` : ""}
+                        {selectedHotel.address?.street
+                          ? `${selectedHotel.address.street}, `
+                          : ""}
+                        {selectedHotel.address?.city},{" "}
+                        {selectedHotel.address?.countryCode}
                       </p>
                     </div>
-
-                    <div className="flex items-center gap-1 bg-amber-50 px-2.5 py-1 rounded-md border border-amber-200">
-                      <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-                      <span className="text-xs font-bold text-amber-800">
-                        {selectedHotel.rating}.0
-                      </span>
-                    </div>
+                    <Badge variant="secondary" className="text-xs w-fit">
+                      Código Nemo: {selectedHotel.hotelCode}
+                    </Badge>
                   </div>
                 </CardHeader>
 
                 <CardContent className="pt-4 space-y-4">
                   <div>
-                    <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
-                      <DollarSign className="h-3.5 w-3.5" /> Tarifas Disponibles en Nemo
-                    </h5>
+                    <h4 className="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
+                      Tarifas Disponibles en Vivo
+                    </h4>
 
                     <div className="space-y-3">
-                      {selectedHotel.rates.map((rate, idx) => (
+                      {selectedHotel.rates?.map((rate) => (
                         <div
-                          key={rate.tripProductId || idx}
-                          className="p-4 rounded-lg border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-colors flex flex-col md:flex-row md:items-center justify-between gap-4"
+                          key={rate.tripProductId}
+                          className="p-3.5 rounded-lg border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition flex flex-col md:flex-row md:items-center justify-between gap-3"
                         >
-                          <div className="space-y-1.5 flex-1">
+                          <div className="space-y-1">
                             <div className="flex items-center gap-2">
-                              <span className="font-semibold text-sm text-slate-900 flex items-center gap-1.5">
-                                <BedDouble className="h-4 w-4 text-indigo-600" />
-                                {rate.roomRates?.[0]?.roomType || "Habitación Estándar"}
+                              <BedDouble className="h-4 w-4 text-slate-500" />
+                              <span className="font-semibold text-sm text-slate-800">
+                                {rate.roomRates[0]?.roomType || "Habitación Estándar"}
                               </span>
-                              <Badge className="text-[10px] bg-slate-200 text-slate-700 hover:bg-slate-200 font-normal">
-                                {rate.roomRates?.[0]?.boardDescription || "Sólo alojamiento"}
+                              <Badge variant="outline" className="text-[10px]">
+                                {rate.roomRates[0]?.boardDescription || "Solo Alojamiento"}
                               </Badge>
                             </div>
 
@@ -702,7 +910,7 @@ export function NemoHotelSearch({
                   <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-xs text-blue-800 flex items-start gap-2">
                     <Info className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
                     <p>
-                      <strong>Información para Operaciones:</strong> Al seleccionar una tarifa se vinculará con el cliente y viajero elegidos arriba para generar la cotización o reserva correspondiente.
+                      <strong>Información para Operaciones:</strong> Al seleccionar una tarifa se asegurará que el hotel esté dado de alta como inactivo en MIA y se creará la reserva vinculada a Nemo como intermediario.
                     </p>
                   </div>
                 </CardContent>
@@ -715,6 +923,349 @@ export function NemoHotelSearch({
           </div>
         </div>
       )}
+
+      {/* ============================================================ */}
+      {/* MODAL DE CONFIRMACIÓN Y CREACIÓN DE RESERVA */}
+      {/* ============================================================ */}
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <Building2 className="h-5 w-5 text-indigo-600" />
+              Confirmar Reservación en MIA (Proveedor Nemo)
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              Verifica los detalles del viaje y selecciona el método de cobro autorizado para el cliente.
+            </DialogDescription>
+          </DialogHeader>
+
+          {reservationSuccessData ? (
+            /* VISTA DE ÉXITO */
+            <div className="py-6 space-y-4 text-center">
+              <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+                <Check className="h-6 w-6 stroke-[3]" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">
+                  ¡Reservación Creada Exitosamente en MIA!
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  El hotel externo fue registrado y la reserva quedó asociada con Nemo como intermediario.
+                </p>
+              </div>
+
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-lg text-left text-xs space-y-2 max-w-md mx-auto">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">ID Booking:</span>
+                  <strong className="text-slate-900">{reservationSuccessData.data?.id_booking}</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">ID Servicio:</span>
+                  <strong className="text-slate-900">{reservationSuccessData.data?.id_servicio}</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">ID Hospedaje:</span>
+                  <strong className="text-slate-900">{reservationSuccessData.data?.id_hospedaje}</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Método de Cobro:</span>
+                  <strong className="text-slate-900">
+                    {paymentMethod === "credito" ? "Crédito MIA" : "Saldo a Favor / Wallet"}
+                  </strong>
+                </div>
+                <div className="flex justify-between border-t pt-2">
+                  <span className="text-slate-500">Total Facturado/Cobrado:</span>
+                  <strong className="text-emerald-700 text-sm">
+                    ${Number(reservationSuccessData.data?.total || 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })} MXN
+                  </strong>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <Button
+                  onClick={() => setModalOpen(false)}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                >
+                  Cerrar
+                </Button>
+              </div>
+            </div>
+          ) : (
+            /* VISTA DEL FORMULARIO DE COBRO */
+            <div className="space-y-4 py-2 text-xs">
+              {/* Alerta de Error si ocurre */}
+              {reservationError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-700 flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-semibold">Error al crear la reserva:</span>
+                    <p className="mt-0.5">{reservationError}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Resumen de la Reserva */}
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
+                <div className="font-semibold text-slate-800 text-sm">
+                  {reservationContext?.hotel.hotelName}
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-slate-600">
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Habitación & Régimen:</span>
+                    <span className="font-medium text-slate-800">
+                      {reservationContext?.rate.roomRates[0]?.roomType || "Estándar"} (
+                      {reservationContext?.rate.roomRates[0]?.boardDescription || "Solo Alojamiento"})
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Fechas & Estancia:</span>
+                    <span className="font-medium text-slate-800">
+                      {checkIn} al {checkOut}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Cliente (Agente):</span>
+                    <span className="font-medium text-slate-800">
+                      {selectedClient?.nombre_agente_completo}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Viajero Principal:</span>
+                    <span className="font-medium text-slate-800">
+                      {selectedViajero?.nombre_completo || "Viajero Principal"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-sm">
+                  <span className="text-slate-600 font-medium">Total de la Tarifa:</span>
+                  <span className="text-base font-bold text-slate-900">
+                    {reservationContext?.rate.currency} $
+                    {reservationContext?.rate.amount.toLocaleString("es-MX", {
+                      minimumFractionDigits: 2,
+                    })}
+                  </span>
+                </div>
+              </div>
+
+              {/* Selector de Método de Cobro */}
+              <div className="space-y-2">
+                <label className="block font-semibold text-slate-700">
+                  Selecciona la Forma de Cobro al Cliente:
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Opción 1: Crédito */}
+                  <div
+                    onClick={() => handlePaymentMethodChange("credito")}
+                    className={`p-3 rounded-lg border cursor-pointer transition flex items-start gap-2.5 ${
+                      paymentMethod === "credito"
+                        ? "border-indigo-600 bg-indigo-50/50 shadow-sm"
+                        : "border-slate-200 hover:border-slate-300"
+                    }`}
+                  >
+                    <CreditCard
+                      className={`h-4 w-4 mt-0.5 ${
+                        paymentMethod === "credito"
+                          ? "text-indigo-600"
+                          : "text-slate-400"
+                      }`}
+                    />
+                    <div>
+                      <div className="font-semibold text-slate-800">
+                        Pago a Crédito
+                      </div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">
+                        Saldo disponible:{" "}
+                        <strong className="text-slate-700">
+                          $
+                          {Number(selectedClient?.saldo || 0).toLocaleString(
+                            "es-MX",
+                            { minimumFractionDigits: 2 }
+                          )}
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Opción 2: Saldo a Favor / Wallet */}
+                  <div
+                    onClick={() => handlePaymentMethodChange("wallet")}
+                    className={`p-3 rounded-lg border cursor-pointer transition flex items-start gap-2.5 ${
+                      paymentMethod === "wallet"
+                        ? "border-indigo-600 bg-indigo-50/50 shadow-sm"
+                        : "border-slate-200 hover:border-slate-300"
+                    }`}
+                  >
+                    <Wallet
+                      className={`h-4 w-4 mt-0.5 ${
+                        paymentMethod === "wallet"
+                          ? "text-indigo-600"
+                          : "text-slate-400"
+                      }`}
+                    />
+                    <div>
+                      <div className="font-semibold text-slate-800">
+                        Saldo a Favor / Wallet
+                      </div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">
+                        Aplicar pagos anticipados del cliente
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Detalle según método de pago */}
+              {paymentMethod === "credito" && (
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-md space-y-1.5">
+                  {Number(selectedClient?.saldo || 0) <
+                  (reservationContext?.rate.amount || 0) ? (
+                    <div className="text-amber-700 flex items-center gap-1.5 font-medium">
+                      <AlertCircle className="h-4 w-4 text-amber-500 flex-shrink-0" />
+                      Saldo de crédito insuficiente para cubrir esta reserva ($
+                      {Number(selectedClient?.saldo || 0).toLocaleString("es-MX", {
+                        minimumFractionDigits: 2,
+                      })}{" "}
+                      disponible). Elige Saldo a favor o solicita recarga.
+                    </div>
+                  ) : (
+                    <div className="text-slate-600">
+                      ✓ El cliente cuenta con saldo suficiente. El monto de $
+                      {reservationContext?.rate.amount.toLocaleString("es-MX", {
+                        minimumFractionDigits: 2,
+                      })}{" "}
+                      se descontará automáticamente de su saldo de crédito en MIA.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {paymentMethod === "wallet" && (
+                <div className="space-y-2 p-3 bg-slate-50 border border-slate-200 rounded-md">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-slate-700">
+                      Saldos a Favor Disponibles:
+                    </span>
+                    <span className="text-slate-500">
+                      Total Aplicado:{" "}
+                      <strong
+                        className={
+                          totalSaldosAplicados >=
+                          (reservationContext?.rate.amount || 0)
+                            ? "text-emerald-700"
+                            : "text-amber-700"
+                        }
+                      >
+                        ${totalSaldosAplicados.toFixed(2)} / $
+                        {(reservationContext?.rate.amount || 0).toFixed(2)}
+                      </strong>
+                    </span>
+                  </div>
+
+                  {loadingSaldos ? (
+                    <div className="py-4 text-center text-slate-400 flex items-center justify-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Consultando saldos a favor del cliente...
+                    </div>
+                  ) : agentSaldos.length === 0 ? (
+                    <div className="py-2 text-slate-500 text-center">
+                      Este cliente no tiene saldos a favor disponibles en el sistema.
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {agentSaldos.map((saldo) => {
+                        const currentApplied = appliedSaldos[saldo.id_saldos] || 0;
+                        const available = Number(saldo.saldo || 0);
+
+                        return (
+                          <div
+                            key={saldo.id_saldos}
+                            className="p-2 bg-white border border-slate-200 rounded flex items-center justify-between gap-2"
+                          >
+                            <div className="truncate flex-1">
+                              <div className="font-medium text-slate-800">
+                                #{saldo.id_saldos} - {saldo.metodo_pago.toUpperCase()}{" "}
+                                {saldo.concepto ? `(${saldo.concepto})` : ""}
+                              </div>
+                              <div className="text-[11px] text-slate-400">
+                                Disponible: ${available.toFixed(2)} {saldo.currency}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] text-slate-500">Aplicar:</span>
+                              <Input
+                                type="number"
+                                min={0}
+                                max={available}
+                                step="any"
+                                value={currentApplied}
+                                onChange={(e) => {
+                                  const val = parseFloat(e.target.value) || 0;
+                                  setAppliedSaldos((prev) => ({
+                                    ...prev,
+                                    [saldo.id_saldos]: Math.min(val, available),
+                                  }));
+                                }}
+                                className="w-24 h-7 text-xs text-right"
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Comentarios Internos */}
+              <div>
+                <label className="block font-medium text-slate-700 mb-1">
+                  Comentarios / Notas internas de la reserva (opcional):
+                </label>
+                <Input
+                  placeholder="Ej. Solicitado por WhatsApp para reunión urgente..."
+                  value={reservationComments}
+                  onChange={(e) => setReservationComments(e.target.value)}
+                  className="text-xs h-8"
+                />
+              </div>
+
+              <DialogFooter className="pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setModalOpen(false)}
+                  disabled={submittingReservation}
+                  className="h-8 text-xs"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={handleConfirmReservation}
+                  disabled={
+                    submittingReservation ||
+                    (paymentMethod === "credito" &&
+                      Number(selectedClient?.saldo || 0) <
+                        (reservationContext?.rate.amount || 0)) ||
+                    (paymentMethod === "wallet" &&
+                      totalSaldosAplicados < (reservationContext?.rate.amount || 0))
+                  }
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 h-8 text-xs"
+                >
+                  {submittingReservation ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Creando reserva en MIA...
+                    </>
+                  ) : (
+                    "Confirmar y Crear Reserva en MIA"
+                  )}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

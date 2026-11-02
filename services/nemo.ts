@@ -116,3 +116,63 @@ export async function getNemoHotelDetails(hotelCode: string, language = "es") {
 
   return data;
 }
+
+export interface CreateNemoReservationDto {
+  bandera: 0 | 1;
+  id_agente: string;
+  id_viajero: string;
+  check_in: string;
+  check_out: string;
+  noches?: number;
+  habitacion?: string;
+  hotel: {
+    hotelCode: string;
+    hotelName: string;
+    address?: string;
+    destinationName?: string;
+    city?: string;
+    country?: string;
+    latitude?: number;
+    longitude?: number;
+  };
+  rate: {
+    rateId: string;
+    roomDescription?: string;
+    boardDescription?: string;
+    total: number;
+    currency: string;
+  };
+  comments?: string;
+  ejemplo_saldos?: Array<{
+    id_saldo: number;
+    saldo_original: number;
+    saldo_actual: number;
+    aplicado: number;
+    id_agente: string;
+    metodo_de_pago?: string;
+    fecha_pago?: string;
+    concepto?: string | null;
+    referencia?: string | null;
+    currency?: string;
+  }>;
+}
+
+export async function createNemoReservation(payload: CreateNemoReservationDto) {
+  const response = await fetch(`${URL_BACK}/v2/mia/nemo/reservas/crear`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": API_KEY || "",
+    },
+    credentials: "include",
+    body: JSON.stringify(payload),
+    cache: "no-store",
+  });
+
+  const data = await response.json();
+  if (!response.ok || data.error) {
+    throw new Error(data.error || data.message || "Error al crear la reservación en MIA");
+  }
+
+  return data;
+}
