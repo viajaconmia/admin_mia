@@ -40,9 +40,15 @@ export const fetchViajerosFromAgent = async (
       console.error(response);
       throw new Error("Error al buscar los viajeros");
     }
-    callback(response as Viajero[]);
+    const list = Array.isArray(response)
+      ? response
+      : Array.isArray(response?.data)
+      ? response.data
+      : [];
+    callback(list as Viajero[]);
   } catch (error) {
     console.error(error);
+    callback([]);
     throw error;
   }
 };

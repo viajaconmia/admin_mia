@@ -175,15 +175,23 @@ export function NemoHotelSearch({
 
     setLoadingViajeros(true);
     try {
-      await fetchViajerosFromAgent(cliente.id_agente, (list: Viajero[]) => {
-        setViajeros(list || []);
-        if (list && list.length > 0) {
+      await fetchViajerosFromAgent(cliente.id_agente, (rawList: any) => {
+        const list = Array.isArray(rawList)
+          ? rawList
+          : Array.isArray(rawList?.data)
+          ? rawList.data
+          : [];
+        setViajeros(list);
+        if (list.length > 0) {
           setSelectedViajero(list[0]);
+        } else {
+          setSelectedViajero(null);
         }
       });
     } catch (err) {
       console.error("Error al cargar viajeros del agente:", err);
       setViajeros([]);
+      setSelectedViajero(null);
     } finally {
       setLoadingViajeros(false);
     }
@@ -615,20 +623,27 @@ export function NemoHotelSearch({
               <div className="h-9 flex items-center px-3 border border-dashed border-slate-200 rounded-md text-xs text-slate-400 bg-slate-50">
                 Selecciona primero un cliente para ver sus viajeros
               </div>
-            ) : viajeros.length === 0 ? (
-              <div className="h-9 flex items-center px-3 border border-amber-200 rounded-md text-xs text-amber-700 bg-amber-50">
-                No hay viajeros registrados para este cliente.
+            ) : (!Array.isArray(viajeros) || viajeros.length === 0) ? (
+              <div className="p-2.5 border border-amber-200 rounded-md text-xs text-amber-800 bg-amber-50 space-y-1">
+                <div className="font-semibold flex items-center gap-1.5">
+                  <AlertCircle className="h-3.5 w-3.5 text-amber-600 flex-shrink-0" />
+                  No hay viajeros registrados para este cliente.
+                </div>
+                <div className="text-[11px] text-amber-700">
+                  Se requiere registrar al menos un viajero para este cliente en el catálogo antes de poder reservar.
+                </div>
               </div>
             ) : (
               <select
                 className="w-full h-9 px-3 text-sm border border-slate-200 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 value={selectedViajero?.id_viajero || ""}
                 onChange={(e) => {
-                  const v = viajeros.find((item) => item.id_viajero === e.target.value);
+                  const safeList = Array.isArray(viajeros) ? viajeros : [];
+                  const v = safeList.find((item) => item.id_viajero === e.target.value);
                   setSelectedViajero(v || null);
                 }}
               >
-                {viajeros.map((v) => (
+                {(Array.isArray(viajeros) ? viajeros : []).map((v) => (
                   <option key={v.id_viajero} value={v.id_viajero}>
                     {v.nombre_completo || "Viajero"}{" "}
                     {v.correo ? `(${v.correo})` : ""}
