@@ -282,6 +282,12 @@ const links: NavGroup[] = [
       },
 
       {
+        title: "Hoteles Nemo",
+        href: "/dashboard/nemo-hoteles",
+        icon: Building2,
+      },
+
+      {
         title: "Códigos",
         href: "/dashboard/codigo-confirmacion",
         icon: Shield,

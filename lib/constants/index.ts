@@ -59,6 +59,7 @@ export const HEADERS_API = {
 };
    
 export const URL: string = process.env.NEXT_PUBLIC_URL;
+export const URL_BACK: string = process.env.NEXT_PUBLIC_URL_BACK || (process.env.NEXT_PUBLIC_URL ? process.env.NEXT_PUBLIC_URL.replace(/\/v1\/?$/, "") : "http://localhost:3001");
 // console.log(URL);
 
 export const environment = process.env.NEXT_PUBLIC_ENVIRONMENT;
