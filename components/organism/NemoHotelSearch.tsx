@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   Search,
   Building2,
@@ -47,6 +47,7 @@ import { fetchAgentes } from "@/services/agentes";
 import { fetchViajerosFromAgent } from "@/services/viajeros";
 import { SaldoFavor, Saldo } from "@/services/SaldoAFavor";
 import { Agente, Viajero } from "@/types";
+import { useClientes } from "@/angel/context/ClientesContext";
 
 const POPULAR_DESTINATIONS = [
   { label: "Mar del Plata (Argentina - Test Sandbox)", code: "5718" },
@@ -80,14 +81,28 @@ export function NemoHotelSearch({
   onSelectReservation,
   showSelectButton = true,
 }: NemoHotelSearchProps) {
+  // CLIENTES CONTEXT (Catálogo precargado en memoria global)
+  const { agentes, loading: loadingClientesCtx } = useClientes();
+
   // CLIENTE STATE
   const [clientSearchTerm, setClientSearchTerm] = useState("");
-  const [clientResults, setClientResults] = useState<Agente[]>([]);
   const [selectedClient, setSelectedClient] = useState<Agente | null>(null);
-  const [loadingClients, setLoadingClients] = useState(false);
   const [showClientDropdown, setShowClientDropdown] = useState(false);
-  const clientDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clientContainerRef = useRef<HTMLDivElement>(null);
+
+  // Filtrado instantáneo en memoria sin latencia de red
+  const clientResults = useMemo(() => {
+    if (!clientSearchTerm.trim() || clientSearchTerm.trim().length < 1) {
+      return (agentes || []).slice(0, 8);
+    }
+    const term = clientSearchTerm.toLowerCase().trim();
+    return (agentes || []).filter((cliente) => {
+      const nombre = (cliente.nombre_agente_completo || "").toLowerCase();
+      const correo = (cliente.correo || "").toLowerCase();
+      const id = (cliente.id_agente || "").toLowerCase();
+      return nombre.includes(term) || correo.includes(term) || id.includes(term);
+    });
+  }, [agentes, clientSearchTerm]);
 
   // VIAJERO STATE
   const [viajeros, setViajeros] = useState<Viajero[]>([]);
@@ -142,35 +157,10 @@ export function NemoHotelSearch({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Manejador del cambio en búsqueda de cliente
+  // Manejador del cambio en búsqueda de cliente (filtro instantáneo)
   const handleClientSearchChange = (value: string) => {
     setClientSearchTerm(value);
-    if (clientDebounceRef.current) clearTimeout(clientDebounceRef.current);
-
-    if (value.trim().length < 2) {
-      setClientResults([]);
-      setShowClientDropdown(false);
-      return;
-    }
-
-    setLoadingClients(true);
-    clientDebounceRef.current = setTimeout(async () => {
-      try {
-        await fetchAgentes(
-          { client: value.trim() } as any,
-          {} as any,
-          (list: Agente[]) => {
-            setClientResults(list || []);
-            setShowClientDropdown(true);
-          }
-        );
-      } catch (err) {
-        console.error("Error al buscar agentes:", err);
-        setClientResults([]);
-      } finally {
-        setLoadingClients(false);
-      }
-    }, 350);
+    setShowClientDropdown(true);
   };
 
   // Seleccionar cliente y cargar sus viajeros
@@ -521,7 +511,7 @@ export function NemoHotelSearch({
             <div className="relative">
               <Input
                 type="text"
-                placeholder="Escribe al menos 2 letras para buscar..."
+                placeholder="Escribe el nombre o razón social del cliente..."
                 value={clientSearchTerm}
                 onChange={(e) => handleClientSearchChange(e.target.value)}
                 onFocus={() => {
@@ -533,7 +523,7 @@ export function NemoHotelSearch({
                     : ""
                 }`}
               />
-              {loadingClients ? (
+              {loadingClientesCtx ? (
                 <Loader2 className="h-4 w-4 text-slate-400 animate-spin absolute right-2.5 top-2.5" />
               ) : selectedClient ? (
                 <button
