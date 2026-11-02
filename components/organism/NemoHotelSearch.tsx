@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Search,
   Building2,
@@ -13,6 +13,10 @@ import {
   DollarSign,
   BedDouble,
   ShieldAlert,
+  User,
+  Briefcase,
+  CreditCard,
+  CheckCircle2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,8 +28,10 @@ import {
   searchNemoHotels,
   SearchNemoHotelsDto,
 } from "@/services/nemo";
+import { fetchAgentes } from "@/services/agentes";
+import { fetchViajerosFromAgent } from "@/services/viajeros";
+import { Agente, Viajero } from "@/types";
 
-// Destinos predefinidos populares en Nemo/MIA
 const POPULAR_DESTINATIONS = [
   { label: "Mar del Plata (Argentina - Test Sandbox)", code: "5718" },
   { label: "Cancún (México)", code: "3690" },
@@ -35,16 +41,39 @@ const POPULAR_DESTINATIONS = [
   { label: "Miami (EE.UU.)", code: "1340" },
 ];
 
+export interface SelectedReservationContext {
+  cliente: Agente;
+  viajero: Viajero | null;
+  hotel: NemoHotel;
+  rate: NemoRate;
+  checkIn: string;
+  checkOut: string;
+}
+
 export interface NemoHotelSearchProps {
-  onSelectHotelRate?: (hotel: NemoHotel, rate: NemoRate) => void;
+  onSelectReservation?: (context: SelectedReservationContext) => void;
   showSelectButton?: boolean;
 }
 
 export function NemoHotelSearch({
-  onSelectHotelRate,
-  showSelectButton = false,
+  onSelectReservation,
+  showSelectButton = true,
 }: NemoHotelSearchProps) {
-  // Form State
+  // CLIENTE STATE
+  const [clientSearchTerm, setClientSearchTerm] = useState("");
+  const [clientResults, setClientResults] = useState<Agente[]>([]);
+  const [selectedClient, setSelectedClient] = useState<Agente | null>(null);
+  const [loadingClients, setLoadingClients] = useState(false);
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
+  const clientDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clientContainerRef = useRef<HTMLDivElement>(null);
+
+  // VIAJERO STATE
+  const [viajeros, setViajeros] = useState<Viajero[]>([]);
+  const [selectedViajero, setSelectedViajero] = useState<Viajero | null>(null);
+  const [loadingViajeros, setLoadingViajeros] = useState(false);
+
+  // SEARCH PARAMS STATE
   const [destinationId, setDestinationId] = useState("5718");
   const [customDestination, setCustomDestination] = useState("");
   const [useCustomDestination, setUseCustomDestination] = useState(false);
@@ -52,13 +81,85 @@ export function NemoHotelSearch({
   const [checkOut, setCheckOut] = useState("2026-11-13");
   const [adults, setAdults] = useState(2);
 
-  // Results State
+  // RESULTS STATE
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hotels, setHotels] = useState<NemoHotel[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
   const [selectedHotel, setSelectedHotel] = useState<NemoHotel | null>(null);
 
+  // Click outside listener for Client Autocomplete
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        clientContainerRef.current &&
+        !clientContainerRef.current.contains(e.target as Node)
+      ) {
+        setShowClientDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Manejador del cambio en búsqueda de cliente
+  const handleClientSearchChange = (value: string) => {
+    setClientSearchTerm(value);
+    if (clientDebounceRef.current) clearTimeout(clientDebounceRef.current);
+
+    if (value.trim().length < 2) {
+      setClientResults([]);
+      setShowClientDropdown(false);
+      return;
+    }
+
+    clientDebounceRef.current = setTimeout(() => {
+      setLoadingClients(true);
+      fetchAgentes({ client: value } as any, {} as any, (data) => {
+        const term = value.toUpperCase();
+        const filtered = (data || [])
+          .filter(
+            (c) =>
+              c.nombre_agente_completo.toUpperCase().includes(term) ||
+              c.correo?.toUpperCase().includes(term) ||
+              c.id_agente.toUpperCase().replaceAll("-", "").includes(term.replaceAll("-", ""))
+          )
+          .slice(0, 8);
+        setClientResults(filtered);
+        setShowClientDropdown(true);
+        setLoadingClients(false);
+      });
+    }, 300);
+  };
+
+  // Seleccionar un cliente
+  const handleSelectClient = (client: Agente) => {
+    setSelectedClient(client);
+    setClientSearchTerm(client.nombre_agente_completo);
+    setShowClientDropdown(false);
+    setSelectedViajero(null);
+
+    // Cargar viajeros asociados a este cliente / agente
+    setLoadingViajeros(true);
+    fetchViajerosFromAgent(client.id_agente, (data: any) => {
+      const list = Array.isArray(data) ? data : data?.data || [];
+      setViajeros(list);
+      if (list.length > 0) {
+        setSelectedViajero(list[0]);
+      }
+      setLoadingViajeros(false);
+    });
+  };
+
+  // Limpiar selección de cliente
+  const handleClearClient = () => {
+    setSelectedClient(null);
+    setClientSearchTerm("");
+    setViajeros([]);
+    setSelectedViajero(null);
+  };
+
+  // Buscar en Nemo
   const handleSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setError(null);
@@ -116,22 +217,190 @@ export function NemoHotelSearch({
     }
   };
 
+  const handleRateSelect = (hotel: NemoHotel, rate: NemoRate) => {
+    if (!selectedClient) {
+      alert("Por favor selecciona un Cliente antes de elegir la tarifa.");
+      return;
+    }
+
+    if (onSelectReservation) {
+      onSelectReservation({
+        cliente: selectedClient,
+        viajero: selectedViajero,
+        hotel,
+        rate,
+        checkIn,
+        checkOut,
+      });
+    }
+  };
+
   return (
     <div className="w-full space-y-6">
       {/* ============================================================ */}
-      {/* CARD DE BÚSQUEDA / FILTROS (ATÓMICO) */}
+      {/* SECCIÓN 1: ASIGNACIÓN DE CLIENTE Y VIAJERO */}
       {/* ============================================================ */}
-      <Card className="shadow-md border border-slate-200 bg-white">
+      <Card className="shadow-sm border border-slate-200 bg-white">
+        <CardHeader className="pb-3 border-b border-slate-100">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Briefcase className="h-5 w-5 text-indigo-600" />
+              <CardTitle className="text-base font-bold text-slate-800">
+                1. Asignar Cliente y Viajero
+              </CardTitle>
+            </div>
+            {selectedClient ? (
+              <Badge className="bg-emerald-100 text-emerald-800 border-emerald-200 flex items-center gap-1">
+                <CheckCircle2 className="h-3 w-3 text-emerald-600" /> Cliente Asignado
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-slate-500 border-slate-300">
+                Requerido para cotizar / reservar
+              </Badge>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="pt-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Buscador de Cliente */}
+            <div className="space-y-1 relative" ref={clientContainerRef}>
+              <label className="text-xs font-semibold text-slate-600 flex items-center gap-1">
+                <Briefcase className="h-3.5 w-3.5 text-indigo-600" /> Cliente / Empresa
+              </label>
+
+              <div className="relative">
+                <Input
+                  placeholder="Buscar por nombre, correo o ID..."
+                  value={clientSearchTerm}
+                  onChange={(e) => handleClientSearchChange(e.target.value)}
+                  onFocus={() => {
+                    if (clientResults.length > 0) setShowClientDropdown(true);
+                  }}
+                  className="h-9 text-sm pr-8"
+                />
+                {loadingClients ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-slate-400 absolute right-2.5 top-2.5" />
+                ) : selectedClient ? (
+                  <button
+                    type="button"
+                    onClick={handleClearClient}
+                    className="absolute right-2.5 top-2.5 text-xs text-slate-400 hover:text-red-500 font-bold"
+                  >
+                    ✕
+                  </button>
+                ) : null}
+              </div>
+
+              {/* Dropdown de Clientes */}
+              {showClientDropdown && clientResults.length > 0 && (
+                <div className="absolute z-50 mt-1 w-full bg-white border border-slate-200 rounded-md shadow-lg max-h-56 overflow-y-auto">
+                  {clientResults.map((client) => (
+                    <div
+                      key={client.id_agente}
+                      onClick={() => handleSelectClient(client)}
+                      className="p-2.5 hover:bg-indigo-50/50 cursor-pointer border-b border-slate-100 last:border-b-0 text-left transition-colors"
+                    >
+                      <div className="font-semibold text-sm text-slate-800">
+                        {client.nombre_agente_completo}
+                      </div>
+                      <div className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
+                        <span>{client.correo || "Sin correo"}</span>
+                        <span>·</span>
+                        <span>Crédito: {client.tiene_credito_consolidado ? "Sí" : "No"}</span>
+                        {client.saldo !== undefined && (
+                          <span className="font-medium text-slate-700">
+                            (Saldo: ${Number(client.saldo).toLocaleString("es-MX")})
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {selectedClient && (
+                <div className="mt-2 p-2.5 rounded-md bg-slate-50 border border-slate-200 text-xs space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-700">
+                      {selectedClient.nombre_agente_completo}
+                    </span>
+                    <Badge variant="secondary" className="text-[10px]">
+                      ID: {selectedClient.id_agente.slice(0, 10)}...
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-3 text-slate-500 text-[11px]">
+                    <span className="flex items-center gap-1">
+                      <CreditCard className="h-3 w-3" />
+                      {selectedClient.tiene_credito_consolidado ? "Crédito activo" : "Prepago"}
+                    </span>
+                    {selectedClient.correo && <span>· {selectedClient.correo}</span>}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Selector de Viajero */}
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-600 flex items-center gap-1">
+                <User className="h-3.5 w-3.5 text-indigo-600" /> Viajero Principal
+              </label>
+
+              {loadingViajeros ? (
+                <div className="h-9 flex items-center gap-2 px-3 text-xs text-slate-500 bg-slate-50 rounded-md border border-slate-200">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-600" />
+                  Cargando viajeros del cliente...
+                </div>
+              ) : !selectedClient ? (
+                <div className="h-9 flex items-center px-3 text-xs text-slate-400 bg-slate-50 rounded-md border border-slate-200">
+                  Primero selecciona un cliente arriba
+                </div>
+              ) : viajeros.length === 0 ? (
+                <div className="h-9 flex items-center px-3 text-xs text-amber-700 bg-amber-50 rounded-md border border-amber-200">
+                  El cliente no tiene viajeros registrados
+                </div>
+              ) : (
+                <select
+                  value={selectedViajero?.id_viajero || ""}
+                  onChange={(e) => {
+                    const found = viajeros.find((v) => v.id_viajero === e.target.value);
+                    setSelectedViajero(found || null);
+                  }}
+                  className="w-full h-9 rounded-md border border-slate-300 bg-white px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                >
+                  {viajeros.map((v) => (
+                    <option key={v.id_viajero} value={v.id_viajero}>
+                      {v.nombre_completo || "Viajero sin nombre"}{" "}
+                      {v.correo ? `(${v.correo})` : ""}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {selectedViajero && (
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Viajero seleccionado: <strong>{selectedViajero.nombre_completo}</strong>
+                  {selectedViajero.numero_empleado ? ` · No. Emp: ${selectedViajero.numero_empleado}` : ""}
+                </p>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ============================================================ */}
+      {/* SECCIÓN 2: PARÁMETROS DE BÚSQUEDA HOTELERA */}
+      {/* ============================================================ */}
+      <Card className="shadow-sm border border-slate-200 bg-white">
         <CardHeader className="pb-3 border-b border-slate-100">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <Building2 className="h-5 w-5 text-indigo-600" />
-              <CardTitle className="text-lg font-bold text-slate-800">
-                Buscador de Hoteles Nemo (PriceSurfer)
+              <CardTitle className="text-base font-bold text-slate-800">
+                2. Parámetros de Hospedaje en Nemo
               </CardTitle>
             </div>
             <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-              Ambiente Certificación
+              Certificación
             </Badge>
           </div>
         </CardHeader>
@@ -242,9 +511,7 @@ export function NemoHotelSearch({
         </CardContent>
       </Card>
 
-      {/* ============================================================ */}
-      {/* MENSAJES DE ERROR O AVISO */}
-      {/* ============================================================ */}
+      {/* MENSAJES DE ERROR */}
       {error && (
         <div className="p-4 rounded-md bg-red-50 border border-red-200 text-red-700 text-sm flex items-start gap-2">
           <ShieldAlert className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
@@ -255,9 +522,7 @@ export function NemoHotelSearch({
         </div>
       )}
 
-      {/* ============================================================ */}
-      {/* RESULTADOS DE HOTELES */}
-      {/* ============================================================ */}
+      {/* RESULTADO VACÍO */}
       {hasSearched && !loading && !error && hotels.length === 0 && (
         <div className="text-center py-12 bg-white rounded-lg border border-dashed border-slate-300">
           <Building2 className="h-10 w-10 text-slate-300 mx-auto mb-3" />
@@ -270,6 +535,7 @@ export function NemoHotelSearch({
         </div>
       )}
 
+      {/* RESULTADOS */}
       {hotels.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* LISTA DE HOTELES (IZQUIERDA) */}
@@ -418,13 +684,13 @@ export function NemoHotelSearch({
                               </div>
                             </div>
 
-                            {showSelectButton && onSelectHotelRate && (
+                            {showSelectButton && (
                               <Button
                                 size="sm"
-                                onClick={() => onSelectHotelRate(selectedHotel, rate)}
+                                onClick={() => handleRateSelect(selectedHotel, rate)}
                                 className="bg-indigo-600 hover:bg-indigo-700 text-white"
                               >
-                                Seleccionar
+                                Seleccionar para Reserva
                               </Button>
                             )}
                           </div>
@@ -436,7 +702,7 @@ export function NemoHotelSearch({
                   <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-xs text-blue-800 flex items-start gap-2">
                     <Info className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
                     <p>
-                      <strong>Información para Operaciones:</strong> Estas tarifas son cotizaciones reales obtenidas directamente desde el proveedor Nemo Group en su ambiente de pruebas.
+                      <strong>Información para Operaciones:</strong> Al seleccionar una tarifa se vinculará con el cliente y viajero elegidos arriba para generar la cotización o reserva correspondiente.
                     </p>
                   </div>
                 </CardContent>
